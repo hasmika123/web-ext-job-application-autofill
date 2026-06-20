@@ -41,36 +41,10 @@
   };
 
   // --- Keyword sets for the GENERIC label matcher ---------------------------
-  // For a site without a dedicated adapter, we read each field's visible label
-  // and match it against these. Order matters: more specific first.
-  // `neg` words veto a match (e.g. "first" should not match "first day").
-  const MATCHERS = [
-    { field: FIELDS.email, any: ["e-mail", "email"], neg: ["confirm", "verify"] },
-    { field: FIELDS.phone, any: ["phone", "mobile", "telephone", "cell"], neg: ["country code", "phone code", "device", "type", "extension", "ext", "fax"] },
-    { field: FIELDS.linkedin, any: ["linkedin"] },
-    { field: FIELDS.github, any: ["github", "git hub"] },
-    { field: FIELDS.website, any: ["portfolio", "personal website", "website", "personal site", "blog", "url"], neg: ["linkedin", "github"] },
-    { field: FIELDS.firstName, any: ["first name", "given name", "firstname", "forename"], neg: ["company", "school"] },
-    { field: FIELDS.lastName, any: ["last name", "surname", "family name", "lastname"], neg: ["company", "school"] },
-    { field: FIELDS.preferredName, any: ["preferred name", "nickname", "preferred first"] },
-    { field: FIELDS.fullName, any: ["full name", "your name", "name"], neg: ["first", "last", "company", "school", "user", "file", "preferred", "middle"] },
-    { field: FIELDS.addressLine2, any: ["address line 2", "apt", "suite", "unit", "address 2"] },
-    { field: FIELDS.addressLine1, any: ["address line 1", "street address", "address", "address 1"], neg: ["email", "line 2", "city", "website", "postal", "zip", "country", "region", "state", "province", "phone", "subdivision"] },
-    { field: FIELDS.city, any: ["city", "town"], neg: ["capacity"] },
-    { field: FIELDS.state, any: ["state", "province", "region"] },
-    { field: FIELDS.postalCode, any: ["zip", "postal", "post code", "postcode"] },
-    { field: FIELDS.country, any: ["country"], neg: ["code"] },
-    { field: FIELDS.summary, any: ["summary", "about you", "tell us about", "professional summary", "profile"] },
-    { field: FIELDS.coverLetter, any: ["cover letter", "why are you", "why do you want", "additional information", "message to"] },
-    { field: FIELDS.skills, any: ["skills", "technical skills", "key skills"] },
-    { field: FIELDS.authorizedToWork, any: ["authorized to work", "legally authorized", "right to work", "work authorization", "eligible to work", "authorization to work"] },
-    { field: FIELDS.requireSponsorship, any: ["sponsorship", "require visa", "need visa", "visa support", "require sponsorship", "immigration"] },
-    { field: FIELDS.ethnicity, any: ["hispanic", "latino", "latinx", "ethnicity"], neg: ["non-hispanic"] },
-    { field: FIELDS.race, any: ["race", "racial", "ethnic background", "race/ethnicity"], neg: ["embrace", "trace"] },
-    { field: FIELDS.gender, any: ["gender", "what is your sex", "your sex", "gender identity"], neg: ["identity document"] },
-    { field: FIELDS.veteranStatus, any: ["veteran", "protected veteran", "military service"] },
-    { field: FIELDS.disabilityStatus, any: ["disability", "disabled", "differently abled"] },
-  ];
+  // These now live in the versioned ruleset (src/config/rules.js) so they can be
+  // updated at runtime without an extension release. schema.MATCHERS mirrors the
+  // bundled copy for back-compat; scanGeneric reads the ACTIVE ruleset.
+  const MATCHERS = (JAF.defaultRules && JAF.defaultRules.generic) || [];
 
   // Fields whose value should be left untouched unless the user opts in.
   const SENSITIVE = [FIELDS.gender, FIELDS.race, FIELDS.ethnicity, FIELDS.veteranStatus, FIELDS.disabilityStatus];

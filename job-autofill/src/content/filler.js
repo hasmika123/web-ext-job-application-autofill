@@ -55,7 +55,7 @@
     const rowHtml = (i, idx) =>
       `<label class="row">
          <input type="checkbox" data-i="${idx}" checked />
-         <span class="field">${esc(L[i.field] || i.field)}</span>
+         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}</span>
          <span class="val">${esc(truncate(String(i.value), 60))}</span>
        </label>`;
 
@@ -149,6 +149,13 @@
       try { await adapter0.ensureRows(values); } catch (e) {}
     }
     const plan = buildPlan(values);
+    // Optional AI layer: draft answers to open-ended screening questions.
+    try {
+      if (options.assist !== false && JAF.assist) {
+        const extra = await JAF.assist.run(plan.items, values);
+        if (extra && extra.length) plan.items = plan.items.concat(extra);
+      }
+    } catch (e) {}
     renderOverlay(plan, file, null, options);
     return { adapter: plan.adapter.id, candidates: plan.items.length };
   }
@@ -177,6 +184,8 @@
     .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: #8A8373; line-height: 1.35; }
     .infonote { font-size: 12px; color: #4A4636; background: #F1EADB; border: 1px solid #E7E0D2;
       border-radius: 8px; padding: 9px 11px; margin-top: 8px; line-height: 1.45; }
+    .aibadge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .08em;
+      color: #FBF8F1; background: #C8902F; border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
     .row.file { margin-top: 8px; border-top: 1px dashed #E7E0D2; padding-top: 12px; }
     .field { font-size: 12.5px; color: #4A4636; font-weight: 600; }
     .val { font-size: 12.5px; color: #1B2330; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

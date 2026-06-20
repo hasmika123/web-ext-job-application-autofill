@@ -92,11 +92,31 @@ Tips: the flow is multi-step — re-run Dossier on each step. Dropdown driving a
 or menu doesn't respond, the panel tells you what to enter so you can finish by
 hand. Some steps (Review, Voluntary Disclosures) have no fillable fields.
 
+## Updatable field rules (no re-install to fix selector drift)
+
+The map from page fields to your data lives in a versioned ruleset
+(`src/config/rules.js`), separate from the adapter logic. A bundled copy ships
+with the extension; in **Settings → Field rules** you can point at a hosted
+ruleset JSON (same shape) and **Check for updates**. If an ATS changes its
+markup, an updated ruleset fixes filling without a new extension release. The
+extension only ever adopts a ruleset whose version is higher than the active one,
+and you can reset to the bundled copy anytime.
+
+## AI answers for open-ended questions (optional)
+
+With the API key on (Settings), Dossier drafts answers to screening questions
+like "Why do you want this role?" from your resume context, shown in the review
+panel with an **AI** badge so you edit before filling. Answers are cached and
+reused when the same question appears again, and drafting runs in the background
+service worker so it isn't blocked by a page's content-security policy.
+
 ## Architecture
 
 ```
 manifest.json            MV3 config, permissions, content-script matches
-src/lib/schema.js        canonical field model + label matchers (shared)
+src/config/rules.js      versioned field-mapping ruleset (data, not behavior)
+src/lib/rules-store.js   loads/validates/updates the active ruleset
+src/lib/schema.js        canonical field model (matchers sourced from the ruleset)
 src/lib/storage.js       chrome.storage (profiles) + IndexedDB (resume files)
 src/lib/parser.js        PDF/DOCX text extraction + heuristic/LLM structuring
 src/content/adapters/    base.js (DOM utils) + one file per ATS + generic.js

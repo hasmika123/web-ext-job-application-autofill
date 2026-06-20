@@ -2,6 +2,9 @@
 (function () {
   const JAF = (window.JAF = window.JAF || {});
 
+  // Adopt a newer cached ruleset (if any) before any fill runs.
+  try { JAF.rules && JAF.rules.init && JAF.rules.init(); } catch (e) {}
+
   function detectAdapter() {
     const list = JAF.adapters || [];
     const m = list.find((a) => a.id !== "generic" && (() => { try { return a.matches(); } catch (e) { return false; } })());

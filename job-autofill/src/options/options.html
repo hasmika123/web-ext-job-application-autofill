@@ -48,7 +48,7 @@
       <section class="tab" id="tab-settings">
         <h1>Settings</h1>
         <label class="toggle"><input type="checkbox" id="llm" /> Use the Anthropic API for cleaner resume parsing</label>
-        <p class="hint">Optional. Without a key, resumes are parsed with a built-in heuristic — rougher, but everything is editable. Your key is stored locally on this device only and is sent only to api.anthropic.com.</p>
+        <p class="hint">Optional. Without a key, resumes are parsed with a built-in heuristic — rougher, but everything is editable. The same key also drafts answers to open-ended application questions ("Why this role?"), which are cached and reused when the same question appears again. Your key is stored locally on this device only and is sent only to api.anthropic.com.</p>
         <input class="input wide" id="apikey" type="password" placeholder="sk-ant-... (only used if the toggle is on)" />
         <label class="toggle"><input type="checkbox" id="eeo-default" /> Include EEO answers by default when filling</label>
         <hr />
@@ -58,6 +58,16 @@
         <label class="toggle"><input type="checkbox" id="autoadd-default" /> Auto-add rows: click <b>"Add Another"</b> to make room for every resume role</label>
         <p class="hint">On by default. On Workday's Work Experience step, Dossier adds enough entry blocks to hold all the roles in the selected resume before filling them.</p>
         <div class="actionbar"><button class="primary" id="save-settings">Save settings</button><span class="saved" id="settings-saved"></span></div>
+        <hr />
+        <h2>Field rules</h2>
+        <p class="hint">The map from page fields to your data lives in a versioned ruleset, separate from the extension. When an ATS (e.g. Workday) changes its markup, an updated ruleset fixes filling <b>without</b> a new extension version. Point this at a hosted ruleset JSON (same shape as the bundled one) and check for updates.</p>
+        <div class="field"><label for="rules-version">Active ruleset</label><input class="input wide" id="rules-version" readonly /></div>
+        <input class="input wide" id="rules-url" type="url" placeholder="https://raw.githubusercontent.com/&lt;you&gt;/&lt;repo&gt;/main/rules.json" />
+        <div class="actionbar">
+          <button class="primary" id="rules-check">Check for updates</button>
+          <button class="ghost" id="rules-reset">Reset to bundled</button>
+          <span class="saved" id="rules-status"></span>
+        </div>
         <hr />
         <h2 class="danger-h">Danger zone</h2>
         <button class="danger" id="clear">Delete all data</button>
@@ -72,6 +82,8 @@
   </div>
 
   <script src="../../vendor/mammoth.browser.min.js"></script>
+  <script src="../config/rules.js"></script>
+  <script src="../lib/rules-store.js"></script>
   <script src="../lib/schema.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/parser.js"></script>

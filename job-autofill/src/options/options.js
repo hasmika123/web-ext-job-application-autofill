@@ -54,6 +54,13 @@ async function renderSettings() {
   $("#eeo-default").checked = !!s.includeEEO;
   if ($("#autoadv-default")) $("#autoadv-default").checked = !!s.autoAdvance;
   if ($("#autoadd-default")) $("#autoadd-default").checked = s.autoAddRows !== false;
+  if ($("#rules-url")) $("#rules-url").value = s.rulesUrl || "";
+  renderRulesInfo();
+}
+function renderRulesInfo() {
+  if (!window.JAF.rules || !$("#rules-version")) return;
+  const i = window.JAF.rules.info();
+  $("#rules-version").value = `v${i.version} (${i.source}${i.updatedAt ? ", " + i.updatedAt : ""})`;
 }
 $("#save-settings").onclick = async () => {
   const s = await S.getSettings();
@@ -62,15 +69,32 @@ $("#save-settings").onclick = async () => {
   s.includeEEO = $("#eeo-default").checked;
   if ($("#autoadv-default")) s.autoAdvance = $("#autoadv-default").checked;
   if ($("#autoadd-default")) s.autoAddRows = $("#autoadd-default").checked;
+  if ($("#rules-url")) s.rulesUrl = $("#rules-url").value.trim();
   await S.saveSettings(s);
   flashSaved("#settings-saved");
+};
+if ($("#rules-check")) $("#rules-check").onclick = async () => {
+  const url = $("#rules-url").value.trim();
+  const s = await S.getSettings(); s.rulesUrl = url; await S.saveSettings(s);
+  $("#rules-status").textContent = "Checking…";
+  const res = await window.JAF.rules.checkForUpdates(url);
+  if (!res.ok) $("#rules-status").textContent = "✗ " + res.error;
+  else if (!res.updated) $("#rules-status").textContent = `Up to date (v${res.version})`;
+  else $("#rules-status").textContent = `✓ Updated to v${res.version}`;
+  renderRulesInfo();
+};
+if ($("#rules-reset")) $("#rules-reset").onclick = async () => {
+  await window.JAF.rules.reset();
+  $("#rules-status").textContent = "Reset to bundled";
+  renderRulesInfo();
 };
 $("#clear").onclick = async () => {
   if (!confirm("Delete your bio, all resumes and files? This cannot be undone.")) return;
   const list = await S.getResumes();
   for (const r of list) await S.deleteResume(r.id);
   await S.saveBio(SCH.emptyBio());
-  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true });
+  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "" });
+  try { await window.JAF.rules.reset(); } catch (e) {}
   await renderAll();
   alert("All data deleted.");
 };
@@ -294,5 +318,5 @@ async function renderUsage() {
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-async function renderAll() { await renderBio(); await renderSettings(); await renderResumes(); await renderUsage(); }
+async function renderAll() { try { await window.JAF.rules.init(); } catch (e) {} await renderBio(); await renderSettings(); await renderResumes(); await renderUsage(); }
 renderAll();

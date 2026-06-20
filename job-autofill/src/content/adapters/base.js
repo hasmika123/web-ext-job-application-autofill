@@ -145,7 +145,7 @@
   // Generic label-based scan: returns [{el, field, label, kind, score}]
   function scanGeneric(root) {
     root = root || document;
-    const M = JAF.schema.MATCHERS;
+    const M = (JAF.rules && JAF.rules.getActive().generic) || JAF.schema.MATCHERS;
     const SENS = JAF.schema.SENSITIVE;
     const out = [];
     const els = Array.from(root.querySelectorAll("input, textarea, select, [contenteditable='true']"));
@@ -299,34 +299,64 @@
     if (el.tagName === "BUTTON" && /select one|select\.{3}|select an?|choose/i.test(el.textContent || "")) return true;
     return false;
   }
+  // Resolve as soon as `test()` is true via MutationObserver (faster + less racy
+  // than fixed polling), falling back to a timeout.
+  function observeFor(test, timeout) {
+    return new Promise((resolve) => {
+      try { if (test()) return resolve(true); } catch (e) {}
+      let done = false;
+      let obs = null;
+      const finish = (v) => { if (done) return; done = true; if (obs) obs.disconnect(); resolve(v); };
+      try {
+        obs = new MutationObserver(() => { try { if (test()) finish(true); } catch (e) {} });
+        obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+      } catch (e) {}
+      setTimeout(() => { let v = false; try { v = test(); } catch (e) {} finish(v); }, timeout);
+    });
+  }
+  // What value does a dropdown trigger currently display?
+  function committedValue(trigger) {
+    if (trigger.tagName === "INPUT") {
+      const v = (trigger.value || "").trim();
+      const cont = trigger.closest('[class*="control"],[class*="select"],[role="combobox"]') || trigger.parentElement;
+      const ct = cont ? (cont.innerText || cont.textContent || "").trim() : "";
+      return v || ct;
+    }
+    return (trigger.innerText || trigger.textContent || "").trim();
+  }
+  function isPlaceholder(s) { return !s || /^(select one|select\.{3}|select\.\.\.|select an?\b|choose|search|please select|--)/i.test(s); }
+  function showsPlaceholder(trigger) { return isPlaceholder(committedValue(trigger)); }
+
   async function selectCustom(trigger, value) {
     if (!trigger || value == null || value === "") return false;
     const want = String(value).trim();
-    try { trigger.scrollIntoView({ block: "center", inline: "nearest" }); } catch (e) {}
-
-    if (trigger.tagName === "INPUT") {
-      trigger.focus();
-      realClick(trigger);
-      setNativeValue(trigger, want);
-      fire(trigger, "input");
-      await delay(500);
-    } else {
-      realClick(trigger);            // Workday button-style prompt
-      await delay(180);
-      await waitFor(() => visibleOptions().length > 0, 2500); // dependent menus (state after country) can be slow
-      const search = findSearchBox();
-      if (search) {
-        search.focus();
-        setNativeValue(search, want);
-        fire(search, "input"); fire(search, "keyup");
-        await delay(550);
+    const openAndPick = async () => {
+      try { trigger.scrollIntoView({ block: "center", inline: "nearest" }); } catch (e) {}
+      if (trigger.tagName === "INPUT") {
+        trigger.focus(); realClick(trigger);
+        setNativeValue(trigger, want); fire(trigger, "input");
+      } else {
+        realClick(trigger);
+        await observeFor(() => visibleOptions().length > 0, 2500);
+        const search = findSearchBox();
+        if (search) { search.focus(); setNativeValue(search, want); fire(search, "input"); fire(search, "keyup"); }
       }
+      await observeFor(() => visibleOptions().length > 0, 900);
+      const opt = bestOption(visibleOptions(), want);
+      if (!opt) { try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {} return false; }
+      realClick(opt);
+      await observeFor(() => !showsPlaceholder(trigger) || visibleOptions().length === 0, 700);
+      return true;
+    };
+    // First attempt, then verify the control actually committed; retry once.
+    let clicked = await openAndPick();
+    if (clicked && !showsPlaceholder(trigger)) return true;
+    if (!clicked && showsPlaceholder(trigger)) {
+      // nothing landed at all — one retry
+      clicked = await openAndPick();
     }
-    await waitFor(() => visibleOptions().length > 0, 800);
-    const opt = bestOption(visibleOptions(), want);
-    if (opt) { realClick(opt); await delay(180); return true; }
-    try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {}
-    return false;
+    // Success only if an option was chosen AND the trigger no longer shows a placeholder.
+    return clicked && !showsPlaceholder(trigger);
   }
 
   // Async apply: drives combos; everything else delegates to the sync applyItem.

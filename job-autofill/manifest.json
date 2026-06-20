@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Dossier — Job Application Autofill",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
   "permissions": ["storage", "unlimitedStorage", "scripting", "activeTab", "webNavigation"],
   "host_permissions": [
@@ -16,7 +16,10 @@
     "https://*.taleo.net/*",
     "https://jobs.smartrecruiters.com/*",
     "https://*.bamboohr.com/*",
-    "https://*.jobvite.com/*"
+    "https://*.jobvite.com/*",
+    "https://raw.githubusercontent.com/*",
+    "https://gist.githubusercontent.com/*",
+    "https://api.anthropic.com/*"
   ],
   "background": { "service_worker": "src/background/service-worker.js" },
   "action": {
@@ -42,6 +45,8 @@
       ],
       "all_frames": true,
       "js": [
+        "src/config/rules.js",
+        "src/lib/rules-store.js",
         "src/lib/schema.js",
         "src/content/adapters/base.js",
         "src/content/adapters/generic.js",
@@ -49,6 +54,7 @@
         "src/content/adapters/lever.js",
         "src/content/adapters/ashby.js",
         "src/content/adapters/workday.js",
+        "src/content/assist.js",
         "src/content/filler.js",
         "src/content/content-script.js"
       ],
@@ -57,7 +63,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["vendor/*", "src/lib/*"],
+      "resources": ["vendor/*", "src/lib/*", "src/config/*"],
       "matches": ["<all_urls>"]
     }
   ],
