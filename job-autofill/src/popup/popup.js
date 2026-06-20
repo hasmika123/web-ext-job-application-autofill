@@ -1,0 +1,146 @@
+/* popup.js */
+const S = window.JAF.storage;
+const SCH = window.JAF.schema;
+
+const CONTENT_FILES = [
+  "src/lib/schema.js",
+  "src/content/adapters/base.js",
+  "src/content/adapters/generic.js",
+  "src/content/adapters/greenhouse.js",
+  "src/content/adapters/lever.js",
+  "src/content/adapters/ashby.js",
+  "src/content/adapters/workday.js",
+  "src/content/filler.js",
+  "src/content/content-script.js",
+];
+
+const $ = (id) => document.getElementById(id);
+
+async function init() {
+  document.getElementById("manage").onclick = () => chrome.runtime.openOptionsPage();
+  const [bio, resumes, settings] = await Promise.all([S.getBio(), S.getResumes(), S.getSettings()]);
+
+  const hasBio = bio && (bio.firstName || bio.email);
+  $("bio-warn").classList.toggle("hidden", !!hasBio);
+
+  const sel = $("resume");
+  if (!resumes.length) {
+    sel.innerHTML = '<option value="">No resumes yet — open Manage</option>';
+    sel.disabled = true;
+    $("fill").disabled = true;
+  } else {
+    sel.innerHTML = resumes
+      .map((r) => `<option value="${r.id}">${escapeHtml(r.label)}</option>`)
+      .join("");
+    if (settings.lastResumeId && resumes.find((r) => r.id === settings.lastResumeId))
+      sel.value = settings.lastResumeId;
+  }
+
+  $("eeo").checked = !!settings.includeEEO;
+
+  const showMeta = () => {
+    const r = resumes.find((x) => x.id === sel.value);
+    $("meta").textContent = r
+      ? `${(r.skills || []).length} skills · ${(r.experience || []).length} roles${r.hasFile ? " · file ✓" : " · no file"}`
+      : "";
+  };
+  showMeta();
+  sel.onchange = showMeta;
+
+  $("fill").onclick = () => doFill(resumes, bio).catch((e) => setStatus(String(e.message || e), true));
+}
+
+function setStatus(msg, err) {
+  const s = $("status");
+  s.textContent = msg;
+  s.classList.toggle("err", !!err);
+}
+
+async function ensureInjected(tabId) {
+  // Try a ping to the top frame; if no content script, inject into all frames.
+  try {
+    const r = await sendTo(tabId, { type: "JAF_PING" }, 0);
+    if (r && r.ok) return;
+  } catch (e) {}
+  await chrome.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    files: CONTENT_FILES,
+  });
+}
+
+function sendTo(tabId, msg, frameId) {
+  return new Promise((resolve, reject) => {
+    const opts = frameId === undefined ? undefined : { frameId };
+    chrome.tabs.sendMessage(tabId, msg, opts, (resp) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve(resp);
+    });
+  });
+}
+
+async function pickFrame(tabId) {
+  let frames = [];
+  try { frames = await chrome.webNavigation.getAllFrames({ tabId }); } catch (e) {}
+  if (!frames || !frames.length) frames = [{ frameId: 0 }];
+  const results = [];
+  for (const f of frames) {
+    try {
+      const r = await sendTo(tabId, { type: "JAF_PING" }, f.frameId);
+      if (r && r.ok) results.push({ frameId: f.frameId, ...r });
+    } catch (e) {}
+  }
+  if (!results.length) return 0;
+  results.sort((a, b) => {
+    const sa = (a.adapter !== "generic" ? 1000 : 0) + a.fieldCount;
+    const sb = (b.adapter !== "generic" ? 1000 : 0) + b.fieldCount;
+    return sb - sa;
+  });
+  return results[0].frameId;
+}
+
+async function fileToBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(",")[1]);
+    r.onerror = () => rej(new Error("file read failed"));
+    r.readAsDataURL(blob);
+  });
+}
+
+async function doFill(resumes, bio) {
+  const sel = $("resume");
+  const resume = resumes.find((r) => r.id === sel.value);
+  if (!resume) return setStatus("Pick a resume first.", true);
+
+  const settings = await S.getSettings();
+  settings.lastResumeId = resume.id;
+  settings.includeEEO = $("eeo").checked;
+  await S.saveSettings(settings);
+
+  setStatus("Scanning page…");
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || /^chrome:|^edge:|^about:/.test(tab.url || "")) return setStatus("Can't run on this page.", true);
+
+  await ensureInjected(tab.id);
+  const frameId = await pickFrame(tab.id);
+
+  const values = SCH.buildFillValues(bio, resume, { includeEEO: $("eeo").checked });
+
+  let file = null;
+  if (resume.hasFile) {
+    const blob = await S.getResumeFile(resume.id);
+    if (blob) file = { name: resume.fileName || "resume.pdf", type: blob.type || "application/pdf", base64: await fileToBase64(blob) };
+  }
+
+  const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: {} }, frameId);
+  if (resp && resp.ok) {
+    setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`);
+    setTimeout(() => window.close(), 1200);
+  } else {
+    setStatus("Could not open the review panel on this page.", true);
+  }
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+init();

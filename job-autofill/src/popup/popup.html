@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">Dossier</div>
+      <button class="link" id="manage">Manage</button>
+    </header>
+
+    <div id="bio-warn" class="warn hidden">Add your bio first — open Manage.</div>
+
+    <label class="lbl" for="resume">Resume variant</label>
+    <select id="resume" class="select"></select>
+
+    <div class="meta" id="meta"></div>
+
+    <label class="check"><input type="checkbox" id="eeo" /> Include EEO / demographic answers</label>
+
+    <button id="fill" class="primary">Scan &amp; fill this page</button>
+    <div class="status" id="status"></div>
+    <div class="foot">Reviews before filling · never submits for you</div>
+  </div>
+  <script src="../lib/schema.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

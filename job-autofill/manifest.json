@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "Dossier — Job Application Autofill",
+  "version": "0.1.2",
+  "description": "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
+  "permissions": ["storage", "unlimitedStorage", "scripting", "activeTab", "webNavigation"],
+  "host_permissions": [
+    "https://*.myworkdayjobs.com/*",
+    "https://*.myworkday.com/*",
+    "https://*.greenhouse.io/*",
+    "https://boards.greenhouse.io/*",
+    "https://job-boards.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://jobs.ashbyhq.com/*",
+    "https://*.icims.com/*",
+    "https://*.taleo.net/*",
+    "https://jobs.smartrecruiters.com/*",
+    "https://*.bamboohr.com/*",
+    "https://*.jobvite.com/*"
+  ],
+  "background": { "service_worker": "src/background/service-worker.js" },
+  "action": {
+    "default_title": "Dossier — pick a resume and fill",
+    "default_popup": "src/popup/popup.html"
+  },
+  "options_page": "src/options/options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.myworkdayjobs.com/*",
+        "https://*.myworkday.com/*",
+        "https://*.greenhouse.io/*",
+        "https://boards.greenhouse.io/*",
+        "https://job-boards.greenhouse.io/*",
+        "https://jobs.lever.co/*",
+        "https://jobs.ashbyhq.com/*",
+        "https://*.icims.com/*",
+        "https://*.taleo.net/*",
+        "https://jobs.smartrecruiters.com/*",
+        "https://*.bamboohr.com/*",
+        "https://*.jobvite.com/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "src/lib/schema.js",
+        "src/content/adapters/base.js",
+        "src/content/adapters/generic.js",
+        "src/content/adapters/greenhouse.js",
+        "src/content/adapters/lever.js",
+        "src/content/adapters/ashby.js",
+        "src/content/adapters/workday.js",
+        "src/content/filler.js",
+        "src/content/content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["vendor/*", "src/lib/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}
