@@ -211,8 +211,39 @@
     } catch (e) { return false; }
   }
 
+  function isVisible(el) {
+    if (!el) return false;
+    if (el.disabled || el.getAttribute("aria-disabled") === "true") return false;
+    const r = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 1, height: 1 };
+    return (r.width > 0 || r.height > 0);
+  }
+
+  // Find a "go to next step" button — and NEVER a final-submit button.
+  // Matches Next / Continue / Save and Continue / Proceed; rejects anything that
+  // looks like Submit / Apply / Finish / Send / Back / Cancel / Save-for-later.
+  const NEXT_RE = /\b(next|continue|proceed|save\s*(and|&)\s*continue|save\s*(and|&)\s*next)\b/i;
+  const BLOCK_RE = /\b(submit|apply|finish|complete|send|previous|back|cancel|save\s*(for|as)\s*(later|draft)|save\s*draft|review\s*and\s*submit)\b/i;
+  function findNextButton(root) {
+    const scope = root || document;
+    const cands = Array.from(scope.querySelectorAll(
+      'button, a[role="button"], [role="button"], input[type="button"], input[type="submit"]'
+    ));
+    // Prefer buttons sitting in a footer / navigation region (later in DOM).
+    const matches = [];
+    for (const el of cands) {
+      if (!isVisible(el)) continue;
+      const t = (el.innerText || el.textContent || el.value || el.getAttribute("aria-label") || "").trim();
+      if (!t || t.length > 40) continue;
+      if (BLOCK_RE.test(t)) continue;
+      if (NEXT_RE.test(t)) matches.push(el);
+    }
+    // last match is usually the page's primary forward button.
+    return matches.length ? matches[matches.length - 1] : null;
+  }
+
   JAF.adapterBase = {
     setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText,
     cssEscape, isFillable, scanGeneric, elKind, applyItem, attachFile, humanize,
+    isVisible, findNextButton,
   };
 })();

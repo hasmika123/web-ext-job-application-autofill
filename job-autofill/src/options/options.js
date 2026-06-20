@@ -51,12 +51,16 @@ async function renderSettings() {
   $("#llm").checked = !!s.llmEnabled;
   $("#apikey").value = s.apiKey || "";
   $("#eeo-default").checked = !!s.includeEEO;
+  if ($("#autoadv-default")) $("#autoadv-default").checked = !!s.autoAdvance;
+  if ($("#autoadd-default")) $("#autoadd-default").checked = s.autoAddRows !== false;
 }
 $("#save-settings").onclick = async () => {
   const s = await S.getSettings();
   s.llmEnabled = $("#llm").checked;
   s.apiKey = $("#apikey").value.trim();
   s.includeEEO = $("#eeo-default").checked;
+  if ($("#autoadv-default")) s.autoAdvance = $("#autoadv-default").checked;
+  if ($("#autoadd-default")) s.autoAddRows = $("#autoadd-default").checked;
   await S.saveSettings(s);
   flashSaved("#settings-saved");
 };
@@ -65,7 +69,7 @@ $("#clear").onclick = async () => {
   const list = await S.getResumes();
   for (const r of list) await S.deleteResume(r.id);
   await S.saveBio(SCH.emptyBio());
-  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "" });
+  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true });
   await renderAll();
   alert("All data deleted.");
 };

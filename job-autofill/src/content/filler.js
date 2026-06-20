@@ -37,7 +37,9 @@
   }
 
   // --- Overlay UI (shadow DOM, isolated from page styles) ------------------
-  function renderOverlay({ adapter, items }, file, onClose) {
+  function renderOverlay({ adapter, items }, file, onClose, opts) {
+    opts = opts || {};
+    const autoAdvance = !!opts.autoAdvance;
     document.getElementById("__jaf_host")?.remove();
     const host = document.createElement("div");
     host.id = "__jaf_host";
@@ -78,7 +80,9 @@
           <button class="ghost" id="cancel">Cancel</button>
           <button class="primary" id="fill" ${fillable.length || file ? "" : "disabled"}>Fill selected</button>
         </footer>
-        <div class="note">Nothing is submitted. After filling, review the page and click the site's own submit button.</div>
+        <div class="note">${autoAdvance
+          ? `Auto-advance is <b>on</b>: after filling, Dossier clicks the step's <b>Next / Continue</b> button. It never clicks Submit.`
+          : `Nothing is submitted. After filling, review the page and click the site's own button.`}</div>
       </aside>`;
 
     const close = () => { host.remove(); onClose && onClose(); };
@@ -103,7 +107,19 @@
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
         } else fileMsg = " · no file field found";
       }
-      flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}. Review before submitting.`);
+      let advanceMsg = "";
+      if (autoAdvance) {
+        const nextBtn = (adapter.nextButton && adapter.nextButton()) || B.findNextButton();
+        if (nextBtn) {
+          flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}. Advancing to next step…`);
+          await new Promise((r) => setTimeout(r, 600)); // let React commit the values
+          nextBtn.click();
+          setTimeout(close, 700);
+          return;
+        }
+        advanceMsg = " · couldn't find a Next button — advance manually";
+      }
+      flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${advanceMsg}. Review before submitting.`);
       setTimeout(close, 1900);
     };
   }
@@ -119,8 +135,15 @@
   function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
   async function start(values, file, options) {
+    options = options || {};
+    // Optionally let the adapter create extra repeating rows (e.g. Workday
+    // "Add Another" work-experience blocks) so every resume role can be filled.
+    const adapter0 = pickAdapter();
+    if (options.autoAddRows !== false && typeof adapter0.ensureRows === "function") {
+      try { await adapter0.ensureRows(values); } catch (e) {}
+    }
     const plan = buildPlan(values);
-    renderOverlay(plan, file, null);
+    renderOverlay(plan, file, null, options);
     return { adapter: plan.adapter.id, candidates: plan.items.length };
   }
 

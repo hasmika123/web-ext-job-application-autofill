@@ -167,7 +167,74 @@
       // Resume upload uses a custom button; the underlying input is often hidden.
       return document.querySelector('input[type="file"]');
     },
+
+    // Create enough Work Experience blocks for every resume role by clicking
+    // the section's "Add" button (waiting for each new block to render).
+    async ensureRows(values) {
+      const need = (values.__experience || []).length;
+      if (!need) return;
+      let count = experienceBlocks().length;
+      let guard = 0;
+      while (count < need && guard < need + 3) {
+        const btn = addExperienceButton();
+        if (!btn || !B.isVisible(btn)) break;
+        btn.click();
+        await waitFor(() => experienceBlocks().length > count, 2500);
+        const now = experienceBlocks().length;
+        if (now <= count) break;       // didn't grow → stop, avoid looping
+        count = now; guard++;
+      }
+    },
+
+    // Workday's forward button — prefer its automation-id, never a submit.
+    nextButton() {
+      const node = Array.from(document.querySelectorAll('[data-automation-id]')).find((n) => {
+        const id = (n.getAttribute("data-automation-id") || "").toLowerCase();
+        const isBtn = n.matches('button,[role="button"]') || n.querySelector("button");
+        if (!isBtn || !B.isVisible(n)) return false;
+        return (id.includes("next") || id.includes("continue")) &&
+          !id.includes("submit") && !id.includes("previous") && !id.includes("back");
+      });
+      if (node) return node.matches('button,[role="button"]') ? node : node.querySelector("button");
+      return B.findNextButton();
+    },
   };
+
+  function waitFor(test, timeout) {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      (function poll() {
+        let ok = false; try { ok = test(); } catch (e) {}
+        if (ok) return resolve(true);
+        if (Date.now() - t0 >= timeout) return resolve(false);
+        setTimeout(poll, 120);
+      })();
+    });
+  }
+
+  function workExperienceSection() {
+    let el = Array.from(document.querySelectorAll('[data-automation-id]'))
+      .find((n) => (n.getAttribute("data-automation-id") || "").toLowerCase().includes("workexperience"));
+    if (el) return el.closest('[data-automation-id*="ection" i]') || el.parentElement || el;
+    const heads = Array.from(document.querySelectorAll("h1,h2,h3,h4,legend,label,div,span"))
+      .filter((h) => /work experience/i.test(h.textContent || "") && (h.textContent || "").length < 60);
+    if (heads.length) { let p = heads[0]; for (let i = 0; i < 4 && p.parentElement; i++) p = p.parentElement; return p; }
+    return null;
+  }
+
+  function addExperienceButton() {
+    const btns = Array.from(document.querySelectorAll('button,[role="button"],a'));
+    let b = btns.find((x) => { const c = autoChain(x); return c.includes("add") && c.includes("workexperience") && B.isVisible(x); });
+    if (b) return b;
+    const section = workExperienceSection();
+    return btns.find((x) => {
+      if (!B.isVisible(x)) return false;
+      const t = (x.innerText || x.textContent || x.getAttribute("aria-label") || "").trim();
+      if (!/^add\b/i.test(t)) return false;
+      if (/address|education|skill|website|language|certification|referen/i.test(t)) return false;
+      return (section && section.contains(x)) || /work\s*experience|another|experience/i.test(t);
+    }) || null;
+  }
 
   // Find each Work Experience entry block: the smallest ancestor of a job-title
   // input that also contains a company (or description) input.

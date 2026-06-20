@@ -37,6 +37,7 @@ async function init() {
   }
 
   $("eeo").checked = !!settings.includeEEO;
+  $("autoadv").checked = !!settings.autoAdvance;
 
   const showMeta = () => {
     const r = resumes.find((x) => x.id === sel.value);
@@ -115,6 +116,7 @@ async function doFill(resumes, bio) {
   const settings = await S.getSettings();
   settings.lastResumeId = resume.id;
   settings.includeEEO = $("eeo").checked;
+  settings.autoAdvance = $("autoadv").checked;
   await S.saveSettings(settings);
 
   setStatus("Scanning page…");
@@ -132,7 +134,7 @@ async function doFill(resumes, bio) {
     if (blob) file = { name: resume.fileName || "resume.pdf", type: blob.type || "application/pdf", base64: await fileToBase64(blob) };
   }
 
-  const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: {} }, frameId);
+  const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false } }, frameId);
   if (resp && resp.ok) {
     setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`);
     setTimeout(() => window.close(), 1200);
