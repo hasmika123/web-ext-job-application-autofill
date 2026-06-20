@@ -193,23 +193,24 @@ async function handleFiles(files) {
   await renderUsage();
 }
 
-// Offer to populate the single shared Bio profile from a freshly-parsed resume.
-// Only fills bio fields that are currently EMPTY — existing values are never
-// overwritten — and only after the user confirms.
+// Always offer to update the single shared Bio profile from a freshly-parsed
+// resume whenever the resume carries any new OR differing contact details. Both
+// empty fields and existing values are offered (existing ones shown as old → new),
+// and nothing changes without the user's confirmation.
 async function maybePopulateBio(parsed) {
   if (!parsed) return;
-  const LBL = { firstName: "First name", lastName: "Last name", email: "Email", phone: "Phone", city: "City", state: "State", linkedin: "LinkedIn", github: "GitHub", website: "Website" };
+  const LBL = { firstName: "First name", lastName: "Last name", email: "Email", phone: "Phone", addressLine1: "Address", addressLine2: "Address line 2", city: "City", state: "State", postalCode: "Postal code", country: "Country", linkedin: "LinkedIn", github: "GitHub", website: "Website" };
   const bio = await S.getBio();
-  const toFill = Object.keys(parsed).filter((k) => parsed[k] && k in bio && !(bio[k] && String(bio[k]).trim()));
-  if (!toFill.length) return;
-  const preview = toFill.map((k) => `  • ${LBL[k] || k}: ${parsed[k]}`).join("\n");
-  const ok = confirm(
-    "Populate your Bio profile from this resume?\n\n" +
-    "These empty Bio fields would be filled:\n\n" + preview +
-    "\n\nExisting values are left untouched. You can edit everything in the Bio tab."
-  );
-  if (!ok) return;
-  toFill.forEach((k) => { bio[k] = parsed[k]; });
+  const cands = SCH.bioUpdateCandidates(bio, parsed);
+  if (!cands.length) return; // resume adds nothing new — nothing to ask about
+  const empties = cands.filter((c) => c.isEmpty);
+  const changes = cands.filter((c) => !c.isEmpty);
+  let msg = "Update your Bio profile with details from this resume?\n\n";
+  if (empties.length) msg += "Fill these empty fields:\n" + empties.map((c) => `  • ${LBL[c.key] || c.key}: ${c.to}`).join("\n") + "\n\n";
+  if (changes.length) msg += "Replace these existing values:\n" + changes.map((c) => `  • ${LBL[c.key] || c.key}: ${c.from} → ${c.to}`).join("\n") + "\n\n";
+  msg += "Choose Cancel to keep your Bio unchanged. You can edit everything in the Bio tab.";
+  if (!confirm(msg)) return;
+  cands.forEach((c) => { bio[c.key] = c.to; });
   await S.saveBio(bio);
   await renderBio();
 }
@@ -291,7 +292,12 @@ async function openEditor(id) {
     <h2>Review resume</h2>
     <div class="field"><label>Label (how it appears in the picker)</label><input class="input wide" id="d-label" value="${esc(r.label)}"></div>
     <div class="field" style="margin-top:12px"><label>Summary</label><textarea class="wide" id="d-summary">${esc(r.summary || "")}</textarea></div>
-    <div class="field" style="margin-top:12px"><label>Skills (comma separated)</label><textarea class="wide" id="d-skills">${esc((r.skills || []).join(", "))}</textarea></div>
+    <div class="field" style="margin-top:12px"><label>Skills</label>
+      <div class="chips" id="d-skills-chips">
+        ${(r.skills || []).map((s) => `<span class="chip" data-skill="${esc(s)}">${esc(s)}<button type="button" class="chip-x" aria-label="remove">×</button></span>`).join("")}
+        <input class="chip-input" id="d-skills-input" placeholder="Add a skill — Enter or comma">
+      </div>
+    </div>
 
     <div class="subhead">Experience</div>
     <div id="exp-wrap">${(r.experience || []).map(expHtml).join("")}</div>
@@ -350,8 +356,36 @@ async function openEditor(id) {
       name: node.querySelector(".p-name").value.trim(),
       bullets: node.querySelector(".p-bullets").value.split("\n").map(STRIP).filter(Boolean),
     })).filter((p) => p.name);
-    return { exps, edus, langs, projs };
+    const skills = $$("#d-skills-chips .chip").map((c) => c.dataset.skill).filter(Boolean);
+    return { exps, edus, langs, projs, skills };
   };
+
+  // Skills chips: add via Enter/comma (pasted blobs are split), remove via × or
+  // Backspace on an empty input. Read back from the DOM by collect().
+  const skillsInput = $("#d-skills-input");
+  const skillsBox = $("#d-skills-chips");
+  const addSkills = (text) => {
+    const have = $$("#d-skills-chips .chip").map((c) => c.dataset.skill.toLowerCase());
+    (SCH.splitSkills ? SCH.splitSkills(text) : [text]).forEach((s) => {
+      if (!s || have.includes(s.toLowerCase())) return;
+      have.push(s.toLowerCase());
+      const span = document.createElement("span");
+      span.className = "chip"; span.dataset.skill = s;
+      span.innerHTML = `${esc(s)}<button type="button" class="chip-x" aria-label="remove">×</button>`;
+      skillsBox.insertBefore(span, skillsInput);
+    });
+    skillsInput.value = "";
+  };
+  if (skillsInput) {
+    skillsInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSkills(skillsInput.value); }
+      else if (e.key === "Backspace" && !skillsInput.value) {
+        const chips = $$("#d-skills-chips .chip"); if (chips.length) chips[chips.length - 1].remove();
+      }
+    });
+    skillsInput.addEventListener("blur", () => { if (skillsInput.value.trim()) addSkills(skillsInput.value); });
+    skillsBox.addEventListener("click", (e) => { if (e.target.classList.contains("chip-x")) e.target.closest(".chip").remove(); });
+  }
 
   // current-role checkbox disables the End date dropdowns
   $$(".e-current").forEach((cb) => cb.onchange = () => {
@@ -360,10 +394,10 @@ async function openEditor(id) {
   });
 
   const persistAndReopen = async () => {
-    const { exps, edus, langs, projs } = collect();
+    const { exps, edus, langs, projs, skills } = collect();
     r.label = $("#d-label").value.trim() || r.label;
     r.summary = $("#d-summary").value.trim();
-    r.skills = $("#d-skills").value.split(",").map((s) => s.trim()).filter(Boolean);
+    r.skills = skills;
     r.experience = exps;
     r.education = edus;
     r.languages = langs;
@@ -372,20 +406,20 @@ async function openEditor(id) {
     openEditor(r.id);
   };
 
-  $("#add-exp").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.experience.push({ company: "", title: "", startDate: "", endDate: "", bullets: [] }); await S.saveResume(r); openEditor(r.id); };
-  $("#add-edu").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.education.push({ school: "", degree: "", field: "", endDate: "" }); await S.saveResume(r); openEditor(r.id); };
-  $("#add-lang").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.languages.push({ name: "", proficiency: "" }); await S.saveResume(r); openEditor(r.id); };
-  $("#add-proj").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.projects.push({ name: "", bullets: [] }); await S.saveResume(r); openEditor(r.id); };
-  $$("[data-rmexp]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); exps.splice(+b.dataset.rmexp, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
-  $$("[data-rmedu]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); edus.splice(+b.dataset.rmedu, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
-  $$("[data-rmlang]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); langs.splice(+b.dataset.rmlang, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
-  $$("[data-rmproj]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); projs.splice(+b.dataset.rmproj, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
+  $("#add-exp").onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; r.experience.push({ company: "", title: "", startDate: "", endDate: "", bullets: [] }); await S.saveResume(r); openEditor(r.id); };
+  $("#add-edu").onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; r.education.push({ school: "", degree: "", field: "", endDate: "" }); await S.saveResume(r); openEditor(r.id); };
+  $("#add-lang").onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; r.languages.push({ name: "", proficiency: "" }); await S.saveResume(r); openEditor(r.id); };
+  $("#add-proj").onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; r.projects.push({ name: "", bullets: [] }); await S.saveResume(r); openEditor(r.id); };
+  $$("[data-rmexp]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); exps.splice(+b.dataset.rmexp, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; await S.saveResume(r); openEditor(r.id); });
+  $$("[data-rmedu]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); edus.splice(+b.dataset.rmedu, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; await S.saveResume(r); openEditor(r.id); });
+  $$("[data-rmlang]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); langs.splice(+b.dataset.rmlang, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; await S.saveResume(r); openEditor(r.id); });
+  $$("[data-rmproj]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs, skills } = collect(); projs.splice(+b.dataset.rmproj, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.skills = skills; await S.saveResume(r); openEditor(r.id); });
 
   $("#d-save").onclick = async () => {
-    const { exps, edus, langs, projs } = collect();
+    const { exps, edus, langs, projs, skills } = collect();
     r.label = $("#d-label").value.trim() || r.label;
     r.summary = $("#d-summary").value.trim();
-    r.skills = $("#d-skills").value.split(",").map((s) => s.trim()).filter(Boolean);
+    r.skills = skills;
     r.experience = exps;
     r.education = edus;
     r.languages = langs;

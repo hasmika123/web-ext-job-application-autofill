@@ -270,9 +270,30 @@
       try { el.dispatchEvent(new MouseEvent(t, o)); } catch (e) { if (t === "click" && el.click) el.click(); }
     }
   }
-  function visibleOptions() {
-    const sel = '[role="option"],[data-automation-id="promptOption"],[data-automation-id="menuItem"],li[role="option"]';
-    return Array.from(document.querySelectorAll(sel)).filter((o) => isVisible(o) && (o.textContent || "").trim());
+  const OPTION_SEL = '[role="option"],[data-automation-id="promptOption"],[data-automation-id="menuItem"],li[role="option"]';
+  // The popup actually opened by `trigger`. Workday triggers carry no aria-controls,
+  // so we locate the open listbox structurally: the visible [role="listbox"] (or
+  // Workday's option container) holding the MOST option nodes. Scoping to it keeps
+  // unrelated widgets' option/pill nodes (e.g. a Country Phone Code multiselect's
+  // selected "United States (+1)" pills) from polluting THIS dropdown's choices.
+  function openListbox(trigger) {
+    const id = trigger && (trigger.getAttribute("aria-controls") || trigger.getAttribute("aria-owns"));
+    if (id) { const el = document.getElementById(id); if (el && isVisible(el)) return el; }
+    const boxes = Array.from(document.querySelectorAll(
+      '[role="listbox"],[data-automation-id="activeListContainer"],ul[data-automation-id="list"]'
+    )).filter(isVisible);
+    if (!boxes.length) return null;
+    // Prefer the visible listbox with the most option descendants (the open menu).
+    let best = null, bestN = -1;
+    for (const b of boxes) {
+      const n = b.querySelectorAll(OPTION_SEL).length;
+      if (n > bestN) { best = b; bestN = n; }
+    }
+    return bestN > 0 ? best : null;
+  }
+  function visibleOptions(scope) {
+    const root = scope || document;
+    return Array.from(root.querySelectorAll(OPTION_SEL)).filter((o) => isVisible(o) && (o.textContent || "").trim());
   }
   function findSearchBox() {
     const sel = 'input[data-automation-id="searchBox"],input[role="combobox"],[role="combobox"] input,input[type="search"],[role="dialog"] input';
@@ -280,17 +301,27 @@
   }
   function bestOption(options, value) {
     const norm = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
+    // Drop a trailing parenthetical like "(+1)" so a country option
+    // "United States of America (+1)" can still equal "United States of America".
+    const stripParen = (s) => norm(s).replace(/\s*\([^)]*\)\s*$/, "").trim();
     const w = norm(value);
     if (!w) return null;
-    let starts = null, incl = null;
+    let exactNoParen = null, starts = null, incl = null;
+    const lenOf = (o) => norm(o.innerText || o.textContent).length;
     for (const o of options) {
-      const t = norm(o.innerText || o.textContent);
+      const raw = o.innerText || o.textContent;
+      const t = norm(raw);
       if (!t) continue;
-      if (t === w) return o;
-      if (!starts && t.startsWith(w)) starts = o;
-      if (!incl && (t.includes(w) || w.includes(t))) incl = o;
+      if (t === w) return o;                                   // exact wins outright
+      if (!exactNoParen && stripParen(raw) === w) exactNoParen = o;
+      // Among startsWith matches, keep the SHORTEST — so "United States" prefers
+      // "United States of America" over "United States Minor Outlying Islands".
+      if (t.startsWith(w) && (!starts || t.length < lenOf(starts))) starts = o;
+      // Substring fallback, but guard against a tiny option text ("US") matching
+      // a long desired value via w.includes(t).
+      if (!incl && (t.includes(w) || (w.includes(t) && t.length >= 4))) incl = o;
     }
-    return starts || incl || null;
+    return exactNoParen || starts || incl || null;
   }
   function isCustomDropdown(el) {
     if (!el) return false;
@@ -337,12 +368,13 @@
         setNativeValue(trigger, want); fire(trigger, "input");
       } else {
         realClick(trigger);
-        await observeFor(() => visibleOptions().length > 0, 2500);
+        await observeFor(() => visibleOptions(openListbox(trigger)).length > 0, 2500);
         const search = findSearchBox();
         if (search) { search.focus(); setNativeValue(search, want); fire(search, "input"); fire(search, "keyup"); }
       }
-      await observeFor(() => visibleOptions().length > 0, 900);
-      const opt = bestOption(visibleOptions(), want);
+      // Scope option lookups to the listbox THIS trigger opened (see openListbox).
+      await observeFor(() => visibleOptions(openListbox(trigger)).length > 0, 900);
+      const opt = bestOption(visibleOptions(openListbox(trigger)), want);
       if (!opt) { try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {} return false; }
       realClick(opt);
       await observeFor(() => !showsPlaceholder(trigger) || visibleOptions().length === 0, 700);
@@ -380,5 +412,7 @@
     setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText,
     cssEscape, isFillable, scanGeneric, elKind, applyItem, applyItemAsync, attachFile, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
+    // exposed for unit tests (dropdown option scoping + matching)
+    openListbox, visibleOptions, bestOption,
   };
 })();

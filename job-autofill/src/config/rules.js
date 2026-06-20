@@ -19,7 +19,7 @@
   const JAF = (window.JAF = window.JAF || {});
 
   JAF.defaultRules = {
-    version: 2,
+    version: 4,
     updatedAt: "2026-06-20",
 
     // Keyword matchers for the GENERIC (no dedicated adapter) label matcher.
@@ -60,6 +60,11 @@
           firstName: { any: ["firstname"], not: ["preferred"] },
           preferredName: { all: ["firstname", "preferred"] },
           lastName: { any: ["lastname"], not: ["preferred"] },
+          // A single combined "Name" field (e.g. the Self-Identify form). Excludes
+          // every other field whose automation-id merely contains "name".
+          fullName: { any: ["name"], not: ["firstname", "lastname", "legalname", "preferred", "middlename", "companyname", "schoolname", "username", "filename", "displayname", "nickname", "fieldname", "hostname"] },
+          // Signature / "date signed on" field — filled with today's date.
+          dateSigned: { any: ["datesignedon", "datesigned", "signaturedate", "todaysdate", "todaydate"] },
           email: { any: ["email"], not: ["verify", "confirm"] },
           phone: { any: ["phone"], not: ["device", "type", "extension", "code"] },
           addressLine1: { any: ["addressline1", "addline1"], regex: "address.*line.?1" },
@@ -92,15 +97,19 @@
           language: { any: ["language"], not: ["proficiency"] },
           proficiency: { any: ["proficiency", "ability", "fluency"] },
         },
-        websites: { any: ["webaddress", "web address", "websiteurl"] },
+        websites: { any: ["webaddress", "web address", "websiteurl", "url"] },
         questions: {
           authorizedToWork: { yesNo: true, any: ["authorizedtowork", "legallyauthorized", "righttowork", "workauthoriz", "eligibletowork", "authorizationtowork"] },
           requireSponsorship: { yesNo: true, any: ["sponsorship", "requirevisa", "visasponsor", "needvisa", "immigration"] },
           gender: { any: ["gender", "_sex", "gender-identity"] },
-          ethnicity: { any: ["hispanic", "latino", "ethnicity"] },
-          race: { any: ["race", "ethnicbackground", "ethnicity-race"] },
+          // Hispanic/Latino Y/N question. Workday names it "hispanicOrLatino" and
+          // labels the SEPARATE race/heritage dropdown "Ethnicity" — so this rule must
+          // NOT match the bare token "ethnicity" (that belongs to `race` below).
+          ethnicity: { any: ["hispanicorlatino", "hispanic", "latino"], not: ["race"] },
+          // Race / heritage dropdown — Workday's automation-id + label say "ethnicity".
+          race: { any: ["ethnicity", "race", "ethnicbackground"], not: ["hispanic", "latino"] },
           veteranStatus: { any: ["veteran", "military", "protectedveteran"] },
-          disabilityStatus: { any: ["disability", "disabled"] },
+          disabilityStatus: { any: ["disability", "disabled"], not: ["language", "disabilityform"] },
         },
         sections: {
           experience: { auto: "workexperience", text: "work experience", exclude: "address|education|skill|website|language|certification|referen" },

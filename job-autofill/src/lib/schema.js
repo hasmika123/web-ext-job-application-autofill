@@ -144,5 +144,54 @@
     return /united states/i.test(full) ? alts : [full, t].filter((x, i, a) => a.indexOf(x) === i);
   }
 
-  JAF.schema = { FIELDS, MATCHERS, SENSITIVE, LABELS, emptyBio, emptyResume, buildFillValues, stateCandidates, countryCandidates };
+  // The filename used ONLY when attaching the resume to an application form:
+  // "firstname_lastname_resume.<ext>". The original file extension is preserved so a
+  // .docx is never mislabeled as .pdf. Falls back to "resume.<ext>" when the name is
+  // missing. The stored resume keeps its original fileName everywhere else.
+  function uploadResumeName(bio, originalName) {
+    const extMatch = String(originalName || "").match(/\.[a-z0-9]+$/i);
+    const ext = extMatch ? extMatch[0].toLowerCase() : ".pdf";
+    const clean = (s) => String(s == null ? "" : s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const parts = [clean(bio && bio.firstName), clean(bio && bio.lastName)].filter(Boolean);
+    const base = parts.length ? parts.join("_") + "_resume" : "resume";
+    return base + ext;
+  }
+
+  // Bio fields where a freshly-parsed resume carries a value that differs from the
+  // current Bio — so the options page can ALWAYS offer to update (filling empties
+  // AND replacing existing values), not only when a field is blank.
+  function bioUpdateCandidates(bio, parsed) {
+    bio = bio || {}; parsed = parsed || {};
+    const shape = emptyBio();
+    const out = [];
+    Object.keys(parsed).forEach((k) => {
+      if (!(k in shape)) return;                       // ignore non-bio keys
+      const to = parsed[k] == null ? "" : String(parsed[k]).trim();
+      const from = bio[k] == null ? "" : String(bio[k]).trim();
+      if (to && to !== from) out.push({ key: k, from, to, isEmpty: !from });
+    });
+    return out;
+  }
+
+  // Turn a skills string OR array (often a comma/blob mess from PDF extraction)
+  // into clean, de-duplicated individual skills. Splits on commas, semicolons,
+  // pipes, bullets, middots, tabs, newlines, and the SPACED forms of slash /
+  // ampersand / "and" — the spacing protects skills that legitimately contain
+  // those characters ("CI/CD", "R&D", "and/or").
+  function splitSkills(input) {
+    const arr = Array.isArray(input) ? input : [input];
+    const SEP = /[,;\n\r\t|·•‣▪◦●○∙⁃•·]|\s\/\s|\s&\s|\sand\s/i;
+    const out = [], seen = new Set();
+    arr.forEach((chunk) => {
+      String(chunk == null ? "" : chunk).split(SEP).forEach((raw) => {
+        const v = raw.replace(/^[\s\-–—•*▪◦‣·●○∙⁃]+/, "").replace(/[\s:]+$/, "").trim();
+        if (!v || v.length > 40) return;
+        const key = v.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); out.push(v); }
+      });
+    });
+    return out;
+  }
+
+  JAF.schema = { FIELDS, MATCHERS, SENSITIVE, LABELS, emptyBio, emptyResume, buildFillValues, stateCandidates, countryCandidates, uploadResumeName, bioUpdateCandidates, splitSkills };
 })();

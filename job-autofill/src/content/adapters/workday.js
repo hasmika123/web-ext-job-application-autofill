@@ -149,6 +149,9 @@
       add(findInput(r.fields.preferredName), f.preferredName, values[f.preferredName]);
       add(findInput(r.fields.firstName), f.firstName, values[f.firstName]);
       add(findInput(r.fields.lastName), f.lastName, values[f.lastName]);
+      // A single combined "Name" field (e.g. the Self-Identify form) — filled after
+      // first/last so split-name pages always prefer those.
+      add(findInput(r.fields.fullName), f.fullName, values[f.fullName], "Name");
       add(findInput(r.fields.email), f.email, values[f.email]);
       add(findInput(r.fields.phone), f.phone, values[f.phone]);
       add(findInput(r.fields.addressLine1), f.addressLine1, values[f.addressLine1]);
@@ -172,6 +175,30 @@
       addQuestion(f.race, r.questions.race, "Race");
       addQuestion(f.veteranStatus, r.questions.veteranStatus, "Veteran status");
       addQuestion(f.disabilityStatus, r.questions.disabilityStatus, "Disability status");
+
+      // ---- Self-Identification of Disability (CC-305) ----
+      // A standalone form with its own Name / Date / Language fields and a
+      // "check one box" disability question (checkboxes, not a dropdown) — none of
+      // which the bio/EEO matchers above handle.
+      {
+        const disChecks = Array.from(document.querySelectorAll('input[type="checkbox"]'))
+          .filter((cb) => B.isVisible(cb) && /disabilit|do not (want|wish) to answer/i.test(B.labelText(cb)));
+        const onForm = disChecks.length >= 2 || !!document.querySelector('[data-automation-id*="disabilityform" i],[data-automation-id*="selfidentif" i]');
+        if (onForm) {
+          // Date signed = today (single text input, MM/DD/YYYY).
+          const dEl = findInput(r.fields.dateSigned);
+          if (dEl) add(dEl, "Date", todayMDY(), "Date (today)", "text");
+          // The form's own Language selector defaults to English.
+          const langEl = fieldEls().find((e) => !seen.has(e) && (B.isCustomDropdown(e) || e.tagName === "SELECT") && /language/i.test(questionContext(e)));
+          if (langEl) add(langEl, "Form language", "English", "Form language", langEl.tagName === "SELECT" ? "select" : "combo", ["English"]);
+          // Tick the checkbox matching the saved disability answer.
+          const dv = values[f.disabilityStatus];
+          if (dv && disChecks.length) {
+            const pick = pickDisabilityCheckbox(disChecks, dv, B.labelText);
+            if (pick) add(pick, "Disability status", "yes", "Disability status", "boolean");
+          }
+        }
+      }
 
       // ---- Work Experience blocks ----
       const exps = values.__experience || [];
@@ -201,8 +228,15 @@
       for (let i = 0; i < eduBlocks.length && i < edu.length; i++) {
         const ed = edu[i], blk = eduBlocks[i], n = i + 1;
         addIn(blk, r.edu.school, ed.school, `Edu ${n} · School`);
-        addIn(blk, r.edu.degree, ed.degree, `Edu ${n} · Degree`);
-        addIn(blk, r.edu.field, ed.field, `Edu ${n} · Field of study`);
+        // Resumes often store degree + field together ("B.S. in Computer Science").
+        // Split so the Degree control gets the credential and Field of Study gets
+        // the subject when a separate field value wasn't parsed.
+        const degVal = ed.degree ? String(ed.degree).replace(/\s+in\s+.*/i, "").trim() : ed.degree;
+        let fieldVal = ed.field;
+        if (!fieldVal && ed.degree && /\sin\s/i.test(ed.degree)) fieldVal = String(ed.degree).replace(/^.*?\sin\s+/i, "").trim();
+        const degEl = findField(r.edu.degree, blk);
+        if (degEl) add(degEl, `Edu ${n} · Degree`, degVal, `Edu ${n} · Degree`, kindOf(degEl), degreeAlts(degVal));
+        addIn(blk, r.edu.field, fieldVal, `Edu ${n} · Field of study`);
         const es = parseMonthYear(ed.startDate || ""), ee = parseMonthYear(ed.endDate || ed.gradDate || "");
         const eMonths = allInputsChain("month", blk), eYears = allInputsChain("year", blk);
         if (es.month && eMonths[0]) add(eMonths[0], `Edu ${n} · Start month`, String(es.month), `Edu ${n} · Start month`, "text");
@@ -289,21 +323,70 @@
     if (/^n(o)?$/.test(t)) return ["No", "N"];
     return [];
   }
+  // Expand a free-text degree ("BS", "Bachelor's", "Bachelor of Science") into the
+  // verbose option labels Workday tenants use ("Bachelor of Science (BS)"), tried in
+  // order by selectCustom until one matches the dropdown.
+  function degreeAlts(v) {
+    if (!v) return [];
+    const t = String(v).toLowerCase().replace(/[.’']/g, "");
+    const out = [];
+    const push = (...a) => a.forEach((x) => { if (!out.includes(x)) out.push(x); });
+    if (/\b(ph\s?d|doctor of philosophy|doctorate)\b/.test(t)) push("Doctor of Philosophy (PhD)", "Doctorate");
+    if (/\b(jd|juris doctor)\b/.test(t)) push("Juris Doctor (JD)");
+    if (/\b(md|doctor of medicine)\b/.test(t)) push("Doctor of Medicine (MD)");
+    if (/\b(mba|master.* of business)\b/.test(t)) push("Masters of Business Administration (MBA)", "Master of Business Administration");
+    if (/\b(ms|msc|master.* of science)\b/.test(t)) push("Masters of Science (MS)", "Master of Science");
+    if (/\b(ma|master.* of arts)\b/.test(t)) push("Masters of Arts (MA)", "Master of Arts");
+    if (/\bmaster/.test(t)) push("Masters of Science (MS)", "Masters of Arts (MA)", "Master");
+    if (/\b(bs|bsc|bachelor.* of science)\b/.test(t)) push("Bachelor of Science (BS)", "Bachelor of Science");
+    if (/\b(ba|bachelor.* of arts)\b/.test(t)) push("Bachelor of Arts (BA)", "Bachelor of Arts");
+    if (/\bbachelor/.test(t)) push("Bachelor of Science (BS)", "Bachelor of Arts (BA)", "Bachelor");
+    if (/\b(aa|associate.* of arts)\b/.test(t)) push("Associate of Arts (AA)");
+    if (/\b(as|associate.* of science)\b/.test(t)) push("Associate of Science (AS)");
+    if (/\bassociate/.test(t)) push("Associate of Science (AS)", "Associate of Arts (AA)");
+    if (/\b(ged|general equivalency)\b/.test(t)) push("General Equivalency Diploma (GED)");
+    if (/high school/.test(t)) push("High School (High School)", "High School");
+    return out;
+  }
+  // Today's date as MM/DD/YYYY for signature/date-signed fields.
+  function todayMDY() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()}`;
+  }
+  // Pick the disability self-ID checkbox matching the saved answer by intent —
+  // decline / yes / no — so "No, I do not have a disability…" never trips on the
+  // bare word "no" inside "I do not want to answer".
+  function pickDisabilityCheckbox(checks, val, labelOf) {
+    const t = String(val).toLowerCase();
+    const decline = t.includes("prefer") || t.includes("wish") || t.includes("not to answer") || t.includes("do not want") || t.includes("don't want");
+    const yes = !decline && (/^yes\b/.test(t) || (t.includes("have a disability") && !/do not|don't|not have/.test(t)));
+    const test = decline
+      ? (l) => /do ?n.t want|do ?n.t wish|not to answer|prefer not|decline/i.test(l)
+      : yes
+        ? (l) => /^yes\b|i have a disability|have had one/i.test(l)
+        : (l) => /^no\b|do not have|do ?n.t have|not have a disab|have not had/i.test(l);
+    return checks.find((cb) => test(String(labelOf(cb) || "").trim())) || null;
+  }
   function optionAlts(field, val) {
     const yn = yesNoAlts(val); if (yn.length) return yn;
     const FI = JAF.schema.FIELDS, t = String(val).toLowerCase(), alts = [];
     if (field === FI.veteranStatus) {
-      if (t.includes("not")) alts.push("I am not a protected veteran", "Not a Protected Veteran", "No");
-      else if (t.includes("identify") || t.includes("one or more")) alts.push("I identify as one or more of the classifications of a protected veteran", "Yes");
-      if (t.includes("prefer") || t.includes("wish")) alts.push("I don't wish to answer", "Prefer not to say");
+      // "not a veteran" / "not a protected veteran" / "no" all mean the non-veteran
+      // option. Put "I am not a veteran" FIRST so it wins before a substring like
+      // "not a protected veteran" can match "...JUST NOT A PROTECTED VETERAN".
+      if (t.includes("not") || /^no\b/.test(t)) alts.push("I am not a veteran", "I am not a protected veteran", "Not a Protected Veteran", "No");
+      else if (t.includes("identify") || t.includes("one or more") || t.includes("am a veteran") || /^yes\b/.test(t)) alts.push("I identify as one or more of the classifications of protected veterans listed above", "I identify as one or more of the classifications of a protected veteran", "Yes");
+      if (t.includes("prefer") || t.includes("wish") || t.includes("decline") || t.includes("not to answer")) alts.push("I do not wish to self-identify", "I don't wish to answer", "Prefer not to say");
     } else if (field === FI.disabilityStatus) {
       if (/^no\b/.test(t) || t.includes("do not have") || t.includes("don't have")) alts.push("No, I don't have a disability", "No", "I do not have a disability");
       else if (/^yes\b/.test(t) || t.includes("have a disability")) alts.push("Yes, I have a disability", "Yes");
       if (t.includes("prefer") || t.includes("wish") || t.includes("not to answer")) alts.push("I do not wish to answer", "Prefer not to say");
     } else if (field === FI.ethnicity) {
-      if (t === "yes" || t.includes("hispanic")) alts.push("Hispanic or Latino", "Yes");
-      else if (t === "no") alts.push("Not Hispanic or Latino", "No");
-      if (t.includes("prefer")) alts.push("Prefer not to say", "Decline to self identify");
+      // Negative FIRST: "Not Hispanic or Latino" must not trip the "hispanic" test.
+      if (/^no\b/.test(t) || t.includes("not hispanic") || t.includes("not latino") || t === "false") alts.push("No", "Not Hispanic or Latino");
+      else if (/^yes\b/.test(t) || t.includes("hispanic") || t.includes("latino") || t === "true") alts.push("Yes", "Hispanic or Latino");
+      if (t.includes("prefer") || t.includes("wish") || t.includes("decline")) alts.push("Prefer not to say", "Decline to self identify");
     }
     return alts;
   }
@@ -343,12 +426,21 @@
     // 2) the button text itself names the section ("Add Education", "Add Another Degree")
     b = btns.find((x) => isAdd(x) && (textRe.test(btnText(x)) || /another/i.test(btnText(x)) && textRe.test(autoChain(x))));
     if (b) return b;
-    // 3) an Add button inside the section container
-    const section = sectionContainer(cfg);
-    if (section) { b = btns.find((x) => section.contains(x) && isAdd(x)); if (b) return b; }
-    // 4) an Add button whose nearest preceding heading names the section
+    // 3) an Add button whose nearest preceding heading names the section. This is
+    //    the reliable signal when every section's Add shares a generic id+text
+    //    (Workday: data-automation-id="add-button", text just "Add"). It must run
+    //    BEFORE the container strategy, which otherwise resolves every section to
+    //    the first page-level Add button (e.g. Education -> Work Experience's Add).
     b = btns.find((x) => isAdd(x) && nearHeading(x, textRe, excludeRe));
     if (b) return b;
+    // 4) an Add button inside the section container — but only if that container
+    //    holds EXACTLY ONE Add button. A container holding several means we
+    //    overshot to a common ancestor and can't tell the sections apart.
+    const section = sectionContainer(cfg);
+    if (section) {
+      const inside = btns.filter((x) => section.contains(x) && isAdd(x));
+      if (inside.length === 1) return inside[0];
+    }
     // 5) last resort: a single lone "Add" button when this is the only addable section visible
     const lone = btns.filter((x) => /^add\b/i.test(btnText(x)));
     if (lone.length === 1 && !(excludeRe && excludeRe.test(btnText(lone[0])))) return lone[0];
@@ -362,4 +454,7 @@
   }
 
   JAF.adapters.push(workday);
+
+  // Exposed for unit tests only (section Add-button resolution).
+  JAF.__wdInternals = { addButtonFor, sectionContainer, nearHeading };
 })();

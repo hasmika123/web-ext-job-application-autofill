@@ -131,7 +131,9 @@ async function doFill(resumes, bio) {
   let file = null;
   if (resume.hasFile) {
     const blob = await S.getResumeFile(resume.id);
-    if (blob) file = { name: resume.fileName || "resume.pdf", type: blob.type || "application/pdf", base64: await fileToBase64(blob) };
+    // Upload under a generic firstname_lastname_resume.<ext> name (this attachment
+    // only); the stored resume keeps its original fileName everywhere else.
+    if (blob) file = { name: SCH.uploadResumeName(bio, resume.fileName), type: blob.type || "application/pdf", base64: await fileToBase64(blob) };
   }
 
   const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false } }, frameId);

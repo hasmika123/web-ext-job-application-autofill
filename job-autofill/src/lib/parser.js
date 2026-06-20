@@ -429,7 +429,9 @@
       }
       sections[cur].push(line);
     }
-    const skills = sections.skills
+    // Route skills through the shared splitter so multi-skill blobs become separate
+    // skills (handles ; | tabs / & "and" beyond the legacy comma/bullet split).
+    const skills = ((JAF.schema && JAF.schema.splitSkills) ? JAF.schema.splitSkills(sections.skills) : sections.skills)
       .join(", ")
       .split(/[,•|·\u2022\n]|\s•\s|\s\/\s/)
       .map((s) => s.replace(/^[-–•\s]+/, "").trim())
