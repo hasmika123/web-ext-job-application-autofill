@@ -5,17 +5,31 @@ const P = window.JAF.parser;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
+const YESNO = ["Yes", "No"];
+const US_STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","District of Columbia","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"];
+const COUNTRIES = ["United States","Canada","United Kingdom","Ireland","Australia","New Zealand","India","Germany","France","Netherlands","Spain","Italy","Switzerland","Sweden","Singapore","Japan","China","Brazil","Mexico","South Africa","Nigeria","Other"];
+const GENDERS = ["Male", "Female", "Non-binary", "Prefer not to say"];
+const RACES = ["American Indian or Alaska Native","Asian","Black or African American","Hispanic or Latino","Native Hawaiian or Other Pacific Islander","White","Two or More Races","Prefer not to say"];
+const VETERAN = ["I am not a protected veteran","I identify as one or more classifications of a protected veteran","Prefer not to say"];
+const DISABILITY = ["Yes, I have a disability (or previously had one)","No, I do not have a disability","Prefer not to answer"];
+
+// descriptor: [key, label, kind, full, options]  kind: text|email|tel|select|datalist
 const BIO_FIELDS = [
   ["firstName", "First name"], ["lastName", "Last name"], ["preferredName", "Preferred name"],
   ["email", "Email", "email"], ["phone", "Phone", "tel"],
   ["addressLine1", "Address", "text", true], ["addressLine2", "Address line 2"],
-  ["city", "City"], ["state", "State / Province"], ["postalCode", "Postal code"], ["country", "Country"],
+  ["city", "City"], ["state", "State / Province", "datalist", false, US_STATES],
+  ["postalCode", "Postal code"], ["country", "Country", "datalist", false, COUNTRIES],
   ["linkedin", "LinkedIn URL"], ["github", "GitHub URL"], ["website", "Website / Portfolio"],
-  ["authorizedToWork", "Authorized to work? (Yes/No)"], ["requireSponsorship", "Need sponsorship? (Yes/No)"],
+  ["authorizedToWork", "Authorized to work?", "select", false, YESNO],
+  ["requireSponsorship", "Need sponsorship?", "select", false, YESNO],
 ];
 const EEO_FIELDS = [
-  ["gender", "Gender"], ["ethnicity", "Hispanic / Latino? (Yes/No)"], ["race", "Race"],
-  ["veteranStatus", "Veteran status"], ["disabilityStatus", "Disability status"],
+  ["gender", "Gender", "select", false, GENDERS],
+  ["ethnicity", "Hispanic / Latino?", "select", false, ["Yes", "No", "Prefer not to say"]],
+  ["race", "Race", "select", false, RACES],
+  ["veteranStatus", "Veteran status", "select", false, VETERAN],
+  ["disabilityStatus", "Disability status", "select", false, DISABILITY],
 ];
 
 /* ---------- tabs ---------- */
@@ -27,12 +41,43 @@ $$(".navbtn").forEach((b) => b.onclick = () => {
 });
 
 /* ---------- bio ---------- */
-function fieldHtml([key, label, type, full]) {
-  return `<div class="field ${full ? "full" : ""}">
-    <label for="bio_${key}">${label}</label>
-    <input class="input" id="bio_${key}" type="${type || "text"}" />
-  </div>`;
+function fieldHtml([key, label, kind, full, options]) {
+  const id = "bio_" + key;
+  const cls = `field ${full ? "full" : ""}`;
+  if (kind === "select") {
+    const opts = ['<option value=""></option>'].concat((options || []).map((o) => `<option value="${esc(o)}">${esc(o)}</option>`)).join("");
+    return `<div class="${cls}"><label for="${id}">${label}</label><select class="input" id="${id}">${opts}</select></div>`;
+  }
+  if (kind === "datalist") {
+    const lid = id + "_list";
+    const opts = (options || []).map((o) => `<option value="${esc(o)}"></option>`).join("");
+    return `<div class="${cls}"><label for="${id}">${label}</label><input class="input" id="${id}" list="${lid}" autocomplete="off" /><datalist id="${lid}">${opts}</datalist></div>`;
+  }
+  return `<div class="${cls}"><label for="${id}">${label}</label><input class="input" id="${id}" type="${kind || "text"}" /></div>`;
 }
+/* ---------- date controls (Month + Year dropdowns) ---------- */
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function parseYM(str) {
+  if (!str) return { y: "", m: "" };
+  const s = String(str);
+  let mm = s.match(/(\d{4})[-\/.](\d{1,2})/); if (mm) return { y: mm[1], m: String(+mm[2]) };
+  mm = s.match(/(\d{1,2})[-\/.](\d{4})/); if (mm) return { y: mm[2], m: String(+mm[1]) };
+  const mon = s.toLowerCase().match(/jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/);
+  const yr = (s.match(/\b(19|20)\d{2}\b/) || [])[0] || "";
+  return { y: yr, m: mon ? String(MONTH_ABBR.findIndex((a) => a.toLowerCase() === mon[0]) + 1) : "" };
+}
+function monthOptions(sel) { return ['<option value=""></option>'].concat(MONTH_ABBR.map((nm, i) => `<option value="${i + 1}" ${String(i + 1) === String(sel) ? "selected" : ""}>${nm}</option>`)).join(""); }
+function yearOptions(sel) { let o = '<option value=""></option>'; const now = new Date().getFullYear(); for (let y = now + 8; y >= 1965; y--) o += `<option value="${y}" ${String(y) === String(sel) ? "selected" : ""}>${y}</option>`; return o; }
+function dateControl(prefix, value, withMonth, disabled) {
+  const { y, m } = parseYM(value); const dis = disabled ? "disabled" : "";
+  return `<div class="daterow">${withMonth ? `<select class="input dsel ${prefix}-m" ${dis}>${monthOptions(m)}</select>` : ""}<select class="input dsel ${prefix}-y" ${dis}>${yearOptions(y)}</select></div>`;
+}
+function ymVal(node, prefix, withMonth) {
+  const ye = node.querySelector("." + prefix + "-y"); const y = ye ? ye.value : "";
+  const me = withMonth ? node.querySelector("." + prefix + "-m") : null; const m = me ? me.value : "";
+  if (!y) return ""; return m ? `${y}-${String(m).padStart(2, "0")}` : y;
+}
+
 async function renderBio() {
   $("#bio-grid").innerHTML = BIO_FIELDS.map(fieldHtml).join("");
   $("#eeo-grid").innerHTML = EEO_FIELDS.map(fieldHtml).join("");
@@ -176,10 +221,11 @@ async function openEditor(id) {
         <div class="field"><label>Title</label><input class="input e-title" value="${esc(e.title || "")}"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>Start</label><input class="input e-start" value="${esc(e.startDate || "")}"></div>
-        <div class="field"><label>End</label><input class="input e-end" value="${esc(e.endDate || "")}"></div>
+        <div class="field"><label>Start</label>${dateControl("e-start", e.startDate, true)}</div>
+        <div class="field"><label>End</label>${dateControl("e-end", e.endDate, true, e.current)}</div>
       </div>
-      <div class="field"><label>Bullets (one per line)</label><textarea class="e-bullets">${esc((e.bullets || []).join("\n"))}</textarea></div>
+      <label class="check2"><input type="checkbox" class="e-current" ${e.current ? "checked" : ""} /> I currently work here</label>
+      <div class="field"><label>Bullets (one per line)</label><textarea class="e-bullets">${esc((e.bullets || []).map((b) => "• " + b).join("\n"))}</textarea></div>
     </div>`;
   const eduHtml = (e, i) => `
     <div class="entry" data-edu="${i}">
@@ -190,7 +236,7 @@ async function openEditor(id) {
       </div>
       <div class="row2">
         <div class="field"><label>Field</label><input class="input d-field" value="${esc(e.field || "")}"></div>
-        <div class="field"><label>Year</label><input class="input d-end" value="${esc(e.endDate || "")}"></div>
+        <div class="field"><label>Year</label>${dateControl("d-end", e.endDate, false)}</div>
       </div>
     </div>`;
 
@@ -243,20 +289,24 @@ async function openEditor(id) {
   $("#d-cancel").onclick = () => host.classList.add("hidden");
 
   // live add/remove (re-bind by reopening for simplicity)
+  const STRIP = (s) => s.replace(/^\s*(?:[-–—•*▪◦‣·●○▸►▹◆◇∙⁃・]\s*|\d{1,2}[.)]\s+)/, "").trim();
   const collect = () => {
-    const exps = $$("#exp-wrap .entry").map((node) => ({
-      company: node.querySelector(".e-company").value.trim(),
-      title: node.querySelector(".e-title").value.trim(),
-      startDate: node.querySelector(".e-start").value.trim(),
-      endDate: node.querySelector(".e-end").value.trim(),
-      current: /present|current/i.test(node.querySelector(".e-end").value),
-      bullets: node.querySelector(".e-bullets").value.split("\n").map((s) => s.trim()).filter(Boolean),
-    }));
+    const exps = $$("#exp-wrap .entry").map((node) => {
+      const current = !!(node.querySelector(".e-current") && node.querySelector(".e-current").checked);
+      return {
+        company: node.querySelector(".e-company").value.trim(),
+        title: node.querySelector(".e-title").value.trim(),
+        startDate: ymVal(node, "e-start", true),
+        endDate: current ? "" : ymVal(node, "e-end", true),
+        current,
+        bullets: node.querySelector(".e-bullets").value.split("\n").map(STRIP).filter(Boolean),
+      };
+    });
     const edus = $$("#edu-wrap .entry").map((node) => ({
       school: node.querySelector(".d-school").value.trim(),
       degree: node.querySelector(".d-degree").value.trim(),
       field: node.querySelector(".d-field").value.trim(),
-      endDate: node.querySelector(".d-end").value.trim(),
+      endDate: ymVal(node, "d-end", false),
     }));
     const langs = $$("#lang-wrap .entry").map((node) => ({
       name: node.querySelector(".l-name").value.trim(),
@@ -264,10 +314,16 @@ async function openEditor(id) {
     })).filter((l) => l.name);
     const projs = $$("#proj-wrap .entry").map((node) => ({
       name: node.querySelector(".p-name").value.trim(),
-      bullets: node.querySelector(".p-bullets").value.split("\n").map((s) => s.trim()).filter(Boolean),
+      bullets: node.querySelector(".p-bullets").value.split("\n").map(STRIP).filter(Boolean),
     })).filter((p) => p.name);
     return { exps, edus, langs, projs };
   };
+
+  // current-role checkbox disables the End date dropdowns
+  $$(".e-current").forEach((cb) => cb.onchange = () => {
+    const entry = cb.closest(".entry");
+    entry.querySelectorAll(".e-end-m, .e-end-y").forEach((sel) => { sel.disabled = cb.checked; if (cb.checked) sel.value = ""; });
+  });
 
   const persistAndReopen = async () => {
     const { exps, edus, langs, projs } = collect();

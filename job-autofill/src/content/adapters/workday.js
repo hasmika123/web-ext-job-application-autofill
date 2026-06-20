@@ -140,7 +140,7 @@
         addIn(blk, r.exp.title, exp.title, `Exp ${n} · Title`);
         addIn(blk, r.exp.company, exp.company, `Exp ${n} · Company`);
         addIn(blk, r.exp.location, exp.location, `Exp ${n} · Location`);
-        const desc = Array.isArray(exp.bullets) && exp.bullets.length ? exp.bullets.join("\n") : (exp.description || "");
+        const desc = Array.isArray(exp.bullets) && exp.bullets.length ? exp.bullets.map((b) => "• " + b).join("\n") : (exp.description || "");
         addIn(blk, r.exp.description, desc, `Exp ${n} · Description`);
         const cur = Array.from(blk.querySelectorAll('input[type="checkbox"]'))
           .find((el) => (r.exp.currentText || ["current"]).some((k) => autoChain(el).includes(k) || (B.labelText(el) || "").toLowerCase().includes(k)));
