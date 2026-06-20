@@ -175,6 +175,9 @@
 
   function elKind(el) {
     if (el.tagName === "SELECT") return "select";
+    // Explicit custom dropdowns (Workday prompts, react-select, listbox combos)
+    // are driven by selectCustom rather than typed into.
+    if (el.matches && el.matches('[aria-haspopup="listbox"],[role="combobox"][aria-controls],[role="combobox"][aria-expanded]')) return "combo";
     if (el.tagName === "TEXTAREA" || el.isContentEditable) return "textarea";
     if (el.type === "radio" || el.type === "checkbox") return "boolean";
     if (el.type === "file") return "file";
@@ -241,9 +244,109 @@
     return matches.length ? matches[matches.length - 1] : null;
   }
 
+  /* ---------- custom dropdowns (Workday prompts, react-select, etc.) ----------
+   * Native <select> is handled by selectOption. These are the JS widgets: a
+   * trigger (button or combobox input) that opens a popup of [role=option]s you
+   * must click. We open it, optionally type to filter, then click the best match.
+   * Best-effort and tolerant: returns false (and closes the popup) on no match,
+   * so the field can be reported instead of silently left wrong.
+   */
+  const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+  function waitFor(test, timeout) {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      (function poll() {
+        let ok = false; try { ok = test(); } catch (e) {}
+        if (ok) return resolve(true);
+        if (Date.now() - t0 >= timeout) return resolve(false);
+        setTimeout(poll, 110);
+      })();
+    });
+  }
+  function realClick(el) {
+    const o = { bubbles: true, cancelable: true, view: window };
+    try { el.focus && el.focus(); } catch (e) {}
+    for (const t of ["pointerdown", "mousedown", "mouseup", "click"]) {
+      try { el.dispatchEvent(new MouseEvent(t, o)); } catch (e) { if (t === "click" && el.click) el.click(); }
+    }
+  }
+  function visibleOptions() {
+    const sel = '[role="option"],[data-automation-id="promptOption"],[data-automation-id="menuItem"],li[role="option"]';
+    return Array.from(document.querySelectorAll(sel)).filter((o) => isVisible(o) && (o.textContent || "").trim());
+  }
+  function findSearchBox() {
+    const sel = 'input[data-automation-id="searchBox"],input[role="combobox"],[role="combobox"] input,input[type="search"],[role="dialog"] input';
+    return Array.from(document.querySelectorAll(sel)).find(isVisible) || null;
+  }
+  function bestOption(options, value) {
+    const norm = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
+    const w = norm(value);
+    if (!w) return null;
+    let starts = null, incl = null;
+    for (const o of options) {
+      const t = norm(o.innerText || o.textContent);
+      if (!t) continue;
+      if (t === w) return o;
+      if (!starts && t.startsWith(w)) starts = o;
+      if (!incl && (t.includes(w) || w.includes(t))) incl = o;
+    }
+    return starts || incl || null;
+  }
+  function isCustomDropdown(el) {
+    if (!el) return false;
+    if (el.tagName === "SELECT") return false; // native handled elsewhere
+    if (el.matches && el.matches('[aria-haspopup="listbox"],[role="combobox"],[role="listbox"]')) return true;
+    if (el.tagName === "BUTTON" && /select one|select\.{3}|select an?|choose/i.test(el.textContent || "")) return true;
+    return false;
+  }
+  async function selectCustom(trigger, value) {
+    if (!trigger || value == null || value === "") return false;
+    const want = String(value).trim();
+    try { trigger.scrollIntoView({ block: "center", inline: "nearest" }); } catch (e) {}
+
+    if (trigger.tagName === "INPUT") {
+      // react-select / combobox input: focus, type to filter, pick.
+      trigger.focus();
+      realClick(trigger);
+      setNativeValue(trigger, want);
+      fire(trigger, "input");
+      await delay(400);
+    } else {
+      realClick(trigger);            // Workday button-style prompt
+      await delay(150);
+      await waitFor(() => visibleOptions().length > 0, 1400);
+      const search = findSearchBox();
+      if (search) {
+        search.focus();
+        setNativeValue(search, want);
+        fire(search, "input"); fire(search, "keyup");
+        await delay(450);
+      }
+    }
+    await waitFor(() => visibleOptions().length > 0, 600);
+    const opt = bestOption(visibleOptions(), want);
+    if (opt) { realClick(opt); await delay(160); return true; }
+    // nothing matched → close popup so it doesn't block later fields
+    try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {}
+    return false;
+  }
+
+  // Async apply: drives combos; everything else delegates to the sync applyItem.
+  async function applyItemAsync(item) {
+    if (!item) return false;
+    if (item.kind === "combo") return await selectCustom(item.el, item.value);
+    if (item.kind === "combo-multi") {
+      const vals = Array.isArray(item.value) ? item.value : [item.value];
+      let any = false;
+      for (const v of vals) { const ok = await selectCustom(item.el, v); any = any || ok; await delay(140); }
+      return any;
+    }
+    return applyItem(item, item.value);
+  }
+
   JAF.adapterBase = {
     setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText,
-    cssEscape, isFillable, scanGeneric, elKind, applyItem, attachFile, humanize,
-    isVisible, findNextButton,
+    cssEscape, isFillable, scanGeneric, elKind, applyItem, applyItemAsync, attachFile, humanize,
+    isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
   };
 })();

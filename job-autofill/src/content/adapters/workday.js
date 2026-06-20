@@ -1,22 +1,20 @@
 /* workday.js — Workday (*.myworkdayjobs.com / *.myworkday.com). The hardest ATS.
  *
- *  Workday gives inputs meaningless ids (input-15, GUIDs) and hides the real
- *  field meaning in data-automation-id on the input OR a wrapping element.
- *  Those tokens vary between tenants, so we match the automation-id CHAIN by
- *  substring rather than by exact id, and lean on base.scanGeneric as backup.
+ *  Matching: Workday gives inputs meaningless ids and hides meaning in
+ *  data-automation-id on the input or a wrapping element, varying by tenant —
+ *  so we match the automation-id CHAIN by substring, and fall back to scanGeneric.
  *
- *  This adapter covers two very different Workday steps:
- *   1. "My Information"  — name / email / phone / address (plain text inputs).
- *   2. "My Experience"   — repeating Work Experience blocks (title, company,
- *      location, dates, description), plus Websites, Education and Skills.
+ *  Covers: My Information (name/contact/address) and My Experience (repeating
+ *  Work Experience, Education, Languages and Websites blocks, plus Skills).
  *
- *  What we DON'T drive: custom dropdowns / typeaheads (country, state,
- *  phone-type, degree, field-of-study, skills). Typing into a Workday typeahead
- *  does NOT commit a selection — the listbox must be clicked — so we flag those
- *  as "needs manual selection" with the value to enter, instead of silently
- *  filling text that won't stick.
+ *  Repeating sections: ensureRows() clicks each section's "Add" button to create
+ *  enough blocks for the resume before filling. Dropdowns (country, state,
+ *  degree, language, proficiency, skills) are driven by base.selectCustom — it
+ *  opens the prompt, filters, and clicks the option. If a value can't be matched
+ *  the field is reported so you can set it by hand. Free-text fields (titles,
+ *  company, role description, URLs, dates) fill directly.
  *
- *  The flow is multi-step; we fill the current step. Re-run after advancing.
+ *  Multi-step: fills the current step; re-run after advancing.
  */
 (function () {
   const JAF = (window.JAF = window.JAF || {});
@@ -24,10 +22,8 @@
   const B = JAF.adapterBase;
   const F = () => JAF.schema.FIELDS;
 
-  // data-automation-id chain (self + ancestors), lowercased.
   function autoChain(el) {
-    const ids = [];
-    let n = el, hops = 0;
+    const ids = []; let n = el, hops = 0;
     while (n && n.getAttribute && hops < 6) {
       const a = n.getAttribute("data-automation-id");
       if (a) ids.push(a);
@@ -35,7 +31,6 @@
     }
     return ids.join(" ").toLowerCase();
   }
-
   function textInputs(root) {
     return Array.from((root || document).querySelectorAll("input, textarea")).filter((el) => {
       if (!B.isFillable(el)) return false;
@@ -43,15 +38,25 @@
       return t === "text" || t === "email" || t === "tel" || t === "url" || t === "number" || el.tagName === "TEXTAREA";
     });
   }
+  // inputs/textareas + dropdown triggers (for fields that may be either), deduped
+  function fieldEls(root) {
+    const trigs = Array.from((root || document).querySelectorAll(
+      '[role="combobox"],[aria-haspopup="listbox"],button[aria-haspopup],[role="button"][aria-haspopup]'
+    )).filter(B.isVisible);
+    const seen = new Set();
+    const out = [];
+    for (const el of textInputs(root).concat(trigs)) { if (!seen.has(el)) { seen.add(el); out.push(el); } }
+    return out;
+  }
   function findInput(test, root) { return textInputs(root).find((el) => test(autoChain(el), el)) || null; }
   function allInputs(test, root) { return textInputs(root).filter((el) => test(autoChain(el), el)); }
+  function findField(test, root) { return fieldEls(root).find((el) => test(autoChain(el), el)) || null; }
 
-  // "Jan 2020" / "2020-01" / "01/2020" / "2020" -> {month:1-12|null, year:'YYYY'|null}
   const MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
   function parseMonthYear(s) {
     if (!s) return { month: null, year: null };
     s = String(s).toLowerCase();
-    let year = (s.match(/\b(19|20)\d{2}\b/) || [])[0] || null;
+    const year = (s.match(/\b(19|20)\d{2}\b/) || [])[0] || null;
     let month = null;
     const mName = MONTHS.findIndex((m) => s.includes(m));
     if (mName >= 0) month = mName + 1;
@@ -60,6 +65,38 @@
       if (mNum) month = parseInt(mNum[1], 10);
     }
     return { month, year };
+  }
+
+  // ---- entry-block helpers (generic across repeating sections) ----
+  function blockOf(anchor, siblingKeywords) {
+    let blk = anchor.parentElement, hops = 0;
+    while (blk && hops < 6) {
+      const has = Array.from(blk.querySelectorAll('input,textarea,button,[role="combobox"]'))
+        .some((el) => { const c = autoChain(el); return el !== anchor && siblingKeywords.some((k) => c.includes(k)); });
+      if (has) break;
+      blk = blk.parentElement; hops++;
+    }
+    return blk || anchor.parentElement || document;
+  }
+  function experienceBlocks() {
+    return fieldEls().filter((e) => { const c = autoChain(e); return c.includes("jobtitle") || c.includes("job title"); })
+      .map((a) => blockOf(a, ["company", "description", "location", "employer"]));
+  }
+  function educationBlocks() {
+    return fieldEls().filter((e) => { const c = autoChain(e); return c.includes("school") || c.includes("institution") || c.includes("university"); })
+      .map((a) => blockOf(a, ["degree", "fieldofstudy", "field of study", "gradyear"]));
+  }
+  function languageBlocks() {
+    return fieldEls().filter((e) => { const c = autoChain(e); return c.includes("language") && !c.includes("proficiency"); })
+      .map((a) => blockOf(a, ["proficiency", "ability", "fluency", "comprehension"]));
+  }
+  function webInputs() { return allInputs((c) => c.includes("webaddress") || c.includes("web address") || c.includes("websiteurl")); }
+
+  function kindOf(el) {
+    if (el.tagName === "SELECT") return "select";
+    if (B.isCustomDropdown(el)) return "combo";
+    if (el.tagName === "TEXTAREA") return "textarea";
+    return "text";
   }
 
   const workday = {
@@ -75,12 +112,13 @@
       const items = [];
       const seen = new Set();
       const add = (el, field, value, label, kind) => {
-        if (!el || seen.has(el) || value === undefined || value === "") return;
+        if (!el || seen.has(el) || value === undefined || value === null || value === "") return;
         seen.add(el);
-        items.push({ el, field, value, label: label || autoChain(el) || field, kind: kind || B.elKind(el) });
+        items.push({ el, field, value, label: label || field, kind: kind || kindOf(el) });
       };
+      const addIn = (blk, test, value, label) => { const el = findField(test, blk); add(el, label, value, label); };
 
-      // ---- Step 1: My Information (bio) ----
+      // ---- My Information (bio) ----
       add(findInput((c) => c.includes("firstname") && c.includes("preferred")), f.preferredName, values[f.preferredName]);
       add(findInput((c) => c.includes("firstname") && !c.includes("preferred")), f.firstName, values[f.firstName]);
       add(findInput((c) => c.includes("lastname") && !c.includes("preferred")), f.lastName, values[f.lastName]);
@@ -90,188 +128,138 @@
       add(findInput((c) => c.includes("addressline2") || c.includes("addline2") || (c.includes("address") && c.includes("line 2"))), f.addressLine2, values[f.addressLine2]);
       add(findInput((c) => c.includes("city") || c.includes("municipality")), f.city, values[f.city]);
       add(findInput((c) => c.includes("postal") || c.includes("zip")), f.postalCode, values[f.postalCode]);
+      // Country / State — dropdowns we now drive (country first so state can load).
+      add(findField((c, e) => c.includes("countryregion") && !c.includes("subdivision") && B.isCustomDropdown(e)), f.country, values[f.country], "Country", "combo");
+      add(findField((c, e) => (c.includes("subdivision") || c.includes("countryregionregion")) && B.isCustomDropdown(e)), f.state, values[f.state], "State / Province", "combo");
 
-      // ---- Step 2: My Experience — Work Experience blocks ----
+      // ---- Work Experience blocks ----
       const exps = values.__experience || [];
-      const blocks = experienceBlocks();
-      for (let i = 0; i < blocks.length; i++) {
-        const exp = exps[i];
-        if (!exp) break;
-        const blk = blocks[i];
-        const n = i + 1;
-        add(findInput((c) => c.includes("jobtitle") || c.includes("job title"), blk), `Exp ${n} · Title`, exp.title, `Exp ${n} · Title`, "text");
-        add(findInput((c) => c.includes("company") || c.includes("employer"), blk), `Exp ${n} · Company`, exp.company, `Exp ${n} · Company`, "text");
-        add(findInput((c) => c.includes("location"), blk), `Exp ${n} · Location`, exp.location, `Exp ${n} · Location`, "text");
+      const expBlocks = experienceBlocks();
+      for (let i = 0; i < expBlocks.length && i < exps.length; i++) {
+        const exp = exps[i], blk = expBlocks[i], n = i + 1;
+        addIn(blk, (c) => c.includes("jobtitle") || c.includes("job title"), exp.title, `Exp ${n} · Title`);
+        addIn(blk, (c) => c.includes("company") || c.includes("employer"), exp.company, `Exp ${n} · Company`);
+        addIn(blk, (c) => c.includes("location"), exp.location, `Exp ${n} · Location`);
         const desc = Array.isArray(exp.bullets) && exp.bullets.length ? exp.bullets.join("\n") : (exp.description || "");
-        add(findInput((c) => c.includes("roledescription") || c.includes("description"), blk), `Exp ${n} · Description`, desc, `Exp ${n} · Description`, "textarea");
-        // "I currently work here" checkbox
+        addIn(blk, (c) => c.includes("roledescription") || c.includes("description"), desc, `Exp ${n} · Description`);
         const cur = Array.from(blk.querySelectorAll('input[type="checkbox"]'))
-          .find((el) => autoChain(el).includes("current") || B.labelText(el).toLowerCase().includes("current"));
+          .find((el) => autoChain(el).includes("current") || (B.labelText(el) || "").toLowerCase().includes("current"));
         if (cur && exp.current) add(cur, `Exp ${n} · Current role`, "yes", `Exp ${n} · Current role`, "boolean");
-        // dates (split month / year spinbutton inputs)
-        const start = parseMonthYear(exp.startDate);
-        const end = parseMonthYear(exp.endDate);
-        const dateInputs = (chainHas) => allInputs((c) => c.includes(chainHas), blk);
-        const monthInputs = dateInputs("month");
-        const yearInputs = dateInputs("year");
-        // first month/year = start, second = end (Workday renders From then To)
-        if (start.month && monthInputs[0]) add(monthInputs[0], `Exp ${n} · Start month`, String(start.month), `Exp ${n} · Start month`, "text");
-        if (start.year && yearInputs[0]) add(yearInputs[0], `Exp ${n} · Start year`, start.year, `Exp ${n} · Start year`, "text");
-        if (!exp.current && end.month && monthInputs[1]) add(monthInputs[1], `Exp ${n} · End month`, String(end.month), `Exp ${n} · End month`, "text");
-        if (!exp.current && end.year && yearInputs[1]) add(yearInputs[1], `Exp ${n} · End year`, end.year, `Exp ${n} · End year`, "text");
+        const s = parseMonthYear(exp.startDate), e = parseMonthYear(exp.endDate);
+        const months = allInputs((c) => c.includes("month"), blk), years = allInputs((c) => c.includes("year"), blk);
+        if (s.month && months[0]) add(months[0], `Exp ${n} · Start month`, String(s.month), `Exp ${n} · Start month`, "text");
+        if (s.year && years[0]) add(years[0], `Exp ${n} · Start year`, s.year, `Exp ${n} · Start year`, "text");
+        if (!exp.current && e.month && months[1]) add(months[1], `Exp ${n} · End month`, String(e.month), `Exp ${n} · End month`, "text");
+        if (!exp.current && e.year && years[1]) add(years[1], `Exp ${n} · End year`, e.year, `Exp ${n} · End year`, "text");
       }
-      // more resume roles than blocks on the page → tell the user to add rows.
-      if (exps.length > blocks.length && (blocks.length > 0 || hasSection(/work experience/i, "workexperience"))) {
-        items.push({ el: null, field: "More work experience", value:
-          `${exps.length - blocks.length} more role(s) in this resume — click "Add Another" in Work Experience, then re-run Dossier.`,
-          kind: "info", label: "More work experience" });
-      }
+      addMoreNote(items, exps.length, expBlocks.length, "Work Experience", /work experience/i, "workexperience");
 
-      // ---- Websites / social URLs (plain text inputs) ----
-      const webEls = allInputs((c) => c.includes("webaddress") || c.includes("website") || c.includes("url"));
+      // ---- Education blocks (school/degree/field often dropdowns) ----
+      const edu = values.__education || [];
+      const eduBlocks = educationBlocks();
+      for (let i = 0; i < eduBlocks.length && i < edu.length; i++) {
+        const ed = edu[i], blk = eduBlocks[i], n = i + 1;
+        addIn(blk, (c) => c.includes("school") || c.includes("institution") || c.includes("university"), ed.school, `Edu ${n} · School`);
+        addIn(blk, (c) => c.includes("degree"), ed.degree, `Edu ${n} · Degree`);
+        addIn(blk, (c) => c.includes("fieldofstudy") || c.includes("field of study") || c.includes("major"), ed.field, `Edu ${n} · Field of study`);
+        const ey = parseMonthYear(ed.endDate || ed.gradDate || "");
+        const yrs = allInputs((c) => c.includes("year"), blk);
+        if (ey.year && yrs[0]) add(yrs[0], `Edu ${n} · Year`, ey.year, `Edu ${n} · Year`, "text");
+      }
+      addMoreNote(items, edu.length, eduBlocks.length, "Education", /education/i, "education");
+
+      // ---- Languages (name + proficiency dropdowns) ----
+      const langs = values.__languages || [];
+      const langBlocks = languageBlocks();
+      for (let i = 0; i < langBlocks.length && i < langs.length; i++) {
+        const lg = langs[i], blk = langBlocks[i], n = i + 1;
+        addIn(blk, (c) => c.includes("language") && !c.includes("proficiency"), lg.name || lg, `Lang ${n} · Language`);
+        if (lg.proficiency) addIn(blk, (c) => c.includes("proficiency") || c.includes("ability") || c.includes("fluency"), lg.proficiency, `Lang ${n} · Proficiency`);
+      }
+      addMoreNote(items, langs.length, langBlocks.length, "Languages", /languages?/i, "language");
+
+      // ---- Websites / social URLs (plain text) ----
       const links = [values[f.linkedin], values[f.github], values[f.website]].filter(Boolean);
-      // only auto-assign by position when the inputs are unlabeled generic web fields
       let li = 0;
-      for (const el of webEls) {
-        const lbl = B.labelText(el).toLowerCase();
+      for (const el of webInputs()) {
+        const lbl = (B.labelText(el) || "").toLowerCase();
         if (lbl.includes("linkedin") && values[f.linkedin]) { add(el, f.linkedin, values[f.linkedin]); continue; }
         if (lbl.includes("github") && values[f.github]) { add(el, f.github, values[f.github]); continue; }
         if ((lbl.includes("portfolio") || lbl.includes("website") || lbl.includes("personal")) && values[f.website]) { add(el, f.website, values[f.website]); continue; }
         if (li < links.length) { add(el, "Website", links[li], `Website ${li + 1}`, "text"); li++; }
       }
 
-      // ---- Custom widgets we can't drive: flag manual with the value ----
-      // Country / State on My Information.
-      pushManualWidget(items, values, f.country, "Country", (c) => c.includes("countryregion") && !c.includes("subdivision"));
-      pushManualWidget(items, values, f.state, "State / Province", (c) => c.includes("subdivision") || c.includes("countryregionregion"));
-      // Skills typeahead.
+      // ---- Skills (multiselect typeahead) ----
       const skillsArr = values.__skillsArray || [];
-      if (skillsArr.length && hasSection(/skills/i, "skill")) {
-        items.push({ el: null, field: "Skills", value: skillsArr.slice(0, 30).join(", "), kind: "manual",
-          label: "Skills", note: "Workday skills field is a typeahead — type each and pick from the list." });
-      }
-      // Education (school / degree / field are typeaheads or dropdowns).
-      const edu = values.__education || [];
-      if (edu.length && hasSection(/education/i, "education")) {
-        edu.slice(0, 6).forEach((e, i) => {
-          const parts = [e.school, e.degree, e.field].filter(Boolean).join(" · ");
-          if (parts) items.push({ el: null, field: `Education ${i + 1}`, value: parts, kind: "manual",
-            label: `Education ${i + 1}`, note: "Workday education fields are dropdowns/typeaheads — enter these manually." });
-        });
-      }
+      const skillsEl = findField((c, e) => c.includes("skill") && (B.isCustomDropdown(e) || e.tagName === "INPUT"));
+      if (skillsEl && skillsArr.length) add(skillsEl, "Skills", skillsArr.slice(0, 20), "Skills", "combo-multi");
 
       return items;
     },
 
-    fileInput() {
-      // Resume upload uses a custom button; the underlying input is often hidden.
-      return document.querySelector('input[type="file"]');
-    },
+    fileInput() { return document.querySelector('input[type="file"]'); },
 
-    // Create enough Work Experience blocks for every resume role by clicking
-    // the section's "Add" button (waiting for each new block to render).
     async ensureRows(values) {
-      const need = (values.__experience || []).length;
-      if (!need) return;
-      let count = experienceBlocks().length;
-      let guard = 0;
-      while (count < need && guard < need + 3) {
-        const btn = addExperienceButton();
-        if (!btn || !B.isVisible(btn)) break;
-        btn.click();
-        await waitFor(() => experienceBlocks().length > count, 2500);
-        const now = experienceBlocks().length;
-        if (now <= count) break;       // didn't grow → stop, avoid looping
-        count = now; guard++;
+      const sections = [
+        { need: (values.__experience || []).length, count: () => experienceBlocks().length, auto: "workexperience", re: /work experience/i, excl: /address|education|skill|website|language|certification|referen/i },
+        { need: (values.__education || []).length, count: () => educationBlocks().length, auto: "education", re: /education/i, excl: /address|experience|skill|website|language|certification|referen/i },
+        { need: (values.__languages || []).length, count: () => languageBlocks().length, auto: "language", re: /languages?/i, excl: /address|experience|skill|website|education|certification|referen/i },
+        { need: values.__webCount || 0, count: () => webInputs().length, auto: "website", re: /websites?/i, excl: /address|experience|skill|education|language|certification|referen/i },
+      ];
+      for (const sec of sections) {
+        if (!sec.need) continue;
+        let count = sec.count(), guard = 0;
+        while (count < sec.need && guard < sec.need + 3) {
+          const btn = addButtonFor(sec.auto, sec.re, sec.excl);
+          if (!btn || !B.isVisible(btn)) break;
+          btn.click();
+          await B.waitFor(() => sec.count() > count, 2500);
+          const now = sec.count();
+          if (now <= count) break;
+          count = now; guard++;
+        }
       }
     },
 
-    // Workday's forward button — prefer its automation-id, never a submit.
     nextButton() {
       const node = Array.from(document.querySelectorAll('[data-automation-id]')).find((n) => {
         const id = (n.getAttribute("data-automation-id") || "").toLowerCase();
         const isBtn = n.matches('button,[role="button"]') || n.querySelector("button");
         if (!isBtn || !B.isVisible(n)) return false;
-        return (id.includes("next") || id.includes("continue")) &&
-          !id.includes("submit") && !id.includes("previous") && !id.includes("back");
+        return (id.includes("next") || id.includes("continue")) && !id.includes("submit") && !id.includes("previous") && !id.includes("back");
       });
       if (node) return node.matches('button,[role="button"]') ? node : node.querySelector("button");
       return B.findNextButton();
     },
   };
 
-  function waitFor(test, timeout) {
-    return new Promise((resolve) => {
-      const t0 = Date.now();
-      (function poll() {
-        let ok = false; try { ok = test(); } catch (e) {}
-        if (ok) return resolve(true);
-        if (Date.now() - t0 >= timeout) return resolve(false);
-        setTimeout(poll, 120);
-      })();
-    });
-  }
-
-  function workExperienceSection() {
+  function sectionContainer(autoSub, textRe) {
     let el = Array.from(document.querySelectorAll('[data-automation-id]'))
-      .find((n) => (n.getAttribute("data-automation-id") || "").toLowerCase().includes("workexperience"));
+      .find((n) => (n.getAttribute("data-automation-id") || "").toLowerCase().includes(autoSub));
     if (el) return el.closest('[data-automation-id*="ection" i]') || el.parentElement || el;
     const heads = Array.from(document.querySelectorAll("h1,h2,h3,h4,legend,label,div,span"))
-      .filter((h) => /work experience/i.test(h.textContent || "") && (h.textContent || "").length < 60);
+      .filter((h) => textRe.test(h.textContent || "") && (h.textContent || "").length < 60);
     if (heads.length) { let p = heads[0]; for (let i = 0; i < 4 && p.parentElement; i++) p = p.parentElement; return p; }
     return null;
   }
-
-  function addExperienceButton() {
-    const btns = Array.from(document.querySelectorAll('button,[role="button"],a'));
-    let b = btns.find((x) => { const c = autoChain(x); return c.includes("add") && c.includes("workexperience") && B.isVisible(x); });
+  function addButtonFor(autoSub, textRe, excludeRe) {
+    const btns = Array.from(document.querySelectorAll('button,[role="button"],a')).filter(B.isVisible);
+    let b = btns.find((x) => { const c = autoChain(x); return c.includes("add") && c.includes(autoSub); });
     if (b) return b;
-    const section = workExperienceSection();
+    const section = sectionContainer(autoSub, textRe);
     return btns.find((x) => {
-      if (!B.isVisible(x)) return false;
       const t = (x.innerText || x.textContent || x.getAttribute("aria-label") || "").trim();
       if (!/^add\b/i.test(t)) return false;
-      if (/address|education|skill|website|language|certification|referen/i.test(t)) return false;
-      return (section && section.contains(x)) || /work\s*experience|another|experience/i.test(t);
+      if (excludeRe && excludeRe.test(t)) return false;
+      if (section && section.contains(x)) return true;
+      return textRe.test(t) || /another/i.test(t);
     }) || null;
   }
-
-  // Find each Work Experience entry block: the smallest ancestor of a job-title
-  // input that also contains a company (or description) input.
-  function experienceBlocks() {
-    const titles = textInputs().filter((el) => {
-      const c = autoChain(el); return c.includes("jobtitle") || c.includes("job title");
-    });
-    const blocks = [];
-    for (const t of titles) {
-      let blk = t.parentElement, hops = 0;
-      while (blk && hops < 6) {
-        const hasCompany = Array.from(blk.querySelectorAll("input, textarea"))
-          .some((el) => { const c = autoChain(el); return c.includes("company") || c.includes("description"); });
-        if (hasCompany) break;
-        blk = blk.parentElement; hops++;
-      }
-      blocks.push(blk || t.parentElement || document);
+  function addMoreNote(items, need, have, name, textRe, autoSub) {
+    if (need > have && (have > 0 || sectionContainer(autoSub, textRe))) {
+      items.push({ el: null, field: "More " + name, kind: "info", label: "More " + name,
+        value: `${need - have} more ${name} entr${need - have === 1 ? "y" : "ies"} in this resume — click "Add" in ${name}, then re-run Dossier.` });
     }
-    return blocks;
-  }
-
-  function pushManualWidget(items, values, field, friendly, test) {
-    if (values[field] === undefined || values[field] === "") return;
-    const el = Array.from(document.querySelectorAll('[data-automation-id]')).find((node) => {
-      const c = autoChain(node);
-      return test(c) && (node.matches('button,[role="button"],[role="listbox"],[role="combobox"],[aria-haspopup]') || node.querySelector('button,[role="combobox"]'));
-    });
-    if (el) items.push({ el, field, value: values[field], label: friendly, kind: "manual",
-      note: "Workday dropdown — open it and pick this value yourself." });
-  }
-
-  function hasSection(reText, autoSub) {
-    if (Array.from(document.querySelectorAll('[data-automation-id]')).some((n) =>
-      (n.getAttribute("data-automation-id") || "").toLowerCase().includes(autoSub))) return true;
-    const heads = document.querySelectorAll("h1,h2,h3,h4,legend,label,div,span");
-    for (const h of heads) { if (reText.test(h.textContent || "") && (h.textContent || "").length < 60) return true; }
-    return false;
   }
 
   JAF.adapters.push(workday);

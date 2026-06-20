@@ -119,6 +119,7 @@
       skills,
       experience,
       education,
+      languages: [],
     };
   }
 
@@ -128,7 +129,8 @@
       "You parse resume text into JSON. Return ONLY valid JSON, no prose, no markdown fences. " +
       'Schema: {"summary":string,"skills":string[],"experience":[{"company":string,"title":string,' +
       '"location":string,"startDate":string,"endDate":string,"current":boolean,"bullets":string[]}],' +
-      '"education":[{"school":string,"degree":string,"field":string,"startDate":string,"endDate":string,"gpa":string}]}. ' +
+      '"education":[{"school":string,"degree":string,"field":string,"startDate":string,"endDate":string,"gpa":string}],' +
+      '"languages":[{"name":string,"proficiency":string}]}. ' +
       "Use empty strings/arrays when unknown. Do not invent facts.";
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -158,6 +160,7 @@
       skills: Array.isArray(parsed.skills) ? parsed.skills : [],
       experience: Array.isArray(parsed.experience) ? parsed.experience : [],
       education: Array.isArray(parsed.education) ? parsed.education : [],
+      languages: Array.isArray(parsed.languages) ? parsed.languages : [],
     };
   }
 

@@ -104,6 +104,7 @@
       skills: [],            // array of strings
       experience: [],        // [{company,title,location,startDate,endDate,current,bullets:[]}]
       education: [],         // [{school,degree,field,startDate,endDate,gpa}]
+      languages: [],         // [{name, proficiency}]
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -133,7 +134,9 @@
     // structured experience/education travel alongside for adapters that use them
     v.__experience = resume.experience || [];
     v.__education = resume.education || [];
+    v.__languages = Array.isArray(resume.languages) ? resume.languages : [];
     v.__skillsArray = Array.isArray(resume.skills) ? resume.skills : [];
+    v.__webCount = [bio.linkedin, bio.github, bio.website].filter(Boolean).length;
     return v;
   }
 

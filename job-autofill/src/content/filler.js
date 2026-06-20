@@ -91,12 +91,17 @@
     root.querySelector(".backdrop").onclick = close;
 
     root.querySelector("#fill").onclick = async () => {
+      const fillBtn = root.querySelector("#fill");
+      fillBtn.disabled = true;
       const checks = Array.from(root.querySelectorAll('.rows input[type="checkbox"][data-i]'));
       let filled = 0;
+      const failed = [];
       for (const c of checks) {
         if (!c.checked) continue;
         const item = fillable[Number(c.dataset.i)];
-        if (B.applyItem(item, item.value)) filled++;
+        const ok = await B.applyItemAsync(item);
+        if (ok) filled++;
+        else if (item.kind === "combo" || item.kind === "combo-multi") failed.push(L[item.field] || item.field);
       }
       let fileMsg = "";
       const fchk = root.querySelector("#filechk");
@@ -107,20 +112,21 @@
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
         } else fileMsg = " · no file field found";
       }
+      const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
       let advanceMsg = "";
       if (autoAdvance) {
         const nextBtn = (adapter.nextButton && adapter.nextButton()) || B.findNextButton();
         if (nextBtn) {
-          flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}. Advancing to next step…`);
-          await new Promise((r) => setTimeout(r, 600)); // let React commit the values
+          flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${failMsg}. Advancing…`);
+          await new Promise((r) => setTimeout(r, 600));
           nextBtn.click();
           setTimeout(close, 700);
           return;
         }
         advanceMsg = " · couldn't find a Next button — advance manually";
       }
-      flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${advanceMsg}. Review before submitting.`);
-      setTimeout(close, 1900);
+      flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${failMsg}${advanceMsg}. Review before submitting.`);
+      setTimeout(close, 2400);
     };
   }
 

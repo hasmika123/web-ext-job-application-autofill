@@ -55,18 +55,29 @@ the input and its wrappers) and tolerates tenant-to-tenant naming differences.
 
 Two steps are supported:
 - **My Information** — name, preferred name, email, phone, address, city, postal
-  fill automatically. Country / state / phone-type are custom dropdowns, flagged
-  **"enter these yourself"** with the value to pick.
-- **My Experience** — for each Work Experience block already on the page, it
-  fills job title, company, location, role description, and the split month/year
-  date inputs from the chosen resume; it also fills the Websites URLs from your
-  links. Skills and Education are typeaheads/dropdowns (typing doesn't commit a
-  selection in Workday), so they're flagged with the exact values to enter.
+  fill automatically. Country and State are custom dropdowns, now driven
+  automatically (Dossier opens the menu, filters, and clicks the match).
+- **My Experience** — for every repeating section, Dossier first clicks
+  **"Add"** enough times to make room for all of your resume's entries, then
+  fills them: Work Experience (title, company, location, description, month/year
+  dates), Education (school, degree, field, year), Languages (language +
+  proficiency), and the Websites URLs. Skills are added to the multiselect.
 
-Tips: the flow is multi-step — re-run Dossier on each step. If your resume has
-more roles than there are blocks on the page, click **"Add Another"** in Work
-Experience and re-run; the panel tells you how many are left. Some steps (Review,
-Voluntary Disclosures) have no fillable fields, and the panel will say so.
+**Dropdowns.** Native `<select>` menus fill directly. Custom dropdowns and
+typeaheads (Workday prompts, react-select on Greenhouse/Lever/Ashby, etc.) are
+driven by opening the menu, optionally typing to filter, and clicking the
+best-matching option. If a value can't be matched to any option, that field is
+reported in the panel so you can set it by hand — nothing is left silently wrong.
+
+**Auto-advance (toggle, off by default).** After filling a step, Dossier can
+click the page's **Next / Continue** button. It only ever clicks forward-
+navigation buttons and **never Submit, Apply, or Finish** — you send the
+application yourself. Toggle it in the popup or in Settings.
+
+Tips: the flow is multi-step — re-run Dossier on each step. Dropdown driving and
+"Add" clicking depend on each Workday tenant's markup, which varies; if a section
+or menu doesn't respond, the panel tells you what to enter so you can finish by
+hand. Some steps (Review, Voluntary Disclosures) have no fillable fields.
 
 ## Architecture
 
