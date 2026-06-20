@@ -1,0 +1,91 @@
+// Dossier backend — JHipster JDL
+// Generates a backend-only Spring Boot app (no client) + the data model.
+// Run:  npm i -g generator-jhipster   (v8.x)
+//       mkdir api && cd api && jhipster jdl ../dossier.jdl
+// JHipster provides the built-in `User` entity (JWT auth) — do NOT redefine it.
+
+application {
+  config {
+    baseName dossierApi
+    applicationType monolith
+    packageName com.dossier.api
+    authenticationType jwt
+    databaseType sql
+    prodDatabaseType postgresql
+    devDatabaseType postgresql
+    clientFramework no          // backend only — Next.js lives in /web
+    buildTool gradle
+    serverPort 8080
+    enableTranslation false
+    testFrameworks [cypress]     // remove if you don't want e2e scaffolding
+  }
+  entities *
+}
+
+// ---------- enums ----------
+enum ResumeStatus { NEEDS_REVIEW, CONFIRMED }
+enum ApplicationStatus { SAVED, APPLIED, INTERVIEW, OFFER, REJECTED }
+
+// ---------- entities ----------
+// One bio per user (shared across applications).
+entity Bio {
+  payload TextBlob required        // JSON bio profile
+  updatedAt Instant required
+}
+
+// Many resume variants per user; file bytes live in Cloudflare R2.
+entity Resume {
+  label String required maxlength 200
+  r2ObjectKey String required maxlength 500   // pointer into R2, not the bytes
+  parsedJson TextBlob                          // structured parse result
+  status ResumeStatus required
+  createdAt Instant required
+}
+
+// The application tracker. Captures JD + which resume was used.
+entity Application {
+  company String required maxlength 200
+  roleTitle String required maxlength 200
+  jobUrl String maxlength 1000
+  atsPlatform String maxlength 100
+  jobDescription TextBlob
+  status ApplicationStatus required
+  source String maxlength 100        // e.g. extension-autolog, manual, bookmark
+  appliedAt Instant
+  createdAt Instant required
+  updatedAt Instant required
+}
+
+// Learned per-field answers, synced across devices.
+entity FieldCache {
+  fieldKey String required maxlength 200
+  contextHash String required maxlength 128
+  value TextBlob required
+  hitCount Integer required
+  updatedAt Instant required
+}
+
+// Cached AI answers, keyed by a hash of the question.
+entity AiAnswer {
+  questionHash String required maxlength 128
+  answer TextBlob required
+  model String maxlength 100
+  tokens Integer
+  createdAt Instant required
+}
+
+// ---------- relationships (everything is owned by a User) ----------
+relationship ManyToOne {
+  Bio{user(login)} to User with builtInEntity
+  Resume{user(login)} to User with builtInEntity
+  Application{user(login)} to User with builtInEntity
+  Application{resume(label)} to Resume
+  FieldCache{user(login)} to User with builtInEntity
+  AiAnswer{user(login)} to User with builtInEntity
+}
+
+// ---------- options ----------
+service all with serviceImpl        // service layer for all entities
+dto all with mapstruct              // DTOs so you don't expose entities directly
+paginate Application, Resume with pagination
+filter Application                   // query params for the tracker
