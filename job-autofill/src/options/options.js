@@ -225,6 +225,7 @@ async function openEditor(id) {
         <div class="field"><label>End</label>${dateControl("e-end", e.endDate, true, e.current)}</div>
       </div>
       <label class="check2"><input type="checkbox" class="e-current" ${e.current ? "checked" : ""} /> I currently work here</label>
+      <div class="field"><label>Location</label><input class="input e-location" value="${esc(e.location || "")}" placeholder="City, ST  ·  Remote"></div>
       <div class="field"><label>Bullets (one per line)</label><textarea class="e-bullets">${esc((e.bullets || []).map((b) => "• " + b).join("\n"))}</textarea></div>
     </div>`;
   const eduHtml = (e, i) => `
@@ -235,8 +236,12 @@ async function openEditor(id) {
         <div class="field"><label>Degree</label><input class="input d-degree" value="${esc(e.degree || "")}"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>Field</label><input class="input d-field" value="${esc(e.field || "")}"></div>
-        <div class="field"><label>Year</label>${dateControl("d-end", e.endDate, false)}</div>
+        <div class="field"><label>Field of study</label><input class="input d-field" value="${esc(e.field || "")}"></div>
+        <div class="field"><label>Location</label><input class="input d-location" value="${esc(e.location || "")}" placeholder="City, ST"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Start</label>${dateControl("d-start", e.startDate, true)}</div>
+        <div class="field"><label>End / graduation</label>${dateControl("d-end", e.endDate, true)}</div>
       </div>
     </div>`;
 
@@ -253,7 +258,7 @@ async function openEditor(id) {
     <div class="entry" data-proj="${i}">
       <button class="removex" data-rmproj="${i}">remove</button>
       <div class="field"><label>Project name</label><input class="input p-name" value="${esc(e.name || "")}"></div>
-      <div class="field"><label>Bullets (one per line)</label><textarea class="p-bullets">${esc((e.bullets || []).join("\n"))}</textarea></div>
+      <div class="field"><label>Bullets (one per line)</label><textarea class="p-bullets">${esc((e.bullets || []).map((b) => "• " + b).join("\n"))}</textarea></div>
     </div>`;
 
   $("#drawer").innerHTML = `
@@ -296,6 +301,7 @@ async function openEditor(id) {
       return {
         company: node.querySelector(".e-company").value.trim(),
         title: node.querySelector(".e-title").value.trim(),
+        location: node.querySelector(".e-location").value.trim(),
         startDate: ymVal(node, "e-start", true),
         endDate: current ? "" : ymVal(node, "e-end", true),
         current,
@@ -306,7 +312,9 @@ async function openEditor(id) {
       school: node.querySelector(".d-school").value.trim(),
       degree: node.querySelector(".d-degree").value.trim(),
       field: node.querySelector(".d-field").value.trim(),
-      endDate: ymVal(node, "d-end", false),
+      location: node.querySelector(".d-location").value.trim(),
+      startDate: ymVal(node, "d-start", true),
+      endDate: ymVal(node, "d-end", true),
     }));
     const langs = $$("#lang-wrap .entry").map((node) => ({
       name: node.querySelector(".l-name").value.trim(),

@@ -149,6 +149,14 @@
       if (at && TITLE_RE.test(at[1])) { title = cleanSeg(at[1]); company = cleanSeg(at[2]); }
     }
     if (!title && company && TITLE_RE.test(company)) { title = company; company = ""; }
+    // "Software Engineer Intern, Stripe" → title + company (location already removed).
+    if (title && !company && title.includes(",")) {
+      const parts = title.split(/,\s*/);
+      if (parts.length === 2 && !LOC_RE.test(parts[1]) && !/^[A-Z]{2}$/.test(parts[1].trim())) {
+        if (TITLE_RE.test(parts[0]) && !TITLE_RE.test(parts[1])) { title = cleanSeg(parts[0]); company = cleanSeg(parts[1]); }
+        else if (TITLE_RE.test(parts[1]) && !TITLE_RE.test(parts[0])) { company = cleanSeg(parts[0]); title = cleanSeg(parts[1]); }
+      }
+    }
     return { company: cleanSeg(company), title: cleanSeg(title), location: cleanSeg(location), startDate, endDate, current, bullets };
   }
 
@@ -171,39 +179,70 @@
     return entries.filter((e) => e.company || e.title || e.bullets.length);
   }
 
+  const DATE_PHRASE = new RegExp(`(?:${MONTH}\\s*)?(?:19|20)\\d{2}`, "i");
+  // Pull graduation/attendance dates out of an education line and clean the residue.
+  function extractEduDates(line) {
+    const present = /present|current|expected|anticipat|ongoing/i.test(line);
+    const phrases = line.match(new RegExp(DATE_PHRASE.source, "gi")) || [];
+    let startDate = "", endDate = "";
+    if (phrases.length >= 2) { startDate = phrases[0].trim(); endDate = phrases[1].trim(); }
+    else if (phrases.length === 1) { endDate = phrases[0].trim(); } // a lone date = graduation/end
+    if (present && !endDate) endDate = "Present";
+    let cleaned = line;
+    phrases.forEach((p) => { cleaned = cleaned.replace(p, "  "); });
+    cleaned = cleaned
+      .replace(/\b(expected graduation|expected|anticipated graduation|anticipated|graduation date|graduation|grad date|class of|graduating)\b/gi, "  ")
+      .replace(/\s*[-–—|:]\s*(?=\s|$)/g, " ")
+      .replace(/\s{2,}/g, "  ").trim();
+    return { startDate, endDate, cleaned };
+  }
+
   function parseEducation(lines) {
     const out = [];
     let ed = null;
-    const isSchool = (l) => /university|college|institute|\bschool\b|academy|polytechnic/i.test(l);
+    const isSchool = (l) => /university|college|institute|\bschool\b|academy|polytechnic|seminary/i.test(l);
+    const startNew = (line) => {
+      const { startDate, endDate, cleaned } = extractEduDates(line);
+      let location = "", school = "", degree = "";
+      for (const seg of splitSegs(cleaned)) {
+        const [rest, loc] = splitCityState(seg);
+        if (loc && !location) location = loc;
+        const core = rest || seg;
+        if (!school && isSchool(core)) school = core;
+        else if (!degree && DEGREE_RE.test(core)) degree = (core.match(DEGREE_RE) || [""])[0];
+      }
+      if (!school) { const segs = splitSegs(cleaned); school = cleanSeg(segs.find(isSchool) || segs[0] || cleaned); }
+      return {
+        school: cleanSeg(school), degree, field: "", startDate, endDate,
+        gpa: (line.match(/gpa[:\s]*([0-4]\.\d{1,2})/i) || [, ""])[1] || "",
+        location: cleanSeg(location),
+      };
+    };
     for (const line of lines) {
       if (BULLET_RE.test(line) && ed) continue;
       if (isSchool(line) || (!ed && DEGREE_RE.test(line))) {
         if (ed) out.push(ed);
-        const cells = splitCells(line);
-        const dr = parseDateRange(line);
-        ed = {
-          school: cleanSeg(cells.find((c) => isSchool(c)) || cells[0] || line),
-          degree: (line.match(DEGREE_RE) || [""])[0],
-          field: "", startDate: dr.startDate, endDate: dr.endDate || (line.match(DATE_RE) || [""])[0],
-          gpa: (line.match(/gpa[:\s]*([0-4]\.\d{1,2})/i) || [, ""])[1],
-        };
-        const loc = cells.find((c) => LOC_RE.test(c)); if (loc) ed.location = cleanSeg(loc);
+        ed = startNew(line);
       } else if (ed) {
-        if (!ed.degree && DEGREE_RE.test(line)) {
-          const inField = line.match(/(?:in|of)\s+([A-Z][A-Za-z &]+)/);
-          if (inField) { ed.degree = (line.match(DEGREE_RE) || [""])[0]; ed.field = ed.field || cleanSeg(inField[1]); }
-          else ed.degree = cleanSeg(line.split(/,|gpa/i)[0]);
-        }
+        if (!ed.degree && DEGREE_RE.test(line)) ed.degree = (line.match(DEGREE_RE) || [""])[0];
         if (!ed.field) {
-          const inField = line.match(/(?:in|of)\s+([A-Z][A-Za-z &]+)/);
+          const inField = line.match(/(?:in|of|major(?:ing)?\s+in)\s+([A-Z][A-Za-z &]+)/);
           if (inField) ed.field = cleanSeg(inField[1]);
+          else if (DEGREE_RE.test(line)) {
+            const after = line.replace(DEGREE_RE, "").replace(/^[\s,.\-–—]+/, "");
+            const f = after.match(/^([A-Z][A-Za-z &]{2,})/);
+            if (f) ed.field = cleanSeg(f[1].split(/,/)[0]);
+          }
         }
         if (!ed.gpa) { const g = line.match(/gpa[:\s]*([0-4]\.\d{1,2})/i); if (g) ed.gpa = g[1]; }
-        const dr = parseDateRange(line); if (dr.endDate && !ed.endDate) ed.endDate = dr.endDate;
+        const d = extractEduDates(line);
+        if (d.startDate && !ed.startDate) ed.startDate = d.startDate;
+        if (d.endDate && !ed.endDate) ed.endDate = d.endDate;
+        if (!ed.location) { const [, loc] = splitCityState(line); if (loc) ed.location = loc; }
       }
     }
     if (ed) out.push(ed);
-    return out;
+    return out.filter((e) => e.school);
   }
 
   function parseLanguages(lines) {
@@ -227,15 +266,26 @@
     const skills = [];
     const techLine = /^(technolog(?:y|ies)|tech stack|tech|tools?|stack|built with|skills?\s*used|frameworks?|libraries|languages?)\s*[:\-–—]/i;
     const addSkills = (str) => str.split(/[,•·\/|]|\sand\s/i).map((s) => s.trim()).filter((s) => s && s.length <= 40).forEach((s) => skills.push(s));
+    const looksLikeTechList = (line) => {
+      if (/[()]/.test(line)) return false; // parens handled separately
+      const toks = line.split(/[,•·\/|]/).map((s) => s.trim()).filter(Boolean);
+      if (toks.length < 2) return false;
+      return toks.every((t) => t.length <= 25 && (t.match(/\s/g) || []).length <= 1 && !/[.!?]$/.test(t) && !/\b(the|and|with|using|built|develop|created?|designed?|implement|led|managed|improv|increas|reduc|responsible)\b/i.test(t));
+    };
     for (const line of lines) {
       if (BULLET_RE.test(line)) { if (pj) pj.bullets.push(line.replace(STRIP_BULLET, "").trim()); continue; }
       const tm = line.match(techLine);
-      if (tm) { addSkills(line.slice(tm[0].length)); continue; }   // tech list -> skills, not a project
+      if (tm) { addSkills(line.slice(tm[0].length)); continue; }   // labeled tech list -> skills
+      // Pull a trailing "(React, Node, Postgres)" off a project name into skills first.
+      let work = line, parenTech = null;
+      const paren = work.match(/\(([^)]+)\)\s*$/);
+      if (paren && looksLikeTechList(paren[1])) { parenTech = paren[1]; work = work.replace(/\s*\([^)]*\)\s*$/, ""); }
+      if (!parenTech && looksLikeTechList(work)) { addSkills(work); continue; } // bare tech list -> skills, not a project
       if (pj) out.push(pj);
-      // A name line like "Project — React, Node, Mongo" or "Project | Python, Flask":
-      // keep the name, lift a trailing short comma-list of tech into skills.
-      const segs = line.split(/\s*\|\s*|\s+[–—]\s+|\s+-\s+/);
-      const name = cleanSeg(segs[0] || line);
+      if (parenTech) addSkills(parenTech);
+      // Also lift a trailing "| React, Node" / "— Python, Flask" off the name.
+      const segs = work.split(/\s*\|\s*|\s+[–—]\s+|\s+-\s+/);
+      const name = cleanSeg(segs[0] || work);
       if (segs.length > 1) {
         const toks = segs.slice(1).join(", ").split(/[,•·\/]/).map((s) => s.trim()).filter(Boolean);
         if (toks.length && toks.every((t) => t.length <= 28 && (t.match(/\s/g) || []).length <= 1)) toks.forEach((t) => skills.push(t));
@@ -251,12 +301,15 @@
     const sections = { summary: [], skills: [], experience: [], education: [], projects: [], languages: [], other: [] };
     let cur = "other";
     for (const line of lines) {
-      // Inline "Label: a, b, c" (e.g. "Tech Stack: React, Node" inside a project,
-      // or "Skills: Python, Go") → route the content to that section directly.
+      // Inline "Label: a, b, c".
       const colon = line.indexOf(":");
       if (colon > 0 && colon < 30) {
         const content = line.slice(colon + 1).trim();
         if (content) {
+          // Inside the skills section, sub-labels like "Languages: Python, Java" or
+          // "Frameworks: React" are skill CATEGORIES — their contents are skills,
+          // never spoken languages. Keep them in skills.
+          if (cur === "skills") { sections.skills.push(content); continue; }
           const isec = detectSectionWord(line.slice(0, colon));
           if (isec && isec !== "other" && sections[isec]) { sections[isec].push(content); continue; }
         }
@@ -293,11 +346,13 @@
       "You parse resume text into JSON. Return ONLY valid JSON, no prose, no markdown fences. " +
       'Schema: {"summary":string,"skills":string[],"experience":[{"company":string,"title":string,' +
       '"location":string,"startDate":string,"endDate":string,"current":boolean,"bullets":string[]}],' +
-      '"education":[{"school":string,"degree":string,"field":string,"startDate":string,"endDate":string,"gpa":string}],' +
+      '"education":[{"school":string,"degree":string,"field":string,"location":string,"startDate":string,"endDate":string,"gpa":string}],' +
       '"languages":[{"name":string,"proficiency":string}],' +
       '"projects":[{"name":string,"bullets":string[]}]}. ' +
       "Put each job's title and company in SEPARATE fields (never combine them). Split date ranges into startDate and endDate; set current=true for present/ongoing. " +
-      "Personal/side PROJECTS go in projects, NOT in experience. Technical skills/technologies listed under a project belong in skills, not in the project. Keep each experience bullet as a separate bullets[] entry. " +
+      "Personal/side PROJECTS go in projects, NOT in experience. Technical skills/technologies listed under a project belong in skills, not in the project. Keep each experience AND project bullet as a separate bullets[] entry. " +
+      "The 'school' field is the institution NAME ONLY — put the campus city/state in 'location' and the graduation date in 'endDate', never inside 'school'. " +
+      "Programming languages (e.g. Python, Java, C++) listed under a technical-skills heading are skills, NOT spoken languages; only real spoken languages go in 'languages'. " +
       "Use empty strings/arrays when unknown. Do not invent facts.";
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

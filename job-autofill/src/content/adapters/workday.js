@@ -162,9 +162,16 @@
         addIn(blk, r.edu.school, ed.school, `Edu ${n} · School`);
         addIn(blk, r.edu.degree, ed.degree, `Edu ${n} · Degree`);
         addIn(blk, r.edu.field, ed.field, `Edu ${n} · Field of study`);
-        const ey = parseMonthYear(ed.endDate || ed.gradDate || "");
-        const yrs = allInputsChain("year", blk);
-        if (ey.year && yrs[0]) add(yrs[0], `Edu ${n} · Year`, ey.year, `Edu ${n} · Year`, "text");
+        const es = parseMonthYear(ed.startDate || ""), ee = parseMonthYear(ed.endDate || ed.gradDate || "");
+        const eMonths = allInputsChain("month", blk), eYears = allInputsChain("year", blk);
+        if (es.month && eMonths[0]) add(eMonths[0], `Edu ${n} · Start month`, String(es.month), `Edu ${n} · Start month`, "text");
+        if (ee.month && eMonths[1]) add(eMonths[1], `Edu ${n} · End month`, String(ee.month), `Edu ${n} · End month`, "text");
+        if (eYears.length >= 2) {
+          if (es.year) add(eYears[0], `Edu ${n} · Start year`, es.year, `Edu ${n} · Start year`, "text");
+          if (ee.year) add(eYears[1], `Edu ${n} · End year`, ee.year, `Edu ${n} · End year`, "text");
+        } else if (ee.year && eYears[0]) {
+          add(eYears[0], `Edu ${n} · Year`, ee.year, `Edu ${n} · Year`, "text");
+        }
       }
       addMoreNote(items, edu.length, eduBlocks.length, "Education", r.sections.education);
 
