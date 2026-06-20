@@ -185,9 +185,19 @@
           .filter((cb) => B.isVisible(cb) && /disabilit|do not (want|wish) to answer/i.test(B.labelText(cb)));
         const onForm = disChecks.length >= 2 || !!document.querySelector('[data-automation-id*="disabilityform" i],[data-automation-id*="selfidentif" i]');
         if (onForm) {
-          // Date signed = today (single text input, MM/DD/YYYY).
-          const dEl = findInput(r.fields.dateSigned);
-          if (dEl) add(dEl, "Date", todayMDY(), "Date (today)", "text");
+          // Date signed = today. Workday renders this as a 3-part spinbutton group
+          // (Month/Day/Year), not one text input — fill each section.
+          const now = new Date();
+          const dWrap = Array.from(document.querySelectorAll("[data-automation-id]"))
+            .find((n) => /datesignedon|datesigned|signaturedate/i.test(n.getAttribute("data-automation-id") || ""));
+          const dScope = dWrap || document;
+          const dParts = [["datesectionmonth", now.getMonth() + 1], ["datesectionday", now.getDate()], ["datesectionyear", now.getFullYear()]];
+          let dAny = false;
+          dParts.forEach(([sub, val]) => {
+            const el = Array.from(dScope.querySelectorAll("input")).find((i) => (i.getAttribute("data-automation-id") || "").toLowerCase().includes(sub));
+            if (el && B.isVisible(el)) { add(el, "Date", String(val), "Date (today)", "text"); dAny = true; }
+          });
+          if (!dAny) { const dEl = findInput(r.fields.dateSigned); if (dEl) add(dEl, "Date", todayMDY(), "Date (today)", "text"); }
           // The form's own Language selector defaults to English.
           const langEl = fieldEls().find((e) => !seen.has(e) && (B.isCustomDropdown(e) || e.tagName === "SELECT") && /language/i.test(questionContext(e)));
           if (langEl) add(langEl, "Form language", "English", "Form language", langEl.tagName === "SELECT" ? "select" : "combo", ["English"]);

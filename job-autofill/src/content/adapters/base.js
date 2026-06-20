@@ -193,7 +193,14 @@
       if (kind === "select") return selectOption(el, value);
       if (kind === "boolean") {
         const truthy = /^(yes|true|1)$/i.test(String(value));
-        if (el.type === "checkbox") { el.checked = truthy; fire(el, "input"); fire(el, "change"); return true; }
+        if (el.type === "checkbox") {
+          // Workday/React checkboxes ignore a programmatic `el.checked = …` (the box
+          // gets focus but aria-checked stays false). A real click lets the framework
+          // toggle and register it; fall back to a native set only if that didn't take.
+          if (el.checked !== truthy) realClick(el);
+          if (el.checked !== truthy) { el.checked = truthy; fire(el, "input"); fire(el, "change"); }
+          return el.checked === truthy;
+        }
         const grp = el.closest('[role="group"],fieldset,div') || document;
         return setBooleanGroup(grp, truthy);
       }
