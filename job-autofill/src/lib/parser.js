@@ -110,11 +110,31 @@
 
   // "City, ST" detection — a real US state abbreviation after a comma. Used to keep
   // a location (e.g. "Atlanta, GA") from ever being routed into skills/projects.
-  const US_STATE_ABBR = new Set(["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"]);
+  const US_STATE_NAMES = { AL:"Alabama", AK:"Alaska", AZ:"Arizona", AR:"Arkansas", CA:"California", CO:"Colorado", CT:"Connecticut", DE:"Delaware", FL:"Florida", GA:"Georgia", HI:"Hawaii", ID:"Idaho", IL:"Illinois", IN:"Indiana", IA:"Iowa", KS:"Kansas", KY:"Kentucky", LA:"Louisiana", ME:"Maine", MD:"Maryland", MA:"Massachusetts", MI:"Michigan", MN:"Minnesota", MS:"Mississippi", MO:"Missouri", MT:"Montana", NE:"Nebraska", NV:"Nevada", NH:"New Hampshire", NJ:"New Jersey", NM:"New Mexico", NY:"New York", NC:"North Carolina", ND:"North Dakota", OH:"Ohio", OK:"Oklahoma", OR:"Oregon", PA:"Pennsylvania", RI:"Rhode Island", SC:"South Carolina", SD:"South Dakota", TN:"Tennessee", TX:"Texas", UT:"Utah", VT:"Vermont", VA:"Virginia", WA:"Washington", WV:"West Virginia", WI:"Wisconsin", WY:"Wyoming", DC:"District of Columbia" };
+  const US_STATE_ABBR = new Set(Object.keys(US_STATE_NAMES));
+  const US_STATE_BY_NAME = {}; Object.values(US_STATE_NAMES).forEach((n) => { US_STATE_BY_NAME[n.toLowerCase()] = n; });
   function isCityState(s) {
     if (!s) return false;
-    const m = String(s).trim().match(/^([A-Za-z][A-Za-z.'\- ]+),\s*([A-Z]{2})$/);
-    return !!(m && US_STATE_ABBR.has(m[2]));
+    const t = String(s).trim();
+    // "Atlanta, GA"  or  "Atlanta, Georgia" / "New York, New York"
+    const m = t.match(/^([A-Za-z][A-Za-z.'\- ]+),\s*([A-Za-z][A-Za-z. ]+)$/);
+    return !!(m && resolveStateName(m[2]));
+  }
+  // Resolve a region token after a city ("GA", "Georgia", "New York", "GA 30301")
+  // to its proper full state name, or null if it isn't a US state.
+  function resolveStateName(region) {
+    if (!region) return null;
+    const r = String(region).trim().replace(/\s+\d.*$/, "").trim(); // drop a trailing zip etc.
+    if (/^[A-Za-z]{2}$/.test(r) && US_STATE_ABBR.has(r.toUpperCase())) return US_STATE_NAMES[r.toUpperCase()];
+    if (US_STATE_BY_NAME[r.toLowerCase()]) return US_STATE_BY_NAME[r.toLowerCase()];
+    // tolerate trailing words ("Georgia Remote", "New York NY") by trying shorter prefixes
+    const words = r.split(/\s+/);
+    for (let n = Math.min(words.length, 3); n >= 1; n--) {
+      const cand = words.slice(0, n).join(" ");
+      if (US_STATE_BY_NAME[cand.toLowerCase()]) return US_STATE_BY_NAME[cand.toLowerCase()];
+      if (/^[A-Za-z]{2}$/.test(cand) && US_STATE_ABBR.has(cand.toUpperCase())) return US_STATE_NAMES[cand.toUpperCase()];
+    }
+    return null;
   }
 
   function splitCells(line) {
@@ -461,11 +481,13 @@
     const site = urls.find((u) => !/linkedin\.com|github\.com/i.test(u));
     if (site) bio.website = site;
 
-    // "City, ST" in the header block (only with a real US state abbreviation).
-    const csRe = /([A-Z][A-Za-z.'\- ]+),\s*([A-Z]{2})\b/g;
-    let m;
-    while ((m = csRe.exec(head))) {
-      if (US_STATE_ABBR.has(m[2])) { bio.city = cleanSeg(m[1]); bio.state = m[2]; break; }
+    // "City, ST" / "City, Full State Name" in the header block. The state is stored
+    // as its proper full name so it matches the Bio state dropdown.
+    for (const l of head.split("\n")) {
+      const m = l.match(/([A-Z][A-Za-z.'\- ]+?),\s*([A-Za-z][A-Za-z. ]+)/);
+      if (!m) continue;
+      const full = resolveStateName(m[2]);
+      if (full) { bio.city = cleanSeg(m[1]); bio.state = full; break; }
     }
 
     // Name: first plausible "First Last" line near the top — no digits/@, not a
