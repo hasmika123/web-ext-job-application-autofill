@@ -10,11 +10,18 @@ You are building Dossier autonomously. Read `CLAUDE.md`, then `PROGRESS.md`.
 
 Work the **loop** in CLAUDE.md, one task at a time, starting at **Current focus**:
 1. Read ONLY the relevant phase section of `ROADMAP.md` (never the whole file).
-2. Implement the task.
-3. Run the tests in CLAUDE.md → they must be green.
-4. Update `PROGRESS.md` (check box, advance Current focus, add a Log line).
-5. Commit as its own commit `phase<P>.<N>: <subject>` and `git push`.
-6. Continue automatically to the next task.
+2. **Choose the mode:**
+   - If the task adds a new component, new dependency, or changes architecture
+     (e.g. backend scaffold, auth, data model, sync layer, AI proxy, CI/CD, web
+     dashboard) → **enter plan mode, present a plan, and WAIT for my approval
+     before writing any code.**
+   - If it's a small in-place change (e.g. a field cache, one ATS adapter, a
+     version bump) → just execute.
+3. Implement the task.
+4. Run the tests in CLAUDE.md → they must be green.
+5. Update `PROGRESS.md` (check box, advance Current focus, add a Log line).
+6. Commit as its own commit `phase<P>.<N>: <subject>` and `git push`.
+7. Continue automatically to the next task.
 
 **Stop and ask me only if:**
 - A task is ambiguous or underspecified.
