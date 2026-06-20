@@ -111,12 +111,24 @@
       const f = F();
       const items = [];
       const seen = new Set();
-      const add = (el, field, value, label, kind) => {
+      const add = (el, field, value, label, kind, alts) => {
         if (!el || seen.has(el) || value === undefined || value === null || value === "") return;
         seen.add(el);
-        items.push({ el, field, value, label: label || field, kind: kind || kindOf(el) });
+        items.push({ el, field, value, label: label || field, kind: kind || kindOf(el), alts: alts || [] });
       };
       const addIn = (blk, test, value, label) => { const el = findField(test, blk); add(el, label, value, label); };
+      // EEO / Yes-No / category questions: dropdown, native select, or radio group.
+      const addQuestion = (field, keywords, label, yesNo) => {
+        const val = values[field];
+        if (val === undefined || val === "") return;
+        const has = (c) => keywords.some((k) => c.includes(k));
+        let el = fieldEls().find((e) => has(autoChain(e)) && (B.isCustomDropdown(e) || e.tagName === "SELECT"));
+        if (el) { add(el, field, val, label, el.tagName === "SELECT" ? "select" : "combo", yesNoAlts(val)); return; }
+        if (yesNo) { // only drive a radio group for Yes/No questions, never category ones
+          const radio = Array.from(document.querySelectorAll('input[type="radio"]')).find((e) => has(autoChain(e)) || has((B.labelText(e) || "").toLowerCase()));
+          if (radio) add(radio, field, val, label, "boolean");
+        }
+      };
 
       // ---- My Information (bio) ----
       add(findInput((c) => c.includes("firstname") && c.includes("preferred")), f.preferredName, values[f.preferredName]);
@@ -128,9 +140,22 @@
       add(findInput((c) => c.includes("addressline2") || c.includes("addline2") || (c.includes("address") && c.includes("line 2"))), f.addressLine2, values[f.addressLine2]);
       add(findInput((c) => c.includes("city") || c.includes("municipality")), f.city, values[f.city]);
       add(findInput((c) => c.includes("postal") || c.includes("zip")), f.postalCode, values[f.postalCode]);
-      // Country / State — dropdowns we now drive (country first so state can load).
-      add(findField((c, e) => c.includes("countryregion") && !c.includes("subdivision") && B.isCustomDropdown(e)), f.country, values[f.country], "Country", "combo");
-      add(findField((c, e) => (c.includes("subdivision") || c.includes("countryregionregion")) && B.isCustomDropdown(e)), f.state, values[f.state], "State / Province", "combo");
+      // Country / State — dropdowns we drive (country first so state can load).
+      // We pass full + abbreviated candidates so "GA" matches an option "Georgia".
+      {
+        const cc = JAF.schema.countryCandidates(values[f.country]);
+        add(findField((c, e) => c.includes("countryregion") && !c.includes("subdivision") && B.isCustomDropdown(e)), f.country, cc[0], "Country", "combo", cc.slice(1));
+        const sc = JAF.schema.stateCandidates(values[f.state]);
+        add(findField((c, e) => (c.includes("subdivision") || c.includes("countryregionregion") || c.includes("state") || c.includes("province")) && B.isCustomDropdown(e)), f.state, sc[0], "State / Province", "combo", sc.slice(1));
+      }
+      // ---- Work eligibility & EEO (Application Questions / Voluntary Disclosures) ----
+      addQuestion(f.authorizedToWork, ["authorizedtowork", "legallyauthorized", "righttowork", "workauthoriz", "eligibletowork", "authorizationtowork"], "Authorized to work", true);
+      addQuestion(f.requireSponsorship, ["sponsorship", "requirevisa", "visasponsor", "needvisa", "immigration"], "Needs sponsorship", true);
+      addQuestion(f.gender, ["gender", "_sex", "gender-identity"], "Gender", false);
+      addQuestion(f.ethnicity, ["hispanic", "latino", "ethnicity"], "Hispanic / Latino", false);
+      addQuestion(f.race, ["race", "ethnicbackground", "ethnicity-race"], "Race", false);
+      addQuestion(f.veteranStatus, ["veteran", "military", "protectedveteran"], "Veteran status", false);
+      addQuestion(f.disabilityStatus, ["disability", "disabled"], "Disability status", false);
 
       // ---- Work Experience blocks ----
       const exps = values.__experience || [];
@@ -232,6 +257,13 @@
       return B.findNextButton();
     },
   };
+
+  function yesNoAlts(v) {
+    const t = String(v).trim().toLowerCase();
+    if (/^y(es)?$/.test(t)) return ["Yes", "Y"];
+    if (/^n(o)?$/.test(t)) return ["No", "N"];
+    return [];
+  }
 
   function sectionContainer(autoSub, textRe) {
     let el = Array.from(document.querySelectorAll('[data-automation-id]'))

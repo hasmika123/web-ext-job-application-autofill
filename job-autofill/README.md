@@ -27,14 +27,20 @@ pick — that's the core of the design.
 
 ## Parsing 50 resumes
 
-The manager extracts text from each PDF/DOCX/TXT and structures it into skills,
-experience, and education. Two modes:
+The manager extracts text from each PDF/DOCX/TXT and structures it into summary,
+skills, work experience, education, languages, and projects. Two modes:
 
-- **Heuristic (default, no key):** built in, free, rougher. Always review the
-  result — section detection on PDFs is imperfect.
+- **Heuristic (default, no key):** built in, free, rougher. It separates each job
+  into distinct company / title / location fields, splits date ranges into start
+  and end, and keeps **Projects** out of Work Experience (projects are stored
+  separately and only filled when an application explicitly has a projects
+  section). Resume layouts vary, so always review the result.
 - **Anthropic API (optional):** in **Settings**, toggle it on and paste your own
   API key for much cleaner extraction. The key is stored locally on your device
   and sent only to `api.anthropic.com`.
+
+The editor has sections for each of these, including Languages and Projects, so
+you can fix anything the parser got wrong before saving.
 
 Either way, each resume lands in the list marked **needs review**. Open it,
 confirm or edit the fields, and **Confirm & save**. That's your confirmation step.
@@ -68,6 +74,13 @@ typeaheads (Workday prompts, react-select on Greenhouse/Lever/Ashby, etc.) are
 driven by opening the menu, optionally typing to filter, and clicking the
 best-matching option. If a value can't be matched to any option, that field is
 reported in the panel so you can set it by hand — nothing is left silently wrong.
+
+**Work eligibility & EEO.** Authorized-to-work and sponsorship questions fill
+from your bio (set them in Manage → Bio as Yes/No). Gender, Hispanic/Latino,
+race, veteran, and disability are off by default — turn on **Include EEO** (popup
+or Settings) and fill them in Manage; then Dossier sets those dropdowns too.
+State and country dropdowns are driven with abbreviation matching, so a bio value
+of "GA" still selects "Georgia" (country is set first so the state list loads).
 
 **Auto-advance (toggle, off by default).** After filling a step, Dossier can
 click the page's **Next / Continue** button. It only ever clicks forward-

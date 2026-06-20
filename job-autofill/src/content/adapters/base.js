@@ -305,28 +305,26 @@
     try { trigger.scrollIntoView({ block: "center", inline: "nearest" }); } catch (e) {}
 
     if (trigger.tagName === "INPUT") {
-      // react-select / combobox input: focus, type to filter, pick.
       trigger.focus();
       realClick(trigger);
       setNativeValue(trigger, want);
       fire(trigger, "input");
-      await delay(400);
+      await delay(500);
     } else {
       realClick(trigger);            // Workday button-style prompt
-      await delay(150);
-      await waitFor(() => visibleOptions().length > 0, 1400);
+      await delay(180);
+      await waitFor(() => visibleOptions().length > 0, 2500); // dependent menus (state after country) can be slow
       const search = findSearchBox();
       if (search) {
         search.focus();
         setNativeValue(search, want);
         fire(search, "input"); fire(search, "keyup");
-        await delay(450);
+        await delay(550);
       }
     }
-    await waitFor(() => visibleOptions().length > 0, 600);
+    await waitFor(() => visibleOptions().length > 0, 800);
     const opt = bestOption(visibleOptions(), want);
-    if (opt) { realClick(opt); await delay(160); return true; }
-    // nothing matched → close popup so it doesn't block later fields
+    if (opt) { realClick(opt); await delay(180); return true; }
     try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {}
     return false;
   }
@@ -334,11 +332,15 @@
   // Async apply: drives combos; everything else delegates to the sync applyItem.
   async function applyItemAsync(item) {
     if (!item) return false;
-    if (item.kind === "combo") return await selectCustom(item.el, item.value);
+    if (item.kind === "combo") {
+      const cands = [item.value].concat(item.alts || []).filter((v) => v != null && v !== "");
+      for (const v of cands) { if (await selectCustom(item.el, v)) return true; }
+      return false;
+    }
     if (item.kind === "combo-multi") {
       const vals = Array.isArray(item.value) ? item.value : [item.value];
       let any = false;
-      for (const v of vals) { const ok = await selectCustom(item.el, v); any = any || ok; await delay(140); }
+      for (const v of vals) { const ok = await selectCustom(item.el, v); any = any || ok; await delay(160); }
       return any;
     }
     return applyItem(item, item.value);

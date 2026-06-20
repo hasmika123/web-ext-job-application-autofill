@@ -35,6 +35,7 @@
     // EEO / demographic (off by default; never auto-guessed)
     gender: "gender",
     race: "race",
+    ethnicity: "ethnicity",
     veteranStatus: "veteranStatus",
     disabilityStatus: "disabilityStatus",
   };
@@ -62,12 +63,17 @@
     { field: FIELDS.summary, any: ["summary", "about you", "tell us about", "professional summary", "profile"] },
     { field: FIELDS.coverLetter, any: ["cover letter", "why are you", "why do you want", "additional information", "message to"] },
     { field: FIELDS.skills, any: ["skills", "technical skills", "key skills"] },
-    { field: FIELDS.authorizedToWork, any: ["authorized to work", "legally authorized", "right to work", "work authorization", "eligible to work"] },
-    { field: FIELDS.requireSponsorship, any: ["sponsorship", "require visa", "need visa", "visa support"] },
+    { field: FIELDS.authorizedToWork, any: ["authorized to work", "legally authorized", "right to work", "work authorization", "eligible to work", "authorization to work"] },
+    { field: FIELDS.requireSponsorship, any: ["sponsorship", "require visa", "need visa", "visa support", "require sponsorship", "immigration"] },
+    { field: FIELDS.ethnicity, any: ["hispanic", "latino", "latinx", "ethnicity"], neg: ["non-hispanic"] },
+    { field: FIELDS.race, any: ["race", "racial", "ethnic background", "race/ethnicity"], neg: ["embrace", "trace"] },
+    { field: FIELDS.gender, any: ["gender", "what is your sex", "your sex", "gender identity"], neg: ["identity document"] },
+    { field: FIELDS.veteranStatus, any: ["veteran", "protected veteran", "military service"] },
+    { field: FIELDS.disabilityStatus, any: ["disability", "disabled", "differently abled"] },
   ];
 
   // Fields whose value should be left untouched unless the user opts in.
-  const SENSITIVE = [FIELDS.gender, FIELDS.race, FIELDS.veteranStatus, FIELDS.disabilityStatus];
+  const SENSITIVE = [FIELDS.gender, FIELDS.race, FIELDS.ethnicity, FIELDS.veteranStatus, FIELDS.disabilityStatus];
 
   // Human-readable labels for the confirm overlay.
   const LABELS = {
@@ -78,7 +84,7 @@
     linkedin: "LinkedIn", github: "GitHub", website: "Website",
     authorizedToWork: "Authorized to work", requireSponsorship: "Needs sponsorship",
     summary: "Summary", skills: "Skills", coverLetter: "Cover letter",
-    gender: "Gender", race: "Race / Ethnicity", veteranStatus: "Veteran status",
+    gender: "Gender", race: "Race", ethnicity: "Hispanic / Latino", veteranStatus: "Veteran status",
     disabilityStatus: "Disability status",
   };
 
@@ -90,7 +96,7 @@
       country: "", linkedin: "", github: "", website: "",
       authorizedToWork: "", requireSponsorship: "",
       // EEO answers are part of bio but only used when the user enables them
-      gender: "", race: "", veteranStatus: "", disabilityStatus: "",
+      gender: "", race: "", ethnicity: "", veteranStatus: "", disabilityStatus: "",
     };
   }
 
@@ -105,6 +111,7 @@
       experience: [],        // [{company,title,location,startDate,endDate,current,bullets:[]}]
       education: [],         // [{school,degree,field,startDate,endDate,gpa}]
       languages: [],         // [{name, proficiency}]
+      projects: [],          // [{name, bullets:[]}] — kept separate from experience
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -127,7 +134,7 @@
     };
     Object.keys(map).forEach((k) => { if (map[k] !== undefined && map[k] !== "") v[k] = map[k]; });
     if (opts.includeEEO) {
-      [FIELDS.gender, FIELDS.race, FIELDS.veteranStatus, FIELDS.disabilityStatus].forEach((k) => {
+      [FIELDS.gender, FIELDS.race, FIELDS.ethnicity, FIELDS.veteranStatus, FIELDS.disabilityStatus].forEach((k) => {
         if (bio[k]) v[k] = bio[k];
       });
     }
@@ -135,10 +142,33 @@
     v.__experience = resume.experience || [];
     v.__education = resume.education || [];
     v.__languages = Array.isArray(resume.languages) ? resume.languages : [];
+    v.__projects = Array.isArray(resume.projects) ? resume.projects : []; // not auto-filled; only when a page asks
     v.__skillsArray = Array.isArray(resume.skills) ? resume.skills : [];
     v.__webCount = [bio.linkedin, bio.github, bio.website].filter(Boolean).length;
     return v;
   }
 
-  JAF.schema = { FIELDS, MATCHERS, SENSITIVE, LABELS, emptyBio, emptyResume, buildFillValues };
+  // US state abbreviation <-> full name, so a dropdown listing "Georgia" still
+  // matches a resume/bio value of "GA" (and vice-versa via candidate fallback).
+  const US_STATES = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia" };
+  const STATE_ABBR = Object.fromEntries(Object.entries(US_STATES).map(([a, n]) => [n.toLowerCase(), a]));
+  // Returns [primary, ...alternates] to try against a dropdown's options.
+  function stateCandidates(v) {
+    if (!v) return [];
+    const t = String(v).trim();
+    const up = t.toUpperCase();
+    if (US_STATES[up]) return [US_STATES[up], up];                 // "GA" -> ["Georgia","GA"]
+    if (STATE_ABBR[t.toLowerCase()]) return [t, STATE_ABBR[t.toLowerCase()]]; // "Georgia" -> ["Georgia","GA"]
+    return [t];
+  }
+  function countryCandidates(v) {
+    if (!v) return [];
+    const t = String(v).trim();
+    const m = { "us": "United States", "u.s.": "United States", "usa": "United States", "u.s.a.": "United States", "united states": "United States", "uk": "United Kingdom", "u.k.": "United Kingdom" };
+    const full = m[t.toLowerCase()] || t;
+    const alts = [full, t, "United States of America", "USA", "US"].filter((x, i, a) => x && a.indexOf(x) === i);
+    return /united states/i.test(full) ? alts : [full, t].filter((x, i, a) => a.indexOf(x) === i);
+  }
+
+  JAF.schema = { FIELDS, MATCHERS, SENSITIVE, LABELS, emptyBio, emptyResume, buildFillValues, stateCandidates, countryCandidates };
 })();

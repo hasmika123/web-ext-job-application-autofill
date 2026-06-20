@@ -14,7 +14,8 @@ const BIO_FIELDS = [
   ["authorizedToWork", "Authorized to work? (Yes/No)"], ["requireSponsorship", "Need sponsorship? (Yes/No)"],
 ];
 const EEO_FIELDS = [
-  ["gender", "Gender"], ["race", "Race / Ethnicity"], ["veteranStatus", "Veteran status"], ["disabilityStatus", "Disability status"],
+  ["gender", "Gender"], ["ethnicity", "Hispanic / Latino? (Yes/No)"], ["race", "Race"],
+  ["veteranStatus", "Veteran status"], ["disabilityStatus", "Disability status"],
 ];
 
 /* ---------- tabs ---------- */
@@ -102,6 +103,7 @@ async function handleFiles(files) {
       resume.experience = structured.experience || [];
       resume.education = structured.education || [];
       resume.languages = structured.languages || [];
+      resume.projects = structured.projects || [];
       resume.hasFile = true;
       resume.needsReview = true;
       await S.saveResume(resume);
@@ -177,6 +179,13 @@ async function openEditor(id) {
       </div>
     </div>`;
 
+  const projHtml = (e, i) => `
+    <div class="entry" data-proj="${i}">
+      <button class="removex" data-rmproj="${i}">remove</button>
+      <div class="field"><label>Project name</label><input class="input p-name" value="${esc(e.name || "")}"></div>
+      <div class="field"><label>Bullets (one per line)</label><textarea class="p-bullets">${esc((e.bullets || []).join("\n"))}</textarea></div>
+    </div>`;
+
   $("#drawer").innerHTML = `
     <h2>Review resume</h2>
     <div class="field"><label>Label (how it appears in the picker)</label><input class="input wide" id="d-label" value="${esc(r.label)}"></div>
@@ -194,6 +203,10 @@ async function openEditor(id) {
     <div class="subhead">Languages</div>
     <div id="lang-wrap">${(r.languages || []).map(langHtml).join("")}</div>
     <button class="miniadd" id="add-lang">+ add language</button>
+
+    <div class="subhead">Projects <span class="hint" style="font-weight:400">— kept separate from work experience; only filled when an application asks for projects</span></div>
+    <div id="proj-wrap">${(r.projects || []).map(projHtml).join("")}</div>
+    <button class="miniadd" id="add-proj">+ add project</button>
 
     <div class="actionbar">
       <button class="primary" id="d-save">Confirm &amp; save</button>
@@ -225,36 +238,44 @@ async function openEditor(id) {
       name: node.querySelector(".l-name").value.trim(),
       proficiency: node.querySelector(".l-prof").value.trim(),
     })).filter((l) => l.name);
-    return { exps, edus, langs };
+    const projs = $$("#proj-wrap .entry").map((node) => ({
+      name: node.querySelector(".p-name").value.trim(),
+      bullets: node.querySelector(".p-bullets").value.split("\n").map((s) => s.trim()).filter(Boolean),
+    })).filter((p) => p.name);
+    return { exps, edus, langs, projs };
   };
 
   const persistAndReopen = async () => {
-    const { exps, edus, langs } = collect();
+    const { exps, edus, langs, projs } = collect();
     r.label = $("#d-label").value.trim() || r.label;
     r.summary = $("#d-summary").value.trim();
     r.skills = $("#d-skills").value.split(",").map((s) => s.trim()).filter(Boolean);
     r.experience = exps;
     r.education = edus;
     r.languages = langs;
+    r.projects = projs;
     await S.saveResume(r);
     openEditor(r.id);
   };
 
-  $("#add-exp").onclick = async () => { const { exps, edus, langs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.experience.push({ company: "", title: "", startDate: "", endDate: "", bullets: [] }); await S.saveResume(r); openEditor(r.id); };
-  $("#add-edu").onclick = async () => { const { exps, edus, langs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.education.push({ school: "", degree: "", field: "", endDate: "" }); await S.saveResume(r); openEditor(r.id); };
-  $("#add-lang").onclick = async () => { const { exps, edus, langs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.languages.push({ name: "", proficiency: "" }); await S.saveResume(r); openEditor(r.id); };
-  $$("[data-rmexp]").forEach((b) => b.onclick = async () => { const { exps, edus, langs } = collect(); exps.splice(+b.dataset.rmexp, 1); r.experience = exps; r.education = edus; r.languages = langs; await S.saveResume(r); openEditor(r.id); });
-  $$("[data-rmedu]").forEach((b) => b.onclick = async () => { const { exps, edus, langs } = collect(); edus.splice(+b.dataset.rmedu, 1); r.experience = exps; r.education = edus; r.languages = langs; await S.saveResume(r); openEditor(r.id); });
-  $$("[data-rmlang]").forEach((b) => b.onclick = async () => { const { exps, edus, langs } = collect(); langs.splice(+b.dataset.rmlang, 1); r.experience = exps; r.education = edus; r.languages = langs; await S.saveResume(r); openEditor(r.id); });
+  $("#add-exp").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.experience.push({ company: "", title: "", startDate: "", endDate: "", bullets: [] }); await S.saveResume(r); openEditor(r.id); };
+  $("#add-edu").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.education.push({ school: "", degree: "", field: "", endDate: "" }); await S.saveResume(r); openEditor(r.id); };
+  $("#add-lang").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.languages.push({ name: "", proficiency: "" }); await S.saveResume(r); openEditor(r.id); };
+  $("#add-proj").onclick = async () => { const { exps, edus, langs, projs } = collect(); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; r.projects.push({ name: "", bullets: [] }); await S.saveResume(r); openEditor(r.id); };
+  $$("[data-rmexp]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); exps.splice(+b.dataset.rmexp, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
+  $$("[data-rmedu]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); edus.splice(+b.dataset.rmedu, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
+  $$("[data-rmlang]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); langs.splice(+b.dataset.rmlang, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
+  $$("[data-rmproj]").forEach((b) => b.onclick = async () => { const { exps, edus, langs, projs } = collect(); projs.splice(+b.dataset.rmproj, 1); r.experience = exps; r.education = edus; r.languages = langs; r.projects = projs; await S.saveResume(r); openEditor(r.id); });
 
   $("#d-save").onclick = async () => {
-    const { exps, edus, langs } = collect();
+    const { exps, edus, langs, projs } = collect();
     r.label = $("#d-label").value.trim() || r.label;
     r.summary = $("#d-summary").value.trim();
     r.skills = $("#d-skills").value.split(",").map((s) => s.trim()).filter(Boolean);
     r.experience = exps;
     r.education = edus;
     r.languages = langs;
+    r.projects = projs;
     r.needsReview = false;
     await S.saveResume(r);
     host.classList.add("hidden");
