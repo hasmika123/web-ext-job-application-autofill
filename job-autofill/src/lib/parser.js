@@ -260,6 +260,41 @@
     return out.filter((l) => l.name && l.name.length <= 24);
   }
 
+  // A skills-section category label (often appears bare or as "Category: a, b, c").
+  const CATEGORY_RE = /^(?:programming\s+|developer\s+|technical\s+)?(?:languages?|frameworks?|libraries|tools?|technolog(?:y|ies)|databases?|cloud|devops|platforms?|methodolog(?:y|ies)|concepts?|paradigms?|operating\s+systems?|os|version\s+control|testing|data|machine\s+learning|ml|ai|soft\s+skills?|frontend|front-end|backend|back-end|design|other|misc(?:ellaneous)?|certifications?|skills?|competencies|expertise|proficiencies|stack)\b/i;
+  function skillsFromName(n) {
+    let s = n; const cm = n.match(CATEGORY_RE);
+    if (cm) s = n.replace(CATEGORY_RE, "").replace(/^[\s:–—\-|]+/, "");
+    return s.split(/[,•·\/|]/).map((x) => x.trim()).filter((x) => x && x.length <= 30);
+  }
+  // Is this "project" actually a skills line/category that slipped into the section?
+  function looksLikeSkillsProject(p) {
+    if (p.bullets && p.bullets.length) return false;       // real projects have descriptions
+    const n = (p.name || "").trim(); if (!n) return true;
+    const toks = n.split(/[,•·\/|]/).map((s) => s.trim()).filter(Boolean);
+    if (toks.length >= 2 && toks.every((t) => t.length <= 25 && (t.match(/\s/g) || []).length <= 1)) return true; // a tech list
+    const cm = n.match(CATEGORY_RE);
+    if (cm) {
+      const rest = n.replace(CATEGORY_RE, "").replace(/^[\s:–—\-|]+/, "").trim();
+      if (!rest) return true;                               // bare category header
+      if (/[,•·\/|]/.test(rest)) {
+        const rtoks = rest.split(/[,•·\/|]/).map((s) => s.trim()).filter(Boolean);
+        if (rtoks.length >= 2 && rtoks.every((t) => t.length <= 25 && (t.match(/\s/g) || []).length <= 1)) return true;
+      }
+    }
+    return false;
+  }
+
+  // True when a line is ENTIRELY skills-category words + connectors (e.g. "Frameworks
+  // & Libraries", "Cloud / DevOps", "Languages") — a sub-heading, not a skill itself.
+  function isPureCategoryLabel(line) {
+    if (line.includes(":")) return false;
+    let s = " " + line.toLowerCase() + " ";
+    s = s.replace(/[,&\/\-–—|+]/g, " ");
+    s = s.replace(/\b(programming|developer|technical|languages?|frameworks?|libraries|tools?|technolog(?:y|ies)|databases?|cloud|devops|platforms?|methodolog(?:y|ies)|concepts?|paradigms?|operating|systems?|os|version|control|testing|machine|learning|ml|ai|soft|skills?|competencies|expertise|proficiencies|stack|and|other|misc(?:ellaneous)?|certifications?|frontend|backend|design|data)\b/g, " ");
+    return s.replace(/\s+/g, "").length === 0;
+  }
+
   function parseProjects(lines) {
     const out = [];
     let pj = null;
@@ -300,22 +335,33 @@
     const lines = text.split("\n").map((l) => l.replace(/\u00a0/g, " ").replace(/\s+$/g, "")).map((l) => l.trim()).filter(Boolean);
     const sections = { summary: [], skills: [], experience: [], education: [], projects: [], languages: [], other: [] };
     let cur = "other";
-    for (const line of lines) {
+    const profRe = /native|fluent|conversational|intermediate|advanced|beginner|proficient|basic|bilingual|elementary|working|mother\s*tongue/i;
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
       // Inline "Label: a, b, c".
       const colon = line.indexOf(":");
       if (colon > 0 && colon < 30) {
         const content = line.slice(colon + 1).trim();
         if (content) {
-          // Inside the skills section, sub-labels like "Languages: Python, Java" or
-          // "Frameworks: React" are skill CATEGORIES — their contents are skills,
-          // never spoken languages. Keep them in skills.
-          if (cur === "skills") { sections.skills.push(content); continue; }
+          if (cur === "skills") { sections.skills.push(content); continue; } // skill sub-category
           const isec = detectSectionWord(line.slice(0, colon));
           if (isec && isec !== "other" && sections[isec]) { sections[isec].push(content); continue; }
         }
       }
       const sec = detectSection(line);
-      if (sec) { cur = sec; continue; }
+      // Drop a bare skills sub-heading (and keep its skills, which follow) instead of
+      // letting it leak in as a literal skill.
+      if (cur === "skills" && !line.includes(":") && line.length <= 40 && isPureCategoryLabel(line)) continue;
+      if (sec) {
+        // A category word that is also a section name ("Languages", "Technologies")
+        // followed by a tech list (not proficiency text) is a skills sub-heading, not
+        // a real spoken-languages/other section — don't switch on it.
+        if (isPureCategoryLabel(line) && line.length <= 22 && !profRe.test(lines[li + 1] || "")) {
+          if (cur === "skills" || cur === "projects") continue;
+          cur = "skills"; continue;
+        }
+        cur = sec; continue;
+      }
       sections[cur].push(line);
     }
     const skills = sections.skills
@@ -329,6 +375,13 @@
     for (const s of projResult.skills) {
       if (!skills.some((x) => x.toLowerCase() === s.toLowerCase())) skills.push(s);
     }
+    // A "project" that is really a skills category or a tech list → move it to skills.
+    const realProjects = [];
+    for (const p of projResult.projects) {
+      if (looksLikeSkillsProject(p)) {
+        for (const s of skillsFromName(p.name)) if (!skills.some((x) => x.toLowerCase() === s.toLowerCase())) skills.push(s);
+      } else realProjects.push(p);
+    }
 
     return {
       summary: sections.summary.join(" ").trim(),
@@ -336,7 +389,7 @@
       experience: parseExperience(sections.experience),
       education: parseEducation(sections.education),
       languages: parseLanguages(sections.languages),
-      projects: projResult.projects,
+      projects: realProjects,
     };
   }
 

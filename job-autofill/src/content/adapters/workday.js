@@ -19,6 +19,36 @@
     }
     return ids.join(" ").toLowerCase();
   }
+  const normTxt = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  // The prompt a control is answering: its group's heading/legend/label text.
+  // Starts ABOVE the control so the control's own id/placeholder ("Select One")
+  // is never mistaken for the question.
+  function promptText(el) {
+    try {
+      const own = (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+      let p = el.parentElement, hops = 0, fallback = "";
+      while (p && hops < 8) {
+        const aid = ((p.getAttribute && p.getAttribute("data-automation-id")) || "").toLowerCase();
+        const isGroup = (p.matches && p.matches('fieldset,[role="group"],[role="radiogroup"]')) ||
+          /formfield|questionitem|questionnaire|selfident|disclosure|eeo|voluntary/.test(aid);
+        if (isGroup) {
+          const lab = p.querySelector && p.querySelector('legend,label,h2,h3,h4,[role="heading"]');
+          if (lab && lab.textContent && lab.textContent.trim().length > 2) return lab.textContent;
+          if (!fallback) {
+            const t = (p.textContent || "").replace(/\s+/g, " ").trim();
+            const stripped = own ? t.toLowerCase().split(own).join(" ").trim() : t;
+            if (stripped.replace(/select one|select\.\.\.|choose one/ig, "").trim().length > 4) fallback = t.slice(0, 240);
+          }
+        }
+        p = p.parentElement; hops++;
+      }
+      return fallback;
+    } catch (e) { return ""; }
+  }
+  // Everything that identifies what a control is asking, normalized for matching.
+  function questionContext(el) {
+    return normTxt([autoChain(el), B.labelText(el) || "", promptText(el)].join(" "));
+  }
   function textInputs(root) {
     return Array.from((root || document).querySelectorAll("input, textarea")).filter((el) => {
       if (!B.isFillable(el)) return false;
@@ -98,12 +128,20 @@
         if (!qrule) return;
         const val = values[field];
         if (val === undefined || val === "") return;
-        let el = fieldEls().find((e) => M(autoChain(e), qrule) && (B.isCustomDropdown(e) || e.tagName === "SELECT"));
-        if (el) { add(el, field, val, label, el.tagName === "SELECT" ? "select" : "combo", yesNoAlts(val)); return; }
+        // Match the control whose QUESTION PROMPT (not just its id) fits the rule.
+        const el = fieldEls().find((e) => !seen.has(e) && (B.isCustomDropdown(e) || e.tagName === "SELECT") && M(questionContext(e), qrule));
+        if (el) { add(el, field, val, label, el.tagName === "SELECT" ? "select" : "combo", optionAlts(field, val)); return; }
         if (qrule.yesNo) {
-          const radio = Array.from(document.querySelectorAll('input[type="radio"]'))
-            .find((e) => M(autoChain(e), qrule) || M((B.labelText(e) || "").toLowerCase(), qrule));
-          if (radio) add(radio, field, val, label, "boolean");
+          const radios = Array.from(document.querySelectorAll('input[type="radio"]')).filter((e) => !seen.has(e) && B.isVisible(e));
+          const group = radios.filter((e) => M(questionContext(e), qrule));
+          if (group.length) {
+            const wantYes = /^y(es)?$|^true$/i.test(String(val).trim());
+            const pick = group.find((e) => {
+              const t = ((B.labelText(e) || "") + " " + (e.value || "")).toLowerCase();
+              return wantYes ? /\byes\b|^y$|\btrue\b/.test(t) : /\bno\b|^n$|\bfalse\b/.test(t);
+            }) || group[0];
+            add(pick, field, val, label, "boolean");
+          }
         }
       };
 
@@ -118,10 +156,13 @@
       add(findInput(r.fields.city), f.city, values[f.city]);
       add(findInput(r.fields.postalCode), f.postalCode, values[f.postalCode]);
       {
+        const pickDrop = (e) => B.isCustomDropdown(e) || e.tagName === "INPUT" || e.tagName === "SELECT";
         const cc = JAF.schema.countryCandidates(values[f.country]);
-        add(findField(r.fields.country, null, B.isCustomDropdown), f.country, cc[0], "Country", "combo", cc.slice(1));
+        const cEl = findField(r.fields.country, null, pickDrop);
+        if (cEl) add(cEl, f.country, cc[0], "Country", kindOf(cEl), cc.slice(1));
         const sc = JAF.schema.stateCandidates(values[f.state]);
-        add(findField(r.fields.state, null, B.isCustomDropdown), f.state, sc[0], "State / Province", "combo", sc.slice(1));
+        const sEl = findField(r.fields.state, null, pickDrop);
+        if (sEl) add(sEl, f.state, sc[0], "State / Province", kindOf(sEl), sc.slice(1));
       }
       // ---- Work eligibility & EEO ----
       addQuestion(f.authorizedToWork, r.questions.authorizedToWork, "Authorized to work");
@@ -248,6 +289,24 @@
     if (/^n(o)?$/.test(t)) return ["No", "N"];
     return [];
   }
+  function optionAlts(field, val) {
+    const yn = yesNoAlts(val); if (yn.length) return yn;
+    const FI = JAF.schema.FIELDS, t = String(val).toLowerCase(), alts = [];
+    if (field === FI.veteranStatus) {
+      if (t.includes("not")) alts.push("I am not a protected veteran", "Not a Protected Veteran", "No");
+      else if (t.includes("identify") || t.includes("one or more")) alts.push("I identify as one or more of the classifications of a protected veteran", "Yes");
+      if (t.includes("prefer") || t.includes("wish")) alts.push("I don't wish to answer", "Prefer not to say");
+    } else if (field === FI.disabilityStatus) {
+      if (/^no\b/.test(t) || t.includes("do not have") || t.includes("don't have")) alts.push("No, I don't have a disability", "No", "I do not have a disability");
+      else if (/^yes\b/.test(t) || t.includes("have a disability")) alts.push("Yes, I have a disability", "Yes");
+      if (t.includes("prefer") || t.includes("wish") || t.includes("not to answer")) alts.push("I do not wish to answer", "Prefer not to say");
+    } else if (field === FI.ethnicity) {
+      if (t === "yes" || t.includes("hispanic")) alts.push("Hispanic or Latino", "Yes");
+      else if (t === "no") alts.push("Not Hispanic or Latino", "No");
+      if (t.includes("prefer")) alts.push("Prefer not to say", "Decline to self identify");
+    }
+    return alts;
+  }
   function sectionContainer(cfg) {
     const autoSub = cfg.auto, textRe = new RegExp(cfg.text, "i");
     let el = Array.from(document.querySelectorAll('[data-automation-id]'))
@@ -258,20 +317,42 @@
     if (heads.length) { let p = heads[0]; for (let i = 0; i < 4 && p.parentElement; i++) p = p.parentElement; return p; }
     return null;
   }
+  const btnText = (x) => (x.innerText || x.textContent || x.getAttribute("aria-label") || "").trim();
+  // Does an "Add" button sit under a heading naming this section?
+  function nearHeading(el, textRe, excludeRe) {
+    let node = el, hops = 0;
+    while (node && hops < 9) {
+      let sib = node.previousElementSibling, scans = 0;
+      while (sib && scans < 6) {
+        const tx = (sib.textContent || "").slice(0, 90);
+        if (textRe.test(tx) && !(excludeRe && excludeRe.test(tx))) return true;
+        sib = sib.previousElementSibling; scans++;
+      }
+      node = node.parentElement; hops++;
+    }
+    return false;
+  }
   function addButtonFor(cfg) {
     const textRe = new RegExp(cfg.text, "i");
     const excludeRe = cfg.exclude ? new RegExp(cfg.exclude, "i") : null;
     const btns = Array.from(document.querySelectorAll('button,[role="button"],a')).filter(B.isVisible);
-    let b = btns.find((x) => { const c = autoChain(x); return c.includes("add") && c.includes(cfg.auto); });
+    const isAdd = (x) => /^add\b/i.test(btnText(x)) && !(excludeRe && excludeRe.test(btnText(x)));
+    // 1) automation-id chain carries "add" + the section keyword
+    let b = btns.find((x) => { const c = autoChain(x); return c.includes("add") && (c.includes(cfg.auto) || textRe.test(c)); });
     if (b) return b;
+    // 2) the button text itself names the section ("Add Education", "Add Another Degree")
+    b = btns.find((x) => isAdd(x) && (textRe.test(btnText(x)) || /another/i.test(btnText(x)) && textRe.test(autoChain(x))));
+    if (b) return b;
+    // 3) an Add button inside the section container
     const section = sectionContainer(cfg);
-    return btns.find((x) => {
-      const t = (x.innerText || x.textContent || x.getAttribute("aria-label") || "").trim();
-      if (!/^add\b/i.test(t)) return false;
-      if (excludeRe && excludeRe.test(t)) return false;
-      if (section && section.contains(x)) return true;
-      return textRe.test(t) || /another/i.test(t);
-    }) || null;
+    if (section) { b = btns.find((x) => section.contains(x) && isAdd(x)); if (b) return b; }
+    // 4) an Add button whose nearest preceding heading names the section
+    b = btns.find((x) => isAdd(x) && nearHeading(x, textRe, excludeRe));
+    if (b) return b;
+    // 5) last resort: a single lone "Add" button when this is the only addable section visible
+    const lone = btns.filter((x) => /^add\b/i.test(btnText(x)));
+    if (lone.length === 1 && !(excludeRe && excludeRe.test(btnText(lone[0])))) return lone[0];
+    return null;
   }
   function addMoreNote(items, need, have, name, cfg) {
     if (need > have && (have > 0 || (cfg && sectionContainer(cfg)))) {

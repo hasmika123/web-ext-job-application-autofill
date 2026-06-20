@@ -19,7 +19,7 @@
   const JAF = (window.JAF = window.JAF || {});
 
   JAF.defaultRules = {
-    version: 1,
+    version: 2,
     updatedAt: "2026-06-20",
 
     // Keyword matchers for the GENERIC (no dedicated adapter) label matcher.
@@ -66,8 +66,8 @@
           addressLine2: { any: ["addressline2", "addline2"], regex: "address.*line.?2" },
           city: { any: ["city", "municipality"] },
           postalCode: { any: ["postal", "zip"] },
-          country: { any: ["countryregion"], not: ["subdivision"] },
-          state: { any: ["subdivision", "countryregionregion", "state", "province"] },
+          country: { any: ["country"], not: ["countryregion", "region", "subdivision", "code", "dial", "phone"] },
+          state: { any: ["countryregion", "subdivision", "region", "state", "province"], not: ["countrycode", "phonecode", "dialcode", "postal", "country code"] },
           skills: { any: ["skill"] },
         },
         exp: {
