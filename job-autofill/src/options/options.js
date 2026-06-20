@@ -160,10 +160,14 @@ async function handleFiles(files) {
   const settings = await S.getSettings();
   const prog = $("#progress");
   let done = 0;
+  let firstBio = null;
   for (const file of files) {
     prog.textContent = `Parsing ${done + 1} of ${files.length}: ${file.name}…`;
     try {
       const structured = await P.parse(file, settings);
+      if (!firstBio) {
+        try { const b = P.parseBio(structured.__rawText || ""); if (b && Object.keys(b).length) firstBio = b; } catch (e) {}
+      }
       const resume = SCH.emptyResume();
       resume.label = file.name.replace(/\.(pdf|docx|txt)$/i, "");
       resume.fileName = file.name;
@@ -184,8 +188,30 @@ async function handleFiles(files) {
     done++;
   }
   prog.textContent = `Done — ${done} file${done === 1 ? "" : "s"} parsed. Open each to review.`;
+  await maybePopulateBio(firstBio);
   await renderResumes();
   await renderUsage();
+}
+
+// Offer to populate the single shared Bio profile from a freshly-parsed resume.
+// Only fills bio fields that are currently EMPTY — existing values are never
+// overwritten — and only after the user confirms.
+async function maybePopulateBio(parsed) {
+  if (!parsed) return;
+  const LBL = { firstName: "First name", lastName: "Last name", email: "Email", phone: "Phone", city: "City", state: "State", linkedin: "LinkedIn", github: "GitHub", website: "Website" };
+  const bio = await S.getBio();
+  const toFill = Object.keys(parsed).filter((k) => parsed[k] && k in bio && !(bio[k] && String(bio[k]).trim()));
+  if (!toFill.length) return;
+  const preview = toFill.map((k) => `  • ${LBL[k] || k}: ${parsed[k]}`).join("\n");
+  const ok = confirm(
+    "Populate your Bio profile from this resume?\n\n" +
+    "These empty Bio fields would be filled:\n\n" + preview +
+    "\n\nExisting values are left untouched. You can edit everything in the Bio tab."
+  );
+  if (!ok) return;
+  toFill.forEach((k) => { bio[k] = parsed[k]; });
+  await S.saveBio(bio);
+  await renderBio();
 }
 
 async function renderResumes() {

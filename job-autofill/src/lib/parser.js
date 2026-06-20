@@ -64,7 +64,30 @@
     for (const [sec, words] of Object.entries(SECTION_WORDS)) {
       if (words.some((w) => t === w || t === w + "s" || t.startsWith(w + " ") || t.startsWith(w + " &") || t.startsWith(w + " and"))) return sec;
     }
+    // Relaxed match for headings that carry leading qualifiers, e.g. "Relevant
+    // Technical Skills", "Core Technical Skills", "Areas of Expertise" — any heading
+    // that ENDS in a section keyword. Gated on the line looking like a heading so we
+    // never reclassify body text that merely happens to end in "skills".
+    if (looksLikeHeading(line)) {
+      for (const [sec, words] of Object.entries(SECTION_WORDS)) {
+        if (words.some((w) => t.endsWith(" " + w) || t.endsWith(" " + w + "s"))) return sec;
+      }
+    }
     return null;
+  }
+  // A short, capitalized line with no sentence punctuation — a section heading
+  // rather than a bullet or a sentence. Used to safely relax keyword matching above.
+  function looksLikeHeading(raw) {
+    const s = String(raw || "").trim().replace(/[\s:*_]+$/g, "").trim();
+    if (!s || s.length > 45) return false;
+    if (BULLET_RE.test(raw)) return false;
+    if (/[.!?,;]$/.test(s)) return false;
+    const words = s.split(/\s+/);
+    if (words.length < 2 || words.length > 6) return false; // single-word headings already caught above
+    const sig = words.filter((w) => !/^(of|the|and|&|a|to|in|for|with)$/i.test(w));
+    const allCaps = /[A-Za-z]/.test(s) && s === s.toUpperCase();
+    const titleCase = sig.length > 0 && sig.every((w) => /^[^A-Za-z]*[A-Z]/.test(w));
+    return allCaps || titleCase;
   }
   // Which section does the text BEFORE a colon name? (for inline "Label: a, b, c")
   function detectSectionWord(head) {
@@ -84,6 +107,15 @@
   const BULLET_RE = /^\s*(?:[-–—•*▪◦‣·●○▸►▹◆◇∙⁃・]\s*|\d{1,2}[.)]\s+)/;
   const STRIP_BULLET = /^\s*(?:[-–—•*▪◦‣·●○▸►▹◆◇∙⁃・]\s*|\d{1,2}[.)]\s+)/;
   const DEGREE_RE = /\b(b\.?s\.?c?\.?|m\.?s\.?c?\.?|b\.?a\.?|m\.?a\.?|b\.?eng|m\.?eng|b\.?tech|m\.?tech|mba|ph\.?\s?d|bachelor|master|doctor(?:ate)?|associate|diploma|undergraduate|graduate)\b/i;
+
+  // "City, ST" detection — a real US state abbreviation after a comma. Used to keep
+  // a location (e.g. "Atlanta, GA") from ever being routed into skills/projects.
+  const US_STATE_ABBR = new Set(["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"]);
+  function isCityState(s) {
+    if (!s) return false;
+    const m = String(s).trim().match(/^([A-Za-z][A-Za-z.'\- ]+),\s*([A-Z]{2})$/);
+    return !!(m && US_STATE_ABBR.has(m[2]));
+  }
 
   function splitCells(line) {
     return line.split(/\t+|\s{2,}|\s*\|\s*|\s*•\s*|\s*·\s*|\s*‧\s*/).map((s) => s.trim()).filter(Boolean);
@@ -303,12 +335,14 @@
     const addSkills = (str) => str.split(/[,•·\/|]|\sand\s/i).map((s) => s.trim()).filter((s) => s && s.length <= 40).forEach((s) => skills.push(s));
     const looksLikeTechList = (line) => {
       if (/[()]/.test(line)) return false; // parens handled separately
+      if (isCityState(line)) return false; // "Atlanta, GA" is a location, not a tech list
       const toks = line.split(/[,•·\/|]/).map((s) => s.trim()).filter(Boolean);
       if (toks.length < 2) return false;
       return toks.every((t) => t.length <= 25 && (t.match(/\s/g) || []).length <= 1 && !/[.!?]$/.test(t) && !/\b(the|and|with|using|built|develop|created?|designed?|implement|led|managed|improv|increas|reduc|responsible)\b/i.test(t));
     };
     for (const line of lines) {
       if (BULLET_RE.test(line)) { if (pj) pj.bullets.push(line.replace(STRIP_BULLET, "").trim()); continue; }
+      if (isCityState(line)) continue; // stray "City, ST" line — not a project nor a skill
       const tm = line.match(techLine);
       if (tm) { addSkills(line.slice(tm[0].length)); continue; }   // labeled tech list -> skills
       // Pull a trailing "(React, Node, Postgres)" off a project name into skills first.
@@ -322,8 +356,11 @@
       const segs = work.split(/\s*\|\s*|\s+[–—]\s+|\s+-\s+/);
       const name = cleanSeg(segs[0] || work);
       if (segs.length > 1) {
-        const toks = segs.slice(1).join(", ").split(/[,•·\/]/).map((s) => s.trim()).filter(Boolean);
-        if (toks.length && toks.every((t) => t.length <= 28 && (t.match(/\s/g) || []).length <= 1)) toks.forEach((t) => skills.push(t));
+        const tail = segs.slice(1).join(", ");
+        if (!isCityState(tail)) { // don't lift a trailing "City, ST" location into skills
+          const toks = tail.split(/[,•·\/]/).map((s) => s.trim()).filter(Boolean);
+          if (toks.length && toks.every((t) => t.length <= 28 && (t.match(/\s/g) || []).length <= 1)) toks.forEach((t) => skills.push(t));
+        }
       }
       pj = { name, bullets: [] };
     }
@@ -341,10 +378,16 @@
       // Inline "Label: a, b, c".
       const colon = line.indexOf(":");
       if (colon > 0 && colon < 30) {
+        const head = line.slice(0, colon);
         const content = line.slice(colon + 1).trim();
-        if (content) {
-          if (cur === "skills") { sections.skills.push(content); continue; } // skill sub-category
-          const isec = detectSectionWord(line.slice(0, colon));
+        if (cur === "skills") {
+          if (isCityState(content)) continue;                            // "Location: Atlanta, GA" — not a skill
+          if (content) { sections.skills.push(content); continue; }      // skill sub-category
+          // "Data:" with nothing after it — a dangling category label; drop it (its
+          // skills follow on later lines and stay, since cur is still "skills").
+          if (isPureCategoryLabel(head) || CATEGORY_RE.test(head.trim())) continue;
+        } else if (content) {
+          const isec = detectSectionWord(head);
           if (isec && isec !== "other" && sections[isec]) { sections[isec].push(content); continue; }
         }
       }
@@ -352,6 +395,8 @@
       // Drop a bare skills sub-heading (and keep its skills, which follow) instead of
       // letting it leak in as a literal skill.
       if (cur === "skills" && !line.includes(":") && line.length <= 40 && isPureCategoryLabel(line)) continue;
+      // Drop a stray "City, ST" line sitting in the skills section (contact/location residue).
+      if (cur === "skills" && isCityState(line)) continue;
       if (sec) {
         // A category word that is also a section name ("Languages", "Technologies")
         // followed by a tech list (not proficiency text) is a skills sub-heading, not
@@ -391,6 +436,50 @@
       languages: parseLanguages(sections.languages),
       projects: realProjects,
     };
+  }
+
+  // --- Bio extraction (name / contact / links) -----------------------------
+  // Pull personal-profile fields out of the resume header so the options page can
+  // offer to populate the single shared Bio. Returns only the fields it is
+  // reasonably confident about; everything else is left for the user to fill.
+  function parseBio(text) {
+    const bio = {};
+    const lines = (text || "").split("\n").map((l) => l.replace(/ /g, " ").trim()).filter(Boolean);
+    const head = lines.slice(0, 15).join("\n").replace(/ /g, " ");
+
+    const email = (text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/) || [])[0];
+    if (email) bio.email = email.trim();
+
+    const phone = (text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/) || [])[0];
+    if (phone) bio.phone = phone.trim();
+
+    const li = (text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[^\s)|,]+/i) || [])[0];
+    if (li) bio.linkedin = /^https?:/i.test(li) ? li : "https://" + li;
+    const gh = (text.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[^\s)|,]+/i) || [])[0];
+    if (gh) bio.github = /^https?:/i.test(gh) ? gh : "https://" + gh;
+    const urls = text.match(/https?:\/\/[^\s)|,]+/gi) || [];
+    const site = urls.find((u) => !/linkedin\.com|github\.com/i.test(u));
+    if (site) bio.website = site;
+
+    // "City, ST" in the header block (only with a real US state abbreviation).
+    const csRe = /([A-Z][A-Za-z.'\- ]+),\s*([A-Z]{2})\b/g;
+    let m;
+    while ((m = csRe.exec(head))) {
+      if (US_STATE_ABBR.has(m[2])) { bio.city = cleanSeg(m[1]); bio.state = m[2]; break; }
+    }
+
+    // Name: first plausible "First Last" line near the top — no digits/@, not a
+    // section heading, not a job title.
+    for (const l of lines.slice(0, 6)) {
+      if (/[@\d]/.test(l) || detectSection(l) || TITLE_RE.test(l)) continue;
+      const words = l.split(/\s+/).filter(Boolean);
+      if (words.length >= 2 && words.length <= 4 && words.every((w) => /^[A-Za-z][A-Za-z.'\-]*$/.test(w))) {
+        bio.firstName = words[0];
+        bio.lastName = words.slice(1).join(" ");
+        break;
+      }
+    }
+    return bio;
   }
 
   // --- LLM structuring (optional) ------------------------------------------
@@ -453,5 +542,5 @@
     return structured;
   }
 
-  JAF.parser = { parse, extractText, heuristicStructure };
+  JAF.parser = { parse, extractText, heuristicStructure, parseBio };
 })();
