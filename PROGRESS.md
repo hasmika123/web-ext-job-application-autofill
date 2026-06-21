@@ -25,11 +25,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.1 — Backend skeleton.** Backend generated from `dossier.jdl`
-> and **builds green** (JDK 17). *Remaining: bring up MySQL and confirm
-> `/management/health` is UP — gated on **Docker Desktop being started** (daemon is
-> off; no local MySQL). Start Docker, then I run `docker compose -f
-> api/src/main/docker/mysql.yml up -d` + `./gradlew bootRun` and verify health.*
+> **Phase 1 · Task 1.2 — Auth.** JWT register/login/refresh; `users` table; password
+> hashing. *(Note: JHipster already scaffolds JWT auth + the `jhi_user` table +
+> BCrypt + `/api/authenticate`. Verify/extend with a register + refresh flow.)*
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -55,10 +53,11 @@ focused Claude Code session.
   (backend-only) + **MySQL** (Railway/Aiven managed) + Cloudflare R2 + Next.js web
   app. Generate the backend from `dossier.jdl` (db type = mysql).
   *Resolved — do not pause here.*
-- [~] **1.1 Backend skeleton.** Generate/scaffold API, MySQL, Liquibase,
+- [x] **1.1 Backend skeleton.** Generate/scaffold API, MySQL, Liquibase,
   Docker. Health endpoint green locally. *Generated from `dossier.jdl` into `/api`
-  (JHipster 8, Spring Boot, JWT, MySQL, gradle); compiles + test-compiles green on
-  JDK 17. Health check pending a running MySQL (Docker daemon off locally).*
+  (JHipster 8, Spring Boot, JWT, MySQL, gradle); builds green on JDK 17. Verified
+  end-to-end: MySQL via docker compose → `./gradlew bootRun` → Liquibase migrated →
+  `/management/health` returns `{"status":"UP"}` (app started in 28s).*
 - [ ] **1.2 Auth.** JWT register/login/refresh; `users` table; password hashing.
 - [ ] **1.3 Data model.** `bios`, `resumes`, `applications`, `field_cache`,
   `ai_answers` tables + migrations (see ROADMAP schema).
@@ -120,10 +119,10 @@ focused Claude Code session.
   Note: SmartRecruiters oneclick-ui is open-shadow-DOM — deferred (needs shadow traversal).
 - 2026-06-20 · 0.3 Repo hygiene · already satisfied by existing `CLAUDE.md` + decided
   monorepo layout; added `.gitignore`. Phase 0 complete; Phase 1 gated on Neon account.
-- 2026-06-20 · 1.1 (partial) Backend skeleton · generated `/api` from `dossier.jdl`
+- 2026-06-20 · 1.1 Backend skeleton · generated `/api` from `dossier.jdl`
   (fixed JDL `maxlength N`→`maxlength(N)`); JHipster 8 / Spring Boot / JWT / MySQL /
-  gradle; `./gradlew compileJava compileTestJava` BUILD SUCCESSFUL on JDK 17. Live
-  `/management/health` check still pending (Docker Desktop not running locally).
+  gradle; builds green on JDK 17. Verified live: docker MySQL → `bootRun` → Liquibase
+  migrated → `/management/health` `{"status":"UP"}`. Phase 1.1 done.
 
 ---
 
