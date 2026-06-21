@@ -147,9 +147,16 @@ focused Claude Code session.
     `splitSkills` bundled so standalone parsing matches the extension. New
     `test/parser_core.test.js` proves consumption via plain `require()` (no jsdom/JAF);
     extension suite green; ext v0.10.0.
-  - [ ] **1.10b Next.js app scaffold + auth (signup/login/settings).** *Stack/scaffold
-    decisions pending — confirm before scaffolding (new sub-project, deps).*
-  - [ ] **1.10c Resume upload+review+archive (imports `parser-core`) + bio editor.**
+  - [x] **1.10b Next.js app scaffold.** `/web` scaffolded (Next 16 App Router, React 19,
+    TypeScript, Tailwind v4, `@/*` alias). Dossier landing page; `src/lib/config.ts`
+    server-side API base-URL seam (`DOSSIER_API_URL`, proxied — never exposed to the
+    client) + `.env.example`; `turbopack.root` pinned (monorepo lockfile inference);
+    project-local `web/.npmrc` to dodge the global npm shell misconfig. `npm test`
+    (`tsc --noEmit && eslint`) + `npm run build` green.
+  - [ ] **1.10c Auth — cookie route handlers + login/signup/settings.** httpOnly-cookie
+    auth: Next route handlers proxy `/api/authenticate`+`/api/refresh`+`/api/register`;
+    login/signup forms; gated settings page. (Read Next 16 docs first — async cookies().)
+  - [ ] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
 - [ ] **1.11 Privacy rewrite + multi-tenant hardening.** New privacy policy + Chrome
   Web Store data-use disclosure to match the cloud model. *Required before any public
   release.* **Also harden here (carried from 1.5):** the generated `/api/bios` and
@@ -265,6 +272,10 @@ focused Claude Code session.
   (Application +location/externalJobId/submissionConfirmed, status +DRAFT, Resume
   +archived; dedup index). Entities/DTOs/enum by hand; `20260622000000_extend_tracking_
   schema.xml`; `TrackingSchemaIT` round-trips fields+DRAFT through MySQL; full suite green.
+- 2026-06-21 · 1.10b Web app scaffold · `/web` Next 16 App Router + React 19 + TS +
+  Tailwind v4 (TS+Tailwind+httpOnly-cookie auth chosen). Dossier landing; `lib/config.ts`
+  server-only API base-URL seam + `.env.example`; `turbopack.root` pinned; `web/.npmrc`
+  shell pin. `npm test` = `tsc --noEmit && eslint` + `next build` both green. Auth next (1.10c).
 - 2026-06-21 · 1.10a Shared parser module · extracted `parser-core.js` (pure
   heuristicStructure/parseBio/splitSkills; UMD-lite — `JAF.parserCore` + `module.exports`,
   no build step) out of `parser.js` (now I/O-only, delegates). `test/parser_core.test.js`
