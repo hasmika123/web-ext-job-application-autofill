@@ -101,6 +101,10 @@ focused Claude Code session.
 - [ ] **1.9 Web app shell.** Next.js: signup/login/settings against the API.
 - [ ] **1.10 Privacy rewrite.** New privacy policy + Chrome Web Store data-use
   disclosure to match cloud model. *Required before any public release.*
+  **Also harden here (carried from 1.5):** the generated `/api/bios` and
+  `/api/resumes` controllers are NOT user-scoped — any authenticated user can read
+  every user's rows. Lock them down (admin-only or remove) so only the user-scoped
+  `/api/profile`(+`/resumes`) sync API is exposed. **Must not ship public without this.**
 
 ## Phase 2 — Deployment + CI/CD
 - [ ] **2.1 Environments.** API on Railway (staging + prod); web on Vercel.
