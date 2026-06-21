@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Lookup + uniqueness indexes for the application's hot query paths. The
+        generated entity changelogs only index foreign keys (auto-created by
+        InnoDB); these add the access-pattern indexes the ROADMAP data model
+        implies and enforce the per-user uniqueness our caching semantics require.
+    -->
+
+    <!-- One Bio per user (ROADMAP: "one per user"). -->
+    <changeSet id="20260621030000-1" author="dossier">
+        <addUniqueConstraint tableName="bio" columnNames="user_id" constraintName="ux_bio_user" />
+    </changeSet>
+
+    <!-- Learned field answers are keyed by (user, field_key, context_hash) with
+         last-write-wins; a unique index both speeds the per-fill lookup and
+         prevents duplicate rows when Phase 4 sync upserts. -->
+    <changeSet id="20260621030000-2" author="dossier">
+        <createIndex tableName="field_cache" indexName="ux_field_cache_user_key_ctx" unique="true">
+            <column name="user_id" />
+            <column name="field_key" />
+            <column name="context_hash" />
+        </createIndex>
+    </changeSet>
+
+    <!-- Cached AI answers are looked up (and deduped) by (user, question_hash). -->
+    <changeSet id="20260621030000-3" author="dossier">
+        <createIndex tableName="ai_answer" indexName="ux_ai_answer_user_qhash" unique="true">
+            <column name="user_id" />
+            <column name="question_hash" />
+        </createIndex>
+    </changeSet>
+
+    <!-- The tracker board filters a user's applications by status. -->
+    <changeSet id="20260621030000-4" author="dossier">
+        <createIndex tableName="application" indexName="idx_application_user_status">
+            <column name="user_id" />
+            <column name="status" />
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

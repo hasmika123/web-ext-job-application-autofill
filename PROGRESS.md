@@ -25,10 +25,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.3 — Data model.** `bios`, `resumes`, `applications`,
-> `field_cache`, `ai_answers` tables + migrations. *(Note: the entities + Liquibase
-> changelogs were already generated from `dossier.jdl` in 1.1 — this task is mostly
-> verifying the schema/migrations match the ROADMAP and tightening anything missing.)*
+> **Phase 1 · Task 1.4 — Resume storage.** Cloudflare R2 upload/download;
+> `resumes.r2_object_key`. *(Gate: needs Cloudflare R2 credentials/bucket — an
+> external account you must create. The `r_2_object_key` column already exists.)*
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -66,8 +65,13 @@ focused Claude Code session.
   `POST /api/refresh` mints a fresh access token. A `token_type` claim + a strict
   resource-server decoder ensure a refresh token can't be used as an access token.
   Full backend suite (unit + integration) green on JDK 17.*
-- [ ] **1.3 Data model.** `bios`, `resumes`, `applications`, `field_cache`,
-  `ai_answers` tables + migrations (see ROADMAP schema).
+- [x] **1.3 Data model.** `bios`, `resumes`, `applications`, `field_cache`,
+  `ai_answers` tables + migrations (see ROADMAP schema). *Entities + Liquibase
+  changelogs generated from `dossier.jdl` (1.1); verified all columns/FKs match the
+  ROADMAP sketch. Added a migration with the access-pattern indexes the generator
+  omits: unique `bio(user_id)`, unique `field_cache(user_id,field_key,context_hash)`,
+  unique `ai_answer(user_id,question_hash)`, and `application(user_id,status)`. Full
+  `test`+`integrationTest` green (migration applies on a fresh Testcontainers MySQL).*
 - [ ] **1.4 Resume storage.** Cloudflare R2 upload/download; `resumes.r2_object_key`.
 - [ ] **1.5 Profile + resume sync endpoints.** `/profile`, `/resumes` CRUD.
 - [ ] **1.6 `TrackingProvider` abstraction.** Define the provider interface +
@@ -135,6 +139,10 @@ focused Claude Code session.
   `/api/refresh`). `/authenticate` → `{accessToken,refreshToken}`; new `/api/refresh`.
   Updated AuthenticateControllerIT + new RefreshTokenControllerIT (8 cases). Full
   `./gradlew test integrationTest` green (Testcontainers, ryuk disabled locally).
+- 2026-06-21 · 1.3 Data model · verified generated schema vs ROADMAP; added
+  `20260621030000_added_indexes.xml` (unique bio/field_cache/ai_answer lookup keys +
+  application user+status index). Full suite green. Backend test runs on this OneDrive
+  checkout: `-Dorg.gradle.vfs.watch=false` avoids a build/ delete-lock.
 
 ---
 
