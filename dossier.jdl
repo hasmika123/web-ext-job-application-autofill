@@ -35,8 +35,8 @@ entity Bio {
 
 // Many resume variants per user; file bytes live in Cloudflare R2.
 entity Resume {
-  label String required maxlength 200
-  r2ObjectKey String required maxlength 500   // pointer into R2, not the bytes
+  label String required maxlength(200)
+  r2ObjectKey String required maxlength(500)   // pointer into R2, not the bytes
   parsedJson TextBlob                          // structured parse result
   status ResumeStatus required
   createdAt Instant required
@@ -44,13 +44,13 @@ entity Resume {
 
 // The application tracker. Captures JD + which resume was used.
 entity Application {
-  company String required maxlength 200
-  roleTitle String required maxlength 200
-  jobUrl String maxlength 1000
-  atsPlatform String maxlength 100
+  company String required maxlength(200)
+  roleTitle String required maxlength(200)
+  jobUrl String maxlength(1000)
+  atsPlatform String maxlength(100)
   jobDescription TextBlob
   status ApplicationStatus required
-  source String maxlength 100        // e.g. extension-autolog, manual, bookmark
+  source String maxlength(100)        // e.g. extension-autolog, manual, bookmark
   appliedAt Instant
   createdAt Instant required
   updatedAt Instant required
@@ -58,8 +58,8 @@ entity Application {
 
 // Learned per-field answers, synced across devices.
 entity FieldCache {
-  fieldKey String required maxlength 200
-  contextHash String required maxlength 128
+  fieldKey String required maxlength(200)
+  contextHash String required maxlength(128)
   value TextBlob required
   hitCount Integer required
   updatedAt Instant required
@@ -67,9 +67,9 @@ entity FieldCache {
 
 // Cached AI answers, keyed by a hash of the question.
 entity AiAnswer {
-  questionHash String required maxlength 128
+  questionHash String required maxlength(128)
   answer TextBlob required
-  model String maxlength 100
+  model String maxlength(100)
   tokens Integer
   createdAt Instant required
 }

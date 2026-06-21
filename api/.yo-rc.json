@@ -1,0 +1,23 @@
+{
+  "generator-jhipster": {
+    "applicationType": "monolith",
+    "authenticationType": "jwt",
+    "baseName": "dossierApi",
+    "buildTool": "gradle",
+    "clientFramework": "no",
+    "databaseType": "sql",
+    "devDatabaseType": "mysql",
+    "enableTranslation": false,
+    "entities": ["Bio", "Resume", "Application", "FieldCache", "AiAnswer"],
+    "jhipsterVersion": "8.11.0",
+    "jwtSecretKey": "ZDVkZmU2NmRmZWZhZGRhZWZlYjJiNTgzNGE3NDYwODYzMDBkMzE3NDkyNzRjOGI2ZGJlNDY2NDgyMTRjYzM3MzZlMjNmYjhjNjM1ZmI5MmY0ODlhNDg3Yjc5NmI5MGRmZGRkZjM2ZmNhZjQwYzA0MzNlMThmNTJjODgzYjgyYTQ=",
+    "lastLiquibaseTimestamp": 1782008718000,
+    "monorepository": true,
+    "packageName": "com.dossier.api",
+    "prodDatabaseType": "mysql",
+    "serverPort": "8080",
+    "skipClient": true,
+    "skipCommitHook": true,
+    "testFrameworks": ["cypress"]
+  }
+}
