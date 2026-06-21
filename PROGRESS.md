@@ -25,12 +25,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.9 — OpenAPI contract published.** Confirm the springdoc
-> OpenAPI spec (`/v3/api-docs`, Swagger already on via the `api-docs` profile) covers
-> auth + `/api/profile`(+`/resumes`) + the new tracking fields. This spec IS the
-> contract a third-party backend implements to be Dossier-compatible. Note the
-> custom controllers (Authenticate refresh, Profile) may need `@Operation`/schema
-> annotations to show up cleanly; decide whether to expose the spec (ADMIN-gated by default).
+> **Phase 1 · Task 1.10 — Web app · management surface.** Next.js: signup/login/
+> settings PLUS resume upload+review+archive and bio editor. **First extract
+> `parser.js` into a shared module** (plain browser JS — pdf.js + mammoth) so the web
+> app parses in-browser and the extension imports the same module. Web app = primary
+> product; extension = on-page companion. Also lock down the raw `/api/bios`+
+> `/api/resumes` controllers if touched (multi-tenant leak; full hardening is 1.11).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -124,9 +124,17 @@ focused Claude Code session.
   tracking_schema.xml` (+ dedup index). MapStruct auto-maps the new fields. `dossier.jdl`
   already carried these (planning pivot). New `TrackingSchemaIT` (2) round-trips the
   fields + DRAFT through MySQL; full `test`+`integrationTest` green.*
-- [ ] **1.9 OpenAPI contract published.** Confirm the springdoc OpenAPI spec covers
+- [x] **1.9 OpenAPI contract published.** Confirm the springdoc OpenAPI spec covers
   auth + sync + the new tracking fields; this is the contract a third-party backend
   implements to be Dossier-compatible. (Do AFTER 1.8 so the contract is complete.)
+  *Added `OpenApiConfiguration` (api-docs profile) declaring the `bearer-jwt` security
+  scheme; annotated the custom `AuthenticateController`/`ProfileResource` with `@Tag`/
+  `@Operation`/`@SecurityRequirement`; set the API identity (title "Dossier API") via
+  `jhipster.api-docs.*` (the lever JHipster's customizer actually honors). New
+  `OpenApiContractIT` boots under `api-docs` as ADMIN, asserts `/v3/api-docs` covers the
+  auth flow, the `/api/profile`(+`/resumes`) sync API, the bearer scheme, and the 1.8
+  tracking fields (`location`/`externalJobId`/`submissionConfirmed`/`archived` + `DRAFT`),
+  and writes the published snapshot to `api/openapi.json`. Full `test`+`integrationTest` green.*
 - [ ] **1.10 Web app — management surface.** Next.js: signup/login/settings PLUS
   resume upload+review+archive and bio editor. **First extract `parser.js` into a
   shared module** (it's plain browser JS — pdf.js+mammoth) so the web app parses
@@ -247,6 +255,13 @@ focused Claude Code session.
   (Application +location/externalJobId/submissionConfirmed, status +DRAFT, Resume
   +archived; dedup index). Entities/DTOs/enum by hand; `20260622000000_extend_tracking_
   schema.xml`; `TrackingSchemaIT` round-trips fields+DRAFT through MySQL; full suite green.
+- 2026-06-21 · 1.9 OpenAPI contract · `OpenApiConfiguration` (bearer-jwt scheme) +
+  `@Tag`/`@Operation`/`@SecurityRequirement` on the custom auth/profile controllers +
+  API identity via `jhipster.api-docs.*` (title "Dossier API"). `OpenApiContractIT`
+  asserts `/v3/api-docs` (ADMIN-gated, api-docs profile) covers auth + sync + the 1.8
+  tracking fields + DRAFT + bearer scheme, and publishes `api/openapi.json`. Note: the
+  test classpath shadows main `application.yml`, so the api-docs title is mirrored in the
+  test yml too. Backend-only (no extension bump). Full `test`+`integrationTest` green.
 
 ---
 

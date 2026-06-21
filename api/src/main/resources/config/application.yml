@@ -203,9 +203,13 @@ jhipster:
   api-docs:
     default-include-pattern: /api/**
     management-include-pattern: /management/**
-    title: Dossier Api API
-    description: Dossier Api API documentation
-    version: 0.0.1
+    title: Dossier API
+    description: >-
+      The Dossier sync + tracking contract. Implement this spec to build a
+      Dossier-compatible backend the extension and web app can point at.
+      Authenticate at POST /api/authenticate, then send the access token as a
+      Bearer token on every protected request; refresh it at POST /api/refresh.
+    version: '1.0'
     terms-of-service-url:
     contact-name:
     contact-url:

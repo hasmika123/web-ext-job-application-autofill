@@ -60,6 +60,16 @@ server:
 jhipster:
   clientApp:
     name: 'dossierApiApp'
+  # Mirror the runtime api-docs identity so the OpenApiContractIT snapshot matches
+  # production (the test classpath shadows the main application.yml entirely).
+  api-docs:
+    title: Dossier API
+    description: >-
+      The Dossier sync + tracking contract. Implement this spec to build a
+      Dossier-compatible backend the extension and web app can point at.
+      Authenticate at POST /api/authenticate, then send the access token as a
+      Bearer token on every protected request; refresh it at POST /api/refresh.
+    version: '1.0'
   mail:
     from: dossierApi@localhost.com
     base-url: http://127.0.0.1:8080

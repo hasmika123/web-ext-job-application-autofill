@@ -11,6 +11,8 @@ import com.dossier.api.security.DomainUserDetailsService.UserWithId;
 import com.dossier.api.web.rest.vm.LoginVM;
 import com.dossier.api.web.rest.vm.RefreshVM;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Instant;
@@ -48,6 +50,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api")
+@Tag(name = "authentication", description = "Obtain and refresh the JWT access token. These endpoints are public (no bearer token required).")
 public class AuthenticateController {
 
     private static final Logger LOG = LoggerFactory.getLogger(AuthenticateController.class);
@@ -76,6 +79,10 @@ public class AuthenticateController {
         this.authenticationManagerBuilder = authenticationManagerBuilder;
     }
 
+    @Operation(
+        summary = "Sign in",
+        description = "Exchange username + password for a short-lived access token and a long-lived refresh token."
+    )
     @PostMapping("/authenticate")
     public ResponseEntity<TokenResponse> authorize(@Valid @RequestBody LoginVM loginVM) {
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
@@ -104,6 +111,11 @@ public class AuthenticateController {
      * @return {@code 200} with a new access token, or {@code 401} if the supplied
      * token is missing/expired/tampered or is not a refresh token.
      */
+    @Operation(
+        summary = "Refresh the access token",
+        description = "Exchange a valid refresh token for a fresh access token. Returns 401 if the token is missing, " +
+        "expired, tampered, or is not a refresh token. The refresh token itself stays valid until it expires."
+    )
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshVM refreshVM) {
         Jwt jwt;
@@ -134,6 +146,7 @@ public class AuthenticateController {
      * @return the {@link ResponseEntity} with status {@code 204 (No Content)},
      * or with status {@code 401 (Unauthorized)} if not authenticated.
      */
+    @Operation(summary = "Check authentication", description = "204 if the bearer token is valid, 401 otherwise.")
     @GetMapping("/authenticate")
     public ResponseEntity<Void> isAuthenticated(Principal principal) {
         LOG.debug("REST request to check if the current user is authenticated");
