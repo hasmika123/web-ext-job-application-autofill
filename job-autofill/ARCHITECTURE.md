@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.7.0, bundled ruleset version 4.
+> Current version: manifest 0.7.1, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -28,6 +28,11 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   to the open listbox (`openListbox`); `bestOption` prefers exact / shortest-
   startsWith. Checkbox fill uses a **real click** (React-safe). Exposes
   `openListbox/visibleOptions/bestOption` for tests.
+- `src/content/adapters/workable.js` — Workable (`apply.workable.com`). Light-DOM
+  named inputs (firstname/lastname/email/phone/address/city/postcode/country +
+  summary/cover_letter textareas); `fileInput()` picks the resume `<input type=file>`
+  by its `accept` doc types (avoids the avatar image input). Selectors captured
+  from real ENFOS/TP-Link forms.
 - `src/content/adapters/workday.js` — main adapter. `promptText/questionContext`,
   `addQuestion`, `addButtonFor` (heading-association before container),
   country/state fill, exp/edu blocks, `ensureRows`, **Self-Identify (CC-305) block**

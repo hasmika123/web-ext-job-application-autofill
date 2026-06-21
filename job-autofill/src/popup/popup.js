@@ -10,6 +10,7 @@ const CONTENT_FILES = [
   "src/content/adapters/greenhouse.js",
   "src/content/adapters/lever.js",
   "src/content/adapters/ashby.js",
+  "src/content/adapters/workable.js",
   "src/content/adapters/workday.js",
   "src/content/filler.js",
   "src/content/content-script.js",

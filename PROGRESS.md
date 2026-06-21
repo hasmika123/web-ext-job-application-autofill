@@ -25,7 +25,7 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 0 · Task 0.2 — New ATS adapter.**
+> **Phase 0 · Task 0.3 — Repo hygiene for Claude Code.**
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -37,7 +37,7 @@ focused Claude Code session.
 - [x] **0.1 Local field-choice cache.** When the user corrects a filled value or
   picks a custom-dropdown option, persist `{field_key, context_hash, value}` in
   IndexedDB and prefer it on the next fill. No backend. Add jsdom tests.
-- [ ] **0.2 New ATS adapter: <pick one, e.g. Indeed Easy Apply>.** Copy
+- [x] **0.2 New ATS adapter: Workable.** Copy
   `lever.js`, implement `matches/plan/fileInput`, register in `manifest.json` +
   `CONTENT_FILES`. Capture real DOM first (the dossier rule). Add tests.
 - [ ] **0.3 Repo hygiene for Claude Code.** Add `CLAUDE.md` (build/test cmds, DOM-
@@ -98,6 +98,10 @@ focused Claude Code session.
 > One line per completed task: date · task · note.
 - 2026-06-20 · 0.1 Local field-choice cache · `JAF.fieldCache` (IndexedDB, per-profile);
   `preferCached` on read + `watch` learns corrections; wired into filler; 19 jsdom tests; v0.7.0.
+- 2026-06-20 · 0.2 Workable adapter · selectors captured from real ENFOS/TP-Link forms
+  (firstname/lastname/email/phone/address/city/postcode/country + resume file input by
+  accept); registered in manifest + CONTENT_FILES; 16 jsdom tests + live-DOM check; v0.7.1.
+  Note: SmartRecruiters oneclick-ui is open-shadow-DOM — deferred (needs shadow traversal).
 
 ---
 
