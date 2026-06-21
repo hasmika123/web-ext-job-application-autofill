@@ -40,15 +40,15 @@ Supabase cost/scalability at scale. That points cleanly to:
 |---|---|---|
 | API | Spring Boot 3, Java 21, Gradle | Your strongest skill = fastest *real* progress and the codebase you'll actually maintain. Scales horizontally, trivially containerized. |
 | Auth | Spring Security + JWT (access + refresh tokens) | No per-MAU billing (the thing that bites with hosted auth). Full control for SaaS tiers later. *Alternative if you want to skip auth plumbing: Clerk or Auth0 — fast, but per-MAU cost returns.* |
-| Database | Managed Postgres — **Neon** (serverless, scales to zero, generous free tier) to start; RDS/Cloud SQL when revenue justifies | Postgres is the safe long-term bet; Neon's free tier covers a public launch and you own the SQL. |
-| Resume file storage | **Cloudflare R2** (S3-compatible, **zero egress fees**) | Resumes are blobs; don't put them in Postgres. R2 is dramatically cheaper than S3 at download-heavy scale. |
+| Database | **MySQL** (managed) — **Railway MySQL** or **Aiven** (free tier) to start; **AWS RDS / Aurora MySQL** when revenue justifies | Your choice. MySQL is rock-solid, ubiquitous, cheap to host, and JHipster supports it natively. (Note: Neon is Postgres-only, so it's out; Railway lets you run the app + MySQL on one platform to start.) |
+| Resume file storage | **Cloudflare R2** (S3-compatible, **zero egress fees**) | Resumes are blobs; don't put them in the DB. R2 is dramatically cheaper than S3 at download-heavy scale. |
 | App hosting | **Railway** or **Render** to launch (cheap, container-native), migrate to AWS/GCP later | Containerize from day one so the host is swappable. |
 | Web dashboard | **Next.js (React) on Vercel** | Needed for tracking + account management (see below). Vercel free tier is fine to start. |
 
 ### On Supabase (your prior experience)
 Supabase is excellent for shipping in days, but your instinct is right: its
 pricing steps up after the free tier (compute + per-MAU auth + bandwidth), and at
-scale you have less control over cost than self-hosted Spring + Neon + R2. Since
+scale you have less control over cost than self-hosted Spring + MySQL + R2. Since
 you already know Spring Boot, you capture more long-term value building the API
 yourself. **Use Supabase only if speed-to-first-launch matters more than control.**
 My recommendation is Spring Boot. *Approve this and Phase 1 proceeds; say the word
@@ -73,23 +73,26 @@ it's a first-class deliverable, folded into Phases 1 and 3 below.
    ┌──────────────────┐   events     │       │  events    ┌──────────────────┐
    │  Chrome/Edge/FF  │──────────────┘       └────────────│  Web dashboard   │
    │  Extension (MV3) │                                   │  Next.js (Vercel)│
-   │                  │   REST + JWT                      │                  │
-   │  - adapters      │─────────────┐         ┌───────────│  - signup/login  │
-   │  - filler        │             ▼         ▼           │  - Kanban tracker│
-   │  - local cache   │      ┌─────────────────────┐      │  - settings      │
-   │  - SW: API+GA    │      │  Spring Boot API     │      │  - billing(later)│
-   └──────────────────┘      │  (Java 21, Railway)  │      └──────────────────┘
-                             │                      │
-                             │  - /auth /profile    │
-                             │  - /resumes /apps    │
-                             │  - /ai (metered)     │──────► Anthropic API
-                             │  - /fieldcache       │        (server key, paid tier)
-                             └───────┬─────────┬────┘
-                                     ▼         ▼
-                          ┌──────────────┐  ┌──────────────┐
-                          │  Postgres    │  │ Cloudflare R2│
-                          │  (Neon)      │  │ resume blobs │
-                          └──────────────┘  └──────────────┘
+   │                  │                                   │                  │
+   │  - adapters      │                                   │  - signup/login  │
+   │  - filler        │                                   │  - Kanban tracker│
+   │  - local cache   │                                   │  - settings      │
+   │  - SW: API+GA    │                                   │  - billing(later)│
+   │  ┌────────────┐  │   REST + JWT      ┌───────────────└──────────────────┘
+   │  │Tracking     │  │  (canonical DTOs) ▼
+   │  │Provider     │──┼──────────────► ┌─────────────────────┐
+   │  │(swappable)  │  │                │  Spring Boot API     │
+   │  └────────────┘  │                │  (Java 21, Railway)  │
+   └──────────────────┘                │  - /auth /profile    │
+        │  same interface →            │  - /resumes /apps    │
+        │  any compatible backend      │  - /ai (metered)     │──► Anthropic API
+        ▼                              │  - /fieldcache       │    (server key)
+   ┌──────────────┐                    └───────┬─────────┬────┘
+   │ 3rd-party     │                           ▼         ▼
+   │ tracker API   │                ┌──────────────┐  ┌──────────────┐
+   │ (future)      │                │  MySQL       │  │ Cloudflare R2│
+   └──────────────┘                │  (Railway)   │  │ resume blobs │
+                                    └──────────────┘  └──────────────┘
 ```
 
 The extension keeps its current local store as an **offline cache / write-ahead
@@ -97,7 +100,34 @@ buffer**, but the server is authoritative: on login it pulls profile + resumes,
 and it pushes changes up. This keeps autofill working if the network blips while
 making cloud the source of truth.
 
-### Core data model (Postgres sketch)
+### Pluggable tracking backend (swappable by design)
+The extension must **not** be hardwired to the Dossier API. All outbound calls go
+through a single `TrackingProvider` interface that speaks **canonical DTOs**
+(the same field vocabulary the adapters already use), not any one backend's wire
+format. A concrete `DossierApiProvider` implements it for our backend; a future
+provider can point the same extension at a different tracker (Teal/Huntr-style,
+or a self-hosted one) by implementing the interface and mapping DTOs ↔ that API.
+
+Design rules to keep it unpluggable-and-repluggable:
+- **One seam:** every network call lives behind `TrackingProvider`
+  (`authenticate`, `pushProfile/pullProfile`, `pushResume`, `pushApplication`,
+  `listApplications`, `syncFieldCache`). No `fetch()` to the backend anywhere else.
+- **Canonical DTOs, versioned:** the extension owns a stable data contract; each
+  provider adapter translates to/from its backend. Backend changes never ripple
+  into adapter/filler code.
+- **Config-driven endpoint:** base URL + auth strategy are settings, not constants,
+  so swapping backends is a config change plus a provider class — not a refactor.
+- **Documented REST contract (OpenAPI):** the Spring Boot API publishes an OpenAPI
+  spec (JHipster generates springdoc by default). That spec *is* the contract a
+  third-party backend implements to be Dossier-compatible.
+- **Mirror it server-side (ports & adapters):** keep controllers thin and put
+  storage behind interfaces, so the backend itself can swap MySQL or R2 later
+  without touching business logic.
+
+This is the same ports-and-adapters philosophy the site adapters already follow,
+applied to the outbound integration.
+
+### Core data model (MySQL sketch)
 
 ```
 users(id, email, password_hash, created_at, plan)

@@ -58,6 +58,15 @@ Everything maps to one vocabulary of canonical fields (`firstName`, `email`,
 that's what makes adding sites easy. To improve generic matching for a stubborn
 field, add a keyword set to `MATCHERS` in `src/lib/schema.js`.
 
+## Outbound integration seam — `TrackingProvider` (PLANNED, Phase 1)
+Not built yet. When the backend lands, **all** network calls to a tracking backend
+must go through a single `TrackingProvider` interface that speaks the canonical
+DTOs above — never raw `fetch()` scattered through filler/adapters/popup. A
+`DossierApiProvider` implements it for our API; the same extension can later point
+at a different tracker by adding another provider. Endpoint + auth are config, not
+constants. This keeps the extension repluggable to any compatible backend. See
+root `ROADMAP.md` → "Pluggable tracking backend" and `PROGRESS.md` tasks 1.6/1.8.
+
 ## Adding a new site adapter
 Copy `src/content/adapters/lever.js`; implement `matches()`, `plan(values)` (return
 `[{el, field, value, label, kind}]`), and `fileInput()`. Register the file in

@@ -49,8 +49,9 @@ focused Claude Code session.
 
 ## Phase 1 — Backend + Accounts (keystone)
 - [x] **1.0 STACK DECISION** — DECIDED: Spring Boot via JHipster 8 bootstrap
-  (backend-only) + Postgres (Neon) + Cloudflare R2 + Next.js web app. Generate the
-  backend from `dossier.jdl`. *Resolved — do not pause here.*
+  (backend-only) + **MySQL** (Railway/Aiven managed) + Cloudflare R2 + Next.js web
+  app. Generate the backend from `dossier.jdl` (db type = mysql).
+  *Resolved — do not pause here.*
 - [ ] **1.1 Backend skeleton.** Generate/scaffold API, Postgres (Neon), Liquibase,
   Docker. Health endpoint green locally.
 - [ ] **1.2 Auth.** JWT register/login/refresh; `users` table; password hashing.
@@ -58,10 +59,17 @@ focused Claude Code session.
   `ai_answers` tables + migrations (see ROADMAP schema).
 - [ ] **1.4 Resume storage.** Cloudflare R2 upload/download; `resumes.r2_object_key`.
 - [ ] **1.5 Profile + resume sync endpoints.** `/profile`, `/resumes` CRUD.
-- [ ] **1.6 Extension login + sync layer.** Login screen; pull on login, push on
-  change; local store becomes offline cache.
-- [ ] **1.7 Web app shell.** Next.js: signup/login/settings against the API.
-- [ ] **1.8 Privacy rewrite.** New privacy policy + Chrome Web Store data-use
+- [ ] **1.6 `TrackingProvider` abstraction.** Define the provider interface +
+  canonical DTOs (the one network seam); implement `DossierApiProvider`. No
+  `fetch()` to the backend outside this layer. Endpoint/auth are config, not
+  constants. (See ROADMAP "Pluggable tracking backend".)
+- [ ] **1.7 Extension login + sync layer.** Login screen; pull on login, push on
+  change via `TrackingProvider`; local store becomes offline cache.
+- [ ] **1.8 OpenAPI contract published.** Confirm the API exposes a springdoc
+  OpenAPI spec; this is the contract a third-party backend implements to be
+  Dossier-compatible.
+- [ ] **1.9 Web app shell.** Next.js: signup/login/settings against the API.
+- [ ] **1.10 Privacy rewrite.** New privacy policy + Chrome Web Store data-use
   disclosure to match cloud model. *Required before any public release.*
 
 ## Phase 2 — Deployment + CI/CD

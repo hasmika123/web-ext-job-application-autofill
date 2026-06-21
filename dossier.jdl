@@ -11,8 +11,8 @@ application {
     packageName com.dossier.api
     authenticationType jwt
     databaseType sql
-    prodDatabaseType postgresql
-    devDatabaseType postgresql
+    prodDatabaseType mysql
+    devDatabaseType mysql
     clientFramework no          // backend only — Next.js lives in /web
     buildTool gradle
     serverPort 8080
