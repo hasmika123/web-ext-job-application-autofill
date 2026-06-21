@@ -25,7 +25,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 0 · Task 0.3 — Repo hygiene for Claude Code.**
+> **Phase 1 · Task 1.1 — Backend skeleton.** *(Gate: needs a Neon Postgres
+> account/DB URL before the API can run locally — see kickoff stop-and-ask.)*
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -40,9 +41,11 @@ focused Claude Code session.
 - [x] **0.2 New ATS adapter: Workable.** Copy
   `lever.js`, implement `matches/plan/fileInput`, register in `manifest.json` +
   `CONTENT_FILES`. Capture real DOM first (the dossier rule). Add tests.
-- [ ] **0.3 Repo hygiene for Claude Code.** Add `CLAUDE.md` (build/test cmds, DOM-
+- [x] **0.3 Repo hygiene for Claude Code.** Add `CLAUDE.md` (build/test cmds, DOM-
   capture rule, version-bump ritual). Decide monorepo layout (`/extension`,
-  `/api`, `/web`).
+  `/api`, `/web`). *Met by existing setup: `CLAUDE.md` (build/test cmds + capture-DOM
+  rule + version-bump ritual) and decided layout `/job-autofill`·`/api`·`/web`; added
+  `.gitignore` to keep `node_modules/` out of git.*
 
 ## Phase 1 — Backend + Accounts (keystone)
 - [x] **1.0 STACK DECISION** — DECIDED: Spring Boot via JHipster 8 bootstrap
@@ -102,6 +105,8 @@ focused Claude Code session.
   (firstname/lastname/email/phone/address/city/postcode/country + resume file input by
   accept); registered in manifest + CONTENT_FILES; 16 jsdom tests + live-DOM check; v0.7.1.
   Note: SmartRecruiters oneclick-ui is open-shadow-DOM — deferred (needs shadow traversal).
+- 2026-06-20 · 0.3 Repo hygiene · already satisfied by existing `CLAUDE.md` + decided
+  monorepo layout; added `.gitignore`. Phase 0 complete; Phase 1 gated on Neon account.
 
 ---
 
