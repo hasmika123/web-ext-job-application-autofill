@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.6.9, bundled ruleset version 4.
+> Current version: manifest 0.7.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -38,6 +38,13 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
 - `src/popup/popup.js` — uploads resume under `uploadResumeName` (generic name) for
   the application only.
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
+- `src/lib/field-cache.js` — `JAF.fieldCache`. Local, per-profile memory of the
+  user's field answers (IndexedDB `dossier-fieldcache`, falls back to in-memory
+  when IDB is absent). `preferCached()` overrides planned values with learned
+  ones before the overlay; `watch()` learns from a user's correction on `change`/
+  `blur`. Row shape `{profileId, fieldKey, contextHash, value, hitCount, updatedAt}`
+  mirrors the future server `field_cache` table (Phase 4 sync). `create()` factory
+  + pure helpers exposed for tests.
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).
 
 ## Canonical-field model

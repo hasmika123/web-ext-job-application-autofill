@@ -25,7 +25,7 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 0 · Task 0.1 — Local field-choice cache.** (Start here.)
+> **Phase 0 · Task 0.2 — New ATS adapter.**
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -34,7 +34,7 @@ focused Claude Code session.
 ---
 
 ## Phase 0 — Quick wins, no backend (start now, parallel)
-- [ ] **0.1 Local field-choice cache.** When the user corrects a filled value or
+- [x] **0.1 Local field-choice cache.** When the user corrects a filled value or
   picks a custom-dropdown option, persist `{field_key, context_hash, value}` in
   IndexedDB and prefer it on the next fill. No backend. Add jsdom tests.
 - [ ] **0.2 New ATS adapter: <pick one, e.g. Indeed Easy Apply>.** Copy
@@ -96,7 +96,8 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
-- _(empty — add entries as you go)_
+- 2026-06-20 · 0.1 Local field-choice cache · `JAF.fieldCache` (IndexedDB, per-profile);
+  `preferCached` on read + `watch` learns corrections; wired into filler; 19 jsdom tests; v0.7.0.
 
 ---
 

@@ -1,10 +1,10 @@
 {
   "name": "dossier-job-autofill",
-  "version": "0.6.9",
+  "version": "0.7.0",
   "private": true,
   "description": "Dev tooling for the Dossier job-application autofill extension. The extension itself has no build step; this is only for tests.",
   "scripts": {
-    "test": "node test/run.js && node test/dropdown_and_addbtn.test.js && node test/eeo_edu_web.test.js && node test/upload_bio.test.js && node test/skills.test.js && node test/self_identify.test.js"
+    "test": "node test/run.js && node test/dropdown_and_addbtn.test.js && node test/eeo_edu_web.test.js && node test/upload_bio.test.js && node test/skills.test.js && node test/self_identify.test.js && node test/field_cache.test.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0"

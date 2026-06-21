@@ -100,6 +100,8 @@
         if (!c.checked) continue;
         const item = fillable[Number(c.dataset.i)];
         const ok = await B.applyItemAsync(item);
+        // Learn from any later user correction to this field (local cache).
+        try { JAF.fieldCache && JAF.fieldCache.watch(item); } catch (e) {}
         if (ok) filled++;
         else if (item.kind === "combo" || item.kind === "combo-multi") failed.push(L[item.field] || item.field);
       }
@@ -154,6 +156,13 @@
       if (options.assist !== false && JAF.assist) {
         const extra = await JAF.assist.run(plan.items, values);
         if (extra && extra.length) plan.items = plan.items.concat(extra);
+      }
+    } catch (e) {}
+    // Prefer the user's previously-learned answers for this profile (local cache).
+    try {
+      if (JAF.fieldCache) {
+        JAF.fieldCache.setProfile(values.email || "default");
+        await JAF.fieldCache.preferCached(plan.items);
       }
     } catch (e) {}
     renderOverlay(plan, file, null, options);
