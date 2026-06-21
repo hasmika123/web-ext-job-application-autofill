@@ -23,6 +23,15 @@ public final class SecurityUtils {
 
     public static final String USER_ID_CLAIM = "userId";
 
+    // Distinguishes a short-lived access token from a long-lived refresh token.
+    // A refresh token must never be accepted as an access token (enforced by the
+    // strict resource-server decoder in SecurityJwtConfiguration).
+    public static final String TOKEN_TYPE_CLAIM = "token_type";
+
+    public static final String ACCESS_TOKEN_TYPE = "access";
+
+    public static final String REFRESH_TOKEN_TYPE = "refresh";
+
     private SecurityUtils() {}
 
     /**

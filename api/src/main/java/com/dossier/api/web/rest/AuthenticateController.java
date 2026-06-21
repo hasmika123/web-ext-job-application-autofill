@@ -1,12 +1,16 @@
 package com.dossier.api.web.rest;
 
+import static com.dossier.api.security.SecurityUtils.ACCESS_TOKEN_TYPE;
 import static com.dossier.api.security.SecurityUtils.AUTHORITIES_CLAIM;
 import static com.dossier.api.security.SecurityUtils.JWT_ALGORITHM;
+import static com.dossier.api.security.SecurityUtils.REFRESH_TOKEN_TYPE;
+import static com.dossier.api.security.SecurityUtils.TOKEN_TYPE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.dossier.api.security.DomainUserDetailsService.UserWithId;
 import com.dossier.api.web.rest.vm.LoginVM;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.dossier.api.web.rest.vm.RefreshVM;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Instant;
@@ -14,6 +18,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -23,14 +28,23 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * Controller to authenticate users.
+ *
+ * <p>Issues a short-lived <b>access</b> token plus a long-lived <b>refresh</b> token
+ * (stateless — both are signed JWTs, nothing is stored server-side). The refresh
+ * token is distinguished by a {@code token_type} claim and is only accepted by
+ * {@code POST /api/refresh}, never as an access bearer token (enforced by the
+ * strict resource-server decoder in {@code SecurityJwtConfiguration}).
  */
 @RestController
 @RequestMapping("/api")
@@ -40,21 +54,30 @@ public class AuthenticateController {
 
     private final JwtEncoder jwtEncoder;
 
-    @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds:0}")
-    private long tokenValidityInSeconds;
+    private final JwtDecoder refreshTokenDecoder;
 
+    // Access-token lifetime (short). Reuses JHipster's standard token-validity key.
+    @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds:0}")
+    private long accessTokenValidityInSeconds;
+
+    // Refresh-token lifetime (long). Reuses JHipster's remember-me validity key.
     @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds-for-remember-me:0}")
-    private long tokenValidityInSecondsForRememberMe;
+    private long refreshTokenValidityInSeconds;
 
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
-    public AuthenticateController(JwtEncoder jwtEncoder, AuthenticationManagerBuilder authenticationManagerBuilder) {
+    public AuthenticateController(
+        JwtEncoder jwtEncoder,
+        @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
+        AuthenticationManagerBuilder authenticationManagerBuilder
+    ) {
         this.jwtEncoder = jwtEncoder;
+        this.refreshTokenDecoder = refreshTokenDecoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
+    public ResponseEntity<TokenResponse> authorize(@Valid @RequestBody LoginVM loginVM) {
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
             loginVM.getUsername(),
             loginVM.getPassword()
@@ -62,10 +85,47 @@ public class AuthenticateController {
 
         Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = this.createToken(authentication, loginVM.isRememberMe());
+
+        String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
+        Long userId = authentication.getPrincipal() instanceof UserWithId user ? user.getId() : null;
+
+        String accessToken = buildToken(authentication.getName(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds);
+        String refreshToken = buildToken(authentication.getName(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds);
+
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBearerAuth(jwt);
-        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+        httpHeaders.setBearerAuth(accessToken);
+        return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
+    }
+
+    /**
+     * {@code POST /refresh} : exchange a valid refresh token for a fresh access token.
+     * The refresh token itself is unchanged and stays valid until it expires.
+     *
+     * @return {@code 200} with a new access token, or {@code 401} if the supplied
+     * token is missing/expired/tampered or is not a refresh token.
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshVM refreshVM) {
+        Jwt jwt;
+        try {
+            jwt = refreshTokenDecoder.decode(refreshVM.getRefreshToken());
+        } catch (JwtException e) {
+            LOG.debug("Rejected refresh token: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        // Only a refresh token may be exchanged here — an access token must not.
+        if (!REFRESH_TOKEN_TYPE.equals(jwt.getClaimAsString(TOKEN_TYPE_CLAIM))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String authorities = jwt.getClaimAsString(AUTHORITIES_CLAIM);
+        Object rawUserId = jwt.getClaim(USER_ID_CLAIM);
+        Long userId = rawUserId instanceof Number n ? n.longValue() : null;
+
+        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(accessToken);
+        return new ResponseEntity<>(new TokenResponse(accessToken, null), httpHeaders, HttpStatus.OK);
     }
 
     /**
@@ -80,49 +140,55 @@ public class AuthenticateController {
         return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.NO_CONTENT).build();
     }
 
-    public String createToken(Authentication authentication, boolean rememberMe) {
-        String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
-
+    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds) {
         Instant now = Instant.now();
-        Instant validity;
-        if (rememberMe) {
-            validity = now.plus(this.tokenValidityInSecondsForRememberMe, ChronoUnit.SECONDS);
-        } else {
-            validity = now.plus(this.tokenValidityInSeconds, ChronoUnit.SECONDS);
-        }
+        Instant validity = now.plus(validityInSeconds, ChronoUnit.SECONDS);
 
         // @formatter:off
         JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
             .issuedAt(now)
             .expiresAt(validity)
-            .subject(authentication.getName())
-            .claim(AUTHORITIES_CLAIM, authorities);
-        if (authentication.getPrincipal() instanceof UserWithId user) {
-            builder.claim(USER_ID_CLAIM, user.getId());
+            .subject(subject)
+            .claim(AUTHORITIES_CLAIM, authorities)
+            .claim(TOKEN_TYPE_CLAIM, tokenType);
+        if (userId != null) {
+            builder.claim(USER_ID_CLAIM, userId);
         }
+        // @formatter:on
 
         JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
         return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, builder.build())).getTokenValue();
     }
 
     /**
-     * Object to return as body in JWT Authentication.
+     * Response body for {@code /authenticate} (both tokens) and {@code /refresh}
+     * (access token only — {@code refreshToken} is omitted when null).
      */
-    static class JWTToken {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    static class TokenResponse {
 
-        private String idToken;
+        private String accessToken;
+        private String refreshToken;
 
-        JWTToken(String idToken) {
-            this.idToken = idToken;
+        TokenResponse(String accessToken, String refreshToken) {
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
         }
 
-        @JsonProperty("id_token")
-        String getIdToken() {
-            return idToken;
+        public String getAccessToken() {
+            return accessToken;
         }
 
-        void setIdToken(String idToken) {
-            this.idToken = idToken;
+        public void setAccessToken(String accessToken) {
+            this.accessToken = accessToken;
+        }
+
+        public String getRefreshToken() {
+            return refreshToken;
+        }
+
+        public void setRefreshToken(String refreshToken) {
+            this.refreshToken = refreshToken;
         }
     }
 }

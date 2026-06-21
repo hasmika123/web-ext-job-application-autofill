@@ -25,9 +25,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.2 — Auth.** JWT register/login/refresh; `users` table; password
-> hashing. *(Note: JHipster already scaffolds JWT auth + the `jhi_user` table +
-> BCrypt + `/api/authenticate`. Verify/extend with a register + refresh flow.)*
+> **Phase 1 · Task 1.3 — Data model.** `bios`, `resumes`, `applications`,
+> `field_cache`, `ai_answers` tables + migrations. *(Note: the entities + Liquibase
+> changelogs were already generated from `dossier.jdl` in 1.1 — this task is mostly
+> verifying the schema/migrations match the ROADMAP and tightening anything missing.)*
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -58,7 +59,13 @@ focused Claude Code session.
   (JHipster 8, Spring Boot, JWT, MySQL, gradle); builds green on JDK 17. Verified
   end-to-end: MySQL via docker compose → `./gradlew bootRun` → Liquibase migrated →
   `/management/health` returns `{"status":"UP"}` (app started in 28s).*
-- [ ] **1.2 Auth.** JWT register/login/refresh; `users` table; password hashing.
+- [x] **1.2 Auth.** JWT register/login/refresh; `users` table; password hashing.
+  *Register (`POST /api/register`), login (`POST /api/authenticate`), `jhi_user`
+  table + BCrypt come from JHipster. Added a stateless **access + refresh** flow:
+  `/authenticate` now returns `{accessToken (15m), refreshToken (30d)}`; new
+  `POST /api/refresh` mints a fresh access token. A `token_type` claim + a strict
+  resource-server decoder ensure a refresh token can't be used as an access token.
+  Full backend suite (unit + integration) green on JDK 17.*
 - [ ] **1.3 Data model.** `bios`, `resumes`, `applications`, `field_cache`,
   `ai_answers` tables + migrations (see ROADMAP schema).
 - [ ] **1.4 Resume storage.** Cloudflare R2 upload/download; `resumes.r2_object_key`.
@@ -123,6 +130,11 @@ focused Claude Code session.
   (fixed JDL `maxlength N`→`maxlength(N)`); JHipster 8 / Spring Boot / JWT / MySQL /
   gradle; builds green on JDK 17. Verified live: docker MySQL → `bootRun` → Liquibase
   migrated → `/management/health` `{"status":"UP"}`. Phase 1.1 done.
+- 2026-06-21 · 1.2 Auth · stateless access+refresh JWT pair (`token_type` claim;
+  strict resource-server decoder rejects refresh-as-access; permissive decoder for
+  `/api/refresh`). `/authenticate` → `{accessToken,refreshToken}`; new `/api/refresh`.
+  Updated AuthenticateControllerIT + new RefreshTokenControllerIT (8 cases). Full
+  `./gradlew test integrationTest` green (Testcontainers, ryuk disabled locally).
 
 ---
 

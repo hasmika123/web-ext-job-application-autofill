@@ -88,8 +88,8 @@ jhipster:
       jwt:
         # This token must be encoded using Base64 and be at least 256 bits long (you can type `openssl rand -base64 64` on your command line to generate a 512 bits one)
         base64-secret: ZDVkZmU2NmRmZWZhZGRhZWZlYjJiNTgzNGE3NDYwODYzMDBkMzE3NDkyNzRjOGI2ZGJlNDY2NDgyMTRjYzM3MzZlMjNmYjhjNjM1ZmI5MmY0ODlhNDg3Yjc5NmI5MGRmZGRkZjM2ZmNhZjQwYzA0MzNlMThmNTJjODgzYjgyYTQ=
-        # Token is valid 24 hours
-        token-validity-in-seconds: 86400
+        # Access token is short-lived (15 min); refresh token is long-lived (30 days).
+        token-validity-in-seconds: 900
         token-validity-in-seconds-for-remember-me: 2592000
   mail: # specific JHipster mail property, for standard properties see MailProperties
     base-url: http://127.0.0.1:8080
