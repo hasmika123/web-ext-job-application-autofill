@@ -225,7 +225,8 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-application:
+# App-specific config lives under `dossier.*` (JHipster owns `application.*`).
+dossier:
   # S3-compatible resume blob store. In prod these come from env (Cloudflare R2);
   # dev/tests override the endpoint + credentials (MinIO). Never commit real keys.
   storage:

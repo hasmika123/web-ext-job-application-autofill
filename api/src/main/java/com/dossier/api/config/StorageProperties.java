@@ -6,8 +6,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Configuration for the S3-compatible blob store that holds resume files.
  * In production this points at Cloudflare R2; in dev/tests it points at MinIO.
  * Endpoint, bucket and credentials are config (env-overridable), never constants.
+ *
+ * Bound under `dossier.*` (NOT `application.*`): JHipster owns `application.*` via
+ * its own {@code ApplicationProperties} with {@code ignoreUnknownFields=false}, so
+ * extra keys there fail startup.
  */
-@ConfigurationProperties(prefix = "application.storage")
+@ConfigurationProperties(prefix = "dossier.storage")
 public class StorageProperties {
 
     /** S3 endpoint. R2: https://&lt;account&gt;.r2.cloudflarestorage.com; MinIO: http://host:port. */

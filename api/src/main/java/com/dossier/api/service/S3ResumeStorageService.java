@@ -30,7 +30,7 @@ public class S3ResumeStorageService implements ResumeStorageService {
 
     // Inject the bucket name directly (not the config class) so the service layer
     // stays free of a dependency on the config layer (enforced by ArchUnit).
-    public S3ResumeStorageService(S3Client s3Client, @Value("${application.storage.bucket:dossier-resumes}") String bucket) {
+    public S3ResumeStorageService(S3Client s3Client, @Value("${dossier.storage.bucket:dossier-resumes}") String bucket) {
         this.s3Client = s3Client;
         this.bucket = bucket;
     }

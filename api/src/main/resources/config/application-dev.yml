@@ -109,7 +109,7 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-application:
+dossier:
   # Local dev points at MinIO (docker compose -f src/main/docker/minio.yml up -d).
   storage:
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
