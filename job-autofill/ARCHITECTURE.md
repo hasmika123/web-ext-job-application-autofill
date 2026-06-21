@@ -81,6 +81,24 @@ login UI + sync loop on top of this; a future provider can target a different
 backend by implementing the same contract. See root `ROADMAP.md` → "Pluggable
 tracking backend".
 
+## Tracking capture (PLANNED, Phase 3)
+Not built yet. This extension is the **on-page capture-and-fill agent**; the web
+app owns account/resume/bio/board management. The extension's tracking jobs:
+- **`captureJob()` on each adapter** — returns a canonical `JobCapture` DTO (company,
+  role, location, jobUrl, externalJobId, atsPlatform, jobDescription). Extractor
+  order: `schema.org/JobPosting` JSON-LD first → adapter `captureJob()` → generic
+  `<meta>`/heuristics.
+- **Submission-detection module (content side)** — on fill, upsert a **DRAFT**
+  application (with the picked resume + captured job; dedup on externalJobId/jobUrl)
+  via `tracking.pushApplication`. If a confirmation is seen (`webNavigation` success
+  page or a DOM success signal) → `updateApplication` to **APPLIED**
+  (`submissionConfirmed=true`). If not seen, it stays DRAFT and the web tracker asks
+  "Did you submit?". **Never auto-submit** — detection only.
+- **Save-a-job** — popup action → **SAVED** entry via the same capture chain.
+- **Provider grows** `updateApplication` + `archiveResume` (deleting a resume that a
+  tracked application references is blocked → nudge to archive). All still behind the
+  one `tracking.js` seam. See `ROADMAP.md` → Phase 3 and `PROGRESS.md` 3.0–3.5.
+
 ## Adding a new site adapter
 Copy `src/content/adapters/lever.js`; implement `matches()`, `plan(values)` (return
 `[{el, field, value, label, kind}]`), and `fileInput()`. Register the file in

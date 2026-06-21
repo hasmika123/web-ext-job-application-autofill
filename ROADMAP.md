@@ -134,19 +134,33 @@ users(id, email, password_hash, created_at, plan)
 bios(id, user_id → users, json_payload, updated_at)          -- one per user
 resumes(id, user_id, label, r2_object_key, parsed_json,
         status, created_at)                                  -- many per user
+resumes(... + archived BOOL default false)                   -- archive, never lose
 applications(id, user_id, resume_id → resumes, company,
-        role_title, job_url, ats_platform, job_description,
-        status, applied_at, source, created_at, updated_at)  -- the tracker
+        role_title, location, job_url, external_job_id,
+        ats_platform, job_description, status, submission_confirmed,
+        applied_at, source, created_at, updated_at)          -- the tracker
 field_cache(id, user_id, field_key, context_hash, value,
         hit_count, updated_at)                               -- learned answers
 ai_answers(id, user_id, question_hash, answer, model,
         tokens, created_at)                                  -- cached AI drafts
 events_outbox(...)  -- optional, if you buffer GA events server-side
+
+-- application.status ∈ {DRAFT, SAVED, APPLIED, INTERVIEW, OFFER, REJECTED}
+--   DRAFT = fill started, submission NOT confirmed by the extension → the web
+--           tracker shows a "Did you submit?" nudge to resolve it.
+-- external_job_id + job_url = dedup key (upsert, no duplicate rows on revisit).
+-- submission_confirmed = true only when the extension saw the confirmation.
 ```
 
 `applications.job_description` + `resume_id` is the key insight from Teal: capture
 the JD and the exact resume variant used at submit time, so the user can later see
 *what they sent where*. ([Teal](https://www.tealhq.com/tools/job-tracker))
+
+> **Already-built note:** the backend (`api/`) was generated from `dossier.jdl` in
+> Phase 1 and is live with MySQL. These new columns are therefore applied as an
+> **additive Liquibase migration on the existing backend** — do NOT regenerate the
+> whole app. `dossier.jdl` is kept updated as *documentation* / clean-regen source,
+> but the migration is the authoritative change.
 
 ---
 
@@ -167,11 +181,30 @@ the rest form a dependency chain.
   existing "copy lever.js, edit three methods" pattern. This work is continuous
   and can interleave with every later phase.
 
+### Client split — extension vs web (the product shape)
+The **web app is the primary product**: sign up, upload/parse/manage resumes, edit
+the bio, and browse/manage the application board — all without installing anything.
+The **extension is the optional on-page agent**: it does only what *requires being
+on the live application/job page* — autofill, capture job details into the tracker,
+record which resume was used, detect submission, and save-a-job. This lowers
+adoption friction (try the product with no install) and matches how Simplify and
+Teal are structured. Resume parsing (`parser.js`, pdf.js + mammoth) is plain
+browser JS, so it's extracted into a **shared module both clients use** — the web
+app parses in the user's browser; no separate Java parser needed.
+
+Capabilities by surface:
+- **Extension (on-page only):** autofill · job-detail capture · resume-used
+  linkage · submission detection · save-a-job · field-choice learning · review
+  overlay · file attach.
+- **Web app (everything else):** account/auth · resume upload+review+archive · bio
+  editor · Kanban application board · settings · billing (later).
+
 ### Phase 1 — Backend + Accounts  *(keystone — unblocks everything)*
-Spring Boot API, Postgres schema, JWT auth, R2 file storage; Next.js app with
-signup/login/settings; extension gains a login screen and sync layer. Migrate the
-local bio + resumes model to server-backed. **Ship the privacy policy + CWS
-disclosure rewrite here.** Nothing else cloud-dependent can start until this lands.
+Spring Boot API (MySQL), JWT auth, R2 file storage; Next.js app with
+signup/login/settings; extension gains a login screen and sync layer (built:
+`tracking.js` provider seam + `sync.js`). Migrate the local bio + resumes model to
+server-backed. **Ship the privacy policy + CWS disclosure rewrite here.** Nothing
+else cloud-dependent can start until this lands.
 
 ### Phase 2 — Deployment + CI/CD  *(do it right after first deploy)*
 Stand up staging + prod for the API (Railway) and web app (Vercel); containerize
@@ -181,11 +214,36 @@ extension and the Spring test suite, builds artifacts, deploys backend on merge 
 means every later phase ships safely and automatically. (G depends on D; treat
 them as one phase.)
 
-### Phase 3 — Application Tracking  *(flagship value)*
-Extension auto-logs each submit (company, role, URL, ATS, JD, resume used) to
-`/applications`; the Next.js dashboard renders a Kanban board (Saved → Applied →
-Interview → Offer/Rejected), matching what Simplify and Teal lead with. This is
-the single most visible reason users will create an account.
+### Phase 3 — Application Tracking  *(flagship value — the self-populating tracker)*
+The tracker fills *itself* as the user applies. Pieces:
+
+- **Job-detail capture chain.** When the user fills or saves, the extension reads
+  the job: try `schema.org/JobPosting` **JSON-LD first** (standardized across many
+  ATS/boards → title, company, location, description), then a per-site
+  `captureJob()` on the existing adapter, then generic `<meta>`/heuristics. Returns
+  a canonical `JobCapture` DTO and pushes it via `TrackingProvider.pushApplication`.
+- **Resume-used linkage.** The extension already knows which variant was picked for
+  the fill → attach `resume_id`. No detection needed.
+- **Submission detection (graceful).** On fill, upsert a **DRAFT** entry (dedup on
+  `external_job_id`/`job_url`). If the extension is active and sees the confirmation
+  — a redirect to a "thank you / received" page (`webNavigation`) or a success
+  signal in the DOM — it flips the entry to **APPLIED** (`submission_confirmed=true`,
+  `applied_at` set) automatically. If fill started but no confirmation was captured,
+  the entry stays **DRAFT** and the **web tracker shows a "Did you submit?" nudge**
+  to resolve it (Yes → APPLIED, No → keep/drop). Never auto-submit; detection
+  degrades to a user confirmation rather than guessing.
+- **Save-a-job.** One click in the popup → **SAVED** entry via the same capture
+  chain, no resume attached.
+- **Resume archive guard.** Resumes carry an `archived` flag. If the user tries to
+  delete a resume that's referenced by any application (esp. an APPLIED one), the UI
+  **nudges them to archive instead** so the applied job keeps its resume reference.
+  Archived resumes are hidden from the active picker but never lost.
+- **Web board.** Next.js Kanban (Draft → Saved → Applied → Interview → Offer →
+  Rejected) — the main reason users create an account. Matches Simplify/Teal.
+
+Backend: additive migration (new Application/Resume columns + DRAFT enum value),
+and the provider/seam grows `updateApplication` (status changes, confirm submit)
+and `archiveResume` alongside the existing `pushApplication`/`listApplications`.
 
 ### Phase 4 — Cached Field Choices (cloud sync)
 Promote the Phase 0 local cache to `field_cache` on the server so learned answers
