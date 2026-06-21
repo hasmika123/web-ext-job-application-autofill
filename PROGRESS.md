@@ -107,7 +107,11 @@ focused Claude Code session.
   profile+resumes into the local cache; saving bio/resume pushes (best-effort,
   stays working offline); delete removes the server row too. 15 jsdom sync tests;
   manifest gains `http://localhost:8080` host perm for dev; v0.9.0. Create-account
-  needs JHipster activation (use a seeded account locally).*
+  needs JHipster activation (use a seeded account locally). **Verified end-to-end in
+  Chrome against a live backend:** sign in (user/user) → pulled bio+resume → edited
+  bio → push landed server-side. Two fixes surfaced: storage config prefix
+  `application.storage`→`dossier.storage` (was breaking startup) and dev CORS
+  allowing `chrome-extension://*` (was 403'ing the extension).*
 - [ ] **1.8 OpenAPI contract published.** Confirm the API exposes a springdoc
   OpenAPI spec; this is the contract a third-party backend implements to be
   Dossier-compatible.
@@ -121,6 +125,9 @@ focused Claude Code session.
 
 ## Phase 2 — Deployment + CI/CD
 - [ ] **2.1 Environments.** API on Railway (staging + prod); web on Vercel.
+  *Carry-over: prod `jhipster.cors` is currently empty (CORS off) — must allow the
+  published extension's `chrome-extension://<id>` origin (and the web app origin)
+  for the deployed API, mirroring the dev fix from 1.7.*
 - [ ] **2.2 Pipeline.** GitHub Actions: run `npm test` + backend tests → build →
   deploy backend on merge to `main`.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
@@ -190,7 +197,10 @@ focused Claude Code session.
   endpoint via `settings.apiBaseUrl`. 22 jsdom tests; extension v0.8.0.
 - 2026-06-21 · 1.7 Login + sync · `src/lib/sync.js` (pull/push orchestration) + options
   Account tab (sign in/up/out, Sync now; pull-on-login, push-on-save). 15 jsdom tests;
-  localhost host perm; extension v0.9.0. End-to-end browser check still recommended.
+  localhost host perm; extension v0.9.0. **Verified end-to-end in Chrome** (sign in →
+  pull → edit → push). Fixes found via live run: `dossier.storage` config prefix
+  (startup), dev CORS `chrome-extension://*` (403). Backend runs with profile
+  [dev, api-docs] → Swagger already on (helps 1.8).
 
 ---
 
