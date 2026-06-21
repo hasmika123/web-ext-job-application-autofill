@@ -25,10 +25,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.5 — Profile + resume sync endpoints.** `/profile`, `/resumes`
-> CRUD. *(Note: JHipster generated `BioResource`/`ResumeResource` CRUD already;
-> this task shapes the user-scoped `/profile` + `/resumes` API the extension/web sync
-> against — likely current-user filtering + a single-bio `/profile` convenience.)*
+> **Phase 1 · Task 1.6 — `TrackingProvider` abstraction (extension side).** Define
+> the provider interface + canonical DTOs (the one network seam) and implement
+> `DossierApiProvider` against the `/api/profile`(+`/resumes`) endpoints from 1.5.
+> No `fetch()` to the backend outside this layer. Endpoint/auth are config.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -80,7 +80,15 @@ focused Claude Code session.
   delete, owner-scoped, persists `r2ObjectKey`). Dev uses MinIO (`src/main/docker/
   minio.yml`); real R2 creds via env at deploy. New `S3ResumeStorageServiceIT` drives
   a MinIO Testcontainer (round-trip verified); full `test`+`integrationTest` green.*
-- [ ] **1.5 Profile + resume sync endpoints.** `/profile`, `/resumes` CRUD.
+- [x] **1.5 Profile + resume sync endpoints.** `/profile`, `/resumes` CRUD.
+  *Added the user-scoped sync API the extension/web consume: `ProfileService` +
+  `ProfileResource` — `GET/PUT /api/profile` (single bio per user, upsert) and
+  `GET/POST/PUT/DELETE /api/profile/resumes` (current-user-scoped; ownership checks
+  return 404, never leaking other users' rows; delete also removes the R2 blob).
+  `ProfileResourceIT` covers upsert/single-bio, resume CRUD, and cross-user isolation;
+  full `test`+`integrationTest` green. **Follow-up (security):** the raw generated
+  `/api/bios` + `/api/resumes` CRUD are NOT user-scoped (multi-tenant leak) — lock
+  down or remove during the 1.10 privacy/hardening pass.*
 - [ ] **1.6 `TrackingProvider` abstraction.** Define the provider interface +
   canonical DTOs (the one network seam); implement `DossierApiProvider`. No
   `fetch()` to the backend outside this layer. Endpoint/auth are config, not
@@ -156,6 +164,10 @@ focused Claude Code session.
   (4 cases) round-trips against a MinIO Testcontainer. Full suite green. Fixes en route:
   ArchUnit (inject bucket via @Value, not the config class), anonymous creds when no key,
   `@Value` default so the test profile resolves the bucket.
+- 2026-06-21 · 1.5 Profile + resume sync · user-scoped `ProfileService`/`ProfileResource`
+  (`/api/profile` single-bio upsert + `/api/profile/resumes` CRUD, ownership=404).
+  `ProfileResourceIT` incl. cross-user isolation; full suite green. Flagged: raw generated
+  `/api/bios`+`/api/resumes` aren't user-scoped — harden in 1.10.
 
 ---
 
