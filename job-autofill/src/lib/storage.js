@@ -85,7 +85,7 @@
   const getResumeFile = (id) => idbGet(id);
 
   async function getSettings() {
-    const defaults = { llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "" };
+    const defaults = { llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "", apiBaseUrl: "" };
     return Object.assign(defaults, (await get(KEYS.settings)) || {});
   }
   const saveSettings = (s) => set({ [KEYS.settings]: s });

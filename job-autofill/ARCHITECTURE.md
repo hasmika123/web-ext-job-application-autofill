@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.7.1, bundled ruleset version 4.
+> Current version: manifest 0.8.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -50,6 +50,8 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   `blur`. Row shape `{profileId, fieldKey, contextHash, value, hitCount, updatedAt}`
   mirrors the future server `field_cache` table (Phase 4 sync). `create()` factory
   + pure helpers exposed for tests.
+- `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
+  TrackingProvider section below). `createDossierProvider()` + DTO mappers.
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).
 
 ## Canonical-field model
@@ -58,14 +60,19 @@ Everything maps to one vocabulary of canonical fields (`firstName`, `email`,
 that's what makes adding sites easy. To improve generic matching for a stubborn
 field, add a keyword set to `MATCHERS` in `src/lib/schema.js`.
 
-## Outbound integration seam — `TrackingProvider` (PLANNED, Phase 1)
-Not built yet. When the backend lands, **all** network calls to a tracking backend
-must go through a single `TrackingProvider` interface that speaks the canonical
-DTOs above — never raw `fetch()` scattered through filler/adapters/popup. A
-`DossierApiProvider` implements it for our API; the same extension can later point
-at a different tracker by adding another provider. Endpoint + auth are config, not
-constants. This keeps the extension repluggable to any compatible backend. See
-root `ROADMAP.md` → "Pluggable tracking backend" and `PROGRESS.md` tasks 1.6/1.8.
+## Outbound integration seam — `TrackingProvider` (`src/lib/tracking.js`)
+`JAF.tracking` is the **only** place allowed to `fetch()` the sync backend. The
+`TrackingProvider` base class documents the contract (auth, pull/push profile,
+resume CRUD; `pushApplication`/`listApplications`/`syncFieldCache` are declared but
+throw `NotSupportedError` until Phase 3/4 endpoints exist). `createDossierProvider
+({baseUrl, fetch, tokenStore})` implements it against the Spring Boot API: it maps
+canonical bio/resume shapes ↔ the server DTOs (bio→`payload` JSON, resume→`parsedJson`),
+adds the `Bearer` access token, and on a 401 refreshes once and retries. Endpoint
+(`settings.apiBaseUrl`) + auth (`tokenStore`) are config, not constants. Loaded in
+`popup.html` + `options.html` (and SW-safe via `globalThis.JAF`). 1.7 wires the
+login UI + sync loop on top of this; a future provider can target a different
+backend by implementing the same contract. See root `ROADMAP.md` → "Pluggable
+tracking backend".
 
 ## Adding a new site adapter
 Copy `src/content/adapters/lever.js`; implement `matches()`, `plan(values)` (return

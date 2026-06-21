@@ -25,10 +25,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.6 — `TrackingProvider` abstraction (extension side).** Define
-> the provider interface + canonical DTOs (the one network seam) and implement
-> `DossierApiProvider` against the `/api/profile`(+`/resumes`) endpoints from 1.5.
-> No `fetch()` to the backend outside this layer. Endpoint/auth are config.
+> **Phase 1 · Task 1.7 — Extension login + sync layer.** Login screen (popup);
+> pull on login, push on change via `JAF.tracking`; local store becomes an offline
+> cache. Build on the `TrackingProvider` seam from 1.6 + the `/api/profile` API.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -89,10 +88,15 @@ focused Claude Code session.
   full `test`+`integrationTest` green. **Follow-up (security):** the raw generated
   `/api/bios` + `/api/resumes` CRUD are NOT user-scoped (multi-tenant leak) — lock
   down or remove during the 1.10 privacy/hardening pass.*
-- [ ] **1.6 `TrackingProvider` abstraction.** Define the provider interface +
+- [x] **1.6 `TrackingProvider` abstraction.** Define the provider interface +
   canonical DTOs (the one network seam); implement `DossierApiProvider`. No
   `fetch()` to the backend outside this layer. Endpoint/auth are config, not
-  constants. (See ROADMAP "Pluggable tracking backend".)
+  constants. (See ROADMAP "Pluggable tracking backend".) *Added `src/lib/tracking.js`
+  (`JAF.tracking`): `TrackingProvider` contract + `createDossierProvider({baseUrl,
+  fetch,tokenStore})` → auth (register/login/refresh/logout), profile pull/push,
+  resume CRUD, with canonical bio/resume↔DTO mapping and 401→refresh→retry. App/
+  field-cache methods declared but throw `NotSupportedError` (Phase 3/4). Endpoint =
+  `settings.apiBaseUrl`. 22 jsdom tests (mock fetch); loaded in popup+options; v0.8.0.*
 - [ ] **1.7 Extension login + sync layer.** Login screen; pull on login, push on
   change via `TrackingProvider`; local store becomes offline cache.
 - [ ] **1.8 OpenAPI contract published.** Confirm the API exposes a springdoc
@@ -172,6 +176,9 @@ focused Claude Code session.
   (`/api/profile` single-bio upsert + `/api/profile/resumes` CRUD, ownership=404).
   `ProfileResourceIT` incl. cross-user isolation; full suite green. Flagged: raw generated
   `/api/bios`+`/api/resumes` aren't user-scoped — harden in 1.10.
+- 2026-06-21 · 1.6 TrackingProvider · `src/lib/tracking.js` — sole backend network seam;
+  `createDossierProvider` (auth + profile + resume CRUD, DTO mapping, 401-refresh-retry),
+  endpoint via `settings.apiBaseUrl`. 22 jsdom tests; extension v0.8.0.
 
 ---
 
