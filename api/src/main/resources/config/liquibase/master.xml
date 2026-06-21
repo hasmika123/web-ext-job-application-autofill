@@ -25,5 +25,6 @@
     <include file="config/liquibase/changelog/20260621022518_added_entity_constraints_AiAnswer.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <include file="config/liquibase/changelog/20260621030000_added_indexes.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260622000000_extend_tracking_schema.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

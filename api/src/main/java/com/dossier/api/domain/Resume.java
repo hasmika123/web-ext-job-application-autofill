@@ -47,6 +47,11 @@ public class Resume implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    // Archived resumes are hidden from the active picker but kept so applied jobs
+    // never lose their resume reference (see the resume-archive guard, Phase 3.5).
+    @Column(name = "archived")
+    private Boolean archived;
+
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
 
@@ -130,6 +135,19 @@ public class Resume implements Serializable {
         this.createdAt = createdAt;
     }
 
+    public Boolean getArchived() {
+        return this.archived;
+    }
+
+    public Resume archived(Boolean archived) {
+        this.setArchived(archived);
+        return this;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.archived = archived;
+    }
+
     public User getUser() {
         return this.user;
     }
@@ -172,6 +190,7 @@ public class Resume implements Serializable {
             ", parsedJson='" + getParsedJson() + "'" +
             ", status='" + getStatus() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
+            ", archived='" + getArchived() + "'" +
             "}";
     }
 }

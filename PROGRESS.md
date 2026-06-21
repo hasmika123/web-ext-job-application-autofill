@@ -25,11 +25,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.8 — OpenAPI contract published.** Confirm the API exposes a
-> springdoc OpenAPI spec (JHipster default) at `/v3/api-docs` + Swagger UI, covering
-> the auth + `/api/profile` sync endpoints — the contract a third-party backend
-> implements to be Dossier-compatible. *(Note: `/v3/api-docs` is ADMIN-gated by
-> default — decide whether to expose it publicly or document how to reach it.)*
+> **Phase 1 · Task 1.9 — OpenAPI contract published.** Confirm the springdoc
+> OpenAPI spec (`/v3/api-docs`, Swagger already on via the `api-docs` profile) covers
+> auth + `/api/profile`(+`/resumes`) + the new tracking fields. This spec IS the
+> contract a third-party backend implements to be Dossier-compatible. Note the
+> custom controllers (Authenticate refresh, Profile) may need `@Operation`/schema
+> annotations to show up cleanly; decide whether to expose the spec (ADMIN-gated by default).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -112,13 +113,28 @@ focused Claude Code session.
   bio → push landed server-side. Two fixes surfaced: storage config prefix
   `application.storage`→`dossier.storage` (was breaking startup) and dev CORS
   allowing `chrome-extension://*` (was 403'ing the extension).*
-- [ ] **1.8 OpenAPI contract published.** Confirm the API exposes a springdoc
-  OpenAPI spec; this is the contract a third-party backend implements to be
-  Dossier-compatible.
-- [ ] **1.9 Web app shell.** Next.js: signup/login/settings against the API.
-- [ ] **1.10 Privacy rewrite.** New privacy policy + Chrome Web Store data-use
-  disclosure to match cloud model. *Required before any public release.*
-  **Also harden here (carried from 1.5):** the generated `/api/bios` and
+- [x] **1.8 Extend tracking schema (additive migration).** On the EXISTING backend
+  — do NOT regenerate the app. Hand-written Liquibase changelog: `Application` +=
+  `location` (String), `externalJobId` (String), `submissionConfirmed` (Boolean);
+  `ApplicationStatus` += `DRAFT`; `Resume` += `archived` (Boolean, default false).
+  Update `dossier.jdl` to match (documentation only). Index `application(user_id,
+  external_job_id)` for dedup. Migration applies on a fresh Testcontainers MySQL.
+  *Added fields by hand to `Application`/`ApplicationDTO`, `Resume`/`ResumeDTO`, the
+  `ApplicationStatus` enum (DRAFT first), and changelog `20260622000000_extend_
+  tracking_schema.xml` (+ dedup index). MapStruct auto-maps the new fields. `dossier.jdl`
+  already carried these (planning pivot). New `TrackingSchemaIT` (2) round-trips the
+  fields + DRAFT through MySQL; full `test`+`integrationTest` green.*
+- [ ] **1.9 OpenAPI contract published.** Confirm the springdoc OpenAPI spec covers
+  auth + sync + the new tracking fields; this is the contract a third-party backend
+  implements to be Dossier-compatible. (Do AFTER 1.8 so the contract is complete.)
+- [ ] **1.10 Web app — management surface.** Next.js: signup/login/settings PLUS
+  resume upload+review+archive and bio editor. **First extract `parser.js` into a
+  shared module** (it's plain browser JS — pdf.js+mammoth) so the web app parses
+  in-browser; the extension imports the same module. Web app = primary product;
+  extension = on-page companion.
+- [ ] **1.11 Privacy rewrite + multi-tenant hardening.** New privacy policy + Chrome
+  Web Store data-use disclosure to match the cloud model. *Required before any public
+  release.* **Also harden here (carried from 1.5):** the generated `/api/bios` and
   `/api/resumes` controllers are NOT user-scoped — any authenticated user can read
   every user's rows. Lock them down (admin-only or remove) so only the user-scoped
   `/api/profile`(+`/resumes`) sync API is exposed. **Must not ship public without this.**
@@ -132,12 +148,38 @@ focused Claude Code session.
   deploy backend on merge to `main`.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
 
-## Phase 3 — Application Tracking
-- [ ] **3.1 Auto-log on submit.** Extension posts company/role/URL/ATS/JD/resume to
-  `/applications`.
-- [ ] **3.2 Kanban dashboard.** Next.js board (Saved → Applied → Interview →
-  Offer/Rejected).
-- [ ] **3.3 Save-without-applying + job-board capture** (Simplify/Teal hook).
+## Phase 3 — Application Tracking (the tracker fills itself as you apply)
+
+> **Pinned decision (3.2):** create the DRAFT entry on **every fill**, not only on
+> "complete-looking" fills. It's simpler and we never miss an application. To keep
+> the board from getting cluttered, two safeguards: (1) **dedup** — re-filling the
+> same job updates the same entry instead of adding a new one; (2) abandoned DRAFTs
+> are **easy to dismiss/delete** on the board. Do not gate entry-creation on guessing
+> whether the user finished.
+
+- [ ] **3.0 Backend: applications API + provider methods.** User-scoped
+  `/api/applications` CRUD (upsert keyed on `externalJobId`/`jobUrl`); implement
+  `pushApplication`/`listApplications` in `tracking.js` and add `updateApplication`
+  (status/confirm) + `archiveResume` to the provider contract + backend.
+- [ ] **3.1 Job-detail capture chain.** Add `captureJob()` to adapters; extractor
+  order = `schema.org/JobPosting` JSON-LD → adapter `captureJob()` → generic
+  `<meta>`/heuristics. Returns a canonical `JobCapture` DTO (company, role, location,
+  jobUrl, externalJobId, atsPlatform, jobDescription). Tests per strategy.
+- [ ] **3.2 Auto-log + submission detection.** On fill: upsert a **DRAFT** entry with
+  the captured job + the resume the user picked (dedup on externalJobId/jobUrl; see
+  pinned decision above). If the extension sees the confirmation (`webNavigation`
+  success page or DOM success signal) → flip to **APPLIED**, `submissionConfirmed=true`,
+  set `appliedAt`. No auto-submit. (Submission-detection module on the content side.)
+- [ ] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
+  chain (no resume attached).
+- [ ] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
+  Saved → Applied → Interview → Offer → Rejected). DRAFT / `submissionConfirmed=false`
+  entries show a "Did you submit?" prompt → Yes = APPLIED, No = keep/drop. Manual
+  status edits on the board.
+- [ ] **3.5 Resume archive guard.** Deleting a resume referenced by any application
+  (esp. APPLIED) is blocked with a **nudge to archive instead** (`archived=true`);
+  archived resumes are hidden from the active picker but keep their tracker links.
+  Enforce server-side (referential check) + surface the nudge in the web UI.
 
 ## Phase 4 — Field cache (cloud sync)
 - [ ] **4.1 Promote local cache to `field_cache` API**; last-write-wins +
@@ -201,6 +243,10 @@ focused Claude Code session.
   pull → edit → push). Fixes found via live run: `dossier.storage` config prefix
   (startup), dev CORS `chrome-extension://*` (403). Backend runs with profile
   [dev, api-docs] → Swagger already on (helps 1.8).
+- 2026-06-21 · 1.8 Extend tracking schema · additive migration on the existing backend
+  (Application +location/externalJobId/submissionConfirmed, status +DRAFT, Resume
+  +archived; dedup index). Entities/DTOs/enum by hand; `20260622000000_extend_tracking_
+  schema.xml`; `TrackingSchemaIT` round-trips fields+DRAFT through MySQL; full suite green.
 
 ---
 

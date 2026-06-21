@@ -3,6 +3,11 @@
 // Run:  npm i -g generator-jhipster   (v8.x)
 //       mkdir api && cd api && jhipster jdl ../dossier.jdl
 // JHipster provides the built-in `User` entity (JWT auth) — do NOT redefine it.
+//
+// ⚠️ STATUS: the backend in /api was already generated from this file (Phase 1).
+// This file is now DOCUMENTATION / clean-regen source. Incremental changes (e.g.
+// the Phase 1.8 tracking fields below) are applied to the live backend via
+// additive Liquibase migrations — do NOT regenerate the whole app over /api.
 
 application {
   config {
@@ -24,7 +29,8 @@ application {
 
 // ---------- enums ----------
 enum ResumeStatus { NEEDS_REVIEW, CONFIRMED }
-enum ApplicationStatus { SAVED, APPLIED, INTERVIEW, OFFER, REJECTED }
+// DRAFT = fill started, submission NOT yet confirmed by the extension.
+enum ApplicationStatus { DRAFT, SAVED, APPLIED, INTERVIEW, OFFER, REJECTED }
 
 // ---------- entities ----------
 // One bio per user (shared across applications).
@@ -39,6 +45,8 @@ entity Resume {
   r2ObjectKey String required maxlength(500)   // pointer into R2, not the bytes
   parsedJson TextBlob                          // structured parse result
   status ResumeStatus required
+  archived Boolean                             // archive (don't delete) when a
+                                               // tracked application references it
   createdAt Instant required
 }
 
@@ -46,10 +54,13 @@ entity Resume {
 entity Application {
   company String required maxlength(200)
   roleTitle String required maxlength(200)
+  location String maxlength(200)      // captured from the job posting
   jobUrl String maxlength(1000)
+  externalJobId String maxlength(200) // dedup key (+ jobUrl); upsert on revisit
   atsPlatform String maxlength(100)
   jobDescription TextBlob
-  status ApplicationStatus required
+  status ApplicationStatus required   // DRAFT until submission is confirmed
+  submissionConfirmed Boolean         // true only when the extension saw success
   source String maxlength(100)        // e.g. extension-autolog, manual, bookmark
   appliedAt Instant
   createdAt Instant required

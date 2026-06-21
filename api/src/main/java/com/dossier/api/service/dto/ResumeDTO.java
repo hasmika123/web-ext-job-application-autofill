@@ -32,6 +32,8 @@ public class ResumeDTO implements Serializable {
     @NotNull
     private Instant createdAt;
 
+    private Boolean archived;
+
     private UserDTO user;
 
     public Long getId() {
@@ -82,6 +84,14 @@ public class ResumeDTO implements Serializable {
         this.createdAt = createdAt;
     }
 
+    public Boolean getArchived() {
+        return archived;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.archived = archived;
+    }
+
     public UserDTO getUser() {
         return user;
     }
@@ -121,6 +131,7 @@ public class ResumeDTO implements Serializable {
             ", parsedJson='" + getParsedJson() + "'" +
             ", status='" + getStatus() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
+            ", archived='" + getArchived() + "'" +
             ", user=" + getUser() +
             "}";
     }

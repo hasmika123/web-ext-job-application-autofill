@@ -26,6 +26,14 @@ public class ApplicationDTO implements Serializable {
     @Size(max = 1000)
     private String jobUrl;
 
+    @Size(max = 200)
+    private String location;
+
+    @Size(max = 200)
+    private String externalJobId;
+
+    private Boolean submissionConfirmed;
+
     @Size(max = 100)
     private String atsPlatform;
 
@@ -80,6 +88,30 @@ public class ApplicationDTO implements Serializable {
 
     public void setJobUrl(String jobUrl) {
         this.jobUrl = jobUrl;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getExternalJobId() {
+        return externalJobId;
+    }
+
+    public void setExternalJobId(String externalJobId) {
+        this.externalJobId = externalJobId;
+    }
+
+    public Boolean getSubmissionConfirmed() {
+        return submissionConfirmed;
+    }
+
+    public void setSubmissionConfirmed(Boolean submissionConfirmed) {
+        this.submissionConfirmed = submissionConfirmed;
     }
 
     public String getAtsPlatform() {
@@ -183,6 +215,9 @@ public class ApplicationDTO implements Serializable {
             ", company='" + getCompany() + "'" +
             ", roleTitle='" + getRoleTitle() + "'" +
             ", jobUrl='" + getJobUrl() + "'" +
+            ", location='" + getLocation() + "'" +
+            ", externalJobId='" + getExternalJobId() + "'" +
+            ", submissionConfirmed='" + getSubmissionConfirmed() + "'" +
             ", atsPlatform='" + getAtsPlatform() + "'" +
             ", jobDescription='" + getJobDescription() + "'" +
             ", status='" + getStatus() + "'" +

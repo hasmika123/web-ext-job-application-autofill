@@ -52,6 +52,19 @@ public class Application implements Serializable {
     @Column(name = "status", nullable = false)
     private ApplicationStatus status;
 
+    @Size(max = 200)
+    @Column(name = "location", length = 200)
+    private String location;
+
+    // ATS-native job id; with job_url this is the dedup key for the tracker.
+    @Size(max = 200)
+    @Column(name = "external_job_id", length = 200)
+    private String externalJobId;
+
+    // True only when the extension actually observed the submission confirmation.
+    @Column(name = "submission_confirmed")
+    private Boolean submissionConfirmed;
+
     @Size(max = 100)
     @Column(name = "source", length = 100)
     private String source;
@@ -167,6 +180,45 @@ public class Application implements Serializable {
         this.status = status;
     }
 
+    public String getLocation() {
+        return this.location;
+    }
+
+    public Application location(String location) {
+        this.setLocation(location);
+        return this;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getExternalJobId() {
+        return this.externalJobId;
+    }
+
+    public Application externalJobId(String externalJobId) {
+        this.setExternalJobId(externalJobId);
+        return this;
+    }
+
+    public void setExternalJobId(String externalJobId) {
+        this.externalJobId = externalJobId;
+    }
+
+    public Boolean getSubmissionConfirmed() {
+        return this.submissionConfirmed;
+    }
+
+    public Application submissionConfirmed(Boolean submissionConfirmed) {
+        this.setSubmissionConfirmed(submissionConfirmed);
+        return this;
+    }
+
+    public void setSubmissionConfirmed(Boolean submissionConfirmed) {
+        this.submissionConfirmed = submissionConfirmed;
+    }
+
     public String getSource() {
         return this.source;
     }
@@ -272,6 +324,9 @@ public class Application implements Serializable {
             ", company='" + getCompany() + "'" +
             ", roleTitle='" + getRoleTitle() + "'" +
             ", jobUrl='" + getJobUrl() + "'" +
+            ", location='" + getLocation() + "'" +
+            ", externalJobId='" + getExternalJobId() + "'" +
+            ", submissionConfirmed='" + getSubmissionConfirmed() + "'" +
             ", atsPlatform='" + getAtsPlatform() + "'" +
             ", jobDescription='" + getJobDescription() + "'" +
             ", status='" + getStatus() + "'" +
