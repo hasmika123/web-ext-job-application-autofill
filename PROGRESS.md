@@ -135,11 +135,21 @@ focused Claude Code session.
   auth flow, the `/api/profile`(+`/resumes`) sync API, the bearer scheme, and the 1.8
   tracking fields (`location`/`externalJobId`/`submissionConfirmed`/`archived` + `DRAFT`),
   and writes the published snapshot to `api/openapi.json`. Full `test`+`integrationTest` green.*
-- [ ] **1.10 Web app — management surface.** Next.js: signup/login/settings PLUS
+- [~] **1.10 Web app — management surface.** Next.js: signup/login/settings PLUS
   resume upload+review+archive and bio editor. **First extract `parser.js` into a
   shared module** (it's plain browser JS — pdf.js+mammoth) so the web app parses
   in-browser; the extension imports the same module. Web app = primary product;
   extension = on-page companion.
+  - [x] **1.10a Shared parser module.** Extracted the pure text→structure logic into
+    `job-autofill/src/lib/parser-core.js` (UMD-lite: `JAF.parserCore` as a `<script>`
+    AND `module.exports` for `require()` — no build step). `parser.js` now keeps only
+    the extension I/O (pdf.js/mammoth/LLM) and delegates structuring. Self-sufficient
+    `splitSkills` bundled so standalone parsing matches the extension. New
+    `test/parser_core.test.js` proves consumption via plain `require()` (no jsdom/JAF);
+    extension suite green; ext v0.10.0.
+  - [ ] **1.10b Next.js app scaffold + auth (signup/login/settings).** *Stack/scaffold
+    decisions pending — confirm before scaffolding (new sub-project, deps).*
+  - [ ] **1.10c Resume upload+review+archive (imports `parser-core`) + bio editor.**
 - [ ] **1.11 Privacy rewrite + multi-tenant hardening.** New privacy policy + Chrome
   Web Store data-use disclosure to match the cloud model. *Required before any public
   release.* **Also harden here (carried from 1.5):** the generated `/api/bios` and
@@ -255,6 +265,12 @@ focused Claude Code session.
   (Application +location/externalJobId/submissionConfirmed, status +DRAFT, Resume
   +archived; dedup index). Entities/DTOs/enum by hand; `20260622000000_extend_tracking_
   schema.xml`; `TrackingSchemaIT` round-trips fields+DRAFT through MySQL; full suite green.
+- 2026-06-21 · 1.10a Shared parser module · extracted `parser-core.js` (pure
+  heuristicStructure/parseBio/splitSkills; UMD-lite — `JAF.parserCore` + `module.exports`,
+  no build step) out of `parser.js` (now I/O-only, delegates). `test/parser_core.test.js`
+  proves plain-`require()` consumption (no jsdom/JAF) — the web app imports the same file.
+  Bundled self-sufficient `splitSkills` so standalone parsing matches the extension.
+  Extension suite green; v0.10.0. Remaining 1.10: Next.js app (gated on stack confirm).
 - 2026-06-21 · 1.9 OpenAPI contract · `OpenApiConfiguration` (bearer-jwt scheme) +
   `@Tag`/`@Operation`/`@SecurityRequirement` on the custom auth/profile controllers +
   API identity via `jhipster.api-docs.*` (title "Dossier API"). `OpenApiContractIT`

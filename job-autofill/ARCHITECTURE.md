@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.9.0, bundled ruleset version 4.
+> Current version: manifest 0.10.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -12,8 +12,16 @@ experience/skills, shows a review overlay, then fills. No auto-submit, no CAPTCH
 bypass. Vanilla JS, no build step, everything on `window.JAF`.
 
 ## Key files
-- `src/lib/parser.js` — text extraction + `heuristicStructure()` (no-API parsing) +
-  `parseBio()` + `llmStructure()`. Skills routed through `JAF.schema.splitSkills`.
+- `src/lib/parser-core.js` — **SHARED** pure text→structure logic: `heuristicStructure()`
+  (no-API parsing) + `parseBio()` + a self-sufficient `splitSkills()`. Zero DOM/chrome/
+  pdf.js deps. UMD-lite: attaches to `JAF.parserCore` as a `<script>` (extension) AND
+  `module.exports` for `require()` (Node tests + the Next.js web app — same file, no
+  build step). Prefers `JAF.schema.splitSkills` when present (extension) else its bundled
+  copy, so standalone parsing matches the extension.
+- `src/lib/parser.js` — the extension's **I/O half**: text extraction (pdf.js via
+  `chrome.runtime`, mammoth, txt) + `llmStructure()` (Anthropic) + `parse()`. Delegates
+  structuring to `JAF.parserCore` (loads after `parser-core.js`); re-exports
+  `heuristicStructure`/`parseBio` on `JAF.parser` for back-compat.
 - `src/config/rules.js` — `JAF.defaultRules` (DATA only; **version 4**). Workday
   field/question/section matchers. Includes `fields.fullName`, `fields.dateSigned`,
   `fields.website` (matches `url`); `questions.ethnicity`/`race` split;
