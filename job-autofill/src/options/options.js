@@ -89,6 +89,7 @@ $("#save-bio").onclick = async () => {
   [...BIO_FIELDS, ...EEO_FIELDS].forEach(([k]) => { const el = $("#bio_" + k); if (el) bio[k] = el.value.trim(); });
   await S.saveBio(bio);
   flashSaved("#bio-saved");
+  pushIfSignedIn("bio");
 };
 
 /* ---------- settings ---------- */
@@ -138,13 +139,98 @@ $("#clear").onclick = async () => {
   const list = await S.getResumes();
   for (const r of list) await S.deleteResume(r.id);
   await S.saveBio(SCH.emptyBio());
-  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "" });
+  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "", apiBaseUrl: "" });
+  try { if (acctTokenStore) await acctTokenStore.clear(); } catch (e) {}
   try { await window.JAF.rules.reset(); } catch (e) {}
   await renderAll();
   alert("All data deleted.");
 };
 
 function flashSaved(sel) { const e = $(sel); e.textContent = "Saved ✓"; setTimeout(() => (e.textContent = ""), 1800); }
+function flashText(sel, text) { const e = $(sel); if (!e) return; e.textContent = text; setTimeout(() => (e.textContent = ""), 3000); }
+
+/* ---------- account & sync ---------- */
+const SYNC = window.JAF.sync;
+const TRK = window.JAF.tracking;
+// One persistent token store for the page; the provider reads/writes it.
+const acctTokenStore = TRK ? TRK.chromeTokenStore() : null;
+
+async function currentProvider() {
+  const s = await S.getSettings();
+  return SYNC.providerFromSettings(s, acctTokenStore);
+}
+// Build a provider from the URL currently in the field, persisting it first.
+async function providerFromForm() {
+  const s = await S.getSettings();
+  const url = ($("#api-base") ? $("#api-base").value.trim() : "") || s.apiBaseUrl || "";
+  if (url !== s.apiBaseUrl) { s.apiBaseUrl = url; await S.saveSettings(s); }
+  return SYNC.providerFromSettings({ apiBaseUrl: url }, acctTokenStore);
+}
+
+async function renderAccount() {
+  if (!$("#tab-account") || !SYNC) return;
+  const s = await S.getSettings();
+  if ($("#api-base")) $("#api-base").value = s.apiBaseUrl || "";
+  let signedIn = false;
+  try { signedIn = await (await currentProvider()).isAuthenticated(); } catch (e) {}
+  $("#signed-in").classList.toggle("hidden", !signedIn);
+  $("#signed-out").classList.toggle("hidden", signedIn);
+  if (signedIn && acctTokenStore) {
+    const t = await acctTokenStore.get();
+    $("#acct-who").textContent = t.username || "your account";
+  }
+}
+
+// Best-effort push after a local change — never let a sync failure break the
+// local save (offline-first).
+async function pushIfSignedIn(kind, payload) {
+  if (!SYNC) return;
+  try {
+    const provider = await currentProvider();
+    if (!(await provider.isAuthenticated())) return;
+    if (kind === "bio") await SYNC.pushBio(provider, S);
+    if (kind === "resume" && payload) await SYNC.pushResume(provider, S, payload);
+  } catch (e) { /* stay offline-friendly */ }
+}
+
+if ($("#api-base")) $("#api-base").onchange = async () => {
+  const s = await S.getSettings(); s.apiBaseUrl = $("#api-base").value.trim(); await S.saveSettings(s);
+};
+if ($("#acct-signin")) $("#acct-signin").onclick = async () => {
+  $("#acct-status").textContent = "Signing in…";
+  try {
+    const provider = await providerFromForm();
+    const username = $("#acct-user").value.trim();
+    await provider.login({ username, password: $("#acct-pass").value });
+    await acctTokenStore.set(Object.assign({}, await acctTokenStore.get(), { username }));
+    $("#acct-status").textContent = "Syncing…";
+    const sum = await SYNC.pullAll(provider, S);
+    $("#acct-pass").value = "";
+    await renderAll();
+    flashText("#acct-status2", `Signed in. Pulled ${sum.resumeCount} resume(s).`);
+  } catch (e) { $("#acct-status").textContent = "✗ " + (e.message || e); }
+};
+if ($("#acct-signup")) $("#acct-signup").onclick = async () => {
+  $("#acct-status").textContent = "Creating account…";
+  try {
+    const provider = await providerFromForm();
+    await provider.register({ login: $("#acct-user").value.trim(), email: $("#acct-email").value.trim(), password: $("#acct-pass").value });
+    $("#acct-status").textContent = "Account created. Activate it via email, then sign in. (Local dev: use a seeded account.)";
+  } catch (e) { $("#acct-status").textContent = "✗ " + (e.message || e); }
+};
+if ($("#acct-sync")) $("#acct-sync").onclick = async () => {
+  $("#acct-status2").textContent = "Syncing…";
+  try {
+    const provider = await currentProvider();
+    const sum = await SYNC.syncNow(provider, S);
+    await renderAll();
+    flashText("#acct-status2", `Synced — ${sum.resumeCount} resume(s).`);
+  } catch (e) { $("#acct-status2").textContent = "✗ " + (e.message || e); }
+};
+if ($("#acct-signout")) $("#acct-signout").onclick = async () => {
+  try { await (await currentProvider()).logout(); } catch (e) {}
+  await renderAccount();
+};
 
 /* ---------- resumes: upload + parse ---------- */
 $("#choose").onclick = () => $("#files").click();
@@ -232,7 +318,14 @@ async function renderResumes() {
     </div>`).join("");
   wrap.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => openEditor(b.dataset.edit));
   wrap.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
-    if (confirm("Delete this resume?")) { await S.deleteResume(b.dataset.del); await renderResumes(); await renderUsage(); }
+    if (confirm("Delete this resume?")) {
+      const gone = (await S.getResumes()).find((x) => x.id === b.dataset.del);
+      await S.deleteResume(b.dataset.del);
+      if (gone && gone.serverId != null) {
+        try { const p = await currentProvider(); if (await p.isAuthenticated()) await p.deleteResume(gone.serverId); } catch (e) {}
+      }
+      await renderResumes(); await renderUsage();
+    }
   });
 }
 
@@ -426,6 +519,7 @@ async function openEditor(id) {
     r.projects = projs;
     r.needsReview = false;
     await S.saveResume(r);
+    pushIfSignedIn("resume", r);
     host.classList.add("hidden");
     await renderResumes();
   };
@@ -442,5 +536,5 @@ async function renderUsage() {
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-async function renderAll() { try { await window.JAF.rules.init(); } catch (e) {} await renderBio(); await renderSettings(); await renderResumes(); await renderUsage(); }
+async function renderAll() { try { await window.JAF.rules.init(); } catch (e) {} await renderBio(); await renderSettings(); await renderAccount(); await renderResumes(); await renderUsage(); }
 renderAll();

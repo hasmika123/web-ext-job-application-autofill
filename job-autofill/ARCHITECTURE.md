@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.8.0, bundled ruleset version 4.
+> Current version: manifest 0.9.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -52,6 +52,13 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   + pure helpers exposed for tests.
 - `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
   TrackingProvider section below). `createDossierProvider()` + DTO mappers.
+- `src/lib/sync.js` — `JAF.sync`. Bridges the local store and a `TrackingProvider`:
+  `pullAll` (server→local cache; resumes matched by `serverId`, never deleting
+  local-only ones), `pushBio`/`pushResume`/`pushAll`, `syncNow` (push then pull),
+  `providerFromSettings`. Pure data layer; the options Account tab drives it.
+- `src/options/options.js` also hosts the **Account tab**: backend-URL config
+  (`settings.apiBaseUrl`), sign in / create account / sign out, and "Sync now".
+  Sign-in pulls; saving bio/resume pushes (best-effort, offline-friendly).
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).
 
 ## Canonical-field model

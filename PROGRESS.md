@@ -25,9 +25,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.7 — Extension login + sync layer.** Login screen (popup);
-> pull on login, push on change via `JAF.tracking`; local store becomes an offline
-> cache. Build on the `TrackingProvider` seam from 1.6 + the `/api/profile` API.
+> **Phase 1 · Task 1.8 — OpenAPI contract published.** Confirm the API exposes a
+> springdoc OpenAPI spec (JHipster default) at `/v3/api-docs` + Swagger UI, covering
+> the auth + `/api/profile` sync endpoints — the contract a third-party backend
+> implements to be Dossier-compatible. *(Note: `/v3/api-docs` is ADMIN-gated by
+> default — decide whether to expose it publicly or document how to reach it.)*
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -97,8 +99,15 @@ focused Claude Code session.
   resume CRUD, with canonical bio/resume↔DTO mapping and 401→refresh→retry. App/
   field-cache methods declared but throw `NotSupportedError` (Phase 3/4). Endpoint =
   `settings.apiBaseUrl`. 22 jsdom tests (mock fetch); loaded in popup+options; v0.8.0.*
-- [ ] **1.7 Extension login + sync layer.** Login screen; pull on login, push on
-  change via `TrackingProvider`; local store becomes offline cache.
+- [x] **1.7 Extension login + sync layer.** Login screen; pull on login, push on
+  change via `TrackingProvider`; local store becomes offline cache. *Added
+  `src/lib/sync.js` (`JAF.sync`: pullAll/pushBio/pushResume/pushAll/syncNow,
+  serverId-matched resume merge) + an **Account tab** in the options page (backend
+  URL config, sign in / create account / sign out, Sync now). Sign-in pulls
+  profile+resumes into the local cache; saving bio/resume pushes (best-effort,
+  stays working offline); delete removes the server row too. 15 jsdom sync tests;
+  manifest gains `http://localhost:8080` host perm for dev; v0.9.0. Create-account
+  needs JHipster activation (use a seeded account locally).*
 - [ ] **1.8 OpenAPI contract published.** Confirm the API exposes a springdoc
   OpenAPI spec; this is the contract a third-party backend implements to be
   Dossier-compatible.
@@ -179,6 +188,9 @@ focused Claude Code session.
 - 2026-06-21 · 1.6 TrackingProvider · `src/lib/tracking.js` — sole backend network seam;
   `createDossierProvider` (auth + profile + resume CRUD, DTO mapping, 401-refresh-retry),
   endpoint via `settings.apiBaseUrl`. 22 jsdom tests; extension v0.8.0.
+- 2026-06-21 · 1.7 Login + sync · `src/lib/sync.js` (pull/push orchestration) + options
+  Account tab (sign in/up/out, Sync now; pull-on-login, push-on-save). 15 jsdom tests;
+  localhost host perm; extension v0.9.0. End-to-end browser check still recommended.
 
 ---
 
