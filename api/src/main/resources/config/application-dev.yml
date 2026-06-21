@@ -109,4 +109,12 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-# application:
+application:
+  # Local dev points at MinIO (docker compose -f src/main/docker/minio.yml up -d).
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${STORAGE_REGION:auto}
+    bucket: ${STORAGE_BUCKET:dossier-resumes}
+    access-key: ${STORAGE_ACCESS_KEY:dossier}
+    secret-key: ${STORAGE_SECRET_KEY:dossier-secret}
+    path-style-access: true

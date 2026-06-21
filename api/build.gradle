@@ -166,6 +166,11 @@ dependencies {
     annotationProcessor "org.glassfish.jaxb:jaxb-runtime"
     annotationProcessor "org.hibernate.orm:hibernate-jpamodelgen"
     developmentOnly "org.springframework.boot:spring-boot-docker-compose"
+    // Cloudflare R2 is S3-compatible; use the AWS SDK v2 S3 client for blob storage.
+    implementation platform("software.amazon.awssdk:bom:2.28.0")
+    implementation "software.amazon.awssdk:s3"
+    // Local S3-compatible server (MinIO) for storage integration tests.
+    testImplementation "org.testcontainers:minio"
     // jhipster-needle-gradle-dependency - JHipster will add additional dependencies here
 }
 

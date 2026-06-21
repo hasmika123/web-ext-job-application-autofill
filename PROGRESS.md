@@ -25,9 +25,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.4 — Resume storage.** Cloudflare R2 upload/download;
-> `resumes.r2_object_key`. *(Gate: needs Cloudflare R2 credentials/bucket — an
-> external account you must create. The `r_2_object_key` column already exists.)*
+> **Phase 1 · Task 1.5 — Profile + resume sync endpoints.** `/profile`, `/resumes`
+> CRUD. *(Note: JHipster generated `BioResource`/`ResumeResource` CRUD already;
+> this task shapes the user-scoped `/profile` + `/resumes` API the extension/web sync
+> against — likely current-user filtering + a single-bio `/profile` convenience.)*
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -72,7 +73,13 @@ focused Claude Code session.
   omits: unique `bio(user_id)`, unique `field_cache(user_id,field_key,context_hash)`,
   unique `ai_answer(user_id,question_hash)`, and `application(user_id,status)`. Full
   `test`+`integrationTest` green (migration applies on a fresh Testcontainers MySQL).*
-- [ ] **1.4 Resume storage.** Cloudflare R2 upload/download; `resumes.r2_object_key`.
+- [x] **1.4 Resume storage.** Cloudflare R2 upload/download; `resumes.r2_object_key`.
+  *Built an S3-compatible storage layer (R2 is S3-compatible): `StorageProperties`
+  (env-config) + `S3Client` (AWS SDK v2) + `ResumeStorageService`/`S3ResumeStorageService`
+  (store/load/delete, per-user object keys) + `ResumeFileResource` (upload/download/
+  delete, owner-scoped, persists `r2ObjectKey`). Dev uses MinIO (`src/main/docker/
+  minio.yml`); real R2 creds via env at deploy. New `S3ResumeStorageServiceIT` drives
+  a MinIO Testcontainer (round-trip verified); full `test`+`integrationTest` green.*
 - [ ] **1.5 Profile + resume sync endpoints.** `/profile`, `/resumes` CRUD.
 - [ ] **1.6 `TrackingProvider` abstraction.** Define the provider interface +
   canonical DTOs (the one network seam); implement `DossierApiProvider`. No
@@ -143,6 +150,12 @@ focused Claude Code session.
   `20260621030000_added_indexes.xml` (unique bio/field_cache/ai_answer lookup keys +
   application user+status index). Full suite green. Backend test runs on this OneDrive
   checkout: `-Dorg.gradle.vfs.watch=false` avoids a build/ delete-lock.
+- 2026-06-21 · 1.4 Resume storage · S3-compatible blob layer (AWS SDK v2) for R2;
+  StorageProperties/StorageConfiguration + ResumeStorageService + ResumeFileResource
+  (upload/download/delete, owner-scoped). MinIO for dev/tests; `S3ResumeStorageServiceIT`
+  (4 cases) round-trips against a MinIO Testcontainer. Full suite green. Fixes en route:
+  ArchUnit (inject bucket via @Value, not the config class), anonymous creds when no key,
+  `@Value` default so the test profile resolves the bucket.
 
 ---
 
