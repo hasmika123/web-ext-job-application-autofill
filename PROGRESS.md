@@ -25,14 +25,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 2 · Task 2.1 — Environments.** 🎉 **Phase 1 is COMPLETE** (backend + accounts +
-> web management surface + extension sync + the 1.11 pre-launch gate). Next: deployment.
-> 2.1 = stand up API container (staging + prod) + managed MySQL + R2 bucket, and the web
-> container (`next start`, `output: 'standalone'`). Carry-overs to handle: prod
-> `jhipster.cors` is empty (must allow the published extension origin + web origin), and
-> resume upload stays Option A (Next-proxied) on the container host. Read the Phase 2
-> section of ROADMAP.md before starting. Note: deployment touches real hosting/secrets —
-> confirm provider choices with the user before provisioning anything.
+> **Phase 2 · Task 2.2 — Pipeline (CI/CD).** 2.1 is done (deploy artifacts + local boot
+> verified; the live VPS deploy is the user's step via `DEPLOY.md`). 2.2 = GitHub Actions:
+> run the extension `npm test` + the Spring test suite on PRs, build the api/web images, and
+> deploy on merge to `main`. **Deploy target = the GoDaddy VPS** (SSH in, `git pull` +
+> `docker compose -f docker-compose.prod.yml up -d --build`, or build+push images to a
+> registry then pull) — not a PaaS deploy hook. CI secrets (SSH key, etc.) are the user's to
+> add in GitHub. Read the Phase 2 section of ROADMAP.md before starting.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -217,14 +216,19 @@ focused Claude Code session.
 > Vercel is allowed but not assumed — and if the web app is ever moved to a
 > serverless host, the resume upload must switch to Option B (presigned) because of
 > the ~4.5MB body limit.
-- [ ] **2.1 Environments.** API container (staging + prod) + managed MySQL + R2
-  bucket; web container (`next start`, standalone) on the same host or Vercel.
-  *Carry-over: prod `jhipster.cors` is currently empty (CORS off) — must allow the
-  published extension's `chrome-extension://<id>` origin (and the web app origin)
-  for the deployed API, mirroring the dev fix from 1.7.*
-  *Option B (presigned direct-to-R2 upload) is **dropped as the plan** — Option A
-  (Next-proxied upload) is permanent on a container host (see 1.10d). Keep Option B
-  documented only as the fallback if the web app ever moves to a serverless host.*
+- [x] **2.1 Environments.** *DONE (deploy artifacts + local boot verified; live VPS
+  deploy is the user's step via `DEPLOY.md`).* **Decided stack:** self-managed GoDaddy
+  Linux VPS, Docker Compose (MySQL + API + web) behind **Caddy** (auto-HTTPS via
+  Let's Encrypt), **sslip.io** for real TLS on the bare IP (no domain yet), **AWS S3**
+  private bucket for resume files (our `ResumeStorageService` already speaks S3). Shipped:
+  multi-stage `api/Dockerfile` + `web/Dockerfile` (root context so the parser-core sync
+  works; drops the Windows `.npmrc`), `docker-compose.prod.yml`, `Caddyfile`, `.env.example`,
+  `DEPLOY.md` runbook, root `.gitignore` (protects `.env`). Prod config wired: env-required
+  JWT secret (fails fast without it), `jhipster.cors` for the extension origin, `dossier.storage`
+  S3 block (path-style off). Verified: both images build, full stack boots on the prod
+  profile, Liquibase migrates, `/management/health` UP reachable web→api over the internal
+  network. *Not testable locally (deploy-time): Caddy/Let's Encrypt + a real S3 upload.*
+  *Option B (presigned direct-to-R2) stays dropped — Option A (Next-proxied) is permanent.*
 - [ ] **2.2 Pipeline.** GitHub Actions: run `npm test` + backend tests → build →
   deploy backend on merge to `main`.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
@@ -299,6 +303,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 2.1 (Environments) · **Phase 2 begins.** Decided stack with the user:
+  self-managed GoDaddy VPS + Docker Compose (MySQL + API + web) behind Caddy (auto-HTTPS),
+  sslip.io for TLS on the bare IP (no domain yet), AWS S3 private bucket. Shipped multi-stage
+  Dockerfiles (web builds from repo root for the parser-core sync; drops Windows `.npmrc`),
+  `docker-compose.prod.yml`, `Caddyfile`, `.env.example`, `DEPLOY.md`, root `.gitignore`. Prod
+  config: env-required JWT secret, CORS for the extension, S3 storage block. **Verified:** both
+  images build; full stack boots on the prod profile; Liquibase migrates; health UP web→api over
+  the internal network. Live VPS deploy + Caddy/LE + real S3 upload are the user's deploy-time steps.
 - 2026-06-22 · 1.11 (privacy disclosure) — **completes 1.11 + Phase 1** · web `/privacy`
   policy page (collection, in-browser parsing, storage/sharing, retention + self-service
   deletion, GDPR/CCPA rights, cookies), linked from landing footer + signup consent line;

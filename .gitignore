@@ -1,0 +1,8 @@
+# Secrets — NEVER commit. Real values go in .env on the server; the template is tracked.
+.env
+.env.*
+!.env.example
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

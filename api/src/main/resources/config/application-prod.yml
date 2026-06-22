@@ -89,6 +89,17 @@ server:
 # ===================================================================
 
 jhipster:
+  # CORS is needed for the BROWSER EXTENSION, which calls the API directly from its
+  # chrome-extension:// origin. The web app does NOT need CORS (its browser only talks to
+  # its own Next route handlers, which proxy to the API server-side). Override the pattern
+  # with the published extension id at launch (e.g. chrome-extension://<id>).
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:chrome-extension://*}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: '*'
+    exposed-headers: 'Authorization,Link,X-Total-Count'
+    allow-credentials: true
+    max-age: 1800
   http:
     cache: # Used by the CachingHttpHeadersFilter
       timeToLiveInDays: 1461
@@ -100,11 +111,11 @@ jhipster:
     authentication:
       jwt:
         # This token must be encoded using Base64 and be at least 256 bits long (you can type `openssl rand -base64 64` on your command line to generate a 512 bits one)
-        # As this is the PRODUCTION configuration, you MUST change the default key, and store it securely:
-        # - In the Consul configserver
-        # - In a separate `application-prod.yml` file, in the same folder as your executable JAR file
-        # - In the `JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET` environment variable
-        base64-secret: ZDVkZmU2NmRmZWZhZGRhZWZlYjJiNTgzNGE3NDYwODYzMDBkMzE3NDkyNzRjOGI2ZGJlNDY2NDgyMTRjYzM3MzZlMjNmYjhjNjM1ZmI5MmY0ODlhNDg3Yjc5NmI5MGRmZGRkZjM2ZmNhZjQwYzA0MzNlMThmNTJjODgzYjgyYTQ=
+        # As this is the PRODUCTION configuration, the secret has NO default here: prod must
+        # supply it via the JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET environment
+        # variable (generate one with `openssl rand -base64 64`). The app fails fast on boot
+        # if it's missing, so prod can never silently run on a shared/committed key.
+        base64-secret: ${JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET}
         # Access token is short-lived (15 min); refresh token is long-lived (30 days).
         token-validity-in-seconds: 900
         token-validity-in-seconds-for-remember-me: 2592000
@@ -127,3 +138,19 @@ jhipster:
 # ===================================================================
 
 # application:
+
+# ===================================================================
+# Dossier application properties (prod)
+# ===================================================================
+dossier:
+  storage:
+    # AWS S3 (private bucket). Leave the endpoint EMPTY so the SDK uses the default AWS
+    # endpoint for the region; set it only for an S3-compatible store (MinIO/R2). region,
+    # bucket and credentials come from the environment. path-style-access is FALSE for AWS
+    # S3 (virtual-hosted style); it's a MinIO/R2 thing.
+    endpoint: ${DOSSIER_STORAGE_ENDPOINT:}
+    region: ${DOSSIER_STORAGE_REGION:us-east-1}
+    bucket: ${DOSSIER_STORAGE_BUCKET:dossier-resumes}
+    access-key: ${DOSSIER_STORAGE_ACCESS_KEY:}
+    secret-key: ${DOSSIER_STORAGE_SECRET_KEY:}
+    path-style-access: ${DOSSIER_STORAGE_PATH_STYLE_ACCESS:false}
