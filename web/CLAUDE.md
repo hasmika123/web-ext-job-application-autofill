@@ -22,6 +22,17 @@ Confirmed against the bundled docs (`node_modules/next/dist/docs/01-app/02-guide
   inference).
 - **Linting is the ESLint CLI** (`eslint`), not `next lint`.
 
+## Hosting model (locked)
+
+- Runs as a **long-running container** via `next start` (build with
+  `output: 'standalone'` for a lean image). **No Express / custom server** — Next
+  ships its own; a custom server only disables Next optimizations.
+- Because it's a container (not serverless), **resume uploads proxy through a Next
+  route handler** to the Spring upload endpoint (Option A, permanent) — no ~4.5MB
+  serverless body limit. Stream the upload, cap it ~10MB. Presigned direct-to-R2
+  (Option B) is only a fallback if this app ever moves to a serverless host.
+- Vercel is allowed but not assumed; deploy on Railway/Render/Fly/VPS.
+
 ## Conventions here
 
 - **Server talks to Spring, browser talks to Next.** The browser never calls the Spring

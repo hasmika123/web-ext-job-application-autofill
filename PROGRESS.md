@@ -25,12 +25,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.10 — Web app · management surface.** Next.js: signup/login/
-> settings PLUS resume upload+review+archive and bio editor. **First extract
-> `parser.js` into a shared module** (plain browser JS — pdf.js + mammoth) so the web
-> app parses in-browser and the extension imports the same module. Web app = primary
-> product; extension = on-page companion. Also lock down the raw `/api/bios`+
-> `/api/resumes` controllers if touched (multi-tenant leak; full hardening is 1.11).
+> **Phase 1 · Task 1.10d — Resume upload+review+archive + bio editor.** (1.10a–c done:
+> shared `parser-core`, Next scaffold, cookie auth.) Build the resume UI on the
+> **locked Option A** design — parse in-browser via `parser-core`, then proxy file +
+> parsed JSON through a Next route handler to the Spring upload endpoint (R2/MinIO).
+> This is permanent (web runs as a `next start` container, no serverless body limit);
+> stream the upload and cap it at ~10MB. Then 1.11 (privacy/deletion/security gate).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -162,26 +162,54 @@ focused Claude Code session.
     `user`/`user`→cookies set, `/settings` renders the real account, refresh/logout work,
     unauth `/settings`→307 `/login`.
   - [ ] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
-    **Upload decision (locked): Option A — parse in-browser (web app's own pdf.js+mammoth
+    **Upload design (PERMANENT): Option A — parse in-browser (web app's own pdf.js+mammoth
     → `parser-core`), then proxy the file + parsed JSON through a Next route handler to the
-    existing Spring upload endpoint (R2/MinIO).** Simplest, reuses the tested backend, runs
-    locally on MinIO. Migrate to presigned direct-to-R2 upload in Phase 2 (see 2.1).
-- [ ] **1.11 Privacy rewrite + multi-tenant hardening.** New privacy policy + Chrome
-  Web Store data-use disclosure to match the cloud model. *Required before any public
-  release.* **Also harden here (carried from 1.5):** the generated `/api/bios` and
-  `/api/resumes` controllers are NOT user-scoped — any authenticated user can read
-  every user's rows. Lock them down (admin-only or remove) so only the user-scoped
-  `/api/profile`(+`/resumes`) sync API is exposed. **Must not ship public without this.**
+    existing Spring upload endpoint (R2/MinIO).** This is the final design, not a stopgap:
+    the web app runs as a long-running container (`next start`), which has no serverless
+    body limit, and Option A keeps the established BFF rule (browser → Next → Spring; the
+    browser never calls Spring or R2 directly). **Refinements:** stream the upload through
+    the route handler (don't buffer the whole file in memory) and enforce a max size
+    (~10MB) at the Next layer. *Option B (presigned direct-to-R2) is NOT planned — keep it
+    only as a fallback if the web app is ever moved to a serverless host; see 2.1.*
+- [ ] **1.11 Privacy, deletion & security hardening (pre-launch gate).** Everything
+  here must land before any public release.
+  - **Privacy disclosure.** New privacy policy + Chrome Web Store data-use disclosure
+    to match the cloud model.
+  - **Multi-tenant leak fix (carried from 1.5).** The generated `/api/bios` and
+    `/api/resumes` controllers are NOT user-scoped — any authenticated user can read
+    every user's rows. Lock them down (admin-only or remove) so only the user-scoped
+    `/api/profile`(+`/resumes`) sync API is exposed. **Must not ship public without this.**
+  - **GDPR/CCPA data deletion (carve-out, not enterprise).** Resumes are sensitive PII,
+    so a basic **"delete my account + all my data"** path (DB rows + R2 blobs) and a
+    privacy policy that states retention/deletion are a near-term legal obligation once
+    there are real users. Ship a minimal version here; full audit-log/retention tooling
+    is Phase 8.4.
+  - **Refresh-token rotation + revocation (carve-out, not enterprise).** Today auth is
+    stateless access+refresh JWT with no way to revoke a leaked refresh token. Add basic
+    **rotation on refresh + a revocation/denylist** (table-stakes for any public auth).
+    Fuller session control (forced logout everywhere, device list) is Phase 8.3.
+  - **Forward notes (cheap now, save a rewrite later):** (1) funnel all data access
+    through a single "current principal" abstraction so adding org/tenant scoping in
+    Phase 8.2 isn't a table-by-table retrofit; (2) move secrets to the host's secret
+    store (Railway/Render) rather than plain env files — near-free, defers KMS to 8.4.
 
 ## Phase 2 — Deployment + CI/CD
-- [ ] **2.1 Environments.** API on Railway (staging + prod); web on Vercel.
+> **Hosting model (locked):** both apps run as **long-running containers**, no
+> serverless assumed. **Web** = Next's own server via `next start` (build with
+> `output: 'standalone'` for a lean image); **no Express / custom server**. **API** =
+> Spring Boot embedded Tomcat in a container (already how it runs; standalone-WAR
+> stays a possible option, not the default). Host on Railway / Render / Fly / a VPS.
+> Vercel is allowed but not assumed — and if the web app is ever moved to a
+> serverless host, the resume upload must switch to Option B (presigned) because of
+> the ~4.5MB body limit.
+- [ ] **2.1 Environments.** API container (staging + prod) + managed MySQL + R2
+  bucket; web container (`next start`, standalone) on the same host or Vercel.
   *Carry-over: prod `jhipster.cors` is currently empty (CORS off) — must allow the
   published extension's `chrome-extension://<id>` origin (and the web app origin)
   for the deployed API, mirroring the dev fix from 1.7.*
-  *Carry-over (from 1.10d, committed): migrate resume upload from the Next proxy
-  (Option A) to **presigned direct-to-R2 upload** (Option B) — a presigned-PUT endpoint
-  on Spring + R2 bucket CORS — so resume files bypass the Next server and Vercel's
-  ~4.5MB serverless body limit. Industry-standard for Vercel-hosted apps.*
+  *Option B (presigned direct-to-R2 upload) is **dropped as the plan** — Option A
+  (Next-proxied upload) is permanent on a container host (see 1.10d). Keep Option B
+  documented only as the fallback if the web app ever moves to a serverless host.*
 - [ ] **2.2 Pipeline.** GitHub Actions: run `npm test` + backend tests → build →
   deploy backend on merge to `main`.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
@@ -236,6 +264,21 @@ focused Claude Code session.
 ## Phase 7 — Other browsers
 - [ ] **7.1 Edge** (near-free on MV3). **7.2 Firefox** (`browser.*` polyfill +
   store submission). **7.3 Safari** (Apple converter — defer).
+
+## Phase 8 — Enterprise & Compliance (after the consumer product + deployment are real)
+> Deferred B2B/enterprise work. The *consumer-grade* slices of these areas were
+> pulled into 1.11 (data deletion, basic refresh-token rotation/revocation); this
+> phase is the fuller, org-selling version. Easy to reorder earlier if a B2B deal
+> demands it.
+- [ ] **8.1 SSO.** SAML/OIDC (Okta, Azure Entra ID, Google Workspace); later SCIM
+  provisioning + MFA.
+- [ ] **8.2 Multi-tenancy.** Org/tenant model + strict tenant isolation (builds on the
+  1.11 leak fix + the "current principal" abstraction) + org admin console.
+- [ ] **8.3 Session control.** Revocable sessions, refresh-token rotation at scale,
+  forced logout / device list (extends the basic rotation shipped in 1.11; covers both
+  auth surfaces — extension Bearer + web httpOnly cookie).
+- [ ] **8.4 Audit & compliance.** Audit logging; PII retention/deletion tooling;
+  GDPR/CCPA + SOC 2 groundwork; secrets in a vault/KMS; deeper RBAC.
 
 ---
 

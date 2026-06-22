@@ -10,7 +10,7 @@
   extension and a new web app are clients.
 - **Product goal:** Public free product first, commercial SaaS later. So every
   choice below is made to be *free-tier cheap now* and *monetizable later*.
-- **Backend:** Spring Boot + Postgres (recommendation below — needs your sign-off).
+- **Backend:** Spring Boot (JHipster 8, Java 17) + MySQL — **decided & built** (see `CLAUDE.md` locked decisions).
 - **Analytics:** GA4, with a light, respectful disclosure. Not strictly private,
   but no selling data and a clear privacy policy.
 
@@ -29,21 +29,22 @@ data use doesn't match behavior.
 
 ---
 
-## Recommended backend stack (needs your approval before Phase 1)
+## Backend stack (decided & built — Phase 1 complete)
 
-You know Spring Boot best, you're aiming at SaaS, and you're worried about
-Supabase cost/scalability at scale. That points cleanly to:
+> Historical rationale kept for context; the stack below is **decided and live**
+> (it does not need approval). You know Spring Boot best, you're aiming at SaaS, and
+> you were worried about Supabase cost/scalability at scale. That pointed cleanly to:
 
-**Spring Boot 3 (Java 21) + Postgres + Cloudflare R2 + JWT auth.**
+**Spring Boot 3 (JHipster 8, Java 17) + MySQL + Cloudflare R2 + JWT auth.**
 
 | Concern | Recommendation | Why |
 |---|---|---|
-| API | Spring Boot 3, Java 21, Gradle | Your strongest skill = fastest *real* progress and the codebase you'll actually maintain. Scales horizontally, trivially containerized. |
+| API | Spring Boot 3, Java 17, Gradle | Your strongest skill = fastest *real* progress and the codebase you'll actually maintain. Scales horizontally, trivially containerized. |
 | Auth | Spring Security + JWT (access + refresh tokens) | No per-MAU billing (the thing that bites with hosted auth). Full control for SaaS tiers later. *Alternative if you want to skip auth plumbing: Clerk or Auth0 — fast, but per-MAU cost returns.* |
 | Database | **MySQL** (managed) — **Railway MySQL** or **Aiven** (free tier) to start; **AWS RDS / Aurora MySQL** when revenue justifies | Your choice. MySQL is rock-solid, ubiquitous, cheap to host, and JHipster supports it natively. (Note: Neon is Postgres-only, so it's out; Railway lets you run the app + MySQL on one platform to start.) |
 | Resume file storage | **Cloudflare R2** (S3-compatible, **zero egress fees**) | Resumes are blobs; don't put them in the DB. R2 is dramatically cheaper than S3 at download-heavy scale. |
 | App hosting | **Railway** or **Render** to launch (cheap, container-native), migrate to AWS/GCP later | Containerize from day one so the host is swappable. |
-| Web dashboard | **Next.js (React) on Vercel** | Needed for tracking + account management (see below). Vercel free tier is fine to start. |
+| Web dashboard | **Next.js (React)** as a long-running **container** (`next start`, `output: 'standalone'`) on Railway/Render/Fly/VPS | Needed for tracking + account management (see below). **No Express/custom server** (Next ships its own). Vercel allowed but not assumed — a container removes the serverless body limit so resume uploads proxy through Next (Option A). |
 
 ### On Supabase (your prior experience)
 Supabase is excellent for shipping in days, but your instinct is right: its
@@ -72,7 +73,7 @@ it's a first-class deliverable, folded into Phases 1 and 3 below.
                                      │       │
    ┌──────────────────┐   events     │       │  events    ┌──────────────────┐
    │  Chrome/Edge/FF  │──────────────┘       └────────────│  Web dashboard   │
-   │  Extension (MV3) │                                   │  Next.js (Vercel)│
+   │  Extension (MV3) │                                   │ Next.js container│
    │                  │                                   │                  │
    │  - adapters      │                                   │  - signup/login  │
    │  - filler        │                                   │  - Kanban tracker│
@@ -82,7 +83,7 @@ it's a first-class deliverable, folded into Phases 1 and 3 below.
    │  │Tracking     │  │  (canonical DTOs) ▼
    │  │Provider     │──┼──────────────► ┌─────────────────────┐
    │  │(swappable)  │  │                │  Spring Boot API     │
-   │  └────────────┘  │                │  (Java 21, Railway)  │
+   │  └────────────┘  │                │  (Java 17, Railway)  │
    └──────────────────┘                │  - /auth /profile    │
         │  same interface →            │  - /resumes /apps    │
         │  any compatible backend      │  - /ai (metered)     │──► Anthropic API
@@ -199,6 +200,22 @@ Capabilities by surface:
 - **Web app (everything else):** account/auth · resume upload+review+archive · bio
   editor · Kanban application board · settings · billing (later).
 
+### Runtime & hosting (locked)
+Both apps run as **long-running containers; no serverless is assumed.**
+- **Web** = Next.js's own server (`next start`, built with `output: 'standalone'`).
+  **No Express / custom server** — Next ships its server, and wrapping it in Express
+  would only disable Next optimizations. Express is revisited *only* if a separate
+  standalone Node microservice ever appears.
+- **API** = Spring Boot embedded Tomcat in a container (already how it runs).
+  Standalone-Tomcat WAR stays a possible option, not the default.
+- **Consequence:** the resume **upload proxy (Option A)** is permanent — a
+  long-running Node server has no serverless body limit, so the browser uploads
+  through a Next route handler to Spring/R2 (consistent with "browser never calls
+  Spring directly"). Presigned direct-to-R2 (Option B) is kept only as a fallback if
+  the web app is ever moved to a serverless host. Stream uploads + cap size (~10MB).
+- **Deployable units:** API container + managed MySQL + R2 bucket · web container
+  (`next start`) · extension → Chrome Web Store.
+
 ### Phase 1 — Backend + Accounts  *(keystone — unblocks everything)*
 Spring Boot API (MySQL), JWT auth, R2 file storage; Next.js app with
 signup/login/settings; extension gains a login screen and sync layer (built:
@@ -207,8 +224,9 @@ server-backed. **Ship the privacy policy + CWS disclosure rewrite here.** Nothin
 else cloud-dependent can start until this lands.
 
 ### Phase 2 — Deployment + CI/CD  *(do it right after first deploy)*
-Stand up staging + prod for the API (Railway) and web app (Vercel); containerize
-the backend. Then the pipeline (**G**): GitHub Actions runs `npm test` for the
+Stand up staging + prod for the API and web app as **long-running containers**
+(API = Spring embedded Tomcat; web = Next `next start`, `output: 'standalone'`, no
+Express) on Railway/Render/Fly/VPS — no serverless assumed. Then the pipeline (**G**): GitHub Actions runs `npm test` for the
 extension and the Spring test suite, builds artifacts, deploys backend on merge to
 `main`, and publishes the extension via the Chrome Web Store API. Doing this early
 means every later phase ships safely and automatically. (G depends on D; treat
@@ -282,18 +300,32 @@ release surface, and you want CI/CD (Phase 2) and a stable core in place first.
 > no dependencies); browser ports live in Phase 7. If you meant only one of these,
 > tell me and I'll collapse it.
 
+### Phase 8 — Enterprise & Compliance (deferred B2B work)
+The enterprise-only slices, parked until the consumer product + deployment are real.
+The *consumer-grade* pieces of these areas were pulled forward into Phase 1.11
+(basic account/data deletion for GDPR/CCPA; basic refresh-token rotation +
+revocation) because they're table-stakes for any public product handling resume PII,
+not enterprise upsells. Phase 8 is the fuller, org-selling version: **8.1 SSO**
+(SAML/OIDC + later SCIM/MFA), **8.2 multi-tenancy** (org/tenant model + isolation +
+admin console, building on the 1.11 leak fix and the "current principal"
+abstraction), **8.3 session control** (revocable sessions, rotation at scale, forced
+logout across both the extension Bearer and web cookie surfaces), **8.4 audit &
+compliance** (audit logging, PII retention tooling, GDPR/CCPA + SOC 2 groundwork,
+secrets in vault/KMS, deeper RBAC). Easy to reorder earlier if a B2B deal demands it.
+
 ### Order at a glance
 
 | Order | Feature | Depends on | Backend? |
 |---|---|---|---|
 | 0 | Field cache (local) + more ATS adapters | — | No |
-| 1 | Backend + Accounts + web app + privacy rewrite | — | **Builds it** |
-| 2 | Deployment + CI/CD | 1 | Yes |
+| 1 | Backend + Accounts + web app + privacy/deletion/security gate | — | **Builds it** |
+| 2 | Deployment + CI/CD (containers, no serverless assumed) | 1 | Yes |
 | 3 | Application Tracking | 1 | Yes |
 | 4 | Field cache (cloud sync) | 1, (0) | Yes |
 | 5 | AI Integration (server proxy + keep BYO) | 1, 2 | Yes |
 | 6 | Google Analytics (full) | 1 | Yes |
 | 7 | Other browsers (Edge/Firefox; Safari later) | 2 | No |
+| 8 | Enterprise & Compliance (SSO, multi-tenancy, audit) | 1, 2 | Yes |
 
 ---
 
@@ -348,8 +380,9 @@ from your dossier) at each repo root, and consider a monorepo
 
 ---
 
-## Immediate next steps
-1. **Approve the stack** (Spring Boot + Neon + R2 + Next.js) or tell me to swap in Supabase.
-2. Confirm what "Other Platforms" means (more ATS, more browsers, or both).
-3. Start Phase 0 now (local field cache + adapters) — it needs no decisions and de-risks Phase 4.
-4. Move the build into Claude Code; I can generate the `CLAUDE.md` files and the Phase 1 backend skeleton when you're ready.
+## Immediate next steps (original kickoff — all complete; kept for history)
+1. ✅ Stack decided: Spring Boot (JHipster 8) + MySQL + R2 + Next.js (not Supabase).
+2. ✅ "Other Platforms" split: more ATS = Phase 0 (continuous); more browsers = Phase 7.
+3. ✅ Phase 0 done (local field cache + Workable adapter).
+4. ✅ Build moved into Claude Code; `CLAUDE.md` files + Phase 1 backend skeleton built.
+   *Live status is tracked in `PROGRESS.md` — currently Phase 1, Task 1.10d.*

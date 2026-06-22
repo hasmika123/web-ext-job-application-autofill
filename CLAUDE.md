@@ -38,6 +38,21 @@ Bump `job-autofill/manifest.json` + `package.json`. If rules change, bump the
 `/job-autofill` extension · `/api` Spring Boot · `/web` Next.js · root: ROADMAP/PROGRESS/CLAUDE.
 When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the file map.
 
+## Locked decisions (persist across sessions — don't re-litigate)
+- **DB = MySQL** (managed: Railway/Aiven; RDS/Aurora later). `dossier.jdl` is now
+  documentation; schema changes are additive Liquibase migrations on `/api`.
+- **Swappable backend:** all extension→backend calls go through the one
+  `TrackingProvider` seam (`job-autofill/src/lib/tracking.js`); canonical DTOs only.
+- **Client split:** web app = primary product (account, resumes, bio, board);
+  extension = on-page agent (autofill, capture, submit-detect, save-a-job).
+- **Hosting = long-running containers, no serverless.** Web = Next `next start`
+  (`output: 'standalone'`), **no Express**. API = Spring embedded Tomcat container.
+  Resume upload = **Option A (Next-proxied), permanent**; Option B (presigned) is a
+  serverless-only fallback. Vercel allowed, not assumed.
+- **Pre-launch gate (1.11):** multi-tenant leak fix + basic GDPR/CCPA account/data
+  deletion + basic refresh-token rotation/revocation. Fuller SSO/multi-tenancy/audit
+  = Phase 8.
+
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions
 bumped if extension changed · **committed and pushed as its own commit** (one task
