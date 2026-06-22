@@ -25,10 +25,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 2 · Task 2.2 — Pipeline (CI/CD).** 2.1 is done (deploy artifacts + local boot
-> verified; the live VPS deploy is the user's step via `DEPLOY.md`). 2.2 = GitHub Actions:
+> **Phase 2 · Task 2.2 — Pipeline (CI/CD).** 2.1 is done **and DEPLOYED LIVE** on the IONOS
+> VPS (2026-06-22): `https://app.132-148-79-209.sslip.io` (+ `api.` host), real HTTPS via
+> Caddy/Let's Encrypt, resumes in AWS S3 — full chain verified in the browser. 2.2 = GitHub Actions:
 > run the extension `npm test` + the Spring test suite on PRs, build the api/web images, and
-> deploy on merge to `main`. **Deploy target = the GoDaddy VPS** (SSH in, `git pull` +
+> deploy on merge to `main`. **Deploy target = the IONOS VPS** (SSH in, `git pull` +
 > `docker compose -f docker-compose.prod.yml up -d --build`, or build+push images to a
 > registry then pull) — not a PaaS deploy hook. CI secrets (SSH key, etc.) are the user's to
 > add in GitHub. Read the Phase 2 section of ROADMAP.md before starting.
@@ -216,8 +217,11 @@ focused Claude Code session.
 > Vercel is allowed but not assumed — and if the web app is ever moved to a
 > serverless host, the resume upload must switch to Option B (presigned) because of
 > the ~4.5MB body limit.
-- [x] **2.1 Environments.** *DONE (deploy artifacts + local boot verified; live VPS
-  deploy is the user's step via `DEPLOY.md`).* **Decided stack:** self-managed GoDaddy
+- [x] **2.1 Environments.** *DONE — built, deployed, and **LIVE in production** on the IONOS
+  VPS (2026-06-22): `https://app.132-148-79-209.sslip.io` (+ `api.`), HTTPS via Caddy/LE,
+  resumes in AWS S3; signup→login→profile→resume-upload all verified in the browser. Deploy +
+  ops runbook in `DEPLOY.md`; see the `live-deployment` memory for URLs/ops/gotchas.* **Decided
+  stack:** self-managed IONOS
   Linux VPS, Docker Compose (MySQL + API + web) behind **Caddy** (auto-HTTPS via
   Let's Encrypt), **sslip.io** for real TLS on the bare IP (no domain yet), **AWS S3**
   private bucket for resume files (our `ResumeStorageService` already speaks S3). Shipped:
@@ -303,8 +307,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 2.1 **DEPLOYED LIVE** · stood the stack up on the IONOS VPS end-to-end with the
+  user (SSH walkthrough): Docker install (focal/EOL workaround), code on `claude`, `.env`,
+  `compose up --build`, freed port 80 from a pre-installed server, Caddy got LE certs for
+  `app/api.132-148-79-209.sslip.io`. Verified signup→login→profile→resume-upload→S3 in the
+  browser. Gotchas (now in `live-deployment` memory): no SMTP ⇒ new signups land `activated=0`
+  (manually activated for testing); login uses username not email; DB is `dossierapi`
+  (lowercased). **Decision:** email verification (SMTP) is the gate before public signups — NOT
+  auto-activate. Docs synced (IONOS, live status).
 - 2026-06-22 · 2.1 (Environments) · **Phase 2 begins.** Decided stack with the user:
-  self-managed GoDaddy VPS + Docker Compose (MySQL + API + web) behind Caddy (auto-HTTPS),
+  self-managed IONOS VPS + Docker Compose (MySQL + API + web) behind Caddy (auto-HTTPS),
   sslip.io for TLS on the bare IP (no domain yet), AWS S3 private bucket. Shipped multi-stage
   Dockerfiles (web builds from repo root for the parser-core sync; drops Windows `.npmrc`),
   `docker-compose.prod.yml`, `Caddyfile`, `.env.example`, `DEPLOY.md`, root `.gitignore`. Prod
