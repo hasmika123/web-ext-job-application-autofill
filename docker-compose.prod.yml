@@ -1,0 +1,93 @@
+# Production stack for a single Docker host (the VPS): MySQL + API + web, fronted by Caddy
+# which terminates TLS (Let's Encrypt) and routes by hostname. All app traffic is internal;
+# only Caddy publishes ports (80/443). Secrets come from a sibling .env file (see
+# .env.example) — nothing sensitive is baked into the images.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+name: dossier
+
+services:
+  mysql:
+    image: mysql:9.2.0
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      - MYSQL_DATABASE=dossierApi
+    # lower_case_table_names=1 must be set at first init — matches dev so the schema/table
+    # names line up regardless of the DB name's casing.
+    command: mysqld --lower_case_table_names=1 --skip-mysqlx --character_set_server=utf8mb4 --explicit_defaults_for_timestamp
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks: [internal]
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/dossierApi?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:?}
+      - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET:?set JWT_BASE64_SECRET in .env}
+      # AWS S3 (private bucket). Endpoint stays empty so the SDK uses the default AWS
+      # endpoint for the region.
+      - DOSSIER_STORAGE_REGION=${S3_REGION:-us-east-1}
+      - DOSSIER_STORAGE_BUCKET=${S3_BUCKET:?set S3_BUCKET in .env}
+      - DOSSIER_STORAGE_ACCESS_KEY=${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      - DOSSIER_STORAGE_SECRET_KEY=${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+      - DOSSIER_STORAGE_PATH_STYLE_ACCESS=false
+      # CORS is for the browser extension's direct calls. Set to the published extension id
+      # at launch, e.g. chrome-extension://<id>.
+      - CORS_ALLOWED_ORIGIN_PATTERNS=${CORS_ALLOWED_ORIGIN_PATTERNS:-chrome-extension://*}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [internal]
+
+  web:
+    build:
+      # Root context: the web build syncs the shared parser-core from job-autofill/.
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    environment:
+      # Server-side only: the web's Next route handlers call the API over the internal
+      # network. The browser never hits this URL directly.
+      - DOSSIER_API_URL=http://api:8080
+    depends_on:
+      - api
+    networks: [internal]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # e.g. SSLIP_HOST=203-0-113-5.sslip.io  → app.<host> and api.<host> resolve to this IP
+      - SSLIP_HOST=${SSLIP_HOST:?set SSLIP_HOST in .env}
+      - ACME_EMAIL=${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+      - api
+    networks: [internal]
+
+volumes:
+  mysql-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:

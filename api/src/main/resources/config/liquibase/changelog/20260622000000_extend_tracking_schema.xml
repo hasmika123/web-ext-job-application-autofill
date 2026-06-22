@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Phase 1.8 — additive tracking-schema migration on the EXISTING backend
+        (the app is not regenerated). Supports the self-populating tracker:
+        Application gains location / external_job_id / submission_confirmed, and
+        Resume gains an archived flag. ApplicationStatus also gains a DRAFT value,
+        but that enum is stored as varchar (already wide enough), so no DDL is
+        needed for it. dossier.jdl is updated separately as documentation.
+    -->
+
+    <!-- Application: tracker capture + dedup + confirmation fields. -->
+    <changeSet id="20260622000000-1" author="dossier">
+        <addColumn tableName="application">
+            <column name="location" type="varchar(200)" />
+            <column name="external_job_id" type="varchar(200)" />
+            <column name="submission_confirmed" type="boolean" />
+        </addColumn>
+    </changeSet>
+
+    <!-- Resume: archive flag (default false) — never lose a resume an application
+         references; just hide it from the active picker. -->
+    <changeSet id="20260622000000-2" author="dossier">
+        <addColumn tableName="resume">
+            <column name="archived" type="boolean" defaultValueBoolean="false" />
+        </addColumn>
+    </changeSet>
+
+    <!-- Dedup key for the tracker: a user's applications are upserted by
+         (user, external_job_id) so re-filling the same job updates one row. -->
+    <changeSet id="20260622000000-3" author="dossier">
+        <createIndex tableName="application" indexName="idx_application_user_extjob">
+            <column name="user_id" />
+            <column name="external_job_id" />
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

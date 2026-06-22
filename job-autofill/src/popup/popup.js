@@ -4,11 +4,13 @@ const SCH = window.JAF.schema;
 
 const CONTENT_FILES = [
   "src/lib/schema.js",
+  "src/lib/field-cache.js",
   "src/content/adapters/base.js",
   "src/content/adapters/generic.js",
   "src/content/adapters/greenhouse.js",
   "src/content/adapters/lever.js",
   "src/content/adapters/ashby.js",
+  "src/content/adapters/workable.js",
   "src/content/adapters/workday.js",
   "src/content/filler.js",
   "src/content/content-script.js",

@@ -1,0 +1,9 @@
+# Keep the build context small and the build reproducible (build happens inside Docker).
+**/build/
+.gradle/
+.git/
+.devcontainer/
+*.log
+bin/
+out/
+.idea/

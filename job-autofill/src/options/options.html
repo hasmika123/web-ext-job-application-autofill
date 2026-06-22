@@ -13,6 +13,7 @@
       <nav>
         <button class="navbtn active" data-tab="bio">Bio profile</button>
         <button class="navbtn" data-tab="resumes">Resumes</button>
+        <button class="navbtn" data-tab="account">Account</button>
         <button class="navbtn" data-tab="settings">Settings</button>
       </nav>
       <div class="usage" id="usage"></div>
@@ -42,6 +43,39 @@
         </div>
         <div class="progress" id="progress"></div>
         <div class="reslist" id="reslist"></div>
+      </section>
+
+      <!-- ACCOUNT -->
+      <section class="tab" id="tab-account">
+        <h1>Account &amp; sync</h1>
+        <p class="hint">Sign in to back up your bio and resumes to your Dossier account and sync them across devices. Your local data keeps working offline; the server is the source of truth and your device is a cache.</p>
+
+        <div class="field">
+          <label for="api-base">Backend URL</label>
+          <input class="input wide" id="api-base" type="url" placeholder="http://localhost:8080" />
+          <p class="hint">The Dossier API endpoint. For local development this is <code>http://localhost:8080</code>.</p>
+        </div>
+
+        <div id="signed-out">
+          <div class="field"><label for="acct-email">Email</label><input class="input wide" id="acct-email" type="email" placeholder="you@example.com" /></div>
+          <div class="field"><label for="acct-user">Username</label><input class="input wide" id="acct-user" type="text" placeholder="username" /></div>
+          <div class="field"><label for="acct-pass">Password</label><input class="input wide" id="acct-pass" type="password" placeholder="••••••••" /></div>
+          <div class="actionbar">
+            <button class="primary" id="acct-signin">Sign in</button>
+            <button class="ghost" id="acct-signup">Create account</button>
+            <span class="saved" id="acct-status"></span>
+          </div>
+          <p class="hint">Email is only needed when creating an account.</p>
+        </div>
+
+        <div id="signed-in" class="hidden">
+          <p>Signed in as <b id="acct-who"></b>. <span class="saved" id="acct-status2"></span></p>
+          <div class="actionbar">
+            <button class="primary" id="acct-sync">Sync now</button>
+            <button class="ghost" id="acct-signout">Sign out</button>
+          </div>
+          <p class="hint">“Sync now” pushes your local changes up, then pulls the latest server state down.</p>
+        </div>
       </section>
 
       <!-- SETTINGS -->
@@ -86,7 +120,10 @@
   <script src="../lib/rules-store.js"></script>
   <script src="../lib/schema.js"></script>
   <script src="../lib/storage.js"></script>
+  <script src="../lib/parser-core.js"></script>
   <script src="../lib/parser.js"></script>
+  <script src="../lib/tracking.js"></script>
+  <script src="../lib/sync.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

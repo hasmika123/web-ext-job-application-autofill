@@ -1,0 +1,25 @@
+# Caddy reverse proxy — terminates TLS (Let's Encrypt, automatic) and routes by hostname.
+#
+# Uses sslip.io so we get real HTTPS on a bare IP with no registered domain: any
+# "<label>.<dashed-ip>.sslip.io" resolves to that IP. SSLIP_HOST is the dashed-IP base
+# (e.g. 203-0-113-5.sslip.io); Caddy obtains certs for app.<host> and api.<host> over the
+# HTTP-01 challenge (so ports 80 + 443 must be open to the internet).
+#
+# Swap these two site blocks for your real domain when you get one — nothing else changes.
+
+{
+	email {$ACME_EMAIL}
+}
+
+# Web app (the browser-facing product).
+app.{$SSLIP_HOST} {
+	encode gzip
+	reverse_proxy web:3000
+}
+
+# API (the browser extension and the web's server-side proxy both reach Spring here; the
+# web app uses the internal http://api:8080 instead, so this is mainly for the extension).
+api.{$SSLIP_HOST} {
+	encode gzip
+	reverse_proxy api:8080
+}

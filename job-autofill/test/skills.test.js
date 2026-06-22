@@ -22,6 +22,7 @@ eq("strips leading bullets", S.splitSkills("• Python\n• Java"), ["Python", "
 eq("drops over-long blob entries", S.splitSkills(["A normal skill", "x".repeat(60)]), ["A normal skill"]);
 
 /* ---- parser: a skills section blob becomes separate skills ---- */
+load(w, "src/lib/parser-core.js");
 load(w, "src/lib/parser.js");
 const resumeText = [
   "Jane Doe",

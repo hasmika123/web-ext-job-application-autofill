@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Phase 1.11 — refresh-token rotation + revocation (pre-launch gate).
+        Auth was stateless access+refresh JWTs with no way to revoke a leaked refresh
+        token. This table is the server-side denylist/allowlist: each issued refresh
+        token has a row keyed by its `jti` (JWT id). `/api/refresh` rotates — it revokes
+        the presented token's row and issues a fresh one in the same `family`. Reuse of
+        an already-revoked token (theft) revokes the whole family. Logout and account
+        deletion revoke too.
+    -->
+    <changeSet id="20260622120000-1" author="dossier">
+        <createTable tableName="refresh_token">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="jti" type="varchar(36)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_refresh_token_jti"/>
+            </column>
+            <column name="family_id" type="varchar(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="revoked" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="refresh_token" indexName="idx_refresh_token_user">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="refresh_token" indexName="idx_refresh_token_family">
+            <column name="family_id"/>
+        </createIndex>
+
+        <!-- Cascade so deleting a user (admin path included) cleans up their tokens;
+             the self-service deletion service also removes them explicitly. -->
+        <addForeignKeyConstraint
+            baseTableName="refresh_token"
+            baseColumnNames="user_id"
+            constraintName="fk_refresh_token_user"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>

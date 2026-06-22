@@ -1,0 +1,12 @@
+# Root build context (used by the web image, which needs web/ + job-autofill/). Keep it
+# lean: exclude installed deps, build output, VCS, and the API's heavy build dirs.
+**/node_modules
+**/.next
+**/build
+**/.gradle
+**/dist
+.git/
+**/*.log
+web/.npmrc
+web/tsconfig.tsbuildinfo
+api/.devcontainer/

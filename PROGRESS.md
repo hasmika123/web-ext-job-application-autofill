@@ -25,7 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 0 · Task 0.1 — Local field-choice cache.** (Start here.)
+> **Phase 2 · Task 2.2 — Pipeline (CI/CD).** 2.1 is done **and DEPLOYED LIVE** on the IONOS
+> VPS (2026-06-22): `https://app.132-148-79-209.sslip.io` (+ `api.` host), real HTTPS via
+> Caddy/Let's Encrypt, resumes in AWS S3 — full chain verified in the browser. 2.2 = GitHub Actions:
+> run the extension `npm test` + the Spring test suite on PRs, build the api/web images, and
+> deploy on merge to `main`. **Deploy target = the IONOS VPS** (SSH in, `git pull` +
+> `docker compose -f docker-compose.prod.yml up -d --build`, or build+push images to a
+> registry then pull) — not a PaaS deploy hook. CI secrets (SSH key, etc.) are the user's to
+> add in GitHub. Read the Phase 2 section of ROADMAP.md before starting.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -34,45 +41,234 @@ focused Claude Code session.
 ---
 
 ## Phase 0 — Quick wins, no backend (start now, parallel)
-- [ ] **0.1 Local field-choice cache.** When the user corrects a filled value or
+- [x] **0.1 Local field-choice cache.** When the user corrects a filled value or
   picks a custom-dropdown option, persist `{field_key, context_hash, value}` in
   IndexedDB and prefer it on the next fill. No backend. Add jsdom tests.
-- [ ] **0.2 New ATS adapter: <pick one, e.g. Indeed Easy Apply>.** Copy
+- [x] **0.2 New ATS adapter: Workable.** Copy
   `lever.js`, implement `matches/plan/fileInput`, register in `manifest.json` +
   `CONTENT_FILES`. Capture real DOM first (the dossier rule). Add tests.
-- [ ] **0.3 Repo hygiene for Claude Code.** Add `CLAUDE.md` (build/test cmds, DOM-
+- [x] **0.3 Repo hygiene for Claude Code.** Add `CLAUDE.md` (build/test cmds, DOM-
   capture rule, version-bump ritual). Decide monorepo layout (`/extension`,
-  `/api`, `/web`).
+  `/api`, `/web`). *Met by existing setup: `CLAUDE.md` (build/test cmds + capture-DOM
+  rule + version-bump ritual) and decided layout `/job-autofill`·`/api`·`/web`; added
+  `.gitignore` to keep `node_modules/` out of git.*
 
 ## Phase 1 — Backend + Accounts (keystone)
 - [x] **1.0 STACK DECISION** — DECIDED: Spring Boot via JHipster 8 bootstrap
-  (backend-only) + Postgres (Neon) + Cloudflare R2 + Next.js web app. Generate the
-  backend from `dossier.jdl`. *Resolved — do not pause here.*
-- [ ] **1.1 Backend skeleton.** Generate/scaffold API, Postgres (Neon), Liquibase,
-  Docker. Health endpoint green locally.
-- [ ] **1.2 Auth.** JWT register/login/refresh; `users` table; password hashing.
-- [ ] **1.3 Data model.** `bios`, `resumes`, `applications`, `field_cache`,
-  `ai_answers` tables + migrations (see ROADMAP schema).
-- [ ] **1.4 Resume storage.** Cloudflare R2 upload/download; `resumes.r2_object_key`.
-- [ ] **1.5 Profile + resume sync endpoints.** `/profile`, `/resumes` CRUD.
-- [ ] **1.6 Extension login + sync layer.** Login screen; pull on login, push on
-  change; local store becomes offline cache.
-- [ ] **1.7 Web app shell.** Next.js: signup/login/settings against the API.
-- [ ] **1.8 Privacy rewrite.** New privacy policy + Chrome Web Store data-use
-  disclosure to match cloud model. *Required before any public release.*
+  (backend-only) + **MySQL** (Railway/Aiven managed) + Cloudflare R2 + Next.js web
+  app. Generate the backend from `dossier.jdl` (db type = mysql).
+  *Resolved — do not pause here.*
+- [x] **1.1 Backend skeleton.** Generate/scaffold API, MySQL, Liquibase,
+  Docker. Health endpoint green locally. *Generated from `dossier.jdl` into `/api`
+  (JHipster 8, Spring Boot, JWT, MySQL, gradle); builds green on JDK 17. Verified
+  end-to-end: MySQL via docker compose → `./gradlew bootRun` → Liquibase migrated →
+  `/management/health` returns `{"status":"UP"}` (app started in 28s).*
+- [x] **1.2 Auth.** JWT register/login/refresh; `users` table; password hashing.
+  *Register (`POST /api/register`), login (`POST /api/authenticate`), `jhi_user`
+  table + BCrypt come from JHipster. Added a stateless **access + refresh** flow:
+  `/authenticate` now returns `{accessToken (15m), refreshToken (30d)}`; new
+  `POST /api/refresh` mints a fresh access token. A `token_type` claim + a strict
+  resource-server decoder ensure a refresh token can't be used as an access token.
+  Full backend suite (unit + integration) green on JDK 17.*
+- [x] **1.3 Data model.** `bios`, `resumes`, `applications`, `field_cache`,
+  `ai_answers` tables + migrations (see ROADMAP schema). *Entities + Liquibase
+  changelogs generated from `dossier.jdl` (1.1); verified all columns/FKs match the
+  ROADMAP sketch. Added a migration with the access-pattern indexes the generator
+  omits: unique `bio(user_id)`, unique `field_cache(user_id,field_key,context_hash)`,
+  unique `ai_answer(user_id,question_hash)`, and `application(user_id,status)`. Full
+  `test`+`integrationTest` green (migration applies on a fresh Testcontainers MySQL).*
+- [x] **1.4 Resume storage.** Cloudflare R2 upload/download; `resumes.r2_object_key`.
+  *Built an S3-compatible storage layer (R2 is S3-compatible): `StorageProperties`
+  (env-config) + `S3Client` (AWS SDK v2) + `ResumeStorageService`/`S3ResumeStorageService`
+  (store/load/delete, per-user object keys) + `ResumeFileResource` (upload/download/
+  delete, owner-scoped, persists `r2ObjectKey`). Dev uses MinIO (`src/main/docker/
+  minio.yml`); real R2 creds via env at deploy. New `S3ResumeStorageServiceIT` drives
+  a MinIO Testcontainer (round-trip verified); full `test`+`integrationTest` green.*
+- [x] **1.5 Profile + resume sync endpoints.** `/profile`, `/resumes` CRUD.
+  *Added the user-scoped sync API the extension/web consume: `ProfileService` +
+  `ProfileResource` — `GET/PUT /api/profile` (single bio per user, upsert) and
+  `GET/POST/PUT/DELETE /api/profile/resumes` (current-user-scoped; ownership checks
+  return 404, never leaking other users' rows; delete also removes the R2 blob).
+  `ProfileResourceIT` covers upsert/single-bio, resume CRUD, and cross-user isolation;
+  full `test`+`integrationTest` green. **Follow-up (security):** the raw generated
+  `/api/bios` + `/api/resumes` CRUD are NOT user-scoped (multi-tenant leak) — lock
+  down or remove during the 1.10 privacy/hardening pass.*
+- [x] **1.6 `TrackingProvider` abstraction.** Define the provider interface +
+  canonical DTOs (the one network seam); implement `DossierApiProvider`. No
+  `fetch()` to the backend outside this layer. Endpoint/auth are config, not
+  constants. (See ROADMAP "Pluggable tracking backend".) *Added `src/lib/tracking.js`
+  (`JAF.tracking`): `TrackingProvider` contract + `createDossierProvider({baseUrl,
+  fetch,tokenStore})` → auth (register/login/refresh/logout), profile pull/push,
+  resume CRUD, with canonical bio/resume↔DTO mapping and 401→refresh→retry. App/
+  field-cache methods declared but throw `NotSupportedError` (Phase 3/4). Endpoint =
+  `settings.apiBaseUrl`. 22 jsdom tests (mock fetch); loaded in popup+options; v0.8.0.*
+- [x] **1.7 Extension login + sync layer.** Login screen; pull on login, push on
+  change via `TrackingProvider`; local store becomes offline cache. *Added
+  `src/lib/sync.js` (`JAF.sync`: pullAll/pushBio/pushResume/pushAll/syncNow,
+  serverId-matched resume merge) + an **Account tab** in the options page (backend
+  URL config, sign in / create account / sign out, Sync now). Sign-in pulls
+  profile+resumes into the local cache; saving bio/resume pushes (best-effort,
+  stays working offline); delete removes the server row too. 15 jsdom sync tests;
+  manifest gains `http://localhost:8080` host perm for dev; v0.9.0. Create-account
+  needs JHipster activation (use a seeded account locally). **Verified end-to-end in
+  Chrome against a live backend:** sign in (user/user) → pulled bio+resume → edited
+  bio → push landed server-side. Two fixes surfaced: storage config prefix
+  `application.storage`→`dossier.storage` (was breaking startup) and dev CORS
+  allowing `chrome-extension://*` (was 403'ing the extension).*
+- [x] **1.8 Extend tracking schema (additive migration).** On the EXISTING backend
+  — do NOT regenerate the app. Hand-written Liquibase changelog: `Application` +=
+  `location` (String), `externalJobId` (String), `submissionConfirmed` (Boolean);
+  `ApplicationStatus` += `DRAFT`; `Resume` += `archived` (Boolean, default false).
+  Update `dossier.jdl` to match (documentation only). Index `application(user_id,
+  external_job_id)` for dedup. Migration applies on a fresh Testcontainers MySQL.
+  *Added fields by hand to `Application`/`ApplicationDTO`, `Resume`/`ResumeDTO`, the
+  `ApplicationStatus` enum (DRAFT first), and changelog `20260622000000_extend_
+  tracking_schema.xml` (+ dedup index). MapStruct auto-maps the new fields. `dossier.jdl`
+  already carried these (planning pivot). New `TrackingSchemaIT` (2) round-trips the
+  fields + DRAFT through MySQL; full `test`+`integrationTest` green.*
+- [x] **1.9 OpenAPI contract published.** Confirm the springdoc OpenAPI spec covers
+  auth + sync + the new tracking fields; this is the contract a third-party backend
+  implements to be Dossier-compatible. (Do AFTER 1.8 so the contract is complete.)
+  *Added `OpenApiConfiguration` (api-docs profile) declaring the `bearer-jwt` security
+  scheme; annotated the custom `AuthenticateController`/`ProfileResource` with `@Tag`/
+  `@Operation`/`@SecurityRequirement`; set the API identity (title "Dossier API") via
+  `jhipster.api-docs.*` (the lever JHipster's customizer actually honors). New
+  `OpenApiContractIT` boots under `api-docs` as ADMIN, asserts `/v3/api-docs` covers the
+  auth flow, the `/api/profile`(+`/resumes`) sync API, the bearer scheme, and the 1.8
+  tracking fields (`location`/`externalJobId`/`submissionConfirmed`/`archived` + `DRAFT`),
+  and writes the published snapshot to `api/openapi.json`. Full `test`+`integrationTest` green.*
+- [x] **1.10 Web app — management surface.** Next.js: signup/login/settings PLUS
+  resume upload+review+archive and bio editor. **First extract `parser.js` into a
+  shared module** (it's plain browser JS — pdf.js+mammoth) so the web app parses
+  in-browser; the extension imports the same module. Web app = primary product;
+  extension = on-page companion.
+  - [x] **1.10a Shared parser module.** Extracted the pure text→structure logic into
+    `job-autofill/src/lib/parser-core.js` (UMD-lite: `JAF.parserCore` as a `<script>`
+    AND `module.exports` for `require()` — no build step). `parser.js` now keeps only
+    the extension I/O (pdf.js/mammoth/LLM) and delegates structuring. Self-sufficient
+    `splitSkills` bundled so standalone parsing matches the extension. New
+    `test/parser_core.test.js` proves consumption via plain `require()` (no jsdom/JAF);
+    extension suite green; ext v0.10.0.
+  - [x] **1.10b Next.js app scaffold.** `/web` scaffolded (Next 16 App Router, React 19,
+    TypeScript, Tailwind v4, `@/*` alias). Dossier landing page; `src/lib/config.ts`
+    server-side API base-URL seam (`DOSSIER_API_URL`, proxied — never exposed to the
+    client) + `.env.example`; `turbopack.root` pinned (monorepo lockfile inference);
+    project-local `web/.npmrc` to dodge the global npm shell misconfig. `npm test`
+    (`tsc --noEmit && eslint`) + `npm run build` green.
+  - [x] **1.10c Auth — cookie route handlers + login/signup/settings.** httpOnly-cookie
+    auth: Next route handlers proxy `/api/authenticate`+`/api/refresh`+`/api/register`+
+    logout (`src/app/api/auth/*`); `lib/auth.ts` (cookie helpers, async `cookies()`) +
+    `lib/api.ts` (server fetch with bearer); login + signup (activation-aware) pages;
+    gated `/settings` server component reading `/api/account`. `tsc`+`eslint`+`next build`
+    green. **Verified live end-to-end** against the running backend: bad-creds→401,
+    `user`/`user`→cookies set, `/settings` renders the real account, refresh/logout work,
+    unauth `/settings`→307 `/login`.
+  - [x] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
+    **Upload design (PERMANENT): Option A — parse in-browser (web app's own pdf.js+mammoth
+    → `parser-core`), then proxy the file + parsed JSON through a Next route handler to the
+    existing Spring upload endpoint (R2/MinIO).** This is the final design, not a stopgap:
+    the web app runs as a long-running container (`next start`), which has no serverless
+    body limit, and Option A keeps the established BFF rule (browser → Next → Spring; the
+    browser never calls Spring or R2 directly). **Refinements:** stream the upload through
+    the route handler (don't buffer the whole file in memory) and enforce a max size
+    (~10MB) at the Next layer. *Option B (presigned direct-to-R2) is NOT planned — keep it
+    only as a fallback if the web app is ever moved to a serverless host; see 2.1.*
+- [x] **1.11 Privacy, deletion & security hardening (pre-launch gate).** Everything
+  here must land before any public release. *DONE: multi-tenant leak fix, account/data
+  deletion (backend+web), refresh-token rotation+revocation, privacy disclosure.*
+  - ✅ **DONE — Privacy disclosure.** Web `/privacy` policy page (what's collected, in-browser
+    parsing, storage/sharing, retention + self-service deletion, GDPR/CCPA rights, cookies),
+    linked from the landing footer + signup. Extension `job-autofill/PRIVACY.md` = the Chrome
+    Web Store data-use disclosure (single purpose, per-permission justification, not-sold
+    certifications). *Pre-launch TODO: legal review + set a real contact address/entity +
+    hosted policy URL in the CWS listing.*
+  - ✅ **DONE — Multi-tenant leak fix (carried from 1.5).** The generated `/api/bios`,
+    `/api/resumes`, `/api/applications`, `/api/ai-answers`, `/api/field-caches` CRUD
+    controllers were NOT user-scoped — any authenticated user could read every user's
+    rows. Locked all five to ADMIN via class-level `@PreAuthorize`; the user-scoped
+    `/api/profile`(+`/resumes`) sync API and the owner-scoped `ResumeFileResource`
+    (`/api/resumes/{id}/file`) stay open. New `EntityCrudLockdownIT` asserts USER→403 /
+    ADMIN→200 on all five; generated ITs updated to run as ADMIN. Full suite green.
+  - **GDPR/CCPA data deletion (carve-out, not enterprise).** Resumes are sensitive PII,
+    so a basic **"delete my account + all my data"** path (DB rows + R2 blobs) and a
+    privacy policy that states retention/deletion are a near-term legal obligation once
+    there are real users. Ship a minimal version here; full audit-log/retention tooling
+    is Phase 8.4. *✅ DONE (backend + web) — `DELETE /api/account` erases blobs + all owned
+    rows + the user (`AccountDeletionService`/`Resource`/`IT`); web Danger-zone
+    `DeleteAccountButton` → proxy `DELETE /api/account` → clears cookies → redirect.
+    Live-verified end-to-end. The privacy-policy text is the separate disclosure sub-item.*
+  - ✅ **DONE — Refresh-token rotation + revocation (carve-out, not enterprise).** Added a
+    `refresh_token` denylist: tokens carry a `jti`, `/api/refresh` rotates (spent token →
+    fresh one in the same family) with reuse-detection (replay revokes the family),
+    `POST /api/logout` revokes, account deletion clears tokens. Web + extension clients
+    persist the rotated token. Live-verified. Fuller session control (forced logout
+    everywhere, device list) is Phase 8.3.
+  - **Forward notes (cheap now, save a rewrite later):** (1) funnel all data access
+    through a single "current principal" abstraction so adding org/tenant scoping in
+    Phase 8.2 isn't a table-by-table retrofit; (2) move secrets to the host's secret
+    store (Railway/Render) rather than plain env files — near-free, defers KMS to 8.4.
 
 ## Phase 2 — Deployment + CI/CD
-- [ ] **2.1 Environments.** API on Railway (staging + prod); web on Vercel.
+> **Hosting model (locked):** both apps run as **long-running containers**, no
+> serverless assumed. **Web** = Next's own server via `next start` (build with
+> `output: 'standalone'` for a lean image); **no Express / custom server**. **API** =
+> Spring Boot embedded Tomcat in a container (already how it runs; standalone-WAR
+> stays a possible option, not the default). Host on Railway / Render / Fly / a VPS.
+> Vercel is allowed but not assumed — and if the web app is ever moved to a
+> serverless host, the resume upload must switch to Option B (presigned) because of
+> the ~4.5MB body limit.
+- [x] **2.1 Environments.** *DONE — built, deployed, and **LIVE in production** on the IONOS
+  VPS (2026-06-22): `https://app.132-148-79-209.sslip.io` (+ `api.`), HTTPS via Caddy/LE,
+  resumes in AWS S3; signup→login→profile→resume-upload all verified in the browser. Deploy +
+  ops runbook in `DEPLOY.md`; see the `live-deployment` memory for URLs/ops/gotchas.* **Decided
+  stack:** self-managed IONOS
+  Linux VPS, Docker Compose (MySQL + API + web) behind **Caddy** (auto-HTTPS via
+  Let's Encrypt), **sslip.io** for real TLS on the bare IP (no domain yet), **AWS S3**
+  private bucket for resume files (our `ResumeStorageService` already speaks S3). Shipped:
+  multi-stage `api/Dockerfile` + `web/Dockerfile` (root context so the parser-core sync
+  works; drops the Windows `.npmrc`), `docker-compose.prod.yml`, `Caddyfile`, `.env.example`,
+  `DEPLOY.md` runbook, root `.gitignore` (protects `.env`). Prod config wired: env-required
+  JWT secret (fails fast without it), `jhipster.cors` for the extension origin, `dossier.storage`
+  S3 block (path-style off). Verified: both images build, full stack boots on the prod
+  profile, Liquibase migrates, `/management/health` UP reachable web→api over the internal
+  network. *Not testable locally (deploy-time): Caddy/Let's Encrypt + a real S3 upload.*
+  *Option B (presigned direct-to-R2) stays dropped — Option A (Next-proxied) is permanent.*
 - [ ] **2.2 Pipeline.** GitHub Actions: run `npm test` + backend tests → build →
   deploy backend on merge to `main`.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
 
-## Phase 3 — Application Tracking
-- [ ] **3.1 Auto-log on submit.** Extension posts company/role/URL/ATS/JD/resume to
-  `/applications`.
-- [ ] **3.2 Kanban dashboard.** Next.js board (Saved → Applied → Interview →
-  Offer/Rejected).
-- [ ] **3.3 Save-without-applying + job-board capture** (Simplify/Teal hook).
+## Phase 3 — Application Tracking (the tracker fills itself as you apply)
+
+> **Pinned decision (3.2):** create the DRAFT entry on **every fill**, not only on
+> "complete-looking" fills. It's simpler and we never miss an application. To keep
+> the board from getting cluttered, two safeguards: (1) **dedup** — re-filling the
+> same job updates the same entry instead of adding a new one; (2) abandoned DRAFTs
+> are **easy to dismiss/delete** on the board. Do not gate entry-creation on guessing
+> whether the user finished.
+
+- [ ] **3.0 Backend: applications API + provider methods.** User-scoped
+  `/api/applications` CRUD (upsert keyed on `externalJobId`/`jobUrl`); implement
+  `pushApplication`/`listApplications` in `tracking.js` and add `updateApplication`
+  (status/confirm) + `archiveResume` to the provider contract + backend.
+- [ ] **3.1 Job-detail capture chain.** Add `captureJob()` to adapters; extractor
+  order = `schema.org/JobPosting` JSON-LD → adapter `captureJob()` → generic
+  `<meta>`/heuristics. Returns a canonical `JobCapture` DTO (company, role, location,
+  jobUrl, externalJobId, atsPlatform, jobDescription). Tests per strategy.
+- [ ] **3.2 Auto-log + submission detection.** On fill: upsert a **DRAFT** entry with
+  the captured job + the resume the user picked (dedup on externalJobId/jobUrl; see
+  pinned decision above). If the extension sees the confirmation (`webNavigation`
+  success page or DOM success signal) → flip to **APPLIED**, `submissionConfirmed=true`,
+  set `appliedAt`. No auto-submit. (Submission-detection module on the content side.)
+- [ ] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
+  chain (no resume attached).
+- [ ] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
+  Saved → Applied → Interview → Offer → Rejected). DRAFT / `submissionConfirmed=false`
+  entries show a "Did you submit?" prompt → Yes = APPLIED, No = keep/drop. Manual
+  status edits on the board.
+- [ ] **3.5 Resume archive guard.** Deleting a resume referenced by any application
+  (esp. APPLIED) is blocked with a **nudge to archive instead** (`archived=true`);
+  archived resumes are hidden from the active picker but keep their tracker links.
+  Enforce server-side (referential check) + surface the nudge in the web UI.
 
 ## Phase 4 — Field cache (cloud sync)
 - [ ] **4.1 Promote local cache to `field_cache` API**; last-write-wins +
@@ -92,11 +288,169 @@ focused Claude Code session.
 - [ ] **7.1 Edge** (near-free on MV3). **7.2 Firefox** (`browser.*` polyfill +
   store submission). **7.3 Safari** (Apple converter — defer).
 
+## Phase 8 — Enterprise & Compliance (after the consumer product + deployment are real)
+> Deferred B2B/enterprise work. The *consumer-grade* slices of these areas were
+> pulled into 1.11 (data deletion, basic refresh-token rotation/revocation); this
+> phase is the fuller, org-selling version. Easy to reorder earlier if a B2B deal
+> demands it.
+- [ ] **8.1 SSO.** SAML/OIDC (Okta, Azure Entra ID, Google Workspace); later SCIM
+  provisioning + MFA.
+- [ ] **8.2 Multi-tenancy.** Org/tenant model + strict tenant isolation (builds on the
+  1.11 leak fix + the "current principal" abstraction) + org admin console.
+- [ ] **8.3 Session control.** Revocable sessions, refresh-token rotation at scale,
+  forced logout / device list (extends the basic rotation shipped in 1.11; covers both
+  auth surfaces — extension Bearer + web httpOnly cookie).
+- [ ] **8.4 Audit & compliance.** Audit logging; PII retention/deletion tooling;
+  GDPR/CCPA + SOC 2 groundwork; secrets in a vault/KMS; deeper RBAC.
+
 ---
 
 ## Log
 > One line per completed task: date · task · note.
-- _(empty — add entries as you go)_
+- 2026-06-22 · 2.1 **DEPLOYED LIVE** · stood the stack up on the IONOS VPS end-to-end with the
+  user (SSH walkthrough): Docker install (focal/EOL workaround), code on `claude`, `.env`,
+  `compose up --build`, freed port 80 from a pre-installed server, Caddy got LE certs for
+  `app/api.132-148-79-209.sslip.io`. Verified signup→login→profile→resume-upload→S3 in the
+  browser. Gotchas (now in `live-deployment` memory): no SMTP ⇒ new signups land `activated=0`
+  (manually activated for testing); login uses username not email; DB is `dossierapi`
+  (lowercased). **Decision:** email verification (SMTP) is the gate before public signups — NOT
+  auto-activate. Docs synced (IONOS, live status).
+- 2026-06-22 · 2.1 (Environments) · **Phase 2 begins.** Decided stack with the user:
+  self-managed IONOS VPS + Docker Compose (MySQL + API + web) behind Caddy (auto-HTTPS),
+  sslip.io for TLS on the bare IP (no domain yet), AWS S3 private bucket. Shipped multi-stage
+  Dockerfiles (web builds from repo root for the parser-core sync; drops Windows `.npmrc`),
+  `docker-compose.prod.yml`, `Caddyfile`, `.env.example`, `DEPLOY.md`, root `.gitignore`. Prod
+  config: env-required JWT secret, CORS for the extension, S3 storage block. **Verified:** both
+  images build; full stack boots on the prod profile; Liquibase migrates; health UP web→api over
+  the internal network. Live VPS deploy + Caddy/LE + real S3 upload are the user's deploy-time steps.
+- 2026-06-22 · 1.11 (privacy disclosure) — **completes 1.11 + Phase 1** · web `/privacy`
+  policy page (collection, in-browser parsing, storage/sharing, retention + self-service
+  deletion, GDPR/CCPA rights, cookies), linked from landing footer + signup consent line;
+  extension `PRIVACY.md` = Chrome Web Store data-use disclosure (single purpose, permission
+  justifications, not-sold certifications). Content only; `tsc`+`eslint`+`next build` green
+  (`/privacy` static). Pre-launch TODO noted: legal review + real contact/entity + hosted
+  policy URL. Next: Phase 2 (deployment).
+- 2026-06-22 · 1.11 (refresh-token rotation + revocation) · auth was stateless JWT with no
+  revocation. Added a `refresh_token` denylist (migration + `RefreshToken`/repo/
+  `RefreshTokenService`): refresh tokens carry a `jti`; `/api/refresh` now ROTATES (spends
+  the presented token, issues a fresh one in the same family) with **reuse detection**
+  (replaying a spent token revokes the whole family); new `POST /api/logout` revokes; account
+  deletion clears tokens. Clients updated to persist the rotated token: web refresh/logout
+  routes + extension `tracking.js` (logout calls `/api/logout`); ext v0.11.0. New
+  `RefreshTokenRotationIT` (+deletion/refresh ITs updated, sliced auth test gets a mock
+  service). **Live-verified via web**: refresh rotates the cookie → old token 401 → reuse
+  revokes the family → logout revokes. Full backend suite + web build + 24 ext tests green.
+- 2026-06-22 · 1.11 (account/data deletion — web button) · `DELETE /api/account` Next
+  proxy (forwards to Spring, then clears the httpOnly session cookies) + `DeleteAccountButton`
+  (Danger zone on /settings; type-DELETE-to-confirm guard → redirect home). **Live-verified
+  end-to-end via the web layer**: login→upload→proxy DELETE 200 with Set-Cookie expiring
+  both cookies → user-2 rows + MinIO blob gone → re-login 401 → admin untouched.
+  `tsc`+`eslint`+`next build` green. Completes the GDPR/CCPA deletion path (backend+web);
+  only the privacy-policy text remains (separate disclosure sub-item).
+- 2026-06-22 · 1.11 (account/data deletion — backend) · `AccountDeletionService` +
+  `DELETE /api/account` (`AccountDeletionResource`): erases the current user's resume
+  blobs (object storage), then all their rows (resume/bio/application/ai_answer/
+  field_cache), then the user — one transaction, blobs first so a storage failure aborts
+  cleanly. `AccountDeletionResourceIT` seeds all five entity types + asserts user+rows
+  gone (rolled back). **Live-verified** (API↔MySQL↔MinIO): upload→delete→204, MinIO blob
+  gone, user-2 rows+authority-join gone, re-auth 401, admin untouched. Full suite green.
+  Web "Delete account" button is the next slice. Backend-only (no version bump).
+- 2026-06-22 · 1.11 (multi-tenant leak fix) · the generated entity-CRUD controllers
+  (`/api/bios`, `/api/resumes`, `/api/applications`, `/api/ai-answers`,
+  `/api/field-caches`) were only `.authenticated()` — any user could read every user's
+  rows. Locked all five to ADMIN with class-level `@PreAuthorize`; user-scoped
+  `/api/profile`(+`/resumes`) and owner-scoped `ResumeFileResource` untouched. New
+  `EntityCrudLockdownIT` (USER→403, ADMIN→200); the five generated ITs now run as ADMIN.
+  Full `test`+`integrationTest` green. Backend-only (no version bump).
+- 2026-06-22 · 1.10d / 1.10 DONE · bio editor. `PUT /api/profile` proxy + `BioEditor`
+  (contact/identity + work-auth fields, matching the extension's canonical bio keys);
+  `/profile` page server-fetches the bio and seeds the form; cross-surface nav links.
+  Editor **merges over the existing payload** so fields it doesn't manage (extension
+  EEO answers) survive a save. **Live-verified**: page renders seeded bio → edit
+  firstName → save persists, ethnicity+gender preserved, single-bio upsert (no dupes)
+  → unauth 401 → bad-body 400. `tsc`+`eslint`+`next build` green. Completes 1.10 — the
+  web management surface (auth + resumes + bio) is done. Next: 1.11 hardening gate.
+- 2026-06-22 · 1.10d (in progress) · resume list + archive. Backend: `updateResume`
+  is now a partial/PATCH-like update (null field = leave as-is) and honors `archived`,
+  so a single-flag toggle can't wipe label/parsedJson; new `ProfileResourceIT` case
+  proves archive+preserve through Testcontainers MySQL. Web: `PUT /api/resumes/:id`
+  proxy (archive-only), `ResumeList` (active/archived sections, restore), page
+  server-fetches the list + `router.refresh()` after save/archive. **Live-verified**:
+  upload→list renders→archive (DB `archived=1`, parsed JSON preserved)→unarchive→
+  bad-body 400→unauth 401. `tsc`+`eslint`+`next build` green. Remaining 1.10d: bio editor.
+- 2026-06-22 · 1.10d (in progress) · in-browser parse+review (`resume-parse.ts`,
+  `ResumeUpload`) then save via **Option A** proxy (`/api/resumes/upload` → Spring
+  create-row + owner-scoped file upload, 10MB cap, rollback-on-failure). **Live
+  round-trip verified clean-slate** (web↔API↔MinIO): login sets httpOnly cookies →
+  upload 200 → DB `resume` row (`status=NEEDS_REVIEW`, object key, parsed JSON) →
+  MinIO object **byte-identical** to source → unauth upload 401 (no orphan row).
+  Remaining 1.10d: resume list + archive, bio editor.
+- 2026-06-20 · 0.1 Local field-choice cache · `JAF.fieldCache` (IndexedDB, per-profile);
+  `preferCached` on read + `watch` learns corrections; wired into filler; 19 jsdom tests; v0.7.0.
+- 2026-06-20 · 0.2 Workable adapter · selectors captured from real ENFOS/TP-Link forms
+  (firstname/lastname/email/phone/address/city/postcode/country + resume file input by
+  accept); registered in manifest + CONTENT_FILES; 16 jsdom tests + live-DOM check; v0.7.1.
+  Note: SmartRecruiters oneclick-ui is open-shadow-DOM — deferred (needs shadow traversal).
+- 2026-06-20 · 0.3 Repo hygiene · already satisfied by existing `CLAUDE.md` + decided
+  monorepo layout; added `.gitignore`. Phase 0 complete; Phase 1 gated on Neon account.
+- 2026-06-20 · 1.1 Backend skeleton · generated `/api` from `dossier.jdl`
+  (fixed JDL `maxlength N`→`maxlength(N)`); JHipster 8 / Spring Boot / JWT / MySQL /
+  gradle; builds green on JDK 17. Verified live: docker MySQL → `bootRun` → Liquibase
+  migrated → `/management/health` `{"status":"UP"}`. Phase 1.1 done.
+- 2026-06-21 · 1.2 Auth · stateless access+refresh JWT pair (`token_type` claim;
+  strict resource-server decoder rejects refresh-as-access; permissive decoder for
+  `/api/refresh`). `/authenticate` → `{accessToken,refreshToken}`; new `/api/refresh`.
+  Updated AuthenticateControllerIT + new RefreshTokenControllerIT (8 cases). Full
+  `./gradlew test integrationTest` green (Testcontainers, ryuk disabled locally).
+- 2026-06-21 · 1.3 Data model · verified generated schema vs ROADMAP; added
+  `20260621030000_added_indexes.xml` (unique bio/field_cache/ai_answer lookup keys +
+  application user+status index). Full suite green. Backend test runs on this OneDrive
+  checkout: `-Dorg.gradle.vfs.watch=false` avoids a build/ delete-lock.
+- 2026-06-21 · 1.4 Resume storage · S3-compatible blob layer (AWS SDK v2) for R2;
+  StorageProperties/StorageConfiguration + ResumeStorageService + ResumeFileResource
+  (upload/download/delete, owner-scoped). MinIO for dev/tests; `S3ResumeStorageServiceIT`
+  (4 cases) round-trips against a MinIO Testcontainer. Full suite green. Fixes en route:
+  ArchUnit (inject bucket via @Value, not the config class), anonymous creds when no key,
+  `@Value` default so the test profile resolves the bucket.
+- 2026-06-21 · 1.5 Profile + resume sync · user-scoped `ProfileService`/`ProfileResource`
+  (`/api/profile` single-bio upsert + `/api/profile/resumes` CRUD, ownership=404).
+  `ProfileResourceIT` incl. cross-user isolation; full suite green. Flagged: raw generated
+  `/api/bios`+`/api/resumes` aren't user-scoped — harden in 1.10.
+- 2026-06-21 · 1.6 TrackingProvider · `src/lib/tracking.js` — sole backend network seam;
+  `createDossierProvider` (auth + profile + resume CRUD, DTO mapping, 401-refresh-retry),
+  endpoint via `settings.apiBaseUrl`. 22 jsdom tests; extension v0.8.0.
+- 2026-06-21 · 1.7 Login + sync · `src/lib/sync.js` (pull/push orchestration) + options
+  Account tab (sign in/up/out, Sync now; pull-on-login, push-on-save). 15 jsdom tests;
+  localhost host perm; extension v0.9.0. **Verified end-to-end in Chrome** (sign in →
+  pull → edit → push). Fixes found via live run: `dossier.storage` config prefix
+  (startup), dev CORS `chrome-extension://*` (403). Backend runs with profile
+  [dev, api-docs] → Swagger already on (helps 1.8).
+- 2026-06-21 · 1.8 Extend tracking schema · additive migration on the existing backend
+  (Application +location/externalJobId/submissionConfirmed, status +DRAFT, Resume
+  +archived; dedup index). Entities/DTOs/enum by hand; `20260622000000_extend_tracking_
+  schema.xml`; `TrackingSchemaIT` round-trips fields+DRAFT through MySQL; full suite green.
+- 2026-06-21 · 1.10c Web auth · httpOnly-cookie session via Next route handlers proxying
+  Spring auth (`/api/auth/{login,logout,refresh,signup}`); `lib/auth.ts`+`lib/api.ts`;
+  login + activation-aware signup pages; gated `/settings` (reads `/api/account`). Next 16
+  async `cookies()`. `tsc`+`eslint`+`next build` green; **verified live e2e** (login→cookies
+  →gated settings→refresh→logout→unauth redirect, all green against the running backend).
+- 2026-06-21 · 1.10b Web app scaffold · `/web` Next 16 App Router + React 19 + TS +
+  Tailwind v4 (TS+Tailwind+httpOnly-cookie auth chosen). Dossier landing; `lib/config.ts`
+  server-only API base-URL seam + `.env.example`; `turbopack.root` pinned; `web/.npmrc`
+  shell pin. `npm test` = `tsc --noEmit && eslint` + `next build` both green. Auth next (1.10c).
+- 2026-06-21 · 1.10a Shared parser module · extracted `parser-core.js` (pure
+  heuristicStructure/parseBio/splitSkills; UMD-lite — `JAF.parserCore` + `module.exports`,
+  no build step) out of `parser.js` (now I/O-only, delegates). `test/parser_core.test.js`
+  proves plain-`require()` consumption (no jsdom/JAF) — the web app imports the same file.
+  Bundled self-sufficient `splitSkills` so standalone parsing matches the extension.
+  Extension suite green; v0.10.0. Remaining 1.10: Next.js app (gated on stack confirm).
+- 2026-06-21 · 1.9 OpenAPI contract · `OpenApiConfiguration` (bearer-jwt scheme) +
+  `@Tag`/`@Operation`/`@SecurityRequirement` on the custom auth/profile controllers +
+  API identity via `jhipster.api-docs.*` (title "Dossier API"). `OpenApiContractIT`
+  asserts `/v3/api-docs` (ADMIN-gated, api-docs profile) covers auth + sync + the 1.8
+  tracking fields + DRAFT + bearer scheme, and publishes `api/openapi.json`. Note: the
+  test classpath shadows main `application.yml`, so the api-docs title is mirrored in the
+  test yml too. Backend-only (no extension bump). Full `test`+`integrationTest` green.
 
 ---
 

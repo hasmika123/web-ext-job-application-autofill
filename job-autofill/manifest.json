@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Dossier — Job Application Autofill",
-  "version": "0.6.9",
+  "version": "0.11.0",
   "description": "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
   "permissions": ["storage", "unlimitedStorage", "scripting", "activeTab", "webNavigation"],
   "host_permissions": [
@@ -12,6 +12,8 @@
     "https://job-boards.greenhouse.io/*",
     "https://jobs.lever.co/*",
     "https://jobs.ashbyhq.com/*",
+    "https://apply.workable.com/*",
+    "https://*.workable.com/*",
     "https://*.icims.com/*",
     "https://*.taleo.net/*",
     "https://jobs.smartrecruiters.com/*",
@@ -19,7 +21,9 @@
     "https://*.jobvite.com/*",
     "https://raw.githubusercontent.com/*",
     "https://gist.githubusercontent.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "http://localhost:8080/*",
+    "http://127.0.0.1:8080/*"
   ],
   "background": { "service_worker": "src/background/service-worker.js" },
   "action": {
@@ -37,6 +41,8 @@
         "https://job-boards.greenhouse.io/*",
         "https://jobs.lever.co/*",
         "https://jobs.ashbyhq.com/*",
+        "https://apply.workable.com/*",
+        "https://*.workable.com/*",
         "https://*.icims.com/*",
         "https://*.taleo.net/*",
         "https://jobs.smartrecruiters.com/*",
@@ -48,11 +54,13 @@
         "src/config/rules.js",
         "src/lib/rules-store.js",
         "src/lib/schema.js",
+        "src/lib/field-cache.js",
         "src/content/adapters/base.js",
         "src/content/adapters/generic.js",
         "src/content/adapters/greenhouse.js",
         "src/content/adapters/lever.js",
         "src/content/adapters/ashby.js",
+        "src/content/adapters/workable.js",
         "src/content/adapters/workday.js",
         "src/content/assist.js",
         "src/content/filler.js",
