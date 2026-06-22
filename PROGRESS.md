@@ -158,7 +158,9 @@ focused Claude Code session.
     logout (`src/app/api/auth/*`); `lib/auth.ts` (cookie helpers, async `cookies()`) +
     `lib/api.ts` (server fetch with bearer); login + signup (activation-aware) pages;
     gated `/settings` server component reading `/api/account`. `tsc`+`eslint`+`next build`
-    green. **Live sign-in smoke-test pending** (backend was down) — verify before 1.10d.
+    green. **Verified live end-to-end** against the running backend: bad-creds→401,
+    `user`/`user`→cookies set, `/settings` renders the real account, refresh/logout work,
+    unauth `/settings`→307 `/login`.
   - [ ] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
 - [ ] **1.11 Privacy rewrite + multi-tenant hardening.** New privacy policy + Chrome
   Web Store data-use disclosure to match the cloud model. *Required before any public
@@ -278,7 +280,8 @@ focused Claude Code session.
 - 2026-06-21 · 1.10c Web auth · httpOnly-cookie session via Next route handlers proxying
   Spring auth (`/api/auth/{login,logout,refresh,signup}`); `lib/auth.ts`+`lib/api.ts`;
   login + activation-aware signup pages; gated `/settings` (reads `/api/account`). Next 16
-  async `cookies()`. `tsc`+`eslint`+`next build` green; live sign-in smoke-test still pending.
+  async `cookies()`. `tsc`+`eslint`+`next build` green; **verified live e2e** (login→cookies
+  →gated settings→refresh→logout→unauth redirect, all green against the running backend).
 - 2026-06-21 · 1.10b Web app scaffold · `/web` Next 16 App Router + React 19 + TS +
   Tailwind v4 (TS+Tailwind+httpOnly-cookie auth chosen). Dossier landing; `lib/config.ts`
   server-only API base-URL seam + `.env.example`; `turbopack.root` pinned; `web/.npmrc`
