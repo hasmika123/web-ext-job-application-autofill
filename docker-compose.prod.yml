@@ -27,6 +27,9 @@ services:
     networks: [internal]
 
   api:
+    # CI builds + pushes this image to GHCR; the VPS pulls it (`docker compose pull`). The
+    # `build:` block still works for a local/manual `up -d --build` (it tags the same name).
+    image: ghcr.io/hasmika123/dossier-api:latest
     build:
       context: ./api
     restart: unless-stopped
@@ -52,6 +55,7 @@ services:
     networks: [internal]
 
   web:
+    image: ghcr.io/hasmika123/dossier-web:latest
     build:
       # Root context: the web build syncs the shared parser-core from job-autofill/.
       context: .
