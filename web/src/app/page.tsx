@@ -57,8 +57,11 @@ export default function Home() {
         ))}
       </section>
 
-      <footer className="mt-auto pt-24 text-sm text-foreground/50">
-        Your data is yours. Manage or delete it any time from your account.
+      <footer className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-24 text-sm text-foreground/50">
+        <span>Your data is yours. Manage or delete it any time from your account.</span>
+        <Link href="/privacy" className="underline hover:text-foreground/80">
+          Privacy Policy
+        </Link>
       </footer>
     </main>
   );

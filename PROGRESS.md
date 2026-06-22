@@ -25,13 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.11 — Privacy, deletion & security hardening (pre-launch gate).**
-> Sub-items ✅ DONE: **multi-tenant leak fix**, **account/data deletion** (backend + web),
-> and **refresh-token rotation + revocation** (denylist + rotation + reuse-detection +
-> logout/deletion revoke; web + extension persist rotated tokens; live-verified).
-> Remaining 1.11 sub-item: **privacy disclosure** — a privacy policy page (web) stating
-> what data is collected + retention/deletion, and a Chrome Web Store data-use statement.
-> That's the LAST item before 1.11 / Phase 1 is complete; then Phase 2 (deployment).
+> **Phase 2 · Task 2.1 — Environments.** 🎉 **Phase 1 is COMPLETE** (backend + accounts +
+> web management surface + extension sync + the 1.11 pre-launch gate). Next: deployment.
+> 2.1 = stand up API container (staging + prod) + managed MySQL + R2 bucket, and the web
+> container (`next start`, `output: 'standalone'`). Carry-overs to handle: prod
+> `jhipster.cors` is empty (must allow the published extension origin + web origin), and
+> resume upload stays Option A (Next-proxied) on the container host. Read the Phase 2
+> section of ROADMAP.md before starting. Note: deployment touches real hosting/secrets —
+> confirm provider choices with the user before provisioning anything.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -172,10 +173,15 @@ focused Claude Code session.
     the route handler (don't buffer the whole file in memory) and enforce a max size
     (~10MB) at the Next layer. *Option B (presigned direct-to-R2) is NOT planned — keep it
     only as a fallback if the web app is ever moved to a serverless host; see 2.1.*
-- [ ] **1.11 Privacy, deletion & security hardening (pre-launch gate).** Everything
-  here must land before any public release.
-  - **Privacy disclosure.** New privacy policy + Chrome Web Store data-use disclosure
-    to match the cloud model.
+- [x] **1.11 Privacy, deletion & security hardening (pre-launch gate).** Everything
+  here must land before any public release. *DONE: multi-tenant leak fix, account/data
+  deletion (backend+web), refresh-token rotation+revocation, privacy disclosure.*
+  - ✅ **DONE — Privacy disclosure.** Web `/privacy` policy page (what's collected, in-browser
+    parsing, storage/sharing, retention + self-service deletion, GDPR/CCPA rights, cookies),
+    linked from the landing footer + signup. Extension `job-autofill/PRIVACY.md` = the Chrome
+    Web Store data-use disclosure (single purpose, per-permission justification, not-sold
+    certifications). *Pre-launch TODO: legal review + set a real contact address/entity +
+    hosted policy URL in the CWS listing.*
   - ✅ **DONE — Multi-tenant leak fix (carried from 1.5).** The generated `/api/bios`,
     `/api/resumes`, `/api/applications`, `/api/ai-answers`, `/api/field-caches` CRUD
     controllers were NOT user-scoped — any authenticated user could read every user's
@@ -293,6 +299,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.11 (privacy disclosure) — **completes 1.11 + Phase 1** · web `/privacy`
+  policy page (collection, in-browser parsing, storage/sharing, retention + self-service
+  deletion, GDPR/CCPA rights, cookies), linked from landing footer + signup consent line;
+  extension `PRIVACY.md` = Chrome Web Store data-use disclosure (single purpose, permission
+  justifications, not-sold certifications). Content only; `tsc`+`eslint`+`next build` green
+  (`/privacy` static). Pre-launch TODO noted: legal review + real contact/entity + hosted
+  policy URL. Next: Phase 2 (deployment).
 - 2026-06-22 · 1.11 (refresh-token rotation + revocation) · auth was stateless JWT with no
   revocation. Added a `refresh_token` denylist (migration + `RefreshToken`/repo/
   `RefreshTokenService`): refresh tokens carry a `jti`; `/api/refresh` now ROTATES (spends

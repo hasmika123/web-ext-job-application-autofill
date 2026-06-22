@@ -109,6 +109,14 @@ export default function SignupPage() {
         >
           {busy ? "Creating…" : "Create profile"}
         </button>
+
+        <p className="text-xs text-foreground/50">
+          By creating an account you agree to how Dossier handles your data, described in our{" "}
+          <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground/80">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </form>
 
       <p className="mt-6 text-sm text-foreground/60">
