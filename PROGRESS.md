@@ -153,9 +153,12 @@ focused Claude Code session.
     client) + `.env.example`; `turbopack.root` pinned (monorepo lockfile inference);
     project-local `web/.npmrc` to dodge the global npm shell misconfig. `npm test`
     (`tsc --noEmit && eslint`) + `npm run build` green.
-  - [ ] **1.10c Auth — cookie route handlers + login/signup/settings.** httpOnly-cookie
-    auth: Next route handlers proxy `/api/authenticate`+`/api/refresh`+`/api/register`;
-    login/signup forms; gated settings page. (Read Next 16 docs first — async cookies().)
+  - [x] **1.10c Auth — cookie route handlers + login/signup/settings.** httpOnly-cookie
+    auth: Next route handlers proxy `/api/authenticate`+`/api/refresh`+`/api/register`+
+    logout (`src/app/api/auth/*`); `lib/auth.ts` (cookie helpers, async `cookies()`) +
+    `lib/api.ts` (server fetch with bearer); login + signup (activation-aware) pages;
+    gated `/settings` server component reading `/api/account`. `tsc`+`eslint`+`next build`
+    green. **Live sign-in smoke-test pending** (backend was down) — verify before 1.10d.
   - [ ] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
 - [ ] **1.11 Privacy rewrite + multi-tenant hardening.** New privacy policy + Chrome
   Web Store data-use disclosure to match the cloud model. *Required before any public
@@ -272,6 +275,10 @@ focused Claude Code session.
   (Application +location/externalJobId/submissionConfirmed, status +DRAFT, Resume
   +archived; dedup index). Entities/DTOs/enum by hand; `20260622000000_extend_tracking_
   schema.xml`; `TrackingSchemaIT` round-trips fields+DRAFT through MySQL; full suite green.
+- 2026-06-21 · 1.10c Web auth · httpOnly-cookie session via Next route handlers proxying
+  Spring auth (`/api/auth/{login,logout,refresh,signup}`); `lib/auth.ts`+`lib/api.ts`;
+  login + activation-aware signup pages; gated `/settings` (reads `/api/account`). Next 16
+  async `cookies()`. `tsc`+`eslint`+`next build` green; live sign-in smoke-test still pending.
 - 2026-06-21 · 1.10b Web app scaffold · `/web` Next 16 App Router + React 19 + TS +
   Tailwind v4 (TS+Tailwind+httpOnly-cookie auth chosen). Dossier landing; `lib/config.ts`
   server-only API base-URL seam + `.env.example`; `turbopack.root` pinned; `web/.npmrc`
