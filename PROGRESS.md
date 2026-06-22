@@ -284,6 +284,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.10d (in progress) · in-browser parse+review (`resume-parse.ts`,
+  `ResumeUpload`) then save via **Option A** proxy (`/api/resumes/upload` → Spring
+  create-row + owner-scoped file upload, 10MB cap, rollback-on-failure). **Live
+  round-trip verified clean-slate** (web↔API↔MinIO): login sets httpOnly cookies →
+  upload 200 → DB `resume` row (`status=NEEDS_REVIEW`, object key, parsed JSON) →
+  MinIO object **byte-identical** to source → unauth upload 401 (no orphan row).
+  Remaining 1.10d: resume list + archive, bio editor.
 - 2026-06-20 · 0.1 Local field-choice cache · `JAF.fieldCache` (IndexedDB, per-profile);
   `preferCached` on read + `watch` learns corrections; wired into filler; 19 jsdom tests; v0.7.0.
 - 2026-06-20 · 0.2 Workable adapter · selectors captured from real ENFOS/TP-Link forms
