@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync:parser": "node scripts/sync-parser-core.mjs",
+    "predev": "node scripts/sync-parser-core.mjs",
+    "prebuild": "node scripts/sync-parser-core.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsc --noEmit && eslint ."
+    "test": "node scripts/sync-parser-core.mjs && tsc --noEmit && eslint ."
   },
   "dependencies": {
     "next": "16.2.9",

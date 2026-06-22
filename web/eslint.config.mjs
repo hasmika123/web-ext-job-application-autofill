@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated build-time copy of the extension's parser-core — lint the source instead.
+    "src/lib/generated/**",
   ]),
 ]);
 

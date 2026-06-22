@@ -162,6 +162,10 @@ focused Claude Code session.
     `user`/`user`→cookies set, `/settings` renders the real account, refresh/logout work,
     unauth `/settings`→307 `/login`.
   - [ ] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
+    **Upload decision (locked): Option A — parse in-browser (web app's own pdf.js+mammoth
+    → `parser-core`), then proxy the file + parsed JSON through a Next route handler to the
+    existing Spring upload endpoint (R2/MinIO).** Simplest, reuses the tested backend, runs
+    locally on MinIO. Migrate to presigned direct-to-R2 upload in Phase 2 (see 2.1).
 - [ ] **1.11 Privacy rewrite + multi-tenant hardening.** New privacy policy + Chrome
   Web Store data-use disclosure to match the cloud model. *Required before any public
   release.* **Also harden here (carried from 1.5):** the generated `/api/bios` and
@@ -174,6 +178,10 @@ focused Claude Code session.
   *Carry-over: prod `jhipster.cors` is currently empty (CORS off) — must allow the
   published extension's `chrome-extension://<id>` origin (and the web app origin)
   for the deployed API, mirroring the dev fix from 1.7.*
+  *Carry-over (from 1.10d, committed): migrate resume upload from the Next proxy
+  (Option A) to **presigned direct-to-R2 upload** (Option B) — a presigned-PUT endpoint
+  on Spring + R2 bucket CORS — so resume files bypass the Next server and Vercel's
+  ~4.5MB serverless body limit. Industry-standard for Vercel-hosted apps.*
 - [ ] **2.2 Pipeline.** GitHub Actions: run `npm test` + backend tests → build →
   deploy backend on merge to `main`.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.

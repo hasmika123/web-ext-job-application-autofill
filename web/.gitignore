@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# generated: build-time copy of the extension's shared parser-core (see scripts/sync-parser-core.mjs)
+/src/lib/generated/
 
 # vercel
 .vercel
