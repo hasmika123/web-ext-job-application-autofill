@@ -111,6 +111,37 @@ class ProfileResourceIT {
 
     @Test
     @Transactional
+    void archiveIsAPartialUpdateThatPreservesOtherFields() throws Exception {
+        // create with a label + parsed JSON, not archived
+        String body = om.writeValueAsString(
+            Map.of("label", "Grad resume", "parsedJson", "{\"skills\":[\"Java\"]}", "status", "NEEDS_REVIEW")
+        );
+        String created = mockMvc
+            .perform(post("/api/profile/resumes").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        Long id = om.readTree(created).get("id").asLong();
+
+        // PUT only {archived:true} — label + parsedJson must survive (PATCH-like semantics)
+        mockMvc
+            .perform(put("/api/profile/resumes/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("archived", true))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.archived").value(true))
+            .andExpect(jsonPath("$.label").value("Grad resume"))
+            .andExpect(jsonPath("$.parsedJson").value("{\"skills\":[\"Java\"]}"));
+
+        // unarchive
+        mockMvc
+            .perform(put("/api/profile/resumes/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("archived", false))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.archived").value(false))
+            .andExpect(jsonPath("$.label").value("Grad resume"));
+    }
+
+    @Test
+    @Transactional
     void anotherUsersResumeIsNeverVisibleOrMutable() throws Exception {
         // A resume owned by "admin", created directly.
         User admin = userRepository.findOneByLogin("admin").orElseThrow();

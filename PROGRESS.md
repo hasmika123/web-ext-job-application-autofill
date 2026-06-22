@@ -284,6 +284,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.10d (in progress) · resume list + archive. Backend: `updateResume`
+  is now a partial/PATCH-like update (null field = leave as-is) and honors `archived`,
+  so a single-flag toggle can't wipe label/parsedJson; new `ProfileResourceIT` case
+  proves archive+preserve through Testcontainers MySQL. Web: `PUT /api/resumes/:id`
+  proxy (archive-only), `ResumeList` (active/archived sections, restore), page
+  server-fetches the list + `router.refresh()` after save/archive. **Live-verified**:
+  upload→list renders→archive (DB `archived=1`, parsed JSON preserved)→unarchive→
+  bad-body 400→unauth 401. `tsc`+`eslint`+`next build` green. Remaining 1.10d: bio editor.
 - 2026-06-22 · 1.10d (in progress) · in-browser parse+review (`resume-parse.ts`,
   `ResumeUpload`) then save via **Option A** proxy (`/api/resumes/upload` → Spring
   create-row + owner-scoped file upload, 10MB cap, rollback-on-failure). **Live

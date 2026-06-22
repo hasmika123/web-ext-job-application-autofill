@@ -99,16 +99,29 @@ public class ProfileService {
         return resumeMapper.toDto(resumeRepository.save(resume));
     }
 
+    /**
+     * Partial update (PATCH-like): only fields the client actually sends are written.
+     * This lets the web app flip a single flag (e.g. {@code archived}) without having to
+     * echo the whole resume back, and is harmless for the extension, which always pushes
+     * the full DTO. A {@code null} field means "leave as-is", not "clear".
+     */
     public ResumeDTO updateResume(Long id, ResumeDTO dto) {
         Resume resume = ownedResume(id);
-        resume.setLabel(dto.getLabel());
-        resume.setParsedJson(dto.getParsedJson());
+        if (dto.getLabel() != null) {
+            resume.setLabel(dto.getLabel());
+        }
+        if (dto.getParsedJson() != null) {
+            resume.setParsedJson(dto.getParsedJson());
+        }
         if (dto.getStatus() != null) {
             resume.setStatus(dto.getStatus());
         }
         // Only overwrite the stored-file pointer when the client actually sends one.
         if (dto.getr2ObjectKey() != null) {
             resume.setr2ObjectKey(dto.getr2ObjectKey());
+        }
+        if (dto.getArchived() != null) {
+            resume.setArchived(dto.getArchived());
         }
         return resumeMapper.toDto(resumeRepository.save(resume));
     }
