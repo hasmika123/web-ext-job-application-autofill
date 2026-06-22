@@ -26,13 +26,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 
 ## Current focus
 > **Phase 1 · Task 1.11 — Privacy, deletion & security hardening (pre-launch gate).**
-> Sub-item ✅ DONE: **multi-tenant leak fix** (all five raw entity-CRUD controllers
-> locked to ADMIN; `EntityCrudLockdownIT` proves it). Remaining sub-items, ONE per
-> commit: (a) **GDPR/CCPA "delete my account + all my data"** (DB rows + R2 blobs) —
-> recommended next (highest legal weight once there are users); (b) **refresh-token
-> rotation + revocation** (rotate on refresh + a denylist); (c) **privacy disclosure**
-> (policy + Chrome Web Store data-use). Pick ONE; read the 1.11 section of ROADMAP.md/
-> PROGRESS first.
+> Sub-items ✅ DONE: **multi-tenant leak fix** (five raw CRUD controllers ADMIN-locked)
+> and **account/data deletion — backend** (`DELETE /api/account` erases blobs + all rows
+> + user, live-verified). Remaining, ONE per commit: (a) **web "Delete account" button**
+> (confirm → proxy `DELETE /api/account` → clear cookies → redirect) — finishes the
+> deletion path, recommended next; (b) **refresh-token rotation + revocation** (rotate on
+> refresh + a denylist); (c) **privacy disclosure** (policy + Chrome Web Store data-use).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -188,7 +187,10 @@ focused Claude Code session.
     so a basic **"delete my account + all my data"** path (DB rows + R2 blobs) and a
     privacy policy that states retention/deletion are a near-term legal obligation once
     there are real users. Ship a minimal version here; full audit-log/retention tooling
-    is Phase 8.4.
+    is Phase 8.4. *✅ Backend DONE — `DELETE /api/account` erases blobs + all owned rows +
+    the user (`AccountDeletionService`/`AccountDeletionResource`/`AccountDeletionResourceIT`,
+    live-verified). ▶ Remaining: web "Delete account" button (confirm → proxy DELETE →
+    clear cookies → redirect); the privacy-policy text is the separate disclosure sub-item.*
   - **Refresh-token rotation + revocation (carve-out, not enterprise).** Today auth is
     stateless access+refresh JWT with no way to revoke a leaked refresh token. Add basic
     **rotation on refresh + a revocation/denylist** (table-stakes for any public auth).
@@ -289,6 +291,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.11 (account/data deletion — backend) · `AccountDeletionService` +
+  `DELETE /api/account` (`AccountDeletionResource`): erases the current user's resume
+  blobs (object storage), then all their rows (resume/bio/application/ai_answer/
+  field_cache), then the user — one transaction, blobs first so a storage failure aborts
+  cleanly. `AccountDeletionResourceIT` seeds all five entity types + asserts user+rows
+  gone (rolled back). **Live-verified** (API↔MySQL↔MinIO): upload→delete→204, MinIO blob
+  gone, user-2 rows+authority-join gone, re-auth 401, admin untouched. Full suite green.
+  Web "Delete account" button is the next slice. Backend-only (no version bump).
 - 2026-06-22 · 1.11 (multi-tenant leak fix) · the generated entity-CRUD controllers
   (`/api/bios`, `/api/resumes`, `/api/applications`, `/api/ai-answers`,
   `/api/field-caches`) were only `.authenticated()` — any user could read every user's

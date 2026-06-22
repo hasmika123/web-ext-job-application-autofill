@@ -12,6 +12,9 @@
     "description" : "Generated server url"
   } ],
   "tags" : [ {
+    "name" : "account-deletion",
+    "description" : "Self-service GDPR/CCPA account and data deletion."
+  }, {
     "name" : "authentication",
     "description" : "Obtain and refresh the JWT access token. These endpoints are public (no bearer token required)."
   }, {
@@ -2379,6 +2382,20 @@
             "description" : "OK"
           }
         }
+      },
+      "delete" : {
+        "tags" : [ "account-deletion" ],
+        "summary" : "Delete my account and all my data",
+        "description" : "Permanently erases the current user's resumes (files + rows), bio, applications, AI answers, field cache, and the user account.",
+        "operationId" : "deleteMyAccount",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
       }
     },
     "/api/account/reset-password/init" : {
