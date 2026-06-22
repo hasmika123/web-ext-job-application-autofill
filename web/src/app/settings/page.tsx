@@ -3,6 +3,7 @@ import Link from "next/link";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import SignOutButton from "@/components/SignOutButton";
+import DeleteAccountButton from "@/components/DeleteAccountButton";
 
 type Account = {
   login?: string;
@@ -87,6 +88,8 @@ export default async function SettingsPage() {
           </Link>
         </div>
       </section>
+
+      <DeleteAccountButton />
     </main>
   );
 }

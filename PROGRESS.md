@@ -27,11 +27,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ## Current focus
 > **Phase 1 · Task 1.11 — Privacy, deletion & security hardening (pre-launch gate).**
 > Sub-items ✅ DONE: **multi-tenant leak fix** (five raw CRUD controllers ADMIN-locked)
-> and **account/data deletion — backend** (`DELETE /api/account` erases blobs + all rows
-> + user, live-verified). Remaining, ONE per commit: (a) **web "Delete account" button**
-> (confirm → proxy `DELETE /api/account` → clear cookies → redirect) — finishes the
-> deletion path, recommended next; (b) **refresh-token rotation + revocation** (rotate on
-> refresh + a denylist); (c) **privacy disclosure** (policy + Chrome Web Store data-use).
+> and **account/data deletion** (backend `DELETE /api/account` + web Danger-zone button,
+> live-verified end-to-end). Remaining, ONE per commit: (a) **refresh-token rotation +
+> revocation** — rotate the refresh token on every `/api/refresh` and keep a
+> revocation/denylist so a leaked refresh token can be killed (today auth is stateless
+> JWT with no revocation); recommended next. (b) **privacy disclosure** — privacy policy
+> page + Chrome Web Store data-use statement. Read the 1.11 section before starting.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -187,10 +188,10 @@ focused Claude Code session.
     so a basic **"delete my account + all my data"** path (DB rows + R2 blobs) and a
     privacy policy that states retention/deletion are a near-term legal obligation once
     there are real users. Ship a minimal version here; full audit-log/retention tooling
-    is Phase 8.4. *✅ Backend DONE — `DELETE /api/account` erases blobs + all owned rows +
-    the user (`AccountDeletionService`/`AccountDeletionResource`/`AccountDeletionResourceIT`,
-    live-verified). ▶ Remaining: web "Delete account" button (confirm → proxy DELETE →
-    clear cookies → redirect); the privacy-policy text is the separate disclosure sub-item.*
+    is Phase 8.4. *✅ DONE (backend + web) — `DELETE /api/account` erases blobs + all owned
+    rows + the user (`AccountDeletionService`/`Resource`/`IT`); web Danger-zone
+    `DeleteAccountButton` → proxy `DELETE /api/account` → clears cookies → redirect.
+    Live-verified end-to-end. The privacy-policy text is the separate disclosure sub-item.*
   - **Refresh-token rotation + revocation (carve-out, not enterprise).** Today auth is
     stateless access+refresh JWT with no way to revoke a leaked refresh token. Add basic
     **rotation on refresh + a revocation/denylist** (table-stakes for any public auth).
@@ -291,6 +292,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.11 (account/data deletion — web button) · `DELETE /api/account` Next
+  proxy (forwards to Spring, then clears the httpOnly session cookies) + `DeleteAccountButton`
+  (Danger zone on /settings; type-DELETE-to-confirm guard → redirect home). **Live-verified
+  end-to-end via the web layer**: login→upload→proxy DELETE 200 with Set-Cookie expiring
+  both cookies → user-2 rows + MinIO blob gone → re-login 401 → admin untouched.
+  `tsc`+`eslint`+`next build` green. Completes the GDPR/CCPA deletion path (backend+web);
+  only the privacy-policy text remains (separate disclosure sub-item).
 - 2026-06-22 · 1.11 (account/data deletion — backend) · `AccountDeletionService` +
   `DELETE /api/account` (`AccountDeletionResource`): erases the current user's resume
   blobs (object storage), then all their rows (resume/bio/application/ai_answer/
