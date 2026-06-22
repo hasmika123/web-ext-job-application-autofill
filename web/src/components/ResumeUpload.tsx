@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import { parseResume, type ParsedResume } from "@/lib/resume-parse";
 
 function Field({ label, value }: { label: string; value?: string }) {
@@ -13,25 +14,63 @@ function Field({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function labelFromName(name: string): string {
+  return name.replace(/\.[^.]+$/, "").trim() || "Resume";
+}
+
 export default function ResumeUpload() {
-  const [fileName, setFileName] = useState<string | null>(null);
+  const router = useRouter();
+  const [file, setFile] = useState<File | null>(null);
+  const [label, setLabel] = useState("");
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParsedResume | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedLabel, setSavedLabel] = useState<string | null>(null);
 
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    setFile(picked);
+    setLabel(labelFromName(picked.name));
     setParsing(true);
     setError(null);
     setResult(null);
+    setSaveError(null);
+    setSavedLabel(null);
     try {
-      setResult(await parseResume(file));
+      setResult(await parseResume(picked));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't read that file.");
     } finally {
       setParsing(false);
+    }
+  }
+
+  async function onSave() {
+    if (!file || !result) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      form.append("label", label.trim() || labelFromName(file.name));
+      form.append("parsedJson", JSON.stringify(result.structured));
+      const res = await fetch("/api/resumes/upload", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaveError(data.error ?? "Couldn't save the resume.");
+        return;
+      }
+      setSavedLabel(data.label ?? label);
+      setFile(null);
+      setResult(null);
+      router.refresh();
+    } catch {
+      setSaveError("Something went wrong while saving.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -50,7 +89,7 @@ export default function ResumeUpload() {
           onChange={onFile}
           className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-foreground file:px-4 file:py-2 file:text-sm file:font-medium file:text-background hover:file:opacity-90"
         />
-        {fileName && <span className="text-xs text-foreground/50">{fileName}</span>}
+        {file && <span className="text-xs text-foreground/50">{file.name}</span>}
       </label>
 
       {parsing && <p className="text-sm text-foreground/60">Reading your resume…</p>}
@@ -59,12 +98,38 @@ export default function ResumeUpload() {
           {error}
         </p>
       )}
+      {savedLabel && (
+        <p className="rounded-lg border border-green-600/30 bg-green-600/5 px-4 py-3 text-sm text-green-700 dark:text-green-400">
+          Saved “{savedLabel}” to your account.
+        </p>
+      )}
 
       {s && bio && (
         <div className="flex flex-col gap-6">
-          <p className="text-sm text-foreground/60">
-            Review what we detected. (Saving to your account comes next.)
-          </p>
+          <p className="text-sm text-foreground/60">Review what we detected, then save it.</p>
+
+          <div className="flex flex-col gap-3 rounded-xl border border-foreground/15 p-5 sm:flex-row sm:items-end">
+            <label className="flex flex-1 flex-col gap-1 text-sm font-medium">
+              Resume name
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                className="rounded-lg border border-foreground/20 bg-transparent px-3 py-2 text-base outline-none focus:border-foreground/50"
+              />
+            </label>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save to my account"}
+            </button>
+          </div>
+          {saveError && (
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+              {saveError}
+            </p>
+          )}
 
           <section className="rounded-xl border border-foreground/15 p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
