@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import SignOutButton from "@/components/SignOutButton";
@@ -67,8 +68,24 @@ export default async function SettingsPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-dashed border-foreground/20 p-5 text-sm text-foreground/60">
-        Resume upload, review, and your bio editor are coming next.
+      <section className="flex flex-col gap-3 rounded-xl border border-foreground/15 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
+          Manage
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/profile"
+            className="rounded-full border border-foreground/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/5"
+          >
+            Edit profile
+          </Link>
+          <Link
+            href="/resumes"
+            className="rounded-full border border-foreground/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/5"
+          >
+            Resumes
+          </Link>
+        </div>
       </section>
     </main>
   );

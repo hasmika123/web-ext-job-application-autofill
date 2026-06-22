@@ -25,12 +25,15 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 1 · Task 1.10d — Resume upload+review+archive + bio editor.** (1.10a–c done:
-> shared `parser-core`, Next scaffold, cookie auth.) Build the resume UI on the
-> **locked Option A** design — parse in-browser via `parser-core`, then proxy file +
-> parsed JSON through a Next route handler to the Spring upload endpoint (R2/MinIO).
-> This is permanent (web runs as a `next start` container, no serverless body limit);
-> stream the upload and cap it at ~10MB. Then 1.11 (privacy/deletion/security gate).
+> **Phase 1 · Task 1.11 — Privacy, deletion & security hardening (pre-launch gate).**
+> 1.10 is complete (web management surface: auth, resume upload/review/save/list/archive,
+> bio editor — all live-verified). 1.11 is the gate before any public release: (1)
+> privacy disclosure, (2) **multi-tenant leak fix** — the generated `/api/bios` +
+> `/api/resumes` controllers are NOT user-scoped (any authed user can read every user's
+> rows); lock down or remove so only `/api/profile`(+`/resumes`) is exposed, (3) basic
+> GDPR/CCPA "delete my account + all my data" (DB rows + R2 blobs), (4) basic
+> refresh-token rotation + revocation. Pick ONE sub-item per commit. Read the 1.11
+> section of ROADMAP.md before starting.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -135,7 +138,7 @@ focused Claude Code session.
   auth flow, the `/api/profile`(+`/resumes`) sync API, the bearer scheme, and the 1.8
   tracking fields (`location`/`externalJobId`/`submissionConfirmed`/`archived` + `DRAFT`),
   and writes the published snapshot to `api/openapi.json`. Full `test`+`integrationTest` green.*
-- [~] **1.10 Web app — management surface.** Next.js: signup/login/settings PLUS
+- [x] **1.10 Web app — management surface.** Next.js: signup/login/settings PLUS
   resume upload+review+archive and bio editor. **First extract `parser.js` into a
   shared module** (it's plain browser JS — pdf.js+mammoth) so the web app parses
   in-browser; the extension imports the same module. Web app = primary product;
@@ -161,7 +164,7 @@ focused Claude Code session.
     green. **Verified live end-to-end** against the running backend: bad-creds→401,
     `user`/`user`→cookies set, `/settings` renders the real account, refresh/logout work,
     unauth `/settings`→307 `/login`.
-  - [ ] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
+  - [x] **1.10d Resume upload+review+archive (imports `parser-core`) + bio editor.**
     **Upload design (PERMANENT): Option A — parse in-browser (web app's own pdf.js+mammoth
     → `parser-core`), then proxy the file + parsed JSON through a Next route handler to the
     existing Spring upload endpoint (R2/MinIO).** This is the final design, not a stopgap:
@@ -284,6 +287,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.10d / 1.10 DONE · bio editor. `PUT /api/profile` proxy + `BioEditor`
+  (contact/identity + work-auth fields, matching the extension's canonical bio keys);
+  `/profile` page server-fetches the bio and seeds the form; cross-surface nav links.
+  Editor **merges over the existing payload** so fields it doesn't manage (extension
+  EEO answers) survive a save. **Live-verified**: page renders seeded bio → edit
+  firstName → save persists, ethnicity+gender preserved, single-bio upsert (no dupes)
+  → unauth 401 → bad-body 400. `tsc`+`eslint`+`next build` green. Completes 1.10 — the
+  web management surface (auth + resumes + bio) is done. Next: 1.11 hardening gate.
 - 2026-06-22 · 1.10d (in progress) · resume list + archive. Backend: `updateResume`
   is now a partial/PATCH-like update (null field = leave as-is) and honors `archived`,
   so a single-flag toggle can't wipe label/parsedJson; new `ProfileResourceIT` case

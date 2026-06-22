@@ -28,12 +28,20 @@ export default async function ResumesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Resumes</h1>
           <p className="mt-1 text-sm text-foreground/60">Upload, review, and manage your resumes.</p>
         </div>
-        <Link
-          href="/settings"
-          className="rounded-full border border-foreground/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/5"
-        >
-          Account
-        </Link>
+        <nav className="flex gap-2">
+          <Link
+            href="/profile"
+            className="rounded-full border border-foreground/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/5"
+          >
+            Profile
+          </Link>
+          <Link
+            href="/settings"
+            className="rounded-full border border-foreground/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/5"
+          >
+            Account
+          </Link>
+        </nav>
       </header>
 
       <ResumeUpload />
