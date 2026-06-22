@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.UserRepository;
@@ -43,7 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class BioResourceIT {
 
     private static final String DEFAULT_PAYLOAD = "AAAAAAAAAA";

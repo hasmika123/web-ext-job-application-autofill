@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.repository.ResumeRepository;
+import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.ResumeService;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.web.rest.errors.BadRequestAlertException;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -29,6 +31,12 @@ import tech.jhipster.web.util.ResponseUtil;
  */
 @RestController
 @RequestMapping("/api/resumes")
+// SECURITY (1.11 multi-tenant leak fix): this generated entity CRUD is NOT user-scoped —
+// it would let any authenticated user read or modify every user's rows. The product's
+// real surface is the user-scoped /api/profile/resumes API (and the owner-scoped
+// ResumeFileResource at /api/resumes/{id}/file, a separate class); this raw CRUD is
+// locked to ADMIN.
+@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
 public class ResumeResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(ResumeResource.class);

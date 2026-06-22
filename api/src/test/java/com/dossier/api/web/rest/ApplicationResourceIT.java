@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
@@ -46,7 +47,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ApplicationResourceIT {
 
     private static final String DEFAULT_COMPANY = "AAAAAAAAAA";

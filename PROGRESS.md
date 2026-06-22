@@ -26,14 +26,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 
 ## Current focus
 > **Phase 1 · Task 1.11 — Privacy, deletion & security hardening (pre-launch gate).**
-> 1.10 is complete (web management surface: auth, resume upload/review/save/list/archive,
-> bio editor — all live-verified). 1.11 is the gate before any public release: (1)
-> privacy disclosure, (2) **multi-tenant leak fix** — the generated `/api/bios` +
-> `/api/resumes` controllers are NOT user-scoped (any authed user can read every user's
-> rows); lock down or remove so only `/api/profile`(+`/resumes`) is exposed, (3) basic
-> GDPR/CCPA "delete my account + all my data" (DB rows + R2 blobs), (4) basic
-> refresh-token rotation + revocation. Pick ONE sub-item per commit. Read the 1.11
-> section of ROADMAP.md before starting.
+> Sub-item ✅ DONE: **multi-tenant leak fix** (all five raw entity-CRUD controllers
+> locked to ADMIN; `EntityCrudLockdownIT` proves it). Remaining sub-items, ONE per
+> commit: (a) **GDPR/CCPA "delete my account + all my data"** (DB rows + R2 blobs) —
+> recommended next (highest legal weight once there are users); (b) **refresh-token
+> rotation + revocation** (rotate on refresh + a denylist); (c) **privacy disclosure**
+> (policy + Chrome Web Store data-use). Pick ONE; read the 1.11 section of ROADMAP.md/
+> PROGRESS first.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -178,10 +177,13 @@ focused Claude Code session.
   here must land before any public release.
   - **Privacy disclosure.** New privacy policy + Chrome Web Store data-use disclosure
     to match the cloud model.
-  - **Multi-tenant leak fix (carried from 1.5).** The generated `/api/bios` and
-    `/api/resumes` controllers are NOT user-scoped — any authenticated user can read
-    every user's rows. Lock them down (admin-only or remove) so only the user-scoped
-    `/api/profile`(+`/resumes`) sync API is exposed. **Must not ship public without this.**
+  - ✅ **DONE — Multi-tenant leak fix (carried from 1.5).** The generated `/api/bios`,
+    `/api/resumes`, `/api/applications`, `/api/ai-answers`, `/api/field-caches` CRUD
+    controllers were NOT user-scoped — any authenticated user could read every user's
+    rows. Locked all five to ADMIN via class-level `@PreAuthorize`; the user-scoped
+    `/api/profile`(+`/resumes`) sync API and the owner-scoped `ResumeFileResource`
+    (`/api/resumes/{id}/file`) stay open. New `EntityCrudLockdownIT` asserts USER→403 /
+    ADMIN→200 on all five; generated ITs updated to run as ADMIN. Full suite green.
   - **GDPR/CCPA data deletion (carve-out, not enterprise).** Resumes are sensitive PII,
     so a basic **"delete my account + all my data"** path (DB rows + R2 blobs) and a
     privacy policy that states retention/deletion are a near-term legal obligation once
@@ -287,6 +289,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.11 (multi-tenant leak fix) · the generated entity-CRUD controllers
+  (`/api/bios`, `/api/resumes`, `/api/applications`, `/api/ai-answers`,
+  `/api/field-caches`) were only `.authenticated()` — any user could read every user's
+  rows. Locked all five to ADMIN with class-level `@PreAuthorize`; user-scoped
+  `/api/profile`(+`/resumes`) and owner-scoped `ResumeFileResource` untouched. New
+  `EntityCrudLockdownIT` (USER→403, ADMIN→200); the five generated ITs now run as ADMIN.
+  Full `test`+`integrationTest` green. Backend-only (no version bump).
 - 2026-06-22 · 1.10d / 1.10 DONE · bio editor. `PUT /api/profile` proxy + `BioEditor`
   (contact/identity + work-auth fields, matching the extension's canonical bio keys);
   `/profile` page server-fetches the bio and seeds the form; cross-surface nav links.

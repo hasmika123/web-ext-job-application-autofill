@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.repository.ApplicationRepository;
+import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.ApplicationQueryService;
 import com.dossier.api.service.ApplicationService;
 import com.dossier.api.service.criteria.ApplicationCriteria;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -31,6 +33,10 @@ import tech.jhipster.web.util.ResponseUtil;
  */
 @RestController
 @RequestMapping("/api/applications")
+// SECURITY (1.11 multi-tenant leak fix): this generated entity CRUD is NOT user-scoped —
+// it would let any authenticated user read or modify every user's rows. Locked to ADMIN
+// until the user-scoped applications API lands (Phase 3.0).
+@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
 public class ApplicationResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationResource.class);

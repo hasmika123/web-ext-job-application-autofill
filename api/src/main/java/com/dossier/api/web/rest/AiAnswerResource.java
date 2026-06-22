@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.repository.AiAnswerRepository;
+import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.AiAnswerService;
 import com.dossier.api.service.dto.AiAnswerDTO;
 import com.dossier.api.web.rest.errors.BadRequestAlertException;
@@ -15,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.ResponseUtil;
@@ -24,6 +26,10 @@ import tech.jhipster.web.util.ResponseUtil;
  */
 @RestController
 @RequestMapping("/api/ai-answers")
+// SECURITY (1.11 multi-tenant leak fix): this generated entity CRUD is NOT user-scoped —
+// it would let any authenticated user read or modify every user's rows. Locked to ADMIN
+// until the user-scoped AI-answers cache lands (Phase 5.3).
+@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
 public class AiAnswerResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(AiAnswerResource.class);
