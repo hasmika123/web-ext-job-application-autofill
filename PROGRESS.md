@@ -236,6 +236,13 @@ focused Claude Code session.
 - [ ] **2.2 Pipeline.** GitHub Actions: run `npm test` + backend tests → build →
   deploy backend on merge to `main`.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
+- [ ] **2.4 Email verification (SMTP) — GATE before public signups.** Wire JHipster's
+  existing activation-email flow to a real SMTP provider and add the web activation page,
+  so new signups verify their email and self-activate. **Must ship before opening signups
+  to other users** — until then, accounts are activated manually (no auto-activate; see the
+  locked decision in `CLAUDE.md`). JHipster already generates the activation token + email
+  template, so this is mostly: SMTP config (env), `jhipster.mail.base-url`, and an
+  `/activate` page in the web app.
 
 ## Phase 3 — Application Tracking (the tracker fills itself as you apply)
 
