@@ -1,11 +1,13 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.Resume;
+import com.dossier.api.domain.User;
 import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.ResumeRepository;
+import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import java.util.List;
 import org.slf4j.Logger;
@@ -37,6 +39,8 @@ public class AccountDeletionService {
     private final FieldCacheRepository fieldCacheRepository;
     private final ResumeStorageService storageService;
     private final UserService userService;
+    private final UserRepository userRepository;
+    private final RefreshTokenService refreshTokenService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -45,7 +49,9 @@ public class AccountDeletionService {
         AiAnswerRepository aiAnswerRepository,
         FieldCacheRepository fieldCacheRepository,
         ResumeStorageService storageService,
-        UserService userService
+        UserService userService,
+        UserRepository userRepository,
+        RefreshTokenService refreshTokenService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -54,6 +60,8 @@ public class AccountDeletionService {
         this.fieldCacheRepository = fieldCacheRepository;
         this.storageService = storageService;
         this.userService = userService;
+        this.userRepository = userRepository;
+        this.refreshTokenService = refreshTokenService;
     }
 
     /** Erase the current user's data and account. Idempotent per session: a second call
@@ -80,6 +88,9 @@ public class AccountDeletionService {
         applicationRepository.deleteAll(applicationRepository.findByUserIsCurrentUser());
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserIsCurrentUser());
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserIsCurrentUser());
+        // Refresh tokens are keyed by user id (the FK also cascades on user delete, but
+        // remove them explicitly so the erasure is deterministic and self-contained).
+        userRepository.findOneByLogin(login).map(User::getId).ifPresent(refreshTokenService::deleteAllForUser);
         userService.deleteUser(login);
 
         LOG.info("Deleted account and all data for user: {}", login);

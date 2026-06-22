@@ -8,6 +8,7 @@ import static com.dossier.api.security.SecurityUtils.TOKEN_TYPE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.dossier.api.security.DomainUserDetailsService.UserWithId;
+import com.dossier.api.service.RefreshTokenService;
 import com.dossier.api.web.rest.vm.LoginVM;
 import com.dossier.api.web.rest.vm.RefreshVM;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,14 +71,18 @@ public class AuthenticateController {
 
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
+    private final RefreshTokenService refreshTokenService;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
-        AuthenticationManagerBuilder authenticationManagerBuilder
+        AuthenticationManagerBuilder authenticationManagerBuilder,
+        RefreshTokenService refreshTokenService
     ) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokenDecoder = refreshTokenDecoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Operation(
@@ -96,8 +102,20 @@ public class AuthenticateController {
         String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
         Long userId = authentication.getPrincipal() instanceof UserWithId user ? user.getId() : null;
 
-        String accessToken = buildToken(authentication.getName(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds);
-        String refreshToken = buildToken(authentication.getName(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds);
+        String accessToken = buildToken(authentication.getName(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        // New login starts a new rotation family. The refresh token carries a jti recorded
+        // server-side so it can be rotated and revoked.
+        String family = UUID.randomUUID().toString();
+        String refreshJti = UUID.randomUUID().toString();
+        refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
+        String refreshToken = buildToken(
+            authentication.getName(),
+            authorities,
+            userId,
+            REFRESH_TOKEN_TYPE,
+            refreshTokenValidityInSeconds,
+            refreshJti
+        );
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -113,8 +131,10 @@ public class AuthenticateController {
      */
     @Operation(
         summary = "Refresh the access token",
-        description = "Exchange a valid refresh token for a fresh access token. Returns 401 if the token is missing, " +
-        "expired, tampered, or is not a refresh token. The refresh token itself stays valid until it expires."
+        description = "Exchange a valid refresh token for a fresh access token AND a fresh refresh token (rotation). " +
+        "The presented refresh token is revoked; reusing it later revokes the whole token family. Returns 401 if the " +
+        "token is missing, expired, tampered, already used, revoked, or is not a refresh token. Clients MUST store the " +
+        "returned refresh token."
     )
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshVM refreshVM) {
@@ -130,14 +150,45 @@ public class AuthenticateController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
+        // Rotate: spend the presented token and continue its family. Unknown / already-used
+        // (reuse) / expired tokens are rejected (reuse also revokes the family).
+        var family = refreshTokenService.rotateAndGetFamily(jwt.getId());
+        if (family.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
         String authorities = jwt.getClaimAsString(AUTHORITIES_CLAIM);
         Object rawUserId = jwt.getClaim(USER_ID_CLAIM);
         Long userId = rawUserId instanceof Number n ? n.longValue() : null;
 
-        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds);
+        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        String newRefreshJti = UUID.randomUUID().toString();
+        refreshTokenService.record(newRefreshJti, family.get(), userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
+        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti);
+
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
-        return new ResponseEntity<>(new TokenResponse(accessToken, null), httpHeaders, HttpStatus.OK);
+        return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
+    }
+
+    /**
+     * {@code POST /logout} : revoke the supplied refresh token's family so it can no longer
+     * be used to mint access tokens. Best-effort and idempotent — an invalid or already-gone
+     * token still returns {@code 200} (nothing to leak, nothing to revoke).
+     */
+    @Operation(
+        summary = "Log out (revoke refresh token)",
+        description = "Revoke the supplied refresh token (and its rotation family) server-side. Always returns 200."
+    )
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshVM refreshVM) {
+        try {
+            Jwt jwt = refreshTokenDecoder.decode(refreshVM.getRefreshToken());
+            refreshTokenService.revokeByJti(jwt.getId());
+        } catch (JwtException e) {
+            LOG.debug("Logout with an unusable refresh token (ignored): {}", e.getMessage());
+        }
+        return ResponseEntity.ok().build();
     }
 
     /**
@@ -153,7 +204,7 @@ public class AuthenticateController {
         return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.NO_CONTENT).build();
     }
 
-    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds) {
+    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti) {
         Instant now = Instant.now();
         Instant validity = now.plus(validityInSeconds, ChronoUnit.SECONDS);
 
@@ -166,6 +217,9 @@ public class AuthenticateController {
             .claim(TOKEN_TYPE_CLAIM, tokenType);
         if (userId != null) {
             builder.claim(USER_ID_CLAIM, userId);
+        }
+        if (jti != null) {
+            builder.id(jti); // standard "jti" claim — recorded for rotation/revocation
         }
         // @formatter:on
 

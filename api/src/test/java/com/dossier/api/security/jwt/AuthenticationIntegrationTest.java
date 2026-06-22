@@ -27,6 +27,7 @@ import tech.jhipster.config.JHipsterProperties;
         SecurityMetersService.class,
         AuthenticateController.class,
         JwtAuthenticationTestUtils.class,
+        RefreshTokenTestConfig.class,
     }
 )
 public @interface AuthenticationIntegrationTest {

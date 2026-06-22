@@ -1119,7 +1119,7 @@
       "post" : {
         "tags" : [ "authentication" ],
         "summary" : "Refresh the access token",
-        "description" : "Exchange a valid refresh token for a fresh access token. Returns 401 if the token is missing, expired, tampered, or is not a refresh token. The refresh token itself stays valid until it expires.",
+        "description" : "Exchange a valid refresh token for a fresh access token AND a fresh refresh token (rotation). The presented refresh token is revoked; reusing it later revokes the whole token family. Returns 401 if the token is missing, expired, tampered, already used, revoked, or is not a refresh token. Clients MUST store the returned refresh token.",
         "operationId" : "refresh",
         "requestBody" : {
           "content" : {
@@ -1200,6 +1200,29 @@
         "security" : [ {
           "bearer-jwt" : [ ]
         } ]
+      }
+    },
+    "/api/logout" : {
+      "post" : {
+        "tags" : [ "authentication" ],
+        "summary" : "Log out (revoke refresh token)",
+        "description" : "Revoke the supplied refresh token (and its rotation family) server-side. Always returns 200.",
+        "operationId" : "logout",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshVM"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
       }
     },
     "/api/field-caches" : {

@@ -28,12 +28,13 @@ export async function POST() {
     return Response.json({ error: "Session expired." }, { status: 401 });
   }
 
-  const data = (await res.json()) as { accessToken?: string };
+  const data = (await res.json()) as { accessToken?: string; refreshToken?: string };
   if (!data.accessToken) {
     return Response.json({ error: "Unexpected response from the server." }, { status: 502 });
   }
 
-  // Keep the existing refresh token; only the access token rotates.
-  await setAuthCookies(data.accessToken, refreshToken);
+  // The server ROTATES the refresh token on every refresh, so store the new one when
+  // present (the old one is now revoked); fall back to the existing one defensively.
+  await setAuthCookies(data.accessToken, data.refreshToken ?? refreshToken);
   return Response.json({ ok: true });
 }

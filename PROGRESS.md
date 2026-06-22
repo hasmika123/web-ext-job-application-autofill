@@ -26,13 +26,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 
 ## Current focus
 > **Phase 1 · Task 1.11 — Privacy, deletion & security hardening (pre-launch gate).**
-> Sub-items ✅ DONE: **multi-tenant leak fix** (five raw CRUD controllers ADMIN-locked)
-> and **account/data deletion** (backend `DELETE /api/account` + web Danger-zone button,
-> live-verified end-to-end). Remaining, ONE per commit: (a) **refresh-token rotation +
-> revocation** — rotate the refresh token on every `/api/refresh` and keep a
-> revocation/denylist so a leaked refresh token can be killed (today auth is stateless
-> JWT with no revocation); recommended next. (b) **privacy disclosure** — privacy policy
-> page + Chrome Web Store data-use statement. Read the 1.11 section before starting.
+> Sub-items ✅ DONE: **multi-tenant leak fix**, **account/data deletion** (backend + web),
+> and **refresh-token rotation + revocation** (denylist + rotation + reuse-detection +
+> logout/deletion revoke; web + extension persist rotated tokens; live-verified).
+> Remaining 1.11 sub-item: **privacy disclosure** — a privacy policy page (web) stating
+> what data is collected + retention/deletion, and a Chrome Web Store data-use statement.
+> That's the LAST item before 1.11 / Phase 1 is complete; then Phase 2 (deployment).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -192,10 +191,12 @@ focused Claude Code session.
     rows + the user (`AccountDeletionService`/`Resource`/`IT`); web Danger-zone
     `DeleteAccountButton` → proxy `DELETE /api/account` → clears cookies → redirect.
     Live-verified end-to-end. The privacy-policy text is the separate disclosure sub-item.*
-  - **Refresh-token rotation + revocation (carve-out, not enterprise).** Today auth is
-    stateless access+refresh JWT with no way to revoke a leaked refresh token. Add basic
-    **rotation on refresh + a revocation/denylist** (table-stakes for any public auth).
-    Fuller session control (forced logout everywhere, device list) is Phase 8.3.
+  - ✅ **DONE — Refresh-token rotation + revocation (carve-out, not enterprise).** Added a
+    `refresh_token` denylist: tokens carry a `jti`, `/api/refresh` rotates (spent token →
+    fresh one in the same family) with reuse-detection (replay revokes the family),
+    `POST /api/logout` revokes, account deletion clears tokens. Web + extension clients
+    persist the rotated token. Live-verified. Fuller session control (forced logout
+    everywhere, device list) is Phase 8.3.
   - **Forward notes (cheap now, save a rewrite later):** (1) funnel all data access
     through a single "current principal" abstraction so adding org/tenant scoping in
     Phase 8.2 isn't a table-by-table retrofit; (2) move secrets to the host's secret
@@ -292,6 +293,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 1.11 (refresh-token rotation + revocation) · auth was stateless JWT with no
+  revocation. Added a `refresh_token` denylist (migration + `RefreshToken`/repo/
+  `RefreshTokenService`): refresh tokens carry a `jti`; `/api/refresh` now ROTATES (spends
+  the presented token, issues a fresh one in the same family) with **reuse detection**
+  (replaying a spent token revokes the whole family); new `POST /api/logout` revokes; account
+  deletion clears tokens. Clients updated to persist the rotated token: web refresh/logout
+  routes + extension `tracking.js` (logout calls `/api/logout`); ext v0.11.0. New
+  `RefreshTokenRotationIT` (+deletion/refresh ITs updated, sliced auth test gets a mock
+  service). **Live-verified via web**: refresh rotates the cookie → old token 401 → reuse
+  revokes the family → logout revokes. Full backend suite + web build + 24 ext tests green.
 - 2026-06-22 · 1.11 (account/data deletion — web button) · `DELETE /api/account` Next
   proxy (forwards to Spring, then clears the httpOnly session cookies) + `DeleteAccountButton`
   (Danger zone on /settings; type-DELETE-to-confirm guard → redirect home). **Live-verified

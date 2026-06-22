@@ -76,16 +76,18 @@ function mockFetch(handler) {
   let firstProfileHit = true;
   const fetch401 = mockFetch((c) => {
     if (c.path === "/api/profile/resumes" && firstProfileHit) { firstProfileHit = false; return { status: 401 }; }
-    if (c.path === "/api/refresh") return { status: 200, json: { accessToken: "ACC2" } };
+    if (c.path === "/api/refresh") return { status: 200, json: { accessToken: "ACC2", refreshToken: "REF2" } };
     if (c.path === "/api/profile/resumes") return { status: 200, json: [{ id: 1, label: "R", parsedJson: "{}", status: "NEEDS_REVIEW" }] };
     return { status: 404 };
   });
-  const pRetry = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetch401, tokenStore: T.memoryTokenStore({ access: "OLD", refresh: "REF" }) });
+  const retryStore = T.memoryTokenStore({ access: "OLD", refresh: "REF" });
+  const pRetry = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetch401, tokenStore: retryStore });
   const resumes = await pRetry.listResumes();
   ok("listResumes recovers after 401->refresh->retry", resumes.length === 1 && resumes[0].serverId === 1);
   ok("refresh endpoint was called", fetch401.calls.some((c) => c.path === "/api/refresh"));
   const retried = fetch401.calls.filter((c) => c.path === "/api/profile/resumes");
   ok("original request retried with new token", retried.length === 2 && retried[1].headers["Authorization"] === "Bearer ACC2");
+  ok("refresh rotation stores the new refresh token", retryStore.get().refresh === "REF2");
 
   /* ---- pushResume: POST when new, PUT when it has a serverId ---- */
   const fetchRes = mockFetch((c) => ({ status: c.method === "POST" ? 201 : 200, json: { id: c.method === "POST" ? 9 : 9, label: c.body.label, parsedJson: c.body.parsedJson, status: c.body.status } }));
@@ -97,10 +99,11 @@ function mockFetch(handler) {
 
   /* ---- deleteResume / logout ---- */
   const fetchDel = mockFetch(() => ({ status: 204 }));
-  const pDel = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchDel, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pDel = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchDel, tokenStore: T.memoryTokenStore({ access: "A", refresh: "RDEL" }) });
   ok("deleteResume DELETEs /{id}", (await pDel.deleteResume(7)) === true && fetchDel.calls[0].method === "DELETE" && fetchDel.calls[0].path === "/api/profile/resumes/7");
   await pDel.logout();
   ok("logout clears tokens", (await pDel.isAuthenticated()) === false);
+  ok("logout revokes the refresh token server-side", fetchDel.calls.some((c) => c.path === "/api/logout" && c.body && c.body.refreshToken === "RDEL"));
 
   /* ---- deferred endpoints fail loudly ---- */
   let appThrew = false; try { await pDel.pushApplication({}); } catch (e) { appThrew = e.name === "NotSupportedError"; }

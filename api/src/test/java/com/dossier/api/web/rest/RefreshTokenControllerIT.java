@@ -76,8 +76,9 @@ class RefreshTokenControllerIT {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").isString())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
-            // refresh returns only a new access token, no new refresh token
-            .andExpect(jsonPath("$.refreshToken").doesNotExist())
+            // rotation: refresh now also returns a fresh refresh token (the old one is spent)
+            .andExpect(jsonPath("$.refreshToken").isString())
+            .andExpect(jsonPath("$.refreshToken").isNotEmpty())
             .andReturn()
             .getResponse()
             .getContentAsString();

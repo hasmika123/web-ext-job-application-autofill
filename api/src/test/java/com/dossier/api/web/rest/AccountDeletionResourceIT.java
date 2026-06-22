@@ -9,6 +9,7 @@ import com.dossier.api.domain.AiAnswer;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.FieldCache;
+import com.dossier.api.domain.RefreshToken;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
@@ -17,6 +18,7 @@ import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.FieldCacheRepository;
+import com.dossier.api.repository.RefreshTokenRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import java.time.Instant;
@@ -58,12 +60,23 @@ class AccountDeletionResourceIT {
     @Autowired
     private FieldCacheRepository fieldCacheRepository;
 
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
     @Test
     @Transactional
     @WithMockUser(username = "user")
     void deletesAllOwnedDataAndTheAccount() throws Exception {
         User user = userRepository.findOneByLogin("user").orElseThrow();
         Instant now = Instant.ofEpochMilli(0);
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setJti("jti-del-test");
+        refreshToken.setFamilyId("fam-del-test");
+        refreshToken.setUserId(user.getId());
+        refreshToken.setExpiresAt(now.plusSeconds(86400));
+        refreshToken.setCreatedAt(now);
+        refreshTokenRepository.saveAndFlush(refreshToken);
 
         Bio bio = new Bio().payload("{}").updatedAt(now);
         bio.setUser(user);
@@ -99,5 +112,6 @@ class AccountDeletionResourceIT {
         assertThat(applicationRepository.findById(app.getId())).isEmpty();
         assertThat(aiAnswerRepository.findById(ai.getId())).isEmpty();
         assertThat(fieldCacheRepository.findById(fc.getId())).isEmpty();
+        assertThat(refreshTokenRepository.findByJti("jti-del-test")).isEmpty();
     }
 }

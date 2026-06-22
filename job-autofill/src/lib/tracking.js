@@ -175,7 +175,9 @@
       const res = await rawRequest("POST", "/api/refresh", { body: { refreshToken: t.refresh } });
       if (!res.ok) { await setTokens({}); return false; }
       const json = await parse(res);
-      await setTokens({ access: json.accessToken, refresh: t.refresh });
+      // The server rotates the refresh token on every refresh — store the new one (the
+      // old one is now revoked); fall back to the current one if none is returned.
+      await setTokens({ access: json.accessToken, refresh: json.refreshToken || t.refresh });
       return true;
     }
 
@@ -204,7 +206,14 @@
         return (await tokens()).access;
       },
 
-      async logout() { await setTokens({}); },
+      async logout() {
+        // Revoke the refresh token server-side (best-effort) so it can't be replayed.
+        const t = await tokens();
+        if (t.refresh) {
+          try { await rawRequest("POST", "/api/logout", { body: { refreshToken: t.refresh } }); } catch (e) { /* best-effort */ }
+        }
+        await setTokens({});
+      },
 
       async pullProfile() {
         const t = await tokens();
