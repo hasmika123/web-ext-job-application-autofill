@@ -12,9 +12,15 @@
 }
 
 # Web app (the browser-facing product).
-app.{$SSLIP_HOST} {
+# Canonical app on the BARE domain (kiwiply.com). www + app 301-redirect here so logins
+# and cookies live on one origin.
+{$SSLIP_HOST} {
 	encode gzip
 	reverse_proxy web:3000
+}
+
+www.{$SSLIP_HOST}, app.{$SSLIP_HOST} {
+	redir https://{$SSLIP_HOST}{uri} permanent
 }
 
 # API (the browser extension and the web's server-side proxy both reach Spring here; the
