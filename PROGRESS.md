@@ -25,14 +25,15 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 2 · Task 2.4 — Email verification (SMTP).** Phase 2 deployment/CI is done: 2.1 LIVE
-> on the IONOS VPS; **2.2 CI/CD fully ACTIVE** (merge to `main` → build → GHCR → VPS auto-pull,
-> verified hands-off); 2.3 extension auto-publish scaffolded + gated. 2.4 = wire JHipster's
-> activation-email flow to a real SMTP provider + a web `/activate` page so new signups verify
-> their email and self-activate. **The gate before opening signups to the public** (until then,
-> accounts are activated manually — no auto-activate; locked decision in `CLAUDE.md`). Mostly:
-> SMTP env config + `jhipster.mail.base-url` + the `/activate` page. Read the Phase 2 / 2.4 notes
-> before starting; needs an SMTP provider (the user's to choose/create).
+> **Phase 3 · Task 3.0 — Applications API + provider methods.** 🎉 **Phase 2 is COMPLETE** —
+> the product is LIVE on the IONOS VPS with hands-off CI/CD (merge→deploy), extension publish
+> scaffolded, and email verification wired (Brevo, code-complete + prod-boot-verified; the user
+> adds Brevo creds to go live with it). Phase 3 = the self-populating application tracker. 3.0 =
+> user-scoped `/api/applications` CRUD (upsert keyed on `externalJobId`/`jobUrl`) + implement
+> `pushApplication`/`listApplications`/`updateApplication` in the extension's `tracking.js`
+> (currently they throw `NotSupportedError`). Read the **Phase 3** section of ROADMAP.md +
+> the pinned 3.2 decision before starting. NOTE: still on `phase-2` branch — consider a
+> `phase-2`→`main` merge (lands 2.2 docs/2.3/2.4 + activates 2.3's button) before starting Phase 3.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -247,13 +248,15 @@ focused Claude Code session.
   an `ext-v*` tag; runs the extension test suite as a gate. **Gated/dormant** (`vars.PUBLISH_EXTENSION`
   + `CWS_*` secrets) — the first listing must be uploaded by hand (CWS API only *updates*), then
   automated updates flip on. Setup in `DEPLOY.md` §8. No extension code change (no version bump).
-- [ ] **2.4 Email verification (SMTP) — GATE before public signups.** Wire JHipster's
-  existing activation-email flow to a real SMTP provider and add the web activation page,
-  so new signups verify their email and self-activate. **Must ship before opening signups
-  to other users** — until then, accounts are activated manually (no auto-activate; see the
-  locked decision in `CLAUDE.md`). JHipster already generates the activation token + email
-  template, so this is mostly: SMTP config (env), `jhipster.mail.base-url`, and an
-  `/activate` page in the web app.
+- [x] **2.4 Email verification (SMTP) — GATE before public signups.** Wired JHipster's
+  activation-email flow to env-driven SMTP (**Brevo** now, provider-agnostic via `MAIL_*`):
+  prod `spring.mail.*` + `jhipster.mail.{base-url,from}`, with `MAIL_BASE_URL` auto-derived to
+  `https://app.<SSLIP_HOST>` so the activation link points at the web app. Added the web
+  **`/account/activate`** page (reads `?key=`, calls public `GET /api/activate`, shows
+  verified/invalid). Signup UX already showed "check your email". `.env.example` + compose +
+  `DEPLOY.md` §9 (Brevo setup). **Verified:** web build green; **prod profile boots with the
+  mail config** (no YAML/binding error → safe to auto-deploy). Live email round-trip pending
+  the user's Brevo creds. No auto-activate (locked decision). **Completes Phase 2.**
 
 ## Phase 3 — Application Tracking (the tracker fills itself as you apply)
 
@@ -325,6 +328,11 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 2.4 (email verification) — **completes Phase 2** · env-driven SMTP (Brevo, swappable):
+  prod `spring.mail.*` + `jhipster.mail.{base-url,from}`; `MAIL_BASE_URL` auto-derives to the web
+  app so activation links land on the new `/account/activate` page (calls `GET /api/activate`).
+  `.env.example` + compose `MAIL_*` + `DEPLOY.md` §9. Web build green; **prod jar boots with the
+  mail config** (verified before it can auto-deploy). Live email test pending user's Brevo creds.
 - 2026-06-23 · 2.2 auto-deploy ACTIVATED + 2.3 scaffolded · Walked the user through enabling
   auto-deploy (deploy SSH key on the VPS, `VPS_*` secrets, packages public, `DEPLOY_ENABLED`);
   merged phase-2→main and ran Deploy — **build→GHCR→VPS pull succeeded hands-off**, site verified
