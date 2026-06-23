@@ -38,10 +38,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > (extension prod-ready; **waiting on Google dev-account verification**, then first manual listing
 > + review, then wire `CWS_*` secrets — see `DEPLOY.md` §8).
 >
-> *3.2 live-test note:* the SW auto-log + submission-detection wiring (webNavigation, importScripts,
-> messaging) is pure-logic-tested in jsdom but **not yet exercised against a live ATS** — worth a
-> manual end-to-end pass (sign in → fill a real job → confirm a DRAFT appears, then submit → APPLIED)
-> when convenient. Requires loading the unpacked extension + a signed-in account.
+> *3.2 live-test: PASSED (2026-06-23).* Smoke-tested end-to-end against a local phase-3 backend +
+> the unpacked extension on a real ATS: fill → **DRAFT** logged (verified via the SW console), then
+> a confirmation-URL navigation → flipped to **APPLIED**. The SW `importScripts`/messaging/
+> webNavigation glue all work live. Surfaced + fixed the stale-resume-link hardening (v0.15.1).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -320,8 +320,10 @@ focused Claude Code session.
   URL) or the content `submit-detect.js` watcher (`JAF_SUBMIT_DETECTED`, in-page
   confirmation copy). Best-effort/silent (no backend/sign-in ⇒ no-op); 30-min confirm
   window; tab-close cleanup. popup threads the resume `{serverId,label}`. SW
-  `importScripts` tracking/sync/app-tracking. 27 jsdom tests. ext v0.15.0. **SW/
-  webNavigation wiring not yet live-tested against a real ATS** (pure logic is).*
+  `importScripts` tracking/sync/app-tracking. 31 jsdom tests. ext v0.15.1 (incl. a
+  hardening fix: the auto-log retries without the resume link if a stale serverId 404s,
+  so a fill always logs). **Live smoke-tested end-to-end on a real ATS (2026-06-23):
+  fill → DRAFT, confirmation nav → APPLIED — passed.***
 - [ ] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
   chain (no resume attached).
 - [ ] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
@@ -378,8 +380,10 @@ focused Claude Code session.
   `webNavigation.onCompleted` (success URL) or content `submit-detect.js` (`JAF_SUBMIT_DETECTED`,
   in-page confirmation copy). Best-effort/silent (no backend/sign-in ⇒ no-op); 30-min window;
   tab-close cleanup. popup threads resume `{serverId,label}`; SW `importScripts` tracking/sync/
-  app-tracking. 27 jsdom tests; full extension suite green. ext v0.15.0. SW/webNavigation wiring
-  not yet live-tested on a real ATS (pure logic is). **No auto-submit** — detection only.
+  app-tracking. 31 jsdom tests; full extension suite green. ext v0.15.1. **Live smoke-tested
+  end-to-end on a real ATS (fill → DRAFT → confirmation → APPLIED) — passed**; that pass surfaced
+  a hardening fix (auto-log retries without the resume link if a stale serverId 404s). **No
+  auto-submit** — detection only.
 - 2026-06-23 · 3.1 (job-detail capture chain) · `src/lib/job-capture.js` (`JAF.jobCapture`):
   canonical `JobCapture` via JSON-LD (`schema.org/JobPosting` — title/org/location/description/
   identifier; `@graph` + array `@type` + PropertyValue ids, HTML stripped) → per-adapter
