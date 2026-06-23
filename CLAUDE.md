@@ -52,12 +52,14 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Pre-launch gate (1.11):** multi-tenant leak fix + basic GDPR/CCPA account/data
   deletion + basic refresh-token rotation/revocation. Fuller SSO/multi-tenancy/audit
   = Phase 8.
-- **Deployed LIVE** on a self-managed **IONOS VPS** (Docker Compose + Caddy/sslip.io +
-  **AWS S3**, not R2). Deploy/ops in `DEPLOY.md`; URLs + gotchas in the `live-deployment`
-  memory. Deploy artifacts target this VPS, not a PaaS.
-- **Email verification (SMTP) is the gate before PUBLIC signups — do NOT auto-activate.**
-  JHipster registers users `activated=0`; with no SMTP yet, accounts are activated manually
-  for testing. Wire real email verification before opening signups to the public.
+- **Deployed LIVE** on a self-managed **IONOS VPS** (Docker Compose + Caddy + **AWS S3**, not
+  R2). Domain **kiwiply.com** (Cloudflare DNS, grey-cloud; apex canonical, www/app 301 to it;
+  API at api.kiwiply.com). **CI/CD auto-deploys on merge to `main`** (build → GHCR → VPS pull).
+  Deploy/ops in `DEPLOY.md`; URLs + gotchas in the `live-deployment` memory. Targets this VPS,
+  not a PaaS.
+- **Email verification is LIVE** (Brevo SMTP, sends from **no-reply@kiwiply.com**; domain
+  authenticated). Signups self-activate via the emailed link → web `/account/activate`.
+  **Still no auto-activate** — verification is the gate, kept that way by decision.
 
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions

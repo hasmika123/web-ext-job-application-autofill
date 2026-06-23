@@ -25,15 +25,17 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.0 — Applications API + provider methods.** 🎉 **Phase 2 is COMPLETE** —
-> the product is LIVE on the IONOS VPS with hands-off CI/CD (merge→deploy), extension publish
-> scaffolded, and email verification wired (Brevo, code-complete + prod-boot-verified; the user
-> adds Brevo creds to go live with it). Phase 3 = the self-populating application tracker. 3.0 =
-> user-scoped `/api/applications` CRUD (upsert keyed on `externalJobId`/`jobUrl`) + implement
-> `pushApplication`/`listApplications`/`updateApplication` in the extension's `tracking.js`
-> (currently they throw `NotSupportedError`). Read the **Phase 3** section of ROADMAP.md +
-> the pinned 3.2 decision before starting. NOTE: still on `phase-2` branch — consider a
-> `phase-2`→`main` merge (lands 2.2 docs/2.3/2.4 + activates 2.3's button) before starting Phase 3.
+> **Phase 3 · Task 3.0 — Applications API + provider methods.** 🎉 **Phase 2 is COMPLETE and
+> the product is fully LIVE at https://kiwiply.com** — custom domain (Cloudflare DNS, apex
+> canonical), hands-off CI/CD (merge→deploy), email verification working end-to-end (Brevo,
+> from no-reply@kiwiply.com). Only external follow-up: the Chrome Web Store listing (extension is
+> prod-ready v0.12.0 + zip built; **waiting on Google dev-account verification**, then first
+> manual listing + review, then wire the `CWS_*` secrets to flip on auto-publish — see `DEPLOY.md`
+> §8). Phase 3 = the self-populating application tracker. 3.0 = user-scoped `/api/applications`
+> CRUD (upsert keyed on `externalJobId`/`jobUrl`) + implement `pushApplication`/`listApplications`/
+> `updateApplication` in the extension's `tracking.js` (currently throw `NotSupportedError`). Read
+> the **Phase 3** section of ROADMAP.md + the pinned 3.2 decision before starting. Do Phase 3 work
+> on a fresh `phase-3` branch.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -247,7 +249,10 @@ focused Claude Code session.
   build artifact (always), and publishes to the Chrome Web Store when enabled. Trigger: manual or
   an `ext-v*` tag; runs the extension test suite as a gate. **Gated/dormant** (`vars.PUBLISH_EXTENSION`
   + `CWS_*` secrets) — the first listing must be uploaded by hand (CWS API only *updates*), then
-  automated updates flip on. Setup in `DEPLOY.md` §8. No extension code change (no version bump).
+  automated updates flip on. Setup in `DEPLOY.md` §8. Action pinned `@v6.0.0` (the `@v5` moving
+  tag doesn't exist). **Extension prod-prepped (v0.12.0):** defaults to `https://api.kiwiply.com`
+  + host permission. Zip artifact built & verified. **Pending external:** Google dev-account
+  verification → first manual listing → review → set `CWS_*` secrets + `PUBLISH_EXTENSION`.
 - [x] **2.4 Email verification (SMTP) — GATE before public signups.** Wired JHipster's
   activation-email flow to env-driven SMTP (**Brevo** now, provider-agnostic via `MAIL_*`):
   prod `spring.mail.*` + `jhipster.mail.{base-url,from}`, with `MAIL_BASE_URL` auto-derived to
@@ -328,6 +333,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · post-2.4 go-live polish · **Custom domain kiwiply.com** (Cloudflare DNS, grey-cloud;
+  apex canonical, www/app 301; api.kiwiply.com) — replaced sslip.io, all on Let's Encrypt. Fixed a
+  Caddy single-file-bind-mount deploy bug (force-recreate). **Email now sends from no-reply@kiwiply.com**
+  (Brevo domain-authenticated). **Extension v0.12.0 prod-ready** (defaults to api.kiwiply.com + host
+  perm). CWS dev account created (verifying ~1-2 days); publish workflow action pinned `@v6.0.0`; zip
+  artifact built. Docs synced (CLAUDE.md, DEPLOY.md, .env.example, live-deployment memory).
 - 2026-06-23 · 2.4 (email verification) — **completes Phase 2** · env-driven SMTP (Brevo, swappable):
   prod `spring.mail.*` + `jhipster.mail.{base-url,from}`; `MAIL_BASE_URL` auto-derives to the web
   app so activation links land on the new `/account/activate` page (calls `GET /api/activate`).

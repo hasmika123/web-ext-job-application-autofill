@@ -49,8 +49,8 @@ services:
       # CORS is for the browser extension's direct calls. Set to the published extension id
       # at launch, e.g. chrome-extension://<id>.
       - CORS_ALLOWED_ORIGIN_PATTERNS=${CORS_ALLOWED_ORIGIN_PATTERNS:-chrome-extension://*}
-      # Email verification (Brevo SMTP). Activation links point at the web app; default it
-      # from SSLIP_HOST so you don't set it twice (override for a real domain).
+      # Email verification (Brevo SMTP). Activation links point at the canonical web app
+      # (https://<SSLIP_HOST> — SSLIP_HOST holds the base host; prod = kiwiply.com).
       - MAIL_HOST=${MAIL_HOST:-}
       - MAIL_PORT=${MAIL_PORT:-587}
       - MAIL_USERNAME=${MAIL_USERNAME:-}

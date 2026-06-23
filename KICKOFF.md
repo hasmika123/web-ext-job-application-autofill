@@ -28,15 +28,16 @@ Work the **loop** in CLAUDE.md, one task at a time, starting at **Current focus*
 - Tests fail twice in a row on the same task.
 - You'd add a dependency, change the architecture, or deviate from `ROADMAP.md`.
 - You hit a task marked as a decision/gate in `PROGRESS.md`.
-- A step needs a secret or external account I must create (e.g. Neon, R2,
+- A step needs a secret or external account I must create (e.g. AWS S3, Brevo/SMTP,
   Cloudflare, Chrome Web Store, GitHub Actions secrets).
 
 **Guardrails:** no auto-submit, ever · capture real ATS DOM before writing
 selectors · never commit secrets (env only) · server is source of truth, the
 extension store is an offline cache · one task = one commit = one push.
 
-When you reach Phase 1, generate the backend from `dossier.jdl` (the stack is
-already decided in PROGRESS 1.0 — do not pause to re-confirm it).
+Phases 0–2 are already done — the Spring/MySQL backend, the Next.js web app, the
+extension sync layer, and the **live deployment + CI/CD** (kiwiply.com) all exist.
+Pick up from **Current focus** (Phase 3+); don't regenerate or re-decide the stack.
 
 Begin now with the Current focus task. Give me a one-line summary after each
 commit so I can follow along.
