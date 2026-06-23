@@ -25,22 +25,18 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.4 — Web Kanban board + "Did you submit?" nudge.** 3.0–3.3 are done (the
-> tracker's extension + API side: applications API, capture chain, auto-log DRAFT→APPLIED, and
-> save-a-job SAVED). **Next (web app):** a Next.js Kanban board (Draft → Saved → Applied →
-> Interview → Offer → Rejected) reading the user's applications; DRAFT / `submissionConfirmed=false`
-> entries show a "Did you submit?" prompt (Yes = APPLIED, No = keep/drop); manual status edits +
-> dismiss/delete on the board. Needs a web proxy route for `/api/profile/applications` (GET/PUT/
-> DELETE) like the existing resume routes, plus the board UI. **This is web-app work** (`/web`),
-> not the extension. Still on `phase-3`.
+> **Phase 3 · Task 3.5 — Resume archive guard.** 3.0–3.4 done (the tracker is end-to-end: API,
+> capture, auto-log DRAFT→APPLIED, save-a-job, and the web Kanban board). **Next:** deleting a
+> resume that any application references (esp. an APPLIED one) must be **blocked server-side**
+> (referential check) with a **nudge to archive instead** (`archived=true`); archived resumes are
+> hidden from the active picker but keep their tracker links. Enforce in the backend
+> (`ProfileService.deleteResume` → block when an `application.resume_id` references it → 409 + clear
+> message) and surface the nudge in the web resumes UI (the archive button already exists).
+> **Backend + web work.** Still on `phase-3`. **This is the last task in Phase 3.**
 >
-> *Context:* Phase 2 is COMPLETE — product fully LIVE at https://kiwiply.com (custom domain,
-> hands-off CI/CD, email verification). Only external follow-up: the Chrome Web Store listing
-> (extension prod-ready; **waiting on Google dev-account verification**, then first manual listing
-> + review, then wire `CWS_*` secrets — see `DEPLOY.md` §8).
->
-> *Note: phase-3's applications API isn't on prod until `phase-3` merges to `main`* (CI/CD deploys
-> `main`). 3.2 was live smoke-tested against a **local** phase-3 backend (fill → DRAFT → APPLIED, passed).
+> *Context:* Phase 2 is COMPLETE — product LIVE at https://kiwiply.com. **`phase-3` was merged to
+> `main` (2026-06-23)** → 3.0–3.3 auto-deploying to prod (additive, no new migration). The web
+> board (3.4) reaches prod on the next merge. CWS extension listing still pending Google verification.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -330,10 +326,17 @@ focused Claude Code session.
   Generalized `buildApplication(capture,resume,status)` (DRAFT default) + `pushSaved`.
   Works without a resume selected; silent "sign in to save" if no session. 38 jsdom tests;
   full extension suite green. ext v0.16.0.*
-- [ ] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
+- [x] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
   Saved → Applied → Interview → Offer → Rejected). DRAFT / `submissionConfirmed=false`
   entries show a "Did you submit?" prompt → Yes = APPLIED, No = keep/drop. Manual
-  status edits on the board.
+  status edits on the board. *Done: gated `/board` page (server-fetches
+  `/api/profile/applications`) + `ApplicationBoard` client component (6 columns, per-card
+  status `<select>` to move, delete with confirm, and the "Did you submit?" nudge on
+  DRAFT cards → Yes = APPLIED+`submissionConfirmed`+`appliedAt`, Not-yet = dismiss).
+  Mutations via a new `/api/applications/:id` proxy (PUT status/confirm, DELETE; whitelisted
+  fields, owner-scoped 404) → `router.refresh()`. Board nav links added to resumes/profile/
+  settings. `tsc`+`eslint`+`next build` green (`/board` + `/api/applications/[id]` registered).
+  Web-only (no version bump).*
 - [ ] **3.5 Resume archive guard.** Deleting a resume referenced by any application
   (esp. APPLIED) is blocked with a **nudge to archive instead** (`archived=true`);
   archived resumes are hidden from the active picker but keep their tracker links.
@@ -376,6 +379,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · phase-3 → main merge · merged 3.0–3.3 to `main` (no-ff, `b434ffe`) → CI/CD
+  auto-deploys the applications API to prod (additive, no new migration). `phase-3` fast-forwarded
+  to match; 3.4+ continues there.
+- 2026-06-23 · 3.4 (web Kanban board) · gated `/board` (server-fetches the user's applications) +
+  `ApplicationBoard` client component: 6 columns (Draft→Saved→Applied→Interview→Offer→Rejected),
+  per-card status `<select>` move, delete-with-confirm, and the "Did you submit?" nudge on DRAFT
+  cards (Yes → APPLIED + `submissionConfirmed` + `appliedAt`; Not-yet → dismiss). New
+  `/api/applications/:id` proxy (PUT whitelisted status/confirm, DELETE; owner-scoped 404) →
+  `router.refresh()`. Board nav links on resumes/profile/settings. `tsc`+`eslint`+`next build`
+  green. Web-only (no version bump).
 - 2026-06-23 · 3.3 (save-a-job) · popup "Save this job" button → injects content libs → asks the
   top frame for a capture (`JAF_CAPTURE_JOB`) → SW `JAF_SAVE_JOB` → `appTracking.pushSaved` →
   **SAVED** entry (no resume). Generalized `buildApplication(capture,resume,status)` + `pushSaved`;
