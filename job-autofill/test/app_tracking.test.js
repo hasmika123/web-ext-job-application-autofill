@@ -76,6 +76,26 @@ function docWith(text) {
   ok("pushDraft sends a DRAFT with the resume id", p1.calls[0].app.status === "DRAFT" && p1.calls[0].app.resumeId === 7);
   ok("pushDraft returns the saved (server) entry", saved.serverId === 42);
 
+  /* ---- pushDraft retries WITHOUT the resume link on a 404 (stale serverId) ---- */
+  const p404 = {
+    calls: [],
+    async pushApplication(app) {
+      this.calls.push(app);
+      if (app.resumeId != null) { const err = new Error("not found"); err.status = 404; throw err; }
+      return Object.assign({ serverId: 99 }, app);
+    },
+  };
+  const savedAnyway = await A.pushDraft(p404, { company: "Acme", role: "SRE", externalJobId: "JR-2" }, { serverId: 123 });
+  ok("pushDraft first tries with the resume id", p404.calls[0].resumeId === 123);
+  ok("pushDraft retries without the resume id after 404", p404.calls.length === 2 && !("resumeId" in p404.calls[1]));
+  ok("pushDraft still logs the DRAFT (resilient)", savedAnyway.serverId === 99);
+
+  /* ---- pushDraft does NOT swallow a non-link error (e.g. 401) ---- */
+  const p401 = { async pushApplication() { const e = new Error("unauth"); e.status = 401; throw e; } };
+  let threw401 = false;
+  try { await A.pushDraft(p401, { company: "Acme", role: "X" }, { serverId: 5 }); } catch (e) { threw401 = e.status === 401; }
+  ok("pushDraft rethrows a 401 (not a link problem)", threw401);
+
   /* ---- confirmSubmission -> provider.updateApplication APPLIED ---- */
   const p2 = mockProvider();
   await A.confirmSubmission(p2, 42, "2026-06-23T00:00:00.000Z");

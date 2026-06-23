@@ -73,8 +73,20 @@
   }
 
   // --- provider-backed actions (best-effort callers wrap in try/catch) -----
+  // Auto-log the DRAFT. A stale/unsynced resume link (the picked resume's serverId
+  // doesn't resolve on this backend) must not lose the whole entry: on a 4xx that the
+  // resume link could explain, retry once WITHOUT the link. The backend stays strict.
   async function pushDraft(provider, capture, resume) {
-    return provider.pushApplication(buildApplicationDraft(capture, resume));
+    const app = buildApplicationDraft(capture, resume);
+    try {
+      return await provider.pushApplication(app);
+    } catch (e) {
+      const linkMayBeBad = app.resumeId != null && e && (e.status === 404 || e.status === 400);
+      if (!linkMayBeBad) throw e;
+      const noLink = Object.assign({}, app);
+      delete noLink.resumeId;
+      return provider.pushApplication(noLink);
+    }
   }
 
   async function confirmSubmission(provider, serverId, appliedAtIso) {
