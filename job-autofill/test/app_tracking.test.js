@@ -103,6 +103,17 @@ function docWith(text) {
   ok("confirmSubmission updates the right id", c.m === "updateApplication" && c.serverId === 42);
   ok("confirmSubmission sets APPLIED + confirmed + appliedAt", c.changes.status === "APPLIED" && c.changes.submissionConfirmed === true && c.changes.appliedAt === "2026-06-23T00:00:00.000Z");
 
+  /* ---- buildApplication honors the status; pushSaved -> SAVED, no resume (3.3) ---- */
+  ok("buildApplication defaults to DRAFT", A.buildApplication({ company: "A", role: "B" }).status === "DRAFT");
+  ok("buildApplication honors an explicit status", A.buildApplication({ company: "A", role: "B" }, null, "SAVED").status === "SAVED");
+  const pSave = mockProvider();
+  const savedJob = await A.pushSaved(pSave, { company: "Acme", role: "SRE", jobUrl: "https://x.co/j/1", externalJobId: "JR-3" });
+  ok("pushSaved calls pushApplication", pSave.calls[0].m === "pushApplication");
+  ok("pushSaved sends status SAVED", pSave.calls[0].app.status === "SAVED");
+  ok("pushSaved attaches NO resume", !("resumeId" in pSave.calls[0].app));
+  ok("pushSaved carries the captured job fields", pSave.calls[0].app.company === "Acme" && pSave.calls[0].app.externalJobId === "JR-3");
+  ok("pushSaved returns the saved entry", savedJob.serverId === 42);
+
   console.log(`\n[app_tracking] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[app_tracking] All green.");

@@ -25,23 +25,22 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.3 — Save-a-job.** 3.0 (applications API + provider methods), 3.1 (capture
-> chain), and 3.2 (auto-log DRAFT on fill + submission detection → APPLIED) are done. **Next:** a
-> one-click action in the **popup** → create a **SAVED** entry via the same capture chain
-> (`jobCapture.captureJob()` on the active tab → `tracking.pushApplication` with status SAVED, **no
-> resume attached**). The popup already injects the content libs and can ping the tab for a
-> capture, then push via the provider it already loads; or route through the SW like 3.2. Add a
-> "Save this job" button to the popup UI. Tests for the SAVED-entry assembly. Still on `phase-3`.
+> **Phase 3 · Task 3.4 — Web Kanban board + "Did you submit?" nudge.** 3.0–3.3 are done (the
+> tracker's extension + API side: applications API, capture chain, auto-log DRAFT→APPLIED, and
+> save-a-job SAVED). **Next (web app):** a Next.js Kanban board (Draft → Saved → Applied →
+> Interview → Offer → Rejected) reading the user's applications; DRAFT / `submissionConfirmed=false`
+> entries show a "Did you submit?" prompt (Yes = APPLIED, No = keep/drop); manual status edits +
+> dismiss/delete on the board. Needs a web proxy route for `/api/profile/applications` (GET/PUT/
+> DELETE) like the existing resume routes, plus the board UI. **This is web-app work** (`/web`),
+> not the extension. Still on `phase-3`.
 >
 > *Context:* Phase 2 is COMPLETE — product fully LIVE at https://kiwiply.com (custom domain,
 > hands-off CI/CD, email verification). Only external follow-up: the Chrome Web Store listing
 > (extension prod-ready; **waiting on Google dev-account verification**, then first manual listing
 > + review, then wire `CWS_*` secrets — see `DEPLOY.md` §8).
 >
-> *3.2 live-test: PASSED (2026-06-23).* Smoke-tested end-to-end against a local phase-3 backend +
-> the unpacked extension on a real ATS: fill → **DRAFT** logged (verified via the SW console), then
-> a confirmation-URL navigation → flipped to **APPLIED**. The SW `importScripts`/messaging/
-> webNavigation glue all work live. Surfaced + fixed the stale-resume-link hardening (v0.15.1).
+> *Note: phase-3's applications API isn't on prod until `phase-3` merges to `main`* (CI/CD deploys
+> `main`). 3.2 was live smoke-tested against a **local** phase-3 backend (fill → DRAFT → APPLIED, passed).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -324,8 +323,13 @@ focused Claude Code session.
   hardening fix: the auto-log retries without the resume link if a stale serverId 404s,
   so a fill always logs). **Live smoke-tested end-to-end on a real ATS (2026-06-23):
   fill → DRAFT, confirmation nav → APPLIED — passed.***
-- [ ] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
-  chain (no resume attached).
+- [x] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
+  chain (no resume attached). *Done: popup "Save this job" button → injects the content
+  libs, asks the top frame for a capture (`JAF_CAPTURE_JOB` handler in content-script.js)
+  → routes to the SW (`JAF_SAVE_JOB` → `appTracking.pushSaved`, status SAVED, no resume).
+  Generalized `buildApplication(capture,resume,status)` (DRAFT default) + `pushSaved`.
+  Works without a resume selected; silent "sign in to save" if no session. 38 jsdom tests;
+  full extension suite green. ext v0.16.0.*
 - [ ] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
   Saved → Applied → Interview → Offer → Rejected). DRAFT / `submissionConfirmed=false`
   entries show a "Did you submit?" prompt → Yes = APPLIED, No = keep/drop. Manual
@@ -372,6 +376,11 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 3.3 (save-a-job) · popup "Save this job" button → injects content libs → asks the
+  top frame for a capture (`JAF_CAPTURE_JOB`) → SW `JAF_SAVE_JOB` → `appTracking.pushSaved` →
+  **SAVED** entry (no resume). Generalized `buildApplication(capture,resume,status)` + `pushSaved`;
+  popup.css `.ghost` button. Works with no resume selected; silent "sign in to save" otherwise.
+  38 jsdom tests; full suite green. ext v0.16.0.
 - 2026-06-23 · 3.2 (auto-log + submission detection) · `src/lib/app-tracking.js`
   (`JAF.appTracking`, SW-safe): DRAFT assembly (company/role fallbacks so every fill logs),
   `pushDraft`/`confirmSubmission`, conservative `isSuccessUrl`/`hasSuccessSignal`. Fill commit →

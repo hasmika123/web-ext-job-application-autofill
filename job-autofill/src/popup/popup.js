@@ -54,6 +54,7 @@ async function init() {
   sel.onchange = showMeta;
 
   $("fill").onclick = () => doFill(resumes, bio).catch((e) => setStatus(String(e.message || e), true));
+  $("savejob").onclick = () => doSaveJob().catch((e) => setStatus(String(e.message || e), true));
 }
 
 function setStatus(msg, err) {
@@ -149,6 +150,29 @@ async function doFill(resumes, bio) {
     setTimeout(() => window.close(), 1200);
   } else {
     setStatus("Could not open the review panel on this page.", true);
+  }
+}
+
+// Save-a-job (3.3): capture the current page (top frame) and create a SAVED entry via
+// the service worker — no resume attached. Works without a resume selected.
+async function doSaveJob() {
+  setStatus("Reading this job…");
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || /^chrome:|^edge:|^about:/.test(tab.url || "")) return setStatus("Can't read this page.", true);
+
+  await ensureInjected(tab.id);
+  let capResp = null;
+  try { capResp = await sendTo(tab.id, { type: "JAF_CAPTURE_JOB" }, 0); } catch (e) {}
+  if (!capResp || !capResp.capture) return setStatus("Couldn't read job details on this page.", true);
+
+  const res = await chrome.runtime.sendMessage({ type: "JAF_SAVE_JOB", capture: capResp.capture });
+  if (res && res.ok) {
+    const c = capResp.capture;
+    setStatus(`Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}`);
+  } else if (res && res.reason === "not-signed-in") {
+    setStatus("Sign in (Manage → Account) to save jobs.", true);
+  } else {
+    setStatus("Couldn't save this job" + (res && res.reason ? ` (${res.reason})` : "") + ".", true);
   }
 }
 

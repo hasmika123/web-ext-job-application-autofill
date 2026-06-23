@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.15.0, bundled ruleset version 4.
+> Current version: manifest 0.16.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -121,10 +121,14 @@ resume/bio/board management. The extension's tracking jobs:
   (`appTracking.hasSuccessSignal`) and pings `JAF_SUBMIT_DETECTED`. Best-effort + silent
   (no backend/sign-in ⇒ no-op); misses are caught by the web board's "Did you submit?"
   nudge (3.4). **Never auto-submit** — detection only.
-- **Save-a-job** — popup action → **SAVED** entry via the same capture chain.
-- **Provider grows** `updateApplication` + `archiveResume` (deleting a resume that a
-  tracked application references is blocked → nudge to archive). All still behind the
-  one `tracking.js` seam. See `ROADMAP.md` → Phase 3 and `PROGRESS.md` 3.0–3.5.
+- **Save-a-job (DONE, 3.3)** — the popup's "Save this job" button injects the content
+  libs, asks the top frame for a capture (`JAF_CAPTURE_JOB`), and routes it to the SW
+  (`JAF_SAVE_JOB` → `appTracking.pushSaved`) → a **SAVED** entry, no resume attached.
+  Works without a resume selected; silent no-op if not signed in.
+- **Provider** already grew `updateApplication` + `archiveResume` (3.0). The
+  resume-archive guard (block deleting a referenced resume → nudge to archive) is **3.5**.
+  All backend traffic stays behind the one `tracking.js` seam. See `ROADMAP.md` → Phase 3
+  and `PROGRESS.md` 3.0–3.5.
 
 ## Adding a new site adapter
 Copy `src/content/adapters/lever.js`; implement `matches()`, `plan(values)` (return

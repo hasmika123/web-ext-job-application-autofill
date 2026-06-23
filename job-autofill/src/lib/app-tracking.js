@@ -50,10 +50,10 @@
     return SUCCESS_COPY.some((re) => re.test(text));
   }
 
-  // --- draft assembly ------------------------------------------------------
+  // --- application assembly ------------------------------------------------
   // company + roleTitle are required server-side, so fall back to the URL host / a
-  // generic label rather than dropping the log (pinned 3.2: log on EVERY fill).
-  function buildApplicationDraft(capture, resume) {
+  // generic label rather than dropping the entry (pinned 3.2: log on EVERY fill).
+  function buildApplication(capture, resume, status) {
     capture = capture || {};
     let host = "";
     try { host = capture.jobUrl ? new URL(capture.jobUrl).hostname.replace(/^www\./, "") : ""; } catch (e) {}
@@ -65,11 +65,15 @@
       externalJobId: capture.externalJobId,
       atsPlatform: capture.atsPlatform,
       jobDescription: capture.jobDescription,
-      status: "DRAFT",
+      status: status || "DRAFT",
       source: "extension",
     };
     if (resume && resume.serverId != null) app.resumeId = resume.serverId;
     return app;
+  }
+
+  function buildApplicationDraft(capture, resume) {
+    return buildApplication(capture, resume, "DRAFT");
   }
 
   // --- provider-backed actions (best-effort callers wrap in try/catch) -----
@@ -89,6 +93,12 @@
     }
   }
 
+  // Save-a-job (Phase 3.3): a SAVED bookmark entry from the capture chain, no resume
+  // attached. Upserts like everything else (dedup on externalJobId/jobUrl).
+  async function pushSaved(provider, capture) {
+    return provider.pushApplication(buildApplication(capture, null, "SAVED"));
+  }
+
   async function confirmSubmission(provider, serverId, appliedAtIso) {
     return provider.updateApplication(serverId, {
       status: "APPLIED",
@@ -100,8 +110,10 @@
   JAF.appTracking = {
     isSuccessUrl,
     hasSuccessSignal,
+    buildApplication,
     buildApplicationDraft,
     pushDraft,
+    pushSaved,
     confirmSubmission,
     // exposed for tests
     SUCCESS_URL,

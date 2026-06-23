@@ -98,6 +98,17 @@ async function logFill(capture, resume, tabId) {
   }
 }
 
+async function saveJob(capture) {
+  const provider = await trackingProvider();
+  if (!provider) return { ok: false, reason: "not-signed-in" };
+  try {
+    const saved = await self.JAF.appTracking.pushSaved(provider, capture);
+    return { ok: true, serverId: saved && saved.serverId, status: saved && saved.status };
+  } catch (e) {
+    return { ok: false, reason: String((e && e.message) || e) };
+  }
+}
+
 async function confirmForTab(tabId) {
   if (tabId == null) return;
   const pend = await pendGet();
@@ -120,6 +131,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === "JAF_SUBMIT_DETECTED") {
     confirmForTab(tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  if (msg.type === "JAF_SAVE_JOB") {
+    saveJob(msg.capture).then(sendResponse).catch((e) => sendResponse({ ok: false, reason: String(e) }));
     return true; // async
   }
 });
