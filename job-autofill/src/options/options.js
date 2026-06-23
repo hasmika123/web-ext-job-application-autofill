@@ -139,7 +139,7 @@ $("#clear").onclick = async () => {
   const list = await S.getResumes();
   for (const r of list) await S.deleteResume(r.id);
   await S.saveBio(SCH.emptyBio());
-  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "", apiBaseUrl: "" });
+  await S.saveSettings({ llmEnabled: false, apiKey: "", includeEEO: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "", apiBaseUrl: "https://api.kiwiply.com" });
   try { if (acctTokenStore) await acctTokenStore.clear(); } catch (e) {}
   try { await window.JAF.rules.reset(); } catch (e) {}
   await renderAll();
