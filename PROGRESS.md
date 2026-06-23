@@ -25,14 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 2 · Task 2.2 — Pipeline (CI/CD).** 2.1 is done **and DEPLOYED LIVE** on the IONOS
-> VPS (2026-06-22): `https://app.132-148-79-209.sslip.io` (+ `api.` host), real HTTPS via
-> Caddy/Let's Encrypt, resumes in AWS S3 — full chain verified in the browser. 2.2 = GitHub Actions:
-> run the extension `npm test` + the Spring test suite on PRs, build the api/web images, and
-> deploy on merge to `main`. **Deploy target = the IONOS VPS** (SSH in, `git pull` +
-> `docker compose -f docker-compose.prod.yml up -d --build`, or build+push images to a
-> registry then pull) — not a PaaS deploy hook. CI secrets (SSH key, etc.) are the user's to
-> add in GitHub. Read the Phase 2 section of ROADMAP.md before starting.
+> **Phase 2 · Task 2.3 — Extension auto-publish.** 2.1 is LIVE on the IONOS VPS; 2.2 (CI/CD)
+> is built — `ci.yml` (tests, green) + `deploy.yml` (build→GHCR→VPS-pull, gated on the user's
+> `VPS_*` secrets + `DEPLOY_ENABLED`; see `DEPLOY.md` §7). 2.3 = a GitHub Actions workflow that
+> builds + zips the extension and uploads/publishes it via the **Chrome Web Store API** on a
+> tag/release. Needs CWS API creds (client id/secret/refresh token + the extension's app id) as
+> repo secrets — the user's to create once they have a CWS developer account. Read the Phase 2
+> section of ROADMAP.md before starting. NOTE: this can't fully run until the extension has a
+> CWS listing; scaffold the workflow + document the secrets, gate it like the deploy job.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -233,9 +233,22 @@ focused Claude Code session.
   profile, Liquibase migrates, `/management/health` UP reachable web→api over the internal
   network. *Not testable locally (deploy-time): Caddy/Let's Encrypt + a real S3 upload.*
   *Option B (presigned direct-to-R2) stays dropped — Option A (Next-proxied) is permanent.*
-- [ ] **2.2 Pipeline.** GitHub Actions: run `npm test` + backend tests → build →
-  deploy backend on merge to `main`.
+- [x] **2.2 Pipeline.** GitHub Actions. **`ci.yml`** runs extension + web (tsc/eslint/build)
+  + API (unit + integration on Testcontainers) on every PR/push — **first run green on the
+  runners**. **`deploy.yml`** on merge to `main` builds the api/web images, pushes to GHCR,
+  and SSHes the VPS to `pull` + restart (build off-box to spare the VPS). The deploy job is
+  gated on `vars.DEPLOY_ENABLED=='true'` and the `VPS_*` secrets — **build/push runs now;
+  auto-deploy turns on once the user adds the secrets + flips the flag (steps in `DEPLOY.md`
+  §7).** Compose now carries `image: ghcr.io/...` alongside `build:` so both pull and local
+  build work.
 - [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
+- [ ] **2.4 Email verification (SMTP) — GATE before public signups.** Wire JHipster's
+  existing activation-email flow to a real SMTP provider and add the web activation page,
+  so new signups verify their email and self-activate. **Must ship before opening signups
+  to other users** — until then, accounts are activated manually (no auto-activate; see the
+  locked decision in `CLAUDE.md`). JHipster already generates the activation token + email
+  template, so this is mostly: SMTP config (env), `jhipster.mail.base-url`, and an
+  `/activate` page in the web app.
 
 ## Phase 3 — Application Tracking (the tracker fills itself as you apply)
 
@@ -307,6 +320,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-22 · 2.2 (CI/CD) · `ci.yml` (extension + web + API suites on PR/push) — **first run
+  green on the runners**; `deploy.yml` (merge to main → build api/web images → push GHCR → SSH
+  the VPS to pull+restart), deploy job gated on `DEPLOY_ENABLED` + `VPS_*` secrets so build/push
+  runs now and auto-deploy flips on after the user's one-time setup (`DEPLOY.md` §7). Compose
+  carries `image: ghcr.io/...` next to `build:`. Strategy chosen with the user: build off-box,
+  VPS pulls (spares the modest VPS). Next: 2.3 extension auto-publish.
 - 2026-06-22 · 2.1 **DEPLOYED LIVE** · stood the stack up on the IONOS VPS end-to-end with the
   user (SSH walkthrough): Docker install (focal/EOL workaround), code on `claude`, `.env`,
   `compose up --build`, freed port 80 from a pre-installed server, Caddy got LE certs for

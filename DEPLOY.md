@@ -86,3 +86,40 @@ Reload the unpacked extension. (At Chrome Web Store launch, also pin
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
 `*.{$SSLIP_HOST}` site labels with `app.yourdomain.com` / `api.yourdomain.com`, update the
 extension's host permission, and restart Caddy. Nothing else changes.
+
+## 7. CI/CD (GitHub Actions)
+Two workflows live in `.github/workflows/`:
+- **`ci.yml`** — runs the extension, web, and API test suites on every PR and push. No setup needed.
+- **`deploy.yml`** — on merge to `main`, builds the api + web images on GitHub's runners,
+  pushes them to **GHCR**, then SSHes into the VPS to `pull` + restart. Building off-box keeps
+  the heavy Gradle/npm builds from hammering the VPS.
+
+**One-time setup to enable auto-deploy** (until then, images still build/push; only the SSH
+step is skipped):
+
+1. **Put the production checkout on `main`** (it was cloned on a feature branch):
+   ```bash
+   cd ~/web-ext-job-application-autofill && git checkout main && git pull
+   ```
+2. **Let the deploy user run Docker without sudo** (CI can't answer a sudo prompt):
+   ```bash
+   sudo usermod -aG docker $USER && exit   # then SSH back in
+   ```
+3. **Create a deploy SSH key** (on your laptop), add the public half to the VPS:
+   ```bash
+   ssh-keygen -t ed25519 -f dossier_deploy -N ""        # makes dossier_deploy(.pub)
+   ssh-copy-id -i dossier_deploy.pub adhya@YOUR_VPS_IP   # or paste into ~/.ssh/authorized_keys
+   ```
+4. **Add GitHub repo Secrets** (Settings → Secrets and variables → Actions → Secrets):
+   - `VPS_HOST` = your IP · `VPS_USER` = `adhya` · `VPS_SSH_KEY` = contents of the **private**
+     `dossier_deploy` file.
+5. **Make the two GHCR packages public** after the first `main` build runs (GitHub → your
+   profile → Packages → `dossier-api`/`dossier-web` → Package settings → Change visibility →
+   Public). Then the VPS pulls with no registry login. *(Prefer private? Instead add a
+   `docker login ghcr.io` with a read:packages PAT to the deploy script.)*
+6. **Flip the switch:** add repo **Variable** `DEPLOY_ENABLED` = `true` (Settings → Secrets and
+   variables → Actions → Variables).
+
+After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
+Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR; a manual
+`docker compose -f docker-compose.prod.yml up -d --build` still works for an off-pipeline deploy.
