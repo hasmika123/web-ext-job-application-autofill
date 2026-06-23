@@ -54,11 +54,11 @@ docker compose -f docker-compose.prod.yml logs -f api
 ```
 Verify:
 - API health: `curl https://api.<SSLIP_HOST>/management/health` → `{"status":"UP"}`
-- Web: open `https://app.<SSLIP_HOST>` and sign up / sign in.
+- Web: open `https://<SSLIP_HOST>` and sign up / sign in.
 
 > TLS note: Caddy fetches certificates on first request to each hostname; the very first
 > hit may take a few seconds. If it fails, confirm ports 80/443 are open and the sslip.io
-> host resolves to this box (`dig +short app.<SSLIP_HOST>`).
+> host resolves to this box (`dig +short <SSLIP_HOST>`).
 
 ## 4. Point the extension at this API
 The extension calls the API directly, so it needs the public API origin:
@@ -167,9 +167,9 @@ provider-agnostic (just `MAIL_*` env) — Brevo for now, swappable to SES/Resend
    MAIL_PASSWORD=<the SMTP key>
    MAIL_FROM=<your verified sender email>
    ```
-   `MAIL_BASE_URL` auto-derives to `https://app.<SSLIP_HOST>` — only set it for a real domain.
+   `MAIL_BASE_URL` auto-derives to `https://<SSLIP_HOST>` — only set it for a real domain.
 5. **Apply it:** `docker compose -f docker-compose.prod.yml up -d` (recreates the API with the
    new env). No rebuild needed.
 6. **Test:** sign up with a real inbox → you get the activation email → the link opens
-   `https://app.<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
+   `https://<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
    email doesn't arrive, check spam and the API logs (`… logs api | grep -i mail`).

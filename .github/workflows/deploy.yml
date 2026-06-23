@@ -77,4 +77,6 @@ jobs:
             git pull --ff-only
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
+            # Caddyfile is bind-mounted, so up -d won't pick up content-only changes — reload it.
+            docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || docker compose -f docker-compose.prod.yml restart caddy
             docker image prune -f
