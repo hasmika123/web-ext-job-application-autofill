@@ -12,6 +12,9 @@ const CONTENT_FILES = [
   "src/content/adapters/ashby.js",
   "src/content/adapters/workable.js",
   "src/content/adapters/workday.js",
+  "src/lib/job-capture.js",
+  "src/lib/app-tracking.js",
+  "src/content/submit-detect.js",
   "src/content/filler.js",
   "src/content/content-script.js",
 ];
@@ -51,6 +54,7 @@ async function init() {
   sel.onchange = showMeta;
 
   $("fill").onclick = () => doFill(resumes, bio).catch((e) => setStatus(String(e.message || e), true));
+  $("savejob").onclick = () => doSaveJob().catch((e) => setStatus(String(e.message || e), true));
 }
 
 function setStatus(msg, err) {
@@ -138,12 +142,37 @@ async function doFill(resumes, bio) {
     if (blob) file = { name: SCH.uploadResumeName(bio, resume.fileName), type: blob.type || "application/pdf", base64: await fileToBase64(blob) };
   }
 
-  const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false } }, frameId);
+  // Pass the picked resume so the auto-logged DRAFT application can link it (3.2).
+  const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
+  const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef } }, frameId);
   if (resp && resp.ok) {
     setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`);
     setTimeout(() => window.close(), 1200);
   } else {
     setStatus("Could not open the review panel on this page.", true);
+  }
+}
+
+// Save-a-job (3.3): capture the current page (top frame) and create a SAVED entry via
+// the service worker — no resume attached. Works without a resume selected.
+async function doSaveJob() {
+  setStatus("Reading this job…");
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || /^chrome:|^edge:|^about:/.test(tab.url || "")) return setStatus("Can't read this page.", true);
+
+  await ensureInjected(tab.id);
+  let capResp = null;
+  try { capResp = await sendTo(tab.id, { type: "JAF_CAPTURE_JOB" }, 0); } catch (e) {}
+  if (!capResp || !capResp.capture) return setStatus("Couldn't read job details on this page.", true);
+
+  const res = await chrome.runtime.sendMessage({ type: "JAF_SAVE_JOB", capture: capResp.capture });
+  if (res && res.ok) {
+    const c = capResp.capture;
+    setStatus(`Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}`);
+  } else if (res && res.reason === "not-signed-in") {
+    setStatus("Sign in (Manage → Account) to save jobs.", true);
+  } else {
+    setStatus("Couldn't save this job" + (res && res.reason ? ` (${res.reason})` : "") + ".", true);
   }
 }
 

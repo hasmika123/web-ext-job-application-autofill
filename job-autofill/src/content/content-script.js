@@ -19,6 +19,13 @@
       sendResponse({ ok: true, adapter: detectAdapter(), fieldCount, frame: location.href });
       return true;
     }
+    if (msg.type === "JAF_CAPTURE_JOB") {
+      // Save-a-job (3.3): read the current page into a canonical JobCapture for the popup.
+      let capture = null;
+      try { capture = JAF.jobCapture ? JAF.jobCapture.captureJob() : null; } catch (e) {}
+      sendResponse({ ok: !!capture, capture });
+      return true;
+    }
     if (msg.type === "JAF_FILL") {
       JAF.filler.start(msg.values, msg.file || null, msg.options || {})
         .then((r) => sendResponse({ ok: true, ...r }))

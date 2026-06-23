@@ -114,6 +114,17 @@
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
         } else fileMsg = " · no file field found";
       }
+      // Auto-log this fill as a DRAFT application (best-effort; never blocks the fill)
+      // and arm submission detection so a confirmation flips the entry to APPLIED. The
+      // service worker owns the network and survives the post-submit navigation.
+      try {
+        if (JAF.jobCapture && typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+          const capture = JAF.jobCapture.captureJob();
+          chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null });
+          if (JAF.submitDetect) JAF.submitDetect.arm();
+        }
+      } catch (e) {}
+
       const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
       let advanceMsg = "";
       if (autoAdvance) {

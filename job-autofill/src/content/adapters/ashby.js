@@ -33,6 +33,12 @@
       const fileInputs = Array.from(document.querySelectorAll('input[type="file"]'));
       return fileInputs.find((i) => /resume|cv/i.test(B.labelText(i))) || fileInputs[0] || null;
     },
+    // jobs.ashbyhq.com/<company>/<jobId>[/application] — jobId is a stable UUID.
+    captureJob({ loc } = {}) {
+      const segs = ((loc && loc.pathname) || "").split("/").filter(Boolean);
+      const id = segs[1] && !/^application$/i.test(segs[1]) ? segs[1] : null;
+      return { atsPlatform: "ashby", externalJobId: id };
+    },
   };
 
   JAF.adapters.push(ashby);

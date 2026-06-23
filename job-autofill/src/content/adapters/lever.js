@@ -31,6 +31,12 @@
     fileInput() {
       return document.querySelector('input[name="resume"], input[type="file"]');
     },
+    // jobs.lever.co/<company>/<postingId>[/apply] — the postingId is a stable UUID.
+    captureJob({ loc } = {}) {
+      const segs = ((loc && loc.pathname) || "").split("/").filter(Boolean);
+      const id = segs[1] && !/^apply$/i.test(segs[1]) ? segs[1] : null;
+      return { atsPlatform: "lever", externalJobId: id };
+    },
   };
 
   JAF.adapters.push(lever);

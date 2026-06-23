@@ -25,17 +25,22 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.0 — Applications API + provider methods.** 🎉 **Phase 2 is COMPLETE and
-> the product is fully LIVE at https://kiwiply.com** — custom domain (Cloudflare DNS, apex
-> canonical), hands-off CI/CD (merge→deploy), email verification working end-to-end (Brevo,
-> from no-reply@kiwiply.com). Only external follow-up: the Chrome Web Store listing (extension is
-> prod-ready v0.12.0 + zip built; **waiting on Google dev-account verification**, then first
-> manual listing + review, then wire the `CWS_*` secrets to flip on auto-publish — see `DEPLOY.md`
-> §8). Phase 3 = the self-populating application tracker. 3.0 = user-scoped `/api/applications`
-> CRUD (upsert keyed on `externalJobId`/`jobUrl`) + implement `pushApplication`/`listApplications`/
-> `updateApplication` in the extension's `tracking.js` (currently throw `NotSupportedError`). Read
-> the **Phase 3** section of ROADMAP.md + the pinned 3.2 decision before starting. Do Phase 3 work
-> on a fresh `phase-3` branch.
+> **Phase 3 · Task 3.4 — Web Kanban board + "Did you submit?" nudge.** 3.0–3.3 are done (the
+> tracker's extension + API side: applications API, capture chain, auto-log DRAFT→APPLIED, and
+> save-a-job SAVED). **Next (web app):** a Next.js Kanban board (Draft → Saved → Applied →
+> Interview → Offer → Rejected) reading the user's applications; DRAFT / `submissionConfirmed=false`
+> entries show a "Did you submit?" prompt (Yes = APPLIED, No = keep/drop); manual status edits +
+> dismiss/delete on the board. Needs a web proxy route for `/api/profile/applications` (GET/PUT/
+> DELETE) like the existing resume routes, plus the board UI. **This is web-app work** (`/web`),
+> not the extension. Still on `phase-3`.
+>
+> *Context:* Phase 2 is COMPLETE — product fully LIVE at https://kiwiply.com (custom domain,
+> hands-off CI/CD, email verification). Only external follow-up: the Chrome Web Store listing
+> (extension prod-ready; **waiting on Google dev-account verification**, then first manual listing
+> + review, then wire `CWS_*` secrets — see `DEPLOY.md` §8).
+>
+> *Note: phase-3's applications API isn't on prod until `phase-3` merges to `main`* (CI/CD deploys
+> `main`). 3.2 was live smoke-tested against a **local** phase-3 backend (fill → DRAFT → APPLIED, passed).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -272,21 +277,59 @@ focused Claude Code session.
 > are **easy to dismiss/delete** on the board. Do not gate entry-creation on guessing
 > whether the user finished.
 
-- [ ] **3.0 Backend: applications API + provider methods.** User-scoped
-  `/api/applications` CRUD (upsert keyed on `externalJobId`/`jobUrl`); implement
+- [x] **3.0 Backend: applications API + provider methods.** User-scoped
+  applications CRUD (upsert keyed on `externalJobId`/`jobUrl`); implement
   `pushApplication`/`listApplications` in `tracking.js` and add `updateApplication`
-  (status/confirm) + `archiveResume` to the provider contract + backend.
-- [ ] **3.1 Job-detail capture chain.** Add `captureJob()` to adapters; extractor
+  (status/confirm) + `archiveResume` to the provider contract + backend. *Done at
+  `/api/profile/applications` (the bare `/api/applications` is the ADMIN-locked
+  generated CRUD; this matches the existing `/api/profile/*` user-scoped convention).
+  `ApplicationSyncService`/`Resource`: GET list, POST upsert (dedup ext→url, never
+  reverts a non-DRAFT entry to DRAFT on re-fill, owner-checked resume linkage), PUT
+  partial update (status/confirm/edits), DELETE (dismiss a draft). No migration —
+  columns + dedup index already landed in 1.8. Extension `tracking.js` implements
+  all five provider methods + `applicationToDto`/`dtoToApplication` mappers; base
+  contract still throws `NotSupportedError`. `ApplicationSyncResourceIT` (9 cases:
+  upsert/dedup-by-ext, dedup-by-url, no-DRAFT-downgrade, required-fields, partial
+  update, resume-ownership, delete, cross-user isolation) + 15 new tracking jsdom
+  tests; full backend `test`+`integrationTest` + extension suite green. ext v0.13.0.*
+- [x] **3.1 Job-detail capture chain.** Add `captureJob()` to adapters; extractor
   order = `schema.org/JobPosting` JSON-LD → adapter `captureJob()` → generic
   `<meta>`/heuristics. Returns a canonical `JobCapture` DTO (company, role, location,
-  jobUrl, externalJobId, atsPlatform, jobDescription). Tests per strategy.
-- [ ] **3.2 Auto-log + submission detection.** On fill: upsert a **DRAFT** entry with
+  jobUrl, externalJobId, atsPlatform, jobDescription). Tests per strategy. *Done:
+  `src/lib/job-capture.js` (`JAF.jobCapture`) — `fromJsonLd` (schema.org/JobPosting:
+  title/hiringOrganization/jobLocation/description/identifier; handles `@graph`, array
+  `@type`, PropertyValue ids, strips HTML), per-adapter `captureJob({loc})` (Lever/
+  Greenhouse/Ashby/Workable/Workday — externalJobId + atsPlatform from the **public URL
+  shape only**, no tenant DOM guessing per the dossier rule), and generic `og:`/meta/
+  canonical fallback. Merged per-field (JSON-LD wins descriptive; adapter authoritative
+  for id+platform). Registered in manifest + popup `CONTENT_FILES`. 31 jsdom tests
+  (each strategy + merge precedence). ext v0.14.0. **Not yet wired into fill/save —
+  that's 3.2/3.3.**
+- [x] **3.2 Auto-log + submission detection.** On fill: upsert a **DRAFT** entry with
   the captured job + the resume the user picked (dedup on externalJobId/jobUrl; see
   pinned decision above). If the extension sees the confirmation (`webNavigation`
   success page or DOM success signal) → flip to **APPLIED**, `submissionConfirmed=true`,
   set `appliedAt`. No auto-submit. (Submission-detection module on the content side.)
-- [ ] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
-  chain (no resume attached).
+  *Done: `src/lib/app-tracking.js` (`JAF.appTracking`, SW-safe pure logic) — DRAFT
+  assembly (company/role fallbacks so a fill always logs), `pushDraft`/`confirmSubmission`,
+  + conservative `isSuccessUrl`/`hasSuccessSignal` heuristics. On fill commit the filler
+  captures the job + picked resume → `JAF_LOG_FILL` to the **service worker** (owns the
+  network + survives the post-submit nav), which upserts the DRAFT and remembers it
+  per-tab (persisted). APPLIED flip via the SW's `webNavigation.onCompleted` (success
+  URL) or the content `submit-detect.js` watcher (`JAF_SUBMIT_DETECTED`, in-page
+  confirmation copy). Best-effort/silent (no backend/sign-in ⇒ no-op); 30-min confirm
+  window; tab-close cleanup. popup threads the resume `{serverId,label}`. SW
+  `importScripts` tracking/sync/app-tracking. 31 jsdom tests. ext v0.15.1 (incl. a
+  hardening fix: the auto-log retries without the resume link if a stale serverId 404s,
+  so a fill always logs). **Live smoke-tested end-to-end on a real ATS (2026-06-23):
+  fill → DRAFT, confirmation nav → APPLIED — passed.***
+- [x] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
+  chain (no resume attached). *Done: popup "Save this job" button → injects the content
+  libs, asks the top frame for a capture (`JAF_CAPTURE_JOB` handler in content-script.js)
+  → routes to the SW (`JAF_SAVE_JOB` → `appTracking.pushSaved`, status SAVED, no resume).
+  Generalized `buildApplication(capture,resume,status)` (DRAFT default) + `pushSaved`.
+  Works without a resume selected; silent "sign in to save" if no session. 38 jsdom tests;
+  full extension suite green. ext v0.16.0.*
 - [ ] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
   Saved → Applied → Interview → Offer → Rejected). DRAFT / `submissionConfirmed=false`
   entries show a "Did you submit?" prompt → Yes = APPLIED, No = keep/drop. Manual
@@ -333,6 +376,41 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 3.3 (save-a-job) · popup "Save this job" button → injects content libs → asks the
+  top frame for a capture (`JAF_CAPTURE_JOB`) → SW `JAF_SAVE_JOB` → `appTracking.pushSaved` →
+  **SAVED** entry (no resume). Generalized `buildApplication(capture,resume,status)` + `pushSaved`;
+  popup.css `.ghost` button. Works with no resume selected; silent "sign in to save" otherwise.
+  38 jsdom tests; full suite green. ext v0.16.0.
+- 2026-06-23 · 3.2 (auto-log + submission detection) · `src/lib/app-tracking.js`
+  (`JAF.appTracking`, SW-safe): DRAFT assembly (company/role fallbacks so every fill logs),
+  `pushDraft`/`confirmSubmission`, conservative `isSuccessUrl`/`hasSuccessSignal`. Fill commit →
+  filler captures job + resume → `JAF_LOG_FILL` to the **service worker** (owns network, survives
+  post-submit nav) → upsert DRAFT, remember per-tab (persisted). APPLIED flip via SW
+  `webNavigation.onCompleted` (success URL) or content `submit-detect.js` (`JAF_SUBMIT_DETECTED`,
+  in-page confirmation copy). Best-effort/silent (no backend/sign-in ⇒ no-op); 30-min window;
+  tab-close cleanup. popup threads resume `{serverId,label}`; SW `importScripts` tracking/sync/
+  app-tracking. 31 jsdom tests; full extension suite green. ext v0.15.1. **Live smoke-tested
+  end-to-end on a real ATS (fill → DRAFT → confirmation → APPLIED) — passed**; that pass surfaced
+  a hardening fix (auto-log retries without the resume link if a stale serverId 404s). **No
+  auto-submit** — detection only.
+- 2026-06-23 · 3.1 (job-detail capture chain) · `src/lib/job-capture.js` (`JAF.jobCapture`):
+  canonical `JobCapture` via JSON-LD (`schema.org/JobPosting` — title/org/location/description/
+  identifier; `@graph` + array `@type` + PropertyValue ids, HTML stripped) → per-adapter
+  `captureJob({loc})` (Lever/Greenhouse/Ashby/Workable/Workday: externalJobId + atsPlatform from
+  the **public URL shape only** — no tenant-DOM guessing, the dossier rule) → generic `og:`/meta/
+  canonical. Per-field merge (JSON-LD wins descriptive; adapter authoritative for id+platform).
+  Registered in manifest + popup CONTENT_FILES. 31 jsdom tests; full extension suite green.
+  ext v0.14.0. Not yet wired into fill/save (3.2/3.3).
+- 2026-06-23 · 3.0 (applications API + provider methods) — **Phase 3 begins** · user-scoped
+  tracker API at `/api/profile/applications` (bare `/api/applications` is the ADMIN-locked
+  generated CRUD; new endpoint follows the `/api/profile/*` convention). `ApplicationSyncService`/
+  `Resource`: GET list · POST **upsert** (dedup `externalJobId`→`jobUrl`; re-fill never reverts a
+  non-DRAFT entry to DRAFT; resume linkage owner-checked → 404) · PUT partial update (status/
+  confirm/edits) · DELETE (dismiss a draft). No migration (1.8 already added the columns + dedup
+  index). Extension `tracking.js` implements `pushApplication`/`listApplications`/`updateApplication`/
+  `deleteApplication`/`archiveResume` + canonical `applicationToDto`/`dtoToApplication`; base
+  contract still throws `NotSupportedError`. `ApplicationSyncResourceIT` (9) + 15 new tracking
+  jsdom tests; full backend `test`+`integrationTest` + extension suite green. ext v0.13.0.
 - 2026-06-23 · post-2.4 go-live polish · **Custom domain kiwiply.com** (Cloudflare DNS, grey-cloud;
   apex canonical, www/app 301; api.kiwiply.com) — replaced sslip.io, all on Let's Encrypt. Fixed a
   Caddy single-file-bind-mount deploy bug (force-recreate). **Email now sends from no-reply@kiwiply.com**

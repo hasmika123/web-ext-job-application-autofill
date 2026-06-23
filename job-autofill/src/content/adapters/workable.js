@@ -55,6 +55,13 @@
         inputs.find((f) => !/image\//i.test(f.accept || "")) ||
         inputs[0] || null;
     },
+    // apply.workable.com/<company>/j/<TOKEN>/ or <company>.workable.com/jobs/<id>.
+    captureJob({ loc } = {}) {
+      const path = (loc && loc.pathname) || "";
+      let m = path.match(/\/j\/([A-Za-z0-9]+)/);
+      if (!m) m = path.match(/\/jobs\/(\d+)/);
+      return { atsPlatform: "workable", externalJobId: m ? m[1] : null };
+    },
   };
 
   JAF.adapters.push(workable);

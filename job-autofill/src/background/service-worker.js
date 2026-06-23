@@ -1,10 +1,17 @@
-/* service-worker.js — install hook + the answer-drafting backend.
+/* service-worker.js — install hook + the answer-drafting backend + the application
+ * tracker (Phase 3.2).
  *
  *  Drafting runs here (not in the content script) so it isn't blocked by a page's
  *  Content-Security-Policy and the API key never travels through page world.
  *  Answers are cached by normalized question text and REUSED when the same
  *  question appears again — the user writes/approves an answer once.
+ *
+ *  Application tracking also lives here: submission detection needs webNavigation
+ *  (background-only) and must survive the post-submit navigation that tears down the
+ *  page's content script. The tracking/sync/app-tracking libs attach to globalThis.JAF.
  */
+importScripts("../lib/tracking.js", "../lib/sync.js", "../lib/app-tracking.js");
+
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html") });
@@ -60,4 +67,92 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== "JAF_DRAFT") return;
   draftAnswer(msg.question, msg.context).then(sendResponse).catch((e) => sendResponse({ error: String(e) }));
   return true; // async
+});
+
+// --- Application tracking (Phase 3.2) -----------------------------------------
+// On fill: upsert a DRAFT (dedup server-side on externalJobId/jobUrl). On a detected
+// submission: flip that DRAFT to APPLIED. Both are best-effort and silent — if the
+// user isn't signed in or hasn't configured a backend, tracking simply no-ops.
+const PENDING_KEY = "trackingPending";       // { [tabId]: {serverId, externalJobId, jobUrl, ts} }
+const CONFIRM_WINDOW_MS = 30 * 60 * 1000;    // only confirm a fill within 30 min of logging it
+
+async function trackingProvider() {
+  const settings = (await sGet("settings")) || {};
+  if (!settings.apiBaseUrl) return null;
+  const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
+  try { if (!(await provider.isAuthenticated())) return null; } catch (e) { return null; }
+  return provider;
+}
+
+async function pendGet() { return (await sGet(PENDING_KEY)) || {}; }
+
+async function logFill(capture, resume, tabId) {
+  const provider = await trackingProvider();
+  if (!provider) return; // not configured / not signed in
+  let saved;
+  try { saved = await self.JAF.appTracking.pushDraft(provider, capture, resume); } catch (e) { return; }
+  if (saved && saved.serverId != null && tabId != null) {
+    const pend = await pendGet();
+    pend[tabId] = { serverId: saved.serverId, externalJobId: saved.externalJobId || null, jobUrl: saved.jobUrl || null, ts: Date.now() };
+    await sSet(PENDING_KEY, pend);
+  }
+}
+
+async function saveJob(capture) {
+  const provider = await trackingProvider();
+  if (!provider) return { ok: false, reason: "not-signed-in" };
+  try {
+    const saved = await self.JAF.appTracking.pushSaved(provider, capture);
+    return { ok: true, serverId: saved && saved.serverId, status: saved && saved.status };
+  } catch (e) {
+    return { ok: false, reason: String((e && e.message) || e) };
+  }
+}
+
+async function confirmForTab(tabId) {
+  if (tabId == null) return;
+  const pend = await pendGet();
+  const p = pend[tabId];
+  if (!p) return;
+  if (Date.now() - (p.ts || 0) > CONFIRM_WINDOW_MS) { delete pend[tabId]; await sSet(PENDING_KEY, pend); return; }
+  const provider = await trackingProvider();
+  if (!provider) return;
+  try { await self.JAF.appTracking.confirmSubmission(provider, p.serverId, new Date().toISOString()); } catch (e) { return; }
+  delete pend[tabId];
+  await sSet(PENDING_KEY, pend);
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || !msg.type) return;
+  const tabId = sender && sender.tab ? sender.tab.id : null;
+  if (msg.type === "JAF_LOG_FILL") {
+    logFill(msg.capture, msg.resume, tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  if (msg.type === "JAF_SUBMIT_DETECTED") {
+    confirmForTab(tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  if (msg.type === "JAF_SAVE_JOB") {
+    saveJob(msg.capture).then(sendResponse).catch((e) => sendResponse({ ok: false, reason: String(e) }));
+    return true; // async
+  }
+});
+
+// Redirect to a "thank you" / confirmation page on a tracked tab = a submission.
+chrome.webNavigation.onCompleted.addListener(async (d) => {
+  if (d.frameId !== 0) return; // top frame only
+  const pend = await pendGet();
+  const p = pend[d.tabId];
+  if (!p) return;
+  // Ignore navigations that land back on the same job page (not a confirmation).
+  if (p.jobUrl && d.url && d.url.split("#")[0] === p.jobUrl.split("#")[0]) return;
+  if (!self.JAF.appTracking.isSuccessUrl(d.url)) return;
+  await confirmForTab(d.tabId);
+});
+
+// Forget a tab's pending entry when it closes.
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  const pend = await pendGet();
+  if (pend[tabId]) { delete pend[tabId]; await sSet(PENDING_KEY, pend); }
 });
