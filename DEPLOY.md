@@ -123,3 +123,26 @@ step is skipped):
 After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
 Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR; a manual
 `docker compose -f docker-compose.prod.yml up -d --build` still works for an off-pipeline deploy.
+
+## 8. Publishing the browser extension (Chrome Web Store)
+The **`publish-extension.yml`** workflow packages the extension into a CWS-ready zip (always,
+as a downloadable build artifact) and can publish it to the Chrome Web Store.
+
+**First listing (manual, one-time):** the CWS API can only *update* an existing item, so the
+first submission is by hand:
+1. Run **Actions → Publish extension → Run workflow** (it skips publishing, just builds the zip).
+2. Download the **`dossier-extension`** artifact from that run.
+3. Create a [Chrome Web Store developer account](https://chrome.google.com/webstore/devconsole)
+   (one-time $5 fee), **Add new item**, upload the zip, fill the listing (use the web `/privacy`
+   URL and `job-autofill/PRIVACY.md` for the data-use disclosure), and submit for review.
+
+**Automated updates (after the item exists):**
+1. Get CWS API credentials (Google Cloud project → enable the *Chrome Web Store API* → OAuth
+   *Desktop* client → generate a **refresh token**; see the
+   [chrome-webstore-upload keys guide](https://github.com/fregante/chrome-webstore-upload-keys)).
+2. Add repo **Secrets**: `CWS_EXTENSION_ID` (from the item's URL), `CWS_CLIENT_ID`,
+   `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`.
+3. Add repo **Variable** `PUBLISH_EXTENSION` = `true`.
+4. To ship an update: bump the version in `job-autofill/manifest.json` (+ `package.json`), then
+   tag it — `git tag ext-v0.11.1 && git push origin ext-v0.11.1` — or run the workflow manually.
+   CWS rejects re-uploading the same version, so the bump is required each release.

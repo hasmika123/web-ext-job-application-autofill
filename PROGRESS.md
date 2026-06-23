@@ -25,14 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 2 · Task 2.3 — Extension auto-publish.** 2.1 is LIVE on the IONOS VPS; 2.2 (CI/CD)
-> is built — `ci.yml` (tests, green) + `deploy.yml` (build→GHCR→VPS-pull, gated on the user's
-> `VPS_*` secrets + `DEPLOY_ENABLED`; see `DEPLOY.md` §7). 2.3 = a GitHub Actions workflow that
-> builds + zips the extension and uploads/publishes it via the **Chrome Web Store API** on a
-> tag/release. Needs CWS API creds (client id/secret/refresh token + the extension's app id) as
-> repo secrets — the user's to create once they have a CWS developer account. Read the Phase 2
-> section of ROADMAP.md before starting. NOTE: this can't fully run until the extension has a
-> CWS listing; scaffold the workflow + document the secrets, gate it like the deploy job.
+> **Phase 2 · Task 2.4 — Email verification (SMTP).** Phase 2 deployment/CI is done: 2.1 LIVE
+> on the IONOS VPS; **2.2 CI/CD fully ACTIVE** (merge to `main` → build → GHCR → VPS auto-pull,
+> verified hands-off); 2.3 extension auto-publish scaffolded + gated. 2.4 = wire JHipster's
+> activation-email flow to a real SMTP provider + a web `/activate` page so new signups verify
+> their email and self-activate. **The gate before opening signups to the public** (until then,
+> accounts are activated manually — no auto-activate; locked decision in `CLAUDE.md`). Mostly:
+> SMTP env config + `jhipster.mail.base-url` + the `/activate` page. Read the Phase 2 / 2.4 notes
+> before starting; needs an SMTP provider (the user's to choose/create).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -241,7 +241,12 @@ focused Claude Code session.
   auto-deploy turns on once the user adds the secrets + flips the flag (steps in `DEPLOY.md`
   §7).** Compose now carries `image: ghcr.io/...` alongside `build:` so both pull and local
   build work.
-- [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
+- [x] **2.3 Extension auto-publish.** `publish-extension.yml` — packages the extension into a
+  CWS-ready zip (manifest at root + `src`/`vendor`/`icons`; runtime files only), uploads it as a
+  build artifact (always), and publishes to the Chrome Web Store when enabled. Trigger: manual or
+  an `ext-v*` tag; runs the extension test suite as a gate. **Gated/dormant** (`vars.PUBLISH_EXTENSION`
+  + `CWS_*` secrets) — the first listing must be uploaded by hand (CWS API only *updates*), then
+  automated updates flip on. Setup in `DEPLOY.md` §8. No extension code change (no version bump).
 - [ ] **2.4 Email verification (SMTP) — GATE before public signups.** Wire JHipster's
   existing activation-email flow to a real SMTP provider and add the web activation page,
   so new signups verify their email and self-activate. **Must ship before opening signups
@@ -320,6 +325,11 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 2.2 auto-deploy ACTIVATED + 2.3 scaffolded · Walked the user through enabling
+  auto-deploy (deploy SSH key on the VPS, `VPS_*` secrets, packages public, `DEPLOY_ENABLED`);
+  merged phase-2→main and ran Deploy — **build→GHCR→VPS pull succeeded hands-off**, site verified
+  UP with data intact. Then 2.3: `publish-extension.yml` (zip → artifact → CWS publish, gated on
+  `PUBLISH_EXTENSION`+`CWS_*`); CWS setup in `DEPLOY.md` §8. VPS is now on `main`, docker rootless.
 - 2026-06-22 · 2.2 (CI/CD) · `ci.yml` (extension + web + API suites on PR/push) — **first run
   green on the runners**; `deploy.yml` (merge to main → build api/web images → push GHCR → SSH
   the VPS to pull+restart), deploy job gated on `DEPLOY_ENABLED` + `VPS_*` secrets so build/push
