@@ -25,19 +25,23 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.2 — Auto-log + submission detection.** 3.0 (applications API + provider
-> methods) and 3.1 (capture chain, `JAF.jobCapture`) are done. **Next:** on fill, upsert a
-> **DRAFT** entry with the captured job (`jobCapture.captureJob()`) + the picked resume via
-> `tracking.pushApplication` (dedup on externalJobId/jobUrl — see the pinned 3.2 decision below).
-> If the extension sees the confirmation (`webNavigation` success page or a DOM success signal) →
-> `updateApplication` to **APPLIED** (`submissionConfirmed=true`, set `appliedAt`). **No
-> auto-submit** — detection only. The capture + provider seam are both built; 3.2 wires them into
-> the fill flow + adds the submission-detection module on the content side. Still on `phase-3`.
+> **Phase 3 · Task 3.3 — Save-a-job.** 3.0 (applications API + provider methods), 3.1 (capture
+> chain), and 3.2 (auto-log DRAFT on fill + submission detection → APPLIED) are done. **Next:** a
+> one-click action in the **popup** → create a **SAVED** entry via the same capture chain
+> (`jobCapture.captureJob()` on the active tab → `tracking.pushApplication` with status SAVED, **no
+> resume attached**). The popup already injects the content libs and can ping the tab for a
+> capture, then push via the provider it already loads; or route through the SW like 3.2. Add a
+> "Save this job" button to the popup UI. Tests for the SAVED-entry assembly. Still on `phase-3`.
 >
 > *Context:* Phase 2 is COMPLETE — product fully LIVE at https://kiwiply.com (custom domain,
 > hands-off CI/CD, email verification). Only external follow-up: the Chrome Web Store listing
 > (extension prod-ready; **waiting on Google dev-account verification**, then first manual listing
 > + review, then wire `CWS_*` secrets — see `DEPLOY.md` §8).
+>
+> *3.2 live-test note:* the SW auto-log + submission-detection wiring (webNavigation, importScripts,
+> messaging) is pure-logic-tested in jsdom but **not yet exercised against a live ATS** — worth a
+> manual end-to-end pass (sign in → fill a real job → confirm a DRAFT appears, then submit → APPLIED)
+> when convenient. Requires loading the unpacked extension + a signed-in account.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -302,11 +306,22 @@ focused Claude Code session.
   for id+platform). Registered in manifest + popup `CONTENT_FILES`. 31 jsdom tests
   (each strategy + merge precedence). ext v0.14.0. **Not yet wired into fill/save —
   that's 3.2/3.3.**
-- [ ] **3.2 Auto-log + submission detection.** On fill: upsert a **DRAFT** entry with
+- [x] **3.2 Auto-log + submission detection.** On fill: upsert a **DRAFT** entry with
   the captured job + the resume the user picked (dedup on externalJobId/jobUrl; see
   pinned decision above). If the extension sees the confirmation (`webNavigation`
   success page or DOM success signal) → flip to **APPLIED**, `submissionConfirmed=true`,
   set `appliedAt`. No auto-submit. (Submission-detection module on the content side.)
+  *Done: `src/lib/app-tracking.js` (`JAF.appTracking`, SW-safe pure logic) — DRAFT
+  assembly (company/role fallbacks so a fill always logs), `pushDraft`/`confirmSubmission`,
+  + conservative `isSuccessUrl`/`hasSuccessSignal` heuristics. On fill commit the filler
+  captures the job + picked resume → `JAF_LOG_FILL` to the **service worker** (owns the
+  network + survives the post-submit nav), which upserts the DRAFT and remembers it
+  per-tab (persisted). APPLIED flip via the SW's `webNavigation.onCompleted` (success
+  URL) or the content `submit-detect.js` watcher (`JAF_SUBMIT_DETECTED`, in-page
+  confirmation copy). Best-effort/silent (no backend/sign-in ⇒ no-op); 30-min confirm
+  window; tab-close cleanup. popup threads the resume `{serverId,label}`. SW
+  `importScripts` tracking/sync/app-tracking. 27 jsdom tests. ext v0.15.0. **SW/
+  webNavigation wiring not yet live-tested against a real ATS** (pure logic is).*
 - [ ] **3.3 Save-a-job.** One click in the popup → **SAVED** entry via the capture
   chain (no resume attached).
 - [ ] **3.4 Web Kanban board + "Did you submit?" nudge.** Next.js board (Draft →
@@ -355,6 +370,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 3.2 (auto-log + submission detection) · `src/lib/app-tracking.js`
+  (`JAF.appTracking`, SW-safe): DRAFT assembly (company/role fallbacks so every fill logs),
+  `pushDraft`/`confirmSubmission`, conservative `isSuccessUrl`/`hasSuccessSignal`. Fill commit →
+  filler captures job + resume → `JAF_LOG_FILL` to the **service worker** (owns network, survives
+  post-submit nav) → upsert DRAFT, remember per-tab (persisted). APPLIED flip via SW
+  `webNavigation.onCompleted` (success URL) or content `submit-detect.js` (`JAF_SUBMIT_DETECTED`,
+  in-page confirmation copy). Best-effort/silent (no backend/sign-in ⇒ no-op); 30-min window;
+  tab-close cleanup. popup threads resume `{serverId,label}`; SW `importScripts` tracking/sync/
+  app-tracking. 27 jsdom tests; full extension suite green. ext v0.15.0. SW/webNavigation wiring
+  not yet live-tested on a real ATS (pure logic is). **No auto-submit** — detection only.
 - 2026-06-23 · 3.1 (job-detail capture chain) · `src/lib/job-capture.js` (`JAF.jobCapture`):
   canonical `JobCapture` via JSON-LD (`schema.org/JobPosting` — title/org/location/description/
   identifier; `@graph` + array `@type` + PropertyValue ids, HTML stripped) → per-adapter

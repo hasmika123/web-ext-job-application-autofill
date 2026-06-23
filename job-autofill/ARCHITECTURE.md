@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.14.0, bundled ruleset version 4.
+> Current version: manifest 0.15.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -66,6 +66,14 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   active adapter `captureJob({loc})` (authoritative for externalJobId + atsPlatform,
   parsed from the public URL shape) → generic `og:`/meta/canonical fallback. Pure
   reads, no network. Each ATS adapter implements `captureJob({loc})`.
+- `src/lib/app-tracking.js` — `JAF.appTracking`. Pure tracker orchestration (SW-safe,
+  `globalThis.JAF`): `buildApplicationDraft(capture,resume)` (→ DRAFT app, company/role
+  fallbacks), `pushDraft`/`confirmSubmission` (via a `TrackingProvider`), and the
+  CONSERVATIVE submission heuristics `isSuccessUrl(url)` + `hasSuccessSignal(doc)`
+  (generic confirmation cues, never tenant selectors). No DOM mutation, no direct fetch.
+- `src/content/submit-detect.js` — `JAF.submitDetect`. Armed by the filler after a fill
+  commit; a `MutationObserver` scans for `appTracking.hasSuccessSignal` and pings the SW
+  (`JAF_SUBMIT_DETECTED`). Self-disarms after ~2 min. Complements the SW's webNavigation path.
 - `src/lib/sync.js` — `JAF.sync`. Bridges the local store and a `TrackingProvider`:
   `pullAll` (server→local cache; resumes matched by `serverId`, never deleting
   local-only ones), `pushBio`/`pushResume`/`pushAll`, `syncNow` (push then pull),
@@ -103,13 +111,16 @@ resume/bio/board management. The extension's tracking jobs:
   `archiveResume` against `/api/profile/applications`.
 - **`captureJob()` capture chain (DONE, 3.1)** — `JAF.jobCapture.captureJob()` returns
   a canonical `JobCapture` DTO via JSON-LD → adapter `captureJob({loc})` → generic
-  meta (see the `job-capture.js` entry above). Not yet wired into fill/save — that's 3.2/3.3.
-- **Submission-detection module (content side) — PLANNED (3.2)** — on fill, upsert a **DRAFT**
-  application (with the picked resume + captured job; dedup on externalJobId/jobUrl)
-  via `tracking.pushApplication`. If a confirmation is seen (`webNavigation` success
-  page or a DOM success signal) → `updateApplication` to **APPLIED**
-  (`submissionConfirmed=true`). If not seen, it stays DRAFT and the web tracker asks
-  "Did you submit?". **Never auto-submit** — detection only.
+  meta (see the `job-capture.js` entry above).
+- **Auto-log + submission detection (DONE, 3.2)** — on fill commit, the filler captures
+  the job + picked resume and messages the **service worker** (`JAF_LOG_FILL`), which
+  upserts a **DRAFT** via `tracking.pushApplication` and remembers it per-tab (persisted
+  in `chrome.storage`). A submission flips it to **APPLIED** (`submissionConfirmed=true`,
+  `appliedAt`) two ways: the SW's `webNavigation.onCompleted` sees a success URL
+  (`appTracking.isSuccessUrl`), or `submit-detect.js` sees in-page confirmation copy
+  (`appTracking.hasSuccessSignal`) and pings `JAF_SUBMIT_DETECTED`. Best-effort + silent
+  (no backend/sign-in ⇒ no-op); misses are caught by the web board's "Did you submit?"
+  nudge (3.4). **Never auto-submit** — detection only.
 - **Save-a-job** — popup action → **SAVED** entry via the same capture chain.
 - **Provider grows** `updateApplication` + `archiveResume` (deleting a resume that a
   tracked application references is blocked → nudge to archive). All still behind the

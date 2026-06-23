@@ -13,6 +13,8 @@ const CONTENT_FILES = [
   "src/content/adapters/workable.js",
   "src/content/adapters/workday.js",
   "src/lib/job-capture.js",
+  "src/lib/app-tracking.js",
+  "src/content/submit-detect.js",
   "src/content/filler.js",
   "src/content/content-script.js",
 ];
@@ -139,7 +141,9 @@ async function doFill(resumes, bio) {
     if (blob) file = { name: SCH.uploadResumeName(bio, resume.fileName), type: blob.type || "application/pdf", base64: await fileToBase64(blob) };
   }
 
-  const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false } }, frameId);
+  // Pass the picked resume so the auto-logged DRAFT application can link it (3.2).
+  const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
+  const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef } }, frameId);
   if (resp && resp.ok) {
     setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`);
     setTimeout(() => window.close(), 1200);
