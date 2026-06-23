@@ -1,8 +1,13 @@
 # Deploying Dossier (self-hosted VPS)
 
+> **Current production:** live on an IONOS VPS at **https://kiwiply.com** (apex canonical;
+> `www`/`app` 301 to it; API at `api.kiwiply.com`), deployed automatically by CI on merge to
+> `main` (§7). The from-scratch steps below use **sslip.io** as the no-domain bootstrap; to use a
+> real domain instead, set `SSLIP_HOST` to it and point DNS at the IP (see §6).
+
 The whole stack runs as Docker containers on one host: **MySQL + API + web**, behind
-**Caddy** (auto-HTTPS via Let's Encrypt). With no domain yet, we use **sslip.io** to get
-real certificates on the bare IP. Object storage is **AWS S3** (private bucket).
+**Caddy** (auto-HTTPS via Let's Encrypt). With no domain, **sslip.io** gives real certificates
+on the bare IP; with a domain, Caddy serves it directly. Object storage is **AWS S3** (private bucket).
 
 ```
 browser ──https──> Caddy ─┬─> web  (Next.js :3000) ──internal──> api (Spring :8080) ──> MySQL
