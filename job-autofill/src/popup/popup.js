@@ -12,6 +12,7 @@ const CONTENT_FILES = [
   "src/content/adapters/ashby.js",
   "src/content/adapters/workable.js",
   "src/content/adapters/workday.js",
+  "src/lib/job-capture.js",
   "src/content/filler.js",
   "src/content/content-script.js",
 ];

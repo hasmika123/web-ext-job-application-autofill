@@ -25,14 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.1 — Job-detail capture chain.** 3.0 is done: the user-scoped applications
-> API (`/api/profile/applications`, upsert-dedup on `externalJobId`/`jobUrl`) + the extension
-> provider methods (`pushApplication`/`listApplications`/`updateApplication`/`deleteApplication`/
-> `archiveResume`) are live and tested. **Next:** add `captureJob()` to the ATS adapters and the
-> extractor chain — `schema.org/JobPosting` JSON-LD → adapter `captureJob()` → generic
-> `<meta>`/heuristics — returning a canonical `JobCapture` DTO (company, role, location, jobUrl,
-> externalJobId, atsPlatform, jobDescription). **Capture real ATS DOM before writing selectors**
-> (the dossier rule). Tests per strategy. Still on the `phase-3` branch.
+> **Phase 3 · Task 3.2 — Auto-log + submission detection.** 3.0 (applications API + provider
+> methods) and 3.1 (capture chain, `JAF.jobCapture`) are done. **Next:** on fill, upsert a
+> **DRAFT** entry with the captured job (`jobCapture.captureJob()`) + the picked resume via
+> `tracking.pushApplication` (dedup on externalJobId/jobUrl — see the pinned 3.2 decision below).
+> If the extension sees the confirmation (`webNavigation` success page or a DOM success signal) →
+> `updateApplication` to **APPLIED** (`submissionConfirmed=true`, set `appliedAt`). **No
+> auto-submit** — detection only. The capture + provider seam are both built; 3.2 wires them into
+> the fill flow + adds the submission-detection module on the content side. Still on `phase-3`.
 >
 > *Context:* Phase 2 is COMPLETE — product fully LIVE at https://kiwiply.com (custom domain,
 > hands-off CI/CD, email verification). Only external follow-up: the Chrome Web Store listing
@@ -289,10 +289,19 @@ focused Claude Code session.
   upsert/dedup-by-ext, dedup-by-url, no-DRAFT-downgrade, required-fields, partial
   update, resume-ownership, delete, cross-user isolation) + 15 new tracking jsdom
   tests; full backend `test`+`integrationTest` + extension suite green. ext v0.13.0.*
-- [ ] **3.1 Job-detail capture chain.** Add `captureJob()` to adapters; extractor
+- [x] **3.1 Job-detail capture chain.** Add `captureJob()` to adapters; extractor
   order = `schema.org/JobPosting` JSON-LD → adapter `captureJob()` → generic
   `<meta>`/heuristics. Returns a canonical `JobCapture` DTO (company, role, location,
-  jobUrl, externalJobId, atsPlatform, jobDescription). Tests per strategy.
+  jobUrl, externalJobId, atsPlatform, jobDescription). Tests per strategy. *Done:
+  `src/lib/job-capture.js` (`JAF.jobCapture`) — `fromJsonLd` (schema.org/JobPosting:
+  title/hiringOrganization/jobLocation/description/identifier; handles `@graph`, array
+  `@type`, PropertyValue ids, strips HTML), per-adapter `captureJob({loc})` (Lever/
+  Greenhouse/Ashby/Workable/Workday — externalJobId + atsPlatform from the **public URL
+  shape only**, no tenant DOM guessing per the dossier rule), and generic `og:`/meta/
+  canonical fallback. Merged per-field (JSON-LD wins descriptive; adapter authoritative
+  for id+platform). Registered in manifest + popup `CONTENT_FILES`. 31 jsdom tests
+  (each strategy + merge precedence). ext v0.14.0. **Not yet wired into fill/save —
+  that's 3.2/3.3.**
 - [ ] **3.2 Auto-log + submission detection.** On fill: upsert a **DRAFT** entry with
   the captured job + the resume the user picked (dedup on externalJobId/jobUrl; see
   pinned decision above). If the extension sees the confirmation (`webNavigation`
@@ -346,6 +355,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 3.1 (job-detail capture chain) · `src/lib/job-capture.js` (`JAF.jobCapture`):
+  canonical `JobCapture` via JSON-LD (`schema.org/JobPosting` — title/org/location/description/
+  identifier; `@graph` + array `@type` + PropertyValue ids, HTML stripped) → per-adapter
+  `captureJob({loc})` (Lever/Greenhouse/Ashby/Workable/Workday: externalJobId + atsPlatform from
+  the **public URL shape only** — no tenant-DOM guessing, the dossier rule) → generic `og:`/meta/
+  canonical. Per-field merge (JSON-LD wins descriptive; adapter authoritative for id+platform).
+  Registered in manifest + popup CONTENT_FILES. 31 jsdom tests; full extension suite green.
+  ext v0.14.0. Not yet wired into fill/save (3.2/3.3).
 - 2026-06-23 · 3.0 (applications API + provider methods) — **Phase 3 begins** · user-scoped
   tracker API at `/api/profile/applications` (bare `/api/applications` is the ADMIN-locked
   generated CRUD; new endpoint follows the `/api/profile/*` convention). `ApplicationSyncService`/

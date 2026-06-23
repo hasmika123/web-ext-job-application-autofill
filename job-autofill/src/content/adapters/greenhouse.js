@@ -47,6 +47,14 @@
       return q("#resume") || q("input[type=file][name*='resume' i]") ||
         document.querySelector('input[type="file"]');
     },
+    // boards/job-boards.greenhouse.io/<company>/jobs/<id>, or embedded ?gh_jid=<id>.
+    captureJob({ loc } = {}) {
+      const path = (loc && loc.pathname) || "";
+      const m = path.match(/\/jobs\/(\d+)/);
+      let gh = null;
+      try { gh = new URLSearchParams((loc && loc.search) || "").get("gh_jid"); } catch (e) {}
+      return { atsPlatform: "greenhouse", externalJobId: (m && m[1]) || gh || null };
+    },
   };
 
   JAF.adapters.push(greenhouse);

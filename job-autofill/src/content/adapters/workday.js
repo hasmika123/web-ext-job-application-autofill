@@ -291,6 +291,15 @@
 
     fileInput() { return document.querySelector('input[type="file"]'); },
 
+    // <tenant>.<dc>.myworkdayjobs.com/<lang>/<site>/job/<loc>/<Title>_<JR-id> — the
+    // requisition id is the token after the final underscore of the last path segment.
+    captureJob({ loc } = {}) {
+      const segs = ((loc && loc.pathname) || "").split("/").filter(Boolean);
+      const last = segs[segs.length - 1] || "";
+      const m = last.match(/_([A-Za-z]+-?\d[\w-]*)$/);
+      return { atsPlatform: "workday", externalJobId: m ? m[1] : null };
+    },
+
     async ensureRows(values) {
       const r = R();
       const sections = [

@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.10.0, bundled ruleset version 4.
+> Current version: manifest 0.14.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -60,6 +60,12 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   + pure helpers exposed for tests.
 - `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
   TrackingProvider section below). `createDossierProvider()` + DTO mappers.
+- `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
+  canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
+  jobDescription). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
+  active adapter `captureJob({loc})` (authoritative for externalJobId + atsPlatform,
+  parsed from the public URL shape) → generic `og:`/meta/canonical fallback. Pure
+  reads, no network. Each ATS adapter implements `captureJob({loc})`.
 - `src/lib/sync.js` — `JAF.sync`. Bridges the local store and a `TrackingProvider`:
   `pullAll` (server→local cache; resumes matched by `serverId`, never deleting
   local-only ones), `pushBio`/`pushResume`/`pushAll`, `syncNow` (push then pull),
@@ -89,14 +95,16 @@ login UI + sync loop on top of this; a future provider can target a different
 backend by implementing the same contract. See root `ROADMAP.md` → "Pluggable
 tracking backend".
 
-## Tracking capture (PLANNED, Phase 3)
-Not built yet. This extension is the **on-page capture-and-fill agent**; the web
-app owns account/resume/bio/board management. The extension's tracking jobs:
-- **`captureJob()` on each adapter** — returns a canonical `JobCapture` DTO (company,
-  role, location, jobUrl, externalJobId, atsPlatform, jobDescription). Extractor
-  order: `schema.org/JobPosting` JSON-LD first → adapter `captureJob()` → generic
-  `<meta>`/heuristics.
-- **Submission-detection module (content side)** — on fill, upsert a **DRAFT**
+## Tracking capture (Phase 3)
+This extension is the **on-page capture-and-fill agent**; the web app owns account/
+resume/bio/board management. The extension's tracking jobs:
+- **Provider methods (DONE, 3.0)** — `tracking.js` implements `pushApplication`
+  (upsert), `listApplications`, `updateApplication`, `deleteApplication`,
+  `archiveResume` against `/api/profile/applications`.
+- **`captureJob()` capture chain (DONE, 3.1)** — `JAF.jobCapture.captureJob()` returns
+  a canonical `JobCapture` DTO via JSON-LD → adapter `captureJob({loc})` → generic
+  meta (see the `job-capture.js` entry above). Not yet wired into fill/save — that's 3.2/3.3.
+- **Submission-detection module (content side) — PLANNED (3.2)** — on fill, upsert a **DRAFT**
   application (with the picked resume + captured job; dedup on externalJobId/jobUrl)
   via `tracking.pushApplication`. If a confirmation is seen (`webNavigation` success
   page or a DOM success signal) → `updateApplication` to **APPLIED**
