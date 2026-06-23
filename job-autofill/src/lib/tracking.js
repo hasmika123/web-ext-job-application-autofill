@@ -47,10 +47,13 @@
     async listResumes() { throw new NotSupportedError("listResumes"); }
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
-    // Phase 3 (tracking) and Phase 4 (field-cache sync) endpoints — declared so
-    // the seam is complete; implemented when the backend grows them.
-    async pushApplication(/* app */) { throw new NotSupportedError("pushApplication (Phase 3)"); }
-    async listApplications() { throw new NotSupportedError("listApplications (Phase 3)"); }
+    async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
+    // Phase 3 (application tracking) — implemented by createDossierProvider.
+    async pushApplication(/* app */) { throw new NotSupportedError("pushApplication"); }
+    async listApplications() { throw new NotSupportedError("listApplications"); }
+    async updateApplication(/* serverId, changes */) { throw new NotSupportedError("updateApplication"); }
+    async deleteApplication(/* serverId */) { throw new NotSupportedError("deleteApplication"); }
+    // Phase 4 (field-cache sync) — declared so the seam is complete; implemented later.
     async syncFieldCache(/* entries */) { throw new NotSupportedError("syncFieldCache (Phase 4)"); }
   }
 
@@ -90,6 +93,50 @@
       status: dto.status,
       r2ObjectKey: dto.r2ObjectKey,
     });
+  }
+  // Application (the tracker entry) <-> server ApplicationDTO. Only fields the caller
+  // actually set are sent, so a partial update (e.g. just {status}) stays partial.
+  // The picked resume is referenced by its server id; the server links the FK.
+  function applicationToDto(app) {
+    app = app || {};
+    const dto = {};
+    if (app.serverId != null) dto.id = app.serverId;
+    if (app.company != null) dto.company = app.company;
+    const role = app.roleTitle != null ? app.roleTitle : app.role;
+    if (role != null) dto.roleTitle = role;
+    if (app.jobUrl != null) dto.jobUrl = app.jobUrl;
+    if (app.location != null) dto.location = app.location;
+    if (app.externalJobId != null) dto.externalJobId = app.externalJobId;
+    if (app.atsPlatform != null) dto.atsPlatform = app.atsPlatform;
+    if (app.jobDescription != null) dto.jobDescription = app.jobDescription;
+    if (app.status != null) dto.status = app.status;
+    if (app.source != null) dto.source = app.source;
+    if (app.submissionConfirmed != null) dto.submissionConfirmed = app.submissionConfirmed;
+    if (app.appliedAt != null) dto.appliedAt = app.appliedAt;
+    const resumeId = app.resumeId != null ? app.resumeId : (app.resume && app.resume.serverId);
+    if (resumeId != null) dto.resume = { id: resumeId };
+    return dto;
+  }
+  function dtoToApplication(dto) {
+    dto = dto || {};
+    return {
+      serverId: dto.id,
+      company: dto.company,
+      roleTitle: dto.roleTitle,
+      jobUrl: dto.jobUrl,
+      location: dto.location,
+      externalJobId: dto.externalJobId,
+      atsPlatform: dto.atsPlatform,
+      jobDescription: dto.jobDescription,
+      status: dto.status,
+      source: dto.source,
+      submissionConfirmed: dto.submissionConfirmed,
+      appliedAt: dto.appliedAt,
+      createdAt: dto.createdAt,
+      updatedAt: dto.updatedAt,
+      resumeId: dto.resume ? dto.resume.id : undefined,
+      resumeLabel: dto.resume ? dto.resume.label : undefined,
+    };
   }
 
   // ---- token stores ------------------------------------------------------
@@ -252,6 +299,36 @@
         await request("DELETE", "/api/profile/resumes/" + serverId);
         return true;
       },
+
+      // Archive (don't delete) a resume an application may still reference. Uses the
+      // resume sync endpoint's partial update — only the archived flag is sent.
+      async archiveResume(serverId, archived) {
+        const saved = await request("PUT", "/api/profile/resumes/" + serverId, { body: { archived: archived !== false } });
+        return dtoToResume(saved);
+      },
+
+      // ---- application tracking (Phase 3) ---------------------------------
+      // pushApplication is an UPSERT: the server dedups on externalJobId/jobUrl, so
+      // re-filling the same job updates the same entry instead of adding a new one.
+      async pushApplication(app) {
+        const saved = await request("POST", "/api/profile/applications", { body: applicationToDto(app) });
+        return dtoToApplication(saved);
+      },
+
+      async listApplications() {
+        const dtos = (await request("GET", "/api/profile/applications")) || [];
+        return dtos.map(dtoToApplication);
+      },
+
+      async updateApplication(serverId, changes) {
+        const saved = await request("PUT", "/api/profile/applications/" + serverId, { body: applicationToDto(changes || {}) });
+        return dtoToApplication(saved);
+      },
+
+      async deleteApplication(serverId) {
+        await request("DELETE", "/api/profile/applications/" + serverId);
+        return true;
+      },
     };
   }
 
@@ -263,6 +340,6 @@
     memoryTokenStore,
     chromeTokenStore,
     // exposed for tests
-    bioToPayload, payloadToBio, resumeToDto, dtoToResume,
+    bioToPayload, payloadToBio, resumeToDto, dtoToResume, applicationToDto, dtoToApplication,
   };
 })();

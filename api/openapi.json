@@ -18,6 +18,9 @@
     "name" : "authentication",
     "description" : "Obtain and refresh the JWT access token. These endpoints are public (no bearer token required)."
   }, {
+    "name" : "applications-sync",
+    "description" : "User-scoped application tracker: the authenticated user's applications."
+  }, {
     "name" : "profile-sync",
     "description" : "User-scoped sync API: the authenticated user's bio and resumes."
   } ],
@@ -242,6 +245,71 @@
         "summary" : "Delete a resume",
         "description" : "Delete one of the current user's resumes (and its stored file); 404 if not owned.",
         "operationId" : "deleteResume_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/applications/{id}" : {
+      "put" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Update an application",
+        "description" : "Partial update (status/confirm/edits) of one of the current user's applications; 404 if not owned.",
+        "operationId" : "updateApplication",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApplicationDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApplicationDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "delete" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Delete an application",
+        "description" : "Delete one of the current user's applications (dismiss a draft); 404 if not owned.",
+        "operationId" : "deleteApplication",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -529,7 +597,7 @@
       },
       "put" : {
         "tags" : [ "application-resource" ],
-        "operationId" : "updateApplication",
+        "operationId" : "updateApplication_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -564,7 +632,7 @@
       },
       "delete" : {
         "tags" : [ "application-resource" ],
-        "operationId" : "deleteApplication",
+        "operationId" : "deleteApplication_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -1192,6 +1260,63 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ResumeDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/applications" : {
+      "get" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "List my applications",
+        "description" : "All applications owned by the current user.",
+        "operationId" : "listApplications",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ApplicationDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Upsert an application",
+        "description" : "Create or update (dedup on externalJobId/jobUrl) one of the current user's applications.",
+        "operationId" : "upsertApplication",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApplicationDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApplicationDTO"
                 }
               }
             }
@@ -3600,40 +3725,6 @@
         },
         "required" : [ "updatedAt" ]
       },
-      "FieldCacheDTO" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "fieldKey" : {
-            "type" : "string",
-            "maxLength" : 200,
-            "minLength" : 0
-          },
-          "contextHash" : {
-            "type" : "string",
-            "maxLength" : 128,
-            "minLength" : 0
-          },
-          "value" : {
-            "type" : "string"
-          },
-          "hitCount" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "updatedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "user" : {
-            "$ref" : "#/components/schemas/UserDTO"
-          }
-        },
-        "required" : [ "contextHash", "fieldKey", "hitCount", "updatedAt" ]
-      },
       "ApplicationDTO" : {
         "type" : "object",
         "properties" : {
@@ -3706,6 +3797,40 @@
           }
         },
         "required" : [ "company", "createdAt", "roleTitle", "status", "updatedAt" ]
+      },
+      "FieldCacheDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "fieldKey" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "contextHash" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "string"
+          },
+          "hitCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/UserDTO"
+          }
+        },
+        "required" : [ "contextHash", "fieldKey", "hitCount", "updatedAt" ]
       },
       "AiAnswerDTO" : {
         "type" : "object",

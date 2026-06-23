@@ -105,9 +105,48 @@ function mockFetch(handler) {
   ok("logout clears tokens", (await pDel.isAuthenticated()) === false);
   ok("logout revokes the refresh token server-side", fetchDel.calls.some((c) => c.path === "/api/logout" && c.body && c.body.refreshToken === "RDEL"));
 
-  /* ---- deferred endpoints fail loudly ---- */
-  let appThrew = false; try { await pDel.pushApplication({}); } catch (e) { appThrew = e.name === "NotSupportedError"; }
-  ok("pushApplication throws NotSupported (Phase 3)", appThrew);
+  /* ---- application mappers round-trip (canonical <-> DTO) ---- */
+  const appRt = T.dtoToApplication(T.applicationToDto({ serverId: 3, company: "Acme", role: "Eng", externalJobId: "J1", status: "DRAFT", resumeId: 8 }));
+  ok("applicationToDto maps role -> roleTitle", appRt.roleTitle === "Eng" && appRt.company === "Acme");
+  ok("application round-trip keeps server + resume id", appRt.serverId === 3 && appRt.externalJobId === "J1" && appRt.resumeId === 8);
+  const partial = T.applicationToDto({ status: "APPLIED" });
+  ok("applicationToDto stays partial (only set fields sent)", JSON.stringify(partial) === JSON.stringify({ status: "APPLIED" }));
+
+  /* ---- pushApplication upserts via POST and maps the result back ---- */
+  const fetchApp = mockFetch((c) => ({ status: 200, json: { id: 11, company: c.body.company, roleTitle: c.body.roleTitle, externalJobId: c.body.externalJobId, status: c.body.status, resume: c.body.resume } }));
+  const pApp = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchApp, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const savedApp = await pApp.pushApplication({ company: "Acme", role: "Eng", externalJobId: "J1", status: "DRAFT", resumeId: 8 });
+  ok("pushApplication POSTs /api/profile/applications", fetchApp.calls[0].method === "POST" && fetchApp.calls[0].path === "/api/profile/applications");
+  ok("pushApplication sends resume id + roleTitle", fetchApp.calls[0].body.resume.id === 8 && fetchApp.calls[0].body.roleTitle === "Eng");
+  ok("pushApplication maps the saved entry back", savedApp.serverId === 11 && savedApp.status === "DRAFT");
+
+  /* ---- listApplications maps the array ---- */
+  const fetchAppList = mockFetch(() => ({ status: 200, json: [{ id: 1, company: "A", roleTitle: "X", status: "APPLIED" }, { id: 2, company: "B", roleTitle: "Y", status: "DRAFT" }] }));
+  const pAppList = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchAppList, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const apps = await pAppList.listApplications();
+  ok("listApplications maps each DTO", apps.length === 2 && apps[0].serverId === 1 && apps[1].status === "DRAFT");
+
+  /* ---- updateApplication PUTs /{id}; deleteApplication DELETEs ---- */
+  const fetchAppUpd = mockFetch((c) => ({ status: c.method === "DELETE" ? 204 : 200, json: c.method === "DELETE" ? null : { id: 5, status: c.body.status, submissionConfirmed: c.body.submissionConfirmed } }));
+  const pAppUpd = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchAppUpd, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const upd = await pAppUpd.updateApplication(5, { status: "APPLIED", submissionConfirmed: true });
+  ok("updateApplication PUTs /api/profile/applications/{id}", fetchAppUpd.calls[0].method === "PUT" && fetchAppUpd.calls[0].path === "/api/profile/applications/5");
+  ok("updateApplication maps result", upd.serverId === 5 && upd.submissionConfirmed === true);
+  ok("deleteApplication DELETEs /{id}", (await pAppUpd.deleteApplication(5)) === true && fetchAppUpd.calls[1].method === "DELETE" && fetchAppUpd.calls[1].path === "/api/profile/applications/5");
+
+  /* ---- archiveResume PUTs the archived flag to the resume endpoint ---- */
+  const fetchArch = mockFetch((c) => ({ status: 200, json: { id: 4, label: "R", parsedJson: "{}", archived: c.body.archived } }));
+  const pArch = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchArch, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  await pArch.archiveResume(4);
+  ok("archiveResume PUTs /api/profile/resumes/{id} with archived:true", fetchArch.calls[0].method === "PUT" && fetchArch.calls[0].path === "/api/profile/resumes/4" && fetchArch.calls[0].body.archived === true);
+
+  /* ---- base contract still rejects newly-declared, unimplemented methods ---- */
+  let updThrew = false; try { await base.updateApplication(1, {}); } catch (e) { updThrew = e.name === "NotSupportedError"; }
+  ok("base TrackingProvider.updateApplication throws NotSupported", updThrew);
+  let archThrew = false; try { await base.archiveResume(1); } catch (e) { archThrew = e.name === "NotSupportedError"; }
+  ok("base TrackingProvider.archiveResume throws NotSupported", archThrew);
+  let fcThrew = false; try { await base.syncFieldCache([]); } catch (e) { fcThrew = e.name === "NotSupportedError"; }
+  ok("base TrackingProvider.syncFieldCache throws NotSupported (Phase 4)", fcThrew);
 
   /* ---- no baseUrl => clear error, never a bad fetch ---- */
   const pNo = T.createDossierProvider({ fetch: mockFetch(() => ({ status: 200 })) });

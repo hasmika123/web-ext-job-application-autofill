@@ -25,17 +25,19 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.0 — Applications API + provider methods.** 🎉 **Phase 2 is COMPLETE and
-> the product is fully LIVE at https://kiwiply.com** — custom domain (Cloudflare DNS, apex
-> canonical), hands-off CI/CD (merge→deploy), email verification working end-to-end (Brevo,
-> from no-reply@kiwiply.com). Only external follow-up: the Chrome Web Store listing (extension is
-> prod-ready v0.12.0 + zip built; **waiting on Google dev-account verification**, then first
-> manual listing + review, then wire the `CWS_*` secrets to flip on auto-publish — see `DEPLOY.md`
-> §8). Phase 3 = the self-populating application tracker. 3.0 = user-scoped `/api/applications`
-> CRUD (upsert keyed on `externalJobId`/`jobUrl`) + implement `pushApplication`/`listApplications`/
-> `updateApplication` in the extension's `tracking.js` (currently throw `NotSupportedError`). Read
-> the **Phase 3** section of ROADMAP.md + the pinned 3.2 decision before starting. Do Phase 3 work
-> on a fresh `phase-3` branch.
+> **Phase 3 · Task 3.1 — Job-detail capture chain.** 3.0 is done: the user-scoped applications
+> API (`/api/profile/applications`, upsert-dedup on `externalJobId`/`jobUrl`) + the extension
+> provider methods (`pushApplication`/`listApplications`/`updateApplication`/`deleteApplication`/
+> `archiveResume`) are live and tested. **Next:** add `captureJob()` to the ATS adapters and the
+> extractor chain — `schema.org/JobPosting` JSON-LD → adapter `captureJob()` → generic
+> `<meta>`/heuristics — returning a canonical `JobCapture` DTO (company, role, location, jobUrl,
+> externalJobId, atsPlatform, jobDescription). **Capture real ATS DOM before writing selectors**
+> (the dossier rule). Tests per strategy. Still on the `phase-3` branch.
+>
+> *Context:* Phase 2 is COMPLETE — product fully LIVE at https://kiwiply.com (custom domain,
+> hands-off CI/CD, email verification). Only external follow-up: the Chrome Web Store listing
+> (extension prod-ready; **waiting on Google dev-account verification**, then first manual listing
+> + review, then wire `CWS_*` secrets — see `DEPLOY.md` §8).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -272,10 +274,21 @@ focused Claude Code session.
 > are **easy to dismiss/delete** on the board. Do not gate entry-creation on guessing
 > whether the user finished.
 
-- [ ] **3.0 Backend: applications API + provider methods.** User-scoped
-  `/api/applications` CRUD (upsert keyed on `externalJobId`/`jobUrl`); implement
+- [x] **3.0 Backend: applications API + provider methods.** User-scoped
+  applications CRUD (upsert keyed on `externalJobId`/`jobUrl`); implement
   `pushApplication`/`listApplications` in `tracking.js` and add `updateApplication`
-  (status/confirm) + `archiveResume` to the provider contract + backend.
+  (status/confirm) + `archiveResume` to the provider contract + backend. *Done at
+  `/api/profile/applications` (the bare `/api/applications` is the ADMIN-locked
+  generated CRUD; this matches the existing `/api/profile/*` user-scoped convention).
+  `ApplicationSyncService`/`Resource`: GET list, POST upsert (dedup ext→url, never
+  reverts a non-DRAFT entry to DRAFT on re-fill, owner-checked resume linkage), PUT
+  partial update (status/confirm/edits), DELETE (dismiss a draft). No migration —
+  columns + dedup index already landed in 1.8. Extension `tracking.js` implements
+  all five provider methods + `applicationToDto`/`dtoToApplication` mappers; base
+  contract still throws `NotSupportedError`. `ApplicationSyncResourceIT` (9 cases:
+  upsert/dedup-by-ext, dedup-by-url, no-DRAFT-downgrade, required-fields, partial
+  update, resume-ownership, delete, cross-user isolation) + 15 new tracking jsdom
+  tests; full backend `test`+`integrationTest` + extension suite green. ext v0.13.0.*
 - [ ] **3.1 Job-detail capture chain.** Add `captureJob()` to adapters; extractor
   order = `schema.org/JobPosting` JSON-LD → adapter `captureJob()` → generic
   `<meta>`/heuristics. Returns a canonical `JobCapture` DTO (company, role, location,
@@ -333,6 +346,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 3.0 (applications API + provider methods) — **Phase 3 begins** · user-scoped
+  tracker API at `/api/profile/applications` (bare `/api/applications` is the ADMIN-locked
+  generated CRUD; new endpoint follows the `/api/profile/*` convention). `ApplicationSyncService`/
+  `Resource`: GET list · POST **upsert** (dedup `externalJobId`→`jobUrl`; re-fill never reverts a
+  non-DRAFT entry to DRAFT; resume linkage owner-checked → 404) · PUT partial update (status/
+  confirm/edits) · DELETE (dismiss a draft). No migration (1.8 already added the columns + dedup
+  index). Extension `tracking.js` implements `pushApplication`/`listApplications`/`updateApplication`/
+  `deleteApplication`/`archiveResume` + canonical `applicationToDto`/`dtoToApplication`; base
+  contract still throws `NotSupportedError`. `ApplicationSyncResourceIT` (9) + 15 new tracking
+  jsdom tests; full backend `test`+`integrationTest` + extension suite green. ext v0.13.0.
 - 2026-06-23 · post-2.4 go-live polish · **Custom domain kiwiply.com** (Cloudflare DNS, grey-cloud;
   apex canonical, www/app 301; api.kiwiply.com) — replaced sslip.io, all on Let's Encrypt. Fixed a
   Caddy single-file-bind-mount deploy bug (force-recreate). **Email now sends from no-reply@kiwiply.com**
