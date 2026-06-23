@@ -25,14 +25,15 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 2 · Task 2.3 — Extension auto-publish.** 2.1 is LIVE on the IONOS VPS; 2.2 (CI/CD)
-> is built — `ci.yml` (tests, green) + `deploy.yml` (build→GHCR→VPS-pull, gated on the user's
-> `VPS_*` secrets + `DEPLOY_ENABLED`; see `DEPLOY.md` §7). 2.3 = a GitHub Actions workflow that
-> builds + zips the extension and uploads/publishes it via the **Chrome Web Store API** on a
-> tag/release. Needs CWS API creds (client id/secret/refresh token + the extension's app id) as
-> repo secrets — the user's to create once they have a CWS developer account. Read the Phase 2
-> section of ROADMAP.md before starting. NOTE: this can't fully run until the extension has a
-> CWS listing; scaffold the workflow + document the secrets, gate it like the deploy job.
+> **Phase 3 · Task 3.0 — Applications API + provider methods.** 🎉 **Phase 2 is COMPLETE** —
+> the product is LIVE on the IONOS VPS with hands-off CI/CD (merge→deploy), extension publish
+> scaffolded, and email verification wired (Brevo, code-complete + prod-boot-verified; the user
+> adds Brevo creds to go live with it). Phase 3 = the self-populating application tracker. 3.0 =
+> user-scoped `/api/applications` CRUD (upsert keyed on `externalJobId`/`jobUrl`) + implement
+> `pushApplication`/`listApplications`/`updateApplication` in the extension's `tracking.js`
+> (currently they throw `NotSupportedError`). Read the **Phase 3** section of ROADMAP.md +
+> the pinned 3.2 decision before starting. NOTE: still on `phase-2` branch — consider a
+> `phase-2`→`main` merge (lands 2.2 docs/2.3/2.4 + activates 2.3's button) before starting Phase 3.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -241,14 +242,21 @@ focused Claude Code session.
   auto-deploy turns on once the user adds the secrets + flips the flag (steps in `DEPLOY.md`
   §7).** Compose now carries `image: ghcr.io/...` alongside `build:` so both pull and local
   build work.
-- [ ] **2.3 Extension auto-publish.** Build + zip + upload via Chrome Web Store API.
-- [ ] **2.4 Email verification (SMTP) — GATE before public signups.** Wire JHipster's
-  existing activation-email flow to a real SMTP provider and add the web activation page,
-  so new signups verify their email and self-activate. **Must ship before opening signups
-  to other users** — until then, accounts are activated manually (no auto-activate; see the
-  locked decision in `CLAUDE.md`). JHipster already generates the activation token + email
-  template, so this is mostly: SMTP config (env), `jhipster.mail.base-url`, and an
-  `/activate` page in the web app.
+- [x] **2.3 Extension auto-publish.** `publish-extension.yml` — packages the extension into a
+  CWS-ready zip (manifest at root + `src`/`vendor`/`icons`; runtime files only), uploads it as a
+  build artifact (always), and publishes to the Chrome Web Store when enabled. Trigger: manual or
+  an `ext-v*` tag; runs the extension test suite as a gate. **Gated/dormant** (`vars.PUBLISH_EXTENSION`
+  + `CWS_*` secrets) — the first listing must be uploaded by hand (CWS API only *updates*), then
+  automated updates flip on. Setup in `DEPLOY.md` §8. No extension code change (no version bump).
+- [x] **2.4 Email verification (SMTP) — GATE before public signups.** Wired JHipster's
+  activation-email flow to env-driven SMTP (**Brevo** now, provider-agnostic via `MAIL_*`):
+  prod `spring.mail.*` + `jhipster.mail.{base-url,from}`, with `MAIL_BASE_URL` auto-derived to
+  `https://app.<SSLIP_HOST>` so the activation link points at the web app. Added the web
+  **`/account/activate`** page (reads `?key=`, calls public `GET /api/activate`, shows
+  verified/invalid). Signup UX already showed "check your email". `.env.example` + compose +
+  `DEPLOY.md` §9 (Brevo setup). **Verified:** web build green; **prod profile boots with the
+  mail config** (no YAML/binding error → safe to auto-deploy). Live email round-trip pending
+  the user's Brevo creds. No auto-activate (locked decision). **Completes Phase 2.**
 
 ## Phase 3 — Application Tracking (the tracker fills itself as you apply)
 
@@ -320,6 +328,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 2.4 (email verification) — **completes Phase 2** · env-driven SMTP (Brevo, swappable):
+  prod `spring.mail.*` + `jhipster.mail.{base-url,from}`; `MAIL_BASE_URL` auto-derives to the web
+  app so activation links land on the new `/account/activate` page (calls `GET /api/activate`).
+  `.env.example` + compose `MAIL_*` + `DEPLOY.md` §9. Web build green; **prod jar boots with the
+  mail config** (verified before it can auto-deploy). Live email test pending user's Brevo creds.
+- 2026-06-23 · 2.2 auto-deploy ACTIVATED + 2.3 scaffolded · Walked the user through enabling
+  auto-deploy (deploy SSH key on the VPS, `VPS_*` secrets, packages public, `DEPLOY_ENABLED`);
+  merged phase-2→main and ran Deploy — **build→GHCR→VPS pull succeeded hands-off**, site verified
+  UP with data intact. Then 2.3: `publish-extension.yml` (zip → artifact → CWS publish, gated on
+  `PUBLISH_EXTENSION`+`CWS_*`); CWS setup in `DEPLOY.md` §8. VPS is now on `main`, docker rootless.
 - 2026-06-22 · 2.2 (CI/CD) · `ci.yml` (extension + web + API suites on PR/push) — **first run
   green on the runners**; `deploy.yml` (merge to main → build api/web images → push GHCR → SSH
   the VPS to pull+restart), deploy job gated on `DEPLOY_ENABLED` + `VPS_*` secrets so build/push

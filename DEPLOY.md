@@ -123,3 +123,53 @@ step is skipped):
 After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
 Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR; a manual
 `docker compose -f docker-compose.prod.yml up -d --build` still works for an off-pipeline deploy.
+
+## 8. Publishing the browser extension (Chrome Web Store)
+The **`publish-extension.yml`** workflow packages the extension into a CWS-ready zip (always,
+as a downloadable build artifact) and can publish it to the Chrome Web Store.
+
+**First listing (manual, one-time):** the CWS API can only *update* an existing item, so the
+first submission is by hand:
+1. Run **Actions → Publish extension → Run workflow** (it skips publishing, just builds the zip).
+2. Download the **`dossier-extension`** artifact from that run.
+3. Create a [Chrome Web Store developer account](https://chrome.google.com/webstore/devconsole)
+   (one-time $5 fee), **Add new item**, upload the zip, fill the listing (use the web `/privacy`
+   URL and `job-autofill/PRIVACY.md` for the data-use disclosure), and submit for review.
+
+**Automated updates (after the item exists):**
+1. Get CWS API credentials (Google Cloud project → enable the *Chrome Web Store API* → OAuth
+   *Desktop* client → generate a **refresh token**; see the
+   [chrome-webstore-upload keys guide](https://github.com/fregante/chrome-webstore-upload-keys)).
+2. Add repo **Secrets**: `CWS_EXTENSION_ID` (from the item's URL), `CWS_CLIENT_ID`,
+   `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`.
+3. Add repo **Variable** `PUBLISH_EXTENSION` = `true`.
+4. To ship an update: bump the version in `job-autofill/manifest.json` (+ `package.json`), then
+   tag it — `git tag ext-v0.11.1 && git push origin ext-v0.11.1` — or run the workflow manually.
+   CWS rejects re-uploading the same version, so the bump is required each release.
+
+## 9. Email verification (Brevo SMTP)
+New signups are created **inactive** and emailed an activation link; they can't sign in until
+they click it. This is the gate before opening signups to the public. The integration is
+provider-agnostic (just `MAIL_*` env) — Brevo for now, swappable to SES/Resend later.
+
+1. **Create a Brevo account** (free, 300 emails/day) at https://www.brevo.com.
+2. **Verify a sender address** (no domain needed): Brevo → **Senders, Domains & Dedicated IPs**
+   → **Senders** → add your email (e.g. your Gmail) → click the confirmation Brevo emails you.
+   This becomes `MAIL_FROM`.
+3. **Get SMTP credentials:** Brevo → **SMTP & API** → **SMTP** tab. Note the server
+   (`smtp-relay.brevo.com`), port `587`, your **login** (looks like `…@smtp-brevo.com`), and
+   **Generate a new SMTP key** (this is the password — not your account password).
+4. **On the VPS**, edit `.env` and set:
+   ```
+   MAIL_HOST=smtp-relay.brevo.com
+   MAIL_PORT=587
+   MAIL_USERNAME=<your @smtp-brevo.com login>
+   MAIL_PASSWORD=<the SMTP key>
+   MAIL_FROM=<your verified sender email>
+   ```
+   `MAIL_BASE_URL` auto-derives to `https://app.<SSLIP_HOST>` — only set it for a real domain.
+5. **Apply it:** `docker compose -f docker-compose.prod.yml up -d` (recreates the API with the
+   new env). No rebuild needed.
+6. **Test:** sign up with a real inbox → you get the activation email → the link opens
+   `https://app.<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
+   email doesn't arrive, check spam and the API logs (`… logs api | grep -i mail`).

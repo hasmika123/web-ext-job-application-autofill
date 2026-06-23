@@ -48,10 +48,18 @@ spring:
   liquibase:
     contexts: prod
   mail:
-    host: localhost
-    port: 25
-    username:
-    password:
+    # SMTP for verification emails (Brevo now; provider-agnostic — just env). Defaults keep
+    # the app booting with no mail configured (send simply fails, logged async).
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   thymeleaf:
     cache: true
 
@@ -120,7 +128,10 @@ jhipster:
         token-validity-in-seconds: 900
         token-validity-in-seconds-for-remember-me: 2592000
   mail: # specific JHipster mail property, for standard properties see MailProperties
-    base-url: http://my-server-url-to-change # Modify according to your server's URL
+    # base-url is the WEB app URL — the activation link in the email points to
+    # ${base-url}/account/activate?key=… (the Next page below), not the API.
+    base-url: ${MAIL_BASE_URL:http://localhost:3000}
+    from: ${MAIL_FROM:no-reply@localhost} # must be your Brevo-verified sender address
   logging:
     use-json-format: false # By default, logs are not in Json format
     logstash: # Forward logs to logstash over a socket, used by LoggingConfiguration

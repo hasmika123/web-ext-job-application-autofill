@@ -1,0 +1,58 @@
+name: Publish extension
+
+# Packages the extension into a Chrome-Web-Store-ready zip (always — downloadable as a build
+# artifact) and, when enabled, publishes it to the Chrome Web Store.
+#
+# Trigger: manually (Actions → Publish extension → Run workflow), or by pushing an `ext-v*` tag
+# that matches the manifest version (e.g. `git tag ext-v0.11.0 && git push origin ext-v0.11.0`).
+#
+# IMPORTANT: the CWS API can only UPDATE an existing listing. The FIRST submission must be done
+# by hand in the CWS dashboard — download the `dossier-extension` artifact this workflow builds
+# and upload it there once. After the item exists, add the secrets + flag below to automate
+# updates. Setup steps: DEPLOY.md §8.
+#   Secrets:  CWS_EXTENSION_ID, CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN
+#   Variable: PUBLISH_EXTENSION = true   (until set, the publish step is skipped)
+on:
+  workflow_dispatch:
+  push:
+    tags: ['ext-v*']
+
+jobs:
+  publish:
+    name: Package + publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: job-autofill/package-lock.json
+
+      - name: Test (gate before publishing)
+        run: npm ci && npm test
+        working-directory: job-autofill
+
+      - name: Package extension zip
+        # manifest.json must sit at the zip root. Ship only runtime files (no tests/docs/deps).
+        run: |
+          cd job-autofill
+          zip -rq ../dossier-extension.zip manifest.json src vendor icons -x '*/.*'
+          unzip -l ../dossier-extension.zip | tail -1
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dossier-extension
+          path: dossier-extension.zip
+
+      - name: Publish to Chrome Web Store
+        if: ${{ vars.PUBLISH_EXTENSION == 'true' }}
+        uses: mnao305/chrome-extension-upload@v5
+        with:
+          file-path: dossier-extension.zip
+          extension-id: ${{ secrets.CWS_EXTENSION_ID }}
+          client-id: ${{ secrets.CWS_CLIENT_ID }}
+          client-secret: ${{ secrets.CWS_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CWS_REFRESH_TOKEN }}
+          publish: true
