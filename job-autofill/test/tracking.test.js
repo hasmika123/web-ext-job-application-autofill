@@ -36,6 +36,8 @@ function mockFetch(handler) {
   const rt = T.dtoToResume(T.resumeToDto({ serverId: 5, label: "Eng", skills: ["go"], r2ObjectKey: "k", status: "CONFIRMED" }));
   ok("resume round-trip keeps content", Array.isArray(rt.skills) && rt.skills[0] === "go");
   ok("resume round-trip keeps server fields", rt.serverId === 5 && rt.label === "Eng" && rt.status === "CONFIRMED");
+  ok("dtoToResume maps the archived flag (3.5)", T.dtoToResume({ id: 1, label: "X", parsedJson: "{}", archived: true }).archived === true);
+  ok("resumeToDto doesn't leak archived into parsedJson", JSON.parse(T.resumeToDto({ label: "X", archived: true, skills: ["a"] }).parsedJson).archived === undefined);
 
   /* ---- contract: base provider rejects until implemented ---- */
   const base = new T.TrackingProvider();

@@ -25,18 +25,20 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 3 · Task 3.5 — Resume archive guard.** 3.0–3.4 done (the tracker is end-to-end: API,
-> capture, auto-log DRAFT→APPLIED, save-a-job, and the web Kanban board). **Next:** deleting a
-> resume that any application references (esp. an APPLIED one) must be **blocked server-side**
-> (referential check) with a **nudge to archive instead** (`archived=true`); archived resumes are
-> hidden from the active picker but keep their tracker links. Enforce in the backend
-> (`ProfileService.deleteResume` → block when an `application.resume_id` references it → 409 + clear
-> message) and surface the nudge in the web resumes UI (the archive button already exists).
-> **Backend + web work.** Still on `phase-3`. **This is the last task in Phase 3.**
+> 🎉 **Phase 3 is COMPLETE** (3.0–3.5) — the self-populating application tracker is end-to-end:
+> applications API, job-detail capture chain, auto-log DRAFT→APPLIED with submission detection
+> (live smoke-tested), save-a-job, the web Kanban board, and the resume archive guard.
 >
-> *Context:* Phase 2 is COMPLETE — product LIVE at https://kiwiply.com. **`phase-3` was merged to
-> `main` (2026-06-23)** → 3.0–3.3 auto-deploying to prod (additive, no new migration). The web
-> board (3.4) reaches prod on the next merge. CWS extension listing still pending Google verification.
+> **Next: Phase 4 · Task 4.1 — Field cache (cloud sync).** Promote the Phase 0 local field-choice
+> cache (`JAF.fieldCache`, IndexedDB) to the server `field_cache` table so learned answers follow
+> the user across devices: implement `syncFieldCache` on the `TrackingProvider` + a user-scoped
+> `/api/profile/field-caches` endpoint (upsert keyed on `field_key`+`context_hash`), with
+> last-write-wins + `hit_count` ranking. Read the **Phase 4** section of ROADMAP.md. Do it on a
+> fresh branch (`phase-4`) once `phase-3` is merged to `main`.
+>
+> *Context:* Phase 2 COMPLETE — product LIVE at https://kiwiply.com. **`phase-3` merged to `main`
+> through 3.4 (2026-06-23)**; 3.5 is pushed on `phase-3` and merges next. CWS extension listing
+> still pending Google verification. Extension at v0.16.1.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -337,10 +339,17 @@ focused Claude Code session.
   fields, owner-scoped 404) → `router.refresh()`. Board nav links added to resumes/profile/
   settings. `tsc`+`eslint`+`next build` green (`/board` + `/api/applications/[id]` registered).
   Web-only (no version bump).*
-- [ ] **3.5 Resume archive guard.** Deleting a resume referenced by any application
+- [x] **3.5 Resume archive guard.** Deleting a resume referenced by any application
   (esp. APPLIED) is blocked with a **nudge to archive instead** (`archived=true`);
   archived resumes are hidden from the active picker but keep their tracker links.
-  Enforce server-side (referential check) + surface the nudge in the web UI.
+  Enforce server-side (referential check) + surface the nudge in the web UI. *Done:
+  backend `ProfileService.deleteResume` counts referencing applications
+  (`ApplicationRepository.countByResumeId`) → **409** with an archive nudge if any
+  (account-deletion path unaffected); `ProfileResourceIT` covers blocked-delete +
+  archive-instead. Web: `DELETE /api/resumes/:id` proxy passes the 409 `detail` through;
+  `ResumeList` gets a Delete button that shows the nudge on 409. Extension: `dtoToResume`
+  syncs `archived` (stripped from `parsedJson`), popup picker hides archived resumes.
+  All three suites green. ext v0.16.1. **Completes Phase 3.***
 
 ## Phase 4 — Field cache (cloud sync)
 - [ ] **4.1 Promote local cache to `field_cache` API**; last-write-wins +
@@ -379,6 +388,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 3.5 (resume archive guard) — **completes Phase 3** · backend
+  `ProfileService.deleteResume` → **409** + archive nudge when any application references the
+  resume (`ApplicationRepository.countByResumeId`); `ProfileResourceIT` (blocked-delete +
+  archive-instead). Web: `DELETE /api/resumes/:id` proxy (passes the 409 detail through) +
+  `ResumeList` Delete button surfacing the nudge. Extension: `dtoToResume` syncs `archived`
+  (stripped from parsedJson), popup picker hides archived resumes. Backend+web+extension suites
+  green. ext v0.16.1.
 - 2026-06-23 · phase-3 → main merge · merged 3.0–3.3 to `main` (no-ff, `b434ffe`) → CI/CD
   auto-deploys the applications API to prod (additive, no new migration). `phase-3` fast-forwarded
   to match; 3.4+ continues there.

@@ -28,16 +28,19 @@ async function init() {
   const hasBio = bio && (bio.firstName || bio.email);
   $("bio-warn").classList.toggle("hidden", !!hasBio);
 
+  // Archived resumes are kept (they preserve tracker links) but hidden from the
+  // active picker — see the resume-archive guard (3.5).
+  const pickable = resumes.filter((r) => !r.archived);
   const sel = $("resume");
-  if (!resumes.length) {
-    sel.innerHTML = '<option value="">No resumes yet — open Manage</option>';
+  if (!pickable.length) {
+    sel.innerHTML = `<option value="">${resumes.length ? "All resumes archived — open Manage" : "No resumes yet — open Manage"}</option>`;
     sel.disabled = true;
     $("fill").disabled = true;
   } else {
-    sel.innerHTML = resumes
+    sel.innerHTML = pickable
       .map((r) => `<option value="${r.id}">${escapeHtml(r.label)}</option>`)
       .join("");
-    if (settings.lastResumeId && resumes.find((r) => r.id === settings.lastResumeId))
+    if (settings.lastResumeId && pickable.find((r) => r.id === settings.lastResumeId))
       sel.value = settings.lastResumeId;
   }
 
@@ -45,7 +48,7 @@ async function init() {
   $("autoadv").checked = !!settings.autoAdvance;
 
   const showMeta = () => {
-    const r = resumes.find((x) => x.id === sel.value);
+    const r = pickable.find((x) => x.id === sel.value);
     $("meta").textContent = r
       ? `${(r.skills || []).length} skills · ${(r.experience || []).length} roles${r.hasFile ? " · file ✓" : " · no file"}`
       : "";
@@ -53,7 +56,7 @@ async function init() {
   showMeta();
   sel.onchange = showMeta;
 
-  $("fill").onclick = () => doFill(resumes, bio).catch((e) => setStatus(String(e.message || e), true));
+  $("fill").onclick = () => doFill(pickable, bio).catch((e) => setStatus(String(e.message || e), true));
   $("savejob").onclick = () => doSaveJob().catch((e) => setStatus(String(e.message || e), true));
 }
 

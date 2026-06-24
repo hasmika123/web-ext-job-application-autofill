@@ -56,6 +56,26 @@ function Row({ resume }: { resume: Resume }) {
     }
   }
 
+  async function remove() {
+    if (!window.confirm(`Delete "${resume.label}"? This can't be undone.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/resumes/${resume.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // 409 = the archive guard: the message already nudges toward archiving.
+        setError(data.error ?? "Couldn't delete.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <li className="flex flex-col gap-2 rounded-xl border border-foreground/15 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
@@ -75,13 +95,22 @@ function Row({ resume }: { resume: Resume }) {
           </p>
         )}
       </div>
-      <button
-        onClick={() => setArchived(!archived)}
-        disabled={busy}
-        className="shrink-0 self-start rounded-full border border-foreground/20 px-4 py-1.5 text-sm font-medium transition-colors hover:bg-foreground/5 disabled:opacity-50 sm:self-auto"
-      >
-        {busy ? "…" : archived ? "Restore" : "Archive"}
-      </button>
+      <div className="flex shrink-0 gap-2 self-start sm:self-auto">
+        <button
+          onClick={() => setArchived(!archived)}
+          disabled={busy}
+          className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm font-medium transition-colors hover:bg-foreground/5 disabled:opacity-50"
+        >
+          {busy ? "…" : archived ? "Restore" : "Archive"}
+        </button>
+        <button
+          onClick={remove}
+          disabled={busy}
+          className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-600/5 disabled:opacity-50 dark:text-red-400"
+        >
+          Delete
+        </button>
+      </div>
     </li>
   );
 }
