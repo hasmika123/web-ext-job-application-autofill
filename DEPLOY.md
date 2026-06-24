@@ -198,33 +198,27 @@ provider-agnostic (just `MAIL_*` env) — Brevo for now, swappable to SES/Resend
    `https://<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
    email doesn't arrive, check spam and the API logs (`… logs api | grep -i mail`).
 
-## 10. Server-side AI drafting (optional, Phase 5) — ⏸️ ON HOLD / "coming soon"
-> **Status (2026-06-24): deliberately OFF in production.** The full infrastructure is built and
-> merged (`POST /api/ai/draft`, provider-agnostic `AiProvider`, per-user quota), but the feature
-> is **not active for users**: the extension shows the toggle as **"coming soon"** (disabled), and
-> the server runs with `DOSSIER_AI_ENABLED=false`. Enabling was paused because the trial Gemini
-> **free tier returned `limit: 0`** for the project (see the gotcha below). Re-activate by working
-> through the steps here once the provider/billing question is resolved. The **BYO-Anthropic-key**
-> path (extension Options → "Use the Anthropic API…") is unaffected and remains the live AI option.
+## 10. Server-side AI drafting (Phase 5) — ✅ LIVE (Gemini free tier)
+> **Status (2026-06-24): enabled in production** on Google Gemini **`gemini-2.5-flash-lite`** (free
+> tier). The extension's "Use Dossier AI" toggle is active (opt-in + explicit consent), the server
+> runs `DOSSIER_AI_ENABLED=true`, with a per-user monthly quota. The **BYO-Anthropic-key** path still
+> takes priority for users who supply their own key. To pause it again, set `DOSSIER_AI_ENABLED=false`
+> and re-run the apply step (it then cleanly reports `{"disabled":true}`).
 
-The AI "draft an answer" proxy (`POST /api/ai/draft`) is **OFF by default** — the API reports
-`{"disabled":true}` until you enable it here. The provider key lives **only** in the VPS `.env`;
-it is never shipped in the extension. Default provider is Google Gemini.
+The AI "draft an answer" proxy (`POST /api/ai/draft`) reports `{"disabled":true}` whenever
+`DOSSIER_AI_ENABLED=false` or no key is set. The provider key lives **only** in the VPS `.env`;
+it is never shipped in the extension. Provider is Google Gemini (swappable via env).
 
-> **Free-tier gotcha (why this is on hold):** a Gemini key whose Google Cloud project has **no
-> free-tier grant** returns HTTP `429` with `... free_tier_requests, limit: 0` on *every* model
-> (it's a per-project quota, so switching model names doesn't help). Fix = enable billing on the
-> project (moves it to the paid tier — a few cents/month at this scale). **Paid tier is also a
-> privacy win:** Google does **not** use paid-tier inputs to train its products, unlike the free
-> tier — so once on paid, the opt-in/consent copy can be softened.
+> **Model choice / free-tier gotcha:** `gemini-2.0-flash` returns HTTP `429` `... free_tier_requests,
+> limit: 0` on this project (that model has no free-tier grant here). **`gemini-2.5-flash-lite` does
+> have free-tier quota** and is the default — verified live. If a model ever returns `limit: 0`, try a
+> different model first; if *every* model is `limit: 0`, the project has no free tier at all and the
+> fix is enabling billing (paid tier — a few cents/month, and a privacy win since paid-tier inputs
+> aren't used to train Google's products).
 
 > **Privacy note (free tier):** the free Gemini tier may use submitted inputs to improve Google's
 > services (and may be human-reviewed). That's why the extension keeps AI drafting **opt-in +
 > explicit consent**, and both privacy policies disclose it. A paid key removes that caveat.
-
-**To re-enable later, follow steps 1–4. To keep it OFF (current state):** ensure
-`DOSSIER_AI_ENABLED=false` in `.env` (or leave `DOSSIER_AI_API_KEY` blank) and run step 3 — the
-API then cleanly reports `{"disabled":true}` and nothing is sent anywhere.
 
 1. **Get a Gemini API key** (free): sign in at https://aistudio.google.com/apikey → **Create
    API key**. Copy it (looks like `AIza…`). Keep it secret — treat it like a password.
@@ -232,7 +226,7 @@ API then cleanly reports `{"disabled":true}` and nothing is sent anywhere.
    ```
    DOSSIER_AI_ENABLED=true
    DOSSIER_AI_PROVIDER=gemini
-   DOSSIER_AI_MODEL=gemini-2.0-flash
+   DOSSIER_AI_MODEL=gemini-2.5-flash-lite
    DOSSIER_AI_API_KEY=<paste your AIza… key here>
    DOSSIER_AI_FREE_MONTHLY_QUOTA=50
    ```

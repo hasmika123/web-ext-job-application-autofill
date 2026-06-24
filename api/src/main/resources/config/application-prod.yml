@@ -175,7 +175,7 @@ dossier:
     enabled: ${DOSSIER_AI_ENABLED:false}
     provider: ${DOSSIER_AI_PROVIDER:gemini}
     base-url: ${DOSSIER_AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
-    model: ${DOSSIER_AI_MODEL:gemini-2.0-flash}
+    model: ${DOSSIER_AI_MODEL:gemini-2.5-flash-lite}
     api-key: ${DOSSIER_AI_API_KEY:}
     free-monthly-quota: ${DOSSIER_AI_FREE_MONTHLY_QUOTA:50}
     max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}

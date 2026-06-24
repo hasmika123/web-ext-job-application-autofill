@@ -25,26 +25,21 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> 🎉 **Phase 6 is COMPLETE** (6.1 extension GA4 Measurement Protocol events + 6.2 web gtag.js
-> funnel). Analytics is wired end-to-end but **staged dark behind an explicit master switch** so it
-> records nothing until you flip it on at launch: **web** = set `NEXT_PUBLIC_GA_MEASUREMENT_ID` +
-> `NEXT_PUBLIC_ANALYTICS_ENABLED=true`; **extension** = add `GA_MEASUREMENT_ID`/`GA_API_SECRET`
-> secrets + `EXT_ANALYTICS_ENABLED=true` variable, then republish (CI injects at build). Both default
-> OFF even with creds present. Privacy policies (web + extension) disclose it. ext v0.19.1.
+> ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
+> The `gemini-2.0-flash` `limit: 0` was per-model; `gemini-2.5-flash-lite` has free-tier quota
+> (verified with a live call). Done this pass: default model → `gemini-2.5-flash-lite` (code + docs),
+> extension "Use Dossier AI" toggle **re-enabled** (no longer "coming soon"), DEPLOY §10 flipped to
+> LIVE. ext v0.19.2. **User action to finish going live:** on the VPS set
+> `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
+> recreate the api container — see `DEPLOY.md` §10.
 >
-> **Next: back to Phase 5 (server-side AI).** Phase 5 was put ON HOLD ("coming soon") because the
-> trial Gemini **free tier returned `limit: 0`** (no free-tier grant; fix = billing→paid tier, which
-> is also privacy-better). The infra is built + merged. Two ways forward, user's call:
-> **(a)** build **5.3** now — server-side answer caching in `ai_answers` by `question_hash` (pure
-> backend infra; buildable + testable *without* the provider being live, so it's productive while
-> the feature stays staged), or **(b)** take the feature **off hold** (enable Gemini billing / pick a
-> provider, flip `DOSSIER_AI_ENABLED=true` on the VPS — see `DEPLOY.md` §10), then 5.3. Read the
-> **Phase 5** section of ROADMAP.md.
+> **Next: Task 5.3 — server-side answer caching** in `ai_answers` by `question_hash` (dedupe identical
+> questions so they don't re-spend quota / re-hit the provider across devices; the `AiAnswer` entity
+> + repo already exist). Read the **Phase 5** section of ROADMAP.md.
 >
-> *Context:* Phases 2–4 on prod at https://kiwiply.com; **Phase 6 complete + merged to `main`**
-> (analytics, staged dark behind the master switches). `phase-6` branch deleted. CWS extension
-> listing still pending Google verification. Extension at v0.19.1. Phase 7 (other browsers) deferred
-> until after Phase 5 resumes.
+> *Context:* Phases 2–4 + 6 on prod at https://kiwiply.com. Working branch `phase-5` (un-hold not yet
+> merged to `main`). CWS extension listing still pending Google verification. Extension at v0.19.2.
+> Phase 7 (other browsers) after Phase 5.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -391,14 +386,11 @@ focused Claude Code session.
   extension suites green. ext v0.17.0. **Completes Phase 4.***
 
 ## Phase 5 — AI Integration (server-side)
-> ⏸️ **ON HOLD — "coming soon" (2026-06-24).** 5.1/5.2 infra is built + merged to `main`, but the
-> server-side feature is **deliberately not live**: extension toggle shows "coming soon" (disabled),
-> prod runs `DOSSIER_AI_ENABLED=false`. Paused because the trial Gemini **free tier returned
-> `limit: 0`** (no free-tier grant on the project; needs billing→paid tier — cheap + privacy-better).
-> Re-enable steps + gotcha in `DEPLOY.md` §10. **BYO-Anthropic-key path stays live.** 5.3 deferred
-> until the feature resumes.
-- [x] **5.1 Metered `/ai` proxy** on server key (free-tier quota + rate limit). *Done (infra);
-  **feature held "coming soon", not live in prod** (see the hold note above).
+> ✅ **OFF HOLD (2026-06-24) — live-capable on `gemini-2.5-flash-lite` (free tier).** The
+> `gemini-2.0-flash` `limit: 0` was per-model; `gemini-2.5-flash-lite` has free-tier quota (verified
+> live). Default model updated (code + docs), extension toggle re-enabled, DEPLOY §10 flipped to LIVE.
+> Final go-live = set `DOSSIER_AI_ENABLED=true` + `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` on the VPS.
+- [x] **5.1 Metered `/ai` proxy** on server key (free-tier quota + rate limit). *Done + LIVE-capable.
   `POST /api/ai/draft` (`AiResource`/`AiDraftService`) — provider-agnostic `AiProvider` seam
   + `GeminiAiProvider` (Google Gemini free tier, `dossier.ai.*` env config, key server-only).
   **Opt-in + explicit consent** (free tier may use inputs to improve Google's services),
@@ -455,6 +447,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · Phase 5 taken **OFF HOLD** · A live call confirmed `gemini-2.5-flash-lite` has
+  free-tier quota (the earlier `limit: 0` was specific to `gemini-2.0-flash`). Default model →
+  `gemini-2.5-flash-lite` in `AiProperties.java` + `application-prod.yml` + root `.env.example`;
+  extension "Use Dossier AI" toggle + consent **re-enabled** (removed the "coming soon" disabled
+  state); `DEPLOY.md` §10 flipped from ON HOLD to LIVE (model + gotcha updated); ARCHITECTURE +
+  PROGRESS un-held. ext v0.19.2. Extension suite green. Go-live = `DOSSIER_AI_ENABLED=true` +
+  `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` on the VPS (key already set). Next: 5.3 answer caching.
 - 2026-06-24 · 6.x (analytics master switch — both layers) · Added an explicit on/off switch
   decoupled from the credentials so analytics can be **staged but dark** until launch. Web:
   `NEXT_PUBLIC_ANALYTICS_ENABLED` (default false) — gtag loads only when ID set AND switch true.

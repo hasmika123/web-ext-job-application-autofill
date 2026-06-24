@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.19.1, bundled ruleset version 4.
+> Current version: manifest 0.19.2, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -66,9 +66,9 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   `aiDraft({question,context,consent})` → `POST /api/ai/draft` (Phase 5 opt-in server AI).
   The service worker's `draftAnswer` tries BYO-key (direct to Anthropic) first, then the
   server proxy when the user has enabled + consented to Dossier AI (Options → Settings).
-  **Status: the server-AI path is ON HOLD ("coming soon")** — the Options toggle/consent are
-  shown disabled and prod runs `DOSSIER_AI_ENABLED=false`, so `aiDraft` returns `{disabled:true}`.
-  The wiring stays in place; BYO-key remains the live AI option. See root `DEPLOY.md` §10.
+  **Status: LIVE** — the Options toggle/consent are active and prod runs `DOSSIER_AI_ENABLED=true`
+  on **Google Gemini `gemini-2.5-flash-lite`** (free tier; `gemini-2.0-flash` returned `limit:0`).
+  Opt-in + explicit consent + per-user monthly quota. BYO-key still takes priority. See `DEPLOY.md` §10.
 - `src/lib/analytics.js` — `JAF.analytics` (Phase 6.1, SW-safe `globalThis.JAF`). Anonymous
   usage analytics via the **GA4 Measurement Protocol** (POST `/mp/collect`), run from the
   **service worker** (gtag/remote code are banned under MV3). `track(name, params)` fires ONE

@@ -27,8 +27,8 @@ public class AiProperties {
     /** Provider base URL (no trailing slash). Gemini: the Generative Language API. */
     private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 
-    /** Model id. Gemini free-tier examples: gemini-2.0-flash, gemini-2.0-flash-lite. */
-    private String model = "gemini-2.0-flash";
+    /** Model id. gemini-2.5-flash-lite has free-tier quota (gemini-2.0-flash returned limit:0). */
+    private String model = "gemini-2.5-flash-lite";
 
     /** Provider API key — env only, never bundled. Blank ⇒ the proxy reports "disabled". */
     private String apiKey = "";
