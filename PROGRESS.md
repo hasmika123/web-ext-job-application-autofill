@@ -33,22 +33,23 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> **Phase 7 — other browsers.** ✅ **7.1 Edge** + ✅ **7.2 Firefox** done (manifest + docs). The
-> extension now targets Chrome, Edge, and **Firefox 121+** from **one manifest + one zip**: Edge is
-> pure Chromium; Firefox needs only a `browser_specific_settings.gecko` block (Chrome ignores it) and
-> relies on FF's MV3 `service_worker` background + `chrome.*` aliases (no `browser.*` rewrite). Both
-> documented in `job-autofill/BROWSERS.md`. ext v0.20.0.
+> 🎉 **Phases 0–7 are done for the consumer product** (Safari 7.3 deliberately deferred). The
+> extension targets **Chrome + Edge + Firefox 121+** from one bundle; backend + web are LIVE on prod
+> with accounts, the self-populating tracker, field-cache + AI (incl. caching), and analytics (staged
+> dark behind a master switch). All merged to `main`; `phase-7` merged + deleted.
 >
-> **⚠️ Open verification (user step):** Firefox needs a live `web-ext lint` + `web-ext run`/sideload
-> pass before AMO publish — confirm the **background service worker runs** on a real Firefox (the bit
-> most likely to differ). Edge sideload is a similar quick check. Neither is testable from here.
+> **No active build task.** What's left is **pre-launch + external** work, not new features:
+> - **PL.1** — privacy policy: real contact/entity + legal review (see Pre-launch checklist).
+> - **PL.2** — basic rate limiting / abuse protection before public signups.
+> - **Live verifications (user, can't be done from here):** Firefox `web-ext lint`/`run`, Edge sideload.
+> - **External/blocked:** CWS listing (Google verification pending) → then Edge Add-ons + Firefox AMO
+>   (same zip); flip analytics on at launch (`*_ANALYTICS_ENABLED=true`).
+> - **7.3 Safari** and **Phase 8 (enterprise: SSO, multi-tenancy, audit)** remain when needed.
 >
-> **Next: Task 7.3 — Safari** (Apple `safari-web-extension-converter` + Xcode/Mac — the deferred,
-> bigger lift). Or treat Phase 7 as effectively done for the consumer browsers (Chrome/Edge/Firefox)
-> and revisit Safari later. Read the **Phase 7** section of ROADMAP.md.
+> Pick the next focus deliberately — likely **PL.1/PL.2** as the real pre-launch gate. Read the
+> **Pre-launch checklist** above and the relevant ROADMAP phase.
 >
-> *Context:* Phases 2–6 done + Phase 5 complete; product LIVE at https://kiwiply.com. Working branch
-> `phase-7`. CWS listing still pending Google verification. Extension at v0.20.0.
+> *Context:* product LIVE at https://kiwiply.com. On `main`. Extension at v0.20.0.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
