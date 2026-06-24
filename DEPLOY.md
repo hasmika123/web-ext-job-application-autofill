@@ -152,6 +152,19 @@ first submission is by hand:
    tag it — `git tag ext-v0.11.1 && git push origin ext-v0.11.1` — or run the workflow manually.
    CWS rejects re-uploading the same version, so the bump is required each release.
 
+**Usage analytics (GA4, optional):** the extension can send anonymous usage events via the GA4
+Measurement Protocol (Phase 6.1). The measurement id + api secret are **kept out of the repo** and
+**injected into the build by CI** (`.github/scripts/inject-ga.js`, run by `publish-extension.yml`),
+so the bundled zip carries them but the source never does. To turn it on:
+1. In Google Analytics, create a GA4 property → Web data stream → copy the **Measurement ID**
+   (`G-XXXXXXXXXX`); on that stream, under **Measurement Protocol API secrets**, create one and
+   copy the **secret value**.
+2. Add repo **Secrets**: `GA_MEASUREMENT_ID` and `GA_API_SECRET`.
+3. That's it — the next packaged build injects them automatically. **If the secrets are absent the
+   build still succeeds**, just with analytics disabled (the constants stay empty and every event
+   no-ops). Users can always opt out in the extension's Settings. No app/server change is involved
+   (events go straight from the service worker to Google).
+
 ## 9. Email verification (Brevo SMTP)
 New signups are created **inactive** and emailed an activation link; they can't sign in until
 they click it. This is the gate before opening signups to the public. The integration is

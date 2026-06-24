@@ -33,6 +33,15 @@ jobs:
         run: npm ci && npm test
         working-directory: job-autofill
 
+      - name: Inject GA analytics credentials (build-time only)
+        # Substitutes the GA4 Measurement Protocol id + api secret into the bundled
+        # analytics.js. Source stays secret-free; only this build artifact carries them.
+        # No-ops cleanly if the secrets aren't set, so the zip still builds without them.
+        env:
+          GA_MEASUREMENT_ID: ${{ secrets.GA_MEASUREMENT_ID }}
+          GA_API_SECRET: ${{ secrets.GA_API_SECRET }}
+        run: node .github/scripts/inject-ga.js
+
       - name: Package extension zip
         # manifest.json must sit at the zip root. Ship only runtime files (no tests/docs/deps).
         run: |
