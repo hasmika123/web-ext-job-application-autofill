@@ -171,6 +171,11 @@ so the bundled zip carries them but the source never does. To turn it on:
    unpacked build without republishing, set `gaMeasurementId`, `gaApiSecret`, and `gaEnabled:true`
    in the extension's stored settings via the service-worker console.)*
 
+**Microsoft Edge (same bundle):** Edge is Chromium/MV3, so the extension runs **unchanged** — the
+same `dossier-extension` zip is accepted by the Edge Add-ons store (Microsoft Partner Center). To
+sideload for testing: `edge://extensions` → Developer mode → **Load unpacked**. Full porting notes
+(Edge, Firefox, Safari) are in `job-autofill/BROWSERS.md`.
+
 ## 9. Email verification (Brevo SMTP)
 New signups are created **inactive** and emailed an activation link; they can't sign in until
 they click it. This is the gate before opening signups to the public. The integration is

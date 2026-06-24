@@ -33,15 +33,17 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> 🎉 **Phase 5 is COMPLETE** (5.1 metered proxy + 5.2 BYO-key + 5.3 answer caching). Server-side AI
-> is LIVE on `gemini-2.5-flash-lite` (free tier), opt-in/consent-gated, per-user monthly quota, and
-> now **cached** server-side by `question_hash` so repeat questions are free + cross-device.
+> **Phase 7 — other browsers.** ✅ **7.1 Edge done** — audited the `chrome.*` API surface (all
+> Edge-supported, no Chrome-only APIs) so the extension runs **unchanged**; documented in
+> `job-autofill/BROWSERS.md` (sideload + Edge Add-ons submission, same zip). Phase 5 (server AI,
+> incl. 5.3 caching) is complete + merged to `main`.
 >
-> **Next: Phase 7 — other browsers (7.1 Edge, 7.2 Firefox, 7.3 Safari).** Read the **Phase 7**
-> section of ROADMAP.md. Start on a fresh branch once `phase-5` merges to `main`.
+> **Next: Task 7.2 — Firefox.** Reconcile `browser.*` vs `chrome.*` (polyfill or the WebExtension
+> `browser` namespace), add `browser_specific_settings.gecko.id`, check SW/background differences,
+> and prep AMO submission. Read the **Phase 7** section of ROADMAP.md.
 >
-> *Context:* Phases 2–6 done; product LIVE at https://kiwiply.com. Working branch `phase-5` (5.3 not
-> yet merged). CWS extension listing still pending Google verification. Extension at v0.19.2.
+> *Context:* Phases 2–6 done + Phase 5 complete; product LIVE at https://kiwiply.com. Working branch
+> `phase-7`. CWS extension listing still pending Google verification. Extension at v0.19.2.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -437,8 +439,14 @@ focused Claude Code session.
   the var. `npm test` (tsc+eslint) + `next build` green. **Completes Phase 6.***
 
 ## Phase 7 — Other browsers
-- [ ] **7.1 Edge** (near-free on MV3). **7.2 Firefox** (`browser.*` polyfill +
-  store submission). **7.3 Safari** (Apple converter — defer).
+- [x] **7.1 Edge** (near-free on MV3). *Done: audited every `chrome.*` API the extension uses
+  (`storage`/`runtime`/`tabs`/`webNavigation`/`scripting`/`action`) — all Edge-supported, no
+  Chrome-exclusive APIs → **runs unchanged, same bundle, no code change**. New `job-autofill/
+  BROWSERS.md` (compatibility matrix + Edge sideload `edge://extensions` + Edge Add-ons submission
+  via Microsoft Partner Center, same zip). DEPLOY §8 + ARCHITECTURE reference it. Docs-only (no
+  version bump). Live sideload verification is a ~2-min user step.*
+- [ ] **7.2 Firefox** (`browser.*` polyfill + `browser_specific_settings.gecko.id` + AMO submission).
+- [ ] **7.3 Safari** (Apple `safari-web-extension-converter` + Xcode — deferred, done last).
 
 ## Phase 8 — Enterprise & Compliance (after the consumer product + deployment are real)
 > Deferred B2B/enterprise work. The *consumer-grade* slices of these areas were
@@ -459,6 +467,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · 7.1 (Edge support) — **Phase 7 begins** · Audited the extension's `chrome.*` usage
+  (`storage`/`runtime`/`tabs`/`webNavigation`/`scripting`/`action`) — all Edge-supported, no
+  Chrome-exclusive APIs → runs unchanged on Edge (same MV3 bundle, no code change). New
+  `job-autofill/BROWSERS.md`: compatibility matrix + Edge sideload (`edge://extensions`) + Edge
+  Add-ons submission (Microsoft Partner Center, same zip from `publish-extension.yml`). DEPLOY §8 +
+  ARCHITECTURE point to it. Docs-only (no version bump); live sideload check is a quick user step.
 - 2026-06-24 · 5.3 (server-side answer caching) — **completes Phase 5** · `AiAnswerCacheService`:
   `questionHash()` (normalized SHA-256, mirrors the extension local-cache key), `lookup`, and a
   `REQUIRES_NEW` `store` (a duplicate-race rolls back only the cache insert). `AiDraftService` checks
