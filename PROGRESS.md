@@ -33,17 +33,22 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> **Phase 7 — other browsers.** ✅ **7.1 Edge done** — audited the `chrome.*` API surface (all
-> Edge-supported, no Chrome-only APIs) so the extension runs **unchanged**; documented in
-> `job-autofill/BROWSERS.md` (sideload + Edge Add-ons submission, same zip). Phase 5 (server AI,
-> incl. 5.3 caching) is complete + merged to `main`.
+> **Phase 7 — other browsers.** ✅ **7.1 Edge** + ✅ **7.2 Firefox** done (manifest + docs). The
+> extension now targets Chrome, Edge, and **Firefox 121+** from **one manifest + one zip**: Edge is
+> pure Chromium; Firefox needs only a `browser_specific_settings.gecko` block (Chrome ignores it) and
+> relies on FF's MV3 `service_worker` background + `chrome.*` aliases (no `browser.*` rewrite). Both
+> documented in `job-autofill/BROWSERS.md`. ext v0.20.0.
 >
-> **Next: Task 7.2 — Firefox.** Reconcile `browser.*` vs `chrome.*` (polyfill or the WebExtension
-> `browser` namespace), add `browser_specific_settings.gecko.id`, check SW/background differences,
-> and prep AMO submission. Read the **Phase 7** section of ROADMAP.md.
+> **⚠️ Open verification (user step):** Firefox needs a live `web-ext lint` + `web-ext run`/sideload
+> pass before AMO publish — confirm the **background service worker runs** on a real Firefox (the bit
+> most likely to differ). Edge sideload is a similar quick check. Neither is testable from here.
+>
+> **Next: Task 7.3 — Safari** (Apple `safari-web-extension-converter` + Xcode/Mac — the deferred,
+> bigger lift). Or treat Phase 7 as effectively done for the consumer browsers (Chrome/Edge/Firefox)
+> and revisit Safari later. Read the **Phase 7** section of ROADMAP.md.
 >
 > *Context:* Phases 2–6 done + Phase 5 complete; product LIVE at https://kiwiply.com. Working branch
-> `phase-7`. CWS extension listing still pending Google verification. Extension at v0.19.2.
+> `phase-7`. CWS listing still pending Google verification. Extension at v0.20.0.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -445,7 +450,15 @@ focused Claude Code session.
   BROWSERS.md` (compatibility matrix + Edge sideload `edge://extensions` + Edge Add-ons submission
   via Microsoft Partner Center, same zip). DEPLOY §8 + ARCHITECTURE reference it. Docs-only (no
   version bump). Live sideload verification is a ~2-min user step.*
-- [ ] **7.2 Firefox** (`browser.*` polyfill + `browser_specific_settings.gecko.id` + AMO submission).
+- [x] **7.2 Firefox** (`browser_specific_settings.gecko` + AMO). *Done (manifest + docs): targets
+  **Firefox 121+** (supports MV3 `background.service_worker` so our `importScripts` SW runs, and
+  exposes `chrome.*` callback aliases so no `browser.*` rewrite/polyfill is needed). Added a
+  `browser_specific_settings.gecko` block (id `dossier@kiwiply.com`, `strict_min_version 121.0`) to
+  `manifest.json` — Chrome ignores it, so **one manifest + one zip serve Chrome, Edge, and
+  Firefox/AMO**. BROWSERS.md documents the approach, a **required live `web-ext lint`/`web-ext run`
+  verification pass** (the background SW is the bit most likely to differ on Firefox), an event-page
+  contingency if `service_worker` is rejected, and AMO submission. ext v0.20.0; 14 suites green.
+  **Runtime verification on a real Firefox is the user's gate before publishing to AMO.***
 - [ ] **7.3 Safari** (Apple `safari-web-extension-converter` + Xcode — deferred, done last).
 
 ## Phase 8 — Enterprise & Compliance (after the consumer product + deployment are real)
@@ -467,6 +480,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · 7.2 (Firefox support) · Targets Firefox 121+ (MV3 `service_worker` background +
+  `chrome.*` callback aliases → no `browser.*` rewrite/polyfill). Added `browser_specific_settings.
+  gecko` (id `dossier@kiwiply.com`, min 121.0) to the manifest — Chrome ignores it, so one manifest
+  + one zip serve Chrome/Edge/Firefox. BROWSERS.md documents it + the **required live `web-ext`
+  verification** (background SW is the likely Firefox difference) + an event-page contingency + AMO
+  submission. ext v0.20.0; smoke test only asserts ruleset version, 14 suites green. Runtime Firefox
+  verification is the user's gate before AMO.
 - 2026-06-24 · 7.1 (Edge support) — **Phase 7 begins** · Audited the extension's `chrome.*` usage
   (`storage`/`runtime`/`tabs`/`webNavigation`/`scripting`/`action`) — all Edge-supported, no
   Chrome-exclusive APIs → runs unchanged on Edge (same MV3 bundle, no code change). New
