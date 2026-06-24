@@ -10,12 +10,19 @@
  *  (background-only) and must survive the post-submit navigation that tears down the
  *  page's content script. The tracking/sync/app-tracking libs attach to globalThis.JAF.
  */
-importScripts("../lib/tracking.js", "../lib/sync.js", "../lib/app-tracking.js");
+importScripts("../lib/tracking.js", "../lib/sync.js", "../lib/app-tracking.js", "../lib/analytics.js");
+
+// Fire-and-forget analytics. NEVER pass PII — coarse params only (see analytics.js).
+function track(name, params) {
+  try { return self.JAF && self.JAF.analytics ? self.JAF.analytics.track(name, params) : Promise.resolve(); }
+  catch (e) { return Promise.resolve(); }
+}
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html") });
   }
+  track(details.reason === "install" ? "extension_install" : "extension_update", { reason: details.reason });
 });
 
 const ANSWER_KEY = "answerCache";
@@ -81,9 +88,20 @@ async function draftAnswer(question, context) {
   return { disabled: true };
 }
 
+function draftOutcome(r) {
+  if (!r) return "error";
+  if (r.cached) return "cached";
+  if (r.answer) return "drafted";
+  if (r.disabled) return "disabled";
+  if (r.error) return "error";
+  return "other";
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== "JAF_DRAFT") return;
-  draftAnswer(msg.question, msg.context).then(sendResponse).catch((e) => sendResponse({ error: String(e) }));
+  draftAnswer(msg.question, msg.context)
+    .then((r) => { track("answer_draft", { outcome: draftOutcome(r) }); sendResponse(r); })
+    .catch((e) => { track("answer_draft", { outcome: "error" }); sendResponse({ error: String(e) }); });
   return true; // async
 });
 
@@ -136,6 +154,7 @@ async function confirmForTab(tabId) {
   const provider = await trackingProvider();
   if (!provider) return;
   try { await self.JAF.appTracking.confirmSubmission(provider, p.serverId, new Date().toISOString()); } catch (e) { return; }
+  track("application_submitted", {});
   delete pend[tabId];
   await sSet(PENDING_KEY, pend);
 }
@@ -144,6 +163,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.type) return;
   const tabId = sender && sender.tab ? sender.tab.id : null;
   if (msg.type === "JAF_LOG_FILL") {
+    track("autofill", { ats: (msg.capture && msg.capture.atsPlatform) || "unknown" });
     logFill(msg.capture, msg.resume, tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true; // async
   }
@@ -152,6 +172,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true; // async
   }
   if (msg.type === "JAF_SAVE_JOB") {
+    track("save_job", { ats: (msg.capture && msg.capture.atsPlatform) || "unknown" });
     saveJob(msg.capture).then(sendResponse).catch((e) => sendResponse({ ok: false, reason: String(e) }));
     return true; // async
   }

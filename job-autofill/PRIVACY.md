@@ -41,6 +41,19 @@ default** and only runs after you explicitly enable it. There are two modes, and
 
 Leave AI drafting off and every other feature works without sending anything to an AI provider.
 
+## Anonymous usage analytics
+
+To understand which features are used and where the experience breaks, the extension sends
+**anonymous, aggregate event counts** to Google Analytics (via the GA4 Measurement Protocol).
+
+- **What is sent:** an event name and coarse, non-identifying parameters only — e.g. "a fill
+  happened" (with the ATS type, like `workday`), "an answer was drafted", "a job was saved",
+  "an application was submitted" — tagged with a random analytics ID generated on your device.
+- **What is NEVER sent:** your name, contact details, bio, resumes, the answers you draft, your
+  account/email, the specific jobs or companies, or the URLs/pages you visit.
+- **Opt out anytime:** Settings → uncheck **"Share anonymous usage analytics."** When off, nothing
+  is sent. We honour the choice immediately.
+
 ## Permission justifications
 
 | Permission | Why |
@@ -50,6 +63,7 @@ Leave AI drafting off and every other feature works without sending anything to 
 | `webNavigation` | Detect the application's success/confirmation page to mark a job as applied (no auto-submit). |
 | Host access to ATS domains (Workday, Greenhouse, Lever, Ashby, Workable, iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite) | Run the autofill content script on those job-application sites. |
 | `api.anthropic.com` | **Optional** AI assistance for free-text answers — used **only if you supply your own API key**. No key, no calls. |
+| `www.google-analytics.com` | Send **anonymous** usage event counts (no personal data) so we can improve the extension. Opt out in Settings. |
 | `raw.githubusercontent.com`, `gist.githubusercontent.com` | Fetch updated field-matching rules (no personal data is sent). |
 | `localhost:8080` | Local development against a dev backend; not used in production. |
 
@@ -57,8 +71,9 @@ Leave AI drafting off and every other feature works without sending anything to 
 
 - We do **not** sell user data.
 - We do **not** use or transfer user data for purposes unrelated to the item's single purpose.
-  The only third-party transfer is the **opt-in AI answer drafting** described above (to the AI
-  provider, to generate your answer) — off by default and only with your explicit consent.
+  Third-party transfers are limited to: (1) the **opt-in AI answer drafting** described above (to
+  the AI provider, to generate your answer — off by default, explicit consent), and (2) **anonymous
+  usage analytics** to Google Analytics (event counts only, no personal data; opt out in Settings).
 - We do **not** use or transfer user data to determine creditworthiness or for lending.
 
 ## Deletion

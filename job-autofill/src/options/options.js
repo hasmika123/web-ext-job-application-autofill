@@ -100,6 +100,7 @@ async function renderSettings() {
   if ($("#server-ai")) $("#server-ai").checked = !!s.serverAiEnabled;
   if ($("#server-ai-consent")) $("#server-ai-consent").checked = !!s.serverAiConsent;
   $("#eeo-default").checked = !!s.includeEEO;
+  if ($("#analytics")) $("#analytics").checked = !s.analyticsOptOut; // on by default
   if ($("#autoadv-default")) $("#autoadv-default").checked = !!s.autoAdvance;
   if ($("#autoadd-default")) $("#autoadd-default").checked = s.autoAddRows !== false;
   if ($("#rules-url")) $("#rules-url").value = s.rulesUrl || "";
@@ -118,6 +119,7 @@ $("#save-settings").onclick = async () => {
   // Server AI only runs with BOTH the toggle and explicit consent; clear consent if turned off.
   if ($("#server-ai-consent")) s.serverAiConsent = $("#server-ai-consent").checked && !!s.serverAiEnabled;
   s.includeEEO = $("#eeo-default").checked;
+  if ($("#analytics")) s.analyticsOptOut = !$("#analytics").checked;
   if ($("#autoadv-default")) s.autoAdvance = $("#autoadv-default").checked;
   if ($("#autoadd-default")) s.autoAddRows = $("#autoadd-default").checked;
   if ($("#rules-url")) s.rulesUrl = $("#rules-url").value.trim();

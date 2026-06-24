@@ -25,22 +25,19 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ⏸️ **Phase 5 (server-side AI) is ON HOLD — "coming soon".** The infrastructure is **built and
-> merged to `main`** (5.1 metered `/api/ai/draft` proxy, provider-agnostic `AiProvider`, per-user
-> quota; 5.2 BYO-key path), but the feature is **intentionally not live**: the extension shows the
-> "Use Dossier AI" toggle as **coming soon (disabled)**, and prod runs `DOSSIER_AI_ENABLED=false`.
-> Activation was paused because the trial **Gemini free tier returned `limit: 0`** (the project had
-> no free-tier grant; fixing it needs billing-enabled = paid tier — cheap, and also better for
-> privacy since paid-tier inputs aren't used for training). See `DEPLOY.md` §10 for the re-enable
-> steps + the gotcha. **The BYO-Anthropic-key path stays live and unaffected.**
+> **Phase 6 · Task 6.2 — Web app analytics (gtag.js + funnel events).** 6.1 (extension GA4 events
+> from the service worker) is **DONE**. Next: add gtag.js to the Next.js web app with funnel events
+> (signup → login → resume upload → board), gated behind a measurement id (env-config, no secret in
+> the repo) and a privacy note. **Also sync the web `/privacy` page** to disclose analytics so it
+> stays consistent with the extension `PRIVACY.md`. Read the **Phase 6** section of ROADMAP.md.
 >
-> **No active task** — pick up **5.3** (cache answers by `question_hash` in `ai_answers`) only when
-> the server-side feature comes off hold, or move to **Phase 6** (Google Analytics). The decision to
-> resume AI is the user's (depends on enabling billing / choosing a provider).
+> *Side note (Phase 5 still ON HOLD):* server-side AI infra is merged but parked ("coming soon",
+> `DOSSIER_AI_ENABLED=false`) pending a billing/provider decision — see `DEPLOY.md` §10. BYO-key live.
 >
 > *Context:* Phases 2–4 done and **all on prod** at https://kiwiply.com; Phase 5 infra merged
-> (`main`, 2026-06-24). Branches: `main` + `phase-5`. CWS extension listing still pending Google
-> verification. Extension at v0.18.1.
+> (2026-06-24). Branches: `main` + `phase-6` (current). CWS extension listing still pending Google
+> verification. Extension at v0.19.0. **Note:** GA isn't wired live until the GA4 measurement id +
+> api secret are set (see `analytics.js` / `settings.gaMeasurementId`); until then events no-op.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -408,9 +405,18 @@ focused Claude Code session.
 - [ ] **5.3 Cache answers** in `ai_answers` by `question_hash`.
 
 ## Phase 6 — Google Analytics
-- [ ] **6.1 Extension events** via GA4 Measurement Protocol from the service
-  worker (send immediately — SW dies after ~30s idle).
-- [ ] **6.2 Web app** gtag.js + funnel events.
+- [x] **6.1 Extension events** via GA4 Measurement Protocol from the service
+  worker (send immediately — SW dies after ~30s idle). *Done: `src/lib/analytics.js`
+  (`JAF.analytics`, SW-safe) — GA4 Measurement Protocol `track(name,params)`, one POST per
+  event (no batching), no-ops when unconfigured or opted out, PII-guarded `sanitize()` (coarse
+  scalars only), random `gaClientId`. Measurement id + api secret empty in source (no key in
+  bundle); set at config time or via `settings.ga*`. SW `importScripts` it + fires
+  `extension_install`/`autofill`/`save_job`/`answer_draft`/`application_submitted`. Options gets a
+  "Share anonymous usage analytics" opt-out (on by default); manifest + host perm
+  `www.google-analytics.com`; extension `PRIVACY.md` discloses it (section + cert + permission row).
+  `test/analytics.test.js` (27); full suite green. ext v0.19.0.*
+- [ ] **6.2 Web app** gtag.js + funnel events. (Also: sync web `/privacy` with the analytics
+  disclosure for consistency with the extension `PRIVACY.md`.)
 
 ## Phase 7 — Other browsers
 - [ ] **7.1 Edge** (near-free on MV3). **7.2 Firefox** (`browser.*` polyfill +
@@ -435,6 +441,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · 6.1 (extension analytics) — **Phase 6 begins** · `src/lib/analytics.js`
+  (`JAF.analytics`, SW-safe): GA4 **Measurement Protocol** from the service worker —
+  `track(name,params)` fires one POST per event immediately (SW dies ~30s idle, no batching),
+  no-ops when unconfigured / opted out; PII-guard `sanitize()` (coarse scalars only, drops
+  objects), random `gaClientId`. No telemetry key in the committed bundle (ids empty in source;
+  set via config/`settings.ga*`). SW `importScripts` + events `extension_install` / `autofill` /
+  `save_job` / `answer_draft` / `application_submitted`. Options opt-out toggle (on by default);
+  manifest host perm `www.google-analytics.com`; extension `PRIVACY.md` discloses analytics
+  (section + data-use cert + permission row). `test/analytics.test.js` (27); full suite green.
+  ext v0.19.0. Branch `phase-6`. Next 6.2: web gtag.js + funnel + sync web `/privacy`.
 - 2026-06-24 · Phase 5 merged to `main` + put **ON HOLD ("coming soon")** · Merged `phase-5`→`main`
   (`e0a3f4b`) so the AI infra is deployed but inert. Live prod test surfaced the trial Gemini **free
   tier = `limit: 0`** (project has no free-tier grant; needs billing→paid tier, which is also

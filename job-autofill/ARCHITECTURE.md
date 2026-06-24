@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.18.1, bundled ruleset version 4.
+> Current version: manifest 0.19.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -69,6 +69,16 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   **Status: the server-AI path is ON HOLD ("coming soon")** — the Options toggle/consent are
   shown disabled and prod runs `DOSSIER_AI_ENABLED=false`, so `aiDraft` returns `{disabled:true}`.
   The wiring stays in place; BYO-key remains the live AI option. See root `DEPLOY.md` §10.
+- `src/lib/analytics.js` — `JAF.analytics` (Phase 6.1, SW-safe `globalThis.JAF`). Anonymous
+  usage analytics via the **GA4 Measurement Protocol** (POST `/mp/collect`), run from the
+  **service worker** (gtag/remote code are banned under MV3). `track(name, params)` fires ONE
+  event immediately (no batching — the SW dies after ~30s idle), no-ops when unconfigured or
+  the user opted out (`settings.analyticsOptOut`). `sanitize()` keeps only coarse scalars and
+  drops objects, so **no PII** ships; a random `gaClientId` (not the user) identifies the install.
+  The measurement id + api secret are empty in source (no key in the bundle) — set at
+  package/config time or via `settings.gaMeasurementId`/`gaApiSecret`. `create(deps)` factory +
+  helpers exposed for tests. The SW wires `extension_install`/`autofill`/`save_job`/
+  `answer_draft`/`application_submitted` events.
 - `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
   canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
   jobDescription). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
