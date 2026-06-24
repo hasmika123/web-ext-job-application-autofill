@@ -83,6 +83,24 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      <Section title="AI answer drafting (optional)">
+        <p>
+          Dossier offers an <strong>optional</strong> AI feature that drafts answers to
+          open-ended application questions (for example, &quot;Why do you want this role?&quot;).
+          It is <strong>off by default</strong> and only runs after you explicitly turn it on.
+        </p>
+        <p>
+          When enabled, the question and a short summary of your profile/resume background are
+          sent to a third-party AI provider (currently <strong>Google Gemini</strong>) to
+          generate a draft you review before using. Because we currently use Gemini&apos;s
+          free tier, <strong>Google may use this input to improve its services, and human
+          reviewers may see it</strong>. If you don&apos;t want your information used this way,
+          simply leave AI drafting off — every other Dossier feature works without it. You can
+          also bring your own AI key in the extension, in which case requests go directly from
+          your browser to that provider under your own account, not through us.
+        </p>
+      </Section>
+
       <Section title="Storage and sharing">
         <p>
           Your data is stored in our database; resume files are kept in object storage. Data

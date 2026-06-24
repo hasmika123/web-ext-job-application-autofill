@@ -27,5 +27,6 @@
     <include file="config/liquibase/changelog/20260621030000_added_indexes.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260622000000_extend_tracking_schema.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260622120000_added_refresh_token.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260623000000_ai_usage.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

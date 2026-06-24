@@ -25,20 +25,20 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> 🎉 **Phase 4 is COMPLETE** (4.1) — the field cache now syncs to the cloud: learned field answers
-> follow the user across devices via `/api/profile/field-caches/sync` (last-write-wins + max
-> `hitCount`), wired into the options "Sync now". Phase 3 (the tracker) is also done and on prod.
+> **Phase 5 · Task 5.1 — Metered server-side AI proxy (in progress).** **Decision:** start on the
+> **Google Gemini free tier**, provider-agnostic so we can swap to paid/Anthropic later; AI drafting
+> is **opt-in with explicit consent** (the free tier may use inputs to improve Google's services).
+> **5.1a DONE** (this commit): backend `POST /api/ai/draft` — provider seam (`AiProvider` →
+> `GeminiAiProvider`), `dossier.ai.*` env config (provider/model/key/quota), per-user monthly quota
+> (`ai_usage` table), consent + disabled + quota gating; privacy policies (web `/privacy` + extension
+> `PRIVACY.md`) updated with the Gemini/opt-in disclosure; `.env.example` + compose env. Backend
+> `test`+`integrationTest` + web build green. **5.1b NEXT:** wire the extension — opt-in consent UI in
+> options + route `assist.js`/service-worker drafting to the server proxy when the user enables it
+> (BYO-key path 5.2 stays). Then 5.3 (cache answers by `question_hash` in `ai_answers`).
 >
-> **Next: Phase 5 · Task 5.1 — Metered server-side AI proxy.** Today AI answer-drafting is BYO
-> Anthropic key, called from the extension service worker (`JAF_DRAFT` in `service-worker.js`).
-> Add a server-side **metered `/ai` proxy** (on the server's key) so free users get a small monthly
-> quota + rate limiting, keeping the key off the client. **Keep the BYO-key path** (5.2) as the
-> unlimited free option, and cache answers by `question_hash` in `ai_answers` (5.3). Read the
-> **Phase 5** section of ROADMAP.md. Start on a fresh `phase-5` branch once `phase-4` merges to `main`.
->
-> *Context:* Phases 2–4 done; product LIVE at https://kiwiply.com. **Phase 3 merged to `main`
-> (2026-06-23)** and on prod; **Phase 4 (4.1) is on `phase-4`**, merges next. CWS extension listing
-> still pending Google verification. Extension at v0.17.0.
+> *Context:* Phases 2–4 done and **all on prod** at https://kiwiply.com. Branches: `main` + `phase-5`.
+> CWS extension listing still pending Google verification. Extension at v0.17.0.
+> **Add `DOSSIER_AI_*` to the VPS `.env`** (incl. a Gemini key) before the AI proxy does anything live.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -396,6 +396,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 5.1a (server-side AI proxy — backend) · **Phase 5 begins.** Decision: Google Gemini
+  **free tier** to start (provider-agnostic, swap later), AI drafting **opt-in + consent** (free tier
+  may use inputs to improve Google's services). `POST /api/ai/draft`: `AiProvider` seam +
+  `GeminiAiProvider` (plain java.net.http), `dossier.ai.*` env config, per-user monthly quota
+  (`ai_usage` table + migration), consent/disabled/quota gating (`AiDraftService`). Key stays
+  server-side (never bundled). ArchUnit fix: services take primitives/@Value, not the config class.
+  Privacy policies (web `/privacy` + extension `PRIVACY.md`) + `.env.example` + compose updated.
+  `AiDraftServiceTest` (6) + `AiResourceIT` (2); full backend `test`+`integrationTest` + web build
+  green. Next 5.1b: extension consent UI + route drafting to the proxy.
 - 2026-06-23 · 4.1 (field cache cloud sync) — **completes Phase 4** · user-scoped
   `/api/profile/field-caches` (GET + `POST /sync`): batch upsert keyed on `fieldKey`+`contextHash`,
   last-write-wins on value by `updatedAt`, `hitCount`=max (idempotent across re-syncs).

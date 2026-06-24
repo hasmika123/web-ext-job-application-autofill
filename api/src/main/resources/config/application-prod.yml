@@ -165,3 +165,17 @@ dossier:
     access-key: ${DOSSIER_STORAGE_ACCESS_KEY:}
     secret-key: ${DOSSIER_STORAGE_SECRET_KEY:}
     path-style-access: ${DOSSIER_STORAGE_PATH_STYLE_ACCESS:false}
+  ai:
+    # Server-side metered AI answer drafting (Phase 5.1). OFF unless enabled AND a key
+    # is set. Provider-agnostic: switch provider/model/baseUrl without code changes.
+    # The key lives here (env) only — it never ships in the extension bundle.
+    # Gemini FREE-tier note: Google may use inputs to improve its services, so the
+    # extension keeps this OPT-IN and the privacy policy discloses it. Switch to a paid
+    # key (or another provider) to remove that data-use caveat.
+    enabled: ${DOSSIER_AI_ENABLED:false}
+    provider: ${DOSSIER_AI_PROVIDER:gemini}
+    base-url: ${DOSSIER_AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+    model: ${DOSSIER_AI_MODEL:gemini-2.0-flash}
+    api-key: ${DOSSIER_AI_API_KEY:}
+    free-monthly-quota: ${DOSSIER_AI_FREE_MONTHLY_QUOTA:50}
+    max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}

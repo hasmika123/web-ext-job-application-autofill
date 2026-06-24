@@ -26,6 +26,21 @@ application and never bypasses CAPTCHAs.
 The extension reads page content **only on the application page you are filling** (to match
 and fill fields); it does not read your general browsing.
 
+## Optional AI answer drafting
+
+Dossier can **optionally** draft answers to open-ended application questions. It is **off by
+default** and only runs after you explicitly enable it. There are two modes, and you choose:
+
+- **Dossier AI (server-side, opt-in):** the question + a short profile/resume summary are sent
+  to your Dossier account, which proxies them to a third-party AI provider (currently **Google
+  Gemini**) and returns a draft. Because this uses Gemini's free tier, **Google may use the input
+  to improve its services, and human reviewers may see it** — so it is consent-gated and disclosed
+  here and in the web policy. No personal data is sent until you turn the feature on and accept this.
+- **Bring-your-own key:** if you supply your own AI key, requests go **directly** from your browser
+  to that provider (e.g. Anthropic) under your own account — they don't pass through Dossier.
+
+Leave AI drafting off and every other feature works without sending anything to an AI provider.
+
 ## Permission justifications
 
 | Permission | Why |
@@ -40,8 +55,10 @@ and fill fields); it does not read your general browsing.
 
 ## Data-use certifications (Chrome Web Store)
 
-- We do **not** sell or transfer user data to third parties outside the approved use cases.
+- We do **not** sell user data.
 - We do **not** use or transfer user data for purposes unrelated to the item's single purpose.
+  The only third-party transfer is the **opt-in AI answer drafting** described above (to the AI
+  provider, to generate your answer) — off by default and only with your explicit consent.
 - We do **not** use or transfer user data to determine creditworthiness or for lending.
 
 ## Deletion
