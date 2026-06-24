@@ -44,6 +44,27 @@ focused Claude Code session.
 
 ---
 
+## Pre-launch checklist (do BEFORE the public Chrome Web Store listing goes live)
+> Not phase-ordered — these are gates that must clear before real users / a public CWS
+> listing. Pull any into a focused session when launch nears. The 1.11 gate already shipped
+> the multi-tenant fix, account/data deletion, and refresh-token rotation; these are what's left.
+
+- [ ] **PL.1 Privacy policy — real contact + legal review.** Replace the placeholder contact
+  (`privacy@dossier.app`) with a real address/entity, host the policy at a stable URL, and get
+  a legal pass. **Extra-important now that the AI data-use language is in there** (web
+  `/privacy` "AI answer drafting" section + extension `PRIVACY.md` "Optional AI answer drafting"
+  + the Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
+- [ ] **PL.2 Basic rate limiting / abuse protection.** Today there is **no general
+  request throttling** — only a per-user *monthly* AI quota (`ai_usage`) and refresh-token
+  reuse-detection. Before public signups, add coarse abuse protection so nobody can hammer the
+  API into the ground or brute-force auth: per-IP rate limits on `/api/authenticate`,
+  `/api/register`, `/api/account/reset-password`, and `/api/ai/draft` (login/signup/AI are the
+  sharp edges), plus a global ceiling. Cheapest path: **Caddy `rate_limit`** at the edge (no app
+  change) and/or **bucket4j** in Spring for per-principal limits. Pair with a small request
+  body-size cap at Caddy. (The 10MB resume cap and AI `maxOutputTokens` already bound those two.)
+
+---
+
 ## Phase 0 — Quick wins, no backend (start now, parallel)
 - [x] **0.1 Local field-choice cache.** When the user corrects a filled value or
   picks a custom-dropdown option, persist `{field_key, context_hash, value}` in
