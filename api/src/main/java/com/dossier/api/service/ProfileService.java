@@ -4,6 +4,7 @@ import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
@@ -37,6 +38,7 @@ public class ProfileService {
     private final BioRepository bioRepository;
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
+    private final ApplicationRepository applicationRepository;
     private final BioMapper bioMapper;
     private final ResumeMapper resumeMapper;
     private final ResumeStorageService storageService;
@@ -45,6 +47,7 @@ public class ProfileService {
         BioRepository bioRepository,
         ResumeRepository resumeRepository,
         UserRepository userRepository,
+        ApplicationRepository applicationRepository,
         BioMapper bioMapper,
         ResumeMapper resumeMapper,
         ResumeStorageService storageService
@@ -52,6 +55,7 @@ public class ProfileService {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
+        this.applicationRepository = applicationRepository;
         this.bioMapper = bioMapper;
         this.resumeMapper = resumeMapper;
         this.storageService = storageService;
@@ -128,6 +132,16 @@ public class ProfileService {
 
     public void deleteResume(Long id) {
         Resume resume = ownedResume(id);
+        // Archive guard (3.5): never orphan a tracked application's resume reference. If
+        // any application points at this resume, block the delete and nudge to archive.
+        long refs = applicationRepository.countByResumeId(id);
+        if (refs > 0) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "This resume is attached to " + refs + " tracked application" + (refs == 1 ? "" : "s") +
+                ". Archive it instead of deleting so those applications keep their resume."
+            );
+        }
         String key = resume.getr2ObjectKey();
         resumeRepository.delete(resume);
         if (key != null && !key.isBlank()) {

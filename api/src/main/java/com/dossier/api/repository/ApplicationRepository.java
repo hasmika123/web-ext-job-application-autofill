@@ -17,6 +17,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     @Query("select application from Application application where application.user.login = ?#{authentication.name}")
     List<Application> findByUserIsCurrentUser();
 
+    /** How many applications reference this resume — the archive-guard check (3.5). */
+    long countByResumeId(Long resumeId);
+
     default Optional<Application> findOneWithEagerRelationships(Long id) {
         return this.findOneWithToOneRelationships(id);
     }

@@ -9,10 +9,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
+import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
@@ -51,6 +54,9 @@ class ProfileResourceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ApplicationRepository applicationRepository;
 
     @Test
     @Transactional
@@ -161,5 +167,38 @@ class ProfileResourceIT {
             .andExpect(status().isNotFound());
         mockMvc.perform(delete("/api/profile/resumes/" + adminResume.getId())).andExpect(status().isNotFound());
         assertThat(resumeRepository.findById(adminResume.getId())).isPresent();
+    }
+
+    @Test
+    @Transactional
+    void deletingAResumeReferencedByAnApplicationIsBlockedWithArchiveNudge() throws Exception {
+        User user = userRepository.findOneByLogin("user").orElseThrow();
+        Resume resume = new Resume()
+            .label("Used resume")
+            .r2ObjectKey("k")
+            .status(ResumeStatus.CONFIRMED)
+            .createdAt(Instant.ofEpochMilli(0));
+        resume.setUser(user);
+        resume = resumeRepository.saveAndFlush(resume);
+
+        Application app = new Application()
+            .company("Acme")
+            .roleTitle("Engineer")
+            .status(ApplicationStatus.APPLIED)
+            .createdAt(Instant.ofEpochMilli(0))
+            .updatedAt(Instant.ofEpochMilli(0));
+        app.setUser(user);
+        app.setResume(resume);
+        applicationRepository.saveAndFlush(app);
+
+        // The resume is referenced by an application → delete is blocked (409), not lost.
+        mockMvc.perform(delete("/api/profile/resumes/" + resume.getId())).andExpect(status().isConflict());
+        assertThat(resumeRepository.findById(resume.getId())).isPresent();
+
+        // Archiving instead is allowed (keeps the tracker link).
+        mockMvc
+            .perform(put("/api/profile/resumes/" + resume.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("archived", true))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.archived").value(true));
     }
 }

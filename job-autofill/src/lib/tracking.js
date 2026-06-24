@@ -69,7 +69,7 @@
   // Local-only resume fields the server doesn't need echoed back into parsedJson.
   function stripLocalResume(resume) {
     const r = Object.assign({}, resume);
-    delete r.serverId; delete r.r2ObjectKey; delete r.status; delete r.hasFile;
+    delete r.serverId; delete r.r2ObjectKey; delete r.status; delete r.hasFile; delete r.archived;
     return r;
   }
   function resumeToDto(resume) {
@@ -92,6 +92,7 @@
       label: dto.label,
       status: dto.status,
       r2ObjectKey: dto.r2ObjectKey,
+      archived: dto.archived,
     });
   }
   // Application (the tracker entry) <-> server ApplicationDTO. Only fields the caller
