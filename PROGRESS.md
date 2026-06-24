@@ -26,9 +26,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 
 ## Current focus
 > 🎉 **Phase 6 is COMPLETE** (6.1 extension GA4 Measurement Protocol events + 6.2 web gtag.js
-> funnel). Analytics is wired end-to-end but **inert until configured**: the extension build injects
-> `GA_MEASUREMENT_ID`/`GA_API_SECRET` at publish time (CI), the web reads `NEXT_PUBLIC_GA_MEASUREMENT_ID`
-> at build — set those when you want live data. Privacy policies (web + extension) disclose it.
+> funnel). Analytics is wired end-to-end but **staged dark behind an explicit master switch** so it
+> records nothing until you flip it on at launch: **web** = set `NEXT_PUBLIC_GA_MEASUREMENT_ID` +
+> `NEXT_PUBLIC_ANALYTICS_ENABLED=true`; **extension** = add `GA_MEASUREMENT_ID`/`GA_API_SECRET`
+> secrets + `EXT_ANALYTICS_ENABLED=true` variable, then republish (CI injects at build). Both default
+> OFF even with creds present. Privacy policies (web + extension) disclose it. ext v0.19.1.
 >
 > **Next: Phase 7 — other browsers (7.1 Edge, 7.2 Firefox, 7.3 Safari).** Read the **Phase 7**
 > section of ROADMAP.md. Start on a fresh branch once `phase-6` merges to `main`.
@@ -449,6 +451,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · 6.x (analytics master switch — both layers) · Added an explicit on/off switch
+  decoupled from the credentials so analytics can be **staged but dark** until launch. Web:
+  `NEXT_PUBLIC_ANALYTICS_ENABLED` (default false) — gtag loads only when ID set AND switch true.
+  Extension: `DEFAULT_ANALYTICS_ENABLED` (default false) flipped true at inject time by the CI
+  `EXT_ANALYTICS_ENABLED` repo variable; per-device dev override `settings.gaEnabled`; user
+  `analyticsOptOut` still applies on top. `inject-ga.js` handles the flag (verified ON + staged-OFF);
+  analytics test +4 (31); extension suite + web build green. ext v0.19.1. Going live = set
+  `NEXT_PUBLIC_ANALYTICS_ENABLED=true` (web) / `EXT_ANALYTICS_ENABLED=true` + republish (extension).
 - 2026-06-24 · 6.2 (web analytics) — **completes Phase 6** · `web/src/lib/analytics.ts` (`track()`
   no-op-safe + typed `window.gtag`) + `web/src/components/Analytics.tsx` (loads gtag.js via
   `next/script` only when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set), mounted in the root layout.

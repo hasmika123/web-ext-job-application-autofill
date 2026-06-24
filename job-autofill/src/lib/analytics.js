@@ -23,6 +23,11 @@
   // Filled at package/config time — intentionally empty in source (no key in the bundle).
   const DEFAULT_MEASUREMENT_ID = "";
   const DEFAULT_API_SECRET = "";
+  // Master switch, SEPARATE from the ids so a build can ship with credentials staged but
+  // analytics still dark. Default off; CI flips it true at inject time only when the
+  // ANALYTICS_ENABLED repo variable says so. A dev/publisher install can override per-device
+  // with settings.gaEnabled (true/false) without rebuilding.
+  const DEFAULT_ANALYTICS_ENABLED = false;
   const COLLECT_ENDPOINT = "https://www.google-analytics.com/mp/collect";
   const CLIENT_ID_KEY = "gaClientId";
 
@@ -69,10 +74,13 @@
     async function resolveConfig() {
       if (override) return Object.assign({ enabled: true }, override);
       const settings = (await store.get("settings")) || {};
+      // Master = build-time default, overridable per-device by settings.gaEnabled.
+      const master = typeof settings.gaEnabled === "boolean" ? settings.gaEnabled : DEFAULT_ANALYTICS_ENABLED;
       return {
         measurementId: settings.gaMeasurementId || DEFAULT_MEASUREMENT_ID,
         apiSecret: settings.gaApiSecret || DEFAULT_API_SECRET,
-        enabled: !settings.analyticsOptOut, // on by default; users can opt out
+        // Active only when the master switch is on AND the user hasn't opted out.
+        enabled: master && !settings.analyticsOptOut,
       };
     }
 
@@ -94,12 +102,12 @@
     }
 
     // Fire ONE event immediately. Resolves (never throws) with {sent, reason?} so callers
-    // can fire-and-forget. No-ops when unconfigured or the user opted out.
+    // can fire-and-forget. No-ops when disabled (master off / opted out) or unconfigured.
     async function track(name, params) {
       try {
         if (!name || !_fetch) return { sent: false, reason: "no-op" };
         const cfg = await resolveConfig();
-        if (!cfg.enabled) return { sent: false, reason: "opted-out" };
+        if (!cfg.enabled) return { sent: false, reason: "disabled" };
         if (!isConfigured(cfg)) return { sent: false, reason: "unconfigured" };
         const cid = await clientId();
         const url =

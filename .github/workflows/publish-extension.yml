@@ -40,6 +40,9 @@ jobs:
         env:
           GA_MEASUREMENT_ID: ${{ secrets.GA_MEASUREMENT_ID }}
           GA_API_SECRET: ${{ secrets.GA_API_SECRET }}
+          # Master switch: analytics stays OFF unless this repo Variable is exactly "true".
+          # Lets you ship a build with credentials staged but analytics dark while testing.
+          GA_ENABLED: ${{ vars.EXT_ANALYTICS_ENABLED }}
         run: node .github/scripts/inject-ga.js
 
       - name: Package extension zip

@@ -47,6 +47,18 @@ function replaceConst(name, value, text) {
 src = replaceConst("DEFAULT_MEASUREMENT_ID", measurementId, src);
 src = replaceConst("DEFAULT_API_SECRET", apiSecret, src);
 
+// Master switch — stays OFF unless GA_ENABLED is exactly "true". Lets a build ship with
+// credentials staged but analytics dark until you deliberately flip it on and republish.
+const enabled = (process.env.GA_ENABLED || "").trim().toLowerCase() === "true";
+{
+  const re = /const DEFAULT_ANALYTICS_ENABLED = (?:true|false);/;
+  if (!re.test(src)) {
+    console.error("[inject-ga] Could not find `const DEFAULT_ANALYTICS_ENABLED = ...;`. Aborting.");
+    process.exit(1);
+  }
+  src = src.replace(re, "const DEFAULT_ANALYTICS_ENABLED = " + (enabled ? "true" : "false") + ";");
+}
+
 // Syntax sanity check: compile (without executing) so a bad injection can't ship.
 try {
   new Function(src); // eslint-disable-line no-new-func
@@ -56,4 +68,7 @@ try {
 }
 
 fs.writeFileSync(FILE, src);
-console.log(`[inject-ga] Injected GA credentials: measurement_id=${measurementId}, api_secret length=${apiSecret.length}.`);
+console.log(
+  `[inject-ga] Injected GA credentials: measurement_id=${measurementId}, ` +
+    `api_secret length=${apiSecret.length}, analytics ${enabled ? "ON" : "staged but OFF"}.`
+);

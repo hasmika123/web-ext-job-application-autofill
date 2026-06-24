@@ -160,10 +160,16 @@ so the bundled zip carries them but the source never does. To turn it on:
    (`G-XXXXXXXXXX`); on that stream, under **Measurement Protocol API secrets**, create one and
    copy the **secret value**.
 2. Add repo **Secrets**: `GA_MEASUREMENT_ID` and `GA_API_SECRET`.
-3. That's it — the next packaged build injects them automatically. **If the secrets are absent the
-   build still succeeds**, just with analytics disabled (the constants stay empty and every event
-   no-ops). Users can always opt out in the extension's Settings. No app/server change is involved
-   (events go straight from the service worker to Google).
+3. **Master switch (stage now, turn on later):** analytics stays **OFF** even with the secrets set,
+   until you add the repo **Variable** `EXT_ANALYTICS_ENABLED` = `true`. So you can ship a build
+   with credentials baked in but no data collected, then flip the variable (and republish) to go
+   live. Leave the variable unset/`false` to keep it staged-but-dark.
+4. That's it — the next packaged build injects the creds + switch automatically. **If the secrets
+   are absent the build still succeeds**, just with analytics disabled (constants stay empty, every
+   event no-ops). Users can also opt out in the extension's Settings. No app/server change is
+   involved (events go straight from the service worker to Google). *(Dev tip: to test on your own
+   unpacked build without republishing, set `gaMeasurementId`, `gaApiSecret`, and `gaEnabled:true`
+   in the extension's stored settings via the service-worker console.)*
 
 ## 9. Email verification (Brevo SMTP)
 New signups are created **inactive** and emailed an activation link; they can't sign in until

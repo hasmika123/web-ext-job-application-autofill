@@ -1,14 +1,14 @@
 import Script from "next/script";
-import { GA_MEASUREMENT_ID } from "@/lib/analytics";
+import { GA_MEASUREMENT_ID, analyticsEnabled } from "@/lib/analytics";
 
 /**
- * Loads Google Analytics 4 (gtag.js) — but only when NEXT_PUBLIC_GA_MEASUREMENT_ID is set.
- * Renders nothing otherwise, so local/preview builds and unconfigured deploys send no
- * analytics at all. Mounted once in the root layout. The measurement ID is public; no
- * secret is involved (gtag.js doesn't use the Measurement Protocol api_secret).
+ * Loads Google Analytics 4 (gtag.js) — but only when analytics is BOTH configured (a
+ * measurement ID is set) AND switched on (NEXT_PUBLIC_ANALYTICS_ENABLED=true). Renders
+ * nothing otherwise, so a staged-but-off deploy (ID set, switch off) sends nothing.
+ * Mounted once in the root layout. The measurement ID is public; no secret is involved.
  */
 export default function Analytics() {
-  if (!GA_MEASUREMENT_ID) return null;
+  if (!analyticsEnabled()) return null;
   return (
     <>
       <Script

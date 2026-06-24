@@ -33,13 +33,23 @@ function recFetch() {
     ok("unconfigured: fetch not called", f.calls.length === 0);
   }
 
-  /* ---- opted out → no-op even when configured ---- */
+  /* ---- disabled (enabled:false) → no-op even when configured ---- */
   {
     const f = recFetch();
     const a = create({ fetch: f, store: memStore(), config: { measurementId: "G-X", apiSecret: "s", enabled: false } });
     const r = await a.track("autofill", {});
-    eq("opted-out: not sent", r, { sent: false, reason: "opted-out" });
-    ok("opted-out: fetch not called", f.calls.length === 0);
+    eq("disabled: not sent", r, { sent: false, reason: "disabled" });
+    ok("disabled: fetch not called", f.calls.length === 0);
+  }
+
+  /* ---- master switch: configured but OFF by default (credentials staged, analytics dark) ---- */
+  {
+    const f = recFetch();
+    const store = memStore({ settings: { gaMeasurementId: "G-S", gaApiSecret: "k" } }); // no gaEnabled → default off
+    const a = create({ fetch: f, store });
+    const r = await a.track("autofill", {});
+    eq("staged-but-off: not sent", r.reason, "disabled");
+    ok("staged-but-off: no fetch", f.calls.length === 0);
   }
 
   /* ---- configured + enabled → one POST with the right URL + body ---- */
@@ -86,21 +96,31 @@ function recFetch() {
     ok("drops null", !("nil" in s));
   }
 
-  /* ---- settings-driven config: opt-out + ids read from the store ---- */
+  /* ---- settings-driven config: master switch (gaEnabled) + opt-out, ids from the store ---- */
   {
+    // master ON via gaEnabled, but the user opted out → still off.
     const f = recFetch();
-    const store = memStore({ settings: { gaMeasurementId: "G-S", gaApiSecret: "k", analyticsOptOut: true } });
-    const a = create({ fetch: f, store }); // no override → reads settings
+    const store = memStore({ settings: { gaMeasurementId: "G-S", gaApiSecret: "k", gaEnabled: true, analyticsOptOut: true } });
+    const a = create({ fetch: f, store });
     const r = await a.track("autofill", {});
-    eq("settings opt-out respected", r.reason, "opted-out");
-    ok("settings opt-out: no fetch", f.calls.length === 0);
+    eq("opt-out wins over master-on", r.reason, "disabled");
+    ok("opt-out: no fetch", f.calls.length === 0);
 
+    // master ON via gaEnabled, no opt-out → sent, ids from settings.
     const f2 = recFetch();
-    const store2 = memStore({ settings: { gaMeasurementId: "G-S", gaApiSecret: "k" } }); // opt-in (default)
+    const store2 = memStore({ settings: { gaMeasurementId: "G-S", gaApiSecret: "k", gaEnabled: true } });
     const a2 = create({ fetch: f2, store: store2 });
     const r2 = await a2.track("autofill", {});
-    eq("settings opt-in sent", r2, { sent: true });
+    eq("master-on + no opt-out sent", r2, { sent: true });
     ok("settings ids used in url", f2.calls[0].url.includes("measurement_id=G-S"));
+
+    // gaEnabled:false explicitly overrides even with ids present → off.
+    const f3 = recFetch();
+    const store3 = memStore({ settings: { gaMeasurementId: "G-S", gaApiSecret: "k", gaEnabled: false } });
+    const a3 = create({ fetch: f3, store: store3 });
+    const r3 = await a3.track("autofill", {});
+    eq("gaEnabled:false forces off", r3.reason, "disabled");
+    ok("gaEnabled:false: no fetch", f3.calls.length === 0);
   }
 
   /* ---- fetch failure is swallowed (never throws) ---- */
