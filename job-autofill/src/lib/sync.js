@@ -82,13 +82,30 @@
     return { resumeCount: resumes.length };
   }
 
-  // Convenience for "Sync now": push local changes up, then pull authoritative
-  // server state back down.
-  async function syncNow(provider, storage) {
-    storage = storage || JAF.storage;
-    await pushAll(provider, storage);
-    return pullAll(provider, storage);
+  // Field cache (Phase 4): push the local learned answers up, then merge the
+  // server's authoritative set back into the local store. Needs a JAF.fieldCache
+  // instance (the cache lives in IndexedDB, not chrome.storage). Best-effort.
+  async function syncFieldCache(provider, cache) {
+    if (!cache || typeof cache.exportAll !== "function" || typeof provider.syncFieldCache !== "function") {
+      return { count: 0 };
+    }
+    const local = await cache.exportAll();
+    const merged = await provider.syncFieldCache(local);
+    const count = await cache.importEntries(merged);
+    return { count };
   }
 
-  JAF.sync = { providerFromSettings, pullAll, pushBio, pushResume, pushAll, syncNow, mergeResume };
+  // Convenience for "Sync now": push local changes up, then pull authoritative
+  // server state back down. Pass a field-cache instance to also sync learned answers.
+  async function syncNow(provider, storage, cache) {
+    storage = storage || JAF.storage;
+    await pushAll(provider, storage);
+    const out = await pullAll(provider, storage);
+    if (cache) {
+      try { out.fieldCache = await syncFieldCache(provider, cache); } catch (e) { /* best-effort, offline-friendly */ }
+    }
+    return out;
+  }
+
+  JAF.sync = { providerFromSettings, pullAll, pushBio, pushResume, pushAll, syncNow, syncFieldCache, mergeResume };
 })();

@@ -21,6 +21,9 @@
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
   }, {
+    "name" : "field-cache-sync",
+    "description" : "User-scoped field-cache sync: the authenticated user's learned field answers."
+  }, {
     "name" : "profile-sync",
     "description" : "User-scoped sync API: the authenticated user's bio and resumes."
   } ],
@@ -1260,6 +1263,45 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ResumeDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/field-caches/sync" : {
+      "post" : {
+        "tags" : [ "field-cache-sync" ],
+        "summary" : "Sync my field cache",
+        "description" : "Batch upsert (dedup on fieldKey+contextHash, last-write-wins) and return the merged set.",
+        "operationId" : "sync",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/components/schemas/FieldCacheDTO"
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/FieldCacheDTO"
+                  }
                 }
               }
             }
@@ -2671,6 +2713,32 @@
             "description" : "OK"
           }
         }
+      }
+    },
+    "/api/profile/field-caches" : {
+      "get" : {
+        "tags" : [ "field-cache-sync" ],
+        "summary" : "List my field cache",
+        "description" : "All learned field answers owned by the current user.",
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/FieldCacheDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
       }
     },
     "/api/exception-translator-test/unauthorized" : {

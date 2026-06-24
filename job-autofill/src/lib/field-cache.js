@@ -206,9 +206,40 @@
       el.addEventListener("blur", onChange, true);
     }
 
+    // ---- Phase 4 cloud sync ------------------------------------------------
+    // Export the current profile's entries for pushing to the server, and merge a
+    // server-returned set back in (last-write-wins by updatedAt; hitCount = max), so
+    // learned answers follow the user across devices. updatedAt is epoch ms locally;
+    // the tracking layer converts to/from the server's ISO Instant.
+    async function exportAll() {
+      const all = await store.all();
+      return (all || []).filter((e) => e && e.profileId === profileId);
+    }
+    async function importEntries(entries) {
+      if (!Array.isArray(entries)) return 0;
+      let n = 0;
+      for (const e of entries) {
+        if (!e || !e.fieldKey || !e.contextHash || e.value == null || e.value === "") continue;
+        const k = storeKey(profileId, e.fieldKey, e.contextHash);
+        const prev = await store.get(k);
+        const incomingUpdated = Number(e.updatedAt) || 0;
+        const prevUpdated = prev ? Number(prev.updatedAt) || 0 : 0;
+        await store.put(k, {
+          profileId,
+          fieldKey: e.fieldKey,
+          contextHash: e.contextHash,
+          value: prev && prevUpdated > incomingUpdated ? prev.value : String(e.value),
+          hitCount: Math.max(prev ? prev.hitCount || 0 : 0, e.hitCount || 0),
+          updatedAt: Math.max(prevUpdated, incomingUpdated),
+        });
+        n++;
+      }
+      return n;
+    }
+
     return {
       get, remember, preferCached, watch, setProfile, keyOf,
-      committedValueOf, contextHash, fieldKeyFor, _store: store,
+      committedValueOf, contextHash, fieldKeyFor, exportAll, importEntries, _store: store,
     };
   }
 

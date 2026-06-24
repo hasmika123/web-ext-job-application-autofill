@@ -139,6 +139,30 @@
       resumeLabel: dto.resume ? dto.resume.label : undefined,
     };
   }
+  // Field-cache entry <-> server FieldCacheDTO. Local updatedAt is epoch ms; the
+  // server uses an ISO Instant — this boundary converts both directions.
+  function fieldCacheToDto(entry) {
+    entry = entry || {};
+    const ms = typeof entry.updatedAt === "number" ? entry.updatedAt : Date.parse(entry.updatedAt);
+    return {
+      fieldKey: entry.fieldKey,
+      contextHash: entry.contextHash,
+      value: entry.value != null ? String(entry.value) : "",
+      hitCount: entry.hitCount != null ? entry.hitCount : 0,
+      updatedAt: new Date(Number.isFinite(ms) ? ms : 0).toISOString(),
+    };
+  }
+  function dtoToFieldCache(dto) {
+    dto = dto || {};
+    const ms = Date.parse(dto.updatedAt);
+    return {
+      fieldKey: dto.fieldKey,
+      contextHash: dto.contextHash,
+      value: dto.value,
+      hitCount: dto.hitCount != null ? dto.hitCount : 0,
+      updatedAt: Number.isFinite(ms) ? ms : 0,
+    };
+  }
 
   // ---- token stores ------------------------------------------------------
   // In-memory store (default; also used by tests). Tokens: { access, refresh }.
@@ -330,6 +354,15 @@
         await request("DELETE", "/api/profile/applications/" + serverId);
         return true;
       },
+
+      // ---- field cache (Phase 4) ------------------------------------------
+      // Push the local learned answers and pull back the merged set (server dedups on
+      // fieldKey+contextHash, last-write-wins + max hitCount).
+      async syncFieldCache(entries) {
+        const body = (entries || []).map(fieldCacheToDto);
+        const merged = (await request("POST", "/api/profile/field-caches/sync", { body })) || [];
+        return merged.map(dtoToFieldCache);
+      },
     };
   }
 
@@ -342,5 +375,6 @@
     chromeTokenStore,
     // exposed for tests
     bioToPayload, payloadToBio, resumeToDto, dtoToResume, applicationToDto, dtoToApplication,
+    fieldCacheToDto, dtoToFieldCache,
   };
 })();

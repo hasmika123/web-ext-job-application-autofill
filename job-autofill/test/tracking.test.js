@@ -142,6 +142,18 @@ function mockFetch(handler) {
   await pArch.archiveResume(4);
   ok("archiveResume PUTs /api/profile/resumes/{id} with archived:true", fetchArch.calls[0].method === "PUT" && fetchArch.calls[0].path === "/api/profile/resumes/4" && fetchArch.calls[0].body.archived === true);
 
+  /* ---- field cache mappers + syncFieldCache (Phase 4) ---- */
+  const fcDto = T.fieldCacheToDto({ fieldKey: "country", contextHash: "abc", value: "US", hitCount: 4, updatedAt: 1700000000000 });
+  ok("fieldCacheToDto converts epoch ms -> ISO Instant", typeof fcDto.updatedAt === "string" && fcDto.updatedAt.includes("T") && fcDto.fieldKey === "country" && fcDto.hitCount === 4);
+  const fcLocal = T.dtoToFieldCache({ fieldKey: "country", contextHash: "abc", value: "US", hitCount: 4, updatedAt: "2023-11-14T22:13:20Z" });
+  ok("dtoToFieldCache converts ISO -> epoch ms", typeof fcLocal.updatedAt === "number" && fcLocal.updatedAt > 0 && fcLocal.value === "US");
+  const fetchFC = mockFetch(() => ({ status: 200, json: [{ id: 1, fieldKey: "country", contextHash: "abc", value: "US", hitCount: 7, updatedAt: "2024-01-01T00:00:00Z" }] }));
+  const pFC = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchFC, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const mergedFC = await pFC.syncFieldCache([{ fieldKey: "country", contextHash: "abc", value: "US", hitCount: 3, updatedAt: 1700000000000 }]);
+  ok("syncFieldCache POSTs /api/profile/field-caches/sync", fetchFC.calls[0].method === "POST" && fetchFC.calls[0].path === "/api/profile/field-caches/sync");
+  ok("syncFieldCache sends an array of DTOs with ISO updatedAt", Array.isArray(fetchFC.calls[0].body) && typeof fetchFC.calls[0].body[0].updatedAt === "string");
+  ok("syncFieldCache maps merged DTOs back to local (epoch ms)", mergedFC.length === 1 && mergedFC[0].hitCount === 7 && typeof mergedFC[0].updatedAt === "number");
+
   /* ---- base contract still rejects newly-declared, unimplemented methods ---- */
   let updThrew = false; try { await base.updateApplication(1, {}); } catch (e) { updThrew = e.name === "NotSupportedError"; }
   ok("base TrackingProvider.updateApplication throws NotSupported", updThrew);
