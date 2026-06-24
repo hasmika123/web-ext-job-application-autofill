@@ -244,3 +244,8 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
    `DOSSIER_AI_ENABLED=false`) and re-run step 3. Auto-deploys (`git pull` on merge to `main`)
    update `.env.example` but **never your real `.env`** (it's gitignored), so the key you set here
    persists across deploys — you only configure it once.
+
+> **Answer caching (Phase 5.3):** identical questions from the same user are served from a
+> server-side cache (`ai_answer`, keyed by a normalized-question hash) — a cache hit costs **no
+> quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
+> common questions. Nothing to configure; it's automatic.
