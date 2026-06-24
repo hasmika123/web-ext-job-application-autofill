@@ -57,6 +57,14 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD:-}
       - MAIL_FROM=${MAIL_FROM:-}
       - MAIL_BASE_URL=${MAIL_BASE_URL:-https://${SSLIP_HOST}}
+      # Server-side metered AI drafting (Phase 5.1). OFF unless DOSSIER_AI_ENABLED=true AND a
+      # key is set. The key stays here (server) — never in the extension. Gemini FREE tier may
+      # use inputs to improve Google's services (the extension keeps this opt-in + disclosed).
+      - DOSSIER_AI_ENABLED=${DOSSIER_AI_ENABLED:-false}
+      - DOSSIER_AI_PROVIDER=${DOSSIER_AI_PROVIDER:-gemini}
+      - DOSSIER_AI_MODEL=${DOSSIER_AI_MODEL:-gemini-2.0-flash}
+      - DOSSIER_AI_API_KEY=${DOSSIER_AI_API_KEY:-}
+      - DOSSIER_AI_FREE_MONTHLY_QUOTA=${DOSSIER_AI_FREE_MONTHLY_QUOTA:-50}
     depends_on:
       mysql:
         condition: service_healthy

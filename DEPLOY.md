@@ -178,3 +178,34 @@ provider-agnostic (just `MAIL_*` env) — Brevo for now, swappable to SES/Resend
 6. **Test:** sign up with a real inbox → you get the activation email → the link opens
    `https://<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
    email doesn't arrive, check spam and the API logs (`… logs api | grep -i mail`).
+
+## 10. Server-side AI drafting (optional, Phase 5)
+The AI "draft an answer" proxy (`POST /api/ai/draft`) is **OFF by default** — the API reports
+`{"disabled":true}` until you enable it here. The provider key lives **only** in the VPS `.env`;
+it is never shipped in the extension. Default provider is Google Gemini's **free tier**.
+
+> **Privacy note:** the free Gemini tier may use submitted inputs to improve Google's services
+> (and may be human-reviewed). That's why the extension keeps AI drafting **opt-in + explicit
+> consent**, and both privacy policies disclose it. A paid Gemini key (or another provider)
+> removes that data-use caveat — same env, just a different key.
+
+1. **Get a Gemini API key** (free): sign in at https://aistudio.google.com/apikey → **Create
+   API key**. Copy it (looks like `AIza…`). Keep it secret — treat it like a password.
+2. **On the VPS**, edit `.env` and set:
+   ```
+   DOSSIER_AI_ENABLED=true
+   DOSSIER_AI_PROVIDER=gemini
+   DOSSIER_AI_MODEL=gemini-2.0-flash
+   DOSSIER_AI_API_KEY=<paste your AIza… key here>
+   DOSSIER_AI_FREE_MONTHLY_QUOTA=50
+   ```
+   (Leave `DOSSIER_AI_API_KEY` blank or `DOSSIER_AI_ENABLED=false` to keep AI off.)
+   `DOSSIER_AI_FREE_MONTHLY_QUOTA` is the per-user monthly draft cap on **your** key.
+3. **Apply it:** `docker compose -f docker-compose.prod.yml up -d` (recreates the API with the
+   new env). No rebuild needed.
+4. **Test:** in the extension, Options → Settings → enable **"Use Dossier AI"** + tick the
+   consent box, then trigger a draft on a question field. A first call should return an answer
+   and `{used, quota}`. Without the env set, it returns `{"disabled":true}` (correct = off).
+5. **Switching providers / going paid later:** change `DOSSIER_AI_PROVIDER`/`DOSSIER_AI_MODEL`/
+   `DOSSIER_AI_API_KEY` and re-run step 3 — no code change (the proxy is provider-agnostic).
+   When you move off the free tier, you can soften the opt-in/consent copy in the privacy policy.

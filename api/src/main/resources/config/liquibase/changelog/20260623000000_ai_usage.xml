@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 5.1 — per-user monthly usage meter for the server-side AI free tier.
+        One row per (login, period=YYYY-MM); draft_count is checked against the
+        configured free monthly quota before each metered draft.
+    -->
+    <changeSet id="20260623000000-1" author="dossier">
+        <createTable tableName="ai_usage">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="period" type="varchar(7)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="draft_count" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="ai_usage" columnNames="login, period" constraintName="ux_ai_usage_login_period"/>
+    </changeSet>
+</databaseChangeLog>

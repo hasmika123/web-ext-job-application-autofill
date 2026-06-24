@@ -18,6 +18,9 @@
     "name" : "authentication",
     "description" : "Obtain and refresh the JWT access token. These endpoints are public (no bearer token required)."
   }, {
+    "name" : "ai",
+    "description" : "Server-side metered AI answer drafting (opt-in)."
+  }, {
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
   }, {
@@ -2481,6 +2484,40 @@
         }
       }
     },
+    "/api/ai/draft" : {
+      "post" : {
+        "tags" : [ "ai" ],
+        "summary" : "Draft an answer",
+        "description" : "Metered, opt-in server-side AI drafting for the current user.",
+        "operationId" : "draft",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AiDraftVM"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/ai-answers" : {
       "get" : {
         "tags" : [ "ai-answer-resource" ],
@@ -4127,6 +4164,22 @@
           }
         },
         "required" : [ "password", "username" ]
+      },
+      "AiDraftVM" : {
+        "type" : "object",
+        "properties" : {
+          "question" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "context" : {
+            "type" : "string"
+          },
+          "consent" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "question" ]
       },
       "User" : {
         "type" : "object",

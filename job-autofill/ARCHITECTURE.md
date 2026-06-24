@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.17.0, bundled ruleset version 4.
+> Current version: manifest 0.18.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -62,7 +62,10 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   it through the provider's `syncFieldCache` (POST `/api/profile/field-caches/sync`).
   `create()` factory + pure helpers exposed for tests.
 - `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
-  TrackingProvider section below). `createDossierProvider()` + DTO mappers.
+  TrackingProvider section below). `createDossierProvider()` + DTO mappers. Also exposes
+  `aiDraft({question,context,consent})` → `POST /api/ai/draft` (Phase 5 opt-in server AI).
+  The service worker's `draftAnswer` tries BYO-key (direct to Anthropic) first, then the
+  server proxy when the user has enabled + consented to Dossier AI (Options → Settings).
 - `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
   canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
   jobDescription). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
