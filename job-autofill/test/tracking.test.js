@@ -154,7 +154,16 @@ function mockFetch(handler) {
   ok("syncFieldCache sends an array of DTOs with ISO updatedAt", Array.isArray(fetchFC.calls[0].body) && typeof fetchFC.calls[0].body[0].updatedAt === "string");
   ok("syncFieldCache maps merged DTOs back to local (epoch ms)", mergedFC.length === 1 && mergedFC[0].hitCount === 7 && typeof mergedFC[0].updatedAt === "number");
 
+  /* ---- aiDraft (Phase 5) — POSTs /api/ai/draft with consent, returns the server result ---- */
+  const fetchAi = mockFetch(() => ({ status: 200, json: { answer: "Because I'd thrive here.", used: 1, quota: 50 } }));
+  const pAi = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const ai = await pAi.aiDraft({ question: "Why us?", context: "ctx", consent: true });
+  ok("aiDraft POSTs /api/ai/draft with consent", fetchAi.calls[0].method === "POST" && fetchAi.calls[0].path === "/api/ai/draft" && fetchAi.calls[0].body.consent === true);
+  ok("aiDraft returns the server result", ai.answer === "Because I'd thrive here." && ai.quota === 50);
+
   /* ---- base contract still rejects newly-declared, unimplemented methods ---- */
+  let aiThrew = false; try { await base.aiDraft({}); } catch (e) { aiThrew = e.name === "NotSupportedError"; }
+  ok("base TrackingProvider.aiDraft throws NotSupported", aiThrew);
   let updThrew = false; try { await base.updateApplication(1, {}); } catch (e) { updThrew = e.name === "NotSupportedError"; }
   ok("base TrackingProvider.updateApplication throws NotSupported", updThrew);
   let archThrew = false; try { await base.archiveResume(1); } catch (e) { archThrew = e.name === "NotSupportedError"; }

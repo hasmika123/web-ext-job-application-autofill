@@ -25,20 +25,18 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 5 · Task 5.1 — Metered server-side AI proxy (in progress).** **Decision:** start on the
-> **Google Gemini free tier**, provider-agnostic so we can swap to paid/Anthropic later; AI drafting
-> is **opt-in with explicit consent** (the free tier may use inputs to improve Google's services).
-> **5.1a DONE** (this commit): backend `POST /api/ai/draft` — provider seam (`AiProvider` →
-> `GeminiAiProvider`), `dossier.ai.*` env config (provider/model/key/quota), per-user monthly quota
-> (`ai_usage` table), consent + disabled + quota gating; privacy policies (web `/privacy` + extension
-> `PRIVACY.md`) updated with the Gemini/opt-in disclosure; `.env.example` + compose env. Backend
-> `test`+`integrationTest` + web build green. **5.1b NEXT:** wire the extension — opt-in consent UI in
-> options + route `assist.js`/service-worker drafting to the server proxy when the user enables it
-> (BYO-key path 5.2 stays). Then 5.3 (cache answers by `question_hash` in `ai_answers`).
+> **Phase 5 · Task 5.3 — Cache AI answers by `question_hash` (`ai_answers`).** 5.1 (metered
+> server-side AI proxy) and 5.2 (BYO-key path) are **DONE**. 5.1 = `POST /api/ai/draft` on the
+> server's key (Google Gemini free tier, provider-agnostic), **opt-in + explicit consent**, per-user
+> monthly quota; the extension routes drafting to it (Options → Settings toggle) with BYO-key still
+> taking priority. **Next (5.3):** server-side answer caching — hash the question (+ maybe user) into
+> `ai_answers` so identical questions don't re-spend quota or re-hit the provider (the extension already
+> caches locally; this is the cross-device/server-side layer). Read the **Phase 5** section of ROADMAP.md.
 >
 > *Context:* Phases 2–4 done and **all on prod** at https://kiwiply.com. Branches: `main` + `phase-5`.
-> CWS extension listing still pending Google verification. Extension at v0.17.0.
-> **Add `DOSSIER_AI_*` to the VPS `.env`** (incl. a Gemini key) before the AI proxy does anything live.
+> CWS extension listing still pending Google verification. Extension at v0.18.0.
+> **Before the AI proxy does anything live: add `DOSSIER_AI_*` to the VPS `.env`** (set
+> `DOSSIER_AI_ENABLED=true` + a Gemini key from https://aistudio.google.com/apikey).
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -364,8 +362,17 @@ focused Claude Code session.
   extension suites green. ext v0.17.0. **Completes Phase 4.***
 
 ## Phase 5 — AI Integration (server-side)
-- [ ] **5.1 Metered `/ai` proxy** on server key (free-tier quota + rate limit).
-- [ ] **5.2 Keep BYO-key path** as the unlimited free option.
+- [x] **5.1 Metered `/ai` proxy** on server key (free-tier quota + rate limit). *Done:
+  `POST /api/ai/draft` (`AiResource`/`AiDraftService`) — provider-agnostic `AiProvider` seam
+  + `GeminiAiProvider` (Google Gemini free tier, `dossier.ai.*` env config, key server-only).
+  **Opt-in + explicit consent** (free tier may use inputs to improve Google's services),
+  per-user monthly quota (`ai_usage` table). Extension: Options "Use Dossier AI" toggle +
+  consent checkbox; SW `draftAnswer` routes to the proxy via `tracking.aiDraft` when enabled
+  (BYO-key first). Privacy policies (web + extension) disclose it. `AiDraftServiceTest` +
+  `AiResourceIT` + tracking jsdom test; all suites + web build green. ext v0.18.0.*
+- [x] **5.2 Keep BYO-key path** as the unlimited free option. *Preserved: the SW's BYO-key
+  path (direct to Anthropic with the user's own key) is untouched and takes priority over the
+  metered server path.*
 - [ ] **5.3 Cache answers** in `ai_answers` by `question_hash`.
 
 ## Phase 6 — Google Analytics
@@ -396,6 +403,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 5.1b (AI proxy — extension wiring) — **completes 5.1 (+5.2 preserved)** · Options
+  "Use Dossier AI" toggle + consent checkbox (`serverAiEnabled`/`serverAiConsent`); `tracking.js`
+  `aiDraft({question,context,consent})` → `POST /api/ai/draft`; SW `draftAnswer` restructured to
+  try BYO-key (Anthropic direct) first, then the server proxy when enabled+consented+signed-in,
+  surfacing quota-exceeded; cached locally on success. tracking jsdom test for aiDraft + base
+  stub; full extension suite green. ext v0.18.0.
 - 2026-06-23 · 5.1a (server-side AI proxy — backend) · **Phase 5 begins.** Decision: Google Gemini
   **free tier** to start (provider-agnostic, swap later), AI drafting **opt-in + consent** (free tier
   may use inputs to improve Google's services). `POST /api/ai/draft`: `AiProvider` seam +

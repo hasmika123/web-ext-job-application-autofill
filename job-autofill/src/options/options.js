@@ -97,6 +97,8 @@ async function renderSettings() {
   const s = await S.getSettings();
   $("#llm").checked = !!s.llmEnabled;
   $("#apikey").value = s.apiKey || "";
+  if ($("#server-ai")) $("#server-ai").checked = !!s.serverAiEnabled;
+  if ($("#server-ai-consent")) $("#server-ai-consent").checked = !!s.serverAiConsent;
   $("#eeo-default").checked = !!s.includeEEO;
   if ($("#autoadv-default")) $("#autoadv-default").checked = !!s.autoAdvance;
   if ($("#autoadd-default")) $("#autoadd-default").checked = s.autoAddRows !== false;
@@ -112,6 +114,9 @@ $("#save-settings").onclick = async () => {
   const s = await S.getSettings();
   s.llmEnabled = $("#llm").checked;
   s.apiKey = $("#apikey").value.trim();
+  if ($("#server-ai")) s.serverAiEnabled = $("#server-ai").checked;
+  // Server AI only runs with BOTH the toggle and explicit consent; clear consent if turned off.
+  if ($("#server-ai-consent")) s.serverAiConsent = $("#server-ai-consent").checked && !!s.serverAiEnabled;
   s.includeEEO = $("#eeo-default").checked;
   if ($("#autoadv-default")) s.autoAdvance = $("#autoadv-default").checked;
   if ($("#autoadd-default")) s.autoAddRows = $("#autoadd-default").checked;

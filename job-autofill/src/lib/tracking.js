@@ -55,6 +55,8 @@
     async deleteApplication(/* serverId */) { throw new NotSupportedError("deleteApplication"); }
     // Phase 4 (field-cache sync) — declared so the seam is complete; implemented later.
     async syncFieldCache(/* entries */) { throw new NotSupportedError("syncFieldCache (Phase 4)"); }
+    // Phase 5 — server-side metered AI drafting (opt-in). Implemented by createDossierProvider.
+    async aiDraft(/* { question, context, consent } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
   }
 
   // ---- canonical DTO mapping (extension shapes <-> server wire format) ----
@@ -362,6 +364,13 @@
         const body = (entries || []).map(fieldCacheToDto);
         const merged = (await request("POST", "/api/profile/field-caches/sync", { body })) || [];
         return merged.map(dtoToFieldCache);
+      },
+
+      // ---- server-side AI drafting (Phase 5) ------------------------------
+      // Opt-in + metered on the server's key. Returns the raw server result:
+      // { answer, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
+      async aiDraft({ question, context, consent } = {}) {
+        return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false } });
       },
     };
   }
