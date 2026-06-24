@@ -85,13 +85,13 @@
         <p class="hint">Optional. Without a key, resumes are parsed with a built-in heuristic — rougher, but everything is editable. The same key also drafts answers to open-ended application questions ("Why this role?"), which are cached and reused when the same question appears again. Your key is stored locally on this device only and is sent only to api.anthropic.com.</p>
         <input class="input wide" id="apikey" type="password" placeholder="sk-ant-... (only used if the toggle is on)" />
         <hr />
-        <label class="toggle"><input type="checkbox" id="server-ai" /> Use Dossier AI to draft answers (no key needed)</label>
-        <p class="hint">An alternative to bringing your own key. When on, open-ended questions and a short summary
-          of your profile/resume are sent to your Dossier account, which uses <b>Google Gemini</b> to draft an
-          answer you review before using. We currently use Gemini's <b>free tier</b>, so <b>Google may use this
-          input to improve its services and human reviewers may see it</b>. Off by default; requires sign-in
-          (Account tab) and your consent below. A monthly free limit applies. Your own key (above) takes priority.</p>
-        <label class="toggle"><input type="checkbox" id="server-ai-consent" /> I consent to sending my question + profile summary to Google Gemini for drafting</label>
+        <label class="toggle"><input type="checkbox" id="server-ai" disabled /> Use Dossier AI to draft answers (no key needed) — <b>coming soon</b></label>
+        <p class="hint"><b>Coming soon.</b> A no-key alternative: open-ended questions and a short summary of your
+          profile/resume would be sent to your Dossier account, which drafts an answer you review before using.
+          This is not active yet — for now, use your own Anthropic key above. When it launches you'll be asked to
+          opt in and consent here first; it requires sign-in (Account tab) and a monthly free limit will apply,
+          and your own key (above) always takes priority.</p>
+        <label class="toggle"><input type="checkbox" id="server-ai-consent" disabled /> I consent to sending my question + profile summary for drafting (enabled when the feature launches)</label>
         <hr />
         <label class="toggle"><input type="checkbox" id="eeo-default" /> Include EEO answers by default when filling</label>
         <hr />

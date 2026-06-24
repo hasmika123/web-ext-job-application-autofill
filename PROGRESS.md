@@ -25,18 +25,22 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 5 · Task 5.3 — Cache AI answers by `question_hash` (`ai_answers`).** 5.1 (metered
-> server-side AI proxy) and 5.2 (BYO-key path) are **DONE**. 5.1 = `POST /api/ai/draft` on the
-> server's key (Google Gemini free tier, provider-agnostic), **opt-in + explicit consent**, per-user
-> monthly quota; the extension routes drafting to it (Options → Settings toggle) with BYO-key still
-> taking priority. **Next (5.3):** server-side answer caching — hash the question (+ maybe user) into
-> `ai_answers` so identical questions don't re-spend quota or re-hit the provider (the extension already
-> caches locally; this is the cross-device/server-side layer). Read the **Phase 5** section of ROADMAP.md.
+> ⏸️ **Phase 5 (server-side AI) is ON HOLD — "coming soon".** The infrastructure is **built and
+> merged to `main`** (5.1 metered `/api/ai/draft` proxy, provider-agnostic `AiProvider`, per-user
+> quota; 5.2 BYO-key path), but the feature is **intentionally not live**: the extension shows the
+> "Use Dossier AI" toggle as **coming soon (disabled)**, and prod runs `DOSSIER_AI_ENABLED=false`.
+> Activation was paused because the trial **Gemini free tier returned `limit: 0`** (the project had
+> no free-tier grant; fixing it needs billing-enabled = paid tier — cheap, and also better for
+> privacy since paid-tier inputs aren't used for training). See `DEPLOY.md` §10 for the re-enable
+> steps + the gotcha. **The BYO-Anthropic-key path stays live and unaffected.**
 >
-> *Context:* Phases 2–4 done and **all on prod** at https://kiwiply.com. Branches: `main` + `phase-5`.
-> CWS extension listing still pending Google verification. Extension at v0.18.0.
-> **Before the AI proxy does anything live: add `DOSSIER_AI_*` to the VPS `.env`** (set
-> `DOSSIER_AI_ENABLED=true` + a Gemini key from https://aistudio.google.com/apikey).
+> **No active task** — pick up **5.3** (cache answers by `question_hash` in `ai_answers`) only when
+> the server-side feature comes off hold, or move to **Phase 6** (Google Analytics). The decision to
+> resume AI is the user's (depends on enabling billing / choosing a provider).
+>
+> *Context:* Phases 2–4 done and **all on prod** at https://kiwiply.com; Phase 5 infra merged
+> (`main`, 2026-06-24). Branches: `main` + `phase-5`. CWS extension listing still pending Google
+> verification. Extension at v0.18.1.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -383,7 +387,14 @@ focused Claude Code session.
   extension suites green. ext v0.17.0. **Completes Phase 4.***
 
 ## Phase 5 — AI Integration (server-side)
-- [x] **5.1 Metered `/ai` proxy** on server key (free-tier quota + rate limit). *Done:
+> ⏸️ **ON HOLD — "coming soon" (2026-06-24).** 5.1/5.2 infra is built + merged to `main`, but the
+> server-side feature is **deliberately not live**: extension toggle shows "coming soon" (disabled),
+> prod runs `DOSSIER_AI_ENABLED=false`. Paused because the trial Gemini **free tier returned
+> `limit: 0`** (no free-tier grant on the project; needs billing→paid tier — cheap + privacy-better).
+> Re-enable steps + gotcha in `DEPLOY.md` §10. **BYO-Anthropic-key path stays live.** 5.3 deferred
+> until the feature resumes.
+- [x] **5.1 Metered `/ai` proxy** on server key (free-tier quota + rate limit). *Done (infra);
+  **feature held "coming soon", not live in prod** (see the hold note above).
   `POST /api/ai/draft` (`AiResource`/`AiDraftService`) — provider-agnostic `AiProvider` seam
   + `GeminiAiProvider` (Google Gemini free tier, `dossier.ai.*` env config, key server-only).
   **Opt-in + explicit consent** (free tier may use inputs to improve Google's services),
@@ -424,6 +435,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · Phase 5 merged to `main` + put **ON HOLD ("coming soon")** · Merged `phase-5`→`main`
+  (`e0a3f4b`) so the AI infra is deployed but inert. Live prod test surfaced the trial Gemini **free
+  tier = `limit: 0`** (project has no free-tier grant; needs billing→paid tier, which is also
+  privacy-better since paid inputs aren't used for training). Decision: **hold the feature**, keep
+  the infrastructure. Extension Options "Use Dossier AI" toggle + consent now show **"coming soon"
+  (disabled)**; prod stays `DOSSIER_AI_ENABLED=false`. Docs: `DEPLOY.md` §10 rewritten (hold status,
+  free-tier gotcha, re-enable + rotate/disable steps), PROGRESS Current focus / Phase 5 updated.
+  BYO-Anthropic-key path unaffected. ext v0.18.1 (UI-only).
 - 2026-06-23 · 5.1b (AI proxy — extension wiring) — **completes 5.1 (+5.2 preserved)** · Options
   "Use Dossier AI" toggle + consent checkbox (`serverAiEnabled`/`serverAiConsent`); `tracking.js`
   `aiDraft({question,context,consent})` → `POST /api/ai/draft`; SW `draftAnswer` restructured to

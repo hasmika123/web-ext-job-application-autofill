@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.18.0, bundled ruleset version 4.
+> Current version: manifest 0.18.1, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -66,6 +66,9 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   `aiDraft({question,context,consent})` → `POST /api/ai/draft` (Phase 5 opt-in server AI).
   The service worker's `draftAnswer` tries BYO-key (direct to Anthropic) first, then the
   server proxy when the user has enabled + consented to Dossier AI (Options → Settings).
+  **Status: the server-AI path is ON HOLD ("coming soon")** — the Options toggle/consent are
+  shown disabled and prod runs `DOSSIER_AI_ENABLED=false`, so `aiDraft` returns `{disabled:true}`.
+  The wiring stays in place; BYO-key remains the live AI option. See root `DEPLOY.md` §10.
 - `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
   canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
   jobDescription). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →

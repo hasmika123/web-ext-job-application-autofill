@@ -179,15 +179,33 @@ provider-agnostic (just `MAIL_*` env) — Brevo for now, swappable to SES/Resend
    `https://<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
    email doesn't arrive, check spam and the API logs (`… logs api | grep -i mail`).
 
-## 10. Server-side AI drafting (optional, Phase 5)
+## 10. Server-side AI drafting (optional, Phase 5) — ⏸️ ON HOLD / "coming soon"
+> **Status (2026-06-24): deliberately OFF in production.** The full infrastructure is built and
+> merged (`POST /api/ai/draft`, provider-agnostic `AiProvider`, per-user quota), but the feature
+> is **not active for users**: the extension shows the toggle as **"coming soon"** (disabled), and
+> the server runs with `DOSSIER_AI_ENABLED=false`. Enabling was paused because the trial Gemini
+> **free tier returned `limit: 0`** for the project (see the gotcha below). Re-activate by working
+> through the steps here once the provider/billing question is resolved. The **BYO-Anthropic-key**
+> path (extension Options → "Use the Anthropic API…") is unaffected and remains the live AI option.
+
 The AI "draft an answer" proxy (`POST /api/ai/draft`) is **OFF by default** — the API reports
 `{"disabled":true}` until you enable it here. The provider key lives **only** in the VPS `.env`;
-it is never shipped in the extension. Default provider is Google Gemini's **free tier**.
+it is never shipped in the extension. Default provider is Google Gemini.
 
-> **Privacy note:** the free Gemini tier may use submitted inputs to improve Google's services
-> (and may be human-reviewed). That's why the extension keeps AI drafting **opt-in + explicit
-> consent**, and both privacy policies disclose it. A paid Gemini key (or another provider)
-> removes that data-use caveat — same env, just a different key.
+> **Free-tier gotcha (why this is on hold):** a Gemini key whose Google Cloud project has **no
+> free-tier grant** returns HTTP `429` with `... free_tier_requests, limit: 0` on *every* model
+> (it's a per-project quota, so switching model names doesn't help). Fix = enable billing on the
+> project (moves it to the paid tier — a few cents/month at this scale). **Paid tier is also a
+> privacy win:** Google does **not** use paid-tier inputs to train its products, unlike the free
+> tier — so once on paid, the opt-in/consent copy can be softened.
+
+> **Privacy note (free tier):** the free Gemini tier may use submitted inputs to improve Google's
+> services (and may be human-reviewed). That's why the extension keeps AI drafting **opt-in +
+> explicit consent**, and both privacy policies disclose it. A paid key removes that caveat.
+
+**To re-enable later, follow steps 1–4. To keep it OFF (current state):** ensure
+`DOSSIER_AI_ENABLED=false` in `.env` (or leave `DOSSIER_AI_API_KEY` blank) and run step 3 — the
+API then cleanly reports `{"disabled":true}` and nothing is sent anywhere.
 
 1. **Get a Gemini API key** (free): sign in at https://aistudio.google.com/apikey → **Create
    API key**. Copy it (looks like `AIza…`). Keep it secret — treat it like a password.
@@ -209,3 +227,7 @@ it is never shipped in the extension. Default provider is Google Gemini's **free
 5. **Switching providers / going paid later:** change `DOSSIER_AI_PROVIDER`/`DOSSIER_AI_MODEL`/
    `DOSSIER_AI_API_KEY` and re-run step 3 — no code change (the proxy is provider-agnostic).
    When you move off the free tier, you can soften the opt-in/consent copy in the privacy policy.
+6. **Rotate / disable anytime:** edit the same lines in `.env` (swap the key, or set
+   `DOSSIER_AI_ENABLED=false`) and re-run step 3. Auto-deploys (`git pull` on merge to `main`)
+   update `.env.example` but **never your real `.env`** (it's gitignored), so the key you set here
+   persists across deploys — you only configure it once.
