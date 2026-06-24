@@ -108,6 +108,38 @@ function fakeProvider(cfg) {
     ok("providerFromSettings: baseUrl wired", p.getBaseUrl() === "https://api.test");
   }
 
+  /* ---- field-cache sync: export local -> provider -> import merged ---- */
+  {
+    const w = freshStore();
+    const sync = w.JAF.sync;
+    const cache = {
+      exported: [{ fieldKey: "country", contextHash: "c", value: "US", hitCount: 2, updatedAt: 1 }],
+      imported: null,
+      exportAll: async function () { return this.exported; },
+      importEntries: async function (entries) { this.imported = entries; return entries.length; },
+    };
+    const provider = Object.assign(fakeProvider(), {
+      syncFieldCache: async (entries) => entries.concat([{ fieldKey: "gender", contextHash: "g", value: "F", hitCount: 5, updatedAt: 9 }]),
+    });
+    const r = await sync.syncFieldCache(provider, cache);
+    ok("field-cache: exported local entries pushed + merged set imported", r.count === 2 && cache.imported.length === 2);
+    ok("field-cache: merged set includes the server-only entry", cache.imported.some((e) => e.fieldKey === "gender"));
+
+    // syncNow with a cache also runs the field-cache sync
+    const S = w.JAF.storage;
+    cache.imported = null;
+    const out = await sync.syncNow(provider, S, cache);
+    ok("syncNow: field cache synced when a cache is passed", out.fieldCache && out.fieldCache.count === 2 && cache.imported !== null);
+
+    // syncNow without a cache leaves field cache untouched (back-compat)
+    const out2 = await sync.syncNow(provider, S);
+    ok("syncNow: no cache -> no field-cache result", out2.fieldCache === undefined);
+
+    // a provider that can't sync field cache is a graceful no-op
+    const noFC = await sync.syncFieldCache(fakeProvider(), cache);
+    ok("field-cache: provider without syncFieldCache is a no-op", noFC.count === 0);
+  }
+
   console.log(`\n[sync] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[sync] All green.");

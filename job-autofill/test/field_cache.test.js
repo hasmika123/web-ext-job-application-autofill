@@ -86,6 +86,30 @@ const itemOf = (field, label, value) => ({ field, label: label || field, value, 
   c3.watch(item);
   ok("watch: re-watch is a no-op", true);
 
+  /* ---- Phase 4: exportAll / importEntries (cloud-sync helpers) ---- */
+  const expBack = new w.Map();
+  const e1 = fresh("ada", expBack);
+  await e1.remember(itemOf("country", "Country"), "United States");
+  await e1.remember(itemOf("gender", "Gender"), "Female");
+  const e2 = fresh("zoe", expBack); // shares the store; its entry must not be exported by e1
+  await e2.remember(itemOf("country", "Country"), "Canada");
+  const exported = await e1.exportAll();
+  ok("exportAll: only the current profile's entries", exported.length === 2 && exported.every((x) => x.profileId === "ada"));
+  ok("exportAll: carries the row fields", !!(exported[0].fieldKey && exported[0].contextHash && exported[0].value != null && "updatedAt" in exported[0]));
+
+  const imp = fresh("ada", new w.Map());
+  await imp.remember(itemOf("country", "Country"), "Old");
+  const base = (await imp.exportAll())[0];
+  await imp.importEntries([{ fieldKey: base.fieldKey, contextHash: base.contextHash, value: "Newer", hitCount: 9, updatedAt: base.updatedAt + 1000 }]);
+  ok("import: newer updatedAt wins", (await imp.get(itemOf("country", "Country"))) === "Newer");
+  ok("import: hitCount takes the max", (await imp.exportAll()).find((x) => x.fieldKey === base.fieldKey).hitCount >= 9);
+  await imp.importEntries([{ fieldKey: base.fieldKey, contextHash: base.contextHash, value: "Stale", hitCount: 1, updatedAt: 1 }]);
+  ok("import: older updatedAt does not regress the value", (await imp.get(itemOf("country", "Country"))) === "Newer");
+  const impZoe = fresh("zoe", new w.Map());
+  await impZoe.importEntries([{ fieldKey: "country", contextHash: e1.contextHash("acme.myworkdayjobs.com", "Country"), value: "Mexico", hitCount: 1, updatedAt: 2 }]);
+  ok("import: stored under the importing profile", (await impZoe.get(itemOf("country", "Country"))) === "Mexico");
+  ok("import: ignores malformed entries", (await imp.importEntries([{ value: "x" }, null, { fieldKey: "f" }])) === 0);
+
   console.log(`\n[field_cache] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[field_cache] All green.");

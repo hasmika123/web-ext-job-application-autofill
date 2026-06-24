@@ -222,9 +222,20 @@ if ($("#acct-sync")) $("#acct-sync").onclick = async () => {
   $("#acct-status2").textContent = "Syncing…";
   try {
     const provider = await currentProvider();
-    const sum = await SYNC.syncNow(provider, S);
+    // The field cache is namespaced by the profile the filler uses (the bio email),
+    // so point it at the same identity before syncing learned answers.
+    let cache = null;
+    try {
+      if (window.JAF && window.JAF.fieldCache) {
+        const bio = await S.getBio();
+        window.JAF.fieldCache.setProfile((bio && bio.email) || "default");
+        cache = window.JAF.fieldCache;
+      }
+    } catch (e) {}
+    const sum = await SYNC.syncNow(provider, S, cache);
     await renderAll();
-    flashText("#acct-status2", `Synced — ${sum.resumeCount} resume(s).`);
+    const fc = sum.fieldCache ? ` · ${sum.fieldCache.count} field answer(s)` : "";
+    flashText("#acct-status2", `Synced — ${sum.resumeCount} resume(s)${fc}.`);
   } catch (e) { $("#acct-status2").textContent = "✗ " + (e.message || e); }
 };
 if ($("#acct-signout")) $("#acct-signout").onclick = async () => {

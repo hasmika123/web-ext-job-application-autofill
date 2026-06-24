@@ -25,20 +25,20 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> 🎉 **Phase 3 is COMPLETE** (3.0–3.5) — the self-populating application tracker is end-to-end:
-> applications API, job-detail capture chain, auto-log DRAFT→APPLIED with submission detection
-> (live smoke-tested), save-a-job, the web Kanban board, and the resume archive guard.
+> 🎉 **Phase 4 is COMPLETE** (4.1) — the field cache now syncs to the cloud: learned field answers
+> follow the user across devices via `/api/profile/field-caches/sync` (last-write-wins + max
+> `hitCount`), wired into the options "Sync now". Phase 3 (the tracker) is also done and on prod.
 >
-> **Next: Phase 4 · Task 4.1 — Field cache (cloud sync).** Promote the Phase 0 local field-choice
-> cache (`JAF.fieldCache`, IndexedDB) to the server `field_cache` table so learned answers follow
-> the user across devices: implement `syncFieldCache` on the `TrackingProvider` + a user-scoped
-> `/api/profile/field-caches` endpoint (upsert keyed on `field_key`+`context_hash`), with
-> last-write-wins + `hit_count` ranking. Read the **Phase 4** section of ROADMAP.md. Do it on a
-> fresh branch (`phase-4`) once `phase-3` is merged to `main`.
+> **Next: Phase 5 · Task 5.1 — Metered server-side AI proxy.** Today AI answer-drafting is BYO
+> Anthropic key, called from the extension service worker (`JAF_DRAFT` in `service-worker.js`).
+> Add a server-side **metered `/ai` proxy** (on the server's key) so free users get a small monthly
+> quota + rate limiting, keeping the key off the client. **Keep the BYO-key path** (5.2) as the
+> unlimited free option, and cache answers by `question_hash` in `ai_answers` (5.3). Read the
+> **Phase 5** section of ROADMAP.md. Start on a fresh `phase-5` branch once `phase-4` merges to `main`.
 >
-> *Context:* Phase 2 COMPLETE — product LIVE at https://kiwiply.com. **`phase-3` merged to `main`
-> through 3.4 (2026-06-23)**; 3.5 is pushed on `phase-3` and merges next. CWS extension listing
-> still pending Google verification. Extension at v0.16.1.
+> *Context:* Phases 2–4 done; product LIVE at https://kiwiply.com. **Phase 3 merged to `main`
+> (2026-06-23)** and on prod; **Phase 4 (4.1) is on `phase-4`**, merges next. CWS extension listing
+> still pending Google verification. Extension at v0.17.0.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -352,8 +352,16 @@ focused Claude Code session.
   All three suites green. ext v0.16.1. **Completes Phase 3.***
 
 ## Phase 4 — Field cache (cloud sync)
-- [ ] **4.1 Promote local cache to `field_cache` API**; last-write-wins +
-  `hit_count` ranking; sync across devices.
+- [x] **4.1 Promote local cache to `field_cache` API**; last-write-wins +
+  `hit_count` ranking; sync across devices. *Done: user-scoped
+  `/api/profile/field-caches` (GET list + `POST /sync` batch upsert keyed on
+  `fieldKey`+`contextHash`, last-write-wins on value by `updatedAt`, `hitCount`=max —
+  idempotent) via `FieldCacheSyncService`/`Resource`; `FieldCacheSyncResourceIT` (5).
+  Extension: `field-cache.js` `exportAll`/`importEntries` (same merge locally),
+  `tracking.js` `syncFieldCache` + `fieldCacheToDto`/`dtoToFieldCache` (epoch-ms↔ISO
+  conversion), `sync.js` `syncFieldCache` folded into `syncNow(provider,storage,cache)`,
+  options "Sync now" passes `JAF.fieldCache` (namespaced by bio email). Backend +
+  extension suites green. ext v0.17.0. **Completes Phase 4.***
 
 ## Phase 5 — AI Integration (server-side)
 - [ ] **5.1 Metered `/ai` proxy** on server key (free-tier quota + rate limit).
@@ -388,6 +396,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-23 · 4.1 (field cache cloud sync) — **completes Phase 4** · user-scoped
+  `/api/profile/field-caches` (GET + `POST /sync`): batch upsert keyed on `fieldKey`+`contextHash`,
+  last-write-wins on value by `updatedAt`, `hitCount`=max (idempotent across re-syncs).
+  `FieldCacheSyncService`/`Resource` + `FieldCacheSyncResourceIT` (5). Extension: `field-cache.js`
+  `exportAll`/`importEntries`, `tracking.js` `syncFieldCache` + ms↔ISO mappers, `sync.js`
+  `syncFieldCache` folded into `syncNow`, options "Sync now" passes `JAF.fieldCache` (bio-email
+  profile). Backend+extension suites green; OpenAPI contract regenerated. ext v0.17.0.
 - 2026-06-23 · 3.5 (resume archive guard) — **completes Phase 3** · backend
   `ProfileService.deleteResume` → **409** + archive nudge when any application references the
   resume (`ApplicationRepository.countByResumeId`); `ProfileResourceIT` (blocked-delete +

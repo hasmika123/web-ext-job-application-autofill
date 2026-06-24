@@ -2,7 +2,7 @@
 
 > Reference for the extension. Read this when working in `job-autofill/` so you
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`.
-> Current version: manifest 0.16.1, bundled ruleset version 4.
+> Current version: manifest 0.17.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -56,8 +56,11 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   when IDB is absent). `preferCached()` overrides planned values with learned
   ones before the overlay; `watch()` learns from a user's correction on `change`/
   `blur`. Row shape `{profileId, fieldKey, contextHash, value, hitCount, updatedAt}`
-  mirrors the future server `field_cache` table (Phase 4 sync). `create()` factory
-  + pure helpers exposed for tests.
+  mirrors the server `field_cache` table. **Cloud sync (Phase 4.1):** `exportAll()` /
+  `importEntries()` push the current profile's entries and merge a server set back in
+  (last-write-wins by `updatedAt`, `hitCount` = max); `JAF.sync.syncFieldCache` drives
+  it through the provider's `syncFieldCache` (POST `/api/profile/field-caches/sync`).
+  `create()` factory + pure helpers exposed for tests.
 - `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
   TrackingProvider section below). `createDossierProvider()` + DTO mappers.
 - `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
