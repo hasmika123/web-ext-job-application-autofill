@@ -54,6 +54,12 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER }}/dossier-web:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/dossier-web:${{ github.sha }}
+          # Public GA config baked into the client bundle at build time. Measurement ID reuses
+          # the GA_MEASUREMENT_ID secret (it's public anyway); the WEB_ANALYTICS_ENABLED variable
+          # is the master switch — empty/false keeps analytics dark even with the ID present.
+          build-args: |
+            NEXT_PUBLIC_GA_MEASUREMENT_ID=${{ secrets.GA_MEASUREMENT_ID }}
+            NEXT_PUBLIC_ANALYTICS_ENABLED=${{ vars.WEB_ANALYTICS_ENABLED }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

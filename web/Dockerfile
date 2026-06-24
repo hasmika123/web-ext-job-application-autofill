@@ -22,7 +22,14 @@ RUN rm -f .npmrc
 # The prebuild step (sync-parser-core.mjs) reads ../../job-autofill/src/lib/parser-core.js
 # relative to /app/scripts → /job-autofill/src/lib/parser-core.js in the image.
 COPY job-autofill/src/lib/parser-core.js /job-autofill/src/lib/parser-core.js
-ENV NEXT_TELEMETRY_DISABLED=1
+# Public analytics config — NEXT_PUBLIC_* is inlined into the client bundle at BUILD time, so
+# it must be present here (not the runtime env). Empty/false by default, so a plain
+# `docker build` produces an analytics-free image; CI passes real values via --build-arg.
+ARG NEXT_PUBLIC_GA_MEASUREMENT_ID=""
+ARG NEXT_PUBLIC_ANALYTICS_ENABLED="false"
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_GA_MEASUREMENT_ID=$NEXT_PUBLIC_GA_MEASUREMENT_ID \
+    NEXT_PUBLIC_ANALYTICS_ENABLED=$NEXT_PUBLIC_ANALYTICS_ENABLED
 RUN npm run build
 
 # ---- runtime ----
