@@ -50,6 +50,7 @@ public class AiResource {
                 body.put("answer", r.answer());
                 body.put("used", r.used());
                 body.put("quota", r.quota());
+                body.put("cached", r.cached()); // served from the server-side answer cache (Phase 5.3)
                 return ResponseEntity.ok(body);
             }
             case DISABLED -> {

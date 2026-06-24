@@ -33,13 +33,15 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> **Next: Task 5.3 — server-side answer caching** in `ai_answers` by `question_hash` (dedupe identical
-> questions so they don't re-spend quota / re-hit the provider across devices; the `AiAnswer` entity
-> + repo already exist). Read the **Phase 5** section of ROADMAP.md.
+> 🎉 **Phase 5 is COMPLETE** (5.1 metered proxy + 5.2 BYO-key + 5.3 answer caching). Server-side AI
+> is LIVE on `gemini-2.5-flash-lite` (free tier), opt-in/consent-gated, per-user monthly quota, and
+> now **cached** server-side by `question_hash` so repeat questions are free + cross-device.
 >
-> *Context:* Phases 2–4 + 6 on prod at https://kiwiply.com. Working branch `phase-5` (un-hold not yet
-> merged to `main`). CWS extension listing still pending Google verification. Extension at v0.19.2.
-> Phase 7 (other browsers) after Phase 5.
+> **Next: Phase 7 — other browsers (7.1 Edge, 7.2 Firefox, 7.3 Safari).** Read the **Phase 7**
+> section of ROADMAP.md. Start on a fresh branch once `phase-5` merges to `main`.
+>
+> *Context:* Phases 2–6 done; product LIVE at https://kiwiply.com. Working branch `phase-5` (5.3 not
+> yet merged). CWS extension listing still pending Google verification. Extension at v0.19.2.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -401,7 +403,17 @@ focused Claude Code session.
 - [x] **5.2 Keep BYO-key path** as the unlimited free option. *Preserved: the SW's BYO-key
   path (direct to Anthropic with the user's own key) is untouched and takes priority over the
   metered server path.*
-- [ ] **5.3 Cache answers** in `ai_answers` by `question_hash`.
+- [x] **5.3 Cache answers** in `ai_answers` by `question_hash`. *Done: `AiAnswerCacheService`
+  — `questionHash()` (normalize: lowercase / collapse whitespace / strip trailing punctuation →
+  SHA-256 hex, mirrors the extension's local-cache key), `lookup(login,hash)`, and a
+  `REQUIRES_NEW` `store(...)` so a rare duplicate-race unique-constraint violation rolls back only
+  the cache insert, not the caller's draft+quota. `AiDraftService` checks the cache **before the
+  quota gate** → a repeat question returns instantly with no provider call and no quota charge (and
+  isn't blocked when over quota); fresh drafts are stored. `AiAnswerRepository.findOneByUserLoginAnd
+  QuestionHash`; response gains `cached:true/false`. Backed by the existing unique index
+  `ux_ai_answer_user_qhash(user_id,question_hash)` — no migration. `AiDraftServiceTest` (+3 cache
+  cases) + new `AiAnswerCacheServiceTest` (7); compiled + unit tests green on JDK 17. **Completes
+  Phase 5.** Backend-only (no extension bump).*
 
 ## Phase 6 — Google Analytics
 - [x] **6.1 Extension events** via GA4 Measurement Protocol from the service
@@ -447,6 +459,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · 5.3 (server-side answer caching) — **completes Phase 5** · `AiAnswerCacheService`:
+  `questionHash()` (normalized SHA-256, mirrors the extension local-cache key), `lookup`, and a
+  `REQUIRES_NEW` `store` (a duplicate-race rolls back only the cache insert). `AiDraftService` checks
+  the cache **before the quota gate** — a repeat question returns instantly, no provider call, no
+  quota charge, not blocked when over quota; fresh drafts get stored. New repo finder
+  `findOneByUserLoginAndQuestionHash`; response gains `cached`. Backed by the existing unique index
+  (no migration). `AiDraftServiceTest` +3 cache cases + `AiAnswerCacheServiceTest` (7); backend
+  compiled + unit tests green on JDK 17 (ITs run in CI). Backend-only.
 - 2026-06-24 · Phase 5 taken **OFF HOLD** · A live call confirmed `gemini-2.5-flash-lite` has
   free-tier quota (the earlier `limit: 0` was specific to `gemini-2.0-flash`). Default model →
   `gemini-2.5-flash-lite` in `AiProperties.java` + `application-prod.yml` + root `.env.example`;

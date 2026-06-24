@@ -21,7 +21,9 @@ import org.springframework.web.server.ResponseStatusException;
  * (3) the per-user monthly free quota. Only a successful draft consumes quota.
  *
  * The provider key never reaches the client — this server holds it and proxies.
- * Answer caching by question_hash (ai_answers) is Phase 5.3.
+ * Server-side answer caching by question_hash (Phase 5.3) is delegated to
+ * {@link AiAnswerCacheService}: a cache hit returns instantly without touching the
+ * provider or the monthly quota.
  */
 @Service
 @Transactional
@@ -37,33 +39,39 @@ public class AiDraftService {
         ERROR,
     }
 
-    public record Result(Status status, String answer, int used, int quota) {}
+    public record Result(Status status, String answer, int used, int quota, boolean cached) {}
 
     private final AiProvider provider;
     private final AiUsageRepository usageRepository;
+    private final AiAnswerCacheService answerCache;
     private final boolean enabled;
     private final int freeMonthlyQuota;
+    private final String model;
 
     public AiDraftService(
         AiProvider provider,
         AiUsageRepository usageRepository,
+        AiAnswerCacheService answerCache,
         @Value("${dossier.ai.enabled:false}") boolean enabled,
-        @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota
+        @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota,
+        @Value("${dossier.ai.model:}") String model
     ) {
         this.provider = provider;
         this.usageRepository = usageRepository;
+        this.answerCache = answerCache;
         this.enabled = enabled;
         this.freeMonthlyQuota = freeMonthlyQuota;
+        this.model = model;
     }
 
     public Result draft(String question, String context, boolean consent) {
         if (!enabled || !provider.isConfigured()) {
-            return new Result(Status.DISABLED, null, 0, 0);
+            return new Result(Status.DISABLED, null, 0, 0, false);
         }
         // Opt-in: the free-tier provider may use inputs to improve its services, so we
         // only proxy when the user has explicitly consented (enforced again here).
         if (!consent) {
-            return new Result(Status.CONSENT_REQUIRED, null, 0, freeMonthlyQuota);
+            return new Result(Status.CONSENT_REQUIRED, null, 0, freeMonthlyQuota, false);
         }
 
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
@@ -79,8 +87,17 @@ public class AiDraftService {
             u.setDraftCount(0);
             return u;
         });
+
+        // Cache hit (Phase 5.3): identical question already answered for this user → return it
+        // for free. Checked BEFORE the quota gate, so a repeat never costs quota or gets blocked.
+        String hash = AiAnswerCacheService.questionHash(question);
+        var cached = answerCache.lookup(login, hash);
+        if (cached.isPresent()) {
+            return new Result(Status.OK, cached.get(), usage.getDraftCount(), quota, true);
+        }
+
         if (usage.getDraftCount() >= quota) {
-            return new Result(Status.QUOTA_EXCEEDED, null, usage.getDraftCount(), quota);
+            return new Result(Status.QUOTA_EXCEEDED, null, usage.getDraftCount(), quota, false);
         }
 
         String answer;
@@ -89,11 +106,12 @@ public class AiDraftService {
         } catch (AiProviderException e) {
             // Provider/transport failure — don't charge quota; report a generic error.
             LOG.warn("AI draft failed for user: {}", e.getMessage());
-            return new Result(Status.ERROR, null, usage.getDraftCount(), quota);
+            return new Result(Status.ERROR, null, usage.getDraftCount(), quota, false);
         }
 
         usage.setDraftCount(usage.getDraftCount() + 1); // only a real draft costs quota
         usageRepository.save(usage);
-        return new Result(Status.OK, answer, usage.getDraftCount(), quota);
+        answerCache.store(login, hash, answer, model); // reuse next time (own tx; race-safe)
+        return new Result(Status.OK, answer, usage.getDraftCount(), quota, false);
     }
 }

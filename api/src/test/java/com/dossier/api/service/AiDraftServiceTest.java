@@ -3,6 +3,7 @@ package com.dossier.api.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,13 +31,15 @@ class AiDraftServiceTest {
 
     private AiProvider provider;
     private AiUsageRepository usageRepository;
+    private AiAnswerCacheService answerCache;
     private AiDraftService service;
 
     @BeforeEach
     void setUp() {
         provider = Mockito.mock(AiProvider.class);
         usageRepository = Mockito.mock(AiUsageRepository.class);
-        service = new AiDraftService(provider, usageRepository, true, QUOTA); // enabled, quota=2
+        answerCache = Mockito.mock(AiAnswerCacheService.class); // lookup defaults to Optional.empty() (cache miss)
+        service = new AiDraftService(provider, usageRepository, answerCache, true, QUOTA, "gemini-2.5-flash-lite");
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("user", "x"));
     }
 
@@ -47,7 +50,7 @@ class AiDraftServiceTest {
 
     @Test
     void disabledWhenFeatureOff() {
-        AiDraftService off = new AiDraftService(provider, usageRepository, false, QUOTA); // master switch off
+        AiDraftService off = new AiDraftService(provider, usageRepository, answerCache, false, QUOTA, "m"); // master off
         assertThat(off.draft("Why us?", "ctx", true).status()).isEqualTo(AiDraftService.Status.DISABLED);
         verify(usageRepository, never()).save(any());
     }
@@ -78,7 +81,7 @@ class AiDraftServiceTest {
     }
 
     @Test
-    void successDraftsAndIncrementsQuota() {
+    void successDraftsIncrementsQuotaAndCaches() {
         when(provider.isConfigured()).thenReturn(true);
         when(usageRepository.findByLoginAndPeriod(anyString(), anyString())).thenReturn(Optional.of(usage(0)));
         when(provider.draft(anyString(), anyString())).thenReturn("My grounded answer.");
@@ -87,7 +90,38 @@ class AiDraftServiceTest {
         assertThat(r.status()).isEqualTo(AiDraftService.Status.OK);
         assertThat(r.answer()).isEqualTo("My grounded answer.");
         assertThat(r.used()).isEqualTo(1);
+        assertThat(r.cached()).isFalse();
         verify(usageRepository).save(any(AiUsage.class));
+        // the fresh draft is stored for reuse
+        verify(answerCache).store(anyString(), anyString(), eq("My grounded answer."), eq("gemini-2.5-flash-lite"));
+    }
+
+    @Test
+    void cacheHitReturnsWithoutProviderOrQuota() {
+        when(provider.isConfigured()).thenReturn(true);
+        when(usageRepository.findByLoginAndPeriod(anyString(), anyString())).thenReturn(Optional.of(usage(1)));
+        when(answerCache.lookup(anyString(), anyString())).thenReturn(Optional.of("A previously stored answer."));
+
+        AiDraftService.Result r = service.draft("Why us?", "ctx", true);
+        assertThat(r.status()).isEqualTo(AiDraftService.Status.OK);
+        assertThat(r.answer()).isEqualTo("A previously stored answer.");
+        assertThat(r.cached()).isTrue();
+        assertThat(r.used()).isEqualTo(1); // current count, unchanged
+        verify(provider, never()).draft(anyString(), anyString()); // provider not hit
+        verify(usageRepository, never()).save(any()); // no quota charged
+        verify(answerCache, never()).store(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void cacheHitIsNotBlockedByQuota() {
+        when(provider.isConfigured()).thenReturn(true);
+        when(usageRepository.findByLoginAndPeriod(anyString(), anyString())).thenReturn(Optional.of(usage(QUOTA))); // maxed
+        when(answerCache.lookup(anyString(), anyString())).thenReturn(Optional.of("Reused answer."));
+
+        AiDraftService.Result r = service.draft("Why us?", "ctx", true);
+        assertThat(r.status()).isEqualTo(AiDraftService.Status.OK); // not QUOTA_EXCEEDED
+        assertThat(r.cached()).isTrue();
+        verify(provider, never()).draft(anyString(), anyString());
     }
 
     @Test

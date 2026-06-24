@@ -17,6 +17,9 @@ public interface AiAnswerRepository extends JpaRepository<AiAnswer, Long> {
     @Query("select aiAnswer from AiAnswer aiAnswer where aiAnswer.user.login = ?#{authentication.name}")
     List<AiAnswer> findByUserIsCurrentUser();
 
+    /** Server-side answer cache lookup (Phase 5.3): one entry per (user, question_hash). */
+    Optional<AiAnswer> findOneByUserLoginAndQuestionHash(String login, String questionHash);
+
     default Optional<AiAnswer> findOneWithEagerRelationships(Long id) {
         return this.findOneWithToOneRelationships(id);
     }
