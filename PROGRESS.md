@@ -32,15 +32,19 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > secrets + `EXT_ANALYTICS_ENABLED=true` variable, then republish (CI injects at build). Both default
 > OFF even with creds present. Privacy policies (web + extension) disclose it. ext v0.19.1.
 >
-> **Next: Phase 7 — other browsers (7.1 Edge, 7.2 Firefox, 7.3 Safari).** Read the **Phase 7**
-> section of ROADMAP.md. Start on a fresh branch once `phase-6` merges to `main`.
+> **Next: back to Phase 5 (server-side AI).** Phase 5 was put ON HOLD ("coming soon") because the
+> trial Gemini **free tier returned `limit: 0`** (no free-tier grant; fix = billing→paid tier, which
+> is also privacy-better). The infra is built + merged. Two ways forward, user's call:
+> **(a)** build **5.3** now — server-side answer caching in `ai_answers` by `question_hash` (pure
+> backend infra; buildable + testable *without* the provider being live, so it's productive while
+> the feature stays staged), or **(b)** take the feature **off hold** (enable Gemini billing / pick a
+> provider, flip `DOSSIER_AI_ENABLED=true` on the VPS — see `DEPLOY.md` §10), then 5.3. Read the
+> **Phase 5** section of ROADMAP.md.
 >
-> *Side note (Phase 5 still ON HOLD):* server-side AI infra is merged but parked ("coming soon",
-> `DOSSIER_AI_ENABLED=false`) pending a billing/provider decision — see `DEPLOY.md` §10. BYO-key live.
->
-> *Context:* Phases 2–4 on prod at https://kiwiply.com; Phase 5 infra merged (held); Phase 6 on
-> `phase-6` (current), not yet merged. CWS extension listing still pending Google verification.
-> Extension at v0.19.0.
+> *Context:* Phases 2–4 on prod at https://kiwiply.com; **Phase 6 complete + merged to `main`**
+> (analytics, staged dark behind the master switches). `phase-6` branch deleted. CWS extension
+> listing still pending Google verification. Extension at v0.19.1. Phase 7 (other browsers) deferred
+> until after Phase 5 resumes.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
