@@ -3,6 +3,7 @@
 import { useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { parseResume, type ParsedResume } from "@/lib/resume-parse";
+import { track } from "@/lib/analytics";
 
 function Field({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -63,6 +64,7 @@ export default function ResumeUpload() {
         setSaveError(data.error ?? "Couldn't save the resume.");
         return;
       }
+      track("resume_saved");
       setSavedLabel(data.label ?? label);
       setFile(null);
       setResult(null);

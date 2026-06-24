@@ -142,10 +142,23 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      <Section title="Analytics">
+        <p>
+          We use <strong>Google Analytics</strong> to understand how Dossier is used — which
+          features people reach and where the experience breaks — so we can improve it. We send
+          only <strong>anonymous, aggregate events</strong> (for example &quot;a resume was
+          saved&quot; or &quot;the board was viewed&quot;), never your name, email, profile,
+          resumes, or the specific jobs you apply to. In the browser extension this is opt-out in
+          Settings; on the website it can be disabled with your browser&apos;s tracking controls
+          or an analytics-blocking extension, and is only active when we have analytics configured.
+        </p>
+      </Section>
+
       <Section title="Cookies">
         <p>
-          On the web app we use http-only cookies strictly to keep you signed in. We don&apos;t
-          use third-party advertising or tracking cookies.
+          We use first-party http-only cookies strictly to keep you signed in. Our analytics
+          (above) also sets first-party cookies to count visits and distinguish sessions. We do
+          <strong> not</strong> use advertising cookies and we don&apos;t sell your data.
         </p>
       </Section>
 

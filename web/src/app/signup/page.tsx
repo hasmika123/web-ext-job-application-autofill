@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { track } from "@/lib/analytics";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
@@ -26,6 +27,7 @@ export default function SignupPage() {
         setError(data.error ?? "Couldn't create the account.");
         return;
       }
+      track("sign_up", { method: "password" });
       setDone(true);
     } catch {
       setError("Something went wrong. Please try again.");

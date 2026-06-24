@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { track } from "@/lib/analytics";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function LoginPage() {
         setError(data.error ?? "Sign in failed.");
         return;
       }
+      track("login", { method: "password" });
       router.push("/settings");
       router.refresh();
     } catch {

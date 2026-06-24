@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { track } from "@/lib/analytics";
 
 export interface Application {
   id: number;
@@ -169,6 +170,10 @@ function Card({ app }: { app: Application }) {
  * "Did you submit?" nudge, moves cards between columns, and dismisses dead entries.
  */
 export default function ApplicationBoard({ applications }: { applications: Application[] }) {
+  useEffect(() => {
+    track("board_viewed", { count: applications.length });
+  }, [applications.length]);
+
   if (applications.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-foreground/20 p-10 text-center">

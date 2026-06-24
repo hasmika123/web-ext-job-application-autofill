@@ -25,19 +25,20 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> **Phase 6 · Task 6.2 — Web app analytics (gtag.js + funnel events).** 6.1 (extension GA4 events
-> from the service worker) is **DONE**. Next: add gtag.js to the Next.js web app with funnel events
-> (signup → login → resume upload → board), gated behind a measurement id (env-config, no secret in
-> the repo) and a privacy note. **Also sync the web `/privacy` page** to disclose analytics so it
-> stays consistent with the extension `PRIVACY.md`. Read the **Phase 6** section of ROADMAP.md.
+> 🎉 **Phase 6 is COMPLETE** (6.1 extension GA4 Measurement Protocol events + 6.2 web gtag.js
+> funnel). Analytics is wired end-to-end but **inert until configured**: the extension build injects
+> `GA_MEASUREMENT_ID`/`GA_API_SECRET` at publish time (CI), the web reads `NEXT_PUBLIC_GA_MEASUREMENT_ID`
+> at build — set those when you want live data. Privacy policies (web + extension) disclose it.
+>
+> **Next: Phase 7 — other browsers (7.1 Edge, 7.2 Firefox, 7.3 Safari).** Read the **Phase 7**
+> section of ROADMAP.md. Start on a fresh branch once `phase-6` merges to `main`.
 >
 > *Side note (Phase 5 still ON HOLD):* server-side AI infra is merged but parked ("coming soon",
 > `DOSSIER_AI_ENABLED=false`) pending a billing/provider decision — see `DEPLOY.md` §10. BYO-key live.
 >
-> *Context:* Phases 2–4 done and **all on prod** at https://kiwiply.com; Phase 5 infra merged
-> (2026-06-24). Branches: `main` + `phase-6` (current). CWS extension listing still pending Google
-> verification. Extension at v0.19.0. **Note:** GA isn't wired live until the GA4 measurement id +
-> api secret are set (see `analytics.js` / `settings.gaMeasurementId`); until then events no-op.
+> *Context:* Phases 2–4 on prod at https://kiwiply.com; Phase 5 infra merged (held); Phase 6 on
+> `phase-6` (current), not yet merged. CWS extension listing still pending Google verification.
+> Extension at v0.19.0.
 
 ## Status legend
 `[ ]` not started `[~]` in progress `[x]` done · Each task is sized for one
@@ -415,8 +416,15 @@ focused Claude Code session.
   "Share anonymous usage analytics" opt-out (on by default); manifest + host perm
   `www.google-analytics.com`; extension `PRIVACY.md` discloses it (section + cert + permission row).
   `test/analytics.test.js` (27); full suite green. ext v0.19.0.*
-- [ ] **6.2 Web app** gtag.js + funnel events. (Also: sync web `/privacy` with the analytics
-  disclosure for consistency with the extension `PRIVACY.md`.)
+- [x] **6.2 Web app** gtag.js + funnel events. *Done: `web/src/lib/analytics.ts` (`track()`
+  no-op-safe helper + typed `window.gtag`) + `web/src/components/Analytics.tsx` (loads gtag.js via
+  `next/script`, **only** when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set — renders nothing otherwise),
+  mounted in the root layout. Funnel events fired at the real success points: `sign_up` (signup),
+  `login` (login), `resume_saved` (upload), `board_viewed` (board mount). No PII — coarse params
+  only. Measurement ID is a PUBLIC `NEXT_PUBLIC_` env (gtag needs no secret); blank = analytics off.
+  Web `/privacy` updated: new "Analytics" section + amended "Cookies" (first-party analytics
+  cookies, no ad cookies) — consistent with the extension `PRIVACY.md`. `web/.env.example` documents
+  the var. `npm test` (tsc+eslint) + `next build` green. **Completes Phase 6.***
 
 ## Phase 7 — Other browsers
 - [ ] **7.1 Edge** (near-free on MV3). **7.2 Firefox** (`browser.*` polyfill +
@@ -441,6 +449,19 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-24 · 6.2 (web analytics) — **completes Phase 6** · `web/src/lib/analytics.ts` (`track()`
+  no-op-safe + typed `window.gtag`) + `web/src/components/Analytics.tsx` (loads gtag.js via
+  `next/script` only when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set), mounted in the root layout.
+  Funnel events at real success points: `sign_up`, `login`, `resume_saved`, `board_viewed` (coarse
+  params, no PII). Measurement ID is a public `NEXT_PUBLIC_` env (gtag needs no secret); blank = off.
+  Web `/privacy` got an Analytics section + amended Cookies (first-party analytics cookies, no ad
+  cookies), consistent with the extension `PRIVACY.md`; `web/.env.example` documents the var.
+  `npm test` (tsc+eslint) + `next build` green. Web-only (no extension bump).
+- 2026-06-24 · 6.1 (CI injection) · `.github/scripts/inject-ga.js` + `publish-extension.yml` step
+  substitutes `GA_MEASUREMENT_ID`/`GA_API_SECRET` (GitHub secrets) into the bundled `analytics.js`
+  at package time — source stays secret-free, only the artifact carries them. JSON-escaped, fails
+  loudly if the constants move, syntax-checks the result, and no-ops when the secrets are absent
+  (build still succeeds). DEPLOY.md §8 documents the two secrets. Verified locally then restored.
 - 2026-06-24 · 6.1 (extension analytics) — **Phase 6 begins** · `src/lib/analytics.js`
   (`JAF.analytics`, SW-safe): GA4 **Measurement Protocol** from the service worker —
   `track(name,params)` fires one POST per event immediately (SW dies ~30s idle, no batching),
