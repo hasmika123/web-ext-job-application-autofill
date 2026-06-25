@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { serverApiFetch } from "@/lib/api";
 import DeleteAccountButton from "@/components/DeleteAccountButton";
 
@@ -55,6 +56,25 @@ export default async function SettingsPage() {
         ) : (
           <p className="mt-3 text-sm text-muted">Couldn&apos;t load your account details.</p>
         )}
+      </section>
+
+      {/* Plan / Billing — placeholder (Free is the only live tier; Pro is "coming soon").
+          Full Billing sub-nav lands in R4.4; no Stripe/billing work this pass. */}
+      <section className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Plan</h2>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-bold text-accent-deep">
+              Free plan
+            </span>
+            <span className="text-sm text-muted">
+              Unlimited autofill, resume parsing & tracker. Pro is coming soon.
+            </span>
+          </div>
+          <Link href="/pricing" className="text-sm font-semibold text-accent-deep hover:underline">
+            See plans →
+          </Link>
+        </div>
       </section>
 
       <DeleteAccountButton />

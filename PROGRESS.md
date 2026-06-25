@@ -36,11 +36,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-2`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R2.2** (`/pricing` page — Free live + "Pro coming soon"; Settings→Billing placeholder).
-> R0 + R1 done; R2.1 (landing rebuild) done + **visually verified** in a browser. **Branch
-> structure:** `main` → `ui-redesign` (integration, holds R0+R1) → `phase-0`/`phase-1` (merged) →
-> **`phase-2`** (current; R2 work). One task = one commit, prefix `redesign.<phase>.<n>:`. Decisions
-> locked: full internal rename (R7.1) · pricing Free/"coming soon" · light-only.
+> **Next: R2.3** (privacy reskin + replace placeholder `privacy@dossier.app` with a real Kiwiply
+> contact — folds in pre-launch PL.1). R0 + R1 done; R2.1 (landing) + R2.2 (`/pricing` + Settings
+> billing placeholder) done + **visually verified** in a browser. **Branch structure:** `main` →
+> `ui-redesign` (integration, holds R0+R1) → `phase-0`/`phase-1` (merged) → **`phase-2`** (current;
+> R2 work). One task = one commit, prefix `redesign.<phase>.<n>:`. Decisions locked: full internal
+> rename (R7.1) · pricing Free/"coming soon" · light-only.
 >
 > *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
 > the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
@@ -499,8 +500,8 @@ focused Claude Code session.
   gate-session-once (per-page nav deleted) · ✅ R1.2 new `/dashboard` (KPIs, setup checklist, quick
   actions, recent-activity feed); login redirect → `/dashboard`.
 - [~] **R2 Marketing.** ✅ R2.1 landing rebuild (charcoal hero + product-peek, how-it-works,
-  features, pricing teaser) · R2.2 `/pricing` (Free + "Pro coming soon") · R2.3 privacy reskin +
-  real contact email (Kiwiply).
+  features, pricing teaser) · ✅ R2.2 `/pricing` (Free live + "Pro coming soon" + Teams contact;
+  Settings→Billing placeholder) · R2.3 privacy reskin + real contact email (Kiwiply).
 - [ ] **R3 Auth.** Split-screen `/login`+`/signup` (shared, tabbed) + branded `/account/activate`;
   Google button stubbed.
 - [ ] **R4 Core app screens.** R4.1 Profile (sections + strength meter, chips) · R4.2 Resumes
@@ -517,6 +518,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R2.2 (pricing) · New `(marketing)/pricing/page.tsx` — three tiers (**Free**
+  live w/ "Start here" badge + Get started; **Pro** "Coming soon" w/ disabled "Notify me at launch";
+  **Teams** Custom → `mailto:hello@kiwiply.com`) per the locked Free-only/Pro-coming-soon decision,
+  plus a 4-item FAQ (free forever, BYO key, no auto-submit) and a closing CTA. Added a **Plan /
+  Billing placeholder** card to `(app)/settings` (Free badge + "See plans →" → /pricing; no Stripe).
+  Resolves the R1.1 transient — header/footer `/pricing` links now land. `metadata` title set.
+  **Visually verified in a browser** (desktop screenshot: 3-col tiers + FAQ grid). `npm test` + `npm
+  run build` green (`/pricing` prerendered). Web-only.
 - 2026-06-25 · redesign.R2.1 (landing rebuild) — **Phase R2 begins** · Rebuilt
   `(marketing)/page.tsx` on the kiwi system: full-bleed **charcoal hero** (eyebrow tag, Fraunces
   headline, lede, dual CTA, trust strip) + a **product-peek** card mocking the review-autofill
