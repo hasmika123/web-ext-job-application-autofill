@@ -36,9 +36,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (this branch `ui-redesign-phase-0`): Kiwiply UI/UX redesign.** Presentation-only
 > rebrand + visual system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Start at R0.1** (kiwi tokens + Fraunces/Inter in `globals.css`). One task = one commit, prefix
-> `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming soon"
-> · light-only. This branch holds the redesign **prep**; the new Claude Code chat does the build.
+> **Next: R0.2** (`components/ui/` primitives ported from `mockups.html`). R0.1 (kiwi tokens +
+> Fraunces/Inter in `globals.css`) is DONE. One task = one commit, prefix `redesign.<phase>.<n>:`.
+> Decisions locked: full internal rename (R7.1) · pricing Free/"coming soon" · light-only.
 >
 > *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
 > the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
@@ -489,9 +489,9 @@ focused Claude Code session.
 > Locked decisions: **full internal rename** (cookies + identifiers, R7.1, forces one re-login) ·
 > pricing **Free / "Pro coming soon"** · **light-only** (no dark mode this pass). Commit prefix
 > `redesign.<phase>.<n>:`. Bump extension versions only in R5.
-- [ ] **R0 Foundations.** R0.1 kiwi tokens + Fraunces/Inter in `globals.css` (drop Geist + dark
-  media query) · R0.2 `components/ui/` primitives (port from `mockups.html`) · R0.3 brand assets
-  (delete starter SVGs; logo/mark/icon/og-image; metadata).
+- [~] **R0 Foundations.** ✅ R0.1 kiwi tokens + Fraunces/Inter in `globals.css` (Geist + dark
+  media query dropped) · R0.2 `components/ui/` primitives (port from `mockups.html`) · R0.3 brand
+  assets (delete starter SVGs; logo/mark/icon/og-image; metadata).
 - [ ] **R1 App shell & IA.** R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
   gate-session-once (delete per-page nav) · R1.2 new `/dashboard` (KPIs, setup checklist, activity);
   login redirect → `/dashboard`.
@@ -513,6 +513,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R0.1 (kiwi tokens + fonts) — **Phase R begins** · Rewrote
+  `web/src/app/globals.css` with the §3.1 Kiwiply palette as CSS vars + a Tailwind v4 `@theme inline`
+  block (bg-paper/text-ink/border-line/text-accent-deep/font-display/…); dropped the Geist /
+  black-white defaults and the `prefers-color-scheme: dark` media query (light-only this pass). Wired
+  **Fraunces** (display) + **Inter** (body) via `next/font` in `layout.tsx` (replacing Geist), body =
+  Inter on warm `--app-bg`, h1–h3 = Fraunces; metadata title/description → Kiwiply. No
+  `--foreground`/`--background` refs remain. `npm run build` + `npm test` (tsc+eslint) green. Web-only
+  (no extension bump). Branch `ui-redesign-phase-0`.
 - 2026-06-24 · 7.2 (Firefox support) · Targets Firefox 121+ (MV3 `service_worker` background +
   `chrome.*` callback aliases → no `browser.*` rewrite/polyfill). Added `browser_specific_settings.
   gecko` (id `dossier@kiwiply.com`, min 121.0) to the manifest — Chrome ignores it, so one manifest
