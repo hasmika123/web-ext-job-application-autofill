@@ -33,15 +33,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> 🎨 **ACTIVE (branch `phase-1`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
+> 🎨 **ACTIVE (branch `phase-2`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R2.1** (marketing landing rebuild — hero, how-it-works, features, pricing teaser, footer).
-> **Phase R1 (app shell & IA) is COMPLETE** — R1.1 route groups + app shell, R1.2 `/dashboard` +
-> login redirect. R0 done too. **Branch structure:** `main` → `ui-redesign` (integration) →
-> `phase-0` (R0, merged into `ui-redesign`) → **`phase-1`** (current; R1 done, R2 next). One task =
-> one commit, prefix `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) ·
-> pricing Free/"coming soon" · light-only.
+> **Next: R2.2** (`/pricing` page — Free live + "Pro coming soon"; Settings→Billing placeholder).
+> R0 + R1 done; R2.1 (landing rebuild) done + **visually verified** in a browser. **Branch
+> structure:** `main` → `ui-redesign` (integration, holds R0+R1) → `phase-0`/`phase-1` (merged) →
+> **`phase-2`** (current; R2 work). One task = one commit, prefix `redesign.<phase>.<n>:`. Decisions
+> locked: full internal rename (R7.1) · pricing Free/"coming soon" · light-only.
 >
 > *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
 > the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
@@ -499,8 +498,9 @@ focused Claude Code session.
 - [x] **R1 App shell & IA.** ✅ R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
   gate-session-once (per-page nav deleted) · ✅ R1.2 new `/dashboard` (KPIs, setup checklist, quick
   actions, recent-activity feed); login redirect → `/dashboard`.
-- [ ] **R2 Marketing.** R2.1 landing rebuild · R2.2 `/pricing` (Free + "Pro coming soon") · R2.3
-  privacy reskin + real contact email (Kiwiply).
+- [~] **R2 Marketing.** ✅ R2.1 landing rebuild (charcoal hero + product-peek, how-it-works,
+  features, pricing teaser) · R2.2 `/pricing` (Free + "Pro coming soon") · R2.3 privacy reskin +
+  real contact email (Kiwiply).
 - [ ] **R3 Auth.** Split-screen `/login`+`/signup` (shared, tabbed) + branded `/account/activate`;
   Google button stubbed.
 - [ ] **R4 Core app screens.** R4.1 Profile (sections + strength meter, chips) · R4.2 Resumes
@@ -517,6 +517,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R2.1 (landing rebuild) — **Phase R2 begins** · Rebuilt
+  `(marketing)/page.tsx` on the kiwi system: full-bleed **charcoal hero** (eyebrow tag, Fraunces
+  headline, lede, dual CTA, trust strip) + a **product-peek** card mocking the review-autofill
+  overlay (field/value rows, green checks, AI badge); **how-it-works** (3 steps), **features** (4
+  cards), and a **pricing teaser** (Free live + Pro "coming soon" per the locked decision) linking to
+  `/pricing`. Header/footer come from the `(marketing)` shell. **Visually verified in a real browser**
+  (`next start` + screenshots, desktop): hero 2-col, steps 3-col, features 2×2, pricing 2-col. Caught
+  + fixed a tailwind-merge bug — the dark-surface "ghost" CTA inherited `text-ink` (charcoal-on-
+  charcoal, invisible); gave it an explicit class. Added `.claude/launch.json` (local-only preview
+  config, untracked). `npm test` + `npm run build` green. Branch `phase-2`. Web-only.
 - 2026-06-25 · redesign.R1.2 (dashboard) — **completes Phase R1** · New `(app)/dashboard/page.tsx`
   (server-rendered, parallel fetch of account+applications+resumes+profile): KPI row (applications /
   interviews / response-rate / drafts-to-confirm, all derived from real application statuses), a
