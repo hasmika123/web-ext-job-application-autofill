@@ -33,12 +33,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> 🎨 **ACTIVE (this branch `ui-redesign-phase-0`): Kiwiply UI/UX redesign.** Presentation-only
-> rebrand + visual system + app shell — see the **Redesign (Phase R)** section below, spec in
+> 🎨 **ACTIVE (branch `phase-1`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
+> system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R1.1** (route groups `(marketing)`/`(app)` + sidebar + mobile drawer + gate-session-once;
-> delete per-page nav). **Phase R0 (foundations) is COMPLETE** — R0.1 tokens+fonts, R0.2
-> `components/ui/` primitives, R0.3 brand assets all done. One task = one commit, prefix
+> **Next: R1.2** (new `/dashboard`: KPIs, setup checklist, quick actions, recent activity; login
+> redirect → `/dashboard`). R0 (foundations) + R1.1 (route groups + app shell + sidebar/drawer +
+> gate-once) are DONE. **Branch structure:** `main` → `ui-redesign` (integration) → `phase-0` (R0,
+> merged into `ui-redesign`) → **`phase-1`** (current; R1 work). One task = one commit, prefix
 > `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming
 > soon" · light-only.
 >
@@ -495,8 +496,8 @@ focused Claude Code session.
   media query dropped) · ✅ R0.2 `components/ui/` primitives (ported from `mockups.html`) · ✅ R0.3
   brand assets (starter SVGs deleted; `mark.svg` + `app/icon.svg` favicon + `app/opengraph-image.tsx`;
   metadata title/OG/Twitter set; `Wordmark`/`BrandLockup` for dark surfaces).
-- [ ] **R1 App shell & IA.** R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
-  gate-session-once (delete per-page nav) · R1.2 new `/dashboard` (KPIs, setup checklist, activity);
+- [~] **R1 App shell & IA.** ✅ R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
+  gate-session-once (per-page nav deleted) · R1.2 new `/dashboard` (KPIs, setup checklist, activity);
   login redirect → `/dashboard`.
 - [ ] **R2 Marketing.** R2.1 landing rebuild · R2.2 `/pricing` (Free + "Pro coming soon") · R2.3
   privacy reskin + real contact email (Kiwiply).
@@ -516,6 +517,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R1.1 (route groups + app shell) · Split web routes into Next route groups
+  `(marketing)` (`/`, `/privacy`) and `(app)` (`/board`, `/profile`, `/resumes`, `/settings`) — URLs
+  unchanged. New `(app)/layout.tsx` gates the session **once** (replacing the four per-page
+  `hasSession()` checks) + fetches the account for the sidebar chip; `AppShell` client component =
+  persistent left sidebar (5 nav items w/ stroke icons + active state via `usePathname`), user chip +
+  sign-out, mobile top bar + hamburger + off-canvas drawer + scrim (persistent ≥lg, drawer below).
+  New `(marketing)/layout.tsx` = sticky branded header (Logo + nav + Sign in/Get started) + footer.
+  Deleted every hand-rolled per-page `<header><nav>` row; app pages now return a `<div>` (shell owns
+  `<main>`), colors moved to kiwi tokens. Light token-pass on the landing (CTAs→`buttonVariants`,
+  eyebrow→`Tag`, Kiwiply copy) — full rebuild is R2.1. Added `lib/cn`-based `AppShell`. `npm test`
+  (tsc+eslint) + `npm run build` green (groups compile, URLs intact). Branch `phase-1`. Web-only.
+  *Transient: `/dashboard` + `/pricing` nav links 404 until R1.2/R2.2 (same branch, not deployed).*
 - 2026-06-25 · redesign.R0.3 (brand assets) — **completes Phase R0** · Deleted the create-next-app
   starter assets (`next/vercel/window/globe/file.svg` + `app/favicon.ico`). Authored a vector
   `mark.svg` (kiwi disc + lime + charcoal check, from the prototype `.kmark`) and wired it as the
