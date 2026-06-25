@@ -36,9 +36,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (this branch `ui-redesign-phase-0`): Kiwiply UI/UX redesign.** Presentation-only
 > rebrand + visual system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R0.2** (`components/ui/` primitives ported from `mockups.html`). R0.1 (kiwi tokens +
-> Fraunces/Inter in `globals.css`) is DONE. One task = one commit, prefix `redesign.<phase>.<n>:`.
-> Decisions locked: full internal rename (R7.1) · pricing Free/"coming soon" · light-only.
+> **Next: R0.3** (brand assets: delete starter SVGs; logo/mark/icon/og-image; metadata). R0.1 (kiwi
+> tokens + fonts) and R0.2 (`components/ui/` primitives) are DONE. One task = one commit, prefix
+> `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming
+> soon" · light-only.
 >
 > *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
 > the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
@@ -490,8 +491,8 @@ focused Claude Code session.
 > pricing **Free / "Pro coming soon"** · **light-only** (no dark mode this pass). Commit prefix
 > `redesign.<phase>.<n>:`. Bump extension versions only in R5.
 - [~] **R0 Foundations.** ✅ R0.1 kiwi tokens + Fraunces/Inter in `globals.css` (Geist + dark
-  media query dropped) · R0.2 `components/ui/` primitives (port from `mockups.html`) · R0.3 brand
-  assets (delete starter SVGs; logo/mark/icon/og-image; metadata).
+  media query dropped) · ✅ R0.2 `components/ui/` primitives (ported from `mockups.html`) · R0.3
+  brand assets (delete starter SVGs; logo/mark/icon/og-image; metadata).
 - [ ] **R1 App shell & IA.** R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
   gate-session-once (delete per-page nav) · R1.2 new `/dashboard` (KPIs, setup checklist, activity);
   login redirect → `/dashboard`.
@@ -513,6 +514,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R0.2 (UI primitives) · Built `web/src/components/ui/` ported 1:1 from
+  `mockups.html`: `Button` (primary/accent/ghost/danger + `buttonVariants()` for link-as-button),
+  `Input`+`Field` (label/error/hint slot, 16px on mobile to dodge iOS zoom, `aria-invalid` styling),
+  `Select` (native, custom caret), `Card`, `Badge`+`Pill`, `Tag`, `Switch` (controlled, `role=switch`),
+  and new `Toast`/`Skeleton`/`EmptyState`, plus `Logo` (next/image lockup) + `Mark` (CSS kiwi mark).
+  All Tailwind-utility based on the R0.1 `@theme` tokens (no copied class strings); barrel `index.ts`;
+  tiny dependency-free `lib/cn.ts` joiner. `npm test` (tsc+eslint) + `npm run build` green. Web-only.
 - 2026-06-25 · redesign.R0.1 (kiwi tokens + fonts) — **Phase R begins** · Rewrote
   `web/src/app/globals.css` with the §3.1 Kiwiply palette as CSS vars + a Tailwind v4 `@theme inline`
   block (bg-paper/text-ink/border-line/text-accent-deep/font-display/…); dropped the Geist /
