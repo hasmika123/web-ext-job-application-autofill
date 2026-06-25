@@ -64,4 +64,42 @@ export function Mark({ size = 26, className }: MarkProps) {
   );
 }
 
+export interface WordmarkProps {
+  /** Color of the "ply" half. Default charcoal ink; pass cream for dark surfaces. */
+  plyColor?: string;
+  className?: string;
+}
+
+/**
+ * Two-tone serif wordmark (prototype `.wm`): green "kiwi" + "ply". Use on DARK
+ * surfaces (hero, auth panel) where the raster lockup's charcoal "ply" vanishes —
+ * pass `plyColor="var(--hero-ink)"`. Renders in the loaded Fraunces display font.
+ */
+export function Wordmark({ plyColor = "var(--ink)", className }: WordmarkProps) {
+  return (
+    <span className={cn("font-display font-bold tracking-[-.01em] leading-none", className)}>
+      <span className="text-accent">kiwi</span>
+      <span style={{ color: plyColor }}>ply</span>
+    </span>
+  );
+}
+
+export interface BrandLockupProps {
+  /** Mark diameter in px; the wordmark scales with it. Default 26. */
+  size?: number;
+  /** Color of the "ply" half. Default charcoal; pass cream for dark surfaces. */
+  plyColor?: string;
+  className?: string;
+}
+
+/** Kiwi mark + two-tone wordmark, for dark surfaces (the prototype `.brandlock`). */
+export function BrandLockup({ size = 26, plyColor, className }: BrandLockupProps) {
+  return (
+    <span className={cn("inline-flex items-center gap-[9px]", className)}>
+      <Mark size={size} />
+      <Wordmark plyColor={plyColor} className="text-[19px]" />
+    </span>
+  );
+}
+
 export default Logo;

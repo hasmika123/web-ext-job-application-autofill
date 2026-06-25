@@ -28,5 +28,5 @@ export { default as Skeleton } from "./Skeleton";
 export { default as EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
 
-export { Logo, Mark } from "./Logo";
-export type { LogoProps, MarkProps } from "./Logo";
+export { Logo, Mark, Wordmark, BrandLockup } from "./Logo";
+export type { LogoProps, MarkProps, WordmarkProps, BrandLockupProps } from "./Logo";

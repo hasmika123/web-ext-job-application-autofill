@@ -36,8 +36,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (this branch `ui-redesign-phase-0`): Kiwiply UI/UX redesign.** Presentation-only
 > rebrand + visual system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R0.3** (brand assets: delete starter SVGs; logo/mark/icon/og-image; metadata). R0.1 (kiwi
-> tokens + fonts) and R0.2 (`components/ui/` primitives) are DONE. One task = one commit, prefix
+> **Next: R1.1** (route groups `(marketing)`/`(app)` + sidebar + mobile drawer + gate-session-once;
+> delete per-page nav). **Phase R0 (foundations) is COMPLETE** — R0.1 tokens+fonts, R0.2
+> `components/ui/` primitives, R0.3 brand assets all done. One task = one commit, prefix
 > `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming
 > soon" · light-only.
 >
@@ -490,9 +491,10 @@ focused Claude Code session.
 > Locked decisions: **full internal rename** (cookies + identifiers, R7.1, forces one re-login) ·
 > pricing **Free / "Pro coming soon"** · **light-only** (no dark mode this pass). Commit prefix
 > `redesign.<phase>.<n>:`. Bump extension versions only in R5.
-- [~] **R0 Foundations.** ✅ R0.1 kiwi tokens + Fraunces/Inter in `globals.css` (Geist + dark
-  media query dropped) · ✅ R0.2 `components/ui/` primitives (ported from `mockups.html`) · R0.3
-  brand assets (delete starter SVGs; logo/mark/icon/og-image; metadata).
+- [x] **R0 Foundations.** ✅ R0.1 kiwi tokens + Fraunces/Inter in `globals.css` (Geist + dark
+  media query dropped) · ✅ R0.2 `components/ui/` primitives (ported from `mockups.html`) · ✅ R0.3
+  brand assets (starter SVGs deleted; `mark.svg` + `app/icon.svg` favicon + `app/opengraph-image.tsx`;
+  metadata title/OG/Twitter set; `Wordmark`/`BrandLockup` for dark surfaces).
 - [ ] **R1 App shell & IA.** R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
   gate-session-once (delete per-page nav) · R1.2 new `/dashboard` (KPIs, setup checklist, activity);
   login redirect → `/dashboard`.
@@ -514,6 +516,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R0.3 (brand assets) — **completes Phase R0** · Deleted the create-next-app
+  starter assets (`next/vercel/window/globe/file.svg` + `app/favicon.ico`). Authored a vector
+  `mark.svg` (kiwi disc + lime + charcoal check, from the prototype `.kmark`) and wired it as the
+  App-Router favicon `app/icon.svg`. Added `app/opengraph-image.tsx` (`next/og` `ImageResponse`,
+  1200×630 charcoal-hero card with the mark + two-tone wordmark + tagline — check drawn as inline
+  SVG to dodge a dynamic-font fetch; verified the rendered PNG). Set root `metadata`: `metadataBase`
+  (kiwiply.com), title template, OpenGraph + Twitter card. Added `Wordmark` + `BrandLockup` ui
+  primitives (two-tone serif lockup for dark surfaces where the raster logo's charcoal "ply" would
+  vanish). `npm test` + `npm run build` green. Web-only.
 - 2026-06-25 · redesign.R0.2 (UI primitives) · Built `web/src/components/ui/` ported 1:1 from
   `mockups.html`: `Button` (primary/accent/ghost/danger + `buttonVariants()` for link-as-button),
   `Input`+`Field` (label/error/hint slot, 16px on mobile to dodge iOS zoom, `aria-invalid` styling),

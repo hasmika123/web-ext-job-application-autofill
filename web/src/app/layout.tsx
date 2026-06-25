@@ -16,10 +16,33 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
+const SITE_URL = "https://kiwiply.com";
+const TITLE = "Kiwiply — one profile, every application";
+const DESCRIPTION =
+  "Build one job-application profile, manage your resumes, and track every application in one place. The Kiwiply browser extension fills applications for you on the page.";
+
 export const metadata: Metadata = {
-  title: "Kiwiply — one profile, every application",
-  description:
-    "Build one job-application profile, manage your resumes, and track every application in one place. The Kiwiply browser extension fills applications for you on the page.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: TITLE,
+    template: "%s · Kiwiply",
+  },
+  description: DESCRIPTION,
+  applicationName: "Kiwiply",
+  // Favicon resolves from the App Router convention file `app/icon.svg`.
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    siteName: "Kiwiply",
+    url: SITE_URL,
+    type: "website",
+    // og image resolves from the convention file `app/opengraph-image.tsx`.
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
