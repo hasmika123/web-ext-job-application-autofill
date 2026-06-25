@@ -33,12 +33,18 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> 🎉 **Phases 0–7 are done for the consumer product** (Safari 7.3 deliberately deferred). The
-> extension targets **Chrome + Edge + Firefox 121+** from one bundle; backend + web are LIVE on prod
-> with accounts, the self-populating tracker, field-cache + AI (incl. caching), and analytics (staged
-> dark behind a master switch). All merged to `main`; `phase-7` merged + deleted.
+> 🎨 **ACTIVE (this branch `ui-redesign-phase-0`): Kiwiply UI/UX redesign.** Presentation-only
+> rebrand + visual system + app shell — see the **Redesign (Phase R)** section below, spec in
+> `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
+> **Start at R0.1** (kiwi tokens + Fraunces/Inter in `globals.css`). One task = one commit, prefix
+> `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming soon"
+> · light-only. This branch holds the redesign **prep**; the new Claude Code chat does the build.
 >
-> **No active build task.** What's left is **pre-launch + external** work, not new features:
+> *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
+> the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
+> stand on `main` and fold naturally into R2.3 / a later task.)*
+>
+> **Pre-launch + external work (on `main`, not features):**
 > - **PL.1** — privacy policy: real contact/entity + legal review (see Pre-launch checklist).
 > - **PL.2** — basic rate limiting / abuse protection before public signups.
 > - **Live verifications (user, can't be done from here):** Firefox `web-ext lint`/`run`, Edge sideload.
@@ -476,6 +482,32 @@ focused Claude Code session.
   auth surfaces — extension Bearer + web httpOnly cookie).
 - [ ] **8.4 Audit & compliance.** Audit logging; PII retention/deletion tooling;
   GDPR/CCPA + SOC 2 groundwork; secrets in a vault/KMS; deeper RBAC.
+
+## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
+> Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
+> `redesign/REDESIGN-PLAN.md`; prototype: `redesign/mockups.html`; on-ramp: `redesign/HANDOFF.md`.
+> Locked decisions: **full internal rename** (cookies + identifiers, R7.1, forces one re-login) ·
+> pricing **Free / "Pro coming soon"** · **light-only** (no dark mode this pass). Commit prefix
+> `redesign.<phase>.<n>:`. Bump extension versions only in R5.
+- [ ] **R0 Foundations.** R0.1 kiwi tokens + Fraunces/Inter in `globals.css` (drop Geist + dark
+  media query) · R0.2 `components/ui/` primitives (port from `mockups.html`) · R0.3 brand assets
+  (delete starter SVGs; logo/mark/icon/og-image; metadata).
+- [ ] **R1 App shell & IA.** R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
+  gate-session-once (delete per-page nav) · R1.2 new `/dashboard` (KPIs, setup checklist, activity);
+  login redirect → `/dashboard`.
+- [ ] **R2 Marketing.** R2.1 landing rebuild · R2.2 `/pricing` (Free + "Pro coming soon") · R2.3
+  privacy reskin + real contact email (Kiwiply).
+- [ ] **R3 Auth.** Split-screen `/login`+`/signup` (shared, tabbed) + branded `/account/activate`;
+  Google button stubbed.
+- [ ] **R4 Core app screens.** R4.1 Profile (sections + strength meter, chips) · R4.2 Resumes
+  (drag-drop + variant cards) · R4.3 Board (tools + drag-drop + JD card-detail slide-over) · R4.4
+  Settings (sub-nav; AI surfaced on web). Existing save/delete/status flows must still pass.
+- [ ] **R5 Extension (bumps versions).** R5.1 re-token + Kiwiply rename · R5.2 popup · R5.3 options ·
+  R5.4 overlay. No "Dossier" in UI; Shadow DOM isolation preserved; `npm test` + smoke green.
+- [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
+  deferred per decision.)
+- [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
+  web+API+extension, one tested commit) · R7.2 responsive QA at 360/768/1024/1440px (§9).
 
 ---
 
