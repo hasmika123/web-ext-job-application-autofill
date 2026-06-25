@@ -36,12 +36,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-1`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R1.2** (new `/dashboard`: KPIs, setup checklist, quick actions, recent activity; login
-> redirect → `/dashboard`). R0 (foundations) + R1.1 (route groups + app shell + sidebar/drawer +
-> gate-once) are DONE. **Branch structure:** `main` → `ui-redesign` (integration) → `phase-0` (R0,
-> merged into `ui-redesign`) → **`phase-1`** (current; R1 work). One task = one commit, prefix
-> `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming
-> soon" · light-only.
+> **Next: R2.1** (marketing landing rebuild — hero, how-it-works, features, pricing teaser, footer).
+> **Phase R1 (app shell & IA) is COMPLETE** — R1.1 route groups + app shell, R1.2 `/dashboard` +
+> login redirect. R0 done too. **Branch structure:** `main` → `ui-redesign` (integration) →
+> `phase-0` (R0, merged into `ui-redesign`) → **`phase-1`** (current; R1 done, R2 next). One task =
+> one commit, prefix `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) ·
+> pricing Free/"coming soon" · light-only.
 >
 > *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
 > the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
@@ -496,9 +496,9 @@ focused Claude Code session.
   media query dropped) · ✅ R0.2 `components/ui/` primitives (ported from `mockups.html`) · ✅ R0.3
   brand assets (starter SVGs deleted; `mark.svg` + `app/icon.svg` favicon + `app/opengraph-image.tsx`;
   metadata title/OG/Twitter set; `Wordmark`/`BrandLockup` for dark surfaces).
-- [~] **R1 App shell & IA.** ✅ R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
-  gate-session-once (per-page nav deleted) · R1.2 new `/dashboard` (KPIs, setup checklist, activity);
-  login redirect → `/dashboard`.
+- [x] **R1 App shell & IA.** ✅ R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
+  gate-session-once (per-page nav deleted) · ✅ R1.2 new `/dashboard` (KPIs, setup checklist, quick
+  actions, recent-activity feed); login redirect → `/dashboard`.
 - [ ] **R2 Marketing.** R2.1 landing rebuild · R2.2 `/pricing` (Free + "Pro coming soon") · R2.3
   privacy reskin + real contact email (Kiwiply).
 - [ ] **R3 Auth.** Split-screen `/login`+`/signup` (shared, tabbed) + branded `/account/activate`;
@@ -517,6 +517,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R1.2 (dashboard) — **completes Phase R1** · New `(app)/dashboard/page.tsx`
+  (server-rendered, parallel fetch of account+applications+resumes+profile): KPI row (applications /
+  interviews / response-rate / drafts-to-confirm, all derived from real application statuses), a
+  "Finish setting up" activation checklist (contact details, resume, work-auth — verifiable items
+  drive the % ; extension-install shown as a tip), quick actions (resume/profile/board), and a
+  recent-activity feed (newest-first, relative time, status pills incl. the brown "Draft — confirm?"
+  nudge) with an empty state. Login redirect switched `/settings` → `/dashboard`
+  (`login/page.tsx`). Read-only — the board still owns mutations. `npm test` (tsc+eslint) + `npm run
+  build` green (`/dashboard` registered, dynamic). Web-only.
 - 2026-06-25 · redesign.R1.1 (route groups + app shell) · Split web routes into Next route groups
   `(marketing)` (`/`, `/privacy`) and `(app)` (`/board`, `/profile`, `/resumes`, `/settings`) — URLs
   unchanged. New `(app)/layout.tsx` gates the session **once** (replacing the four per-page

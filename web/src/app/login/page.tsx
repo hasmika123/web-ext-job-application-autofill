@@ -28,7 +28,7 @@ export default function LoginPage() {
         return;
       }
       track("login", { method: "password" });
-      router.push("/settings");
+      router.push("/dashboard");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
