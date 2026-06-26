@@ -167,8 +167,8 @@ export default function PrivacyPage() {
       <Section title="Cookies">
         <p>
           We use first-party http-only cookies strictly to keep you signed in. Our analytics
-          (above) also sets first-party cookies to count visits and distinguish sessions. We do
-          <strong> not</strong> use advertising cookies and we don&apos;t sell your data.
+          (above) also sets first-party cookies to count visits and distinguish sessions. We do{" "}
+          <strong>not</strong>{" "}use advertising cookies and we don&apos;t sell your data.
         </p>
       </Section>
 

@@ -120,7 +120,7 @@ export default async function SettingsPage() {
                 <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-bold text-accent-deep">Free plan</span>
                 <span className="text-sm text-muted">Unlimited autofill, resume parsing & tracker. Pro is coming soon.</span>
               </div>
-              <Link href="/pricing" className="text-sm font-semibold text-accent-deep hover:underline">See plans →</Link>
+              <Link href="/#pricing" className="text-sm font-semibold text-accent-deep hover:underline">See plans →</Link>
             </div>
           </Card>
         </div>
