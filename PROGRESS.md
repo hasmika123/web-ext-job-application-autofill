@@ -583,6 +583,19 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-26 · extension↔web integration: kill the duplicate options page (branch `ui-redesign`,
+  ext 0.22.0→**0.23.0**) · The extension no longer manages profile/resumes/account — kiwiply.com is the
+  single source of truth. **(A)** API `POST /api/extension/session` mints a separate extension token
+  pair (own refresh family); web `GET /api/extension/token` + a gated `/connect` page hand it off.
+  **(B)** manifest `externally_connectable` (kiwiply.com) + SW `onMessageExternal` store the session —
+  single web sign-in, no extension login. **(C)** options page rebuilt **slim** (device settings +
+  connected account only; bio editor / resume manager / login / sync-now / rules-url / danger-zone
+  removed) → local store is a **read-only mirror**. **(D)** popup "Manage"→dashboard, new Settings link,
+  pulls the mirror on open (throttled) + one-time push of local-only resumes (no data loss); resume
+  *create* push kept for the future ad-hoc-resume feature; first-install opens kiwiply.com/connect.
+  **(E)** docs + locked-decision updates. API compiles (JDK17), web `npm test`+build green, ext
+  `npm test` green. PENDING ops: set `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID`, publish the extension (manual
+  CWS), optionally pin the manifest `key`; users re-connect once. Plan: `distributed-brewing-lynx.md`.
 - 2026-06-26 · real ATS logos in hero marquee (branch `ui-redesign`) · Swapped the hand-made cream
   monogram SVGs for the **real brand logos** (user-added `*-dark-mode.svg` at repo root). Rasterized
   each to a compact transparent PNG at 88px tall via sharp (`web/public/ats/*.png`, ~5–17KB each, ~53KB

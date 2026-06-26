@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: manifest 0.20.0, bundled ruleset version 4.
+> Current version: manifest 0.23.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -48,8 +48,11 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   country/state fill, exp/edu blocks, `ensureRows`, **Self-Identify (CC-305) block**
   (name/date-spinbuttons/language/disability checkbox), `degreeAlts`,
   `pickDisabilityCheckbox`, `todayMDY`. Exposes `JAF.__wdInternals` for tests.
-- `src/options/options.js` — resume review/edit. Skills render as **chips**;
-  `maybePopulateBio` always offers bio updates.
+- `src/options/options.js` — **slim** extension settings + account status only. Profile,
+  resumes, and the board are managed on **kiwiply.com** (single source of truth); this page
+  only holds device-local settings (AI key, filling defaults, analytics) and the connected
+  account (Connect → `kiwiply.com/connect`, Sign out, "Manage on kiwiply.com →"). No bio
+  editor, no resume manager, no login form.
 - `src/popup/popup.js` — uploads resume under `uploadResumeName` (generic name) for
   the application only.
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
@@ -102,9 +105,13 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   `pullAll` (server→local cache; resumes matched by `serverId`, never deleting
   local-only ones), `pushBio`/`pushResume`/`pushAll`, `syncNow` (push then pull),
   `providerFromSettings`. Pure data layer; the options Account tab drives it.
-- `src/options/options.js` also hosts the **Account tab**: backend-URL config
-  (`settings.apiBaseUrl`), sign in / create account / sign out, and "Sync now".
-  Sign-in pulls; saving bio/resume pushes (best-effort, offline-friendly).
+- **Auth = web-app connect:** sign-in happens on kiwiply.com. The web `/connect` page
+  mints a *separate* extension token pair (`POST /api/extension/session` ← web
+  `/api/extension/token`) and hands it to the extension via `chrome.runtime.sendMessage`
+  (manifest `externally_connectable`); the SW's `onMessageExternal` stores it in
+  `trackingAuth`. The local store is now a **read-only mirror**: the popup pulls
+  `JAF.sync.pullAll` on open (throttled) for autofill and never pushes bio/resume *edits* —
+  only resume *creates* (upload → server) write back, so the cache can't drift out of sync.
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).
 
 ## Canonical-field model

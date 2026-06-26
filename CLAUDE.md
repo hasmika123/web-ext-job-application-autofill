@@ -22,7 +22,8 @@ Spring Boot API + Next.js web app. Spec: `ROADMAP.md`. Task tracker: `PROGRESS.m
 - **Capture real ATS DOM before writing selectors.** Never guess tenant markup —
   it's the #1 failure mode. Use real `data-automation-id`s / option text.
 - Extension code: vanilla JS on `window.JAF`, no build step, no new deps without asking.
-- Server is the source of truth; the extension's local store is an offline cache.
+- Server is the source of truth; the extension's local store is a **read-only mirror**
+  (pull-only for autofill — edits happen on the web; only resume *creates* push back).
 - Never commit secrets. API keys via env only; never ship a key in the extension bundle.
 
 ## Commands
@@ -45,6 +46,12 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   `TrackingProvider` seam (`job-autofill/src/lib/tracking.js`); canonical DTOs only.
 - **Client split:** web app = primary product (account, resumes, bio, board);
   extension = on-page agent (autofill, capture, submit-detect, save-a-job).
+- **One account, web-connect auth:** the extension has **no separate login or
+  profile/resume management** — those live on kiwiply.com. Sign-in is a single web
+  sign-in; the web `/connect` page mints a separate extension token pair
+  (`POST /api/extension/session` ← `web /api/extension/token`) and hands it over via
+  `externally_connectable`. The extension's options page is **slim** (device settings +
+  account status only). Don't reintroduce in-extension bio/resume editing.
 - **Hosting = long-running containers, no serverless.** Web = Next `next start`
   (`output: 'standalone'`), **no Express**. API = Spring embedded Tomcat container.
   Resume upload = **Option A (Next-proxied), permanent**; Option B (presigned) is a
