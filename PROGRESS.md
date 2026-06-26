@@ -36,9 +36,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R6.4** (Validation — inline email/URL/required errors via the `Field` error slot on the
-> auth + profile forms). **R6.1–R6.3 DONE** (toasts; skeletons; empty states). On `phase-6` (R6 = web
-> app; don't bump extension versions). R0–R5 done.
+> **Next: R6.6** (a11y pass — focus rings, `--muted` contrast, board keyboard nav, overlay/slide-over
+> `aria`). **R6.5 dark mode is DEFERRED** (locked decision: light-only). **R6.1–R6.4 DONE** (toasts;
+> skeletons; empty states; validation). On `phase-6` (R6 = web app; don't bump extension versions).
+> R0–R5 done.
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -544,7 +545,10 @@ focused Claude Code session.
   route-segment `loading.tsx` fallbacks (dashboard/board/resumes/profile/settings) matching each
   page's layout, built on the R0.2 `Skeleton` primitive · ✅ R6.3 Empty states — unified the empty
   board + empty resume list onto the R0.2 `EmptyState` primitive (icon/title/description + action) +
-  added a "no matches" state for filtered board results · validation · a11y. (Dark mode deferred per
+  added a "no matches" state for filtered board results · ✅ R6.4 Validation — inline email/URL/
+  required errors via the `Field` error slot + `aria-invalid` Inputs: auth forms (login/signup, block
+  submit on error; signup email-format + min-length) and the profile editor (advisory email/URL on
+  blur, never blocks autosave); new dependency-free `lib/validate.ts` · a11y. (Dark mode deferred per
   decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
   web+API+extension, one tested commit) · R7.2 responsive QA at 360/768/1024/1440px (§9).
@@ -553,6 +557,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R6.4 (validation) · Added inline form validation through the `Field` error
+  slot (+ `aria-invalid` on Inputs), no new deps — new `lib/validate.ts` (`isEmail`/`isUrl`). **Auth**
+  (`AuthScreen`): login + signup validate on blur/submit and **block submission** on error (required;
+  signup adds email-format + min-4 password). **Profile** (`BioEditor`): advisory email + URL checks
+  shown after blur — never blocks the autosave (freeform draft). **Verified in a browser**: empty
+  signup submit → 3 required errors + aria-invalid, submission blocked; "notanemail" → "Enter a valid
+  email address". `npm test` + `npm run build` green. Branch `phase-6`. Web-only.
 - 2026-06-25 · redesign.R6.3 (empty states) · Unified the full-list empties onto the R0.2
   `EmptyState` primitive: the **empty board** (🗂️ "Your board fills itself" + an "Upload a resume to
   start" ghost CTA) and the **empty resume list** (📄 "No resumes yet") now use it instead of ad-hoc

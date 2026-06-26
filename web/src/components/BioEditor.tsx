@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input, Field, Select } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { isEmail, isUrl } from "@/lib/validate";
 
 /** The bio object stored as the server's opaque `payload` JSON (extension-canonical). */
 export type Bio = Record<string, unknown>;
@@ -138,6 +139,8 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
   const [savedOnce, setSavedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState("identity");
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const touch = (k: string) => setTouched((t) => (t.has(k) ? t : new Set(t).add(k)));
 
   const setField = useCallback((key: string, value: string) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -217,10 +220,17 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
 
   function renderField(f: FieldDef) {
     const id = `bio-${f.key}`;
+    const val = values[f.key] ?? "";
+    // Advisory validation (email/URL) — shown after blur, never blocks the autosave.
+    let err: string | undefined;
+    if (touched.has(f.key) && val.trim()) {
+      if (f.kind === "email" && !isEmail(val)) err = "Enter a valid email address";
+      else if (f.kind === "url" && !isUrl(val)) err = "Enter a valid URL";
+    }
     return (
-      <Field key={f.key} label={f.label} htmlFor={id} className={cn("mb-0", f.wide && "sm:col-span-2")}>
+      <Field key={f.key} label={f.label} htmlFor={id} error={err} className={cn("mb-0", f.wide && "sm:col-span-2")}>
         {f.kind === "select" ? (
-          <Select id={id} value={values[f.key] ?? ""} onChange={(e) => setField(f.key, e.target.value)}>
+          <Select id={id} value={val} onChange={(e) => setField(f.key, e.target.value)}>
             <option value="">—</option>
             {(f.options ?? []).map((o) => (
               <option key={o} value={o}>{o}</option>
@@ -230,8 +240,10 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           <Input
             id={id}
             type={inputType(f.kind)}
-            value={values[f.key] ?? ""}
+            value={val}
             onChange={(e) => setField(f.key, e.target.value)}
+            onBlur={() => touch(f.key)}
+            aria-invalid={!!err}
           />
         )}
       </Field>

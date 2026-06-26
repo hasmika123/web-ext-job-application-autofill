@@ -7,6 +7,7 @@ import { track } from "@/lib/analytics";
 import { Input, Field, BrandLockup } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { isEmail } from "@/lib/validate";
 
 type Mode = "login" | "signup";
 
@@ -72,11 +73,21 @@ function LoginForm() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const errs: Record<string, string> = {};
+  if (!username.trim()) errs.username = "Username is required";
+  if (!password) errs.password = "Password is required";
+  const show = (n: string) => submitted || touched[n];
+  const touch = (n: string) => setTouched((t) => ({ ...t, [n]: true }));
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setSubmitted(true);
+    if (Object.keys(errs).length) return;
     setBusy(true);
     setError(null);
     try {
@@ -106,25 +117,27 @@ function LoginForm() {
       <p className="mb-6 mt-1 text-sm text-muted">Sign in to pick up where you left off.</p>
       <Tabs mode="login" />
       <form onSubmit={onSubmit} noValidate>
-        <Field label="Username" htmlFor="login-username">
+        <Field label="Username" htmlFor="login-username" error={show("username") ? errs.username : undefined}>
           <Input
             id="login-username"
             name="username"
             autoComplete="username"
-            required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            onBlur={() => touch("username")}
+            aria-invalid={show("username") && !!errs.username}
           />
         </Field>
-        <Field label="Password" htmlFor="login-password">
+        <Field label="Password" htmlFor="login-password" error={show("password") ? errs.password : undefined}>
           <Input
             id="login-password"
             name="password"
             type="password"
             autoComplete="current-password"
-            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onBlur={() => touch("password")}
+            aria-invalid={show("password") && !!errs.password}
           />
         </Field>
         {error && (
@@ -146,12 +159,25 @@ function SignupForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
+  const errs: Record<string, string> = {};
+  if (!username.trim()) errs.username = "Username is required";
+  if (!email.trim()) errs.email = "Email is required";
+  else if (!isEmail(email)) errs.email = "Enter a valid email address";
+  if (!password) errs.password = "Password is required";
+  else if (password.length < 4) errs.password = "Use at least 4 characters";
+  const show = (n: string) => submitted || touched[n];
+  const touch = (n: string) => setTouched((t) => ({ ...t, [n]: true }));
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setSubmitted(true);
+    if (Object.keys(errs).length) return;
     setBusy(true);
     setError(null);
     try {
@@ -196,37 +222,39 @@ function SignupForm() {
       <p className="mb-6 mt-1 text-sm text-muted">Start applying faster in under a minute.</p>
       <Tabs mode="signup" />
       <form onSubmit={onSubmit} noValidate>
-        <Field label="Username" htmlFor="signup-username">
+        <Field label="Username" htmlFor="signup-username" error={show("username") ? errs.username : undefined}>
           <Input
             id="signup-username"
             name="username"
             autoComplete="username"
-            required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            onBlur={() => touch("username")}
+            aria-invalid={show("username") && !!errs.username}
           />
         </Field>
-        <Field label="Email" htmlFor="signup-email">
+        <Field label="Email" htmlFor="signup-email" error={show("email") ? errs.email : undefined}>
           <Input
             id="signup-email"
             name="email"
             type="email"
             autoComplete="email"
-            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => touch("email")}
+            aria-invalid={show("email") && !!errs.email}
           />
         </Field>
-        <Field label="Password" htmlFor="signup-password">
+        <Field label="Password" htmlFor="signup-password" error={show("password") ? errs.password : undefined}>
           <Input
             id="signup-password"
             name="password"
             type="password"
             autoComplete="new-password"
-            required
-            minLength={4}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onBlur={() => touch("password")}
+            aria-invalid={show("password") && !!errs.password}
           />
         </Field>
         {error && (
