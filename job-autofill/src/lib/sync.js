@@ -13,7 +13,7 @@
   // Build a provider configured from saved settings (endpoint) + a token store.
   function providerFromSettings(settings, tokenStore) {
     const t = JAF.tracking;
-    return t.createDossierProvider({
+    return t.createKiwiplyProvider({
       baseUrl: (settings && settings.apiBaseUrl) || "",
       tokenStore: tokenStore || t.chromeTokenStore(),
     });

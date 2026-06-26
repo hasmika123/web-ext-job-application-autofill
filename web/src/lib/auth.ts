@@ -9,8 +9,11 @@
  */
 import { cookies } from "next/headers";
 
-export const ACCESS_COOKIE = "dossier_access";
-export const REFRESH_COOKIE = "dossier_refresh";
+// R7.1 rename: dossier_* → kiwiply_*. Forces a one-time re-login for existing users
+// (the old-named cookies stop being read). The cookie names live only here; route
+// handlers go through the helpers below.
+export const ACCESS_COOKIE = "kiwiply_access";
+export const REFRESH_COOKIE = "kiwiply_refresh";
 
 // The cookies persist for 30 days; the *access token* inside expires much sooner and
 // is refreshed via /api/auth/refresh. Storing both lets us refresh without re-login.

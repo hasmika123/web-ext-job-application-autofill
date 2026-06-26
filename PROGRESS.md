@@ -36,13 +36,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R7.1** (internal rename) — but FIRST run the phase loop (R6→R7): merge `phase-6` →
-> `ui-redesign`, delete it, cut `phase-7`. **Phase R6 (cross-cutting) is COMPLETE** (toasts, skeletons,
-> empty states, validation, a11y; dark mode deferred). R0–R6 done. **R7.1 is the big coordinated one:**
-> rename code identifiers `createDossierProvider`→`createKiwiplyProvider` (extension `tracking.js` +
-> `sync.js`) and cookies `dossier_access`/`dossier_refresh`→`kiwiply_access`/`kiwiply_refresh` (web
-> `auth.ts` + the auth route handlers) in **one tested commit** — forces a one-time re-login. Then R7.2
-> responsive QA at 360/768/1024/1440px. (Extension change in R7.1 → bump versions.)
+> **Next: R7.2** (responsive QA at 360/768/1024/1440px on every screen — §9: no horizontal overflow at
+> 360px except the intentional board scroll; drawer/scrim; sub-navs scroll; forms single-column on
+> mobile). This is the **final redesign task.** **R7.1 DONE** (identifier + cookie rename, ext v0.21.4,
+> forces one re-login). R0–R6 + R7.1 done. On `phase-7`.
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -556,13 +553,26 @@ focused Claude Code session.
   (clears WCAG AA on `--paper`), Escape-to-close + focus-on-open for the board slide-over (already
   `role=dialog`) and Escape for the mobile drawer; board stays keyboard-movable via the per-card status
   `<select>`. **R6.5 dark mode DEFERRED** (locked light-only). **Completes Phase R6.**
-- [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
-  web+API+extension, one tested commit) · R7.2 responsive QA at 360/768/1024/1440px (§9).
+- [~] **R7 Internal rename + responsive QA.** ✅ R7.1 identifier + cookie rename (one tested commit):
+  extension `createDossierProvider`→`createKiwiplyProvider` (`tracking.js`/`sync.js`/test/ARCHITECTURE;
+  ext v0.21.4), web cookies `dossier_access`/`dossier_refresh`→`kiwiply_*` (`auth.ts` string values
+  only — route handlers go through helpers). Forces a one-time re-login. IDB names (`dossier`/
+  `dossier-fieldcache`) + gecko id intentionally kept (data/infra). · R7.2 responsive QA at
+  360/768/1024/1440px (§9).
 
 ---
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R7.1 (internal rename) · One coordinated, tested commit. **Extension:**
+  `createDossierProvider`→`createKiwiplyProvider` across `tracking.js` (def+export+comments), `sync.js`
+  (call), `tracking.test.js` (13 calls), and `ARCHITECTURE.md`; ext **v0.21.4**; 14 suites green.
+  **Web:** the auth cookie names `dossier_access`/`dossier_refresh`→`kiwiply_access`/`kiwiply_refresh`
+  — changed the two string values in `auth.ts` only (route handlers go through its helpers; grep
+  confirmed no other refs). **Forces a one-time re-login** for existing users (old cookies stop being
+  read). Intentionally **kept** the `dossier`/`dossier-fieldcache` IndexedDB names (renaming orphans
+  users' local resume/field-cache data) and the gecko addon id (published identity) — infra, not UI.
+  `npm test` (web tsc+eslint) + `npm run build` + extension suite all green. Branch `phase-7`.
 - 2026-06-25 · redesign.R6.6 (a11y) — **completes Phase R6** · Added a global `:where(a,button,summary,
   [role=button],[role=switch],[tabindex]):focus-visible` accent outline in globals.css (specificity-0
   so component focus styles still win; form controls keep their own), darkened `--muted`
