@@ -583,7 +583,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
-- 2026-06-26 · save-bar dock fix (branch `ui-redesign`) · Live validation caught the profile save bar
+- 2026-06-26 · full-page editable resume review (branch `ui-redesign`) · Rebuilt `ResumeUpload`: after a
+  parse, the review now opens as a **full-page overlay** (`fixed inset-0 z-[150]`, below toasts' z-200)
+  with an **✕ / Esc** to exit back to the Resumes page. Everything is **editable** — contact, summary,
+  skills (chips + base-overlap coloring), experience (title/company/location/dates/current + editable
+  **bullets**, add/remove), education (school/degree/field/dates/gpa/location, add/remove). **Detected
+  contact** is a **collapsible** section with an "Update base profile" button (top-right) that merges
+  the detected contact into the base profile via `PUT /api/profile`, **enabled only when a detected
+  value differs** from the base. Fixed the **name + Save** alignment (shared `items-stretch` row). The
+  Resumes page now passes the full `baseProfile` bio (was just `baseSkills`). `npm test` + build green.
+  NOTE: gated page + needs a file upload to exercise — verified build/lint/code-review; live visual
+  pending a logged-in upload.
   still docking ~64px above the viewport bottom (fields peeked in the gap). Root cause: the earlier
   `lg:h-dvh`/`overflow-auto` made **main** the scroll container, so `sticky bottom-0` docked at main's
   content box — above its `lg:pb-16`. Fix: reverted to **window scroll** + a **sticky sidebar**

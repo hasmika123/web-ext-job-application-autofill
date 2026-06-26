@@ -19,18 +19,17 @@ export default async function ResumesPage() {
   const resumes: Resume[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as Resume[]) : [];
   const apps: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
 
-  // Base skills from the profile bio — used to highlight overlap in a resume's extracted skills.
-  let baseSkills: string[] = [];
+  // Full base profile bio — the review highlights overlapping skills and offers a
+  // one-click "update base profile" from a resume's detected contact.
+  let baseProfile: Record<string, unknown> = {};
   if (profileRes.ok) {
     const dto = (await profileRes.json().catch(() => null)) as { payload?: string } | null;
     if (dto?.payload) {
       try {
         const parsed = JSON.parse(dto.payload);
-        if (parsed && Array.isArray(parsed.skills)) {
-          baseSkills = parsed.skills.filter((x: unknown): x is string => typeof x === "string");
-        }
+        if (parsed && typeof parsed === "object") baseProfile = parsed as Record<string, unknown>;
       } catch {
-        // corrupt payload — treat as no base skills
+        // corrupt payload — treat as an empty base profile
       }
     }
   }
@@ -51,7 +50,7 @@ export default async function ResumesPage() {
         </p>
       </header>
 
-      <ResumeUpload baseSkills={baseSkills} />
+      <ResumeUpload baseProfile={baseProfile} />
 
       <ResumeList resumes={resumes} usage={usage} />
     </div>
