@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { apiUrl } from "@/lib/config";
+import { Mark } from "@/components/ui";
+import { buttonVariants } from "@/components/ui/Button";
 
 export const metadata: Metadata = {
-  title: "Activate your account — Dossier",
+  title: "Activate your account",
 };
 
 /**
@@ -41,24 +43,29 @@ export default async function ActivatePage({
         : "This activation link is invalid or has already been used. Try signing in — if that fails, sign up again.";
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
-      <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>
-      <p className="mt-3 text-sm text-foreground/70">{body}</p>
-      <div className="mt-8 flex gap-3">
-        <Link
-          href="/login"
-          className="rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
+    <main className="flex flex-1 items-center justify-center bg-app-bg px-6 py-16">
+      <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-line bg-paper p-8 text-center shadow-[var(--shadow)]">
+        <Mark size={42} className="mx-auto" />
+        <span
+          className={
+            "mt-5 inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[.06em] " +
+            (state === "ok" ? "bg-accent-soft text-accent-deep" : "bg-brown-soft text-brown-deep")
+          }
         >
-          Go to sign in
-        </Link>
-        {state !== "ok" && (
-          <Link
-            href="/signup"
-            className="rounded-full border border-foreground/20 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-foreground/5"
-          >
-            Sign up
+          {state === "ok" ? "Verified" : "Action needed"}
+        </span>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink">{heading}</h1>
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-ink-soft">{body}</p>
+        <div className="mt-7 flex justify-center gap-3">
+          <Link href="/login" className={buttonVariants(state === "ok" ? "accent" : "primary")}>
+            Go to sign in
           </Link>
-        )}
+          {state !== "ok" && (
+            <Link href="/signup" className={buttonVariants("ghost")}>
+              Sign up
+            </Link>
+          )}
+        </div>
       </div>
     </main>
   );

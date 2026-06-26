@@ -3,7 +3,7 @@
  * The extension must not be hardwired to the Dossier API. Every call to a tracking
  * backend goes through a `TrackingProvider` whose methods speak canonical shapes
  * (the same bio/resume vocabulary the rest of the extension uses), never a wire
- * format. `createDossierProvider()` implements it for our Spring Boot API; a future
+ * format. `createKiwiplyProvider()` implements it for our Spring Boot API; a future
  * provider can target a different backend by implementing the same contract.
  *
  *   RULE: no `fetch()` to the tracking backend lives anywhere but this file.
@@ -48,14 +48,14 @@
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
-    // Phase 3 (application tracking) — implemented by createDossierProvider.
+    // Phase 3 (application tracking) — implemented by createKiwiplyProvider.
     async pushApplication(/* app */) { throw new NotSupportedError("pushApplication"); }
     async listApplications() { throw new NotSupportedError("listApplications"); }
     async updateApplication(/* serverId, changes */) { throw new NotSupportedError("updateApplication"); }
     async deleteApplication(/* serverId */) { throw new NotSupportedError("deleteApplication"); }
     // Phase 4 (field-cache sync) — declared so the seam is complete; implemented later.
     async syncFieldCache(/* entries */) { throw new NotSupportedError("syncFieldCache (Phase 4)"); }
-    // Phase 5 — server-side metered AI drafting (opt-in). Implemented by createDossierProvider.
+    // Phase 5 — server-side metered AI drafting (opt-in). Implemented by createKiwiplyProvider.
     async aiDraft(/* { question, context, consent } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
   }
 
@@ -198,7 +198,7 @@
   }
 
   // ---- the Dossier API provider -----------------------------------------
-  function createDossierProvider(opts) {
+  function createKiwiplyProvider(opts) {
     opts = opts || {};
     let baseUrl = (opts.baseUrl || "").replace(/\/+$/, "");
     const doFetch = opts.fetch || ((...a) => fetch(...a));
@@ -379,7 +379,7 @@
     TrackingProvider,
     ApiError,
     NotSupportedError,
-    createDossierProvider,
+    createKiwiplyProvider,
     memoryTokenStore,
     chromeTokenStore,
     // exposed for tests

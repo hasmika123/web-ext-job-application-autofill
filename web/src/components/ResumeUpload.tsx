@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { parseResume, type ParsedResume } from "@/lib/resume-parse";
 import { track } from "@/lib/analytics";
+import { Input, Field, useToast } from "@/components/ui";
+import { buttonVariants } from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
 
-function Field({ label, value }: { label: string; value?: string }) {
+function DetailField({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <>
-      <dt className="text-foreground/50">{label}</dt>
-      <dd className="font-medium break-words">{value}</dd>
+      <dt className="text-muted">{label}</dt>
+      <dd className="break-words font-medium text-ink">{value}</dd>
     </>
   );
 }
@@ -19,27 +22,35 @@ function labelFromName(name: string): string {
   return name.replace(/\.[^.]+$/, "").trim() || "Resume";
 }
 
+function ReviewCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
 export default function ResumeUpload() {
   const router = useRouter();
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [label, setLabel] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParsedResume | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [savedLabel, setSavedLabel] = useState<string | null>(null);
 
-  async function onFile(e: ChangeEvent<HTMLInputElement>) {
-    const picked = e.target.files?.[0];
-    if (!picked) return;
+  async function handleFile(picked: File) {
     setFile(picked);
     setLabel(labelFromName(picked.name));
     setParsing(true);
     setError(null);
     setResult(null);
     setSaveError(null);
-    setSavedLabel(null);
     try {
       setResult(await parseResume(picked));
     } catch (err) {
@@ -47,6 +58,20 @@ export default function ResumeUpload() {
     } finally {
       setParsing(false);
     }
+  }
+
+  function onInput(e: ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0];
+    if (picked) void handleFile(picked);
+    // Reset so re-selecting the SAME file still fires onChange (e.g. after a save or a fix).
+    e.target.value = "";
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(false);
+    const picked = e.dataTransfer.files?.[0];
+    if (picked) void handleFile(picked);
   }
 
   async function onSave() {
@@ -65,7 +90,7 @@ export default function ResumeUpload() {
         return;
       }
       track("resume_saved");
-      setSavedLabel(data.label ?? label);
+      toast({ variant: "success", title: `Saved “${data.label ?? label}”`, description: "Added to your account." });
       setFile(null);
       setResult(null);
       router.refresh();
@@ -81,133 +106,126 @@ export default function ResumeUpload() {
 
   return (
     <div className="flex flex-col gap-6">
-      <label className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-foreground/25 p-6">
-        <span className="text-sm text-foreground/70">
-          Upload a resume (PDF, DOCX, or TXT). It&apos;s parsed right here in your browser.
-        </span>
+      {/* Drag-and-drop drop-zone */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        className={cn(
+          "cursor-pointer rounded-[var(--radius-lg)] border-2 border-dashed p-8 text-center transition-colors",
+          dragging ? "border-accent bg-accent-soft" : "border-line bg-paper hover:bg-paper-2",
+        )}
+      >
+        <div className="text-3xl">📄</div>
+        <h3 className="mt-2 font-display text-lg font-semibold text-ink">Drop a resume here</h3>
+        <p className="mt-1 text-[13.5px] text-muted">
+          or <span className="font-semibold text-accent-deep">browse</span> — PDF, DOCX, or TXT.
+          Parsed right here in your browser.
+        </p>
+        {file && <p className="mt-3 text-xs text-muted">{file.name}</p>}
         <input
+          ref={inputRef}
           type="file"
           accept=".pdf,.docx,.txt,application/pdf,text/plain"
-          onChange={onFile}
-          className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-foreground file:px-4 file:py-2 file:text-sm file:font-medium file:text-background hover:file:opacity-90"
+          onChange={onInput}
+          className="hidden"
         />
-        {file && <span className="text-xs text-foreground/50">{file.name}</span>}
-      </label>
+      </div>
 
-      {parsing && <p className="text-sm text-foreground/60">Reading your resume…</p>}
+      {parsing && <p className="text-sm text-muted">Reading your resume…</p>}
       {error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm font-medium text-danger">
           {error}
         </p>
       )}
-      {savedLabel && (
-        <p className="rounded-lg border border-green-600/30 bg-green-600/5 px-4 py-3 text-sm text-green-700 dark:text-green-400">
-          Saved “{savedLabel}” to your account.
-        </p>
-      )}
-
       {s && bio && (
         <div className="flex flex-col gap-6">
-          <p className="text-sm text-foreground/60">Review what we detected, then save it.</p>
+          <p className="text-sm text-muted">Review what we detected, then save it.</p>
 
-          <div className="flex flex-col gap-3 rounded-xl border border-foreground/15 p-5 sm:flex-row sm:items-end">
-            <label className="flex flex-1 flex-col gap-1 text-sm font-medium">
-              Resume name
-              <input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                className="rounded-lg border border-foreground/20 bg-transparent px-3 py-2 text-base outline-none focus:border-foreground/50"
-              />
-            </label>
-            <button
-              onClick={onSave}
-              disabled={saving}
-              className="rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
+          <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)] sm:flex-row sm:items-end">
+            <Field label="Resume name" htmlFor="resume-label" className="mb-0 flex-1">
+              <Input id="resume-label" value={label} onChange={(e) => setLabel(e.target.value)} />
+            </Field>
+            <button onClick={onSave} disabled={saving} className={cn(buttonVariants("accent"), "disabled:opacity-50")}>
               {saving ? "Saving…" : "Save to my account"}
             </button>
           </div>
           {saveError && (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="text-sm font-medium text-danger">
               {saveError}
             </p>
           )}
 
-          <section className="rounded-xl border border-foreground/15 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
-              Detected contact
-            </h2>
-            <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-              <Field label="Name" value={[bio.firstName, bio.lastName].filter(Boolean).join(" ")} />
-              <Field label="Email" value={bio.email} />
-              <Field label="Phone" value={bio.phone} />
-              <Field label="Location" value={[bio.city, bio.state].filter(Boolean).join(", ")} />
-              <Field label="LinkedIn" value={bio.linkedin} />
-              <Field label="GitHub" value={bio.github} />
-              <Field label="Website" value={bio.website} />
+          <ReviewCard title="Detected contact">
+            <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm text-ink-soft">
+              <DetailField label="Name" value={[bio.firstName, bio.lastName].filter(Boolean).join(" ")} />
+              <DetailField label="Email" value={bio.email} />
+              <DetailField label="Phone" value={bio.phone} />
+              <DetailField label="Location" value={[bio.city, bio.state].filter(Boolean).join(", ")} />
+              <DetailField label="LinkedIn" value={bio.linkedin} />
+              <DetailField label="GitHub" value={bio.github} />
+              <DetailField label="Website" value={bio.website} />
             </dl>
-          </section>
+          </ReviewCard>
 
           {s.summary && (
-            <section className="rounded-xl border border-foreground/15 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">Summary</h2>
-              <p className="mt-2 text-sm text-foreground/80">{s.summary}</p>
-            </section>
+            <ReviewCard title="Summary">
+              <p className="mt-2 text-sm text-ink-soft">{s.summary}</p>
+            </ReviewCard>
           )}
 
           {s.skills.length > 0 && (
-            <section className="rounded-xl border border-foreground/15 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
-                Skills ({s.skills.length})
-              </h2>
+            <ReviewCard title={`Skills (${s.skills.length})`}>
               <ul className="mt-3 flex flex-wrap gap-2">
                 {s.skills.map((skill, i) => (
-                  <li key={i} className="rounded-full border border-foreground/15 px-3 py-1 text-xs">
+                  <li key={i} className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-deep">
                     {skill}
                   </li>
                 ))}
               </ul>
-            </section>
+            </ReviewCard>
           )}
 
           {s.experience.length > 0 && (
-            <section className="rounded-xl border border-foreground/15 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
-                Experience ({s.experience.length})
-              </h2>
+            <ReviewCard title={`Experience (${s.experience.length})`}>
               <ul className="mt-3 flex flex-col gap-3">
                 {s.experience.map((exp, i) => (
                   <li key={i} className="text-sm">
-                    <div className="font-medium">
-                      {[exp.title, exp.company].filter(Boolean).join(" · ")}
-                    </div>
-                    <div className="text-xs text-foreground/50">
-                      {[exp.location, [exp.startDate, exp.endDate].filter(Boolean).join(" – ")]
-                        .filter(Boolean)
-                        .join("  ·  ")}
+                    <div className="font-medium text-ink">{[exp.title, exp.company].filter(Boolean).join(" · ")}</div>
+                    <div className="text-xs text-muted">
+                      {[exp.location, [exp.startDate, exp.endDate].filter(Boolean).join(" – ")].filter(Boolean).join("  ·  ")}
                     </div>
                   </li>
                 ))}
               </ul>
-            </section>
+            </ReviewCard>
           )}
 
           {s.education.length > 0 && (
-            <section className="rounded-xl border border-foreground/15 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
-                Education ({s.education.length})
-              </h2>
+            <ReviewCard title={`Education (${s.education.length})`}>
               <ul className="mt-3 flex flex-col gap-3">
                 {s.education.map((ed, i) => (
                   <li key={i} className="text-sm">
-                    <div className="font-medium">{ed.school}</div>
-                    <div className="text-xs text-foreground/50">
+                    <div className="font-medium text-ink">{ed.school}</div>
+                    <div className="text-xs text-muted">
                       {[ed.degree, ed.field, ed.endDate].filter(Boolean).join("  ·  ")}
                     </div>
                   </li>
                 ))}
               </ul>
-            </section>
+            </ReviewCard>
           )}
         </div>
       )}

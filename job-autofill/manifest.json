@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Dossier — Job Application Autofill",
-  "version": "0.20.0",
+  "name": "Kiwiply — Job Application Autofill",
+  "version": "0.21.4",
   "description": "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
   "browser_specific_settings": {
     "gecko": {
@@ -35,7 +35,7 @@
   ],
   "background": { "service_worker": "src/background/service-worker.js" },
   "action": {
-    "default_title": "Dossier — pick a resume and fill",
+    "default_title": "Kiwiply — pick a resume and fill",
     "default_popup": "src/popup/popup.html"
   },
   "options_page": "src/options/options.html",

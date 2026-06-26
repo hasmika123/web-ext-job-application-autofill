@@ -33,12 +33,31 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> 🎉 **Phases 0–7 are done for the consumer product** (Safari 7.3 deliberately deferred). The
-> extension targets **Chrome + Edge + Firefox 121+** from one bundle; backend + web are LIVE on prod
-> with accounts, the self-populating tracker, field-cache + AI (incl. caching), and analytics (staged
-> dark behind a master switch). All merged to `main`; `phase-7` merged + deleted.
+> 🎉 **Kiwiply UI/UX redesign is COMPLETE (R0–R7).** All phases done on **`ui-redesign`** (foundations,
+> app shell, marketing, auth, core app screens, extension rebrand, cross-cutting polish, internal
+> rename + responsive QA). Extension at **v0.21.4**. Spec: `redesign/REDESIGN-PLAN.md`.
+> **The one remaining step is the go-live decision: merge `ui-redesign` → `main`** (auto-deploys the
+> whole redesign to prod). ⚠️ This is the deferred big one — it ships the rebrand live AND **forces a
+> one-time re-login** (R7.1 cookie rename). Before merging, confirm the live verifications below.
+> **Pending LIVE verifications (need a running stack / Chrome — the user's step):** (a) reload the
+> unpacked extension and eyeball popup/options/overlay in the kiwi palette; (b) sign in and walk the
+> gated pages (dashboard/profile/resumes/board/settings) at 360/768/1024/1440px; (c) the email setup
+> (Brevo/Cloudflare) per the `email-architecture` memory.
+> *Deferred (needs backend, not presentation-only — NOT in this redesign):* (1) default-resume flag →
+> popup picker (R4.2 "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) —
+> no `notes`/audit columns in the DTO. Both are backend features for a later pass.
+> **Branch loop (see `redesign-branch-loop` memory):** redesign lives off `ui-redesign` (cut from
+> `main`); each phase on its own `phase-N` branch — on phase switch, merge it into `ui-redesign`,
+> delete it (local+remote), cut the next off `ui-redesign`. Live branches are only `main`,
+> `ui-redesign` (holds R0–R2), and the current **`phase-3`**. Never merge the redesign to `main`
+> until pages are reskinned (~end of R4). One task = one commit, prefix `redesign.<phase>.<n>:`.
+> Decisions locked: full internal rename (R7.1) · pricing Free/"coming soon" · light-only.
 >
-> **No active build task.** What's left is **pre-launch + external** work, not new features:
+> *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
+> the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
+> stand on `main` and fold naturally into R2.3 / a later task.)*
+>
+> **Pre-launch + external work (on `main`, not features):**
 > - **PL.1** — privacy policy: real contact/entity + legal review (see Pre-launch checklist).
 > - **PL.2** — basic rate limiting / abuse protection before public signups.
 > - **Live verifications (user, can't be done from here):** Firefox `web-ext lint`/`run`, Edge sideload.
@@ -62,11 +81,25 @@ focused Claude Code session.
 > listing. Pull any into a focused session when launch nears. The 1.11 gate already shipped
 > the multi-tenant fix, account/data deletion, and refresh-token rotation; these are what's left.
 
-- [ ] **PL.1 Privacy policy — real contact + legal review.** Replace the placeholder contact
-  (`privacy@dossier.app`) with a real address/entity, host the policy at a stable URL, and get
-  a legal pass. **Extra-important now that the AI data-use language is in there** (web
-  `/privacy` "AI answer drafting" section + extension `PRIVACY.md` "Optional AI answer drafting"
-  + the Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
+- [ ] **PL.1 Legal — Privacy policy + Terms of Service + legal review.** ✅ DONE so far: web `/privacy`
+  contact is a real monitored address (`support@kiwiply.com`, routed Cloudflare→Gmail — see
+  `email-architecture` memory / DEPLOY §9.1); the extension `PRIVACY.md` contact was swapped
+  `privacy@dossier.app`→`support@kiwiply.com` (R5.1); an interim **beta disclaimer** is live (footer +
+  signup + a "Beta service" section in `/privacy`: as-is/as-available, no warranties, limitation of
+  liability "to the extent permitted by law").
+  - **➤ Terms of Service (REQUIRED before public launch — not yet written).** The beta disclaimers above
+    are a stopgap, **not** a ToS. Draft + publish a real **Terms of Service** page (e.g. `/terms`) and
+    link it from the footer + signup alongside the Privacy Policy. It must clearly cover: **acceptable
+    use** (legitimate personal job-applications only; **no auto-submit, no CAPTCHA bypass, no
+    scraping/abuse** — mirrors the product's hard rule), **eligibility/account** terms, **user
+    responsibilities** (accuracy of submitted data; you send every application yourself),
+    **beta/"as is" disclaimer of warranties**, **limitation of liability**, **indemnity**,
+    **termination**, **changes to the terms + notice**, **governing law/jurisdiction**, and **contact**.
+  - **Still TODO (the rest):** a **registered legal entity/address** (the ToS + privacy policy need a
+    real legal "we"), a stable **hosted policy URL** for the CWS listing, and a **lawyer's review** of
+    both the Privacy Policy and the Terms of Service — **extra-important given the AI data-use language**
+    (web `/privacy` "AI answer drafting" + extension `PRIVACY.md` "Optional AI answer drafting" + the
+    Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
 - [ ] **PL.2 Basic rate limiting / abuse protection.** Today there is **no general
   request throttling** — only a per-user *monthly* AI quota (`ai_usage`) and refresh-token
   reuse-detection. Before public signups, add coarse abuse protection so nobody can hammer the
@@ -477,10 +510,301 @@ focused Claude Code session.
 - [ ] **8.4 Audit & compliance.** Audit logging; PII retention/deletion tooling;
   GDPR/CCPA + SOC 2 groundwork; secrets in a vault/KMS; deeper RBAC.
 
+## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
+> Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
+> `redesign/REDESIGN-PLAN.md`; prototype: `redesign/mockups.html`; on-ramp: `redesign/HANDOFF.md`.
+> Locked decisions: **full internal rename** (cookies + identifiers, R7.1, forces one re-login) ·
+> pricing **Free / "Pro coming soon"** · **light-only** (no dark mode this pass). Commit prefix
+> `redesign.<phase>.<n>:`. Bump extension versions only in R5.
+- [x] **R0 Foundations.** ✅ R0.1 kiwi tokens + Fraunces/Inter in `globals.css` (Geist + dark
+  media query dropped) · ✅ R0.2 `components/ui/` primitives (ported from `mockups.html`) · ✅ R0.3
+  brand assets (starter SVGs deleted; `mark.svg` + `app/icon.svg` favicon + `app/opengraph-image.tsx`;
+  metadata title/OG/Twitter set; `Wordmark`/`BrandLockup` for dark surfaces).
+- [x] **R1 App shell & IA.** ✅ R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
+  gate-session-once (per-page nav deleted) · ✅ R1.2 new `/dashboard` (KPIs, setup checklist, quick
+  actions, recent-activity feed); login redirect → `/dashboard`.
+- [x] **R2 Marketing.** ✅ R2.1 landing rebuild (charcoal hero + product-peek, how-it-works,
+  features, pricing teaser) · ✅ R2.2 `/pricing` (Free live + "Pro coming soon" + Teams contact;
+  Settings→Billing placeholder) · ✅ R2.3 privacy reskin (kiwi tokens, Kiwiply naming) + real
+  contact `support@kiwiply.com`.
+- [x] **R3 Auth.** ✅ R3.1 split-screen `/login`+`/signup` — shared `AuthScreen` (charcoal brand
+  panel + testimonial, tabbed Sign in/Create account, kiwi-token forms, stubbed "Continue with
+  Google") + branded `/account/activate` card. Login→`/dashboard`; signup→check-email; flows
+  unchanged.
+- [x] **R4 Core app screens.** ✅ R4.1 Profile — sub-nav + strength meter + skills chips + EEO
+  collapsible + autosave · ✅ R4.2 Resumes — drag-drop drop-zone + variant cards (file icon, status
+  badge, "used in N applications", archive/delete) + friendly 409 archive-guard callout (upload/
+  parse/archive/delete flows unchanged; page now also fetches applications for usage counts) · ✅ R4.3
+  Board — tools (search / filter-by-resume / sort) + **drag-drop between columns** (optimistic; select
+  kept as a11y fallback) + accent "Did you submit?" nudge + **JD card-detail slide-over** (shows the
+  captured `jobDescription` — already in the DTO, no backend change) · ✅ R4.4 Settings — section
+  sub-nav (scroll-spy: Account / AI & drafting / Autofill / Privacy & data / Billing), kiwi-reskinned
+  type-to-confirm danger zone, AI/autofill surfaced informationally ("in the extension" — those live
+  in chrome.storage, not the backend). Existing save/delete/status flows still pass.
+- [x] **R5 Extension (bumps versions).** ✅ R5.1 re-token (kiwi palette in popup.css/options.css +
+  overlay Shadow-DOM `CSS_TEXT`; AI-badge now charcoal-on-lime; green left border) + Kiwiply rename
+  (manifest name/tooltip, popup/options `.brand` + copy, overlay brand + note, Workday re-run msg,
+  `PRIVACY.md` + contact→`support@kiwiply.com`); ext **v0.21.0**; 14 suites green. Internal ids
+  (`createDossierProvider`, `dossier`/`dossier-fieldcache` IDB, gecko id) deferred to R7.1 · ✅ R5.2
+  popup polish (kiwi-mark + two-tone wordmark lockup; clickable bio-warn; colored file-status +
+  green success status; ext v0.21.1) · ✅ R5.3 options polish (sticky save bar; AI settings grouped
+  into one "AI answer drafting" card — BYO key vs Kiwiply AI; finished the re-token: fixed blue chips
+  → `--accent-soft`, gold drop-zone/badge → kiwi; ext v0.21.2) · ✅ R5.4 overlay polish (fill→advance
+  micro-states "Filling…"/"Advancing…"; **"↻ regenerate draft"** affordance on AI rows — re-asks the
+  SW via new `JAF.assist.draft`, item keeps question+context; kept green left border + "never clicks
+  Submit" note + Shadow-DOM isolation; ext v0.21.3). No "Dossier" in UI; Shadow DOM isolation preserved.
+- [x] **R6 Cross-cutting.** ✅ R6.1 Toasts — `ToastProvider` + `useToast()` + bottom-right viewport
+  (mounted in root layout) on the R0.2 `Toast` primitive; wired to replace inline "Saved" text
+  (ResumeUpload save → success toast; ResumeList archive/restore/delete → toasts) · ✅ R6.2 Skeletons —
+  route-segment `loading.tsx` fallbacks (dashboard/board/resumes/profile/settings) matching each
+  page's layout, built on the R0.2 `Skeleton` primitive · ✅ R6.3 Empty states — unified the empty
+  board + empty resume list onto the R0.2 `EmptyState` primitive (icon/title/description + action) +
+  added a "no matches" state for filtered board results · ✅ R6.4 Validation — inline email/URL/
+  required errors via the `Field` error slot + `aria-invalid` Inputs: auth forms (login/signup, block
+  submit on error; signup email-format + min-length) and the profile editor (advisory email/URL on
+  blur, never blocks autosave); new dependency-free `lib/validate.ts` · ✅ R6.6 a11y — global
+  `:focus-visible` accent ring (for elements without their own), `--muted` darkened `#73746E`→`#686962`
+  (clears WCAG AA on `--paper`), Escape-to-close + focus-on-open for the board slide-over (already
+  `role=dialog`) and Escape for the mobile drawer; board stays keyboard-movable via the per-card status
+  `<select>`. **R6.5 dark mode DEFERRED** (locked light-only). **Completes Phase R6.**
+- [x] **R7 Internal rename + responsive QA.** ✅ R7.1 identifier + cookie rename (one tested commit):
+  extension `createDossierProvider`→`createKiwiplyProvider` (`tracking.js`/`sync.js`/test/ARCHITECTURE;
+  ext v0.21.4), web cookies `dossier_access`/`dossier_refresh`→`kiwiply_*` (`auth.ts` string values
+  only — route handlers go through helpers). Forces a one-time re-login. IDB names (`dossier`/
+  `dossier-fieldcache`) + gecko id intentionally kept (data/infra). · ✅ R7.2 responsive QA — public
+  pages (landing/pricing/privacy/login/signup) verified **0px horizontal overflow at 360px** (and
+  clean to 1440px) via the preview; auth brand panel correctly collapses to form-only on mobile;
+  marketing nav links hide < sm leaving the CTAs. Gated pages audited statically against §9
+  (drawer+top-bar < lg, `overflow-x-auto` sub-navs, `sm:grid-cols-2` forms, board intentional scroll,
+  `w-full max-w-md` slide-over) — live pass pending a running stack. **Completes Phase R7 + the whole
+  redesign (R0–R7).**
+
 ---
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · beta tag + disclaimer (post-redesign, branch `beta-tag`→`ui-redesign`) · New
+  `BetaBadge` ui primitive (light + dark tone); shown next to the wordmark in the marketing header +
+  footer, the app sidebar (desktop + mobile top bar), and the auth brand panel + mobile lockup. Legal:
+  a footer **beta disclaimer** ("as is"/"as available", may change/be interrupted, your data stays
+  exportable/deletable), a one-line beta note on the signup agreement text, and a new **"Beta
+  service"** disclaimer section leading the `/privacy` policy (as-is, no warranties, limitation of
+  liability "to the extent permitted by law"). Verified in a browser (header badge, footer disclaimer,
+  privacy section). `npm test` + `npm run build` green. NOTE: not a substitute for a full Terms of
+  Service + legal review (still part of PL.1). Web-only.
+- 2026-06-25 · redesign.R7.2 (responsive QA) — **completes Phase R7 + the whole redesign (R0–R7)** ·
+  Drove the public pages (landing/pricing/privacy/login/signup) at 360px in the preview: **0px
+  horizontal overflow** on every page; the auth split-screen brand panel correctly collapses to
+  `display:none` (form-only) on mobile; landing nav links hide < sm leaving the CTAs; re-checked at
+  1440px (only the scrollbar, no overflow). Gated pages audited statically against §9 (mobile drawer +
+  top bar < lg, `overflow-x-auto` sub-navs, `sm:grid-cols-2` form grids, board's intentional
+  horizontal scroll, `w-full max-w-md` slide-over) — a live pass is pending a running stack. No
+  overflow fixes needed. Redesign is feature-complete on `ui-redesign`; only the go-live
+  `ui-redesign`→`main` merge remains (user decision). Branch `phase-7`.
+- 2026-06-25 · redesign.R7.1 (internal rename) · One coordinated, tested commit. **Extension:**
+  `createDossierProvider`→`createKiwiplyProvider` across `tracking.js` (def+export+comments), `sync.js`
+  (call), `tracking.test.js` (13 calls), and `ARCHITECTURE.md`; ext **v0.21.4**; 14 suites green.
+  **Web:** the auth cookie names `dossier_access`/`dossier_refresh`→`kiwiply_access`/`kiwiply_refresh`
+  — changed the two string values in `auth.ts` only (route handlers go through its helpers; grep
+  confirmed no other refs). **Forces a one-time re-login** for existing users (old cookies stop being
+  read). Intentionally **kept** the `dossier`/`dossier-fieldcache` IndexedDB names (renaming orphans
+  users' local resume/field-cache data) and the gecko addon id (published identity) — infra, not UI.
+  `npm test` (web tsc+eslint) + `npm run build` + extension suite all green. Branch `phase-7`.
+- 2026-06-25 · redesign.R6.6 (a11y) — **completes Phase R6** · Added a global `:where(a,button,summary,
+  [role=button],[role=switch],[tabindex]):focus-visible` accent outline in globals.css (specificity-0
+  so component focus styles still win; form controls keep their own), darkened `--muted`
+  `#73746E`→`#686962` to clear WCAG AA (4.5:1) on `--paper` for small secondary text, and added
+  **Escape-to-close + focus-on-open** to the board JD slide-over (already `role=dialog aria-modal`) and
+  **Escape** to the app-shell mobile drawer. Board remains keyboard-operable via the per-card status
+  `<select>` (the DnD a11y fallback). **R6.5 dark mode deferred** (locked light-only). `npm test` +
+  `npm run build` green. Branch `phase-6`. Web-only.
+- 2026-06-25 · redesign.R6.4 (validation) · Added inline form validation through the `Field` error
+  slot (+ `aria-invalid` on Inputs), no new deps — new `lib/validate.ts` (`isEmail`/`isUrl`). **Auth**
+  (`AuthScreen`): login + signup validate on blur/submit and **block submission** on error (required;
+  signup adds email-format + min-4 password). **Profile** (`BioEditor`): advisory email + URL checks
+  shown after blur — never blocks the autosave (freeform draft). **Verified in a browser**: empty
+  signup submit → 3 required errors + aria-invalid, submission blocked; "notanemail" → "Enter a valid
+  email address". `npm test` + `npm run build` green. Branch `phase-6`. Web-only.
+- 2026-06-25 · redesign.R6.3 (empty states) · Unified the full-list empties onto the R0.2
+  `EmptyState` primitive: the **empty board** (🗂️ "Your board fills itself" + an "Upload a resume to
+  start" ghost CTA) and the **empty resume list** (📄 "No resumes yet") now use it instead of ad-hoc
+  dashed divs. Also added a **"no applications match your search or filter"** state when the board's
+  tools filter everything out (distinct from the truly-empty board). Dashboard recent-activity keeps
+  its lighter inline empty (it sits inside a panel card). `npm test` + `npm run build` green. Branch
+  `phase-6`. Web-only.
+- 2026-06-25 · redesign.R6.2 (skeletons) · Added route-segment `loading.tsx` fallbacks for the five
+  server-fetched app pages (dashboard, board, resumes, profile, settings), each built on the R0.2
+  `Skeleton` primitive and shaped to its page's real layout (KPI grid, 6 kanban columns, drop-zone +
+  list, sub-nav + form grid, sub-nav + cards) so the shell stays put while the page streams. Skeleton
+  imported directly (`@/components/ui/Skeleton`) to keep the client toast barrel out of these server
+  fallbacks. `npm test` + `npm run build` green (22 routes). Branch `phase-6`. Web-only.
+- 2026-06-25 · redesign.R6.1 (toasts) — **Phase R6 begins (web)** · Added the toast **system** on top
+  of the R0.2 `Toast` primitive: `ToastProvider` (context + queue, auto-dismiss 4s, bottom-right
+  `aria-live` viewport, slide-in via a `toast-in` keyframe in globals.css) + a `useToast()` hook,
+  exported from the ui barrel and mounted in the root layout (wrapping children under `<Analytics>`).
+  Wired it to replace inline "Saved" text: ResumeUpload save → green success toast (removed the inline
+  box + `savedLabel` state); ResumeList archive/restore/delete → success toasts (were silent). 409
+  archive-guard stays an inline callout (contextual, not transient). `npm test` + `npm run build`
+  green; landing renders with the viewport mounted. Branch `phase-6`. Web-only.
+- 2026-06-25 · redesign.R5.4 (overlay polish) — **completes Phase R5** · The review overlay (Shadow
+  DOM) gets sharper fill micro-states — the Fill button reads **"Filling…"** then **"Advancing…"**
+  (auto-advance) — and a **"↻ regenerate draft"** button on AI-assisted rows: it re-asks the service
+  worker for that question (new `JAF.assist.draft` export; assisted items now carry `question`+`context`),
+  shows "Drafting…" in the value cell, and swaps in the new answer (or restores the old on
+  error/disabled). Added `.row.assisted`/`.regen` styles to the inline `CSS_TEXT`. Kept the green left
+  border, the "never clicks Submit" note, and Shadow-DOM isolation. ext **v0.21.3**; 14 extension
+  suites green (exit 0). **Phase R5 done.** Branch `phase-5`. *Live reload-in-Chrome check is the user's step.*
+- 2026-06-25 · redesign.R5.3 (options polish) · Made the **save bar sticky** (`.actionbar` sticky
+  bottom + blurred backdrop — stays reachable on the long bio/settings tabs). **Grouped the AI
+  settings** into one "AI answer drafting" card with two clearly-labeled sub-options — *Bring your own
+  key* (Anthropic) vs *Kiwiply AI · no key needed* (Gemini + consent) — all input ids unchanged so
+  options.js is untouched. Finished the extension re-token: defined `--accent-soft` (skill **chips were
+  rendering blue** via a `#eef1ff` fallback) + `--brown-soft`, and swapped the remaining gold/navy
+  hexes (drop-zone, "needs review" badge, drawer scrim, mini-add) to kiwi. Date controls were already
+  Month/Year dropdowns (re-tokened in R5.1). ext **v0.21.2**; 14 extension suites green (exit 0).
+  Branch `phase-5`. *Live reload-in-Chrome check is the user's step.*
+- 2026-06-25 · redesign.R5.2 (popup polish) · Popup header now shows the **brand lockup** — a CSS
+  kiwi mark (brown disc + lime + charcoal ✓) + two-tone wordmark (green `kiwi` via `--accent-deep` +
+  ink `ply`). Clearer states: the bio-warn is now clickable (→ Manage) with sharper copy; resume meta
+  shows the file status colored (green `file ✓` / brown `no file`); and `setStatus` gained a green
+  **success** state used for "Review panel open" + "Saved". `popup.css` got the lockup/`--brown`/meta/
+  status styles. ext **v0.21.1**; 14 extension suites green (exit 0). Branch `phase-5`. *Live
+  reload-in-Chrome check is the user's step.*
+- 2026-06-25 · redesign.R5.1 (extension re-token + rename) — **Phase R5 begins (extension)** ·
+  Re-tokened the extension to the kiwi palette: `popup.css` + `options.css` `:root` swapped to §3.1
+  values (green text uses `--accent-deep` for legibility), and the **overlay's Shadow-DOM `CSS_TEXT`**
+  (filler.js) rewritten with kiwi tokens declared on `:host` (mirrors web globals.css — never inherits
+  page CSS), green left border, and the **AI badge fixed to charcoal-on-lime** (cream-on-lime was
+  unreadable). Renamed every user-facing "Dossier"→"Kiwiply": manifest `name` + toolbar `default_title`,
+  popup/options `.brand` + all options copy/toggles ("Kiwiply AI"), overlay brand + auto-advance note,
+  the Workday "re-run" message, and `PRIVACY.md` (incl. contact `privacy@dossier.app`→`support@kiwiply.com`,
+  PL.1). **Internal identifiers left for R7.1** (`createDossierProvider`, the `dossier`/`dossier-fieldcache`
+  IDB names, the gecko addon id) + dev docs (README/BROWSERS/ARCHITECTURE). Versions bumped
+  `manifest.json` + `package.json` → **0.21.0** (ruleset unchanged → smoke green); 14 extension suites
+  green (exit 0). Branch `phase-5`. *Live reload-in-Chrome verification is the user's step.*
+- 2026-06-25 · redesign.R4.4 (settings sub-nav) — **completes Phase R4** · Restructured `/settings`
+  into a **section sub-nav** (new client `SettingsNav` with IntersectionObserver scroll-spy, mobile
+  pill row) + five cards: **Account** (read-only info + link to Profile), **AI & drafting** and
+  **Autofill behavior** (surfaced informationally with an "in the extension" tag — these settings
+  live in `chrome.storage`, not the backend, so functional web toggles would need a user-prefs
+  store = out of presentation-only scope), **Privacy & data** (policy link + data-request email +
+  the danger zone), **Billing** (Free-plan placeholder → /pricing). Reskinned `DeleteAccountButton`
+  to kiwi tokens (type-to-confirm DELETE logic preserved; now uses the `Input` primitive + danger
+  card). Widened to `max-w-4xl`. `npm test` + `npm run build` green (gated page — live visual pending
+  a running stack). **Phase R4 done; R5 moves to the extension.** Web-only.
+- 2026-06-25 · redesign.R4.3 (board reskin) · Rebuilt `ApplicationBoard` on kiwi tokens: **board
+  tools** (search over company/role/location, filter-by-resume, sort recent/company), **HTML5
+  drag-and-drop** between the 6 columns with optimistic local state reconciled to the server on
+  `router.refresh()` (the `<select>` stays as the a11y/fallback control), the **"Did you submit?"
+  nudge** restyled as the signature accent callout, and a **card-detail slide-over** (right sheet +
+  scrim, full-width on mobile) surfacing the captured **job description** (`jobDescription` was
+  already in `ApplicationDTO` — added to the web type, no backend change), resume sent, ATS,
+  dates + a status `<select>`/delete. Richer empty state. status/confirm/delete mutations unchanged
+  (`/api/applications/:id`). Lint fix: render-phase prop→state sync instead of setState-in-effect.
+  `npm test` + `npm run build` green (gated page — live visual pending a running stack). Web-only.
+- 2026-06-25 · redesign.R4.2 (resumes reskin) · `ResumeUpload` gets a real **drag-and-drop
+  drop-zone** (click/keyboard/drop → same in-browser parse), reskinned review cards (contact/summary/
+  skills/experience/education) on kiwi tokens; flow (parse → POST `/api/resumes/upload`) unchanged.
+  `ResumeList` rebuilt as **variant cards** (DOC file icon, status badge Needs-review/Ready via the
+  `Badge` primitive, "Added … · used in N applications", Archive/Restore + Delete) with a friendly
+  **brown 409 archive-guard callout** + inline "Archive instead" (was a raw red error). Resumes page
+  now also fetches `/api/profile/applications` to compute per-resume usage counts; widened to
+  `max-w-3xl`. Archive (PUT)/delete (DELETE, 409 guard)/upload flows all preserved. `npm test` + `npm
+  run build` green (gated page — live visual pending a running stack). Web-only.
+- 2026-06-25 · redesign.R4.1 (profile reskin) — **Phase R4 begins** · Rebuilt `BioEditor` onto the
+  kiwi system: left **section sub-nav** (Identity & contact / Location / Links / Work auth / Skills /
+  EEO) with IntersectionObserver scroll-spy + mobile horizontal-scroll pill row; **profile-strength
+  meter** (derived from core fields); grouped sections with Fraunces section titles; **skills chip
+  editor** (`bio.skills`, Enter/comma to add, backspace/×  to remove); **EEO** moved into an opt-in
+  `<details>` collapsible — all keys + option values mirror the extension's `options.js` exactly (no
+  guessing). **Autosave** (1.5s debounce) + a sticky save bar with saved/unsaved status; the merge-
+  over-`initialBio` PUT `/api/profile` flow is unchanged so unmanaged fields survive. Profile page
+  widened to `max-w-4xl`. `npm test` + `npm run build` green (gated page — live visual pending a
+  running stack). Web-only.
+- 2026-06-25 · redesign.R3.1 (split-screen auth) — **completes Phase R3** · New shared
+  `components/auth/AuthScreen.tsx` (client) drives both `/login` + `/signup` (now thin wrappers):
+  split-screen with a charcoal brand panel (BrandLockup cream wordmark + value prop + testimonial,
+  hidden < lg, mobile lockup instead), a tabbed **Sign in / Create account** toggle (navigates between
+  the two routes), kiwi-token forms built on the `Input`/`Field` primitives, a **stubbed "Continue
+  with Google"** (disabled, multicolor G), and the signup check-email done-state. Login →
+  `/dashboard`; the POST flows to `/api/auth/{login,signup}` are unchanged. Reskinned
+  `/account/activate` as a branded card (Mark + Verified/Action-needed status pill, kiwi tokens,
+  Kiwiply naming). `npm test` + `npm run build` green; verified via DOM eval (screenshot tool hung on
+  the full-bleed route — layout confirmed correct: gradient panel, exact-viewport height, no overflow).
+  Branch `phase-3`. Web-only.
+- 2026-06-25 · redesign.R2.3 (privacy reskin + real contact) — **completes Phase R2** · Reskinned web
+  `/privacy` onto the kiwi system (Fraunces section headings, `text-ink-soft`/`text-muted` body,
+  green `accent-deep` links — dropped all `text-foreground/*`), renamed every user-facing "Dossier"
+  → "Kiwiply" (verified zero "dossier" mentions in-page), and replaced the placeholder
+  `privacy@dossier.app` with the real monitored **`support@kiwiply.com`**. `metadata` title → "Privacy
+  Policy" (template adds "· Kiwiply"). Dropped the redundant inline back-link (marketing shell header
+  owns nav). **Visually verified** in a browser (mailto + no-Dossier check via eval). Also documented
+  the kiwiply.com **email architecture** (admin-owned Brevo → no-reply@; support@/contact-us@ →
+  Gmail; reply-as via Brevo SMTP; Cloudflare DKIM/SPF/DMARC) in `DEPLOY.md §9.1` + new
+  `email-architecture` memory; PL.1 contact item part-resolved. `npm test` + `npm run build` green.
+- 2026-06-25 · redesign.R2.2 (pricing) · New `(marketing)/pricing/page.tsx` — three tiers (**Free**
+  live w/ "Start here" badge + Get started; **Pro** "Coming soon" w/ disabled "Notify me at launch";
+  **Teams** Custom → `mailto:hello@kiwiply.com`) per the locked Free-only/Pro-coming-soon decision,
+  plus a 4-item FAQ (free forever, BYO key, no auto-submit) and a closing CTA. Added a **Plan /
+  Billing placeholder** card to `(app)/settings` (Free badge + "See plans →" → /pricing; no Stripe).
+  Resolves the R1.1 transient — header/footer `/pricing` links now land. `metadata` title set.
+  **Visually verified in a browser** (desktop screenshot: 3-col tiers + FAQ grid). `npm test` + `npm
+  run build` green (`/pricing` prerendered). Web-only.
+- 2026-06-25 · redesign.R2.1 (landing rebuild) — **Phase R2 begins** · Rebuilt
+  `(marketing)/page.tsx` on the kiwi system: full-bleed **charcoal hero** (eyebrow tag, Fraunces
+  headline, lede, dual CTA, trust strip) + a **product-peek** card mocking the review-autofill
+  overlay (field/value rows, green checks, AI badge); **how-it-works** (3 steps), **features** (4
+  cards), and a **pricing teaser** (Free live + Pro "coming soon" per the locked decision) linking to
+  `/pricing`. Header/footer come from the `(marketing)` shell. **Visually verified in a real browser**
+  (`next start` + screenshots, desktop): hero 2-col, steps 3-col, features 2×2, pricing 2-col. Caught
+  + fixed a tailwind-merge bug — the dark-surface "ghost" CTA inherited `text-ink` (charcoal-on-
+  charcoal, invisible); gave it an explicit class. Added `.claude/launch.json` (local-only preview
+  config, untracked). `npm test` + `npm run build` green. Branch `phase-2`. Web-only.
+- 2026-06-25 · redesign.R1.2 (dashboard) — **completes Phase R1** · New `(app)/dashboard/page.tsx`
+  (server-rendered, parallel fetch of account+applications+resumes+profile): KPI row (applications /
+  interviews / response-rate / drafts-to-confirm, all derived from real application statuses), a
+  "Finish setting up" activation checklist (contact details, resume, work-auth — verifiable items
+  drive the % ; extension-install shown as a tip), quick actions (resume/profile/board), and a
+  recent-activity feed (newest-first, relative time, status pills incl. the brown "Draft — confirm?"
+  nudge) with an empty state. Login redirect switched `/settings` → `/dashboard`
+  (`login/page.tsx`). Read-only — the board still owns mutations. `npm test` (tsc+eslint) + `npm run
+  build` green (`/dashboard` registered, dynamic). Web-only.
+- 2026-06-25 · redesign.R1.1 (route groups + app shell) · Split web routes into Next route groups
+  `(marketing)` (`/`, `/privacy`) and `(app)` (`/board`, `/profile`, `/resumes`, `/settings`) — URLs
+  unchanged. New `(app)/layout.tsx` gates the session **once** (replacing the four per-page
+  `hasSession()` checks) + fetches the account for the sidebar chip; `AppShell` client component =
+  persistent left sidebar (5 nav items w/ stroke icons + active state via `usePathname`), user chip +
+  sign-out, mobile top bar + hamburger + off-canvas drawer + scrim (persistent ≥lg, drawer below).
+  New `(marketing)/layout.tsx` = sticky branded header (Logo + nav + Sign in/Get started) + footer.
+  Deleted every hand-rolled per-page `<header><nav>` row; app pages now return a `<div>` (shell owns
+  `<main>`), colors moved to kiwi tokens. Light token-pass on the landing (CTAs→`buttonVariants`,
+  eyebrow→`Tag`, Kiwiply copy) — full rebuild is R2.1. Added `lib/cn`-based `AppShell`. `npm test`
+  (tsc+eslint) + `npm run build` green (groups compile, URLs intact). Branch `phase-1`. Web-only.
+  *Transient: `/dashboard` + `/pricing` nav links 404 until R1.2/R2.2 (same branch, not deployed).*
+- 2026-06-25 · redesign.R0.3 (brand assets) — **completes Phase R0** · Deleted the create-next-app
+  starter assets (`next/vercel/window/globe/file.svg` + `app/favicon.ico`). Authored a vector
+  `mark.svg` (kiwi disc + lime + charcoal check, from the prototype `.kmark`) and wired it as the
+  App-Router favicon `app/icon.svg`. Added `app/opengraph-image.tsx` (`next/og` `ImageResponse`,
+  1200×630 charcoal-hero card with the mark + two-tone wordmark + tagline — check drawn as inline
+  SVG to dodge a dynamic-font fetch; verified the rendered PNG). Set root `metadata`: `metadataBase`
+  (kiwiply.com), title template, OpenGraph + Twitter card. Added `Wordmark` + `BrandLockup` ui
+  primitives (two-tone serif lockup for dark surfaces where the raster logo's charcoal "ply" would
+  vanish). `npm test` + `npm run build` green. Web-only.
+- 2026-06-25 · redesign.R0.2 (UI primitives) · Built `web/src/components/ui/` ported 1:1 from
+  `mockups.html`: `Button` (primary/accent/ghost/danger + `buttonVariants()` for link-as-button),
+  `Input`+`Field` (label/error/hint slot, 16px on mobile to dodge iOS zoom, `aria-invalid` styling),
+  `Select` (native, custom caret), `Card`, `Badge`+`Pill`, `Tag`, `Switch` (controlled, `role=switch`),
+  and new `Toast`/`Skeleton`/`EmptyState`, plus `Logo` (next/image lockup) + `Mark` (CSS kiwi mark).
+  All Tailwind-utility based on the R0.1 `@theme` tokens (no copied class strings); barrel `index.ts`;
+  tiny dependency-free `lib/cn.ts` joiner. `npm test` (tsc+eslint) + `npm run build` green. Web-only.
+- 2026-06-25 · redesign.R0.1 (kiwi tokens + fonts) — **Phase R begins** · Rewrote
+  `web/src/app/globals.css` with the §3.1 Kiwiply palette as CSS vars + a Tailwind v4 `@theme inline`
+  block (bg-paper/text-ink/border-line/text-accent-deep/font-display/…); dropped the Geist /
+  black-white defaults and the `prefers-color-scheme: dark` media query (light-only this pass). Wired
+  **Fraunces** (display) + **Inter** (body) via `next/font` in `layout.tsx` (replacing Geist), body =
+  Inter on warm `--app-bg`, h1–h3 = Fraunces; metadata title/description → Kiwiply. No
+  `--foreground`/`--background` refs remain. `npm run build` + `npm test` (tsc+eslint) green. Web-only
+  (no extension bump). Branch `ui-redesign-phase-0`.
 - 2026-06-24 · 7.2 (Firefox support) · Targets Firefox 121+ (MV3 `service_worker` background +
   `chrome.*` callback aliases → no `browser.*` rewrite/polyfill). Added `browser_specific_settings.
   gecko` (id `dossier@kiwiply.com`, min 121.0) to the manifest — Chrome ignores it, so one manifest

@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en" data-screen="landing">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kiwiply — Redesign Mockups (Editorial)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   KIWIPLY REDESIGN — Editorial direction, final brand palette
+   Brand palette (exact, supplied):
+     #94BD37 kiwi green   #2D3133 charcoal     #986A35 kiwi skin
+     #D4D3C8 warm gray    #B7D283 light green  #AB8F63 tan
+     #DFEAB9 pale green   #725125 deep brown
+   Surfaces = near-white warm + warm-gray; text = charcoal/greys.
+   Serif display (Fraunces) + Inter body. Responsive to mobile.
+   Clickable prototype — not production code.
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root{
+  --font-body:"Inter",system-ui,sans-serif;
+  --font-display:"Fraunces",Georgia,serif;
+  /* ---- Brand palette (exact) ----
+     #94BD37 kiwi green · #2D3133 charcoal · #986A35 kiwi skin · #D4D3C8 warm gray
+     #B7D283 light green · #AB8F63 tan · #DFEAB9 pale green · #725125 deep brown */
+  --app-bg:#ECEBE3;        /* warm light-gray canvas (from #D4D3C8 family) */
+  --paper:#FBFAF6;         /* near-white warm surface */
+  --paper-2:#E7E6DD;       /* subtle warm fill */
+  --ink:#2D3133;           /* charcoal (brand) */
+  --ink-soft:#4F5557;      /* warm grey text */
+  --muted:#73746E;         /* muted warm grey */
+  --line:#D4D3C8;          /* warm gray border (brand) */
+  --accent:#94BD37;        /* kiwi green (brand) */
+  --accent-2:#B7D283;      /* light green (brand) — secondary / hover */
+  --accent-soft:#DFEAB9;   /* pale green (brand) — pills, tints */
+  --accent-deep:#5E7D1E;   /* darkened brand green for green text on light */
+  --on-accent:#2D3133;     /* charcoal text/icons ON green fills (lime needs dark) */
+  --brown:#986A35;         /* kiwi skin (brand) */
+  --brown-2:#AB8F63;       /* tan (brand) */
+  --brown-deep:#725125;    /* deep brown (brand) */
+  --brown-soft:#ECE2D1;    /* pale brown (tint of tan) */
+  --ok:#5E7D1E; --warn:#986A35; --danger:#A23B2E;
+  --radius:10px; --radius-lg:14px; --radius-pill:999px;
+  --shadow:0 1px 0 rgba(45,49,51,.04), 0 10px 26px rgba(45,49,51,.08);
+  --shadow-lg:0 22px 56px rgba(45,49,51,.16);
+  --hero-bg:linear-gradient(165deg,#2D3133 0%,#2F3330 60%,#37322B 130%);
+  --hero-ink:#FBFAF6;
+}
+body{background:var(--app-bg);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+
+/* ---------- PROTOTYPE TOOLBAR ---------- */
+#bar{position:sticky;top:0;z-index:100;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  padding:9px 16px;background:#1b201a;color:#fff;font-family:"Inter",system-ui,sans-serif;font-size:13px;
+  box-shadow:0 2px 14px rgba(0,0,0,.25)}
+#bar .ptitle{font-weight:700;letter-spacing:.02em;margin-right:4px}
+#bar .ptitle b{color:#9ed46a}
+#nav{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+#nav button{border:0;background:#2a3326;color:#c7d1bd;padding:6px 11px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500}
+#nav button.on{background:#9ed46a;color:#1b201a}
+.barnote{flex-basis:100%;color:#8a9580;font-size:11.5px;margin-top:1px}
+
+/* ---------- GENERIC ---------- */
+.screen{display:none}
+:root[data-screen="landing"]   .screen[data-s="landing"],
+:root[data-screen="auth"]      .screen[data-s="auth"],
+:root[data-screen="dashboard"] .screen[data-s="dashboard"],
+:root[data-screen="profile"]   .screen[data-s="profile"],
+:root[data-screen="resumes"]   .screen[data-s="resumes"],
+:root[data-screen="board"]     .screen[data-s="board"],
+:root[data-screen="settings"]  .screen[data-s="settings"],
+:root[data-screen="extension"] .screen[data-s="extension"]{display:block}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;cursor:pointer;
+  font-family:var(--font-body);font-weight:600;font-size:14px;border-radius:var(--radius-pill);
+  padding:11px 20px;transition:transform .06s,box-shadow .12s,opacity .12s;text-decoration:none;line-height:1}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--ink);color:var(--paper)}
+.btn-primary:hover{box-shadow:var(--shadow)}
+.btn-accent{background:var(--accent);color:var(--on-accent)}
+.btn-accent:hover{filter:brightness(.95)}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn-ghost:hover{background:var(--paper-2)}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--accent-deep);background:var(--accent-soft);border-radius:var(--radius-pill);padding:5px 12px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+h1,h2,h3{font-family:var(--font-display);line-height:1.08;letter-spacing:-.01em;font-weight:600}
+.muted{color:var(--muted)}
+
+/* ---------- BRAND LOCKUP ---------- */
+.logoimg{height:30px;width:auto;display:block}
+.brandlock{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-family:var(--font-display);font-weight:700;font-size:19px}
+.kmark{width:26px;height:26px;border-radius:50%;background:var(--brown);position:relative;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.kmark::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--accent)}
+.kmark::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:var(--on-accent);font-size:12px;font-weight:800}
+.wm .k{color:var(--accent)} .wm .p{color:var(--hero-ink)}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:calc(100vh - 50px);background:var(--app-bg);position:relative}
+.mtop{display:none;align-items:center;gap:12px;padding:12px 16px;background:var(--paper);border-bottom:1px solid var(--line)}
+.burger{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--paper);cursor:pointer;display:grid;place-items:center;font-size:17px}
+.scrim{display:none;position:fixed;inset:0;background:rgba(35,40,38,.45);z-index:110}
+.side{background:var(--paper);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:5px}
+.side .logoimg{margin:4px 8px 16px}
+.navlink{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:var(--radius);color:var(--ink-soft);
+  text-decoration:none;font-size:14px;font-weight:500;cursor:pointer}
+.navlink .ic{width:18px;text-align:center;opacity:.85}
+.navlink:hover{background:var(--paper-2)}
+.navlink.on{background:var(--ink);color:var(--paper)}
+.navlink.on .ic{opacity:1}
+.side .spacer{flex:1}
+.userchip{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius);border:1px solid var(--line)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:13px;flex:0 0 auto}
+.main{padding:28px 34px 60px;overflow:auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap}
+.topbar h1{font-size:26px}
+.crumb{font-size:12px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em}
+
+/* ============================================================
+   MARKETING LANDING
+   ============================================================ */
+.mhead{position:sticky;top:50px;z-index:30;background:var(--paper);border-bottom:1px solid var(--line)}
+.mhead .row{display:flex;align-items:center;justify-content:space-between;height:64px;gap:14px}
+.mhead nav{display:flex;gap:22px;align-items:center}
+.mhead nav a{color:var(--ink-soft);text-decoration:none;font-size:14px;font-weight:500}
+.mhead nav a:hover{color:var(--ink)}
+.mnavlinks{display:flex;gap:22px;align-items:center}
+.hero{background:var(--hero-bg);color:var(--hero-ink);position:relative;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;padding-top:64px;padding-bottom:74px}
+.hero h1{font-size:52px;color:var(--hero-ink);line-height:1.03;font-weight:600}
+.hero p.lede{font-size:18px;line-height:1.5;margin:20px 0 28px;color:color-mix(in srgb,var(--hero-ink) 80%,transparent);max-width:520px}
+.hero .ctas{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero .btn-accent{background:var(--accent);color:var(--on-accent)}
+.hero .btn-ghost{color:var(--hero-ink);border-color:color-mix(in srgb,var(--hero-ink) 32%,transparent)}
+.hero .trust{display:flex;gap:18px;margin-top:24px;font-size:13px;color:color-mix(in srgb,var(--hero-ink) 66%,transparent);flex-wrap:wrap}
+.hero .trust b{color:var(--hero-ink)}
+.peek{background:var(--paper);border-radius:16px;box-shadow:var(--shadow-lg);padding:14px;color:var(--ink)}
+.peek .pk-top{display:flex;align-items:center;gap:7px;padding:4px 6px 12px}
+.peek .dot{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.peek .pk-row{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--paper-2);margin-bottom:7px;font-size:12.5px}
+.peek .chk{width:16px;height:16px;border-radius:5px;background:var(--accent);flex:0 0 auto;display:grid;place-items:center;color:var(--on-accent);font-size:10px}
+.peek .f{color:var(--muted);width:96px;flex:0 0 auto}
+.peek .v{font-weight:600}
+.peek .pk-cta{margin-top:6px;display:flex;justify-content:flex-end;gap:8px}
+.mini{font-size:12px;font-weight:700;border-radius:8px;padding:8px 12px;border:0}
+.mini.p{background:var(--ink);color:var(--paper)} .mini.g{background:transparent;border:1px solid var(--line);color:var(--ink-soft)}
+.section{padding:70px 0}
+.section h2{font-size:34px;text-align:center;margin-bottom:8px}
+.section .sub{text-align:center;color:var(--muted);font-size:16px;max-width:560px;margin:0 auto 42px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.step{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px;box-shadow:var(--shadow)}
+.step .n{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-deep);display:grid;place-items:center;font-weight:700;font-family:var(--font-display);margin-bottom:14px}
+.step h3{font-size:19px;margin-bottom:8px} .step p{color:var(--muted);font-size:14px;line-height:1.55}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}
+.featcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow)}
+.featcard .ic{font-size:22px;margin-bottom:10px}
+.featcard h3{font-size:18px;margin-bottom:6px} .featcard p{color:var(--muted);font-size:13.5px;line-height:1.55}
+.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+.price{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);padding:28px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.price.hi{border:2px solid var(--accent);position:relative}
+.price.hi::before{content:"Most popular";position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px}
+.price h3{font-size:20px} .price .amt{font-family:var(--font-display);font-size:40px;font-weight:700;margin:10px 0}
+.price .amt span{font-size:15px;color:var(--muted);font-weight:500}
+.price ul{list-style:none;margin:16px 0 22px;display:flex;flex-direction:column;gap:10px}
+.price li{font-size:13.5px;color:var(--ink-soft);display:flex;gap:9px}
+.price li::before{content:"✓";color:var(--accent-deep);font-weight:800}
+.price .btn{margin-top:auto}
+.mfoot{background:var(--paper-2);border-top:1px solid var(--line);padding:38px 0;margin-top:6px}
+.mfoot .row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;color:var(--muted);font-size:13px;align-items:center}
+.mfoot a{color:var(--muted);text-decoration:none;margin-right:18px}
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+.auth{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 50px)}
+.auth .panel{background:var(--hero-bg);color:var(--hero-ink);padding:52px 50px;display:flex;flex-direction:column}
+.auth .panel h2{color:var(--hero-ink);font-size:32px;margin:auto 0 16px;max-width:380px;font-weight:600}
+.auth .panel p{color:color-mix(in srgb,var(--hero-ink) 76%,transparent);max-width:360px;line-height:1.55}
+.auth .panel .quote{margin-top:auto;border-left:3px solid var(--accent);padding-left:16px;font-size:14px;color:color-mix(in srgb,var(--hero-ink) 82%,transparent)}
+.auth .form{display:flex;align-items:center;justify-content:center;padding:40px}
+.authbox{width:100%;max-width:380px}
+.authbox h1{font-size:28px;margin-bottom:6px} .authbox .sub{color:var(--muted);margin-bottom:24px;font-size:14px}
+.toggle2{display:flex;background:var(--paper-2);border-radius:var(--radius-pill);padding:4px;margin-bottom:22px}
+.toggle2 button{flex:1;border:0;background:transparent;padding:9px;border-radius:var(--radius-pill);cursor:pointer;font-weight:600;font-size:13.5px;color:var(--muted)}
+.toggle2 button.on{background:var(--paper);color:var(--ink);box-shadow:var(--shadow)}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+.input{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:var(--radius);padding:11px 13px;font-size:14px;font-family:var(--font-body);color:var(--ink);outline:none}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.authbox .btn{width:100%;margin-top:6px}
+.divider{text-align:center;color:var(--muted);font-size:12px;margin:18px 0;position:relative}
+.divider::before,.divider::after{content:"";position:absolute;top:50%;width:42%;height:1px;background:var(--line)}
+.divider::before{left:0} .divider::after{right:0}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:24px}
+.kpi{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow)}
+.kpi .l{font-size:12.5px;color:var(--muted);font-weight:600}
+.kpi .n{font-family:var(--font-display);font-size:30px;font-weight:700;margin-top:6px}
+.kpi .d{font-size:12px;color:var(--accent-deep);margin-top:4px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+.panelcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:22px}
+.panelcard h2{font-size:18px;margin-bottom:4px}
+.panelcard .ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px}
+.checklist{list-style:none;display:flex;flex-direction:column;gap:10px}
+.checklist li{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius)}
+.checklist .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:0 0 auto;display:grid;place-items:center;font-size:11px;color:#fff}
+.checklist li.done .dot{background:var(--ok);border-color:var(--ok)}
+.checklist li.done .lbl{text-decoration:line-through;color:var(--muted)}
+.checklist .lbl{font-weight:600;font-size:14px} .checklist .hint{font-size:12.5px;color:var(--muted)}
+.checklist .go{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--accent-deep);cursor:pointer}
+.actrow{display:flex;flex-direction:column;gap:12px}
+.act{display:flex;gap:12px;align-items:center;padding:13px;border-radius:var(--radius);background:var(--paper-2)}
+.act .ic{width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent-deep);display:grid;place-items:center;font-size:17px;flex:0 0 auto}
+.act .t{font-weight:600;font-size:13.5px} .act .s{font-size:12px;color:var(--muted)}
+.timeline{list-style:none;display:flex;flex-direction:column;margin-top:6px}
+.timeline li{display:flex;gap:12px;padding:10px 0;font-size:13px;border-bottom:1px solid var(--line);align-items:center}
+.timeline .when{color:var(--muted);width:74px;flex:0 0 auto;font-size:12px}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent-deep)}
+
+/* ============================================================
+   PROFILE
+   ============================================================ */
+.profgrid{display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start}
+.subnav{position:sticky;top:18px;display:flex;flex-direction:column;gap:3px}
+.subnav a{padding:9px 12px;border-radius:var(--radius);font-size:13.5px;color:var(--ink-soft);text-decoration:none;font-weight:500;cursor:pointer}
+.subnav a.on{background:var(--accent-soft);color:var(--accent-deep);font-weight:600}
+.complete{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px;margin-bottom:18px;box-shadow:var(--shadow)}
+.bar{height:8px;border-radius:999px;background:var(--paper-2);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;width:72%;background:var(--accent)}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.formgrid .full{grid-column:1/-1}
+.sectiontitle{font-family:var(--font-display);font-size:18px;margin:6px 0 14px;font-weight:600;display:flex;align-items:center;gap:10px}
+.sectiontitle::after{content:"";flex:1;height:1px;background:var(--line)}
+.savebar{position:sticky;bottom:0;margin-top:22px;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:14px 0;display:flex;justify-content:flex-end;gap:12px;align-items:center;flex-wrap:wrap}
+.savebar .note{margin-right:auto;color:var(--muted);font-size:12.5px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent-deep);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:600}
+.chip b{cursor:pointer;opacity:.6}
+.chipinput{border:0;outline:none;background:transparent;font-size:13px;min-width:120px;flex:1;color:var(--ink)}
+.selectish{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;font-size:13.5px;font-weight:600;background:var(--paper)}
+
+/* ============================================================
+   RESUMES
+   ============================================================ */
+.drop{border:2px dashed var(--line);border-radius:var(--radius-lg);padding:32px;text-align:center;background:var(--paper);margin-bottom:22px}
+.drop .ic{font-size:30px} .drop h3{font-size:18px;margin:10px 0 4px} .drop p{color:var(--muted);font-size:13.5px;margin-bottom:14px}
+.reslist{display:flex;flex-direction:column;gap:12px}
+.res{display:flex;align-items:center;gap:16px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow);flex-wrap:wrap}
+.res .ficon{width:42px;height:52px;border-radius:6px;background:var(--accent-soft);position:relative;flex:0 0 auto;border:1px solid var(--accent)}
+.res .ficon::after{content:"PDF";position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:800;color:var(--accent-deep)}
+.res .info{flex:1;min-width:180px}
+.res .info .nm{font-weight:700;font-size:15px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.res .info .meta{font-size:12.5px;color:var(--muted);margin-top:3px}
+.badge{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:6px}
+.badge.review{background:var(--brown-soft);color:var(--brown-deep)}
+.badge.ready{background:var(--accent-soft);color:var(--accent-deep)}
+.badge.default{background:var(--ink);color:var(--paper)}
+.res .acts{display:flex;gap:8px;flex-wrap:wrap}
+.iconbtn{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink-soft);text-decoration:none}
+.iconbtn:hover{background:var(--paper-2)} .iconbtn.danger{color:var(--danger)}
+.arch{margin-top:26px;color:var(--muted)}
+.arch h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px}
+
+/* ============================================================
+   BOARD
+   ============================================================ */
+.boardtools{display:flex;gap:10px;margin-bottom:18px;align-items:center;flex-wrap:wrap}
+.searchin{flex:1;max-width:320px;min-width:180px;border:1px solid var(--line);background:var(--paper);border-radius:var(--radius-pill);padding:9px 16px;font-size:13.5px;outline:none;color:var(--ink)}
+.kanban{display:grid;grid-template-columns:repeat(6,minmax(180px,1fr));gap:14px;overflow-x:auto;padding-bottom:14px}
+.col{background:var(--paper-2);border-radius:var(--radius-lg);padding:12px;min-height:320px}
+.col .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 4px}
+.col .ch .nm{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);display:flex;align-items:center;gap:7px}
+.col .ch .ct{font-size:12px;color:var(--muted);background:var(--paper);border-radius:999px;padding:1px 8px}
+.cdot{width:8px;height:8px;border-radius:50%}
+.appcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow);margin-bottom:10px;cursor:grab}
+.appcard .co{font-weight:700;font-size:13.5px} .appcard .ro{font-size:12.5px;color:var(--ink-soft);margin-top:1px}
+.appcard .mt{display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap}
+.atsbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--paper-2);color:var(--muted);border:1px solid var(--line)}
+.appcard .rz{font-size:11px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:5px}
+.nudge{background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:8px;margin-top:9px;font-size:11.5px;color:var(--accent-deep)}
+.nudge .nb{display:flex;gap:6px;margin-top:7px}
+.nudge button{font-size:11px;font-weight:700;border-radius:6px;padding:5px 9px;border:0;cursor:pointer}
+.nudge .y{background:var(--accent);color:var(--on-accent)} .nudge .n{background:transparent;border:1px solid var(--accent);color:var(--accent-deep)}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+.setgrid{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start}
+.setcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:8px 22px;margin-bottom:18px}
+.setrow{display:flex;align-items:flex-start;gap:14px;padding:18px 0;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0} .setrow .tx{flex:1}
+.setrow .tx .t{font-weight:600;font-size:14.5px} .setrow .tx .s{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.5;max-width:520px}
+.switch{width:44px;height:26px;border-radius:999px;background:var(--line);position:relative;flex:0 0 auto;cursor:pointer;transition:background .15s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch.on{background:var(--accent)} .switch.on::after{left:21px}
+.danger-card{border-color:var(--danger)} .danger-card .t{color:var(--danger)}
+
+/* ============================================================
+   EXTENSION
+   ============================================================ */
+.extstage{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;padding:14px 0}
+.extlabel{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px}
+.popup{width:340px;max-width:100%;background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden}
+.popup .ph{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.popup .pb{padding:16px}
+.popup .lbl{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 7px}
+.popup .metarow{font-size:12px;color:var(--muted);margin:9px 2px}
+.popup .chkrow{display:flex;align-items:center;gap:9px;font-size:13px;margin:11px 2px;color:var(--ink-soft)}
+.popup .box{width:16px;height:16px;border-radius:5px;border:2px solid var(--line);flex:0 0 auto}
+.popup .box.on{background:var(--accent);border-color:var(--accent);position:relative}
+.popup .box.on::after{content:"✓";color:var(--on-accent);font-size:10px;position:absolute;inset:0;display:grid;place-items:center}
+.popup .btn{width:100%;margin-top:8px} .popup .foot{font-size:11px;color:var(--muted);text-align:center;margin-top:12px}
+.overlay{width:380px;max-width:100%;background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden}
+.overlay .oh{padding:15px 18px;border-bottom:1px solid var(--line)}
+.overlay .oh .brand{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.overlay .oh .sub{font-size:12px;color:var(--muted);margin-top:4px}
+.overlay .ob{padding:12px 14px;max-height:330px;overflow:auto}
+.gt{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 4px 6px;font-weight:700}
+.gt.warn{color:var(--warn)}
+.orow{display:grid;grid-template-columns:18px 104px 1fr;align-items:center;gap:9px;padding:9px;border-radius:8px}
+.orow:hover{background:var(--paper-2)}
+.orow .box{width:16px;height:16px;border-radius:4px;background:var(--accent);position:relative}
+.orow .box::after{content:"✓";color:var(--on-accent);font-size:10px;position:absolute;inset:0;display:grid;place-items:center}
+.orow .f{font-size:12px;font-weight:600;color:var(--ink-soft)} .orow .v{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aibadge{font-size:8.5px;font-weight:800;letter-spacing:.06em;background:var(--accent);color:var(--on-accent);border-radius:4px;padding:1px 5px;margin-left:5px}
+.orow.manual{grid-template-columns:1fr;background:var(--brown-soft);gap:3px} .orow.manual .mn{font-size:10.5px;color:var(--warn)}
+.overlay .of{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+.overlay .note{font-size:10.5px;color:var(--muted);padding:0 16px 14px}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media(max-width:980px){
+  .hero .wrap{grid-template-columns:1fr;padding-top:48px;padding-bottom:56px}
+  .hero h1{font-size:40px}
+  .feat,.pricing,.steps{grid-template-columns:1fr}
+  .grid2,.profgrid,.setgrid{grid-template-columns:1fr}
+  .kpis{grid-template-columns:1fr 1fr}
+  .auth{grid-template-columns:1fr} .auth .panel{display:none}
+  .app{grid-template-columns:1fr}
+  .mtop{display:flex}
+  .side{position:fixed;left:0;top:0;bottom:0;width:264px;z-index:120;transform:translateX(-100%);transition:transform .22s ease}
+  body.navopen .side{transform:none}
+  body.navopen .scrim{display:block}
+  .subnav{position:static;flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:6px}
+  .subnav a{white-space:nowrap}
+  .main{padding:20px 18px 50px}
+}
+@media(max-width:560px){
+  .mhead .mnavlinks{display:none}
+  .kpis{grid-template-columns:1fr 1fr}
+  .section h2{font-size:27px}
+  .hero h1{font-size:33px}
+  .wrap{padding:0 18px}
+  .res .acts{width:100%}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== PROTOTYPE TOOLBAR ===================== -->
+<div id="bar">
+  <span class="ptitle"><b>kiwiply</b> · Editorial redesign — clickable mockups</span>
+  <span id="nav">
+    <button data-go="landing" class="on">Landing</button>
+    <button data-go="auth">Sign in/up</button>
+    <button data-go="dashboard">Dashboard</button>
+    <button data-go="profile">Profile</button>
+    <button data-go="resumes">Resumes</button>
+    <button data-go="board">Board</button>
+    <button data-go="settings">Settings</button>
+    <button data-go="extension">Extension</button>
+  </span>
+  <div class="barnote">Final brand palette (kiwi green + skin-brown + charcoal, warm cream surfaces, serif display). Resize the window to see mobile layouts. Prototype only.</div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- ===================== LANDING ===================== -->
+<section class="screen" data-s="landing">
+  <header class="mhead">
+    <div class="wrap row">
+      <img class="logoimg" src="logo.svg" alt="kiwiply">
+      <nav>
+        <span class="mnavlinks"><a>How it works</a><a>Features</a><a>Pricing</a><a>Privacy</a></span>
+        <a class="btn btn-ghost" data-go="auth" style="padding:9px 16px">Sign in</a>
+        <a class="btn btn-accent" data-go="auth" style="padding:9px 18px">Get started — free</a>
+      </nav>
+    </div>
+  </header>
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <span class="tag">Job applications, on autopilot</span>
+        <h1 style="margin-top:18px">Apply once.<br>Reuse everywhere.</h1>
+        <p class="lede">Build one profile, manage your resumes, and let the Kiwiply browser extension
+          fill applications for you — right on the page. Every job you touch lands on a tracker that fills itself.</p>
+        <div class="ctas">
+          <a class="btn btn-accent" data-go="auth">Add to Chrome — it's free</a>
+          <a class="btn btn-ghost" data-go="dashboard">See the dashboard →</a>
+        </div>
+        <div class="trust">
+          <span><b>No auto-submit.</b> You review every field.</span>
+          <span><b>Your data, yours.</b> Delete anytime.</span>
+          <span>Workday · Greenhouse · Lever · Ashby <b>+ more</b></span>
+        </div>
+      </div>
+      <div class="peek">
+        <div class="pk-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span style="margin-left:8px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Review autofill · Workday</span></div>
+        <div class="pk-row"><span class="chk">✓</span><span class="f">First name</span><span class="v">Hasmika</span></div>
+        <div class="pk-row"><span class="chk">✓</span><span class="f">Email</span><span class="v">hasmika123@gmail.com</span></div>
+        <div class="pk-row"><span class="chk">✓</span><span class="f">Why this role?</span><span class="v">I'm drawn to… <span class="aibadge">AI</span></span></div>
+        <div class="pk-row"><span class="chk">✓</span><span class="f">Résumé</span><span class="v">hasmika_pm_2026.pdf</span></div>
+        <div class="pk-cta"><span class="mini g">Cancel</span><span class="mini p">Fill selected</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="wrap section">
+    <h2>From blank form to submitted in three steps</h2>
+    <p class="sub">Set up your profile once. After that, applying is a click — and everything you apply to tracks itself.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Build your profile</h3><p>Upload a resume and Kiwiply parses it into a reusable profile — contact details, work history, skills, and answers.</p></div>
+      <div class="step"><div class="n">2</div><h3>Fill any application</h3><p>On a live job form, the extension scans the page and shows you exactly what it'll fill. Review, uncheck anything, then fill.</p></div>
+      <div class="step"><div class="n">3</div><h3>Watch the board fill itself</h3><p>Every fill becomes a tracked application — draft on fill, confirmed on submit. No spreadsheet, no copy-paste.</p></div>
+    </div>
+  </div>
+  <div class="wrap section" style="padding-top:0">
+    <h2>Everything you need to apply faster</h2>
+    <p class="sub">A web app for managing your search, plus an on-page agent that does the typing.</p>
+    <div class="feat">
+      <div class="featcard"><div class="ic">🗂️</div><h3>One profile, every form</h3><p>Map your details once to a canonical field model that adapts to Workday, Greenhouse, Lever, Ashby, Workable and more.</p></div>
+      <div class="featcard"><div class="ic">📄</div><h3>Resume variants, parsed</h3><p>Keep multiple tailored resumes. Kiwiply remembers which one you sent to each job.</p></div>
+      <div class="featcard"><div class="ic">🤖</div><h3>AI answer drafting</h3><p>Open-ended questions get a draft you can edit — free with Kiwiply AI, or bring your own key for unlimited.</p></div>
+      <div class="featcard"><div class="ic">📊</div><h3>Self-populating tracker</h3><p>A board that logs applications automatically and nudges you to confirm what you actually submitted.</p></div>
+    </div>
+  </div>
+  <div class="wrap section" style="padding-top:0">
+    <h2>Start free. Upgrade when you're applying at scale.</h2>
+    <p class="sub">Bring your own AI key on any plan for unlimited drafting at no cost.</p>
+    <div class="pricing">
+      <div class="price"><h3>Free</h3><div class="amt">$0<span>/forever</span></div>
+        <ul><li>Unlimited autofill</li><li>1 resume variant</li><li>Self-populating tracker</li><li>Bring-your-own AI key</li></ul>
+        <a class="btn btn-ghost" data-go="auth">Get started</a></div>
+      <div class="price hi"><h3>Pro</h3><div class="amt">$9<span>/mo</span></div>
+        <ul><li>Everything in Free</li><li>Unlimited resume variants</li><li>500 Kiwiply AI drafts/mo</li><li>Field-answer memory, synced</li><li>Priority ATS support</li></ul>
+        <a class="btn btn-accent" data-go="auth">Start Pro</a></div>
+      <div class="price"><h3>Teams</h3><div class="amt">Custom</div>
+        <ul><li>Everything in Pro</li><li>SSO &amp; admin console</li><li>Shared templates</li><li>Audit &amp; data controls</li></ul>
+        <a class="btn btn-ghost">Contact us</a></div>
+    </div>
+  </div>
+  <div class="mfoot"><div class="wrap row">
+    <img class="logoimg" src="logo.svg" alt="kiwiply" style="height:26px">
+    <div><a>Privacy</a><a>Terms</a><a>Chrome Web Store</a><a>Contact</a>
+      <div style="font-size:12px;margin-top:10px">© 2026 Kiwiply · No auto-submit, ever.</div></div>
+  </div></div>
+</section>
+
+<!-- ===================== AUTH ===================== -->
+<section class="screen" data-s="auth">
+  <div class="auth">
+    <div class="panel">
+      <div class="brandlock"><span class="kmark"></span><span class="wm"><span class="k">kiwi</span><span class="p">ply</span></span></div>
+      <h2>Your whole job search, in one tidy file.</h2>
+      <p>Create your profile once and let the extension do the typing. Free to start — no card required.</p>
+      <div class="quote">"I went from 20 minutes per application to about 90 seconds. The tracker filling itself is the part I didn't know I needed."<br><br>— early user</div>
+    </div>
+    <div class="form">
+      <div class="authbox">
+        <h1>Create your account</h1>
+        <p class="sub">Start applying faster in under a minute.</p>
+        <div class="toggle2"><button>Sign in</button><button class="on">Create account</button></div>
+        <div class="field"><label>Full name</label><input class="input" value="Hasmika"></div>
+        <div class="field"><label>Email</label><input class="input" value="hasmika123@gmail.com"></div>
+        <div class="field"><label>Password</label><input class="input" type="password" value="••••••••"></div>
+        <a class="btn btn-accent" data-go="dashboard">Create account</a>
+        <div class="divider">or</div>
+        <a class="btn btn-ghost" style="width:100%" data-go="dashboard">Continue with Google</a>
+        <p class="sub" style="text-align:center;margin-top:18px">By continuing you agree to our Terms &amp; Privacy Policy.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DASHBOARD ===================== -->
+<section class="screen" data-s="dashboard">
+  <div class="app">
+    <div class="mtop"><button class="burger" data-burger>☰</button><img class="logoimg" src="logo.svg" alt="kiwiply" style="height:26px"></div>
+    <aside class="side">
+      <img class="logoimg" src="logo.svg" alt="kiwiply">
+      <a class="navlink on"><span class="ic">▦</span>Dashboard</a>
+      <a class="navlink" data-go="profile"><span class="ic">👤</span>Profile</a>
+      <a class="navlink" data-go="resumes"><span class="ic">📄</span>Resumes</a>
+      <a class="navlink" data-go="board"><span class="ic">📊</span>Application board</a>
+      <a class="navlink" data-go="settings"><span class="ic">⚙</span>Settings</a>
+      <div class="spacer"></div>
+      <div class="userchip"><span class="avatar">H</span><div style="font-size:12.5px"><b>Hasmika</b><br><span class="muted">Free plan</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="topbar"><div><div class="crumb">Home</div><h1>Welcome back, Hasmika</h1></div>
+        <a class="btn btn-accent" data-go="board">+ Log an application</a></div>
+      <div class="kpis">
+        <div class="kpi"><div class="l">Applications</div><div class="n">34</div><div class="d">▲ 6 this week</div></div>
+        <div class="kpi"><div class="l">Interviews</div><div class="n">5</div><div class="d">2 upcoming</div></div>
+        <div class="kpi"><div class="l">Response rate</div><div class="n">21%</div><div class="d">▲ 4% vs last mo</div></div>
+        <div class="kpi"><div class="l">Drafts to confirm</div><div class="n">3</div><div class="d" style="color:var(--warn)">Needs review</div></div>
+      </div>
+      <div class="grid2">
+        <div class="panelcard">
+          <div class="ph"><div><h2>Finish setting up</h2><span class="muted" style="font-size:13px">A complete profile fills more fields automatically.</span></div><span class="pill">72% complete</span></div>
+          <ul class="checklist">
+            <li class="done"><span class="dot">✓</span><div><div class="lbl">Upload a resume</div></div></li>
+            <li class="done"><span class="dot">✓</span><div><div class="lbl">Add contact details</div></div></li>
+            <li><span class="dot"></span><div><div class="lbl">Answer work-authorization questions</div><div class="hint">Speeds up Workday &amp; Greenhouse forms</div></div><span class="go" data-go="profile">Add →</span></li>
+            <li><span class="dot"></span><div><div class="lbl">Install the browser extension</div><div class="hint">The on-page agent that does the filling</div></div><span class="go">Install →</span></li>
+          </ul>
+        </div>
+        <div class="panelcard">
+          <h2 style="margin-bottom:16px">Quick actions</h2>
+          <div class="actrow">
+            <div class="act"><span class="ic">📄</span><div><div class="t">Upload a resume</div><div class="s">Parse a new variant</div></div></div>
+            <div class="act"><span class="ic">🔖</span><div><div class="t">Save a job</div><div class="s">Bookmark a posting to apply later</div></div></div>
+            <div class="act"><span class="ic">✏️</span><div><div class="t">Edit your profile</div><div class="s">Update details &amp; answers</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="panelcard" style="margin-top:18px">
+        <div class="ph"><h2>Recent activity</h2><a class="go" data-go="board">View board →</a></div>
+        <ul class="timeline">
+          <li><span class="when">Today</span><span style="flex:1"><b>Stripe</b> · Product Manager</span><span class="pill">Applied</span></li>
+          <li><span class="when">Today</span><span style="flex:1"><b>Notion</b> · Senior PM</span><span class="pill" style="background:var(--brown-soft);color:var(--brown-deep)">Draft — confirm?</span></li>
+          <li><span class="when">Yesterday</span><span style="flex:1"><b>Figma</b> · Group PM</span><span class="pill" style="background:#dbeafe;color:#1d4ed8">Interview</span></li>
+          <li><span class="when">2d ago</span><span style="flex:1"><b>Linear</b> · PM, Growth</span><span class="pill">Applied</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PROFILE ===================== -->
+<section class="screen" data-s="profile">
+  <div class="app">
+    <div class="mtop"><button class="burger" data-burger>☰</button><img class="logoimg" src="logo.svg" alt="kiwiply" style="height:26px"></div>
+    <aside class="side">
+      <img class="logoimg" src="logo.svg" alt="kiwiply">
+      <a class="navlink" data-go="dashboard"><span class="ic">▦</span>Dashboard</a>
+      <a class="navlink on"><span class="ic">👤</span>Profile</a>
+      <a class="navlink" data-go="resumes"><span class="ic">📄</span>Resumes</a>
+      <a class="navlink" data-go="board"><span class="ic">📊</span>Application board</a>
+      <a class="navlink" data-go="settings"><span class="ic">⚙</span>Settings</a>
+      <div class="spacer"></div>
+      <div class="userchip"><span class="avatar">H</span><div style="font-size:12.5px"><b>Hasmika</b><br><span class="muted">Free plan</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="topbar"><div><div class="crumb">Profile</div><h1>Your profile</h1></div></div>
+      <div class="profgrid">
+        <div>
+          <div class="complete"><div style="font-size:12.5px;font-weight:600">Profile strength</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">72% — add work authorization</div>
+            <div class="bar"><i></i></div></div>
+          <nav class="subnav"><a class="on">Identity &amp; contact</a><a>Location</a><a>Links</a><a>Work authorization</a><a>EEO / demographics</a></nav>
+        </div>
+        <div>
+          <div class="sectiontitle">Identity &amp; contact</div>
+          <div class="formgrid">
+            <div class="field"><label>First name</label><input class="input" value="Hasmika"></div>
+            <div class="field"><label>Last name</label><input class="input" value="R."></div>
+            <div class="field"><label>Preferred name</label><input class="input" value=""></div>
+            <div class="field"><label>Phone</label><input class="input" value="(555) 012-3456"></div>
+            <div class="field full"><label>Email</label><input class="input" value="hasmika123@gmail.com"></div>
+          </div>
+          <div class="sectiontitle" style="margin-top:26px">Skills <span style="font:inherit;font-size:12px;color:var(--muted);font-family:var(--font-body)">— from your resume, editable</span></div>
+          <div class="chips">
+            <span class="chip">Product strategy <b>×</b></span><span class="chip">Roadmapping <b>×</b></span>
+            <span class="chip">SQL <b>×</b></span><span class="chip">A/B testing <b>×</b></span>
+            <span class="chip">Figma <b>×</b></span><input class="chipinput" placeholder="Add a skill…">
+          </div>
+          <div class="sectiontitle" style="margin-top:26px">Work authorization</div>
+          <div class="formgrid">
+            <div class="field"><label>Authorized to work in the US?</label><div class="selectish">Yes ▾</div></div>
+            <div class="field"><label>Require sponsorship?</label><div class="selectish">No ▾</div></div>
+          </div>
+          <div class="savebar"><span class="note">Last saved 2 min ago · changes autosave</span>
+            <a class="btn btn-ghost">Discard</a><a class="btn btn-primary">Save profile</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== RESUMES ===================== -->
+<section class="screen" data-s="resumes">
+  <div class="app">
+    <div class="mtop"><button class="burger" data-burger>☰</button><img class="logoimg" src="logo.svg" alt="kiwiply" style="height:26px"></div>
+    <aside class="side">
+      <img class="logoimg" src="logo.svg" alt="kiwiply">
+      <a class="navlink" data-go="dashboard"><span class="ic">▦</span>Dashboard</a>
+      <a class="navlink" data-go="profile"><span class="ic">👤</span>Profile</a>
+      <a class="navlink on"><span class="ic">📄</span>Resumes</a>
+      <a class="navlink" data-go="board"><span class="ic">📊</span>Application board</a>
+      <a class="navlink" data-go="settings"><span class="ic">⚙</span>Settings</a>
+      <div class="spacer"></div>
+      <div class="userchip"><span class="avatar">H</span><div style="font-size:12.5px"><b>Hasmika</b><br><span class="muted">Free plan</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="topbar"><div><div class="crumb">Resumes</div><h1>Resume variants</h1></div></div>
+      <div class="drop"><div class="ic">📄⬆</div><h3>Drop a resume, or click to browse</h3>
+        <p>PDF, DOCX or TXT · up to 10MB · parsed in your browser, reviewed before saving</p>
+        <a class="btn btn-primary">Choose file</a></div>
+      <div class="reslist">
+        <div class="res"><div class="ficon"></div><div class="info"><div class="nm">PM — Growth focus <span class="badge default">Default</span></div>
+          <div class="meta">28 skills · 4 roles · 2 education · file attached · used in 12 applications</div></div>
+          <div class="acts"><a class="iconbtn">Review / edit</a><a class="iconbtn">Set default</a><a class="iconbtn danger">Archive</a></div></div>
+        <div class="res"><div class="ficon"></div><div class="info"><div class="nm">PM — Platform <span class="badge review">Needs review</span></div>
+          <div class="meta">24 skills · 4 roles · 2 education · file attached · used in 3 applications</div></div>
+          <div class="acts"><a class="iconbtn">Review / edit</a><a class="iconbtn">Set default</a><a class="iconbtn danger">Archive</a></div></div>
+        <div class="res"><div class="ficon"></div><div class="info"><div class="nm">Associate PM <span class="badge ready">Ready</span></div>
+          <div class="meta">19 skills · 3 roles · 2 education · file attached · used in 0 applications</div></div>
+          <div class="acts"><a class="iconbtn">Review / edit</a><a class="iconbtn">Set default</a><a class="iconbtn danger">Archive</a></div></div>
+      </div>
+      <div class="arch"><h3>Archived</h3>
+        <div class="res" style="opacity:.72"><div class="ficon"></div><div class="info"><div class="nm">Old resume 2024</div>
+          <div class="meta">Hidden from the picker · still linked to 5 applications</div></div>
+          <div class="acts"><a class="iconbtn">Restore</a></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== BOARD ===================== -->
+<section class="screen" data-s="board">
+  <div class="app">
+    <div class="mtop"><button class="burger" data-burger>☰</button><img class="logoimg" src="logo.svg" alt="kiwiply" style="height:26px"></div>
+    <aside class="side">
+      <img class="logoimg" src="logo.svg" alt="kiwiply">
+      <a class="navlink" data-go="dashboard"><span class="ic">▦</span>Dashboard</a>
+      <a class="navlink" data-go="profile"><span class="ic">👤</span>Profile</a>
+      <a class="navlink" data-go="resumes"><span class="ic">📄</span>Resumes</a>
+      <a class="navlink on"><span class="ic">📊</span>Application board</a>
+      <a class="navlink" data-go="settings"><span class="ic">⚙</span>Settings</a>
+      <div class="spacer"></div>
+      <div class="userchip"><span class="avatar">H</span><div style="font-size:12.5px"><b>Hasmika</b><br><span class="muted">Free plan</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="topbar"><div><div class="crumb">Tracker</div><h1>Application board</h1></div>
+        <a class="btn btn-accent">+ Add application</a></div>
+      <div class="boardtools"><input class="searchin" placeholder="🔍  Search company or role…">
+        <a class="btn btn-ghost" style="padding:9px 16px">All resumes ▾</a>
+        <a class="btn btn-ghost" style="padding:9px 16px">Sort: Recent ▾</a></div>
+      <div class="kanban">
+        <div class="col"><div class="ch"><span class="nm"><span class="cdot" style="background:#9aa3af"></span>Draft</span><span class="ct">2</span></div>
+          <div class="appcard"><div class="co">Notion</div><div class="ro">Senior PM</div>
+            <div class="mt"><span class="atsbadge">Greenhouse</span><span class="muted" style="font-size:11px">Remote</span></div>
+            <div class="rz">📄 PM — Growth focus</div>
+            <div class="nudge">Did you submit this one?<div class="nb"><button class="y">Yes, applied</button><button class="n">Not yet</button></div></div></div>
+          <div class="appcard"><div class="co">Ramp</div><div class="ro">PM, Payments</div><div class="mt"><span class="atsbadge">Ashby</span></div><div class="rz">📄 PM — Platform</div></div></div>
+        <div class="col"><div class="ch"><span class="nm"><span class="cdot" style="background:var(--brown)"></span>Saved</span><span class="ct">1</span></div>
+          <div class="appcard"><div class="co">Vercel</div><div class="ro">Product Lead</div><div class="mt"><span class="atsbadge">Lever</span></div></div></div>
+        <div class="col"><div class="ch"><span class="nm"><span class="cdot" style="background:var(--accent)"></span>Applied</span><span class="ct">3</span></div>
+          <div class="appcard"><div class="co">Stripe</div><div class="ro">Product Manager</div><div class="mt"><span class="atsbadge">Workday</span></div><div class="rz">📄 PM — Growth focus</div></div>
+          <div class="appcard"><div class="co">Linear</div><div class="ro">PM, Growth</div><div class="mt"><span class="atsbadge">Ashby</span></div><div class="rz">📄 PM — Growth focus</div></div>
+          <div class="appcard"><div class="co">Datadog</div><div class="ro">Senior PM</div><div class="mt"><span class="atsbadge">Greenhouse</span></div></div></div>
+        <div class="col"><div class="ch"><span class="nm"><span class="cdot" style="background:#1d4ed8"></span>Interview</span><span class="ct">1</span></div>
+          <div class="appcard"><div class="co">Figma</div><div class="ro">Group PM</div><div class="mt"><span class="atsbadge">Greenhouse</span></div><div class="rz">📄 PM — Platform</div></div></div>
+        <div class="col"><div class="ch"><span class="nm"><span class="cdot" style="background:#7c3aed"></span>Offer</span><span class="ct">0</span></div></div>
+        <div class="col"><div class="ch"><span class="nm"><span class="cdot" style="background:#9aa3af"></span>Rejected</span><span class="ct">1</span></div>
+          <div class="appcard" style="opacity:.7"><div class="co">Airbnb</div><div class="ro">PM, Trust</div><div class="mt"><span class="atsbadge">Workday</span></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SETTINGS ===================== -->
+<section class="screen" data-s="settings">
+  <div class="app">
+    <div class="mtop"><button class="burger" data-burger>☰</button><img class="logoimg" src="logo.svg" alt="kiwiply" style="height:26px"></div>
+    <aside class="side">
+      <img class="logoimg" src="logo.svg" alt="kiwiply">
+      <a class="navlink" data-go="dashboard"><span class="ic">▦</span>Dashboard</a>
+      <a class="navlink" data-go="profile"><span class="ic">👤</span>Profile</a>
+      <a class="navlink" data-go="resumes"><span class="ic">📄</span>Resumes</a>
+      <a class="navlink" data-go="board"><span class="ic">📊</span>Application board</a>
+      <a class="navlink on"><span class="ic">⚙</span>Settings</a>
+      <div class="spacer"></div>
+      <div class="userchip"><span class="avatar">H</span><div style="font-size:12.5px"><b>Hasmika</b><br><span class="muted">Free plan</span></div></div>
+    </aside>
+    <div class="main">
+      <div class="topbar"><div><div class="crumb">Settings</div><h1>Settings</h1></div></div>
+      <div class="setgrid">
+        <nav class="subnav"><a class="on">Account</a><a>AI &amp; drafting</a><a>Autofill behavior</a><a>Privacy &amp; data</a><a>Billing</a></nav>
+        <div>
+          <div class="setcard">
+            <div class="setrow"><div class="tx"><div class="t">Email</div><div class="s">hasmika123@gmail.com — used for sign-in and notifications.</div></div><a class="iconbtn">Change</a></div>
+            <div class="setrow"><div class="tx"><div class="t">Password</div><div class="s">Last changed 3 months ago.</div></div><a class="iconbtn">Update</a></div>
+          </div>
+          <div class="sectiontitle">AI &amp; drafting</div>
+          <div class="setcard">
+            <div class="setrow"><div class="tx"><div class="t">Use Kiwiply AI to draft answers</div><div class="s">Free monthly quota on our key — no setup. Open-ended questions get an editable draft.</div></div><div class="switch on"></div></div>
+            <div class="setrow"><div class="tx"><div class="t">Bring your own Anthropic key</div><div class="s">Unlimited drafting at no cost to you. Stored locally, never on our servers.</div></div><div class="switch"></div></div>
+          </div>
+          <div class="sectiontitle">Autofill behavior</div>
+          <div class="setcard">
+            <div class="setrow"><div class="tx"><div class="t">Auto-advance after filling</div><div class="s">Click the step's Next / Continue automatically. Never clicks Submit.</div></div><div class="switch on"></div></div>
+            <div class="setrow"><div class="tx"><div class="t">Include EEO answers by default</div><div class="s">Off by default. Demographic questions stay opt-in per fill.</div></div><div class="switch"></div></div>
+          </div>
+          <div class="sectiontitle" style="color:var(--danger)">Danger zone</div>
+          <div class="setcard danger-card">
+            <div class="setrow"><div class="tx"><div class="t">Delete account &amp; all data</div><div class="s">Permanently removes your profile, resumes, and applications. Cannot be undone.</div></div><a class="iconbtn danger">Delete…</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== EXTENSION ===================== -->
+<section class="screen" data-s="extension">
+  <div class="wrap" style="padding-top:28px;padding-bottom:60px">
+    <div class="crumb">Browser extension</div>
+    <h1 style="font-size:26px;margin-bottom:6px">On-page agent</h1>
+    <p class="muted" style="margin-bottom:8px">The popup and in-page review overlay, rebranded to Kiwiply. Shadow-DOM isolated — the overlay keeps its own copy of the tokens.</p>
+    <div class="extstage">
+      <div>
+        <div class="extlabel">Popup — ready to fill</div>
+        <div class="popup">
+          <div class="ph"><div class="brandlock" style="font-size:16px"><span class="kmark" style="width:22px;height:22px"></span><span class="wm"><span class="k">kiwi</span><span class="p" style="color:var(--ink)">ply</span></span></div><span class="muted" style="font-size:12px;font-weight:600">Manage ↗</span></div>
+          <div class="pb">
+            <div class="lbl">Resume variant</div>
+            <div class="selectish">PM — Growth focus ▾</div>
+            <div class="metarow">28 skills · 4 roles · file ✓</div>
+            <div class="chkrow"><span class="box on"></span> Include EEO / demographic answers</div>
+            <div class="chkrow"><span class="box on"></span> Auto-advance to next step</div>
+            <a class="btn btn-accent">Scan &amp; fill this page</a>
+            <a class="btn btn-ghost" style="width:100%;margin-top:8px">🔖 Save this job</a>
+            <div class="foot">Reviews before filling · never clicks Submit</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="extlabel">In-page review overlay</div>
+        <div class="overlay">
+          <div class="oh"><div class="brand">Kiwiply</div><div class="sub">Workday detected · 14 fields ready</div></div>
+          <div class="ob">
+            <div class="gt">Review &amp; uncheck anything you don't want</div>
+            <div class="orow"><span class="box"></span><span class="f">First name</span><span class="v">Hasmika</span></div>
+            <div class="orow"><span class="box"></span><span class="f">Email</span><span class="v">hasmika123@gmail.com</span></div>
+            <div class="orow"><span class="box"></span><span class="f">Phone</span><span class="v">(555) 012-3456</span></div>
+            <div class="orow"><span class="box"></span><span class="f">Why this role?<span class="aibadge">AI</span></span><span class="v">I'm drawn to your work on…</span></div>
+            <div class="orow"><span class="box"></span><span class="f">Résumé file</span><span class="v">hasmika_pm_2026.pdf</span></div>
+            <div class="gt warn">Enter these yourself (custom dropdowns)</div>
+            <div class="orow manual"><span class="f">State</span><span class="mn">Couldn't auto-select — type "Georgia"</span></div>
+          </div>
+          <div class="of"><a class="btn btn-ghost" style="padding:9px 14px">Cancel</a><a class="btn btn-accent" style="padding:9px 16px">Fill selected</a></div>
+          <div class="note">Auto-advance is <b>on</b>: clicks Next / Continue after filling. Never clicks Submit.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const root=document.documentElement;
+  function go(s){ root.dataset.screen=s; document.body.classList.remove('navopen'); window.scrollTo(0,0);
+    document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x.dataset.go===s)); }
+  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.go));
+  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',e=>{
+    const s=el.getAttribute('data-go'); if(s){e.preventDefault(); go(s);} }));
+  document.querySelectorAll('[data-burger]').forEach(b=>b.onclick=()=>document.body.classList.toggle('navopen'));
+  document.getElementById('scrim').onclick=()=>document.body.classList.remove('navopen');
+</script>
+</body>
+</html>

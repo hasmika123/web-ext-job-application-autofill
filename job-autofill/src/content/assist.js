@@ -68,7 +68,8 @@
     for (const q of qs.slice(0, 6)) {
       const r = await draftViaSW(q.question, ctx);
       if (r && r.answer) {
-        items.push({ el: q.el, field: "AI: " + truncate(q.question, 40), value: r.answer, kind: "textarea", label: "AI draft · " + truncate(q.question, 38), assisted: true });
+        // Keep question + context on the item so the overlay can regenerate the draft.
+        items.push({ el: q.el, field: "AI: " + truncate(q.question, 40), value: r.answer, kind: "textarea", label: "AI draft · " + truncate(q.question, 38), assisted: true, question: q.question, context: ctx });
       } else if (r && r.disabled) { disabled = true; }
     }
     if (disabled && !items.length) {
@@ -78,5 +79,6 @@
     return items;
   }
 
-  JAF.assist = { run, collectOpenQuestions, buildContext };
+  // `draft` is exposed so the review overlay can regenerate a single answer on demand.
+  JAF.assist = { run, draft: draftViaSW, collectOpenQuestions, buildContext };
 })();

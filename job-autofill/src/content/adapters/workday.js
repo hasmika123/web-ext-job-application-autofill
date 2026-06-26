@@ -468,7 +468,7 @@
   function addMoreNote(items, need, have, name, cfg) {
     if (need > have && (have > 0 || (cfg && sectionContainer(cfg)))) {
       items.push({ el: null, field: "More " + name, kind: "info", label: "More " + name,
-        value: `${need - have} more ${name} entr${need - have === 1 ? "y" : "ies"} in this resume — click "Add" in ${name}, then re-run Dossier.` });
+        value: `${need - have} more ${name} entr${need - have === 1 ? "y" : "ies"} in this resume — click "Add" in ${name}, then re-run Kiwiply.` });
     }
   }
 

@@ -64,7 +64,7 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   it through the provider's `syncFieldCache` (POST `/api/profile/field-caches/sync`).
   `create()` factory + pure helpers exposed for tests.
 - `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
-  TrackingProvider section below). `createDossierProvider()` + DTO mappers. Also exposes
+  TrackingProvider section below). `createKiwiplyProvider()` + DTO mappers. Also exposes
   `aiDraft({question,context,consent})` → `POST /api/ai/draft` (Phase 5 opt-in server AI).
   The service worker's `draftAnswer` tries BYO-key (direct to Anthropic) first, then the
   server proxy when the user has enabled + consented to Dossier AI (Options → Settings).
@@ -117,7 +117,7 @@ field, add a keyword set to `MATCHERS` in `src/lib/schema.js`.
 `JAF.tracking` is the **only** place allowed to `fetch()` the sync backend. The
 `TrackingProvider` base class documents the contract (auth, pull/push profile,
 resume CRUD; `pushApplication`/`listApplications`/`syncFieldCache` are declared but
-throw `NotSupportedError` until Phase 3/4 endpoints exist). `createDossierProvider
+throw `NotSupportedError` until Phase 3/4 endpoints exist). `createKiwiplyProvider
 ({baseUrl, fetch, tokenStore})` implements it against the Spring Boot API: it maps
 canonical bio/resume shapes ↔ the server DTOs (bio→`payload` JSON, resume→`parsedJson`),
 adds the `Bearer` access token, and on a 401 refreshes once and retries. Endpoint

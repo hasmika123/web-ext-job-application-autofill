@@ -51,7 +51,7 @@ function mockFetch(handler) {
     if (c.path === "/api/profile") return { status: 200, json: { payload: JSON.stringify({ firstName: "Ada" }) } };
     return { status: 404 };
   });
-  const p = T.createDossierProvider({ baseUrl: "https://api.test/", fetch: fetch1, tokenStore: store });
+  const p = T.createKiwiplyProvider({ baseUrl: "https://api.test/", fetch: fetch1, tokenStore: store });
   eq("baseUrl trailing slash trimmed", p.getBaseUrl(), "https://api.test");
   await p.login({ username: "ada", password: "pw" });
   ok("login stored access token", store.get().access === "ACC" && store.get().refresh === "REF");
@@ -63,12 +63,12 @@ function mockFetch(handler) {
 
   /* ---- pullProfile returns null on 404 (no profile yet) ---- */
   const fetch404 = mockFetch(() => ({ status: 404 }));
-  const p404 = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetch404, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const p404 = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetch404, tokenStore: T.memoryTokenStore({ access: "A" }) });
   ok("pullProfile null on 404", (await p404.pullProfile()) === null);
 
   /* ---- pushProfile sends {payload: <stringified bio>} ---- */
   const fetchPush = mockFetch((c) => ({ status: 200, json: { payload: c.body.payload } }));
-  const pPush = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchPush, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pPush = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchPush, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const back = await pPush.pushProfile({ city: "Atlanta" });
   eq("pushProfile round-trips the bio", back, { city: "Atlanta" });
   const putCall = fetchPush.calls.find((c) => c.method === "PUT");
@@ -83,7 +83,7 @@ function mockFetch(handler) {
     return { status: 404 };
   });
   const retryStore = T.memoryTokenStore({ access: "OLD", refresh: "REF" });
-  const pRetry = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetch401, tokenStore: retryStore });
+  const pRetry = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetch401, tokenStore: retryStore });
   const resumes = await pRetry.listResumes();
   ok("listResumes recovers after 401->refresh->retry", resumes.length === 1 && resumes[0].serverId === 1);
   ok("refresh endpoint was called", fetch401.calls.some((c) => c.path === "/api/refresh"));
@@ -93,7 +93,7 @@ function mockFetch(handler) {
 
   /* ---- pushResume: POST when new, PUT when it has a serverId ---- */
   const fetchRes = mockFetch((c) => ({ status: c.method === "POST" ? 201 : 200, json: { id: c.method === "POST" ? 9 : 9, label: c.body.label, parsedJson: c.body.parsedJson, status: c.body.status } }));
-  const pRes = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchRes, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pRes = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchRes, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const createdRes = await pRes.pushResume({ label: "New", skills: ["js"] });
   ok("pushResume new -> POST", fetchRes.calls[0].method === "POST" && fetchRes.calls[0].path === "/api/profile/resumes" && createdRes.serverId === 9);
   await pRes.pushResume({ serverId: 9, label: "Upd" });
@@ -101,7 +101,7 @@ function mockFetch(handler) {
 
   /* ---- deleteResume / logout ---- */
   const fetchDel = mockFetch(() => ({ status: 204 }));
-  const pDel = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchDel, tokenStore: T.memoryTokenStore({ access: "A", refresh: "RDEL" }) });
+  const pDel = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchDel, tokenStore: T.memoryTokenStore({ access: "A", refresh: "RDEL" }) });
   ok("deleteResume DELETEs /{id}", (await pDel.deleteResume(7)) === true && fetchDel.calls[0].method === "DELETE" && fetchDel.calls[0].path === "/api/profile/resumes/7");
   await pDel.logout();
   ok("logout clears tokens", (await pDel.isAuthenticated()) === false);
@@ -116,7 +116,7 @@ function mockFetch(handler) {
 
   /* ---- pushApplication upserts via POST and maps the result back ---- */
   const fetchApp = mockFetch((c) => ({ status: 200, json: { id: 11, company: c.body.company, roleTitle: c.body.roleTitle, externalJobId: c.body.externalJobId, status: c.body.status, resume: c.body.resume } }));
-  const pApp = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchApp, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pApp = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchApp, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const savedApp = await pApp.pushApplication({ company: "Acme", role: "Eng", externalJobId: "J1", status: "DRAFT", resumeId: 8 });
   ok("pushApplication POSTs /api/profile/applications", fetchApp.calls[0].method === "POST" && fetchApp.calls[0].path === "/api/profile/applications");
   ok("pushApplication sends resume id + roleTitle", fetchApp.calls[0].body.resume.id === 8 && fetchApp.calls[0].body.roleTitle === "Eng");
@@ -124,13 +124,13 @@ function mockFetch(handler) {
 
   /* ---- listApplications maps the array ---- */
   const fetchAppList = mockFetch(() => ({ status: 200, json: [{ id: 1, company: "A", roleTitle: "X", status: "APPLIED" }, { id: 2, company: "B", roleTitle: "Y", status: "DRAFT" }] }));
-  const pAppList = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchAppList, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pAppList = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchAppList, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const apps = await pAppList.listApplications();
   ok("listApplications maps each DTO", apps.length === 2 && apps[0].serverId === 1 && apps[1].status === "DRAFT");
 
   /* ---- updateApplication PUTs /{id}; deleteApplication DELETEs ---- */
   const fetchAppUpd = mockFetch((c) => ({ status: c.method === "DELETE" ? 204 : 200, json: c.method === "DELETE" ? null : { id: 5, status: c.body.status, submissionConfirmed: c.body.submissionConfirmed } }));
-  const pAppUpd = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchAppUpd, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pAppUpd = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchAppUpd, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const upd = await pAppUpd.updateApplication(5, { status: "APPLIED", submissionConfirmed: true });
   ok("updateApplication PUTs /api/profile/applications/{id}", fetchAppUpd.calls[0].method === "PUT" && fetchAppUpd.calls[0].path === "/api/profile/applications/5");
   ok("updateApplication maps result", upd.serverId === 5 && upd.submissionConfirmed === true);
@@ -138,7 +138,7 @@ function mockFetch(handler) {
 
   /* ---- archiveResume PUTs the archived flag to the resume endpoint ---- */
   const fetchArch = mockFetch((c) => ({ status: 200, json: { id: 4, label: "R", parsedJson: "{}", archived: c.body.archived } }));
-  const pArch = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchArch, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pArch = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchArch, tokenStore: T.memoryTokenStore({ access: "A" }) });
   await pArch.archiveResume(4);
   ok("archiveResume PUTs /api/profile/resumes/{id} with archived:true", fetchArch.calls[0].method === "PUT" && fetchArch.calls[0].path === "/api/profile/resumes/4" && fetchArch.calls[0].body.archived === true);
 
@@ -148,7 +148,7 @@ function mockFetch(handler) {
   const fcLocal = T.dtoToFieldCache({ fieldKey: "country", contextHash: "abc", value: "US", hitCount: 4, updatedAt: "2023-11-14T22:13:20Z" });
   ok("dtoToFieldCache converts ISO -> epoch ms", typeof fcLocal.updatedAt === "number" && fcLocal.updatedAt > 0 && fcLocal.value === "US");
   const fetchFC = mockFetch(() => ({ status: 200, json: [{ id: 1, fieldKey: "country", contextHash: "abc", value: "US", hitCount: 7, updatedAt: "2024-01-01T00:00:00Z" }] }));
-  const pFC = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchFC, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pFC = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchFC, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const mergedFC = await pFC.syncFieldCache([{ fieldKey: "country", contextHash: "abc", value: "US", hitCount: 3, updatedAt: 1700000000000 }]);
   ok("syncFieldCache POSTs /api/profile/field-caches/sync", fetchFC.calls[0].method === "POST" && fetchFC.calls[0].path === "/api/profile/field-caches/sync");
   ok("syncFieldCache sends an array of DTOs with ISO updatedAt", Array.isArray(fetchFC.calls[0].body) && typeof fetchFC.calls[0].body[0].updatedAt === "string");
@@ -156,7 +156,7 @@ function mockFetch(handler) {
 
   /* ---- aiDraft (Phase 5) — POSTs /api/ai/draft with consent, returns the server result ---- */
   const fetchAi = mockFetch(() => ({ status: 200, json: { answer: "Because I'd thrive here.", used: 1, quota: 50 } }));
-  const pAi = T.createDossierProvider({ baseUrl: "https://api.test", fetch: fetchAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pAi = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const ai = await pAi.aiDraft({ question: "Why us?", context: "ctx", consent: true });
   ok("aiDraft POSTs /api/ai/draft with consent", fetchAi.calls[0].method === "POST" && fetchAi.calls[0].path === "/api/ai/draft" && fetchAi.calls[0].body.consent === true);
   ok("aiDraft returns the server result", ai.answer === "Because I'd thrive here." && ai.quota === 50);
@@ -172,7 +172,7 @@ function mockFetch(handler) {
   ok("base TrackingProvider.syncFieldCache throws NotSupported (Phase 4)", fcThrew);
 
   /* ---- no baseUrl => clear error, never a bad fetch ---- */
-  const pNo = T.createDossierProvider({ fetch: mockFetch(() => ({ status: 200 })) });
+  const pNo = T.createKiwiplyProvider({ fetch: mockFetch(() => ({ status: 200 })) });
   let cfgThrew = false; try { await pNo.pullProfile(); } catch (e) { cfgThrew = e.name === "ApiError"; }
   ok("missing baseUrl throws ApiError", cfgThrew);
 

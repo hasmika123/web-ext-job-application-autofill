@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui";
+import { cn } from "@/lib/cn";
 
 /**
  * "Delete account" with a typed confirmation guard. Deletion is permanent and erases all
@@ -38,40 +40,36 @@ export default function DeleteAccountButton() {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-red-600/30 p-5">
+    <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-danger/40 bg-paper p-5">
       <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-red-700 dark:text-red-400">
-          Danger zone
-        </h2>
-        <p className="mt-1 text-sm text-foreground/60">
-          Permanently delete your account and all your data — resumes, profile, and
-          everything else. This can&apos;t be undone.
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-danger">Danger zone</h3>
+        <p className="mt-1 text-sm text-muted">
+          Permanently delete your account and all your data — resumes, profile, and everything else.
+          This can&apos;t be undone.
         </p>
       </div>
 
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="self-start rounded-full border border-red-600/40 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-600/5 dark:text-red-400"
+          className="self-start rounded-full border border-danger/40 px-4 py-2 text-sm font-semibold text-danger transition-colors hover:bg-danger/5"
         >
           Delete account
         </button>
       ) : (
         <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            Type <span className="font-semibold">{CONFIRM_WORD}</span> to confirm
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              autoFocus
-              className="max-w-xs rounded-lg border border-foreground/20 bg-transparent px-3 py-2 text-base outline-none focus:border-red-600/60"
-            />
+          <label className="flex max-w-xs flex-col gap-1.5 text-sm text-ink-soft">
+            Type <span className="font-semibold text-ink">{CONFIRM_WORD}</span> to confirm
+            <Input value={text} onChange={(e) => setText(e.target.value)} autoFocus aria-label="Type DELETE to confirm" />
           </label>
           <div className="flex items-center gap-3">
             <button
               onClick={onDelete}
               disabled={busy || text !== CONFIRM_WORD}
-              className="rounded-full bg-red-600 px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className={cn(
+                "rounded-full bg-danger px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90",
+                "disabled:opacity-40",
+              )}
             >
               {busy ? "Deleting…" : "Permanently delete"}
             </button>
@@ -82,18 +80,18 @@ export default function DeleteAccountButton() {
                 setError(null);
               }}
               disabled={busy}
-              className="rounded-full border border-foreground/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/5 disabled:opacity-50"
+              className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:bg-paper-2 disabled:opacity-50"
             >
               Cancel
             </button>
           </div>
           {error && (
-            <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="text-sm font-medium text-danger">
               {error}
             </p>
           )}
         </div>
       )}
-    </section>
+    </div>
   );
 }
