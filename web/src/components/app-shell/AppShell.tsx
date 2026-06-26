@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Logo, BetaBadge } from "@/components/ui";
@@ -15,6 +16,38 @@ export interface AppAccount {
 }
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
+
+const COLLAPSE_KEY = "kiwiply_sidebar_collapsed";
+
+// Sidebar collapse preference, read from localStorage via an external store so it
+// hydrates cleanly (server snapshot = expanded) without a setState-in-effect.
+function subscribeCollapse(cb: () => void) {
+  window.addEventListener("kiwiply:sidebar", cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener("kiwiply:sidebar", cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+function readCollapse() {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function useCollapsedPref(): [boolean, (v: boolean) => void] {
+  const collapsed = useSyncExternalStore(subscribeCollapse, readCollapse, () => false);
+  const set = (v: boolean) => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    window.dispatchEvent(new Event("kiwiply:sidebar"));
+  };
+  return [collapsed, set];
+}
 
 // Stroke icons (24x24, currentColor) — clean and theme-aware.
 const I = {
@@ -34,14 +67,17 @@ const I = {
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h6" />
     </svg>
   ),
+  // Kanban columns sitting on a common baseline (ragged tops) — was upside-down (ragged bottoms).
   board: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <rect x="3" y="4" width="5" height="16" rx="1.5" /><rect x="10" y="4" width="5" height="11" rx="1.5" /><rect x="17" y="4" width="4" height="14" rx="1.5" />
+      <rect x="3" y="8" width="5" height="12" rx="1.5" /><rect x="10" y="4" width="5" height="16" rx="1.5" /><rect x="17" y="6" width="4" height="14" rx="1.5" />
     </svg>
   ),
+  // Lucide "settings" gear — fits the 24x24 box (the old path clipped at the edges).
   settings: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 7.6 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3 12a1.65 1.65 0 0 0-1.18-.51 2 2 0 0 1 0-4 1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 3.18 1.65 1.65 0 0 0 10 1.82 2 2 0 0 1 14 1.82a1.65 1.65 0 0 0 1 1.36 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 21 9c.36.14.66.4.87.73" />
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   ),
 };
@@ -73,6 +109,8 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useCollapsedPref();
+  const toggleCollapsed = () => setCollapsed(!collapsed);
 
   // Esc closes the mobile drawer.
   useEffect(() => {
@@ -85,7 +123,12 @@ export default function AppShell({
   }, [open]);
 
   return (
-    <div className="flex flex-1 flex-col bg-app-bg lg:grid lg:grid-cols-[236px_1fr]">
+    <div
+      className={cn(
+        "flex flex-1 flex-col bg-app-bg lg:grid lg:h-dvh lg:overflow-hidden",
+        collapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[236px_1fr]",
+      )}
+    >
       {/* Mobile top bar */}
       <div className="flex items-center gap-3 border-b border-line bg-paper px-4 py-3 lg:hidden">
         <button
@@ -102,18 +145,34 @@ export default function AppShell({
         </Link>
       </div>
 
-      {/* Sidebar (persistent ≥lg, off-canvas drawer below) */}
+      {/* Sidebar — full-height & internally scrollable on lg (nav stays visible on long pages);
+          off-canvas drawer below lg. */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-[120] flex w-[264px] flex-col gap-1.5 border-r border-line bg-paper p-5",
           "transition-transform duration-200 ease-out",
-          "lg:static lg:z-auto lg:w-auto lg:translate-x-0",
+          "lg:static lg:z-auto lg:h-dvh lg:w-auto lg:translate-x-0 lg:overflow-y-auto",
+          collapsed && "lg:p-3",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <Link href="/dashboard" aria-label="Kiwiply" className="mb-4 flex items-center gap-2 px-2" onClick={() => setOpen(false)}>
+        {/* Brand — full lockup expanded; kiwi mark when collapsed (lg only) */}
+        <Link
+          href="/dashboard"
+          aria-label="Kiwiply"
+          onClick={() => setOpen(false)}
+          className={cn("mb-4 flex items-center gap-2 px-2", collapsed && "lg:hidden")}
+        >
           <Logo height={28} />
           <BetaBadge />
+        </Link>
+        <Link
+          href="/dashboard"
+          aria-label="Kiwiply"
+          onClick={() => setOpen(false)}
+          className={cn("mb-4 hidden items-center justify-center", collapsed && "lg:flex")}
+        >
+          <Image src="/logo-icon.png" alt="Kiwiply" width={32} height={32} className="rounded-[9px]" />
         </Link>
 
         <nav className="flex flex-col gap-1">
@@ -125,30 +184,69 @@ export default function AppShell({
                 href={item.href}
                 onClick={() => setOpen(false)}
                 aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                title={collapsed ? item.label : undefined}
                 className={cn(
                   "flex items-center gap-[11px] rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium",
                   active ? "bg-ink text-paper" : "text-ink-soft hover:bg-paper-2",
+                  collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                 )}
               >
-                <span className={active ? "opacity-100" : "opacity-85"}>{item.icon}</span>
-                {item.label}
+                <span className={cn("flex-none", active ? "opacity-100" : "opacity-85")}>{item.icon}</span>
+                <span className={cn("truncate", collapsed && "lg:hidden")}>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
+        {/* Collapse toggle (lg only) */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "mt-1 hidden items-center gap-[11px] rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium text-ink-soft hover:bg-paper-2 lg:flex",
+            collapsed && "lg:justify-center lg:gap-0 lg:px-0",
+          )}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={cn("h-[18px] w-[18px] flex-none transition-transform", collapsed && "rotate-180")}
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          <span className={cn("truncate", collapsed && "lg:hidden")}>Collapse</span>
+        </button>
+
         <div className="flex-1" />
 
         {/* User chip */}
-        <div className="flex items-center gap-2.5 rounded-[var(--radius)] border border-line p-2.5">
-          <span className="grid h-[30px] w-[30px] flex-none place-items-center rounded-full bg-accent text-[13px] font-bold text-on-accent">
+        <div
+          className={cn(
+            "flex items-center gap-2.5 rounded-[var(--radius)] border border-line p-2.5",
+            collapsed && "lg:justify-center lg:border-0 lg:p-1",
+          )}
+        >
+          <span
+            className="grid h-[30px] w-[30px] flex-none place-items-center rounded-full bg-accent text-[13px] font-bold text-on-accent"
+            title={collapsed ? displayName(account ?? undefined) : undefined}
+          >
             {initialFor(account ?? undefined)}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink" title={displayName(account ?? undefined)}>
+          <span
+            className={cn("min-w-0 flex-1 truncate text-[13px] font-medium text-ink", collapsed && "lg:hidden")}
+            title={displayName(account ?? undefined)}
+          >
             {displayName(account ?? undefined)}
           </span>
         </div>
-        <SignOutButton />
+        <SignOutButton collapsed={collapsed} />
       </aside>
 
       {/* Scrim (mobile, when drawer open) */}
@@ -161,8 +259,8 @@ export default function AppShell({
         />
       )}
 
-      {/* Main content */}
-      <main className="overflow-auto p-5 pb-14 lg:p-8 lg:pb-16">{children}</main>
+      {/* Main content (scrolls within the fixed-height shell on lg) */}
+      <main className="overflow-auto p-5 pb-14 lg:h-dvh lg:p-8 lg:pb-16">{children}</main>
     </div>
   );
 }
