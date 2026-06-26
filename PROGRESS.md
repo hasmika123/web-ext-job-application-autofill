@@ -36,9 +36,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R6.3** (Empty states — friendly `EmptyState` for empty board/resumes/dashboard-activity).
-> **R6.1 Toasts + R6.2 Skeletons DONE** (toast system; `loading.tsx` fallbacks). On `phase-6` (R6 =
-> web app; don't bump extension versions). R0–R5 done.
+> **Next: R6.4** (Validation — inline email/URL/required errors via the `Field` error slot on the
+> auth + profile forms). **R6.1–R6.3 DONE** (toasts; skeletons; empty states). On `phase-6` (R6 = web
+> app; don't bump extension versions). R0–R5 done.
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -542,8 +542,10 @@ focused Claude Code session.
   (mounted in root layout) on the R0.2 `Toast` primitive; wired to replace inline "Saved" text
   (ResumeUpload save → success toast; ResumeList archive/restore/delete → toasts) · ✅ R6.2 Skeletons —
   route-segment `loading.tsx` fallbacks (dashboard/board/resumes/profile/settings) matching each
-  page's layout, built on the R0.2 `Skeleton` primitive · empty states · validation · a11y. (Dark mode
-  deferred per decision.)
+  page's layout, built on the R0.2 `Skeleton` primitive · ✅ R6.3 Empty states — unified the empty
+  board + empty resume list onto the R0.2 `EmptyState` primitive (icon/title/description + action) +
+  added a "no matches" state for filtered board results · validation · a11y. (Dark mode deferred per
+  decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
   web+API+extension, one tested commit) · R7.2 responsive QA at 360/768/1024/1440px (§9).
 
@@ -551,6 +553,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R6.3 (empty states) · Unified the full-list empties onto the R0.2
+  `EmptyState` primitive: the **empty board** (🗂️ "Your board fills itself" + an "Upload a resume to
+  start" ghost CTA) and the **empty resume list** (📄 "No resumes yet") now use it instead of ad-hoc
+  dashed divs. Also added a **"no applications match your search or filter"** state when the board's
+  tools filter everything out (distinct from the truly-empty board). Dashboard recent-activity keeps
+  its lighter inline empty (it sits inside a panel card). `npm test` + `npm run build` green. Branch
+  `phase-6`. Web-only.
 - 2026-06-25 · redesign.R6.2 (skeletons) · Added route-segment `loading.tsx` fallbacks for the five
   server-fetched app pages (dashboard, board, resumes, profile, settings), each built on the R0.2
   `Skeleton` primitive and shaped to its page's real layout (KPI grid, 6 kanban columns, drop-zone +

@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
+import { EmptyState } from "@/components/ui";
+import { buttonVariants } from "@/components/ui/Button";
 
 export interface Application {
   id: number;
@@ -148,14 +151,16 @@ export default function ApplicationBoard({ applications }: { applications: Appli
 
   if (applications.length === 0) {
     return (
-      <div className="rounded-[var(--radius-lg)] border-2 border-dashed border-line bg-paper px-6 py-14 text-center">
-        <div className="text-3xl">🗂️</div>
-        <h3 className="mt-2 font-display text-lg font-semibold text-ink">Your board fills itself</h3>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
-          Fill or save a job with the Kiwiply extension and it shows up here automatically — drafts on
-          every fill, confirmed when you submit.
-        </p>
-      </div>
+      <EmptyState
+        icon="🗂️"
+        title="Your board fills itself"
+        description="Fill or save a job with the Kiwiply extension and it shows up here automatically — drafts on every fill, confirmed when you submit."
+        action={
+          <Link href="/resumes" className={buttonVariants("ghost")}>
+            Upload a resume to start
+          </Link>
+        }
+      />
     );
   }
 
@@ -193,8 +198,13 @@ export default function ApplicationBoard({ applications }: { applications: Appli
 
       {error && <p role="alert" className="mb-3 text-sm font-medium text-danger">{error}</p>}
 
-      {/* Kanban */}
-      <div className="flex gap-3.5 overflow-x-auto pb-3">
+      {visible.length === 0 ? (
+        <p className="rounded-[var(--radius-lg)] border border-dashed border-line bg-paper py-12 text-center text-sm text-muted">
+          No applications match your search or filter.
+        </p>
+      ) : (
+        /* Kanban */
+        <div className="flex gap-3.5 overflow-x-auto pb-3">
         {COLUMNS.map((col) => {
           const items = visible.filter((a) => a.status === col.key);
           return (
@@ -234,7 +244,8 @@ export default function ApplicationBoard({ applications }: { applications: Appli
             </section>
           );
         })}
-      </div>
+        </div>
+      )}
 
       <DetailPanel
         app={selected}

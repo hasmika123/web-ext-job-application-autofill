@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, useToast } from "@/components/ui";
+import { Badge, EmptyState, useToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 export interface Resume {
@@ -170,9 +170,11 @@ export default function ResumeList({
 
   if (resumes.length === 0) {
     return (
-      <div className="rounded-[var(--radius-lg)] border-2 border-dashed border-line bg-paper px-6 py-10 text-center">
-        <p className="text-sm text-muted">No resumes yet — drop one above to get started.</p>
-      </div>
+      <EmptyState
+        icon="📄"
+        title="No resumes yet"
+        description="Drop a resume above and Kiwiply parses it in your browser — ready to autofill on every application."
+      />
     );
   }
 
