@@ -1,4 +1,4 @@
-# Dossier extension — privacy & Chrome Web Store data-use disclosure
+# Kiwiply extension — privacy & Chrome Web Store data-use disclosure
 
 This document is the source for the extension's **Chrome Web Store → Privacy** tab and
 its single-purpose / data-use certifications. The full policy users see lives on the web
@@ -9,8 +9,8 @@ app at `/privacy`; keep the two consistent.
 
 ## Single purpose
 
-Dossier autofills job-application forms from one profile and your chosen resume, and keeps
-that profile/resume data in sync with your Dossier account. It never auto-submits an
+Kiwiply autofills job-application forms from one profile and your chosen resume, and keeps
+that profile/resume data in sync with your Kiwiply account. It never auto-submits an
 application and never bypasses CAPTCHAs.
 
 ## What data the extension handles
@@ -20,7 +20,7 @@ application and never bypasses CAPTCHAs.
   select. Used only to fill fields on the application page you're on.
 - **A local cache** of that data (browser storage) so the extension works offline and
   fills quickly.
-- It syncs this data with **your Dossier account** (your server). It is not sent anywhere
+- It syncs this data with **your Kiwiply account** (your server). It is not sent anywhere
   else, is not sold, and is not used for advertising or any purpose unrelated to autofill.
 
 The extension reads page content **only on the application page you are filling** (to match
@@ -28,16 +28,16 @@ and fill fields); it does not read your general browsing.
 
 ## Optional AI answer drafting
 
-Dossier can **optionally** draft answers to open-ended application questions. It is **off by
+Kiwiply can **optionally** draft answers to open-ended application questions. It is **off by
 default** and only runs after you explicitly enable it. There are two modes, and you choose:
 
-- **Dossier AI (server-side, opt-in):** the question + a short profile/resume summary are sent
-  to your Dossier account, which proxies them to a third-party AI provider (currently **Google
+- **Kiwiply AI (server-side, opt-in):** the question + a short profile/resume summary are sent
+  to your Kiwiply account, which proxies them to a third-party AI provider (currently **Google
   Gemini**) and returns a draft. Because this uses Gemini's free tier, **Google may use the input
   to improve its services, and human reviewers may see it** — so it is consent-gated and disclosed
   here and in the web policy. No personal data is sent until you turn the feature on and accept this.
 - **Bring-your-own key:** if you supply your own AI key, requests go **directly** from your browser
-  to that provider (e.g. Anthropic) under your own account — they don't pass through Dossier.
+  to that provider (e.g. Anthropic) under your own account — they don't pass through Kiwiply.
 
 Leave AI drafting off and every other feature works without sending anything to an AI provider.
 
@@ -78,10 +78,10 @@ To understand which features are used and where the experience breaks, the exten
 
 ## Deletion
 
-Profile and resume data can be deleted at any time from your Dossier account
+Profile and resume data can be deleted at any time from your Kiwiply account
 (Settings → Delete account), which erases your data on the server, including stored resume
 files. Removing the extension clears its local cache.
 
 ## Contact
 
-privacy@dossier.app  <!-- TODO(launch): replace with a monitored address -->
+support@kiwiply.com

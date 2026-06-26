@@ -1,6 +1,8 @@
 :root {
-  --ink: #1B2330; --ink-2: #283242; --paper: #FBF8F1; --paper-2: #F1EADB;
-  --line: #E7E0D2; --muted: #6A6457; --accent: #C8902F; --warn: #B5641B;
+  /* Kiwiply palette (mirrors web globals.css §3.1) */
+  --ink: #2D3133; --ink-2: #4F5557; --paper: #FBFAF6; --paper-2: #E7E6DD;
+  --line: #D4D3C8; --muted: #73746E; --accent: #94BD37; --accent-deep: #5E7D1E;
+  --on-accent: #2D3133; --warn: #986A35; --brown-soft: #ECE2D1;
 }
 * { box-sizing: border-box; }
 body { margin: 0; width: 320px; background: var(--paper); color: var(--ink);
@@ -8,7 +10,7 @@ body { margin: 0; width: 320px; background: var(--paper); color: var(--ink);
 .wrap { padding: 16px; }
 header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; }
-.link { background: none; border: 0; color: var(--accent); font-weight: 600; cursor: pointer; font-size: 12.5px; }
+.link { background: none; border: 0; color: var(--accent-deep); font-weight: 600; cursor: pointer; font-size: 12.5px; }
 .link:hover { text-decoration: underline; }
 .lbl { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
   color: var(--muted); margin: 0 0 6px; }
@@ -28,7 +30,7 @@ header { display: flex; align-items: center; justify-content: space-between; mar
 .ghost:disabled { opacity: .45; cursor: not-allowed; }
 .status { font-size: 12px; color: var(--muted); margin-top: 10px; min-height: 16px; line-height: 1.4; }
 .status.err { color: var(--warn); }
-.foot { font-size: 10.5px; color: #9A9382; margin-top: 12px; text-align: center; }
-.warn { background: #FBF3E6; color: var(--warn); border: 1px solid #EBD8B8;
+.foot { font-size: 10.5px; color: var(--muted); margin-top: 12px; text-align: center; }
+.warn { background: var(--brown-soft); color: var(--warn); border: 1px solid #D8C7A8;
   padding: 9px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
 .hidden { display: none; }

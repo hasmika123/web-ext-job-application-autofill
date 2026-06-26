@@ -36,11 +36,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R5.1** (extension re-token to kiwi palette + Kiwiply rename — **bumps extension versions**;
-> Shadow-DOM isolation preserved; `cd job-autofill && npm test` + smoke green). **Phase R4 (core app
-> screens) is COMPLETE** — Profile, Resumes, Board, Settings all reskinned. R0–R4 done. **R5 switches
-> surface: the extension** (`job-autofill/`), not the web app — mirror the §3.1 tokens inline in the
-> overlay's Shadow DOM, purge user-facing "Dossier", and bump `manifest.json` + `package.json`.
+> **Next: R5.2** (popup polish — logo lockup + clearer ready/empty/error states; `cd job-autofill &&
+> npm test` + smoke green; bump versions). **R5.1 DONE** (extension re-tokened to kiwi + user-facing
+> "Dossier"→"Kiwiply"; ext v0.21.0). R0–R4 done. **R5 surface = the extension** (`job-autofill/`).
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -528,8 +526,12 @@ focused Claude Code session.
   sub-nav (scroll-spy: Account / AI & drafting / Autofill / Privacy & data / Billing), kiwi-reskinned
   type-to-confirm danger zone, AI/autofill surfaced informationally ("in the extension" — those live
   in chrome.storage, not the backend). Existing save/delete/status flows still pass.
-- [ ] **R5 Extension (bumps versions).** R5.1 re-token + Kiwiply rename · R5.2 popup · R5.3 options ·
-  R5.4 overlay. No "Dossier" in UI; Shadow DOM isolation preserved; `npm test` + smoke green.
+- [~] **R5 Extension (bumps versions).** ✅ R5.1 re-token (kiwi palette in popup.css/options.css +
+  overlay Shadow-DOM `CSS_TEXT`; AI-badge now charcoal-on-lime; green left border) + Kiwiply rename
+  (manifest name/tooltip, popup/options `.brand` + copy, overlay brand + note, Workday re-run msg,
+  `PRIVACY.md` + contact→`support@kiwiply.com`); ext **v0.21.0**; 14 suites green. Internal ids
+  (`createDossierProvider`, `dossier`/`dossier-fieldcache` IDB, gecko id) deferred to R7.1 · R5.2
+  popup · R5.3 options · R5.4 overlay. No "Dossier" in UI; Shadow DOM isolation preserved.
 - [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
   deferred per decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
@@ -539,6 +541,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R5.1 (extension re-token + rename) — **Phase R5 begins (extension)** ·
+  Re-tokened the extension to the kiwi palette: `popup.css` + `options.css` `:root` swapped to §3.1
+  values (green text uses `--accent-deep` for legibility), and the **overlay's Shadow-DOM `CSS_TEXT`**
+  (filler.js) rewritten with kiwi tokens declared on `:host` (mirrors web globals.css — never inherits
+  page CSS), green left border, and the **AI badge fixed to charcoal-on-lime** (cream-on-lime was
+  unreadable). Renamed every user-facing "Dossier"→"Kiwiply": manifest `name` + toolbar `default_title`,
+  popup/options `.brand` + all options copy/toggles ("Kiwiply AI"), overlay brand + auto-advance note,
+  the Workday "re-run" message, and `PRIVACY.md` (incl. contact `privacy@dossier.app`→`support@kiwiply.com`,
+  PL.1). **Internal identifiers left for R7.1** (`createDossierProvider`, the `dossier`/`dossier-fieldcache`
+  IDB names, the gecko addon id) + dev docs (README/BROWSERS/ARCHITECTURE). Versions bumped
+  `manifest.json` + `package.json` → **0.21.0** (ruleset unchanged → smoke green); 14 extension suites
+  green (exit 0). Branch `phase-5`. *Live reload-in-Chrome verification is the user's step.*
 - 2026-06-25 · redesign.R4.4 (settings sub-nav) — **completes Phase R4** · Restructured `/settings`
   into a **section sub-nav** (new client `SettingsNav` with IntersectionObserver scroll-spy, mobile
   pill row) + five cards: **Account** (read-only info + link to Profile), **AI & drafting** and

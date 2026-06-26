@@ -64,7 +64,7 @@
       <div class="backdrop"></div>
       <aside class="panel" role="dialog" aria-label="Review autofill">
         <header>
-          <div class="brand">Dossier</div>
+          <div class="brand">Kiwiply</div>
           <div class="sub">${esc(adapter.label)} detected · ${fillable.length} field${fillable.length === 1 ? "" : "s"} ready</div>
           <button class="x" title="Close">×</button>
         </header>
@@ -81,7 +81,7 @@
           <button class="primary" id="fill" ${fillable.length || file ? "" : "disabled"}>Fill selected</button>
         </footer>
         <div class="note">${autoAdvance
-          ? `Auto-advance is <b>on</b>: after filling, Dossier clicks the step's <b>Next / Continue</b> button. It never clicks Submit.`
+          ? `Auto-advance is <b>on</b>: after filling, Kiwiply clicks the step's <b>Next / Continue</b> button. It never clicks Submit.`
           : `Nothing is submitted. After filling, review the page and click the site's own button.`}</div>
       </aside>`;
 
@@ -181,45 +181,51 @@
   }
 
   const CSS_TEXT = `
-    :host { all: initial; }
+    /* Kiwiply palette mirrored inline — the overlay lives in a Shadow DOM and must NOT
+       inherit page CSS, so tokens are declared on :host (mirrors web globals.css §3.1). */
+    :host { all: initial;
+      --ink:#2D3133; --ink-soft:#4F5557; --paper:#FBFAF6; --paper-2:#E7E6DD;
+      --line:#D4D3C8; --muted:#73746E; --accent:#94BD37; --accent-deep:#5E7D1E;
+      --on-accent:#2D3133; --warn:#986A35; --brown-soft:#ECE2D1; }
     * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .backdrop { position: fixed; inset: 0; background: rgba(20,24,33,.32); }
+    .backdrop { position: fixed; inset: 0; background: rgba(45,49,51,.32); }
     .panel { position: fixed; top: 0; right: 0; height: 100%; width: 380px; max-width: 92vw;
-      background: #FBF8F1; color: #1B2330; box-shadow: -12px 0 40px rgba(20,24,33,.25);
-      display: flex; flex-direction: column; border-left: 3px solid #C8902F; }
-    header { padding: 18px 18px 12px; border-bottom: 1px solid #E7E0D2; position: relative; }
-    .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: #1B2330; }
-    .sub { font-size: 12.5px; color: #6A6457; margin-top: 4px; }
+      background: var(--paper); color: var(--ink); box-shadow: -12px 0 40px rgba(45,49,51,.22);
+      display: flex; flex-direction: column; border-left: 4px solid var(--accent); }
+    header { padding: 18px 18px 12px; border-bottom: 1px solid var(--line); position: relative; }
+    .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--ink); }
+    .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
     .x { position: absolute; top: 12px; right: 12px; border: 0; background: transparent; font-size: 22px;
-      line-height: 1; cursor: pointer; color: #9A9382; }
-    .x:hover { color: #1B2330; }
+      line-height: 1; cursor: pointer; color: var(--muted); }
+    .x:hover { color: var(--ink); }
     .body { padding: 12px 16px; overflow-y: auto; flex: 1; }
-    .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #8A8373; margin: 8px 2px 6px; }
-    .group-title.warn { color: #B5641B; }
+    .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 8px 2px 6px; }
+    .group-title.warn { color: var(--warn); }
     .rows { display: flex; flex-direction: column; gap: 2px; }
     .row { display: grid; grid-template-columns: 18px 110px 1fr; align-items: center; gap: 8px;
       padding: 8px 8px; border-radius: 8px; cursor: pointer; }
-    .row:hover { background: #F1EADB; }
-    .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: #FBF3E6; gap: 3px 8px; }
-    .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: #8A8373; line-height: 1.35; }
-    .infonote { font-size: 12px; color: #4A4636; background: #F1EADB; border: 1px solid #E7E0D2;
+    .row:hover { background: var(--paper-2); }
+    .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
+    .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: var(--warn); line-height: 1.35; }
+    .infonote { font-size: 12px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
       border-radius: 8px; padding: 9px 11px; margin-top: 8px; line-height: 1.45; }
-    .aibadge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .08em;
-      color: #FBF8F1; background: #C8902F; border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
-    .row.file { margin-top: 8px; border-top: 1px dashed #E7E0D2; padding-top: 12px; }
-    .field { font-size: 12.5px; color: #4A4636; font-weight: 600; }
-    .val { font-size: 12.5px; color: #1B2330; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    input[type=checkbox] { accent-color: #C8902F; width: 15px; height: 15px; }
-    .empty { font-size: 13px; color: #6A6457; padding: 14px 6px; line-height: 1.5; }
-    footer { padding: 12px 16px; border-top: 1px solid #E7E0D2; display: flex; gap: 10px; justify-content: flex-end; }
-    button.primary { background: #1B2330; color: #FBF8F1; border: 0; padding: 9px 16px; border-radius: 8px;
+    /* AI badge: charcoal-on-lime (white/cream on lime is unreadable) */
+    .aibadge { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .08em;
+      color: var(--on-accent); background: var(--accent); border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
+    .row.file { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
+    .field { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
+    .val { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+    .empty { font-size: 13px; color: var(--muted); padding: 14px 6px; line-height: 1.5; }
+    footer { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
+    button.primary { background: var(--ink); color: var(--paper); border: 0; padding: 9px 16px; border-radius: 8px;
       font-weight: 600; cursor: pointer; font-size: 13px; }
     button.primary:disabled { opacity: .4; cursor: not-allowed; }
-    button.primary:hover:not(:disabled) { background: #283242; }
-    button.ghost { background: transparent; border: 1px solid #D8D0C0; color: #4A4636; padding: 9px 14px;
+    button.primary:hover:not(:disabled) { background: var(--ink-soft); }
+    button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink-soft); padding: 9px 14px;
       border-radius: 8px; cursor: pointer; font-size: 13px; }
-    .note { font-size: 11px; color: #8A8373; padding: 0 16px 14px; line-height: 1.4; }
-    .flash { position: absolute; left: 16px; right: 16px; bottom: 16px; background: #1B2330; color: #FBF8F1;
+    .note { font-size: 11px; color: var(--muted); padding: 0 16px 14px; line-height: 1.4; }
+    .flash { position: absolute; left: 16px; right: 16px; bottom: 16px; background: var(--ink); color: var(--paper);
       padding: 12px 14px; border-radius: 10px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   `;
 

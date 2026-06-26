@@ -1,6 +1,8 @@
 :root {
-  --ink: #1B2330; --ink-2: #283242; --paper: #FBF8F1; --paper-2: #F1EADB;
-  --line: #E7E0D2; --muted: #6A6457; --accent: #C8902F; --warn: #B5641B; --ok: #2E7D52;
+  /* Kiwiply palette (mirrors web globals.css §3.1) */
+  --ink: #2D3133; --ink-2: #4F5557; --paper: #FBFAF6; --paper-2: #E7E6DD;
+  --line: #D4D3C8; --muted: #73746E; --accent: #94BD37; --accent-deep: #5E7D1E;
+  --on-accent: #2D3133; --warn: #986A35; --ok: #5E7D1E;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink);
