@@ -36,9 +36,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R5.2** (popup polish — logo lockup + clearer ready/empty/error states; `cd job-autofill &&
-> npm test` + smoke green; bump versions). **R5.1 DONE** (extension re-tokened to kiwi + user-facing
-> "Dossier"→"Kiwiply"; ext v0.21.0). R0–R4 done. **R5 surface = the extension** (`job-autofill/`).
+> **Next: R5.3** (options polish — modernize the resume-drawer date controls, sticky save, group the
+> AI settings; `cd job-autofill && npm test` + smoke green; bump versions). **R5.1 + R5.2 DONE**
+> (extension re-tokened to kiwi; popup logo lockup + states; ext v0.21.1). R0–R4 done. **R5 surface =
+> the extension** (`job-autofill/`).
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -530,8 +531,10 @@ focused Claude Code session.
   overlay Shadow-DOM `CSS_TEXT`; AI-badge now charcoal-on-lime; green left border) + Kiwiply rename
   (manifest name/tooltip, popup/options `.brand` + copy, overlay brand + note, Workday re-run msg,
   `PRIVACY.md` + contact→`support@kiwiply.com`); ext **v0.21.0**; 14 suites green. Internal ids
-  (`createDossierProvider`, `dossier`/`dossier-fieldcache` IDB, gecko id) deferred to R7.1 · R5.2
-  popup · R5.3 options · R5.4 overlay. No "Dossier" in UI; Shadow DOM isolation preserved.
+  (`createDossierProvider`, `dossier`/`dossier-fieldcache` IDB, gecko id) deferred to R7.1 · ✅ R5.2
+  popup polish (kiwi-mark + two-tone wordmark lockup; clickable bio-warn; colored file-status +
+  green success status; ext v0.21.1) · R5.3 options · R5.4 overlay. No "Dossier" in UI; Shadow DOM
+  isolation preserved.
 - [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
   deferred per decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
@@ -541,6 +544,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R5.2 (popup polish) · Popup header now shows the **brand lockup** — a CSS
+  kiwi mark (brown disc + lime + charcoal ✓) + two-tone wordmark (green `kiwi` via `--accent-deep` +
+  ink `ply`). Clearer states: the bio-warn is now clickable (→ Manage) with sharper copy; resume meta
+  shows the file status colored (green `file ✓` / brown `no file`); and `setStatus` gained a green
+  **success** state used for "Review panel open" + "Saved". `popup.css` got the lockup/`--brown`/meta/
+  status styles. ext **v0.21.1**; 14 extension suites green (exit 0). Branch `phase-5`. *Live
+  reload-in-Chrome check is the user's step.*
 - 2026-06-25 · redesign.R5.1 (extension re-token + rename) — **Phase R5 begins (extension)** ·
   Re-tokened the extension to the kiwi palette: `popup.css` + `options.css` `:root` swapped to §3.1
   values (green text uses `--accent-deep` for legibility), and the **overlay's Shadow-DOM `CSS_TEXT`**

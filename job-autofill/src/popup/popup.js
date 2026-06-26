@@ -23,6 +23,7 @@ const $ = (id) => document.getElementById(id);
 
 async function init() {
   document.getElementById("manage").onclick = () => chrome.runtime.openOptionsPage();
+  $("bio-warn").onclick = () => chrome.runtime.openOptionsPage();
   const [bio, resumes, settings] = await Promise.all([S.getBio(), S.getResumes(), S.getSettings()]);
 
   const hasBio = bio && (bio.firstName || bio.email);
@@ -49,8 +50,10 @@ async function init() {
 
   const showMeta = () => {
     const r = pickable.find((x) => x.id === sel.value);
-    $("meta").textContent = r
-      ? `${(r.skills || []).length} skills · ${(r.experience || []).length} roles${r.hasFile ? " · file ✓" : " · no file"}`
+    // Counts are numbers + static strings (no user input) → innerHTML is safe here.
+    $("meta").innerHTML = r
+      ? `${(r.skills || []).length} skills · ${(r.experience || []).length} roles · ` +
+        `<span class="${r.hasFile ? "ok" : "no"}">${r.hasFile ? "file ✓" : "no file"}</span>`
       : "";
   };
   showMeta();
@@ -60,10 +63,12 @@ async function init() {
   $("savejob").onclick = () => doSaveJob().catch((e) => setStatus(String(e.message || e), true));
 }
 
-function setStatus(msg, err) {
+// state: "err" (or truthy) = error, "ok" = success, falsy = neutral.
+function setStatus(msg, state) {
   const s = $("status");
   s.textContent = msg;
-  s.classList.toggle("err", !!err);
+  s.classList.toggle("ok", state === "ok");
+  s.classList.toggle("err", !!state && state !== "ok");
 }
 
 async function ensureInjected(tabId) {
@@ -149,7 +154,7 @@ async function doFill(resumes, bio) {
   const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
   const resp = await sendTo(tab.id, { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef } }, frameId);
   if (resp && resp.ok) {
-    setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`);
+    setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`, "ok");
     setTimeout(() => window.close(), 1200);
   } else {
     setStatus("Could not open the review panel on this page.", true);
@@ -171,7 +176,7 @@ async function doSaveJob() {
   const res = await chrome.runtime.sendMessage({ type: "JAF_SAVE_JOB", capture: capResp.capture });
   if (res && res.ok) {
     const c = capResp.capture;
-    setStatus(`Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}`);
+    setStatus(`Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}`, "ok");
   } else if (res && res.reason === "not-signed-in") {
     setStatus("Sign in (Manage → Account) to save jobs.", true);
   } else {
