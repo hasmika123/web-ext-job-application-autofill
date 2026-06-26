@@ -33,16 +33,18 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> 🎨 **ACTIVE (branch `phase-2`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
+> 🎨 **ACTIVE (branch `phase-3`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R3.1** (split-screen `/login`+`/signup`, shared/tabbed + branded `/account/activate`;
-> Google button stubbed). **Phase R2 (marketing) is COMPLETE** — R2.1 landing, R2.2 `/pricing` +
-> Settings billing placeholder, R2.3 privacy reskin + real contact `support@kiwiply.com`. R0+R1 done.
-> **Branch structure:** `main` → `ui-redesign` (integration, holds R0+R1) → `phase-0`/`phase-1`
-> (merged) → **`phase-2`** (current; R2 done, R3 next). One task = one commit, prefix
-> `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming
-> soon" · light-only.
+> **Next: R4.1** (Profile reskin — section sub-nav + profile-strength meter + skills chips; keep the
+> existing bio save flow). **Phase R3 (auth) is COMPLETE** — R3.1 split-screen `/login`+`/signup`
+> (shared tabbed `AuthScreen`, Google stubbed) + branded `/account/activate`. R0+R1+R2 done.
+> **Branch loop (see `redesign-branch-loop` memory):** redesign lives off `ui-redesign` (cut from
+> `main`); each phase on its own `phase-N` branch — on phase switch, merge it into `ui-redesign`,
+> delete it (local+remote), cut the next off `ui-redesign`. Live branches are only `main`,
+> `ui-redesign` (holds R0–R2), and the current **`phase-3`**. Never merge the redesign to `main`
+> until pages are reskinned (~end of R4). One task = one commit, prefix `redesign.<phase>.<n>:`.
+> Decisions locked: full internal rename (R7.1) · pricing Free/"coming soon" · light-only.
 >
 > *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
 > the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
@@ -506,8 +508,10 @@ focused Claude Code session.
   features, pricing teaser) · ✅ R2.2 `/pricing` (Free live + "Pro coming soon" + Teams contact;
   Settings→Billing placeholder) · ✅ R2.3 privacy reskin (kiwi tokens, Kiwiply naming) + real
   contact `support@kiwiply.com`.
-- [ ] **R3 Auth.** Split-screen `/login`+`/signup` (shared, tabbed) + branded `/account/activate`;
-  Google button stubbed.
+- [x] **R3 Auth.** ✅ R3.1 split-screen `/login`+`/signup` — shared `AuthScreen` (charcoal brand
+  panel + testimonial, tabbed Sign in/Create account, kiwi-token forms, stubbed "Continue with
+  Google") + branded `/account/activate` card. Login→`/dashboard`; signup→check-email; flows
+  unchanged.
 - [ ] **R4 Core app screens.** R4.1 Profile (sections + strength meter, chips) · R4.2 Resumes
   (drag-drop + variant cards) · R4.3 Board (tools + drag-drop + JD card-detail slide-over) · R4.4
   Settings (sub-nav; AI surfaced on web). Existing save/delete/status flows must still pass.
@@ -522,6 +526,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R3.1 (split-screen auth) — **completes Phase R3** · New shared
+  `components/auth/AuthScreen.tsx` (client) drives both `/login` + `/signup` (now thin wrappers):
+  split-screen with a charcoal brand panel (BrandLockup cream wordmark + value prop + testimonial,
+  hidden < lg, mobile lockup instead), a tabbed **Sign in / Create account** toggle (navigates between
+  the two routes), kiwi-token forms built on the `Input`/`Field` primitives, a **stubbed "Continue
+  with Google"** (disabled, multicolor G), and the signup check-email done-state. Login →
+  `/dashboard`; the POST flows to `/api/auth/{login,signup}` are unchanged. Reskinned
+  `/account/activate` as a branded card (Mark + Verified/Action-needed status pill, kiwi tokens,
+  Kiwiply naming). `npm test` + `npm run build` green; verified via DOM eval (screenshot tool hung on
+  the full-bleed route — layout confirmed correct: gradient panel, exact-viewport height, no overflow).
+  Branch `phase-3`. Web-only.
 - 2026-06-25 · redesign.R2.3 (privacy reskin + real contact) — **completes Phase R2** · Reskinned web
   `/privacy` onto the kiwi system (Fraunces section headings, `text-ink-soft`/`text-muted` body,
   green `accent-deep` links — dropped all `text-foreground/*`), renamed every user-facing "Dossier"
