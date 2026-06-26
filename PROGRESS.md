@@ -583,6 +583,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-26 · marketing/auth polish (post-redesign, branch `ui-redesign` off `main`) · Removed the
+  standalone `/pricing` route — pricing now lives only on the landing `#pricing` section; dropped the
+  top-nav Pricing tab; footer + settings "See plans" point at `/#pricing`; removed the dead "See full
+  pricing →" link. Landing: new **ATS logo-wall** band (monogram tiles for Workday/Greenhouse/Lever/
+  Ashby + "many more") replacing the plain hero name list; Pro card drops the "— /mo" and gains a
+  **Custom job recommendations** feature. Header/footer **logo enlarged** (28→34 / 22→26). Footer:
+  removed the "data stays yours…/Privacy Policy" sentence so the beta disclaimer sits on **one line**.
+  Auth: **Back-to-home** control + real Kiwiply logo on the login/signup form side at every breakpoint.
+  Privacy: fixed a JSX whitespace mash ("notuse"→"not use"). Verified in a browser (logo wall, 404 on
+  `/pricing`, one-line footer, signup back+logo at mobile+desktop, privacy spacing). `npm test` +
+  `npm run build` green. Web-only — no extension change, no version bump.
 - 2026-06-25 · beta tag + disclaimer (post-redesign, branch `beta-tag`→`ui-redesign`) · New
   `BetaBadge` ui primitive (light + dark tone); shown next to the wordmark in the marketing header +
   footer, the app sidebar (desktop + mobile top bar), and the auth brand panel + mobile lockup. Legal:

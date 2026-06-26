@@ -35,7 +35,16 @@ const FEATURES = [
 ];
 
 const FREE_FEATURES = ["Unlimited autofill", "Resume variants, parsed", "Self-populating tracker", "Bring-your-own AI key"];
-const PRO_FEATURES = ["Everything in Free", "Kiwiply AI drafts included", "Field-answer memory, synced", "Priority ATS support"];
+const PRO_FEATURES = ["Everything in Free", "Kiwiply AI drafts included", "Custom job recommendations", "Field-answer memory, synced", "Priority ATS support"];
+
+// ATS "logo wall" for the supported-systems strip. Monogram tiles (not trademarked
+// brand logos) keep this a tasteful visual without lifting third-party marks.
+const ATS = [
+  { name: "Workday", mono: "W", color: "#0875E1" },
+  { name: "Greenhouse", mono: "G", color: "#2C8C5A" },
+  { name: "Lever", mono: "L", color: "#5128B0" },
+  { name: "Ashby", mono: "A", color: "#2D3133" },
+];
 
 function Check() {
   return (
@@ -78,7 +87,6 @@ export default function Home() {
             <div className="mt-6 flex flex-wrap gap-x-[18px] gap-y-2 text-[13px] text-hero-ink/65">
               <span><b className="text-hero-ink">No auto-submit.</b> You review every field.</span>
               <span><b className="text-hero-ink">Your data, yours.</b> Delete anytime.</span>
-              <span>Workday · Greenhouse · Lever · Ashby <b className="text-hero-ink">+ more</b></span>
             </div>
           </div>
 
@@ -119,6 +127,33 @@ export default function Home() {
               <span className="rounded-lg bg-ink px-3 py-2 text-xs font-bold text-paper">Fill selected</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Supported-ATS logo wall — visual treatment of the systems Kiwiply fills */}
+      <section aria-label="Supported applicant tracking systems" className="border-b border-line bg-paper-2">
+        <div className="mx-auto max-w-6xl px-6 py-9">
+          <p className="text-center text-[11px] font-bold uppercase tracking-[.14em] text-muted">
+            Fills the ATS you’ll actually meet
+          </p>
+          <ul className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:gap-3.5">
+            {ATS.map((a) => (
+              <li
+                key={a.name}
+                className="flex items-center gap-2.5 rounded-full border border-line bg-paper px-4 py-2.5 shadow-[var(--shadow)]"
+              >
+                <span
+                  aria-hidden
+                  className="grid h-7 w-7 flex-none place-items-center rounded-[8px] text-[13px] font-bold text-white"
+                  style={{ background: a.color }}
+                >
+                  {a.mono}
+                </span>
+                <span className="text-[15px] font-semibold text-ink">{a.name}</span>
+              </li>
+            ))}
+            <li className="px-1 text-[15px] font-semibold text-muted">+ many more</li>
+          </ul>
         </div>
       </section>
 
@@ -198,9 +233,7 @@ export default function Home() {
                 Coming soon
               </span>
             </div>
-            <div className="my-2.5 font-display text-[40px] font-bold text-muted">
-              —<span className="text-[15px] font-medium text-muted"> /mo</span>
-            </div>
+            <div className="my-2.5 font-display text-[40px] font-bold text-muted">—</div>
             <ul className="my-4 flex flex-col gap-2.5">
               {PRO_FEATURES.map((f) => (
                 <li key={f} className="flex gap-2.5 text-[13.5px] text-muted">
@@ -213,11 +246,6 @@ export default function Home() {
             </span>
           </div>
         </div>
-        <p className="mt-6 text-center text-sm text-muted">
-          <Link href="/pricing" className="font-semibold text-accent-deep hover:underline">
-            See full pricing →
-          </Link>
-        </p>
       </section>
     </>
   );
