@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kiwiply — Job Application Autofill",
-  "version": "0.21.4",
+  "version": "0.22.0",
   "description": "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
   "browser_specific_settings": {
     "gecko": {
@@ -82,7 +82,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["vendor/*", "src/lib/*", "src/config/*"],
+      "resources": ["vendor/*", "src/lib/*", "src/config/*", "icons/*"],
       "matches": ["<all_urls>"]
     }
   ],

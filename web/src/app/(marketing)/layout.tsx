@@ -19,7 +19,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <nav className="hidden items-center gap-6 text-sm font-medium text-ink-soft sm:flex">
             <Link href="/#how" className="hover:text-ink">How it works</Link>
             <Link href="/#features" className="hover:text-ink">Features</Link>
-            <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+            <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login" className={buttonVariants("ghost", "sm")}>

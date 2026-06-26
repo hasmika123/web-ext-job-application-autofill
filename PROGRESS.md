@@ -583,7 +583,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
-- 2026-06-26 · marketing/auth polish (post-redesign, branch `ui-redesign` off `main`) · Removed the
+- 2026-06-26 · brand/logo + ATS marquee + extension polish (branch `ui-redesign`) · Replaced the
+  hand-built "filler" brand text/CSS marks with the **actual logo assets** everywhere: web favicon now
+  `app/icon.png` (from logo-icon), dark auth panel + activate page use the kiwi `logo-icon.png`, auth
+  mobile brand uses the full `logo.svg`. Removed the stray top-bar logo I'd added on auth and pinned the
+  **Back** control to the light section's top-left corner (absolute → no added height). Hero gained a
+  continuous **ATS logo marquee** (new monochrome SVGs in `web/public/ats/` for Workday/Greenhouse/
+  Lever/Ashby/Workable, two-track `@keyframes marquee`, reduced-motion-safe) replacing the static band;
+  top nav swapped Privacy→Pricing (`/#pricing`). Extension: popup + overlay use the real `logo.png`
+  lockup, options rail uses the kiwi icon, popup + overlay panel got **rounded corners**, chrome-bar
+  icons regenerated from `logo-icon.png` (sharp 16/48/128), `icons/*` added to web_accessible_resources;
+  ext version 0.21.4→**0.22.0**. Verified in a browser (marquee animating + correct aspect, auth
+  desktop/mobile, favicon, asset 200s, no console errors). `npm test` (ext + web) + `npm run build` green.
   standalone `/pricing` route — pricing now lives only on the landing `#pricing` section; dropped the
   top-nav Pricing tab; footer + settings "See plans" point at `/#pricing`; removed the dead "See full
   pricing →" link. Landing: new **ATS logo-wall** band (monogram tiles for Workday/Greenhouse/Lever/
