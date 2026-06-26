@@ -203,6 +203,31 @@ provider-agnostic (just `MAIL_*` env) — Brevo for now, swappable to SES/Resend
    `https://<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
    email doesn't arrive, check spam and the API logs (`… logs api | grep -i mail`).
 
+### 9.1 Email architecture (kiwiply.com)
+
+Two distinct mail flows on the `kiwiply.com` domain — **transactional** (the app sends) and
+**human support** (a person reads/replies). Both go out through **one Brevo account**
+(free tier, 300 emails/day shared), owned by **`admin.kiwiply@gmail.com`**.
+
+| Address | Direction | How |
+|---|---|---|
+| **`no-reply@kiwiply.com`** | App → user (outbound only) | Backend (Spring) → Brevo SMTP. `MAIL_FROM=no-reply@kiwiply.com` in the VPS `.env`. Used for signup/activation. Unmonitored. |
+| **`support@kiwiply.com`** | Both | **In:** Cloudflare Email Routing → `mail.kiwiply@gmail.com`. **Out/reply:** Gmail "Send mail as" via Brevo SMTP. Public-facing contact (shown on `/privacy`). |
+| **`contact-us@kiwiply.com`** | In | Cloudflare Email Routing → a Gmail (earlier alias; kept as a secondary contact). |
+
+- **Domain auth (Cloudflare DNS, all live):** DKIM `brevo1._domainkey`/`brevo2._domainkey` →
+  `b1/b2.kiwiply-com.dkim.brevo.com`; SPF `v=spf1 include:_spf.mx.cloudflare.net ~all`;
+  DMARC `p=none; rua=mailto:rua@dmarc.brevo.com`; plus the Brevo verification `brevo-code` TXT.
+  Outbound mail (no-reply / support) is DKIM-signed as `kiwiply.com` → passes DMARC alignment.
+- **Brevo account ownership:** the account is owned by `admin.kiwiply@gmail.com` (migrated from a
+  personal Gmail by changing the account login email in Brevo settings — this keeps the existing
+  DKIM/brevo-code DNS and SMTP keys valid, so **no DNS or VPS change** was needed). The app's
+  `MAIL_USERNAME` is the generated `…@smtp-brevo.com` SMTP login (not a Gmail); `MAIL_PASSWORD` is
+  the Brevo SMTP key.
+- **Gmail "Send mail as" (for `support@`):** SMTP `smtp-relay.brevo.com:587` (TLS), username =
+  the Brevo `…@smtp-brevo.com` login, password = the Brevo SMTP key. Set Gmail → *Reply from the
+  same address the message was sent to*.
+
 ## 10. Server-side AI drafting (Phase 5) — ✅ LIVE (Gemini free tier)
 > **Status (2026-06-24): enabled in production** on Google Gemini **`gemini-2.5-flash-lite`** (free
 > tier). The extension's "Use Dossier AI" toggle is active (opt-in + explicit consent), the server

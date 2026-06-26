@@ -36,12 +36,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-2`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R2.3** (privacy reskin + replace placeholder `privacy@dossier.app` with a real Kiwiply
-> contact — folds in pre-launch PL.1). R0 + R1 done; R2.1 (landing) + R2.2 (`/pricing` + Settings
-> billing placeholder) done + **visually verified** in a browser. **Branch structure:** `main` →
-> `ui-redesign` (integration, holds R0+R1) → `phase-0`/`phase-1` (merged) → **`phase-2`** (current;
-> R2 work). One task = one commit, prefix `redesign.<phase>.<n>:`. Decisions locked: full internal
-> rename (R7.1) · pricing Free/"coming soon" · light-only.
+> **Next: R3.1** (split-screen `/login`+`/signup`, shared/tabbed + branded `/account/activate`;
+> Google button stubbed). **Phase R2 (marketing) is COMPLETE** — R2.1 landing, R2.2 `/pricing` +
+> Settings billing placeholder, R2.3 privacy reskin + real contact `support@kiwiply.com`. R0+R1 done.
+> **Branch structure:** `main` → `ui-redesign` (integration, holds R0+R1) → `phase-0`/`phase-1`
+> (merged) → **`phase-2`** (current; R2 done, R3 next). One task = one commit, prefix
+> `redesign.<phase>.<n>:`. Decisions locked: full internal rename (R7.1) · pricing Free/"coming
+> soon" · light-only.
 >
 > *(`main` is unchanged — Phases 0–7 done + live at https://kiwiply.com. The redesign does NOT touch
 > the backend/API. The pre-launch items below — PL.1 privacy contact, PL.2 rate limiting — still
@@ -71,9 +72,11 @@ focused Claude Code session.
 > listing. Pull any into a focused session when launch nears. The 1.11 gate already shipped
 > the multi-tenant fix, account/data deletion, and refresh-token rotation; these are what's left.
 
-- [ ] **PL.1 Privacy policy — real contact + legal review.** Replace the placeholder contact
-  (`privacy@dossier.app`) with a real address/entity, host the policy at a stable URL, and get
-  a legal pass. **Extra-important now that the AI data-use language is in there** (web
+- [ ] **PL.1 Privacy policy — real contact + legal review.** ✅ Web `/privacy` contact is now a real
+  monitored address (`support@kiwiply.com`, routed Cloudflare→Gmail — see `email-architecture` memory
+  / DEPLOY §9.1). **Still TODO:** a registered legal entity/address, a stable hosted policy URL in the
+  CWS listing, the extension `PRIVACY.md` contact (still `privacy@dossier.app`, swap in R5), and a
+  legal pass. **Extra-important now that the AI data-use language is in there** (web
   `/privacy` "AI answer drafting" section + extension `PRIVACY.md` "Optional AI answer drafting"
   + the Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
 - [ ] **PL.2 Basic rate limiting / abuse protection.** Today there is **no general
@@ -499,9 +502,10 @@ focused Claude Code session.
 - [x] **R1 App shell & IA.** ✅ R1.1 route groups `(marketing)`/`(app)` + sidebar + mobile drawer +
   gate-session-once (per-page nav deleted) · ✅ R1.2 new `/dashboard` (KPIs, setup checklist, quick
   actions, recent-activity feed); login redirect → `/dashboard`.
-- [~] **R2 Marketing.** ✅ R2.1 landing rebuild (charcoal hero + product-peek, how-it-works,
+- [x] **R2 Marketing.** ✅ R2.1 landing rebuild (charcoal hero + product-peek, how-it-works,
   features, pricing teaser) · ✅ R2.2 `/pricing` (Free live + "Pro coming soon" + Teams contact;
-  Settings→Billing placeholder) · R2.3 privacy reskin + real contact email (Kiwiply).
+  Settings→Billing placeholder) · ✅ R2.3 privacy reskin (kiwi tokens, Kiwiply naming) + real
+  contact `support@kiwiply.com`.
 - [ ] **R3 Auth.** Split-screen `/login`+`/signup` (shared, tabbed) + branded `/account/activate`;
   Google button stubbed.
 - [ ] **R4 Core app screens.** R4.1 Profile (sections + strength meter, chips) · R4.2 Resumes
@@ -518,6 +522,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R2.3 (privacy reskin + real contact) — **completes Phase R2** · Reskinned web
+  `/privacy` onto the kiwi system (Fraunces section headings, `text-ink-soft`/`text-muted` body,
+  green `accent-deep` links — dropped all `text-foreground/*`), renamed every user-facing "Dossier"
+  → "Kiwiply" (verified zero "dossier" mentions in-page), and replaced the placeholder
+  `privacy@dossier.app` with the real monitored **`support@kiwiply.com`**. `metadata` title → "Privacy
+  Policy" (template adds "· Kiwiply"). Dropped the redundant inline back-link (marketing shell header
+  owns nav). **Visually verified** in a browser (mailto + no-Dossier check via eval). Also documented
+  the kiwiply.com **email architecture** (admin-owned Brevo → no-reply@; support@/contact-us@ →
+  Gmail; reply-as via Brevo SMTP; Cloudflare DKIM/SPF/DMARC) in `DEPLOY.md §9.1` + new
+  `email-architecture` memory; PL.1 contact item part-resolved. `npm test` + `npm run build` green.
 - 2026-06-25 · redesign.R2.2 (pricing) · New `(marketing)/pricing/page.tsx` — three tiers (**Free**
   live w/ "Start here" badge + Get started; **Pro** "Coming soon" w/ disabled "Notify me at launch";
   **Teams** Custom → `mailto:hello@kiwiply.com`) per the locked Free-only/Pro-coming-soon decision,
