@@ -36,11 +36,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R4.3** (Board — tools/search/filter + drag-drop between columns + JD card-detail
-> slide-over; keep the status/delete/nudge flows). **R4.1 Profile + R4.2 Resumes DONE.** R0–R3 done;
-> R4 in progress. *Deferred (needs backend, not presentation-only):* a true default-resume flag
-> feeding the popup picker (R4.2 mockup showed a "Default" badge) — needs a backend `isDefault` +
-> extension picker change; revisit in R5/backend, not faked here.
+> **Next: R4.4** (Settings — sub-nav: Account / AI & drafting / Autofill / Privacy & data / Billing;
+> surface AI on web; reuse delete-account logic). **R4.1–R4.3 DONE** (Profile, Resumes, Board). R0–R3
+> done; R4 nearly complete. *Deferred (needs backend, not presentation-only):* (1) a true default-
+> resume flag feeding the popup picker (R4.2 "Default" badge) — needs backend `isDefault` + extension
+> picker; (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit columns
+> in the DTO. Revisit in R5/backend, not faked here.
 > **Branch loop (see `redesign-branch-loop` memory):** redesign lives off `ui-redesign` (cut from
 > `main`); each phase on its own `phase-N` branch — on phase switch, merge it into `ui-redesign`,
 > delete it (local+remote), cut the next off `ui-redesign`. Live branches are only `main`,
@@ -517,9 +518,11 @@ focused Claude Code session.
 - [~] **R4 Core app screens.** ✅ R4.1 Profile — sub-nav + strength meter + skills chips + EEO
   collapsible + autosave · ✅ R4.2 Resumes — drag-drop drop-zone + variant cards (file icon, status
   badge, "used in N applications", archive/delete) + friendly 409 archive-guard callout (upload/
-  parse/archive/delete flows unchanged; page now also fetches applications for usage counts) · R4.3
-  Board (tools + drag-drop + JD card-detail slide-over) · R4.4 Settings (sub-nav; AI surfaced on web).
-  Existing save/delete/status flows must still pass.
+  parse/archive/delete flows unchanged; page now also fetches applications for usage counts) · ✅ R4.3
+  Board — tools (search / filter-by-resume / sort) + **drag-drop between columns** (optimistic; select
+  kept as a11y fallback) + accent "Did you submit?" nudge + **JD card-detail slide-over** (shows the
+  captured `jobDescription` — already in the DTO, no backend change) · R4.4 Settings (sub-nav; AI
+  surfaced on web). Existing save/delete/status flows must still pass.
 - [ ] **R5 Extension (bumps versions).** R5.1 re-token + Kiwiply rename · R5.2 popup · R5.3 options ·
   R5.4 overlay. No "Dossier" in UI; Shadow DOM isolation preserved; `npm test` + smoke green.
 - [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
@@ -531,6 +534,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R4.3 (board reskin) · Rebuilt `ApplicationBoard` on kiwi tokens: **board
+  tools** (search over company/role/location, filter-by-resume, sort recent/company), **HTML5
+  drag-and-drop** between the 6 columns with optimistic local state reconciled to the server on
+  `router.refresh()` (the `<select>` stays as the a11y/fallback control), the **"Did you submit?"
+  nudge** restyled as the signature accent callout, and a **card-detail slide-over** (right sheet +
+  scrim, full-width on mobile) surfacing the captured **job description** (`jobDescription` was
+  already in `ApplicationDTO` — added to the web type, no backend change), resume sent, ATS,
+  dates + a status `<select>`/delete. Richer empty state. status/confirm/delete mutations unchanged
+  (`/api/applications/:id`). Lint fix: render-phase prop→state sync instead of setState-in-effect.
+  `npm test` + `npm run build` green (gated page — live visual pending a running stack). Web-only.
 - 2026-06-25 · redesign.R4.2 (resumes reskin) · `ResumeUpload` gets a real **drag-and-drop
   drop-zone** (click/keyboard/drop → same in-browser parse), reskinned review cards (contact/summary/
   skills/experience/education) on kiwi tokens; flow (parse → POST `/api/resumes/upload`) unchanged.

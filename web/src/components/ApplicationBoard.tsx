@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { track } from "@/lib/analytics";
+import { cn } from "@/lib/cn";
 
 export interface Application {
   id: number;
@@ -12,6 +13,7 @@ export interface Application {
   location?: string | null;
   externalJobId?: string | null;
   atsPlatform?: string | null;
+  jobDescription?: string | null;
   status: string;
   submissionConfirmed?: boolean | null;
   appliedAt?: string | null;
@@ -19,15 +21,16 @@ export interface Application {
   resume?: { id: number; label?: string | null } | null;
 }
 
-// Board columns, left to right (the funnel order from the ROADMAP).
-const COLUMNS: { key: string; label: string }[] = [
-  { key: "DRAFT", label: "Draft" },
-  { key: "SAVED", label: "Saved" },
-  { key: "APPLIED", label: "Applied" },
-  { key: "INTERVIEW", label: "Interview" },
-  { key: "OFFER", label: "Offer" },
-  { key: "REJECTED", label: "Rejected" },
+// Board columns, left to right (the funnel order), each with a status dot color.
+const COLUMNS: { key: string; label: string; dot: string }[] = [
+  { key: "DRAFT", label: "Draft", dot: "var(--brown)" },
+  { key: "SAVED", label: "Saved", dot: "var(--brown-2)" },
+  { key: "APPLIED", label: "Applied", dot: "var(--accent)" },
+  { key: "INTERVIEW", label: "Interview", dot: "#1d4ed8" },
+  { key: "OFFER", label: "Offer", dot: "var(--accent-deep)" },
+  { key: "REJECTED", label: "Rejected", dot: "var(--muted)" },
 ];
+const STATUS_LABEL: Record<string, string> = Object.fromEntries(COLUMNS.map((c) => [c.key, c.label]));
 
 function hostOf(url?: string | null): string {
   if (!url) return "";
@@ -38,175 +41,384 @@ function hostOf(url?: string | null): string {
   }
 }
 
-function Card({ app }: { app: Application }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+function formatDate(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 
-  async function send(method: "PUT" | "DELETE", body?: Record<string, unknown>) {
-    setBusy(true);
+export default function ApplicationBoard({ applications }: { applications: Application[] }) {
+  const router = useRouter();
+  const [apps, setApps] = useState(applications);
+  const [syncedFrom, setSyncedFrom] = useState(applications);
+  const [search, setSearch] = useState("");
+  const [resumeFilter, setResumeFilter] = useState("all");
+  const [sort, setSort] = useState<"recent" | "company">("recent");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const [pending, setPending] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+
+  // Reconcile optimistic state with the server after router.refresh() (render-phase
+  // sync — the new `applications` array identity signals fresh server data).
+  if (syncedFrom !== applications) {
+    setSyncedFrom(applications);
+    setApps(applications);
+  }
+
+  useEffect(() => {
+    track("board_viewed", { count: applications.length });
+  }, [applications.length]);
+
+  const setBusy = (id: number, on: boolean) =>
+    setPending((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  /** Optimistically patch a card, then PUT/DELETE; router.refresh() reconciles (or reverts). */
+  async function mutate(id: number, method: "PUT" | "DELETE", body?: Record<string, unknown>) {
     setError(null);
+    setBusy(id, true);
+    setApps((prev) =>
+      method === "DELETE" ? prev.filter((a) => a.id !== id) : prev.map((a) => (a.id === id ? { ...a, ...body } : a)),
+    );
     try {
-      const res = await fetch(`/api/applications/${app.id}`, {
+      const res = await fetch(`/api/applications/${id}`, {
         method,
         headers: body ? { "content-type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Couldn't update.");
-        return;
+        setError(data.error ?? "Couldn't update. Reverting…");
       }
-      router.refresh();
     } catch {
-      setError("Something went wrong.");
+      setError("Something went wrong. Reverting…");
     } finally {
-      setBusy(false);
+      setBusy(id, false);
+      router.refresh();
     }
   }
 
-  const changeStatus = (status: string) => {
-    if (status !== app.status) void send("PUT", { status });
-  };
-  const confirmSubmitted = () => void send("PUT", { status: "APPLIED", submissionConfirmed: true, appliedAt: new Date().toISOString() });
-  const remove = () => {
-    if (window.confirm(`Delete this entry — ${app.company} · ${app.roleTitle}?`)) void send("DELETE");
+  const changeStatus = (id: number, status: string) => void mutate(id, "PUT", { status });
+  const confirmSubmitted = (id: number) =>
+    void mutate(id, "PUT", { status: "APPLIED", submissionConfirmed: true, appliedAt: new Date().toISOString() });
+  const remove = (app: Application) => {
+    if (window.confirm(`Delete this entry — ${app.company} · ${app.roleTitle}?`)) {
+      if (selectedId === app.id) setSelectedId(null);
+      void mutate(app.id, "DELETE");
+    }
   };
 
+  function onDrop(e: DragEvent, status: string) {
+    e.preventDefault();
+    setDragOver(null);
+    const id = Number(e.dataTransfer.getData("text/plain"));
+    const app = apps.find((a) => a.id === id);
+    if (app && app.status !== status) changeStatus(id, status);
+  }
+
+  // Resume options for the filter (from the cards that have a resume linked).
+  const resumeOptions = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const a of apps) if (a.resume?.id) m.set(a.resume.id, a.resume.label || `Resume #${a.resume.id}`);
+    return [...m.entries()];
+  }, [apps]);
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = apps.filter((a) => {
+      if (resumeFilter !== "all" && String(a.resume?.id ?? "") !== resumeFilter) return false;
+      if (!q) return true;
+      return `${a.company} ${a.roleTitle} ${a.location ?? ""}`.toLowerCase().includes(q);
+    });
+    filtered.sort((a, b) => {
+      if (sort === "company") return a.company.localeCompare(b.company);
+      const ta = new Date(a.appliedAt || a.createdAt || 0).getTime();
+      const tb = new Date(b.appliedAt || b.createdAt || 0).getTime();
+      return tb - ta;
+    });
+    return filtered;
+  }, [apps, search, resumeFilter, sort]);
+
+  const selected = selectedId == null ? null : apps.find((a) => a.id === selectedId) ?? null;
+
+  if (applications.length === 0) {
+    return (
+      <div className="rounded-[var(--radius-lg)] border-2 border-dashed border-line bg-paper px-6 py-14 text-center">
+        <div className="text-3xl">🗂️</div>
+        <h3 className="mt-2 font-display text-lg font-semibold text-ink">Your board fills itself</h3>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
+          Fill or save a job with the Kiwiply extension and it shows up here automatically — drafts on
+          every fill, confirmed when you submit.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Tools */}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search company, role, location…"
+          className="min-w-[180px] max-w-[320px] flex-1 rounded-full border border-line bg-paper px-4 py-2 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent"
+        />
+        {resumeOptions.length > 0 && (
+          <select
+            value={resumeFilter}
+            onChange={(e) => setResumeFilter(e.target.value)}
+            className="rounded-full border border-line bg-paper px-3 py-2 text-[13px] font-medium text-ink-soft outline-none focus:border-accent"
+          >
+            <option value="all">All resumes</option>
+            {resumeOptions.map(([id, label]) => (
+              <option key={id} value={String(id)}>{label}</option>
+            ))}
+          </select>
+        )}
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as "recent" | "company")}
+          className="rounded-full border border-line bg-paper px-3 py-2 text-[13px] font-medium text-ink-soft outline-none focus:border-accent"
+        >
+          <option value="recent">Most recent</option>
+          <option value="company">Company A–Z</option>
+        </select>
+      </div>
+
+      {error && <p role="alert" className="mb-3 text-sm font-medium text-danger">{error}</p>}
+
+      {/* Kanban */}
+      <div className="flex gap-3.5 overflow-x-auto pb-3">
+        {COLUMNS.map((col) => {
+          const items = visible.filter((a) => a.status === col.key);
+          return (
+            <section
+              key={col.key}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(col.key);
+              }}
+              onDragLeave={() => setDragOver((c) => (c === col.key ? null : c))}
+              onDrop={(e) => onDrop(e, col.key)}
+              className={cn(
+                "flex min-h-[320px] w-[200px] shrink-0 flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                dragOver === col.key && "outline-2 outline-dashed outline-accent",
+              )}
+            >
+              <div className="mb-3 flex items-center justify-between px-1">
+                <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[.06em] text-ink-soft">
+                  <span className="h-2 w-2 rounded-full" style={{ background: col.dot }} />
+                  {col.label}
+                </span>
+                <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
+              </div>
+              <ul className="flex flex-1 flex-col gap-2.5">
+                {items.map((a) => (
+                  <BoardCard
+                    key={a.id}
+                    app={a}
+                    busy={pending.has(a.id)}
+                    onOpen={() => setSelectedId(a.id)}
+                    onConfirm={() => confirmSubmitted(a.id)}
+                    onChangeStatus={(s) => changeStatus(a.id, s)}
+                    onDelete={() => remove(a)}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+
+      <DetailPanel
+        app={selected}
+        onClose={() => setSelectedId(null)}
+        onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
+        onDelete={() => selected && remove(selected)}
+      />
+    </div>
+  );
+}
+
+function BoardCard({
+  app,
+  busy,
+  onOpen,
+  onConfirm,
+  onChangeStatus,
+  onDelete,
+}: {
+  app: Application;
+  busy: boolean;
+  onOpen: () => void;
+  onConfirm: () => void;
+  onChangeStatus: (status: string) => void;
+  onDelete: () => void;
+}) {
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const host = hostOf(app.jobUrl);
   const showNudge = app.status === "DRAFT" && !nudgeDismissed;
 
   return (
-    <li className="flex flex-col gap-2 rounded-xl border border-foreground/15 bg-background p-3">
+    <li
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", String(app.id));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className={cn(
+        "cursor-grab rounded-[var(--radius)] border border-line bg-paper p-3 shadow-[var(--shadow)] active:cursor-grabbing",
+        busy && "opacity-60",
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">{app.company}</div>
-          <div className="truncate text-sm text-foreground/70">{app.roleTitle}</div>
-        </div>
+        <button onClick={onOpen} className="min-w-0 flex-1 text-left">
+          <div className="truncate text-[13.5px] font-bold text-ink">{app.company}</div>
+          <div className="truncate text-[12.5px] text-ink-soft">{app.roleTitle}</div>
+        </button>
         <button
-          onClick={remove}
+          onClick={onDelete}
           disabled={busy}
-          title="Delete entry"
           aria-label="Delete entry"
-          className="shrink-0 rounded-md px-1.5 text-foreground/40 transition-colors hover:bg-foreground/5 hover:text-red-600 disabled:opacity-50"
+          title="Delete entry"
+          className="shrink-0 rounded-md px-1.5 text-muted transition-colors hover:bg-paper-2 hover:text-danger disabled:opacity-50"
         >
           ×
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 text-xs text-foreground/50">
-        {app.location && <span>{app.location}</span>}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
         {app.atsPlatform && (
-          <span className="rounded-full border border-foreground/15 px-2 py-0.5 capitalize">{app.atsPlatform}</span>
+          <span className="rounded-[5px] border border-line bg-paper-2 px-1.5 py-0.5 capitalize">{app.atsPlatform}</span>
         )}
-        {app.resume?.label && <span className="truncate">📄 {app.resume.label}</span>}
+        {app.location && <span className="truncate">{app.location}</span>}
       </div>
-
-      {app.jobUrl && (
-        <a
-          href={app.jobUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="truncate text-xs text-foreground/60 underline underline-offset-2 hover:text-foreground"
-        >
-          {host || "View posting"}
-        </a>
-      )}
+      {app.resume?.label && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">📄 <span className="truncate">{app.resume.label}</span></div>}
 
       {showNudge && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs">
-          <div className="font-medium text-amber-800 dark:text-amber-300">Did you submit this application?</div>
-          <div className="mt-1.5 flex gap-2">
-            <button
-              onClick={confirmSubmitted}
-              disabled={busy}
-              className="rounded-full bg-foreground px-3 py-1 font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
+        <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
+          <div className="font-bold">Did you submit this application?</div>
+          <div className="mt-1.5 flex gap-1.5">
+            <button onClick={onConfirm} disabled={busy} className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50">
               Yes, I applied
             </button>
-            <button
-              onClick={() => setNudgeDismissed(true)}
-              disabled={busy}
-              className="rounded-full border border-foreground/20 px-3 py-1 font-medium transition-colors hover:bg-foreground/5 disabled:opacity-50"
-            >
+            <button onClick={() => setNudgeDismissed(true)} disabled={busy} className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep">
               Not yet
             </button>
           </div>
         </div>
       )}
 
-      <div className="mt-0.5 flex items-center gap-2">
-        <label className="sr-only" htmlFor={`status-${app.id}`}>
-          Status
-        </label>
-        <select
-          id={`status-${app.id}`}
-          value={app.status}
-          disabled={busy}
-          onChange={(e) => changeStatus(e.target.value)}
-          className="w-full rounded-lg border border-foreground/20 bg-transparent px-2 py-1 text-xs outline-none focus:border-foreground/50 disabled:opacity-50"
-        >
-          {COLUMNS.map((c) => (
-            <option key={c.key} value={c.key}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {error && (
-        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      )}
+      {/* a11y / fallback status control */}
+      <label className="sr-only" htmlFor={`status-${app.id}`}>Status</label>
+      <select
+        id={`status-${app.id}`}
+        value={app.status}
+        disabled={busy}
+        onChange={(e) => onChangeStatus(e.target.value)}
+        className="mt-2 w-full rounded-lg border border-line bg-paper px-2 py-1 text-[11.5px] text-ink-soft outline-none focus:border-accent disabled:opacity-50"
+      >
+        {COLUMNS.map((c) => (
+          <option key={c.key} value={c.key}>{c.label}</option>
+        ))}
+      </select>
+      {host && <div className="mt-1.5 truncate text-[10.5px] text-muted">{host}</div>}
     </li>
   );
 }
 
-/**
- * The Kanban board (Draft → Saved → Applied → Interview → Offer → Rejected). The
- * tracker fills itself from the extension; here the user resolves DRAFTs via the
- * "Did you submit?" nudge, moves cards between columns, and dismisses dead entries.
- */
-export default function ApplicationBoard({ applications }: { applications: Application[] }) {
-  useEffect(() => {
-    track("board_viewed", { count: applications.length });
-  }, [applications.length]);
-
-  if (applications.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-foreground/20 p-10 text-center">
-        <p className="text-sm text-foreground/60">No applications yet.</p>
-        <p className="mt-1 text-sm text-foreground/45">
-          Fill or save a job with the Dossier extension and it&apos;ll show up here automatically.
-        </p>
-      </div>
-    );
-  }
-
-  const byStatus = (status: string) => applications.filter((a) => a.status === status);
-
+function DetailPanel({
+  app,
+  onClose,
+  onChangeStatus,
+  onDelete,
+}: {
+  app: Application | null;
+  onClose: () => void;
+  onChangeStatus: (status: string) => void;
+  onDelete: () => void;
+}) {
+  const open = !!app;
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
-      {COLUMNS.map((col) => {
-        const items = byStatus(col.key);
-        return (
-          <section key={col.key} className="flex w-64 shrink-0 flex-col gap-3">
-            <h2 className="flex items-center justify-between text-sm font-semibold">
-              <span>{col.label}</span>
-              <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-normal text-foreground/60">
-                {items.length}
-              </span>
-            </h2>
-            <ul className="flex flex-col gap-2">
-              {items.map((a) => (
-                <Card key={a.id} app={a} />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
-    </div>
+    <>
+      <div
+        onClick={onClose}
+        aria-hidden
+        className={cn(
+          "fixed inset-0 z-[130] bg-[rgba(35,40,38,.45)] transition-opacity",
+          open ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={app ? `${app.company} — ${app.roleTitle}` : "Application detail"}
+        className={cn(
+          "fixed inset-y-0 right-0 z-[140] flex w-full max-w-md flex-col bg-paper shadow-[var(--shadow-lg)] transition-transform duration-200",
+          open ? "translate-x-0" : "translate-x-full",
+        )}
+      >
+        {app && (
+          <>
+            <div className="flex items-start justify-between gap-3 border-b border-line p-5">
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold uppercase tracking-[.06em] text-accent-deep">
+                  {STATUS_LABEL[app.status] ?? app.status}
+                </span>
+                <h2 className="mt-1 font-display text-xl font-semibold text-ink">{app.company}</h2>
+                <p className="text-sm text-ink-soft">{app.roleTitle}</p>
+              </div>
+              <button onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-5">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
+                {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
+                {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
+                {app.resume?.label && (<><dt className="text-muted">Resume sent</dt><dd className="text-ink">📄 {app.resume.label}</dd></>)}
+                {formatDate(app.appliedAt) && (<><dt className="text-muted">Applied</dt><dd className="text-ink">{formatDate(app.appliedAt)}</dd></>)}
+                {formatDate(app.createdAt) && (<><dt className="text-muted">Added</dt><dd className="text-ink">{formatDate(app.createdAt)}</dd></>)}
+              </dl>
+
+              {app.jobUrl && (
+                <a href={app.jobUrl} target="_blank" rel="noreferrer noopener" className="mt-4 inline-block text-sm font-medium text-accent-deep underline underline-offset-2">
+                  View original posting ↗
+                </a>
+              )}
+
+              <h3 className="mt-6 mb-2 font-display text-base font-semibold text-ink">Job description</h3>
+              {app.jobDescription ? (
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
+              ) : (
+                <p className="text-[13px] text-muted">No description was captured for this job.</p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 border-t border-line p-4">
+              <label className="sr-only" htmlFor="detail-status">Status</label>
+              <select
+                id="detail-status"
+                value={app.status}
+                onChange={(e) => onChangeStatus(e.target.value)}
+                className="flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              >
+                {COLUMNS.map((c) => (
+                  <option key={c.key} value={c.key}>{c.label}</option>
+                ))}
+              </select>
+              <button onClick={onDelete} className="rounded-lg border border-line px-3 py-2 text-sm font-semibold text-danger hover:bg-paper-2">
+                Delete
+              </button>
+            </div>
+          </>
+        )}
+      </aside>
+    </>
   );
 }
