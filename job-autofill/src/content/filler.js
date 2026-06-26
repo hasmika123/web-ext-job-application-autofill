@@ -2,6 +2,9 @@
 (function () {
   const JAF = (window.JAF = window.JAF || {});
   const B = JAF.adapterBase;
+  // Actual Kiwiply logo (bundled asset, exposed via web_accessible_resources).
+  const LOGO_URL = (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getURL)
+    ? chrome.runtime.getURL("icons/logo.png") : "";
 
   function pickAdapter() {
     const list = JAF.adapters || [];
@@ -65,7 +68,7 @@
       <div class="backdrop"></div>
       <aside class="panel" role="dialog" aria-label="Review autofill">
         <header>
-          <div class="brand">Kiwiply</div>
+          ${LOGO_URL ? `<img class="brandimg" src="${LOGO_URL}" alt="Kiwiply" />` : `<div class="brand">Kiwiply</div>`}
           <div class="sub">${esc(adapter.label)} detected · ${fillable.length} field${fillable.length === 1 ? "" : "s"} ready</div>
           <button class="x" title="Close">×</button>
         </header>
@@ -217,9 +220,11 @@
     .backdrop { position: fixed; inset: 0; background: rgba(45,49,51,.32); }
     .panel { position: fixed; top: 0; right: 0; height: 100%; width: 380px; max-width: 92vw;
       background: var(--paper); color: var(--ink); box-shadow: -12px 0 40px rgba(45,49,51,.22);
-      display: flex; flex-direction: column; border-left: 4px solid var(--accent); }
+      display: flex; flex-direction: column; border-left: 4px solid var(--accent);
+      border-radius: 16px 0 0 16px; overflow: hidden; }
     header { padding: 18px 18px 12px; border-bottom: 1px solid var(--line); position: relative; }
     .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--ink); }
+    .brandimg { display: block; height: 22px; width: auto; }
     .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
     .x { position: absolute; top: 12px; right: 12px; border: 0; background: transparent; font-size: 22px;
       line-height: 1; cursor: pointer; color: var(--muted); }

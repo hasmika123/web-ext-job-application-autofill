@@ -37,13 +37,13 @@ const FEATURES = [
 const FREE_FEATURES = ["Unlimited autofill", "Resume variants, parsed", "Self-populating tracker", "Bring-your-own AI key"];
 const PRO_FEATURES = ["Everything in Free", "Kiwiply AI drafts included", "Custom job recommendations", "Field-answer memory, synced", "Priority ATS support"];
 
-// ATS "logo wall" for the supported-systems strip. Monogram tiles (not trademarked
-// brand logos) keep this a tasteful visual without lifting third-party marks.
+// ATS marquee logos (monochrome cream SVGs in /public/ats, sized for the dark hero).
 const ATS = [
-  { name: "Workday", mono: "W", color: "#0875E1" },
-  { name: "Greenhouse", mono: "G", color: "#2C8C5A" },
-  { name: "Lever", mono: "L", color: "#5128B0" },
-  { name: "Ashby", mono: "A", color: "#2D3133" },
+  { name: "Workday", src: "/ats/workday.svg" },
+  { name: "Greenhouse", src: "/ats/greenhouse.svg" },
+  { name: "Lever", src: "/ats/lever.svg" },
+  { name: "Ashby", src: "/ats/ashby.svg" },
+  { name: "Workable", src: "/ats/workable.svg" },
 ];
 
 function Check() {
@@ -88,6 +88,25 @@ export default function Home() {
               <span><b className="text-hero-ink">No auto-submit.</b> You review every field.</span>
               <span><b className="text-hero-ink">Your data, yours.</b> Delete anytime.</span>
             </div>
+
+            {/* ATS logo marquee — continuous horizontal scroll on the dark hero */}
+            <div
+              aria-label="Fills Workday, Greenhouse, Lever, Ashby, Workable and more"
+              className="relative mt-5 overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)]"
+            >
+              <div className="flex w-max animate-marquee">
+                {[0, 1].map((copy) => (
+                  <ul key={copy} aria-hidden={copy === 1} className="flex flex-none items-center gap-9 pr-9">
+                    {ATS.map((a) => (
+                      <li key={a.name} className="flex-none">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={a.src} alt={a.name} className="h-[22px] w-auto opacity-75" />
+                      </li>
+                    ))}
+                  </ul>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Product peek — the review-autofill overlay */}
@@ -127,33 +146,6 @@ export default function Home() {
               <span className="rounded-lg bg-ink px-3 py-2 text-xs font-bold text-paper">Fill selected</span>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Supported-ATS logo wall — visual treatment of the systems Kiwiply fills */}
-      <section aria-label="Supported applicant tracking systems" className="border-b border-line bg-paper-2">
-        <div className="mx-auto max-w-6xl px-6 py-9">
-          <p className="text-center text-[11px] font-bold uppercase tracking-[.14em] text-muted">
-            Fills the ATS you’ll actually meet
-          </p>
-          <ul className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:gap-3.5">
-            {ATS.map((a) => (
-              <li
-                key={a.name}
-                className="flex items-center gap-2.5 rounded-full border border-line bg-paper px-4 py-2.5 shadow-[var(--shadow)]"
-              >
-                <span
-                  aria-hidden
-                  className="grid h-7 w-7 flex-none place-items-center rounded-[8px] text-[13px] font-bold text-white"
-                  style={{ background: a.color }}
-                >
-                  {a.mono}
-                </span>
-                <span className="text-[15px] font-semibold text-ink">{a.name}</span>
-              </li>
-            ))}
-            <li className="px-1 text-[15px] font-semibold text-muted">+ many more</li>
-          </ul>
         </div>
       </section>
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { apiUrl } from "@/lib/config";
-import { Mark } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 
 export const metadata: Metadata = {
@@ -45,7 +45,7 @@ export default async function ActivatePage({
   return (
     <main className="flex flex-1 items-center justify-center bg-app-bg px-6 py-16">
       <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-line bg-paper p-8 text-center shadow-[var(--shadow)]">
-        <Mark size={42} className="mx-auto" />
+        <Image src="/logo-icon.png" alt="Kiwiply" width={48} height={48} className="mx-auto rounded-[12px]" />
         <span
           className={
             "mt-5 inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[.06em] " +

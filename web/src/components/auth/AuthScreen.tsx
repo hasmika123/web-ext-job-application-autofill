@@ -3,8 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { track } from "@/lib/analytics";
-import { Input, Field, Logo, BrandLockup, BetaBadge } from "@/components/ui";
+import { Input, Field, Logo, BetaBadge } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { isEmail } from "@/lib/validate";
@@ -289,8 +290,8 @@ export default function AuthScreen({ mode }: { mode: Mode }) {
         className="hidden flex-col p-[52px] text-hero-ink lg:flex"
         style={{ background: "var(--hero-bg)" }}
       >
-        <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2">
-          <BrandLockup plyColor="var(--hero-ink)" size={28} />
+        <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2.5">
+          <Image src="/logo-dark-mode.png" alt="Kiwiply" width={108} height={32} priority className="h-8 w-auto" />
           <BetaBadge tone="dark" />
         </Link>
         <div className="my-auto">
@@ -312,31 +313,30 @@ export default function AuthScreen({ mode }: { mode: Mode }) {
       </div>
 
       {/* Form */}
-      <div className="flex flex-1 flex-col bg-app-bg p-6 sm:p-10">
-        {/* Top bar — back to landing + Kiwiply brand (shown on every breakpoint) */}
-        <div className="mx-auto flex w-full max-w-[380px] items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-full text-sm font-medium text-muted transition-colors hover:text-ink"
-          >
-            <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4">
-              <path
-                d="M10 3 5 8l5 5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Back
-          </Link>
-          <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2">
-            <Logo height={24} />
+      <div className="relative flex flex-1 items-center justify-center bg-app-bg p-6 sm:p-10">
+        {/* Back to landing — pinned to the top-left corner so it adds no vertical height */}
+        <Link
+          href="/"
+          className="absolute left-4 top-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink sm:left-6 sm:top-6"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4">
+            <path
+              d="M10 3 5 8l5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Back
+        </Link>
+        <div className="w-full max-w-[380px]">
+          {/* Mobile brand — the dark panel (with its logo) is hidden below lg */}
+          <Link href="/" aria-label="Kiwiply" className="mb-8 flex items-center gap-2 lg:hidden">
+            <Logo height={26} />
             <BetaBadge />
           </Link>
-        </div>
-        <div className="mx-auto flex w-full max-w-[380px] flex-1 flex-col justify-center py-8">
           {mode === "login" ? <LoginForm /> : <SignupForm />}
         </div>
       </div>
