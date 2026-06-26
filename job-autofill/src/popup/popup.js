@@ -1,6 +1,8 @@
 /* popup.js */
 const S = window.JAF.storage;
 const SCH = window.JAF.schema;
+const JAF = window.JAF;
+const WEB = "https://kiwiply.com";
 
 const CONTENT_FILES = [
   "src/lib/schema.js",
@@ -22,8 +24,12 @@ const CONTENT_FILES = [
 const $ = (id) => document.getElementById(id);
 
 async function init() {
-  document.getElementById("manage").onclick = () => chrome.runtime.openOptionsPage();
-  $("bio-warn").onclick = () => chrome.runtime.openOptionsPage();
+  $("manage").onclick = () => chrome.tabs.create({ url: WEB + "/dashboard" });
+  $("settings-link").onclick = () => chrome.runtime.openOptionsPage();
+  $("bio-warn").onclick = () => chrome.tabs.create({ url: WEB });
+
+  await refreshMirror(); // read-only mirror: pull the latest profile + resumes (best-effort)
+
   const [bio, resumes, settings] = await Promise.all([S.getBio(), S.getResumes(), S.getSettings()]);
 
   const hasBio = bio && (bio.firstName || bio.email);
@@ -34,7 +40,7 @@ async function init() {
   const pickable = resumes.filter((r) => !r.archived);
   const sel = $("resume");
   if (!pickable.length) {
-    sel.innerHTML = `<option value="">${resumes.length ? "All resumes archived — open Manage" : "No resumes yet — open Manage"}</option>`;
+    sel.innerHTML = `<option value="">${resumes.length ? "All resumes archived — manage on kiwiply.com" : "No resumes — add one on kiwiply.com"}</option>`;
     sel.disabled = true;
     $("fill").disabled = true;
   } else {
@@ -61,6 +67,36 @@ async function init() {
 
   $("fill").onclick = () => doFill(pickable, bio).catch((e) => setStatus(String(e.message || e), true));
   $("savejob").onclick = () => doSaveJob().catch((e) => setStatus(String(e.message || e), true));
+}
+
+// Read-only mirror: pull the latest profile + resumes from the server (best-effort,
+// throttled). Editing happens on the web; the extension only mirrors. Also runs a
+// one-time push of any local-only resumes so nothing predating the web account is lost.
+async function refreshMirror() {
+  try {
+    const settings = await S.getSettings();
+    if (!settings.apiBaseUrl) return; // not connected yet
+    const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
+    if (!(await provider.isAuthenticated())) return; // offline or signed out → use cache
+
+    if (!settings.__migratedResumes) {
+      const resumes = await S.getResumes();
+      if (resumes.some((r) => r.serverId == null && !r.archived)) {
+        try { await JAF.sync.pushAll(provider, S); } catch (e) {}
+      }
+      settings.__migratedResumes = true;
+      await S.saveSettings(settings);
+    }
+
+    const now = Date.now();
+    if (settings.__lastPull && now - settings.__lastPull < 90 * 1000) return; // throttle
+    await JAF.sync.pullAll(provider, S);
+    const s2 = await S.getSettings();
+    s2.__lastPull = now;
+    await S.saveSettings(s2);
+  } catch (e) {
+    /* offline / not connected → the popup uses the existing cached mirror */
+  }
 }
 
 // state: "err" (or truthy) = error, "ok" = success, falsy = neutral.
@@ -178,7 +214,7 @@ async function doSaveJob() {
     const c = capResp.capture;
     setStatus(`Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}`, "ok");
   } else if (res && res.reason === "not-signed-in") {
-    setStatus("Sign in (Manage → Account) to save jobs.", true);
+    setStatus("Connect the extension on kiwiply.com to save jobs.", true);
   } else {
     setStatus("Couldn't save this job" + (res && res.reason ? ` (${res.reason})` : "") + ".", true);
   }

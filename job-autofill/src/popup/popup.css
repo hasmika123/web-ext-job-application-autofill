@@ -13,6 +13,7 @@ body { margin: 0; width: 320px; background: transparent; color: var(--ink);
 header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 /* Brand: actual Kiwiply logo lockup */
 .brandimg { display: block; height: 24px; width: auto; }
+.headlinks { display: flex; align-items: center; gap: 12px; }
 .link { background: none; border: 0; color: var(--accent-deep); font-weight: 600; cursor: pointer; font-size: 12.5px; }
 .link:hover { text-decoration: underline; }
 .lbl { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .07em;

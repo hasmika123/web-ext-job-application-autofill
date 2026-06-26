@@ -9,10 +9,13 @@
   <div class="wrap">
     <header>
       <img class="brandimg" src="../../icons/logo.png" alt="Kiwiply" />
-      <button class="link" id="manage">Manage</button>
+      <div class="headlinks">
+        <button class="link" id="manage" title="Manage your profile & resumes on kiwiply.com">Manage</button>
+        <button class="link" id="settings-link" title="Extension settings">Settings</button>
+      </div>
     </header>
 
-    <div id="bio-warn" class="warn hidden">Add your bio to start filling — open Manage →</div>
+    <div id="bio-warn" class="warn hidden">Connect the extension & build your profile on kiwiply.com →</div>
 
     <label class="lbl" for="resume">Resume variant</label>
     <select id="resume" class="select"></select>
@@ -30,6 +33,7 @@
   <script src="../lib/schema.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/tracking.js"></script>
+  <script src="../lib/sync.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

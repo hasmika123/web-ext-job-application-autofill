@@ -20,7 +20,8 @@ function track(name, params) {
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
-    chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html") });
+    // Onboard on the web app: sign in / sign up there and connect the extension.
+    chrome.tabs.create({ url: "https://kiwiply.com/connect" });
   }
   track(details.reason === "install" ? "extension_install" : "extension_update", { reason: details.reason });
 });
