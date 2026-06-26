@@ -23,6 +23,9 @@ export type { SwitchProps } from "./Switch";
 export { default as Toast } from "./Toast";
 export type { ToastProps, ToastVariant } from "./Toast";
 
+export { default as ToastProvider, useToast } from "./ToastProvider";
+export type { ToastInput } from "./ToastProvider";
+
 export { default as Skeleton } from "./Skeleton";
 
 export { default as EmptyState } from "./EmptyState";

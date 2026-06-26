@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui";
+import { Badge, useToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 export interface Resume {
@@ -49,6 +49,7 @@ function FileIcon() {
 
 function Row({ resume, usage }: { resume: Resume; usage: number }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guard, setGuard] = useState<string | null>(null);
@@ -70,6 +71,7 @@ function Row({ resume, usage }: { resume: Resume; usage: number }) {
         setError(data.error ?? "Couldn't update.");
         return;
       }
+      toast({ variant: "success", title: next ? "Resume archived" : "Resume restored" });
       router.refresh();
     } catch {
       setError("Something went wrong.");
@@ -95,6 +97,7 @@ function Row({ resume, usage }: { resume: Resume; usage: number }) {
         }
         return;
       }
+      toast({ variant: "success", title: "Resume deleted" });
       router.refresh();
     } catch {
       setError("Something went wrong.");

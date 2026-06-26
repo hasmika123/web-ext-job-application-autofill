@@ -36,11 +36,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R6.1** (Toasts) — but FIRST run the phase loop (R5→R6 boundary): merge `phase-5` →
-> `ui-redesign`, delete it, cut `phase-6`. **Phase R5 (extension) is COMPLETE** — re-token + rename,
-> popup lockup, options sticky-save + AI group, overlay micro-states + regenerate; ext **v0.21.3**.
-> R0–R5 done. **R6 switches back to the web app** (toasts/skeletons/empty-states/validation/a11y;
-> dark mode deferred). Don't bump extension versions in R6 (web-only).
+> **Next: R6.2** (Skeletons — loading placeholders for server-fetched lists). **R6.1 Toasts DONE**
+> (`ToastProvider`/`useToast` in root layout; wired ResumeUpload + ResumeList). On `phase-6` (R6 =
+> web app; don't bump extension versions). R0–R5 done.
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -540,8 +538,10 @@ focused Claude Code session.
   micro-states "Filling…"/"Advancing…"; **"↻ regenerate draft"** affordance on AI rows — re-asks the
   SW via new `JAF.assist.draft`, item keeps question+context; kept green left border + "never clicks
   Submit" note + Shadow-DOM isolation; ext v0.21.3). No "Dossier" in UI; Shadow DOM isolation preserved.
-- [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
-  deferred per decision.)
+- [~] **R6 Cross-cutting.** ✅ R6.1 Toasts — `ToastProvider` + `useToast()` + bottom-right viewport
+  (mounted in root layout) on the R0.2 `Toast` primitive; wired to replace inline "Saved" text
+  (ResumeUpload save → success toast; ResumeList archive/restore/delete → toasts) · skeletons · empty
+  states · validation · a11y. (Dark mode deferred per decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
   web+API+extension, one tested commit) · R7.2 responsive QA at 360/768/1024/1440px (§9).
 
@@ -549,6 +549,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R6.1 (toasts) — **Phase R6 begins (web)** · Added the toast **system** on top
+  of the R0.2 `Toast` primitive: `ToastProvider` (context + queue, auto-dismiss 4s, bottom-right
+  `aria-live` viewport, slide-in via a `toast-in` keyframe in globals.css) + a `useToast()` hook,
+  exported from the ui barrel and mounted in the root layout (wrapping children under `<Analytics>`).
+  Wired it to replace inline "Saved" text: ResumeUpload save → green success toast (removed the inline
+  box + `savedLabel` state); ResumeList archive/restore/delete → success toasts (were silent). 409
+  archive-guard stays an inline callout (contextual, not transient). `npm test` + `npm run build`
+  green; landing renders with the viewport mounted. Branch `phase-6`. Web-only.
 - 2026-06-25 · redesign.R5.4 (overlay polish) — **completes Phase R5** · The review overlay (Shadow
   DOM) gets sharper fill micro-states — the Fill button reads **"Filling…"** then **"Advancing…"**
   (auto-advance) — and a **"↻ regenerate draft"** button on AI-assisted rows: it re-asks the service

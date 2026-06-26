@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import Analytics from "@/components/Analytics";
+import { ToastProvider } from "@/components/ui";
 
 // Inter (body) + Fraunces (display) — both variable fonts; no weight needed.
 const inter = Inter({
@@ -57,7 +58,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Analytics />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

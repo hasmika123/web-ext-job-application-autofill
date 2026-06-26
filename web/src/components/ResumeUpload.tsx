@@ -4,7 +4,7 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { parseResume, type ParsedResume } from "@/lib/resume-parse";
 import { track } from "@/lib/analytics";
-import { Input, Field } from "@/components/ui";
+import { Input, Field, useToast } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
@@ -33,6 +33,7 @@ function ReviewCard({ title, children }: { title: string; children: React.ReactN
 
 export default function ResumeUpload() {
   const router = useRouter();
+  const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [label, setLabel] = useState("");
@@ -42,7 +43,6 @@ export default function ResumeUpload() {
   const [result, setResult] = useState<ParsedResume | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [savedLabel, setSavedLabel] = useState<string | null>(null);
 
   async function handleFile(picked: File) {
     setFile(picked);
@@ -51,7 +51,6 @@ export default function ResumeUpload() {
     setError(null);
     setResult(null);
     setSaveError(null);
-    setSavedLabel(null);
     try {
       setResult(await parseResume(picked));
     } catch (err) {
@@ -89,7 +88,7 @@ export default function ResumeUpload() {
         return;
       }
       track("resume_saved");
-      setSavedLabel(data.label ?? label);
+      toast({ variant: "success", title: `Saved “${data.label ?? label}”`, description: "Added to your account." });
       setFile(null);
       setResult(null);
       router.refresh();
@@ -149,12 +148,6 @@ export default function ResumeUpload() {
           {error}
         </p>
       )}
-      {savedLabel && (
-        <p className="rounded-[var(--radius)] border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-deep">
-          Saved “{savedLabel}” to your account.
-        </p>
-      )}
-
       {s && bio && (
         <div className="flex flex-col gap-6">
           <p className="text-sm text-muted">Review what we detected, then save it.</p>
