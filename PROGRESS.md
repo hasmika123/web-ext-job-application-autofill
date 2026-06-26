@@ -36,10 +36,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R5.4** (overlay polish — "advancing…" micro-state + "regenerate draft" affordance; keep the
-> green left border + "never clicks Submit" note + Shadow-DOM isolation; `cd job-autofill && npm test`
-> + smoke green; bump versions). **R5.1–R5.3 DONE** (re-token; popup lockup; options sticky-save + AI
-> group; ext v0.21.2). R0–R4 done. **R5 surface = the extension** (`job-autofill/`).
+> **Next: R6.1** (Toasts) — but FIRST run the phase loop (R5→R6 boundary): merge `phase-5` →
+> `ui-redesign`, delete it, cut `phase-6`. **Phase R5 (extension) is COMPLETE** — re-token + rename,
+> popup lockup, options sticky-save + AI group, overlay micro-states + regenerate; ext **v0.21.3**.
+> R0–R5 done. **R6 switches back to the web app** (toasts/skeletons/empty-states/validation/a11y;
+> dark mode deferred). Don't bump extension versions in R6 (web-only).
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -527,7 +528,7 @@ focused Claude Code session.
   sub-nav (scroll-spy: Account / AI & drafting / Autofill / Privacy & data / Billing), kiwi-reskinned
   type-to-confirm danger zone, AI/autofill surfaced informationally ("in the extension" — those live
   in chrome.storage, not the backend). Existing save/delete/status flows still pass.
-- [~] **R5 Extension (bumps versions).** ✅ R5.1 re-token (kiwi palette in popup.css/options.css +
+- [x] **R5 Extension (bumps versions).** ✅ R5.1 re-token (kiwi palette in popup.css/options.css +
   overlay Shadow-DOM `CSS_TEXT`; AI-badge now charcoal-on-lime; green left border) + Kiwiply rename
   (manifest name/tooltip, popup/options `.brand` + copy, overlay brand + note, Workday re-run msg,
   `PRIVACY.md` + contact→`support@kiwiply.com`); ext **v0.21.0**; 14 suites green. Internal ids
@@ -535,8 +536,10 @@ focused Claude Code session.
   popup polish (kiwi-mark + two-tone wordmark lockup; clickable bio-warn; colored file-status +
   green success status; ext v0.21.1) · ✅ R5.3 options polish (sticky save bar; AI settings grouped
   into one "AI answer drafting" card — BYO key vs Kiwiply AI; finished the re-token: fixed blue chips
-  → `--accent-soft`, gold drop-zone/badge → kiwi; ext v0.21.2) · R5.4 overlay. No "Dossier" in UI;
-  Shadow DOM isolation preserved.
+  → `--accent-soft`, gold drop-zone/badge → kiwi; ext v0.21.2) · ✅ R5.4 overlay polish (fill→advance
+  micro-states "Filling…"/"Advancing…"; **"↻ regenerate draft"** affordance on AI rows — re-asks the
+  SW via new `JAF.assist.draft`, item keeps question+context; kept green left border + "never clicks
+  Submit" note + Shadow-DOM isolation; ext v0.21.3). No "Dossier" in UI; Shadow DOM isolation preserved.
 - [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
   deferred per decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
@@ -546,6 +549,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R5.4 (overlay polish) — **completes Phase R5** · The review overlay (Shadow
+  DOM) gets sharper fill micro-states — the Fill button reads **"Filling…"** then **"Advancing…"**
+  (auto-advance) — and a **"↻ regenerate draft"** button on AI-assisted rows: it re-asks the service
+  worker for that question (new `JAF.assist.draft` export; assisted items now carry `question`+`context`),
+  shows "Drafting…" in the value cell, and swaps in the new answer (or restores the old on
+  error/disabled). Added `.row.assisted`/`.regen` styles to the inline `CSS_TEXT`. Kept the green left
+  border, the "never clicks Submit" note, and Shadow-DOM isolation. ext **v0.21.3**; 14 extension
+  suites green (exit 0). **Phase R5 done.** Branch `phase-5`. *Live reload-in-Chrome check is the user's step.*
 - 2026-06-25 · redesign.R5.3 (options polish) · Made the **save bar sticky** (`.actionbar` sticky
   bottom + blurred backdrop — stays reachable on the long bio/settings tabs). **Grouped the AI
   settings** into one "AI answer drafting" card with two clearly-labeled sub-options — *Bring your own

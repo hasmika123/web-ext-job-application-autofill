@@ -53,10 +53,11 @@
     const info = items.filter((i) => i.kind === "info");
 
     const rowHtml = (i, idx) =>
-      `<label class="row">
+      `<label class="row${i.assisted ? " assisted" : ""}">
          <input type="checkbox" data-i="${idx}" checked />
          <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}</span>
          <span class="val">${esc(truncate(String(i.value), 60))}</span>
+         ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
 
     root.innerHTML = `
@@ -93,6 +94,7 @@
     root.querySelector("#fill").onclick = async () => {
       const fillBtn = root.querySelector("#fill");
       fillBtn.disabled = true;
+      fillBtn.textContent = "Filling…";
       const checks = Array.from(root.querySelectorAll('.rows input[type="checkbox"][data-i]'));
       let filled = 0;
       const failed = [];
@@ -130,6 +132,7 @@
       if (autoAdvance) {
         const nextBtn = (adapter.nextButton && adapter.nextButton()) || B.findNextButton();
         if (nextBtn) {
+          fillBtn.textContent = "Advancing…";
           flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${failMsg}. Advancing…`);
           await new Promise((r) => setTimeout(r, 600));
           nextBtn.click();
@@ -141,6 +144,29 @@
       flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${failMsg}${advanceMsg}. Review before submitting.`);
       setTimeout(close, 2400);
     };
+
+    // Regenerate an AI draft in place — re-asks the service worker for that question.
+    root.querySelectorAll(".regen").forEach((btn) => {
+      btn.onclick = async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const item = fillable[Number(btn.dataset.regen)];
+        if (!item || !item.assisted || !(JAF.assist && JAF.assist.draft)) return;
+        const valEl = btn.closest(".row").querySelector(".val");
+        const prev = item.value;
+        btn.disabled = true;
+        valEl.textContent = "Drafting…";
+        try {
+          const r = await JAF.assist.draft(item.question, item.context);
+          if (r && r.answer) { item.value = r.answer; valEl.textContent = truncate(String(r.answer), 60); }
+          else { valEl.textContent = truncate(String(prev), 60); }
+        } catch (e) {
+          valEl.textContent = truncate(String(prev), 60);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    });
   }
 
   function flash(root, msg) {
@@ -205,6 +231,11 @@
     .row { display: grid; grid-template-columns: 18px 110px 1fr; align-items: center; gap: 8px;
       padding: 8px 8px; border-radius: 8px; cursor: pointer; }
     .row:hover { background: var(--paper-2); }
+    .row.assisted { grid-template-columns: 18px 110px 1fr auto; }
+    .regen { border: 1px solid var(--line); background: var(--paper); color: var(--accent-deep);
+      border-radius: 6px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 7px; }
+    .regen:hover:not(:disabled) { border-color: var(--accent); }
+    .regen:disabled { opacity: .5; cursor: default; }
     .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
     .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: var(--warn); line-height: 1.35; }
     .infonote { font-size: 12px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
