@@ -583,6 +583,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-26 · real ATS logos in hero marquee (branch `ui-redesign`) · Swapped the hand-made cream
+  monogram SVGs for the **real brand logos** (user-added `*-dark-mode.svg` at repo root). Rasterized
+  each to a compact transparent PNG at 88px tall via sharp (`web/public/ats/*.png`, ~5–17KB each, ~53KB
+  total vs ~3MB of source SVG); pointed the marquee `ATS` array at them and deleted the old placeholders.
+  Verified on the landing page: all 5 load, correct aspect ratios, legible on the dark hero, contained to
+  the left column, 0 overflow. `npm run build` green.
 - 2026-06-26 · full-page editable resume review (branch `ui-redesign`) · Rebuilt `ResumeUpload`: after a
   parse, the review now opens as a **full-page overlay** (`fixed inset-0 z-[150]`, below toasts' z-200)
   with an **✕ / Esc** to exit back to the Resumes page. Everything is **editable** — contact, summary,

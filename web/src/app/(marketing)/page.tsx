@@ -37,13 +37,14 @@ const FEATURES = [
 const FREE_FEATURES = ["Unlimited autofill", "Resume variants, parsed", "Self-populating tracker", "Bring-your-own AI key"];
 const PRO_FEATURES = ["Everything in Free", "Kiwiply AI drafts included", "Custom job recommendations", "Field-answer memory, synced", "Priority ATS support"];
 
-// ATS marquee logos (monochrome cream SVGs in /public/ats, sized for the dark hero).
+// ATS marquee logos — real brand logos (dark-surface variants), rasterized to compact
+// PNGs in /public/ats (from the *-dark-mode.svg sources at the repo root).
 const ATS = [
-  { name: "Workday", src: "/ats/workday.svg" },
-  { name: "Greenhouse", src: "/ats/greenhouse.svg" },
-  { name: "Lever", src: "/ats/lever.svg" },
-  { name: "Ashby", src: "/ats/ashby.svg" },
-  { name: "Workable", src: "/ats/workable.svg" },
+  { name: "Workday", src: "/ats/workday.png" },
+  { name: "Greenhouse", src: "/ats/greenhouse.png" },
+  { name: "Lever", src: "/ats/lever.png" },
+  { name: "Ashby", src: "/ats/ashby.png" },
+  { name: "Workable", src: "/ats/workable.png" },
 ];
 
 function Check() {
