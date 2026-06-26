@@ -583,6 +583,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-26 · save-bar dock fix (branch `ui-redesign`) · Live validation caught the profile save bar
+  still docking ~64px above the viewport bottom (fields peeked in the gap). Root cause: the earlier
+  `lg:h-dvh`/`overflow-auto` made **main** the scroll container, so `sticky bottom-0` docked at main's
+  content box — above its `lg:pb-16`. Fix: reverted to **window scroll** + a **sticky sidebar**
+  (`lg:sticky lg:top-0 lg:h-dvh` on the aside, `lg:items-start` on the grid; dropped main's
+  `overflow-auto`/`lg:h-dvh`, added `min-w-0`). Sidebar still stays visible on long pages; the opaque
+  save bar now docks flush to the viewport bottom with no field beneath it. `npm test` + build green.
 - 2026-06-26 · hero marquee containment (branch `ui-redesign`, batched) · The ATS marquee's wide
   `w-max` track was inflating the left hero grid column's min-content, blowing out the `1.05fr/.95fr`
   split and pushing the right-hand product visual off-screen. Fixed with **`min-w-0` on the left

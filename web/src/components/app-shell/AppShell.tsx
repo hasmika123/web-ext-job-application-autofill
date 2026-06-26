@@ -125,7 +125,7 @@ export default function AppShell({
   return (
     <div
       className={cn(
-        "flex flex-1 flex-col bg-app-bg lg:grid lg:h-dvh lg:overflow-hidden",
+        "flex flex-1 flex-col bg-app-bg lg:grid lg:items-start",
         collapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[236px_1fr]",
       )}
     >
@@ -151,7 +151,7 @@ export default function AppShell({
         className={cn(
           "fixed inset-y-0 left-0 z-[120] flex w-[264px] flex-col gap-1.5 border-r border-line bg-paper p-5",
           "transition-transform duration-200 ease-out",
-          "lg:static lg:z-auto lg:h-dvh lg:w-auto lg:translate-x-0 lg:overflow-y-auto",
+          "lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-auto lg:translate-x-0 lg:overflow-y-auto",
           collapsed && "lg:p-3",
           open ? "translate-x-0" : "-translate-x-full",
         )}
@@ -259,8 +259,9 @@ export default function AppShell({
         />
       )}
 
-      {/* Main content (scrolls within the fixed-height shell on lg) */}
-      <main className="overflow-auto p-5 pb-14 lg:h-dvh lg:p-8 lg:pb-16">{children}</main>
+      {/* Main content. The page (window) scrolls; the sidebar is sticky-pinned and the
+          profile save bar sticks to the viewport bottom — so neither needs internal scroll. */}
+      <main className="min-w-0 p-5 pb-14 lg:p-8 lg:pb-16">{children}</main>
     </div>
   );
 }
