@@ -39,6 +39,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -202,6 +203,43 @@ public class AuthenticateController {
     public ResponseEntity<Void> isAuthenticated(Principal principal) {
         LOG.debug("REST request to check if the current user is authenticated");
         return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.NO_CONTENT).build();
+    }
+
+    /**
+     * {@code POST /extension/session} : mint a NEW access + refresh token pair for the
+     * already-authenticated user, for the browser extension. The new refresh token starts its
+     * own rotation family, so the extension and the web session never invalidate each other's
+     * refresh token. Requires a valid access token — the web app calls this server-side on
+     * behalf of a signed-in user (see the web {@code /api/extension/token} route).
+     */
+    @Operation(
+        summary = "Mint an extension session",
+        description = "For the authenticated user, issue a fresh access + refresh token pair in a NEW rotation family, " +
+        "for the browser extension. Requires a valid access token."
+    )
+    @PostMapping("/extension/session")
+    public ResponseEntity<TokenResponse> extensionSession(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
+        Long userId = null;
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            Object rawUserId = jwtAuth.getToken().getClaim(USER_ID_CLAIM);
+            userId = rawUserId instanceof Number n ? n.longValue() : null;
+        }
+        String subject = authentication.getName();
+
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        // New family — independent of the web session's refresh rotation.
+        String family = UUID.randomUUID().toString();
+        String refreshJti = UUID.randomUUID().toString();
+        refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(accessToken);
+        return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
     }
 
     private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti) {
