@@ -571,6 +571,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · beta tag + disclaimer (post-redesign, branch `beta-tag`→`ui-redesign`) · New
+  `BetaBadge` ui primitive (light + dark tone); shown next to the wordmark in the marketing header +
+  footer, the app sidebar (desktop + mobile top bar), and the auth brand panel + mobile lockup. Legal:
+  a footer **beta disclaimer** ("as is"/"as available", may change/be interrupted, your data stays
+  exportable/deletable), a one-line beta note on the signup agreement text, and a new **"Beta
+  service"** disclaimer section leading the `/privacy` policy (as-is, no warranties, limitation of
+  liability "to the extent permitted by law"). Verified in a browser (header badge, footer disclaimer,
+  privacy section). `npm test` + `npm run build` green. NOTE: not a substitute for a full Terms of
+  Service + legal review (still part of PL.1). Web-only.
 - 2026-06-25 · redesign.R7.2 (responsive QA) — **completes Phase R7 + the whole redesign (R0–R7)** ·
   Drove the public pages (landing/pricing/privacy/login/signup) at 360px in the preview: **0px
   horizontal overflow** on every page; the auth split-screen brand panel correctly collapses to

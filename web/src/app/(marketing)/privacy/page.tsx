@@ -40,6 +40,18 @@ export default function PrivacyPage() {
         how to delete it. We don&apos;t sell your data.
       </p>
 
+      <Section title="Beta service">
+        <p>
+          Kiwiply is currently in <strong>beta</strong>. The service is provided{" "}
+          <strong>&quot;as is&quot; and &quot;as available&quot;</strong>, without warranties of any
+          kind. Features may change, and the service may be unavailable or interrupted from time to
+          time while we improve it. We aim to keep your data safe, but during beta you should keep
+          your own copy of anything important — you can export or delete your data at any time. To the
+          extent permitted by law, Kiwiply is not liable for any loss arising from use of the beta
+          service.
+        </p>
+      </Section>
+
       <Section title="What we collect">
         <ul className="list-disc pl-5">
           <li>

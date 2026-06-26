@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { Logo } from "@/components/ui";
+import { Logo, BetaBadge } from "@/components/ui";
 import SignOutButton from "@/components/SignOutButton";
 
 export interface AppAccount {
@@ -96,8 +96,9 @@ export default function AppShell({
         >
           ☰
         </button>
-        <Link href="/dashboard" aria-label="Kiwiply">
+        <Link href="/dashboard" aria-label="Kiwiply" className="flex items-center gap-2">
           <Logo height={26} />
+          <BetaBadge />
         </Link>
       </div>
 
@@ -110,8 +111,9 @@ export default function AppShell({
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <Link href="/dashboard" aria-label="Kiwiply" className="mb-4 px-2" onClick={() => setOpen(false)}>
+        <Link href="/dashboard" aria-label="Kiwiply" className="mb-4 flex items-center gap-2 px-2" onClick={() => setOpen(false)}>
           <Logo height={28} />
+          <BetaBadge />
         </Link>
 
         <nav className="flex flex-col gap-1">

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
-import { Input, Field, BrandLockup } from "@/components/ui";
+import { Input, Field, BrandLockup, BetaBadge } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { isEmail } from "@/lib/validate";
@@ -266,7 +266,8 @@ function SignupForm() {
           {busy ? "Creating…" : "Create account"}
         </button>
         <p className="mt-3 text-xs leading-relaxed text-muted">
-          By creating an account you agree to how Kiwiply handles your data, described in our{" "}
+          Kiwiply is in beta and provided “as is”. By creating an account you agree to how Kiwiply
+          handles your data, described in our{" "}
           <Link href="/privacy" className="font-medium text-accent-deep hover:underline">
             Privacy Policy
           </Link>
@@ -288,8 +289,9 @@ export default function AuthScreen({ mode }: { mode: Mode }) {
         className="hidden flex-col p-[52px] text-hero-ink lg:flex"
         style={{ background: "var(--hero-bg)" }}
       >
-        <Link href="/" aria-label="Kiwiply">
+        <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2">
           <BrandLockup plyColor="var(--hero-ink)" size={28} />
+          <BetaBadge tone="dark" />
         </Link>
         <div className="my-auto">
           <h2 className="max-w-[380px] font-display text-[32px] font-semibold leading-tight">
@@ -313,8 +315,9 @@ export default function AuthScreen({ mode }: { mode: Mode }) {
       <div className="flex flex-1 items-center justify-center bg-app-bg p-6 sm:p-10">
         <div className="w-full max-w-[380px]">
           {/* Mobile brand */}
-          <Link href="/" aria-label="Kiwiply" className="mb-8 inline-block lg:hidden">
+          <Link href="/" aria-label="Kiwiply" className="mb-8 flex items-center gap-2 lg:hidden">
             <BrandLockup size={26} />
+            <BetaBadge />
           </Link>
           {mode === "login" ? <LoginForm /> : <SignupForm />}
         </div>

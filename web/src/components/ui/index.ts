@@ -33,3 +33,5 @@ export type { EmptyStateProps } from "./EmptyState";
 
 export { Logo, Mark, Wordmark, BrandLockup } from "./Logo";
 export type { LogoProps, MarkProps, WordmarkProps, BrandLockupProps } from "./Logo";
+
+export { default as BetaBadge } from "./BetaBadge";
