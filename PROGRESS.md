@@ -33,17 +33,19 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `DOSSIER_AI_MODEL=gemini-2.5-flash-lite` + `DOSSIER_AI_ENABLED=true` (key already in `.env`) and
 > recreate the api container — see `DEPLOY.md` §10.
 >
-> 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
-> system + app shell — see the **Redesign (Phase R)** section below, spec in
-> `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R7.2** (responsive QA at 360/768/1024/1440px on every screen — §9: no horizontal overflow at
-> 360px except the intentional board scroll; drawer/scrim; sub-navs scroll; forms single-column on
-> mobile). This is the **final redesign task.** **R7.1 DONE** (identifier + cookie rename, ext v0.21.4,
-> forces one re-login). R0–R6 + R7.1 done. On `phase-7`.
-> *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
-> "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
-> columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
-> `support@kiwiply.com` during R5, per PL.1).
+> 🎉 **Kiwiply UI/UX redesign is COMPLETE (R0–R7).** All phases done on **`ui-redesign`** (foundations,
+> app shell, marketing, auth, core app screens, extension rebrand, cross-cutting polish, internal
+> rename + responsive QA). Extension at **v0.21.4**. Spec: `redesign/REDESIGN-PLAN.md`.
+> **The one remaining step is the go-live decision: merge `ui-redesign` → `main`** (auto-deploys the
+> whole redesign to prod). ⚠️ This is the deferred big one — it ships the rebrand live AND **forces a
+> one-time re-login** (R7.1 cookie rename). Before merging, confirm the live verifications below.
+> **Pending LIVE verifications (need a running stack / Chrome — the user's step):** (a) reload the
+> unpacked extension and eyeball popup/options/overlay in the kiwi palette; (b) sign in and walk the
+> gated pages (dashboard/profile/resumes/board/settings) at 360/768/1024/1440px; (c) the email setup
+> (Brevo/Cloudflare) per the `email-architecture` memory.
+> *Deferred (needs backend, not presentation-only — NOT in this redesign):* (1) default-resume flag →
+> popup picker (R4.2 "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) —
+> no `notes`/audit columns in the DTO. Both are backend features for a later pass.
 > **Branch loop (see `redesign-branch-loop` memory):** redesign lives off `ui-redesign` (cut from
 > `main`); each phase on its own `phase-N` branch — on phase switch, merge it into `ui-redesign`,
 > delete it (local+remote), cut the next off `ui-redesign`. Live branches are only `main`,
@@ -553,17 +555,31 @@ focused Claude Code session.
   (clears WCAG AA on `--paper`), Escape-to-close + focus-on-open for the board slide-over (already
   `role=dialog`) and Escape for the mobile drawer; board stays keyboard-movable via the per-card status
   `<select>`. **R6.5 dark mode DEFERRED** (locked light-only). **Completes Phase R6.**
-- [~] **R7 Internal rename + responsive QA.** ✅ R7.1 identifier + cookie rename (one tested commit):
+- [x] **R7 Internal rename + responsive QA.** ✅ R7.1 identifier + cookie rename (one tested commit):
   extension `createDossierProvider`→`createKiwiplyProvider` (`tracking.js`/`sync.js`/test/ARCHITECTURE;
   ext v0.21.4), web cookies `dossier_access`/`dossier_refresh`→`kiwiply_*` (`auth.ts` string values
   only — route handlers go through helpers). Forces a one-time re-login. IDB names (`dossier`/
-  `dossier-fieldcache`) + gecko id intentionally kept (data/infra). · R7.2 responsive QA at
-  360/768/1024/1440px (§9).
+  `dossier-fieldcache`) + gecko id intentionally kept (data/infra). · ✅ R7.2 responsive QA — public
+  pages (landing/pricing/privacy/login/signup) verified **0px horizontal overflow at 360px** (and
+  clean to 1440px) via the preview; auth brand panel correctly collapses to form-only on mobile;
+  marketing nav links hide < sm leaving the CTAs. Gated pages audited statically against §9
+  (drawer+top-bar < lg, `overflow-x-auto` sub-navs, `sm:grid-cols-2` forms, board intentional scroll,
+  `w-full max-w-md` slide-over) — live pass pending a running stack. **Completes Phase R7 + the whole
+  redesign (R0–R7).**
 
 ---
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R7.2 (responsive QA) — **completes Phase R7 + the whole redesign (R0–R7)** ·
+  Drove the public pages (landing/pricing/privacy/login/signup) at 360px in the preview: **0px
+  horizontal overflow** on every page; the auth split-screen brand panel correctly collapses to
+  `display:none` (form-only) on mobile; landing nav links hide < sm leaving the CTAs; re-checked at
+  1440px (only the scrollbar, no overflow). Gated pages audited statically against §9 (mobile drawer +
+  top bar < lg, `overflow-x-auto` sub-navs, `sm:grid-cols-2` form grids, board's intentional
+  horizontal scroll, `w-full max-w-md` slide-over) — a live pass is pending a running stack. No
+  overflow fixes needed. Redesign is feature-complete on `ui-redesign`; only the go-live
+  `ui-redesign`→`main` merge remains (user decision). Branch `phase-7`.
 - 2026-06-25 · redesign.R7.1 (internal rename) · One coordinated, tested commit. **Extension:**
   `createDossierProvider`→`createKiwiplyProvider` across `tracking.js` (def+export+comments), `sync.js`
   (call), `tracking.test.js` (13 calls), and `ARCHITECTURE.md`; ext **v0.21.4**; 14 suites green.
