@@ -104,7 +104,7 @@ const NAV = [
   { id: "links", label: "Links" },
   { id: "work", label: "Work authorization" },
   { id: "eeo", label: "EEO / demographics" },
-  { id: "skills", label: "Skills" },
+  { id: "skills", label: "Base skills" },
 ];
 
 /** Bio keys safely populated from a parsed resume (mirrors ParsedBio). */
@@ -180,7 +180,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
     setParseMsg(null);
     setParseErr(false);
     try {
-      const { bio, structured } = await parseResume(file);
+      const { bio } = await parseResume(file);
       setValues((prev) => {
         const next = { ...prev };
         for (const k of RESUME_FILL_KEYS) {
@@ -189,17 +189,9 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
         }
         return next;
       });
-      if (Array.isArray(structured.skills) && structured.skills.length) {
-        setSkills((prev) => {
-          const next = [...prev];
-          for (const s of structured.skills) {
-            if (s && !next.some((x) => x.toLowerCase() === s.toLowerCase())) next.push(s);
-          }
-          return next;
-        });
-      }
       setDirty(true);
-      setParseMsg(`Imported details from ${file.name} — empty fields were filled and your existing entries kept. Review below.`);
+      // Skills are intentionally NOT pulled in here — base skills stay your own curated list.
+      setParseMsg(`Filled your empty profile details from ${file.name}. Your existing entries and base skills are untouched — each resume's own skills live on the Resumes page.`);
     } catch (err) {
       setParseErr(true);
       setParseMsg(err instanceof Error ? err.message : "Couldn't read that resume.");
@@ -349,7 +341,8 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           <div>
             <div className="text-sm font-semibold text-ink">Autofill from your resume</div>
             <p className="mt-0.5 text-[12.5px] text-muted">
-              Upload a PDF, DOCX, or TXT — parsed in your browser to fill empty fields. Your existing entries are kept.
+              Upload a PDF, DOCX, or TXT — parsed in your browser to fill empty profile details. Your existing
+              entries and base skills are kept.
             </p>
           </div>
           <button
@@ -412,19 +405,22 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">{EEO_FIELDS.map(renderField)}</div>
         </section>
 
-        {/* Skills */}
+        {/* Base skills — applied on top of every resume, regardless of which is chosen */}
         <section id="skills" className="mb-7 scroll-mt-6">
           <SectionTitle>
-            Skills
-            <span className="font-body text-xs font-normal text-muted">— editable, synced to your profile</span>
+            Base skills
+            <span className="font-body text-xs font-normal text-muted">— always applied, on top of whichever resume you choose</span>
           </SectionTitle>
+          <p className="mb-2.5 text-[12.5px] text-muted">
+            Your core skills, kept separately from any resume. Each resume keeps its own extracted skills — on the
+            Resumes page, skills already listed here are highlighted.
+          </p>
           <SkillsEditor skills={skills} onChange={updateSkills} />
         </section>
 
-        {/* Sticky save bar */}
-        <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 border-t border-line py-3.5 backdrop-blur-[6px]"
-          style={{ background: "color-mix(in srgb, var(--app-bg) 90%, transparent)" }}
-        >
+        {/* Docked save bar — opaque (was translucent, which let fields show through as you
+            scrolled under it). Sticks to the bottom; content scrolls hidden behind it. */}
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-app-bg py-3.5 shadow-[0_-10px_16px_-14px_rgba(45,49,51,0.2)]">
           <div className="mr-auto flex items-center gap-1.5 text-[12.5px] text-muted">
             {saving ? (
               <>

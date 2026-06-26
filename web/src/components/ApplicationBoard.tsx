@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
-import { EmptyState } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 
 export interface Application {
@@ -149,24 +148,23 @@ export default function ApplicationBoard({ applications }: { applications: Appli
 
   const selected = selectedId == null ? null : apps.find((a) => a.id === selectedId) ?? null;
 
-  if (apps.length === 0) {
-    return (
-      <EmptyState
-        icon="🗂️"
-        title="Your board fills itself"
-        description="Fill or save a job with the Kiwiply extension and it shows up here automatically — drafts on every fill, confirmed when you submit."
-        action={
+  return (
+    <div>
+      {/* Empty board still shows the stages below — this banner explains how they fill. */}
+      {apps.length === 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-dashed border-line bg-paper p-4">
+          <p className="text-sm text-muted">
+            Your board fills itself — fill or save a job with the Kiwiply extension and it lands here
+            automatically: drafts on every fill, confirmed when you submit.
+          </p>
           <Link href="/resumes" className={buttonVariants("ghost")}>
             Upload a resume to start
           </Link>
-        }
-      />
-    );
-  }
+        </div>
+      )}
 
-  return (
-    <div>
-      {/* Tools */}
+      {/* Tools — only meaningful once there are entries */}
+      {apps.length > 0 && (
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <input
           value={search}
@@ -195,10 +193,11 @@ export default function ApplicationBoard({ applications }: { applications: Appli
           <option value="company">Company A–Z</option>
         </select>
       </div>
+      )}
 
       {error && <p role="alert" className="mb-3 text-sm font-medium text-danger">{error}</p>}
 
-      {visible.length === 0 ? (
+      {apps.length > 0 && visible.length === 0 ? (
         <p className="rounded-[var(--radius-lg)] border border-dashed border-line bg-paper py-12 text-center text-sm text-muted">
           No applications match your search or filter.
         </p>

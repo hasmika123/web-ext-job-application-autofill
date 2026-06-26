@@ -583,7 +583,26 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
-- 2026-06-26 · profile UX + dashboard sidebar + sidebar icons (branch `ui-redesign`) · **Profile**
+- 2026-06-26 · hero marquee containment (branch `ui-redesign`, batched) · The ATS marquee's wide
+  `w-max` track was inflating the left hero grid column's min-content, blowing out the `1.05fr/.95fr`
+  split and pushing the right-hand product visual off-screen. Fixed with **`min-w-0` on the left
+  column** (+ `w-full min-w-0 max-w-full` on the marquee box) so the column holds its fr share and the
+  marquee's `overflow-hidden` clips to it. Verified locally: marquee width == left column, right visual
+  within viewport, **0 horizontal overflow at 1280/768/375**, animation intact. `npm run build` green.
+- 2026-06-26 · board empty stages + profile save-bar dock (branch `ui-redesign`, batched for one deploy)
+  · **Board** now always renders the six stage columns (empty) instead of a full-screen empty state — a
+  dashed hint banner explains how they fill, and the tools row is hidden until there are entries.
+  **Profile save bar** was translucent (`color-mix … transparent` + backdrop-blur), so fields showed
+  through it while scrolling — made it a solid **opaque `bg-app-bg` docked footer** (z-10 + top shadow)
+  so content scrolls hidden behind it. `npm test` + `npm run build` green. Web-only.
+- 2026-06-26 · base skills vs resume skills (branch `ui-redesign`) · Established **base skills** as a
+  distinct layer from per-resume extracted skills. Profile: the Skills section is relabeled **Base
+  skills** ("always applied, on top of whichever resume you choose") and the resume-autofill no longer
+  pulls skills into it (fills profile fields only — keeps the base list curated/bare). Resumes: the
+  upload review now **color-codes extracted skills** — green = already a base skill, brown = new in this
+  resume — with a legend (the page passes `bio.skills` from `/api/profile` into `ResumeUpload`).
+  `npm test` + `npm run build` green. Web-only. Interpretation noted: separating the layers means the
+  profile autofill intentionally stopped importing skills — flag if you wanted it to keep doing so.
   (`BioEditor`): added **"Autofill from your resume"** (in-browser `parseResume`, fills empty fields +
   merges skills, keeps existing entries); promoted **EEO/demographics** from a collapsible to its own
   always-visible section placed **before Skills**; flagged required fields (firstName/lastName/email)

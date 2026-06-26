@@ -31,9 +31,11 @@ function ReviewCard({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-export default function ResumeUpload() {
+export default function ResumeUpload({ baseSkills = [] }: { baseSkills?: string[] }) {
   const router = useRouter();
   const { toast } = useToast();
+  // Lowercased base-skill set — extracted skills already in here are highlighted on review.
+  const baseSet = new Set(baseSkills.map((s) => s.toLowerCase()));
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [label, setLabel] = useState("");
@@ -189,12 +191,30 @@ export default function ResumeUpload() {
           {s.skills.length > 0 && (
             <ReviewCard title={`Skills (${s.skills.length})`}>
               <ul className="mt-3 flex flex-wrap gap-2">
-                {s.skills.map((skill, i) => (
-                  <li key={i} className="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-deep">
-                    {skill}
-                  </li>
-                ))}
+                {s.skills.map((skill, i) => {
+                  const isBase = baseSet.has(skill.toLowerCase());
+                  return (
+                    <li
+                      key={i}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-semibold",
+                        isBase ? "bg-accent-soft text-accent-deep" : "bg-brown-soft text-brown-deep",
+                      )}
+                      title={isBase ? "Already one of your base skills" : "New in this resume — not in your base skills"}
+                    >
+                      {skill}
+                    </li>
+                  );
+                })}
               </ul>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden /> In your base skills
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-brown" aria-hidden /> New in this resume
+                </span>
+              </div>
             </ReviewCard>
           )}
 
