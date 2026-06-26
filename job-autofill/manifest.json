@@ -34,6 +34,9 @@
     "http://127.0.0.1:8080/*"
   ],
   "background": { "service_worker": "src/background/service-worker.js" },
+  "externally_connectable": {
+    "matches": ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "https://app.kiwiply.com/*", "http://localhost:3000/*"]
+  },
   "action": {
     "default_title": "Kiwiply — pick a resume and fill",
     "default_popup": "src/popup/popup.html"
