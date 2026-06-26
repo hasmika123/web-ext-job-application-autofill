@@ -149,7 +149,7 @@ export default function ApplicationBoard({ applications }: { applications: Appli
 
   const selected = selectedId == null ? null : apps.find((a) => a.id === selectedId) ?? null;
 
-  if (applications.length === 0) {
+  if (apps.length === 0) {
     return (
       <EmptyState
         icon="🗂️"

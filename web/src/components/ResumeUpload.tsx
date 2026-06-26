@@ -63,6 +63,8 @@ export default function ResumeUpload() {
   function onInput(e: ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0];
     if (picked) void handleFile(picked);
+    // Reset so re-selecting the SAME file still fires onChange (e.g. after a save or a fix).
+    e.target.value = "";
   }
 
   function onDrop(e: DragEvent<HTMLDivElement>) {

@@ -81,13 +81,25 @@ focused Claude Code session.
 > listing. Pull any into a focused session when launch nears. The 1.11 gate already shipped
 > the multi-tenant fix, account/data deletion, and refresh-token rotation; these are what's left.
 
-- [ ] **PL.1 Privacy policy — real contact + legal review.** ✅ Web `/privacy` contact is now a real
-  monitored address (`support@kiwiply.com`, routed Cloudflare→Gmail — see `email-architecture` memory
-  / DEPLOY §9.1). **Still TODO:** a registered legal entity/address, a stable hosted policy URL in the
-  CWS listing, the extension `PRIVACY.md` contact (still `privacy@dossier.app`, swap in R5), and a
-  legal pass. **Extra-important now that the AI data-use language is in there** (web
-  `/privacy` "AI answer drafting" section + extension `PRIVACY.md` "Optional AI answer drafting"
-  + the Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
+- [ ] **PL.1 Legal — Privacy policy + Terms of Service + legal review.** ✅ DONE so far: web `/privacy`
+  contact is a real monitored address (`support@kiwiply.com`, routed Cloudflare→Gmail — see
+  `email-architecture` memory / DEPLOY §9.1); the extension `PRIVACY.md` contact was swapped
+  `privacy@dossier.app`→`support@kiwiply.com` (R5.1); an interim **beta disclaimer** is live (footer +
+  signup + a "Beta service" section in `/privacy`: as-is/as-available, no warranties, limitation of
+  liability "to the extent permitted by law").
+  - **➤ Terms of Service (REQUIRED before public launch — not yet written).** The beta disclaimers above
+    are a stopgap, **not** a ToS. Draft + publish a real **Terms of Service** page (e.g. `/terms`) and
+    link it from the footer + signup alongside the Privacy Policy. It must clearly cover: **acceptable
+    use** (legitimate personal job-applications only; **no auto-submit, no CAPTCHA bypass, no
+    scraping/abuse** — mirrors the product's hard rule), **eligibility/account** terms, **user
+    responsibilities** (accuracy of submitted data; you send every application yourself),
+    **beta/"as is" disclaimer of warranties**, **limitation of liability**, **indemnity**,
+    **termination**, **changes to the terms + notice**, **governing law/jurisdiction**, and **contact**.
+  - **Still TODO (the rest):** a **registered legal entity/address** (the ToS + privacy policy need a
+    real legal "we"), a stable **hosted policy URL** for the CWS listing, and a **lawyer's review** of
+    both the Privacy Policy and the Terms of Service — **extra-important given the AI data-use language**
+    (web `/privacy` "AI answer drafting" + extension `PRIVACY.md` "Optional AI answer drafting" + the
+    Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
 - [ ] **PL.2 Basic rate limiting / abuse protection.** Today there is **no general
   request throttling** — only a per-user *monthly* AI quota (`ai_usage`) and refresh-token
   reuse-detection. Before public signups, add coarse abuse protection so nobody can hammer the
