@@ -583,7 +583,20 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
-- 2026-06-26 · brand/logo + ATS marquee + extension polish (branch `ui-redesign`) · Replaced the
+- 2026-06-26 · profile UX + dashboard sidebar + sidebar icons (branch `ui-redesign`) · **Profile**
+  (`BioEditor`): added **"Autofill from your resume"** (in-browser `parseResume`, fills empty fields +
+  merges skills, keeps existing entries); promoted **EEO/demographics** from a collapsible to its own
+  always-visible section placed **before Skills**; flagged required fields (firstName/lastName/email)
+  with a `*` + legend and added required/email/URL validation (advisory — autosave still never blocks);
+  the save status now shows a **spinner + "Saving…"** and a **green check + "All changes saved"**.
+  **AppShell**: sidebar is now full-height & internally scrollable on lg (`lg:h-dvh`, nav always
+  visible on long pages) instead of scrolling away; added a **collapsible icon-only rail** (toggle
+  persisted via `localStorage` through `useSyncExternalStore` to avoid a setState-in-effect; grid
+  reflows `236px↔76px`); `SignOutButton` gained an icon-only collapsed mode. Fixed the **board icon**
+  (bars now sit on a baseline — was upside-down) and the **settings gear** (swapped to the Lucide path
+  that fits the 24×24 box — was clipping). `npm test` + `npm run build` green. NOTE: profile/dashboard
+  are auth-gated; verified build/lint/SSR-no-500 + code review, but a live visual pass needs a
+  logged-in session (no local backend here). Web-only — no extension change.
   hand-built "filler" brand text/CSS marks with the **actual logo assets** everywhere: web favicon now
   `app/icon.png` (from logo-icon), dark auth panel + activate page use the kiwi `logo-icon.png`, auth
   mobile brand uses the full `logo.svg`. Removed the stray top-bar logo I'd added on auth and pinned the

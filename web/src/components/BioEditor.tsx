@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Input, Field, Select } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { isEmail, isUrl } from "@/lib/validate";
+import { parseResume } from "@/lib/resume-parse";
 
 /** The bio object stored as the server's opaque `payload` JSON (extension-canonical). */
 export type Bio = Record<string, unknown>;
@@ -36,6 +37,7 @@ type FieldDef = {
   kind?: "text" | "email" | "tel" | "url" | "select";
   options?: string[];
   wide?: boolean;
+  required?: boolean;
 };
 
 const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
@@ -43,10 +45,10 @@ const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
     id: "identity",
     title: "Identity & contact",
     fields: [
-      { key: "firstName", label: "First name" },
-      { key: "lastName", label: "Last name" },
+      { key: "firstName", label: "First name", required: true },
+      { key: "lastName", label: "Last name", required: true },
       { key: "preferredName", label: "Preferred name" },
-      { key: "email", label: "Email", kind: "email" },
+      { key: "email", label: "Email", kind: "email", required: true },
       { key: "phone", label: "Phone", kind: "tel" },
     ],
   },
@@ -101,9 +103,12 @@ const NAV = [
   { id: "location", label: "Location" },
   { id: "links", label: "Links" },
   { id: "work", label: "Work authorization" },
-  { id: "skills", label: "Skills" },
   { id: "eeo", label: "EEO / demographics" },
+  { id: "skills", label: "Skills" },
 ];
+
+/** Bio keys safely populated from a parsed resume (mirrors ParsedBio). */
+const RESUME_FILL_KEYS = ["firstName", "lastName", "email", "phone", "linkedin", "github", "website", "city", "state"];
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -118,6 +123,25 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2 className="mb-3.5 mt-1 flex items-center gap-2.5 font-display text-lg font-semibold text-ink after:h-px after:flex-1 after:bg-line after:content-['']">
       {children}
     </h2>
+  );
+}
+
+/** Spinning loader for the "Saving…" state. */
+function Spinner() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px] animate-spin text-muted" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Green check for the "All changes saved" state. */
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px] text-accent-deep" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }
 
@@ -141,6 +165,48 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
   const [activeId, setActiveId] = useState("identity");
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const touch = (k: string) => setTouched((t) => (t.has(k) ? t : new Set(t).add(k)));
+
+  // Resume → autofill (parsed in-browser; fills empty fields, keeps your entries).
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [parsing, setParsing] = useState(false);
+  const [parseMsg, setParseMsg] = useState<string | null>(null);
+  const [parseErr, setParseErr] = useState(false);
+
+  async function onResumePicked(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    setParsing(true);
+    setParseMsg(null);
+    setParseErr(false);
+    try {
+      const { bio, structured } = await parseResume(file);
+      setValues((prev) => {
+        const next = { ...prev };
+        for (const k of RESUME_FILL_KEYS) {
+          const v = (bio as Record<string, unknown>)[k];
+          if (typeof v === "string" && v.trim() && !(next[k] ?? "").trim()) next[k] = v.trim();
+        }
+        return next;
+      });
+      if (Array.isArray(structured.skills) && structured.skills.length) {
+        setSkills((prev) => {
+          const next = [...prev];
+          for (const s of structured.skills) {
+            if (s && !next.some((x) => x.toLowerCase() === s.toLowerCase())) next.push(s);
+          }
+          return next;
+        });
+      }
+      setDirty(true);
+      setParseMsg(`Imported details from ${file.name} — empty fields were filled and your existing entries kept. Review below.`);
+    } catch (err) {
+      setParseErr(true);
+      setParseMsg(err instanceof Error ? err.message : "Couldn't read that resume.");
+    } finally {
+      setParsing(false);
+    }
+  }
 
   const setField = useCallback((key: string, value: string) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -216,21 +282,28 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
   const filled = STRENGTH_KEYS.filter((k) => (values[k] ?? "").trim()).length + (skills.length ? 1 : 0);
   const strength = Math.round((filled / (STRENGTH_KEYS.length + 1)) * 100);
 
-  const status = saving ? "Saving…" : dirty ? "Unsaved changes" : savedOnce ? "All changes saved" : "Autosaves as you type";
-
   function renderField(f: FieldDef) {
     const id = `bio-${f.key}`;
     const val = values[f.key] ?? "";
-    // Advisory validation (email/URL) — shown after blur, never blocks the autosave.
+    const trimmed = val.trim();
+    // Validation shown after blur — advisory only, autosave is never blocked.
     let err: string | undefined;
-    if (touched.has(f.key) && val.trim()) {
-      if (f.kind === "email" && !isEmail(val)) err = "Enter a valid email address";
-      else if (f.kind === "url" && !isUrl(val)) err = "Enter a valid URL";
+    if (touched.has(f.key)) {
+      if (f.required && !trimmed) err = `${f.label} is required`;
+      else if (trimmed && f.kind === "email" && !isEmail(val)) err = "Enter a valid email address";
+      else if (trimmed && f.kind === "url" && !isUrl(val)) err = "Enter a valid URL";
     }
+    const label = f.required ? (
+      <>
+        {f.label} <span className="text-danger" aria-hidden>*</span>
+      </>
+    ) : (
+      f.label
+    );
     return (
-      <Field key={f.key} label={f.label} htmlFor={id} error={err} className={cn("mb-0", f.wide && "sm:col-span-2")}>
+      <Field key={f.key} label={label} htmlFor={id} error={err} className={cn("mb-0", f.wide && "sm:col-span-2")}>
         {f.kind === "select" ? (
-          <Select id={id} value={val} onChange={(e) => setField(f.key, e.target.value)}>
+          <Select id={id} value={val} onChange={(e) => setField(f.key, e.target.value)} onBlur={() => touch(f.key)}>
             <option value="">—</option>
             {(f.options ?? []).map((o) => (
               <option key={o} value={o}>{o}</option>
@@ -244,6 +317,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
             onChange={(e) => setField(f.key, e.target.value)}
             onBlur={() => touch(f.key)}
             aria-invalid={!!err}
+            aria-required={f.required || undefined}
           />
         )}
       </Field>
@@ -270,6 +344,42 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
       </nav>
 
       <div>
+        {/* Autofill from a resume — parsed in the browser, fills empty fields only */}
+        <div className="mb-5 flex flex-col gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-4 shadow-[var(--shadow)] sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold text-ink">Autofill from your resume</div>
+            <p className="mt-0.5 text-[12.5px] text-muted">
+              Upload a PDF, DOCX, or TXT — parsed in your browser to fill empty fields. Your existing entries are kept.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={parsing}
+            className={cn(buttonVariants("ghost"), "flex-none gap-2 disabled:opacity-60")}
+          >
+            {parsing ? (
+              <>
+                <Spinner /> Reading…
+              </>
+            ) : (
+              "Upload resume"
+            )}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.docx,.txt,application/pdf,text/plain"
+            onChange={onResumePicked}
+            className="hidden"
+          />
+        </div>
+        {parseMsg && (
+          <p className={cn("mb-4 text-[12.5px]", parseErr ? "font-medium text-danger" : "text-accent-deep")} role={parseErr ? "alert" : undefined}>
+            {parseMsg}
+          </p>
+        )}
+
         {/* Profile-strength meter */}
         <div className="mb-5 rounded-[var(--radius-lg)] border border-line bg-paper p-4 shadow-[var(--shadow)]">
           <div className="flex items-center justify-between text-sm">
@@ -282,12 +392,25 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           <p className="mt-2 text-[12.5px] text-muted">A complete profile fills more fields automatically.</p>
         </div>
 
+        <p className="mb-4 text-[12px] text-muted">
+          <span className="text-danger">*</span> Required field
+        </p>
+
         {SECTIONS.map((section) => (
           <section key={section.id} id={section.id} className="mb-7 scroll-mt-6">
             <SectionTitle>{section.title}</SectionTitle>
             <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">{section.fields.map(renderField)}</div>
           </section>
         ))}
+
+        {/* EEO / demographics — its own section with fields always visible, before Skills */}
+        <section id="eeo" className="mb-7 scroll-mt-6">
+          <SectionTitle>
+            EEO / demographics
+            <span className="font-body text-xs font-normal text-muted">— optional, used only when you choose</span>
+          </SectionTitle>
+          <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">{EEO_FIELDS.map(renderField)}</div>
+        </section>
 
         {/* Skills */}
         <section id="skills" className="mb-7 scroll-mt-6">
@@ -298,22 +421,27 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           <SkillsEditor skills={skills} onChange={updateSkills} />
         </section>
 
-        {/* EEO (opt-in collapsible) */}
-        <section id="eeo" className="mb-7 scroll-mt-6">
-          <details className="rounded-[var(--radius-lg)] border border-line bg-paper px-4 open:pb-4">
-            <summary className="cursor-pointer list-none py-3.5 text-sm font-semibold text-ink-soft">
-              EEO / demographics
-              <span className="ml-2 font-normal text-muted">— optional, used only when you choose</span>
-            </summary>
-            <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">{EEO_FIELDS.map(renderField)}</div>
-          </details>
-        </section>
-
         {/* Sticky save bar */}
         <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 border-t border-line py-3.5 backdrop-blur-[6px]"
           style={{ background: "color-mix(in srgb, var(--app-bg) 90%, transparent)" }}
         >
-          <span className="mr-auto text-[12.5px] text-muted">{status}</span>
+          <div className="mr-auto flex items-center gap-1.5 text-[12.5px] text-muted">
+            {saving ? (
+              <>
+                <Spinner />
+                <span>Saving…</span>
+              </>
+            ) : dirty ? (
+              <span>Unsaved changes</span>
+            ) : savedOnce ? (
+              <>
+                <CheckIcon />
+                <span className="font-medium text-accent-deep">All changes saved</span>
+              </>
+            ) : (
+              <span>Autosaves as you type</span>
+            )}
+          </div>
           {error && <span role="alert" className="text-sm font-medium text-danger">{error}</span>}
           <button
             type="button"
