@@ -583,6 +583,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-26 · board empty stages + profile save-bar dock (branch `ui-redesign`, batched for one deploy)
+  · **Board** now always renders the six stage columns (empty) instead of a full-screen empty state — a
+  dashed hint banner explains how they fill, and the tools row is hidden until there are entries.
+  **Profile save bar** was translucent (`color-mix … transparent` + backdrop-blur), so fields showed
+  through it while scrolling — made it a solid **opaque `bg-app-bg` docked footer** (z-10 + top shadow)
+  so content scrolls hidden behind it. `npm test` + `npm run build` green. Web-only.
 - 2026-06-26 · base skills vs resume skills (branch `ui-redesign`) · Established **base skills** as a
   distinct layer from per-resume extracted skills. Profile: the Skills section is relabeled **Base
   skills** ("always applied, on top of whichever resume you choose") and the resume-autofill no longer

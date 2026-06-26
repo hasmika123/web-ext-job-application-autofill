@@ -418,10 +418,9 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           <SkillsEditor skills={skills} onChange={updateSkills} />
         </section>
 
-        {/* Sticky save bar */}
-        <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 border-t border-line py-3.5 backdrop-blur-[6px]"
-          style={{ background: "color-mix(in srgb, var(--app-bg) 90%, transparent)" }}
-        >
+        {/* Docked save bar — opaque (was translucent, which let fields show through as you
+            scrolled under it). Sticks to the bottom; content scrolls hidden behind it. */}
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-app-bg py-3.5 shadow-[0_-10px_16px_-14px_rgba(45,49,51,0.2)]">
           <div className="mr-auto flex items-center gap-1.5 text-[12.5px] text-muted">
             {saving ? (
               <>
