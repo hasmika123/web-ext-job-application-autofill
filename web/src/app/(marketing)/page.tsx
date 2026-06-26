@@ -61,7 +61,9 @@ export default function Home() {
         style={{ background: "var(--hero-bg)", color: "var(--hero-ink)" }}
       >
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.05fr_.95fr] lg:py-[74px]">
-          <div>
+          {/* min-w-0: lets this grid column hold its fr share so the marquee's wide track
+              can't inflate it (which pushed the right-hand visual off-screen). */}
+          <div className="min-w-0">
             <Tag>Job applications, on autopilot</Tag>
             <h1 className="mt-[18px] text-[33px] font-semibold leading-[1.03] text-hero-ink sm:text-5xl lg:text-[52px]">
               Apply once.
@@ -89,10 +91,10 @@ export default function Home() {
               <span><b className="text-hero-ink">Your data, yours.</b> Delete anytime.</span>
             </div>
 
-            {/* ATS logo marquee — continuous horizontal scroll on the dark hero */}
+            {/* ATS logo marquee — continuous horizontal scroll, contained to this left column */}
             <div
               aria-label="Fills Workday, Greenhouse, Lever, Ashby, Workable and more"
-              className="relative mt-5 overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)]"
+              className="relative mt-5 w-full min-w-0 max-w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)]"
             >
               <div className="flex w-max animate-marquee">
                 {[0, 1].map((copy) => (
