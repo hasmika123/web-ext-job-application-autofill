@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -73,6 +73,16 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // Esc closes the mobile drawer.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className="flex flex-1 flex-col bg-app-bg lg:grid lg:grid-cols-[236px_1fr]">

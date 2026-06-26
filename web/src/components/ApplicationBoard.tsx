@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
@@ -356,6 +356,19 @@ function DetailPanel({
   onDelete: () => void;
 }) {
   const open = !!app;
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Esc closes; move focus into the panel when it opens (a11y for the dialog).
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   return (
     <>
       <div
@@ -385,7 +398,7 @@ function DetailPanel({
                 <h2 className="mt-1 font-display text-xl font-semibold text-ink">{app.company}</h2>
                 <p className="text-sm text-ink-soft">{app.roleTitle}</p>
               </div>
-              <button onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
+              <button ref={closeRef} onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
             </div>
 
             <div className="flex-1 overflow-auto p-5">

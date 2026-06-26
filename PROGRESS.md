@@ -36,10 +36,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R6.6** (a11y pass — focus rings, `--muted` contrast, board keyboard nav, overlay/slide-over
-> `aria`). **R6.5 dark mode is DEFERRED** (locked decision: light-only). **R6.1–R6.4 DONE** (toasts;
-> skeletons; empty states; validation). On `phase-6` (R6 = web app; don't bump extension versions).
-> R0–R5 done.
+> **Next: R7.1** (internal rename) — but FIRST run the phase loop (R6→R7): merge `phase-6` →
+> `ui-redesign`, delete it, cut `phase-7`. **Phase R6 (cross-cutting) is COMPLETE** (toasts, skeletons,
+> empty states, validation, a11y; dark mode deferred). R0–R6 done. **R7.1 is the big coordinated one:**
+> rename code identifiers `createDossierProvider`→`createKiwiplyProvider` (extension `tracking.js` +
+> `sync.js`) and cookies `dossier_access`/`dossier_refresh`→`kiwiply_access`/`kiwiply_refresh` (web
+> `auth.ts` + the auth route handlers) in **one tested commit** — forces a one-time re-login. Then R7.2
+> responsive QA at 360/768/1024/1440px. (Extension change in R7.1 → bump versions.)
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -539,7 +542,7 @@ focused Claude Code session.
   micro-states "Filling…"/"Advancing…"; **"↻ regenerate draft"** affordance on AI rows — re-asks the
   SW via new `JAF.assist.draft`, item keeps question+context; kept green left border + "never clicks
   Submit" note + Shadow-DOM isolation; ext v0.21.3). No "Dossier" in UI; Shadow DOM isolation preserved.
-- [~] **R6 Cross-cutting.** ✅ R6.1 Toasts — `ToastProvider` + `useToast()` + bottom-right viewport
+- [x] **R6 Cross-cutting.** ✅ R6.1 Toasts — `ToastProvider` + `useToast()` + bottom-right viewport
   (mounted in root layout) on the R0.2 `Toast` primitive; wired to replace inline "Saved" text
   (ResumeUpload save → success toast; ResumeList archive/restore/delete → toasts) · ✅ R6.2 Skeletons —
   route-segment `loading.tsx` fallbacks (dashboard/board/resumes/profile/settings) matching each
@@ -548,8 +551,11 @@ focused Claude Code session.
   added a "no matches" state for filtered board results · ✅ R6.4 Validation — inline email/URL/
   required errors via the `Field` error slot + `aria-invalid` Inputs: auth forms (login/signup, block
   submit on error; signup email-format + min-length) and the profile editor (advisory email/URL on
-  blur, never blocks autosave); new dependency-free `lib/validate.ts` · a11y. (Dark mode deferred per
-  decision.)
+  blur, never blocks autosave); new dependency-free `lib/validate.ts` · ✅ R6.6 a11y — global
+  `:focus-visible` accent ring (for elements without their own), `--muted` darkened `#73746E`→`#686962`
+  (clears WCAG AA on `--paper`), Escape-to-close + focus-on-open for the board slide-over (already
+  `role=dialog`) and Escape for the mobile drawer; board stays keyboard-movable via the per-card status
+  `<select>`. **R6.5 dark mode DEFERRED** (locked light-only). **Completes Phase R6.**
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
   web+API+extension, one tested commit) · R7.2 responsive QA at 360/768/1024/1440px (§9).
 
@@ -557,6 +563,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R6.6 (a11y) — **completes Phase R6** · Added a global `:where(a,button,summary,
+  [role=button],[role=switch],[tabindex]):focus-visible` accent outline in globals.css (specificity-0
+  so component focus styles still win; form controls keep their own), darkened `--muted`
+  `#73746E`→`#686962` to clear WCAG AA (4.5:1) on `--paper` for small secondary text, and added
+  **Escape-to-close + focus-on-open** to the board JD slide-over (already `role=dialog aria-modal`) and
+  **Escape** to the app-shell mobile drawer. Board remains keyboard-operable via the per-card status
+  `<select>` (the DnD a11y fallback). **R6.5 dark mode deferred** (locked light-only). `npm test` +
+  `npm run build` green. Branch `phase-6`. Web-only.
 - 2026-06-25 · redesign.R6.4 (validation) · Added inline form validation through the `Field` error
   slot (+ `aria-invalid` on Inputs), no new deps — new `lib/validate.ts` (`isEmail`/`isUrl`). **Auth**
   (`AuthScreen`): login + signup validate on blur/submit and **block submission** on error (required;
