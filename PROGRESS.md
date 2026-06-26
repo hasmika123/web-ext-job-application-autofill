@@ -36,8 +36,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R6.2** (Skeletons — loading placeholders for server-fetched lists). **R6.1 Toasts DONE**
-> (`ToastProvider`/`useToast` in root layout; wired ResumeUpload + ResumeList). On `phase-6` (R6 =
+> **Next: R6.3** (Empty states — friendly `EmptyState` for empty board/resumes/dashboard-activity).
+> **R6.1 Toasts + R6.2 Skeletons DONE** (toast system; `loading.tsx` fallbacks). On `phase-6` (R6 =
 > web app; don't bump extension versions). R0–R5 done.
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
@@ -540,8 +540,10 @@ focused Claude Code session.
   Submit" note + Shadow-DOM isolation; ext v0.21.3). No "Dossier" in UI; Shadow DOM isolation preserved.
 - [~] **R6 Cross-cutting.** ✅ R6.1 Toasts — `ToastProvider` + `useToast()` + bottom-right viewport
   (mounted in root layout) on the R0.2 `Toast` primitive; wired to replace inline "Saved" text
-  (ResumeUpload save → success toast; ResumeList archive/restore/delete → toasts) · skeletons · empty
-  states · validation · a11y. (Dark mode deferred per decision.)
+  (ResumeUpload save → success toast; ResumeList archive/restore/delete → toasts) · ✅ R6.2 Skeletons —
+  route-segment `loading.tsx` fallbacks (dashboard/board/resumes/profile/settings) matching each
+  page's layout, built on the R0.2 `Skeleton` primitive · empty states · validation · a11y. (Dark mode
+  deferred per decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
   web+API+extension, one tested commit) · R7.2 responsive QA at 360/768/1024/1440px (§9).
 
@@ -549,6 +551,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R6.2 (skeletons) · Added route-segment `loading.tsx` fallbacks for the five
+  server-fetched app pages (dashboard, board, resumes, profile, settings), each built on the R0.2
+  `Skeleton` primitive and shaped to its page's real layout (KPI grid, 6 kanban columns, drop-zone +
+  list, sub-nav + form grid, sub-nav + cards) so the shell stays put while the page streams. Skeleton
+  imported directly (`@/components/ui/Skeleton`) to keep the client toast barrel out of these server
+  fallbacks. `npm test` + `npm run build` green (22 routes). Branch `phase-6`. Web-only.
 - 2026-06-25 · redesign.R6.1 (toasts) — **Phase R6 begins (web)** · Added the toast **system** on top
   of the R0.2 `Toast` primitive: `ToastProvider` (context + queue, auto-dismiss 4s, bottom-right
   `aria-live` viewport, slide-in via a `toast-in` keyframe in globals.css) + a `useToast()` hook,
