@@ -10,13 +10,30 @@ import type { Application } from "@/components/ApplicationBoard";
  * resume. Session gate + nav live in the `(app)` shell.
  */
 export default async function ResumesPage() {
-  const [resumesRes, appsRes] = await Promise.all([
+  const [resumesRes, appsRes, profileRes] = await Promise.all([
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile/applications"),
+    serverApiFetch("/api/profile"),
   ]);
 
   const resumes: Resume[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as Resume[]) : [];
   const apps: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
+
+  // Base skills from the profile bio — used to highlight overlap in a resume's extracted skills.
+  let baseSkills: string[] = [];
+  if (profileRes.ok) {
+    const dto = (await profileRes.json().catch(() => null)) as { payload?: string } | null;
+    if (dto?.payload) {
+      try {
+        const parsed = JSON.parse(dto.payload);
+        if (parsed && Array.isArray(parsed.skills)) {
+          baseSkills = parsed.skills.filter((x: unknown): x is string => typeof x === "string");
+        }
+      } catch {
+        // corrupt payload — treat as no base skills
+      }
+    }
+  }
 
   // Count how many applications reference each resume (the archive guard hinges on this).
   const usage: Record<number, number> = {};
@@ -34,7 +51,7 @@ export default async function ResumesPage() {
         </p>
       </header>
 
-      <ResumeUpload />
+      <ResumeUpload baseSkills={baseSkills} />
 
       <ResumeList resumes={resumes} usage={usage} />
     </div>

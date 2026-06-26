@@ -583,7 +583,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
-- 2026-06-26 · profile UX + dashboard sidebar + sidebar icons (branch `ui-redesign`) · **Profile**
+- 2026-06-26 · base skills vs resume skills (branch `ui-redesign`) · Established **base skills** as a
+  distinct layer from per-resume extracted skills. Profile: the Skills section is relabeled **Base
+  skills** ("always applied, on top of whichever resume you choose") and the resume-autofill no longer
+  pulls skills into it (fills profile fields only — keeps the base list curated/bare). Resumes: the
+  upload review now **color-codes extracted skills** — green = already a base skill, brown = new in this
+  resume — with a legend (the page passes `bio.skills` from `/api/profile` into `ResumeUpload`).
+  `npm test` + `npm run build` green. Web-only. Interpretation noted: separating the layers means the
+  profile autofill intentionally stopped importing skills — flag if you wanted it to keep doing so.
   (`BioEditor`): added **"Autofill from your resume"** (in-browser `parseResume`, fills empty fields +
   merges skills, keeps existing entries); promoted **EEO/demographics** from a collapsible to its own
   always-visible section placed **before Skills**; flagged required fields (firstName/lastName/email)
