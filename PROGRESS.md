@@ -36,9 +36,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-3`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R4.2** (Resumes — drag-drop drop-zone + richer variant cards; keep the upload/parse/
-> archive/delete-guard flows). **R4.1 Profile DONE** (sub-nav + strength meter + skills chips + EEO
-> collapsible + autosave). R0–R3 done; R4 in progress.
+> **Next: R4.3** (Board — tools/search/filter + drag-drop between columns + JD card-detail
+> slide-over; keep the status/delete/nudge flows). **R4.1 Profile + R4.2 Resumes DONE.** R0–R3 done;
+> R4 in progress. *Deferred (needs backend, not presentation-only):* a true default-resume flag
+> feeding the popup picker (R4.2 mockup showed a "Default" badge) — needs a backend `isDefault` +
+> extension picker change; revisit in R5/backend, not faked here.
 > **Branch loop (see `redesign-branch-loop` memory):** redesign lives off `ui-redesign` (cut from
 > `main`); each phase on its own `phase-N` branch — on phase switch, merge it into `ui-redesign`,
 > delete it (local+remote), cut the next off `ui-redesign`. Live branches are only `main`,
@@ -512,11 +514,12 @@ focused Claude Code session.
   panel + testimonial, tabbed Sign in/Create account, kiwi-token forms, stubbed "Continue with
   Google") + branded `/account/activate` card. Login→`/dashboard`; signup→check-email; flows
   unchanged.
-- [~] **R4 Core app screens.** ✅ R4.1 Profile — section sub-nav (scroll-spy) + strength meter +
-  grouped fields (identity/location/links/work-auth) + skills chips + EEO opt-in collapsible +
-  autosaving sticky save bar (bio save flow unchanged; keys mirror the extension) · R4.2 Resumes
-  (drag-drop + variant cards) · R4.3 Board (tools + drag-drop + JD card-detail slide-over) · R4.4
-  Settings (sub-nav; AI surfaced on web). Existing save/delete/status flows must still pass.
+- [~] **R4 Core app screens.** ✅ R4.1 Profile — sub-nav + strength meter + skills chips + EEO
+  collapsible + autosave · ✅ R4.2 Resumes — drag-drop drop-zone + variant cards (file icon, status
+  badge, "used in N applications", archive/delete) + friendly 409 archive-guard callout (upload/
+  parse/archive/delete flows unchanged; page now also fetches applications for usage counts) · R4.3
+  Board (tools + drag-drop + JD card-detail slide-over) · R4.4 Settings (sub-nav; AI surfaced on web).
+  Existing save/delete/status flows must still pass.
 - [ ] **R5 Extension (bumps versions).** R5.1 re-token + Kiwiply rename · R5.2 popup · R5.3 options ·
   R5.4 overlay. No "Dossier" in UI; Shadow DOM isolation preserved; `npm test` + smoke green.
 - [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
@@ -528,6 +531,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R4.2 (resumes reskin) · `ResumeUpload` gets a real **drag-and-drop
+  drop-zone** (click/keyboard/drop → same in-browser parse), reskinned review cards (contact/summary/
+  skills/experience/education) on kiwi tokens; flow (parse → POST `/api/resumes/upload`) unchanged.
+  `ResumeList` rebuilt as **variant cards** (DOC file icon, status badge Needs-review/Ready via the
+  `Badge` primitive, "Added … · used in N applications", Archive/Restore + Delete) with a friendly
+  **brown 409 archive-guard callout** + inline "Archive instead" (was a raw red error). Resumes page
+  now also fetches `/api/profile/applications` to compute per-resume usage counts; widened to
+  `max-w-3xl`. Archive (PUT)/delete (DELETE, 409 guard)/upload flows all preserved. `npm test` + `npm
+  run build` green (gated page — live visual pending a running stack). Web-only.
 - 2026-06-25 · redesign.R4.1 (profile reskin) — **Phase R4 begins** · Rebuilt `BioEditor` onto the
   kiwi system: left **section sub-nav** (Identity & contact / Location / Links / Work auth / Skills /
   EEO) with IntersectionObserver scroll-spy + mobile horizontal-scroll pill row; **profile-strength
