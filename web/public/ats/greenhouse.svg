@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 162 40" fill="none" role="img" aria-label="Greenhouse">
-  <path d="M18 5 C10 11 10 27 18 33 C26 27 26 11 18 5 Z" stroke="#FBFAF6" stroke-width="2.2"/>
-  <path d="M18 9 L18 30" stroke="#FBFAF6" stroke-width="1.6" stroke-linecap="round"/>
-  <text x="40" y="27" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="0.2" fill="#FBFAF6">Greenhouse</text>
-</svg>

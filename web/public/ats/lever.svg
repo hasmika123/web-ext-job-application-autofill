@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40" fill="none" role="img" aria-label="Lever">
-  <path d="M11 30 L25 30 L18 18 Z" fill="#FBFAF6"/>
-  <path d="M7 17 L29 23" stroke="#FBFAF6" stroke-width="3" stroke-linecap="round"/>
-  <path d="M9 32.5 L27 32.5" stroke="#FBFAF6" stroke-width="2" stroke-linecap="round"/>
-  <text x="40" y="27" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="0.2" fill="#FBFAF6">Lever</text>
-</svg>
