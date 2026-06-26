@@ -36,12 +36,15 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R4.4** (Settings — sub-nav: Account / AI & drafting / Autofill / Privacy & data / Billing;
-> surface AI on web; reuse delete-account logic). **R4.1–R4.3 DONE** (Profile, Resumes, Board). R0–R3
-> done; R4 nearly complete. *Deferred (needs backend, not presentation-only):* (1) a true default-
-> resume flag feeding the popup picker (R4.2 "Default" badge) — needs backend `isDefault` + extension
-> picker; (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit columns
-> in the DTO. Revisit in R5/backend, not faked here.
+> **Next: R5.1** (extension re-token to kiwi palette + Kiwiply rename — **bumps extension versions**;
+> Shadow-DOM isolation preserved; `cd job-autofill && npm test` + smoke green). **Phase R4 (core app
+> screens) is COMPLETE** — Profile, Resumes, Board, Settings all reskinned. R0–R4 done. **R5 switches
+> surface: the extension** (`job-autofill/`), not the web app — mirror the §3.1 tokens inline in the
+> overlay's Shadow DOM, purge user-facing "Dossier", and bump `manifest.json` + `package.json`.
+> *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
+> "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
+> columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
+> `support@kiwiply.com` during R5, per PL.1).
 > **Branch loop (see `redesign-branch-loop` memory):** redesign lives off `ui-redesign` (cut from
 > `main`); each phase on its own `phase-N` branch — on phase switch, merge it into `ui-redesign`,
 > delete it (local+remote), cut the next off `ui-redesign`. Live branches are only `main`,
@@ -515,14 +518,16 @@ focused Claude Code session.
   panel + testimonial, tabbed Sign in/Create account, kiwi-token forms, stubbed "Continue with
   Google") + branded `/account/activate` card. Login→`/dashboard`; signup→check-email; flows
   unchanged.
-- [~] **R4 Core app screens.** ✅ R4.1 Profile — sub-nav + strength meter + skills chips + EEO
+- [x] **R4 Core app screens.** ✅ R4.1 Profile — sub-nav + strength meter + skills chips + EEO
   collapsible + autosave · ✅ R4.2 Resumes — drag-drop drop-zone + variant cards (file icon, status
   badge, "used in N applications", archive/delete) + friendly 409 archive-guard callout (upload/
   parse/archive/delete flows unchanged; page now also fetches applications for usage counts) · ✅ R4.3
   Board — tools (search / filter-by-resume / sort) + **drag-drop between columns** (optimistic; select
   kept as a11y fallback) + accent "Did you submit?" nudge + **JD card-detail slide-over** (shows the
-  captured `jobDescription` — already in the DTO, no backend change) · R4.4 Settings (sub-nav; AI
-  surfaced on web). Existing save/delete/status flows must still pass.
+  captured `jobDescription` — already in the DTO, no backend change) · ✅ R4.4 Settings — section
+  sub-nav (scroll-spy: Account / AI & drafting / Autofill / Privacy & data / Billing), kiwi-reskinned
+  type-to-confirm danger zone, AI/autofill surfaced informationally ("in the extension" — those live
+  in chrome.storage, not the backend). Existing save/delete/status flows still pass.
 - [ ] **R5 Extension (bumps versions).** R5.1 re-token + Kiwiply rename · R5.2 popup · R5.3 options ·
   R5.4 overlay. No "Dossier" in UI; Shadow DOM isolation preserved; `npm test` + smoke green.
 - [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
@@ -534,6 +539,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R4.4 (settings sub-nav) — **completes Phase R4** · Restructured `/settings`
+  into a **section sub-nav** (new client `SettingsNav` with IntersectionObserver scroll-spy, mobile
+  pill row) + five cards: **Account** (read-only info + link to Profile), **AI & drafting** and
+  **Autofill behavior** (surfaced informationally with an "in the extension" tag — these settings
+  live in `chrome.storage`, not the backend, so functional web toggles would need a user-prefs
+  store = out of presentation-only scope), **Privacy & data** (policy link + data-request email +
+  the danger zone), **Billing** (Free-plan placeholder → /pricing). Reskinned `DeleteAccountButton`
+  to kiwi tokens (type-to-confirm DELETE logic preserved; now uses the `Input` primitive + danger
+  card). Widened to `max-w-4xl`. `npm test` + `npm run build` green (gated page — live visual pending
+  a running stack). **Phase R4 done; R5 moves to the extension.** Web-only.
 - 2026-06-25 · redesign.R4.3 (board reskin) · Rebuilt `ApplicationBoard` on kiwi tokens: **board
   tools** (search over company/role/location, filter-by-resume, sort recent/company), **HTML5
   drag-and-drop** between the 6 columns with optimistic local state reconciled to the server on
