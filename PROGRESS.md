@@ -36,9 +36,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-3`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R4.1** (Profile reskin — section sub-nav + profile-strength meter + skills chips; keep the
-> existing bio save flow). **Phase R3 (auth) is COMPLETE** — R3.1 split-screen `/login`+`/signup`
-> (shared tabbed `AuthScreen`, Google stubbed) + branded `/account/activate`. R0+R1+R2 done.
+> **Next: R4.2** (Resumes — drag-drop drop-zone + richer variant cards; keep the upload/parse/
+> archive/delete-guard flows). **R4.1 Profile DONE** (sub-nav + strength meter + skills chips + EEO
+> collapsible + autosave). R0–R3 done; R4 in progress.
 > **Branch loop (see `redesign-branch-loop` memory):** redesign lives off `ui-redesign` (cut from
 > `main`); each phase on its own `phase-N` branch — on phase switch, merge it into `ui-redesign`,
 > delete it (local+remote), cut the next off `ui-redesign`. Live branches are only `main`,
@@ -512,7 +512,9 @@ focused Claude Code session.
   panel + testimonial, tabbed Sign in/Create account, kiwi-token forms, stubbed "Continue with
   Google") + branded `/account/activate` card. Login→`/dashboard`; signup→check-email; flows
   unchanged.
-- [ ] **R4 Core app screens.** R4.1 Profile (sections + strength meter, chips) · R4.2 Resumes
+- [~] **R4 Core app screens.** ✅ R4.1 Profile — section sub-nav (scroll-spy) + strength meter +
+  grouped fields (identity/location/links/work-auth) + skills chips + EEO opt-in collapsible +
+  autosaving sticky save bar (bio save flow unchanged; keys mirror the extension) · R4.2 Resumes
   (drag-drop + variant cards) · R4.3 Board (tools + drag-drop + JD card-detail slide-over) · R4.4
   Settings (sub-nav; AI surfaced on web). Existing save/delete/status flows must still pass.
 - [ ] **R5 Extension (bumps versions).** R5.1 re-token + Kiwiply rename · R5.2 popup · R5.3 options ·
@@ -526,6 +528,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R4.1 (profile reskin) — **Phase R4 begins** · Rebuilt `BioEditor` onto the
+  kiwi system: left **section sub-nav** (Identity & contact / Location / Links / Work auth / Skills /
+  EEO) with IntersectionObserver scroll-spy + mobile horizontal-scroll pill row; **profile-strength
+  meter** (derived from core fields); grouped sections with Fraunces section titles; **skills chip
+  editor** (`bio.skills`, Enter/comma to add, backspace/×  to remove); **EEO** moved into an opt-in
+  `<details>` collapsible — all keys + option values mirror the extension's `options.js` exactly (no
+  guessing). **Autosave** (1.5s debounce) + a sticky save bar with saved/unsaved status; the merge-
+  over-`initialBio` PUT `/api/profile` flow is unchanged so unmanaged fields survive. Profile page
+  widened to `max-w-4xl`. `npm test` + `npm run build` green (gated page — live visual pending a
+  running stack). Web-only.
 - 2026-06-25 · redesign.R3.1 (split-screen auth) — **completes Phase R3** · New shared
   `components/auth/AuthScreen.tsx` (client) drives both `/login` + `/signup` (now thin wrappers):
   split-screen with a charcoal brand panel (BrandLockup cream wordmark + value prop + testimonial,
