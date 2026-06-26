@@ -291,7 +291,7 @@ export default function AuthScreen({ mode }: { mode: Mode }) {
         style={{ background: "var(--hero-bg)" }}
       >
         <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2.5">
-          <Image src="/logo-icon.png" alt="Kiwiply" width={38} height={38} priority className="rounded-[11px]" />
+          <Image src="/logo-dark-mode.png" alt="Kiwiply" width={108} height={32} priority className="h-8 w-auto" />
           <BetaBadge tone="dark" />
         </Link>
         <div className="my-auto">
