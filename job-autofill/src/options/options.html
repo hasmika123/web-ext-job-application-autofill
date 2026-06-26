@@ -81,17 +81,28 @@
       <!-- SETTINGS -->
       <section class="tab" id="tab-settings">
         <h1>Settings</h1>
-        <label class="toggle"><input type="checkbox" id="llm" /> Use the Anthropic API for cleaner resume parsing</label>
-        <p class="hint">Optional. Without a key, resumes are parsed with a built-in heuristic — rougher, but everything is editable. The same key also drafts answers to open-ended application questions ("Why this role?"), which are cached and reused when the same question appears again. Your key is stored locally on this device only and is sent only to api.anthropic.com.</p>
-        <input class="input wide" id="apikey" type="password" placeholder="sk-ant-... (only used if the toggle is on)" />
-        <hr />
-        <label class="toggle"><input type="checkbox" id="server-ai" /> Use Kiwiply AI to draft answers (no key needed)</label>
-        <p class="hint">An alternative to bringing your own key. When on, open-ended questions and a short summary
-          of your profile/resume are sent to your Kiwiply account, which uses <b>Google Gemini</b> to draft an
-          answer you review before using. We currently use Gemini's <b>free tier</b>, so <b>Google may use this
-          input to improve its services and human reviewers may see it</b>. Off by default; requires sign-in
-          (Account tab) and your consent below. A monthly free limit applies. Your own key (above) takes priority.</p>
-        <label class="toggle"><input type="checkbox" id="server-ai-consent" /> I consent to sending my question + profile summary to Google Gemini for drafting</label>
+        <div class="group">
+          <h2>AI answer drafting</h2>
+          <p class="grouplead">Open-ended questions ("Why this role?") can get a draft you edit before using — two ways, your choice. A key also makes resume parsing cleaner.</p>
+
+          <div class="subopt">
+            <div class="opthead">Bring your own key</div>
+            <label class="toggle"><input type="checkbox" id="llm" /> Use the Anthropic API for cleaner parsing + unlimited drafting</label>
+            <p class="hint">Without a key, resumes are parsed with a built-in heuristic — rougher, but everything is editable. Drafts are cached and reused when the same question appears again. Your key is stored locally on this device only and is sent only to api.anthropic.com.</p>
+            <input class="input wide" id="apikey" type="password" placeholder="sk-ant-... (only used if the toggle is on)" />
+          </div>
+
+          <div class="subopt">
+            <div class="opthead">Kiwiply AI · no key needed</div>
+            <label class="toggle"><input type="checkbox" id="server-ai" /> Use Kiwiply AI to draft answers</label>
+            <p class="hint">When on, open-ended questions and a short summary of your profile/resume are sent to your
+              Kiwiply account, which uses <b>Google Gemini</b> to draft an answer you review before using. We currently
+              use Gemini's <b>free tier</b>, so <b>Google may use this input to improve its services and human reviewers
+              may see it</b>. Off by default; requires sign-in (Account tab) and your consent below. A monthly free limit
+              applies. Your own key (above) takes priority.</p>
+            <label class="toggle"><input type="checkbox" id="server-ai-consent" /> I consent to sending my question + profile summary to Google Gemini for drafting</label>
+          </div>
+        </div>
         <hr />
         <label class="toggle"><input type="checkbox" id="eeo-default" /> Include EEO answers by default when filling</label>
         <hr />

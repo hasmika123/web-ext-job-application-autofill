@@ -36,10 +36,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 🎨 **ACTIVE (branch `phase-4`): Kiwiply UI/UX redesign.** Presentation-only rebrand + visual
 > system + app shell — see the **Redesign (Phase R)** section below, spec in
 > `redesign/REDESIGN-PLAN.md`, prototype `redesign/mockups.html`, on-ramp `redesign/HANDOFF.md`.
-> **Next: R5.3** (options polish — modernize the resume-drawer date controls, sticky save, group the
-> AI settings; `cd job-autofill && npm test` + smoke green; bump versions). **R5.1 + R5.2 DONE**
-> (extension re-tokened to kiwi; popup logo lockup + states; ext v0.21.1). R0–R4 done. **R5 surface =
-> the extension** (`job-autofill/`).
+> **Next: R5.4** (overlay polish — "advancing…" micro-state + "regenerate draft" affordance; keep the
+> green left border + "never clicks Submit" note + Shadow-DOM isolation; `cd job-autofill && npm test`
+> + smoke green; bump versions). **R5.1–R5.3 DONE** (re-token; popup lockup; options sticky-save + AI
+> group; ext v0.21.2). R0–R4 done. **R5 surface = the extension** (`job-autofill/`).
 > *Deferred (needs backend, not presentation-only):* (1) default-resume flag → popup picker (R4.2
 > "Default" badge); (2) board card **notes** + **status history** (R4.3 slide-over) — no `notes`/audit
 > columns in the DTO. Plus the extension `PRIVACY.md` contact still says `privacy@dossier.app` (swap to
@@ -533,8 +533,10 @@ focused Claude Code session.
   `PRIVACY.md` + contact→`support@kiwiply.com`); ext **v0.21.0**; 14 suites green. Internal ids
   (`createDossierProvider`, `dossier`/`dossier-fieldcache` IDB, gecko id) deferred to R7.1 · ✅ R5.2
   popup polish (kiwi-mark + two-tone wordmark lockup; clickable bio-warn; colored file-status +
-  green success status; ext v0.21.1) · R5.3 options · R5.4 overlay. No "Dossier" in UI; Shadow DOM
-  isolation preserved.
+  green success status; ext v0.21.1) · ✅ R5.3 options polish (sticky save bar; AI settings grouped
+  into one "AI answer drafting" card — BYO key vs Kiwiply AI; finished the re-token: fixed blue chips
+  → `--accent-soft`, gold drop-zone/badge → kiwi; ext v0.21.2) · R5.4 overlay. No "Dossier" in UI;
+  Shadow DOM isolation preserved.
 - [ ] **R6 Cross-cutting.** Toasts · skeletons · empty states · validation · a11y. (Dark mode
   deferred per decision.)
 - [ ] **R7 Internal rename + responsive QA.** R7.1 `Kiwiply*` identifiers + cookie rename (coordinated
@@ -544,6 +546,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-25 · redesign.R5.3 (options polish) · Made the **save bar sticky** (`.actionbar` sticky
+  bottom + blurred backdrop — stays reachable on the long bio/settings tabs). **Grouped the AI
+  settings** into one "AI answer drafting" card with two clearly-labeled sub-options — *Bring your own
+  key* (Anthropic) vs *Kiwiply AI · no key needed* (Gemini + consent) — all input ids unchanged so
+  options.js is untouched. Finished the extension re-token: defined `--accent-soft` (skill **chips were
+  rendering blue** via a `#eef1ff` fallback) + `--brown-soft`, and swapped the remaining gold/navy
+  hexes (drop-zone, "needs review" badge, drawer scrim, mini-add) to kiwi. Date controls were already
+  Month/Year dropdowns (re-tokened in R5.1). ext **v0.21.2**; 14 extension suites green (exit 0).
+  Branch `phase-5`. *Live reload-in-Chrome check is the user's step.*
 - 2026-06-25 · redesign.R5.2 (popup polish) · Popup header now shows the **brand lockup** — a CSS
   kiwi mark (brown disc + lime + charcoal ✓) + two-tone wordmark (green `kiwi` via `--accent-deep` +
   ink `ply`). Clearer states: the bio-warn is now clickable (→ Manage) with sharper copy; resume meta
