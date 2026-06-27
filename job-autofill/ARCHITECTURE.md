@@ -109,7 +109,12 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   mints a *separate* extension token pair (`POST /api/extension/session` ← web
   `/api/extension/token`) and hands it to the extension via `chrome.runtime.sendMessage`
   (manifest `externally_connectable`); the SW's `onMessageExternal` stores it in
-  `trackingAuth`. The local store is now a **read-only mirror**: the popup pulls
+  `trackingAuth`. The extension **id is pinned** via the manifest `key` →
+  `ejlamilajchikpbeipdkjljjgankbfii`, which the web `/connect` page targets (override per
+  build with `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID`). **CWS caveat:** a NEW store item rejects
+  `key` on its *first* upload — drop it for that one upload (the store assigns the id), then
+  add the store's `key` back so dev+prod ids match forever. The local store is a
+  **read-only mirror**: the popup pulls
   `JAF.sync.pullAll` on open (throttled) for autofill and never pushes bio/resume *edits* —
   only resume *creates* (upload → server) write back, so the cache can't drift out of sync.
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).

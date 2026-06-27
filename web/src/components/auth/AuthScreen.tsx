@@ -204,6 +204,17 @@ function SignupForm({ next }: { next?: string }) {
         return;
       }
       track("sign_up", { method: "password" });
+      // Remember where to go after the email-activation round-trip (e.g. /connect), so a
+      // brand-new user lands back there once they activate + sign in. Best-effort: only
+      // works when activation happens in the same browser.
+      const n = safeNext(next);
+      if (n) {
+        try {
+          localStorage.setItem("kiwiply_next", n);
+        } catch {
+          /* ignore */
+        }
+      }
       setDone(true);
     } catch {
       setError("Something went wrong. Please try again.");

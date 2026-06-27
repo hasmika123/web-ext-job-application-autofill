@@ -3,6 +3,7 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { apiUrl } from "@/lib/config";
 import { buttonVariants } from "@/components/ui/Button";
+import ActivateSignInLink from "@/components/auth/ActivateSignInLink";
 
 export const metadata: Metadata = {
   title: "Activate your account",
@@ -57,9 +58,7 @@ export default async function ActivatePage({
         <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink">{heading}</h1>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-ink-soft">{body}</p>
         <div className="mt-7 flex justify-center gap-3">
-          <Link href="/login" className={buttonVariants(state === "ok" ? "accent" : "primary")}>
-            Go to sign in
-          </Link>
+          <ActivateSignInLink variant={state === "ok" ? "accent" : "primary"} label="Go to sign in" />
           {state !== "ok" && (
             <Link href="/signup" className={buttonVariants("ghost")}>
               Sign up

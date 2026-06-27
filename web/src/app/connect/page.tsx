@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/Button";
 
-// Pinned extension id (manifest "key") — set NEXT_PUBLIC_KIWIPLY_EXTENSION_ID at build time.
-const EXT_ID = process.env.NEXT_PUBLIC_KIWIPLY_EXTENSION_ID;
+// Pinned extension id (derived from the manifest "key"). Stable for the unpacked/dev build
+// and for the published item after its first Web Store upload. Override per-build with
+// NEXT_PUBLIC_KIWIPLY_EXTENSION_ID if the Web Store ever assigns a different id.
+const EXT_ID = process.env.NEXT_PUBLIC_KIWIPLY_EXTENSION_ID || "ejlamilajchikpbeipdkjljjgankbfii";
 
 type ChromeRuntime = {
   sendMessage?: (extId: string, msg: unknown, cb?: (resp: unknown) => void) => void;
