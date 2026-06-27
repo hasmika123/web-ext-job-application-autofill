@@ -494,24 +494,33 @@ function EducationEditor({ index, edu, onPatch, onRemove, dnd }: { index: number
   );
 }
 
-export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseProfile }) {
+/** An existing saved resume reopened for editing (label + parsed structure; the stored
+ *  file is untouched). The parent remounts ResumeUpload with a fresh key per edit so this
+ *  seeds the initial state — no setState-in-effect. */
+export type EditTarget = { id: number; label: string; structured: StructuredResume };
+
+export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { baseProfile?: BaseProfile; editTarget?: EditTarget | null }) {
   const router = useRouter();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
-  const [label, setLabel] = useState("");
+  // null = creating from a freshly-parsed file; a number = editing that saved resume.
+  const [editId, setEditId] = useState<number | null>(editTarget?.id ?? null);
+  const [label, setLabel] = useState(editTarget?.label ?? "");
   const [parsing, setParsing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Review mode is active when `struct` is set (the full-page editor).
-  const [struct, setStruct] = useState<StructuredResume | null>(null);
+  // Review mode is active when `struct` is set (the full-page editor). When editing, it's
+  // seeded from the saved resume's parsed structure.
+  const [struct, setStruct] = useState<StructuredResume | null>(editTarget ? normalizeStruct(editTarget.structured) : null);
   const [bio, setBio] = useState<ParsedBio>({});
   const [contactOpen, setContactOpen] = useState(true);
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const editing = editId != null;
 
   const baseSkills = Array.isArray(baseProfile.skills)
     ? (baseProfile.skills as unknown[]).filter((x): x is string => typeof x === "string")
@@ -520,6 +529,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
 
   async function handleFile(picked: File) {
     setFile(picked);
+    setEditId(null); // a freshly-dropped file is always a new resume, never an edit
     setLabel(labelFromName(picked.name));
     setParsing(true);
     setError(null);
@@ -552,6 +562,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
     setStruct(null);
     setBio({});
     setFile(null);
+    setEditId(null);
     setSaveError(null);
   }
 
@@ -566,7 +577,8 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
   }, [struct]);
 
   async function onSave() {
-    if (!file || !struct) return;
+    if (!struct) return;
+    if (!editing && !file) return; // creating needs the dropped file
     setSaving(true);
     setSaveError(null);
     try {
@@ -576,6 +588,27 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
         experience: struct.experience.map((e) => ({ ...e, bullets: e.bullets.map((b) => b.trim()).filter(Boolean) })),
         projects: struct.projects.map((p) => ({ ...p, bullets: p.bullets.map((b) => b.trim()).filter(Boolean) })),
       };
+
+      if (editing) {
+        // Editing a saved resume: update label + parsed structure only (file unchanged).
+        const res = await fetch(`/api/resumes/${editId}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ label: label.trim() || "Resume", parsedJson: JSON.stringify(clean) }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setSaveError(data.error ?? "Couldn't save your changes.");
+          return;
+        }
+        track("resume_edited");
+        toast({ variant: "success", title: "Changes saved", description: "Your resume was updated." });
+        closeReview();
+        router.refresh();
+        return;
+      }
+
+      if (!file) return; // narrowing for TS — guaranteed by the guard above
       const form = new FormData();
       form.append("file", file, file.name);
       form.append("label", label.trim() || labelFromName(file.name));
@@ -657,7 +690,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
 
   const SaveBtn = (
     <button onClick={onSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
-      {saving ? "Saving…" : "Save to my account"}
+      {saving ? "Saving…" : editing ? "Save changes" : "Save to my account"}
     </button>
   );
 
@@ -707,8 +740,12 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
           <div className="mx-auto max-w-3xl px-5 py-8 sm:px-6">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-display text-2xl font-bold text-ink">Review &amp; edit resume</h2>
-                <p className="mt-1 text-sm text-muted">Edit anything before saving — parsed in your browser, nothing leaves until you save.</p>
+                <h2 className="font-display text-2xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {editing
+                    ? "Edit the parsed details and save — your stored file stays the same."
+                    : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
+                </p>
               </div>
               <button
                 onClick={closeReview}
@@ -735,7 +772,9 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
                 )}
               </div>
 
-              {/* Detected contact — collapsible, with a one-click base-profile update */}
+              {/* Detected contact — collapsible, with a one-click base-profile update.
+                  Only for a freshly-parsed file; a saved resume has no stored contact. */}
+              {!editing && (
               <SectionCard
                 title="Detected contact"
                 action={
@@ -770,6 +809,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
                   </div>
                 )}
               </SectionCard>
+              )}
 
               {/* Summary */}
               <SectionCard title="Summary">

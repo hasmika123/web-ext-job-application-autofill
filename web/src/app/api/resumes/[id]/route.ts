@@ -1,11 +1,12 @@
 import { serverApiFetch } from "@/lib/api";
 
 /**
- * PUT /api/resumes/:id — archive or unarchive one of the current user's resumes.
+ * PUT /api/resumes/:id — partial update of one of the current user's resumes.
  *
- * A focused proxy over Spring's partial `PUT /api/profile/resumes/:id`: it forwards
- * only the `archived` flag, so this path can't be used to rewrite a resume's label or
- * parsed data. Ownership is enforced server-side (404 if not the caller's resume).
+ * Proxies Spring's partial `PUT /api/profile/resumes/:id`, forwarding only a whitelist of
+ * fields: `archived` (archive/restore) and `label` + `parsedJson` (the "edit" flow, which
+ * reopens the review editor and re-saves the parsed structure — the stored file is left
+ * untouched). Ownership is enforced server-side (404 if not the caller's resume).
  */
 export async function PUT(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -13,16 +14,41 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
     return Response.json({ error: "Invalid resume id." }, { status: 400 });
   }
 
-  const body = (await request.json().catch(() => null)) as { archived?: unknown } | null;
-  if (typeof body?.archived !== "boolean") {
-    return Response.json({ error: "Expected an 'archived' boolean." }, { status: 400 });
+  const body = (await request.json().catch(() => null)) as
+    | { archived?: unknown; label?: unknown; parsedJson?: unknown }
+    | null;
+  if (!body || typeof body !== "object") {
+    return Response.json({ error: "Expected a JSON body." }, { status: 400 });
+  }
+
+  const forward: Record<string, unknown> = {};
+  if (body.archived !== undefined) {
+    if (typeof body.archived !== "boolean") {
+      return Response.json({ error: "'archived' must be a boolean." }, { status: 400 });
+    }
+    forward.archived = body.archived;
+  }
+  if (body.label !== undefined) {
+    if (typeof body.label !== "string" || !body.label.trim()) {
+      return Response.json({ error: "'label' must be a non-empty string." }, { status: 400 });
+    }
+    forward.label = body.label.trim();
+  }
+  if (body.parsedJson !== undefined) {
+    if (typeof body.parsedJson !== "string") {
+      return Response.json({ error: "'parsedJson' must be a string." }, { status: 400 });
+    }
+    forward.parsedJson = body.parsedJson;
+  }
+  if (Object.keys(forward).length === 0) {
+    return Response.json({ error: "Nothing to update." }, { status: 400 });
   }
 
   let res: Response;
   try {
     res = await serverApiFetch(`/api/profile/resumes/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ archived: body.archived }),
+      body: JSON.stringify(forward),
     });
   } catch {
     return Response.json({ error: "Couldn't reach the server." }, { status: 502 });
@@ -39,7 +65,7 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
   }
 
   const data = await res.json().catch(() => ({}));
-  return Response.json({ ok: true, id: Number(id), archived: data.archived ?? body.archived });
+  return Response.json({ ok: true, id: Number(id), label: data.label, archived: data.archived });
 }
 
 /**

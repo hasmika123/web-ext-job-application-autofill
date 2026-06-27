@@ -1,6 +1,6 @@
 import { serverApiFetch } from "@/lib/api";
-import ResumeUpload from "@/components/ResumeUpload";
-import ResumeList, { type Resume } from "@/components/ResumeList";
+import ResumesWorkspace from "@/components/ResumesWorkspace";
+import { type Resume } from "@/components/ResumeList";
 import type { Application } from "@/components/ApplicationBoard";
 
 /**
@@ -50,9 +50,7 @@ export default async function ResumesPage() {
         </p>
       </header>
 
-      <ResumeUpload baseProfile={baseProfile} />
-
-      <ResumeList resumes={resumes} usage={usage} />
+      <ResumesWorkspace baseProfile={baseProfile} resumes={resumes} usage={usage} />
     </div>
   );
 }
