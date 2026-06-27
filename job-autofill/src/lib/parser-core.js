@@ -178,14 +178,20 @@
         const sm = work.match(SINGLE_DATE_RE);
         if (sm) { const dr = parseDateRange(work); startDate = dr.startDate; endDate = dr.endDate; current = dr.current; dateFound = true; work = work.replace(sm[0], "  "); }
       }
+      // A date pulled from inside brackets leaves an empty "( )" / "[ ]" behind
+      // (e.g. "Engineer, Google (2021 - Present)"). Drop it so the bracket doesn't
+      // become a phantom company/title segment.
+      work = work.replace(/[([{]\s*[)\]}]/g, " ");
       for (const seg of splitSegs(work)) {
         const [comp, loc] = splitCityState(seg);
         if (loc && !location) location = loc;
         if (comp) candidates.push(comp);
       }
     }
-    // Classify: location, then title (by keyword), then company gets the rest.
-    for (const c of candidates) { if (!location && LOC_RE.test(c)) { location = c; } }
+    // Classify: location, then title (by keyword), then company gets the rest. A segment
+    // that carries a job-title keyword is never a location — guards against LOC_RE's loose
+    // ", Propername" branch eating "Software Engineer, Google" when no real location exists.
+    for (const c of candidates) { if (!location && LOC_RE.test(c) && !TITLE_RE.test(c)) { location = c; } }
     for (const c of candidates) { if (!title && c !== location && TITLE_RE.test(c)) { title = c; break; } }
     for (const c of candidates) {
       if (c === title || c === location) continue;
@@ -215,17 +221,37 @@
 
   function parseExperience(lines) {
     const entries = [];
-    let header = [], bullets = [], open = false;
-    const flush = () => { if (open && (header.length || bullets.length)) entries.push(buildExpEntry(header, bullets)); header = []; bullets = []; open = false; };
-    for (const line of lines) {
+    let header = [], bullets = [], open = false, headerHasDate = false;
+    const flush = () => {
+      if (open && (header.length || bullets.length)) entries.push(buildExpEntry(header, bullets));
+      header = []; bullets = []; open = false; headerHasDate = false;
+    };
+    // After bullets have started, a date-less non-bullet line is ambiguous: it's either
+    // the next entry's header (its date is on a following line) or a wrapped bullet. Peek
+    // ahead — a date within the next few non-bullet lines means a new entry starts here.
+    const startsNewEntry = (idx) => {
+      for (let j = idx + 1; j < lines.length && j <= idx + 3; j++) {
+        if (BULLET_RE.test(lines[j])) return false;  // bullets follow → it was a wrapped bullet
+        if (DATE_RE.test(lines[j])) return true;      // a date shortly after → a real header
+      }
+      return false;
+    };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const isBullet = BULLET_RE.test(line);
       const hasDate = DATE_RE.test(line);
       if (isBullet) { if (open) bullets.push(line.replace(STRIP_BULLET, "").trim()); continue; }
+      if (!open) { open = true; header.push(line); if (hasDate) headerHasDate = true; continue; }
       if (hasDate) {
-        if (open && (bullets.length > 0 || header.length >= 2)) flush();
-        open = true; header.push(line);
-      } else if (!open) { open = true; header.push(line); }
-      else if (bullets.length === 0 && header.length < 3) header.push(line);
+        // A date when the current entry already has its date (or already has bullets) is
+        // the NEXT entry starting; otherwise it's THIS header's date, arriving on its own
+        // line — attach it instead of prematurely splitting the entry.
+        if (headerHasDate || bullets.length > 0) { flush(); open = true; header.push(line); headerHasDate = true; }
+        else { header.push(line); headerHasDate = true; }
+        continue;
+      }
+      if (bullets.length === 0 && header.length < 3) header.push(line); // still the header
+      else if (startsNewEntry(i)) { flush(); open = true; header.push(line); }
       else bullets.push(line);
     }
     flush();
@@ -245,6 +271,7 @@
     phrases.forEach((p) => { cleaned = cleaned.replace(p, "  "); });
     cleaned = cleaned
       .replace(/\b(expected graduation|expected|anticipated graduation|anticipated|graduation date|graduation|grad date|class of|graduating)\b/gi, "  ")
+      .replace(/[([{]\s*[)\]}]/g, " ")
       .replace(/\s*[-–—|:]\s*(?=\s|$)/g, " ")
       .replace(/\s{2,}/g, "  ").trim();
     return { startDate, endDate, cleaned };
