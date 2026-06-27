@@ -163,21 +163,29 @@ function toMonthValue(raw: string): string {
   if (m) return `${m[1]}-01`;
   return "";
 }
-/** Normalize every experience/education date to YYYY-MM up front so the month pickers populate. */
-function normalizeDates(struct: StructuredResume): StructuredResume {
+/** Normalize parsed data up front: dates → YYYY-MM (so the month pickers populate) and
+ *  degrees → a dropdown option when one fits (so they don't default to "Other"). */
+function normalizeStruct(struct: StructuredResume): StructuredResume {
   return {
     ...struct,
     experience: struct.experience.map((e) => ({ ...e, startDate: toMonthValue(e.startDate), endDate: toMonthValue(e.endDate) })),
-    education: struct.education.map((e) => ({ ...e, startDate: toMonthValue(e.startDate), endDate: toMonthValue(e.endDate) })),
+    education: struct.education.map((e) => ({
+      ...e,
+      startDate: toMonthValue(e.startDate),
+      endDate: toMonthValue(e.endDate),
+      degree: matchDegree(e.degree) || e.degree,
+    })),
   };
 }
 
 const DEGREE_OPTIONS = [
   "High School Diploma",
   "Associate's Degree",
+  "Bachelor's Degree",
   "Bachelor of Arts (BA)",
   "Bachelor of Science (BS)",
   "Bachelor of Engineering (BEng)",
+  "Master's Degree",
   "Master of Arts (MA)",
   "Master of Science (MS)",
   "Master of Business Administration (MBA)",
@@ -187,6 +195,33 @@ const DEGREE_OPTIONS = [
   "Certificate",
   "Diploma",
 ];
+
+/**
+ * Map a parsed degree string to a dropdown option (so "Master", "BS", "Bachelor of
+ * Science", "MBA"… land on a real option instead of "Other"). Specific forms win over
+ * the generic level; abbreviations are matched as whole tokens. Returns "" if nothing fits.
+ */
+function matchDegree(raw: string): string {
+  const s = (raw || "").toLowerCase().replace(/\./g, "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  const has = (re: RegExp) => re.test(s);
+  if (has(/\bmba\b/) || has(/master of business/)) return "Master of Business Administration (MBA)";
+  if (has(/master of science\b/) || has(/\bm ?sc?\b/)) return "Master of Science (MS)";
+  if (has(/master of arts\b/) || has(/\bma\b/)) return "Master of Arts (MA)";
+  if (has(/\bmasters?\b/) || has(/master'?s/)) return "Master's Degree";
+  if (has(/bachelor of engineering\b/) || has(/\bb ?eng\b/) || has(/\bbe\b/)) return "Bachelor of Engineering (BEng)";
+  if (has(/bachelor of science\b/) || has(/\bb ?sc?\b/)) return "Bachelor of Science (BS)";
+  if (has(/bachelor of arts\b/) || has(/\bba\b/) || has(/\bab\b/)) return "Bachelor of Arts (BA)";
+  if (has(/\bbachelors?\b/) || has(/bachelor'?s/) || has(/baccalaureate/)) return "Bachelor's Degree";
+  if (has(/\bphd\b/) || has(/\bph d\b/) || has(/doctor of philosophy/) || has(/\bdoctorate\b/) || has(/doctoral/) || has(/\bdphil\b/)) return "Doctor of Philosophy (PhD)";
+  if (has(/juris doctor/) || has(/\bjd\b/)) return "Juris Doctor (JD)";
+  if (has(/doctor of medicine/) || has(/\bmd\b/)) return "Doctor of Medicine (MD)";
+  if (has(/\bassociates?\b/) || has(/associate'?s/) || has(/\baa\b/) || has(/\bas\b/) || has(/\baas\b/)) return "Associate's Degree";
+  if (has(/high ?school/) || has(/\bged\b/) || has(/secondary school/)) return "High School Diploma";
+  if (has(/certificat/) || has(/\bcert\b/)) return "Certificate";
+  if (has(/diploma/)) return "Diploma";
+  return "";
+}
 
 function DegreeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const known = DEGREE_OPTIONS.includes(value);
@@ -390,7 +425,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
     try {
       const parsed = await parseResume(picked);
       setBio(parsed.bio);
-      setStruct(normalizeDates(parsed.structured));
+      setStruct(normalizeStruct(parsed.structured));
       setContactOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't read that file.");
