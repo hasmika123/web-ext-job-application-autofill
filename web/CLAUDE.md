@@ -39,6 +39,12 @@ Confirmed against the bundled docs (`node_modules/next/dist/docs/01-app/02-guide
   API directly. Next Route Handlers proxy auth + data so the JWT lives in httpOnly
   cookies. The API base URL is `src/lib/config.ts` (`DOSSIER_API_URL`, server env, no
   `NEXT_PUBLIC_`).
+- **Sessions: short access token, silent refresh.** Access token ~15 min, refresh ~90
+  days (rolling). `src/proxy.ts` (Next 16 `proxy`, was middleware) transparently refreshes
+  the access cookie when it's expired but the refresh token is valid, so users aren't
+  bounced at the 15-min mark. The `(app)` layout is the *gate* (validates via `/api/account`,
+  redirects on 401); the proxy only *renews*. Cookie names + lifetime live in
+  `src/lib/cookies.ts` (no `next/headers`, so the proxy can import them).
 - **Shared resume parsing**: import the extension's `parser-core.js` (pure JS, no build
   step) rather than reimplementing — it's the single source of truth for resume → fields.
 - **Tests**: `npm test` = `tsc --noEmit && eslint .`. `npm run build` is the strongest gate.

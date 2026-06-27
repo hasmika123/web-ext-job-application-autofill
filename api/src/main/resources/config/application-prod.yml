@@ -124,9 +124,11 @@ jhipster:
         # variable (generate one with `openssl rand -base64 64`). The app fails fast on boot
         # if it's missing, so prod can never silently run on a shared/committed key.
         base64-secret: ${JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET}
-        # Access token is short-lived (15 min); refresh token is long-lived (30 days).
+        # Access token is short-lived (15 min); refresh token is long-lived (90 days).
+        # The web app silently rotates the refresh token (proxy.ts) on a rolling window,
+        # so this is the max idle time before a re-login is required.
         token-validity-in-seconds: 900
-        token-validity-in-seconds-for-remember-me: 2592000
+        token-validity-in-seconds-for-remember-me: 7776000
   mail: # specific JHipster mail property, for standard properties see MailProperties
     # base-url is the WEB app URL — the activation link in the email points to
     # ${base-url}/account/activate?key=… (the Next page below), not the API.

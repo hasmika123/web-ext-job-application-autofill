@@ -8,33 +8,19 @@
  * Next 16: `cookies()` is async — always `await` it.
  */
 import { cookies } from "next/headers";
+import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieOptions } from "@/lib/cookies";
 
-// R7.1 rename: dossier_* → kiwiply_*. Forces a one-time re-login for existing users
-// (the old-named cookies stop being read). The cookie names live only here; route
-// handlers go through the helpers below.
-export const ACCESS_COOKIE = "kiwiply_access";
-export const REFRESH_COOKIE = "kiwiply_refresh";
-
-// The cookies persist for 30 days; the *access token* inside expires much sooner and
-// is refreshed via /api/auth/refresh. Storing both lets us refresh without re-login.
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
-
-function baseCookieOptions() {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
-    path: "/",
-    maxAge: COOKIE_MAX_AGE,
-  };
-}
+// Cookie names + lifetime live in `@/lib/cookies` (sharable with proxy.ts). Re-exported
+// here so existing importers keep working. The access token inside expires in ~15 min
+// and is silently refreshed (proxy.ts) using the refresh token.
+export { ACCESS_COOKIE, REFRESH_COOKIE };
 
 /** Set the access (and optionally refresh) token cookies. Call from a Route Handler. */
 export async function setAuthCookies(accessToken: string, refreshToken?: string | null) {
   const store = await cookies();
-  store.set(ACCESS_COOKIE, accessToken, baseCookieOptions());
+  store.set(ACCESS_COOKIE, accessToken, sessionCookieOptions());
   if (refreshToken) {
-    store.set(REFRESH_COOKIE, refreshToken, baseCookieOptions());
+    store.set(REFRESH_COOKIE, refreshToken, sessionCookieOptions());
   }
 }
 

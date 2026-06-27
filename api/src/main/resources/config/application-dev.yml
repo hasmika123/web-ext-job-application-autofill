@@ -89,9 +89,11 @@ jhipster:
       jwt:
         # This token must be encoded using Base64 and be at least 256 bits long (you can type `openssl rand -base64 64` on your command line to generate a 512 bits one)
         base64-secret: ZDVkZmU2NmRmZWZhZGRhZWZlYjJiNTgzNGE3NDYwODYzMDBkMzE3NDkyNzRjOGI2ZGJlNDY2NDgyMTRjYzM3MzZlMjNmYjhjNjM1ZmI5MmY0ODlhNDg3Yjc5NmI5MGRmZGRkZjM2ZmNhZjQwYzA0MzNlMThmNTJjODgzYjgyYTQ=
-        # Access token is short-lived (15 min); refresh token is long-lived (30 days).
+        # Access token is short-lived (15 min); refresh token is long-lived (90 days).
+        # The web app silently rotates the refresh token (proxy.ts) on a rolling window,
+        # so this is the max idle time before a re-login is required.
         token-validity-in-seconds: 900
-        token-validity-in-seconds-for-remember-me: 2592000
+        token-validity-in-seconds-for-remember-me: 7776000
   mail: # specific JHipster mail property, for standard properties see MailProperties
     base-url: http://127.0.0.1:8080
   logging:
