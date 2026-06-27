@@ -28,17 +28,12 @@
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
       const content = await page.getTextContent();
-      // Reconstruct lines by y-position so columns/bullets survive reasonably.
-      const rows = {};
-      content.items.forEach((it) => {
-        if (!it.str) return;
-        const y = Math.round(it.transform[5]);
-        (rows[y] = rows[y] || []).push(it.str);
-      });
-      Object.keys(rows)
-        .sort((a, b) => b - a)
-        .forEach((y) => { out += rows[y].join(" ").replace(/\s+/g, " ").trim() + "\n"; });
-      out += "\n";
+      // Column-aware reconstruction via the shared core, so two-column resumes read
+      // column-by-column instead of interleaving the sidebar into the main column.
+      const items = content.items
+        .filter((it) => it.str)
+        .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width, str: it.str }));
+      out += JAF.parserCore.reconstructPdfText(items) + "\n\n";
     }
     return out.trim();
   }

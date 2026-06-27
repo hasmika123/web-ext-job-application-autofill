@@ -62,10 +62,19 @@ export interface ParsedBio {
   state?: string;
 }
 
+/** A positioned PDF text item (x=left edge, y=baseline, w=advance width). */
+export interface PdfTextItem {
+  x: number;
+  y: number;
+  w: number;
+  str: string;
+}
+
 const impl = core as {
   heuristicStructure: (text: string) => StructuredResume;
   parseBio: (text: string) => ParsedBio;
   splitSkills: (input: string | string[]) => string[];
+  reconstructPdfText: (items: PdfTextItem[]) => string;
 };
 
 /** Structure raw resume text into sections/fields (no API key, fully local). */
@@ -81,4 +90,9 @@ export function parseBio(text: string): ParsedBio {
 /** Split a skills blob into separate, deduped skills. */
 export function splitSkills(input: string | string[]): string[] {
   return impl.splitSkills(input);
+}
+
+/** Column-aware reading-order text from positioned PDF items (handles two-column resumes). */
+export function reconstructPdfText(items: PdfTextItem[]): string {
+  return impl.reconstructPdfText(items);
 }

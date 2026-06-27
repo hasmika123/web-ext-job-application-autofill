@@ -103,6 +103,32 @@ const eWrap = expOf(["Software Engineer, Google  2021-Present", "- Built the thi
   "many things across teams and orgs", "- Another accomplishment"].join("\n"));
 ok("wrapped bullet: stays one entry", eWrap.length === 1, JSON.stringify(eWrap.map((e) => e.company)));
 
+// --- Column-aware PDF reconstruction (two-column resume layouts) ----------
+ok("exports reconstructPdfText", typeof core.reconstructPdfText === "function");
+
+// A two-column resume: a narrow skills/contact sidebar (left) beside the main column
+// (right), sharing rows. Naive y-grouping interleaves them; reconstruction must read the
+// LEFT column fully, then the RIGHT column.
+const ys = [700, 640, 580, 520, 460, 400, 340, 280, 220, 160];
+const leftCol = ["Skills", "Python", "Java", "SQL", "React", "Docker", "AWS", "Git", "Linux", "Kafka"];
+const rightCol = ["Experience", "Senior Engineer, Google", "2021 - Present", "- Built systems",
+  "Software Engineer, Meta", "2018 - 2021", "- Shipped features", "Education", "Stanford University", "BS 2018"];
+const twoColItems = [];
+ys.forEach((y, i) => twoColItems.push({ x: 50, y, w: 90, str: leftCol[i] }));
+ys.forEach((y, i) => twoColItems.push({ x: 320, y, w: 180, str: rightCol[i] }));
+const recon = core.reconstructPdfText(twoColItems);
+ok("two-col: left column read before right", recon.indexOf("Kafka") < recon.indexOf("Experience"), JSON.stringify(recon));
+ok("two-col: not interleaved", recon.indexOf("Python") < recon.indexOf("Senior Engineer"), JSON.stringify(recon));
+// And the reconstructed text structures correctly (companies recovered, not garbled).
+const reconStruct = core.heuristicStructure(recon);
+const reconCos = reconStruct.experience.map((e) => e.company);
+ok("two-col: experience companies recovered", reconCos.includes("Google") && reconCos.includes("Meta"), JSON.stringify(reconCos));
+
+// A single-column page must pass through unchanged (top-to-bottom), no false split.
+const oneColItems = ys.map((y, i) => ({ x: 60, y, w: 300, str: "Line " + i }));
+const reconOne = core.reconstructPdfText(oneColItems);
+ok("single-col: preserved top-to-bottom", reconOne.startsWith("Line 0") && reconOne.trimEnd().endsWith("Line 9"), JSON.stringify(reconOne));
+
 console.log(`\n[parser-core] ${pass} passed, ${fail} failed`);
 if (fails.length) { console.log("Failures:"); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
 console.log("[parser-core] All green.");

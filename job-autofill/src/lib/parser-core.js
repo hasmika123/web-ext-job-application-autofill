@@ -535,5 +535,76 @@
     return bio;
   }
 
-  return { heuristicStructure, parseBio, splitSkills };
+  // --- PDF layout reconstruction (column-aware) ----------------------------
+  // Turn positioned PDF text items into reading-order plain text. The naive approach
+  // (group every item by its y row, left-to-right) shreds TWO-COLUMN resumes: a skills
+  // sidebar and the experience column share rows, so they interleave into garbage. Here
+  // we first detect a consistent vertical gutter; if found, each column is read fully
+  // top-to-bottom (left, then right) before handing off to the text structurer. Single
+  // column (the common case) falls through to the original y-ordering, unchanged.
+  //
+  // items: [{ x, y, w, str }] — x = left edge, y = baseline (PDF y grows upward),
+  // w = advance width, str = text. Pure: no pdf.js/DOM dependency, so the web app and
+  // the extension reconstruct identically.
+  function itemsToText(items) {
+    const rows = new Map();
+    for (const it of items) {
+      const y = Math.round(it.y);
+      if (!rows.has(y)) rows.set(y, []);
+      rows.get(y).push(it);
+    }
+    const lines = [];
+    [...rows.keys()].sort((a, b) => b - a).forEach((y) => {
+      const row = rows.get(y).sort((a, b) => a.x - b.x);
+      const text = row.map((r) => r.str).join(" ").replace(/\s+/g, " ").trim();
+      if (text) lines.push(text);
+    });
+    return lines.join("\n");
+  }
+  // Find an x where text splits into a left and a right column that BOTH run most of the
+  // page height with very few rows crossing — the signature of a real two-column layout
+  // (not just right-aligned dates, which only span a few rows). Returns the x, or null.
+  function findColumnSplit(items) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const it of items) {
+      const r = it.x + (it.w || 0);
+      if (it.x < minX) minX = it.x;
+      if (r > maxX) maxX = r;
+      if (it.y < minY) minY = it.y;
+      if (it.y > maxY) maxY = it.y;
+    }
+    const pageW = maxX - minX, pageH = maxY - minY;
+    if (pageW <= 0 || pageH <= 0) return null;
+    const NB = 16; // vertical bands used to measure how much height each side covers
+    const bandOf = (y) => Math.min(NB - 1, Math.max(0, Math.floor(((maxY - y) / pageH) * NB)));
+    let best = null;
+    for (let frac = 0.28; frac <= 0.72 + 1e-9; frac += 0.02) {
+      const g = minX + frac * pageW;
+      const leftBands = new Set(), rightBands = new Set(), crossBands = new Set();
+      let cross = 0;
+      for (const it of items) {
+        const l = it.x, r = it.x + (it.w || 0), b = bandOf(it.y);
+        if (r <= g) leftBands.add(b);
+        else if (l >= g) rightBands.add(b);
+        else { crossBands.add(b); cross++; }
+      }
+      if (leftBands.size >= NB * 0.5 && rightBands.size >= NB * 0.5 && crossBands.size <= NB * 0.2) {
+        const score = crossBands.size * 1000 + cross;
+        if (!best || score < best.score) best = { g, score };
+      }
+    }
+    return best ? best.g : null;
+  }
+  function reconstructPdfText(items) {
+    const its = (items || []).filter((it) => it && typeof it.str === "string" && it.str.trim() !== "");
+    if (its.length < 8) return itemsToText(its); // too little text to risk column detection
+    const g = findColumnSplit(its);
+    if (g == null) return itemsToText(its);
+    const left = [], right = [];
+    for (const it of its) (it.x + (it.w || 0) / 2 < g ? left : right).push(it);
+    if (left.length < 3 || right.length < 3) return itemsToText(its); // not really two columns
+    return itemsToText(left) + "\n" + itemsToText(right);
+  }
+
+  return { heuristicStructure, parseBio, splitSkills, reconstructPdfText };
 });

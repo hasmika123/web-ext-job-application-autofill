@@ -7,7 +7,7 @@
  * user's browser (libs are dynamically imported on demand, never on the server), which
  * keeps resume content off our servers until the user chooses to save.
  */
-import { heuristicStructure, parseBio, type StructuredResume, type ParsedBio } from "@/lib/parser-core";
+import { heuristicStructure, parseBio, reconstructPdfText, type StructuredResume, type ParsedBio } from "@/lib/parser-core";
 
 export interface ParsedResume {
   structured: StructuredResume;
@@ -29,21 +29,14 @@ async function extractPdf(file: File): Promise<string> {
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    // Reconstruct lines by y-position so columns/bullets survive (matches the extension).
-    const rows: Record<number, string[]> = {};
-    for (const item of content.items) {
-      if (!("str" in item) || !item.str) continue;
-      const y = Math.round(item.transform[5]);
-      if (!rows[y]) rows[y] = [];
-      rows[y].push(item.str);
-    }
-    Object.keys(rows)
-      .map(Number)
-      .sort((a, b) => b - a)
-      .forEach((y) => {
-        out += rows[y].join(" ").replace(/\s+/g, " ").trim() + "\n";
-      });
-    out += "\n";
+    // Hand positioned items to the shared column-aware reconstructor (matches the
+    // extension) so two-column resumes read column-by-column instead of interleaving.
+    // TextMarkedContent items carry no `str`, so filtering on it leaves only TextItems.
+    type PdfItem = { str: string; transform: number[]; width: number };
+    const items = (content.items as unknown as PdfItem[])
+      .filter((it) => typeof it.str === "string" && it.str !== "")
+      .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width, str: it.str }));
+    out += reconstructPdfText(items) + "\n\n";
   }
   return out.trim();
 }
