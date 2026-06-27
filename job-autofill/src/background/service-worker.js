@@ -20,7 +20,8 @@ function track(name, params) {
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
-    chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html") });
+    // Onboard on the web app: sign in / sign up there and connect the extension.
+    chrome.tabs.create({ url: "https://kiwiply.com/connect" });
   }
   track(details.reason === "install" ? "extension_install" : "extension_update", { reason: details.reason });
 });
@@ -102,6 +103,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   draftAnswer(msg.question, msg.context)
     .then((r) => { track("answer_draft", { outcome: draftOutcome(r) }); sendResponse(r); })
     .catch((e) => { track("answer_draft", { outcome: "error" }); sendResponse({ error: String(e) }); });
+  return true; // async
+});
+
+// --- Web-app connect handoff (externally_connectable) -------------------------
+// kiwiply.com's /connect page hands the extension a session after the user signs in on
+// the web — single sign-in, no separate login in the extension. We only accept the
+// handoff from our own web origins.
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  const origin = (sender && sender.origin) || "";
+  const allowed = /^https:\/\/(www\.|app\.)?kiwiply\.com$/.test(origin) || origin === "http://localhost:3000";
+  if (!allowed) return;
+  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
+  const t = (msg && msg.tokens) || {};
+  if (!t.access || !t.refresh) { sendResponse({ ok: false, reason: "missing-tokens" }); return; }
+  (async () => {
+    // Ensure the API base is set, then store the session via the shared token store.
+    const settings = (await sGet("settings")) || {};
+    if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api.kiwiply.com"; await sSet("settings", settings); }
+    await self.JAF.tracking.chromeTokenStore().set({ access: t.access, refresh: t.refresh, username: t.username || "" });
+    track("extension_connected", {});
+    sendResponse({ ok: true });
+  })().catch((e) => sendResponse({ ok: false, reason: String((e && e.message) || e) }));
   return true; // async
 });
 

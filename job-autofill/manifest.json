@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Kiwiply — Job Application Autofill",
-  "version": "0.22.0",
+  "version": "0.23.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3HE6lDTraXYRpYr+QKqb/QLbtCh0CjFRH/CQbZPOM221cYqh3cDRHmSsbkq1MwCN0M9eWYJgtysjIRHLGIjsuIP3B4hOop0Hq7wHlmlie8/W7llDB7jDfZeJ9N9dpXQNKouXNFtiXwE694eLaP4ioMxMuAnUpW8PaZOUeBPwODh8G7EHvSZtn5SirkpiLZ+fakzfXGDze+6w24tQ4hfnk3bCFQYTrceS8i+4REBKxTbpUjad32m1AVlCeh+qPcPv24zsyDukVcAOVcr1JY+hWUwb+GxX44h7vbTrWV84cD9RBZQhotHf39H83ZwseHa+LJgVVO5WQflLAX2iru5F7QIDAQAB",
   "description": "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
   "browser_specific_settings": {
     "gecko": {
@@ -34,6 +35,9 @@
     "http://127.0.0.1:8080/*"
   ],
   "background": { "service_worker": "src/background/service-worker.js" },
+  "externally_connectable": {
+    "matches": ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "https://app.kiwiply.com/*", "http://localhost:3000/*"]
+  },
   "action": {
     "default_title": "Kiwiply — pick a resume and fill",
     "default_popup": "src/popup/popup.html"

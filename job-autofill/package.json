@@ -1,6 +1,6 @@
 {
   "name": "dossier-job-autofill",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "private": true,
   "description": "Dev tooling for the Dossier job-application autofill extension. The extension itself has no build step; this is only for tests.",
   "scripts": {

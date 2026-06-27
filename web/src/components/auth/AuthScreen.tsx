@@ -24,7 +24,18 @@ function GoogleG() {
   );
 }
 
-function Tabs({ mode }: { mode: Mode }) {
+/** Only a same-site relative path is allowed as a post-login redirect (no open redirects). */
+function safeNext(next?: string): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
+  return next;
+}
+
+function withNext(path: string, next?: string): string {
+  const n = safeNext(next);
+  return n ? `${path}?next=${encodeURIComponent(n)}` : path;
+}
+
+function Tabs({ mode, next }: { mode: Mode; next?: string }) {
   const router = useRouter();
   return (
     <div className="mb-6 flex rounded-full bg-paper-2 p-1">
@@ -32,7 +43,7 @@ function Tabs({ mode }: { mode: Mode }) {
         <button
           key={m}
           type="button"
-          onClick={() => m !== mode && router.push(m === "login" ? "/login" : "/signup")}
+          onClick={() => m !== mode && router.push(withNext(m === "login" ? "/login" : "/signup", next))}
           aria-current={m === mode ? "page" : undefined}
           className={cn(
             "flex-1 rounded-full py-2.5 text-[13.5px] font-semibold transition-colors",
@@ -70,7 +81,7 @@ function Divider() {
   );
 }
 
-function LoginForm() {
+function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -103,7 +114,7 @@ function LoginForm() {
         return;
       }
       track("login", { method: "password" });
-      router.push("/dashboard");
+      router.push(safeNext(next) ?? "/dashboard");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -116,7 +127,7 @@ function LoginForm() {
     <>
       <h1 className="text-[28px] font-bold tracking-tight text-ink">Welcome back</h1>
       <p className="mb-6 mt-1 text-sm text-muted">Sign in to pick up where you left off.</p>
-      <Tabs mode="login" />
+      <Tabs mode="login" next={next} />
       <form onSubmit={onSubmit} noValidate>
         <Field label="Username" htmlFor="login-username" error={show("username") ? errs.username : undefined}>
           <Input
@@ -156,7 +167,7 @@ function LoginForm() {
   );
 }
 
-function SignupForm() {
+function SignupForm({ next }: { next?: string }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -193,6 +204,17 @@ function SignupForm() {
         return;
       }
       track("sign_up", { method: "password" });
+      // Remember where to go after the email-activation round-trip (e.g. /connect), so a
+      // brand-new user lands back there once they activate + sign in. Best-effort: only
+      // works when activation happens in the same browser.
+      const n = safeNext(next);
+      if (n) {
+        try {
+          localStorage.setItem("kiwiply_next", n);
+        } catch {
+          /* ignore */
+        }
+      }
       setDone(true);
     } catch {
       setError("Something went wrong. Please try again.");
@@ -210,7 +232,7 @@ function SignupForm() {
           <span className="font-semibold text-ink">{email}</span>. Click it to finish setting up,
           then sign in.
         </p>
-        <Link href="/login" className={cn(buttonVariants("ghost"), "mt-7")}>
+        <Link href={withNext("/login", next)} className={cn(buttonVariants("ghost"), "mt-7")}>
           Go to sign in
         </Link>
       </div>
@@ -221,7 +243,7 @@ function SignupForm() {
     <>
       <h1 className="text-[28px] font-bold tracking-tight text-ink">Create your account</h1>
       <p className="mb-6 mt-1 text-sm text-muted">Start applying faster in under a minute.</p>
-      <Tabs mode="signup" />
+      <Tabs mode="signup" next={next} />
       <form onSubmit={onSubmit} noValidate>
         <Field label="Username" htmlFor="signup-username" error={show("username") ? errs.username : undefined}>
           <Input
@@ -282,7 +304,7 @@ function SignupForm() {
 }
 
 /** Split-screen auth shared by /login + /signup (tabbed). Branded panel hidden on mobile. */
-export default function AuthScreen({ mode }: { mode: Mode }) {
+export default function AuthScreen({ mode, next }: { mode: Mode; next?: string }) {
   return (
     <div className="flex flex-1 flex-col lg:grid lg:grid-cols-2">
       {/* Brand panel (desktop only) */}
@@ -337,7 +359,7 @@ export default function AuthScreen({ mode }: { mode: Mode }) {
             <Logo height={26} />
             <BetaBadge />
           </Link>
-          {mode === "login" ? <LoginForm /> : <SignupForm />}
+          {mode === "login" ? <LoginForm next={next} /> : <SignupForm next={next} />}
         </div>
       </div>
     </div>

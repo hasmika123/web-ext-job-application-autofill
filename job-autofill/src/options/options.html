@@ -3,153 +3,75 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kiwiply — Manage</title>
+  <title>Kiwiply — Extension settings</title>
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
-  <div class="shell">
-    <aside class="rail">
+  <main class="slim">
+    <header class="slimhead">
       <img class="brandimg" src="../../icons/logo-icon.png" alt="Kiwiply" />
-      <nav>
-        <button class="navbtn active" data-tab="bio">Bio profile</button>
-        <button class="navbtn" data-tab="resumes">Resumes</button>
-        <button class="navbtn" data-tab="account">Account</button>
-        <button class="navbtn" data-tab="settings">Settings</button>
-      </nav>
-      <div class="usage" id="usage"></div>
-    </aside>
+      <div>
+        <h1>Extension settings</h1>
+        <p class="lead">Your profile, resumes, and job board live on <b>kiwiply.com</b>. This page only holds the
+          extension's device settings.</p>
+      </div>
+    </header>
 
-    <main class="main">
-      <!-- BIO -->
-      <section class="tab active" id="tab-bio">
-        <h1>Bio profile</h1>
-        <p class="lead">One identity, reused on every application. Experience and skills come from the resume you pick at fill time.</p>
-        <div class="grid" id="bio-grid"></div>
-        <details class="eeo">
-          <summary>EEO / demographic answers (optional, off by default)</summary>
-          <div class="grid" id="eeo-grid"></div>
-        </details>
-        <div class="actionbar"><button class="primary" id="save-bio">Save bio</button><span class="saved" id="bio-saved"></span></div>
-      </section>
-
-      <!-- RESUMES -->
-      <section class="tab" id="tab-resumes">
-        <h1>Resumes</h1>
-        <p class="lead">Upload up to ~50 files (PDF, DOCX, TXT). Each is parsed into skills, experience and education for you to confirm.</p>
-        <div class="drop" id="drop">
-          <input type="file" id="files" multiple accept=".pdf,.docx,.txt" hidden />
-          <button class="ghost" id="choose">Choose files</button>
-          <span class="drophint">or drop them here</span>
-        </div>
-        <div class="progress" id="progress"></div>
-        <div class="reslist" id="reslist"></div>
-      </section>
-
-      <!-- ACCOUNT -->
-      <section class="tab" id="tab-account">
-        <h1>Account &amp; sync</h1>
-        <p class="hint">Sign in to back up your bio and resumes to your Kiwiply account and sync them across devices. Your local data keeps working offline; the server is the source of truth and your device is a cache.</p>
-
-        <div class="field">
-          <label for="api-base">Backend URL</label>
-          <input class="input wide" id="api-base" type="url" placeholder="https://api.kiwiply.com" />
-          <p class="hint">The Kiwiply API endpoint. Defaults to <code>https://api.kiwiply.com</code>; use <code>http://localhost:8080</code> for local development.</p>
-        </div>
-
-        <div id="signed-out">
-          <div class="field"><label for="acct-email">Email</label><input class="input wide" id="acct-email" type="email" placeholder="you@example.com" /></div>
-          <div class="field"><label for="acct-user">Username</label><input class="input wide" id="acct-user" type="text" placeholder="username" /></div>
-          <div class="field"><label for="acct-pass">Password</label><input class="input wide" id="acct-pass" type="password" placeholder="••••••••" /></div>
-          <div class="actionbar">
-            <button class="primary" id="acct-signin">Sign in</button>
-            <button class="ghost" id="acct-signup">Create account</button>
-            <span class="saved" id="acct-status"></span>
-          </div>
-          <p class="hint">Email is only needed when creating an account.</p>
-        </div>
-
-        <div id="signed-in" class="hidden">
-          <p>Signed in as <b id="acct-who"></b>. <span class="saved" id="acct-status2"></span></p>
-          <div class="actionbar">
-            <button class="primary" id="acct-sync">Sync now</button>
-            <button class="ghost" id="acct-signout">Sign out</button>
-          </div>
-          <p class="hint">“Sync now” pushes your local changes up, then pulls the latest server state down.</p>
-        </div>
-      </section>
-
-      <!-- SETTINGS -->
-      <section class="tab" id="tab-settings">
-        <h1>Settings</h1>
-        <div class="group">
-          <h2>AI answer drafting</h2>
-          <p class="grouplead">Open-ended questions ("Why this role?") can get a draft you edit before using — two ways, your choice. A key also makes resume parsing cleaner.</p>
-
-          <div class="subopt">
-            <div class="opthead">Bring your own key</div>
-            <label class="toggle"><input type="checkbox" id="llm" /> Use the Anthropic API for cleaner parsing + unlimited drafting</label>
-            <p class="hint">Without a key, resumes are parsed with a built-in heuristic — rougher, but everything is editable. Drafts are cached and reused when the same question appears again. Your key is stored locally on this device only and is sent only to api.anthropic.com.</p>
-            <input class="input wide" id="apikey" type="password" placeholder="sk-ant-... (only used if the toggle is on)" />
-          </div>
-
-          <div class="subopt">
-            <div class="opthead">Kiwiply AI · no key needed</div>
-            <label class="toggle"><input type="checkbox" id="server-ai" /> Use Kiwiply AI to draft answers</label>
-            <p class="hint">When on, open-ended questions and a short summary of your profile/resume are sent to your
-              Kiwiply account, which uses <b>Google Gemini</b> to draft an answer you review before using. We currently
-              use Gemini's <b>free tier</b>, so <b>Google may use this input to improve its services and human reviewers
-              may see it</b>. Off by default; requires sign-in (Account tab) and your consent below. A monthly free limit
-              applies. Your own key (above) takes priority.</p>
-            <label class="toggle"><input type="checkbox" id="server-ai-consent" /> I consent to sending my question + profile summary to Google Gemini for drafting</label>
-          </div>
-        </div>
-        <hr />
-        <label class="toggle"><input type="checkbox" id="eeo-default" /> Include EEO answers by default when filling</label>
-        <hr />
-        <label class="toggle"><input type="checkbox" id="analytics" /> Share anonymous usage analytics to help improve Kiwiply</label>
-        <p class="hint">On by default. Sends only <b>anonymous</b> event counts (e.g. "a fill happened on workday",
-          "an answer was drafted") with a random ID — <b>never</b> your bio, resumes, answers, email, or the
-          pages you visit. Turn this off and nothing is sent. See <code>PRIVACY.md</code>.</p>
-        <hr />
-        <h2>Automation</h2>
-        <label class="toggle"><input type="checkbox" id="autoadv-default" /> Auto-advance: click the step's <b>Next / Continue</b> after filling</label>
-        <p class="hint">Off by default. When on, Kiwiply clicks the page's Next or Continue button after you fill a step, so multi-step flows (like Workday) move forward on their own. It detects forward-navigation buttons only and <b>never clicks Submit, Apply, or Finish</b> — you always send the application yourself. You can also flip this from the popup.</p>
-        <label class="toggle"><input type="checkbox" id="autoadd-default" /> Auto-add rows: click <b>"Add Another"</b> to make room for every resume role</label>
-        <p class="hint">On by default. On Workday's Work Experience step, Kiwiply adds enough entry blocks to hold all the roles in the selected resume before filling them.</p>
-        <div class="actionbar"><button class="primary" id="save-settings">Save settings</button><span class="saved" id="settings-saved"></span></div>
-        <hr />
-        <h2>Field rules</h2>
-        <p class="hint">The map from page fields to your data lives in a versioned ruleset, separate from the extension. When an ATS (e.g. Workday) changes its markup, an updated ruleset fixes filling <b>without</b> a new extension version. Point this at a hosted ruleset JSON (same shape as the bundled one) and check for updates.</p>
-        <div class="field"><label for="rules-version">Active ruleset</label><input class="input wide" id="rules-version" readonly /></div>
-        <input class="input wide" id="rules-url" type="url" placeholder="https://raw.githubusercontent.com/&lt;you&gt;/&lt;repo&gt;/main/rules.json" />
+    <!-- ACCOUNT -->
+    <section class="card">
+      <h2>Account</h2>
+      <div id="acct-connected" class="hidden">
+        <p>Connected as <b id="acct-who"></b>.</p>
         <div class="actionbar">
-          <button class="primary" id="rules-check">Check for updates</button>
-          <button class="ghost" id="rules-reset">Reset to bundled</button>
-          <span class="saved" id="rules-status"></span>
+          <a class="primary" id="manage" href="#" target="_blank" rel="noopener">Manage profile &amp; resumes →</a>
+          <button class="ghost" id="signout">Sign out</button>
         </div>
-        <hr />
-        <h2 class="danger-h">Danger zone</h2>
-        <button class="danger" id="clear">Delete all data</button>
-      </section>
-    </main>
-  </div>
+      </div>
+      <div id="acct-disconnected" class="hidden">
+        <p class="hint">Sign in on the web to connect the extension to your account. Your profile and resumes sync
+          down automatically for autofill — editing happens on kiwiply.com.</p>
+        <div class="actionbar">
+          <button class="primary" id="connect">Connect to kiwiply.com</button>
+          <span class="saved" id="acct-status"></span>
+        </div>
+      </div>
+    </section>
 
-  <!-- editor drawer -->
-  <div class="drawer-host hidden" id="drawer-host">
-    <div class="drawer-back" id="drawer-back"></div>
-    <div class="drawer" id="drawer"></div>
-  </div>
+    <!-- AI -->
+    <section class="card">
+      <h2>AI answer drafting</h2>
+      <p class="grouplead">Open-ended questions ("Why this role?") can get a draft you edit before using — your choice of two ways.</p>
+      <div class="subopt">
+        <div class="opthead">Bring your own key</div>
+        <label class="toggle"><input type="checkbox" id="llm" /> Use the Anthropic API for cleaner parsing + unlimited drafting</label>
+        <p class="hint">Stored locally on this device only; sent only to api.anthropic.com.</p>
+        <input class="input wide" id="apikey" type="password" placeholder="sk-ant-… (only used if the toggle is on)" />
+      </div>
+      <div class="subopt">
+        <div class="opthead">Kiwiply AI · no key needed</div>
+        <label class="toggle"><input type="checkbox" id="server-ai" /> Use Kiwiply AI to draft answers</label>
+        <p class="hint">Sends the question + a short profile summary to your Kiwiply account, which uses <b>Google
+          Gemini</b> (free tier — Google may use it to improve its services) to draft an answer you review. Off by
+          default; requires being connected + your consent. Your own key takes priority.</p>
+        <label class="toggle"><input type="checkbox" id="server-ai-consent" /> I consent to sending my question + profile summary to Google Gemini for drafting</label>
+      </div>
+    </section>
 
-  <script src="../../vendor/mammoth.browser.min.js"></script>
-  <script src="../config/rules.js"></script>
-  <script src="../lib/rules-store.js"></script>
-  <script src="../lib/schema.js"></script>
+    <!-- FILLING -->
+    <section class="card">
+      <h2>Filling</h2>
+      <label class="toggle"><input type="checkbox" id="eeo-default" /> Include EEO answers by default when filling</label>
+      <label class="toggle"><input type="checkbox" id="autoadv-default" /> Auto-advance: click <b>Next / Continue</b> after filling (never Submit)</label>
+      <label class="toggle"><input type="checkbox" id="autoadd-default" /> Auto-add rows for every resume role (Workday)</label>
+      <hr />
+      <label class="toggle"><input type="checkbox" id="analytics" /> Share anonymous usage analytics</label>
+      <p class="hint">Only anonymous event counts with a random ID — <b>never</b> your bio, resumes, answers, or the pages you visit. See <code>PRIVACY.md</code>.</p>
+      <div class="actionbar"><button class="primary" id="save-settings">Save settings</button><span class="saved" id="settings-saved"></span></div>
+    </section>
+  </main>
+
   <script src="../lib/storage.js"></script>
-  <script src="../lib/parser-core.js"></script>
-  <script src="../lib/parser.js"></script>
   <script src="../lib/tracking.js"></script>
-  <script src="../lib/field-cache.js"></script>
-  <script src="../lib/sync.js"></script>
   <script src="options.js"></script>
 </body>
 </html>
