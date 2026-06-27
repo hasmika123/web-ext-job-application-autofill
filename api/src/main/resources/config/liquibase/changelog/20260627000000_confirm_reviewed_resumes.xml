@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The web review editor used to create every resume as NEEDS_REVIEW even though the
+        user reviews and edits it in that very screen before saving — so the "Needs review"
+        tag stuck on resumes that had already been reviewed. The upload route now saves
+        CONFIRMED; this one-time update fixes the already-saved rows. Safe to flip them all:
+        the only path that has created resumes so far is that web review-then-save flow, so
+        every existing NEEDS_REVIEW row is in fact reviewed.
+    -->
+    <changeSet id="20260627000000-1" author="dossier">
+        <update tableName="resume">
+            <column name="status" value="CONFIRMED"/>
+            <where>status = 'NEEDS_REVIEW'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

@@ -45,7 +45,9 @@ export async function POST(request: Request) {
     createRes = await fetch(apiUrl("/api/profile/resumes"), {
       method: "POST",
       headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ label, parsedJson, status: "NEEDS_REVIEW" }),
+      // CONFIRMED, not NEEDS_REVIEW: the user reviews and edits the parse in the upload
+      // screen before this runs, so a saved resume is by definition already reviewed.
+      body: JSON.stringify({ label, parsedJson, status: "CONFIRMED" }),
       cache: "no-store",
     });
   } catch {

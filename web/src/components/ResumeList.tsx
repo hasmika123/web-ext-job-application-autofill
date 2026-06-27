@@ -13,20 +13,12 @@ export interface Resume {
   archived?: boolean | null;
 }
 
-function prettyStatus(status: string): string {
-  return status
-    .toLowerCase()
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 function statusBadge(status?: string | null) {
   if (!status) return null;
-  const up = status.toUpperCase();
-  if (up.includes("REVIEW")) return { variant: "review" as const, label: "Needs review" };
-  if (up.includes("READY") || up.includes("DEFAULT")) return { variant: "ready" as const, label: prettyStatus(status) };
-  return { variant: "default" as const, label: prettyStatus(status) };
+  // Only NEEDS_REVIEW warrants a badge (e.g. a future extension-synced resume that was
+  // never reviewed). CONFIRMED is the normal, already-reviewed state — no badge, no noise.
+  if (status.toUpperCase().includes("REVIEW")) return { variant: "review" as const, label: "Needs review" };
+  return null;
 }
 
 function formatDate(iso?: string | null): string {
