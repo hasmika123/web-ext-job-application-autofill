@@ -32,6 +32,15 @@ function asStr(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
+/** Move the item at `from` to `to`, returning a new array (no-op if out of bounds). */
+function moveItem<T>(arr: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= arr.length || from === to) return arr;
+  const next = arr.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 const compactInput =
   "w-full rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-accent";
 
@@ -89,6 +98,17 @@ function RemoveBtn({ onClick, label }: { onClick: () => void; label: string }) {
     <button type="button" onClick={onClick} aria-label={label} title={label} className="rounded-md px-1.5 text-muted transition-colors hover:bg-paper-2 hover:text-danger">
       ✕
     </button>
+  );
+}
+
+/** Up/down reorder buttons (disabled at the ends). Used for section items and bullets. */
+function ReorderControls({ onUp, onDown, isFirst, isLast }: { onUp: () => void; onDown: () => void; isFirst: boolean; isLast: boolean }) {
+  const base = "grid h-6 w-6 place-items-center rounded-md text-muted transition-colors hover:bg-paper hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted";
+  return (
+    <div className="flex items-center">
+      <button type="button" onClick={onUp} disabled={isFirst} aria-label="Move up" title="Move up" className={base}>↑</button>
+      <button type="button" onClick={onDown} disabled={isLast} aria-label="Move down" title="Move down" className={base}>↓</button>
+    </div>
   );
 }
 
@@ -294,18 +314,42 @@ function GpaField({ value, onChange }: { value: string; onChange: (v: string) =>
   );
 }
 
-function BulletsBox({ label, bullets, onChange }: { label: string; bullets: string[]; onChange: (next: string[]) => void }) {
+// One editable bullet per row, each reorderable / removable, with an "Add" control.
+function BulletList({ label, bullets, onChange }: { label: string; bullets: string[]; onChange: (next: string[]) => void }) {
+  const set = (i: number, v: string) => onChange(bullets.map((b, idx) => (idx === i ? v : b)));
+  const add = () => onChange([...bullets, ""]);
+  const remove = (i: number) => onChange(bullets.filter((_, idx) => idx !== i));
+  const move = (i: number, to: number) => onChange(moveItem(bullets, i, to));
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label} — one per line</span>
-      <textarea
-        value={bullets.join("\n")}
-        rows={Math.max(3, bullets.length + 1)}
-        onChange={(e) => onChange(e.target.value.split("\n"))}
-        placeholder="• Led a team of 5…&#10;• Shipped X, improving Y by Z%…"
-        className={cn(compactInput, "resize-y leading-relaxed")}
-      />
-    </label>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</span>
+        <AddBtn onClick={add} label="Add" />
+      </div>
+      {bullets.length === 0 ? (
+        <p className="text-[12.5px] text-muted">No highlights yet — add one.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {bullets.map((b, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <div className="pt-1">
+                <ReorderControls onUp={() => move(i, i - 1)} onDown={() => move(i, i + 1)} isFirst={i === 0} isLast={i === bullets.length - 1} />
+              </div>
+              <textarea
+                value={b}
+                rows={2}
+                onChange={(e) => set(i, e.target.value)}
+                placeholder="Led a team of 5; shipped X, improving Y by Z%…"
+                className={cn(compactInput, "flex-1 resize-y leading-relaxed")}
+              />
+              <div className="pt-1.5">
+                <RemoveBtn onClick={() => remove(i)} label="Remove bullet" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -314,17 +358,28 @@ function ExperienceEditor({
   exp,
   onPatch,
   onRemove,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: {
   index: number;
   exp: ResumeExperience;
   onPatch: (p: Partial<ResumeExperience>) => void;
   onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   return (
     <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Experience {index + 1}</span>
-        <RemoveBtn onClick={onRemove} label="Remove this role" />
+        <div className="flex items-center gap-1">
+          <ReorderControls onUp={onMoveUp} onDown={onMoveDown} isFirst={isFirst} isLast={isLast} />
+          <RemoveBtn onClick={onRemove} label="Remove this role" />
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <LabeledInput label="Title" value={exp.title} onChange={(v) => onPatch({ title: v })} />
@@ -339,7 +394,7 @@ function ExperienceEditor({
         <input type="checkbox" checked={exp.current} onChange={(e) => onPatch({ current: e.target.checked })} className="accent-[var(--accent)]" /> Current role
       </label>
       <div className="mt-3">
-        <BulletsBox label="Highlights" bullets={exp.bullets} onChange={(next) => onPatch({ bullets: next })} />
+        <BulletList label="Highlights" bullets={exp.bullets} onChange={(next) => onPatch({ bullets: next })} />
       </div>
     </div>
   );
@@ -350,32 +405,46 @@ function ProjectEditor({
   proj,
   onPatch,
   onRemove,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: {
   index: number;
   proj: ResumeProject;
   onPatch: (p: Partial<ResumeProject>) => void;
   onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   return (
     <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Project {index + 1}</span>
-        <RemoveBtn onClick={onRemove} label="Remove this project" />
+        <div className="flex items-center gap-1">
+          <ReorderControls onUp={onMoveUp} onDown={onMoveDown} isFirst={isFirst} isLast={isLast} />
+          <RemoveBtn onClick={onRemove} label="Remove this project" />
+        </div>
       </div>
       <div className="flex flex-col gap-3">
         <LabeledInput label="Name" value={proj.name} onChange={(v) => onPatch({ name: v })} />
-        <BulletsBox label="Details" bullets={proj.bullets} onChange={(next) => onPatch({ bullets: next })} />
+        <BulletList label="Details" bullets={proj.bullets} onChange={(next) => onPatch({ bullets: next })} />
       </div>
     </div>
   );
 }
 
-function EducationEditor({ index, edu, onPatch, onRemove }: { index: number; edu: ResumeEducation; onPatch: (p: Partial<ResumeEducation>) => void; onRemove: () => void }) {
+function EducationEditor({ index, edu, onPatch, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: { index: number; edu: ResumeEducation; onPatch: (p: Partial<ResumeEducation>) => void; onRemove: () => void; onMoveUp: () => void; onMoveDown: () => void; isFirst: boolean; isLast: boolean }) {
   return (
     <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Education {index + 1}</span>
-        <RemoveBtn onClick={onRemove} label="Remove this education" />
+        <div className="flex items-center gap-1">
+          <ReorderControls onUp={onMoveUp} onDown={onMoveDown} isFirst={isFirst} isLast={isLast} />
+          <RemoveBtn onClick={onRemove} label="Remove this education" />
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <LabeledInput label="School" value={edu.school} onChange={(v) => onPatch({ school: v })} />
@@ -536,15 +605,18 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
   const addExp = () =>
     setStruct((s) => (s ? { ...s, experience: [...s.experience, { company: "", title: "", location: "", startDate: "", endDate: "", current: false, bullets: [] }] } : s));
   const removeExp = (i: number) => setStruct((s) => (s ? { ...s, experience: s.experience.filter((_, idx) => idx !== i) } : s));
+  const moveExp = (i: number, dir: -1 | 1) => setStruct((s) => (s ? { ...s, experience: moveItem(s.experience, i, i + dir) } : s));
   const patchProj = (i: number, p: Partial<ResumeProject>) =>
     setStruct((s) => (s ? { ...s, projects: s.projects.map((e, idx) => (idx === i ? { ...e, ...p } : e)) } : s));
   const addProj = () => setStruct((s) => (s ? { ...s, projects: [...s.projects, { name: "", bullets: [] }] } : s));
   const removeProj = (i: number) => setStruct((s) => (s ? { ...s, projects: s.projects.filter((_, idx) => idx !== i) } : s));
+  const moveProj = (i: number, dir: -1 | 1) => setStruct((s) => (s ? { ...s, projects: moveItem(s.projects, i, i + dir) } : s));
   const patchEdu = (i: number, p: Partial<ResumeEducation>) =>
     setStruct((s) => (s ? { ...s, education: s.education.map((e, idx) => (idx === i ? { ...e, ...p } : e)) } : s));
   const addEdu = () =>
     setStruct((s) => (s ? { ...s, education: [...s.education, { school: "", degree: "", field: "", startDate: "", endDate: "", gpa: "", location: "" }] } : s));
   const removeEdu = (i: number) => setStruct((s) => (s ? { ...s, education: s.education.filter((_, idx) => idx !== i) } : s));
+  const moveEdu = (i: number, dir: -1 | 1) => setStruct((s) => (s ? { ...s, education: moveItem(s.education, i, i + dir) } : s));
 
   const SaveBtn = (
     <button onClick={onSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
@@ -677,7 +749,17 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
               <SectionCard title={`Experience (${struct.experience.length})`} action={<AddBtn onClick={addExp} label="Add role" />}>
                 <div className="flex flex-col gap-4">
                   {struct.experience.map((exp, i) => (
-                    <ExperienceEditor key={i} index={i} exp={exp} onPatch={(p) => patchExp(i, p)} onRemove={() => removeExp(i)} />
+                    <ExperienceEditor
+                      key={i}
+                      index={i}
+                      exp={exp}
+                      onPatch={(p) => patchExp(i, p)}
+                      onRemove={() => removeExp(i)}
+                      onMoveUp={() => moveExp(i, -1)}
+                      onMoveDown={() => moveExp(i, 1)}
+                      isFirst={i === 0}
+                      isLast={i === struct.experience.length - 1}
+                    />
                   ))}
                   {struct.experience.length === 0 && <p className="text-[13px] text-muted">No experience detected — add a role.</p>}
                 </div>
@@ -687,7 +769,17 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
               <SectionCard title={`Projects (${struct.projects.length})`} action={<AddBtn onClick={addProj} label="Add project" />}>
                 <div className="flex flex-col gap-4">
                   {struct.projects.map((proj, i) => (
-                    <ProjectEditor key={i} index={i} proj={proj} onPatch={(p) => patchProj(i, p)} onRemove={() => removeProj(i)} />
+                    <ProjectEditor
+                      key={i}
+                      index={i}
+                      proj={proj}
+                      onPatch={(p) => patchProj(i, p)}
+                      onRemove={() => removeProj(i)}
+                      onMoveUp={() => moveProj(i, -1)}
+                      onMoveDown={() => moveProj(i, 1)}
+                      isFirst={i === 0}
+                      isLast={i === struct.projects.length - 1}
+                    />
                   ))}
                   {struct.projects.length === 0 && <p className="text-[13px] text-muted">No projects detected — add one.</p>}
                 </div>
@@ -697,7 +789,17 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
               <SectionCard title={`Education (${struct.education.length})`} action={<AddBtn onClick={addEdu} label="Add education" />}>
                 <div className="flex flex-col gap-4">
                   {struct.education.map((edu, i) => (
-                    <EducationEditor key={i} index={i} edu={edu} onPatch={(p) => patchEdu(i, p)} onRemove={() => removeEdu(i)} />
+                    <EducationEditor
+                      key={i}
+                      index={i}
+                      edu={edu}
+                      onPatch={(p) => patchEdu(i, p)}
+                      onRemove={() => removeEdu(i)}
+                      onMoveUp={() => moveEdu(i, -1)}
+                      onMoveDown={() => moveEdu(i, 1)}
+                      isFirst={i === 0}
+                      isLast={i === struct.education.length - 1}
+                    />
                   ))}
                   {struct.education.length === 0 && <p className="text-[13px] text-muted">No education detected — add one.</p>}
                 </div>
