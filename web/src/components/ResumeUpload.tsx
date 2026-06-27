@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { parseResume } from "@/lib/resume-parse";
-import type { StructuredResume, ResumeExperience, ResumeEducation, ParsedBio } from "@/lib/parser-core";
+import type { StructuredResume, ResumeExperience, ResumeEducation, ResumeProject, ParsedBio } from "@/lib/parser-core";
 import { track } from "@/lib/analytics";
 import { Input, useToast } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
@@ -109,7 +109,7 @@ function SkillChips({ skills, baseSet, onChange }: { skills: string[]; baseSet: 
         return (
           <span
             key={i}
-            className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold", isBase ? "bg-accent-soft text-accent-deep" : "bg-brown-soft text-brown-deep")}
+            className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold", isBase ? "bg-brown-soft text-brown-deep" : "bg-accent-soft text-accent-deep")}
             title={isBase ? "Already one of your base skills" : "New in this resume — not in your base skills"}
           >
             {sk}
@@ -135,31 +135,160 @@ function SkillChips({ skills, baseSet, onChange }: { skills: string[]; baseSet: 
 function SkillLegend() {
   return (
     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted">
-      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden /> In your base skills</span>
-      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-brown" aria-hidden /> New in this resume</span>
+      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-brown" aria-hidden /> In your base skills</span>
+      <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden /> New in this resume</span>
     </div>
   );
 }
 
+// Resume dates → a consistent YYYY-MM the <input type="month"> picker accepts. Best-effort
+// coercion of the free-text the parser produced (e.g. "Jan 2020", "2020", "01/2020").
+const MONTHS: Record<string, string> = {
+  jan: "01", january: "01", feb: "02", february: "02", mar: "03", march: "03", apr: "04", april: "04",
+  may: "05", jun: "06", june: "06", jul: "07", july: "07", aug: "08", august: "08", sep: "09", sept: "09",
+  september: "09", oct: "10", october: "10", nov: "11", november: "11", dec: "12", december: "12",
+};
+function toMonthValue(raw: string): string {
+  const s = (raw || "").trim().toLowerCase();
+  if (!s) return "";
+  let m = s.match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}`;
+  m = s.match(/^(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[2]}-${m[1].padStart(2, "0")}`;
+  m = s.match(/^(\d{4})\/(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}`;
+  m = s.match(/^([a-z]+)\.?\s+(\d{4})$/);
+  if (m && MONTHS[m[1]]) return `${m[2]}-${MONTHS[m[1]]}`;
+  m = s.match(/^(\d{4})$/);
+  if (m) return `${m[1]}-01`;
+  return "";
+}
+/** Normalize every experience/education date to YYYY-MM up front so the month pickers populate. */
+function normalizeDates(struct: StructuredResume): StructuredResume {
+  return {
+    ...struct,
+    experience: struct.experience.map((e) => ({ ...e, startDate: toMonthValue(e.startDate), endDate: toMonthValue(e.endDate) })),
+    education: struct.education.map((e) => ({ ...e, startDate: toMonthValue(e.startDate), endDate: toMonthValue(e.endDate) })),
+  };
+}
+
+const DEGREE_OPTIONS = [
+  "High School Diploma",
+  "Associate's Degree",
+  "Bachelor of Arts (BA)",
+  "Bachelor of Science (BS)",
+  "Bachelor of Engineering (BEng)",
+  "Master of Arts (MA)",
+  "Master of Science (MS)",
+  "Master of Business Administration (MBA)",
+  "Doctor of Philosophy (PhD)",
+  "Juris Doctor (JD)",
+  "Doctor of Medicine (MD)",
+  "Certificate",
+  "Diploma",
+];
+
+function DegreeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const known = DEGREE_OPTIONS.includes(value);
+  const [other, setOther] = useState(value.trim() !== "" && !known);
+  const selectVal = other ? "__other__" : known ? value : "";
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Degree</span>
+      <select
+        value={selectVal}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "__other__") setOther(true);
+          else {
+            setOther(false);
+            onChange(v);
+          }
+        }}
+        className={compactInput}
+      >
+        <option value="">—</option>
+        {DEGREE_OPTIONS.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+        <option value="__other__">Other…</option>
+      </select>
+      {other && (
+        <input
+          type="text"
+          value={value}
+          placeholder="Enter degree"
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(compactInput, "mt-1")}
+        />
+      )}
+    </label>
+  );
+}
+
+function GpaField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const num = parseFloat(value);
+  const invalid = value.trim() !== "" && (!Number.isFinite(num) || num < 0 || num >= 5);
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">GPA</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min="0"
+        max="4.99"
+        step="0.01"
+        value={value}
+        placeholder="e.g. 3.75"
+        aria-invalid={invalid}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => {
+          // Hard restriction to 0.00–4.99 on blur.
+          const n = parseFloat(e.target.value);
+          if (Number.isFinite(n)) {
+            if (n < 0) onChange("0.00");
+            else if (n >= 5) onChange("4.99");
+          }
+        }}
+        className={cn(compactInput, invalid && "border-danger")}
+      />
+      {invalid && <span className="text-[11.5px] font-medium text-danger">GPA must be between 0.00 and 4.99</span>}
+    </label>
+  );
+}
+
+function BulletsBox({ label, bullets, onChange }: { label: string; bullets: string[]; onChange: (next: string[]) => void }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label} — one per line</span>
+      <textarea
+        value={bullets.join("\n")}
+        rows={Math.max(3, bullets.length + 1)}
+        onChange={(e) => onChange(e.target.value.split("\n"))}
+        placeholder="• Led a team of 5…&#10;• Shipped X, improving Y by Z%…"
+        className={cn(compactInput, "resize-y leading-relaxed")}
+      />
+    </label>
+  );
+}
+
 function ExperienceEditor({
+  index,
   exp,
   onPatch,
   onRemove,
-  onBullet,
-  onAddBullet,
-  onRemoveBullet,
 }: {
+  index: number;
   exp: ResumeExperience;
   onPatch: (p: Partial<ResumeExperience>) => void;
   onRemove: () => void;
-  onBullet: (bi: number, v: string) => void;
-  onAddBullet: () => void;
-  onRemoveBullet: (bi: number) => void;
 }) {
   return (
     <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Role</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Experience {index + 1}</span>
         <RemoveBtn onClick={onRemove} label="Remove this role" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -167,50 +296,62 @@ function ExperienceEditor({
         <LabeledInput label="Company" value={exp.company} onChange={(v) => onPatch({ company: v })} />
         <LabeledInput label="Location" value={exp.location} onChange={(v) => onPatch({ location: v })} />
         <div className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Start" value={exp.startDate} onChange={(v) => onPatch({ startDate: v })} />
-          <LabeledInput label="End" value={exp.endDate} onChange={(v) => onPatch({ endDate: v })} />
+          <LabeledInput label="Start" type="month" value={exp.startDate} onChange={(v) => onPatch({ startDate: v })} />
+          <LabeledInput label="End" type="month" value={exp.endDate} onChange={(v) => onPatch({ endDate: v })} />
         </div>
       </div>
       <label className="mt-3 flex w-fit items-center gap-2 text-[12.5px] text-ink-soft">
         <input type="checkbox" checked={exp.current} onChange={(e) => onPatch({ current: e.target.checked })} className="accent-[var(--accent)]" /> Current role
       </label>
       <div className="mt-3">
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Highlights</span>
-          <AddBtn onClick={onAddBullet} label="Add bullet" />
-        </div>
-        <div className="flex flex-col gap-2">
-          {exp.bullets.map((b, bi) => (
-            <div key={bi} className="flex items-start gap-2">
-              <span className="mt-2 flex-none text-muted">•</span>
-              <textarea value={b} rows={1} onChange={(e) => onBullet(bi, e.target.value)} className={cn(compactInput, "flex-1 resize-y py-1.5 text-[13px]")} />
-              <span className="mt-1"><RemoveBtn onClick={() => onRemoveBullet(bi)} label="Remove bullet" /></span>
-            </div>
-          ))}
-          {exp.bullets.length === 0 && <p className="text-[12.5px] text-muted">No highlights detected — add one.</p>}
-        </div>
+        <BulletsBox label="Highlights" bullets={exp.bullets} onChange={(next) => onPatch({ bullets: next })} />
       </div>
     </div>
   );
 }
 
-function EducationEditor({ edu, onPatch, onRemove }: { edu: ResumeEducation; onPatch: (p: Partial<ResumeEducation>) => void; onRemove: () => void }) {
+function ProjectEditor({
+  index,
+  proj,
+  onPatch,
+  onRemove,
+}: {
+  index: number;
+  proj: ResumeProject;
+  onPatch: (p: Partial<ResumeProject>) => void;
+  onRemove: () => void;
+}) {
   return (
     <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">School</span>
-        <RemoveBtn onClick={onRemove} label="Remove this school" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Project {index + 1}</span>
+        <RemoveBtn onClick={onRemove} label="Remove this project" />
+      </div>
+      <div className="flex flex-col gap-3">
+        <LabeledInput label="Name" value={proj.name} onChange={(v) => onPatch({ name: v })} />
+        <BulletsBox label="Details" bullets={proj.bullets} onChange={(next) => onPatch({ bullets: next })} />
+      </div>
+    </div>
+  );
+}
+
+function EducationEditor({ index, edu, onPatch, onRemove }: { index: number; edu: ResumeEducation; onPatch: (p: Partial<ResumeEducation>) => void; onRemove: () => void }) {
+  return (
+    <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Education {index + 1}</span>
+        <RemoveBtn onClick={onRemove} label="Remove this education" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <LabeledInput label="School" value={edu.school} onChange={(v) => onPatch({ school: v })} />
-        <LabeledInput label="Degree" value={edu.degree} onChange={(v) => onPatch({ degree: v })} />
+        <DegreeSelect value={edu.degree} onChange={(v) => onPatch({ degree: v })} />
         <LabeledInput label="Field of study" value={edu.field} onChange={(v) => onPatch({ field: v })} />
         <LabeledInput label="Location" value={edu.location} onChange={(v) => onPatch({ location: v })} />
         <div className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Start" value={edu.startDate} onChange={(v) => onPatch({ startDate: v })} />
-          <LabeledInput label="End" value={edu.endDate} onChange={(v) => onPatch({ endDate: v })} />
+          <LabeledInput label="Start" type="month" value={edu.startDate} onChange={(v) => onPatch({ startDate: v })} />
+          <LabeledInput label="End" type="month" value={edu.endDate} onChange={(v) => onPatch({ endDate: v })} />
         </div>
-        <LabeledInput label="GPA" value={edu.gpa} onChange={(v) => onPatch({ gpa: v })} />
+        <GpaField value={edu.gpa} onChange={(v) => onPatch({ gpa: v })} />
       </div>
     </div>
   );
@@ -249,7 +390,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
     try {
       const parsed = await parseResume(picked);
       setBio(parsed.bio);
-      setStruct(parsed.structured);
+      setStruct(normalizeDates(parsed.structured));
       setContactOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't read that file.");
@@ -292,10 +433,16 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
     setSaving(true);
     setSaveError(null);
     try {
+      // Drop blank bullet lines (the one-per-line boxes keep them while editing).
+      const clean: StructuredResume = {
+        ...struct,
+        experience: struct.experience.map((e) => ({ ...e, bullets: e.bullets.map((b) => b.trim()).filter(Boolean) })),
+        projects: struct.projects.map((p) => ({ ...p, bullets: p.bullets.map((b) => b.trim()).filter(Boolean) })),
+      };
       const form = new FormData();
       form.append("file", file, file.name);
       form.append("label", label.trim() || labelFromName(file.name));
-      form.append("parsedJson", JSON.stringify(struct));
+      form.append("parsedJson", JSON.stringify(clean));
       const res = await fetch("/api/resumes/upload", { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -351,15 +498,13 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
   const patchStruct = (p: Partial<StructuredResume>) => setStruct((s) => (s ? { ...s, ...p } : s));
   const patchExp = (i: number, p: Partial<ResumeExperience>) =>
     setStruct((s) => (s ? { ...s, experience: s.experience.map((e, idx) => (idx === i ? { ...e, ...p } : e)) } : s));
-  const setExpBullet = (i: number, bi: number, v: string) =>
-    setStruct((s) => (s ? { ...s, experience: s.experience.map((e, idx) => (idx === i ? { ...e, bullets: e.bullets.map((b, j) => (j === bi ? v : b)) } : e)) } : s));
-  const addExpBullet = (i: number) =>
-    setStruct((s) => (s ? { ...s, experience: s.experience.map((e, idx) => (idx === i ? { ...e, bullets: [...e.bullets, ""] } : e)) } : s));
-  const removeExpBullet = (i: number, bi: number) =>
-    setStruct((s) => (s ? { ...s, experience: s.experience.map((e, idx) => (idx === i ? { ...e, bullets: e.bullets.filter((_, j) => j !== bi) } : e)) } : s));
   const addExp = () =>
     setStruct((s) => (s ? { ...s, experience: [...s.experience, { company: "", title: "", location: "", startDate: "", endDate: "", current: false, bullets: [] }] } : s));
   const removeExp = (i: number) => setStruct((s) => (s ? { ...s, experience: s.experience.filter((_, idx) => idx !== i) } : s));
+  const patchProj = (i: number, p: Partial<ResumeProject>) =>
+    setStruct((s) => (s ? { ...s, projects: s.projects.map((e, idx) => (idx === i ? { ...e, ...p } : e)) } : s));
+  const addProj = () => setStruct((s) => (s ? { ...s, projects: [...s.projects, { name: "", bullets: [] }] } : s));
+  const removeProj = (i: number) => setStruct((s) => (s ? { ...s, projects: s.projects.filter((_, idx) => idx !== i) } : s));
   const patchEdu = (i: number, p: Partial<ResumeEducation>) =>
     setStruct((s) => (s ? { ...s, education: s.education.map((e, idx) => (idx === i ? { ...e, ...p } : e)) } : s));
   const addEdu = () =>
@@ -497,27 +642,29 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
               <SectionCard title={`Experience (${struct.experience.length})`} action={<AddBtn onClick={addExp} label="Add role" />}>
                 <div className="flex flex-col gap-4">
                   {struct.experience.map((exp, i) => (
-                    <ExperienceEditor
-                      key={i}
-                      exp={exp}
-                      onPatch={(p) => patchExp(i, p)}
-                      onRemove={() => removeExp(i)}
-                      onBullet={(bi, v) => setExpBullet(i, bi, v)}
-                      onAddBullet={() => addExpBullet(i)}
-                      onRemoveBullet={(bi) => removeExpBullet(i, bi)}
-                    />
+                    <ExperienceEditor key={i} index={i} exp={exp} onPatch={(p) => patchExp(i, p)} onRemove={() => removeExp(i)} />
                   ))}
                   {struct.experience.length === 0 && <p className="text-[13px] text-muted">No experience detected — add a role.</p>}
                 </div>
               </SectionCard>
 
+              {/* Projects */}
+              <SectionCard title={`Projects (${struct.projects.length})`} action={<AddBtn onClick={addProj} label="Add project" />}>
+                <div className="flex flex-col gap-4">
+                  {struct.projects.map((proj, i) => (
+                    <ProjectEditor key={i} index={i} proj={proj} onPatch={(p) => patchProj(i, p)} onRemove={() => removeProj(i)} />
+                  ))}
+                  {struct.projects.length === 0 && <p className="text-[13px] text-muted">No projects detected — add one.</p>}
+                </div>
+              </SectionCard>
+
               {/* Education */}
-              <SectionCard title={`Education (${struct.education.length})`} action={<AddBtn onClick={addEdu} label="Add school" />}>
+              <SectionCard title={`Education (${struct.education.length})`} action={<AddBtn onClick={addEdu} label="Add education" />}>
                 <div className="flex flex-col gap-4">
                   {struct.education.map((edu, i) => (
-                    <EducationEditor key={i} edu={edu} onPatch={(p) => patchEdu(i, p)} onRemove={() => removeEdu(i)} />
+                    <EducationEditor key={i} index={i} edu={edu} onPatch={(p) => patchEdu(i, p)} onRemove={() => removeEdu(i)} />
                   ))}
-                  {struct.education.length === 0 && <p className="text-[13px] text-muted">No education detected — add a school.</p>}
+                  {struct.education.length === 0 && <p className="text-[13px] text-muted">No education detected — add one.</p>}
                 </div>
               </SectionCard>
 
