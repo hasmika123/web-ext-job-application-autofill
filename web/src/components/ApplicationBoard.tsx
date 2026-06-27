@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
@@ -60,6 +60,7 @@ export default function ApplicationBoard({ applications }: { applications: Appli
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   // Reconcile optimistic state with the server after router.refresh() (render-phase
   // sync — the new `applications` array identity signals fresh server data).
@@ -115,6 +116,29 @@ export default function ApplicationBoard({ applications }: { applications: Appli
     }
   };
 
+  /** Create a board entry by hand (no extension). router.refresh() pulls it back in. */
+  async function createApplication(input: NewApplication): Promise<boolean> {
+    setError(null);
+    try {
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Couldn't add the application.");
+        return false;
+      }
+      track("application_added_manually", { status: input.status });
+      router.refresh();
+      return true;
+    } catch {
+      setError("Something went wrong while adding the application.");
+      return false;
+    }
+  }
+
   function onDrop(e: DragEvent, status: string) {
     e.preventDefault();
     setDragOver(null);
@@ -155,11 +179,16 @@ export default function ApplicationBoard({ applications }: { applications: Appli
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-dashed border-line bg-paper p-4">
           <p className="text-sm text-muted">
             Your board fills itself — fill or save a job with the Kiwiply extension and it lands here
-            automatically: drafts on every fill, confirmed when you submit.
+            automatically: drafts on every fill, confirmed when you submit. Or add one by hand.
           </p>
-          <Link href="/resumes" className={buttonVariants("ghost")}>
-            Upload a resume to start
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setAdding(true)} className={buttonVariants("accent")}>
+              + Add application
+            </button>
+            <Link href="/resumes" className={buttonVariants("ghost")}>
+              Upload a resume
+            </Link>
+          </div>
         </div>
       )}
 
@@ -192,6 +221,9 @@ export default function ApplicationBoard({ applications }: { applications: Appli
           <option value="recent">Most recent</option>
           <option value="company">Company A–Z</option>
         </select>
+        <button type="button" onClick={() => setAdding(true)} className={cn(buttonVariants("accent"), "ml-auto")}>
+          + Add application
+        </button>
       </div>
       )}
 
@@ -252,7 +284,115 @@ export default function ApplicationBoard({ applications }: { applications: Appli
         onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
         onDelete={() => selected && remove(selected)}
       />
+
+      {adding && <AddApplicationDialog onClose={() => setAdding(false)} onCreate={createApplication} />}
     </div>
+  );
+}
+
+interface NewApplication {
+  company: string;
+  roleTitle: string;
+  status: string;
+  jobUrl?: string;
+  location?: string;
+  jobDescription?: string;
+}
+
+function AddApplicationDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (input: NewApplication) => Promise<boolean> }) {
+  const [company, setCompany] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
+  const [status, setStatus] = useState("SAVED");
+  const [jobUrl, setJobUrl] = useState("");
+  const [location, setLocation] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const firstRef = useRef<HTMLInputElement>(null);
+
+  // Esc closes; focus the first field on open.
+  useEffect(() => {
+    firstRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const canSave = company.trim() !== "" && roleTitle.trim() !== "" && !saving;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!canSave) return;
+    setSaving(true);
+    const ok = await onCreate({
+      company: company.trim(),
+      roleTitle: roleTitle.trim(),
+      status,
+      jobUrl: jobUrl.trim() || undefined,
+      location: location.trim() || undefined,
+      jobDescription: jobDescription.trim() || undefined,
+    });
+    setSaving(false);
+    if (ok) onClose();
+  }
+
+  const fieldClass = "w-full rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-accent";
+  const labelClass = "flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted";
+
+  return (
+    <>
+      <div onClick={onClose} aria-hidden className="fixed inset-0 z-[145] bg-[rgba(35,40,38,.45)]" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add application"
+        className="fixed left-1/2 top-1/2 z-[150] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-lg)] border border-line bg-paper shadow-[var(--shadow-lg)]"
+      >
+        <div className="flex items-center justify-between border-b border-line p-5">
+          <h2 className="font-display text-xl font-semibold text-ink">Add application</h2>
+          <button onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
+        </div>
+        <form onSubmit={submit} className="flex flex-col gap-3 p-5">
+          <label className={labelClass}>
+            Company *
+            <input ref={firstRef} value={company} onChange={(e) => setCompany(e.target.value)} className={fieldClass} required />
+          </label>
+          <label className={labelClass}>
+            Role title *
+            <input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} className={fieldClass} required />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={labelClass}>
+              Stage
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
+                {COLUMNS.map((c) => (
+                  <option key={c.key} value={c.key}>{c.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className={labelClass}>
+              Location
+              <input value={location} onChange={(e) => setLocation(e.target.value)} className={fieldClass} placeholder="Remote · NYC…" />
+            </label>
+          </div>
+          <label className={labelClass}>
+            Job URL
+            <input type="url" value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} className={fieldClass} placeholder="https://…" />
+          </label>
+          <label className={labelClass}>
+            Job description
+            <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={3} className={cn(fieldClass, "resize-y")} />
+          </label>
+          <div className="mt-1 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className={buttonVariants("ghost")}>Cancel</button>
+            <button type="submit" disabled={!canSave} className={cn(buttonVariants("accent"), "disabled:opacity-50")}>
+              {saving ? "Adding…" : "Add to board"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
   );
 }
 
