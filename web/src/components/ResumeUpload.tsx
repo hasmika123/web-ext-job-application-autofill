@@ -101,16 +101,61 @@ function RemoveBtn({ onClick, label }: { onClick: () => void; label: string }) {
   );
 }
 
-/** Up/down reorder buttons (disabled at the ends). Used for section items and bullets. */
-function ReorderControls({ onUp, onDown, isFirst, isLast }: { onUp: () => void; onDown: () => void; isFirst: boolean; isLast: boolean }) {
-  const base = "grid h-6 w-6 place-items-center rounded-md text-muted transition-colors hover:bg-paper hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted";
+/**
+ * Drag-to-reorder for a vertical list, native HTML5 DnD (no dep — same approach as the
+ * board). Dragging is armed only while the grip handle is held, so the cards' inputs and
+ * textareas keep normal click/text-selection behavior; the whole row is the drag image.
+ *
+ * `rowProps(i)` spreads onto each row element, `handleProps(i)` onto its <DragGrip>, and
+ * `state(i)` returns { over, dragging } for styling the drop target / source.
+ */
+function useReorder<T>(items: T[], onReorder: (next: T[]) => void) {
+  const [drag, setDrag] = useState<number | null>(null); // index being dragged
+  const [over, setOver] = useState<number | null>(null); // index hovered as drop target
+  const [armed, setArmed] = useState<number | null>(null); // grip held → row is draggable
+  const reset = () => { setDrag(null); setOver(null); setArmed(null); };
+  const rowProps = (i: number) => ({
+    draggable: armed === i,
+    onDragStart: (e: DragEvent<HTMLElement>) => { setDrag(i); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", String(i)); } catch { /* some browsers */ } },
+    onDragEnd: reset,
+    onDragOver: (e: DragEvent<HTMLElement>) => { if (drag === null) return; e.preventDefault(); if (over !== i) setOver(i); },
+    onDrop: (e: DragEvent<HTMLElement>) => { e.preventDefault(); if (drag !== null && drag !== i) onReorder(moveItem(items, drag, i)); reset(); },
+  });
+  const handleProps = (i: number) => ({
+    onPointerDown: () => setArmed(i),
+    onPointerUp: () => setArmed((a) => (a === i ? null : a)),
+  });
+  const state = (i: number) => ({ over: drag !== null && over === i && drag !== i, dragging: drag === i });
+  return { rowProps, handleProps, state };
+}
+
+/** Six-dot grip; press and drag it to reorder the row it sits in. */
+function DragGrip(props: { onPointerDown: () => void; onPointerUp: () => void }) {
   return (
-    <div className="flex items-center">
-      <button type="button" onClick={onUp} disabled={isFirst} aria-label="Move up" title="Move up" className={base}>↑</button>
-      <button type="button" onClick={onDown} disabled={isLast} aria-label="Move down" title="Move down" className={base}>↓</button>
-    </div>
+    <button
+      type="button"
+      aria-label="Drag to reorder"
+      title="Drag to reorder"
+      className="grid h-6 w-6 cursor-grab touch-none place-items-center rounded-md text-muted transition-colors hover:bg-paper hover:text-ink active:cursor-grabbing"
+      {...props}
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+        <circle cx="3" cy="2.5" r="1.1" /><circle cx="9" cy="2.5" r="1.1" />
+        <circle cx="3" cy="6" r="1.1" /><circle cx="9" cy="6" r="1.1" />
+        <circle cx="3" cy="9.5" r="1.1" /><circle cx="9" cy="9.5" r="1.1" />
+      </svg>
+    </button>
   );
 }
+
+type RowDnd = {
+  rowProps: React.HTMLAttributes<HTMLElement> & { draggable: boolean };
+  handleProps: { onPointerDown: () => void; onPointerUp: () => void };
+  state: { over: boolean; dragging: boolean };
+};
+// Tailwind classes applied to a draggable row to show drop-target / dragging feedback.
+const dndRowCls = (s: { over: boolean; dragging: boolean }) =>
+  cn(s.over && "ring-2 ring-accent", s.dragging && "opacity-50");
 
 function SkillChips({ skills, baseSet, onChange }: { skills: string[]; baseSet: Set<string>; onChange: (next: string[]) => void }) {
   const [draft, setDraft] = useState("");
@@ -314,12 +359,12 @@ function GpaField({ value, onChange }: { value: string; onChange: (v: string) =>
   );
 }
 
-// One editable bullet per row, each reorderable / removable, with an "Add" control.
+// One editable bullet per row — drag the grip to reorder, ✕ to remove, "Add" to append.
 function BulletList({ label, bullets, onChange }: { label: string; bullets: string[]; onChange: (next: string[]) => void }) {
   const set = (i: number, v: string) => onChange(bullets.map((b, idx) => (idx === i ? v : b)));
   const add = () => onChange([...bullets, ""]);
   const remove = (i: number) => onChange(bullets.filter((_, idx) => idx !== i));
-  const move = (i: number, to: number) => onChange(moveItem(bullets, i, to));
+  const { rowProps, handleProps, state } = useReorder(bullets, onChange);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -331,9 +376,9 @@ function BulletList({ label, bullets, onChange }: { label: string; bullets: stri
       ) : (
         <ul className="flex flex-col gap-1.5">
           {bullets.map((b, i) => (
-            <li key={i} className="flex items-start gap-1.5">
-              <div className="pt-1">
-                <ReorderControls onUp={() => move(i, i - 1)} onDown={() => move(i, i + 1)} isFirst={i === 0} isLast={i === bullets.length - 1} />
+            <li key={i} {...rowProps(i)} className={cn("flex items-start gap-1.5 rounded-md", dndRowCls(state(i)))}>
+              <div className="pt-1.5">
+                <DragGrip {...handleProps(i)} />
               </div>
               <textarea
                 value={b}
@@ -358,26 +403,20 @@ function ExperienceEditor({
   exp,
   onPatch,
   onRemove,
-  onMoveUp,
-  onMoveDown,
-  isFirst,
-  isLast,
+  dnd,
 }: {
   index: number;
   exp: ResumeExperience;
   onPatch: (p: Partial<ResumeExperience>) => void;
   onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  isFirst: boolean;
-  isLast: boolean;
+  dnd: RowDnd;
 }) {
   return (
-    <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
+    <div {...dnd.rowProps} className={cn("rounded-[var(--radius)] border border-line bg-paper-2 p-4", dndRowCls(dnd.state))}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Experience {index + 1}</span>
         <div className="flex items-center gap-1">
-          <ReorderControls onUp={onMoveUp} onDown={onMoveDown} isFirst={isFirst} isLast={isLast} />
+          <DragGrip {...dnd.handleProps} />
           <RemoveBtn onClick={onRemove} label="Remove this role" />
         </div>
       </div>
@@ -405,26 +444,20 @@ function ProjectEditor({
   proj,
   onPatch,
   onRemove,
-  onMoveUp,
-  onMoveDown,
-  isFirst,
-  isLast,
+  dnd,
 }: {
   index: number;
   proj: ResumeProject;
   onPatch: (p: Partial<ResumeProject>) => void;
   onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  isFirst: boolean;
-  isLast: boolean;
+  dnd: RowDnd;
 }) {
   return (
-    <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
+    <div {...dnd.rowProps} className={cn("rounded-[var(--radius)] border border-line bg-paper-2 p-4", dndRowCls(dnd.state))}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Project {index + 1}</span>
         <div className="flex items-center gap-1">
-          <ReorderControls onUp={onMoveUp} onDown={onMoveDown} isFirst={isFirst} isLast={isLast} />
+          <DragGrip {...dnd.handleProps} />
           <RemoveBtn onClick={onRemove} label="Remove this project" />
         </div>
       </div>
@@ -436,13 +469,13 @@ function ProjectEditor({
   );
 }
 
-function EducationEditor({ index, edu, onPatch, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: { index: number; edu: ResumeEducation; onPatch: (p: Partial<ResumeEducation>) => void; onRemove: () => void; onMoveUp: () => void; onMoveDown: () => void; isFirst: boolean; isLast: boolean }) {
+function EducationEditor({ index, edu, onPatch, onRemove, dnd }: { index: number; edu: ResumeEducation; onPatch: (p: Partial<ResumeEducation>) => void; onRemove: () => void; dnd: RowDnd }) {
   return (
-    <div className="rounded-[var(--radius)] border border-line bg-paper-2 p-4">
+    <div {...dnd.rowProps} className={cn("rounded-[var(--radius)] border border-line bg-paper-2 p-4", dndRowCls(dnd.state))}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Education {index + 1}</span>
         <div className="flex items-center gap-1">
-          <ReorderControls onUp={onMoveUp} onDown={onMoveDown} isFirst={isFirst} isLast={isLast} />
+          <DragGrip {...dnd.handleProps} />
           <RemoveBtn onClick={onRemove} label="Remove this education" />
         </div>
       </div>
@@ -605,18 +638,22 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
   const addExp = () =>
     setStruct((s) => (s ? { ...s, experience: [...s.experience, { company: "", title: "", location: "", startDate: "", endDate: "", current: false, bullets: [] }] } : s));
   const removeExp = (i: number) => setStruct((s) => (s ? { ...s, experience: s.experience.filter((_, idx) => idx !== i) } : s));
-  const moveExp = (i: number, dir: -1 | 1) => setStruct((s) => (s ? { ...s, experience: moveItem(s.experience, i, i + dir) } : s));
   const patchProj = (i: number, p: Partial<ResumeProject>) =>
     setStruct((s) => (s ? { ...s, projects: s.projects.map((e, idx) => (idx === i ? { ...e, ...p } : e)) } : s));
   const addProj = () => setStruct((s) => (s ? { ...s, projects: [...s.projects, { name: "", bullets: [] }] } : s));
   const removeProj = (i: number) => setStruct((s) => (s ? { ...s, projects: s.projects.filter((_, idx) => idx !== i) } : s));
-  const moveProj = (i: number, dir: -1 | 1) => setStruct((s) => (s ? { ...s, projects: moveItem(s.projects, i, i + dir) } : s));
   const patchEdu = (i: number, p: Partial<ResumeEducation>) =>
     setStruct((s) => (s ? { ...s, education: s.education.map((e, idx) => (idx === i ? { ...e, ...p } : e)) } : s));
   const addEdu = () =>
     setStruct((s) => (s ? { ...s, education: [...s.education, { school: "", degree: "", field: "", startDate: "", endDate: "", gpa: "", location: "" }] } : s));
   const removeEdu = (i: number) => setStruct((s) => (s ? { ...s, education: s.education.filter((_, idx) => idx !== i) } : s));
-  const moveEdu = (i: number, dir: -1 | 1) => setStruct((s) => (s ? { ...s, education: moveItem(s.education, i, i + dir) } : s));
+
+  // Drag-to-reorder for each section's entries (the empty-array fallbacks keep hook order
+  // stable while `struct` is null; the setters no-op then anyway).
+  const expReorder = useReorder(struct?.experience ?? [], (n) => patchStruct({ experience: n }));
+  const projReorder = useReorder(struct?.projects ?? [], (n) => patchStruct({ projects: n }));
+  const eduReorder = useReorder(struct?.education ?? [], (n) => patchStruct({ education: n }));
+  const dndFor = (r: ReturnType<typeof useReorder>, i: number): RowDnd => ({ rowProps: r.rowProps(i), handleProps: r.handleProps(i), state: r.state(i) });
 
   const SaveBtn = (
     <button onClick={onSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
@@ -755,10 +792,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
                       exp={exp}
                       onPatch={(p) => patchExp(i, p)}
                       onRemove={() => removeExp(i)}
-                      onMoveUp={() => moveExp(i, -1)}
-                      onMoveDown={() => moveExp(i, 1)}
-                      isFirst={i === 0}
-                      isLast={i === struct.experience.length - 1}
+                      dnd={dndFor(expReorder, i)}
                     />
                   ))}
                   {struct.experience.length === 0 && <p className="text-[13px] text-muted">No experience detected — add a role.</p>}
@@ -775,10 +809,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
                       proj={proj}
                       onPatch={(p) => patchProj(i, p)}
                       onRemove={() => removeProj(i)}
-                      onMoveUp={() => moveProj(i, -1)}
-                      onMoveDown={() => moveProj(i, 1)}
-                      isFirst={i === 0}
-                      isLast={i === struct.projects.length - 1}
+                      dnd={dndFor(projReorder, i)}
                     />
                   ))}
                   {struct.projects.length === 0 && <p className="text-[13px] text-muted">No projects detected — add one.</p>}
@@ -795,10 +826,7 @@ export default function ResumeUpload({ baseProfile = {} }: { baseProfile?: BaseP
                       edu={edu}
                       onPatch={(p) => patchEdu(i, p)}
                       onRemove={() => removeEdu(i)}
-                      onMoveUp={() => moveEdu(i, -1)}
-                      onMoveDown={() => moveEdu(i, 1)}
-                      isFirst={i === 0}
-                      isLast={i === struct.education.length - 1}
+                      dnd={dndFor(eduReorder, i)}
                     />
                   ))}
                   {struct.education.length === 0 && <p className="text-[13px] text-muted">No education detected — add one.</p>}
