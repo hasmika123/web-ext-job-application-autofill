@@ -100,6 +100,11 @@ jhipster:
 # ===================================================================
 
 # application:
+dossier:
+  # Disable per-IP rate limiting in tests — the integration suite hammers the auth
+  # endpoints and would otherwise trip the 429 limiter.
+  rate-limit:
+    enabled: false
 management:
   health:
     mail:
