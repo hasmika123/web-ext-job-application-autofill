@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.hibernate.Hibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
@@ -165,6 +166,10 @@ public class UserService {
             if (changed) {
                 this.clearUserCaches(user);
             }
+            // Initialize the lazy authorities collection WITHIN this transaction — the Google
+            // controller reads user.getAuthorities() after the session closes (which otherwise
+            // throws LazyInitializationException on the link path).
+            Hibernate.initialize(user.getAuthorities());
             return user;
         }
         User newUser = new User();
