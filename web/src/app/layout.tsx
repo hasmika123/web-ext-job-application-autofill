@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
-import Analytics from "@/components/Analytics";
+import CookieConsent from "@/components/CookieConsent";
 import { ToastProvider } from "@/components/ui";
 
 // Inter (body) + Fraunces (display) — both variable fonts; no weight needed.
@@ -57,7 +57,7 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Analytics />
+        <CookieConsent />
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

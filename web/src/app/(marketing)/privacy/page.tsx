@@ -159,16 +159,18 @@ export default function PrivacyPage() {
           only <strong>anonymous, aggregate events</strong> (for example &quot;a resume was
           saved&quot; or &quot;the board was viewed&quot;), never your name, email, profile,
           resumes, or the specific jobs you apply to. In the browser extension this is opt-out in
-          Settings; on the website it can be disabled with your browser&apos;s tracking controls
-          or an analytics-blocking extension, and is only active when we have analytics configured.
+          Settings; on the website it is <strong>opt-in</strong> — it loads only after you accept the
+          cookie banner, and never if you decline.
         </p>
       </Section>
 
       <Section title="Cookies">
         <p>
-          We use first-party http-only cookies strictly to keep you signed in. Our analytics
-          (above) also sets first-party cookies to count visits and distinguish sessions. We do{" "}
-          <strong>not</strong>{" "}use advertising cookies and we don&apos;t sell your data.
+          We use first-party http-only cookies strictly to keep you signed in — these are essential
+          and always on. Our analytics (above) also sets first-party cookies to count visits and
+          distinguish sessions; on the website these load <strong>only after you accept</strong> them
+          in the cookie banner, and you can decline. We do <strong>not</strong> use advertising
+          cookies and we don&apos;t sell your data.
         </p>
       </Section>
 
