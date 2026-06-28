@@ -2,8 +2,8 @@ import Image from "next/image";
 import { cn } from "@/lib/cn";
 
 // Intrinsic dimensions of /public/logo.svg (the kiwi + "kiwiply" lockup).
-const LOGO_W = 1293;
-const LOGO_H = 383;
+const LOGO_W = 1713;
+const LOGO_H = 488;
 
 export interface LogoProps {
   /** Rendered height in px (width scales to the lockup's aspect ratio). Default 30. */
