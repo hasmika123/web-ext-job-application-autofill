@@ -9,6 +9,7 @@ import com.dossier.api.service.UserService;
 import com.dossier.api.web.rest.vm.GoogleLoginVM;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +54,7 @@ public class GoogleAuthController {
         description = "Verify a Google ID token and exchange it for our access + refresh tokens (find-or-create by verified email)."
     )
     @PostMapping("/google")
-    public ResponseEntity<TokenIssuer.TokenPair> googleLogin(@RequestBody GoogleLoginVM googleLoginVM) {
+    public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginVM googleLoginVM) {
         if (!googleIdTokenService.isConfigured()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
@@ -64,11 +65,13 @@ public class GoogleAuthController {
         try {
             profile = googleIdTokenService.verify(googleLoginVM.getCredential());
         } catch (Exception e) {
-            LOG.debug("Rejected Google credential: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            // WARN (not DEBUG) so the reason shows in prod logs; also returned in the body so a
+            // failed sign-in is self-diagnosing. Not sensitive — it's an OAuth validation reason.
+            LOG.warn("Rejected Google credential: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", String.valueOf(e.getMessage())));
         }
         if (profile.email() == null || profile.email().isBlank() || !profile.emailVerified()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", "email missing or not verified"));
         }
 
         User user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());

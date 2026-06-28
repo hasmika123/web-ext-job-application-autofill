@@ -39,7 +39,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Google sign-in isn't enabled yet." }, { status: 503 });
   }
   if (!res.ok) {
-    return Response.json({ error: "Google sign-in failed. Please try again." }, { status: 401 });
+    // Surface the API's verification reason (e.g. invalid_audience) to make a failure
+    // self-diagnosing during rollout. Falls back to the generic message.
+    const d = (await res.json().catch(() => ({}))) as { reason?: unknown };
+    const reason = typeof d.reason === "string" && d.reason ? d.reason : null;
+    return Response.json(
+      { error: reason ? `Google sign-in failed: ${reason}` : "Google sign-in failed. Please try again." },
+      { status: 401 },
+    );
   }
 
   const data = (await res.json()) as { accessToken?: string; refreshToken?: string };

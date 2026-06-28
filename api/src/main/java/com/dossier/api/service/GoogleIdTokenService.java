@@ -2,6 +2,7 @@ package com.dossier.api.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -11,6 +12,7 @@ import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.MappedJwtClaimSetConverter;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Service;
 
@@ -66,6 +68,11 @@ public class GoogleIdTokenService {
             synchronized (this) {
                 if (decoder == null) {
                     NimbusJwtDecoder nimbus = NimbusJwtDecoder.withJwkSetUri(GOOGLE_JWKS).build();
+                    // Keep `iss` a String. A Google ID token's issuer may be the bare
+                    // "accounts.google.com" (no scheme); the DEFAULT converter coerces iss -> URL
+                    // and THROWS on that form, which would fail every such token. Our own issuer
+                    // validator (below) accepts both the bare and https:// forms.
+                    nimbus.setClaimSetConverter(MappedJwtClaimSetConverter.withDefaults(Map.of("iss", iss -> iss)));
                     nimbus.setJwtValidator(new DelegatingOAuth2TokenValidator<>(new JwtTimestampValidator(), issuerAndAudience()));
                     decoder = nimbus;
                 }
