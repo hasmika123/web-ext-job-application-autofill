@@ -236,11 +236,13 @@ dossier:
   # sets its own. Empty = Google sign-in is off (the endpoint returns 503).
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
-  # Per-IP rate limiting on the sensitive auth endpoints (login / register / password-reset)
-  # to blunt brute-force + abuse. On by default; set RATE_LIMIT_ENABLED=false to disable.
-  # In-memory + per-instance — see RateLimitFilter (revisit if the API is ever scaled out).
+  # Per-IP rate limiting. DEFAULT OFF: the sensitive auth endpoints (login / register /
+  # password-reset) are all reached via the Next BFF, so Spring sees the proxy's IP for every
+  # user — a per-IP limit here throttles ALL users on one shared bucket (broke signup once).
+  # Rate limiting now lives in the Next BFF, where the real client IP is visible. This filter
+  # stays only for any endpoints hit DIRECTLY (non-proxied); enable with RATE_LIMIT_ENABLED=true.
   rate-limit:
-    enabled: ${RATE_LIMIT_ENABLED:true}
+    enabled: ${RATE_LIMIT_ENABLED:false}
   # S3-compatible resume blob store. In prod these come from env (Cloudflare R2);
   # dev/tests override the endpoint + credentials (MinIO). Never commit real keys.
   storage:
