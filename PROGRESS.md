@@ -520,6 +520,30 @@ focused Claude Code session.
 - [ ] **8.4 Audit & compliance.** Audit logging; PII retention/deletion tooling;
   GDPR/CCPA + SOC 2 groundwork; secrets in a vault/KMS; deeper RBAC.
 
+## Phase 9 — Admin, ops & comms
+> Full plan + legalities in **`ADMIN-PLAN.md`**. Locked decisions: PII = metadata + reason-gated;
+> location = in-app `/admin` route group; order A0→A5. Commit prefix `phase9.<n>:`. Overlaps Phase 8
+> (MFA/audit/RBAC) — build the consumer-grade slices here, the enterprise versions in 8.
+- [ ] **9.A0 Security gate (do FIRST).** The default `admin`/`admin` (+`user`/`user`) seed loads with
+  **no Liquibase context** → present in PROD with JHipster's public bcrypt hash. Gate the seed to
+  `dev`/`faker` (or migrate-delete in prod) + bootstrap the real admin from env (`ADMIN_EMAIL` /
+  `ADMIN_PASSWORD_HASH`). Verify `admin/admin` no longer logs in on the VPS.
+- [ ] **9.A1 Admin gate + shell + Users + audit foundation.** `(admin)` route group gated on
+  `ROLE_ADMIN` (via `/api/account` authorities; Spring `/api/admin/**` is the real enforcement);
+  admin shell; Users list/detail reusing `/api/admin/users` (activate/deactivate, reset, roles,
+  force-logout via `RefreshTokenService`, delete via `AccountDeletionService`); `AdminAuditEvent`
+  foundation (log every admin action + reason-gated PII access).
+- [ ] **9.A2 AI usage + sessions/security + system/ops dashboards.** `ai_usage` views + quota override;
+  refresh-token families + revoke; actuator health/metrics/loggers (read-only).
+- [ ] **9.A3 Business-analytics overview.** Signups, activation rate, DAU/WAU, funnel, resumes/apps.
+- [ ] **9.A4 Email subscription.** `email_subscriber` (double opt-in, tokenized unsubscribe) + Brevo
+  list sync; public opt-in (footer + separate signup checkbox); admin list/export. Consent recorded;
+  unsubscribe + sender address in every email.
+- [ ] **9.A5 Bug report.** `bug_report` capture (web help menu + extension popup, context w/ consent,
+  optional screenshot) → `POST /api/bug-reports` (rate-limited); admin triage queue.
+- [ ] **9.X Cross-cutting.** MFA for admins; `/privacy` + `/terms` updates (admin access, marketing
+  email, diagnostic data); DSAR export-a-user's-data.
+
 ## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
 > Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
 > `redesign/REDESIGN-PLAN.md`; prototype: `redesign/mockups.html`; on-ramp: `redesign/HANDOFF.md`.
@@ -593,6 +617,10 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-28 · admin-side plan drafted · New `ADMIN-PLAN.md` (admin console, ops, legalities) + a
+  **Phase 9** section (9.A0→9.A5 + cross-cutting) here and a pointer in `ROADMAP.md`. Locked: PII =
+  metadata + reason-gated; in-app `/admin`; A0 (default-admin seed fix) first. Includes the upcoming
+  **Email Subscription** (9.A4) and **Bug report** (9.A5). Planning only — no code yet.
 - 2026-06-28 · input validation + length caps across the web forms · Centralized limits/validators in
   `lib/validate.ts` (`LIMITS`, `isUsername`, `isPhone`; `isEmail`/`isUrl` now length-bounded). Signup:
   username pattern (letters/digits/`._-@+`, ≤50, mirrors JHipster login), email format+254, password

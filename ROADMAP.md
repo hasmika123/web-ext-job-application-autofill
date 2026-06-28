@@ -326,6 +326,7 @@ secrets in vault/KMS, deeper RBAC). Easy to reorder earlier if a B2B deal demand
 | 6 | Google Analytics (full) | 1 | Yes |
 | 7 | Other browsers (Edge/Firefox; Safari later) | 2 | No |
 | 8 | Enterprise & Compliance (SSO, multi-tenancy, audit) | 1, 2 | Yes |
+| 9 | Admin console, ops & comms — **see `ADMIN-PLAN.md`** (A0 default-admin fix → admin/users/audit → AI/sessions/ops → analytics → email subscription → bug reports) | 1, 2 | Yes |
 
 ---
 
