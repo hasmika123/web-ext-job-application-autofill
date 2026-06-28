@@ -39,6 +39,10 @@ services:
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:?}
       - JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET=${JWT_BASE64_SECRET:?set JWT_BASE64_SECRET in .env}
+      # "Sign in with Google": the OAuth client id we require as the ID-token audience.
+      # NOT a secret (it ships in the web bundle too); defaulted here so it works without a
+      # .env entry, overridable via GOOGLE_CLIENT_ID. Empty ⇒ Google sign-in returns 503.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-482405713424-qtq3seoa0d8bg0e26f2bpisnqvjgt15o.apps.googleusercontent.com}
       # AWS S3 (private bucket). Endpoint stays empty so the SDK uses the default AWS
       # endpoint for the region.
       - DOSSIER_STORAGE_REGION=${S3_REGION:-us-east-1}

@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-// The OAuth client id is NOT a secret, so it ships in the bundle. Empty until configured
-// (then the component shows the disabled "soon" stub instead of Google's live button).
-const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+// The OAuth client id is NOT a secret (it's visible in every Google sign-in request), so
+// it ships in the bundle as a default — overridable per-build via NEXT_PUBLIC_GOOGLE_CLIENT_ID
+// (same pattern as the pinned extension id). Empty ⇒ the disabled "soon" stub.
+const CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  "482405713424-qtq3seoa0d8bg0e26f2bpisnqvjgt15o.apps.googleusercontent.com";
 
 // Minimal typing for the slice of Google Identity Services we use (avoids `any`).
 type GoogleId = {
