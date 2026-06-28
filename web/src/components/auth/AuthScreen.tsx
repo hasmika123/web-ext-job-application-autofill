@@ -127,6 +127,11 @@ function LoginForm({ next }: { next?: string }) {
             aria-invalid={show("password") && !!errs.password}
           />
         </Field>
+        <div className="mb-4 -mt-1 text-right">
+          <Link href="/forgot-password" className="text-[13px] font-medium text-accent-deep hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         {error && (
           <p role="alert" className="mb-3 text-sm font-medium text-danger">
             {error}
