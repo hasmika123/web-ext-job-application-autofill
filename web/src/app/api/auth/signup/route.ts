@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/signup — proxy the Spring (JHipster) register endpoint.
@@ -9,6 +10,9 @@ import { apiUrl } from "@/lib/config";
  * later so local self-signup works without a mail server.)
  */
 export async function POST(request: Request) {
+  const rl = rateLimit(request, "signup", 5, 60 * 60_000); // 5 / hour per client IP
+  if (!rl.ok) return tooManyRequests(rl.retryAfter);
+
   let body: { username?: string; email?: string; password?: string };
   try {
     body = await request.json();

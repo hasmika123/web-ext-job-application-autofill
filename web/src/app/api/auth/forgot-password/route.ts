@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/forgot-password — proxy the Spring reset-password/init endpoint.
@@ -9,6 +10,9 @@ import { apiUrl } from "@/lib/config";
  * either way. The Spring endpoint binds the raw email as a plain-text request body.
  */
 export async function POST(request: Request) {
+  const rl = rateLimit(request, "forgot", 5, 60 * 60_000); // 5 / hour per client IP
+  if (!rl.ok) return tooManyRequests(rl.retryAfter);
+
   let body: { email?: string };
   try {
     body = await request.json();

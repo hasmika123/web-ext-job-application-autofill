@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/reset-password — proxy the Spring reset-password/finish endpoint.
@@ -10,6 +11,9 @@ import { apiUrl } from "@/lib/config";
 const MIN_LEN = 4; // matches the backend (ManagedUserVM.PASSWORD_MIN_LENGTH)
 
 export async function POST(request: Request) {
+  const rl = rateLimit(request, "reset", 10, 60 * 60_000); // 10 / hour per client IP
+  if (!rl.ok) return tooManyRequests(rl.retryAfter);
+
   let body: { key?: string; newPassword?: string };
   try {
     body = await request.json();

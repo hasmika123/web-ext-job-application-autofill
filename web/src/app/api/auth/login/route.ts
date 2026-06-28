@@ -1,11 +1,15 @@
 import { apiUrl } from "@/lib/config";
 import { setAuthCookies } from "@/lib/auth";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/login — proxy the Spring authenticate endpoint and stash the JWT
  * in httpOnly cookies. The browser only ever sees `{ ok: true }`, never the token.
  */
 export async function POST(request: Request) {
+  const rl = rateLimit(request, "login", 10, 5 * 60_000); // 10 / 5 min per client IP
+  if (!rl.ok) return tooManyRequests(rl.retryAfter);
+
   let body: { username?: string; password?: string };
   try {
     body = await request.json();

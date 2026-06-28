@@ -107,15 +107,17 @@ focused Claude Code session.
     both the Privacy Policy and the Terms of Service — **extra-important given the AI data-use language**
     (web `/privacy` "AI answer drafting" + extension `PRIVACY.md` "Optional AI answer drafting" + the
     Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
-- [x] **PL.2 Basic rate limiting / abuse protection.** ✅ DONE (held locally, not yet pushed):
-  per-IP **fixed-window limiter** in Spring (`RateLimitFilter` + a pure, unit-tested
-  `FixedWindowRateLimiter`; runs ahead of Spring Security) on `/api/authenticate` (10/5min),
-  `/api/register` (5/hr), `/api/account/reset-password/init` (5/hr) + `/finish` (10/hr) → **429 +
-  Retry-After**. In-memory + **per-instance** (single VPS container — revisit / move to a shared store
-  if the API is ever scaled out), toggle via `RATE_LIMIT_ENABLED`, disabled in tests so the IT suite
-  isn't throttled. No new dependency (no bucket4j/Redis). **Optional follow-ups:** Caddy edge
-  `rate_limit` + request body-size cap, and a `/api/ai/draft` throttle (today bounded only by the
-  per-user monthly `ai_usage` quota).
+- [x] **PL.2 Basic rate limiting / abuse protection.** ✅ DONE — per-IP **fixed-window limiter in the
+  Next BFF** (`web/src/lib/rate-limit.ts`) on the auth routes: login (10/5min), signup (5/hr),
+  forgot-password (5/hr), reset-password (10/hr) → **429 + Retry-After**. **Why the BFF, not Spring:**
+  these flows go browser → Next → Spring over the internal Docker network, so Spring sees ONE IP for
+  every user — a Spring-side per-IP limit throttled *all* signups on a shared bucket (shipped, broke
+  signup with 502s, hotfixed). The BFF is the only layer with the real client IP (Caddy's **last**
+  X-Forwarded-For hop; spoof-resistant since Caddy is the single edge proxy / Cloudflare is grey-cloud).
+  In-memory + per-instance (web app is a single container — move to a shared store if scaled out). The
+  Spring `RateLimitFilter` (+ unit-tested `FixedWindowRateLimiter`) is kept but **off by default**
+  (`RATE_LIMIT_ENABLED`), available only for any *directly-hit* (non-proxied) endpoints. **Optional
+  follow-ups:** Caddy edge `rate_limit` + body-size cap, and a `/api/ai/draft` throttle.
 
 ---
 
@@ -591,7 +593,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
-- 2026-06-28 · **all held LOCALLY (not pushed)** at the user's request — `main` is ahead of origin.
+- 2026-06-28 · **rate-limiting incident + fix (deployed)** · The Spring per-IP limiter shipped at 20:0x
+  broke **all** signups (502 "Couldn't create the account.", no verification email) because login/
+  signup/reset proxy browser→Next→Spring over the internal network → Spring sees one IP for everyone →
+  shared `/api/register` bucket hit 429 → BFF maps non-201/400 to 502. **Hotfix:** Spring limiter default
+  → OFF (`RATE_LIMIT_ENABLED:false`). **Real fix:** moved limiting to the Next BFF (`lib/rate-limit.ts`),
+  keyed on the real client IP (Caddy's last X-Forwarded-For hop), wired into all four auth routes.
+- 2026-06-28 · **earlier items pushed to origin** (CI + Deploy green): Terms, cookie consent, password
+  reset, the (now-disabled) Spring rate limiter, smaller logo, docs, + the held extension UI batch.
 - 2026-06-28 · marketing top-bar logo trimmed `height=34`→`30` (`(marketing)/layout.tsx`); footer/app-shell
   logos unchanged. Web build green.
 - 2026-06-28 · PL.2 per-IP rate limiting (API) · `RateLimitFilter` (runs ahead of Spring Security,
