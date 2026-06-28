@@ -19,16 +19,17 @@
 
     <label class="lbl" for="resume">Resume variant</label>
     <select id="resume" class="select"></select>
-
     <div class="meta" id="meta"></div>
 
-    <label class="check"><input type="checkbox" id="eeo" /> Include EEO / demographic answers</label>
-    <label class="check"><input type="checkbox" id="autoadv" /> Auto-advance to next step after filling</label>
+    <div class="opts">
+      <label class="check"><input type="checkbox" id="eeo" /> <span>Include EEO / demographic answers</span></label>
+      <label class="check"><input type="checkbox" id="autoadv" /> <span>Auto-advance to next step after filling</span></label>
+    </div>
 
     <button id="fill" class="primary">Scan &amp; fill this page</button>
     <button id="savejob" class="ghost">Save this job</button>
     <div class="status" id="status"></div>
-    <div class="foot">Reviews before filling · never clicks Submit</div>
+    <div class="foot"><span class="footicon">✓</span> Reviews before filling · never clicks Submit</div>
   </div>
   <script src="../lib/schema.js"></script>
   <script src="../lib/storage.js"></script>
