@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: manifest 0.23.4, bundled ruleset version 4.
+> Current version: manifest 0.24.0, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -43,6 +43,13 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   summary/cover_letter textareas); `fileInput()` picks the resume `<input type=file>`
   by its `accept` doc types (avoids the avatar image input). Selectors captured
   from real ENFOS/TP-Link forms.
+- `src/content/adapters/indeed.js` — Indeed Apply (`smartapply.indeed.com`, the
+  "Easily apply" flow). Multi-step, fills one visible step at a time; FILL-ONLY (never
+  advances to/clicks submit, never touches the last-step reCAPTCHA). Maps contact fields
+  by standard W3C `autocomplete` tokens and location fields by captured semantic ids
+  (`#location-fields-*-input`); the "Continue" button's testid is randomized so the
+  shared filler matches it by text. Screening questions fall through to the generic
+  scanner. Selectors captured from a real session (see `test/indeed.test.js`).
 - `src/content/adapters/workday.js` — main adapter. `promptText/questionContext`,
   `addQuestion`, `addButtonFor` (heading-association before container),
   country/state fill, exp/edu blocks, `ensureRows`, **Self-Identify (CC-305) block**
