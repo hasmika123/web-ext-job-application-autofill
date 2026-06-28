@@ -221,7 +221,7 @@
     .panel { position: fixed; top: 0; right: 0; height: 100%; width: 380px; max-width: 92vw;
       background: var(--paper); color: var(--ink); box-shadow: -12px 0 40px rgba(45,49,51,.22);
       display: flex; flex-direction: column; border-left: 4px solid var(--accent);
-      border-radius: 16px 0 0 16px; overflow: hidden; }
+      border-radius: 20px 0 0 20px; overflow: hidden; }
     header { padding: 18px 18px 12px; border-bottom: 1px solid var(--line); position: relative; }
     .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--ink); }
     .brandimg { display: block; height: 22px; width: auto; }
@@ -234,17 +234,17 @@
     .group-title.warn { color: var(--warn); }
     .rows { display: flex; flex-direction: column; gap: 2px; }
     .row { display: grid; grid-template-columns: 18px 110px 1fr; align-items: center; gap: 8px;
-      padding: 8px 8px; border-radius: 8px; cursor: pointer; }
+      padding: 8px 8px; border-radius: 10px; cursor: pointer; }
     .row:hover { background: var(--paper-2); }
     .row.assisted { grid-template-columns: 18px 110px 1fr auto; }
     .regen { border: 1px solid var(--line); background: var(--paper); color: var(--accent-deep);
-      border-radius: 6px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 7px; }
+      border-radius: 8px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 7px; }
     .regen:hover:not(:disabled) { border-color: var(--accent); }
     .regen:disabled { opacity: .5; cursor: default; }
     .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
     .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: var(--warn); line-height: 1.35; }
     .infonote { font-size: 12px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
-      border-radius: 8px; padding: 9px 11px; margin-top: 8px; line-height: 1.45; }
+      border-radius: 10px; padding: 9px 11px; margin-top: 8px; line-height: 1.45; }
     /* AI badge: charcoal-on-lime (white/cream on lime is unreadable) */
     .aibadge { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .08em;
       color: var(--on-accent); background: var(--accent); border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
@@ -254,15 +254,15 @@
     input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
     .empty { font-size: 13px; color: var(--muted); padding: 14px 6px; line-height: 1.5; }
     footer { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
-    button.primary { background: var(--ink); color: var(--paper); border: 0; padding: 9px 16px; border-radius: 8px;
+    button.primary { background: var(--ink); color: var(--paper); border: 0; padding: 9px 16px; border-radius: 10px;
       font-weight: 600; cursor: pointer; font-size: 13px; }
     button.primary:disabled { opacity: .4; cursor: not-allowed; }
     button.primary:hover:not(:disabled) { background: var(--ink-soft); }
     button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink-soft); padding: 9px 14px;
-      border-radius: 8px; cursor: pointer; font-size: 13px; }
+      border-radius: 10px; cursor: pointer; font-size: 13px; }
     .note { font-size: 11px; color: var(--muted); padding: 0 16px 14px; line-height: 1.4; }
     .flash { position: absolute; left: 16px; right: 16px; bottom: 16px; background: var(--ink); color: var(--paper);
-      padding: 12px 14px; border-radius: 10px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+      padding: 12px 14px; border-radius: 12px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   `;
 
   JAF.filler = { start, buildPlan };
