@@ -52,7 +52,6 @@ async function init() {
       sel.value = settings.lastResumeId;
   }
 
-  $("eeo").checked = !!settings.includeEEO;
   $("autoadv").checked = !!settings.autoAdvance;
 
   const showMeta = () => {
@@ -166,7 +165,6 @@ async function doFill(resumes, bio) {
 
   const settings = await S.getSettings();
   settings.lastResumeId = resume.id;
-  settings.includeEEO = $("eeo").checked;
   settings.autoAdvance = $("autoadv").checked;
   await S.saveSettings(settings);
 
@@ -177,7 +175,9 @@ async function doFill(resumes, bio) {
   await ensureInjected(tab.id);
   const frameId = await pickFrame(tab.id);
 
-  const values = SCH.buildFillValues(bio, resume, { includeEEO: $("eeo").checked });
+  // EEO / demographic answers are always included (the user opts in by entering
+  // them in their bio on the web; blank answers simply fill nothing).
+  const values = SCH.buildFillValues(bio, resume, { includeEEO: true });
 
   let file = null;
   if (resume.hasFile) {

@@ -77,8 +77,8 @@ reported in the panel so you can set it by hand — nothing is left silently wro
 
 **Work eligibility & EEO.** Authorized-to-work and sponsorship questions fill
 from your bio (set them in Manage → Bio as Yes/No). Gender, Hispanic/Latino,
-race, veteran, and disability are off by default — turn on **Include EEO** (popup
-or Settings) and fill them in Manage; then Dossier sets those dropdowns too.
+race, veteran, and disability fill from the values you enter in Manage; leave
+any of them blank and Dossier simply skips that question.
 State and country dropdowns are driven with abbreviation matching, so a bio value
 of "GA" still selects "Georgia" (country is set first so the state list loads).
 
@@ -162,7 +162,8 @@ site's adapter. The generic scanner is the safety net in the meantime.
 - No auto-submit, by design — you stay in control and it avoids tripping anti-bot
   systems.
 - No CAPTCHA handling — out of scope.
-- EEO/demographic answers are off by default and never guessed from a resume.
+- EEO/demographic answers fill only from what you enter in your bio — never
+  guessed from a resume; leave a field blank and that question is skipped.
 
 ## Known limits / roadmap
 - Heuristic experience parsing is approximate; the LLM mode is much better.

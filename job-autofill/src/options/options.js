@@ -22,7 +22,6 @@ async function init() {
   $("apikey").value = s.apiKey || "";
   $("server-ai").checked = !!s.serverAiEnabled;
   $("server-ai-consent").checked = !!s.serverAiConsent;
-  $("eeo-default").checked = !!s.includeEEO;
   $("autoadv-default").checked = !!s.autoAdvance;
   $("autoadd-default").checked = s.autoAddRows !== false; // default on
   $("analytics").checked = !s.analyticsOptOut; // checkbox = "share"; opt-out is the inverse
@@ -41,7 +40,6 @@ async function saveSettings() {
   s.apiKey = $("apikey").value.trim();
   s.serverAiEnabled = $("server-ai").checked;
   s.serverAiConsent = $("server-ai-consent").checked;
-  s.includeEEO = $("eeo-default").checked;
   s.autoAdvance = $("autoadv-default").checked;
   s.autoAddRows = $("autoadd-default").checked;
   s.analyticsOptOut = !$("analytics").checked;
