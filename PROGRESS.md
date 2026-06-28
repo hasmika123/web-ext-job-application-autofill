@@ -58,8 +58,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > stand on `main` and fold naturally into R2.3 / a later task.)*
 >
 > **Pre-launch + external work (on `main`, not features):**
-> - **PL.1** — privacy policy: real contact/entity + legal review (see Pre-launch checklist).
-> - **PL.2** — basic rate limiting / abuse protection before public signups.
+> - **PL.1** — ✅ Terms of Service page + GDPR cookie-consent banner DONE (held locally). Remaining:
+>   registered legal entity/address + hosted policy URL + lawyer review (governing-law/indemnity).
+> - **PL.2** — ✅ per-IP rate limiting on auth endpoints DONE (held locally). Optional: Caddy edge
+>   throttle + body-size cap + `/api/ai/draft` limit.
+> - **Also landed (held locally, not in the checklist):** a full **password-reset flow** (web
+>   `/forgot-password` + `/reset-password` UI + BFF over the existing Spring init/finish endpoints;
+>   reset emails repointed to the web `/reset-password?key=` page).
 > - **Live verifications (user, can't be done from here):** Firefox `web-ext lint`/`run`, Edge sideload.
 > - **External/blocked:** CWS listing (Google verification pending) → then Edge Add-ons + Firefox AMO
 >   (same zip); flip analytics on at launch (`*_ANALYTICS_ENABLED=true`).
@@ -87,27 +92,30 @@ focused Claude Code session.
   `privacy@dossier.app`→`support@kiwiply.com` (R5.1); an interim **beta disclaimer** is live (footer +
   signup + a "Beta service" section in `/privacy`: as-is/as-available, no warranties, limitation of
   liability "to the extent permitted by law").
-  - **➤ Terms of Service (REQUIRED before public launch — not yet written).** The beta disclaimers above
-    are a stopgap, **not** a ToS. Draft + publish a real **Terms of Service** page (e.g. `/terms`) and
-    link it from the footer + signup alongside the Privacy Policy. It must clearly cover: **acceptable
-    use** (legitimate personal job-applications only; **no auto-submit, no CAPTCHA bypass, no
-    scraping/abuse** — mirrors the product's hard rule), **eligibility/account** terms, **user
-    responsibilities** (accuracy of submitted data; you send every application yourself),
-    **beta/"as is" disclaimer of warranties**, **limitation of liability**, **indemnity**,
-    **termination**, **changes to the terms + notice**, **governing law/jurisdiction**, and **contact**.
+  - ✅ **DONE — Terms of Service (held locally, not yet pushed).** `/terms` page
+    (`web/src/app/(marketing)/terms/page.tsx`) covering acceptable use (legitimate personal
+    applications only; **no auto-submit / CAPTCHA bypass / scraping** — mirrors the hard rule),
+    eligibility/account, user responsibility (you send every application yourself), beta/"as is"
+    disclaimer, limitation of liability, termination, changes + notice, and contact; linked from the
+    footer + signup alongside the Privacy Policy. Also added a **GDPR cookie-consent banner**
+    (`CookieConsent.tsx`) — analytics is now opt-in (gtag loads only after Accept; essential auth
+    cookies are exempt), with privacy-policy wording updated to match. **Still TODO before public
+    launch:** a **governing-law/jurisdiction + indemnity** clause and a lawyer's review (folds into the
+    "Still TODO" below).
   - **Still TODO (the rest):** a **registered legal entity/address** (the ToS + privacy policy need a
     real legal "we"), a stable **hosted policy URL** for the CWS listing, and a **lawyer's review** of
     both the Privacy Policy and the Terms of Service — **extra-important given the AI data-use language**
     (web `/privacy` "AI answer drafting" + extension `PRIVACY.md` "Optional AI answer drafting" + the
     Gemini free-tier training/human-review disclosure). Both files carry inline TODO markers.
-- [ ] **PL.2 Basic rate limiting / abuse protection.** Today there is **no general
-  request throttling** — only a per-user *monthly* AI quota (`ai_usage`) and refresh-token
-  reuse-detection. Before public signups, add coarse abuse protection so nobody can hammer the
-  API into the ground or brute-force auth: per-IP rate limits on `/api/authenticate`,
-  `/api/register`, `/api/account/reset-password`, and `/api/ai/draft` (login/signup/AI are the
-  sharp edges), plus a global ceiling. Cheapest path: **Caddy `rate_limit`** at the edge (no app
-  change) and/or **bucket4j** in Spring for per-principal limits. Pair with a small request
-  body-size cap at Caddy. (The 10MB resume cap and AI `maxOutputTokens` already bound those two.)
+- [x] **PL.2 Basic rate limiting / abuse protection.** ✅ DONE (held locally, not yet pushed):
+  per-IP **fixed-window limiter** in Spring (`RateLimitFilter` + a pure, unit-tested
+  `FixedWindowRateLimiter`; runs ahead of Spring Security) on `/api/authenticate` (10/5min),
+  `/api/register` (5/hr), `/api/account/reset-password/init` (5/hr) + `/finish` (10/hr) → **429 +
+  Retry-After**. In-memory + **per-instance** (single VPS container — revisit / move to a shared store
+  if the API is ever scaled out), toggle via `RATE_LIMIT_ENABLED`, disabled in tests so the IT suite
+  isn't throttled. No new dependency (no bucket4j/Redis). **Optional follow-ups:** Caddy edge
+  `rate_limit` + request body-size cap, and a `/api/ai/draft` throttle (today bounded only by the
+  per-user monthly `ai_usage` quota).
 
 ---
 
@@ -583,6 +591,27 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-28 · **all held LOCALLY (not pushed)** at the user's request — `main` is ahead of origin.
+- 2026-06-28 · marketing top-bar logo trimmed `height=34`→`30` (`(marketing)/layout.tsx`); footer/app-shell
+  logos unchanged. Web build green.
+- 2026-06-28 · PL.2 per-IP rate limiting (API) · `RateLimitFilter` (runs ahead of Spring Security,
+  `@ConditionalOnProperty dossier.rate-limit.enabled`, default on) delegating to a pure, clock-injected
+  `FixedWindowRateLimiter`; limits login/register/reset-init/reset-finish → 429 + Retry-After. In-memory,
+  per-instance (single container). Disabled in the test profile. New `FixedWindowRateLimiterTest` (5)
+  passes on JDK17; `compileJava`/`compileTestJava` green. ITs run in CI (need Docker).
+- 2026-06-28 · password-reset flow (web + email wiring) · Backend init/finish already existed; added web
+  `/forgot-password` + `/reset-password` pages + forms + `AuthCardShell`, BFF routes (`/api/auth/forgot-
+  password` never leaks email existence; `/api/auth/reset-password`), and a "Forgot password?" link on
+  login. Fixed a latent bug: reset/creation **emails** linked to a 404 web path — repointed both
+  templates (+ test copies) to `/reset-password?key=`. `tsc`+`eslint`+`build` green.
+- 2026-06-28 · PL.1 cookie consent (web) · `CookieConsent.tsx` replaces always-on `<Analytics/>`; gtag
+  loads only after Accept (banner only shown when analytics is configured; reads choice via
+  `useSyncExternalStore`). Privacy policy updated (analytics now opt-in). `build` green.
+- 2026-06-28 · PL.1 Terms of Service (web) · `/terms` page + footer/signup links; signup blurb now cites
+  Terms + Privacy. `build` green.
+- 2026-06-28 · extension UI batch (held local) · softer rounded corners across popup/options/overlay
+  (v0.24.2), popup polish (v0.24.3), resume-picker width clamp + name truncation (v0.24.4), and EEO
+  answers always included with the popup/options toggle removed (v0.24.5). `npm test` green each.
 - 2026-06-26 · extension↔web integration: kill the duplicate options page (branch `ui-redesign`,
   ext 0.22.0→**0.23.0**) · The extension no longer manages profile/resumes/account — kiwiply.com is the
   single source of truth. **(A)** API `POST /api/extension/session` mints a separate extension token
