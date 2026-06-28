@@ -25,6 +25,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ▶️ **IMMEDIATE NEXT: Phase 9.A0 — security gate (default-admin seed).** The admin-side build
+> starts here. Full plan + legalities in `ADMIN-PLAN.md`; step-by-step kickstart in `HANDOFF.md`.
+> Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
+>
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
 > The `gemini-2.0-flash` `limit: 0` was per-model; `gemini-2.5-flash-lite` has free-tier quota
 > (verified with a live call). Done this pass: default model → `gemini-2.5-flash-lite` (code + docs),

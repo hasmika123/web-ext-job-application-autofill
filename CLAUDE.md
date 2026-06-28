@@ -6,6 +6,7 @@ Claude Code reads this automatically every session. Keep it short.
 Dossier: MV3 browser extension (vanilla JS, no build step, everything on
 `window.JAF`) that autofills job applications. Being productized into extension +
 Spring Boot API + Next.js web app. Spec: `ROADMAP.md`. Task tracker: `PROGRESS.md`.
+Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 
 ## The loop (do this every session)
 1. Read `PROGRESS.md` → find **Current focus**.
@@ -36,7 +37,9 @@ Bump `job-autofill/manifest.json` + `package.json`. If rules change, bump the
 `version` in `src/config/rules.js` too (the smoke test asserts it).
 
 ## Layout (target monorepo)
-`/job-autofill` extension · `/api` Spring Boot · `/web` Next.js · root: ROADMAP/PROGRESS/CLAUDE.
+`/job-autofill` extension · `/api` Spring Boot · `/web` Next.js · `/brand` source logo/ATS
+art (originals only — served copies live in `web/public` + `job-autofill/icons`; see
+`brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/HANDOFF/CLAUDE.
 When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the file map.
 
 ## Locked decisions (persist across sessions — don't re-litigate)

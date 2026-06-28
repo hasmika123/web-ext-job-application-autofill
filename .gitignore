@@ -6,3 +6,6 @@
 # OS / editor cruft
 .DS_Store
 Thumbs.db
+
+# Local Claude Code tooling (per-machine launch config; not shared)
+.claude/
