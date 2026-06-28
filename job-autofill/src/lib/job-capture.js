@@ -170,6 +170,13 @@
       out.atsPlatform = "dice";
       const m = path.match(/\/job-?detail\/([0-9a-z-]+)/i) || path.match(/\/jobs\/detail\/([0-9a-z-]+)/i);
       out.externalJobId = m && m[1];
+    } else if (/^google\.[a-z][a-z.]+$/.test(host) && path === "/search" && ((get("ibp") || "").indexOf("jobs") !== -1 || get("udm") === "8")) {
+      // The Google Jobs widget (search?…ibp=htl;jobs or udm=8). Best-effort only: it's an
+      // aggregator panel with no per-job JSON-LD and no stable per-job URL — htidocid is
+      // the closest thing to a job token. Descriptive fields will usually be thin; the
+      // real posting (click "Apply on …") captures far better. We still tag the source.
+      out.atsPlatform = "google";
+      out.externalJobId = get("htidocid");
     }
     if (!out.externalJobId) delete out.externalJobId; // keep merge "first non-empty" clean
     return out;

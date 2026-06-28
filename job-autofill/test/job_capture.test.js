@@ -140,6 +140,10 @@ const ASHBY_ID = "0c1d2e3f-aaaa-bbbb-cccc-ddddeeeeffff";
   eq("board indeed country subdomain", B({ href: "https://ca.indeed.com/viewjob?jk=ca7777" }), { atsPlatform: "indeed", externalJobId: "ca7777" });
   eq("board dice /job-detail/<guid>", B({ href: "https://www.dice.com/job-detail/0c1d2e3f-aaaa-bbbb" }), { atsPlatform: "dice", externalJobId: "0c1d2e3f-aaaa-bbbb" });
   eq("board linkedin with no id still tags platform", B({ href: "https://www.linkedin.com/jobs/" }), { atsPlatform: "linkedin" });
+  eq("board google jobs widget (ibp=htl;jobs) + htidocid", B({ href: "https://www.google.com/search?q=engineer&ibp=htl;jobs&htidocid=AbC123" }), { atsPlatform: "google", externalJobId: "AbC123" });
+  eq("board google jobs widget (udm=8), no token", B({ href: "https://www.google.com/search?q=eng&udm=8" }), { atsPlatform: "google" });
+  eq("board google ccTLD jobs widget", B({ href: "https://www.google.co.uk/search?q=eng&ibp=htl;jobs" }), { atsPlatform: "google" });
+  eq("board plain google search (not jobs) -> {}", B({ href: "https://www.google.com/search?q=eng" }), {});
   eq("board unknown host -> {}", B({ href: "https://example.com/careers/123" }), {});
   eq("board tolerates junk href -> {}", B({ href: "not a url" }), {});
 

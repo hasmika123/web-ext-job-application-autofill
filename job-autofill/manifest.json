@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kiwiply — Job Application Autofill",
-  "version": "0.23.3",
+  "version": "0.23.4",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3HE6lDTraXYRpYr+QKqb/QLbtCh0CjFRH/CQbZPOM221cYqh3cDRHmSsbkq1MwCN0M9eWYJgtysjIRHLGIjsuIP3B4hOop0Hq7wHlmlie8/W7llDB7jDfZeJ9N9dpXQNKouXNFtiXwE694eLaP4ioMxMuAnUpW8PaZOUeBPwODh8G7EHvSZtn5SirkpiLZ+fakzfXGDze+6w24tQ4hfnk3bCFQYTrceS8i+4REBKxTbpUjad32m1AVlCeh+qPcPv24zsyDukVcAOVcr1JY+hWUwb+GxX44h7vbTrWV84cD9RBZQhotHf39H83ZwseHa+LJgVVO5WQflLAX2iru5F7QIDAQAB",
   "description": "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
   "browser_specific_settings": {

@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: manifest 0.23.3, bundled ruleset version 4.
+> Current version: manifest 0.23.4, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
