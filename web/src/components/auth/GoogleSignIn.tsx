@@ -23,6 +23,12 @@ declare global {
   }
 }
 
+// GIS `initialize` is GLOBAL and warns if called more than once. Initialize it a single time
+// and route the credential to whichever button is currently mounted via `activeHandler`
+// (updated on each mount), so login↔signup tab switches don't re-initialize.
+let gisInitialized = false;
+let activeHandler: ((resp: { credential?: string }) => void) | null = null;
+
 /** Only a same-site relative path is allowed as a post-login redirect (no open redirects). */
 function safeNext(next?: string): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
@@ -57,8 +63,9 @@ export default function GoogleSignIn({ next }: { next?: string }) {
     let cancelled = false;
     const host = ref.current;
 
-    const onCredential = (resp: { credential?: string }) => {
-      if (!resp || !resp.credential) return;
+    // This mount's credential handler (captures the current `next`/router/setError).
+    activeHandler = (resp) => {
+      if (cancelled || !resp || !resp.credential) return;
       void (async () => {
         try {
           const r = await fetch("/api/auth/google", {
@@ -82,7 +89,13 @@ export default function GoogleSignIn({ next }: { next?: string }) {
 
     const init = () => {
       if (cancelled || !window.google || !host) return;
-      window.google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onCredential });
+      if (!gisInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: CLIENT_ID,
+          callback: (resp) => activeHandler?.(resp),
+        });
+        gisInitialized = true;
+      }
       host.innerHTML = "";
       window.google.accounts.id.renderButton(host, { theme: "outline", size: "large", text: "continue_with", shape: "pill", width: 360 });
     };

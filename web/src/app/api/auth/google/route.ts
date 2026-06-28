@@ -39,23 +39,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Google sign-in isn't enabled yet." }, { status: 503 });
   }
   if (!res.ok) {
-    // Surface the API's real status + any error detail (reason/detail/message/title), so a
-    // failed sign-in is self-diagnosing during rollout — a controller 401 carries `reason`,
-    // a 500 carries Spring's ProblemDetail `detail`/`message`. Falls back to raw text.
-    const text = await res.text().catch(() => "");
-    let body: Record<string, unknown> = {};
-    try {
-      body = JSON.parse(text);
-    } catch {
-      /* not JSON */
-    }
-    const detail =
-      [body.reason, body.detail, body.message, body.title].find((x) => typeof x === "string" && x) ||
-      (text ? text.slice(0, 200) : "");
-    return Response.json(
-      { error: `Google sign-in failed (API ${res.status})${detail ? `: ${detail}` : ""}` },
-      { status: 401 },
-    );
+    return Response.json({ error: "Google sign-in failed. Please try again." }, { status: 401 });
   }
 
   const data = (await res.json()) as { accessToken?: string; refreshToken?: string };

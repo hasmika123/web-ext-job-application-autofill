@@ -9,7 +9,6 @@ import com.dossier.api.service.UserService;
 import com.dossier.api.web.rest.vm.GoogleLoginVM;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +53,7 @@ public class GoogleAuthController {
         description = "Verify a Google ID token and exchange it for our access + refresh tokens (find-or-create by verified email)."
     )
     @PostMapping("/google")
-    public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginVM googleLoginVM) {
+    public ResponseEntity<TokenIssuer.TokenPair> googleLogin(@RequestBody GoogleLoginVM googleLoginVM) {
         if (!googleIdTokenService.isConfigured()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
@@ -64,7 +63,7 @@ public class GoogleAuthController {
         try {
             GoogleIdTokenService.GoogleProfile profile = googleIdTokenService.verify(googleLoginVM.getCredential());
             if (profile.email() == null || profile.email().isBlank() || !profile.emailVerified()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", "email missing or not verified"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
             User user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());
             String authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.joining(" "));
@@ -75,12 +74,10 @@ public class GoogleAuthController {
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setBearerAuth(pair.accessToken());
             return new ResponseEntity<>(pair, httpHeaders, HttpStatus.OK);
-        } catch (Throwable e) {
-            // Broad on purpose during rollout: surface WHATEVER fails — token verification, user
-            // find-or-create, or token issuance — so the cause is visible end-to-end (logs + body).
-            // Tighten back to a generic 401 once Google sign-in is confirmed working.
+        } catch (Exception e) {
+            // Log the cause server-side for ops; never leak internals to the client.
             LOG.warn("Google sign-in failed", e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", e.getClass().getSimpleName() + ": " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
     }
 }
