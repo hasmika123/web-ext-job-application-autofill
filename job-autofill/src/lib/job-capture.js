@@ -138,6 +138,43 @@
     return out;
   }
 
+  // ---- 2b. job-board recognition (URL shape, not DOM) --------------------
+  // LinkedIn / Indeed / Dice aren't ATS we fill, so they have no adapter — but their
+  // public URLs carry a stable job id and the site is obvious from the host. Deriving
+  // {atsPlatform, externalJobId} from the URL (NOT tenant DOM) tags the saved entry with
+  // its source and lets re-saving the same posting UPSERT instead of duplicating. The
+  // descriptive fields still come from JSON-LD/og, which these boards all publish.
+  function boardCapture(loc) {
+    const out = {};
+    if (!loc || !loc.href) return out;
+    let host = "", path = "", params;
+    try {
+      const u = new URL(loc.href);
+      host = u.hostname.replace(/^www\./, "").toLowerCase();
+      path = u.pathname;
+      params = u.searchParams;
+    } catch (e) {
+      return out;
+    }
+    const is = (h) => host === h || host.endsWith("." + h);
+    const get = (k) => (params && params.get(k)) || undefined;
+
+    if (is("linkedin.com")) {
+      out.atsPlatform = "linkedin";
+      const m = path.match(/\/jobs\/view\/(\d+)/);
+      out.externalJobId = (m && m[1]) || get("currentJobId");
+    } else if (is("indeed.com")) {
+      out.atsPlatform = "indeed";
+      out.externalJobId = get("jk") || get("vjk");
+    } else if (is("dice.com")) {
+      out.atsPlatform = "dice";
+      const m = path.match(/\/job-?detail\/([0-9a-z-]+)/i) || path.match(/\/jobs\/detail\/([0-9a-z-]+)/i);
+      out.externalJobId = m && m[1];
+    }
+    if (!out.externalJobId) delete out.externalJobId; // keep merge "first non-empty" clean
+    return out;
+  }
+
   // ---- adapter detection (page context) ----------------------------------
   function detectAdapter() {
     const list = JAF.adapters || [];
@@ -174,6 +211,7 @@
     } catch (e) {
       acap = {};
     }
+    const boards = boardCapture(loc);
     const generic = fromGeneric(doc, loc);
 
     return {
@@ -182,9 +220,11 @@
       role: pick("role", [jsonld, acap, generic]),
       location: pick("location", [jsonld, acap, generic]),
       jobDescription: pick("jobDescription", [jsonld, acap, generic]),
-      // Identity: the adapter (public URL shape) is authoritative; JSON-LD identifier next.
-      externalJobId: pick("externalJobId", [acap, jsonld, generic]),
-      atsPlatform: acap.atsPlatform || null,
+      // Identity: a filled-ATS adapter is authoritative; then the URL-shape board id;
+      // then the JSON-LD identifier. (Board id beats JSON-LD's, which can be an internal
+      // requisition number — the URL id is what the user sees and what dedups.)
+      externalJobId: pick("externalJobId", [acap, boards, jsonld, generic]),
+      atsPlatform: acap.atsPlatform || boards.atsPlatform || null,
       jobUrl: pick("jobUrl", [acap, generic]) || stripHash(loc && loc.href),
     };
   }
@@ -195,6 +235,7 @@
     // exposed for tests
     fromJsonLd,
     fromGeneric,
+    boardCapture,
     findJobPosting,
     htmlToText,
   };

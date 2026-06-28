@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: manifest 0.23.0, bundled ruleset version 4.
+> Current version: manifest 0.23.3, bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -91,8 +91,12 @@ bypass. Vanilla JS, no build step, everything on `window.JAF`.
   canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
   jobDescription). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
   active adapter `captureJob({loc})` (authoritative for externalJobId + atsPlatform,
-  parsed from the public URL shape) → generic `og:`/meta/canonical fallback. Pure
-  reads, no network. Each ATS adapter implements `captureJob({loc})`.
+  parsed from the public URL shape) → `boardCapture(loc)` (LinkedIn/Indeed/Dice — they
+  have no fill adapter, so recognize them by host + derive {atsPlatform, externalJobId}
+  from the URL shape, never DOM) → generic `og:`/meta/canonical fallback. Pure reads, no
+  network. Save-a-job (popup) injects under `activeTab`, so it captures on ANY site that
+  publishes JSON-LD/og (boards, Google Jobs, company career pages), not just the ATS we
+  auto-inject on. Each ATS adapter implements `captureJob({loc})`.
 - `src/lib/app-tracking.js` — `JAF.appTracking`. Pure tracker orchestration (SW-safe,
   `globalThis.JAF`): `buildApplicationDraft(capture,resume)` (→ DRAFT app, company/role
   fallbacks), `pushDraft`/`confirmSubmission` (via a `TrackingProvider`), and the

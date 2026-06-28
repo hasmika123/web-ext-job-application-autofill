@@ -131,6 +131,35 @@ const ASHBY_ID = "0c1d2e3f-aaaa-bbbb-cccc-ddddeeeeffff";
   const det = wd.JAF.jobCapture.detectAdapter();
   ok("detectAdapter picks workday for *.myworkdayjobs.com", det && det.id === "workday");
 
+  /* ---- 8. job-board recognition (LinkedIn/Indeed/Dice) from URL shape ---- */
+  const B = win("<head></head>").JAF.jobCapture.boardCapture;
+  eq("board linkedin /jobs/view/<id>", B({ href: "https://www.linkedin.com/jobs/view/3856789012/" }), { atsPlatform: "linkedin", externalJobId: "3856789012" });
+  eq("board linkedin ?currentJobId", B({ href: "https://www.linkedin.com/jobs/collections/recommended/?currentJobId=3856789012" }), { atsPlatform: "linkedin", externalJobId: "3856789012" });
+  eq("board indeed ?jk", B({ href: "https://www.indeed.com/viewjob?jk=abc123def456" }), { atsPlatform: "indeed", externalJobId: "abc123def456" });
+  eq("board indeed ?vjk (from search results)", B({ href: "https://www.indeed.com/jobs?q=eng&vjk=zz9988" }), { atsPlatform: "indeed", externalJobId: "zz9988" });
+  eq("board indeed country subdomain", B({ href: "https://ca.indeed.com/viewjob?jk=ca7777" }), { atsPlatform: "indeed", externalJobId: "ca7777" });
+  eq("board dice /job-detail/<guid>", B({ href: "https://www.dice.com/job-detail/0c1d2e3f-aaaa-bbbb" }), { atsPlatform: "dice", externalJobId: "0c1d2e3f-aaaa-bbbb" });
+  eq("board linkedin with no id still tags platform", B({ href: "https://www.linkedin.com/jobs/" }), { atsPlatform: "linkedin" });
+  eq("board unknown host -> {}", B({ href: "https://example.com/careers/123" }), {});
+  eq("board tolerates junk href -> {}", B({ href: "not a url" }), {});
+
+  /* ---- 9. merged capture on a board page: id+platform from URL, descriptive from JSON-LD ---- */
+  const liDoc = win(
+    '<head><meta property="og:title" content="Acme hiring Staff Engineer in SF | LinkedIn">' +
+    '<script type="application/ld+json">' +
+    JSON.stringify({ "@type": "JobPosting", title: "Staff Engineer", hiringOrganization: { name: "Acme" }, description: "Build things.", identifier: "LD-INTERNAL-9" }) +
+    "</script></head>"
+  );
+  const liCap = liDoc.JAF.jobCapture.captureJob({
+    doc: liDoc.document,
+    loc: { href: "https://www.linkedin.com/jobs/view/3856789012/" },
+    adapter: null, // LinkedIn has no fill adapter
+  });
+  eq("board merge: role from JSON-LD, not og noise", liCap.role, "Staff Engineer");
+  eq("board merge: company from JSON-LD", liCap.company, "Acme");
+  eq("board merge: externalJobId is the URL id, not JSON-LD's internal one", liCap.externalJobId, "3856789012");
+  eq("board merge: atsPlatform tagged linkedin", liCap.atsPlatform, "linkedin");
+
   console.log(`\n[job_capture] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[job_capture] All green.");
