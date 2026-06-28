@@ -46,7 +46,7 @@ async function init() {
     $("fill").disabled = true;
   } else {
     sel.innerHTML = pickable
-      .map((r) => `<option value="${r.id}">${escapeHtml(r.label)}</option>`)
+      .map((r) => `<option value="${r.id}" title="${escapeHtml(r.label)}">${escapeHtml(truncateLabel(r.label))}</option>`)
       .join("");
     if (settings.lastResumeId && pickable.find((r) => r.id === settings.lastResumeId))
       sel.value = settings.lastResumeId;
@@ -219,6 +219,14 @@ async function doSaveJob() {
   } else {
     setStatus("Couldn't save this job" + (res && res.reason ? ` (${res.reason})` : "") + ".", true);
   }
+}
+
+// Keep the picker at a fixed field width: cap how much of a long resume name shows
+// (the native option list otherwise grows to the longest name). Full name stays in
+// the option's title for hover.
+function truncateLabel(s, max = 38) {
+  s = String(s);
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
 
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
