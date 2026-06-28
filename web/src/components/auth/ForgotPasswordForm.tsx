@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Input, Field } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { isEmail } from "@/lib/validate";
+import { isEmail, LIMITS } from "@/lib/validate";
 
 /**
  * "Forgot password" step 1 — request a reset link. Posts to the BFF, which always reports
@@ -77,6 +77,7 @@ export default function ForgotPasswordForm() {
             name="email"
             type="email"
             autoComplete="email"
+            maxLength={LIMITS.emailMax}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setTouched(true)}

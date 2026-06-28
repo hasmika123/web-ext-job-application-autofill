@@ -8,6 +8,7 @@ import { track } from "@/lib/analytics";
 import { Input, useToast } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { LIMITS } from "@/lib/validate";
 
 type BaseProfile = Record<string, unknown>;
 
@@ -50,17 +51,19 @@ function LabeledInput({
   onChange,
   type = "text",
   placeholder,
+  maxLength = LIMITS.text,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   placeholder?: string;
+  maxLength?: number;
 }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</span>
-      <input type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={compactInput} />
+      <input type={type} value={value} placeholder={placeholder} maxLength={maxLength} onChange={(e) => onChange(e.target.value)} className={compactInput} />
     </label>
   );
 }
@@ -383,6 +386,7 @@ function BulletList({ label, bullets, onChange }: { label: string; bullets: stri
               <textarea
                 value={b}
                 rows={2}
+                maxLength={LIMITS.bullet}
                 onChange={(e) => set(i, e.target.value)}
                 placeholder="Led a team of 5; shipped X, improving Y by Z%…"
                 className={cn(compactInput, "flex-1 resize-y leading-relaxed")}
@@ -762,7 +766,7 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
               <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
                 <label htmlFor="resume-label" className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft">Resume name</label>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-                  <Input id="resume-label" value={label} onChange={(e) => setLabel(e.target.value)} className="flex-1" />
+                  <Input id="resume-label" value={label} maxLength={LIMITS.resumeLabel} onChange={(e) => setLabel(e.target.value)} className="flex-1" />
                   {SaveBtn}
                 </div>
                 {saveError && (
@@ -813,7 +817,7 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
 
               {/* Summary */}
               <SectionCard title="Summary">
-                <textarea value={struct.summary} rows={4} onChange={(e) => patchStruct({ summary: e.target.value })} placeholder="No summary detected — add one if you like." className={cn(compactInput, "resize-y")} />
+                <textarea value={struct.summary} rows={4} maxLength={LIMITS.summary} onChange={(e) => patchStruct({ summary: e.target.value })} placeholder="No summary detected — add one if you like." className={cn(compactInput, "resize-y")} />
               </SectionCard>
 
               {/* Skills (editable + base-overlap coloring) */}

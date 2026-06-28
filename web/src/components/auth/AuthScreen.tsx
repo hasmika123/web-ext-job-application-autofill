@@ -8,7 +8,7 @@ import { track } from "@/lib/analytics";
 import { Input, Field, Logo, BetaBadge } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { isEmail } from "@/lib/validate";
+import { isEmail, isUsername, LIMITS } from "@/lib/validate";
 import GoogleSignIn from "@/components/auth/GoogleSignIn";
 
 type Mode = "login" | "signup";
@@ -109,6 +109,7 @@ function LoginForm({ next }: { next?: string }) {
             id="login-username"
             name="username"
             autoComplete="username"
+            maxLength={LIMITS.username}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onBlur={() => touch("username")}
@@ -121,6 +122,7 @@ function LoginForm({ next }: { next?: string }) {
             name="password"
             type="password"
             autoComplete="current-password"
+            maxLength={LIMITS.passwordMax}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => touch("password")}
@@ -159,10 +161,12 @@ function SignupForm({ next }: { next?: string }) {
 
   const errs: Record<string, string> = {};
   if (!username.trim()) errs.username = "Username is required";
+  else if (!isUsername(username)) errs.username = "Use letters, numbers, and . _ - @ + (max 50)";
   if (!email.trim()) errs.email = "Email is required";
   else if (!isEmail(email)) errs.email = "Enter a valid email address";
   if (!password) errs.password = "Password is required";
-  else if (password.length < 4) errs.password = "Use at least 4 characters";
+  else if (password.length < LIMITS.passwordMin) errs.password = `Use at least ${LIMITS.passwordMin} characters`;
+  else if (password.length > LIMITS.passwordMax) errs.password = `Use at most ${LIMITS.passwordMax} characters`;
   const show = (n: string) => submitted || touched[n];
   const touch = (n: string) => setTouched((t) => ({ ...t, [n]: true }));
 
@@ -230,6 +234,7 @@ function SignupForm({ next }: { next?: string }) {
             id="signup-username"
             name="username"
             autoComplete="username"
+            maxLength={LIMITS.username}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onBlur={() => touch("username")}
@@ -242,6 +247,7 @@ function SignupForm({ next }: { next?: string }) {
             name="email"
             type="email"
             autoComplete="email"
+            maxLength={LIMITS.emailMax}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => touch("email")}
@@ -254,6 +260,7 @@ function SignupForm({ next }: { next?: string }) {
             name="password"
             type="password"
             autoComplete="new-password"
+            maxLength={LIMITS.passwordMax}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => touch("password")}

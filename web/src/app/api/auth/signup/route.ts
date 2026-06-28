@@ -1,5 +1,6 @@
 import { apiUrl } from "@/lib/config";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { isEmail, isUsername, LIMITS } from "@/lib/validate";
 
 /**
  * POST /api/auth/signup — proxy the Spring (JHipster) register endpoint.
@@ -26,8 +27,20 @@ export async function POST(request: Request) {
   if (!login || !email || !password) {
     return Response.json({ error: "Enter a username, email, and password." }, { status: 400 });
   }
-  if (password.length < 4) {
-    return Response.json({ error: "Password must be at least 4 characters." }, { status: 400 });
+  if (!isUsername(login)) {
+    return Response.json(
+      { error: "Username can use letters, numbers, and . _ - @ + (max 50)." },
+      { status: 400 },
+    );
+  }
+  if (!isEmail(email)) {
+    return Response.json({ error: "Enter a valid email address." }, { status: 400 });
+  }
+  if (password.length < LIMITS.passwordMin || password.length > LIMITS.passwordMax) {
+    return Response.json(
+      { error: `Password must be ${LIMITS.passwordMin}–${LIMITS.passwordMax} characters.` },
+      { status: 400 },
+    );
   }
 
   let res: Response;

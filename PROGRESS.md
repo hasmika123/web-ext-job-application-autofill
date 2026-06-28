@@ -593,6 +593,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-28 · input validation + length caps across the web forms · Centralized limits/validators in
+  `lib/validate.ts` (`LIMITS`, `isUsername`, `isPhone`; `isEmail`/`isUrl` now length-bounded). Signup:
+  username pattern (letters/digits/`._-@+`, ≤50, mirrors JHipster login), email format+254, password
+  4–100 — enforced in the form AND the signup BFF (defense-in-depth). Login/forgot/reset: `maxLength`
+  caps + reset password 4–100. BioEditor: phone validation + per-field `maxLength` (names 100, email 254,
+  url 2048, address 200) + skill length cap. ResumeUpload: resume name capped 100 (UI) and ≤200 in the
+  upload + PUT BFF routes (matches ResumeDTO `@Size(max=200)`); experience/education/summary/bullet caps.
+  Profile payload already capped (100KB). `tsc`+`eslint`+`build` green. Held locally.
 - 2026-06-28 · **rate-limiting incident + fix (deployed)** · The Spring per-IP limiter shipped at 20:0x
   broke **all** signups (502 "Couldn't create the account.", no verification email) because login/
   signup/reset proxy browser→Next→Spring over the internal network → Spring sees one IP for everyone →

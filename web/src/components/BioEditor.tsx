@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input, Field, Select } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { isEmail, isUrl } from "@/lib/validate";
+import { isEmail, isUrl, isPhone, LIMITS } from "@/lib/validate";
 import { parseResume } from "@/lib/resume-parse";
 
 /** The bio object stored as the server's opaque `payload` JSON (extension-canonical). */
@@ -38,6 +38,8 @@ type FieldDef = {
   options?: string[];
   wide?: boolean;
   required?: boolean;
+  /** Max characters (input maxLength). Defaults by kind via fieldMax(). */
+  max?: number;
 };
 
 const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
@@ -56,8 +58,8 @@ const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
     id: "location",
     title: "Location",
     fields: [
-      { key: "addressLine1", label: "Address", wide: true },
-      { key: "addressLine2", label: "Address line 2", wide: true },
+      { key: "addressLine1", label: "Address", wide: true, max: LIMITS.address },
+      { key: "addressLine2", label: "Address line 2", wide: true, max: LIMITS.address },
       { key: "city", label: "City" },
       { key: "state", label: "State / Province" },
       { key: "postalCode", label: "Postal code" },
@@ -116,6 +118,15 @@ function asString(v: unknown): string {
 
 function inputType(kind?: FieldDef["kind"]): string {
   return kind === "email" || kind === "tel" || kind === "url" ? kind : "text";
+}
+
+/** Per-field character cap (input maxLength) — explicit `max`, else a sane default by kind. */
+function fieldMax(f: FieldDef): number {
+  if (f.max) return f.max;
+  if (f.kind === "email") return LIMITS.emailMax;
+  if (f.kind === "url") return LIMITS.url;
+  if (f.kind === "tel") return LIMITS.phone;
+  return LIMITS.name;
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -284,6 +295,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
       if (f.required && !trimmed) err = `${f.label} is required`;
       else if (trimmed && f.kind === "email" && !isEmail(val)) err = "Enter a valid email address";
       else if (trimmed && f.kind === "url" && !isUrl(val)) err = "Enter a valid URL";
+      else if (trimmed && f.kind === "tel" && !isPhone(val)) err = "Enter a valid phone number";
     }
     const label = f.required ? (
       <>
@@ -305,6 +317,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           <Input
             id={id}
             type={inputType(f.kind)}
+            maxLength={fieldMax(f)}
             value={val}
             onChange={(e) => setField(f.key, e.target.value)}
             onBlur={() => touch(f.key)}
@@ -457,7 +470,11 @@ function SkillsEditor({ skills, onChange }: { skills: string[]; onChange: (next:
   const [draft, setDraft] = useState("");
 
   function add(raw: string) {
-    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    // Split on commas, trim, drop blanks and anything over the per-skill length cap.
+    const parts = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s && s.length <= LIMITS.skill);
     if (!parts.length) return;
     const next = [...skills];
     for (const p of parts) {

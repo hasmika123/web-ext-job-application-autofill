@@ -1,5 +1,6 @@
 import { apiUrl } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
+import { LIMITS } from "@/lib/validate";
 
 /**
  * POST /api/resumes/upload — Option A proxy upload (the permanent design on a
@@ -35,6 +36,12 @@ export async function POST(request: Request) {
   }
   if (file.size > MAX_BYTES) {
     return Response.json({ error: "That file is too large (max 10MB)." }, { status: 413 });
+  }
+  if (label.length > LIMITS.resumeLabelServer) {
+    return Response.json(
+      { error: `Resume name is too long (max ${LIMITS.resumeLabelServer} characters).` },
+      { status: 400 },
+    );
   }
 
   const auth = { authorization: `Bearer ${token}` };

@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/api";
+import { LIMITS } from "@/lib/validate";
 
 /**
  * PUT /api/resumes/:id — partial update of one of the current user's resumes.
@@ -31,6 +32,12 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
   if (body.label !== undefined) {
     if (typeof body.label !== "string" || !body.label.trim()) {
       return Response.json({ error: "'label' must be a non-empty string." }, { status: 400 });
+    }
+    if (body.label.trim().length > LIMITS.resumeLabelServer) {
+      return Response.json(
+        { error: `Resume name is too long (max ${LIMITS.resumeLabelServer} characters).` },
+        { status: 400 },
+      );
     }
     forward.label = body.label.trim();
   }

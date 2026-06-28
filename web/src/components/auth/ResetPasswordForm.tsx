@@ -6,8 +6,7 @@ import Link from "next/link";
 import { Input, Field } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-
-const MIN_LEN = 4;
+import { LIMITS } from "@/lib/validate";
 
 /**
  * "Forgot password" step 2 — set a new password using the key from the emailed link.
@@ -26,7 +25,8 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
 
   const errs: Record<string, string> = {};
   if (!password) errs.password = "Password is required";
-  else if (password.length < MIN_LEN) errs.password = `Use at least ${MIN_LEN} characters`;
+  else if (password.length < LIMITS.passwordMin) errs.password = `Use at least ${LIMITS.passwordMin} characters`;
+  else if (password.length > LIMITS.passwordMax) errs.password = `Use at most ${LIMITS.passwordMax} characters`;
   if (confirm !== password) errs.confirm = "Passwords don't match";
   const show = (n: string) => submitted || touched[n];
   const touch = (n: string) => setTouched((t) => ({ ...t, [n]: true }));
@@ -96,6 +96,7 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
             name="password"
             type="password"
             autoComplete="new-password"
+            maxLength={LIMITS.passwordMax}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => touch("password")}
@@ -108,6 +109,7 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
             name="confirm"
             type="password"
             autoComplete="new-password"
+            maxLength={LIMITS.passwordMax}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             onBlur={() => touch("confirm")}
