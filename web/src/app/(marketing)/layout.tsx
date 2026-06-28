@@ -13,7 +13,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <header className="sticky top-0 z-30 border-b border-line bg-paper">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
           <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2">
-            <Logo height={34} />
+            <Logo height={30} />
             <BetaBadge />
           </Link>
           <nav className="hidden items-center gap-6 text-sm font-medium text-ink-soft sm:flex">
