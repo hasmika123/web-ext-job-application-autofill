@@ -61,28 +61,26 @@ public class GoogleAuthController {
         if (googleLoginVM == null || googleLoginVM.getCredential() == null || googleLoginVM.getCredential().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        GoogleIdTokenService.GoogleProfile profile;
         try {
-            profile = googleIdTokenService.verify(googleLoginVM.getCredential());
-        } catch (Exception e) {
-            // WARN (not DEBUG) so the reason shows in prod logs; also returned in the body so a
-            // failed sign-in is self-diagnosing. Not sensitive — it's an OAuth validation reason.
-            LOG.warn("Rejected Google credential: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", String.valueOf(e.getMessage())));
+            GoogleIdTokenService.GoogleProfile profile = googleIdTokenService.verify(googleLoginVM.getCredential());
+            if (profile.email() == null || profile.email().isBlank() || !profile.emailVerified()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", "email missing or not verified"));
+            }
+            User user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());
+            String authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.joining(" "));
+            if (authorities.isBlank()) {
+                authorities = AuthoritiesConstants.USER;
+            }
+            TokenIssuer.TokenPair pair = tokenIssuer.issue(user.getLogin(), authorities, user.getId());
+            HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.setBearerAuth(pair.accessToken());
+            return new ResponseEntity<>(pair, httpHeaders, HttpStatus.OK);
+        } catch (Throwable e) {
+            // Broad on purpose during rollout: surface WHATEVER fails — token verification, user
+            // find-or-create, or token issuance — so the cause is visible end-to-end (logs + body).
+            // Tighten back to a generic 401 once Google sign-in is confirmed working.
+            LOG.warn("Google sign-in failed", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", e.getClass().getSimpleName() + ": " + e.getMessage()));
         }
-        if (profile.email() == null || profile.email().isBlank() || !profile.emailVerified()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("reason", "email missing or not verified"));
-        }
-
-        User user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());
-        String authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.joining(" "));
-        if (authorities.isBlank()) {
-            authorities = AuthoritiesConstants.USER;
-        }
-
-        TokenIssuer.TokenPair pair = tokenIssuer.issue(user.getLogin(), authorities, user.getId());
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBearerAuth(pair.accessToken());
-        return new ResponseEntity<>(pair, httpHeaders, HttpStatus.OK);
     }
 }
