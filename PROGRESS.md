@@ -25,8 +25,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **IMMEDIATE NEXT: Phase 9.A0 — security gate (default-admin seed).** The admin-side build
-> starts here. Full plan + legalities in `ADMIN-PLAN.md`; step-by-step kickstart in `HANDOFF.md`.
+> ▶️ **IMMEDIATE NEXT: Phase 9.A1 — admin gate + shell + Users + audit foundation.** ✅ **9.A0
+> (security gate) is DONE** on branch **`admin-buildout`** (default-admin seed killed + env-bootstrapped
+> real admin — see the 9.A0 entry below; user verifies `admin/admin`→401 on the VPS after deploy).
+> All admin-side work continues on `admin-buildout` (NOT `main` — pushing `main` auto-deploys to prod;
+> merge when 9.A0 is verified). Full plan + legalities in `ADMIN-PLAN.md`.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -528,10 +531,21 @@ focused Claude Code session.
 > Full plan + legalities in **`ADMIN-PLAN.md`**. Locked decisions: PII = metadata + reason-gated;
 > location = in-app `/admin` route group; order A0→A5. Commit prefix `phase9.<n>:`. Overlaps Phase 8
 > (MFA/audit/RBAC) — build the consumer-grade slices here, the enterprise versions in 8.
-- [ ] **9.A0 Security gate (do FIRST).** The default `admin`/`admin` (+`user`/`user`) seed loads with
-  **no Liquibase context** → present in PROD with JHipster's public bcrypt hash. Gate the seed to
-  `dev`/`faker` (or migrate-delete in prod) + bootstrap the real admin from env (`ADMIN_EMAIL` /
-  `ADMIN_PASSWORD_HASH`). Verify `admin/admin` no longer logs in on the VPS.
+- [x] **9.A0 Security gate (do FIRST).** ✅ DONE (on branch `admin-buildout`). Three moves:
+  (1) **gated the seed** — moved `user.csv`+`user_authority.csv` loadData out of the contextless initial
+  changeset into `20260628000000_seed_dev_default_users.xml` (`context="dev or test"`), so a fresh PROD DB
+  never gets the public-hash accounts; `authority.csv` (ROLE_* rows) stays contextless (prod needs them);
+  `validCheckSum=ANY` on the initial changeset so existing DBs accept the modified checksum. (2) **prod
+  cleanup** — `20260628000100_remove_default_admin_seed.xml` (`context="prod"`) deletes the seeded
+  `admin`/`user` rows, matching BOTH login AND the exact public bcrypt hash (surgical: can't touch a real
+  admin). (3) **env-bootstrap real admin** — `AdminBootstrap` ApplicationRunner creates/promotes an admin
+  from `ADMIN_EMAIL`+`ADMIN_PASSWORD_HASH` (bcrypt hash, env only — nothing committed); runs every boot
+  (change hash+restart to rotate); defensive (bad value logs+skips, never crashes startup). Prod Liquibase
+  set **synchronous** (`async-start:false`) so the runner is ordered after migrations. Env wired in
+  `application-prod.yml`+compose; documented in `.env.example`+`DEPLOY.md §2.1`. `AdminBootstrapTest` (6) +
+  full unit suite + `compileJava` green on JDK 17 (ITs run in CI; the existing-prod checksum/cleanup path
+  is by-design, not CI-testable on a fresh DB). **User verifies on the VPS after deploy:** `admin/admin`
+  → 401, real admin signs in.
 - [ ] **9.A1 Admin gate + shell + Users + audit foundation.** `(admin)` route group gated on
   `ROLE_ADMIN` (via `/api/account` authorities; Spring `/api/admin/**` is the real enforcement);
   admin shell; Users list/detail reusing `/api/admin/users` (activate/deactivate, reset, roles,
@@ -621,6 +635,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-28 · **phase9.A0 — security gate (default-admin seed)** · On branch `admin-buildout`. Killed
+  the public-hash `admin`/`admin`+`user`/`user` seed in prod: gated the user loadData to `dev`/`test`
+  (new `20260628000000_seed_dev_default_users.xml`, `validCheckSum=ANY` on the initial changeset), added a
+  prod-only cleanup migration that deletes the seeded rows matched by login+exact-hash, and added an env
+  `AdminBootstrap` runner that creates/promotes a real admin from `ADMIN_EMAIL`+`ADMIN_PASSWORD_HASH`
+  (bcrypt, env-only). Prod Liquibase → synchronous so the runner runs after migrations. Wired
+  prod.yml+compose+`.env.example`+`DEPLOY.md §2.1`. `AdminBootstrapTest`+full unit suite green on JDK 17.
 - 2026-06-28 · admin-side plan drafted · New `ADMIN-PLAN.md` (admin console, ops, legalities) + a
   **Phase 9** section (9.A0→9.A5 + cross-cutting) here and a pointer in `ROADMAP.md`. Locked: PII =
   metadata + reason-gated; in-app `/admin`; A0 (default-admin seed fix) first. Includes the upcoming

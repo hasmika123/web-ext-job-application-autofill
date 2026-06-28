@@ -48,6 +48,29 @@ Edit `.env` and set every value. For `SSLIP_HOST`, take your public IP and repla
 with dashes: IP `203.0.113.5` → `SSLIP_HOST=203-0-113-5.sslip.io`. The app will then be at
 `https://app.203-0-113-5.sslip.io` and the API at `https://api.203-0-113-5.sslip.io`.
 
+### 2.1 Admin account (Phase 9.A0 — security gate)
+The default `admin`/`admin` (and `user`/`user`) seed accounts — which shipped with JHipster's
+*publicly known* bcrypt hashes — **no longer exist in production**: the seed is gated to
+`dev`/`test`, and a one-time migration removes any already-seeded rows from the live DB on the
+next deploy. The real admin is created from env at startup (no credential committed). Set in `.env`:
+```bash
+# Bcrypt the password (never store the plaintext):
+htpasswd -bnBC 10 "" 'your-strong-admin-password' | tr -d ':\n'   # prints the $2y$… hash
+```
+```ini
+ADMIN_EMAIL=you@kiwiply.com
+ADMIN_PASSWORD_HASH=$2y$10$....the-hash-from-above....
+# ADMIN_LOGIN=admin   # optional; defaults to "admin"
+```
+On boot the API creates (or, on later boots, updates/rotates) this admin with `ROLE_ADMIN`.
+Change the hash + restart the api container to rotate the password. Leaving these blank skips
+the bootstrap — then **no one can sign in as admin**. After deploy, verify the old seed is dead:
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.<SSLIP_HOST>/api/authenticate \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}'   # expect 401
+```
+then confirm the real admin signs in.
+
 ## 3. Launch
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build

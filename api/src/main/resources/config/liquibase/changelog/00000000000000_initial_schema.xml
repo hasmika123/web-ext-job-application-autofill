@@ -11,6 +11,17 @@
         The initial schema has the '00000000000001' id, so that it is over-written if we re-generate it.
     -->
     <changeSet id="00000000000001" author="jhipster">
+        <!--
+            Phase 9.A0 (security gate): the default `admin`/`admin` + `user`/`user` accounts
+            (JHipster's PUBLICLY KNOWN bcrypt hashes) used to be seeded here with NO context,
+            so they loaded into PRODUCTION. The user.csv + user_authority.csv loadData blocks
+            have moved to 20260628000000_seed_dev_default_users.xml, gated to `dev`/`test`.
+            authority.csv (the ROLE_* rows) STAYS here, contextless — prod needs the roles.
+            Removing those two loadData blocks changes this changeset's checksum; existing
+            databases already ran it, so validCheckSum=ANY lets them accept the new checksum
+            without re-running (they're cleaned up by 20260628000100_remove_default_admin_seed).
+        -->
+        <validCheckSum>ANY</validCheckSum>
         <createTable tableName="jhi_user">
             <column name="id" type="bigint" autoIncrement="true" startWith="1050">
                 <constraints primaryKey="true" nullable="false"/>
@@ -81,21 +92,11 @@
                   usePreparedStatements="true">
             <column name="name" type="string"/>
         </loadData>
-        <loadData
-                  file="config/liquibase/data/user.csv"
-                  separator=";"
-                  tableName="jhi_user"
-                  usePreparedStatements="true">
-            <column name="activated" type="boolean"/>
-            <column name="created_date" type="timestamp"/>
-        </loadData>
-        <loadData
-                  file="config/liquibase/data/user_authority.csv"
-                  separator=";"
-                  tableName="jhi_user_authority"
-                  usePreparedStatements="true">
-            <column name="user_id" type="numeric"/>
-        </loadData>
+        <!--
+            The default user.csv + user_authority.csv seeds (admin/admin, user/user) are NO
+            LONGER loaded here. They live in 20260628000000_seed_dev_default_users.xml, gated
+            to the `dev`/`test` contexts so they never reach production. See the changeset note above.
+        -->
         <dropDefaultValue tableName="jhi_user" columnName="created_date" columnDataType="${datetimeType}"/>
     </changeSet>
 

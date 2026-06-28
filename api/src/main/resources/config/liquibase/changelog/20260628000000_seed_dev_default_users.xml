@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 9.A0 (security gate): the default `admin`/`admin` + `user`/`user` accounts moved
+        OUT of the contextless initial changeset (00000000000000_initial_schema.xml) so they no
+        longer reach production. They are re-seeded here ONLY for the `dev` and `test` contexts
+        (local development + integration tests rely on these logins). On a `prod` profile this
+        changeset is skipped, so a fresh prod DB never gets the public-hash accounts.
+
+        The roles themselves (authority.csv) stay in the initial changeset (contextless) because
+        prod needs ROLE_ADMIN / ROLE_USER for real accounts.
+    -->
+    <changeSet id="20260628000000-1" author="dossier" context="dev or test">
+        <loadData
+                  file="config/liquibase/data/user.csv"
+                  separator=";"
+                  tableName="jhi_user"
+                  usePreparedStatements="true">
+            <column name="activated" type="boolean"/>
+            <column name="created_date" type="timestamp"/>
+        </loadData>
+        <loadData
+                  file="config/liquibase/data/user_authority.csv"
+                  separator=";"
+                  tableName="jhi_user_authority"
+                  usePreparedStatements="true">
+            <column name="user_id" type="numeric"/>
+        </loadData>
+    </changeSet>
+</databaseChangeLog>

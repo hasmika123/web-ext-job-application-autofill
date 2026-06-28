@@ -29,5 +29,7 @@
     <include file="config/liquibase/changelog/20260622120000_added_refresh_token.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260623000000_ai_usage.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260627000000_confirm_reviewed_resumes.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260628000000_seed_dev_default_users.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260628000100_remove_default_admin_seed.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

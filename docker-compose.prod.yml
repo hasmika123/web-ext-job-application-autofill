@@ -69,6 +69,11 @@ services:
       - DOSSIER_AI_MODEL=${DOSSIER_AI_MODEL:-gemini-2.0-flash}
       - DOSSIER_AI_API_KEY=${DOSSIER_AI_API_KEY:-}
       - DOSSIER_AI_FREE_MONTHLY_QUOTA=${DOSSIER_AI_FREE_MONTHLY_QUOTA:-50}
+      # Real admin, created/promoted from env at startup (Phase 9.A0). ADMIN_PASSWORD_HASH is a
+      # BCRYPT hash, not a plaintext password — nothing is committed. Blank ⇒ no admin bootstrap.
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
+      - ADMIN_LOGIN=${ADMIN_LOGIN:-admin}
     depends_on:
       mysql:
         condition: service_healthy

@@ -150,7 +150,12 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-# application:
+application:
+  liquibase:
+    # Run Liquibase SYNCHRONOUSLY in prod (JHipster defaults to async). The AdminBootstrap
+    # ApplicationRunner reads/writes jhi_user and MUST run after migrations complete — async
+    # start would race it (and let the app serve traffic before the schema is migrated).
+    async-start: false
 
 # ===================================================================
 # Dossier application properties (prod)
@@ -181,3 +186,12 @@ dossier:
     api-key: ${DOSSIER_AI_API_KEY:}
     free-monthly-quota: ${DOSSIER_AI_FREE_MONTHLY_QUOTA:50}
     max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}
+  admin:
+    # Real production admin, created/promoted from env at startup by AdminBootstrap (Phase 9.A0).
+    # The default admin/admin seed no longer reaches prod; set these to install a real admin.
+    # password-hash is a BCRYPT hash (NOT a plaintext password) and lives in env only — nothing
+    # committed. Leave email/password-hash blank to skip bootstrap. Generate a hash with:
+    #   htpasswd -bnBC 10 "" 'your-strong-password' | tr -d ':\n'
+    email: ${ADMIN_EMAIL:}
+    password-hash: ${ADMIN_PASSWORD_HASH:}
+    login: ${ADMIN_LOGIN:admin}

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 9.A0 (security gate) — PROD cleanup.
+
+        Gating the seed (20260628000000) only stops FRESH prod DBs from getting the default
+        accounts. Production already ran the old contextless seed, so `admin`/`admin` and
+        `user`/`user` (JHipster's publicly known bcrypt hashes) are already in the live DB.
+        Liquibase will not re-run a historical changeset, so this forward-only migration deletes
+        those rows.
+
+        Surgical + safe: it matches BOTH the login AND the exact public seed password hash, so it
+        can only ever remove the untouched default-seeded rows — never a real admin a human has
+        re-keyed, and never a real user who happens to pick the login "user". On a fresh prod DB
+        (where the seed was gated out) it is a no-op. Skipped outside `prod` so dev/test keep the
+        seeded accounts from 20260628000000.
+
+        The real production admin is created separately, from env, by AdminBootstrap (after
+        migrations complete) — no password or hash is committed.
+    -->
+    <changeSet id="20260628000100-1" author="dossier" context="prod">
+        <sql endDelimiter=";" splitStatements="true" stripComments="true">
+            DELETE ua FROM jhi_user_authority ua
+              JOIN jhi_user u ON u.id = ua.user_id
+             WHERE (u.login = 'admin' AND u.password_hash = '$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC')
+                OR (u.login = 'user'  AND u.password_hash = '$2a$10$VEjxo0jq2YG9Rbk2HmX9S.k1uZBGYUHdUcid3g/vfiEl7lwWgOH/K');
+            DELETE FROM jhi_user
+             WHERE (login = 'admin' AND password_hash = '$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC')
+                OR (login = 'user'  AND password_hash = '$2a$10$VEjxo0jq2YG9Rbk2HmX9S.k1uZBGYUHdUcid3g/vfiEl7lwWgOH/K');
+        </sql>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>
