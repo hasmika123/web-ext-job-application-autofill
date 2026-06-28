@@ -7,8 +7,14 @@ import static com.dossier.api.security.SecurityUtils.REFRESH_TOKEN_TYPE;
 import static com.dossier.api.security.SecurityUtils.TOKEN_TYPE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
+import com.dossier.api.domain.Authority;
+import com.dossier.api.domain.User;
+import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.security.DomainUserDetailsService.UserWithId;
+import com.dossier.api.service.GoogleIdTokenService;
 import com.dossier.api.service.RefreshTokenService;
+import com.dossier.api.service.UserService;
+import com.dossier.api.web.rest.vm.GoogleLoginVM;
 import com.dossier.api.web.rest.vm.LoginVM;
 import com.dossier.api.web.rest.vm.RefreshVM;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -74,16 +80,74 @@ public class AuthenticateController {
 
     private final RefreshTokenService refreshTokenService;
 
+    private final GoogleIdTokenService googleIdTokenService;
+
+    private final UserService userService;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
         AuthenticationManagerBuilder authenticationManagerBuilder,
-        RefreshTokenService refreshTokenService
+        RefreshTokenService refreshTokenService,
+        GoogleIdTokenService googleIdTokenService,
+        UserService userService
     ) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokenDecoder = refreshTokenDecoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
         this.refreshTokenService = refreshTokenService;
+        this.googleIdTokenService = googleIdTokenService;
+        this.userService = userService;
+    }
+
+    /**
+     * {@code POST /auth/google} : sign in (or sign up) with a Google ID token. The web app
+     * sends the credential from Google Identity Services; we verify it (signature, expiry,
+     * Google issuer, and audience == our client id), find-or-create the user by verified
+     * email, and return our own access + refresh token pair — the same shape as
+     * {@code /authenticate}. Public, like the other auth endpoints. 503 when Google sign-in
+     * isn't configured (no client id); 401 for any invalid/unverified credential.
+     */
+    @Operation(
+        summary = "Sign in with Google",
+        description = "Verify a Google ID token and exchange it for our access + refresh tokens (find-or-create by verified email)."
+    )
+    @PostMapping("/auth/google")
+    public ResponseEntity<TokenResponse> googleLogin(@RequestBody GoogleLoginVM googleLoginVM) {
+        if (!googleIdTokenService.isConfigured()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (googleLoginVM == null || googleLoginVM.getCredential() == null || googleLoginVM.getCredential().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        GoogleIdTokenService.GoogleProfile profile;
+        try {
+            profile = googleIdTokenService.verify(googleLoginVM.getCredential());
+        } catch (Exception e) {
+            LOG.debug("Rejected Google credential: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (profile.email() == null || profile.email().isBlank() || !profile.emailVerified()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());
+        String authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.joining(" "));
+        if (authorities.isBlank()) {
+            authorities = AuthoritiesConstants.USER;
+        }
+        Long userId = user.getId();
+        String subject = user.getLogin();
+
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        String family = UUID.randomUUID().toString();
+        String refreshJti = UUID.randomUUID().toString();
+        refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti);
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(accessToken);
+        return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
     }
 
     @Operation(

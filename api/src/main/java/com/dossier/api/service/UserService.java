@@ -135,6 +135,56 @@ public class UserService {
         return newUser;
     }
 
+    /**
+     * Find-or-create the account for a verified Google sign-in. Linking is by verified
+     * email: if an account already exists for the email, that account is used (and
+     * activated if it wasn't — Google has verified the address), so Google sign-in and
+     * password sign-in resolve to the SAME account. A new account is created activated,
+     * with the email as its login and an unusable random password (Google is its only
+     * sign-in). The caller has already verified the Google token + email_verified.
+     */
+    public User findOrCreateGoogleUser(String email, String firstName, String lastName) {
+        String mail = email.toLowerCase();
+        Optional<User> existing = userRepository.findOneByEmailIgnoreCase(mail);
+        if (existing.isPresent()) {
+            User user = existing.get();
+            boolean changed = false;
+            if (!user.isActivated()) {
+                user.setActivated(true);
+                user.setActivationKey(null);
+                changed = true;
+            }
+            if ((user.getFirstName() == null || user.getFirstName().isBlank()) && firstName != null) {
+                user.setFirstName(firstName);
+                changed = true;
+            }
+            if ((user.getLastName() == null || user.getLastName().isBlank()) && lastName != null) {
+                user.setLastName(lastName);
+                changed = true;
+            }
+            if (changed) {
+                this.clearUserCaches(user);
+            }
+            return user;
+        }
+        User newUser = new User();
+        newUser.setLogin(mail);
+        // No usable password — a random one is encoded so password login can never match.
+        newUser.setPassword(passwordEncoder.encode(RandomUtil.generatePassword()));
+        newUser.setFirstName(firstName);
+        newUser.setLastName(lastName);
+        newUser.setEmail(mail);
+        newUser.setLangKey("en");
+        newUser.setActivated(true); // Google already verified the email
+        Set<Authority> authorities = new HashSet<>();
+        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
+        newUser.setAuthorities(authorities);
+        userRepository.save(newUser);
+        this.clearUserCaches(newUser);
+        LOG.debug("Created Google user: {}", newUser);
+        return newUser;
+    }
+
     private boolean removeNonActivatedUser(User existingUser) {
         if (existingUser.isActivated()) {
             return false;

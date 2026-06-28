@@ -231,6 +231,11 @@ jhipster:
 
 # App-specific config lives under `dossier.*` (JHipster owns `application.*`).
 dossier:
+  # "Sign in with Google": the OAuth client id we require as the ID-token audience.
+  # NOT a secret (it ships in the web bundle too), but kept in env so each environment
+  # sets its own. Empty = Google sign-in is off (the endpoint returns 503).
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
   # S3-compatible resume blob store. In prod these come from env (Cloudflare R2);
   # dev/tests override the endpoint + credentials (MinIO). Never commit real keys.
   storage:

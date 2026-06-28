@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.web.rest.vm.GoogleLoginVM;
 import com.dossier.api.web.rest.vm.LoginVM;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -103,5 +104,17 @@ class AuthenticateControllerIT {
             .andExpect(jsonPath("$.accessToken").doesNotExist())
             .andExpect(jsonPath("$.refreshToken").doesNotExist())
             .andExpect(header().doesNotExist("Authorization"));
+    }
+
+    @Test
+    void testGoogleLoginNotConfiguredReturns503() throws Exception {
+        // The test config sets no dossier.google.client-id, so Google sign-in is "dark":
+        // the endpoint must exist and be PUBLIC (not 401/403) yet respond 503 — verifiable
+        // without a real Google token or network.
+        GoogleLoginVM vm = new GoogleLoginVM();
+        vm.setCredential("dummy-google-id-token");
+        mockMvc
+            .perform(post("/api/auth/google").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isServiceUnavailable());
     }
 }
