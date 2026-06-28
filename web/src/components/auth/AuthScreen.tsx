@@ -264,8 +264,11 @@ function SignupForm({ next }: { next?: string }) {
           {busy ? "Creating…" : "Create account"}
         </button>
         <p className="mt-3 text-xs leading-relaxed text-muted">
-          Kiwiply is in beta and provided “as is”. By creating an account you agree to how Kiwiply
-          handles your data, described in our{" "}
+          Kiwiply is in beta and provided “as is”. By creating an account you agree to our{" "}
+          <Link href="/terms" className="font-medium text-accent-deep hover:underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
           <Link href="/privacy" className="font-medium text-accent-deep hover:underline">
             Privacy Policy
           </Link>
