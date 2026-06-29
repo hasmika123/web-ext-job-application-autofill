@@ -24,7 +24,7 @@ const SECTIONS: Section[] = [
   { title: "Security & sessions", desc: "Active refresh-token families; revoke / force logout.", status: "Soon" },
   { title: "Analytics", desc: "Signups, activation rate, active users, funnel.", status: "Live", href: "/admin/analytics" },
   { title: "Email", desc: "Newsletter subscribers, consent, CSV export.", status: "Live", href: "/admin/subscribers" },
-  { title: "Bug reports", desc: "Triage queue for reports from web + extension.", status: "Soon" },
+  { title: "Bug reports", desc: "Triage queue for reports from web + extension.", status: "Live", href: "/admin/bug-reports" },
   { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Live", href: "/admin/system" },
   { title: "Audit log", desc: "Every admin action and reason-gated PII access.", status: "Live", href: "/admin/audit" },
 ];

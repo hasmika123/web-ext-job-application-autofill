@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 9.A5 — user bug reports / ideas (web widget + extension). Diagnostic context is
+        stored only with consent. Indexed by status (triage queue) and created_date.
+    -->
+    <changeSet id="20260629000300-1" author="dossier">
+        <createTable tableName="bug_report">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="source" type="varchar(20)"/>
+            <column name="user_login" type="varchar(50)"/>
+            <column name="email" type="varchar(254)"/>
+            <column name="message" type="varchar(4000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="severity" type="varchar(20)"/>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="url" type="varchar(2048)"/>
+            <column name="app_version" type="varchar(50)"/>
+            <column name="user_agent" type="varchar(512)"/>
+            <column name="admin_notes" type="varchar(4000)"/>
+            <column name="created_date" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="bug_report" indexName="idx_bug_report_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="bug_report" indexName="idx_bug_report_created">
+            <column name="created_date"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

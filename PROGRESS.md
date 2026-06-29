@@ -25,14 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **IMMEDIATE NEXT: Phase 9.A5 — bug reports** (`bug_report` capture from web + extension popup →
-> admin triage queue; context w/ consent, optional screenshot; rate-limited).
-> ✅ **9.A0–A3 DONE and LIVE on prod** (security gate; admin console + actions + audit; dashboards;
-> analytics). **9.A4 (email subscription) DONE on `admin-buildout`** — double opt-in newsletter +
-> public opt-in (footer + unticked signup checkbox) + admin list/CSV export; shipping via the A4 PR
-> (CI → merge). Admin build-out accumulates on `admin-buildout`, PR'd to `main` as coherent chunks
-> (merge auto-deploys to prod). Deferred A4 follow-ups: **Brevo API list sync** + a **physical postal
-> address** for campaigns (CAN-SPAM). Full plan + legalities in `ADMIN-PLAN.md`.
+> ▶️ **IMMEDIATE NEXT: Phase 9.X — cross-cutting** (MFA for admins; `/privacy` + `/terms` updates for
+> admin access + marketing email + diagnostic data; DSAR export-a-user's-data).
+> ✅ **Phase 9 CORE (A0–A5) COMPLETE.** A0–A4 are LIVE on prod. **A5 (bug reports) DONE on
+> `admin-buildout`** (floating web widget + extension popup + admin triage + email notice to support@,
+> ext v0.25.0) — shipping via the A5 PR (CI → merge). Admin build-out accumulates on `admin-buildout`,
+> PR'd to `main` as coherent chunks (merge auto-deploys to prod). **Deferred follow-ups:** Brevo API
+> list sync + physical postal address (CAN-SPAM) for campaigns; bug-report screenshots; the A5 extension
+> (v0.25.0) needs a manual CWS upload. Full plan + legalities in `ADMIN-PLAN.md`.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -574,8 +574,12 @@ focused Claude Code session.
   `/newsletter/{confirm,unsubscribe}` pages; admin `/admin/subscribers` list (status filter/counts) +
   CSV export. Confirm + unsubscribe links in every email. **Brevo API list sync deferred** (CSV export
   for manual import initially); **physical postal address** still needed before real campaigns (CAN-SPAM).
-- [ ] **9.A5 Bug report.** `bug_report` capture (web help menu + extension popup, context w/ consent,
-  optional screenshot) → `POST /api/bug-reports` (rate-limited); admin triage queue.
+- [x] **9.A5 Bug report.** ✅ DONE on `admin-buildout` (A5.1–A5.4). `bug_report` model + public
+  `POST /api/bug-reports` (auth-optional, rate-limited BFF; diagnostic context only with consent;
+  best-effort email notice to support@) + admin triage queue (`/admin/bug-reports` list/detail,
+  status/severity/notes, audited). Web capture = a **floating circular button** (bottom-right, global,
+  not a footer link). Extension popup "Report" via the TrackingProvider seam (ext v0.25.0). *Screenshots
+  deferred (per decision); Brevo not involved here.*
 - [ ] **9.X Cross-cutting.** MFA for admins; `/privacy` + `/terms` updates (admin access, marketing
   email, diagnostic data); DSAR export-a-user's-data.
 
@@ -652,6 +656,31 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A5.4 — extension "Report a bug" (ext v0.25.0)** · On branch `admin-buildout`.
+  Popup header "Report" link → inline form (type/message/consent) submitting via the TrackingProvider
+  seam (`submitBugReport` on `createKiwiplyProvider` + base contract stub; auth-optional, attaches the
+  bearer when connected, `source=extension`, appVersion from manifest, url/userAgent only on consent).
+  Versions bumped 0.24.5→0.25.0 (manifest + package). Extension suite green (tracking 47→49). **Completes
+  Phase 9.A5 and the Phase 9 core (A0–A5).**
+- 2026-06-29 · **phase9.A5.3 — admin bug-report triage queue** · On branch `admin-buildout`.
+  `/admin/bug-reports` (status tabs + counts + table) → `/admin/bug-reports/[id]` detail (message +
+  context grid) + `BugTriageControl` (status/severity/notes → BFF PUT, audited server-side). Bug-reports
+  nav + Overview card → Live. `npm test`+`build` green. A5.4 last: extension popup "Report a bug".
+- 2026-06-29 · **phase9.A5.2 — web bug-report widget** · On branch `admin-buildout`. Global floating
+  circular "report a bug" button (bottom-right, mounted in the root layout) → dialog (type, message,
+  optional email, **ticked-but-optional** consent to attach this page's URL + browser info); submits to
+  rate-limited BFF `POST /api/bug-reports` (forwards the bearer when signed in). `npm test`+`build`
+  green. A5.3 next: admin triage queue; A5.4: extension popup button.
+- 2026-06-29 · **phase9.A4 MERGED + DEPLOYED** · PR #11 merged → double-opt-in newsletter + Pro
+  "Notify me" → footer form are LIVE on prod.
+- 2026-06-29 · **phase9.A5.1 — bug-report backend** · On branch `admin-buildout`. `BugReport` entity
+  (+ `BugCategory`/`BugSeverity`/`BugStatus` enums + `20260629000300_bug_report` migration + repo);
+  `BugReportService` (submit: NEW report, login from principal if present, diagnostic context only when
+  consented, message capped; best-effort email notice to `support@kiwiply.com` (config
+  `dossier.bug-report.notify-email`); admin triage status/severity/notes — audited `BUG_TRIAGE_UPDATE`).
+  Public `POST /api/bug-reports` (permitAll, auth-optional) + admin `AdminBugReportResource`
+  (list/counts/get/PUT). `BugReportServiceTest` (6) + `BugReportResourceIT` (2) + `AdminBugReportResourceIT`
+  (3, all @Transactional); unit/ArchUnit green on JDK 17. A5.2 next: web floating bug-report widget.
 - 2026-06-29 · **phase9.A4.3 — admin subscriber list + CSV export** · On branch `admin-buildout`.
   `AdminSubscriberResource` (ADMIN): paginated list (status filter), per-status counts, CSV export
   (tokens never exposed via `AdminSubscriberDTO`). Web `/admin/subscribers` (status tabs w/ counts,

@@ -11,6 +11,7 @@
       <img class="brandimg" src="../../icons/logo.png" alt="Kiwiply" />
       <div class="headlinks">
         <button class="link" id="manage" title="Manage your profile & resumes on kiwiply.com">Manage</button>
+        <button class="link" id="report-link" title="Report a bug or idea">Report</button>
         <button class="link" id="settings-link" title="Extension settings">Settings</button>
       </div>
     </header>
@@ -28,6 +29,24 @@
     <button id="fill" class="primary">Scan &amp; fill this page</button>
     <button id="savejob" class="ghost">Save this job</button>
     <div class="status" id="status"></div>
+
+    <!-- Report a bug / idea (Phase 9.A5) — hidden until the header "Report" link is clicked. -->
+    <div id="bugbox" class="bugbox hidden">
+      <label class="lbl" for="bug-category">Report a bug or idea</label>
+      <select id="bug-category" class="select">
+        <option value="BUG">Bug</option>
+        <option value="IDEA">Idea / feedback</option>
+        <option value="OTHER">Other</option>
+      </select>
+      <textarea id="bug-message" class="bugmsg" rows="3" maxlength="4000" placeholder="What happened or what would you like?"></textarea>
+      <label class="check"><input type="checkbox" id="bug-consent" checked /> <span>Include this page's address &amp; browser info</span></label>
+      <div class="bugactions">
+        <button id="bug-cancel" class="link">Cancel</button>
+        <button id="bug-send" class="primary">Send report</button>
+      </div>
+      <div class="status" id="bug-status"></div>
+    </div>
+
     <div class="foot"><span class="footicon">✓</span> Reviews before filling · never clicks Submit</div>
   </div>
   <script src="../lib/schema.js"></script>
