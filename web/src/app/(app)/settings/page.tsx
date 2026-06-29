@@ -105,9 +105,16 @@ export default async function SettingsPage() {
             <p className="text-sm text-ink-soft">
               Your data is yours. Read what we collect and how it&apos;s handled in the{" "}
               <Link href="/privacy" className="font-medium text-accent-deep hover:underline">Privacy Policy</Link>.
-              To request a copy of your data, email{" "}
-              <a href="mailto:support@kiwiply.com" className="font-medium text-accent-deep hover:underline">support@kiwiply.com</a>.
             </p>
+            <div className="mt-4">
+              <a
+                href="/api/account/export"
+                className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper-2"
+              >
+                Download my data
+              </a>
+              <p className="mt-1.5 text-xs text-ink-soft">A JSON copy of your profile, resumes, applications, and activity.</p>
+            </div>
             <div className="mt-5">
               <DeleteAccountButton />
             </div>

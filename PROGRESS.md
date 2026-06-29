@@ -656,6 +656,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.X.2 — self-service data export (DSAR)** · On branch `admin-buildout`.
+  `AccountExportService` assembles the current user's data (account, bio, resume metadata,
+  applications, field cache, AI answers — structured only, no file bytes) reusing the user-scoped
+  services; `GET /api/account/export` (auth, inherently self-scoped). Web: "Download my data" on
+  Settings → CSV/JSON-download BFF (attaches bearer + download headers). `AccountExportResourceIT` (2,
+  @Transactional) + unit/ArchUnit green; web build green. 9.X.3 next: admin email-OTP MFA.
 - 2026-06-29 · **phase9.A5 MERGED + DEPLOYED** · PR #12 merged → bug reports (floating web widget +
   extension popup + admin triage + support@ notice) shipping to prod. Phase 9 core (A0–A5) all live.
 - 2026-06-29 · **phase9.X.1 — privacy/terms updates** · On branch `admin-buildout`. `/privacy`: new
