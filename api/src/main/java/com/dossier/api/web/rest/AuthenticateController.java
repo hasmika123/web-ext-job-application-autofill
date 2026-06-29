@@ -8,8 +8,10 @@ import static com.dossier.api.security.SecurityUtils.TOKEN_TYPE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.dossier.api.security.DomainUserDetailsService.UserWithId;
+import com.dossier.api.service.AdminMfaService;
 import com.dossier.api.service.RefreshTokenService;
 import com.dossier.api.web.rest.vm.LoginVM;
+import com.dossier.api.web.rest.vm.MfaVM;
 import com.dossier.api.web.rest.vm.RefreshVM;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +20,7 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -74,16 +77,20 @@ public class AuthenticateController {
 
     private final RefreshTokenService refreshTokenService;
 
+    private final AdminMfaService adminMfaService;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
         AuthenticationManagerBuilder authenticationManagerBuilder,
-        RefreshTokenService refreshTokenService
+        RefreshTokenService refreshTokenService,
+        AdminMfaService adminMfaService
     ) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokenDecoder = refreshTokenDecoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
         this.refreshTokenService = refreshTokenService;
+        this.adminMfaService = adminMfaService;
     }
 
     @Operation(
@@ -91,7 +98,7 @@ public class AuthenticateController {
         description = "Exchange username + password for a short-lived access token and a long-lived refresh token."
     )
     @PostMapping("/authenticate")
-    public ResponseEntity<TokenResponse> authorize(@Valid @RequestBody LoginVM loginVM) {
+    public ResponseEntity<?> authorize(@Valid @RequestBody LoginVM loginVM) {
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
             loginVM.getUsername(),
             loginVM.getPassword()
@@ -103,20 +110,43 @@ public class AuthenticateController {
         String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
         Long userId = authentication.getPrincipal() instanceof UserWithId user ? user.getId() : null;
 
-        String accessToken = buildToken(authentication.getName(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        // Admin email-OTP MFA (Phase 9.X.3) — when enabled, an admin gets an emailed code instead
+        // of tokens here, and completes sign-in at /authenticate/mfa. If they have no email on file,
+        // startChallenge returns empty and we fall through to a normal login (never lock out).
+        if (adminMfaService.shouldChallenge(authorities)) {
+            Optional<String> mfaToken = adminMfaService.startChallenge(authentication.getName(), userId, authorities);
+            if (mfaToken.isPresent()) {
+                return ResponseEntity.ok(new MfaRequiredResponse(mfaToken.get()));
+            }
+        }
+
+        return issueTokens(authentication.getName(), authorities, userId);
+    }
+
+    /**
+     * {@code POST /authenticate/mfa} : complete an admin MFA sign-in by submitting the emailed code.
+     * Returns the token pair on success, or {@code 401} if the code/token is wrong, expired, or used.
+     */
+    @Operation(summary = "Complete MFA sign-in", description = "Exchange a valid mfaToken + emailed code for the token pair.")
+    @PostMapping("/authenticate/mfa")
+    public ResponseEntity<?> authorizeMfa(@Valid @RequestBody MfaVM mfaVM) {
+        Optional<AdminMfaService.VerifiedClaims> claims = adminMfaService.verify(mfaVM.getMfaToken(), mfaVM.getCode());
+        if (claims.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        AdminMfaService.VerifiedClaims c = claims.get();
+        return issueTokens(c.login(), c.authorities(), c.userId());
+    }
+
+    /** Build the access + refresh token pair (new rotation family) and the bearer header. */
+    private ResponseEntity<TokenResponse> issueTokens(String subject, String authorities, Long userId) {
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
         // New login starts a new rotation family. The refresh token carries a jti recorded
         // server-side so it can be rotated and revoked.
         String family = UUID.randomUUID().toString();
         String refreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(
-            authentication.getName(),
-            authorities,
-            userId,
-            REFRESH_TOKEN_TYPE,
-            refreshTokenValidityInSeconds,
-            refreshJti
-        );
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -269,6 +299,25 @@ public class AuthenticateController {
      * Response body for {@code /authenticate} (both tokens) and {@code /refresh}
      * (access token only — {@code refreshToken} is omitted when null).
      */
+    /** Returned by {@code /authenticate} when an admin must complete email-OTP MFA. */
+    static class MfaRequiredResponse {
+
+        private final boolean mfaRequired = true;
+        private final String mfaToken;
+
+        MfaRequiredResponse(String mfaToken) {
+            this.mfaToken = mfaToken;
+        }
+
+        public boolean isMfaRequired() {
+            return mfaRequired;
+        }
+
+        public String getMfaToken() {
+            return mfaToken;
+        }
+    }
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
     static class TokenResponse {
 

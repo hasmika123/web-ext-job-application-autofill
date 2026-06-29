@@ -195,3 +195,9 @@ dossier:
     email: ${ADMIN_EMAIL:}
     password-hash: ${ADMIN_PASSWORD_HASH:}
     login: ${ADMIN_LOGIN:admin}
+    # Email-OTP MFA for admin sign-in (Phase 9.X.3). OFF by default. Turn on ONLY after confirming
+    # admin email delivery works (Brevo) — otherwise admins can't receive the code. An admin with no
+    # email on file is signed in without a code (never locked out). To recover if misconfigured, set
+    # this back to false and recreate the api container.
+    mfa-enabled: ${ADMIN_MFA_ENABLED:false}
+    mfa-code-ttl-seconds: ${ADMIN_MFA_CODE_TTL_SECONDS:600}

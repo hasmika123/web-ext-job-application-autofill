@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 9.X.3 — pending admin email-OTP MFA challenges. Short-lived, single-use,
+        attempt-limited; deleted on success/expiry. Off by default (dossier.admin.mfa-enabled).
+    -->
+    <changeSet id="20260629000400-1" author="dossier">
+        <createTable tableName="admin_mfa_challenge">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="mfa_token" type="varchar(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_admin_mfa_token"/>
+            </column>
+            <column name="login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint"/>
+            <column name="authorities" type="varchar(1000)"/>
+            <column name="code_hash" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="attempts" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

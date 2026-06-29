@@ -64,6 +64,8 @@ function LoginForm({ next }: { next?: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mfaToken, setMfaToken] = useState<string | null>(null); // set when admin MFA is required
+  const [code, setCode] = useState("");
 
   const errs: Record<string, string> = {};
   if (!username.trim()) errs.username = "Username is required";
@@ -88,6 +90,11 @@ function LoginForm({ next }: { next?: string }) {
         setError(data.error ?? "Sign in failed.");
         return;
       }
+      // Admin MFA (Phase 9.X.3): password OK, but a code was emailed — go to the second step.
+      if (data.mfaRequired && data.mfaToken) {
+        setMfaToken(data.mfaToken);
+        return;
+      }
       track("login", { method: "password" });
       router.push(safeNext(next) ?? "/dashboard");
       router.refresh();
@@ -96,6 +103,77 @@ function LoginForm({ next }: { next?: string }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function verifyMfa(e: FormEvent) {
+    e.preventDefault();
+    if (!code.trim()) {
+      setError("Enter the code we emailed you.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login/mfa", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mfaToken, code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "That code is incorrect or expired.");
+        return;
+      }
+      track("login", { method: "password_mfa" });
+      router.push(safeNext(next) ?? "/dashboard");
+      router.refresh();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (mfaToken) {
+    return (
+      <>
+        <h1 className="text-[28px] font-bold tracking-tight text-ink">Check your email</h1>
+        <p className="mb-6 mt-1 text-sm text-muted">We emailed a 6-digit code to verify it&apos;s you. Enter it to finish signing in.</p>
+        <form onSubmit={verifyMfa} noValidate>
+          <Field label="Verification code" htmlFor="login-mfa-code">
+            <Input
+              id="login-mfa-code"
+              name="one-time-code"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              autoFocus
+            />
+          </Field>
+          {error && (
+            <p role="alert" className="mb-3 text-sm font-medium text-danger">
+              {error}
+            </p>
+          )}
+          <button type="submit" disabled={busy} className={cn(buttonVariants("accent"), "w-full")}>
+            {busy ? "Verifying…" : "Verify & sign in"}
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => {
+            setMfaToken(null);
+            setCode("");
+            setError(null);
+          }}
+          className="mt-4 text-[13px] font-medium text-ink-soft hover:text-ink"
+        >
+          ← Back to sign in
+        </button>
+      </>
+    );
   }
 
   return (
