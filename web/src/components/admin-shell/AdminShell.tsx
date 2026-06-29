@@ -43,7 +43,7 @@ const NAV: NavItem[] = [
   { href: "/admin/analytics", label: "Analytics", icon: I.analytics, soon: true },
   { href: "/admin/email", label: "Email", icon: I.email, soon: true },
   { href: "/admin/bug-reports", label: "Bug reports", icon: I.bug, soon: true },
-  { href: "/admin/system", label: "System", icon: I.system, soon: true },
+  { href: "/admin/system", label: "System", icon: I.system },
   { href: "/admin/audit", label: "Audit log", icon: I.audit },
 ];
 

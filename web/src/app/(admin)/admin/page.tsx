@@ -17,7 +17,7 @@ const SECTIONS: Section[] = [
   { title: "Analytics", desc: "Signups, activation rate, DAU/WAU, funnel.", status: "Soon" },
   { title: "Email", desc: "Newsletter subscribers, consent, export, Brevo sync.", status: "Soon" },
   { title: "Bug reports", desc: "Triage queue for reports from web + extension.", status: "Soon" },
-  { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Soon" },
+  { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Live", href: "/admin/system" },
   { title: "Audit log", desc: "Every admin action and reason-gated PII access.", status: "Live", href: "/admin/audit" },
 ];
 
