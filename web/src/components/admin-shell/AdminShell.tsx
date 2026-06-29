@@ -38,7 +38,7 @@ const I = {
 const NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: I.overview },
   { href: "/admin/users", label: "Users", icon: I.users },
-  { href: "/admin/ai", label: "AI usage", icon: I.ai, soon: true },
+  { href: "/admin/ai", label: "AI usage", icon: I.ai },
   { href: "/admin/security", label: "Security", icon: I.security, soon: true },
   { href: "/admin/analytics", label: "Analytics", icon: I.analytics, soon: true },
   { href: "/admin/email", label: "Email", icon: I.email, soon: true },

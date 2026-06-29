@@ -640,6 +640,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A1 MERGED + DEPLOYED** · PR #8 (A1.1–A1.5 + 2 CI-caught fixes: non-transactional
+  ITs corrupting the shared seed; a deactivate 500 from building a DTO after an EM-clearing revoke)
+  merged to `main` after CI green; Deploy workflow succeeded → admin console LIVE at kiwiply.com/admin.
+  `admin-buildout` re-synced to `main`.
+- 2026-06-29 · **phase9.A2.1 — admin AI-usage dashboard** · On branch `admin-buildout`. Read-only
+  `GET /api/admin/ai-usage?period=YYYY-MM` (ADMIN-gated) aggregating the `ai_usage` meter: default
+  quota, total drafts, active-user count, per-user counts (busiest first, capped 200). Repo gained
+  `findByPeriodOrderByDraftCountDesc`/`countByPeriod`/`sumDraftsForPeriod`. Web `/admin/ai` (stat
+  cards + per-user table + prev/next month + over-quota highlight); nav + Overview card → Live.
+  `AdminAiUsageResourceIT` (3, @Transactional) + unit suite + ArchUnit green; web tsc/eslint/build
+  green. Doesn't touch the live `AiDraftService`. A2.2 next: per-user quota override (write path).
 - 2026-06-29 · **phase9.A1.5 — admin audit-log viewer** · On branch `admin-buildout`. Read-only
   `/admin/audit` server-paginated table (reuses `GET /api/admin/audit`): when/actor/action/target/
   reason, newest first. Flipped the shell "Audit log" nav + Overview card to Live. `npm test`+`build`
