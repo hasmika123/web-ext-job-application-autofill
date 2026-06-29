@@ -635,6 +635,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A1.4b — admin user detail + actions (web)** · On branch `admin-buildout`.
+  `/admin/users/[login]` detail page (account metadata grid) + `UserActions` (client): activate/
+  deactivate, grant/revoke admin, send password reset, force-logout, and type-the-login-to-confirm
+  permanent delete. Self-harming actions disabled in the UI (server guards too). BFF
+  `POST/DELETE /api/admin/users/[login]` whitelists the verbs and passes Spring's status/message
+  through; toasts on result + `router.refresh()`. Users-list rows now link to the detail page.
+  `npm test`+`build` green. Live view needs the stack (user step). **Completes the core of A1**
+  (audit viewer UI optional next).
 - 2026-06-29 · **phase9.A1.4a — admin user actions (backend)** · On branch `admin-buildout`. New
   `AdminUserActionService` + `AdminUserActionResource` (`/api/admin/users/{login}/…`): activate,
   deactivate (also revokes refresh tokens), grant/revoke-admin, reset-password (emails a reset link),

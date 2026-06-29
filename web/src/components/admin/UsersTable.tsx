@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export interface AdminUser {
   id: number;
@@ -70,7 +71,9 @@ export default function UsersTable({ users }: { users: AdminUser[] }) {
               return (
                 <tr key={u.id} className="border-b border-line last:border-0 bg-paper hover:bg-paper-2">
                   <td className="px-4 py-2.5">
-                    <div className="font-medium text-ink">{u.login}</div>
+                    <Link href={`/admin/users/${encodeURIComponent(u.login)}`} className="font-medium text-ink hover:underline">
+                      {u.login}
+                    </Link>
                     {fullName(u) && <div className="text-xs text-ink-soft">{fullName(u)}</div>}
                   </td>
                   <td className="px-4 py-2.5 text-ink-soft">{u.email || "—"}</td>

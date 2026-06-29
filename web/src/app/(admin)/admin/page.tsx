@@ -11,7 +11,7 @@ type Section = { title: string; desc: string; status: "Live" | "Soon"; href?: st
 // The admin console build-out (Phase 9). Each lights up as its phase lands; this Overview
 // will gain real KPIs in A3 (business analytics).
 const SECTIONS: Section[] = [
-  { title: "Users", desc: "Browse accounts and status. Detail actions land next.", status: "Live", href: "/admin/users" },
+  { title: "Users", desc: "Browse accounts; activate, reset, roles, force-logout, delete.", status: "Live", href: "/admin/users" },
   { title: "AI usage", desc: "Per-user drafting usage and quota overrides.", status: "Soon" },
   { title: "Security & sessions", desc: "Active refresh-token families; revoke / force logout.", status: "Soon" },
   { title: "Analytics", desc: "Signups, activation rate, DAU/WAU, funnel.", status: "Soon" },
