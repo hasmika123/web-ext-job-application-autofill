@@ -648,6 +648,19 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A3 + system-fix MERGED + DEPLOYED** · PR #10 merged → A3 analytics + the
+  `/admin/system` field fix (git/build-time were empty in the image → show Version/App/Profiles; JVM
+  memory sums jhimetrics pools) are LIVE on prod.
+- 2026-06-29 · **phase9.A4.1 — newsletter backend (double opt-in)** · On branch `admin-buildout`. New
+  `EmailSubscriber` entity (PENDING/CONFIRMED/UNSUBSCRIBED) + `20260629000200_email_subscriber`
+  migration + repo; `NewsletterService` (subscribe → PENDING + confirm-token email; confirm; one-click
+  tokenized unsubscribe; consent source+timestamp; generic responses to avoid enumeration); public
+  `NewsletterResource` (`POST /api/newsletter/{subscribe,confirm,unsubscribe}`, permitAll in
+  SecurityConfiguration; reached via the BFF which rate-limits). Confirm email via existing MailService
+  (SMTP) with confirm + one-click unsubscribe links. `NewsletterServiceTest` (7) + `NewsletterResourceIT`
+  (4, @Transactional) + unit/ArchUnit green on JDK 17. A4.2 next: web public (footer form + confirm/
+  unsubscribe pages + signup opt-in checkbox); A4.3 admin list/export; Brevo list sync deferred (CSV
+  export for manual import initially).
 - 2026-06-29 · **phase9.A3 — business-analytics overview** · On branch `admin-buildout`. Backend
   `AdminAnalyticsService`/`AdminAnalyticsResource` (`GET /api/admin/analytics`, ADMIN, read-only DB
   aggregates): total/activated users + activation rate, signups 7d/30d, active users 7d/30d (proxy =
