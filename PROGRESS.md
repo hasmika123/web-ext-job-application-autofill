@@ -652,6 +652,11 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A5.2 — web bug-report widget** · On branch `admin-buildout`. Global floating
+  circular "report a bug" button (bottom-right, mounted in the root layout) → dialog (type, message,
+  optional email, **ticked-but-optional** consent to attach this page's URL + browser info); submits to
+  rate-limited BFF `POST /api/bug-reports` (forwards the bearer when signed in). `npm test`+`build`
+  green. A5.3 next: admin triage queue; A5.4: extension popup button.
 - 2026-06-29 · **phase9.A4 MERGED + DEPLOYED** · PR #11 merged → double-opt-in newsletter + Pro
   "Notify me" → footer form are LIVE on prod.
 - 2026-06-29 · **phase9.A5.1 — bug-report backend** · On branch `admin-buildout`. `BugReport` entity
