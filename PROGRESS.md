@@ -635,6 +635,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A1.1 — audit-log foundation (backend)** · On branch `admin-buildout` (NOT
+  merged; admin build-out accumulates until a coherent chunk ships). New immutable `AdminAuditEvent`
+  entity (+ `20260629000000_admin_audit_event` migration, indexed by created/actor/target),
+  `AdminAuditService` (records actor from the security context in the caller's tx; action-key
+  constants for A1.4; paginated read + actor filter), `AdminAuditEventDTO`, repository, and read-only
+  `GET /api/admin/audit` (ADMIN-gated). `AdminAuditServiceTest` (4) + `AdminAuditResourceIT` (3,
+  CI-only); full unit suite + ArchUnit green on JDK 17. A1.2 next: web `(admin)` gate + shell.
 - 2026-06-28 · **phase9.A0 — security gate (default-admin seed)** · On branch `admin-buildout`. Killed
   the public-hash `admin`/`admin`+`user`/`user` seed in prod: gated the user loadData to `dev`/`test`
   (new `20260628000000_seed_dev_default_users.xml`, `validCheckSum=ANY` on the initial changeset), added a

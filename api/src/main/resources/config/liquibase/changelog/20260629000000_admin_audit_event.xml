@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 9.A1 — immutable admin audit trail. One row per admin action / reason-gated PII
+        access (who/what/target/why/when). Append-only; keyed by login strings (no FK) so it
+        survives target-user deletion. Indexed for the admin log's common filters.
+    -->
+    <changeSet id="20260629000000-1" author="dossier">
+        <createTable tableName="admin_audit_event">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="actor_login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_type" type="varchar(50)"/>
+            <column name="target_id" type="varchar(191)"/>
+            <column name="reason" type="varchar(1000)"/>
+            <column name="details" type="varchar(2000)"/>
+            <column name="created_date" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="admin_audit_event" indexName="idx_admin_audit_created">
+            <column name="created_date"/>
+        </createIndex>
+        <createIndex tableName="admin_audit_event" indexName="idx_admin_audit_actor">
+            <column name="actor_login"/>
+        </createIndex>
+        <createIndex tableName="admin_audit_event" indexName="idx_admin_audit_target">
+            <column name="target_type"/>
+            <column name="target_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>
