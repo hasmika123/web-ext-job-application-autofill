@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { BrandLockup } from "@/components/ui";
 
 export interface AdminAccount {
   login?: string;
@@ -60,6 +60,15 @@ function AdminBadge() {
   );
 }
 
+// The real Kiwiply lockup, light variant for the dark sidebar (public/logo-dark-mode.png).
+// Width follows the lockup's intrinsic aspect ratio (1713×488, same as logo.svg).
+function AdminLogo({ height }: { height: number }) {
+  const width = Math.round((height * 1713) / 488);
+  return (
+    <Image src="/logo-dark-mode.png" alt="Kiwiply" width={width} height={height} priority className="block h-auto w-auto" style={{ height, width }} />
+  );
+}
+
 /**
  * Admin console shell (Phase 9.A1). Deliberately distinct from the user AppShell — a dark
  * charcoal sidebar + an "Admin" badge signal you're operating the service, not using it.
@@ -103,7 +112,7 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
           ☰
         </button>
         <span className="flex items-center gap-2">
-          <BrandLockup size={22} plyColor="var(--paper)" />
+          <AdminLogo height={22} />
           <AdminBadge />
         </span>
       </div>
@@ -118,13 +127,15 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
         )}
       >
         <Link href="/admin" onClick={() => setOpen(false)} aria-label="Kiwiply admin" className="mb-5 flex items-center gap-2 px-2">
-          <BrandLockup size={24} plyColor="var(--paper)" />
+          <AdminLogo height={26} />
           <AdminBadge />
         </Link>
 
         <nav className="flex flex-col gap-1">
           {NAV.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            // Exact match for Overview ("/admin"); prefix match for the deeper sections — otherwise
+            // "/admin" (a prefix of every admin route) would light up Overview on every page.
+            const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href + "/"));
             if (item.soon) {
               return (
                 <span
