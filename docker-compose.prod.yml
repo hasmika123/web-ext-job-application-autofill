@@ -77,6 +77,10 @@ services:
       # Email-OTP MFA for admin sign-in (Phase 9.X.3). OFF by default; enable only once admin email
       # delivery is confirmed (the code is emailed). Recover by setting back to false + recreate.
       - ADMIN_MFA_ENABLED=${ADMIN_MFA_ENABLED:-false}
+      # Newsletter: Brevo Contacts API sync (off unless both set) + postal address for campaign emails.
+      - BREVO_API_KEY=${BREVO_API_KEY:-}
+      - BREVO_LIST_ID=${BREVO_LIST_ID:-0}
+      - NEWSLETTER_POSTAL_ADDRESS=${NEWSLETTER_POSTAL_ADDRESS:-}
     depends_on:
       mysql:
         condition: service_healthy

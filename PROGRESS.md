@@ -661,6 +661,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9 MERGED + DEPLOYED (9.X)** · PR #13 merged → privacy/terms + DSAR export live;
+  admin email-OTP MFA shipped dormant. **Phase 9 (A0–A5 + 9.X) fully on prod.**
+- 2026-06-29 · **phase9.A4.4 — Brevo list sync + postal address** · On branch `admin-buildout`.
+  `BrevoContactService` (java.net.http) mirrors confirmed subscribers to a Brevo contact list and
+  blacklists on unsubscribe — best-effort, OFF unless `BREVO_API_KEY`+`BREVO_LIST_ID` set (local DB
+  stays source of truth). Wired into `NewsletterService` confirm/unsubscribe; confirm email footer now
+  carries `NEWSLETTER_POSTAL_ADDRESS` (CAN-SPAM). Env in prod.yml+compose+`.env.example`.
+  `BrevoContactServiceTest` (3) + updated `NewsletterServiceTest` + unit/ArchUnit green on JDK 17.
 - 2026-06-29 · **phase9.X.3 — admin email-OTP MFA (gated OFF)** · On branch `admin-buildout`. After a
   correct password, an admin (when `dossier.admin.mfa-enabled`=true) is emailed a 6-digit code and
   completes sign-in at `POST /api/authenticate/mfa`; `/authenticate` returns `{mfaRequired,mfaToken}`.
