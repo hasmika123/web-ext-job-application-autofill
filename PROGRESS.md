@@ -635,6 +635,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A1.3 — admin Users list** · On branch `admin-buildout`. `/admin/users`
+  server-paginated table reusing Spring `GET /api/admin/users` directly via `serverApiFetch` (read in
+  a server component — no BFF route; those come with the A1.4 mutations). `UsersTable` (client) adds a
+  page-scoped quick filter (labelled, since the backend list has no search yet); columns login/name/
+  email/status/roles/joined; prev/next pagination off `X-Total-Count`. Flipped the shell "Users" nav
+  to active + Overview Users card → Live/linked. `npm test`+`build` green. A1.4 next: user detail +
+  actions (activate/deactivate, reset, roles, force-logout, delete) wired to the audit log.
 - 2026-06-29 · **phase9.A1.2 — web admin gate + shell** · On branch `admin-buildout`. New `(admin)`
   route group with a gate layout (no session→/login; 401/403→/login; authed-but-not-ROLE_ADMIN or
   API-down→404, fail-closed — real enforcement stays Spring's `/api/admin/**`). Distinct dark

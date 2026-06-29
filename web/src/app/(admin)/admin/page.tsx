@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -5,12 +6,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type Section = { title: string; desc: string; status: "Live" | "Soon" };
+type Section = { title: string; desc: string; status: "Live" | "Soon"; href?: string };
 
 // The admin console build-out (Phase 9). Each lights up as its phase lands; this Overview
 // will gain real KPIs in A3 (business analytics).
 const SECTIONS: Section[] = [
-  { title: "Users", desc: "Search accounts; activate, reset, roles, force-logout, delete.", status: "Soon" },
+  { title: "Users", desc: "Browse accounts and status. Detail actions land next.", status: "Live", href: "/admin/users" },
   { title: "AI usage", desc: "Per-user drafting usage and quota overrides.", status: "Soon" },
   { title: "Security & sessions", desc: "Active refresh-token families; revoke / force logout.", status: "Soon" },
   { title: "Analytics", desc: "Signups, activation rate, DAU/WAU, funnel.", status: "Soon" },
@@ -32,15 +33,30 @@ export default function AdminOverviewPage() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {SECTIONS.map((s) => (
-          <div key={s.title} className="rounded-[var(--radius)] border border-line bg-paper p-5">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-[15px] font-semibold text-ink">{s.title}</h2>
-              <StatusPill status={s.status} />
+        {SECTIONS.map((s) => {
+          const inner = (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-[15px] font-semibold text-ink">{s.title}</h2>
+                <StatusPill status={s.status} />
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">{s.desc}</p>
+            </>
+          );
+          return s.href ? (
+            <Link
+              key={s.title}
+              href={s.href}
+              className="rounded-[var(--radius)] border border-line bg-paper p-5 transition-colors hover:border-ink"
+            >
+              {inner}
+            </Link>
+          ) : (
+            <div key={s.title} className="rounded-[var(--radius)] border border-line bg-paper p-5">
+              {inner}
             </div>
-            <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">{s.desc}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
