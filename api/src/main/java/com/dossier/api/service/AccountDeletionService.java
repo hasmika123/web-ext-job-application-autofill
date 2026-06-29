@@ -95,4 +95,34 @@ public class AccountDeletionService {
 
         LOG.info("Deleted account and all data for user: {}", login);
     }
+
+    /**
+     * Admin-initiated GDPR erase of a SPECIFIC user (Phase 9.A1.4). Same guarantees as the
+     * self-serve path — blobs first so a storage failure rolls everything back — but scoped by
+     * the target user's id rather than the security principal. 404 if the login is unknown.
+     */
+    public void deleteUserAccountByLogin(String login) {
+        User user = userRepository
+            .findOneByLogin(login)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such user"));
+        Long userId = user.getId();
+
+        List<Resume> resumes = resumeRepository.findByUserId(userId);
+        for (Resume resume : resumes) {
+            String key = resume.getr2ObjectKey();
+            if (key != null && !key.isBlank()) {
+                storageService.delete(key);
+            }
+        }
+
+        resumeRepository.deleteAll(resumes);
+        bioRepository.deleteAll(bioRepository.findByUserId(userId));
+        applicationRepository.deleteAll(applicationRepository.findByUserId(userId));
+        aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserId(userId));
+        fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
+        refreshTokenService.deleteAllForUser(userId);
+        userService.deleteUser(login);
+
+        LOG.info("Admin deleted account and all data for user: {}", login);
+    }
 }

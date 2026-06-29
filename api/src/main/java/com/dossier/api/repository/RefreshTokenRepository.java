@@ -25,4 +25,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from RefreshToken t where t.userId = :userId")
     int deleteByUserId(@Param("userId") Long userId);
+
+    // Force-logout (Phase 9.A1.4): revoke (keep the rows for forensics) every live token for a
+    // user, so none can be rotated — they must sign in again.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update RefreshToken t set t.revoked = true where t.userId = :userId and t.revoked = false")
+    int revokeAllByUserId(@Param("userId") Long userId);
 }

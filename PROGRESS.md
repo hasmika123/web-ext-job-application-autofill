@@ -635,6 +635,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A1.4a — admin user actions (backend)** · On branch `admin-buildout`. New
+  `AdminUserActionService` + `AdminUserActionResource` (`/api/admin/users/{login}/…`): activate,
+  deactivate (also revokes refresh tokens), grant/revoke-admin, reset-password (emails a reset link),
+  force-logout, and DELETE `/data` = full GDPR erase. Self-action guards (can't deactivate/demote/
+  force-logout/delete yourself → 400); every action audited via `AdminAuditService`. Added by-user
+  finders (`findByUserId`) to the 5 data repos + `AccountDeletionService.deleteUserAccountByLogin`
+  (target-scoped erase, leaves the live self-delete path untouched) + `RefreshTokenService.
+  revokeAllForUser`. `AdminUserActionServiceTest` (12) + `AdminUserActionResourceIT` (6, CI); full
+  unit suite + ArchUnit green on JDK 17. A1.4b next: web user-detail page + actions UI + BFF.
 - 2026-06-29 · **phase9.A1.3 — admin Users list** · On branch `admin-buildout`. `/admin/users`
   server-paginated table reusing Spring `GET /api/admin/users` directly via `serverApiFetch` (read in
   a server component — no BFF route; those come with the A1.4 mutations). `UsersTable` (client) adds a
