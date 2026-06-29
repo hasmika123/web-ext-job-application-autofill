@@ -52,15 +52,29 @@ with dashes: IP `203.0.113.5` → `SSLIP_HOST=203-0-113-5.sslip.io`. The app wil
 The default `admin`/`admin` (and `user`/`user`) seed accounts — which shipped with JHipster's
 *publicly known* bcrypt hashes — **no longer exist in production**: the seed is gated to
 `dev`/`test`, and a one-time migration removes any already-seeded rows from the live DB on the
-next deploy. The real admin is created from env at startup (no credential committed). Set in `.env`:
+next deploy. The real admin is created from env at startup (no credential committed).
+
+⚠️ **A bcrypt hash is full of `$`, and Docker Compose interpolates `$` in `.env` values** — a raw
+hash gets corrupted (e.g. `$2y$10$…` arrives as `$y$10$…` and the bootstrap logs *"not a bcrypt
+hash"*). **You MUST double every `$` to `$$` in `.env`** (Compose collapses `$$`→`$` on the way in).
+This one-liner regenerates the hash and prints the correctly-escaped line — paste its output
+straight into `.env` (it also keeps the plaintext out of your shell history):
 ```bash
-# Bcrypt the password (never store the plaintext):
-htpasswd -bnBC 10 "" 'your-strong-admin-password' | tr -d ':\n'   # prints the $2y$… hash
+read -rs PW; echo
+RAW=$(docker run --rm httpd:2.4-alpine htpasswd -bnBC 10 "" "$PW" | tr -d ':\n'); unset PW
+printf 'ADMIN_PASSWORD_HASH=%s\n' "$(printf '%s' "$RAW" | sed 's/[$]/$$/g')"
 ```
+Resulting `.env` (note the `$$`):
 ```ini
 ADMIN_EMAIL=you@kiwiply.com
-ADMIN_PASSWORD_HASH=$2y$10$....the-hash-from-above....
+ADMIN_PASSWORD_HASH=$$2y$$10$$....the-rest-of-the-hash....
 # ADMIN_LOGIN=admin   # optional; defaults to "admin"
+```
+After editing, recreate the container and confirm the env arrived intact (a clean 60-char `$2y$10$…`):
+```bash
+docker compose -f docker-compose.prod.yml up -d --force-recreate api
+docker compose -f docker-compose.prod.yml exec api printenv ADMIN_PASSWORD_HASH
+docker compose -f docker-compose.prod.yml logs api | grep -i "admin bootstrap" | tail -1  # want: created admin account
 ```
 On boot the API creates (or, on later boots, updates/rotates) this admin with `ROLE_ADMIN`.
 Change the hash + restart the api container to rotate the password. Leaving these blank skips
