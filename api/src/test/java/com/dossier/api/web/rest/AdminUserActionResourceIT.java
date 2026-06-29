@@ -15,14 +15,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Admin user actions (Phase 9.A1.4): gating, the self-action guard, role + activation changes,
  * and the full GDPR delete — against the seeded {@code user} account on a real MySQL container.
  * (CSRF is disabled in SecurityConfiguration, so no token is needed on these POST/DELETEs.)
+ *
+ * {@code @Transactional} so each test's mutations (deactivate/role changes, and especially the
+ * permanent delete of the shared seeded {@code user}) roll back and don't leak into other ITs.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
+@Transactional
 class AdminUserActionResourceIT {
 
     @Autowired

@@ -14,13 +14,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The admin audit-log read endpoint (Phase 9.A1): ADMIN-only, paginated, and surfaces persisted
  * events. Also exercises the {@code admin_audit_event} migration on a real MySQL container.
+ *
+ * {@code @Transactional} so the audit rows this test persists roll back and don't accumulate.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
+@Transactional
 class AdminAuditResourceIT {
 
     @Autowired
