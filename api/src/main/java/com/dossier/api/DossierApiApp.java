@@ -1,5 +1,6 @@
 package com.dossier.api;
 
+import com.dossier.api.config.AdminBootstrapProperties;
 import com.dossier.api.config.ApplicationProperties;
 import com.dossier.api.config.CRLFLogConverter;
 import jakarta.annotation.PostConstruct;
@@ -20,7 +21,7 @@ import tech.jhipster.config.DefaultProfileUtil;
 import tech.jhipster.config.JHipsterConstants;
 
 @SpringBootApplication
-@EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class })
+@EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class, AdminBootstrapProperties.class })
 public class DossierApiApp {
 
     private static final Logger LOG = LoggerFactory.getLogger(DossierApiApp.class);

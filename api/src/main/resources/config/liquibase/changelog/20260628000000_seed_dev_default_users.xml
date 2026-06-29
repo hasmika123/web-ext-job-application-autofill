@@ -14,7 +14,7 @@
         The roles themselves (authority.csv) stay in the initial changeset (contextless) because
         prod needs ROLE_ADMIN / ROLE_USER for real accounts.
     -->
-    <changeSet id="20260628000000-1" author="dossier" context="dev or test">
+    <changeSet id="20260628000000-1" author="dossier" context="dev,test">
         <loadData
                   file="config/liquibase/data/user.csv"
                   separator=";"

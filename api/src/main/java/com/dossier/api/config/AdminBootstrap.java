@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
  * startup — a typo in {@code ADMIN_PASSWORD_HASH} must never brick the API for regular users.
  */
 @Component
-@EnableConfigurationProperties(AdminBootstrapProperties.class)
 public class AdminBootstrap implements ApplicationRunner {
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminBootstrap.class);
