@@ -652,6 +652,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A4 MERGED + DEPLOYED** · PR #11 merged → double-opt-in newsletter + Pro
+  "Notify me" → footer form are LIVE on prod.
+- 2026-06-29 · **phase9.A5.1 — bug-report backend** · On branch `admin-buildout`. `BugReport` entity
+  (+ `BugCategory`/`BugSeverity`/`BugStatus` enums + `20260629000300_bug_report` migration + repo);
+  `BugReportService` (submit: NEW report, login from principal if present, diagnostic context only when
+  consented, message capped; best-effort email notice to `support@kiwiply.com` (config
+  `dossier.bug-report.notify-email`); admin triage status/severity/notes — audited `BUG_TRIAGE_UPDATE`).
+  Public `POST /api/bug-reports` (permitAll, auth-optional) + admin `AdminBugReportResource`
+  (list/counts/get/PUT). `BugReportServiceTest` (6) + `BugReportResourceIT` (2) + `AdminBugReportResourceIT`
+  (3, all @Transactional); unit/ArchUnit green on JDK 17. A5.2 next: web floating bug-report widget.
 - 2026-06-29 · **phase9.A4.3 — admin subscriber list + CSV export** · On branch `admin-buildout`.
   `AdminSubscriberResource` (ADMIN): paginated list (status filter), per-status counts, CSV export
   (tokens never exposed via `AdminSubscriberDTO`). Web `/admin/subscribers` (status tabs w/ counts,
