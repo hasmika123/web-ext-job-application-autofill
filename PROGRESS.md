@@ -648,6 +648,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A4.2 — newsletter public web flow** · On branch `admin-buildout`. Footer
+  `NewsletterSignup` (double opt-in, generic "check your email") on the marketing footer; rate-limited
+  BFF `POST /api/newsletter` + `/confirm` + `/unsubscribe` (proxy Spring); top-level `/newsletter/
+  confirm` + `/newsletter/unsubscribe` pages (`NewsletterAction` runs the token action on mount, shows
+  result); separate **unticked** marketing opt-in checkbox at signup (fire-and-forget, source=signup,
+  never blocks signup). `npm test`+`build` green. A4.3 next: admin subscriber list + CSV export.
 - 2026-06-29 · **phase9.A3 + system-fix MERGED + DEPLOYED** · PR #10 merged → A3 analytics + the
   `/admin/system` field fix (git/build-time were empty in the image → show Version/App/Profiles; JVM
   memory sums jhimetrics pools) are LIVE on prod.

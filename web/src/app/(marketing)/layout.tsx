@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo, BetaBadge } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
+import NewsletterSignup from "@/components/NewsletterSignup";
 
 /**
  * Marketing shell for public pages (`/` and `/privacy`). Sticky branded header +
@@ -35,7 +36,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <div className="flex-1">{children}</div>
 
       <footer className="mt-auto border-t border-line bg-paper-2">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-muted">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 text-sm text-muted">
+          <div className="max-w-sm">
+            <NewsletterSignup />
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Logo height={26} />
