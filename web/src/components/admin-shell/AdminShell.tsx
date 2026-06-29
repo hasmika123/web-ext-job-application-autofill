@@ -42,7 +42,7 @@ const NAV: NavItem[] = [
   { href: "/admin/security", label: "Security", icon: I.security, soon: true },
   { href: "/admin/analytics", label: "Analytics", icon: I.analytics },
   { href: "/admin/subscribers", label: "Email", icon: I.email },
-  { href: "/admin/bug-reports", label: "Bug reports", icon: I.bug, soon: true },
+  { href: "/admin/bug-reports", label: "Bug reports", icon: I.bug },
   { href: "/admin/system", label: "System", icon: I.system },
   { href: "/admin/audit", label: "Audit log", icon: I.audit },
 ];

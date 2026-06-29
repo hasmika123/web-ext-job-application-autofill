@@ -652,6 +652,10 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A5.3 — admin bug-report triage queue** · On branch `admin-buildout`.
+  `/admin/bug-reports` (status tabs + counts + table) → `/admin/bug-reports/[id]` detail (message +
+  context grid) + `BugTriageControl` (status/severity/notes → BFF PUT, audited server-side). Bug-reports
+  nav + Overview card → Live. `npm test`+`build` green. A5.4 last: extension popup "Report a bug".
 - 2026-06-29 · **phase9.A5.2 — web bug-report widget** · On branch `admin-buildout`. Global floating
   circular "report a bug" button (bottom-right, mounted in the root layout) → dialog (type, message,
   optional email, **ticked-but-optional** consent to attach this page's URL + browser info); submits to
