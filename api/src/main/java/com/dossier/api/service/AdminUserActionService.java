@@ -69,6 +69,10 @@ public class AdminUserActionService {
         user.setActivated(activated);
         userRepository.save(user);
         evictUserCaches(user);
+        // Build the DTO while `user` is still managed: revokeAllForUser() below runs a
+        // clearAutomatically @Modifying query that detaches `user`, after which the DTO's lazy
+        // authorities access would throw a LazyInitializationException (HTTP 500).
+        AdminUserDTO dto = new AdminUserDTO(user);
         if (!activated) {
             refreshTokenService.revokeAllForUser(user.getId());
         }
@@ -77,7 +81,7 @@ public class AdminUserActionService {
             AdminAuditService.TARGET_USER,
             user.getLogin()
         );
-        return new AdminUserDTO(user);
+        return dto;
     }
 
     /** Grant or revoke the ROLE_ADMIN authority. */
