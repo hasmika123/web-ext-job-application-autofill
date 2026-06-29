@@ -39,7 +39,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Incorrect username or password." }, { status: 401 });
   }
 
-  const data = (await res.json()) as { accessToken?: string; refreshToken?: string };
+  const data = (await res.json()) as { accessToken?: string; refreshToken?: string; mfaRequired?: boolean; mfaToken?: string };
+
+  // Admin MFA (Phase 9.X.3): the server withheld tokens and emailed a code. Pass the handle to the
+  // client for the second step; do NOT set cookies yet.
+  if (data.mfaRequired && data.mfaToken) {
+    return Response.json({ mfaRequired: true, mfaToken: data.mfaToken });
+  }
+
   if (!data.accessToken) {
     return Response.json({ error: "Unexpected response from the server." }, { status: 502 });
   }

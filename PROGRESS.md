@@ -25,14 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **IMMEDIATE NEXT: Phase 9.X — cross-cutting** (MFA for admins; `/privacy` + `/terms` updates for
-> admin access + marketing email + diagnostic data; DSAR export-a-user's-data).
-> ✅ **Phase 9 CORE (A0–A5) COMPLETE.** A0–A4 are LIVE on prod. **A5 (bug reports) DONE on
-> `admin-buildout`** (floating web widget + extension popup + admin triage + email notice to support@,
-> ext v0.25.0) — shipping via the A5 PR (CI → merge). Admin build-out accumulates on `admin-buildout`,
-> PR'd to `main` as coherent chunks (merge auto-deploys to prod). **Deferred follow-ups:** Brevo API
-> list sync + physical postal address (CAN-SPAM) for campaigns; bug-report screenshots; the A5 extension
-> (v0.25.0) needs a manual CWS upload. Full plan + legalities in `ADMIN-PLAN.md`.
+> ▶️ **PHASE 9 COMPLETE (A0–A5 + 9.X).** A0–A5 are LIVE on prod; **9.X (privacy/terms, DSAR export,
+> admin email-OTP MFA) DONE on `admin-buildout`**, shipping via the 9.X PR (CI → merge). The admin
+> console, comms, and cross-cutting compliance are all built.
+> **Pick the next focus deliberately** — candidates: remaining pre-launch (PL.1 lawyer review + legal
+> entity/hosted policy URL), **7.3 Safari**, or **Phase 8** (enterprise SSO/multi-tenancy/audit/session
+> at scale). **Standing user actions (not code):** turn on `ADMIN_MFA_ENABLED` on the VPS after
+> confirming admin email delivery; Brevo API list sync + postal address for newsletter campaigns;
+> manual Chrome Web Store upload of extension **v0.25.0**; screenshots for bug reports if wanted.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -580,8 +580,13 @@ focused Claude Code session.
   status/severity/notes, audited). Web capture = a **floating circular button** (bottom-right, global,
   not a footer link). Extension popup "Report" via the TrackingProvider seam (ext v0.25.0). *Screenshots
   deferred (per decision); Brevo not involved here.*
-- [ ] **9.X Cross-cutting.** MFA for admins; `/privacy` + `/terms` updates (admin access, marketing
-  email, diagnostic data); DSAR export-a-user's-data.
+- [x] **9.X Cross-cutting.** ✅ DONE on `admin-buildout` (9.X.1–9.X.3). `/privacy`+`/terms` updated
+  (admin access, marketing email, diagnostic data); self-service **DSAR export** ("Download my data" →
+  `GET /api/account/export`, structured data + resume metadata); **admin email-OTP MFA** — gated OFF by
+  default (`ADMIN_MFA_ENABLED`), no-email = no-lockout, web two-step login. **Phase 9 COMPLETE.**
+  Standing follow-ups (need the user): enable MFA on the VPS after confirming email; Brevo API list
+  sync + postal address for campaigns; bug-report screenshots; manual CWS upload of ext v0.25.0;
+  lawyer review of privacy/terms (PL.1).
 
 ## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
 > Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
@@ -656,6 +661,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.X.3 — admin email-OTP MFA (gated OFF)** · On branch `admin-buildout`. After a
+  correct password, an admin (when `dossier.admin.mfa-enabled`=true) is emailed a 6-digit code and
+  completes sign-in at `POST /api/authenticate/mfa`; `/authenticate` returns `{mfaRequired,mfaToken}`.
+  `AdminMfaChallenge` (single-use, expiring, attempt-limited; bcrypt code hash) + `20260629000400`
+  migration + `AdminMfaService`. **Ships OFF** (`ADMIN_MFA_ENABLED` env, default false → zero login
+  impact on deploy); an admin with no email is never challenged (no lockout); recover by flipping the
+  flag back. Web two-step login (login BFF passes `mfaRequired` through; new `/api/auth/login/mfa` +
+  OTP step in `AuthScreen`). `AdminMfaServiceTest` (8) + `AuthenticateMfaIT` (3, @Transactional) +
+  existing auth ITs still green (MFA off in tests); web build green. **Completes Phase 9.X and all of
+  Phase 9.** Enable steps in `.env.example`/`application-prod.yml`.
 - 2026-06-29 · **phase9.X.2 — self-service data export (DSAR)** · On branch `admin-buildout`.
   `AccountExportService` assembles the current user's data (account, bio, resume metadata,
   applications, field cache, AI answers — structured only, no file bytes) reusing the user-scoped

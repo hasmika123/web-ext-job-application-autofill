@@ -42,6 +42,7 @@ public class SecurityConfiguration {
                 // prettier-ignore
                 authz
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/mfa")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/auth/google")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/refresh")).permitAll()
