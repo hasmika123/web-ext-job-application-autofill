@@ -15,6 +15,14 @@
         prod needs ROLE_ADMIN / ROLE_USER for real accounts.
     -->
     <changeSet id="20260628000000-1" author="dossier" context="dev,test">
+        <!--
+            Skip on any dev DB that already has these accounts (e.g. one seeded by the old
+            contextless changeset before this refactor) so re-running never hits a duplicate key.
+            On a fresh dev/test DB the count is 0 and the seed loads normally.
+        -->
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM jhi_user WHERE login IN ('admin', 'user')</sqlCheck>
+        </preConditions>
         <loadData
                   file="config/liquibase/data/user.csv"
                   separator=";"
