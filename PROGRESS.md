@@ -640,6 +640,11 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A2.2b — AI quota override (web)** · On branch `admin-buildout`. `AiQuotaControl`
+  on the user-detail page (set a per-user monthly quota or Clear to revert to the global default;
+  shows effective quota) + BFF `PUT/DELETE /api/admin/users/[login]/ai-quota`; detail page now
+  server-fetches the current override. `npm test`+`build` green. **Completes A2.2.** A2.3 next:
+  sessions/security (refresh-token families + revoke).
 - 2026-06-29 · **phase9.A2.2a — per-user AI quota override (backend)** · On branch `admin-buildout`. New
   `AiQuotaOverride` entity (login PK) + `20260629000100_ai_quota_override` migration + repo;
   `AiDraftService` now resolves the monthly quota as override-or-global (additive, defaults to the

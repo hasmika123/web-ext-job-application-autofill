@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import UserActions from "@/components/admin/UserActions";
+import AiQuotaControl from "@/components/admin/AiQuotaControl";
 
 export const metadata: Metadata = {
   title: "User · Admin · Kiwiply",
@@ -52,6 +53,16 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   const isSelf = currentLogin.toLowerCase() === user.login.toLowerCase();
   const name = [user.firstName, user.lastName].filter(Boolean).join(" ");
 
+  // AI quota override (A2.2): { defaultQuota, override: number|null }
+  let defaultQuota = 0;
+  let quotaOverride: number | null = null;
+  const q = await serverApiFetch(`/api/admin/users/${encodeURIComponent(user.login)}/ai-quota`);
+  if (q.ok) {
+    const qd = (await q.json().catch(() => null)) as { defaultQuota?: number; override?: number | null } | null;
+    defaultQuota = qd?.defaultQuota ?? 0;
+    quotaOverride = qd?.override ?? null;
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <BackLink />
@@ -76,7 +87,10 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         <Detail label="Last modified" value={user.lastModifiedDate ? user.lastModifiedDate.slice(0, 10) : "—"} />
       </dl>
 
-      <UserActions login={user.login} activated={user.activated} isAdmin={isAdmin} isSelf={isSelf} />
+      <div className="flex flex-col gap-5">
+        <UserActions login={user.login} activated={user.activated} isAdmin={isAdmin} isSelf={isSelf} />
+        <AiQuotaControl login={user.login} defaultQuota={defaultQuota} override={quotaOverride} />
+      </div>
     </div>
   );
 }
