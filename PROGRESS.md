@@ -25,13 +25,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **IMMEDIATE NEXT: Phase 9.A3 — business-analytics overview** (signups, activation rate, DAU/WAU,
-> funnel, resumes/apps).
-> ✅ **9.A0 + 9.A1 DONE and LIVE on prod** (security gate; admin gate/shell/Users/actions/audit —
-> verified live by the user, incl. UI tweaks). **9.A2 DONE on `admin-buildout`** (AI usage · per-user
-> quota override · per-user sessions · read-only system/ops) — being shipped via an A2 PR (CI → merge).
-> Admin feature build-out accumulates on `admin-buildout`, PR'd to `main` as coherent chunks (pushing
-> `main` auto-deploys to prod). Full plan + legalities in `ADMIN-PLAN.md`.
+> ▶️ **IMMEDIATE NEXT: Phase 9.A4 — Email subscription** (double opt-in newsletter: `email_subscriber`
+> + Brevo list sync; public opt-in footer/signup; admin list/export. CAN-SPAM/consent rules in `ADMIN-PLAN`).
+> ✅ **9.A0, 9.A1, 9.A2 DONE and LIVE on prod** (security gate; admin console + actions + audit;
+> dashboards: AI usage/quota/sessions/system — verified + deployed). **9.A3 DONE on `admin-buildout`**
+> (business-analytics overview) — shipping via the A3 PR (CI → merge). Admin build-out accumulates on
+> `admin-buildout`, PR'd to `main` as coherent chunks (pushing `main` auto-deploys to prod). Full plan
+> + legalities in `ADMIN-PLAN.md`.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -562,7 +562,11 @@ focused Claude Code session.
   user-detail page; read-only `/admin/system` over the actuator (health/build/runtime/log levels).
   Backend unit+ArchUnit green (JDK 17), new ITs in CI; web tsc/eslint/build green. (Standalone
   "Security" nav left as a future aggregate dashboard.)
-- [ ] **9.A3 Business-analytics overview.** Signups, activation rate, DAU/WAU, funnel, resumes/apps.
+- [x] **9.A3 Business-analytics overview.** ✅ DONE on `admin-buildout`. `/admin/analytics` + Overview
+  KPI strip over `GET /api/admin/analytics`: total/activated users + activation rate, signups 7d/30d,
+  active users 7d/30d (session-activity proxy), funnel (signup→activate→profile→started→applied),
+  apps-by-status, resumes/apps totals. (No login-event table, so "active" = refresh-token activity,
+  labelled.) Backend unit+ArchUnit green, IT in CI; web build green.
 - [ ] **9.A4 Email subscription.** `email_subscriber` (double opt-in, tokenized unsubscribe) + Brevo
   list sync; public opt-in (footer + separate signup checkbox); admin list/export. Consent recorded;
   unsubscribe + sender address in every email.
@@ -644,6 +648,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A3 — business-analytics overview** · On branch `admin-buildout`. Backend
+  `AdminAnalyticsService`/`AdminAnalyticsResource` (`GET /api/admin/analytics`, ADMIN, read-only DB
+  aggregates): total/activated users + activation rate, signups 7d/30d, active users 7d/30d (proxy =
+  distinct refresh-token activity, labelled), total resumes/apps, a signup→activate→profile→started→
+  applied funnel, and apps-by-status. Repo counts added (User `countByActivatedIsTrue`/
+  `countByCreatedDateAfter`, Application `countByStatus`/`countDistinctUsers[ByStatus]`, RefreshToken
+  `countDistinctActiveUsersSince`). Web `/admin/analytics` (KPI cards + funnel bars + status bars) +
+  headline-KPI strip on the Overview; Analytics nav/card → Live. `AdminAnalyticsResourceIT` (2,
+  @Transactional) + unit/ArchUnit green on JDK 17; web tsc/eslint/build green. **Completes A3.** A4 next.
 - 2026-06-29 · **phase9.A2.4 — system/ops dashboard** · On branch `admin-buildout`. Read-only
   `/admin/system` over the already-exposed, ADMIN-gated actuator (health components, build/git,
   runtime from jhimetrics, log levels) — fetched server-side via `serverApiFetch` with the admin

@@ -1,10 +1,18 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { serverApiFetch } from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "Admin · Kiwiply",
   robots: { index: false, follow: false },
 };
+
+interface OverviewKpis {
+  totalUsers: number;
+  activationRatePct: number;
+  signups7d: number;
+  activeUsers7d: number;
+}
 
 type Section = { title: string; desc: string; status: "Live" | "Soon"; href?: string };
 
@@ -14,23 +22,35 @@ const SECTIONS: Section[] = [
   { title: "Users", desc: "Browse accounts; activate, reset, roles, force-logout, delete.", status: "Live", href: "/admin/users" },
   { title: "AI usage", desc: "Per-user drafting usage by month. Quota overrides next.", status: "Live", href: "/admin/ai" },
   { title: "Security & sessions", desc: "Active refresh-token families; revoke / force logout.", status: "Soon" },
-  { title: "Analytics", desc: "Signups, activation rate, DAU/WAU, funnel.", status: "Soon" },
+  { title: "Analytics", desc: "Signups, activation rate, active users, funnel.", status: "Live", href: "/admin/analytics" },
   { title: "Email", desc: "Newsletter subscribers, consent, export, Brevo sync.", status: "Soon" },
   { title: "Bug reports", desc: "Triage queue for reports from web + extension.", status: "Soon" },
   { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Live", href: "/admin/system" },
   { title: "Audit log", desc: "Every admin action and reason-gated PII access.", status: "Live", href: "/admin/audit" },
 ];
 
-export default function AdminOverviewPage() {
+export default async function AdminOverviewPage() {
+  let kpis: OverviewKpis | null = null;
+  const res = await serverApiFetch("/api/admin/analytics");
+  if (res.ok) {
+    kpis = (await res.json().catch(() => null)) as OverviewKpis | null;
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
-      <header className="mb-7">
+      <header className="mb-6">
         <h1 className="font-display text-[26px] font-bold tracking-tight text-ink">Admin overview</h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          Operate Kiwiply — accounts, AI usage, security, comms, and the audit trail. Live metrics land with
-          the analytics phase; sections below open up as they ship.
-        </p>
+        <p className="mt-1 text-sm text-ink-soft">Operate Kiwiply — accounts, AI usage, security, comms, and the audit trail.</p>
       </header>
+
+      {kpis && (
+        <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Kpi label="Total users" value={String(kpis.totalUsers)} />
+          <Kpi label="Activation rate" value={`${kpis.activationRatePct}%`} />
+          <Kpi label="Signups (7d)" value={String(kpis.signups7d)} />
+          <Kpi label="Active (7d)" value={String(kpis.activeUsers7d)} />
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {SECTIONS.map((s) => {
@@ -58,6 +78,15 @@ export default function AdminOverviewPage() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function Kpi({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[var(--radius)] border border-line bg-paper p-5">
+      <div className="text-[11px] uppercase tracking-wide text-ink-soft">{label}</div>
+      <div className="mt-1 font-display text-2xl font-bold text-ink">{value}</div>
     </div>
   );
 }

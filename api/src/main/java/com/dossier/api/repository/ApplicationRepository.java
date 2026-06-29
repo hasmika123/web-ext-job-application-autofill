@@ -23,6 +23,15 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     /** How many applications reference this resume — the archive-guard check (3.5). */
     long countByResumeId(Long resumeId);
 
+    // --- Admin analytics (Phase 9.A3) ---
+    long countByStatus(com.dossier.api.domain.enumeration.ApplicationStatus status);
+
+    @Query("select count(distinct application.user.id) from Application application")
+    long countDistinctUsers();
+
+    @Query("select count(distinct application.user.id) from Application application where application.status = :status")
+    long countDistinctUsersByStatus(@Param("status") com.dossier.api.domain.enumeration.ApplicationStatus status);
+
     default Optional<Application> findOneWithEagerRelationships(Long id) {
         return this.findOneWithToOneRelationships(id);
     }

@@ -19,6 +19,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     /** Admin sessions view (Phase 9.A2.3): all of a user's refresh tokens, grouped into families. */
     List<RefreshToken> findByUserId(Long userId);
 
+    /** Active-user proxy (Phase 9.A3): distinct users with session (token) activity since a cutoff. */
+    @Query("select count(distinct t.userId) from RefreshToken t where t.createdAt > :since")
+    long countDistinctActiveUsersSince(@Param("since") java.time.Instant since);
+
     // flush pending entity changes first, and clear the persistence context after, so this
     // bulk update isn't shadowed by stale first-level-cache entities (reuse detection reads
     // the revoked flag back in the same transaction).
