@@ -17,6 +17,9 @@ public interface BioRepository extends JpaRepository<Bio, Long> {
     @Query("select bio from Bio bio where bio.user.login = ?#{authentication.name}")
     List<Bio> findByUserIsCurrentUser();
 
+    /** Admin-scoped lookup of a specific user's bio (Phase 9.A1.4 account erase). */
+    List<Bio> findByUserId(Long userId);
+
     default Optional<Bio> findOneWithEagerRelationships(Long id) {
         return this.findOneWithToOneRelationships(id);
     }

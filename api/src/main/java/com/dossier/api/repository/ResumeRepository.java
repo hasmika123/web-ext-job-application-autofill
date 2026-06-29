@@ -17,6 +17,9 @@ public interface ResumeRepository extends JpaRepository<Resume, Long> {
     @Query("select resume from Resume resume where resume.user.login = ?#{authentication.name}")
     List<Resume> findByUserIsCurrentUser();
 
+    /** Admin-scoped lookup of a specific user's resumes (Phase 9.A1.4 account erase). */
+    List<Resume> findByUserId(Long userId);
+
     default Optional<Resume> findOneWithEagerRelationships(Long id) {
         return this.findOneWithToOneRelationships(id);
     }

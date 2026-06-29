@@ -31,5 +31,6 @@
     <include file="config/liquibase/changelog/20260627000000_confirm_reviewed_resumes.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260628000000_seed_dev_default_users.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260628000100_remove_default_admin_seed.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260629000000_admin_audit_event.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

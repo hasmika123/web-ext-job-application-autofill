@@ -17,6 +17,9 @@ public interface FieldCacheRepository extends JpaRepository<FieldCache, Long> {
     @Query("select fieldCache from FieldCache fieldCache where fieldCache.user.login = ?#{authentication.name}")
     List<FieldCache> findByUserIsCurrentUser();
 
+    /** Admin-scoped lookup of a specific user's field cache (Phase 9.A1.4 account erase). */
+    List<FieldCache> findByUserId(Long userId);
+
     default Optional<FieldCache> findOneWithEagerRelationships(Long id) {
         return this.findOneWithToOneRelationships(id);
     }

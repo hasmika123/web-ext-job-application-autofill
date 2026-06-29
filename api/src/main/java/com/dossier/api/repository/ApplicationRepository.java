@@ -17,6 +17,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     @Query("select application from Application application where application.user.login = ?#{authentication.name}")
     List<Application> findByUserIsCurrentUser();
 
+    /** Admin-scoped lookup of a specific user's applications (Phase 9.A1.4 account erase). */
+    List<Application> findByUserId(Long userId);
+
     /** How many applications reference this resume — the archive-guard check (3.5). */
     long countByResumeId(Long resumeId);
 

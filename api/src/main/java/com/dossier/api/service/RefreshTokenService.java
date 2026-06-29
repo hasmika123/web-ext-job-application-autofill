@@ -89,4 +89,13 @@ public class RefreshTokenService {
             refreshTokenRepository.deleteByUserId(userId);
         }
     }
+
+    /**
+     * Revoke (but keep) every live refresh token for a user — admin force-logout (Phase 9.A1.4).
+     * The user can no longer rotate, so they're signed out once their short access token expires.
+     * Returns the number revoked.
+     */
+    public int revokeAllForUser(Long userId) {
+        return userId == null ? 0 : refreshTokenRepository.revokeAllByUserId(userId);
+    }
 }
