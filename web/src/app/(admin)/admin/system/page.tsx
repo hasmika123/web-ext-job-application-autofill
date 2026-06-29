@@ -53,20 +53,35 @@ export default async function AdminSystemPage() {
   const status = typeof health?.status === "string" ? (health.status as string) : "UNKNOWN";
   const components = asRecord(health?.components);
 
-  const git = asRecord(info?.git);
   const build = asRecord(info?.build);
-  const gitCommit = asRecord(git?.commit);
-  const version =
-    (typeof build?.version === "string" && build.version) ||
-    (typeof gitCommit?.id === "string" && (gitCommit.id as string).slice(0, 8)) ||
-    "—";
+  const version = (typeof build?.version === "string" && build.version) || "—";
+  const appName =
+    (typeof build?.name === "string" && build.name) || (typeof build?.artifact === "string" && (build.artifact as string)) || "—";
+  const profilesArr = Array.isArray(info?.activeProfiles)
+    ? (info!.activeProfiles as unknown[]).filter((p): p is string => typeof p === "string")
+    : [];
+  const profiles = profilesArr.length ? profilesArr.join(", ") : "—";
 
   const process = asRecord(metrics?.processMetrics);
-  const jvm = asRecord(metrics?.jvm);
   const uptime = num(process?.["process.uptime"]);
   const cpuCount = num(process?.["system.cpu.count"]);
-  const heapUsed = num(jvm?.["jvm.memory.used"]) ?? num(jvm?.["used"]);
-  const heapMax = num(jvm?.["jvm.memory.max"]) ?? num(jvm?.["max"]);
+  // jhimetrics reports jvm memory keyed by pool ({ <pool>: { used, max, committed } }); sum them.
+  const jvm = asRecord(metrics?.jvm);
+  let memUsed = 0;
+  let memMax = 0;
+  let haveMem = false;
+  if (jvm) {
+    for (const v of Object.values(jvm)) {
+      const pool = asRecord(v);
+      const u = num(pool?.used);
+      const m = num(pool?.max);
+      if (u !== undefined) {
+        memUsed += u;
+        haveMem = true;
+      }
+      if (m !== undefined && m > 0) memMax += m;
+    }
+  }
 
   const loggerMap = asRecord(loggers?.loggers);
   const pickLogger = (name: string): string => {
@@ -110,8 +125,8 @@ export default async function AdminSystemPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Build</h2>
           <dl className="mt-3 space-y-2 text-sm">
             <Row label="Version" value={version} mono />
-            <Row label="Git branch" value={(typeof git?.branch === "string" && git.branch) || "—"} mono />
-            <Row label="Build time" value={(typeof build?.time === "string" && (build.time as string).slice(0, 19).replace("T", " ")) || "—"} />
+            <Row label="App" value={appName} mono />
+            <Row label="Profiles" value={profiles} mono />
           </dl>
         </section>
 
@@ -121,7 +136,7 @@ export default async function AdminSystemPage() {
           <dl className="mt-3 space-y-2 text-sm">
             <Row label="Uptime" value={duration(uptime)} />
             <Row label="CPUs" value={cpuCount !== undefined ? String(cpuCount) : "—"} />
-            <Row label="Heap" value={heapUsed !== undefined ? `${bytes(heapUsed)}${heapMax ? ` / ${bytes(heapMax)}` : ""}` : "—"} />
+            <Row label="JVM memory" value={haveMem ? `${bytes(memUsed)}${memMax ? ` / ${bytes(memMax)}` : ""}` : "—"} />
           </dl>
         </section>
       </div>
