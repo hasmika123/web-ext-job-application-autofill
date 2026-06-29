@@ -2,6 +2,7 @@ package com.dossier.api.repository;
 
 import com.dossier.api.domain.EmailSubscriber;
 import com.dossier.api.domain.enumeration.SubscriberStatus;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,4 +22,9 @@ public interface EmailSubscriberRepository extends JpaRepository<EmailSubscriber
     Page<EmailSubscriber> findAllByStatus(SubscriberStatus status, Pageable pageable);
 
     long countByStatus(SubscriberStatus status);
+
+    // CSV export (A4.3) — all rows of a status, newest first.
+    List<EmailSubscriber> findByStatusOrderByCreatedDateDesc(SubscriberStatus status);
+
+    List<EmailSubscriber> findAllByOrderByCreatedDateDesc();
 }
