@@ -25,11 +25,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **IMMEDIATE NEXT: Phase 9.A1 — admin gate + shell + Users + audit foundation.** ✅ **9.A0
-> (security gate) is DONE** on branch **`admin-buildout`** (default-admin seed killed + env-bootstrapped
-> real admin — see the 9.A0 entry below; user verifies `admin/admin`→401 on the VPS after deploy).
-> All admin-side work continues on `admin-buildout` (NOT `main` — pushing `main` auto-deploys to prod;
-> merge when 9.A0 is verified). Full plan + legalities in `ADMIN-PLAN.md`.
+> ▶️ **IMMEDIATE NEXT: Phase 9.A2 — AI usage + sessions/security + system/ops dashboards.**
+> ✅ **9.A0 (security gate, deployed + verified live: `admin/admin`→401, real env admin signs in) and
+> 9.A1 (admin gate + shell + Users list/detail + actions + audit trail & viewer) are DONE.**
+> A0 is on **`main`** (live). **A1 (commits A1.1–A1.5) is on `admin-buildout`, NOT yet merged to
+> `main`** — admin feature build-out accumulates on the branch; merge to deploy/verify a coherent
+> chunk (pushing `main` auto-deploys to prod). Recommend verifying A1 live (merge, or run the stack)
+> before A2. Full plan + legalities in `ADMIN-PLAN.md`.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -546,11 +548,14 @@ focused Claude Code session.
   full unit suite + `compileJava` green on JDK 17 (ITs run in CI; the existing-prod checksum/cleanup path
   is by-design, not CI-testable on a fresh DB). **User verifies on the VPS after deploy:** `admin/admin`
   → 401, real admin signs in.
-- [ ] **9.A1 Admin gate + shell + Users + audit foundation.** `(admin)` route group gated on
-  `ROLE_ADMIN` (via `/api/account` authorities; Spring `/api/admin/**` is the real enforcement);
-  admin shell; Users list/detail reusing `/api/admin/users` (activate/deactivate, reset, roles,
-  force-logout via `RefreshTokenService`, delete via `AccountDeletionService`); `AdminAuditEvent`
-  foundation (log every admin action + reason-gated PII access).
+- [x] **9.A1 Admin gate + shell + Users + audit foundation.** ✅ DONE on `admin-buildout` (A1.1–A1.5,
+  NOT merged to main yet). `(admin)` route group gated on `ROLE_ADMIN` (Spring `/api/admin/**` is the
+  real enforcement); distinct dark admin shell; Users list + detail reusing `/api/admin/users` with
+  actions (activate/deactivate, reset, grant/revoke admin, force-logout via `RefreshTokenService`,
+  full GDPR delete via `AccountDeletionService.deleteUserAccountByLogin`) — self-action guards +
+  type-to-confirm delete; immutable `AdminAuditEvent` trail (every action audited) + read-only audit
+  viewer. Backend unit+ArchUnit green (JDK 17), ITs in CI; web tsc/eslint/build green. **Live view +
+  end-to-end verification need a deploy (merge to main) or the local stack — user step.**
 - [ ] **9.A2 AI usage + sessions/security + system/ops dashboards.** `ai_usage` views + quota override;
   refresh-token families + revoke; actuator health/metrics/loggers (read-only).
 - [ ] **9.A3 Business-analytics overview.** Signups, activation rate, DAU/WAU, funnel, resumes/apps.
@@ -635,6 +640,10 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A1.5 — admin audit-log viewer** · On branch `admin-buildout`. Read-only
+  `/admin/audit` server-paginated table (reuses `GET /api/admin/audit`): when/actor/action/target/
+  reason, newest first. Flipped the shell "Audit log" nav + Overview card to Live. `npm test`+`build`
+  green. **Completes Phase 9.A1.** Next: A2.
 - 2026-06-29 · **phase9.A1.4b — admin user detail + actions (web)** · On branch `admin-buildout`.
   `/admin/users/[login]` detail page (account metadata grid) + `UserActions` (client): activate/
   deactivate, grant/revoke admin, send password reset, force-logout, and type-the-login-to-confirm

@@ -18,7 +18,7 @@ const SECTIONS: Section[] = [
   { title: "Email", desc: "Newsletter subscribers, consent, export, Brevo sync.", status: "Soon" },
   { title: "Bug reports", desc: "Triage queue for reports from web + extension.", status: "Soon" },
   { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Soon" },
-  { title: "Audit log", desc: "Every admin action and reason-gated PII access.", status: "Soon" },
+  { title: "Audit log", desc: "Every admin action and reason-gated PII access.", status: "Live", href: "/admin/audit" },
 ];
 
 export default function AdminOverviewPage() {

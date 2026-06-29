@@ -44,7 +44,7 @@ const NAV: NavItem[] = [
   { href: "/admin/email", label: "Email", icon: I.email, soon: true },
   { href: "/admin/bug-reports", label: "Bug reports", icon: I.bug, soon: true },
   { href: "/admin/system", label: "System", icon: I.system, soon: true },
-  { href: "/admin/audit", label: "Audit log", icon: I.audit, soon: true },
+  { href: "/admin/audit", label: "Audit log", icon: I.audit },
 ];
 
 function displayName(account?: AdminAccount): string {
