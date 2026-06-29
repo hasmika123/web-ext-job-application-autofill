@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 9.A4 — newsletter subscribers (double opt-in). Source of truth for marketing-email
+        consent, separate from the user account. Unique email; tokens indexed for confirm/unsubscribe.
+    -->
+    <changeSet id="20260629000200-1" author="dossier">
+        <createTable tableName="email_subscriber">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="email" type="varchar(254)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_email_subscriber_email"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consent_source" type="varchar(50)"/>
+            <column name="consent_at" type="${datetimeType}"/>
+            <column name="confirm_token" type="varchar(64)"/>
+            <column name="confirmed_at" type="${datetimeType}"/>
+            <column name="unsubscribe_token" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unsubscribed_at" type="${datetimeType}"/>
+            <column name="created_date" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="email_subscriber" indexName="idx_email_subscriber_confirm">
+            <column name="confirm_token"/>
+        </createIndex>
+        <createIndex tableName="email_subscriber" indexName="idx_email_subscriber_unsub">
+            <column name="unsubscribe_token"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

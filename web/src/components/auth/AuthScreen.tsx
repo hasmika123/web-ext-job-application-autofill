@@ -158,6 +158,7 @@ function SignupForm({ next }: { next?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [newsletter, setNewsletter] = useState(false); // separate, unticked marketing opt-in
 
   const errs: Record<string, string> = {};
   if (!username.trim()) errs.username = "Username is required";
@@ -188,6 +189,15 @@ function SignupForm({ next }: { next?: string }) {
         return;
       }
       track("sign_up", { method: "password" });
+      // Marketing opt-in is SEPARATE from the account (explicit, unticked). Fire-and-forget —
+      // it triggers its own double-opt-in confirmation email and must never block signup.
+      if (newsletter) {
+        fetch("/api/newsletter", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email, source: "signup" }),
+        }).catch(() => {});
+      }
       // Remember where to go after the email-activation round-trip (e.g. /connect), so a
       // brand-new user lands back there once they activate + sign in. Best-effort: only
       // works when activation happens in the same browser.
@@ -267,6 +277,15 @@ function SignupForm({ next }: { next?: string }) {
             aria-invalid={show("password") && !!errs.password}
           />
         </Field>
+        <label className="mb-4 flex items-start gap-2.5 text-[13px] leading-relaxed text-ink-soft">
+          <input
+            type="checkbox"
+            checked={newsletter}
+            onChange={(e) => setNewsletter(e.target.checked)}
+            className="mt-0.5 h-4 w-4 flex-none accent-[var(--accent)]"
+          />
+          <span>Send me occasional product updates and tips (optional). You can unsubscribe anytime.</span>
+        </label>
         {error && (
           <p role="alert" className="mb-3 text-sm font-medium text-danger">
             {error}

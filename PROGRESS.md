@@ -25,13 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **IMMEDIATE NEXT: Phase 9.A4 — Email subscription** (double opt-in newsletter: `email_subscriber`
-> + Brevo list sync; public opt-in footer/signup; admin list/export. CAN-SPAM/consent rules in `ADMIN-PLAN`).
-> ✅ **9.A0, 9.A1, 9.A2 DONE and LIVE on prod** (security gate; admin console + actions + audit;
-> dashboards: AI usage/quota/sessions/system — verified + deployed). **9.A3 DONE on `admin-buildout`**
-> (business-analytics overview) — shipping via the A3 PR (CI → merge). Admin build-out accumulates on
-> `admin-buildout`, PR'd to `main` as coherent chunks (pushing `main` auto-deploys to prod). Full plan
-> + legalities in `ADMIN-PLAN.md`.
+> ▶️ **IMMEDIATE NEXT: Phase 9.A5 — bug reports** (`bug_report` capture from web + extension popup →
+> admin triage queue; context w/ consent, optional screenshot; rate-limited).
+> ✅ **9.A0–A3 DONE and LIVE on prod** (security gate; admin console + actions + audit; dashboards;
+> analytics). **9.A4 (email subscription) DONE on `admin-buildout`** — double opt-in newsletter +
+> public opt-in (footer + unticked signup checkbox) + admin list/CSV export; shipping via the A4 PR
+> (CI → merge). Admin build-out accumulates on `admin-buildout`, PR'd to `main` as coherent chunks
+> (merge auto-deploys to prod). Deferred A4 follow-ups: **Brevo API list sync** + a **physical postal
+> address** for campaigns (CAN-SPAM). Full plan + legalities in `ADMIN-PLAN.md`.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -567,9 +568,12 @@ focused Claude Code session.
   active users 7d/30d (session-activity proxy), funnel (signup→activate→profile→started→applied),
   apps-by-status, resumes/apps totals. (No login-event table, so "active" = refresh-token activity,
   labelled.) Backend unit+ArchUnit green, IT in CI; web build green.
-- [ ] **9.A4 Email subscription.** `email_subscriber` (double opt-in, tokenized unsubscribe) + Brevo
-  list sync; public opt-in (footer + separate signup checkbox); admin list/export. Consent recorded;
-  unsubscribe + sender address in every email.
+- [x] **9.A4 Email subscription.** ✅ DONE on `admin-buildout` (A4.1–A4.3). `email_subscriber` (double
+  opt-in, consent source+timestamp, tokenized one-click unsubscribe); public opt-in (footer form +
+  separate **unticked** signup checkbox) → `POST /api/newsletter/*` (permitAll, rate-limited BFF) +
+  `/newsletter/{confirm,unsubscribe}` pages; admin `/admin/subscribers` list (status filter/counts) +
+  CSV export. Confirm + unsubscribe links in every email. **Brevo API list sync deferred** (CSV export
+  for manual import initially); **physical postal address** still needed before real campaigns (CAN-SPAM).
 - [ ] **9.A5 Bug report.** `bug_report` capture (web help menu + extension popup, context w/ consent,
   optional screenshot) → `POST /api/bug-reports` (rate-limited); admin triage queue.
 - [ ] **9.X Cross-cutting.** MFA for admins; `/privacy` + `/terms` updates (admin access, marketing
@@ -648,6 +652,33 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A4.3 — admin subscriber list + CSV export** · On branch `admin-buildout`.
+  `AdminSubscriberResource` (ADMIN): paginated list (status filter), per-status counts, CSV export
+  (tokens never exposed via `AdminSubscriberDTO`). Web `/admin/subscribers` (status tabs w/ counts,
+  table, pagination, Download CSV) + CSV-download BFF (attaches the admin bearer + download headers).
+  Email nav → `/admin/subscribers` + Overview card → Live. `AdminSubscriberResourceIT` (3,
+  @Transactional) + unit/ArchUnit green; web tsc/eslint/build green. **Completes Phase 9.A4** (model +
+  double opt-in + public flow + admin list/export). Brevo API sync deferred (CSV export for manual
+  import); physical postal address still needed before real campaigns (CAN-SPAM).
+- 2026-06-29 · **phase9.A4.2 — newsletter public web flow** · On branch `admin-buildout`. Footer
+  `NewsletterSignup` (double opt-in, generic "check your email") on the marketing footer; rate-limited
+  BFF `POST /api/newsletter` + `/confirm` + `/unsubscribe` (proxy Spring); top-level `/newsletter/
+  confirm` + `/newsletter/unsubscribe` pages (`NewsletterAction` runs the token action on mount, shows
+  result); separate **unticked** marketing opt-in checkbox at signup (fire-and-forget, source=signup,
+  never blocks signup). `npm test`+`build` green. A4.3 next: admin subscriber list + CSV export.
+- 2026-06-29 · **phase9.A3 + system-fix MERGED + DEPLOYED** · PR #10 merged → A3 analytics + the
+  `/admin/system` field fix (git/build-time were empty in the image → show Version/App/Profiles; JVM
+  memory sums jhimetrics pools) are LIVE on prod.
+- 2026-06-29 · **phase9.A4.1 — newsletter backend (double opt-in)** · On branch `admin-buildout`. New
+  `EmailSubscriber` entity (PENDING/CONFIRMED/UNSUBSCRIBED) + `20260629000200_email_subscriber`
+  migration + repo; `NewsletterService` (subscribe → PENDING + confirm-token email; confirm; one-click
+  tokenized unsubscribe; consent source+timestamp; generic responses to avoid enumeration); public
+  `NewsletterResource` (`POST /api/newsletter/{subscribe,confirm,unsubscribe}`, permitAll in
+  SecurityConfiguration; reached via the BFF which rate-limits). Confirm email via existing MailService
+  (SMTP) with confirm + one-click unsubscribe links. `NewsletterServiceTest` (7) + `NewsletterResourceIT`
+  (4, @Transactional) + unit/ArchUnit green on JDK 17. A4.2 next: web public (footer form + confirm/
+  unsubscribe pages + signup opt-in checkbox); A4.3 admin list/export; Brevo list sync deferred (CSV
+  export for manual import initially).
 - 2026-06-29 · **phase9.A3 — business-analytics overview** · On branch `admin-buildout`. Backend
   `AdminAnalyticsService`/`AdminAnalyticsResource` (`GET /api/admin/analytics`, ADMIN, read-only DB
   aggregates): total/activated users + activation rate, signups 7d/30d, active users 7d/30d (proxy =

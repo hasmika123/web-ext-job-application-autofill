@@ -33,5 +33,6 @@
     <include file="config/liquibase/changelog/20260628000100_remove_default_admin_seed.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260629000000_admin_audit_event.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260629000100_ai_quota_override.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260629000200_email_subscriber.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
