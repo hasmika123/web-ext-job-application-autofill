@@ -236,9 +236,9 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <span className={buttonVariants("ghost") + " mt-auto cursor-default opacity-60"} aria-disabled>
+            <Link href="#newsletter" className={buttonVariants("ghost") + " mt-auto"}>
               Notify me at launch
-            </span>
+            </Link>
           </div>
         </div>
       </section>

@@ -37,7 +37,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
       <footer className="mt-auto border-t border-line bg-paper-2">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 text-sm text-muted">
-          <div className="max-w-sm">
+          <div id="newsletter" className="max-w-sm scroll-mt-24">
             <NewsletterSignup />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
