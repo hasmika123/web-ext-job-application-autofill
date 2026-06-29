@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dossier.api.domain.AiUsage;
+import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
@@ -31,6 +32,7 @@ class AiDraftServiceTest {
 
     private AiProvider provider;
     private AiUsageRepository usageRepository;
+    private AiQuotaOverrideRepository quotaOverrideRepository;
     private AiAnswerCacheService answerCache;
     private AiDraftService service;
 
@@ -38,8 +40,10 @@ class AiDraftServiceTest {
     void setUp() {
         provider = Mockito.mock(AiProvider.class);
         usageRepository = Mockito.mock(AiUsageRepository.class);
+        // findById defaults to Optional.empty() (no override) ⇒ the global quota applies.
+        quotaOverrideRepository = Mockito.mock(AiQuotaOverrideRepository.class);
         answerCache = Mockito.mock(AiAnswerCacheService.class); // lookup defaults to Optional.empty() (cache miss)
-        service = new AiDraftService(provider, usageRepository, answerCache, true, QUOTA, "gemini-2.5-flash-lite");
+        service = new AiDraftService(provider, usageRepository, quotaOverrideRepository, answerCache, true, QUOTA, "gemini-2.5-flash-lite");
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("user", "x"));
     }
 
@@ -50,7 +54,7 @@ class AiDraftServiceTest {
 
     @Test
     void disabledWhenFeatureOff() {
-        AiDraftService off = new AiDraftService(provider, usageRepository, answerCache, false, QUOTA, "m"); // master off
+        AiDraftService off = new AiDraftService(provider, usageRepository, quotaOverrideRepository, answerCache, false, QUOTA, "m"); // master off
         assertThat(off.draft("Why us?", "ctx", true).status()).isEqualTo(AiDraftService.Status.DISABLED);
         verify(usageRepository, never()).save(any());
     }

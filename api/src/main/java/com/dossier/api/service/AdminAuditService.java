@@ -37,6 +37,8 @@ public class AdminAuditService {
     public static final String USER_REVOKE_ADMIN = "USER_REVOKE_ADMIN";
     public static final String USER_FORCE_LOGOUT = "USER_FORCE_LOGOUT";
     public static final String USER_PII_VIEW = "USER_PII_VIEW";
+    public static final String AI_QUOTA_SET = "AI_QUOTA_SET";
+    public static final String AI_QUOTA_CLEAR = "AI_QUOTA_CLEAR";
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 

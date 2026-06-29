@@ -640,6 +640,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A2.2a — per-user AI quota override (backend)** · On branch `admin-buildout`. New
+  `AiQuotaOverride` entity (login PK) + `20260629000100_ai_quota_override` migration + repo;
+  `AiDraftService` now resolves the monthly quota as override-or-global (additive, defaults to the
+  global). Admin `AdminAiQuotaService` (set/clear, clamped 0..100k, audited AI_QUOTA_SET/CLEAR) +
+  `AdminAiQuotaResource` (GET/PUT/DELETE `/api/admin/users/{login}/ai-quota`). Updated
+  `AiDraftServiceTest` for the new ctor; `AdminAiQuotaServiceTest` (7) + `AdminAiQuotaResourceIT`
+  (4, @Transactional); full unit suite + ArchUnit green on JDK 17. A2.2b next: web quota control.
 - 2026-06-29 · **phase9.A1 MERGED + DEPLOYED** · PR #8 (A1.1–A1.5 + 2 CI-caught fixes: non-transactional
   ITs corrupting the shared seed; a deactivate 500 from building a DTO after an EM-clearing revoke)
   merged to `main` after CI green; Deploy workflow succeeded → admin console LIVE at kiwiply.com/admin.
