@@ -121,6 +121,37 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      <Section title="How our team accesses your data">
+        <p>
+          Our administrators may access accounts and data to operate, support, and secure the
+          service — for example to investigate an issue or respond to a request. By default they
+          see only <strong>metadata</strong> (labels, counts, status). Viewing the actual{" "}
+          <em>contents</em> of a resume or profile requires a logged reason and is recorded in an
+          immutable audit trail. Administrative access is limited to running the service and is not
+          used for any other purpose.
+        </p>
+      </Section>
+
+      <Section title="Marketing emails">
+        <p>
+          If you opt in — separately from creating an account — we&apos;ll send occasional product
+          updates. This is a distinct consent: signing up for Kiwiply does not subscribe you. We use
+          double opt-in (you confirm via email), record when and where you consented, and include a
+          one-click unsubscribe link in every message. Service emails (e.g. account activation,
+          password reset) are sent regardless, as they&apos;re necessary to operate your account.
+        </p>
+      </Section>
+
+      <Section title="Bug reports and diagnostic data">
+        <p>
+          When you submit a bug report (from the website or the extension), we collect your message
+          and, <strong>only if you leave the consent box ticked</strong>, the page address and basic
+          browser information to help us debug. Reports may contain personal information, so they are
+          access-controlled, used only to fix and improve the service, and retained no longer than
+          needed.
+        </p>
+      </Section>
+
       <Section title="Retention and deletion">
         <p>
           We keep your data while your account is active. You can permanently delete your
@@ -136,9 +167,10 @@ export default function PrivacyPage() {
       <Section title="Your rights">
         <p>
           Depending on where you live (including under GDPR and CCPA), you may have the right
-          to access, correct, or delete your personal data. You can view and edit your profile
-          and resumes directly in the app, and delete everything from your account settings.
-          For any other request, contact us.
+          to access, correct, export, or delete your personal data. You can view and edit your
+          profile and resumes directly in the app, <strong>download a copy of your data</strong>{" "}
+          from your account settings, and delete everything there too. For any other request,
+          contact us.
         </p>
       </Section>
 

@@ -104,6 +104,21 @@ export default function TermsPage() {
         </p>
       </Section>
 
+      <Section title="Communications">
+        <p>
+          We send <strong>service emails</strong> (such as account activation and password resets)
+          that are necessary to operate your account. <strong>Marketing emails</strong> (product
+          updates) are sent only if you opt in separately, and you can unsubscribe at any time via the
+          link in every message. If you submit a bug report, you may choose to include diagnostic
+          information to help us debug. We may also access your account to operate and support the
+          Service — see the{" "}
+          <Link href="/privacy" className="font-medium text-accent-deep hover:underline">
+            Privacy Policy
+          </Link>{" "}
+          for how data is handled.
+        </p>
+      </Section>
+
       <Section title="AI features">
         <p>
           Kiwiply offers an <strong>optional</strong> AI feature that drafts answers to open-ended

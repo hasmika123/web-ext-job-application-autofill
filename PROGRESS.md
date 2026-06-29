@@ -656,6 +656,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A5 MERGED + DEPLOYED** · PR #12 merged → bug reports (floating web widget +
+  extension popup + admin triage + support@ notice) shipping to prod. Phase 9 core (A0–A5) all live.
+- 2026-06-29 · **phase9.X.1 — privacy/terms updates** · On branch `admin-buildout`. `/privacy`: new
+  sections "How our team accesses your data" (metadata-default, reason-logged + audited PII contents),
+  "Marketing emails" (separate double-opt-in consent, unsubscribe), "Bug reports & diagnostic data"
+  (consent-gated context); "Your rights" now mentions downloading a copy of your data. `/terms`: new
+  "Communications" section (service vs marketing email, diagnostic data, admin access → Privacy Policy).
+  Content-only; `npm test`+`build` green. (Lawyer review still pending — PL.1.) 9.X.2 next: DSAR export.
 - 2026-06-29 · **phase9.A5.4 — extension "Report a bug" (ext v0.25.0)** · On branch `admin-buildout`.
   Popup header "Report" link → inline form (type/message/consent) submitting via the TrackingProvider
   seam (`submitBugReport` on `createKiwiplyProvider` + base contract stub; auth-optional, attaches the
