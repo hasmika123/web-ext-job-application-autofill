@@ -635,6 +635,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A1.2 — web admin gate + shell** · On branch `admin-buildout`. New `(admin)`
+  route group with a gate layout (no session→/login; 401/403→/login; authed-but-not-ROLE_ADMIN or
+  API-down→404, fail-closed — real enforcement stays Spring's `/api/admin/**`). Distinct dark
+  `AdminShell` (charcoal sidebar + "Admin" badge, `BrandLockup` for the dark surface, inline dark
+  sign-out) with the full planned nav (Overview live; Users/AI/Security/Analytics/Email/Bug/System/
+  Audit shown as muted "Soon" so no broken links). `/admin` Overview placeholder (section grid;
+  noindex). `npm test` (tsc+eslint) + `next build` green. Live view needs the stack (user step). A1.3
+  next: Users list + BFF.
 - 2026-06-29 · **phase9.A1.1 — audit-log foundation (backend)** · On branch `admin-buildout` (NOT
   merged; admin build-out accumulates until a coherent chunk ships). New immutable `AdminAuditEvent`
   entity (+ `20260629000000_admin_audit_event` migration, indexed by created/actor/target),
