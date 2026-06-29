@@ -161,6 +161,24 @@ function mockFetch(handler) {
   ok("aiDraft POSTs /api/ai/draft with consent", fetchAi.calls[0].method === "POST" && fetchAi.calls[0].path === "/api/ai/draft" && fetchAi.calls[0].body.consent === true);
   ok("aiDraft returns the server result", ai.answer === "Because I'd thrive here." && ai.quota === 50);
 
+  /* ---- submitBugReport (Phase 9.A5) — POSTs /api/bug-reports, source=extension, attaches token ---- */
+  const fetchBug = mockFetch(() => ({ status: 202, json: { ok: true } }));
+  const pBug = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchBug, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  await pBug.submitBugReport({ message: "broke", category: "BUG", url: "https://x", appVersion: "0.25.0", userAgent: "UA" });
+  ok(
+    "submitBugReport POSTs /api/bug-reports with source=extension + bearer",
+    fetchBug.calls[0].method === "POST" &&
+      fetchBug.calls[0].path === "/api/bug-reports" &&
+      fetchBug.calls[0].body.source === "extension" &&
+      fetchBug.calls[0].body.message === "broke" &&
+      fetchBug.calls[0].headers.Authorization === "Bearer A"
+  );
+  // Works anonymously too (no token) — the endpoint is public.
+  const fetchBugAnon = mockFetch(() => ({ status: 202, json: { ok: true } }));
+  const pBugAnon = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchBugAnon, tokenStore: T.memoryTokenStore({}) });
+  await pBugAnon.submitBugReport({ message: "hi", category: "IDEA" });
+  ok("submitBugReport works without a token (no auth header)", fetchBugAnon.calls[0].headers.Authorization === undefined);
+
   /* ---- base contract still rejects newly-declared, unimplemented methods ---- */
   let aiThrew = false; try { await base.aiDraft({}); } catch (e) { aiThrew = e.name === "NotSupportedError"; }
   ok("base TrackingProvider.aiDraft throws NotSupported", aiThrew);

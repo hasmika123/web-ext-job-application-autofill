@@ -57,6 +57,8 @@
     async syncFieldCache(/* entries */) { throw new NotSupportedError("syncFieldCache (Phase 4)"); }
     // Phase 5 — server-side metered AI drafting (opt-in). Implemented by createKiwiplyProvider.
     async aiDraft(/* { question, context, consent } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
+    // Phase 9.A5 — user bug report (auth optional). Implemented by createKiwiplyProvider.
+    async submitBugReport(/* { message, category, url, appVersion, userAgent } */) { throw new NotSupportedError("submitBugReport (Phase 9)"); }
   }
 
   // ---- canonical DTO mapping (extension shapes <-> server wire format) ----
@@ -371,6 +373,16 @@
       // { answer, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
       async aiDraft({ question, context, consent } = {}) {
         return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false } });
+      },
+
+      // ---- bug report (Phase 9.A5) ----------------------------------------
+      // Auth-optional: attach the access token if we have one (so the report is attributed to
+      // the user) but the endpoint is public, so an unconnected extension can still report.
+      // Diagnostic fields (url/userAgent) must be omitted by the caller unless the user consented.
+      async submitBugReport({ message, category, url, appVersion, userAgent } = {}) {
+        const t = await tokens();
+        const body = { source: "extension", message, category, url, appVersion, userAgent };
+        return parse(await rawRequest("POST", "/api/bug-reports", { body, accessToken: t.access }));
       },
     };
   }
