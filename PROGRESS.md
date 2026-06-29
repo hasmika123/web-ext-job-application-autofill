@@ -640,6 +640,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A2.3 — sessions/security (per-user)** · On branch `admin-buildout`. Backend
+  `AdminSessionService`/`AdminSessionResource`: `GET /api/admin/users/{login}/sessions` groups the
+  user's refresh tokens into families (created/expires/count/active) + `POST …/sessions/{familyId}/
+  revoke` (ownership-checked, audited SESSION_REVOKE); repo `findByUserId`. Web `SessionsList` on the
+  user-detail page (active sessions + per-session Revoke) + BFF `DELETE …/sessions/[familyId]`.
+  `AdminSessionServiceTest` (4) + `AdminSessionResourceIT` (3, @Transactional) + unit/ArchUnit green
+  on JDK 17; web tsc/eslint/build green. (Standalone "Security" nav stays Soon — this is the per-user
+  control; an aggregate dashboard is later.) A2.4 (system/ops) is the last A2 item.
 - 2026-06-29 · **phase9.A2.2b — AI quota override (web)** · On branch `admin-buildout`. `AiQuotaControl`
   on the user-detail page (set a per-user monthly quota or Clear to revert to the global default;
   shows effective quota) + BFF `PUT/DELETE /api/admin/users/[login]/ai-quota`; detail page now

@@ -39,6 +39,7 @@ public class AdminAuditService {
     public static final String USER_PII_VIEW = "USER_PII_VIEW";
     public static final String AI_QUOTA_SET = "AI_QUOTA_SET";
     public static final String AI_QUOTA_CLEAR = "AI_QUOTA_CLEAR";
+    public static final String SESSION_REVOKE = "SESSION_REVOKE";
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 
