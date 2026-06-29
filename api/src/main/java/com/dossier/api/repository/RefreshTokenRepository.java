@@ -1,6 +1,7 @@
 package com.dossier.api.repository;
 
 import com.dossier.api.domain.RefreshToken;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -14,6 +15,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
     Optional<RefreshToken> findByJti(String jti);
+
+    /** Admin sessions view (Phase 9.A2.3): all of a user's refresh tokens, grouped into families. */
+    List<RefreshToken> findByUserId(Long userId);
 
     // flush pending entity changes first, and clear the persistence context after, so this
     // bulk update isn't shadowed by stale first-level-cache entities (reuse detection reads

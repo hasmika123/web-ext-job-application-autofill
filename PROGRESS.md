@@ -25,13 +25,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **IMMEDIATE NEXT: Phase 9.A2 — AI usage + sessions/security + system/ops dashboards.**
-> ✅ **9.A0 (security gate, deployed + verified live: `admin/admin`→401, real env admin signs in) and
-> 9.A1 (admin gate + shell + Users list/detail + actions + audit trail & viewer) are DONE.**
-> A0 is on **`main`** (live). **A1 (commits A1.1–A1.5) is on `admin-buildout`, NOT yet merged to
-> `main`** — admin feature build-out accumulates on the branch; merge to deploy/verify a coherent
-> chunk (pushing `main` auto-deploys to prod). Recommend verifying A1 live (merge, or run the stack)
-> before A2. Full plan + legalities in `ADMIN-PLAN.md`.
+> ▶️ **IMMEDIATE NEXT: Phase 9.A3 — business-analytics overview** (signups, activation rate, DAU/WAU,
+> funnel, resumes/apps).
+> ✅ **9.A0 + 9.A1 DONE and LIVE on prod** (security gate; admin gate/shell/Users/actions/audit —
+> verified live by the user, incl. UI tweaks). **9.A2 DONE on `admin-buildout`** (AI usage · per-user
+> quota override · per-user sessions · read-only system/ops) — being shipped via an A2 PR (CI → merge).
+> Admin feature build-out accumulates on `admin-buildout`, PR'd to `main` as coherent chunks (pushing
+> `main` auto-deploys to prod). Full plan + legalities in `ADMIN-PLAN.md`.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -556,8 +556,12 @@ focused Claude Code session.
   type-to-confirm delete; immutable `AdminAuditEvent` trail (every action audited) + read-only audit
   viewer. Backend unit+ArchUnit green (JDK 17), ITs in CI; web tsc/eslint/build green. **Live view +
   end-to-end verification need a deploy (merge to main) or the local stack — user step.**
-- [ ] **9.A2 AI usage + sessions/security + system/ops dashboards.** `ai_usage` views + quota override;
-  refresh-token families + revoke; actuator health/metrics/loggers (read-only).
+- [x] **9.A2 AI usage + sessions/security + system/ops dashboards.** ✅ DONE on `admin-buildout`
+  (A2.1–A2.4). AI-usage view (`/admin/ai`, monthly aggregate) + per-user quota override (wired into
+  `AiDraftService` as override-or-default); per-user sessions (refresh-token families + revoke) on the
+  user-detail page; read-only `/admin/system` over the actuator (health/build/runtime/log levels).
+  Backend unit+ArchUnit green (JDK 17), new ITs in CI; web tsc/eslint/build green. (Standalone
+  "Security" nav left as a future aggregate dashboard.)
 - [ ] **9.A3 Business-analytics overview.** Signups, activation rate, DAU/WAU, funnel, resumes/apps.
 - [ ] **9.A4 Email subscription.** `email_subscriber` (double opt-in, tokenized unsubscribe) + Brevo
   list sync; public opt-in (footer + separate signup checkbox); admin list/export. Consent recorded;
@@ -640,6 +644,42 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-29 · **phase9.A2.4 — system/ops dashboard** · On branch `admin-buildout`. Read-only
+  `/admin/system` over the already-exposed, ADMIN-gated actuator (health components, build/git,
+  runtime from jhimetrics, log levels) — fetched server-side via `serverApiFetch` with the admin
+  bearer; rendered defensively (missing fields → "—"). No backend change. Nav + Overview card → Live.
+  `npm test`+`build` green. **Completes Phase 9.A2** (AI usage · quota override · sessions · system).
+- 2026-06-29 · **phase9.A2.3 — sessions/security (per-user)** · On branch `admin-buildout`. Backend
+  `AdminSessionService`/`AdminSessionResource`: `GET /api/admin/users/{login}/sessions` groups the
+  user's refresh tokens into families (created/expires/count/active) + `POST …/sessions/{familyId}/
+  revoke` (ownership-checked, audited SESSION_REVOKE); repo `findByUserId`. Web `SessionsList` on the
+  user-detail page (active sessions + per-session Revoke) + BFF `DELETE …/sessions/[familyId]`.
+  `AdminSessionServiceTest` (4) + `AdminSessionResourceIT` (3, @Transactional) + unit/ArchUnit green
+  on JDK 17; web tsc/eslint/build green. (Standalone "Security" nav stays Soon — this is the per-user
+  control; an aggregate dashboard is later.) A2.4 (system/ops) is the last A2 item.
+- 2026-06-29 · **phase9.A2.2b — AI quota override (web)** · On branch `admin-buildout`. `AiQuotaControl`
+  on the user-detail page (set a per-user monthly quota or Clear to revert to the global default;
+  shows effective quota) + BFF `PUT/DELETE /api/admin/users/[login]/ai-quota`; detail page now
+  server-fetches the current override. `npm test`+`build` green. **Completes A2.2.** A2.3 next:
+  sessions/security (refresh-token families + revoke).
+- 2026-06-29 · **phase9.A2.2a — per-user AI quota override (backend)** · On branch `admin-buildout`. New
+  `AiQuotaOverride` entity (login PK) + `20260629000100_ai_quota_override` migration + repo;
+  `AiDraftService` now resolves the monthly quota as override-or-global (additive, defaults to the
+  global). Admin `AdminAiQuotaService` (set/clear, clamped 0..100k, audited AI_QUOTA_SET/CLEAR) +
+  `AdminAiQuotaResource` (GET/PUT/DELETE `/api/admin/users/{login}/ai-quota`). Updated
+  `AiDraftServiceTest` for the new ctor; `AdminAiQuotaServiceTest` (7) + `AdminAiQuotaResourceIT`
+  (4, @Transactional); full unit suite + ArchUnit green on JDK 17. A2.2b next: web quota control.
+- 2026-06-29 · **phase9.A1 MERGED + DEPLOYED** · PR #8 (A1.1–A1.5 + 2 CI-caught fixes: non-transactional
+  ITs corrupting the shared seed; a deactivate 500 from building a DTO after an EM-clearing revoke)
+  merged to `main` after CI green; Deploy workflow succeeded → admin console LIVE at kiwiply.com/admin.
+  `admin-buildout` re-synced to `main`.
+- 2026-06-29 · **phase9.A2.1 — admin AI-usage dashboard** · On branch `admin-buildout`. Read-only
+  `GET /api/admin/ai-usage?period=YYYY-MM` (ADMIN-gated) aggregating the `ai_usage` meter: default
+  quota, total drafts, active-user count, per-user counts (busiest first, capped 200). Repo gained
+  `findByPeriodOrderByDraftCountDesc`/`countByPeriod`/`sumDraftsForPeriod`. Web `/admin/ai` (stat
+  cards + per-user table + prev/next month + over-quota highlight); nav + Overview card → Live.
+  `AdminAiUsageResourceIT` (3, @Transactional) + unit suite + ArchUnit green; web tsc/eslint/build
+  green. Doesn't touch the live `AiDraftService`. A2.2 next: per-user quota override (write path).
 - 2026-06-29 · **phase9.A1.5 — admin audit-log viewer** · On branch `admin-buildout`. Read-only
   `/admin/audit` server-paginated table (reuses `GET /api/admin/audit`): when/actor/action/target/
   reason, newest first. Flipped the shell "Audit log" nav + Overview card to Live. `npm test`+`build`

@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.AiUsage;
+import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ai.AiProvider;
@@ -43,6 +44,7 @@ public class AiDraftService {
 
     private final AiProvider provider;
     private final AiUsageRepository usageRepository;
+    private final AiQuotaOverrideRepository quotaOverrideRepository;
     private final AiAnswerCacheService answerCache;
     private final boolean enabled;
     private final int freeMonthlyQuota;
@@ -51,6 +53,7 @@ public class AiDraftService {
     public AiDraftService(
         AiProvider provider,
         AiUsageRepository usageRepository,
+        AiQuotaOverrideRepository quotaOverrideRepository,
         AiAnswerCacheService answerCache,
         @Value("${dossier.ai.enabled:false}") boolean enabled,
         @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota,
@@ -58,6 +61,7 @@ public class AiDraftService {
     ) {
         this.provider = provider;
         this.usageRepository = usageRepository;
+        this.quotaOverrideRepository = quotaOverrideRepository;
         this.answerCache = answerCache;
         this.enabled = enabled;
         this.freeMonthlyQuota = freeMonthlyQuota;
@@ -78,7 +82,11 @@ public class AiDraftService {
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
         String period = YearMonth.now().toString(); // YYYY-MM, server clock
-        int quota = freeMonthlyQuota;
+        // Per-user override (Phase 9.A2.2) wins over the global default; absent ⇒ default.
+        int quota = quotaOverrideRepository
+            .findById(login)
+            .map(com.dossier.api.domain.AiQuotaOverride::getMonthlyQuota)
+            .orElse(freeMonthlyQuota);
 
         AiUsage usage = usageRepository.findByLoginAndPeriod(login, period).orElseGet(() -> {
             AiUsage u = new AiUsage();

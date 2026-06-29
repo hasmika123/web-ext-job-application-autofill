@@ -12,12 +12,12 @@ type Section = { title: string; desc: string; status: "Live" | "Soon"; href?: st
 // will gain real KPIs in A3 (business analytics).
 const SECTIONS: Section[] = [
   { title: "Users", desc: "Browse accounts; activate, reset, roles, force-logout, delete.", status: "Live", href: "/admin/users" },
-  { title: "AI usage", desc: "Per-user drafting usage and quota overrides.", status: "Soon" },
+  { title: "AI usage", desc: "Per-user drafting usage by month. Quota overrides next.", status: "Live", href: "/admin/ai" },
   { title: "Security & sessions", desc: "Active refresh-token families; revoke / force logout.", status: "Soon" },
   { title: "Analytics", desc: "Signups, activation rate, DAU/WAU, funnel.", status: "Soon" },
   { title: "Email", desc: "Newsletter subscribers, consent, export, Brevo sync.", status: "Soon" },
   { title: "Bug reports", desc: "Triage queue for reports from web + extension.", status: "Soon" },
-  { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Soon" },
+  { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Live", href: "/admin/system" },
   { title: "Audit log", desc: "Every admin action and reason-gated PII access.", status: "Live", href: "/admin/audit" },
 ];
 
