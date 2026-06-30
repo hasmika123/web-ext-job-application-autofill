@@ -8,11 +8,16 @@ import ApplicationBoard, { type Application } from "@/components/ApplicationBoar
  * `router.refresh()` re-runs this fetch. Session gate + nav live in the `(app)` shell.
  */
 export default async function BoardPage() {
-  let applications: Application[] = [];
-  const res = await serverApiFetch("/api/profile/applications");
-  if (res.ok) {
-    applications = (await res.json().catch(() => [])) as Application[];
-  }
+  const [appsRes, resumesRes] = await Promise.all([
+    serverApiFetch("/api/profile/applications"),
+    serverApiFetch("/api/profile/resumes"),
+  ]);
+
+  const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
+
+  // Resume options for the board's "which resume did I send?" pickers (id + label only).
+  const rawResumes = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as Array<{ id: number; label?: string | null }>) : [];
+  const resumes = rawResumes.map((r) => ({ id: r.id, label: r.label || `Resume #${r.id}` }));
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -23,7 +28,7 @@ export default async function BoardPage() {
         </p>
       </header>
 
-      <ApplicationBoard applications={applications} />
+      <ApplicationBoard applications={applications} resumes={resumes} />
     </div>
   );
 }

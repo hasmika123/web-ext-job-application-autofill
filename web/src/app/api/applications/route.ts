@@ -15,10 +15,17 @@ type PostBody = {
   jobUrl?: unknown;
   location?: unknown;
   jobDescription?: unknown;
+  resumeId?: unknown;
 };
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+/** A positive integer resume id, or null. Accepts a number or numeric string. */
+function resumeId(v: unknown): number | null {
+  const n = typeof v === "number" ? v : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : null;
 }
 
 export async function POST(request: Request) {
@@ -47,6 +54,10 @@ export async function POST(request: Request) {
   if (jobUrl) forward.jobUrl = jobUrl;
   if (location) forward.location = location;
   if (jobDescription) forward.jobDescription = jobDescription;
+  const rid = resumeId(body.resumeId);
+  if (rid) forward.resume = { id: rid }; // Spring links it only if the current user owns it
+
+
 
   let res: Response;
   try {

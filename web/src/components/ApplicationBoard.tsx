@@ -49,7 +49,12 @@ function formatDate(iso?: string | null): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function ApplicationBoard({ applications }: { applications: Application[] }) {
+export interface ResumeOption {
+  id: number;
+  label: string;
+}
+
+export default function ApplicationBoard({ applications, resumes }: { applications: Application[]; resumes: ResumeOption[] }) {
   const router = useRouter();
   const [apps, setApps] = useState(applications);
   const [syncedFrom, setSyncedFrom] = useState(applications);
@@ -81,12 +86,22 @@ export default function ApplicationBoard({ applications }: { applications: Appli
       return next;
     });
 
-  /** Optimistically patch a card, then PUT/DELETE; router.refresh() reconciles (or reverts). */
-  async function mutate(id: number, method: "PUT" | "DELETE", body?: Record<string, unknown>) {
+  /**
+   * Optimistically patch a card, then PUT/DELETE; router.refresh() reconciles (or reverts).
+   * `optimisticPatch` lets the card preview differ from the request body — e.g. linking a
+   * resume sends `{ resumeId }` but previews `{ resume: { id, label } }`.
+   */
+  async function mutate(
+    id: number,
+    method: "PUT" | "DELETE",
+    body?: Record<string, unknown>,
+    optimisticPatch?: Record<string, unknown>,
+  ) {
     setError(null);
     setBusy(id, true);
+    const patch = optimisticPatch ?? body;
     setApps((prev) =>
-      method === "DELETE" ? prev.filter((a) => a.id !== id) : prev.map((a) => (a.id === id ? { ...a, ...body } : a)),
+      method === "DELETE" ? prev.filter((a) => a.id !== id) : prev.map((a) => (a.id === id ? { ...a, ...patch } : a)),
     );
     try {
       const res = await fetch(`/api/applications/${id}`, {
@@ -114,6 +129,10 @@ export default function ApplicationBoard({ applications }: { applications: Appli
       if (selectedId === app.id) setSelectedId(null);
       void mutate(app.id, "DELETE");
     }
+  };
+  const changeResume = (id: number, resumeId: number) => {
+    const r = resumes.find((x) => x.id === resumeId);
+    void mutate(id, "PUT", { resumeId }, { resume: r ? { id: r.id, label: r.label } : null });
   };
 
   /** Create a board entry by hand (no extension). router.refresh() pulls it back in. */
@@ -280,12 +299,14 @@ export default function ApplicationBoard({ applications }: { applications: Appli
 
       <DetailPanel
         app={selected}
+        resumes={resumes}
         onClose={() => setSelectedId(null)}
         onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
+        onChangeResume={(rid) => selected && changeResume(selected.id, rid)}
         onDelete={() => selected && remove(selected)}
       />
 
-      {adding && <AddApplicationDialog onClose={() => setAdding(false)} onCreate={createApplication} />}
+      {adding && <AddApplicationDialog resumes={resumes} onClose={() => setAdding(false)} onCreate={createApplication} />}
     </div>
   );
 }
@@ -297,15 +318,25 @@ interface NewApplication {
   jobUrl?: string;
   location?: string;
   jobDescription?: string;
+  resumeId?: number;
 }
 
-function AddApplicationDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (input: NewApplication) => Promise<boolean> }) {
+function AddApplicationDialog({
+  resumes,
+  onClose,
+  onCreate,
+}: {
+  resumes: ResumeOption[];
+  onClose: () => void;
+  onCreate: (input: NewApplication) => Promise<boolean>;
+}) {
   const [company, setCompany] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
   const [status, setStatus] = useState("SAVED");
   const [jobUrl, setJobUrl] = useState("");
   const [location, setLocation] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [resumeId, setResumeId] = useState("");
   const [saving, setSaving] = useState(false);
   const firstRef = useRef<HTMLInputElement>(null);
 
@@ -332,6 +363,7 @@ function AddApplicationDialog({ onClose, onCreate }: { onClose: () => void; onCr
       jobUrl: jobUrl.trim() || undefined,
       location: location.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
+      resumeId: resumeId ? Number(resumeId) : undefined,
     });
     setSaving(false);
     if (ok) onClose();
@@ -376,6 +408,17 @@ function AddApplicationDialog({ onClose, onCreate }: { onClose: () => void; onCr
               <input value={location} onChange={(e) => setLocation(e.target.value)} className={fieldClass} placeholder="Remote · NYC…" />
             </label>
           </div>
+          {resumes.length > 0 && (
+            <label className={labelClass}>
+              Resume sent
+              <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={fieldClass}>
+                <option value="">— None —</option>
+                {resumes.map((r) => (
+                  <option key={r.id} value={String(r.id)}>{r.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className={labelClass}>
             Job URL
             <input type="url" value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} className={fieldClass} placeholder="https://…" />
@@ -485,13 +528,17 @@ function BoardCard({
 
 function DetailPanel({
   app,
+  resumes,
   onClose,
   onChangeStatus,
+  onChangeResume,
   onDelete,
 }: {
   app: Application | null;
+  resumes: ResumeOption[];
   onClose: () => void;
   onChangeStatus: (status: string) => void;
+  onChangeResume: (resumeId: number) => void;
   onDelete: () => void;
 }) {
   const open = !!app;
@@ -544,7 +591,21 @@ function DetailPanel({
               <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
                 {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
                 {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
-                {app.resume?.label && (<><dt className="text-muted">Resume sent</dt><dd className="text-ink">📄 {app.resume.label}</dd></>)}
+                <dt className="self-center text-muted">Resume sent</dt>
+                <dd>
+                  <select
+                    aria-label="Resume sent"
+                    value={app.resume?.id ? String(app.resume.id) : ""}
+                    onChange={(e) => e.target.value && onChangeResume(Number(e.target.value))}
+                    disabled={resumes.length === 0}
+                    className="w-full rounded-lg border border-line bg-paper px-2 py-1 text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60"
+                  >
+                    <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
+                    {resumes.map((r) => (
+                      <option key={r.id} value={String(r.id)}>{r.label}</option>
+                    ))}
+                  </select>
+                </dd>
                 {formatDate(app.appliedAt) && (<><dt className="text-muted">Applied</dt><dd className="text-ink">{formatDate(app.appliedAt)}</dd></>)}
                 {formatDate(app.createdAt) && (<><dt className="text-muted">Added</dt><dd className="text-ink">{formatDate(app.createdAt)}</dd></>)}
               </dl>
