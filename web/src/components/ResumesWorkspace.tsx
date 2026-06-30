@@ -4,6 +4,7 @@ import { useState } from "react";
 import ResumeUpload, { type EditTarget } from "@/components/ResumeUpload";
 import ResumeList, { type Resume } from "@/components/ResumeList";
 import type { StructuredResume } from "@/lib/parser-core";
+import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 
 type BaseProfile = Record<string, unknown>;
 
@@ -77,6 +78,7 @@ export default function ResumesWorkspace({
 }) {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editSeq, setEditSeq] = useState(0);
+  const services = useResumeUploadServices();
 
   const onEdit = (r: Resume) => {
     setEditTarget({ id: r.id, label: r.label, structured: coerceStruct(r.parsedJson) });
@@ -85,7 +87,7 @@ export default function ResumesWorkspace({
 
   return (
     <div className="flex flex-col gap-10">
-      <ResumeUpload key={editSeq} baseProfile={baseProfile} editTarget={editTarget} />
+      <ResumeUpload key={editSeq} baseProfile={baseProfile} editTarget={editTarget} {...services} />
       <ResumeList resumes={resumes} usage={usage} onEdit={onEdit} />
     </div>
   );

@@ -52,24 +52,27 @@ before writing selectors.
 
 ---
 
-## ▶️ KICKSTART — W1.2 (make web's `ResumeUpload` portable)
+## ▶️ KICKSTART — W1.3 (move `ResumeUpload` into `@kiwiply/ui`)
 
-Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W1.2–W1.4).
+Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W1.3–W1.4).
 
-**W0 is DONE** (WXT builds the extension at parity) and **W1.1 is DONE** — npm workspaces at the repo root
-(`workspaces: ["packages/*"]`) + `@kiwiply/ui` with `styles/tokens.css` (canonical brand tokens). Kept additive:
-web + extension are **not** workspace members yet, so the live web Docker/CI build is untouched; they join in W1.4.
+**W0 DONE** (WXT builds the extension at parity). **W1.1 DONE** — npm workspaces (`workspaces: ["packages/*"]`)
++ `@kiwiply/ui` with `styles/tokens.css`. **W1.2 DONE** — `ResumeUpload` is now presentational: services
+(`onSave`/`onUpdateProfile`/`track`/`toast`/`onRefresh`) are injected (no more `useRouter`/`useToast`/`fetch` in
+the component); web wiring lives in `web/src/lib/use-resume-upload-services.ts`, spread by both callers
+(`ResumesWorkspace`, `ApplicationBoard`). `tsc`+`eslint`+`next build` green, zero web behavior change.
 
 One manual W0 gate still stands (do once, in Chrome): **load `job-autofill/.output/chrome-mv3` unpacked and walk
-parity** — autofill on a real ATS, save-a-job, options, the `/connect` handoff, bug report, on-the-fly upload. If
-anything regresses it's almost certainly a runtime-path issue (`executeScript`→`content-scripts/content.js`;
-`getURL`→`options.html`/`review.html`; `vendor/`+`icons/` moved to `public/`). `.output/` is gitignored — `npm run build` to regenerate.
+parity** (autofill, save-a-job, options, `/connect`, bug report, on-the-fly upload). `.output/` is gitignored —
+`npm run build` in `job-autofill/` to regenerate.
 
-**Next — W1.2 (make `ResumeUpload` portable, in place, ZERO web behavior change):** find the web `ResumeUpload`
-component + its sub-parts; inject services via props (`onSave`, `onCancel`, optional `track`/`toast`/`navigate`)
-and drop hard `next/navigation` / `next/image` / direct `fetch` so the same component can render outside Next.
-Don't move it yet — that's W1.3 (into `@kiwiply/ui`). Then W1.4 wires web + the WXT extension to consume the
-package and adds them as workspace members (with the Docker/CI install changes). See `EXT-UI-PLATFORM-PLAN.md` W1.
+**Next — W1.3 (move into the package):** relocate `ResumeUpload` + its sub-parts, the UI primitives it needs
+(`Input`, `buttonVariants`, `cn`, `LIMITS`/validate), and the `parser-core` **types** into `packages/ui`
+(`@kiwiply/ui`). Decide how parsing is provided (web uses `@/lib/resume-parse` = pdfjs-dist; the extension parses
+via its own `parser.js`/vendor pdf) — likely inject a `parseFile` service too, or have the extension seed parsed
+structure (W3 side panel). Keep web building. **Then W1.4** wires web + the WXT extension to import from
+`@kiwiply/ui`, adds `web/`+`job-autofill/` as workspace members, and updates the web **Dockerfile + CI** (they
+currently `npm ci` in isolation — that's the step where the live build changes). See `EXT-UI-PLATFORM-PLAN.md` W1.
 
 **How to build/run the extension now:** `cd job-autofill && npm run dev` (WXT dev server, HMR) or
 `npm run build` (→ `.output/chrome-mv3`). `npm test` still runs the engine suite. WXT prefers Node 22 but
