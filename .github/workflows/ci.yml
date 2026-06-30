@@ -48,7 +48,7 @@ jobs:
       - run: npm run build --workspace web # strongest gate: next build (standalone)
 
   web-docker:
-    name: Web Docker image builds
+    name: Web Docker image builds + smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,9 +60,23 @@ jobs:
           context: .
           file: ./web/Dockerfile
           push: false
+          load: true # load into the runner's Docker so the smoke step can run it
           tags: dossier-web:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Smoke-run the container
+        # Validates the RUNTIME, not just the build: a monorepo-nested standalone with the wrong
+        # paths would build fine but fail to start. We just need the server to bind + answer.
+        run: |
+          docker run -d --name web -p 3000:3000 -e HOSTNAME=0.0.0.0 dossier-web:ci
+          ok=
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || echo 000)
+            if [ "$code" != "000" ]; then echo "server responded: HTTP $code"; ok=1; break; fi
+            sleep 2
+          done
+          echo "--- container logs ---"; docker logs web 2>&1 | tail -40
+          if [ "$ok" != "1" ]; then echo "::error::web container never bound :3000 (check nested-standalone paths)"; exit 1; fi
 
   api:
     name: API tests (unit + integration)
