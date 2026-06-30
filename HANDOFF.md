@@ -52,9 +52,32 @@ before writing selectors.
 
 ---
 
-## ▶️ KICKSTART — W2.2 (web parity verify + deploy gate)
+## ▶️ KICKSTART — W3 (extension side panel renders the shared form)
 
-Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W2.2 → W3).
+Work on branch **`feat/extension-redesign`** (W0–W2 are **merged to `main` + LIVE**; the branch continues for W3+).
+Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W3.1–W3.5).
+
+**W2 is DONE + DEPLOYED.** `@kiwiply/ui` holds the portable `ResumeUpload` (services injected: `parseFile`/`onSave`/
+`onUpdateProfile`/`track`/`toast`/`onRefresh`); the web app consumes it and is live (verified). CI has a
+`web-docker` build+smoke job. The extension build is WXT (`job-autofill/`, entrypoints + `.output/chrome-mv3`).
+
+**Next — W3 (the extension finally renders the shared React form):**
+1. **W3.1** `entrypoints/sidepanel` (React) + add the `sidePanel` permission/config to `wxt.config.ts`. This is the
+   first **React** surface in the extension — add React + `@kiwiply/ui` as deps, and **make `job-autofill/` a
+   workspace member** (the WXT half of W1.4) so Vite resolves `@kiwiply/ui`. Wire Tailwind for the panel + import
+   `@kiwiply/ui/styles/tokens.css`. Watch the extension's `npm ci` shell (`.npmrc` cmd.exe pin) — CI overrides it.
+2. **W3.2** The side panel reads the popup handoff (parsed structure + file + `mode` + `jobTabId`) and mounts
+   `<ResumeUpload>` with extension services.
+3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
+   **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
+   `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).
+4. **W3.4** Popup upload options call `chrome.sidePanel.open({tabId})` + handoff; remove the vanilla `src/review/*`.
+5. **W3.5** Loading/empty/error/cancel; verify both modes unpacked.
+
+Keep web green (it's live). One W0 manual gate still open: load `job-autofill/.output/chrome-mv3` unpacked and walk
+parity (autofill/save-a-job/options/`/connect`/bug/on-the-fly upload).
+
+*(Prior W2.2 deploy gate — now satisfied — kept below for reference.)*
 
 **W0/W1 DONE.** The shared form now lives in `@kiwiply/ui` and **web consumes it**: `ResumeUpload` moved into
 `packages/ui/src` (self-contained primitives + `parser-core` types; parsing is the injected `parseFile` service).
