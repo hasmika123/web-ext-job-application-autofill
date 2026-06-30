@@ -2,6 +2,9 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
+const NUDGE_SEEN_KEY = "kiwiply_bugnudge_seen";
+const NUDGE_LABEL = "Found a bug? Let us know 🐛";
+
 /**
  * Floating "report a bug" button (Phase 9.A5.2) — a persistent circle at the bottom-right that
  * opens a small dialog. Diagnostic context (this page's URL + browser) is attached only if the
@@ -17,6 +20,7 @@ export default function BugReportWidget() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nudge, setNudge] = useState(false); // one-time "Found a bug?" bubble on first visit
 
   useEffect(() => {
     if (!open) return;
@@ -24,6 +28,26 @@ export default function BugReportWidget() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // Show the nudge once, a moment after first load; never again once seen/opened/dismissed.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(NUDGE_SEEN_KEY)) return;
+    } catch {
+      return;
+    }
+    const t = setTimeout(() => setNudge(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  function dismissNudge() {
+    setNudge(false);
+    try {
+      localStorage.setItem(NUDGE_SEEN_KEY, "1");
+    } catch {
+      /* private mode — just don't persist */
+    }
+  }
 
   function reset() {
     setMessage("");
@@ -72,22 +96,43 @@ export default function BugReportWidget() {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Report a bug"
-        title="Report a bug"
-        onClick={() => {
-          reset();
-          setOpen(true);
-        }}
-        className="fixed bottom-5 right-5 z-[200] grid h-13 w-13 place-items-center rounded-full bg-ink text-paper shadow-[0_6px_20px_rgba(0,0,0,.25)] transition-transform hover:scale-105"
-        style={{ height: 52, width: 52 }}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-          <rect x="8" y="6" width="8" height="13" rx="4" />
-          <path d="M12 6V4M5 9h3M16 9h3M4 13h4M16 13h4M5 17h3M16 17h3" />
-        </svg>
-      </button>
+      <div className="group fixed bottom-5 right-5 z-[200] flex items-center gap-2">
+        {!open &&
+          (nudge ? (
+            <div className="flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3.5 pr-2 text-[13px] font-medium text-ink shadow-[0_6px_20px_rgba(0,0,0,.18)]">
+              <span>{NUDGE_LABEL}</span>
+              <button
+                type="button"
+                aria-label="Dismiss"
+                onClick={dismissNudge}
+                className="grid h-5 w-5 flex-none place-items-center rounded-full text-muted hover:bg-paper-2 hover:text-ink"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <span className="pointer-events-none whitespace-nowrap rounded-full border border-line bg-paper px-3.5 py-2 text-[13px] font-medium text-ink opacity-0 shadow-[0_6px_20px_rgba(0,0,0,.18)] transition-opacity group-hover:opacity-100">
+              {NUDGE_LABEL}
+            </span>
+          ))}
+        <button
+          type="button"
+          aria-label="Report a bug"
+          title="Report a bug"
+          onClick={() => {
+            dismissNudge();
+            reset();
+            setOpen(true);
+          }}
+          className="grid h-13 w-13 flex-none place-items-center rounded-full bg-ink text-paper shadow-[0_6px_20px_rgba(0,0,0,.25)] transition-transform hover:scale-105"
+          style={{ height: 52, width: 52 }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+            <rect x="8" y="6" width="8" height="13" rx="4" />
+            <path d="M12 6V4M5 9h3M16 9h3M4 13h4M16 13h4M5 17h3M16 17h3" />
+          </svg>
+        </button>
+      </div>
 
       {open && (
         <div className="fixed inset-0 z-[210] grid place-items-end justify-end p-5 sm:place-items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="Report a bug">

@@ -36,27 +36,28 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <div className="flex-1">{children}</div>
 
       <footer className="mt-auto border-t border-line bg-paper-2">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 text-sm text-muted">
-          <div id="newsletter" className="max-w-sm scroll-mt-24">
-            <NewsletterSignup />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Logo height={26} />
-              <BetaBadge />
+        <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-muted">
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-3">
+              <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2">
+                <Logo height={24} />
+                <BetaBadge />
+              </Link>
+              <nav className="flex flex-wrap gap-x-5 gap-y-2">
+                <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+                <Link href="/terms" className="hover:text-ink">Terms</Link>
+                <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
+                <Link href="/login" className="hover:text-ink">Sign in</Link>
+              </nav>
             </div>
-            <nav className="flex gap-5">
-              <Link href="/privacy" className="hover:text-ink">Privacy</Link>
-              <Link href="/terms" className="hover:text-ink">Terms</Link>
-              <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
-              <Link href="/login" className="hover:text-ink">Sign in</Link>
-            </nav>
-            <span>© {new Date().getFullYear()} Kiwiply</span>
+            <div id="newsletter" className="w-full max-w-sm scroll-mt-24">
+              <NewsletterSignup />
+            </div>
           </div>
-          <p className="text-[12.5px] leading-relaxed text-muted">
-            Kiwiply is currently in <strong className="font-semibold text-ink-soft">beta</strong> — the
-            service is provided “as is” and “as available”, features may change, and it may be
-            interrupted while we improve it.
+          <p className="mt-6 border-t border-line pt-4 text-[12.5px] leading-relaxed">
+            © {new Date().getFullYear()} Kiwiply · In{" "}
+            <strong className="font-semibold text-ink-soft">beta</strong> — provided “as is” and “as
+            available”; features may change while we improve it.
           </p>
         </div>
       </footer>

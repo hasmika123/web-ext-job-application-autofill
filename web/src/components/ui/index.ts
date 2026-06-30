@@ -6,6 +6,8 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from "./Button";
 export { default as Input, Field, inputClass } from "./Input";
 export type { InputProps, FieldProps } from "./Input";
 
+export { default as PasswordInput } from "./PasswordInput";
+
 export { default as Select } from "./Select";
 export type { SelectProps } from "./Select";
 
