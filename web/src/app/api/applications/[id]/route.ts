@@ -8,7 +8,7 @@ import { serverApiFetch } from "@/lib/api";
  */
 const STATUSES = ["DRAFT", "SAVED", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
 
-type PutBody = { status?: unknown; submissionConfirmed?: unknown; appliedAt?: unknown };
+type PutBody = { status?: unknown; submissionConfirmed?: unknown; appliedAt?: unknown; resumeId?: unknown };
 
 export async function PUT(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -31,6 +31,13 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
   }
   if (typeof body.submissionConfirmed === "boolean") forward.submissionConfirmed = body.submissionConfirmed;
   if (typeof body.appliedAt === "string") forward.appliedAt = body.appliedAt;
+  if (body.resumeId !== undefined) {
+    const n = typeof body.resumeId === "number" ? body.resumeId : typeof body.resumeId === "string" && /^\d+$/.test(body.resumeId) ? Number(body.resumeId) : NaN;
+    if (!Number.isInteger(n) || n <= 0) {
+      return Response.json({ error: "Invalid resume id." }, { status: 400 });
+    }
+    forward.resume = { id: n }; // Spring links it only if the current user owns the resume
+  }
   if (Object.keys(forward).length === 0) {
     return Response.json({ error: "Nothing to update." }, { status: 400 });
   }

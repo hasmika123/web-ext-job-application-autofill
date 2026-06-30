@@ -47,18 +47,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 <Link href="/privacy" className="hover:text-ink">Privacy</Link>
                 <Link href="/terms" className="hover:text-ink">Terms</Link>
                 <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
-                <Link href="/login" className="hover:text-ink">Sign in</Link>
               </nav>
+              <p className="text-[12.5px] leading-relaxed">
+                © {new Date().getFullYear()} Kiwiply · In{" "}
+                <strong className="font-semibold text-ink-soft">beta</strong> — provided “as is” and
+                “as available”; features may change while we improve it.
+              </p>
             </div>
             <div id="newsletter" className="w-full max-w-sm scroll-mt-24">
               <NewsletterSignup />
             </div>
           </div>
-          <p className="mt-6 border-t border-line pt-4 text-[12.5px] leading-relaxed">
-            © {new Date().getFullYear()} Kiwiply · In{" "}
-            <strong className="font-semibold text-ink-soft">beta</strong> — provided “as is” and “as
-            available”; features may change while we improve it.
-          </p>
         </div>
       </footer>
     </div>
