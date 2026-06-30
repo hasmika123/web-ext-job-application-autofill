@@ -80,17 +80,29 @@ The extension adopts a **build step / framework (WXT)**. The autofill **engine s
 - [ ] **W3.4** Popup: both upload options `chrome.sidePanel.open({tabId})` + handoff. Remove `src/review/*` (the vanilla tab).
 - [ ] **W3.5** Loading/empty/error/cancel states; close panel on done. Verify both modes unpacked.
 
-## Phase W4 — (Ongoing) convert popup + options to React
-> The broader UI roadmap rides here, once the foundation + side panel are proven.
+## Phase W4 — Convert popup + options to React
+> The functional port to React (so the visual overhaul in W5 has React surfaces to polish).
 - [ ] **W4.1** Convert `popup` to React (resume picker, fill flow, upload choice) using shared primitives.
 - [ ] **W4.2** Convert `options` to React (settings, account, bug report).
-- [ ] **W4.3** (Future UI features slot in here as their own `w4.x` tasks.)
+- [ ] **W4.3** (Future UI *features* slot in here as their own `w4.x` tasks; visual polish lives in W5.)
 
-## Phase W5 — Firefox parity, cleanup, docs, ship
-- [ ] **W5.1** Firefox build via WXT (sidebar/injected panel for the side-panel surface); test.
-- [ ] **W5.2** Remove dead vanilla assets; prune unused CSS.
-- [ ] **W5.3** Update `ARCHITECTURE.md`, `PROGRESS.md`, this plan's checkboxes.
-- [ ] **W5.4** Bump extension version, full test pass (web + extension), package, **CWS upload**.
+## Phase W5 — UI overhaul & design polish (Simplify-scale)
+> Lift every extension surface to a polished, cohesive, Simplify-scale standard on the **shared
+> design system**. Builds on the React conversion (W4) + `packages/ui` (W1). This is the "improve UI"
+> track — visual/UX quality, not new plumbing.
+- [ ] **W5.1** Grow `packages/ui` into a real **design system**: tokens (color/spacing/type/radius/shadow, light **+ dark**) shared with the web, and shared primitives (Button, Input, Select, Field, Card, Badge, Tabs, Toast, Skeleton, EmptyState, Dialog, SidePanel shell, Tooltip, Menu). One source for web + extension.
+- [ ] **W5.2** Redesign the **popup** into a polished home surface — clear hierarchy, resume picker, primary actions, status, upload entry — tuned to the fixed popup width.
+- [ ] **W5.3** Redesign the **options/settings** app — sectioned nav, account, AI, filling, bug report — with consistent cards/controls.
+- [ ] **W5.4** Polish the **side-panel review** (shared form) and the **injected on-page autofill panel** for visual consistency with the web app.
+- [ ] **W5.5** State + interaction polish across all surfaces: loading/empty/error/success states, focus management, keyboard nav, transitions/micro-interactions, toasts.
+- [ ] **W5.6** **Accessibility** pass (roles, labels, contrast, focus traps) and **dark-mode** support across surfaces.
+- [ ] **W5.7** Visual QA against the web app for cohesion; before/after screenshots in the PR.
+
+## Phase W6 — Firefox parity, cleanup, docs, ship
+- [ ] **W6.1** Firefox build via WXT (sidebar/injected panel for the side-panel surface); test.
+- [ ] **W6.2** Remove dead vanilla assets; prune unused CSS.
+- [ ] **W6.3** Update `ARCHITECTURE.md`, `PROGRESS.md`, this plan's checkboxes.
+- [ ] **W6.4** Bump extension version, full test pass (web + extension), package, **CWS upload**.
 
 ---
 
@@ -104,10 +116,12 @@ The extension adopts a **build step / framework (WXT)**. The autofill **engine s
 - **Bundle size / Tailwind:** share tokens with web `globals.css`; tree-shake; acceptable for panels.
 
 ## Definition of done (build-out)
-WXT builds the extension (engine intact, parity verified); `packages/ui` holds one `ResumeUpload`
-consumed by web + extension; the on-the-fly upload reviews in a right-side panel using that form
-(both modes); web parity deployed; extension shipped via a CWS upload; docs updated. The platform
-is ready for further Simplify-scale UI in `entrypoints/` + `packages/ui`.
+WXT builds the extension (engine intact, parity verified); `packages/ui` holds one `ResumeUpload` +
+a shared **design system** consumed by web + extension; the on-the-fly upload reviews in a right-side
+panel using that form (both modes); **every extension surface is overhauled to a polished, cohesive,
+Simplify-scale standard (W5) — consistent tokens, dark mode, accessibility**; web parity deployed;
+extension shipped via a CWS upload; docs updated. The platform is ready for further Simplify-scale
+UI in `entrypoints/` + `packages/ui`.
 
 ## Log
 - 2026-06-30 · Re-cast from `SHARED-FORM-PLAN.md` to a WXT platform plan (framework = WXT, engine stays). Decisions locked.
