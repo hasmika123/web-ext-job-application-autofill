@@ -121,13 +121,12 @@ function sanitizeStructured(s) {
 // connected account (save creates a resume; attach uploads the PDF to the application).
 async function openReview(file, mode) {
   const settings = await S.getSettings();
-  try {
-    const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
-    if (!settings.apiBaseUrl || !(await provider.isAuthenticated())) {
-      return setStatus("Connect the extension on kiwiply.com to use this.", true);
-    }
-  } catch (e) {
-    return setStatus("Connect the extension on kiwiply.com to use this.", true);
+  // Authoritative connection check: read the session token directly — exactly what the options
+  // page's "connected" status uses (stored by the kiwiply.com /connect handoff). This avoids any
+  // provider-construction edge that could falsely report "not connected".
+  const tok = await new Promise((res) => chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})));
+  if (!settings.apiBaseUrl || !tok.access) {
+    return setStatus("Connect the extension first — open Settings → “Connect to kiwiply.com”.", true);
   }
 
   setStatus("Reading resume…");
