@@ -32,11 +32,21 @@ public class NewsletterService {
     private final EmailSubscriberRepository repository;
     private final MailService mailService;
     private final JHipsterProperties jHipsterProperties;
+    private final BrevoContactService brevoContactService;
+    private final String postalAddress;
 
-    public NewsletterService(EmailSubscriberRepository repository, MailService mailService, JHipsterProperties jHipsterProperties) {
+    public NewsletterService(
+        EmailSubscriberRepository repository,
+        MailService mailService,
+        JHipsterProperties jHipsterProperties,
+        BrevoContactService brevoContactService,
+        @org.springframework.beans.factory.annotation.Value("${dossier.newsletter.postal-address:}") String postalAddress
+    ) {
         this.repository = repository;
         this.mailService = mailService;
         this.jHipsterProperties = jHipsterProperties;
+        this.brevoContactService = brevoContactService;
+        this.postalAddress = postalAddress;
     }
 
     /** Public opt-in. Generic by design (no enumeration). A confirmed address is a no-op. */
@@ -81,6 +91,7 @@ public class NewsletterService {
                 s.setConfirmedAt(Instant.now());
                 s.setConfirmToken(null);
                 repository.save(s);
+                brevoContactService.addConfirmedContact(s.getEmail()); // best-effort mirror to Brevo
                 LOG.info("Newsletter subscription confirmed.");
                 return true;
             })
@@ -99,6 +110,7 @@ public class NewsletterService {
                     s.setStatus(SubscriberStatus.UNSUBSCRIBED);
                     s.setUnsubscribedAt(Instant.now());
                     repository.save(s);
+                    brevoContactService.removeContact(s.getEmail()); // best-effort opt-out in Brevo
                 }
                 return true;
             })
@@ -115,7 +127,9 @@ public class NewsletterService {
             "<p>Please confirm your subscription:</p>" +
             "<p><a href=\"" + confirmUrl + "\">Confirm my subscription</a></p>" +
             "<p style=\"color:#888;font-size:12px\">You received this because someone entered this address at kiwiply.com. " +
-            "If that wasn't you, ignore this email or <a href=\"" + unsubUrl + "\">unsubscribe</a>. Sent by Kiwiply (" + from + ").</p>";
+            "If that wasn't you, ignore this email or <a href=\"" + unsubUrl + "\">unsubscribe</a>. Sent by Kiwiply (" + from + ")." +
+            (postalAddress == null || postalAddress.isBlank() ? "" : "<br>" + postalAddress) +
+            "</p>";
         mailService.sendEmail(sub.getEmail(), "Confirm your Kiwiply subscription", html, false, true);
     }
 }

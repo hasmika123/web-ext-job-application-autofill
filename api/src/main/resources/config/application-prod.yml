@@ -201,3 +201,13 @@ dossier:
     # this back to false and recreate the api container.
     mfa-enabled: ${ADMIN_MFA_ENABLED:false}
     mfa-code-ttl-seconds: ${ADMIN_MFA_CODE_TTL_SECONDS:600}
+  newsletter:
+    # Physical postal address for marketing emails (CAN-SPAM / ePrivacy). Appears in the
+    # newsletter footer. Leave blank to omit (set before sending real campaigns).
+    postal-address: ${NEWSLETTER_POSTAL_ADDRESS:}
+  brevo:
+    # Brevo Contacts API sync (Phase 9.A4.4). OFF unless BOTH are set. The local email_subscriber
+    # table stays the source of truth; confirmed subscribers are mirrored to the Brevo list and
+    # unsubscribes are blacklisted there. The key is a Brevo API v3 key (env only, never bundled).
+    api-key: ${BREVO_API_KEY:}
+    list-id: ${BREVO_LIST_ID:0}

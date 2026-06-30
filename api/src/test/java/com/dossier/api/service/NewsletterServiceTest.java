@@ -37,7 +37,8 @@ class NewsletterServiceTest {
         when(mail.getBaseUrl()).thenReturn("https://kiwiply.com");
         when(mail.getFrom()).thenReturn("no-reply@kiwiply.com");
         when(repository.save(any(EmailSubscriber.class))).thenAnswer(i -> i.getArgument(0));
-        service = new NewsletterService(repository, mailService, props);
+        BrevoContactService brevo = Mockito.mock(BrevoContactService.class); // no-op in tests
+        service = new NewsletterService(repository, mailService, props, brevo, "");
     }
 
     @Test
