@@ -30,9 +30,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > console, comms, and cross-cutting compliance are all built.
 > **Pick the next focus deliberately** — candidates: remaining pre-launch (PL.1 lawyer review + legal
 > entity/hosted policy URL), **7.3 Safari**, or **Phase 8** (enterprise SSO/multi-tenancy/audit/session
-> at scale). **Standing user actions (not code):** turn on `ADMIN_MFA_ENABLED` on the VPS after
-> confirming admin email delivery; Brevo API list sync + postal address for newsletter campaigns;
-> manual Chrome Web Store upload of extension **v0.25.0**; screenshots for bug reports if wanted.
+> at scale). **Standing user actions (not code):** ✅ admin MFA enabled on the VPS; ✅ Brevo list sync +
+> postal address configured (A4.4 deployed, PR #14); ✅ admin email → `admin@kiwiply.com`, Cloudflare-routed
+> to `admin.kiwiply@gmail.com`. **Remaining:** backfill existing confirmed subscribers into the Brevo list
+> (`/admin/subscribers` CSV → import); lawyer review of `/privacy`+`/terms` (PL.1); **DPAs with Brevo + AWS
+> S3** (accept/sign in their dashboards); manual Chrome Web Store upload of extension **v0.25.0**;
+> screenshots for bug reports if wanted.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -584,9 +587,10 @@ focused Claude Code session.
   (admin access, marketing email, diagnostic data); self-service **DSAR export** ("Download my data" →
   `GET /api/account/export`, structured data + resume metadata); **admin email-OTP MFA** — gated OFF by
   default (`ADMIN_MFA_ENABLED`), no-email = no-lockout, web two-step login. **Phase 9 COMPLETE.**
-  Standing follow-ups (need the user): enable MFA on the VPS after confirming email; Brevo API list
-  sync + postal address for campaigns; bug-report screenshots; manual CWS upload of ext v0.25.0;
-  lawyer review of privacy/terms (PL.1).
+  Standing follow-ups: ✅ MFA enabled on VPS; ✅ Brevo list sync + postal address configured (A4.4
+  merged/deployed, PR #14); ✅ admin email → admin@kiwiply.com routed to admin.kiwiply@gmail.com.
+  **Remaining (need the user):** backfill confirmed subscribers into Brevo (CSV import); lawyer review of
+  privacy/terms (PL.1); DPAs with Brevo + AWS S3; bug-report screenshots; manual CWS upload of ext v0.25.0.
 
 ## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
 > Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
@@ -661,6 +665,11 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-06-30 · **phase9.A4.4 MERGED + DEPLOYED** · PR #14 merged → Brevo list sync + newsletter postal
+  address live on prod. Ops done this session: admin MFA enabled on VPS; Brevo `BREVO_API_KEY`/`BREVO_LIST_ID`
+  + `NEWSLETTER_POSTAL_ADDRESS` set; admin email → `admin@kiwiply.com` (Cloudflare-routed to
+  `admin.kiwiply@gmail.com`). **Phase 9 admin buildout fully complete + deployed.** Remaining = non-code:
+  subscriber backfill, lawyer review (PL.1), DPAs (Brevo + S3), CWS upload of ext v0.25.0.
 - 2026-06-29 · **phase9 MERGED + DEPLOYED (9.X)** · PR #13 merged → privacy/terms + DSAR export live;
   admin email-OTP MFA shipped dormant. **Phase 9 (A0–A5 + 9.X) fully on prod.**
 - 2026-06-29 · **phase9.A4.4 — Brevo list sync + postal address** · On branch `admin-buildout`.
