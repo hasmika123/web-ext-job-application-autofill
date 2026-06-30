@@ -411,7 +411,7 @@ function AddApplicationDialog({
           {resumes.length > 0 && (
             <label className={labelClass}>
               Resume sent
-              <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={fieldClass}>
+              <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={cn(fieldClass, "min-w-0 truncate")}>
                 <option value="">— None —</option>
                 {resumes.map((r) => (
                   <option key={r.id} value={String(r.id)}>{r.label}</option>
@@ -592,13 +592,13 @@ function DetailPanel({
                 {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
                 {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
                 <dt className="self-center text-muted">Resume sent</dt>
-                <dd>
+                <dd className="min-w-0">
                   <select
                     aria-label="Resume sent"
                     value={app.resume?.id ? String(app.resume.id) : ""}
                     onChange={(e) => e.target.value && onChangeResume(Number(e.target.value))}
                     disabled={resumes.length === 0}
-                    className="w-full rounded-lg border border-line bg-paper px-2 py-1 text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60"
+                    className="w-full min-w-0 truncate rounded-lg border border-line bg-paper px-2 py-1 text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60"
                   >
                     <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
                     {resumes.map((r) => (
