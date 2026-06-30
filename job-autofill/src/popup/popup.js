@@ -72,6 +72,70 @@ async function init() {
   // straight to its "#bug" section so the header bug icon lands the user on the form.
   $("bug-link").onclick = () =>
     chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html#bug") });
+
+  // Upload a resume on the fly (Phase 3b): parse it locally, store the raw file to the
+  // account for later, and fill this page with it (the on-page overlay reviews values first).
+  $("upload-resume").onclick = () => $("resume-file").click();
+  $("resume-file").onchange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (f) doUploadFill(f, bio).catch((err) => setStatus(String(err.message || err), true));
+  };
+}
+
+// Upload-on-the-fly: parse → (best-effort) store the raw file to the account → fill this page.
+// The parsed structure is used for THIS fill (reviewed in the on-page overlay) but not saved as
+// a structured resume; the file itself is stored so it's on the board for future reference.
+async function doUploadFill(file, bio) {
+  const settings = await S.getSettings();
+
+  setStatus("Reading resume…");
+  let structured;
+  try {
+    structured = await JAF.parser.parse(file, settings);
+  } catch (e) {
+    return setStatus("Couldn't read that file: " + (e.message || e), true);
+  }
+  const label = (file.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
+
+  // Best-effort: store the raw file (no parsed structure) to the account for future reference.
+  // Needs a connected, authenticated extension; offline/disconnected just skips this and fills.
+  let serverId = null;
+  try {
+    if (settings.apiBaseUrl) {
+      const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
+      if (await provider.isAuthenticated()) {
+        setStatus("Saving a copy to your account…");
+        const saved = await provider.createResume({ label, status: "NEEDS_REVIEW" });
+        serverId = saved && saved.serverId != null ? saved.serverId : null;
+        if (serverId != null) await provider.uploadResumeFile(serverId, file, file.name);
+      }
+    }
+  } catch (e) {
+    serverId = null; // storing is best-effort; never block the fill on it
+  }
+
+  setStatus("Scanning page…");
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || /^chrome:|^edge:|^about:/.test(tab.url || "")) return setStatus("Can't run on this page.", true);
+
+  await ensureInjected(tab.id);
+  const frameId = await pickFrame(tab.id);
+
+  const values = SCH.buildFillValues(bio, structured, { includeEEO: true });
+  const fileObj = { name: SCH.uploadResumeName(bio, file.name), type: file.type || "application/pdf", base64: await fileToBase64(file) };
+  const resumeRef = { serverId, label };
+  const resp = await sendTo(
+    tab.id,
+    { type: "JAF_FILL", values, file: fileObj, options: { autoAdvance: $("autoadv").checked, autoAddRows: settings.autoAddRows !== false, resume: resumeRef } },
+    frameId,
+  );
+  if (resp && resp.ok) {
+    setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`, "ok");
+    setTimeout(() => window.close(), 1200);
+  } else {
+    setStatus("Could not open the review panel on this page.", true);
+  }
 }
 
 // Read-only mirror: pull the latest profile + resumes from the server (best-effort,
