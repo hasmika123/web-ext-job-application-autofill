@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        On-the-fly resume upload — "just attach the file": a one-off resume PDF attached to a
+        single application (the file actually submitted), kept separate from the resume library so
+        it never shows up on the Resumes page. Object key points at S3; bytes never live in the DB.
+    -->
+    <changeSet id="20260630000000-1" author="dossier">
+        <addColumn tableName="application">
+            <column name="attachment_object_key" type="varchar(500)"/>
+            <column name="attachment_filename" type="varchar(255)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
