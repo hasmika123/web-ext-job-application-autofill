@@ -15,6 +15,11 @@ jobs:
   extension:
     name: Extension tests (jsdom)
     runs-on: ubuntu-latest
+    env:
+      # job-autofill/.npmrc pins a Windows cmd.exe script-shell (for the dev's machine). WXT's
+      # deps (esbuild) run install scripts, which would try to spawn cmd.exe on this Linux
+      # runner — override it so npm ci works.
+      npm_config_script_shell: /bin/bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

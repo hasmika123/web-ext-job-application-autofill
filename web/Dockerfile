@@ -21,6 +21,9 @@ RUN npm ci
 FROM node:20-alpine AS build
 WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
+# Root workspace manifests — `npm run build --workspace web` needs the root package.json to
+# resolve the `web` workspace.
+COPY package.json package-lock.json ./
 # Workspace sources: the shared UI package + the web app.
 COPY packages ./packages
 COPY web ./web

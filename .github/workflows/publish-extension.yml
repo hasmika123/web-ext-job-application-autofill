@@ -21,6 +21,10 @@ jobs:
   publish:
     name: Package + publish
     runs-on: ubuntu-latest
+    env:
+      # job-autofill/.npmrc pins a Windows cmd.exe script-shell; WXT's deps (esbuild) run
+      # install scripts — override the shell so npm ci works on the Linux runner.
+      npm_config_script_shell: /bin/bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
