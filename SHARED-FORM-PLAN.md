@@ -79,7 +79,7 @@ in SF0.5 / SF5.2.
 
 ## Phase SF4 — Firefox parity (conditional)
 > Firefox has no `chrome.sidePanel`. Manifest targets gecko, so decide scope.
-- [ ] **SF4.1** Decide: Firefox in scope now, or defer (log the decision).
+- [x] **SF4.1** Decided **deferred** (2026-06-30) — Chrome-first. SF4.2/SF4.3 are a later pass.
 - [ ] **SF4.2** If in scope: render the **same bundle** via `sidebar_action` or an injected shadow-DOM panel (content script).
 - [ ] **SF4.3** Browser-conditional open logic in the popup.
 
@@ -98,10 +98,12 @@ in SF0.5 / SF5.2.
 - **Migration safety:** web keeps working at every step — SF2 swaps imports *with parity* before SF3 touches the extension.
 - **Gate fix in flight:** the connection-gate fix (`5d2342a`) rides this branch; cherry-pick to `main` sooner if you want it in prod before this build lands.
 
-## Open questions (resolve before SF0)
-- **Bundler:** esbuild (tiny, fast, recommended) vs Vite (more features). 
-- **Firefox:** in scope now (SF4) or Chrome-first and defer?
-- **Artifact:** commit the built bundle, or build-only-in-CI?
+## Resolved decisions (2026-06-30, user-confirmed)
+- **Bundler = esbuild** (tiny, fast, minimal config).
+- **Firefox = deferred** — Chrome-first via `chrome.sidePanel`; SF4 logged as deferred (the shared
+  bundle still works later via Firefox's sidebar / injected panel).
+- **Build artifact = committed** to the repo (reproducible CWS zips + no-build dev/unpacked loads;
+  CI also builds it to catch breakage).
 
 ## Definition of done (build-out)
 One `ResumeUpload` component in `packages/review-form`, consumed by the web app and the extension
