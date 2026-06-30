@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: manifest 0.24.0, bundled ruleset version 4.
+> Current version: 0.28.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -26,9 +26,10 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   is an unlisted page reached via `getURL("review.html")`.
 - `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*` are web-accessible
   (`getURL` for pdf.js / the fill-overlay logo). `mammoth` loads as a classic public `<script>` (global).
-- Build: `npm run build` → `.output/chrome-mv3` (committed artifact). Dev: `npm run dev`. Engine
-  `npm test` is unchanged (the IIFE source files are untouched). The legacy root `manifest.json` +
-  `src/{popup,options,review}/*.html` are superseded by WXT and slated for removal in W6.2.
+- Build: `npm run build` → `.output/chrome-mv3` (gitignored; load THIS unpacked, not the source
+  dir). Dev: `npm run dev`. Engine `npm test` is unchanged (the IIFE source files are untouched).
+  The legacy root `manifest.json` + `src/{popup,options,review}/*.html` have been **removed** — WXT
+  generates the manifest and owns the page HTML (`entrypoints/`); the page `*.js`/`*.css` stay in `src/`.
 
 ## Key files
 - `src/lib/parser-core.js` — **SHARED** pure text→structure logic: `heuristicStructure()`

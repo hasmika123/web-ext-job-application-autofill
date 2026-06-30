@@ -39,8 +39,9 @@ Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 - Web (once it exists): `cd web && npm test`.
 
 ## Version-bump ritual (extension changes)
-Bump `job-autofill/manifest.json` + `package.json`. If rules change, bump the
-`version` in `src/config/rules.js` too (the smoke test asserts it).
+Bump the `manifest.version` in `job-autofill/wxt.config.ts` + `job-autofill/package.json`
+(the legacy root `manifest.json` is gone — WXT generates the manifest). If rules change, bump
+the `version` in `src/config/rules.js` too (the smoke test asserts it).
 
 ## Layout (target monorepo)
 `/job-autofill` extension · `/api` Spring Boot · `/web` Next.js · `/brand` source logo/ATS
