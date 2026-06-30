@@ -30,6 +30,9 @@ export async function POST(request: Request) {
   const file = form.get("file");
   const label = ((form.get("label") as string | null) ?? "").trim() || "Resume";
   const parsedJson = (form.get("parsedJson") as string | null) ?? "";
+  // Raw mode (on-the-fly "attach the file, don't parse"): no parsed structure → the row is
+  // stored with the file only and status NEEDS_REVIEW, so the user can parse it later on the web.
+  const isRaw = parsedJson.trim() === "";
 
   if (!(file instanceof File) || file.size === 0) {
     return Response.json({ error: "No file provided." }, { status: 400 });
@@ -52,9 +55,9 @@ export async function POST(request: Request) {
     createRes = await fetch(apiUrl("/api/profile/resumes"), {
       method: "POST",
       headers: { ...auth, "content-type": "application/json" },
-      // CONFIRMED, not NEEDS_REVIEW: the user reviews and edits the parse in the upload
-      // screen before this runs, so a saved resume is by definition already reviewed.
-      body: JSON.stringify({ label, parsedJson, status: "CONFIRMED" }),
+      // Reviewed parse → CONFIRMED (the user edited it on the upload screen before this runs).
+      // Raw "attach only" → NEEDS_REVIEW with no parsedJson, so it's clearly unparsed on the board.
+      body: JSON.stringify(isRaw ? { label, status: "NEEDS_REVIEW" } : { label, parsedJson, status: "CONFIRMED" }),
       cache: "no-store",
     });
   } catch {
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Couldn't upload the file. Please try again." }, { status: 502 });
   }
 
-  return Response.json({ ok: true, id: created.id, label });
+  return Response.json({ ok: true, id: created.id, label, status: isRaw ? "NEEDS_REVIEW" : "CONFIRMED" });
 }
 
 /** Best-effort: drop the metadata row if the file upload failed, so we don't leave

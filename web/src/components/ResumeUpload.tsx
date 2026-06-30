@@ -503,7 +503,25 @@ function EducationEditor({ index, edu, onPatch, onRemove, dnd }: { index: number
  *  seeds the initial state — no setState-in-effect. */
 export type EditTarget = { id: number; label: string; structured: StructuredResume };
 
-export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { baseProfile?: BaseProfile; editTarget?: EditTarget | null }) {
+export default function ResumeUpload({
+  baseProfile = {},
+  editTarget = null,
+  initialFile = null,
+  embedded = false,
+  onSaved,
+  onClose,
+}: {
+  baseProfile?: BaseProfile;
+  editTarget?: EditTarget | null;
+  /** Embedded use (e.g. the Add-application dialog): seed the review from this file on mount. */
+  initialFile?: File | null;
+  /** Embedded mode: hide the drop-zone (seeded via initialFile) and report back via onSaved/onClose. */
+  embedded?: boolean;
+  /** Called after a successful CREATE with the new resume's id + label. */
+  onSaved?: (resume: { id: number; label: string }) => void;
+  /** Embedded mode: asked to close (review dismissed or save finished). */
+  onClose?: () => void;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -570,15 +588,31 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
     setSaveError(null);
   }
 
-  // Esc closes the full-page review.
+  // Embedded: closing tears down the review AND tells the parent to unmount us.
+  function handleClose() {
+    closeReview();
+    onClose?.();
+  }
+
+  // Embedded use: parse the handed-in file once on mount (skips the drop-zone step).
+  const seededRef = useRef(false);
   useEffect(() => {
-    if (!struct) return;
+    if (initialFile && !seededRef.current) {
+      seededRef.current = true;
+      void handleFile(initialFile);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFile]);
+
+  // Esc closes the full-page review (and, when embedded, the host overlay).
+  useEffect(() => {
+    if (!struct && !(embedded && parsing)) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeReview();
+      if (e.key === "Escape") handleClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [struct]);
+  }, [struct, embedded, parsing]);
 
   async function onSave() {
     if (!struct) return;
@@ -625,8 +659,14 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
       }
       track("resume_saved");
       toast({ variant: "success", title: `Saved “${data.label ?? label}”`, description: "Added to your account." });
-      closeReview();
-      router.refresh();
+      onSaved?.({ id: data.id, label: data.label ?? label.trim() ?? "Resume" });
+      if (embedded) {
+        // The host (e.g. Add-application dialog) owns the surrounding state; just close.
+        handleClose();
+      } else {
+        closeReview();
+        router.refresh();
+      }
     } catch {
       setSaveError("Something went wrong while saving.");
     } finally {
@@ -700,7 +740,25 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
 
   return (
     <>
-      {/* Drop-zone (the page; the review opens as a full-page overlay on top) */}
+      {/* Embedded (Add-application): no drop-zone — the file is seeded via initialFile. While it
+          parses, show a light overlay; on parse error, let the user back out. */}
+      {embedded && !struct && (
+        <div role="dialog" aria-modal="true" aria-label="Reading resume" className="fixed inset-0 z-[150] grid place-items-center bg-[rgba(35,40,38,.45)] p-6">
+          <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-line bg-paper p-6 text-center shadow-[var(--shadow-lg)]">
+            {error ? (
+              <>
+                <p role="alert" className="text-sm font-medium text-danger">{error}</p>
+                <button type="button" onClick={handleClose} className={cn(buttonVariants("ghost"), "mt-4")}>Close</button>
+              </>
+            ) : (
+              <p className="text-sm text-muted">Reading your resume…</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Drop-zone (the page; the review opens as a full-page overlay on top) — page use only */}
+      {!embedded && (
       <div className="flex flex-col gap-4">
         <div
           role="button"
@@ -737,6 +795,7 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
           </p>
         )}
       </div>
+      )}
 
       {/* Full-page editable review */}
       {struct && (
@@ -752,7 +811,7 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
                 </p>
               </div>
               <button
-                onClick={closeReview}
+                onClick={handleClose}
                 aria-label="Close review"
                 title="Close (Esc)"
                 className="grid h-10 w-10 flex-none place-items-center rounded-full border border-line bg-paper text-lg text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
@@ -878,7 +937,7 @@ export default function ResumeUpload({ baseProfile = {}, editTarget = null }: { 
               </SectionCard>
 
               <div className="flex justify-end gap-3">
-                <button onClick={closeReview} className={buttonVariants("ghost")}>Cancel</button>
+                <button onClick={handleClose} className={buttonVariants("ghost")}>Cancel</button>
                 {SaveBtn}
               </div>
             </div>

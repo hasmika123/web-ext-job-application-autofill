@@ -67,6 +67,21 @@
       <p class="hint">Only anonymous event counts with a random ID — <b>never</b> your bio, resumes, answers, or the pages you visit. See <code>PRIVACY.md</code>.</p>
       <div class="actionbar"><button class="primary" id="save-settings">Save settings</button><span class="saved" id="settings-saved"></span></div>
     </section>
+
+    <!-- REPORT A BUG / IDEA — moved here from the popup (Phase 9.A5; popup links to #bug) -->
+    <section class="card" id="bug">
+      <h2>Report a bug or idea</h2>
+      <p class="hint">Found something broken, or have a suggestion? Send it straight to the team. Mention the
+        site/page in your message — reports from settings aren't tied to a specific job page.</p>
+      <select id="bug-category" class="input wide">
+        <option value="BUG">Bug</option>
+        <option value="IDEA">Idea / feedback</option>
+        <option value="OTHER">Other</option>
+      </select>
+      <textarea id="bug-message" class="wide" rows="4" maxlength="4000" placeholder="What happened, or what would you like?" style="margin-top:10px;"></textarea>
+      <label class="toggle"><input type="checkbox" id="bug-consent" checked /> Include my browser &amp; extension version to help us debug</label>
+      <div class="actionbar"><button class="primary" id="bug-send">Send report</button><span class="saved" id="bug-status"></span></div>
+    </section>
   </main>
 
   <script src="../lib/storage.js"></script>
