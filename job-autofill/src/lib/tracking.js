@@ -50,6 +50,7 @@
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
     async createResume(/* meta */) { throw new NotSupportedError("createResume (Phase 3b)"); }
     async uploadResumeFile(/* serverId, fileBlob, fileName */) { throw new NotSupportedError("uploadResumeFile (Phase 3b)"); }
+    async uploadApplicationAttachment(/* serverId, fileBlob, fileName */) { throw new NotSupportedError("uploadApplicationAttachment (Phase 3d)"); }
     // Phase 3 (application tracking) — implemented by createKiwiplyProvider.
     async pushApplication(/* app */) { throw new NotSupportedError("pushApplication"); }
     async listApplications() { throw new NotSupportedError("listApplications"); }
@@ -358,6 +359,25 @@
           if (access) headers["Authorization"] = "Bearer " + access;
           // No Content-Type — the browser sets multipart/form-data with the boundary.
           return doFetch(baseUrl + "/api/resumes/" + serverId + "/file", { method: "POST", headers, body: form });
+        };
+        let t = await tokens();
+        let res = await send(t.access);
+        if (res.status === 401 && t.refresh && (await tryRefresh())) {
+          t = await tokens();
+          res = await send(t.access);
+        }
+        return parse(res);
+      },
+
+      // Upload a one-off PDF attached to a single application (Phase 3d "don't add to list").
+      // Multipart with the same single 401 -> refresh -> retry as uploadResumeFile.
+      async uploadApplicationAttachment(serverId, fileBlob, fileName) {
+        const form = new FormData();
+        form.append("file", fileBlob, fileName || (fileBlob && fileBlob.name) || "resume");
+        const send = async (access) => {
+          const headers = {};
+          if (access) headers["Authorization"] = "Bearer " + access;
+          return doFetch(baseUrl + "/api/profile/applications/" + serverId + "/attachment", { method: "POST", headers, body: form });
         };
         let t = await tokens();
         let res = await send(t.access);

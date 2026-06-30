@@ -29,7 +29,13 @@ async function init() {
   struct = data.structured;
   struct.experience = Array.isArray(struct.experience) ? struct.experience : [];
   struct.education = Array.isArray(struct.education) ? struct.education : [];
-  meta = { label: data.label || "Resume", fileName: data.fileName || "resume", fileType: data.fileType || "application/pdf" };
+  meta = {
+    label: data.label || "Resume",
+    fileName: data.fileName || "resume",
+    fileType: data.fileType || "application/pdf",
+    mode: data.mode === "attach" ? "attach" : "save", // "save" = add to list; "attach" = fill + attach to app
+    jobTabId: typeof data.jobTabId === "number" ? data.jobTabId : null,
+  };
 
   $("r-label").value = meta.label;
   $("r-summary").value = struct.summary || "";
@@ -48,6 +54,11 @@ async function init() {
     renderEdu();
   };
   $("r-save").onclick = () => save().catch((e) => setStatus(String((e && e.message) || e), true));
+  $("r-save").textContent = meta.mode === "attach" ? "Fill page & attach" : "Save to my board";
+  if (meta.mode === "attach") {
+    const lead = document.querySelector(".slimhead .lead");
+    if (lead) lead.textContent = "Edit anything below, then fill this job page with it — the PDF is attached to the application, not added to your resumes.";
+  }
   $("r-cancel").onclick = () => cleanup().finally(() => window.close());
 
   $("loading").classList.add("hidden");
@@ -152,6 +163,12 @@ async function cleanup() {
 }
 
 async function save() {
+  if (meta.mode === "attach") return attachAndFill();
+  return saveResume();
+}
+
+// mode "save" — create a library resume (metadata + file) on the account.
+async function saveResume() {
   syncFromDom();
   const label = ($("r-label").value || "").trim() || "Resume";
 
@@ -184,6 +201,156 @@ async function save() {
     setTimeout(() => window.close(), 1200);
   } catch (e) {
     setStatus("Couldn't save: " + ((e && e.message) || e), true);
+  } finally {
+    $("r-save").disabled = false;
+  }
+}
+
+// ---- mode "attach": fill the job page + attach the PDF to its application -----------------
+// Reuses the same content-script injection + fill plumbing the popup uses, but driven from
+// this tab against the original job tab (meta.jobTabId).
+const CONTENT_FILES = [
+  "src/lib/schema.js",
+  "src/lib/field-cache.js",
+  "src/content/adapters/base.js",
+  "src/content/adapters/generic.js",
+  "src/content/adapters/greenhouse.js",
+  "src/content/adapters/lever.js",
+  "src/content/adapters/ashby.js",
+  "src/content/adapters/workable.js",
+  "src/content/adapters/workday.js",
+  "src/content/adapters/indeed.js",
+  "src/lib/job-capture.js",
+  "src/lib/app-tracking.js",
+  "src/content/submit-detect.js",
+  "src/content/filler.js",
+  "src/content/content-script.js",
+];
+
+function sendTo(tabId, msg, frameId) {
+  return new Promise((resolve, reject) => {
+    const opts = frameId === undefined ? undefined : { frameId };
+    chrome.tabs.sendMessage(tabId, msg, opts, (resp) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve(resp);
+    });
+  });
+}
+
+async function ensureInjected(tabId) {
+  try {
+    const r = await sendTo(tabId, { type: "JAF_PING" }, 0);
+    if (r && r.ok) return;
+  } catch (e) {
+    /* not injected yet */
+  }
+  await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: CONTENT_FILES });
+}
+
+async function pickFrame(tabId) {
+  let frames = [];
+  try {
+    frames = await chrome.webNavigation.getAllFrames({ tabId });
+  } catch (e) {}
+  if (!frames || !frames.length) frames = [{ frameId: 0 }];
+  const results = [];
+  for (const f of frames) {
+    try {
+      const r = await sendTo(tabId, { type: "JAF_PING" }, f.frameId);
+      if (r && r.ok) results.push({ frameId: f.frameId, ...r });
+    } catch (e) {}
+  }
+  if (!results.length) return 0;
+  results.sort((a, b) => (b.adapter !== "generic" ? 1000 : 0) + b.fieldCount - ((a.adapter !== "generic" ? 1000 : 0) + a.fieldCount));
+  return results[0].frameId;
+}
+
+function blobToBase64(b) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = () => rej(new Error("file read failed"));
+    r.readAsDataURL(b);
+  });
+}
+
+async function attachAndFill() {
+  if (meta.jobTabId == null) {
+    setStatus("Couldn't find the job tab — reopen this from the job page.", true);
+    return;
+  }
+  syncFromDom();
+  setStatus("Working…");
+  $("r-save").disabled = true;
+  try {
+    const settings = await S.getSettings();
+    const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
+    if (!(await provider.isAuthenticated())) {
+      setStatus("Not connected — connect the extension on kiwiply.com first.", true);
+      return;
+    }
+    const bio = await S.getBio();
+
+    // 1) Capture the job from the original tab + create/upsert its DRAFT application.
+    await ensureInjected(meta.jobTabId);
+    let capture = {};
+    try {
+      const r = await sendTo(meta.jobTabId, { type: "JAF_CAPTURE_JOB" }, 0);
+      capture = (r && r.capture) || {};
+    } catch (e) {
+      /* capture is best-effort; pushDraft falls back to host/defaults */
+    }
+    let appId = null;
+    try {
+      const saved = await JAF.appTracking.pushDraft(provider, capture, null);
+      appId = saved && saved.serverId != null ? saved.serverId : null;
+    } catch (e) {
+      appId = null;
+    }
+
+    // 2) Attach the PDF to that application (the point of "don't add to list").
+    let attached = false;
+    if (appId != null) {
+      try {
+        await provider.uploadApplicationAttachment(appId, blob, meta.fileName);
+        attached = true;
+      } catch (e) {
+        /* keep going — the fill is still useful */
+      }
+    }
+
+    // 3) Fill the job page with the reviewed values (the on-page overlay confirms first).
+    const values = JAF.schema.buildFillValues(bio, struct, { includeEEO: true });
+    const fileObj = { name: JAF.schema.uploadResumeName(bio, meta.fileName), type: meta.fileType, base64: await blobToBase64(blob) };
+    const frameId = await pickFrame(meta.jobTabId);
+    const resp = await sendTo(
+      meta.jobTabId,
+      {
+        type: "JAF_FILL",
+        values,
+        file: fileObj,
+        // No resume link — "don't add to list" attaches the PDF to the application instead.
+        options: { autoAdvance: !!settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: { serverId: null, label: meta.label } },
+      },
+      frameId,
+    );
+
+    await cleanup();
+    if (resp && resp.ok) {
+      setStatus(
+        attached
+          ? "Done — the review panel is open on the job page; the PDF is attached to the application."
+          : "Filled — the review panel is open on the job page (couldn't attach the PDF).",
+      );
+      try {
+        await chrome.tabs.update(meta.jobTabId, { active: true });
+      } catch (e) {}
+      setTimeout(() => window.close(), 1600);
+    } else {
+      setStatus("Couldn't open the fill panel on the job page.", true);
+    }
+  } catch (e) {
+    setStatus("Couldn't complete: " + ((e && e.message) || e), true);
   } finally {
     $("r-save").disabled = false;
   }
