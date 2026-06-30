@@ -736,7 +736,9 @@ function DetailPanel({
 
               <h3 className="mt-6 mb-2 font-display text-base font-semibold text-ink">Job description</h3>
               {app.jobDescription ? (
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
+                <div className="max-h-72 overflow-y-auto overflow-x-hidden rounded-[var(--radius)] border border-line bg-paper-2/40 p-3">
+                  <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
+                </div>
               ) : (
                 <p className="text-[13px] text-muted">No description was captured for this job.</p>
               )}
