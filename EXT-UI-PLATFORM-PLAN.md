@@ -54,12 +54,12 @@ The extension adopts a **build step / framework (WXT)**. The autofill **engine s
 ## Phase W0 — Adopt WXT, port existing entrypoints **as-is** (lowest-risk foundation)
 > WXT builds the *current* extension with **no behavior change** — popup/options/background/content
 > all work unchanged, just relocated into WXT's structure with the manifest generated from config.
-- [ ] **W0.1** Add WXT to `job-autofill` (dev dep), `wxt.config.ts` reproducing the current `manifest.json` (permissions, host_permissions, externally_connectable, key, content_scripts, icons, action, options_page).
-- [ ] **W0.2** `entrypoints/background` — wrap `src/background/service-worker.js` (import as a module; keep its logic).
-- [ ] **W0.3** `entrypoints/content` — register the existing content-script bundle (adapters, filler, submit-detect, etc.) with the same matches/run_at.
-- [ ] **W0.4** `entrypoints/popup` + `entrypoints/options` — start as **plain HTML/JS entrypoints** reusing the current popup/options files verbatim (no React yet).
-- [ ] **W0.5** Engine modules importable: confirm the `src/lib/*` IIFEs attach to `globalThis.JAF` under Vite (side-effect imports) and the **existing test suite stays green** (`cd job-autofill && npm test`).
-- [ ] **W0.6** Build + load the WXT-built extension unpacked; verify autofill, save-a-job, options, connect handoff, bug report all work (parity). Update `CLAUDE.md`/`ARCHITECTURE.md` (WXT build). Commit the build output per the artifact decision.
+- [x] **W0.1** Add WXT to `job-autofill` (dev dep) + `wxt.config.ts` reproducing `manifest.json` (key, permissions, host_permissions, externally_connectable, content_scripts, icons, action, options→`options_ui{open_in_tab:true}`, web_accessible_resources, browser_specific_settings). *Toolchain landed in the prior `w0.1` commit; the config landed here in `w0.2`.*
+- [x] **W0.2** `entrypoints/background.ts` — `defineBackground` wrapping `src/background/service-worker.js`; `importScripts` → ES side-effect imports of tracking/sync/app-tracking/analytics (bundled into one `background.js`). Logic unchanged.
+- [x] **W0.3** `entrypoints/content.ts` — `defineContentScript` registering the existing bundle (rules→content-script, 18 files) in the SAME order, with the same matches / `all_frames` / `run_at`. Output: `content-scripts/content.js`.
+- [x] **W0.4** `entrypoints/{popup,options,review}/` — plain HTML/JS entrypoints reusing the current popup/options/review files verbatim (no React yet); each `index.html` loads a `main.js` that side-effect-imports the libs in order, then the page script. `review` is an unlisted page (`getURL("review.html")`).
+- [x] **W0.5** Engine modules importable under Vite confirmed (IIFEs self-attach to `globalThis`/`window` `.JAF` via side-effect imports); `cd job-autofill && npm test` stays **green (14 suites)**. Engine files untouched except removing the SW `importScripts` line (now done by the entrypoint).
+- [x] **W0.6** `wxt build` produces a parity manifest + `.output/chrome-mv3` (committed artifact). Runtime-path fixes: popup/review `executeScript` → the bundled `content-scripts/content.js`; `getURL` → `options.html`/`review.html`; `vendor/` + `icons/` → `public/` (WAR-listed). `CLAUDE.md`/`ARCHITECTURE.md` updated. **Load-unpacked walkthrough (autofill/save-a-job/connect/bug/on-the-fly upload) is the one manual gate left — needs Chrome.**
 
 ## Phase W1 — Shared UI package (React + Tailwind)
 > One source for the form + primitives, consumed by web and extension.
@@ -126,3 +126,4 @@ UI in `entrypoints/` + `packages/ui`.
 ## Log
 - 2026-06-30 · Re-cast from `SHARED-FORM-PLAN.md` to a WXT platform plan (framework = WXT, engine stays). Decisions locked.
 - 2026-06-30 · **w0.1** done — WXT installed (`wxt@^0.20.27`) + `job-autofill/.npmrc` shell fix. Next: **W0.2** (`wxt.config.ts` mirroring the manifest + relocate entrypoints → parity).
+- 2026-06-30 · **w0.2 (full W0 parity push)** done — `wxt.config.ts` mirrors the manifest exactly (key preserved → stable ext ID); `entrypoints/` for background/content/popup/options/review (engine imported as-is, no React); `vendor/`+`icons/`→`public/`. `wxt build` is green and the generated manifest is at parity (permissions, hosts, externally_connectable, content_scripts→one bundled file, WAR, `options_ui.open_in_tab`). Extension test suite green (14). Build artifact committed (`.output/chrome-mv3`). Engine files untouched (only the SW `importScripts` line moved to the entrypoint; popup/review `executeScript`+`getURL` paths repointed at WXT outputs). **Left:** the manual load-unpacked walkthrough in Chrome, then **W1** (shared UI package). No version bump — build-system change, no shipped behavior change, nothing published (CWS upload stays manual at W6.4).

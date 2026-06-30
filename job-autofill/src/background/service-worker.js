@@ -10,7 +10,10 @@
  *  (background-only) and must survive the post-submit navigation that tears down the
  *  page's content script. The tracking/sync/app-tracking libs attach to globalThis.JAF.
  */
-importScripts("../lib/tracking.js", "../lib/sync.js", "../lib/app-tracking.js", "../lib/analytics.js");
+// The tracking/sync/app-tracking/analytics libs are loaded by the WXT background
+// entrypoint (`entrypoints/background.ts`) as ES side-effect imports BEFORE this file
+// runs — they attach to globalThis.JAF, so `self.JAF.*` below is available. (Under WXT
+// the background is bundled into one file; classic `importScripts` is no longer used.)
 
 // Fire-and-forget analytics. NEVER pass PII — coarse params only (see analytics.js).
 function track(name, params) {

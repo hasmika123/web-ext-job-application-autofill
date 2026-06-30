@@ -3,9 +3,12 @@
 Claude Code reads this automatically every session. Keep it short.
 
 ## What this is
-Dossier: MV3 browser extension (vanilla JS, no build step, everything on
-`window.JAF`) that autofills job applications. Being productized into extension +
-Spring Boot API + Next.js web app. Spec: `ROADMAP.md`. Task tracker: `PROGRESS.md`.
+Dossier: MV3 browser extension that autofills job applications. The autofill **engine** is
+vanilla JS on `window.JAF`/`globalThis.JAF`; since W0.2 the extension is **built with WXT (Vite)**
+— WXT owns the build, manifest generation, and `entrypoints/` (background/content/popup/options/
+review), importing the engine modules as-is. Being productized into extension + Spring Boot API +
+Next.js web app. Spec: `ROADMAP.md`. Task trackers: `PROGRESS.md` (product phases) +
+`EXT-UI-PLATFORM-PLAN.md` (the active extension UI-platform build-out, phases W0–W6).
 Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 
 ## The loop (do this every session)
@@ -22,7 +25,10 @@ Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
 - **Capture real ATS DOM before writing selectors.** Never guess tenant markup —
   it's the #1 failure mode. Use real `data-automation-id`s / option text.
-- Extension code: vanilla JS on `window.JAF`, no build step, no new deps without asking.
+- Extension **engine** code: vanilla JS on `window.JAF`/`globalThis.JAF` IIFE modules — keep it
+  framework-free and import it into entrypoints as-is. The **build/UI** uses WXT (Vite); add UI deps
+  only when a W-phase calls for it. No new engine deps without asking. Build: `cd job-autofill &&
+  npm run build` (→ `.output/chrome-mv3`); dev: `npm run dev`.
 - Server is the source of truth; the extension's local store is a **read-only mirror**
   (pull-only for autofill — edits happen on the web; only resume *creates* push back).
 - Never commit secrets. API keys via env only; never ship a key in the extension bundle.

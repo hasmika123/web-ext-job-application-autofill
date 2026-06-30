@@ -11,7 +11,24 @@ MV3 Chrome extension that autofills job applications across major ATS (Workday,
 Greenhouse, Lever, Ashby, generic). Model: ONE bio profile + many uploaded resumes
 (~50). User picks a resume, the extension merges bio + that resume's
 experience/skills, shows a review overlay, then fills. No auto-submit, no CAPTCHA
-bypass. Vanilla JS, no build step, everything on `window.JAF`.
+bypass. The autofill **engine** is vanilla JS IIFE modules on `window.JAF`/`globalThis.JAF`.
+
+## Build (WXT, since W0.2)
+The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the manifest; thin
+`entrypoints/` wrap the engine without rewriting it:
+- `entrypoints/background.ts` — `defineBackground`; side-effect-imports tracking/sync/app-tracking/
+  analytics, then `src/background/service-worker.js` (registers all SW listeners). Bundled → `background.js`.
+- `entrypoints/content.ts` — `defineContentScript` (same matches/`all_frames`/`run_at`); imports the
+  18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the popup/review
+  inject via `executeScript` on activeTab pages).
+- `entrypoints/{popup,options,review}/index.html` + `main.js` — each `main.js` side-effect-imports the
+  page's libs in order, then the page script (`src/{popup,options,review}/*.js`, imported as-is). `review`
+  is an unlisted page reached via `getURL("review.html")`.
+- `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*` are web-accessible
+  (`getURL` for pdf.js / the fill-overlay logo). `mammoth` loads as a classic public `<script>` (global).
+- Build: `npm run build` → `.output/chrome-mv3` (committed artifact). Dev: `npm run dev`. Engine
+  `npm test` is unchanged (the IIFE source files are untouched). The legacy root `manifest.json` +
+  `src/{popup,options,review}/*.html` are superseded by WXT and slated for removal in W6.2.
 
 ## Key files
 - `src/lib/parser-core.js` — **SHARED** pure text→structure logic: `heuristicStructure()`

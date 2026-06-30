@@ -44,32 +44,38 @@ before writing selectors.
   extension** — intentionally superseding the old "no build step" rule *for the extension UI*; the
   autofill **engine stays as imported modules**. Goal: one shared React `ResumeUpload` form across
   web + extension, rendered in a side panel; then Simplify-scale UI.
-- **Done so far:** `w0.1` — WXT installed (`wxt@^0.20.27`) + `job-autofill/.npmrc` shell fix, committed.
+- **Done so far:** `w0.1` — WXT installed (`wxt@^0.20.27`) + `.npmrc` shell fix. `w0.2` — **WXT now builds the
+  whole extension at parity** (full W0 push): `wxt.config.ts` mirrors the manifest (key preserved → stable ID);
+  `entrypoints/` for background/content/popup/options/review (engine imported as-is, no React yet); `vendor/`+`icons/`
+  → `public/`; `wxt build` green; extension tests green (14); build artifact committed (`.output/chrome-mv3`).
 - **Branches:** `main` + `feat/extension-redesign` only (others cleaned up).
 
 ---
 
-## ▶️ KICKSTART — W0.2 (WXT migration: config + entrypoints → parity)
+## ▶️ KICKSTART — W1 (shared UI package: React + Tailwind)
 
-Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W0.2–W0.6).
+Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W1.1–W1.4).
 
-**Goal of W0:** WXT builds the *current* extension with **no behavior change** (parity) before any
-UI is rewritten — engine modules stay; WXT owns build + manifest + entrypoints.
+**W0 is DONE** — WXT builds the whole extension at **parity** (config + all entrypoints; engine imported
+as-is; `wxt build` green; tests green; artifact committed). One manual gate remains before trusting W0
+end-to-end (do this once, in Chrome): **load `job-autofill/.output/chrome-mv3` unpacked and walk parity** —
+autofill on a real ATS, save-a-job, options/settings, the kiwiply.com `/connect` handoff, bug report, and the
+on-the-fly resume upload (popup → review page → save / fill-&-attach). If anything regresses, it's almost
+certainly a runtime-path issue (`executeScript` now injects `content-scripts/content.js`; `getURL` now points at
+`options.html`/`review.html`; `vendor/`+`icons/` moved to `public/`).
 
-**W0.2 steps:**
-1. `job-autofill/wxt.config.ts` mirroring `job-autofill/manifest.json` exactly — `key`,
-   `permissions`, `host_permissions`, `externally_connectable`, `content_scripts`,
-   `web_accessible_resources`, `browser_specific_settings`, `action`/`options_page`, `icons`.
-2. Create WXT `entrypoints/` and relocate popup/options/background/content — **start as plain
-   HTML/JS (no React yet)**; React + the shared form come in W1/W3.
-3. Confirm the `src/lib/*` IIFE engine modules import cleanly under Vite (side-effect imports
-   attach to `globalThis.JAF`); keep `cd job-autofill && npm test` green.
-4. Build + load unpacked; verify **parity**: autofill, save-a-job, options, connect handoff,
-   bug report, on-the-fly upload.
+**Then start W1 (shared UI package):** create `packages/ui` (workspace) with shared Tailwind tokens; make the
+web app's `ResumeUpload` portable (inject `onSave`/`onCancel`/`track` — drop `next/*` + direct `fetch`); move it
++ primitives + `parser-core` types into `packages/ui`; wire both web (Next) and the WXT extension to consume it.
+**Zero web behavior change.** See `EXT-UI-PLATFORM-PLAN.md` Phase W1.
 
-**Watch-outs:** Node is v20 (WXT prefers v22 — sub-dep warning only, should build); **preserve the
-manifest `key`** so the extension ID stays stable (keeps `/connect` handoff working); MV3 forbids
-remote code (WXT bundles — fine); commit the build artifact per the plan; **don't push `main`**
-(deploys); the extension ships via **manual CWS upload**.
+**How to build/run the extension now:** `cd job-autofill && npm run dev` (WXT dev server, HMR) or
+`npm run build` (→ `.output/chrome-mv3`). `npm test` still runs the engine suite. WXT prefers Node 22 but
+v20.19.5 builds fine (above the >=20.12 floor).
 
-**Commit convention:** `w0.x: <subject>`, one task = one commit, on `feat/extension-redesign`.
+**Watch-outs:** **preserve the manifest `key`** (already in `wxt.config.ts` — keeps the stable ext ID + `/connect`
+handoff); MV3 forbids remote code (WXT bundles — fine); the production `.output/chrome-mv3` is committed per the
+artifact decision (dev builds + zips are gitignored); **don't push `main`** (deploys); the extension ships via
+**manual CWS upload** (W6.4), not auto-published.
+
+**Commit convention:** `w<phase>.<n>: <subject>`, one task = one commit, on `feat/extension-redesign`.

@@ -4,23 +4,9 @@ const SCH = window.JAF.schema;
 const JAF = window.JAF;
 const WEB = "https://kiwiply.com";
 
-const CONTENT_FILES = [
-  "src/lib/schema.js",
-  "src/lib/field-cache.js",
-  "src/content/adapters/base.js",
-  "src/content/adapters/generic.js",
-  "src/content/adapters/greenhouse.js",
-  "src/content/adapters/lever.js",
-  "src/content/adapters/ashby.js",
-  "src/content/adapters/workable.js",
-  "src/content/adapters/workday.js",
-  "src/content/adapters/indeed.js",
-  "src/lib/job-capture.js",
-  "src/lib/app-tracking.js",
-  "src/content/submit-detect.js",
-  "src/content/filler.js",
-  "src/content/content-script.js",
-];
+// The content script is bundled by WXT into one self-contained file; inject THAT on pages
+// the manifest content_scripts don't already cover (activeTab). It re-runs standalone.
+const CONTENT_FILES = ["content-scripts/content.js"];
 
 const $ = (id) => document.getElementById(id);
 
@@ -71,7 +57,7 @@ async function init() {
   // Report a bug / idea — the form now lives on the options page (slim popup). Deep-link
   // straight to its "#bug" section so the header bug icon lands the user on the form.
   $("bug-link").onclick = () =>
-    chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html#bug") });
+    chrome.tabs.create({ url: chrome.runtime.getURL("options.html#bug") });
 
   // Upload a resume on the fly (Phase 3b): pick a file, then choose parse-&-save vs use-once.
   let pendingUpload = null;
@@ -164,7 +150,7 @@ async function openReview(file, mode) {
       () => res(),
     ),
   );
-  await chrome.tabs.create({ url: chrome.runtime.getURL("src/review/review.html") });
+  await chrome.tabs.create({ url: chrome.runtime.getURL("review.html") });
   window.close();
 }
 
