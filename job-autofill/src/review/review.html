@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kiwiply — Review &amp; save resume</title>
+  <!-- Reuse the options page styles (slim card layout + entry/row2/miniadd resume styles). -->
+  <link rel="stylesheet" href="../options/options.css" />
+</head>
+<body>
+  <main class="slim">
+    <header class="slimhead">
+      <img class="brandimg" src="../../icons/logo-icon.png" alt="Kiwiply" />
+      <div>
+        <h1>Review &amp; save resume</h1>
+        <p class="lead">Parsed in your browser. Edit anything below, then save it to your board on
+          <b>kiwiply.com</b>.</p>
+      </div>
+    </header>
+
+    <div id="loading" class="hint">Loading…</div>
+
+    <div id="editor" class="hidden">
+      <section class="card">
+        <h2>Resume name</h2>
+        <input id="r-label" class="input wide" maxlength="200" placeholder="e.g. Senior SWE resume" />
+      </section>
+
+      <section class="card">
+        <h2>Summary</h2>
+        <textarea id="r-summary" class="wide" rows="3" placeholder="Optional professional summary"></textarea>
+      </section>
+
+      <section class="card">
+        <h2>Skills</h2>
+        <input id="r-skills" class="input wide" placeholder="Comma-separated, e.g. Python, React, SQL" />
+        <p class="hint">Separate skills with commas.</p>
+      </section>
+
+      <section class="card">
+        <h2>Experience</h2>
+        <div id="exp-list"></div>
+        <button class="miniadd" id="exp-add" type="button">+ Add role</button>
+      </section>
+
+      <section class="card">
+        <h2>Education</h2>
+        <div id="edu-list"></div>
+        <button class="miniadd" id="edu-add" type="button">+ Add education</button>
+      </section>
+
+      <div class="actionbar">
+        <button class="primary" id="r-save" type="button">Save to my board</button>
+        <button class="ghost" id="r-cancel" type="button">Cancel</button>
+        <span class="saved" id="r-status"></span>
+      </div>
+    </div>
+  </main>
+
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/schema.js"></script>
+  <script src="../lib/tracking.js"></script>
+  <script src="../lib/sync.js"></script>
+  <script src="review.js"></script>
+</body>
+</html>

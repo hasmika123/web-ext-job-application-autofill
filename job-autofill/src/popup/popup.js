@@ -73,14 +73,80 @@ async function init() {
   $("bug-link").onclick = () =>
     chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html#bug") });
 
-  // Upload a resume on the fly (Phase 3b): parse it locally, store the raw file to the
-  // account for later, and fill this page with it (the on-page overlay reviews values first).
+  // Upload a resume on the fly (Phase 3b): pick a file, then choose parse-&-save vs use-once.
+  let pendingUpload = null;
   $("upload-resume").onclick = () => $("resume-file").click();
   $("resume-file").onchange = (e) => {
     const f = e.target.files && e.target.files[0];
     e.target.value = ""; // allow re-picking the same file
+    if (!f) return;
+    pendingUpload = f;
+    $("uc-name").textContent = "Use “" + f.name + "”…";
+    $("upload-choice").classList.remove("hidden");
+  };
+  $("uc-cancel").onclick = () => {
+    pendingUpload = null;
+    $("upload-choice").classList.add("hidden");
+  };
+  $("uc-once").onclick = () => {
+    const f = pendingUpload;
+    pendingUpload = null;
+    $("upload-choice").classList.add("hidden");
     if (f) doUploadFill(f, bio).catch((err) => setStatus(String(err.message || err), true));
   };
+  $("uc-save").onclick = () => {
+    const f = pendingUpload;
+    pendingUpload = null;
+    $("upload-choice").classList.add("hidden");
+    if (f) doParseSave(f).catch((err) => setStatus(String(err.message || err), true));
+  };
+}
+
+// Keep only the fields the review editor + server care about (drop __rawText/__warning).
+function sanitizeStructured(s) {
+  s = s || {};
+  return {
+    summary: typeof s.summary === "string" ? s.summary : "",
+    skills: Array.isArray(s.skills) ? s.skills.filter((x) => typeof x === "string") : [],
+    experience: Array.isArray(s.experience) ? s.experience : [],
+    education: Array.isArray(s.education) ? s.education : [],
+    languages: Array.isArray(s.languages) ? s.languages : [],
+    projects: Array.isArray(s.projects) ? s.projects : [],
+  };
+}
+
+// Parse & save: parse locally, hand the file + parsed structure to the dedicated review page
+// (a new tab) where the user reviews/edits and saves it as a full resume on their board.
+async function doParseSave(file) {
+  const settings = await S.getSettings();
+  try {
+    const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
+    if (!settings.apiBaseUrl || !(await provider.isAuthenticated())) {
+      return setStatus("Connect the extension on kiwiply.com to save resumes.", true);
+    }
+  } catch (e) {
+    return setStatus("Connect the extension on kiwiply.com to save resumes.", true);
+  }
+
+  setStatus("Reading resume…");
+  let structured;
+  try {
+    structured = await JAF.parser.parse(file, settings);
+  } catch (e) {
+    return setStatus("Couldn't read that file: " + (e.message || e), true);
+  }
+
+  const label = (file.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
+  // Handoff: file bytes -> temp IndexedDB key; parsed structure + meta -> chrome.storage.local.
+  await S.saveResumeFile("__pending_review", file);
+  await new Promise((res) =>
+    chrome.storage.local.set(
+      { pendingResumeReview: { structured: sanitizeStructured(structured), label, fileName: file.name, fileType: file.type || "application/pdf" } },
+      () => res(),
+    ),
+  );
+  await chrome.tabs.create({ url: chrome.runtime.getURL("src/review/review.html") });
+  window.close();
 }
 
 // Upload-on-the-fly: parse → (best-effort) store the raw file to the account → fill this page.
