@@ -1,4 +1,5 @@
 import { defineConfig } from "wxt";
+import tailwindcss from "@tailwindcss/vite";
 
 /**
  * WXT build config — W0.2 of the extension UI-platform migration.
@@ -13,6 +14,15 @@ import { defineConfig } from "wxt";
  * `public/` (copied verbatim to the output root, preserving subpaths).
  */
 export default defineConfig({
+  // React for the side panel (W3) — adds @vitejs/plugin-react (JSX + Fast Refresh) + the react
+  // auto-import preset. The engine entrypoints (background/content/popup/options/review) stay
+  // framework-free; only the new React surfaces use it.
+  modules: ["@wxt-dev/module-react"],
+  // Tailwind v4 for the React panels. Create the plugin INSIDE the factory — WXT runs multiple
+  // build steps and a shared stateful plugin instance can fail.
+  vite: () => ({
+    plugins: [tailwindcss()],
+  }),
   manifest: {
     name: "Kiwiply — Job Application Autofill",
     version: "0.28.0",

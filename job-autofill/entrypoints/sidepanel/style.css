@@ -1,0 +1,7 @@
+@import "tailwindcss";
+/* Shared brand tokens (palette + shape/elevation + the Tailwind v4 @theme inline mapping) —
+   the same single source the web app uses. */
+@import "@kiwiply/ui/styles/tokens.css";
+/* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
+   (the ResumeUpload form mounts here in W3.2), which live outside this extension's source. */
+@source "../../../packages/ui/src";

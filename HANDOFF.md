@@ -61,13 +61,19 @@ Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W3.1–W3.5).
 `onUpdateProfile`/`track`/`toast`/`onRefresh`); the web app consumes it and is live (verified). CI has a
 `web-docker` build+smoke job. The extension build is WXT (`job-autofill/`, entrypoints + `.output/chrome-mv3`).
 
+**W3.1 is DONE** — `entrypoints/sidepanel/` is a React + Tailwind v4 surface; WXT auto-wired `side_panel` +
+the `sidePanel` permission. `job-autofill/` is now a **workspace member** (`@wxt-dev/module-react` + react 19 +
+`@tailwindcss/vite`); the panel imports `@kiwiply/ui/styles/tokens.css` and the tokens compile in (verified). The
+body is a placeholder. Membership ripple is handled (web Dockerfile copies `job-autofill/package.json`; ext CI +
+publish install workspace-root; `job-autofill/package-lock.json` removed). Build to load unpacked:
+`cd job-autofill && npm run build` then load `.output/chrome-mv3`; the side panel opens via the toolbar/`chrome.sidePanel`.
+
 **Next — W3 (the extension finally renders the shared React form):**
-1. **W3.1** `entrypoints/sidepanel` (React) + add the `sidePanel` permission/config to `wxt.config.ts`. This is the
-   first **React** surface in the extension — add React + `@kiwiply/ui` as deps, and **make `job-autofill/` a
-   workspace member** (the WXT half of W1.4) so Vite resolves `@kiwiply/ui`. Wire Tailwind for the panel + import
-   `@kiwiply/ui/styles/tokens.css`. Watch the extension's `npm ci` shell (`.npmrc` cmd.exe pin) — CI overrides it.
-2. **W3.2** The side panel reads the popup handoff (parsed structure + file + `mode` + `jobTabId`) and mounts
-   `<ResumeUpload>` with extension services.
+1. ✅ **W3.1** done (React sidepanel + sidePanel perm + workspace membership).
+2. **W3.2 (NEXT)** Replace the placeholder `App.tsx` body: read the popup handoff (parsed structure + file +
+   `mode` + `jobTabId` — today via `chrome.storage.local["pendingResumeReview"]` + the IndexedDB temp file, see
+   `src/review/review.js`) and mount `<ResumeUpload initial… mode onSave onCancel>` with extension services
+   (`parseFile` → the extension's `parser.js`; `onUpdateProfile` omitted → contact panel hidden).
 3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
    **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
    `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).

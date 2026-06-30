@@ -15,6 +15,10 @@ WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages/ui/package.json ./packages/ui/
 COPY web/package.json ./web/
+# job-autofill is also a workspace member, so a root `npm ci` needs its manifest present to
+# resolve the workspace (its deps install into this build stage only — the runtime image is the
+# standalone output, which doesn't carry node_modules).
+COPY job-autofill/package.json ./job-autofill/
 RUN npm ci
 
 # ---- build ----

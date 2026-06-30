@@ -26,11 +26,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: job-autofill/package-lock.json
+          # job-autofill is a workspace member now → install from the ROOT lockfile.
+          cache-dependency-path: package-lock.json
       - run: npm ci
-        working-directory: job-autofill
-      - run: npm test
-        working-directory: job-autofill
+      - run: npm test --workspace job-autofill
 
   web:
     name: Web typecheck + lint + build
