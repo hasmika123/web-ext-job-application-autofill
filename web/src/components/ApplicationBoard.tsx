@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/Button";
+import ResumeUpload from "@/components/ResumeUpload";
 
 export interface Application {
   id: number;
@@ -54,10 +55,22 @@ export interface ResumeOption {
   label: string;
 }
 
-export default function ApplicationBoard({ applications, resumes }: { applications: Application[]; resumes: ResumeOption[] }) {
+export default function ApplicationBoard({
+  applications,
+  resumes,
+  baseProfile = {},
+}: {
+  applications: Application[];
+  resumes: ResumeOption[];
+  baseProfile?: Record<string, unknown>;
+}) {
   const router = useRouter();
   const [apps, setApps] = useState(applications);
   const [syncedFrom, setSyncedFrom] = useState(applications);
+  // Resume options held locally so an on-the-fly upload can appear in the picker immediately
+  // (before the next server refetch). Re-synced whenever the server prop changes.
+  const [resumeOpts, setResumeOpts] = useState(resumes);
+  const [resumesSyncedFrom, setResumesSyncedFrom] = useState(resumes);
   const [search, setSearch] = useState("");
   const [resumeFilter, setResumeFilter] = useState("all");
   const [sort, setSort] = useState<"recent" | "company">("recent");
@@ -73,6 +86,13 @@ export default function ApplicationBoard({ applications, resumes }: { applicatio
     setSyncedFrom(applications);
     setApps(applications);
   }
+  if (resumesSyncedFrom !== resumes) {
+    setResumesSyncedFrom(resumes);
+    setResumeOpts(resumes);
+  }
+
+  const addResumeOpt = (r: ResumeOption) =>
+    setResumeOpts((prev) => (prev.some((x) => x.id === r.id) ? prev : [r, ...prev]));
 
   useEffect(() => {
     track("board_viewed", { count: applications.length });
@@ -131,7 +151,7 @@ export default function ApplicationBoard({ applications, resumes }: { applicatio
     }
   };
   const changeResume = (id: number, resumeId: number) => {
-    const r = resumes.find((x) => x.id === resumeId);
+    const r = resumeOpts.find((x) => x.id === resumeId);
     void mutate(id, "PUT", { resumeId }, { resume: r ? { id: r.id, label: r.label } : null });
   };
 
@@ -299,14 +319,22 @@ export default function ApplicationBoard({ applications, resumes }: { applicatio
 
       <DetailPanel
         app={selected}
-        resumes={resumes}
+        resumes={resumeOpts}
         onClose={() => setSelectedId(null)}
         onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
         onChangeResume={(rid) => selected && changeResume(selected.id, rid)}
         onDelete={() => selected && remove(selected)}
       />
 
-      {adding && <AddApplicationDialog resumes={resumes} onClose={() => setAdding(false)} onCreate={createApplication} />}
+      {adding && (
+        <AddApplicationDialog
+          resumes={resumeOpts}
+          baseProfile={baseProfile}
+          onResumeCreated={addResumeOpt}
+          onClose={() => setAdding(false)}
+          onCreate={createApplication}
+        />
+      )}
     </div>
   );
 }
@@ -323,10 +351,14 @@ interface NewApplication {
 
 function AddApplicationDialog({
   resumes,
+  baseProfile,
+  onResumeCreated,
   onClose,
   onCreate,
 }: {
   resumes: ResumeOption[];
+  baseProfile: Record<string, unknown>;
+  onResumeCreated: (r: ResumeOption) => void;
   onClose: () => void;
   onCreate: (input: NewApplication) => Promise<boolean>;
 }) {
@@ -339,6 +371,46 @@ function AddApplicationDialog({
   const [resumeId, setResumeId] = useState("");
   const [saving, setSaving] = useState(false);
   const firstRef = useRef<HTMLInputElement>(null);
+
+  // On-the-fly resume upload from within the dialog. The dialog stays mounted throughout, so
+  // anything already typed survives the upload/review round-trip.
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null); // chosen file → parse-or-attach prompt
+  const [reviewFile, setReviewFile] = useState<File | null>(null); // file being parsed+reviewed (overlay)
+  const [uploadingRaw, setUploadingRaw] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  function onPickFile(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (f) {
+      setUploadErr(null);
+      setPendingFile(f);
+    }
+  }
+
+  // "Just attach the file" — store the raw file (no parse) and link it to this application.
+  async function uploadRaw(file: File) {
+    setUploadingRaw(true);
+    setUploadErr(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      fd.append("label", file.name.replace(/\.[^.]+$/, "").trim() || "Resume");
+      const res = await fetch("/api/resumes/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUploadErr(data.error ?? "Couldn't attach the file.");
+        return;
+      }
+      onResumeCreated({ id: data.id, label: data.label ?? "Resume" });
+      setResumeId(String(data.id));
+    } catch {
+      setUploadErr("Something went wrong uploading the file.");
+    } finally {
+      setUploadingRaw(false);
+    }
+  }
 
   // Esc closes; focus the first field on open.
   useEffect(() => {
@@ -408,17 +480,28 @@ function AddApplicationDialog({
               <input value={location} onChange={(e) => setLocation(e.target.value)} className={fieldClass} placeholder="Remote · NYC…" />
             </label>
           </div>
-          {resumes.length > 0 && (
-            <label className={labelClass}>
-              Resume sent
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resume sent</span>
+            {resumes.length > 0 && (
               <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={cn(fieldClass, "min-w-0 truncate")}>
                 <option value="">— None —</option>
                 {resumes.map((r) => (
                   <option key={r.id} value={String(r.id)}>{r.label}</option>
                 ))}
               </select>
-            </label>
-          )}
+            )}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadingRaw}
+              className="self-start text-[12px] font-semibold text-accent-deep hover:underline disabled:opacity-50"
+            >
+              + Upload a new resume
+            </button>
+            <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" onChange={onPickFile} className="hidden" />
+            {uploadingRaw && <p className="text-[12px] text-muted">Attaching…</p>}
+            {uploadErr && <p className="text-[12px] font-medium text-danger">{uploadErr}</p>}
+          </div>
           <label className={labelClass}>
             Job URL
             <input type="url" value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} className={fieldClass} placeholder="https://…" />
@@ -435,6 +518,41 @@ function AddApplicationDialog({
           </div>
         </form>
       </div>
+
+      {/* After picking a file: parse & save to the board, or just attach the raw file. */}
+      {pendingFile && (
+        <div className="fixed inset-0 z-[155] grid place-items-center bg-[rgba(35,40,38,.45)] p-6" role="dialog" aria-modal="true" aria-label="Use this resume">
+          <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-line bg-paper p-6 shadow-[var(--shadow-lg)]">
+            <h3 className="font-display text-lg font-semibold text-ink">Add “{pendingFile.name}”</h3>
+            <p className="mt-1.5 text-sm text-muted">
+              Parse it into a reviewed resume on your board, or just attach the file to this application for reference.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button type="button" onClick={() => { const f = pendingFile; setPendingFile(null); setReviewFile(f); }} className={buttonVariants("accent")}>
+                Parse &amp; save to my board
+              </button>
+              <button type="button" onClick={() => { const f = pendingFile; setPendingFile(null); void uploadRaw(f); }} className={buttonVariants("ghost")}>
+                Just attach the file
+              </button>
+              <button type="button" onClick={() => setPendingFile(null)} className="mt-1 text-[12.5px] font-medium text-muted hover:text-ink">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parse & save: full review overlay on top of this dialog, which stays mounted so the
+          form keeps everything already typed. On save it selects the new resume here. */}
+      {reviewFile && (
+        <ResumeUpload
+          embedded
+          initialFile={reviewFile}
+          baseProfile={baseProfile}
+          onSaved={(r) => { onResumeCreated(r); setResumeId(String(r.id)); }}
+          onClose={() => setReviewFile(null)}
+        />
+      )}
     </>
   );
 }
