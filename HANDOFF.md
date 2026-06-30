@@ -32,52 +32,44 @@ before writing selectors.
 - **Pushing `main` deploys to production.** Don't push unless asked. The extension is **not**
   auto-published — Chrome Web Store uploads are manual.
 
-## Current state (2026-06-28)
-- Branch `main`. **Several commits are local-only (NOT pushed)** — recent web validation, the
-  admin planning docs, and this cleanup. `git log --oneline origin/main..HEAD` shows them.
-  Pushing triggers a deploy; the user decides when.
-- Everything through the rate-limit fix + Terms/cookie-consent/password-reset is **live**.
-- Two throwaway prod accounts (`verifyfix…@example.com`, inactive) exist from earlier signup
-  testing — harmless.
+## Current state (2026-06-30)
+- **Phase 9 (admin console/ops/comms) + all post-9 follow-ups are DONE and LIVE** on `main`/prod
+  (admin console, analytics, email subscription + Brevo sync, bug reports, DSAR, admin MFA, per-
+  application resume attachment + PDF preview, on-the-fly resume upload, etc.).
+- **Extension reaches users only via a manual Chrome Web Store upload** — currently **unshipped**:
+  ext **v0.28.0** + the connection-gate fix are on `main` but not yet uploaded to the CWS.
+- **Active build-out: migrating the extension to a real UI platform (WXT/Vite).** Branch
+  **`feat/extension-redesign`** (off `main`). Plan + task tracker: **`EXT-UI-PLATFORM-PLAN.md`**
+  (phases W0–W6, incl. W5 UI overhaul). This **introduces a build step (WXT/Vite) for the
+  extension** — intentionally superseding the old "no build step" rule *for the extension UI*; the
+  autofill **engine stays as imported modules**. Goal: one shared React `ResumeUpload` form across
+  web + extension, rendered in a side panel; then Simplify-scale UI.
+- **Done so far:** `w0.1` — WXT installed (`wxt@^0.20.27`) + `job-autofill/.npmrc` shell fix, committed.
+- **Branches:** `main` + `feat/extension-redesign` only (others cleaned up).
 
 ---
 
-## ▶️ KICKSTART — Phase 9.A0: security gate (default-admin seed)
+## ▶️ KICKSTART — W0.2 (WXT migration: config + entrypoints → parity)
 
-**Do this first; the whole admin side is gated behind it.** Full context: `ADMIN-PLAN.md`.
+Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W0.2–W0.6).
 
-**The problem.** `api/.../config/liquibase/data/user.csv` + `user_authority.csv` are loaded by
-the **initial changeset (`00000000000001`) which has no Liquibase `context`**, so the default
-**`admin` / `admin`** account — with JHipster's *publicly known* bcrypt hash — is present in
-**production**. That's an open door under any admin UI.
+**Goal of W0:** WXT builds the *current* extension with **no behavior change** (parity) before any
+UI is rewritten — engine modules stay; WXT owns build + manifest + entrypoints.
 
-**Note the Liquibase subtlety:** changing the historical changeset's context does NOT remove
-rows already loaded in prod (Liquibase won't re-run it). So this needs **two moves**:
+**W0.2 steps:**
+1. `job-autofill/wxt.config.ts` mirroring `job-autofill/manifest.json` exactly — `key`,
+   `permissions`, `host_permissions`, `externally_connectable`, `content_scripts`,
+   `web_accessible_resources`, `browser_specific_settings`, `action`/`options_page`, `icons`.
+2. Create WXT `entrypoints/` and relocate popup/options/background/content — **start as plain
+   HTML/JS (no React yet)**; React + the shared form come in W1/W3.
+3. Confirm the `src/lib/*` IIFE engine modules import cleanly under Vite (side-effect imports
+   attach to `globalThis.JAF`); keep `cd job-autofill && npm test` green.
+4. Build + load unpacked; verify **parity**: autofill, save-a-job, options, connect handoff,
+   bug report, on-the-fly upload.
 
-1. **New migration** (additive changelog, like the others on `/api`) that, in prod, removes
-   the risk: delete the default `admin` + `user` rows **or** deactivate + rotate them. Make it
-   idempotent/safe on a fresh DB.
-2. **Stop fresh installs from re-seeding prod**: gate the original seed `loadData` to
-   `dev`/`faker` context (safe for new DBs; prod cleanup is handled by move #1).
-3. **Bootstrap a real admin from env** (no secret in the repo): an `ApplicationRunner`/config
-   that creates-or-promotes an admin from `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` (a bcrypt hash
-   supplied via env), or equivalent. Document the env vars in `DEPLOY.md` + `.env.example`.
+**Watch-outs:** Node is v20 (WXT prefers v22 — sub-dep warning only, should build); **preserve the
+manifest `key`** so the extension ID stays stable (keeps `/connect` handoff working); MV3 forbids
+remote code (WXT bundles — fine); commit the build artifact per the plan; **don't push `main`**
+(deploys); the extension ships via **manual CWS upload**.
 
-**Acceptance criteria.**
-- `admin` / `admin` can no longer authenticate against prod.
-- A fresh DB does not seed the default admin/user into a prod profile.
-- A real admin exists, sourced from env — **no password or hash committed**.
-- `DEPLOY.md` + `.env.example` document the new env vars.
-- Backend compiles on JDK 17; new logic has a test; CI green (ITs run there).
-
-**Verify.** After deploy, confirm `POST /api/authenticate {admin/admin}` → 401, and the real
-admin signs in. (Locally you can only compile + unit-test; the DB-backed check is CI/prod.)
-
-**Commit.** `phase9.A0: <subject>`, one task = one commit. Don't push unless asked.
-
-## After A0
-**9.A1** — admin gate + shell + Users (reuse `/api/admin/users`) + audit-log foundation.
-Then A2→A5 (AI/sessions/ops · analytics · **email subscription** · **bug reports**). The
-ordered checklist is the **Phase 9** section of `PROGRESS.md`; the design + legalities are in
-`ADMIN-PLAN.md`. Decisions already locked: PII = metadata + reason-gated; admin lives in an
-in-app `/admin` route group.
+**Commit convention:** `w0.x: <subject>`, one task = one commit, on `feat/extension-redesign`.

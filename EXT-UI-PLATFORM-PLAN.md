@@ -125,3 +125,4 @@ UI in `entrypoints/` + `packages/ui`.
 
 ## Log
 - 2026-06-30 · Re-cast from `SHARED-FORM-PLAN.md` to a WXT platform plan (framework = WXT, engine stays). Decisions locked.
+- 2026-06-30 · **w0.1** done — WXT installed (`wxt@^0.20.27`) + `job-autofill/.npmrc` shell fix. Next: **W0.2** (`wxt.config.ts` mirroring the manifest + relocate entrypoints → parity).
