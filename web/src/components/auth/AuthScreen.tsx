@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { track } from "@/lib/analytics";
-import { Input, Field, Logo, BetaBadge } from "@/components/ui";
+import { Input, PasswordInput, Field, Logo, BetaBadge } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { isEmail, isUsername, LIMITS } from "@/lib/validate";
@@ -195,10 +195,9 @@ function LoginForm({ next }: { next?: string }) {
           />
         </Field>
         <Field label="Password" htmlFor="login-password" error={show("password") ? errs.password : undefined}>
-          <Input
+          <PasswordInput
             id="login-password"
             name="password"
-            type="password"
             autoComplete="current-password"
             maxLength={LIMITS.passwordMax}
             value={password}
@@ -343,10 +342,9 @@ function SignupForm({ next }: { next?: string }) {
           />
         </Field>
         <Field label="Password" htmlFor="signup-password" error={show("password") ? errs.password : undefined}>
-          <Input
+          <PasswordInput
             id="signup-password"
             name="password"
-            type="password"
             autoComplete="new-password"
             maxLength={LIMITS.passwordMax}
             value={password}

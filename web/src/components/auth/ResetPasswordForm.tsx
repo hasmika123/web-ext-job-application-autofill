@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Input, Field } from "@/components/ui";
+import { PasswordInput, Field } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { LIMITS } from "@/lib/validate";
@@ -91,10 +91,9 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
       <p className="mb-6 mt-1 text-sm text-muted">Choose a new password for your account.</p>
       <form onSubmit={onSubmit} noValidate>
         <Field label="New password" htmlFor="reset-password" error={show("password") ? errs.password : undefined}>
-          <Input
+          <PasswordInput
             id="reset-password"
             name="password"
-            type="password"
             autoComplete="new-password"
             maxLength={LIMITS.passwordMax}
             value={password}
@@ -104,10 +103,9 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
           />
         </Field>
         <Field label="Confirm password" htmlFor="reset-confirm" error={show("confirm") ? errs.confirm : undefined}>
-          <Input
+          <PasswordInput
             id="reset-confirm"
             name="confirm"
-            type="password"
             autoComplete="new-password"
             maxLength={LIMITS.passwordMax}
             value={confirm}
