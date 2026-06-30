@@ -68,53 +68,10 @@ async function init() {
   $("fill").onclick = () => doFill(pickable, bio).catch((e) => setStatus(String(e.message || e), true));
   $("savejob").onclick = () => doSaveJob().catch((e) => setStatus(String(e.message || e), true));
 
-  // Report a bug / idea (Phase 9.A5) — toggle the inline form; submit via the tracking seam.
-  $("report-link").onclick = () => {
-    const box = $("bugbox");
-    box.classList.toggle("hidden");
-    if (!box.classList.contains("hidden")) $("bug-message").focus();
-  };
-  $("bug-cancel").onclick = () => $("bugbox").classList.add("hidden");
-  $("bug-send").onclick = () => doReportBug().catch((e) => setBugStatus(String(e.message || e), true));
-}
-
-function setBugStatus(msg, state) {
-  const s = $("bug-status");
-  s.textContent = msg;
-  s.classList.toggle("ok", state === "ok");
-  s.classList.toggle("err", !!state && state !== "ok");
-}
-
-async function doReportBug() {
-  const message = $("bug-message").value.trim();
-  if (!message) return setBugStatus("Please describe the issue.", true);
-
-  const settings = await S.getSettings();
-  if (!settings.apiBaseUrl) return setBugStatus("Not connected — set the backend in Settings.", true);
-
-  const report = { message, category: $("bug-category").value, appVersion: chrome.runtime.getManifest().version };
-  // Diagnostic context only with consent (the box is ticked by default but optional).
-  if ($("bug-consent").checked) {
-    report.userAgent = navigator.userAgent;
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.url) report.url = tab.url;
-    } catch (e) { /* tab url is best-effort */ }
-  }
-
-  setBugStatus("Sending…");
-  $("bug-send").disabled = true;
-  try {
-    const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
-    await provider.submitBugReport(report);
-    $("bug-message").value = "";
-    setBugStatus("Thanks! Your report was sent.", "ok");
-    setTimeout(() => $("bugbox").classList.add("hidden"), 1400);
-  } catch (e) {
-    setBugStatus("Couldn't send — please try again.", true);
-  } finally {
-    $("bug-send").disabled = false;
-  }
+  // Report a bug / idea — the form now lives on the options page (slim popup). Deep-link
+  // straight to its "#bug" section so the header bug icon lands the user on the form.
+  $("bug-link").onclick = () =>
+    chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html#bug") });
 }
 
 // Read-only mirror: pull the latest profile + resumes from the server (best-effort,

@@ -30,8 +30,45 @@ async function init() {
   $("connect").onclick = () => window.open(WEB + "/connect", "_blank", "noopener");
   $("signout").onclick = signOut;
   $("manage").href = WEB + "/dashboard";
+  $("bug-send").onclick = () => sendBug().catch((e) => setBugStatus(String(e.message || e), "err"));
+
+  // The popup's bug icon deep-links here with #bug — land the user on the form.
+  if (location.hash === "#bug") {
+    $("bug").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("bug-message").focus({ preventScroll: true });
+  }
 
   await refreshAccount();
+}
+
+function setBugStatus(msg, state) {
+  const s = $("bug-status");
+  s.textContent = msg;
+  s.style.color = state === "ok" ? "var(--ok)" : state ? "var(--warn)" : "var(--muted)";
+}
+
+// Report a bug / idea — submits via the same tracking seam the popup used (auth-optional:
+// the access token is attached if connected, but the endpoint accepts anonymous reports too).
+async function sendBug() {
+  const message = $("bug-message").value.trim();
+  if (!message) return setBugStatus("Please describe the issue.", "err");
+
+  const s = await S.getSettings();
+  const report = { message, category: $("bug-category").value, appVersion: chrome.runtime.getManifest().version };
+  if ($("bug-consent").checked) report.userAgent = navigator.userAgent; // diagnostic context, opt-in
+
+  setBugStatus("Sending…");
+  $("bug-send").disabled = true;
+  try {
+    const provider = TRACK.createKiwiplyProvider({ baseUrl: s.apiBaseUrl || "https://api.kiwiply.com", tokenStore });
+    await provider.submitBugReport(report);
+    $("bug-message").value = "";
+    setBugStatus("Thanks! Your report was sent.", "ok");
+  } catch (e) {
+    setBugStatus("Couldn't send — please try again.", "err");
+  } finally {
+    $("bug-send").disabled = false;
+  }
 }
 
 async function saveSettings() {
