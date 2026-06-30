@@ -47,7 +47,7 @@ before writing selectors.
 - **Done so far:** `w0.1` — WXT installed (`wxt@^0.20.27`) + `.npmrc` shell fix. `w0.2` — **WXT now builds the
   whole extension at parity** (full W0 push): `wxt.config.ts` mirrors the manifest (key preserved → stable ID);
   `entrypoints/` for background/content/popup/options/review (engine imported as-is, no React yet); `vendor/`+`icons/`
-  → `public/`; `wxt build` green; extension tests green (14); build artifact committed (`.output/chrome-mv3`).
+  → `public/`; `wxt build` green; extension tests green (14); build output (`.output/`) gitignored (CI rebuilds + zips).
 - **Branches:** `main` + `feat/extension-redesign` only (others cleaned up).
 
 ---
@@ -74,8 +74,8 @@ web app's `ResumeUpload` portable (inject `onSave`/`onCancel`/`track` — drop `
 v20.19.5 builds fine (above the >=20.12 floor).
 
 **Watch-outs:** **preserve the manifest `key`** (already in `wxt.config.ts` — keeps the stable ext ID + `/connect`
-handoff); MV3 forbids remote code (WXT bundles — fine); the production `.output/chrome-mv3` is committed per the
-artifact decision (dev builds + zips are gitignored); **don't push `main`** (deploys); the extension ships via
-**manual CWS upload** (W6.4), not auto-published.
+handoff); MV3 forbids remote code (WXT bundles — fine); the build output (`.output/`) is **gitignored** — run
+`npm run build` to load unpacked; CI rebuilds + zips (artifact decision revised — see the plan's Risks);
+**don't push `main`** (deploys); the extension ships via **manual CWS upload** (W6.4), not auto-published.
 
 **Commit convention:** `w<phase>.<n>: <subject>`, one task = one commit, on `feat/extension-redesign`.
