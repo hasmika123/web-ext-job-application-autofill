@@ -72,6 +72,136 @@ async function init() {
   // straight to its "#bug" section so the header bug icon lands the user on the form.
   $("bug-link").onclick = () =>
     chrome.tabs.create({ url: chrome.runtime.getURL("src/options/options.html#bug") });
+
+  // Upload a resume on the fly (Phase 3b): pick a file, then choose parse-&-save vs use-once.
+  let pendingUpload = null;
+  $("upload-resume").onclick = () => $("resume-file").click();
+  $("resume-file").onchange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!f) return;
+    pendingUpload = f;
+    $("uc-name").textContent = "Use “" + f.name + "”…";
+    $("upload-choice").classList.remove("hidden");
+  };
+  $("uc-cancel").onclick = () => {
+    pendingUpload = null;
+    $("upload-choice").classList.add("hidden");
+  };
+  $("uc-once").onclick = () => {
+    const f = pendingUpload;
+    pendingUpload = null;
+    $("upload-choice").classList.add("hidden");
+    if (f) doUploadFill(f, bio).catch((err) => setStatus(String(err.message || err), true));
+  };
+  $("uc-save").onclick = () => {
+    const f = pendingUpload;
+    pendingUpload = null;
+    $("upload-choice").classList.add("hidden");
+    if (f) doParseSave(f).catch((err) => setStatus(String(err.message || err), true));
+  };
+}
+
+// Keep only the fields the review editor + server care about (drop __rawText/__warning).
+function sanitizeStructured(s) {
+  s = s || {};
+  return {
+    summary: typeof s.summary === "string" ? s.summary : "",
+    skills: Array.isArray(s.skills) ? s.skills.filter((x) => typeof x === "string") : [],
+    experience: Array.isArray(s.experience) ? s.experience : [],
+    education: Array.isArray(s.education) ? s.education : [],
+    languages: Array.isArray(s.languages) ? s.languages : [],
+    projects: Array.isArray(s.projects) ? s.projects : [],
+  };
+}
+
+// Parse & save: parse locally, hand the file + parsed structure to the dedicated review page
+// (a new tab) where the user reviews/edits and saves it as a full resume on their board.
+async function doParseSave(file) {
+  const settings = await S.getSettings();
+  try {
+    const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
+    if (!settings.apiBaseUrl || !(await provider.isAuthenticated())) {
+      return setStatus("Connect the extension on kiwiply.com to save resumes.", true);
+    }
+  } catch (e) {
+    return setStatus("Connect the extension on kiwiply.com to save resumes.", true);
+  }
+
+  setStatus("Reading resume…");
+  let structured;
+  try {
+    structured = await JAF.parser.parse(file, settings);
+  } catch (e) {
+    return setStatus("Couldn't read that file: " + (e.message || e), true);
+  }
+
+  const label = (file.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
+  // Handoff: file bytes -> temp IndexedDB key; parsed structure + meta -> chrome.storage.local.
+  await S.saveResumeFile("__pending_review", file);
+  await new Promise((res) =>
+    chrome.storage.local.set(
+      { pendingResumeReview: { structured: sanitizeStructured(structured), label, fileName: file.name, fileType: file.type || "application/pdf" } },
+      () => res(),
+    ),
+  );
+  await chrome.tabs.create({ url: chrome.runtime.getURL("src/review/review.html") });
+  window.close();
+}
+
+// Upload-on-the-fly: parse → (best-effort) store the raw file to the account → fill this page.
+// The parsed structure is used for THIS fill (reviewed in the on-page overlay) but not saved as
+// a structured resume; the file itself is stored so it's on the board for future reference.
+async function doUploadFill(file, bio) {
+  const settings = await S.getSettings();
+
+  setStatus("Reading resume…");
+  let structured;
+  try {
+    structured = await JAF.parser.parse(file, settings);
+  } catch (e) {
+    return setStatus("Couldn't read that file: " + (e.message || e), true);
+  }
+  const label = (file.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
+
+  // Best-effort: store the raw file (no parsed structure) to the account for future reference.
+  // Needs a connected, authenticated extension; offline/disconnected just skips this and fills.
+  let serverId = null;
+  try {
+    if (settings.apiBaseUrl) {
+      const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
+      if (await provider.isAuthenticated()) {
+        setStatus("Saving a copy to your account…");
+        const saved = await provider.createResume({ label, status: "NEEDS_REVIEW" });
+        serverId = saved && saved.serverId != null ? saved.serverId : null;
+        if (serverId != null) await provider.uploadResumeFile(serverId, file, file.name);
+      }
+    }
+  } catch (e) {
+    serverId = null; // storing is best-effort; never block the fill on it
+  }
+
+  setStatus("Scanning page…");
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || /^chrome:|^edge:|^about:/.test(tab.url || "")) return setStatus("Can't run on this page.", true);
+
+  await ensureInjected(tab.id);
+  const frameId = await pickFrame(tab.id);
+
+  const values = SCH.buildFillValues(bio, structured, { includeEEO: true });
+  const fileObj = { name: SCH.uploadResumeName(bio, file.name), type: file.type || "application/pdf", base64: await fileToBase64(file) };
+  const resumeRef = { serverId, label };
+  const resp = await sendTo(
+    tab.id,
+    { type: "JAF_FILL", values, file: fileObj, options: { autoAdvance: $("autoadv").checked, autoAddRows: settings.autoAddRows !== false, resume: resumeRef } },
+    frameId,
+  );
+  if (resp && resp.ok) {
+    setStatus(`Review panel open (${resp.adapter}). Check values, then fill.`, "ok");
+    setTimeout(() => window.close(), 1200);
+  } else {
+    setStatus("Could not open the review panel on this page.", true);
+  }
 }
 
 // Read-only mirror: pull the latest profile + resumes from the server (best-effort,

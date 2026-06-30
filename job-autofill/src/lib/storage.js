@@ -80,9 +80,11 @@
     return (await getResumes()).find((r) => r.id === id) || null;
   }
 
-  // file helpers — store/retrieve the original resume bytes keyed by resume id
+  // file helpers — store/retrieve/remove the original resume bytes keyed by resume id
+  // (also used with a temp key for the popup → review-page upload handoff in Phase 3b).
   const saveResumeFile = (id, blob) => idbPut(id, blob);
   const getResumeFile = (id) => idbGet(id);
+  const deleteResumeFile = (id) => idbDel(id);
 
   async function getSettings() {
     const defaults = { llmEnabled: false, apiKey: "", lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "", apiBaseUrl: "https://api.kiwiply.com" };
@@ -100,6 +102,6 @@
 
   JAF.storage = {
     getBio, saveBio, getResumes, getResume, saveResume, deleteResume,
-    saveResumeFile, getResumeFile, getSettings, saveSettings, estimateUsage,
+    saveResumeFile, getResumeFile, deleteResumeFile, getSettings, saveSettings, estimateUsage,
   };
 })();

@@ -21,6 +21,16 @@
     <label class="lbl" for="resume">Resume variant</label>
     <select id="resume" class="select"></select>
     <div class="meta" id="meta"></div>
+    <button class="uploadlink" id="upload-resume" title="Upload a resume on the fly">+ Upload a resume</button>
+    <input id="resume-file" type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" class="hidden" />
+
+    <!-- After picking a file: parse & save to the board, or just use it for this one fill. -->
+    <div id="upload-choice" class="uploadchoice hidden">
+      <div class="uctitle" id="uc-name">Use this resume…</div>
+      <button class="primary" id="uc-save">Parse &amp; save to my board</button>
+      <button class="ghost" id="uc-once">Use once (fill this page)</button>
+      <button class="link uccancel" id="uc-cancel">Cancel</button>
+    </div>
 
     <div class="opts">
       <label class="check"><input type="checkbox" id="autoadv" /> <span>Auto-advance to next step after filling</span></label>
@@ -36,6 +46,10 @@
   <script src="../lib/storage.js"></script>
   <script src="../lib/tracking.js"></script>
   <script src="../lib/sync.js"></script>
+  <!-- Resume parsing for on-the-fly upload (Phase 3b): shared core + DOCX/PDF extraction. -->
+  <script src="../lib/parser-core.js"></script>
+  <script src="../../vendor/mammoth.browser.min.js"></script>
+  <script src="../lib/parser.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

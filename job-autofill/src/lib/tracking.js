@@ -48,6 +48,8 @@
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
+    async createResume(/* meta */) { throw new NotSupportedError("createResume (Phase 3b)"); }
+    async uploadResumeFile(/* serverId, fileBlob, fileName */) { throw new NotSupportedError("uploadResumeFile (Phase 3b)"); }
     // Phase 3 (application tracking) — implemented by createKiwiplyProvider.
     async pushApplication(/* app */) { throw new NotSupportedError("pushApplication"); }
     async listApplications() { throw new NotSupportedError("listApplications"); }
@@ -334,6 +336,36 @@
       async archiveResume(serverId, archived) {
         const saved = await request("PUT", "/api/profile/resumes/" + serverId, { body: { archived: archived !== false } });
         return dtoToResume(saved);
+      },
+
+      // Create a resume row from a raw metadata object (Phase 3b on-the-fly upload). Unlike
+      // pushResume (which serializes a full local resume into parsedJson), this sends exactly
+      // the given fields — so { label, status: "NEEDS_REVIEW" } stores a file-only resume with
+      // no parsed structure ("attach raw for future reference").
+      async createResume(meta) {
+        const saved = await request("POST", "/api/profile/resumes", { body: meta || {} });
+        return dtoToResume(saved);
+      },
+
+      // Upload the resume's file bytes (multipart) to the owner-scoped endpoint, with the
+      // same single 401 -> refresh -> retry as request(). On-the-fly upload (Phase 3b):
+      // create the resume row (createResume/pushResume), then send its file here. fileBlob is a Blob/File.
+      async uploadResumeFile(serverId, fileBlob, fileName) {
+        const form = new FormData();
+        form.append("file", fileBlob, fileName || (fileBlob && fileBlob.name) || "resume");
+        const send = async (access) => {
+          const headers = {};
+          if (access) headers["Authorization"] = "Bearer " + access;
+          // No Content-Type — the browser sets multipart/form-data with the boundary.
+          return doFetch(baseUrl + "/api/resumes/" + serverId + "/file", { method: "POST", headers, body: form });
+        };
+        let t = await tokens();
+        let res = await send(t.access);
+        if (res.status === 401 && t.refresh && (await tryRefresh())) {
+          t = await tokens();
+          res = await send(t.access);
+        }
+        return parse(res);
       },
 
       // ---- application tracking (Phase 3) ---------------------------------

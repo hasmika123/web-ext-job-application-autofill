@@ -54,7 +54,11 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   sign-in; the web `/connect` page mints a separate extension token pair
   (`POST /api/extension/session` ← `web /api/extension/token`) and hands it over via
   `externally_connectable`. The extension's options page is **slim** (device settings +
-  account status only). Don't reintroduce in-extension bio/resume editing.
+  account status only). Don't reintroduce in-extension **bio** editing or saved-resume
+  management. **Exception (user decision 2026-06-30):** the extension MAY upload a resume
+  **on the fly** — parse + review + save a NEW resume (or store the raw file), pushing it
+  back via the `TrackingProvider` seam. This is resume *creation*, consistent with
+  "only resume creates push back"; editing existing resumes/bio still lives on the web.
 - **Hosting = long-running containers, no serverless.** Web = Next `next start`
   (`output: 'standalone'`), **no Express**. API = Spring embedded Tomcat container.
   Resume upload = **Option A (Next-proxied), permanent**; Option B (presigned) is a
