@@ -1,0 +1,113 @@
+# EXT-UI-PLATFORM-PLAN.md — Extension UI platform (WXT) + shared review form
+
+> **Branch:** `feat/shared-review-form` (all work for this build-out lives here).
+> **Commit convention:** `w<phase>.<n>: <subject>` (e.g. `w0.2: WXT background entrypoint wraps the service worker`).
+> One task ≈ one commit. PR per phase → CI → merge. Web phases deploy to prod; extension phases
+> ride the eventual Chrome Web Store upload.
+> Supersedes the narrower `SHARED-FORM-PLAN.md`. Companion to `ROADMAP.md` / `ADMIN-PLAN.md` / `PROGRESS.md`.
+
+## Goal
+Stand up a real **extension UI platform** so we can build rich UI at **Simplify scale and beyond**
+— popup, options, side panel, injected on-page panels, shared state, all React + Tailwind and
+**sharing components with the web app**. The first concrete payoff is **one shared resume-review
+form** rendered in a right-side **Chrome Side Panel**; everything after builds on the same base.
+
+## Strategy
+Adopt **WXT** (Vite-based extension framework) as the build/UI foundation. **Keep the autofill
+engine** — ATS adapters, `parser-core`, `schema`, `tracking`, `sync`, `job-capture`,
+`app-tracking`, `field-cache`, content scripts, `rules` — **as imported modules** (they're good and
+well-tested). WXT takes over the **build, manifest generation, and UI entrypoints**; UI converts to
+React **incrementally**, starting with the new side panel — the existing popup/options keep working
+throughout.
+
+### Why WXT
+Vite under the hood (aligns with the web's React/Tailwind stack → shared components drop in), file-based
+entrypoints, **manifest generation**, **content-script UI with shadow-DOM** (how Simplify/Honey inject
+panels), HMR, and **Chrome + Firefox from one codebase** (so the deferred Firefox parity becomes cheap).
+
+## Decisions (2026-06-30, user-confirmed)
+- **Framework = WXT** (Vite). Bundler-under-hood is Vite/esbuild; not hand-rolled.
+- **Migration = engine stays, UI/build migrate** — incremental; engine modules imported, not rewritten.
+- **Firefox = deferred** but near-free later via WXT's cross-browser build.
+- **Shared UI = monorepo package** consumed by both web (Next) and the WXT extension.
+
+## Architecture (target)
+```
+            ┌──────────────  packages/ui (or shared/)  ──────────────┐
+            │  ResumeUpload + UI primitives + parser-core types       │  ← shared React + Tailwind
+            └───────┬─────────────────────────────────────┬──────────┘
+        web (Next)  │                                      │  extension (WXT / Vite)
+                    ▼                                      ▼
+   Resumes page + Add-app review            entrypoints/: popup · options · sidepanel · background · content
+   onSave → /api/resumes/upload             sidepanel mounts <ResumeUpload onSave=…>
+                                            engine modules (adapters/parser/tracking/sync) imported as-is
+```
+The form is **persistence-agnostic**: it emits `onSave(result)`. Web wires it to the upload route;
+the extension wires it to `createResume`/`uploadResumeFile` or capture→`pushDraft`→`uploadApplicationAttachment`→fill.
+
+## Locked-decision change (intentional)
+The extension adopts a **build step / framework (WXT)**. The autofill **engine stays modular**; the
+*build, manifest, and UI* are framework-managed. `CLAUDE.md` + `ARCHITECTURE.md` updated in W0.6 / W5.
+
+---
+
+## Phase W0 — Adopt WXT, port existing entrypoints **as-is** (lowest-risk foundation)
+> WXT builds the *current* extension with **no behavior change** — popup/options/background/content
+> all work unchanged, just relocated into WXT's structure with the manifest generated from config.
+- [ ] **W0.1** Add WXT to `job-autofill` (dev dep), `wxt.config.ts` reproducing the current `manifest.json` (permissions, host_permissions, externally_connectable, key, content_scripts, icons, action, options_page).
+- [ ] **W0.2** `entrypoints/background` — wrap `src/background/service-worker.js` (import as a module; keep its logic).
+- [ ] **W0.3** `entrypoints/content` — register the existing content-script bundle (adapters, filler, submit-detect, etc.) with the same matches/run_at.
+- [ ] **W0.4** `entrypoints/popup` + `entrypoints/options` — start as **plain HTML/JS entrypoints** reusing the current popup/options files verbatim (no React yet).
+- [ ] **W0.5** Engine modules importable: confirm the `src/lib/*` IIFEs attach to `globalThis.JAF` under Vite (side-effect imports) and the **existing test suite stays green** (`cd job-autofill && npm test`).
+- [ ] **W0.6** Build + load the WXT-built extension unpacked; verify autofill, save-a-job, options, connect handoff, bug report all work (parity). Update `CLAUDE.md`/`ARCHITECTURE.md` (WXT build). Commit the build output per the artifact decision.
+
+## Phase W1 — Shared UI package (React + Tailwind)
+> One source for the form + primitives, consumed by web and extension.
+- [ ] **W1.1** Create `packages/ui` (workspace); set up Tailwind tokens shared with web `globals.css`.
+- [ ] **W1.2** Make `ResumeUpload` portable: inject services (`onSave`, `onCancel`, optional `track`/`toast`/`navigate`); drop `next/navigation`/`next/image`/direct `fetch` in favor of props. **Zero web behavior change.**
+- [ ] **W1.3** Move `ResumeUpload` + sub-parts + needed UI primitives + `parser-core` types into `packages/ui`.
+- [ ] **W1.4** Wire WXT + web to consume `packages/ui` (Vite/Next both resolve the workspace package).
+
+## Phase W2 — Web consumes the shared package (parity, **deploys**)
+- [ ] **W2.1** `ResumesWorkspace` + Add-application review import `ResumeUpload` from `packages/ui`; wire web `onSave`/services.
+- [ ] **W2.2** `npm test` + `npm run build` green; visual/behavior parity verified in preview. **(Web PR → deploy.)**
+
+## Phase W3 — Extension side panel renders the shared form
+> The on-the-fly upload opens a native right-side panel with the **real** form (React, in WXT).
+- [ ] **W3.1** `entrypoints/sidepanel` (React) + `sidePanel` permission/config in `wxt.config.ts`.
+- [ ] **W3.2** Side panel reads the handoff (parsed structure + file + `mode` + `jobTabId`) and mounts `<ResumeUpload initial mode onSave onCancel>`.
+- [ ] **W3.3** Extension `onSave` (logic from `review.js`): **save** → `createResume` + `uploadResumeFile` + mirror pull; **attach** → capture → `pushDraft` → `uploadApplicationAttachment` → fill `jobTabId` → focus.
+- [ ] **W3.4** Popup: both upload options `chrome.sidePanel.open({tabId})` + handoff. Remove `src/review/*` (the vanilla tab).
+- [ ] **W3.5** Loading/empty/error/cancel states; close panel on done. Verify both modes unpacked.
+
+## Phase W4 — (Ongoing) convert popup + options to React
+> The broader UI roadmap rides here, once the foundation + side panel are proven.
+- [ ] **W4.1** Convert `popup` to React (resume picker, fill flow, upload choice) using shared primitives.
+- [ ] **W4.2** Convert `options` to React (settings, account, bug report).
+- [ ] **W4.3** (Future UI features slot in here as their own `w4.x` tasks.)
+
+## Phase W5 — Firefox parity, cleanup, docs, ship
+- [ ] **W5.1** Firefox build via WXT (sidebar/injected panel for the side-panel surface); test.
+- [ ] **W5.2** Remove dead vanilla assets; prune unused CSS.
+- [ ] **W5.3** Update `ARCHITECTURE.md`, `PROGRESS.md`, this plan's checkboxes.
+- [ ] **W5.4** Bump extension version, full test pass (web + extension), package, **CWS upload**.
+
+---
+
+## Key risks & decisions
+- **Engine modules under Vite:** they self-attach to `globalThis.JAF` via IIFEs. Load via side-effect imports; the node test suite is unchanged (files untouched). Validate in W0.5 before going further.
+- **Manifest `key`:** preserved in `wxt.config.ts` so the extension ID stays stable (unpacked == published) — keeps the `/connect` handoff + any ID-based config working.
+- **MV3 no remote code:** everything is bundled/packaged (WXT/Vite output) — compliant.
+- **CWS artifact:** build before packaging; commit the WXT build output for reproducible zips + no-build dev loads (per the artifact decision).
+- **Incremental safety:** W0 ships the *same* extension on WXT (parity) before any UI is rewritten; popup/options stay vanilla until W4.
+- **Gate fix in flight:** the connection-gate fix (`5d2342a`) rides this branch; cherry-pick to `main` sooner if you want it in prod before this build lands.
+- **Bundle size / Tailwind:** share tokens with web `globals.css`; tree-shake; acceptable for panels.
+
+## Definition of done (build-out)
+WXT builds the extension (engine intact, parity verified); `packages/ui` holds one `ResumeUpload`
+consumed by web + extension; the on-the-fly upload reviews in a right-side panel using that form
+(both modes); web parity deployed; extension shipped via a CWS upload; docs updated. The platform
+is ready for further Simplify-scale UI in `entrypoints/` + `packages/ui`.
+
+## Log
+- 2026-06-30 · Re-cast from `SHARED-FORM-PLAN.md` to a WXT platform plan (framework = WXT, engine stays). Decisions locked.
