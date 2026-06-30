@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ResumeUpload, { type EditTarget } from "@/components/ResumeUpload";
+import { ResumeUpload, type EditTarget } from "@kiwiply/ui";
 import ResumeList, { type Resume } from "@/components/ResumeList";
 import type { StructuredResume } from "@/lib/parser-core";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";

@@ -44,7 +44,10 @@ Bump the `manifest.version` in `job-autofill/wxt.config.ts` + `job-autofill/pack
 the `version` in `src/config/rules.js` too (the smoke test asserts it).
 
 ## Layout (target monorepo)
-`/job-autofill` extension · `/api` Spring Boot · `/web` Next.js · `/brand` source logo/ATS
+npm workspaces (root `package.json`, `workspaces: ["packages/*","web"]`; install at the ROOT).
+`/packages/ui` (`@kiwiply/ui`) shared React/Tailwind UI (tokens + `ResumeUpload`, consumed as
+source by web + extension) · `/job-autofill` extension (standalone, not yet a workspace member) ·
+`/api` Spring Boot · `/web` Next.js (workspace member) · `/brand` source logo/ATS
 art (originals only — served copies live in `web/public` + `job-autofill/icons`; see
 `brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/HANDOFF/CLAUDE.
 When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the file map.

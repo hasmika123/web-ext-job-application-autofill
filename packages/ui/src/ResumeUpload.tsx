@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { parseResume } from "@/lib/resume-parse";
-import type { StructuredResume, ResumeExperience, ResumeEducation, ResumeProject, ParsedBio } from "@/lib/parser-core";
-import { Input } from "@/components/ui";
-import { buttonVariants } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
-import { LIMITS } from "@/lib/validate";
+import type { StructuredResume, ResumeExperience, ResumeEducation, ResumeProject, ParsedBio } from "./parser-core-types";
+import Input from "./primitives/Input";
+import { buttonVariants } from "./primitives/Button";
+import { cn } from "./primitives/cn";
+import { LIMITS } from "./primitives/limits";
 
 type BaseProfile = Record<string, unknown>;
 
@@ -513,6 +512,9 @@ export type SaveResult = { ok: true; id: number; label: string } | { ok: false; 
 export type ResumeToast = { variant?: "success" | "error"; title: string; description?: string };
 
 export type ResumeUploadServices = {
+  /** Parse a dropped/seeded resume file into structure + contact (web: pdf.js/mammoth via
+   *  resume-parse; extension: its own parser.js). Keeps the heavy parser out of the package. */
+  parseFile: (file: File) => Promise<{ structured: StructuredResume; bio: ParsedBio }>;
   /** Create (upload) or edit (update) the resume; returns the saved id+label or an error. */
   onSave: (input: SaveInput) => Promise<SaveResult>;
   /** Optional: persist edited contact fields to the base profile. When omitted, the
@@ -533,6 +535,7 @@ export default function ResumeUpload({
   embedded = false,
   onSaved,
   onClose,
+  parseFile,
   onSave,
   onUpdateProfile,
   track,
@@ -583,7 +586,7 @@ export default function ResumeUpload({
     setError(null);
     setSaveError(null);
     try {
-      const parsed = await parseResume(picked);
+      const parsed = await parseFile(picked);
       setBio(parsed.bio);
       setStruct(normalizeStruct(parsed.structured));
       setContactOpen(true);

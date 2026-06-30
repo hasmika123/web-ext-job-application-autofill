@@ -40,13 +40,29 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          # web is a workspace member now → install from the ROOT lockfile.
+          cache-dependency-path: package-lock.json
+      # Workspace-aware install at the repo root (resolves @kiwiply/ui for web).
       - run: npm ci
-        working-directory: web
-      - run: npm test # sync parser-core + tsc --noEmit + eslint
-        working-directory: web
-      - run: npm run build # strongest gate: next build (standalone)
-        working-directory: web
+      - run: npm test --workspace web # sync parser-core + tsc --noEmit + eslint
+      - run: npm run build --workspace web # strongest gate: next build (standalone)
+
+  web-docker:
+    name: Web Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Build the production image (root context, workspace-aware) to validate the Dockerfile.
+      # No push — this is a smoke check; the real build+push happens in deploy.yml on main.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./web/Dockerfile
+          push: false
+          tags: dossier-web:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   api:
     name: API tests (unit + integration)

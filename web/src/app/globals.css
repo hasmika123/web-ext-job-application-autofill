@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
+   (e.g. the ResumeUpload form + primitives), which live outside web/src. */
+@source "../../../packages/ui/src";
+
 /* ───────────────────────────────────────────────────────────────────────────
    Kiwiply — Editorial / Kiwi visual system (light-only this pass).
    Tokens are the exact supplied brand palette (REDESIGN-PLAN §3.1):

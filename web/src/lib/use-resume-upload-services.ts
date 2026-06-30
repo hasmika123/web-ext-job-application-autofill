@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui";
 import { track } from "@/lib/analytics";
-import type { ResumeUploadServices, SaveInput, SaveResult } from "@/components/ResumeUpload";
+import { parseResume } from "@/lib/resume-parse";
+import type { ResumeUploadServices, SaveInput, SaveResult } from "@kiwiply/ui";
 
 /**
  * Web wiring for the (now portable) ResumeUpload form — the exact persistence + side effects
@@ -16,6 +17,12 @@ export function useResumeUploadServices(): ResumeUploadServices {
 
   return useMemo<ResumeUploadServices>(
     () => ({
+      // In-browser parse (pdf.js / mammoth → shared parser-core). Keeps resume content off
+      // the server until the user saves. The component only needs structure + contact.
+      parseFile: async (file: File) => {
+        const parsed = await parseResume(file);
+        return { structured: parsed.structured, bio: parsed.bio };
+      },
       onSave: async (input: SaveInput): Promise<SaveResult> => {
         if (input.mode === "edit") {
           // Editing a saved resume: update label + parsed structure only (file unchanged).

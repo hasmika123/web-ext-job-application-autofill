@@ -2,16 +2,26 @@
   "name": "@kiwiply/ui",
   "version": "0.0.0",
   "private": true,
-  "description": "Shared UI for the Kiwiply web app and browser extension: design tokens now; React primitives + the ResumeUpload form land in W1.2/W1.3. Consumed as source by both Next (web) and Vite/WXT (extension) — no build step.",
+  "description": "Shared UI for the Kiwiply web app and browser extension: design tokens + React primitives + the portable ResumeUpload form. Consumed AS SOURCE by both Next (web, via transpilePackages) and Vite/WXT (extension) — no build step. React is a peer (the consumer provides it).",
   "type": "module",
   "sideEffects": [
     "*.css"
   ],
   "exports": {
+    ".": "./src/index.ts",
     "./styles/tokens.css": "./styles/tokens.css"
   },
   "files": [
-    "styles",
-    "src"
-  ]
+    "src",
+    "styles"
+  ],
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
 }

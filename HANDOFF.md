@@ -52,27 +52,34 @@ before writing selectors.
 
 ---
 
-## ▶️ KICKSTART — W1.3 (move `ResumeUpload` into `@kiwiply/ui`)
+## ▶️ KICKSTART — W2.2 (web parity verify + deploy gate)
 
-Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W1.3–W1.4).
+Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W2.2 → W3).
 
-**W0 DONE** (WXT builds the extension at parity). **W1.1 DONE** — npm workspaces (`workspaces: ["packages/*"]`)
-+ `@kiwiply/ui` with `styles/tokens.css`. **W1.2 DONE** — `ResumeUpload` is now presentational: services
-(`onSave`/`onUpdateProfile`/`track`/`toast`/`onRefresh`) are injected (no more `useRouter`/`useToast`/`fetch` in
-the component); web wiring lives in `web/src/lib/use-resume-upload-services.ts`, spread by both callers
-(`ResumesWorkspace`, `ApplicationBoard`). `tsc`+`eslint`+`next build` green, zero web behavior change.
+**W0/W1 DONE.** The shared form now lives in `@kiwiply/ui` and **web consumes it**: `ResumeUpload` moved into
+`packages/ui/src` (self-contained primitives + `parser-core` types; parsing is the injected `parseFile` service).
+`web/` is a workspace member (`workspaces: ["packages/*","web"]`); `next.config` has `transpilePackages:["@kiwiply/ui"]`
++ Turbopack/tracing rooted at the **repo root** (standalone output is monorepo-NESTED — the Dockerfile handles it);
+`globals.css` has an `@source` for the package. Web **Dockerfile + CI** are workspace-aware (root `npm ci`, build
+`-w web`) and a new CI **`web-docker`** job builds the image as a smoke test. Web `tsc`+`eslint`+`next build` green;
+extension untouched.
 
-One manual W0 gate still stands (do once, in Chrome): **load `job-autofill/.output/chrome-mv3` unpacked and walk
-parity** (autofill, save-a-job, options, `/connect`, bug report, on-the-fly upload). `.output/` is gitignored —
-`npm run build` in `job-autofill/` to regenerate.
+**Next — W2.2 (verify + deploy gate):**
+1. **Confirm CI is green on this branch** — especially the new **`web-docker`** job (the Docker image build is the
+   one thing NOT testable locally; no Docker on the dev box). If it fails, it's almost certainly a nested-standalone
+   path in `web/Dockerfile` (server is at `.next/standalone/web/server.js`; static → `web/.next/static`).
+2. **Visual/behavior parity** of the resume upload+review form on `/resumes` (and the Add-application dialog on
+   `/board`). It's auth-gated → needs the stack up (web + API + a signed-in user). It's a pure refactor (zero
+   intended change); confirm the drop-zone, parse, review editor, skill chips, drag-reorder, and save all look/work
+   the same.
+3. **Merge the web change → it deploys** (CI/CD on merge to `main`). This is the W2 deploy gate.
 
-**Next — W1.3 (move into the package):** relocate `ResumeUpload` + its sub-parts, the UI primitives it needs
-(`Input`, `buttonVariants`, `cn`, `LIMITS`/validate), and the `parser-core` **types** into `packages/ui`
-(`@kiwiply/ui`). Decide how parsing is provided (web uses `@/lib/resume-parse` = pdfjs-dist; the extension parses
-via its own `parser.js`/vendor pdf) — likely inject a `parseFile` service too, or have the extension seed parsed
-structure (W3 side panel). Keep web building. **Then W1.4** wires web + the WXT extension to import from
-`@kiwiply/ui`, adds `web/`+`job-autofill/` as workspace members, and updates the web **Dockerfile + CI** (they
-currently `npm ci` in isolation — that's the step where the live build changes). See `EXT-UI-PLATFORM-PLAN.md` W1.
+Then **W3** (extension side panel renders the shared form) — that's where the **WXT half** of W1.4 happens
+(job-autofill joins the workspace + imports `@kiwiply/ui`).
+
+Still open from W0 (do once, in Chrome): **load `job-autofill/.output/chrome-mv3` unpacked and walk parity**
+(autofill, save-a-job, options, `/connect`, bug report, on-the-fly upload). `.output/` is gitignored — `npm run
+build` in `job-autofill/` to regenerate.
 
 **How to build/run the extension now:** `cd job-autofill && npm run dev` (WXT dev server, HMR) or
 `npm run build` (→ `.output/chrome-mv3`). `npm test` still runs the engine suite. WXT prefers Node 22 but

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/Button";
-import ResumeUpload from "@/components/ResumeUpload";
+import { ResumeUpload } from "@kiwiply/ui";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 
 export interface Application {
