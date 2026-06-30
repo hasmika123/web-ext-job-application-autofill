@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, EmptyState, useToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -316,8 +316,17 @@ export default function ResumeList({
 
   const selectedActive = [...selected].some((id) => resumes.find((r) => r.id === id && !r.archived));
   const selectedArchived = [...selected].some((id) => resumes.find((r) => r.id === id && r.archived));
-  const anyVisible = view.active.length + view.archived.length;
-  const allVisibleSelected = anyVisible > 0 && view.active.concat(view.archived).every((r) => selected.has(r.id));
+  const visibleIds = view.active.concat(view.archived).map((r) => r.id);
+  const anyVisible = visibleIds.length;
+  const allVisibleSelected = anyVisible > 0 && visibleIds.every((id) => selected.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selected.has(id));
+
+  // "Select all" shows a dash (indeterminate) when only some visible rows are selected — there's
+  // no HTML attribute for it, so it's set imperatively on the DOM node.
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+  }, [someVisibleSelected, allVisibleSelected]);
 
   if (resumes.length === 0) {
     return (
@@ -349,16 +358,37 @@ export default function ResumeList({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Toolbar: search + sort */}
+      {/* Toolbar: search · sort · select-all */}
       <div className="flex flex-wrap items-center gap-2.5">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search resumes…"
-          className={cn(toolInput, "min-w-[180px] max-w-[320px] flex-1")}
-        />
+        <div className="relative min-w-[180px] max-w-[320px] flex-1">
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </span>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search resumes…"
+            className={cn(
+              "w-full rounded-full border border-line bg-paper py-2 pl-9 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent",
+              query ? "pr-9" : "pr-4",
+            )}
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setQuery("")}
+              className="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-muted hover:bg-paper-2 hover:text-ink"
+            >
+              ✕
+            </button>
+          )}
+        </div>
         <label className="flex items-center gap-2 text-[12.5px] text-muted">
-          <span className="sr-only sm:not-sr-only">Sort</span>
+          <span className="sr-only sm:not-sr-only">Sort:</span>
           <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={cn(toolInput, "font-medium text-ink-soft")}>
             {SORTS.map((s) => (
               <option key={s.key} value={s.key}>{s.label}</option>
@@ -366,17 +396,15 @@ export default function ResumeList({
           </select>
         </label>
         {anyVisible > 0 && (
-          <label className="ml-auto flex items-center gap-2 text-[12.5px] font-medium text-ink-soft">
+          <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12.5px] font-medium text-ink-soft">
             <input
+              ref={selectAllRef}
               type="checkbox"
               checked={allVisibleSelected}
-              onChange={(e) => {
-                const visible = view.active.concat(view.archived).map((r) => r.id);
-                setSelected(e.target.checked ? new Set(visible) : new Set());
-              }}
+              onChange={(e) => setSelected(e.target.checked ? new Set(visibleIds) : new Set())}
               className="h-4 w-4 accent-[var(--accent)]"
             />
-            Select all
+            Select all ({anyVisible})
           </label>
         )}
       </div>
