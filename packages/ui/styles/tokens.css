@@ -1,0 +1,100 @@
+/* @kiwiply/ui — shared design tokens (single source of truth).
+ *
+ * The Kiwiply "Editorial / Kiwi" visual system (light-only this pass). These are the
+ * brand palette + shape/elevation tokens, plus the Tailwind v4 `@theme inline` mapping
+ * that exposes them as utilities (bg-paper, text-ink, border-line, text-accent-deep, …).
+ *
+ * Both consumers import THIS file (no inline copies):
+ *   - web  (Next): `@import "@kiwiply/ui/styles/tokens.css";` in src/app/globals.css   [wired in W1.4]
+ *   - ext  (WXT/Vite + Tailwind): imported from the extension's Tailwind entry         [wired in W1.4 / W5]
+ * The values are byte-identical to web's previous inline tokens, so adoption is a
+ * zero-visual-change swap. App-specific globals (body, focus ring, keyframes) stay in
+ * each consumer's own stylesheet — only TOKENS live here.
+ *
+ * Brand palette (REDESIGN-PLAN §3.1):
+ *   #94BD37 kiwi green · #2D3133 charcoal · #986A35 kiwi skin · #D4D3C8 warm gray
+ *   · #B7D283 light green · #AB8F63 tan · #DFEAB9 pale green · #725125 deep brown.
+ *   --accent-deep and --brown-soft are the only two derived shades.
+ *
+ * Font vars reference next/font variables (--font-inter / --font-fraunces) that the web
+ * layout sets; consumers without next/font fall back through the declared stack.
+ */
+:root {
+  /* Fonts (wired to next/font variables in the web layout.tsx) */
+  --font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif; /* headlines only */
+
+  /* Surfaces & text */
+  --app-bg: #ECEBE3;     /* warm light-gray canvas (from #D4D3C8 family) */
+  --paper: #FBFAF6;      /* near-white warm surface (cards) */
+  --paper-2: #E7E6DD;    /* subtle warm fill */
+  --ink: #2D3133;        /* charcoal (brand) — body text & dark surfaces */
+  --ink-soft: #4F5557;   /* warm grey text */
+  --muted: #686962;      /* muted warm grey — darkened from #73746E to clear WCAG AA (4.5:1) on --paper */
+  --line: #D4D3C8;       /* warm gray border (brand) */
+
+  /* Accent — kiwi green */
+  --accent: #94BD37;       /* kiwi green (brand) — CTAs, accents, fills */
+  --accent-2: #B7D283;     /* light green (brand) — secondary / hover */
+  --accent-soft: #DFEAB9;  /* pale green (brand) — pills, tints */
+  --accent-deep: #5E7D1E;  /* darkened brand green — green TEXT on light */
+  --on-accent: #2D3133;    /* charcoal text/icons ON green fills (lime needs dark) */
+
+  /* Brown — kiwi skin, sparing warm secondary */
+  --brown: #986A35;        /* kiwi skin (brand) */
+  --brown-2: #AB8F63;      /* tan (brand) */
+  --brown-deep: #725125;   /* deep brown (brand) */
+  --brown-soft: #ECE2D1;   /* pale brown (tint of tan) */
+
+  /* Status */
+  --ok: #5E7D1E;
+  --warn: #986A35;
+  --danger: #A23B2E;       /* danger red kept for UX clarity */
+
+  /* Shape & elevation */
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --shadow: 0 1px 0 rgba(45, 49, 51, .04), 0 10px 26px rgba(45, 49, 51, .08);
+  --shadow-lg: 0 22px 56px rgba(45, 49, 51, .16);
+
+  /* Dark surfaces (hero, auth panel) — charcoal gradient + cream ink */
+  --hero-bg: linear-gradient(165deg, #2D3133, #2F3330, #37322B);
+  --hero-ink: #FBFAF6;
+}
+
+/* Expose the palette as Tailwind v4 utilities (bg-paper, text-ink, border-line,
+   text-accent-deep, font-display, …). `inline` keeps the utilities referencing
+   the CSS vars above, so var(--accent) and bg-accent stay in sync. */
+@theme inline {
+  --font-body: var(--font-body);
+  --font-display: var(--font-display);
+
+  --color-app-bg: var(--app-bg);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
+  --color-on-accent: var(--on-accent);
+
+  --color-brown: var(--brown);
+  --color-brown-2: var(--brown-2);
+  --color-brown-deep: var(--brown-deep);
+  --color-brown-soft: var(--brown-soft);
+
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-hero-ink: var(--hero-ink);
+
+  --radius-DEFAULT: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-pill: var(--radius-pill);
+}

@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Workspace root install (npm workspaces). The root package-lock.json IS committed.
+node_modules/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
