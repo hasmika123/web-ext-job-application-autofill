@@ -1,19 +1,26 @@
-@import "tailwindcss";
-
-/* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
-   (e.g. the ResumeUpload form + primitives), which live outside web/src. */
-@source "../../../packages/ui/src";
-
-/* ───────────────────────────────────────────────────────────────────────────
-   Kiwiply — Editorial / Kiwi visual system (light-only this pass).
-   Tokens are the exact supplied brand palette (REDESIGN-PLAN §3.1):
-   #94BD37 kiwi green · #2D3133 charcoal · #986A35 kiwi skin · #D4D3C8 warm gray
-   · #B7D283 light green · #AB8F63 tan · #DFEAB9 pale green · #725125 deep brown.
-   --accent-deep and --brown-soft are the only two derived shades.
-   Mirror these values in the extension's Shadow-DOM overlay (R5).
-   ─────────────────────────────────────────────────────────────────────────── */
+/* @kiwiply/ui — shared design tokens (single source of truth).
+ *
+ * The Kiwiply "Editorial / Kiwi" visual system (light-only this pass). These are the
+ * brand palette + shape/elevation tokens, plus the Tailwind v4 `@theme inline` mapping
+ * that exposes them as utilities (bg-paper, text-ink, border-line, text-accent-deep, …).
+ *
+ * Both consumers import THIS file (no inline copies):
+ *   - web  (Next): `@import "@kiwiply/ui/styles/tokens.css";` in src/app/globals.css   [wired in W1.4]
+ *   - ext  (WXT/Vite + Tailwind): imported from the extension's Tailwind entry         [wired in W1.4 / W5]
+ * The values are byte-identical to web's previous inline tokens, so adoption is a
+ * zero-visual-change swap. App-specific globals (body, focus ring, keyframes) stay in
+ * each consumer's own stylesheet — only TOKENS live here.
+ *
+ * Brand palette (REDESIGN-PLAN §3.1):
+ *   #94BD37 kiwi green · #2D3133 charcoal · #986A35 kiwi skin · #D4D3C8 warm gray
+ *   · #B7D283 light green · #AB8F63 tan · #DFEAB9 pale green · #725125 deep brown.
+ *   --accent-deep and --brown-soft are the only two derived shades.
+ *
+ * Font vars reference next/font variables (--font-inter / --font-fraunces) that the web
+ * layout sets; consumers without next/font fall back through the declared stack.
+ */
 :root {
-  /* Fonts (wired to next/font variables in layout.tsx) */
+  /* Fonts (wired to next/font variables in the web layout.tsx) */
   --font-body: var(--font-inter), "Inter", system-ui, sans-serif;
   --font-display: var(--font-fraunces), Georgia, serif; /* headlines only */
 
@@ -90,46 +97,4 @@
   --radius-DEFAULT: var(--radius);
   --radius-lg: var(--radius-lg);
   --radius-pill: var(--radius-pill);
-}
-
-body {
-  background: var(--app-bg);
-  color: var(--ink);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Visible keyboard focus ring for interactive elements that don't set their own.
-   `:where()` keeps specificity 0 so component focus styles still win. Form controls
-   (input/select/textarea) keep their own focus treatment. */
-:where(a, button, summary, [role="button"], [role="switch"], [tabindex]):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  line-height: 1.08;
-  letter-spacing: -.01em;
-  font-weight: 600;
-}
-
-/* Toast enter animation (used by ToastProvider) */
-@keyframes toast-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
-}
-
-/* ATS logo marquee — two identical tracks; -50% advances exactly one track for a seamless loop */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-.animate-marquee {
-  animation: marquee 24s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee { animation: none; }
 }

@@ -6,7 +6,8 @@ import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/Button";
-import ResumeUpload from "@/components/ResumeUpload";
+import { ResumeUpload } from "@kiwiply/ui";
+import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 
 export interface Application {
   id: number;
@@ -388,6 +389,7 @@ function AddApplicationDialog({
   const [resumeId, setResumeId] = useState("");
   const [saving, setSaving] = useState(false);
   const firstRef = useRef<HTMLInputElement>(null);
+  const resumeUploadServices = useResumeUploadServices();
 
   // On-the-fly resume upload from within the dialog. The dialog stays mounted throughout, so
   // anything already typed survives the upload/review round-trip.
@@ -547,6 +549,7 @@ function AddApplicationDialog({
           baseProfile={baseProfile}
           onSaved={(r) => { onResumeCreated(r); setResumeId(String(r.id)); }}
           onClose={() => setReviewFile(null)}
+          {...resumeUploadServices}
         />
       )}
     </>

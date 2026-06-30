@@ -4,12 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kiwiply — Extension settings</title>
-  <link rel="stylesheet" href="options.css" />
+  <!-- Open the options page in a full tab (legacy options_page behavior) instead of the
+       embedded options_ui dialog. -->
+  <meta name="manifest.open_in_tab" content="true" />
+  <link rel="stylesheet" href="../../src/options/options.css" />
 </head>
 <body>
   <main class="slim">
     <header class="slimhead">
-      <img class="brandimg" src="../../icons/logo-icon.png" alt="Kiwiply" />
+      <img class="brandimg" src="/icons/logo-icon.png" alt="Kiwiply" />
       <div>
         <h1>Extension settings</h1>
         <p class="lead">Your profile, resumes, and job board live on <b>kiwiply.com</b>. This page only holds the
@@ -84,8 +87,6 @@
     </section>
   </main>
 
-  <script src="../lib/storage.js"></script>
-  <script src="../lib/tracking.js"></script>
-  <script src="options.js"></script>
+  <script type="module" src="./main.js"></script>
 </body>
 </html>

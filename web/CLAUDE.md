@@ -47,6 +47,15 @@ Confirmed against the bundled docs (`node_modules/next/dist/docs/01-app/02-guide
   `src/lib/cookies.ts` (no `next/headers`, so the proxy can import them).
 - **Shared resume parsing**: import the extension's `parser-core.js` (pure JS, no build
   step) rather than reimplementing — it's the single source of truth for resume → fields.
-- **Tests**: `npm test` = `tsc --noEmit && eslint .`. `npm run build` is the strongest gate.
+- **Shared UI = `@kiwiply/ui`** (`packages/ui`, since W1.3): the `ResumeUpload` form + primitives
+  live there, consumed as **source** via `next.config` `transpilePackages`. `web/` is now an **npm
+  workspace member** (root `package.json` `workspaces`), so **install at the repo ROOT** (`npm ci`
+  there), not in `web/`. Turbopack + `outputFileTracingRoot` are pinned to the **repo root** → the
+  standalone build is monorepo-NESTED (`.next/standalone/web/server.js`); the Dockerfile + CI are
+  workspace-aware (see `web/Dockerfile`, `ci.yml` `web`/`web-docker` jobs). Tailwind scans the package
+  via an `@source` in `globals.css`.
+- **Tests**: `npm test` = `tsc --noEmit && eslint .` (run `npm run build -w web` / `npm test -w web`
+  from the root, or `npm run build` from `web/`). `npm run build` is the strongest gate.
 - **This machine's npm shell**: a poisoned `COMSPEC` env var breaks npm spawns; `web/.npmrc`
-  pins `script-shell` so installs here always work.
+  pins `script-shell`. NOTE: in the workspace, npm **ignores** nested `web/.npmrc` — root installs
+  rely on the env/global shell (CI sets `npm_config_script_shell`).

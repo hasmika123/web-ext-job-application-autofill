@@ -209,23 +209,8 @@ async function saveResume() {
 // ---- mode "attach": fill the job page + attach the PDF to its application -----------------
 // Reuses the same content-script injection + fill plumbing the popup uses, but driven from
 // this tab against the original job tab (meta.jobTabId).
-const CONTENT_FILES = [
-  "src/lib/schema.js",
-  "src/lib/field-cache.js",
-  "src/content/adapters/base.js",
-  "src/content/adapters/generic.js",
-  "src/content/adapters/greenhouse.js",
-  "src/content/adapters/lever.js",
-  "src/content/adapters/ashby.js",
-  "src/content/adapters/workable.js",
-  "src/content/adapters/workday.js",
-  "src/content/adapters/indeed.js",
-  "src/lib/job-capture.js",
-  "src/lib/app-tracking.js",
-  "src/content/submit-detect.js",
-  "src/content/filler.js",
-  "src/content/content-script.js",
-];
+// The content script is bundled by WXT into one self-contained file (see popup.js).
+const CONTENT_FILES = ["content-scripts/content.js"];
 
 function sendTo(tabId, msg, frameId) {
   return new Promise((resolve, reject) => {

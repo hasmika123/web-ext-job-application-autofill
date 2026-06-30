@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { useRouter } from "next/navigation";
-import { parseResume } from "@/lib/resume-parse";
-import type { StructuredResume, ResumeExperience, ResumeEducation, ResumeProject, ParsedBio } from "@/lib/parser-core";
-import { track } from "@/lib/analytics";
-import { Input, useToast } from "@/components/ui";
-import { buttonVariants } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
-import { LIMITS } from "@/lib/validate";
+import type { StructuredResume, ResumeExperience, ResumeEducation, ResumeProject, ParsedBio } from "./parser-core-types";
+import Input from "./primitives/Input";
+import { buttonVariants } from "./primitives/Button";
+import { cn } from "./primitives/cn";
+import { LIMITS } from "./primitives/limits";
 
 type BaseProfile = Record<string, unknown>;
 
@@ -503,6 +500,34 @@ function EducationEditor({ index, edu, onPatch, onRemove, dnd }: { index: number
  *  seeds the initial state — no setState-in-effect. */
 export type EditTarget = { id: number; label: string; structured: StructuredResume };
 
+/**
+ * Persistence + side effects are INJECTED so the same form works on web (Next route
+ * handlers) and in the extension (TrackingProvider seam). The component owns all UX/flow;
+ * services only do I/O. Web wiring lives in `useResumeUploadServices()`. (W1.2 — portability.)
+ */
+export type SaveInput =
+  | { mode: "create"; file: File; label: string; parsedJson: string }
+  | { mode: "edit"; id: number; label: string; parsedJson: string };
+export type SaveResult = { ok: true; id: number; label: string } | { ok: false; error: string };
+export type ResumeToast = { variant?: "success" | "error"; title: string; description?: string };
+
+export type ResumeUploadServices = {
+  /** Parse a dropped/seeded resume file into structure + contact (web: pdf.js/mammoth via
+   *  resume-parse; extension: its own parser.js). Keeps the heavy parser out of the package. */
+  parseFile: (file: File) => Promise<{ structured: StructuredResume; bio: ParsedBio }>;
+  /** Create (upload) or edit (update) the resume; returns the saved id+label or an error. */
+  onSave: (input: SaveInput) => Promise<SaveResult>;
+  /** Optional: persist edited contact fields to the base profile. When omitted, the
+   *  "Detected contact" panel is hidden (e.g. the extension has no in-app base profile). */
+  onUpdateProfile?: (merged: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+  /** Optional analytics hook (coarse event name only). */
+  track?: (event: string) => void;
+  /** Optional toast surface. */
+  toast?: (t: ResumeToast) => void;
+  /** Optional: called after a page-mode save to refresh server data (web: router.refresh). */
+  onRefresh?: () => void;
+};
+
 export default function ResumeUpload({
   baseProfile = {},
   editTarget = null,
@@ -510,6 +535,12 @@ export default function ResumeUpload({
   embedded = false,
   onSaved,
   onClose,
+  parseFile,
+  onSave,
+  onUpdateProfile,
+  track,
+  toast,
+  onRefresh,
 }: {
   baseProfile?: BaseProfile;
   editTarget?: EditTarget | null;
@@ -521,9 +552,7 @@ export default function ResumeUpload({
   onSaved?: (resume: { id: number; label: string }) => void;
   /** Embedded mode: asked to close (review dismissed or save finished). */
   onClose?: () => void;
-}) {
-  const router = useRouter();
-  const { toast } = useToast();
+} & ResumeUploadServices) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -557,7 +586,7 @@ export default function ResumeUpload({
     setError(null);
     setSaveError(null);
     try {
-      const parsed = await parseResume(picked);
+      const parsed = await parseFile(picked);
       setBio(parsed.bio);
       setStruct(normalizeStruct(parsed.structured));
       setContactOpen(true);
@@ -614,7 +643,7 @@ export default function ResumeUpload({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [struct, embedded, parsing]);
 
-  async function onSave() {
+  async function handleSave() {
     if (!struct) return;
     if (!editing && !file) return; // creating needs the dropped file
     setSaving(true);
@@ -626,46 +655,38 @@ export default function ResumeUpload({
         experience: struct.experience.map((e) => ({ ...e, bullets: e.bullets.map((b) => b.trim()).filter(Boolean) })),
         projects: struct.projects.map((p) => ({ ...p, bullets: p.bullets.map((b) => b.trim()).filter(Boolean) })),
       };
+      const parsedJson = JSON.stringify(clean);
 
       if (editing) {
         // Editing a saved resume: update label + parsed structure only (file unchanged).
-        const res = await fetch(`/api/resumes/${editId}`, {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ label: label.trim() || "Resume", parsedJson: JSON.stringify(clean) }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setSaveError(data.error ?? "Couldn't save your changes.");
+        if (editId == null) return; // narrowing for TS
+        const result = await onSave({ mode: "edit", id: editId, label: label.trim() || "Resume", parsedJson });
+        if (!result.ok) {
+          setSaveError(result.error);
           return;
         }
-        track("resume_edited");
-        toast({ variant: "success", title: "Changes saved", description: "Your resume was updated." });
+        track?.("resume_edited");
+        toast?.({ variant: "success", title: "Changes saved", description: "Your resume was updated." });
         closeReview();
-        router.refresh();
+        onRefresh?.();
         return;
       }
 
       if (!file) return; // narrowing for TS — guaranteed by the guard above
-      const form = new FormData();
-      form.append("file", file, file.name);
-      form.append("label", label.trim() || labelFromName(file.name));
-      form.append("parsedJson", JSON.stringify(clean));
-      const res = await fetch("/api/resumes/upload", { method: "POST", body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setSaveError(data.error ?? "Couldn't save the resume.");
+      const result = await onSave({ mode: "create", file, label: label.trim() || labelFromName(file.name), parsedJson });
+      if (!result.ok) {
+        setSaveError(result.error);
         return;
       }
-      track("resume_saved");
-      toast({ variant: "success", title: `Saved “${data.label ?? label}”`, description: "Added to your account." });
-      onSaved?.({ id: data.id, label: data.label ?? label.trim() ?? "Resume" });
+      track?.("resume_saved");
+      toast?.({ variant: "success", title: `Saved “${result.label}”`, description: "Added to your account." });
+      onSaved?.({ id: result.id, label: result.label });
       if (embedded) {
         // The host (e.g. Add-application dialog) owns the surrounding state; just close.
         handleClose();
       } else {
         closeReview();
-        router.refresh();
+        onRefresh?.();
       }
     } catch {
       setSaveError("Something went wrong while saving.");
@@ -681,6 +702,7 @@ export default function ResumeUpload({
   });
 
   async function onUpdateBaseProfile() {
+    if (!onUpdateProfile) return;
     setUpdatingProfile(true);
     try {
       const merged: BaseProfile = { ...baseProfile };
@@ -688,20 +710,15 @@ export default function ResumeUpload({
         const v = asStr(bio[f.key]).trim();
         if (v) merged[f.key as string] = v;
       }
-      const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ payload: JSON.stringify(merged) }),
-      });
-      if (res.ok) {
-        toast({ variant: "success", title: "Base profile updated", description: "Your profile now matches this contact info." });
-        router.refresh();
+      const result = await onUpdateProfile(merged);
+      if (result.ok) {
+        toast?.({ variant: "success", title: "Base profile updated", description: "Your profile now matches this contact info." });
+        onRefresh?.();
       } else {
-        const d = await res.json().catch(() => ({}));
-        toast({ variant: "error", title: d.error ?? "Couldn't update your profile." });
+        toast?.({ variant: "error", title: result.error ?? "Couldn't update your profile." });
       }
     } catch {
-      toast({ variant: "error", title: "Something went wrong updating your profile." });
+      toast?.({ variant: "error", title: "Something went wrong updating your profile." });
     } finally {
       setUpdatingProfile(false);
     }
@@ -733,7 +750,7 @@ export default function ResumeUpload({
   const dndFor = (r: ReturnType<typeof useReorder>, i: number): RowDnd => ({ rowProps: r.rowProps(i), handleProps: r.handleProps(i), state: r.state(i) });
 
   const SaveBtn = (
-    <button onClick={onSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
+    <button onClick={handleSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
       {saving ? "Saving…" : editing ? "Save changes" : "Save to my account"}
     </button>
   );
@@ -836,8 +853,9 @@ export default function ResumeUpload({
               </div>
 
               {/* Detected contact — collapsible, with a one-click base-profile update.
-                  Only for a freshly-parsed file; a saved resume has no stored contact. */}
-              {!editing && (
+                  Only for a freshly-parsed file; a saved resume has no stored contact. Hidden
+                  when no base-profile service is wired (e.g. the extension has no in-app bio). */}
+              {!editing && onUpdateProfile && (
               <SectionCard
                 title="Detected contact"
                 action={

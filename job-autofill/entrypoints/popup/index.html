@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="popup.css" />
+  <link rel="stylesheet" href="../../src/popup/popup.css" />
 </head>
 <body>
   <div class="wrap">
     <header>
-      <img class="brandimg" src="../../icons/logo.png" alt="Kiwiply" />
+      <img class="brandimg" src="/icons/logo.png" alt="Kiwiply" />
       <div class="headlinks">
         <button class="link" id="manage" title="Manage your profile & resumes on kiwiply.com">Manage</button>
         <button class="link iconlink" id="bug-link" title="Report a bug or idea" aria-label="Report a bug or idea">🐛</button>
@@ -42,14 +42,9 @@
 
     <div class="foot"><span class="footicon">✓</span> Reviews before filling · never clicks Submit</div>
   </div>
-  <script src="../lib/schema.js"></script>
-  <script src="../lib/storage.js"></script>
-  <script src="../lib/tracking.js"></script>
-  <script src="../lib/sync.js"></script>
-  <!-- Resume parsing for on-the-fly upload (Phase 3b): shared core + DOCX/PDF extraction. -->
-  <script src="../lib/parser-core.js"></script>
-  <script src="../../vendor/mammoth.browser.min.js"></script>
-  <script src="../lib/parser.js"></script>
-  <script src="popup.js"></script>
+  <!-- mammoth is a UMD that attaches window.mammoth — load it as a classic public script
+       (the parser reads it as a global). pdf.js is dynamically imported from vendor/ at parse time. -->
+  <script src="/vendor/mammoth.browser.min.js"></script>
+  <script type="module" src="./main.js"></script>
 </body>
 </html>

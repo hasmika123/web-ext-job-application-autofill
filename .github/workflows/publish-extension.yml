@@ -21,6 +21,10 @@ jobs:
   publish:
     name: Package + publish
     runs-on: ubuntu-latest
+    env:
+      # job-autofill/.npmrc pins a Windows cmd.exe script-shell; WXT's deps (esbuild) run
+      # install scripts — override the shell so npm ci works on the Linux runner.
+      npm_config_script_shell: /bin/bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,12 +49,20 @@ jobs:
           GA_ENABLED: ${{ vars.EXT_ANALYTICS_ENABLED }}
         run: node .github/scripts/inject-ga.js
 
+      - name: Build extension (WXT)
+        # WXT generates the manifest + bundles everything into .output/chrome-mv3. Runs AFTER
+        # inject-ga so the bundle carries the injected analytics credentials. Deps were already
+        # installed by the test step above (npm ci in job-autofill).
+        run: npm run build
+        working-directory: job-autofill
+
       - name: Package extension zip
-        # manifest.json must sit at the zip root. Ship only runtime files (no tests/docs/deps).
+        # The WXT output IS the CWS-ready bundle (manifest.json already at its root). Zip its
+        # contents so manifest.json sits at the zip root.
         run: |
-          cd job-autofill
-          zip -rq ../dossier-extension.zip manifest.json src vendor icons -x '*/.*'
-          unzip -l ../dossier-extension.zip | tail -1
+          cd job-autofill/.output/chrome-mv3
+          zip -rq "$GITHUB_WORKSPACE/dossier-extension.zip" . -x '*/.*'
+          unzip -l "$GITHUB_WORKSPACE/dossier-extension.zip" | tail -1
 
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4

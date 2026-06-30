@@ -4,14 +4,32 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: manifest 0.24.0, bundled ruleset version 4.
+> Current version: 0.28.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
 Greenhouse, Lever, Ashby, generic). Model: ONE bio profile + many uploaded resumes
 (~50). User picks a resume, the extension merges bio + that resume's
 experience/skills, shows a review overlay, then fills. No auto-submit, no CAPTCHA
-bypass. Vanilla JS, no build step, everything on `window.JAF`.
+bypass. The autofill **engine** is vanilla JS IIFE modules on `window.JAF`/`globalThis.JAF`.
+
+## Build (WXT, since W0.2)
+The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the manifest; thin
+`entrypoints/` wrap the engine without rewriting it:
+- `entrypoints/background.ts` — `defineBackground`; side-effect-imports tracking/sync/app-tracking/
+  analytics, then `src/background/service-worker.js` (registers all SW listeners). Bundled → `background.js`.
+- `entrypoints/content.ts` — `defineContentScript` (same matches/`all_frames`/`run_at`); imports the
+  18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the popup/review
+  inject via `executeScript` on activeTab pages).
+- `entrypoints/{popup,options,review}/index.html` + `main.js` — each `main.js` side-effect-imports the
+  page's libs in order, then the page script (`src/{popup,options,review}/*.js`, imported as-is). `review`
+  is an unlisted page reached via `getURL("review.html")`.
+- `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*` are web-accessible
+  (`getURL` for pdf.js / the fill-overlay logo). `mammoth` loads as a classic public `<script>` (global).
+- Build: `npm run build` → `.output/chrome-mv3` (gitignored; load THIS unpacked, not the source
+  dir). Dev: `npm run dev`. Engine `npm test` is unchanged (the IIFE source files are untouched).
+  The legacy root `manifest.json` + `src/{popup,options,review}/*.html` have been **removed** — WXT
+  generates the manifest and owns the page HTML (`entrypoints/`); the page `*.js`/`*.css` stay in `src/`.
 
 ## Key files
 - `src/lib/parser-core.js` — **SHARED** pure text→structure logic: `heuristicStructure()`

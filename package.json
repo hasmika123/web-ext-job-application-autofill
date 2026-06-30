@@ -1,0 +1,10 @@
+{
+  "name": "kiwiply-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Kiwiply monorepo root — npm workspaces. `web/` joined as a workspace member in W1.3 to consume @kiwiply/ui (its Dockerfile + CI install workspace-aware from this root). The extension (job-autofill/) is still standalone; it joins when it renders the shared form (W3). Run `npm install` here to materialize the workspace.",
+  "workspaces": [
+    "packages/*",
+    "web"
+  ]
+}

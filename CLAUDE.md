@@ -3,9 +3,12 @@
 Claude Code reads this automatically every session. Keep it short.
 
 ## What this is
-Dossier: MV3 browser extension (vanilla JS, no build step, everything on
-`window.JAF`) that autofills job applications. Being productized into extension +
-Spring Boot API + Next.js web app. Spec: `ROADMAP.md`. Task tracker: `PROGRESS.md`.
+Dossier: MV3 browser extension that autofills job applications. The autofill **engine** is
+vanilla JS on `window.JAF`/`globalThis.JAF`; since W0.2 the extension is **built with WXT (Vite)**
+— WXT owns the build, manifest generation, and `entrypoints/` (background/content/popup/options/
+review), importing the engine modules as-is. Being productized into extension + Spring Boot API +
+Next.js web app. Spec: `ROADMAP.md`. Task trackers: `PROGRESS.md` (product phases) +
+`EXT-UI-PLATFORM-PLAN.md` (the active extension UI-platform build-out, phases W0–W6).
 Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 
 ## The loop (do this every session)
@@ -22,7 +25,10 @@ Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
 - **Capture real ATS DOM before writing selectors.** Never guess tenant markup —
   it's the #1 failure mode. Use real `data-automation-id`s / option text.
-- Extension code: vanilla JS on `window.JAF`, no build step, no new deps without asking.
+- Extension **engine** code: vanilla JS on `window.JAF`/`globalThis.JAF` IIFE modules — keep it
+  framework-free and import it into entrypoints as-is. The **build/UI** uses WXT (Vite); add UI deps
+  only when a W-phase calls for it. No new engine deps without asking. Build: `cd job-autofill &&
+  npm run build` (→ `.output/chrome-mv3`); dev: `npm run dev`.
 - Server is the source of truth; the extension's local store is a **read-only mirror**
   (pull-only for autofill — edits happen on the web; only resume *creates* push back).
 - Never commit secrets. API keys via env only; never ship a key in the extension bundle.
@@ -33,11 +39,15 @@ Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 - Web (once it exists): `cd web && npm test`.
 
 ## Version-bump ritual (extension changes)
-Bump `job-autofill/manifest.json` + `package.json`. If rules change, bump the
-`version` in `src/config/rules.js` too (the smoke test asserts it).
+Bump the `manifest.version` in `job-autofill/wxt.config.ts` + `job-autofill/package.json`
+(the legacy root `manifest.json` is gone — WXT generates the manifest). If rules change, bump
+the `version` in `src/config/rules.js` too (the smoke test asserts it).
 
 ## Layout (target monorepo)
-`/job-autofill` extension · `/api` Spring Boot · `/web` Next.js · `/brand` source logo/ATS
+npm workspaces (root `package.json`, `workspaces: ["packages/*","web"]`; install at the ROOT).
+`/packages/ui` (`@kiwiply/ui`) shared React/Tailwind UI (tokens + `ResumeUpload`, consumed as
+source by web + extension) · `/job-autofill` extension (standalone, not yet a workspace member) ·
+`/api` Spring Boot · `/web` Next.js (workspace member) · `/brand` source logo/ATS
 art (originals only — served copies live in `web/public` + `job-autofill/icons`; see
 `brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/HANDOFF/CLAUDE.
 When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the file map.

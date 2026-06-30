@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kiwiply — Review &amp; save resume</title>
   <!-- Reuse the options page styles (slim card layout + entry/row2/miniadd resume styles). -->
-  <link rel="stylesheet" href="../options/options.css" />
+  <link rel="stylesheet" href="../../src/options/options.css" />
 </head>
 <body>
   <main class="slim">
     <header class="slimhead">
-      <img class="brandimg" src="../../icons/logo-icon.png" alt="Kiwiply" />
+      <img class="brandimg" src="/icons/logo-icon.png" alt="Kiwiply" />
       <div>
         <h1>Review &amp; save resume</h1>
         <p class="lead">Parsed in your browser. Edit anything below, then save it to your board on
@@ -57,11 +57,6 @@
     </div>
   </main>
 
-  <script src="../lib/storage.js"></script>
-  <script src="../lib/schema.js"></script>
-  <script src="../lib/tracking.js"></script>
-  <script src="../lib/sync.js"></script>
-  <script src="../lib/app-tracking.js"></script>
-  <script src="review.js"></script>
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
