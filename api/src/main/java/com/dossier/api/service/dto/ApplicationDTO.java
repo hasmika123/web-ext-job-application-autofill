@@ -58,6 +58,11 @@ public class ApplicationDTO implements Serializable {
 
     private ResumeDTO resume;
 
+    // Filename of the one-off PDF attached to this application (the file actually submitted),
+    // when "just attach the file" was used instead of a library resume. Null = no attachment.
+    @Size(max = 255)
+    private String attachmentFilename;
+
     public Long getId() {
         return id;
     }
@@ -186,6 +191,14 @@ public class ApplicationDTO implements Serializable {
         this.resume = resume;
     }
 
+    public String getAttachmentFilename() {
+        return attachmentFilename;
+    }
+
+    public void setAttachmentFilename(String attachmentFilename) {
+        this.attachmentFilename = attachmentFilename;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -227,6 +240,7 @@ public class ApplicationDTO implements Serializable {
             ", updatedAt='" + getUpdatedAt() + "'" +
             ", user=" + getUser() +
             ", resume=" + getResume() +
+            ", attachmentFilename='" + getAttachmentFilename() + "'" +
             "}";
     }
 }

@@ -87,6 +87,16 @@ public class Application implements Serializable {
     @JsonIgnoreProperties(value = { "user" }, allowSetters = true)
     private Resume resume;
 
+    // A one-off resume PDF attached to THIS application only (the file actually submitted),
+    // separate from the resume library. "Just attach the file" stores it here, not as a Resume.
+    @Size(max = 500)
+    @Column(name = "attachment_object_key", length = 500)
+    private String attachmentObjectKey;
+
+    @Size(max = 255)
+    @Column(name = "attachment_filename", length = 255)
+    private String attachmentFilename;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -295,6 +305,22 @@ public class Application implements Serializable {
     public Application resume(Resume resume) {
         this.setResume(resume);
         return this;
+    }
+
+    public String getAttachmentObjectKey() {
+        return this.attachmentObjectKey;
+    }
+
+    public void setAttachmentObjectKey(String attachmentObjectKey) {
+        this.attachmentObjectKey = attachmentObjectKey;
+    }
+
+    public String getAttachmentFilename() {
+        return this.attachmentFilename;
+    }
+
+    public void setAttachmentFilename(String attachmentFilename) {
+        this.attachmentFilename = attachmentFilename;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

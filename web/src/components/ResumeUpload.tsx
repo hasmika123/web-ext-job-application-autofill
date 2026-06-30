@@ -601,7 +601,6 @@ export default function ResumeUpload({
       seededRef.current = true;
       void handleFile(initialFile);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFile]);
 
   // Esc closes the full-page review (and, when embedded, the host overlay).
@@ -612,6 +611,7 @@ export default function ResumeUpload({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [struct, embedded, parsing]);
 
   async function onSave() {

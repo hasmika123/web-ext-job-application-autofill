@@ -22,6 +22,7 @@ export interface Application {
   appliedAt?: string | null;
   createdAt?: string | null;
   resume?: { id: number; label?: string | null } | null;
+  attachmentFilename?: string | null;
 }
 
 // Board columns, left to right (the funnel order), each with a status dot color.
@@ -155,21 +156,36 @@ export default function ApplicationBoard({
     void mutate(id, "PUT", { resumeId }, { resume: r ? { id: r.id, label: r.label } : null });
   };
 
-  /** Create a board entry by hand (no extension). router.refresh() pulls it back in. */
+  /**
+   * Create a board entry by hand (no extension). If an on-the-fly file was chosen with
+   * "just attach", it's uploaded to the new application (not saved as a resume) once the row
+   * exists. router.refresh() pulls everything back in.
+   */
   async function createApplication(input: NewApplication): Promise<boolean> {
     setError(null);
+    const { attachmentFile, ...appInput } = input; // the File can't go in the JSON body
     try {
       const res = await fetch("/api/applications", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
+        body: JSON.stringify(appInput),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Couldn't add the application.");
         return false;
       }
-      track("application_added_manually", { status: input.status });
+      track("application_added_manually", { status: appInput.status });
+      const newId = data.application?.id;
+      if (attachmentFile && typeof newId === "number") {
+        try {
+          const fd = new FormData();
+          fd.append("file", attachmentFile, attachmentFile.name);
+          await fetch(`/api/applications/${newId}/attachment`, { method: "POST", body: fd });
+        } catch {
+          /* the application was created; the attachment is best-effort */
+        }
+      }
       router.refresh();
       return true;
     } catch {
@@ -347,6 +363,7 @@ interface NewApplication {
   location?: string;
   jobDescription?: string;
   resumeId?: number;
+  attachmentFile?: File;
 }
 
 function AddApplicationDialog({
@@ -377,39 +394,12 @@ function AddApplicationDialog({
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null); // chosen file → parse-or-attach prompt
   const [reviewFile, setReviewFile] = useState<File | null>(null); // file being parsed+reviewed (overlay)
-  const [uploadingRaw, setUploadingRaw] = useState(false);
-  const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<File | null>(null); // "just attach" — uploaded to the app on save
 
   function onPickFile(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
-    if (f) {
-      setUploadErr(null);
-      setPendingFile(f);
-    }
-  }
-
-  // "Just attach the file" — store the raw file (no parse) and link it to this application.
-  async function uploadRaw(file: File) {
-    setUploadingRaw(true);
-    setUploadErr(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file, file.name);
-      fd.append("label", file.name.replace(/\.[^.]+$/, "").trim() || "Resume");
-      const res = await fetch("/api/resumes/upload", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setUploadErr(data.error ?? "Couldn't attach the file.");
-        return;
-      }
-      onResumeCreated({ id: data.id, label: data.label ?? "Resume" });
-      setResumeId(String(data.id));
-    } catch {
-      setUploadErr("Something went wrong uploading the file.");
-    } finally {
-      setUploadingRaw(false);
-    }
+    if (f) setPendingFile(f);
   }
 
   // Esc closes; focus the first field on open.
@@ -436,6 +426,7 @@ function AddApplicationDialog({
       location: location.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
       resumeId: resumeId ? Number(resumeId) : undefined,
+      attachmentFile: attachment ?? undefined,
     });
     setSaving(false);
     if (ok) onClose();
@@ -493,14 +484,19 @@ function AddApplicationDialog({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              disabled={uploadingRaw}
-              className="self-start text-[12px] font-semibold text-accent-deep hover:underline disabled:opacity-50"
+              className="self-start text-[12px] font-semibold text-accent-deep hover:underline"
             >
               + Upload a new resume
             </button>
             <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" onChange={onPickFile} className="hidden" />
-            {uploadingRaw && <p className="text-[12px] text-muted">Attaching…</p>}
-            {uploadErr && <p className="text-[12px] font-medium text-danger">{uploadErr}</p>}
+            {attachment && (
+              <p className="flex items-center gap-1.5 text-[12px] text-ink-soft">
+                <span>📎</span>
+                <span className="min-w-0 truncate">{attachment.name}</span>
+                <span className="flex-none text-muted">— attached to this application</span>
+                <button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment" className="flex-none text-muted hover:text-danger">✕</button>
+              </p>
+            )}
           </div>
           <label className={labelClass}>
             Job URL
@@ -531,7 +527,7 @@ function AddApplicationDialog({
               <button type="button" onClick={() => { const f = pendingFile; setPendingFile(null); setReviewFile(f); }} className={buttonVariants("accent")}>
                 Parse &amp; save to my board
               </button>
-              <button type="button" onClick={() => { const f = pendingFile; setPendingFile(null); void uploadRaw(f); }} className={buttonVariants("ghost")}>
+              <button type="button" onClick={() => { setAttachment(pendingFile); setPendingFile(null); }} className={buttonVariants("ghost")}>
                 Just attach the file
               </button>
               <button type="button" onClick={() => setPendingFile(null)} className="mt-1 text-[12.5px] font-medium text-muted hover:text-ink">
@@ -734,9 +730,37 @@ function DetailPanel({
                 </a>
               )}
 
+              {(() => {
+                // Preview the resume actually used for this job: its one-off attachment if present,
+                // otherwise the linked library resume's file.
+                const pdfUrl = app.attachmentFilename
+                  ? `/api/applications/${app.id}/attachment`
+                  : app.resume?.id
+                    ? `/api/resumes/${app.resume.id}/file`
+                    : null;
+                if (!pdfUrl) return null;
+                return (
+                  <div className="mt-6">
+                    <h3 className="mb-2 font-display text-base font-semibold text-ink">
+                      Resume {app.attachmentFilename ? "attached" : "sent"}
+                    </h3>
+                    <object data={pdfUrl} type="application/pdf" className="h-80 w-full rounded-[var(--radius)] border border-line">
+                      <div className="rounded-[var(--radius)] border border-line bg-paper-2/40 p-3 text-[13px] text-muted">
+                        Preview isn&apos;t available here.{" "}
+                        <a href={pdfUrl} target="_blank" rel="noreferrer noopener" className="font-medium text-accent-deep underline">
+                          Open the file ↗
+                        </a>
+                      </div>
+                    </object>
+                  </div>
+                );
+              })()}
+
               <h3 className="mt-6 mb-2 font-display text-base font-semibold text-ink">Job description</h3>
               {app.jobDescription ? (
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
+                <div className="max-h-72 overflow-y-auto overflow-x-hidden rounded-[var(--radius)] border border-line bg-paper-2/40 p-3">
+                  <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
+                </div>
               ) : (
                 <p className="text-[13px] text-muted">No description was captured for this job.</p>
               )}

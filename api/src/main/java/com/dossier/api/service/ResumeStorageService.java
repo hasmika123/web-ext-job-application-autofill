@@ -12,6 +12,13 @@ public interface ResumeStorageService {
     /** Build a stable, collision-resistant object key for a user's resume upload. */
     String objectKeyFor(Long userId, Long resumeId, String fileName);
 
+    /**
+     * Build a stable, collision-resistant object key under an arbitrary {@code prefix}
+     * (e.g. "application-attachments") for a user's file upload. Same scheme as
+     * {@link #objectKeyFor(Long, Long, String)} but namespaced by the given prefix.
+     */
+    String objectKeyFor(String prefix, Long userId, Long entityId, String fileName);
+
     /** Upload bytes under {@code objectKey}; returns the key for persistence. */
     String store(String objectKey, byte[] content, String contentType);
 

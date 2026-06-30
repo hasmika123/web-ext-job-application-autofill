@@ -36,5 +36,6 @@
     <include file="config/liquibase/changelog/20260629000200_email_subscriber.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260629000300_bug_report.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260629000400_admin_mfa_challenge.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260630000000_application_attachment.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

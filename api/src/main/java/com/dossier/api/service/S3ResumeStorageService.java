@@ -37,9 +37,14 @@ public class S3ResumeStorageService implements ResumeStorageService {
 
     @Override
     public String objectKeyFor(Long userId, Long resumeId, String fileName) {
+        return objectKeyFor("resumes", userId, resumeId, fileName);
+    }
+
+    @Override
+    public String objectKeyFor(String prefix, Long userId, Long entityId, String fileName) {
         String safeName = sanitize(fileName);
-        // resumes/<userId>/<resumeId>-<uuid>-<filename> — namespaced per user, unique.
-        return "resumes/" + (userId == null ? "anon" : userId) + "/" + (resumeId == null ? "new" : resumeId) + "-" + UUID.randomUUID() + "-" + safeName;
+        // <prefix>/<userId>/<entityId>-<uuid>-<filename> — namespaced per user, unique.
+        return prefix + "/" + (userId == null ? "anon" : userId) + "/" + (entityId == null ? "new" : entityId) + "-" + UUID.randomUUID() + "-" + safeName;
     }
 
     @Override
