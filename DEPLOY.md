@@ -66,7 +66,7 @@ printf 'ADMIN_PASSWORD_HASH=%s\n' "$(printf '%s' "$RAW" | sed 's/[$]/$$/g')"
 ```
 Resulting `.env` (note the `$$`):
 ```ini
-ADMIN_EMAIL=you@kiwiply.com
+ADMIN_EMAIL=admin@kiwiply.com
 ADMIN_PASSWORD_HASH=$$2y$$10$$....the-rest-of-the-hash....
 # ADMIN_LOGIN=admin   # optional; defaults to "admin"
 ```
