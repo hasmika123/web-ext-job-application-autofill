@@ -36,6 +36,27 @@ const COLUMNS: { key: string; label: string; dot: string }[] = [
   { key: "REJECTED", label: "Rejected", dot: "var(--color-muted)" },
 ];
 const STATUS_LABEL: Record<string, string> = Object.fromEntries(COLUMNS.map((c) => [c.key, c.label]));
+const COL_BY_KEY: Record<string, { key: string; label: string; dot: string }> = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
+// Draft + Saved sit as full-width collapsible ROWS at the top; the funnel stages spread out
+// underneath as a responsive GRID (so the column band never needs a page-level horizontal scroll).
+const ROW_STATUSES = ["DRAFT", "SAVED"];
+const GRID_STATUSES = ["APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+
+function Chevron({ open, className }: { open: boolean; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn("h-4 w-4 transition-transform", open && "rotate-180", className)}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
 
 function hostOf(url?: string | null): string {
   if (!url) return "";
@@ -81,6 +102,14 @@ export default function ApplicationBoard({
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set()); // Draft/Saved rows, expanded by default
+  const toggleRow = (key: string) =>
+    setCollapsedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // Reconcile optimistic state with the server after router.refresh() (render-phase
   // sync — the new `applications` array identity signals fresh server data).
@@ -290,47 +319,99 @@ export default function ApplicationBoard({
           No applications match your search or filter.
         </p>
       ) : (
-        /* Kanban */
-        <div className="flex gap-3.5 overflow-x-auto pb-3">
-        {COLUMNS.map((col) => {
-          const items = visible.filter((a) => a.status === col.key);
-          return (
-            <section
-              key={col.key}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(col.key);
-              }}
-              onDragLeave={() => setDragOver((c) => (c === col.key ? null : c))}
-              onDrop={(e) => onDrop(e, col.key)}
-              className={cn(
-                "flex min-h-[320px] w-[200px] shrink-0 flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
-                dragOver === col.key && "outline-2 outline-dashed outline-accent",
-              )}
-            >
-              <div className="mb-3 flex items-center justify-between px-1">
-                <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[.06em] text-ink-soft">
-                  <span className="h-2 w-2 rounded-full" style={{ background: col.dot }} />
-                  {col.label}
-                </span>
-                <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
-              </div>
-              <ul className="flex flex-1 flex-col gap-2.5">
-                {items.map((a) => (
-                  <BoardCard
-                    key={a.id}
-                    app={a}
-                    busy={pending.has(a.id)}
-                    onOpen={() => setSelectedId(a.id)}
-                    onConfirm={() => confirmSubmitted(a.id)}
-                    onChangeStatus={(s) => changeStatus(a.id, s)}
-                    onDelete={() => remove(a)}
-                  />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
+        /* Board — Draft/Saved as full-width collapsible rows; the funnel stages as a grid below */
+        <div className="flex flex-col gap-3.5">
+          {ROW_STATUSES.map((key) => {
+            const col = COL_BY_KEY[key];
+            const items = visible.filter((a) => a.status === key);
+            const collapsed = collapsedRows.has(key);
+            return (
+              <section
+                key={key}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(key);
+                }}
+                onDragLeave={() => setDragOver((c) => (c === key ? null : c))}
+                onDrop={(e) => onDrop(e, key)}
+                className={cn(
+                  "rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                  dragOver === key && "outline-2 outline-dashed outline-accent",
+                )}
+              >
+                <button type="button" onClick={() => toggleRow(key)} aria-expanded={!collapsed} className="flex w-full items-center gap-2 px-1 text-left">
+                  <Chevron open={!collapsed} className="text-muted" />
+                  <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[.06em] text-ink-soft">
+                    <span className="h-2 w-2 rounded-full" style={{ background: col.dot }} />
+                    {col.label}
+                  </span>
+                  <span className="ml-auto rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
+                </button>
+                {!collapsed &&
+                  (items.length ? (
+                    <ul className="mt-3 flex gap-2.5 overflow-x-auto pb-1">
+                      {items.map((a) => (
+                        <BoardCard
+                          key={a.id}
+                          app={a}
+                          busy={pending.has(a.id)}
+                          className="w-[240px] shrink-0"
+                          onOpen={() => setSelectedId(a.id)}
+                          onConfirm={() => confirmSubmitted(a.id)}
+                          onChangeStatus={(s) => changeStatus(a.id, s)}
+                          onDelete={() => remove(a)}
+                        />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 px-1 text-[12px] text-muted">Nothing here yet.</p>
+                  ))}
+              </section>
+            );
+          })}
+
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+            {GRID_STATUSES.map((key) => {
+              const col = COL_BY_KEY[key];
+              const items = visible.filter((a) => a.status === key);
+              return (
+                <section
+                  key={key}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(key);
+                  }}
+                  onDragLeave={() => setDragOver((c) => (c === key ? null : c))}
+                  onDrop={(e) => onDrop(e, key)}
+                  className={cn(
+                    "flex min-h-[320px] flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                    dragOver === key && "outline-2 outline-dashed outline-accent",
+                  )}
+                >
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[.06em] text-ink-soft">
+                      <span className="h-2 w-2 rounded-full" style={{ background: col.dot }} />
+                      {col.label}
+                    </span>
+                    <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
+                  </div>
+                  <ul className="flex flex-1 flex-col gap-2.5">
+                    {items.map((a) => (
+                      <BoardCard
+                        key={a.id}
+                        app={a}
+                        busy={pending.has(a.id)}
+                        onOpen={() => setSelectedId(a.id)}
+                        onConfirm={() => confirmSubmitted(a.id)}
+                        onChangeStatus={(s) => changeStatus(a.id, s)}
+                        onDelete={() => remove(a)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -340,6 +421,7 @@ export default function ApplicationBoard({
         onClose={() => setSelectedId(null)}
         onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
         onChangeResume={(rid) => selected && changeResume(selected.id, rid)}
+        onSaveDetails={(changes) => selected && void mutate(selected.id, "PUT", changes)}
         onDelete={() => selected && remove(selected)}
       />
 
@@ -347,6 +429,7 @@ export default function ApplicationBoard({
         <AddApplicationDialog
           resumes={resumeOpts}
           baseProfile={baseProfile}
+          existingApps={apps}
           onResumeCreated={addResumeOpt}
           onClose={() => setAdding(false)}
           onCreate={createApplication}
@@ -370,12 +453,14 @@ interface NewApplication {
 function AddApplicationDialog({
   resumes,
   baseProfile,
+  existingApps,
   onResumeCreated,
   onClose,
   onCreate,
 }: {
   resumes: ResumeOption[];
   baseProfile: Record<string, unknown>;
+  existingApps: Application[];
   onResumeCreated: (r: ResumeOption) => void;
   onClose: () => void;
   onCreate: (input: NewApplication) => Promise<boolean>;
@@ -388,6 +473,7 @@ function AddApplicationDialog({
   const [jobDescription, setJobDescription] = useState("");
   const [resumeId, setResumeId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [dupConfirm, setDupConfirm] = useState(false); // armed when the entry matches an existing one
   const firstRef = useRef<HTMLInputElement>(null);
   const resumeUploadServices = useResumeUploadServices();
 
@@ -416,9 +502,28 @@ function AddApplicationDialog({
 
   const canSave = company.trim() !== "" && roleTitle.trim() !== "" && !saving;
 
+  // Warn (never block) when this manual entry matches an existing one on company + role (+ location
+  // if given). The server still dedups by job-id/URL; this catches URL-less manual duplicates.
+  function isDuplicate(): boolean {
+    const c = company.trim().toLowerCase();
+    const r = roleTitle.trim().toLowerCase();
+    if (!c || !r) return false;
+    const loc = location.trim().toLowerCase();
+    return existingApps.some(
+      (a) =>
+        (a.company ?? "").trim().toLowerCase() === c &&
+        (a.roleTitle ?? "").trim().toLowerCase() === r &&
+        (loc === "" || (a.location ?? "").trim().toLowerCase() === loc),
+    );
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!canSave) return;
+    if (!dupConfirm && isDuplicate()) {
+      setDupConfirm(true);
+      return;
+    }
     setSaving(true);
     const ok = await onCreate({
       company: company.trim(),
@@ -453,11 +558,11 @@ function AddApplicationDialog({
         <form onSubmit={submit} className="flex flex-col gap-3 p-5">
           <label className={labelClass}>
             Company *
-            <input ref={firstRef} value={company} onChange={(e) => setCompany(e.target.value)} className={fieldClass} required />
+            <input ref={firstRef} value={company} onChange={(e) => { setCompany(e.target.value); setDupConfirm(false); }} className={fieldClass} required />
           </label>
           <label className={labelClass}>
             Role title *
-            <input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} className={fieldClass} required />
+            <input value={roleTitle} onChange={(e) => { setRoleTitle(e.target.value); setDupConfirm(false); }} className={fieldClass} required />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className={labelClass}>
@@ -470,7 +575,7 @@ function AddApplicationDialog({
             </label>
             <label className={labelClass}>
               Location
-              <input value={location} onChange={(e) => setLocation(e.target.value)} className={fieldClass} placeholder="Remote · NYC…" />
+              <input value={location} onChange={(e) => { setLocation(e.target.value); setDupConfirm(false); }} className={fieldClass} placeholder="Remote · NYC…" />
             </label>
           </div>
           <div className="flex flex-col gap-1">
@@ -508,10 +613,15 @@ function AddApplicationDialog({
             Job description
             <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={3} className={cn(fieldClass, "resize-y")} />
           </label>
+          {dupConfirm && (
+            <p role="alert" className="text-[12.5px] font-medium text-brown-deep">
+              You already have an application for this company and role. Add it anyway?
+            </p>
+          )}
           <div className="mt-1 flex justify-end gap-3">
             <button type="button" onClick={onClose} className={buttonVariants("ghost")}>Cancel</button>
             <button type="submit" disabled={!canSave} className={cn(buttonVariants("accent"), "disabled:opacity-50")}>
-              {saving ? "Adding…" : "Add to board"}
+              {saving ? "Adding…" : dupConfirm ? "Add anyway" : "Add to board"}
             </button>
           </div>
         </form>
@@ -545,6 +655,7 @@ function AddApplicationDialog({
       {reviewFile && (
         <ResumeUpload
           embedded
+          sectionsDefaultOpen
           initialFile={reviewFile}
           baseProfile={baseProfile}
           onSaved={(r) => { onResumeCreated(r); setResumeId(String(r.id)); }}
@@ -559,6 +670,7 @@ function AddApplicationDialog({
 function BoardCard({
   app,
   busy,
+  className,
   onOpen,
   onConfirm,
   onChangeStatus,
@@ -566,6 +678,7 @@ function BoardCard({
 }: {
   app: Application;
   busy: boolean;
+  className?: string;
   onOpen: () => void;
   onConfirm: () => void;
   onChangeStatus: (status: string) => void;
@@ -574,26 +687,40 @@ function BoardCard({
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const host = hostOf(app.jobUrl);
   const showNudge = app.status === "DRAFT" && !nudgeDismissed;
+  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
 
   return (
     <li
       draggable
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", String(app.id));
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "cursor-grab rounded-[var(--radius)] border border-line bg-paper p-3 shadow-[var(--shadow)] active:cursor-grabbing",
+        "cursor-grab rounded-[var(--radius)] border border-line bg-paper p-3 shadow-[var(--shadow)] transition-colors hover:border-accent active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         busy && "opacity-60",
+        className,
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <button onClick={onOpen} className="min-w-0 flex-1 text-left">
+        <div className="min-w-0 flex-1">
           <div className="truncate text-[13.5px] font-bold text-ink">{app.company}</div>
           <div className="truncate text-[12.5px] text-ink-soft">{app.roleTitle}</div>
-        </button>
+        </div>
         <button
-          onClick={onDelete}
+          onClick={stop(onDelete)}
           disabled={busy}
           aria-label="Delete entry"
           title="Delete entry"
@@ -615,10 +742,10 @@ function BoardCard({
         <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
           <div className="font-bold">Did you submit this application?</div>
           <div className="mt-1.5 flex gap-1.5">
-            <button onClick={onConfirm} disabled={busy} className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50">
+            <button onClick={stop(onConfirm)} disabled={busy} className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50">
               Yes, I applied
             </button>
-            <button onClick={() => setNudgeDismissed(true)} disabled={busy} className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep">
+            <button onClick={stop(() => setNudgeDismissed(true))} disabled={busy} className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep">
               Not yet
             </button>
           </div>
@@ -631,6 +758,7 @@ function BoardCard({
         id={`status-${app.id}`}
         value={app.status}
         disabled={busy}
+        onClick={(e) => e.stopPropagation()}
         onChange={(e) => onChangeStatus(e.target.value)}
         className="mt-2 w-full rounded-lg border border-line bg-paper px-2 py-1 text-[11.5px] text-ink-soft outline-none focus:border-accent disabled:opacity-50"
       >
@@ -649,6 +777,7 @@ function DetailPanel({
   onClose,
   onChangeStatus,
   onChangeResume,
+  onSaveDetails,
   onDelete,
 }: {
   app: Application | null;
@@ -656,10 +785,47 @@ function DetailPanel({
   onClose: () => void;
   onChangeStatus: (status: string) => void;
   onChangeResume: (resumeId: number) => void;
+  onSaveDetails: (changes: Record<string, unknown>) => void;
   onDelete: () => void;
 }) {
   const open = !!app;
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobUrl: "", jobDescription: "" });
+  const [resumeOpen, setResumeOpen] = useState(false); // resume preview collapsed by default
+  const [descOpen, setDescOpen] = useState(false); // job description collapsed by default
+
+  // Reset the transient panel view whenever the selected application changes (render-phase
+  // adjustment — the documented pattern for resetting state on a prop change, no effect needed).
+  const [prevId, setPrevId] = useState(app?.id);
+  if (app?.id !== prevId) {
+    setPrevId(app?.id);
+    setEditing(false);
+    setResumeOpen(false);
+    setDescOpen(false);
+  }
+
+  function startEdit() {
+    if (!app) return;
+    setForm({
+      company: app.company ?? "",
+      roleTitle: app.roleTitle ?? "",
+      location: app.location ?? "",
+      jobUrl: app.jobUrl ?? "",
+      jobDescription: app.jobDescription ?? "",
+    });
+    setEditing(true);
+  }
+  function saveEdit() {
+    const company = form.company.trim();
+    const roleTitle = form.roleTitle.trim();
+    if (!company || !roleTitle) return;
+    onSaveDetails({ company, roleTitle, location: form.location.trim(), jobUrl: form.jobUrl.trim(), jobDescription: form.jobDescription.trim() });
+    setEditing(false);
+  }
+
+  const dField = "w-full rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-accent";
+  const dLabel = "flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted";
 
   // Esc closes; move focus into the panel when it opens (a11y for the dialog).
   useEffect(() => {
@@ -705,67 +871,134 @@ function DetailPanel({
             </div>
 
             <div className="flex-1 overflow-auto p-5">
-              <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
-                {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
-                {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
-                <dt className="self-center text-muted">Resume sent</dt>
-                <dd className="min-w-0">
-                  <select
-                    aria-label="Resume sent"
-                    value={app.resume?.id ? String(app.resume.id) : ""}
-                    onChange={(e) => e.target.value && onChangeResume(Number(e.target.value))}
-                    disabled={resumes.length === 0}
-                    className="w-full min-w-0 truncate rounded-lg border border-line bg-paper px-2 py-1 text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60"
-                  >
-                    <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
-                    {resumes.map((r) => (
-                      <option key={r.id} value={String(r.id)}>{r.label}</option>
-                    ))}
-                  </select>
-                </dd>
-                {formatDate(app.appliedAt) && (<><dt className="text-muted">Applied</dt><dd className="text-ink">{formatDate(app.appliedAt)}</dd></>)}
-                {formatDate(app.createdAt) && (<><dt className="text-muted">Added</dt><dd className="text-ink">{formatDate(app.createdAt)}</dd></>)}
-              </dl>
-
-              {app.jobUrl && (
-                <a href={app.jobUrl} target="_blank" rel="noreferrer noopener" className="mt-4 inline-block text-sm font-medium text-accent-deep underline underline-offset-2">
-                  View original posting ↗
-                </a>
-              )}
-
-              {(() => {
-                // Preview the resume actually used for this job: its one-off attachment if present,
-                // otherwise the linked library resume's file.
-                const pdfUrl = app.attachmentFilename
-                  ? `/api/applications/${app.id}/attachment`
-                  : app.resume?.id
-                    ? `/api/resumes/${app.resume.id}/file`
-                    : null;
-                if (!pdfUrl) return null;
-                return (
-                  <div className="mt-6">
-                    <h3 className="mb-2 font-display text-base font-semibold text-ink">
-                      Resume {app.attachmentFilename ? "attached" : "sent"}
-                    </h3>
-                    <object data={pdfUrl} type="application/pdf" className="h-80 w-full rounded-[var(--radius)] border border-line">
-                      <div className="rounded-[var(--radius)] border border-line bg-paper-2/40 p-3 text-[13px] text-muted">
-                        Preview isn&apos;t available here.{" "}
-                        <a href={pdfUrl} target="_blank" rel="noreferrer noopener" className="font-medium text-accent-deep underline">
-                          Open the file ↗
-                        </a>
-                      </div>
-                    </object>
+              {editing ? (
+                <div className="flex flex-col gap-3">
+                  <label className={dLabel}>
+                    Company *
+                    <input value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} className={dField} />
+                  </label>
+                  <label className={dLabel}>
+                    Role title *
+                    <input value={form.roleTitle} onChange={(e) => setForm((f) => ({ ...f, roleTitle: e.target.value }))} className={dField} />
+                  </label>
+                  <label className={dLabel}>
+                    Location
+                    <input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className={dField} placeholder="Remote · NYC…" />
+                  </label>
+                  <label className={dLabel}>
+                    Job URL
+                    <input type="url" value={form.jobUrl} onChange={(e) => setForm((f) => ({ ...f, jobUrl: e.target.value }))} className={dField} placeholder="https://…" />
+                  </label>
+                  <label className={dLabel}>
+                    Job description
+                    <textarea value={form.jobDescription} onChange={(e) => setForm((f) => ({ ...f, jobDescription: e.target.value }))} rows={6} className={cn(dField, "resize-y")} />
+                  </label>
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setEditing(false)} className={buttonVariants("ghost")}>Cancel</button>
+                    <button
+                      type="button"
+                      onClick={saveEdit}
+                      disabled={!form.company.trim() || !form.roleTitle.trim()}
+                      className={cn(buttonVariants("accent"), "disabled:opacity-50")}
+                    >
+                      Save details
+                    </button>
                   </div>
-                );
-              })()}
-
-              <h3 className="mt-6 mb-2 font-display text-base font-semibold text-ink">Job description</h3>
-              {app.jobDescription ? (
-                <div className="max-h-72 overflow-y-auto overflow-x-hidden rounded-[var(--radius)] border border-line bg-paper-2/40 p-3">
-                  <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
                 </div>
               ) : (
-                <p className="text-[13px] text-muted">No description was captured for this job.</p>
+                <>
+                  <div className="mb-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="rounded-lg border border-line px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
+                    >
+                      Edit details
+                    </button>
+                  </div>
+
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
+                    {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
+                    {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
+                    <dt className="self-center text-muted">Resume sent</dt>
+                    <dd className="min-w-0">
+                      <select
+                        aria-label="Resume sent"
+                        value={app.resume?.id ? String(app.resume.id) : ""}
+                        onChange={(e) => e.target.value && onChangeResume(Number(e.target.value))}
+                        disabled={resumes.length === 0}
+                        className="w-full min-w-0 truncate rounded-lg border border-line bg-paper px-2 py-1 text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60"
+                      >
+                        <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
+                        {resumes.map((r) => (
+                          <option key={r.id} value={String(r.id)}>{r.label}</option>
+                        ))}
+                      </select>
+                    </dd>
+                    {formatDate(app.appliedAt) && (<><dt className="text-muted">Applied</dt><dd className="text-ink">{formatDate(app.appliedAt)}</dd></>)}
+                    {formatDate(app.createdAt) && (<><dt className="text-muted">Added</dt><dd className="text-ink">{formatDate(app.createdAt)}</dd></>)}
+                  </dl>
+
+                  {app.jobUrl && (
+                    <a href={app.jobUrl} target="_blank" rel="noreferrer noopener" className="mt-4 inline-block text-sm font-medium text-accent-deep underline underline-offset-2">
+                      View original posting ↗
+                    </a>
+                  )}
+
+                  {(() => {
+                    // Preview the resume actually used for this job: its one-off attachment if present,
+                    // otherwise the linked library resume's file. Collapsed until the user expands it.
+                    const pdfUrl = app.attachmentFilename
+                      ? `/api/applications/${app.id}/attachment`
+                      : app.resume?.id
+                        ? `/api/resumes/${app.resume.id}/file`
+                        : null;
+                    if (!pdfUrl) return null;
+                    return (
+                      <div className="mt-6">
+                        <button
+                          type="button"
+                          onClick={() => setResumeOpen((o) => !o)}
+                          aria-expanded={resumeOpen}
+                          className="flex w-full items-center gap-1.5 text-left text-ink transition-colors hover:text-accent-deep"
+                        >
+                          <Chevron open={resumeOpen} className="text-muted" />
+                          <h3 className="font-display text-base font-semibold">Resume {app.attachmentFilename ? "attached" : "sent"}</h3>
+                        </button>
+                        {resumeOpen && (
+                          <object data={pdfUrl} type="application/pdf" className="mt-2 h-80 w-full rounded-[var(--radius)] border border-line">
+                            <div className="rounded-[var(--radius)] border border-line bg-paper-2/40 p-3 text-[13px] text-muted">
+                              Preview isn&apos;t available here.{" "}
+                              <a href={pdfUrl} target="_blank" rel="noreferrer noopener" className="font-medium text-accent-deep underline">
+                                Open the file ↗
+                              </a>
+                            </div>
+                          </object>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setDescOpen((o) => !o)}
+                      aria-expanded={descOpen}
+                      className="flex w-full items-center gap-1.5 text-left text-ink transition-colors hover:text-accent-deep"
+                    >
+                      <Chevron open={descOpen} className="text-muted" />
+                      <h3 className="font-display text-base font-semibold">Job description</h3>
+                    </button>
+                    {descOpen &&
+                      (app.jobDescription ? (
+                        <div className="mt-2 max-h-72 overflow-y-auto overflow-x-hidden rounded-[var(--radius)] border border-line bg-paper-2/40 p-3">
+                          <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-[13px] text-muted">No description was captured for this job.</p>
+                      ))}
+                  </div>
+                </>
               )}
             </div>
 

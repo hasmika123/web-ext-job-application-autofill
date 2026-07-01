@@ -8,7 +8,27 @@ import { serverApiFetch } from "@/lib/api";
  */
 const STATUSES = ["DRAFT", "SAVED", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
 
-type PutBody = { status?: unknown; submissionConfirmed?: unknown; appliedAt?: unknown; resumeId?: unknown };
+type PutBody = {
+  status?: unknown;
+  submissionConfirmed?: unknown;
+  appliedAt?: unknown;
+  resumeId?: unknown;
+  // Manual detail edits from the board's detail panel.
+  company?: unknown;
+  roleTitle?: unknown;
+  location?: unknown;
+  jobUrl?: unknown;
+  jobDescription?: unknown;
+};
+
+// Editable text fields: [key, max length, required-non-empty].
+const TEXT_FIELDS: [keyof PutBody, number, boolean][] = [
+  ["company", 200, true],
+  ["roleTitle", 200, true],
+  ["location", 200, false],
+  ["jobUrl", 2000, false],
+  ["jobDescription", 20000, false],
+];
 
 export async function PUT(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -37,6 +57,18 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
       return Response.json({ error: "Invalid resume id." }, { status: 400 });
     }
     forward.resume = { id: n }; // Spring links it only if the current user owns the resume
+  }
+  for (const [key, max, required] of TEXT_FIELDS) {
+    const raw = body[key];
+    if (raw === undefined) continue;
+    if (typeof raw !== "string") {
+      return Response.json({ error: `Invalid ${key}.` }, { status: 400 });
+    }
+    const v = raw.trim().slice(0, max);
+    if (required && v === "") {
+      return Response.json({ error: `${key} can't be empty.` }, { status: 400 });
+    }
+    forward[key] = v;
   }
   if (Object.keys(forward).length === 0) {
     return Response.json({ error: "Nothing to update." }, { status: 400 });

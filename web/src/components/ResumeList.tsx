@@ -116,18 +116,36 @@ function Row({
 }) {
   const archived = !!resume.archived;
   const badge = statusBadge(resume.status);
+  // The whole card opens the editor (when editable); inner controls stopPropagation below.
+  const cardClick = onEdit
+    ? {
+        role: "button" as const,
+        tabIndex: 0,
+        onClick: onEdit,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onEdit();
+          }
+        },
+      }
+    : {};
 
   return (
     <li
+      {...cardClick}
       className={cn(
         "flex flex-wrap items-center gap-4 rounded-[var(--radius-lg)] border bg-paper p-4 shadow-[var(--shadow)] transition-colors",
         selected ? "border-accent ring-1 ring-accent" : "border-line",
+        archived && "opacity-60", // greyed out — de-emphasized vs. active resumes
+        onEdit && "cursor-pointer hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
       )}
     >
       <input
         type="checkbox"
         checked={selected}
         onChange={onToggleSelect}
+        onClick={(e) => e.stopPropagation()}
         aria-label={`Select ${resume.label}`}
         className="h-4 w-4 flex-none accent-[var(--color-accent)]"
       />
@@ -136,7 +154,6 @@ function Row({
         <div className="flex items-center gap-2 text-[15px] font-bold text-ink">
           <span className="min-w-0 flex-1 truncate" title={resume.label}>{resume.label}</span>
           {!archived && badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
-          {archived && <Badge variant="review">Archived</Badge>}
         </div>
         <div className="mt-1 text-[12.5px] text-muted">
           {formatDate(resume.createdAt) && <span>Added {formatDate(resume.createdAt)}</span>}
@@ -150,13 +167,18 @@ function Row({
         {guard && (
           <p className="mt-2 rounded-[var(--radius)] border border-brown/40 bg-brown-soft px-3 py-2 text-[12.5px] text-brown-deep">
             {guard}{" "}
-            <button onClick={onArchive} disabled={busy} className="font-bold underline">
+            <button onClick={(e) => { e.stopPropagation(); onArchive(); }} disabled={busy} className="font-bold underline">
               Archive instead
             </button>
           </p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
+      {archived && (
+        <Badge variant="review" className="shrink-0 self-center">
+          Archived
+        </Badge>
+      )}
+      <div className="flex shrink-0 items-center gap-2 self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
         {onEdit && (
           <IconBtn onClick={onEdit} disabled={busy} label="Edit">
             <PencilIcon />
@@ -202,6 +224,7 @@ export default function ResumeList({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState<Set<number>>(new Set());
   const [guards, setGuards] = useState<Record<number, string>>({});
+  const [archivedOpen, setArchivedOpen] = useState(false); // archived list collapsed by default
 
   const setRowBusy = (ids: number[], on: boolean) =>
     setBusy((prev) => {
@@ -453,10 +476,26 @@ export default function ResumeList({
 
           {view.archived.length > 0 && (
             <section className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+              <button
+                type="button"
+                onClick={() => setArchivedOpen((o) => !o)}
+                aria-expanded={archivedOpen}
+                className="flex w-fit items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted transition-colors hover:text-ink"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={cn("h-4 w-4 transition-transform", archivedOpen && "rotate-180")}
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
                 Archived ({view.archived.length})
-              </h2>
-              <ul className="flex flex-col gap-3">{view.archived.map(renderRow)}</ul>
+              </button>
+              {archivedOpen && <ul className="flex flex-col gap-3">{view.archived.map(renderRow)}</ul>}
             </section>
           )}
         </>
