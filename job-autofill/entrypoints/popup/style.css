@@ -3,13 +3,13 @@
 @import "@kiwiply/ui/styles/animations.css";
 @source "../../../packages/ui/src";
 
-/* Extension popups size to their content — pin the width and fill edge-to-edge with the
-   paper surface (token-driven, so it tracks light/dark). */
+/* Extension popups size to their content — pin the width and fill the warm canvas
+   (token-driven, so it tracks light/dark). The content sits in a paper card, web-style. */
 html,
 body {
   margin: 0;
 }
 body {
-  width: 322px;
-  background: var(--paper);
+  width: 344px;
+  background: var(--app-bg);
 }

@@ -7,7 +7,7 @@
  * main.tsx), and design-system state screens (EmptyState/Spinner).
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ResumeUpload, EmptyState, Spinner, useToast, type ResumeToast } from "@kiwiply/ui";
+import { ResumeUpload, EmptyState, Spinner, BrandLockup, useToast, type ResumeToast } from "@kiwiply/ui";
 import { readHandoff, cleanup, makeServices, type Handoff } from "./panel";
 
 type State =
@@ -127,9 +127,9 @@ export function SidePanelApp() {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-app-bg p-5 font-body text-ink">
-      <header className="mb-4 flex items-center gap-2.5">
-        <img src="/icons/logo.png" alt="Kiwiply" className="h-7 w-7" />
-        <h1 className="font-display text-lg font-semibold">Kiwiply</h1>
+      <header className="mb-5 flex items-center justify-between">
+        <BrandLockup size={26} wordClassName="text-[19px]" />
+        <span className="text-[11px] font-bold uppercase tracking-[.1em] text-muted">Review</span>
       </header>
       {children}
     </div>

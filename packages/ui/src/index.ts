@@ -52,6 +52,9 @@ export type { TooltipProps, TooltipSide } from "./primitives/Tooltip";
 export { default as Menu } from "./primitives/Menu";
 export type { MenuProps, MenuItem } from "./primitives/Menu";
 
+export { Mark, Wordmark, BrandLockup, Check } from "./primitives/Brand";
+export type { MarkProps, WordmarkProps, BrandLockupProps } from "./primitives/Brand";
+
 export { cn } from "./primitives/cn";
 
 /* ── The portable ResumeUpload form + its types ───────────────────────────────────── */
