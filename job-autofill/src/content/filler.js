@@ -70,6 +70,7 @@
         <header>
           ${LOGO_URL ? `<img class="brandimg" src="${LOGO_URL}" alt="Kiwiply" />` : `<div class="brand">Kiwiply</div>`}
           <div class="sub">${esc(adapter.label)} detected · ${fillable.length} field${fillable.length === 1 ? "" : "s"} ready</div>
+          ${opts.salary ? `<div class="salary"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10" rx="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="13.5" cy="10" r="1.7" fill="currentColor"/></svg>${esc(opts.salary)}</div>` : ""}
           <button class="x" title="Close" aria-label="Close">
             <svg viewBox="0 0 20 20" fill="none" width="18" height="18" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
           </button>
@@ -217,7 +218,7 @@
     :host { all: initial;
       --ink:#2D3133; --ink-soft:#4F5557; --paper:#FBFAF6; --paper-2:#E7E6DD;
       --line:#D4D3C8; --muted:#686962; --accent:#94BD37; --accent-deep:#5E7D1E;
-      --on-accent:#2D3133; --warn:#986A35; --brown-soft:#ECE2D1; }
+      --accent-soft:#DFEAB9; --on-accent:#2D3133; --warn:#986A35; --brown-soft:#ECE2D1; }
     * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .backdrop { position: fixed; inset: 0; background: rgba(45,49,51,.32); }
     .panel { position: fixed; top: 0; right: 0; height: 100%; width: 400px; max-width: 100vw;
@@ -228,6 +229,10 @@
     .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--ink); }
     .brandimg { display: block; height: 24px; width: auto; }
     .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    /* Captured salary range (job metadata) — a lime pill under the sub-line. */
+    .salary { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px;
+      font-weight: 700; color: var(--accent-deep); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; }
+    .salary svg { width: 13px; height: 13px; }
     /* Matches the shared IconButton (close/settings) used in the React surfaces. */
     .x { position: absolute; top: 12px; right: 12px; border: 0; background: transparent; cursor: pointer;
       color: var(--muted); display: inline-flex; align-items: center; justify-content: center;

@@ -162,7 +162,7 @@ export function makeServices(handoff: Handoff): ResumeUploadServices {
             values,
             file: fileObj,
             // No resume link — attach mode uploads the PDF to the application instead.
-            options: { autoAdvance: !!settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: { serverId: null, label: input.label } },
+            options: { autoAdvance: !!settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: { serverId: null, label: input.label }, salary: capture.salary },
           },
           frameId,
         );

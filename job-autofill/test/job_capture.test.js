@@ -195,6 +195,12 @@ const ASHBY_ID = "0c1d2e3f-aaaa-bbbb-cccc-ddddeeeeffff";
   eq("text salary strict range w/ period, no keyword", T("Total $80,000 to $95,000 a year for this position"), "$80,000–$95,000 a year");
   eq("text ignores unrelated money (funding)", T("We just raised $5,000,000 in Series B funding."), undefined);
   eq("text ignores a lone price with no period/keyword", T("The $200,000 grant was awarded."), undefined);
+  // hourly (small amounts) — always period-gated on hour/hr
+  eq("text hourly range 'per hour'", T("Compensation: $25.00 - $32.00 per hour, plus benefits."), "$25.00–$32.00 per hour");
+  eq("text hourly single /hr", T("Pay: $18/hr, flexible schedule."), "$18/hr");
+  eq("text hourly 'an hour'", T("Earn $20 an hour to start."), "$20 an hour");
+  eq("text hourly range 'to'", T("Rate is $18 to $22 an hour."), "$18–$22 an hour");
+  eq("text ignores a small $ amount with no hour period", T("A $25 application fee applies."), undefined);
 
   // captureJob merges the text salary when there's no JSON-LD amount.
   const capSal = win('<head></head>');

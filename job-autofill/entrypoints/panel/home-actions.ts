@@ -136,6 +136,16 @@ export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Pro
   await ensureInjected(tab.id);
   const frameId = await pickFrame(tab.id);
 
+  // Best-effort: read the job's salary from the TOP frame (JSON-LD / job metadata lives there, not
+  // inside a nested ATS form iframe) so the review overlay can surface it while previewing the fill.
+  let salary: string | undefined;
+  try {
+    const cap = await sendTo(tab.id, { type: "JAF_CAPTURE_JOB" }, 0);
+    salary = cap && cap.capture && cap.capture.salary ? String(cap.capture.salary) : undefined;
+  } catch {
+    /* salary is best-effort context, never blocks the fill */
+  }
+
   // EEO/demographic answers are always included (the user opts in via their web bio; blanks fill nothing).
   const values = SCH.buildFillValues(bio, resume, { includeEEO: true });
 
@@ -147,7 +157,7 @@ export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Pro
   const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
   const resp = await sendTo(
     tab.id,
-    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef } },
+    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary } },
     frameId,
   );
   if (resp && resp.ok) return { ok: true, adapter: resp.adapter };
@@ -170,7 +180,7 @@ export async function saveJob(): Promise<SaveJobResult> {
   const res: any = await chrome.runtime.sendMessage({ type: "JAF_SAVE_JOB", capture: capResp.capture });
   if (res && res.ok) {
     const c = capResp.capture;
-    return { ok: true, message: `Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}` };
+    return { ok: true, message: `Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}${c.salary ? " · " + c.salary : ""}` };
   }
   if (res && res.reason === "not-signed-in") return { ok: false, error: "Connect the extension on kiwiply.com to save jobs." };
   return { ok: false, error: "Couldn't save this job" + (res && res.reason ? ` (${res.reason})` : "") + "." };

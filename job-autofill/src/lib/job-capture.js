@@ -119,21 +119,34 @@
     if (!text) return undefined;
     const t = String(text).replace(/\s+/g, " ").slice(0, 20000);
     const CUR = "[$£€₹]|USD|GBP|EUR|CAD|AUD|C\\$|A\\$";
-    const AMT = "\\d{2,3}(?:,\\d{3})+|\\d{2,3}(?:\\.\\d+)?\\s?[kK]|\\d{4,6}";
-    const PERIOD = "(?:\\s?(?:per|/|a|an)\\s?(?:year|annum|yr|hour|hr|month|mo|week|wk))";
-    const RANGE = new RegExp(
-      "(?:" + CUR + ")\\s?(?:" + AMT + ")(?:\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + AMT + "))?" + PERIOD + "?",
+    const BIG = "\\d{2,3}(?:,\\d{3})+|\\d{2,3}(?:\\.\\d+)?\\s?[kK]|\\d{4,6}"; // annual-ish (thousands)
+    const SMALL = "\\d{1,3}(?:\\.\\d{1,2})?"; // hourly-ish (e.g. 25, 25.50)
+    const PERIOD = "(?:\\s?(?:per|/|an?)\\s?(?:year|annum|yr|hour|hr|month|mo|week|wk))";
+    const HOUR = "(?:\\s?(?:per|/|an?)\\s?(?:hour|hr))";
+
+    // Hourly wages use small numbers, so they must ALWAYS carry the hour period (else "$25 fee"
+    // would match). Checked first — it's the most specific, period-gated pattern.
+    const HOURLY = new RegExp(
+      "(?:" + CUR + ")\\s?(?:" + SMALL + ")(?:\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + SMALL + "))?" + HOUR,
+      "i",
+    );
+    const hm = t.match(HOURLY);
+    if (hm) return cleanSalary(hm[0]);
+
+    // Annual/large amounts (thousands), anchored near a salary keyword.
+    const BIGRANGE = new RegExp(
+      "(?:" + CUR + ")\\s?(?:" + BIG + ")(?:\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + BIG + "))?" + PERIOD + "?",
       "i",
     );
     const KW = /salary|salaries|compensation|\bcomp\b|\bpay\b|pay range|pay rate|wage|\bOTE\b|remuneration/i;
     const kw = t.search(KW);
     if (kw !== -1) {
-      const m = t.slice(Math.max(0, kw - 20), kw + 160).match(RANGE);
+      const m = t.slice(Math.max(0, kw - 20), kw + 160).match(BIGRANGE);
       if (m) return cleanSalary(m[0]);
     }
     // No keyword nearby → require a currency range WITH a pay period, anywhere.
     const STRICT = new RegExp(
-      "(?:" + CUR + ")\\s?(?:" + AMT + ")\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + AMT + ")" + PERIOD,
+      "(?:" + CUR + ")\\s?(?:" + BIG + ")\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + BIG + ")" + PERIOD,
       "i",
     );
     const m2 = t.match(STRICT);
