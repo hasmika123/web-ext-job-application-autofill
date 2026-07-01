@@ -93,11 +93,14 @@ Watch: the panel opening on click (gesture); the handoff landing (race handling)
     **nav rail** beside `Card` sections, all controls unified (shared **`Switch`**, `Field`+`Input`, `Select`, `Button`,
     account `Badge`). Added the shared `Switch` primitive and retrofit the popup toggle to it. `#bug` deep-link + single
     Save preserved; `actions.ts` untouched.
-  - **W5.4 (NEXT)** — polish the **side-panel review** (the shared `ResumeUpload` form + panel states in
-    `entrypoints/sidepanel/App.tsx`) and the **injected on-page autofill panel** (Shadow-DOM overlay in the content
-    script) for visual consistency with the web app. Good moment to close the two carried wrinkles: wire the new
-    **`Toast`** into the side panel + make the shared Save button copy mode-aware (attach vs save). Then W5.5 state/
-    interaction polish, W5.6 a11y + wire **dark mode** across surfaces, W5.7 visual QA vs the web app.
+  - ✅ **W5.4 DONE** — the **side-panel review** is polished and **both W3 wrinkles are closed**: the shared
+    `ResumeUpload` got optional `saveLabel`/`savedToast` props → mode-aware copy (attach vs save); the side panel is
+    wrapped in `ToastProvider` with a wired `toast` service (success no longer silent); panel states rebuilt on
+    `EmptyState`/`Spinner`. The **injected on-page overlay** (`src/content/filler.js`, Shadow-DOM) got a token
+    consistency fix only — a deeper on-page restyle needs a real ATS (do it during visual QA). Web unaffected.
+  - **W5.5 (NEXT)** — state + interaction polish across all surfaces (loading/empty/error/success states, focus
+    management, keyboard nav, transitions/micro-interactions, toasts). Then W5.6 a11y + wire **dark mode** across
+    surfaces, W5.7 visual QA vs the web app (before/after screenshots in the PR).
   - Two wrinkles to close while redesigning: wire the new **Toast** into the side panel (success is currently silent →
     the "done" view covers it) + make the shared Save button copy mode-aware (reads "Save to my account" in attach mode).
 - **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)

@@ -214,7 +214,7 @@
        inherit page CSS, so tokens are declared on :host (mirrors web globals.css §3.1). */
     :host { all: initial;
       --ink:#2D3133; --ink-soft:#4F5557; --paper:#FBFAF6; --paper-2:#E7E6DD;
-      --line:#D4D3C8; --muted:#73746E; --accent:#94BD37; --accent-deep:#5E7D1E;
+      --line:#D4D3C8; --muted:#686962; --accent:#94BD37; --accent-deep:#5E7D1E;
       --on-accent:#2D3133; --warn:#986A35; --brown-soft:#ECE2D1; }
     * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .backdrop { position: fixed; inset: 0; background: rgba(45,49,51,.32); }

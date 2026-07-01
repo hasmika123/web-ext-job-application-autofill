@@ -533,6 +533,8 @@ export default function ResumeUpload({
   editTarget = null,
   initialFile = null,
   embedded = false,
+  saveLabel,
+  savedToast,
   onSaved,
   onClose,
   parseFile,
@@ -548,6 +550,11 @@ export default function ResumeUpload({
   initialFile?: File | null;
   /** Embedded mode: hide the drop-zone (seeded via initialFile) and report back via onSaved/onClose. */
   embedded?: boolean;
+  /** Override the primary (create) button copy — e.g. the extension's attach mode reads
+   *  "Fill page & attach" instead of the default "Save to my account". */
+  saveLabel?: string;
+  /** Override the create-success toast copy (mode-aware), e.g. attach vs save. */
+  savedToast?: ResumeToast;
   /** Called after a successful CREATE with the new resume's id + label. */
   onSaved?: (resume: { id: number; label: string }) => void;
   /** Embedded mode: asked to close (review dismissed or save finished). */
@@ -679,7 +686,7 @@ export default function ResumeUpload({
         return;
       }
       track?.("resume_saved");
-      toast?.({ variant: "success", title: `Saved “${result.label}”`, description: "Added to your account." });
+      toast?.(savedToast ?? { variant: "success", title: `Saved “${result.label}”`, description: "Added to your account." });
       onSaved?.({ id: result.id, label: result.label });
       if (embedded) {
         // The host (e.g. Add-application dialog) owns the surrounding state; just close.
@@ -751,7 +758,7 @@ export default function ResumeUpload({
 
   const SaveBtn = (
     <button onClick={handleSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
-      {saving ? "Saving…" : editing ? "Save changes" : "Save to my account"}
+      {saving ? "Saving…" : editing ? "Save changes" : (saveLabel ?? "Save to my account")}
     </button>
   );
 
