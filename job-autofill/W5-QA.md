@@ -99,10 +99,13 @@ Open via the popup's **+ Upload a resume** on a real ATS job page.
 ## Findings
 _(log issues here as you go; each becomes a `w5.7: fix …` commit, then re-check the box)_
 
-- **FIXED** — On first load, every React surface crashed with `Uncaught TypeError: Cannot read
-  properties of null (reading 'useId')` (a React **invalid hook call**). Cause: the workspace had
-  **two React copies** — `job-autofill` pinned `react`/`react-dom` to an exact `19.2.4` (nested in
-  `job-autofill/node_modules`) while the root hoisted `19.2.7`, so the app and `@kiwiply/ui` loaded
-  different React instances. Fix: relaxed the pins to `^19`, `npm dedupe`d to a single hoisted copy,
-  and added Vite `resolve.dedupe` in `wxt.config.ts` (protects the CI bundle too). Rebuilt; reload
-  `.output/chrome-mv3` and the surfaces should render. → commit `w5.7: fix duplicate React …`.
+- **FIXED** — On first load every React surface crashed with `Cannot read properties of null
+  (reading 'useId')` (React **invalid hook call**), then briefly `Minified React error #527`
+  (react/react-dom version mismatch) mid-fix. Root cause: the workspace had **two physical React
+  copies** — the extension resolved `job-autofill/node_modules/react` while `@kiwiply/ui` (at
+  `packages/ui`) resolved the root copy → two dispatchers. **Fix = Vite `resolve.dedupe`**
+  (`react`, `react-dom`, `jsx-runtime`) in `wxt.config.ts` so the bundle collapses app + package onto
+  one React. `job-autofill` react/react-dom stay pinned to **exactly `19.2.4`** (matching `web`) so
+  the deduped copy is a matched pair — verified: the built chunks contain only `19.2.4`, no `19.2.7`.
+  (A detour that relaxed the pins to `^19` created a temporary `react 19.2.7` / `react-dom 19.2.4`
+  skew → #527; reverted.) Reload `.output/chrome-mv3` and the surfaces render.
