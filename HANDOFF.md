@@ -78,19 +78,21 @@ Watch: the panel opening on click (gesture); the handoff landing (race handling)
 - ✅ **W4 DONE** — popup + options + sidepanel are ALL React now (`entrypoints/*`: each = `index.html` + `main.tsx`
   → `engine.ts` (`window.JAF`) + `*App.tsx` (UI) + `actions.ts` (engine logic) + Tailwind `style.css`). `src/` is
   now **engine-only** (background/config/content/lib). The engine stays framework-free.
-- **W5 (NEXT major phase)** — the **UI overhaul** (`EXT-UI-PLATFORM-PLAN.md` W5.1–W5.7): grow `packages/ui` into a
-  real design system (tokens light **+ dark**, shared primitives: Button/Input/Select/Field/Card/Badge/Tabs/Toast/
-  Skeleton/EmptyState/Dialog/SidePanel shell/Tooltip/Menu), then redesign popup / options / side-panel review / the
-  injected on-page panel to a polished cohesive standard, state+interaction polish, a11y + dark mode, visual QA vs
-  the web app. The W4 surfaces are intentionally functional-but-plain (on the shared tokens) — W5 is where they get
-  the real polish. Two known wrinkles to fix here: no `toast` surface wired into the side panel (success is silent →
-  the "done" view covers it) + the shared Save button reads "Save to my account" even in attach mode.
-- **W5** — the UI overhaul (design system, dark mode, a11y). Note two deferred wrinkles from W3: no `toast`
-  surface wired into the panel (success is silent → the "done" view covers it), and the shared Save button reads
-  "Save to my account" even in attach mode (mode-aware copy).
+- **W5 (IN PROGRESS)** — the **UI overhaul** (`EXT-UI-PLATFORM-PLAN.md` W5.1–W5.7).
+  - ✅ **W5.1 DONE** — `packages/ui` is now a real **design system**: tokens **light + dark** (dark is opt-in via
+    `.dark`/`[data-theme=dark]`; `@theme inline` flips every utility automatically) and now the **single source**
+    (web's `globals.css` imports the package tokens — no more inline dup; `next build` green). Full primitive set added
+    (dependency-free, on the shared tokens): Button, Input, Select, Field, Card, Badge, Tabs, **Toast** (`ToastProvider`
+    +`useToast` — the surface W3 deferred), Skeleton, Spinner, EmptyState, Dialog (focus trap), SidePanel shell,
+    Tooltip, Menu. No surface consumes them yet (bundle tree-shakes them) → no version bump.
+  - **W5.2 (NEXT)** — redesign the **popup** on the new system (clear hierarchy, resume picker, primary actions,
+    status, upload entry), tuned to the fixed popup width. Then W5.3 options, W5.4 side-panel/injected panel, W5.5
+    state+interaction polish, W5.6 a11y + wire **dark mode** across surfaces, W5.7 visual QA vs the web app.
+  - Two wrinkles to close while redesigning: wire the new **Toast** into the side panel (success is currently silent →
+    the "done" view covers it) + make the shared Save button copy mode-aware (reads "Save to my account" in attach mode).
 - **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)
   + lands the extension changes in `main` (still unshipped — CWS upload is manual, W6.4). Reasonable to merge once
-  the walkthrough passes, or to keep accumulating W4.
+  the walkthrough passes, or to keep accumulating W5.
 3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
    **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
    `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).
