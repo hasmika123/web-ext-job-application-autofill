@@ -107,7 +107,7 @@ export function PopupApp() {
       {loaded && !hasBio && (
         <button
           onClick={() => chrome.tabs.create({ url: WEB })}
-          className="mb-3.5 flex w-full items-start gap-2 rounded-[var(--radius)] border border-brown/40 bg-brown-soft px-3 py-2.5 text-left text-[12.5px] leading-snug text-brown-deep transition-colors hover:border-brown"
+          className="mb-3.5 flex w-full items-start gap-2 rounded-[var(--radius)] border border-brown-2 bg-brown-soft px-3 py-2.5 text-left text-[12.5px] leading-snug text-brown-deep transition-colors hover:border-brown"
         >
           <span className="mt-px text-sm leading-none">🔗</span>
           <span>
