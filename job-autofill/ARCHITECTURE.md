@@ -130,7 +130,9 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   tests. The SW wires `extension_install`/`autofill`/`save_job`/`answer_draft`/`application_submitted`.
 - `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
   canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
-  jobDescription). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
+  jobDescription/salary). `salary` = schema.org `baseSalary`/`estimatedSalary` formatted
+  ("$120,000 – $150,000/yr"), else a conservative keyword-anchored text range; flows through
+  `app-tracking.buildApplication` only when present. Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
   active adapter `captureJob({loc})` (authoritative for externalJobId + atsPlatform,
   parsed from the public URL shape) → `boardCapture(loc)` (LinkedIn/Indeed/Dice — they
   have no fill adapter, so recognize them by host + derive {atsPlatform, externalJobId}

@@ -69,6 +69,11 @@ function docWith(text) {
   ok("draft without a synced resume omits resumeId", !("resumeId" in fb));
   ok("draft company fallback when no capture at all", A.buildApplicationDraft(null, null).company === "Unknown company");
 
+  /* ---- salary range flows through when captured, omitted otherwise ---- */
+  ok("draft carries salary when captured", A.buildApplicationDraft({ company: "A", role: "B", salary: "$120,000 – $150,000/yr" }, null).salary === "$120,000 – $150,000/yr");
+  ok("draft omits salary when absent", !("salary" in A.buildApplicationDraft({ company: "A", role: "B" }, null)));
+  ok("draft omits blank salary", !("salary" in A.buildApplicationDraft({ company: "A", role: "B", salary: "  " }, null)));
+
   /* ---- pushDraft -> provider.pushApplication with the DRAFT ---- */
   const p1 = mockProvider();
   const saved = await A.pushDraft(p1, { company: "Acme", role: "SRE", externalJobId: "JR-1" }, { serverId: 7 });

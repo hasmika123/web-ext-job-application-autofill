@@ -164,6 +164,45 @@ const ASHBY_ID = "0c1d2e3f-aaaa-bbbb-cccc-ddddeeeeffff";
   eq("board merge: externalJobId is the URL id, not JSON-LD's internal one", liCap.externalJobId, "3856789012");
   eq("board merge: atsPlatform tagged linkedin", liCap.atsPlatform, "linkedin");
 
+  /* ---- 10. salary: schema.org baseSalary / estimatedSalary → formatted string ---- */
+  const M = win("<head></head>").JAF.jobCapture.moneyAmount;
+  eq("salary min/max YEAR (USD)", M({ "@type": "MonetaryAmount", currency: "USD", value: { minValue: 120000, maxValue: 150000, unitText: "YEAR" } }), "$120,000 – $150,000/yr");
+  eq("salary single value YEAR", M({ currency: "USD", value: { value: 130000, unitText: "YEAR" } }), "$130,000/yr");
+  eq("salary GBP hourly range", M({ currency: "GBP", value: { minValue: 25, maxValue: 30, unitText: "HOUR" } }), "£25 – £30/hr");
+  eq("salary unknown currency code prefixes ISO", M({ currency: "SEK", value: { minValue: 40000, maxValue: 50000, unitText: "MONTH" } }), "kr 40,000 – kr 50,000/mo");
+  eq("salary empty/absent → undefined", M(null), undefined);
+  eq("salary pre-formatted string passes through", M("$120k–$150k a year"), "$120k–$150k a year");
+
+  const sal = win(
+    '<head><script type="application/ld+json">' +
+    JSON.stringify({ "@type": "JobPosting", title: "SWE", hiringOrganization: { name: "Acme" },
+      baseSalary: { "@type": "MonetaryAmount", currency: "USD", value: { minValue: 120000, maxValue: 150000, unitText: "YEAR" } } }) +
+    "</script></head>"
+  );
+  eq("fromJsonLd sets salary from baseSalary", sal.JAF.jobCapture.fromJsonLd(sal.document).salary, "$120,000 – $150,000/yr");
+
+  const est = win(
+    '<head><script type="application/ld+json">' +
+    JSON.stringify({ "@type": "JobPosting", title: "SWE", hiringOrganization: { name: "Acme" },
+      estimatedSalary: { "@type": "MonetaryAmount", currency: "USD", value: { minValue: 90000, maxValue: 110000, unitText: "YEAR" } } }) +
+    "</script></head>"
+  );
+  eq("fromJsonLd falls back to estimatedSalary", est.JAF.jobCapture.fromJsonLd(est.document).salary, "$90,000 – $110,000/yr");
+
+  /* ---- 11. salary: conservative visible-text fallback ---- */
+  const T = win("<head></head>").JAF.jobCapture.salaryFromText;
+  eq("text salary near keyword", T("About the role. Pay range: $120,000 - $150,000 per year. Apply now."), "$120,000–$150,000 per year");
+  eq("text salary strict range w/ period, no keyword", T("Total $80,000 to $95,000 a year for this position"), "$80,000–$95,000 a year");
+  eq("text ignores unrelated money (funding)", T("We just raised $5,000,000 in Series B funding."), undefined);
+  eq("text ignores a lone price with no period/keyword", T("The $200,000 grant was awarded."), undefined);
+
+  // captureJob merges the text salary when there's no JSON-LD amount.
+  const capSal = win('<head></head>');
+  capSal.document.body.innerHTML = "<h1>Engineer</h1><p>Compensation: $130,000 - $160,000 per year.</p>";
+  eq("captureJob picks up text salary",
+    capSal.JAF.jobCapture.captureJob({ doc: capSal.document, loc: { href: "https://co.example/jobs/1" }, adapter: null }).salary,
+    "$130,000–$160,000 per year");
+
   console.log(`\n[job_capture] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[job_capture] All green.");
