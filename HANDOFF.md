@@ -85,9 +85,13 @@ Watch: the panel opening on click (gesture); the handoff landing (race handling)
     (dependency-free, on the shared tokens): Button, Input, Select, Field, Card, Badge, Tabs, **Toast** (`ToastProvider`
     +`useToast` — the surface W3 deferred), Skeleton, Spinner, EmptyState, Dialog (focus trap), SidePanel shell,
     Tooltip, Menu. No surface consumes them yet (bundle tree-shakes them) → no version bump.
-  - **W5.2 (NEXT)** — redesign the **popup** on the new system (clear hierarchy, resume picker, primary actions,
-    status, upload entry), tuned to the fixed popup width. Then W5.3 options, W5.4 side-panel/injected panel, W5.5
-    state+interaction polish, W5.6 a11y + wire **dark mode** across surfaces, W5.7 visual QA vs the web app.
+  - ✅ **W5.2 DONE** — the **popup** is redesigned on the system (`entrypoints/popup/PopupApp.tsx`): logo + Manage +
+    gear header, `Field`+`Select` resume picker with meta `Badge`s, upload entry, an auto-advance **toggle switch**,
+    accent/ghost `Button` actions with a `Spinner`, tokened status line + trust footer. Engine (`actions.ts`) untouched;
+    fills edge-to-edge on `--paper` (dark-ready). No version bump (single ship bump at W6.4).
+  - **W5.3 (NEXT)** — redesign the **options/settings** app on the system (sectioned nav, account, AI, filling, bug
+    report; consistent Cards/controls — a shared `Switch`/`Field` pass will help). Then W5.4 side-panel/injected panel,
+    W5.5 state+interaction polish, W5.6 a11y + wire **dark mode** across surfaces, W5.7 visual QA vs the web app.
   - Two wrinkles to close while redesigning: wire the new **Toast** into the side panel (success is currently silent →
     the "done" view covers it) + make the shared Save button copy mode-aware (reads "Save to my account" in attach mode).
 - **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)

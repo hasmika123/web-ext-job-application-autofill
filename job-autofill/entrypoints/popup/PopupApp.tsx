@@ -1,8 +1,11 @@
 /**
- * Popup UI (W4.1) — the functional React port of the old popup.js/popup.html, on the shared
- * design tokens (Tailwind). Engine logic lives in actions.ts. The engine stays framework-free.
+ * Popup UI — the extension's home surface, redesigned on the shared @kiwiply/ui design
+ * system (W5.2). Clear hierarchy: header → resume picker (+ meta) → upload entry → options
+ * → primary actions → status → trust footer. Engine logic lives in actions.ts (unchanged);
+ * this stays presentational. The engine itself stays framework-free.
  */
 import { useEffect, useRef, useState } from "react";
+import { Button, Select, Field, Badge, Spinner } from "@kiwiply/ui";
 import { loadData, refreshMirror, fillPage, saveJob, openReview, type PopupData } from "./actions";
 
 const WEB = "https://kiwiply.com";
@@ -10,7 +13,7 @@ const WEB = "https://kiwiply.com";
 type Status = { msg: string; kind: "ok" | "err" | "neutral" };
 const NEUTRAL: Status = { msg: "", kind: "neutral" };
 
-function truncateLabel(s: string, max = 38): string {
+function truncateLabel(s: string, max = 42): string {
   s = String(s);
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
@@ -45,6 +48,7 @@ export function PopupApp() {
   const pickable = data?.resumes ?? [];
   const selectedResume = pickable.find((r) => r.id === selectedId) ?? null;
   const hasBio = !!(data?.bio && (data.bio.firstName || data.bio.email));
+  const loaded = data !== null;
 
   async function onFill() {
     if (!selectedResume || !data) return;
@@ -77,46 +81,51 @@ export function PopupApp() {
     }
   }
 
-  const statusColor = status.kind === "err" ? "text-warn" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
+  const statusColor = status.kind === "err" ? "text-danger" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
 
   return (
-    <div className="w-[322px] rounded-[18px] bg-paper px-4 pb-3 pt-[15px] font-body text-ink">
-      {/* Header */}
+    <div className="flex w-[322px] flex-col bg-paper px-4 pb-3.5 pt-3.5 font-body text-ink">
+      {/* Header — brand + quick links */}
       <header className="mb-3.5 flex items-center justify-between border-b border-line pb-3">
-        <img src="/icons/logo.png" alt="Kiwiply" className="block h-[25px] w-auto" />
-        <div className="flex items-center gap-0.5">
+        <img src="/icons/logo.png" alt="Kiwiply" className="block h-[24px] w-auto" />
+        <div className="flex items-center gap-1">
           <button className={linkCls} title="Manage your profile & resumes on kiwiply.com" onClick={() => chrome.tabs.create({ url: WEB + "/dashboard" })}>
             Manage
           </button>
-          <button className={`${linkCls} text-[14px] leading-none`} title="Report a bug or idea" aria-label="Report a bug or idea" onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("options.html#bug") })}>
-            🐛
-          </button>
-          <button className={linkCls} title="Extension settings" onClick={() => chrome.runtime.openOptionsPage()}>
-            Settings
+          <button
+            className={iconBtnCls}
+            title="Extension settings"
+            aria-label="Extension settings"
+            onClick={() => chrome.runtime.openOptionsPage()}
+          >
+            <GearIcon />
           </button>
         </div>
       </header>
 
-      {!hasBio && (
+      {/* Connect prompt — only until the bio mirror is populated */}
+      {loaded && !hasBio && (
         <button
           onClick={() => chrome.tabs.create({ url: WEB })}
-          className="mb-3 w-full rounded-[10px] border border-[#D8C7A8] bg-brown-soft px-[11px] py-[9px] text-left text-xs leading-snug text-warn hover:border-warn"
+          className="mb-3.5 flex w-full items-start gap-2 rounded-[var(--radius)] border border-[color-mix(in_srgb,var(--brown)_40%,var(--line))] bg-brown-soft px-3 py-2.5 text-left text-[12px] leading-snug text-brown-deep transition-colors hover:border-brown"
         >
-          Connect the extension &amp; build your profile on kiwiply.com →
+          <span className="mt-px text-sm leading-none">🔗</span>
+          <span>
+            <span className="font-semibold">Connect the extension</span> &amp; build your profile on kiwiply.com →
+          </span>
         </button>
       )}
 
-      <label className="mb-1.5 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted" htmlFor="resume">Resume variant</label>
-      <div className="relative">
-        <select
-          id="resume"
+      {/* Resume picker */}
+      <Field label="Resume" className="gap-1.5">
+        <Select
           value={selectedId}
           disabled={!pickable.length}
+          aria-label="Resume variant"
           onChange={(e) => setSelectedId(e.target.value)}
-          className="w-full appearance-none rounded-[11px] border border-line bg-white py-[10px] pl-3 pr-8 text-[13.5px] text-ink outline-none focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_26%,transparent)] disabled:cursor-not-allowed disabled:bg-paper-2 disabled:text-muted"
         >
           {!pickable.length ? (
-            <option value="">{data && data.resumes.length === 0 ? "No resumes — add one on kiwiply.com" : "No resumes — add one on kiwiply.com"}</option>
+            <option value="">{loaded ? "No resumes yet" : "Loading…"}</option>
           ) : (
             pickable.map((r) => (
               <option key={r.id} value={r.id} title={r.label}>
@@ -124,22 +133,24 @@ export function PopupApp() {
               </option>
             ))
           )}
-        </select>
-        <svg className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        </Select>
+      </Field>
+
+      {/* Selected-resume meta / empty hint */}
+      <div className="mt-2 min-h-[22px]">
+        {selectedResume ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="neutral">{(selectedResume.skills || []).length} skills</Badge>
+            <Badge variant="neutral">{(selectedResume.experience || []).length} roles</Badge>
+            <Badge variant={selectedResume.hasFile ? "ok" : "warn"}>{selectedResume.hasFile ? "file ✓" : "no file"}</Badge>
+          </div>
+        ) : loaded ? (
+          <p className="text-[11.5px] leading-snug text-muted">Add a resume on kiwiply.com, or upload one below.</p>
+        ) : null}
       </div>
 
-      <div className="mx-0.5 mt-[7px] min-h-[15px] text-[11.5px] leading-snug text-muted">
-        {selectedResume && (
-          <>
-            {(selectedResume.skills || []).length} skills · {(selectedResume.experience || []).length} roles ·{" "}
-            <span className={selectedResume.hasFile ? "font-semibold text-accent-deep" : "font-semibold text-warn"}>{selectedResume.hasFile ? "file ✓" : "no file"}</span>
-          </>
-        )}
-      </div>
-
-      <button className="self-start px-0.5 pt-1.5 text-[11.5px] font-semibold text-accent-deep hover:underline" onClick={() => fileRef.current?.click()}>
+      {/* Upload entry */}
+      <button className="mt-2 self-start text-[12px] font-semibold text-accent-deep transition-opacity hover:opacity-80" onClick={() => fileRef.current?.click()}>
         + Upload a resume
       </button>
       <input
@@ -155,36 +166,83 @@ export function PopupApp() {
       />
 
       {pending && (
-        <div className="mt-2.5 flex flex-col gap-[7px] rounded-xl border border-line bg-[color-mix(in_srgb,var(--paper-2)_36%,var(--paper))] px-3 py-[11px]">
-          <div className="mb-px overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold text-ink-soft">Use “{pending.name}”…</div>
-          <button className={primaryCls} onClick={() => onUploadChosen("save")}>Parse &amp; add to resumes list</button>
-          <button className={ghostCls + " mt-0"} onClick={() => onUploadChosen("attach")}>Parse, don&apos;t add to list</button>
-          <button className={`${linkCls} self-center`} onClick={() => setPending(null)}>Cancel</button>
+        <div className="mt-2.5 flex flex-col gap-2 rounded-[var(--radius-lg)] border border-line bg-paper-2 px-3 py-3">
+          <div className="truncate text-[12px] font-semibold text-ink-soft">
+            Use “{pending.name}”…
+          </div>
+          <Button variant="accent" size="sm" className="w-full" onClick={() => onUploadChosen("save")}>
+            Parse &amp; add to my resumes
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => onUploadChosen("attach")}>
+            Parse &amp; attach to this job only
+          </Button>
+          <button className={`${linkCls} self-center`} onClick={() => setPending(null)}>
+            Cancel
+          </button>
         </div>
       )}
 
-      <div className="my-3.5 flex flex-col gap-[9px] rounded-xl border border-line bg-[color-mix(in_srgb,var(--paper-2)_36%,var(--paper))] px-3 py-[11px]">
-        <label className="flex cursor-pointer items-center gap-[9px] text-[12.5px] text-ink-soft">
-          <input type="checkbox" checked={autoAdv} onChange={(e) => setAutoAdv(e.target.checked)} className="h-[15px] w-[15px] flex-none accent-[var(--accent)]" />
-          <span>Auto-advance to next step after filling</span>
-        </label>
+      {/* Options */}
+      <label className="mt-3.5 flex cursor-pointer items-center justify-between gap-3 rounded-[var(--radius)] border border-line bg-paper-2 px-3 py-2.5">
+        <span className="text-[12.5px] leading-snug text-ink-soft">Auto-advance to next step after filling</span>
+        <span className="relative inline-flex flex-none">
+          <input type="checkbox" className="peer sr-only" checked={autoAdv} onChange={(e) => setAutoAdv(e.target.checked)} />
+          <span className="h-5 w-9 rounded-full bg-line transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent" />
+          <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-paper shadow-[var(--shadow-sm)] transition-transform peer-checked:translate-x-4" />
+        </span>
+      </label>
+
+      {/* Primary actions */}
+      <div className="mt-3.5 flex flex-col gap-2">
+        <Button variant="accent" className="w-full" disabled={!selectedResume || busy} onClick={onFill}>
+          {busy && status.kind === "neutral" ? <Spinner className="text-on-accent" /> : null}
+          Scan &amp; fill this page
+        </Button>
+        <Button variant="ghost" className="w-full" disabled={busy} onClick={onSaveJob}>
+          Save this job
+        </Button>
       </div>
 
-      <button className={primaryCls} disabled={!selectedResume || busy} onClick={onFill}>Scan &amp; fill this page</button>
-      <button className={ghostCls} disabled={busy} onClick={onSaveJob}>Save this job</button>
+      {/* Status */}
+      {status.msg && (
+        <div className={`mt-2.5 flex items-start gap-1.5 text-[12px] leading-snug ${statusColor}`}>
+          {busy && <Spinner className="mt-px shrink-0" />}
+          <span>{status.msg}</span>
+        </div>
+      )}
 
-      <div className={`mt-2.5 min-h-4 text-xs leading-snug ${statusColor}`}>{status.msg}</div>
-
-      <div className="mt-3 flex items-center justify-center gap-1.5 border-t border-line pt-[11px] text-[10.5px] text-muted">
-        <span className="inline-grid h-3.5 w-3.5 place-items-center rounded-full bg-accent text-[9px] font-extrabold text-on-accent">✓</span>
-        Reviews before filling · never clicks Submit
-      </div>
+      {/* Trust footer */}
+      <footer className="mt-3.5 flex items-center justify-between gap-2 border-t border-line pt-3 text-[10.5px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-grid h-3.5 w-3.5 place-items-center rounded-full bg-accent text-[9px] font-extrabold text-on-accent">✓</span>
+          Reviews before filling · never submits
+        </span>
+        <button className="font-semibold text-muted transition-colors hover:text-ink" onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("options.html#bug") })}>
+          Report a bug
+        </button>
+      </footer>
     </div>
   );
 }
 
-const linkCls = "rounded-[9px] px-[9px] py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink";
-const primaryCls =
-  "w-full rounded-xl bg-accent px-3 py-3 text-[13.5px] font-bold text-on-accent shadow-[0_1px_2px_rgba(45,49,51,0.08)] transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_88%,var(--ink))] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none";
-const ghostCls =
-  "mt-2 w-full rounded-[11px] border border-line bg-transparent px-3 py-2.5 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-45";
+const linkCls = "rounded-[var(--radius-sm)] px-2 py-1 text-[12px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink";
+const iconBtnCls =
+  "inline-flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden>
+      <path
+        d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M19.4 13a7.7 7.7 0 0 0 .05-2l1.6-1.25-1.6-2.77-1.9.77a7.6 7.6 0 0 0-1.73-1l-.29-2.02h-3.2l-.29 2.02c-.62.24-1.2.58-1.73 1l-1.9-.77-1.6 2.77L6.55 11a7.7 7.7 0 0 0 0 2l-1.6 1.25 1.6 2.77 1.9-.77c.53.42 1.11.76 1.73 1l.29 2.02h3.2l.29-2.02c.62-.24 1.2-.58 1.73-1l1.9.77 1.6-2.77L19.4 13Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
