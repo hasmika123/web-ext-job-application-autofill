@@ -99,4 +99,10 @@ Open via the popup's **+ Upload a resume** on a real ATS job page.
 ## Findings
 _(log issues here as you go; each becomes a `w5.7: fix …` commit, then re-check the box)_
 
-- …
+- **FIXED** — On first load, every React surface crashed with `Uncaught TypeError: Cannot read
+  properties of null (reading 'useId')` (a React **invalid hook call**). Cause: the workspace had
+  **two React copies** — `job-autofill` pinned `react`/`react-dom` to an exact `19.2.4` (nested in
+  `job-autofill/node_modules`) while the root hoisted `19.2.7`, so the app and `@kiwiply/ui` loaded
+  different React instances. Fix: relaxed the pins to `^19`, `npm dedupe`d to a single hoisted copy,
+  and added Vite `resolve.dedupe` in `wxt.config.ts` (protects the CI bundle too). Rebuilt; reload
+  `.output/chrome-mv3` and the surfaces should render. → commit `w5.7: fix duplicate React …`.

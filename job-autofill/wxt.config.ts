@@ -22,6 +22,13 @@ export default defineConfig({
   // build steps and a shared stateful plugin instance can fail.
   vite: () => ({
     plugins: [tailwindcss()],
+    // Force a SINGLE React copy into the bundle. In the workspace the extension and
+    // @kiwiply/ui can otherwise resolve different physical React installs (root vs
+    // job-autofill/node_modules) → two dispatchers → "Cannot read properties of null
+    // (reading 'useId')" at runtime. Dedupe unifies them at bundle time (also protects CI).
+    resolve: {
+      dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    },
   }),
   manifest: {
     name: "Kiwiply — Job Application Autofill",
