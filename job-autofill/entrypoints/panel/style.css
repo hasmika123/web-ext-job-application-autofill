@@ -5,5 +5,14 @@
 /* Shared motion (reduced-motion-safe fade/slide utilities). */
 @import "@kiwiply/ui/styles/animations.css";
 /* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
-   (the ResumeUpload form mounts here in W3.2), which live outside this extension's source. */
+   (the ResumeUpload form mounts here), which live outside this extension's source. */
 @source "../../../packages/ui/src";
+
+/* The drawer renders inside an iframe (background.ts injects it as an on-page overlay). Kill the
+   default body margin so the app fills the frame edge-to-edge, and paint the warm canvas so there
+   is no white flash before React mounts (token-driven → tracks light/dark). */
+html,
+body {
+  margin: 0;
+  background: var(--color-app-bg);
+}

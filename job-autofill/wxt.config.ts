@@ -32,7 +32,7 @@ export default defineConfig({
   }),
   manifest: {
     name: "Kiwiply — Job Application Autofill",
-    version: "0.30.0",
+    version: "0.31.0",
     description:
       "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
     // Preserve the manifest key so the unpacked extension ID stays stable (keeps the
@@ -79,10 +79,10 @@ export default defineConfig({
     },
     action: {
       default_title: "Kiwiply — open the autofill drawer",
-      // No default_popup: the toolbar icon opens the side-panel drawer (there is no popup
-      // entrypoint). background.ts sets sidePanel.setPanelBehavior({ openPanelOnActionClick })
-      // so the click opens the panel. side_panel.default_path is auto-wired from
-      // entrypoints/sidepanel; the sidePanel permission is added automatically too.
+      // No default_popup and no native side panel: background.ts's chrome.action.onClicked
+      // injects panel.html as an on-page iframe drawer that floats over the site (see the
+      // panel.html web_accessible_resources entry below). This avoids the native side panel,
+      // which docks and compresses the page.
     },
     icons: {
       16: "icons/icon16.png",
@@ -95,7 +95,10 @@ export default defineConfig({
     // WAR entries are gone — those modules are now bundled into entrypoints, not fetched.
     web_accessible_resources: [
       {
-        resources: ["vendor/*", "icons/*"],
+        // vendor/* (pdf.js dynamic import) + icons/* (fill-overlay logo) are injected into pages;
+        // panel.html is the drawer, embedded as an iframe into the active tab by background.ts
+        // (its own JS/CSS load same-origin from the extension, so only the HTML needs listing).
+        resources: ["vendor/*", "icons/*", "panel.html"],
         matches: ["<all_urls>"],
       },
     ],

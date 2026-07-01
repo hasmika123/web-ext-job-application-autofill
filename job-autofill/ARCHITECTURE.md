@@ -21,15 +21,20 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
 - `entrypoints/content.ts` — `defineContentScript` (same matches/`all_frames`/`run_at`); imports the
   18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the drawer
   injects via `executeScript` on activeTab pages).
-- `entrypoints/{options,sidepanel}/` — **React** surfaces (`index.html` + `main.tsx` → `engine.ts`
-  loads `window.JAF`, then the App). There is **no popup**: the toolbar icon opens the **side-panel
-  drawer** (`background.ts` sets `sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`; the
-  action has no `default_popup`). The drawer (`sidepanel/App.tsx`) routes **home** (`HomeView` —
+- `entrypoints/{options,panel}/` — **React** surfaces (`index.html` + `main.tsx` → `engine.ts`
+  loads `window.JAF`, then the App). There is **no popup and no native side panel**: the toolbar
+  icon toggles an **on-page drawer** — `background.ts`'s `chrome.action.onClicked` injects `panel.html`
+  as a fixed, right-edge **iframe overlay** (self-contained `toggleDrawer` via `executeScript`) that
+  floats over the site without resizing it (unlike the native side panel, which docks + compresses).
+  The framed app closes itself by posting a namespaced message the injected host listens for
+  (`lib/panel-frame.ts` `closePanel()`). The drawer (`panel/App.tsx`) routes **home** (`HomeView` —
   resume picker → scan & fill, save-a-job, account status; logic in `home-actions.ts`) ↔ **review**
-  (the shared `@kiwiply/ui` `ResumeUpload`, seeded in memory from an upload; services in `panel.ts`).
-  Options opens as its own tab (`options_ui.open_in_tab`). Both call `initTheme()` before render.
-- `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*` are web-accessible
-  (`getURL` for pdf.js / the fill-overlay logo). `mammoth` loads as a classic public `<script>` (global).
+  (the shared `@kiwiply/ui` `ResumeUpload`, seeded in memory from an upload; services in `services.ts`).
+  "Scan & fill" closes the drawer so the on-page fill overlay shows. Options opens as its own tab
+  (`options_ui.open_in_tab`). Both call `initTheme()` before render. Cross-browser (no `chrome.sidePanel`).
+- `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*`+`panel.html` are
+  web-accessible (`getURL` for pdf.js / the fill-overlay logo / the drawer iframe). `mammoth` loads as
+  a classic public `<script>` (global).
 - Build: `npm run build` → `.output/chrome-mv3` (gitignored; load THIS unpacked, not the source
   dir). Dev: `npm run dev`. Engine `npm test` is unchanged (the IIFE source files are untouched).
   The legacy root `manifest.json` + `src/{popup,options,review}/*.html` have been **removed** — WXT

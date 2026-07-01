@@ -10,8 +10,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Select, Badge, Spinner, Switch, Skeleton, Check } from "@kiwiply/ui";
 import { BrandLogo } from "../../lib/Brand";
+import { closePanel } from "../../lib/panel-frame";
 import { loadData, refreshMirror, fillPage, saveJob, readAccount, type HomeData, type Account } from "./home-actions";
-import type { Handoff } from "./panel";
+import type { Handoff } from "./services";
 
 const WEB = "https://kiwiply.com";
 
@@ -70,12 +71,12 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     setStatus({ msg: "Scanning page…", kind: "neutral" });
     const res = await fillPage(selectedResume, data.bio, autoAdv);
     if (res.ok) {
-      // The drawer stays open (it's a panel, not a popup) — the review overlay is on the page.
-      setStatus({ msg: `Review panel opened on the page (${res.adapter}). Check values there, then fill.`, kind: "ok" });
+      // Close the drawer so the on-page fill-review overlay (the field list) is unobstructed.
+      closePanel();
     } else {
       setStatus({ msg: res.error, kind: "err" });
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   async function onSaveJob() {
@@ -92,6 +93,16 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     if (!f) return;
     const label = (f.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
     onReview({ label, fileName: f.name, fileType: f.type || "application/pdf", mode, jobTabId: activeTab.current, file: f });
+  }
+
+  // Options as its own tab. openOptionsPage is the nicer path (focuses an existing tab); fall back
+  // to a plain create if it's unavailable in this framed context.
+  function openSettings() {
+    try {
+      chrome.runtime.openOptionsPage?.();
+    } catch {
+      chrome.tabs.create({ url: chrome.runtime.getURL("options.html") });
+    }
   }
 
   const statusColor = status.kind === "err" ? "text-danger" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
@@ -112,14 +123,24 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
             )}
           </span>
         </div>
-        <button
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-ink-soft transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          title="Extension settings"
-          aria-label="Extension settings"
-          onClick={() => chrome.runtime.openOptionsPage()}
-        >
-          <GearIcon />
-        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] text-ink-soft transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            title="Extension settings"
+            aria-label="Extension settings"
+            onClick={openSettings}
+          >
+            <GearIcon />
+          </button>
+          <button
+            className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] text-ink-soft transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            title="Close"
+            aria-label="Close drawer"
+            onClick={closePanel}
+          >
+            <CloseIcon />
+          </button>
+        </div>
       </header>
 
       {/* Connect prompt — only until an account is connected */}
@@ -276,6 +297,14 @@ function GearIcon() {
         strokeWidth="1.7"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-[18px] w-[18px]" aria-hidden>
+      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
     </svg>
   );
 }

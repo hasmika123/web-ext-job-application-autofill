@@ -1,6 +1,6 @@
 /**
- * Side-panel root — the extension's drawer. The toolbar icon opens THIS (the popup is gone), so
- * it hosts both the home surface and the resume-review flow:
+ * Panel root — the extension's floating drawer. The toolbar icon injects THIS page as an on-page
+ * iframe overlay (see background.ts), so it hosts both the home surface and the resume-review flow:
  *
  *   home   → the default view (resume picker → scan & fill, save-a-job, account status).
  *   review → the shared @kiwiply/ui <ResumeUpload> form, shown when the user uploads a resume
@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { ResumeUpload, useToast, type ResumeToast } from "@kiwiply/ui";
 import { HomeView } from "./HomeView";
-import { makeServices, type Handoff } from "./panel";
+import { makeServices, type Handoff } from "./services";
 
 type State = { status: "home" } | { status: "review"; handoff: Handoff };
 
