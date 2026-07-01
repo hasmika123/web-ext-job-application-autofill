@@ -8,6 +8,11 @@
    (the ResumeUpload form mounts here), which live outside this extension's source. */
 @source "../../../packages/ui/src";
 
+/* Make `dark:` utilities track the `.dark` CLASS the theme toggle sets (lib/theme.ts), not the
+   OS prefers-color-scheme (v4's default) — otherwise the light/dark logo swap follows the OS
+   instead of the extension's own theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Point the design-system font vars at the bundled brand families (main.tsx imports the
    Inter + Fraunces @font-face css). Declared via @theme (non-inline) so Tailwind emits them to
    :root and preserves them — a bare :root block would be stripped by the v4 build. */

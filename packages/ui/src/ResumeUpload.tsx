@@ -535,6 +535,7 @@ export default function ResumeUpload({
   embedded = false,
   saveLabel,
   savedToast,
+  backLabel,
   onSaved,
   onClose,
   parseFile,
@@ -555,6 +556,10 @@ export default function ResumeUpload({
   saveLabel?: string;
   /** Override the create-success toast copy (mode-aware), e.g. attach vs save. */
   savedToast?: ResumeToast;
+  /** When set, the review header shows a left-aligned "‹ {backLabel}" button (calling onClose)
+   *  instead of the corner ✕ — used when this view opens ON TOP of a host surface it returns to
+   *  (e.g. the extension drawer's home). Web leaves it unset → the ✕ shows as before. */
+  backLabel?: string;
   /** Called after a successful CREATE with the new resume's id + label. */
   onSaved?: (resume: { id: number; label: string }) => void;
   /** Embedded mode: asked to close (review dismissed or save finished). */
@@ -825,23 +830,38 @@ export default function ResumeUpload({
       {struct && (
         <div role="dialog" aria-modal="true" aria-label="Review resume" className="fixed inset-0 z-[150] overflow-y-auto bg-app-bg">
           <div className="mx-auto max-w-3xl px-5 py-8 sm:px-6">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-display text-2xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
-                <p className="mt-1 text-sm text-muted">
-                  {editing
-                    ? "Edit the parsed details and save — your stored file stays the same."
-                    : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
-                </p>
+            <div className="mb-6">
+              {backLabel && (
+                <button
+                  onClick={handleClose}
+                  className="mb-3 -ml-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
+                    <path d="M12.5 5L7.5 10l5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {backLabel}
+                </button>
+              )}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {editing
+                      ? "Edit the parsed details and save — your stored file stays the same."
+                      : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
+                  </p>
+                </div>
+                {!backLabel && (
+                  <button
+                    onClick={handleClose}
+                    aria-label="Close review"
+                    title="Close (Esc)"
+                    className="grid h-10 w-10 flex-none place-items-center rounded-full border border-line bg-paper text-lg text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              <button
-                onClick={handleClose}
-                aria-label="Close review"
-                title="Close (Esc)"
-                className="grid h-10 w-10 flex-none place-items-center rounded-full border border-line bg-paper text-lg text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
-              >
-                ✕
-              </button>
             </div>
 
             <div className="flex flex-col gap-5 pb-6">

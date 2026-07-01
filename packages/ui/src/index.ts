@@ -9,6 +9,9 @@
 export { default as Button, buttonVariants } from "./primitives/Button";
 export type { ButtonProps, ButtonVariant, ButtonSize } from "./primitives/Button";
 
+export { default as IconButton, iconButtonClass } from "./primitives/IconButton";
+export type { IconButtonProps } from "./primitives/IconButton";
+
 export { default as Input, inputClass } from "./primitives/Input";
 export type { InputProps } from "./primitives/Input";
 

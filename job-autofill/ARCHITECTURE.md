@@ -34,7 +34,11 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   (`options_ui.open_in_tab`). Both call `initTheme()` before render. Cross-browser (no `chrome.sidePanel`).
   Both `main.tsx` bundle **Inter + Fraunces** (latin subset, `@fontsource/*`); a per-surface `@theme`
   override points `--font-body`/`--font-display` at them so headings render in Fraunces + body in Inter
-  (the on-page fill overlay stays on the system stack — shadow-DOM `@font-face` is unreliable).
+  (the on-page fill overlay stays on the system stack — shadow-DOM `@font-face` is unreliable). Each
+  surface CSS also sets `@custom-variant dark (&:where(.dark, .dark *))` so Tailwind's `dark:` tracks
+  the `.dark` CLASS (`lib/theme.ts`), not the OS scheme — required for the light/dark logo swap.
+  Icon-only buttons (close, settings) use the shared `IconButton` primitive; the fill overlay mirrors
+  its metrics in CSS.
 - `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*`+`panel.html` are
   web-accessible (`getURL` for pdf.js / the fill-overlay logo / the drawer iframe). `mammoth` loads as
   a classic public `<script>` (global).

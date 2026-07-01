@@ -26,6 +26,7 @@ export function SidePanelApp() {
       <div className="kiwi-fade-in min-h-screen bg-app-bg">
         <ResumeUpload
           embedded
+          backLabel="Back"
           initialFile={state.handoff.file}
           onClose={finish}
           {...makeServices(state.handoff)}

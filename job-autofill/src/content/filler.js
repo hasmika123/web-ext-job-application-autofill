@@ -228,9 +228,10 @@
     .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--ink); }
     .brandimg { display: block; height: 24px; width: auto; }
     .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+    /* Matches the shared IconButton (close/settings) used in the React surfaces. */
     .x { position: absolute; top: 12px; right: 12px; border: 0; background: transparent; cursor: pointer;
       color: var(--muted); display: inline-flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px; border-radius: 8px; padding: 0; }
+      width: 32px; height: 32px; border-radius: 10px; padding: 0; }
     .x:hover { color: var(--ink); background: var(--paper-2); }
     .body { padding: 12px 16px; overflow-y: auto; flex: 1; }
     .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 8px 2px 6px; }
