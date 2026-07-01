@@ -45,12 +45,14 @@ function eq(name, got, want) {
   const resume = S.emptyResume();
   resume.experience = [{ company: "X", title: "Eng" }];
   resume.education = [{ school: "Cambridge" }];
-  const noEEO = S.buildFillValues(bio, resume, {});
-  ok("buildFillValues: fullName composed", noEEO.fullName === "Ada Lovelace");
-  ok("buildFillValues: EEO omitted by default", noEEO.gender === undefined);
-  ok("buildFillValues: __experience passthrough", Array.isArray(noEEO.__experience) && noEEO.__experience.length === 1);
-  const withEEO = S.buildFillValues(bio, resume, { includeEEO: true });
-  ok("buildFillValues: EEO included when opted in", withEEO.gender === "Female");
+  const vals = S.buildFillValues(bio, resume, {});
+  ok("buildFillValues: fullName composed", vals.fullName === "Ada Lovelace");
+  // EEO is always included now (user decision — no opt-in gate); it still only FILLS
+  // where a page asks + the user reviews it. See qa_fixes.test.js / AUTOFILL-QA.md BUG-1.
+  ok("buildFillValues: EEO included whenever the user has it", vals.gender === "Female");
+  ok("buildFillValues: __experience passthrough", Array.isArray(vals.__experience) && vals.__experience.length === 1);
+  ok("buildFillValues: EEO absent when the bio has none",
+    S.buildFillValues(Object.assign(S.emptyBio(), { firstName: "Ada" }), resume, {}).gender === undefined);
 })();
 
 /* ------------------------------------------------ rule match predicate */

@@ -95,6 +95,62 @@
     return ids.map(humanize).join(" ");
   }
 
+  // querySelectorAll that pierces OPEN shadow roots. Some ATS (e.g. SmartRecruiters
+  // "oneclick-ui") render the entire form inside web components, so a plain
+  // document.querySelectorAll finds ZERO fields. Recurses into every element's
+  // open shadowRoot (closed roots are unreachable by design). De-duped.
+  function deepQueryAll(root, sel) {
+    const out = [];
+    const seen = new Set();
+    (function scan(node) {
+      if (!node || !node.querySelectorAll) return;
+      for (const el of node.querySelectorAll(sel)) if (!seen.has(el)) { seen.add(el); out.push(el); }
+      for (const host of node.querySelectorAll("*")) if (host.shadowRoot) scan(host.shadowRoot);
+    })(root || document);
+    return out;
+  }
+
+  // For a radio/checkbox, the meaningful label is the GROUP's question, not the
+  // option's own "Yes"/"No". ATS render a Y/N question as a prompt block + a set of
+  // options whose inputs aren't linked to the prompt via label[for]/aria — so
+  // work-authorization / sponsorship get missed. Climb to the enclosing question
+  // block and take its heading/legend/label/aria (Lever `.application-question`,
+  // Workable field wrapper, plain <fieldset><legend>, [role=radiogroup]).
+  function groupPrompt(el) {
+    let p = el.parentElement, hops = 0, fallback = "";
+    const wrapLbl = el.closest && el.closest("label");
+    const own = String((wrapLbl ? wrapLbl.textContent : "") || el.value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    while (p && hops < 6) {
+      const cls = (p.className && p.className.baseVal !== undefined ? p.className.baseVal : p.className) || "";
+      const aid = (p.getAttribute && (p.getAttribute("data-automation-id") || "")) || "";
+      const isGroup =
+        (p.matches && p.matches('fieldset,[role="group"],[role="radiogroup"]')) ||
+        /question|form-?field|form-?group|field-?wrapper/i.test(String(cls)) ||
+        /question|formfield|questionnaire/i.test(aid);
+      if (isGroup) {
+        const gal = p.getAttribute && p.getAttribute("aria-label");
+        if (gal && gal.trim().length > 2) return gal;
+        const glb = p.getAttribute && p.getAttribute("aria-labelledby");
+        if (glb) {
+          const t = glb.split(/\s+/).map((id) => { const n = document.getElementById(id); return n ? n.textContent : ""; }).join(" ").replace(/\s+/g, " ").trim();
+          if (t.length > 2) return t;
+        }
+        const lab = p.querySelector && p.querySelector('legend,[class*="question" i],[class*="label" i],label[id],h1,h2,h3,h4,[role="heading"]');
+        if (lab && !lab.contains(el)) {
+          const t = (lab.textContent || "").replace(/\s+/g, " ").trim();
+          if (t.length > 2) return t;
+        }
+        if (!fallback) {
+          const raw = (p.textContent || "").replace(/\s+/g, " ").trim();
+          const stripped = own ? raw.toLowerCase().split(own).join(" ") : raw;
+          if (stripped.replace(/\byes\b|\bno\b|select one|choose/gi, " ").trim().length > 4) fallback = raw.slice(0, 240);
+        }
+      }
+      p = p.parentElement; hops++;
+    }
+    return fallback;
+  }
+
   // Build the visible label for an element from every available signal.
   function labelText(el) {
     const parts = [];
@@ -124,6 +180,11 @@
         if (lg && !lg.contains(el)) parts.push(lg.textContent);
       }
     }
+    // 5b) Radio/checkbox: the group's QUESTION prompt, not the option's own Yes/No.
+    if (el.type === "radio" || el.type === "checkbox") {
+      const gp = groupPrompt(el);
+      if (gp) parts.push(gp);
+    }
     // 6) placeholder / name.
     if (el.placeholder) parts.push(el.placeholder);
     if (el.name) parts.push(el.name.replace(/[_\-\[\]]/g, " "));
@@ -146,10 +207,9 @@
   function scanGeneric(root) {
     root = root || document;
     const M = (JAF.rules && JAF.rules.getActive().generic) || JAF.schema.MATCHERS;
-    const SENS = JAF.schema.SENSITIVE;
     const out = [];
-    const els = Array.from(root.querySelectorAll("input, textarea, select, [contenteditable='true']"));
-    const used = new Set();
+    // deepQueryAll pierces open shadow roots (BUG-5: shadow-DOM ATS like SmartRecruiters).
+    const els = deepQueryAll(root, "input, textarea, select, [contenteditable='true']");
     for (const el of els) {
       if (!isFillable(el)) continue;
       const lbl = labelText(el).toLowerCase();
@@ -163,7 +223,11 @@
           if (!best || score > best.score) best = { field: m.field, score };
         }
       }
-      if (best && !SENS.includes(best.field)) {
+      // EEO/demographic fields are scanned like any other now (user decision: EEO is
+      // always available, no opt-in). They only end up FILLED when the user actually
+      // has that value (the adapter's plan gates on values[field]) and the user still
+      // reviews/unchecks each one in the overlay before anything is written.
+      if (best) {
         out.push({ el, field: best.field, label: labelText(el), kind: elKind(el), score: best.score });
       }
     }
@@ -235,9 +299,8 @@
   const BLOCK_RE = /\b(submit|apply|finish|complete|send|previous|back|cancel|save\s*(for|as)\s*(later|draft)|save\s*draft|review\s*and\s*submit)\b/i;
   function findNextButton(root) {
     const scope = root || document;
-    const cands = Array.from(scope.querySelectorAll(
-      'button, a[role="button"], [role="button"], input[type="button"], input[type="submit"]'
-    ));
+    // Pierce shadow roots so the forward button is found on web-component ATS (BUG-5).
+    const cands = deepQueryAll(scope, 'button, a[role="button"], [role="button"], input[type="button"], input[type="submit"]');
     // Prefer buttons sitting in a footer / navigation region (later in DOM).
     const matches = [];
     for (const el of cands) {
@@ -416,8 +479,8 @@
   }
 
   JAF.adapterBase = {
-    setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText,
-    cssEscape, isFillable, scanGeneric, elKind, applyItem, applyItemAsync, attachFile, humanize,
+    setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText, groupPrompt,
+    cssEscape, isFillable, scanGeneric, deepQueryAll, elKind, applyItem, applyItemAsync, attachFile, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
     // exposed for unit tests (dropdown option scoping + matching)
     openListbox, visibleOptions, bestOption,

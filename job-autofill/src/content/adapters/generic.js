@@ -20,7 +20,8 @@
       return items;
     },
     fileInput() {
-      const inputs = Array.from(document.querySelectorAll('input[type="file"]')).filter(B.isFillable);
+      // deepQueryAll pierces open shadow roots (BUG-5: web-component ATS).
+      const inputs = B.deepQueryAll(document, 'input[type="file"]').filter(B.isFillable);
       return inputs.find((i) => /resume|cv|attach/i.test(B.labelText(i))) || inputs[0] || null;
     },
   };
