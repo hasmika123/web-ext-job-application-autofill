@@ -36,7 +36,7 @@ const THEMES: { value: ThemePref; label: string; icon: ReactNode }[] = [
   { value: "dark", label: "Dark", icon: <MoonIcon /> },
 ];
 
-const subhead = "text-[11.5px] font-bold uppercase tracking-[0.06em] text-accent-deep";
+const subhead = "text-[11px] font-bold uppercase tracking-[.1em] text-accent-deep";
 const hint = "text-[12.5px] leading-relaxed text-muted";
 
 export function OptionsApp() {
@@ -124,7 +124,7 @@ export function OptionsApp() {
     <div className="min-h-screen bg-app-bg">
       <main className="mx-auto max-w-[880px] px-6 pb-16 pt-10 font-body text-ink">
         <header className="flex flex-col gap-4">
-          <BrandLogo height={26} />
+          <BrandLogo height={24} />
           <div>
             <h1 className="font-display text-[26px] font-semibold leading-tight">Extension settings</h1>
             <p className="mt-2 text-sm leading-relaxed text-muted">

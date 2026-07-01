@@ -112,7 +112,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
       {/* Header — real brand lockup + a context subline (same structure as the review panel) */}
       <header className="flex items-start justify-between">
         <div className="flex min-w-0 flex-col gap-1">
-          <BrandLogo height={22} />
+          <BrandLogo height={24} />
           <span className="truncate text-[12px] text-muted">
             {account.connected ? (
               <>
@@ -149,7 +149,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
           onClick={() => chrome.tabs.create({ url: WEB + "/connect" })}
           className="flex w-full items-start gap-2.5 rounded-[var(--radius-lg)] border border-brown-2 bg-brown-soft px-3.5 py-3 text-left transition-colors hover:border-brown"
         >
-          <span className="mt-px text-base leading-none">🔗</span>
+          <LinkIcon />
           <span className="text-[12.5px] leading-snug text-brown-deep">
             <span className="font-semibold">Connect the extension</span> on kiwiply.com to sync your profile &amp; resumes →
           </span>
@@ -305,6 +305,20 @@ function CloseIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-[18px] w-[18px]" aria-hidden>
       <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="mt-px h-4 w-4 flex-none text-brown-deep" aria-hidden>
+      <path
+        d="M9 15l6-6M10.5 6.5l1-1a4 4 0 0 1 5.66 5.66l-2 2M13.5 17.5l-1 1a4 4 0 0 1-5.66-5.66l2-2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

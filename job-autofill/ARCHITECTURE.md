@@ -32,6 +32,9 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   (the shared `@kiwiply/ui` `ResumeUpload`, seeded in memory from an upload; services in `services.ts`).
   "Scan & fill" closes the drawer so the on-page fill overlay shows. Options opens as its own tab
   (`options_ui.open_in_tab`). Both call `initTheme()` before render. Cross-browser (no `chrome.sidePanel`).
+  Both `main.tsx` bundle **Inter + Fraunces** (latin subset, `@fontsource/*`); a per-surface `@theme`
+  override points `--font-body`/`--font-display` at them so headings render in Fraunces + body in Inter
+  (the on-page fill overlay stays on the system stack — shadow-DOM `@font-face` is unreliable).
 - `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*`+`panel.html` are
   web-accessible (`getURL` for pdf.js / the fill-overlay logo / the drawer iframe). `mammoth` loads as
   a classic public `<script>` (global).

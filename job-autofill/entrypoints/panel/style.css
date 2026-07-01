@@ -8,6 +8,14 @@
    (the ResumeUpload form mounts here), which live outside this extension's source. */
 @source "../../../packages/ui/src";
 
+/* Point the design-system font vars at the bundled brand families (main.tsx imports the
+   Inter + Fraunces @font-face css). Declared via @theme (non-inline) so Tailwind emits them to
+   :root and preserves them — a bare :root block would be stripped by the v4 build. */
+@theme {
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+}
+
 /* The drawer renders inside an iframe (background.ts injects it as an on-page overlay). Kill the
    default body margin so the app fills the frame edge-to-edge, and paint the warm canvas so there
    is no white flash before React mounts (token-driven → tracks light/dark). */

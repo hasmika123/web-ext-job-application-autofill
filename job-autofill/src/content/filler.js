@@ -70,7 +70,9 @@
         <header>
           ${LOGO_URL ? `<img class="brandimg" src="${LOGO_URL}" alt="Kiwiply" />` : `<div class="brand">Kiwiply</div>`}
           <div class="sub">${esc(adapter.label)} detected · ${fillable.length} field${fillable.length === 1 ? "" : "s"} ready</div>
-          <button class="x" title="Close">×</button>
+          <button class="x" title="Close" aria-label="Close">
+            <svg viewBox="0 0 20 20" fill="none" width="18" height="18" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          </button>
         </header>
         <div class="body">
           ${fillable.length ? `<div class="group-title">Review &amp; uncheck anything you don't want</div>` : (manual.length || info.length ? "" : `<div class="empty">No matching fields found on this step. Try the next step, or this site may need a custom selector.</div>`)}
@@ -218,19 +220,20 @@
       --on-accent:#2D3133; --warn:#986A35; --brown-soft:#ECE2D1; }
     * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .backdrop { position: fixed; inset: 0; background: rgba(45,49,51,.32); }
-    .panel { position: fixed; top: 0; right: 0; height: 100%; width: 380px; max-width: 92vw;
+    .panel { position: fixed; top: 0; right: 0; height: 100%; width: 400px; max-width: 100vw;
       background: var(--paper); color: var(--ink); box-shadow: -12px 0 40px rgba(45,49,51,.22);
       display: flex; flex-direction: column; border-left: 4px solid var(--accent);
       border-radius: 20px 0 0 20px; overflow: hidden; }
     header { padding: 18px 18px 12px; border-bottom: 1px solid var(--line); position: relative; }
     .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--ink); }
-    .brandimg { display: block; height: 22px; width: auto; }
+    .brandimg { display: block; height: 24px; width: auto; }
     .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
-    .x { position: absolute; top: 12px; right: 12px; border: 0; background: transparent; font-size: 22px;
-      line-height: 1; cursor: pointer; color: var(--muted); }
-    .x:hover { color: var(--ink); }
+    .x { position: absolute; top: 12px; right: 12px; border: 0; background: transparent; cursor: pointer;
+      color: var(--muted); display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 8px; padding: 0; }
+    .x:hover { color: var(--ink); background: var(--paper-2); }
     .body { padding: 12px 16px; overflow-y: auto; flex: 1; }
-    .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 8px 2px 6px; }
+    .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 8px 2px 6px; }
     .group-title.warn { color: var(--warn); }
     .rows { display: flex; flex-direction: column; gap: 2px; }
     .row { display: grid; grid-template-columns: 18px 110px 1fr; align-items: center; gap: 8px;
@@ -238,7 +241,7 @@
     .row:hover { background: var(--paper-2); }
     .row.assisted { grid-template-columns: 18px 110px 1fr auto; }
     .regen { border: 1px solid var(--line); background: var(--paper); color: var(--accent-deep);
-      border-radius: 8px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 7px; }
+      border-radius: 999px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 9px; }
     .regen:hover:not(:disabled) { border-color: var(--accent); }
     .regen:disabled { opacity: .5; cursor: default; }
     .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
@@ -254,12 +257,13 @@
     input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
     .empty { font-size: 13px; color: var(--muted); padding: 14px 6px; line-height: 1.5; }
     footer { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
-    button.primary { background: var(--ink); color: var(--paper); border: 0; padding: 9px 16px; border-radius: 10px;
+    button.primary { background: var(--accent); color: var(--on-accent); border: 0; padding: 9px 18px; border-radius: 999px;
       font-weight: 600; cursor: pointer; font-size: 13px; }
     button.primary:disabled { opacity: .4; cursor: not-allowed; }
-    button.primary:hover:not(:disabled) { background: var(--ink-soft); }
-    button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink-soft); padding: 9px 14px;
-      border-radius: 10px; cursor: pointer; font-size: 13px; }
+    button.primary:hover:not(:disabled) { filter: brightness(.95); }
+    button.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); padding: 9px 16px;
+      border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    button.ghost:hover { background: var(--paper-2); }
     .note { font-size: 11px; color: var(--muted); padding: 0 16px 14px; line-height: 1.4; }
     .flash { position: absolute; left: 16px; right: 16px; bottom: 16px; background: var(--ink); color: var(--paper);
       padding: 12px 14px; border-radius: 12px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
