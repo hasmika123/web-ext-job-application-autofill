@@ -52,43 +52,37 @@ before writing selectors.
 
 ---
 
-## ▶️ KICKSTART — W3 (extension side panel renders the shared form)
+## ▶️ KICKSTART — W3 is CODE-COMPLETE → manual walkthrough, then W4
 
-Work on branch **`feat/extension-redesign`** (W0–W2 are **merged to `main` + LIVE**; the branch continues for W3+).
-Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W3.1–W3.5).
+Work on branch **`feat/extension-redesign`** (W0–W2 are **merged to `main` + LIVE**; the branch continues for W3+,
+accumulating on open **PR #22**). Full task list: **`EXT-UI-PLATFORM-PLAN.md`**.
 
-**W2 is DONE + DEPLOYED.** `@kiwiply/ui` holds the portable `ResumeUpload` (services injected: `parseFile`/`onSave`/
-`onUpdateProfile`/`track`/`toast`/`onRefresh`); the web app consumes it and is live (verified). CI has a
-`web-docker` build+smoke job. The extension build is WXT (`job-autofill/`, entrypoints + `.output/chrome-mv3`).
+**W2 DONE + DEPLOYED.** `@kiwiply/ui` holds the portable `ResumeUpload`; the web app consumes it and is live.
+**W3 DONE (code).** The extension renders the SHARED React form in a Chrome **side panel** for BOTH on-the-fly
+upload modes (save a library resume / attach-and-fill a job page). `job-autofill/` is a workspace member;
+`entrypoints/sidepanel/` = React + Tailwind v4 (`engine.ts` loads `window.JAF`; `App.tsx` reads the popup handoff
++ owns the loading/empty/error/ready/done states; `panel.ts` = the extension services `parseFile`/`onSave`
+save+attach). Popup opens the panel (`chrome.sidePanel.open`, gesture-safe) + hands off; the old `review.html` tab
+is gone. Extension has a `typecheck` CI gate. All CI green on PR #22.
 
-**W3.1 is DONE** — `entrypoints/sidepanel/` is a React + Tailwind v4 surface; WXT auto-wired `side_panel` +
-the `sidePanel` permission. `job-autofill/` is now a **workspace member** (`@wxt-dev/module-react` + react 19 +
-`@tailwindcss/vite`); the panel imports `@kiwiply/ui/styles/tokens.css` and the tokens compile in (verified). The
-body is a placeholder. Membership ripple is handled (web Dockerfile copies `job-autofill/package.json`; ext CI +
-publish install workspace-root; `job-autofill/package-lock.json` removed). Build to load unpacked:
-`cd job-autofill && npm run build` then load `.output/chrome-mv3`; the side panel opens via the toolbar/`chrome.sidePanel`.
+**▶️ IMMEDIATE GATE — the manual walkthrough (only you can do this; the panel needs a real Chrome):**
+`cd job-autofill && npm run build`, load `job-autofill/.output/chrome-mv3` unpacked. On a real ATS: popup →
+**+ Upload a resume** →
+- **Parse & add to resumes list** (save): the side panel opens, parses, shows the review editor; **Save** → the
+  resume appears in the popup picker.
+- **Parse, don't add to list** (attach): fills the job page (review overlay) + attaches the PDF to the application.
+Watch: the panel opening on click (gesture); the handoff landing (race handling); `window.close()` on done (the
+"done" view is the fallback). Also re-confirm the W0 parity items (autofill / save-a-job / `/connect` / bug report).
 
-**Next — W3 (the extension finally renders the shared React form):**
-1. ✅ **W3.1** done (React sidepanel + sidePanel perm + workspace membership).
-2. ✅ **W3.2** done — the side panel mounts the shared `<ResumeUpload>`. `sidepanel/`: `engine.ts` loads the
-   JAF engine into the panel; `App.tsx` reads the handoff (`chrome.storage.local["pendingResumeReview"]` +
-   IndexedDB temp file) and mounts the form; `panel.ts` provides `parseFile` (→ `JAF.parser`) + `onSave` (**save**
-   flow). Extension `tsconfig.json` + `@types/chrome` + a `typecheck` CI gate added. Attach mode is stubbed.
-3. ✅ **W3.3** done — `onSave`'s **attach** branch ported from `review.js` `attachAndFill` into `panel.ts`
-   (capture → `pushDraft` → `uploadApplicationAttachment` → fill the job tab → focus). Both save + attach work.
-4. ✅ **W3.4** done — popup `openReview` opens the side panel (`chrome.sidePanel.open` sync in the gesture,
-   `activeTabId` pre-fetched) + writes the handoff; panel handles the race/re-upload via `storage.onChanged`.
-   Dropped the popup pre-parse/pre-auth; **removed the vanilla review tab** (`entrypoints/review/`, `src/review/`).
-5. **W3.5 (NEXT)** Polish the panel states (loading/empty/**error**/cancel) + close-on-done, then the **manual
-   walkthrough in Chrome** (the panel is reachable now): `cd job-autofill && npm run build`, load
-   `.output/chrome-mv3`, and on a real ATS use popup → **+ Upload a resume** → **Parse & add to list** (save mode:
-   panel opens, parses, review, Save → resume appears in the picker) and **Parse, don't add to list** (attach mode:
-   fills the job tab + attaches the PDF). Watch for: side-panel open needing a user gesture; the handoff race
-   (should be covered); `window.close()` behavior in a side panel (the "done" view is the fallback).
-
-**Possible W3.5 polish:** a toast/status surface (the form currently has no `toast` service wired → silent
-success), and mode-aware copy (the shared Save button says "Save to my account" even in attach mode — a known
-wrinkle to revisit in the W5 UI overhaul).
+**Then — pick the next phase (`EXT-UI-PLATFORM-PLAN.md`):**
+- **W4** — convert **popup + options** to React (using `@kiwiply/ui` primitives) so W5's visual overhaul has React
+  surfaces. Same pattern as the sidepanel entrypoint. Keep the engine framework-free.
+- **W5** — the UI overhaul (design system, dark mode, a11y). Note two deferred wrinkles from W3: no `toast`
+  surface wired into the panel (success is silent → the "done" view covers it), and the shared Save button reads
+  "Save to my account" even in attach mode (mode-aware copy).
+- **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)
+  + lands the extension changes in `main` (still unshipped — CWS upload is manual, W6.4). Reasonable to merge once
+  the walkthrough passes, or to keep accumulating W4.
 3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
    **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
    `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).
