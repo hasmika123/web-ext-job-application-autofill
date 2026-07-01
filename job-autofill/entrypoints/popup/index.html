@@ -1,50 +1,12 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="../../src/popup/popup.css" />
-</head>
-<body>
-  <div class="wrap">
-    <header>
-      <img class="brandimg" src="/icons/logo.png" alt="Kiwiply" />
-      <div class="headlinks">
-        <button class="link" id="manage" title="Manage your profile & resumes on kiwiply.com">Manage</button>
-        <button class="link iconlink" id="bug-link" title="Report a bug or idea" aria-label="Report a bug or idea">🐛</button>
-        <button class="link" id="settings-link" title="Extension settings">Settings</button>
-      </div>
-    </header>
-
-    <div id="bio-warn" class="warn hidden">Connect the extension & build your profile on kiwiply.com →</div>
-
-    <label class="lbl" for="resume">Resume variant</label>
-    <select id="resume" class="select"></select>
-    <div class="meta" id="meta"></div>
-    <button class="uploadlink" id="upload-resume" title="Upload a resume on the fly">+ Upload a resume</button>
-    <input id="resume-file" type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" class="hidden" />
-
-    <!-- After picking a file: parse & save to the board, or just use it for this one fill. -->
-    <div id="upload-choice" class="uploadchoice hidden">
-      <div class="uctitle" id="uc-name">Use this resume…</div>
-      <button class="primary" id="uc-save">Parse &amp; add to resumes list</button>
-      <button class="ghost" id="uc-once">Parse, don't add to list</button>
-      <button class="link uccancel" id="uc-cancel">Cancel</button>
-    </div>
-
-    <div class="opts">
-      <label class="check"><input type="checkbox" id="autoadv" /> <span>Auto-advance to next step after filling</span></label>
-    </div>
-
-    <button id="fill" class="primary">Scan &amp; fill this page</button>
-    <button id="savejob" class="ghost">Save this job</button>
-    <div class="status" id="status"></div>
-
-    <div class="foot"><span class="footicon">✓</span> Reviews before filling · never clicks Submit</div>
-  </div>
-  <!-- mammoth is a UMD that attaches window.mammoth — load it as a classic public script
-       (the parser reads it as a global). pdf.js is dynamically imported from vendor/ at parse time. -->
-  <script src="/vendor/mammoth.browser.min.js"></script>
-  <script type="module" src="./main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kiwiply</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
 </html>

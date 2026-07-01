@@ -75,8 +75,12 @@ Watch: the panel opening on click (gesture); the handoff landing (race handling)
 "done" view is the fallback). Also re-confirm the W0 parity items (autofill / save-a-job / `/connect` / bug report).
 
 **Then — pick the next phase (`EXT-UI-PLATFORM-PLAN.md`):**
-- **W4** — convert **popup + options** to React (using `@kiwiply/ui` primitives) so W5's visual overhaul has React
-  surfaces. Same pattern as the sidepanel entrypoint. Keep the engine framework-free.
+- **W4** — convert **popup + options** to React so W5's visual overhaul has React surfaces. ✅ **W4.1 done**: the
+  **popup** is React on the shared tokens (`entrypoints/popup/`: `PopupApp.tsx` + `actions.ts` + `engine.ts` +
+  `style.css`; `src/popup/*` removed). **W4.2 (NEXT)**: convert the **options** page the same way
+  (`entrypoints/options/` → React: account/connect status, AI toggles, filling toggles, bug report; port
+  `src/options/options.js` logic into an actions module; Tailwind + tokens; then remove `src/options/*`). Keep the
+  engine framework-free. Same pattern as the sidepanel/popup entrypoints.
 - **W5** — the UI overhaul (design system, dark mode, a11y). Note two deferred wrinkles from W3: no `toast`
   surface wired into the panel (success is silent → the "done" view covers it), and the shared Save button reads
   "Save to my account" even in attach mode (mode-aware copy).

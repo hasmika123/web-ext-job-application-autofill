@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "@kiwiply/ui/styles/tokens.css";
+@source "../../../packages/ui/src";
+
+/* Extension popups size to their content — pin the width + a transparent window so the paper
+   card's rounded corners show through where the platform allows. */
+html,
+body {
+  margin: 0;
+  background: transparent;
+}
+body {
+  width: 322px;
+}
