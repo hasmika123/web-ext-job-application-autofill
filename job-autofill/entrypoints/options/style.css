@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "@kiwiply/ui/styles/tokens.css";
+@source "../../../packages/ui/src";
+
+/* The options page opens in a full tab — warm canvas behind the slim card layout. */
+html,
+body {
+  margin: 0;
+}
+body {
+  background: var(--app-bg);
+}
