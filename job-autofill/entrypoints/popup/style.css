@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@kiwiply/ui/styles/tokens.css";
+@import "@kiwiply/ui/styles/animations.css";
 @source "../../../packages/ui/src";
 
 /* Extension popups size to their content — pin the width and fill edge-to-edge with the

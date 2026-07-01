@@ -93,6 +93,7 @@ export function SidePanelApp() {
 
   return (
     <Shell>
+      <div key={state.status} className="kiwi-fade-in">
       {state.status === "loading" && (
         <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
           <Spinner className="h-6 w-6 text-accent-deep" />
@@ -120,6 +121,7 @@ export function SidePanelApp() {
           description={state.saved ? "You can close this panel." : "Nothing was saved — you can close this panel."}
         />
       )}
+      </div>
     </Shell>
   );
 }

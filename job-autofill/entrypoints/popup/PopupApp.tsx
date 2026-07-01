@@ -5,7 +5,7 @@
  * this stays presentational. The engine itself stays framework-free.
  */
 import { useEffect, useRef, useState } from "react";
-import { Button, Select, Field, Badge, Spinner, Switch } from "@kiwiply/ui";
+import { Button, Select, Field, Badge, Spinner, Switch, Skeleton } from "@kiwiply/ui";
 import { loadData, refreshMirror, fillPage, saveJob, openReview, type PopupData } from "./actions";
 
 const WEB = "https://kiwiply.com";
@@ -84,7 +84,7 @@ export function PopupApp() {
   const statusColor = status.kind === "err" ? "text-danger" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
 
   return (
-    <div className="flex w-[322px] flex-col bg-paper px-4 pb-3.5 pt-3.5 font-body text-ink">
+    <div className="kiwi-fade-in flex w-[322px] flex-col bg-paper px-4 pb-3.5 pt-3.5 font-body text-ink">
       {/* Header — brand + quick links */}
       <header className="mb-3.5 flex items-center justify-between border-b border-line pb-3">
         <img src="/icons/logo.png" alt="Kiwiply" className="block h-[24px] w-auto" />
@@ -116,38 +116,52 @@ export function PopupApp() {
         </button>
       )}
 
-      {/* Resume picker */}
-      <Field label="Resume" className="gap-1.5">
-        <Select
-          value={selectedId}
-          disabled={!pickable.length}
-          aria-label="Resume variant"
-          onChange={(e) => setSelectedId(e.target.value)}
-        >
-          {!pickable.length ? (
-            <option value="">{loaded ? "No resumes yet" : "Loading…"}</option>
-          ) : (
-            pickable.map((r) => (
-              <option key={r.id} value={r.id} title={r.label}>
-                {truncateLabel(r.label)}
-              </option>
-            ))
-          )}
-        </Select>
-      </Field>
-
-      {/* Selected-resume meta / empty hint */}
-      <div className="mt-2 min-h-[22px]">
-        {selectedResume ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="neutral">{(selectedResume.skills || []).length} skills</Badge>
-            <Badge variant="neutral">{(selectedResume.experience || []).length} roles</Badge>
-            <Badge variant={selectedResume.hasFile ? "ok" : "warn"}>{selectedResume.hasFile ? "file ✓" : "no file"}</Badge>
+      {/* Resume picker — skeleton while the mirror pulls */}
+      {!loaded ? (
+        <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading resumes">
+          <Skeleton className="h-3.5 w-16 rounded-[var(--radius-sm)]" />
+          <Skeleton className="h-11 w-full rounded-[var(--radius)]" />
+          <div className="mt-0.5 flex gap-1.5">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-14 rounded-full" />
+            <Skeleton className="h-5 w-12 rounded-full" />
           </div>
-        ) : loaded ? (
-          <p className="text-[11.5px] leading-snug text-muted">Add a resume on kiwiply.com, or upload one below.</p>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <>
+          <Field label="Resume" className="gap-1.5">
+            <Select
+              value={selectedId}
+              disabled={!pickable.length}
+              aria-label="Resume variant"
+              onChange={(e) => setSelectedId(e.target.value)}
+            >
+              {!pickable.length ? (
+                <option value="">No resumes yet</option>
+              ) : (
+                pickable.map((r) => (
+                  <option key={r.id} value={r.id} title={r.label}>
+                    {truncateLabel(r.label)}
+                  </option>
+                ))
+              )}
+            </Select>
+          </Field>
+
+          {/* Selected-resume meta / empty hint */}
+          <div className="mt-2 min-h-[22px]">
+            {selectedResume ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="neutral">{(selectedResume.skills || []).length} skills</Badge>
+                <Badge variant="neutral">{(selectedResume.experience || []).length} roles</Badge>
+                <Badge variant={selectedResume.hasFile ? "ok" : "warn"}>{selectedResume.hasFile ? "file ✓" : "no file"}</Badge>
+              </div>
+            ) : (
+              <p className="text-[11.5px] leading-snug text-muted">Add a resume on kiwiply.com, or upload one below.</p>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Upload entry */}
       <button className="mt-2 self-start text-[12px] font-semibold text-accent-deep transition-opacity hover:opacity-80" onClick={() => fileRef.current?.click()}>

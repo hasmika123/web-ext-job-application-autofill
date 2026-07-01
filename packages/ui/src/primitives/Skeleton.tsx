@@ -9,7 +9,7 @@ export default function Skeleton({ className, ...props }: HTMLAttributes<HTMLDiv
   return (
     <div
       aria-hidden
-      className={cn("animate-pulse rounded-[var(--radius)] bg-paper-2", className)}
+      className={cn("animate-pulse rounded-[var(--radius)] bg-paper-2 motion-reduce:animate-none", className)}
       {...props}
     />
   );

@@ -37,6 +37,7 @@ export function OptionsApp() {
   const [bug, setBug] = useState({ category: "BUG", message: "", consent: true });
   const [bugStatus, setBugStatus] = useState<{ msg: string; kind: "ok" | "err" | "neutral" }>({ msg: "", kind: "neutral" });
   const [bugSending, setBugSending] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>("account");
 
   const bugMsgRef = useRef<HTMLTextAreaElement>(null);
 
@@ -53,6 +54,23 @@ export function OptionsApp() {
       bugMsgRef.current?.focus({ preventScroll: true });
     }
     return () => chrome.storage.onChanged.removeListener(onChange);
+  }, []);
+
+  // Scroll-spy: highlight the nav link for the section currently in view.
+  useEffect(() => {
+    const els = SECTIONS.map((s) => document.getElementById(s.id)).filter((el): el is HTMLElement => !!el);
+    if (!els.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveSection(visible[0].target.id);
+      },
+      { rootMargin: "-25% 0px -65% 0px", threshold: 0 },
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
   }, []);
 
   const patch = (p: Partial<Settings>) => setForm((f) => (f ? { ...f, ...p } : f));
@@ -107,7 +125,10 @@ export function OptionsApp() {
                 <li key={s.id}>
                   <a
                     href={`#${s.id}`}
-                    className="block rounded-[var(--radius-sm)] px-3 py-2 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper hover:text-ink"
+                    aria-current={activeSection === s.id ? "true" : undefined}
+                    className={`block rounded-[var(--radius-sm)] px-3 py-2 text-[13px] font-semibold transition-colors ${
+                      activeSection === s.id ? "bg-paper text-ink shadow-[var(--shadow-sm)]" : "text-ink-soft hover:bg-paper hover:text-ink"
+                    }`}
                   >
                     {s.label}
                   </a>
@@ -116,7 +137,7 @@ export function OptionsApp() {
             </ul>
           </nav>
 
-          <div className="flex min-w-0 flex-col gap-5">
+          <div className="kiwi-fade-in flex min-w-0 flex-col gap-5">
             {/* Account */}
             <Card id="account" className="scroll-mt-6">
               <CardHeader>
