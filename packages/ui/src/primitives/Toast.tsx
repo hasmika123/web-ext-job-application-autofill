@@ -3,15 +3,15 @@ import type { ReactNode } from "react";
 import { cn } from "./cn";
 
 /**
- * Toast — transient feedback. `ToastProvider` renders a fixed bottom-center stack and hands
- * out a `toast()` function via `useToast()`. Self-contained (the enter keyframe is injected
- * once), so it works identically in the web app and the extension surfaces — this is the
- * toast surface W3 deferred for the side panel.
+ * Toast — transient feedback, styled 1:1 with the web app's `ui/Toast` + `ToastProvider`
+ * (bottom-right stack, left accent border). `ToastProvider` hands out a `toast()` via
+ * `useToast()`. Self-contained (the enter keyframe is injected once) so it works in the
+ * extension surfaces too — this is the toast surface W3 deferred.
  *
  *   const toast = useToast();
- *   toast({ title: "Saved", variant: "ok" });
+ *   toast({ title: "Saved", variant: "success" });
  */
-export type ToastVariant = "default" | "ok" | "danger" | "warn";
+export type ToastVariant = "default" | "success" | "error";
 
 export interface ToastOptions {
   title: ReactNode;
@@ -36,10 +36,9 @@ export function useToast(): ToastFn {
 }
 
 const ACCENT: Record<ToastVariant, string> = {
-  default: "border-l-ink",
-  ok: "border-l-accent",
-  danger: "border-l-danger",
-  warn: "border-l-brown",
+  default: "border-l-line",
+  success: "border-l-accent",
+  error: "border-l-danger",
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -76,38 +75,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <style>{"@keyframes kiwi-toast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}"}</style>
+      <style>{"@keyframes kiwi-toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}"}</style>
       <div
         aria-live="polite"
-        aria-relevant="additions"
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-[9999] flex flex-col items-center gap-2 px-4"
+        className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex w-full max-w-[360px] flex-col gap-2"
       >
         {items.map((t) => (
           <div
             key={t.id}
             role="status"
-            style={{ animation: "kiwi-toast-in .18s ease-out" }}
+            style={{ animation: "kiwi-toast-in .2s ease-out" }}
             className={cn(
-              "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-[var(--radius)] border border-line " +
-                "border-l-4 bg-paper px-4 py-3 shadow-[var(--shadow-lg)]",
+              "pointer-events-auto flex min-w-[260px] max-w-[92vw] items-start gap-3 rounded-[var(--radius)] border border-line " +
+                "border-l-4 bg-paper px-4 py-3 text-sm text-ink shadow-[var(--shadow-lg)]",
               ACCENT[t.variant ?? "default"],
             )}
           >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-ink">{t.title}</p>
-              {t.description != null && (
-                <p className="mt-0.5 text-[13px] leading-snug text-muted">{t.description}</p>
-              )}
+            <div className="flex-1">
+              {t.title != null && <p className="font-semibold">{t.title}</p>}
+              {t.description != null && <div className="text-[13px] text-ink-soft">{t.description}</div>}
             </div>
             <button
               type="button"
               onClick={() => dismiss(t.id)}
               aria-label="Dismiss"
-              className="-mr-1 -mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted transition-colors hover:bg-paper-2 hover:text-ink"
+              className="flex-none rounded-md px-1.5 text-muted transition-colors hover:text-ink"
             >
-              <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5" aria-hidden>
-                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-              </svg>
+              ✕
             </button>
           </div>
         ))}

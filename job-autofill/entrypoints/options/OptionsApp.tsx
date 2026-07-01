@@ -141,8 +141,8 @@ export function OptionsApp() {
                   <a
                     href={`#${s.id}`}
                     aria-current={activeSection === s.id ? "true" : undefined}
-                    className={`block rounded-[var(--radius-sm)] px-3 py-2 text-[13px] font-semibold transition-colors ${
-                      activeSection === s.id ? "bg-paper text-ink shadow-[var(--shadow-sm)]" : "text-ink-soft hover:bg-paper hover:text-ink"
+                    className={`block rounded-[var(--radius)] px-3 py-2 text-[13.5px] font-medium transition-colors ${
+                      activeSection === s.id ? "bg-accent-soft font-semibold text-accent-deep" : "text-ink-soft hover:bg-paper-2"
                     }`}
                   >
                     {s.label}
@@ -158,7 +158,7 @@ export function OptionsApp() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CardTitle>Account</CardTitle>
-                  <Badge variant={account.connected ? "ok" : "neutral"}>
+                  <Badge variant={account.connected ? "ready" : "review"}>
                     {account.connected ? "Connected" : "Not connected"}
                   </Badge>
                 </div>

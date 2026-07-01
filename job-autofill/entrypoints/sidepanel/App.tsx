@@ -78,9 +78,7 @@ export function SidePanelApp() {
         }}
         onClose={finish}
         {...makeServices(state.handoff)}
-        toast={(t: ResumeToast) =>
-          toast({ title: t.title, description: t.description, variant: t.variant === "error" ? "danger" : "ok" })
-        }
+        toast={(t: ResumeToast) => toast({ title: t.title, description: t.description, variant: t.variant })}
         saveLabel={isAttach ? "Fill page & attach" : "Save to my account"}
         savedToast={
           isAttach
@@ -133,14 +131,14 @@ function Shell({ children }: { children: ReactNode }) {
         <img src="/icons/logo.png" alt="Kiwiply" className="h-7 w-7" />
         <h1 className="font-display text-lg font-semibold">Kiwiply</h1>
       </header>
-      <div className="rounded-[var(--radius-lg)] border border-line bg-paper shadow-[var(--shadow)]">{children}</div>
+      {children}
     </div>
   );
 }
 
 function InboxIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8" aria-hidden>
       <path d="M3 13h4l1.5 2.5h7L17 13h4M5 5h14l2 8v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4l2-8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );
@@ -148,7 +146,7 @@ function InboxIcon() {
 
 function AlertIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8" aria-hidden>
       <path d="M12 9v4m0 3.5h.01M10.3 4.3 3 17a1.9 1.9 0 0 0 1.7 2.8h14.6A1.9 1.9 0 0 0 21 17L13.7 4.3a1.9 1.9 0 0 0-3.4 0Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );

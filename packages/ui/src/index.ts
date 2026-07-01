@@ -21,7 +21,7 @@ export type { FieldProps } from "./primitives/Field";
 export { default as Card, CardHeader, CardTitle, CardDescription, CardFooter } from "./primitives/Card";
 export type { CardProps } from "./primitives/Card";
 
-export { default as Badge } from "./primitives/Badge";
+export { default as Badge, Pill, Tag } from "./primitives/Badge";
 export type { BadgeProps, BadgeVariant } from "./primitives/Badge";
 
 export { default as Switch } from "./primitives/Switch";

@@ -107,7 +107,7 @@ export function PopupApp() {
       {loaded && !hasBio && (
         <button
           onClick={() => chrome.tabs.create({ url: WEB })}
-          className="mb-3.5 flex w-full items-start gap-2 rounded-[var(--radius)] border border-[color-mix(in_srgb,var(--brown)_40%,var(--line))] bg-brown-soft px-3 py-2.5 text-left text-[12px] leading-snug text-brown-deep transition-colors hover:border-brown"
+          className="mb-3.5 flex w-full items-start gap-2 rounded-[var(--radius)] border border-brown/40 bg-brown-soft px-3 py-2.5 text-left text-[12.5px] leading-snug text-brown-deep transition-colors hover:border-brown"
         >
           <span className="mt-px text-sm leading-none">🔗</span>
           <span>
@@ -148,14 +148,15 @@ export function PopupApp() {
             </Select>
           </Field>
 
-          {/* Selected-resume meta / empty hint */}
-          <div className="mt-2 min-h-[22px]">
+          {/* Selected-resume meta / empty hint — muted meta text + a file-status badge (web style) */}
+          <div className="mt-2 flex min-h-[22px] items-center gap-2">
             {selectedResume ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant="neutral">{(selectedResume.skills || []).length} skills</Badge>
-                <Badge variant="neutral">{(selectedResume.experience || []).length} roles</Badge>
-                <Badge variant={selectedResume.hasFile ? "ok" : "warn"}>{selectedResume.hasFile ? "file ✓" : "no file"}</Badge>
-              </div>
+              <>
+                <span className="text-[12px] text-muted">
+                  {(selectedResume.skills || []).length} skills · {(selectedResume.experience || []).length} roles
+                </span>
+                <Badge variant={selectedResume.hasFile ? "ready" : "review"}>{selectedResume.hasFile ? "file" : "no file"}</Badge>
+              </>
             ) : (
               <p className="text-[11.5px] leading-snug text-muted">Add a resume on kiwiply.com, or upload one below.</p>
             )}

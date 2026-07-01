@@ -1,18 +1,13 @@
 import { forwardRef } from "react";
 import type { SelectHTMLAttributes } from "react";
 import { cn } from "./cn";
+import { inputClass } from "./Input";
 
 /**
- * Select — a styled NATIVE `<select>` (native is the reliable choice in an extension: no
- * portal/z-index fights with page content, keyboard + a11y come free). Matches the Input
- * treatment and adds a chevron. Pass `<option>`s as children.
+ * Select — a native `<select>` styled to match `Input` with a caret, 1:1 with the web app's
+ * `ui/Select`. Native is also the reliable choice in an extension (no portal/z-index fights).
  */
-export const selectClass =
-  "w-full appearance-none border border-line bg-paper rounded-[var(--radius)] " +
-  "pl-[13px] pr-9 py-[11px] text-[16px] sm:text-sm font-body text-ink outline-none " +
-  "focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] " +
-  "aria-[invalid=true]:border-danger " +
-  "disabled:opacity-60 disabled:cursor-not-allowed";
+export const selectClass = cn(inputClass, "appearance-none pr-9 font-medium cursor-pointer");
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 
@@ -21,19 +16,17 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
   ref,
 ) {
   return (
-    <span className="relative block">
+    <div className="relative">
       <select ref={ref} className={cn(selectClass, className)} {...props}>
         {children}
       </select>
-      <svg
+      <span
         aria-hidden
-        viewBox="0 0 20 20"
-        fill="none"
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted"
       >
-        <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </span>
+        ▾
+      </span>
+    </div>
   );
 });
 

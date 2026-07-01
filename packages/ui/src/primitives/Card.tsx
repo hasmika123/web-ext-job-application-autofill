@@ -16,7 +16,7 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export default function Card({ className, padded = true, ...props }: CardProps) {
-  return <div className={cn(cardClass, padded && "p-5", className)} {...props} />;
+  return <div className={cn(cardClass, padded && "p-6", className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

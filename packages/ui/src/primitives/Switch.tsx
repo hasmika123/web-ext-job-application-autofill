@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { cn } from "./cn";
 
 /**
- * Switch — an accessible on/off toggle built on `<button role="switch">` (keyboard +
- * aria-checked come free). Two shapes:
+ * Switch — an accessible on/off toggle, styled to match the web app's `ui/Switch`
+ * (26×44 track, 20px `after:` thumb). Two shapes:
  *   - bare control: `<Switch checked={v} onCheckedChange={setV} aria-label="…" />`
  *   - labeled row:  `<Switch label="…" description="…" checked={v} onCheckedChange={setV} />`
  * In the labeled form the text sits left, the toggle right; clicking either toggles.
@@ -22,6 +22,7 @@ export interface SwitchProps {
   "aria-label"?: string;
 }
 
+// The track — a 1:1 port of the web app's ui/Switch look (pseudo-element thumb).
 function Track({ checked, disabled, id, labelledBy, ariaLabel, onToggle }: {
   checked: boolean;
   disabled?: boolean;
@@ -41,19 +42,14 @@ function Track({ checked, disabled, id, labelledBy, ariaLabel, onToggle }: {
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        "relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors " +
-          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent " +
-          "disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-accent" : "bg-line",
+        "relative h-[26px] w-[44px] flex-none rounded-full transition-colors duration-150 cursor-pointer",
+        "after:absolute after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white",
+        "after:shadow-[0_1px_3px_rgba(0,0,0,.2)] after:transition-[left] after:duration-150",
+        checked ? "bg-accent after:left-[21px]" : "bg-line after:left-[3px]",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "disabled:opacity-50 disabled:cursor-not-allowed",
       )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none absolute left-0.5 h-4 w-4 rounded-full bg-paper shadow-[var(--shadow-sm)] transition-transform",
-          checked && "translate-x-4",
-        )}
-      />
-    </button>
+    />
   );
 }
 
@@ -80,7 +76,7 @@ export default function Switch({
 
   const labelId = `${genId}-label`;
   return (
-    <div className={cn("flex items-start justify-between gap-3", disabled && "opacity-60", className)}>
+    <div className={cn("flex items-center justify-between gap-3", disabled && "opacity-60", className)}>
       <div className="min-w-0">
         <span
           id={labelId}
