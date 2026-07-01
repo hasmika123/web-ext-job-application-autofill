@@ -70,10 +70,18 @@ publish install workspace-root; `job-autofill/package-lock.json` removed). Build
 
 **Next — W3 (the extension finally renders the shared React form):**
 1. ✅ **W3.1** done (React sidepanel + sidePanel perm + workspace membership).
-2. **W3.2 (NEXT)** Replace the placeholder `App.tsx` body: read the popup handoff (parsed structure + file +
-   `mode` + `jobTabId` — today via `chrome.storage.local["pendingResumeReview"]` + the IndexedDB temp file, see
-   `src/review/review.js`) and mount `<ResumeUpload initial… mode onSave onCancel>` with extension services
-   (`parseFile` → the extension's `parser.js`; `onUpdateProfile` omitted → contact panel hidden).
+2. ✅ **W3.2** done — the side panel mounts the shared `<ResumeUpload>`. `sidepanel/`: `engine.ts` loads the
+   JAF engine into the panel; `App.tsx` reads the handoff (`chrome.storage.local["pendingResumeReview"]` +
+   IndexedDB temp file) and mounts the form; `panel.ts` provides `parseFile` (→ `JAF.parser`) + `onSave` (**save**
+   flow). Extension `tsconfig.json` + `@types/chrome` + a `typecheck` CI gate added. Attach mode is stubbed.
+3. **W3.3 (NEXT)** Implement `onSave`'s **attach** branch in `entrypoints/sidepanel/panel.ts` (currently returns
+   a "coming in W3.3" error). Port `review.js` `attachAndFill`: `ensureInjected(jobTabId)` (executeScript
+   `content-scripts/content.js`) → `JAF_CAPTURE_JOB` → `JAF.appTracking.pushDraft` → `provider.uploadApplication
+   Attachment(appId, blob, fileName)` → `JAF.schema.buildFillValues` + `JAF_FILL` on the picked frame → focus the
+   job tab. The helpers (`sendTo`/`pickFrame`/`blobToBase64`) are in `review.js` — lift them into `panel.ts`.
+4. **W3.4** Popup: both upload options call `chrome.sidePanel.open({tabId})` (sync, in the click handler) + write
+   the handoff; remove `src/review/*` + the `review` entrypoint. **Only then is the panel reachable + testable in Chrome.**
+5. **W3.5** Loading/empty/error/cancel polish; verify both modes unpacked.
 3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
    **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
    `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).
