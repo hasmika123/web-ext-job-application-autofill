@@ -1,10 +1,11 @@
 /**
- * Side-panel glue: read the popup handoff and build the extension's ResumeUploadServices for
- * the shared @kiwiply/ui form. The form is persistence-agnostic; here `onSave`/`parseFile` are
- * backed by the engine (window.JAF) + the TrackingProvider seam.
+ * Side-panel glue: build the extension's ResumeUploadServices for the shared @kiwiply/ui form.
+ * The form is persistence-agnostic; here `onSave`/`parseFile` are backed by the engine
+ * (window.JAF) + the TrackingProvider seam. The home view hands the chosen File over in memory
+ * as a `Handoff` (no cross-document storage), so this module is pure service wiring.
  *
- * W3.2 implements the **save** flow (create a library resume). The **attach** flow
- * (capture → pushDraft → uploadApplicationAttachment → fill the job tab) lands in W3.3.
+ * Two modes: **save** creates a library resume; **attach** captures the job → pushDraft →
+ * uploadApplicationAttachment → fills the original job tab.
  */
 import type { ResumeUploadServices, SaveInput, StructuredResume } from "@kiwiply/ui";
 
@@ -16,10 +17,6 @@ export type Handoff = {
   jobTabId: number | null;
   file: File;
 };
-
-// The popup hands the file off via a temp IndexedDB key + the meta via chrome.storage.local.
-const HANDOFF_KEY = "pendingResumeReview";
-const TEMP_FILE_KEY = "__pending_review";
 
 // Keep only the six structured fields the form + server care about (drop __rawText/__warning).
 function struct6(s: unknown): StructuredResume {
@@ -33,33 +30,6 @@ function struct6(s: unknown): StructuredResume {
     languages: arr(o.languages) as StructuredResume["languages"],
     projects: arr(o.projects) as StructuredResume["projects"],
   };
-}
-
-export async function readHandoff(): Promise<Handoff | null> {
-  const data = await new Promise<Record<string, unknown> | undefined>((res) =>
-    chrome.storage.local.get(HANDOFF_KEY, (o) => res(o?.[HANDOFF_KEY] as Record<string, unknown> | undefined)),
-  );
-  const blob: Blob | null = await window.JAF.storage.getResumeFile(TEMP_FILE_KEY).catch(() => null);
-  if (!data || !blob) return null;
-  const fileName = typeof data.fileName === "string" ? data.fileName : "resume";
-  const fileType = typeof data.fileType === "string" ? data.fileType : "application/pdf";
-  return {
-    label: typeof data.label === "string" ? data.label : "Resume",
-    fileName,
-    fileType,
-    mode: data.mode === "attach" ? "attach" : "save",
-    jobTabId: typeof data.jobTabId === "number" ? data.jobTabId : null,
-    file: new File([blob], fileName, { type: fileType }),
-  };
-}
-
-export async function cleanup(): Promise<void> {
-  try {
-    await new Promise<void>((res) => chrome.storage.local.remove(HANDOFF_KEY, () => res()));
-    await window.JAF.storage.deleteResumeFile(TEMP_FILE_KEY);
-  } catch {
-    /* best-effort temp cleanup */
-  }
 }
 
 // --- attach-mode helpers (drive the fill on the original job tab) -----------------------------

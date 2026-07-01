@@ -1,7 +1,12 @@
 /**
- * Popup actions — the engine-coupled logic (window.JAF + chrome.*), lifted out of the old
- * popup.js so PopupApp.tsx stays presentational. Framework-free; returns results the React
- * component turns into status. (W4.1)
+ * Home-view actions — the engine-coupled logic (window.JAF + chrome.*) for the drawer's home
+ * surface (resume picker → scan & fill, save-a-job, connected-account status, mirror refresh).
+ *
+ * Moved verbatim from the old popup's actions.ts when the popup became the side-panel drawer
+ * (the toolbar icon now opens the panel, not a popup). Framework-free; returns plain results the
+ * React view turns into status. The in-panel resume upload no longer needs a cross-document
+ * storage handoff — the home view hands the File straight to the review view in memory — so the
+ * old `openReview` is gone.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const JAF = () => window.JAF;
@@ -61,6 +66,20 @@ function fileToBase64(blob: Blob): Promise<string> {
   });
 }
 
+export type Account = { connected: boolean; who: string };
+
+/**
+ * Read the live connected-account status straight from the session token (not the cached store),
+ * so the connect prompt hides and the signed-in identity shows the moment the web /connect handoff
+ * lands. Mirrors options/actions.ts readAccount.
+ */
+export async function readAccount(): Promise<Account> {
+  const tok: any = await new Promise((res) =>
+    chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})),
+  );
+  return { connected: !!(tok && tok.access), who: tok.username || "your account" };
+}
+
 /** Read-only mirror: pull the latest profile + resumes (best-effort, throttled). */
 export async function refreshMirror(): Promise<void> {
   const S = JAF().storage;
@@ -92,24 +111,10 @@ export async function refreshMirror(): Promise<void> {
   }
 }
 
-export type Account = { connected: boolean; who: string };
+export type HomeData = { bio: any; resumes: any[]; settings: any };
 
-/**
- * Read the live connected-account status straight from the session token (not the cached store),
- * so the connect prompt hides and the signed-in identity shows the moment the web /connect handoff
- * lands. Mirrors options/actions.ts readAccount.
- */
-export async function readAccount(): Promise<Account> {
-  const tok: any = await new Promise((res) =>
-    chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})),
-  );
-  return { connected: !!(tok && tok.access), who: tok.username || "your account" };
-}
-
-export type PopupData = { bio: any; resumes: any[]; settings: any };
-
-/** Load the popup's data after the mirror refresh. `resumes` are the pickable (non-archived) ones. */
-export async function loadData(): Promise<PopupData> {
+/** Load the home view's data after the mirror refresh. `resumes` are the pickable (non-archived) ones. */
+export async function loadData(): Promise<HomeData> {
   const S = JAF().storage;
   const [bio, resumes, settings] = await Promise.all([S.getBio(), S.getResumes(), S.getSettings()]);
   return { bio, resumes: resumes.filter((r: any) => !r.archived), settings };
@@ -169,24 +174,4 @@ export async function saveJob(): Promise<SaveJobResult> {
   }
   if (res && res.reason === "not-signed-in") return { ok: false, error: "Connect the extension on kiwiply.com to save jobs." };
   return { ok: false, error: "Couldn't save this job" + (res && res.reason ? ` (${res.reason})` : "") + "." };
-}
-
-/**
- * Open the side panel with the shared review form + hand off the file. NOT async on entry:
- * chrome.sidePanel.open must run synchronously in the click gesture (call this directly from
- * onClick). The panel waits for the handoff we write right after.
- */
-export function openReview(file: File, mode: "save" | "attach", tabId: number | null): Promise<void> {
-  try {
-    if (tabId != null) chrome.sidePanel.open({ tabId });
-  } catch {
-    /* no gesture / unsupported — the handoff still lands; the panel opens on the next toolbar click */
-  }
-  const label = (file.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
-  return (async () => {
-    await JAF().storage.saveResumeFile("__pending_review", file);
-    await new Promise<void>((res) =>
-      chrome.storage.local.set({ pendingResumeReview: { label, fileName: file.name, fileType: file.type || "application/pdf", mode, jobTabId: tabId } }, () => res()),
-    );
-  })();
 }

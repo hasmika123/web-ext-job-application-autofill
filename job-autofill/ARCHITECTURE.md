@@ -19,11 +19,15 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
 - `entrypoints/background.ts` — `defineBackground`; side-effect-imports tracking/sync/app-tracking/
   analytics, then `src/background/service-worker.js` (registers all SW listeners). Bundled → `background.js`.
 - `entrypoints/content.ts` — `defineContentScript` (same matches/`all_frames`/`run_at`); imports the
-  18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the popup/review
-  inject via `executeScript` on activeTab pages).
-- `entrypoints/{popup,options,review}/index.html` + `main.js` — each `main.js` side-effect-imports the
-  page's libs in order, then the page script (`src/{popup,options,review}/*.js`, imported as-is). `review`
-  is an unlisted page reached via `getURL("review.html")`.
+  18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the drawer
+  injects via `executeScript` on activeTab pages).
+- `entrypoints/{options,sidepanel}/` — **React** surfaces (`index.html` + `main.tsx` → `engine.ts`
+  loads `window.JAF`, then the App). There is **no popup**: the toolbar icon opens the **side-panel
+  drawer** (`background.ts` sets `sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`; the
+  action has no `default_popup`). The drawer (`sidepanel/App.tsx`) routes **home** (`HomeView` —
+  resume picker → scan & fill, save-a-job, account status; logic in `home-actions.ts`) ↔ **review**
+  (the shared `@kiwiply/ui` `ResumeUpload`, seeded in memory from an upload; services in `panel.ts`).
+  Options opens as its own tab (`options_ui.open_in_tab`). Both call `initTheme()` before render.
 - `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*` are web-accessible
   (`getURL` for pdf.js / the fill-overlay logo). `mammoth` loads as a classic public `<script>` (global).
 - Build: `npm run build` → `.output/chrome-mv3` (gitignored; load THIS unpacked, not the source

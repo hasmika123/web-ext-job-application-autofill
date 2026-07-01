@@ -1,13 +1,17 @@
 /**
- * Popup UI — the extension's home surface, redesigned to match the kiwiply web app's
- * "editorial / kiwi" language: warm canvas + a paper card, the real brand lockup, a serif
- * display heading, an uppercase eyebrow, a prominent accent CTA, and a trust footer. Engine
- * logic lives in actions.ts (unchanged); this stays presentational.
+ * Home view — the drawer's default surface (was the popup). Warm canvas + paper card, the real
+ * brand lockup, resume picker, an accent "Scan & fill" CTA (opens the on-page review overlay),
+ * "Save this job", auto-advance, and connected-account status. Engine logic lives in
+ * home-actions.ts; this stays presentational.
+ *
+ * Uploading a resume hands the File straight to the panel's review view in memory (onReview) —
+ * no cross-document storage handoff, since the home + review views are one document now.
  */
 import { useEffect, useRef, useState } from "react";
 import { Button, Select, Badge, Spinner, Switch, Skeleton, Check } from "@kiwiply/ui";
 import { BrandLogo } from "../../lib/Brand";
-import { loadData, refreshMirror, fillPage, saveJob, openReview, readAccount, type PopupData, type Account } from "./actions";
+import { loadData, refreshMirror, fillPage, saveJob, readAccount, type HomeData, type Account } from "./home-actions";
+import type { Handoff } from "./panel";
 
 const WEB = "https://kiwiply.com";
 
@@ -20,8 +24,8 @@ function truncateLabel(s: string, max = 40): string {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
 
-export function PopupApp() {
-  const [data, setData] = useState<PopupData | null>(null);
+export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void }) {
+  const [data, setData] = useState<HomeData | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [autoAdv, setAutoAdv] = useState(false);
   const [status, setStatus] = useState<Status>(NEUTRAL);
@@ -29,15 +33,15 @@ export function PopupApp() {
   const [busy, setBusy] = useState(false);
   const [account, setAccount] = useState<Account>({ connected: false, who: "" });
 
-  const activeTabId = useRef<number | null>(null);
+  const activeTab = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-      activeTabId.current = tab && tab.id != null ? tab.id : null;
+      activeTab.current = tab && tab.id != null ? tab.id : null;
     });
     readAccount().then(setAccount);
-    // Reflect a connect/disconnect that lands while the popup is open (the web /connect handoff
+    // Reflect a connect/disconnect that lands while the drawer is open (the web /connect handoff
     // writes trackingAuth) — the prompt hides and the signed-in identity appears live.
     const onChange = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
       if (area === "local" && changes.trackingAuth) readAccount().then(setAccount);
@@ -66,12 +70,12 @@ export function PopupApp() {
     setStatus({ msg: "Scanning page…", kind: "neutral" });
     const res = await fillPage(selectedResume, data.bio, autoAdv);
     if (res.ok) {
-      setStatus({ msg: `Review panel open (${res.adapter}). Check values, then fill.`, kind: "ok" });
-      setTimeout(() => window.close(), 1200);
+      // The drawer stays open (it's a panel, not a popup) — the review overlay is on the page.
+      setStatus({ msg: `Review panel opened on the page (${res.adapter}). Check values there, then fill.`, kind: "ok" });
     } else {
       setStatus({ msg: res.error, kind: "err" });
-      setBusy(false);
     }
+    setBusy(false);
   }
 
   async function onSaveJob() {
@@ -85,13 +89,15 @@ export function PopupApp() {
   function onUploadChosen(mode: "save" | "attach") {
     const f = pending;
     setPending(null);
-    if (f) openReview(f, mode, activeTabId.current).then(() => window.close());
+    if (!f) return;
+    const label = (f.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
+    onReview({ label, fileName: f.name, fileType: f.type || "application/pdf", mode, jobTabId: activeTab.current, file: f });
   }
 
   const statusColor = status.kind === "err" ? "text-danger" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
 
   return (
-    <div className="kiwi-fade-in flex w-[344px] flex-col gap-3 bg-app-bg px-4 pb-3.5 pt-4 font-body text-ink">
+    <div className="kiwi-fade-in flex min-h-screen w-full flex-col gap-3 bg-app-bg px-4 pb-4 pt-4 font-body text-ink">
       {/* Header — real brand lockup + a context subline (same structure as the review panel) */}
       <header className="flex items-start justify-between">
         <div className="flex min-w-0 flex-col gap-1">
@@ -241,7 +247,7 @@ export function PopupApp() {
       </div>
 
       {/* Trust footer */}
-      <footer className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted">
+      <footer className="mt-auto flex flex-wrap items-center justify-between gap-2 px-1 pt-1 text-[11px] text-muted">
         <span className="flex items-center gap-1.5">
           <Check className="h-3.5 w-3.5" />
           Reviews before filling · never submits

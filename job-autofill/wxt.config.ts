@@ -32,7 +32,7 @@ export default defineConfig({
   }),
   manifest: {
     name: "Kiwiply — Job Application Autofill",
-    version: "0.29.0",
+    version: "0.30.0",
     description:
       "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
     // Preserve the manifest key so the unpacked extension ID stays stable (keeps the
@@ -78,8 +78,11 @@ export default defineConfig({
       ],
     },
     action: {
-      default_title: "Kiwiply — pick a resume and fill",
-      // default_popup is wired automatically from entrypoints/popup.
+      default_title: "Kiwiply — open the autofill drawer",
+      // No default_popup: the toolbar icon opens the side-panel drawer (there is no popup
+      // entrypoint). background.ts sets sidePanel.setPanelBehavior({ openPanelOnActionClick })
+      // so the click opens the panel. side_panel.default_path is auto-wired from
+      // entrypoints/sidepanel; the sidePanel permission is added automatically too.
     },
     icons: {
       16: "icons/icon16.png",
