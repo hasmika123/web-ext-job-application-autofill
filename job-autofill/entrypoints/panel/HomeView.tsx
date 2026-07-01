@@ -7,11 +7,12 @@
  * Uploading a resume hands the File straight to the panel's review view in memory (onReview).
  */
 import { useEffect, useRef, useState } from "react";
-import { Button, Select, Badge, Spinner, Switch, Skeleton, Check, IconButton } from "@kiwiply/ui";
+import { Button, Select, Badge, Spinner, Switch, Skeleton, Check, IconButton, useToast } from "@kiwiply/ui";
 import { BrandLogo } from "../../lib/Brand";
 import { closePanel } from "../../lib/panel-frame";
 import { extensionAlive } from "../../lib/ext-context";
-import { loadData, refreshMirror, fillPage, saveJob, readAccount, type HomeData, type Account } from "./home-actions";
+import { loadData, refreshMirror, fillPage, capturePage, readAccount, type HomeData, type Account } from "./home-actions";
+import { SaveJobDialog } from "./SaveJobDialog";
 import type { Handoff } from "./services";
 
 const WEB = "https://kiwiply.com";
@@ -33,7 +34,13 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   const [pending, setPending] = useState<File | null>(null); // chosen file → save/attach choice
   const [busy, setBusy] = useState(false);
   const [account, setAccount] = useState<Account>({ connected: false, who: "" });
+  // Save-a-job confirmation modal (captured details, editable before saving to the board).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [saveModal, setSaveModal] = useState<{ capture: any; signal: boolean } | null>(null);
+  // Soft warning shown before filling a page that doesn't look like a job page.
+  const [fillWarn, setFillWarn] = useState(false);
 
+  const toast = useToast();
   const activeTab = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -70,18 +77,33 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   const loaded = data !== null;
   const firstName = (data?.bio?.firstName as string) || "";
 
-  async function onFill() {
+  async function onFill(force = false) {
     if (!selectedResume || !data) return;
     if (!extensionAlive()) return setStatus({ msg: "Kiwiply was updated — close and reopen this drawer.", kind: "err" });
+    setFillWarn(false);
     setBusy(true);
+    // Soft check first: warn (never block) only when the page has no fillable form in ANY frame —
+    // so an iframed ATS (Workday/Greenhouse/…) the filler CAN fill never gets a false warning.
+    if (!force) {
+      setStatus({ msg: "Scanning page…", kind: "neutral" });
+      const cap = await capturePage();
+      if (cap.ok && !cap.hasForm) {
+        setBusy(false);
+        setStatus(NEUTRAL);
+        setFillWarn(true);
+        return;
+      }
+      // cap not ok → let fillPage surface the real error below.
+    }
     setStatus({ msg: "Scanning page…", kind: "neutral" });
     const res = await fillPage(selectedResume, data.bio, autoAdv);
     if (res.ok) {
       // Close the drawer so the on-page fill-review overlay (the field list) is unobstructed.
       closePanel();
     } else {
-      setStatus({ msg: res.error, kind: "err" });
       setBusy(false);
+      setStatus(NEUTRAL);
+      toast({ variant: "error", title: "Couldn’t fill this page", description: res.error });
     }
   }
 
@@ -89,9 +111,16 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     if (!extensionAlive()) return setStatus({ msg: "Kiwiply was updated — close and reopen this drawer.", kind: "err" });
     setBusy(true);
     setStatus({ msg: "Reading this job…", kind: "neutral" });
-    const res = await saveJob();
-    setStatus(res.ok ? { msg: res.message, kind: "ok" } : { msg: res.error, kind: "err" });
+    const cap = await capturePage();
     setBusy(false);
+    setStatus(NEUTRAL);
+    if (!cap.ok) {
+      toast({ variant: "error", title: "Couldn’t read this job", description: cap.error });
+      return;
+    }
+    // Show the editable confirmation modal; the actual push happens on confirm. Treat it as a job
+    // page if it's a recognizable posting OR has a fillable form (either is a strong signal).
+    setSaveModal({ capture: cap.capture, signal: cap.signal || cap.hasForm });
   }
 
   function onUploadChosen(mode: "save" | "attach") {
@@ -99,7 +128,8 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     setPending(null);
     if (!f) return;
     const label = (f.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
-    onReview({ label, fileName: f.name, fileType: f.type || "application/pdf", mode, jobTabId: activeTab.current, file: f });
+    const existingLabels = pickable.map((r) => String(r.label || "")).filter(Boolean);
+    onReview({ label, fileName: f.name, fileType: f.type || "application/pdf", mode, jobTabId: activeTab.current, file: f, existingLabels });
   }
 
   // Options as its own tab. openOptionsPage is the nicer path (focuses an existing tab); fall back
@@ -230,10 +260,10 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
         <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-line bg-paper-2 px-3 py-3">
           <div className="truncate text-[12px] font-semibold text-ink-soft">Use “{pending.name}”…</div>
           <Button variant="accent" size="sm" className="w-full" onClick={() => onUploadChosen("save")}>
-            Parse &amp; add to my resumes
+            Save to my resumes
           </Button>
           <Button variant="ghost" size="sm" className="w-full" onClick={() => onUploadChosen("attach")}>
-            Parse &amp; attach to this job only
+            Use once for this job
           </Button>
           <button className="self-center text-[12px] font-semibold text-muted hover:text-ink" onClick={() => setPending(null)}>
             Cancel
@@ -243,7 +273,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
 
       {/* Primary actions */}
       <div className="flex flex-col gap-2">
-        <Button variant="accent" className="w-full" disabled={!selectedResume || busy} onClick={onFill}>
+        <Button variant="accent" className="w-full" disabled={!selectedResume || busy} onClick={() => onFill()}>
           {busy && status.kind === "neutral" ? <Spinner className="text-on-accent" /> : null}
           Scan &amp; fill this page
         </Button>
@@ -251,6 +281,21 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
           Save this job for later
         </Button>
       </div>
+
+      {/* Soft warning — page doesn't look like a job page; fill is still allowed. */}
+      {fillWarn && (
+        <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-brown-2 bg-brown-soft px-3 py-3 text-[12.5px] leading-snug text-brown-deep">
+          <span>This doesn’t look like a job application page. Fill it anyway?</span>
+          <div className="flex gap-2">
+            <Button variant="accent" size="sm" className="flex-1" onClick={() => onFill(true)}>
+              Fill anyway
+            </Button>
+            <Button variant="ghost" size="sm" className="flex-1" onClick={() => setFillWarn(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Auto-advance */}
       <div className="border-t border-line pt-3.5">
@@ -280,6 +325,19 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
           Report a bug
         </button>
       </footer>
+
+      {/* Save-a-job confirmation modal */}
+      {saveModal && (
+        <SaveJobDialog
+          capture={saveModal.capture}
+          signal={saveModal.signal}
+          onCancel={() => setSaveModal(null)}
+          onSaved={(message) => {
+            setSaveModal(null);
+            toast({ variant: "success", title: "Saved to your board", description: message.replace(/^Saved\s*·?\s*/, "") || undefined });
+          }}
+        />
+      )}
     </div>
   );
 }

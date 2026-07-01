@@ -209,6 +209,17 @@ const ASHBY_ID = "0c1d2e3f-aaaa-bbbb-cccc-ddddeeeeffff";
     capSal.JAF.jobCapture.captureJob({ doc: capSal.document, loc: { href: "https://co.example/jobs/1" }, adapter: null }).salary,
     "$130,000–$160,000 per year");
 
+  /* ---- 12. hasJobSignal: strong job-page detection (soft validation, warn-not-block) ---- */
+  const HS = win("<head></head>");
+  const sig = (opts) => HS.JAF.jobCapture.hasJobSignal(opts);
+  ok("signal: adapter match → true", sig({ doc: HS.document, loc: { href: "https://x.co/a" }, adapter: { id: "lever" } }) === true);
+  const ldSig = win('<head><script type="application/ld+json">' + JSON.stringify({ "@type": "JobPosting", title: "SWE" }) + "</script></head>");
+  ok("signal: JobPosting JSON-LD → true", ldSig.JAF.jobCapture.hasJobSignal({ doc: ldSig.document, loc: { href: "https://x.co/a" }, adapter: null }) === true);
+  ok("signal: known board host → true", sig({ doc: HS.document, loc: { href: "https://www.linkedin.com/jobs/view/123" }, adapter: null }) === true);
+  ok("signal: plain page (no adapter/JSON-LD/board) → false", sig({ doc: HS.document, loc: { href: "https://example.com/about" }, adapter: null }) === false);
+  ok("hasJsonLdJobPosting true on a JobPosting page", ldSig.JAF.jobCapture.hasJsonLdJobPosting(ldSig.document) === true);
+  ok("hasJsonLdJobPosting false on a plain page", HS.JAF.jobCapture.hasJsonLdJobPosting(HS.document) === false);
+
   console.log(`\n[job_capture] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[job_capture] All green.");

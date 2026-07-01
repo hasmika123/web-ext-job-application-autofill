@@ -28,6 +28,7 @@ export function SidePanelApp() {
           embedded
           backLabel="Back"
           initialFile={state.handoff.file}
+          existingLabels={isAttach ? [] : state.handoff.existingLabels}
           onClose={finish}
           {...makeServices(state.handoff)}
           toast={(t: ResumeToast) => toast({ title: t.title, description: t.description, variant: t.variant })}
@@ -35,7 +36,7 @@ export function SidePanelApp() {
           savedToast={
             isAttach
               ? { variant: "success", title: "Filling this page…", description: "Attaching your PDF to the application." }
-              : undefined
+              : { variant: "success", title: "Resume added", description: "Saved to your account and ready to use." }
           }
         />
       </div>

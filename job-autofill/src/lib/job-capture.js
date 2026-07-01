@@ -303,6 +303,35 @@
     return null;
   }
 
+  // ---- job-page signal (soft validation) ---------------------------------
+  // Does this page carry a STRONG signal that it's a job posting / application, as opposed
+  // to just any site? Used to warn (never hard-block) before Save/Fill. A signal is any of:
+  //   • a fillable-ATS adapter matches (Workday/Greenhouse/Lever/Ashby/Workable/Indeed…),
+  //   • the page publishes a schema.org/JobPosting (JSON-LD), or
+  //   • it's a recognized job board (LinkedIn/Indeed/Dice/Google Jobs — by URL shape).
+  // Deliberately ignores the weak og:title/<title> fallback so a generic page isn't a "job".
+  function hasJsonLdJobPosting(doc) {
+    if (!doc || !doc.querySelectorAll) return false;
+    const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      let data;
+      try { data = JSON.parse(s.textContent); } catch (e) { continue; }
+      if (findJobPosting(data)) return true;
+    }
+    return false;
+  }
+
+  function hasJobSignal(opts) {
+    opts = opts || {};
+    const doc = opts.doc || (typeof document !== "undefined" ? document : null);
+    const loc = opts.loc || (typeof location !== "undefined" ? location : {});
+    const adapter = opts.adapter !== undefined ? opts.adapter : detectAdapter();
+    if (adapter) return true;
+    if (hasJsonLdJobPosting(doc)) return true;
+    if (boardCapture(loc).atsPlatform) return true;
+    return false;
+  }
+
   // ---- merge + public entry ----------------------------------------------
   function pick(field, sources) {
     for (const s of sources) {
@@ -358,11 +387,13 @@
   JAF.jobCapture = {
     captureJob,
     detectAdapter,
+    hasJobSignal,
     // exposed for tests
     fromJsonLd,
     fromGeneric,
     boardCapture,
     findJobPosting,
+    hasJsonLdJobPosting,
     htmlToText,
     moneyAmount,
     salaryFromText,

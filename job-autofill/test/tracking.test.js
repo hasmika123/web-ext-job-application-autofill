@@ -91,6 +91,20 @@ function mockFetch(handler) {
   ok("original request retried with new token", retried.length === 2 && retried[1].headers["Authorization"] === "Bearer ACC2");
   ok("refresh rotation stores the new refresh token", retryStore.get().refresh === "REF2");
 
+  /* ---- refresh preserves display-only fields (username → drawer avatar) ---- */
+  let firstUserHit = true;
+  const fetchUser = mockFetch((c) => {
+    if (c.path === "/api/profile/resumes" && firstUserHit) { firstUserHit = false; return { status: 401 }; }
+    if (c.path === "/api/refresh") return { status: 200, json: { accessToken: "ACC3", refreshToken: "REF3" } };
+    if (c.path === "/api/profile/resumes") return { status: 200, json: [] };
+    return { status: 404 };
+  });
+  const userStore = T.memoryTokenStore({ access: "OLD", refresh: "REF", username: "ada" });
+  const pUser = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchUser, tokenStore: userStore });
+  await pUser.listResumes();
+  ok("refresh preserves username across rotation", userStore.get().username === "ada");
+  ok("refresh still applies the rotated tokens", userStore.get().access === "ACC3" && userStore.get().refresh === "REF3");
+
   /* ---- pushResume: POST when new, PUT when it has a serverId ---- */
   const fetchRes = mockFetch((c) => ({ status: c.method === "POST" ? 201 : 200, json: { id: c.method === "POST" ? 9 : 9, label: c.body.label, parsedJson: c.body.parsedJson, status: c.body.status } }));
   const pRes = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchRes, tokenStore: T.memoryTokenStore({ access: "A" }) });

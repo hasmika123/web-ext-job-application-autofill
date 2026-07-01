@@ -16,6 +16,8 @@ export type Handoff = {
   mode: "save" | "attach";
   jobTabId: number | null;
   file: File;
+  // Labels of the user's existing resumes → the review form warns on a duplicate name (save mode).
+  existingLabels: string[];
 };
 
 // Keep only the six structured fields the form + server care about (drop __rawText/__warning).
@@ -178,13 +180,40 @@ export function makeServices(handoff: Handoff): ResumeUploadServices {
       const saved = await provider.createResume({ label: input.label, parsedJson: input.parsedJson, status: "CONFIRMED" });
       const serverId = saved?.serverId ?? saved?.id ?? null;
       if (serverId == null) return { ok: false, error: "Couldn't save the resume (no id returned)." };
-      await provider.uploadResumeFile(serverId, input.file, handoff.fileName);
+      // Store the PDF server-side. If this fails the resume row still exists, so don't fail the
+      // whole save — surface a specific warning instead (the user can re-upload on the web).
+      let fileStored = true;
+      try {
+        await provider.uploadResumeFile(serverId, input.file, handoff.fileName);
+      } catch {
+        fileStored = false;
+      }
       try {
         await JAF.sync.pullAll(provider, JAF.storage);
       } catch {
         /* offline-friendly; the next popup open will pull it */
       }
-      return { ok: true, id: serverId, label: input.label };
+      // Find the freshly-added resume's local twin (by serverId): cache its PDF blob (pullAll only
+      // mirrors metadata, not the binary, so this keeps the "PDF" badge + attach-on-fill working)
+      // and PRE-SELECT it in the home picker so it's ready to Scan & fill for this job right away.
+      try {
+        const locals = await JAF.storage.getResumes();
+        const local = locals.find((r: { id: string; serverId?: number }) => r.serverId === serverId);
+        if (local) {
+          if (fileStored) {
+            await JAF.storage.saveResumeFile(local.id, input.file);
+            await JAF.storage.saveResume(Object.assign({}, local, { hasFile: true }));
+          }
+          const s2 = await JAF.storage.getSettings();
+          s2.lastResumeId = local.id;
+          await JAF.storage.saveSettings(s2);
+        }
+      } catch {
+        /* local cache/pre-select best-effort; the server copy is authoritative */
+      }
+      return fileStored
+        ? { ok: true, id: serverId, label: input.label }
+        : { ok: true, id: serverId, label: input.label, warning: "Resume added, but the PDF didn't upload — re-upload it from kiwiply.com." };
     },
     // No onUpdateProfile → the form hides the "Detected contact" / base-profile panel.
   };

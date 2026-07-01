@@ -35,7 +35,13 @@ async function ensureInjected(tabId: number): Promise<void> {
   await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: CONTENT_FILES });
 }
 
-async function pickFrame(tabId: number): Promise<number> {
+type FrameScan = { frameId: number; adapter: string; fieldCount: number };
+
+// Ping every frame in the tab and return the ones running the content script (with their detected
+// adapter + fillable field count). This is the SAME view the filler uses to choose a target frame,
+// so anything the filler can fill shows up here — used both to pick the fill frame and to decide
+// whether the page actually has a job form (so the "not a job page" warning never contradicts fill).
+async function scanFrames(tabId: number): Promise<FrameScan[]> {
   let frames: Array<{ frameId: number }> = [];
   try {
     frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
@@ -43,7 +49,7 @@ async function pickFrame(tabId: number): Promise<number> {
     /* top frame only */
   }
   if (!frames.length) frames = [{ frameId: 0 }];
-  const results: Array<{ frameId: number; adapter: string; fieldCount: number }> = [];
+  const results: FrameScan[] = [];
   for (const f of frames) {
     try {
       const r = await sendTo(tabId, { type: "JAF_PING" }, f.frameId);
@@ -52,6 +58,18 @@ async function pickFrame(tabId: number): Promise<number> {
       /* frame not injectable */
     }
   }
+  return results;
+}
+
+// A frame is a fill target if it matched a real ATS adapter, or has ≥2 mapped fields (a job form
+// always has at least a couple; a random page has 0–1). Kept lenient on purpose — the warning
+// should fire only when there's clearly nothing to fill.
+function framesHaveForm(frames: FrameScan[]): boolean {
+  return frames.some((f) => f.adapter !== "generic" || f.fieldCount >= 2);
+}
+
+async function pickFrame(tabId: number): Promise<number> {
+  const results = await scanFrames(tabId);
   if (!results.length) return 0;
   results.sort((a, b) => (b.adapter !== "generic" ? 1000 : 0) + b.fieldCount - ((a.adapter !== "generic" ? 1000 : 0) + a.fieldCount));
   return results[0].frameId;
@@ -165,8 +183,18 @@ export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Pro
 }
 
 export type SaveJobResult = { ok: true; message: string } | { ok: false; error: string };
+export type PageCapture =
+  | { ok: true; capture: any; signal: boolean; hasForm: boolean }
+  | { ok: false; error: string };
 
-export async function saveJob(): Promise<SaveJobResult> {
+/**
+ * Read the current page's job details from the TOP frame (JSON-LD/og live there) and scan every
+ * frame for a fillable form. `signal` = top-frame job-posting signal (ATS adapter / schema.org
+ * JobPosting / known board). `hasForm` = any frame has a real ATS adapter or fillable fields (the
+ * same frames the filler targets — so an iframed ATS form like Workday counts). Both feed the
+ * WARN-not-block checks before Save/Fill.
+ */
+export async function capturePage(): Promise<PageCapture> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || tab.id == null || /^chrome:|^edge:|^about:/.test(tab.url || "")) return { ok: false, error: "Can't read this page." };
   await ensureInjected(tab.id);
@@ -177,9 +205,15 @@ export async function saveJob(): Promise<SaveJobResult> {
     /* capture best-effort */
   }
   if (!capResp || !capResp.capture) return { ok: false, error: "Couldn't read job details on this page." };
-  const res: any = await chrome.runtime.sendMessage({ type: "JAF_SAVE_JOB", capture: capResp.capture });
+  const hasForm = framesHaveForm(await scanFrames(tab.id));
+  return { ok: true, capture: capResp.capture, signal: !!capResp.signal, hasForm };
+}
+
+/** Push the (possibly user-edited) capture to the board as a SAVED entry. */
+export async function commitSaveJob(capture: any): Promise<SaveJobResult> {
+  const res: any = await chrome.runtime.sendMessage({ type: "JAF_SAVE_JOB", capture });
   if (res && res.ok) {
-    const c = capResp.capture;
+    const c = capture || {};
     return { ok: true, message: `Saved${c.company ? " · " + c.company : ""}${c.role ? " — " + c.role : ""}${c.salary ? " · " + c.salary : ""}` };
   }
   if (res && res.reason === "not-signed-in") return { ok: false, error: "Connect the extension on kiwiply.com to save jobs." };

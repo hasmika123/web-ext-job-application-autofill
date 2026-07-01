@@ -65,14 +65,43 @@ function LabeledInput({
   );
 }
 
-function SectionCard({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+/**
+ * Collapsible review section. The whole header is a toggle (chevron + title); the body and the
+ * section `action` (e.g. "Add role") only show when open. `open`/`onToggle` are lifted to the
+ * parent so an "Expand all / Collapse all" control can drive every section at once. Sections
+ * start MINIMIZED (parent seeds them closed) so the review reads as a scannable outline the
+ * user expands as needed.
+ */
+function SectionCard({
+  title,
+  action,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{title}</h3>
-        {action}
+    <section className="overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper shadow-[var(--shadow)]">
+      <div className="flex items-center justify-between gap-3 p-5">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <span className="text-muted">
+            <Chevron open={open} />
+          </span>
+          <h3 className="truncate text-sm font-semibold uppercase tracking-wide text-muted">{title}</h3>
+        </button>
+        {open && action}
       </div>
-      {children}
+      {open && <div className="px-5 pb-5">{children}</div>}
     </section>
   );
 }
@@ -508,7 +537,9 @@ export type EditTarget = { id: number; label: string; structured: StructuredResu
 export type SaveInput =
   | { mode: "create"; file: File; label: string; parsedJson: string }
   | { mode: "edit"; id: number; label: string; parsedJson: string };
-export type SaveResult = { ok: true; id: number; label: string } | { ok: false; error: string };
+export type SaveResult =
+  | { ok: true; id: number; label: string; warning?: string }
+  | { ok: false; error: string };
 export type ResumeToast = { variant?: "success" | "error"; title: string; description?: string };
 
 export type ResumeUploadServices = {
@@ -533,6 +564,8 @@ export default function ResumeUpload({
   editTarget = null,
   initialFile = null,
   embedded = false,
+  sectionsDefaultOpen = false,
+  existingLabels = [],
   saveLabel,
   savedToast,
   backLabel,
@@ -551,6 +584,13 @@ export default function ResumeUpload({
   initialFile?: File | null;
   /** Embedded mode: hide the drop-zone (seeded via initialFile) and report back via onSaved/onClose. */
   embedded?: boolean;
+  /** Default state of the collapsible review sections. `false` (minimized) is the compact default
+   *  used in the narrow extension drawer; the web app passes `true` so sections start expanded.
+   *  The per-section chevrons + Expand/Collapse-all still work either way. */
+  sectionsDefaultOpen?: boolean;
+  /** Labels of the user's existing resumes. On CREATE, a case-insensitive name match triggers a
+   *  one-time "save anyway?" confirmation (warn, never block). Empty ⇒ no dup check. */
+  existingLabels?: string[];
   /** Override the primary (create) button copy — e.g. the extension's attach mode reads
    *  "Fill page & attach" instead of the default "Save to my account". */
   saveLabel?: string;
@@ -576,14 +616,27 @@ export default function ResumeUpload({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Duplicate-name confirmation (create only): first Save on a name that already exists arms this
+  // warning; a second Save proceeds. Reset whenever the label changes.
+  const [dupConfirm, setDupConfirm] = useState(false);
+  const existingLabelSet = new Set(existingLabels.map((l) => l.trim().toLowerCase()));
 
   // Review mode is active when `struct` is set (the full-page editor). When editing, it's
   // seeded from the saved resume's parsed structure.
   const [struct, setStruct] = useState<StructuredResume | null>(editTarget ? normalizeStruct(editTarget.structured) : null);
   const [bio, setBio] = useState<ParsedBio>({});
-  const [contactOpen, setContactOpen] = useState(true);
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const editing = editId != null;
+
+  // Collapsible review sections — all MINIMIZED by default (empty map ⇒ every section closed),
+  // with an "Expand all / Collapse all" control. Lifted here so one control drives them all.
+  const SECTION_IDS = ["contact", "summary", "skills", "experience", "projects", "education"] as const;
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  // A section follows `sectionsDefaultOpen` until the user explicitly toggles it (or uses
+  // Expand/Collapse-all), at which point its own entry in the map wins.
+  const isOpen = (id: string) => openSections[id] ?? sectionsDefaultOpen;
+  const toggleSection = (id: string) => setOpenSections((m) => ({ ...m, [id]: !m[id] }));
+  const setAllSections = (open: boolean) => setOpenSections(Object.fromEntries(SECTION_IDS.map((id) => [id, open])));
 
   const baseSkills = Array.isArray(baseProfile.skills)
     ? (baseProfile.skills as unknown[]).filter((x): x is string => typeof x === "string")
@@ -601,7 +654,6 @@ export default function ResumeUpload({
       const parsed = await parseFile(picked);
       setBio(parsed.bio);
       setStruct(normalizeStruct(parsed.structured));
-      setContactOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't read that file.");
     } finally {
@@ -627,6 +679,7 @@ export default function ResumeUpload({
     setFile(null);
     setEditId(null);
     setSaveError(null);
+    setDupConfirm(false);
   }
 
   // Embedded: closing tears down the review AND tells the parent to unmount us.
@@ -658,6 +711,14 @@ export default function ResumeUpload({
   async function handleSave() {
     if (!struct) return;
     if (!editing && !file) return; // creating needs the dropped file
+    // Duplicate-name guard (create only): warn once, then let a second Save proceed.
+    if (!editing && file) {
+      const finalLabel = (label.trim() || labelFromName(file.name)).toLowerCase();
+      if (!dupConfirm && existingLabelSet.has(finalLabel)) {
+        setDupConfirm(true);
+        return;
+      }
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -691,7 +752,13 @@ export default function ResumeUpload({
         return;
       }
       track?.("resume_saved");
-      toast?.(savedToast ?? { variant: "success", title: `Saved “${result.label}”`, description: "Added to your account." });
+      if (result.warning) {
+        // Saved, but something partial (e.g. the PDF upload failed) — surface it instead of the
+        // plain success so the user knows to follow up.
+        toast?.({ variant: "error", title: "Resume added — with a warning", description: result.warning });
+      } else {
+        toast?.(savedToast ?? { variant: "success", title: `Saved “${result.label}”`, description: "Added to your account." });
+      }
       onSaved?.({ id: result.id, label: result.label });
       if (embedded) {
         // The host (e.g. Add-application dialog) owns the surrounding state; just close.
@@ -763,7 +830,7 @@ export default function ResumeUpload({
 
   const SaveBtn = (
     <button onClick={handleSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
-      {saving ? "Saving…" : editing ? "Save changes" : (saveLabel ?? "Save to my account")}
+      {saving ? "Saving…" : editing ? "Save changes" : dupConfirm ? "Save anyway" : (saveLabel ?? "Save to my account")}
     </button>
   );
 
@@ -869,14 +936,35 @@ export default function ResumeUpload({
               <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
                 <label htmlFor="resume-label" className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft">Resume name</label>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-                  <Input id="resume-label" value={label} maxLength={LIMITS.resumeLabel} onChange={(e) => setLabel(e.target.value)} className="flex-1" />
+                  <Input
+                    id="resume-label"
+                    value={label}
+                    maxLength={LIMITS.resumeLabel}
+                    onChange={(e) => {
+                      setLabel(e.target.value);
+                      if (dupConfirm) setDupConfirm(false); // a rename clears the duplicate warning
+                    }}
+                    className="flex-1"
+                  />
                   {SaveBtn}
                 </div>
+                {dupConfirm && !saveError && (
+                  <p role="alert" className="mt-2 text-sm font-medium text-brown-deep">
+                    You already have a resume named “{label.trim() || "Resume"}”. Save anyway, or rename it above.
+                  </p>
+                )}
                 {saveError && (
                   <p role="alert" className="mt-2 text-sm font-medium text-danger">
                     {saveError}
                   </p>
                 )}
+              </div>
+
+              {/* Expand all / Collapse all — drives every review section below at once. */}
+              <div className="-mb-1 flex items-center justify-end gap-2 text-[12px] font-semibold text-ink-soft">
+                <button type="button" onClick={() => setAllSections(true)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Expand all</button>
+                <span aria-hidden className="text-muted">·</span>
+                <button type="button" onClick={() => setAllSections(false)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Collapse all</button>
               </div>
 
               {/* Detected contact — collapsible, with a one-click base-profile update.
@@ -885,53 +973,48 @@ export default function ResumeUpload({
               {!editing && onUpdateProfile && (
               <SectionCard
                 title="Detected contact"
+                open={isOpen("contact")}
+                onToggle={() => toggleSection("contact")}
                 action={
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={onUpdateBaseProfile}
-                      disabled={!baseDiffers || updatingProfile}
-                      title={baseDiffers ? "Update your base profile with this contact info" : "Your base profile already matches this contact"}
-                      className={cn(
-                        "rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
-                        baseDiffers && !updatingProfile
-                          ? "border-accent bg-accent-soft text-accent-deep hover:bg-[color-mix(in_srgb,var(--color-accent)_22%,var(--color-paper))]"
-                          : "cursor-not-allowed border-line text-muted opacity-60",
-                      )}
-                    >
-                      {updatingProfile ? "Updating…" : "Update base profile"}
-                    </button>
-                    <button type="button" onClick={() => setContactOpen((o) => !o)} aria-expanded={contactOpen} aria-label={contactOpen ? "Collapse contact" : "Expand contact"} className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-paper-2">
-                      <Chevron open={contactOpen} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={onUpdateBaseProfile}
+                    disabled={!baseDiffers || updatingProfile}
+                    title={baseDiffers ? "Update your base profile with this contact info" : "Your base profile already matches this contact"}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
+                      baseDiffers && !updatingProfile
+                        ? "border-accent bg-accent-soft text-accent-deep hover:bg-[color-mix(in_srgb,var(--color-accent)_22%,var(--color-paper))]"
+                        : "cursor-not-allowed border-line text-muted opacity-60",
+                    )}
+                  >
+                    {updatingProfile ? "Updating…" : "Update base profile"}
+                  </button>
                 }
               >
-                {contactOpen && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {CONTACT_FIELDS.map((f) => (
-                      <div key={f.key} className={cn(f.wide && "sm:col-span-2")}>
-                        <LabeledInput label={f.label} value={asStr(bio[f.key])} onChange={(v) => setBioField(f.key, v)} />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {CONTACT_FIELDS.map((f) => (
+                    <div key={f.key} className={cn(f.wide && "sm:col-span-2")}>
+                      <LabeledInput label={f.label} value={asStr(bio[f.key])} onChange={(v) => setBioField(f.key, v)} />
+                    </div>
+                  ))}
+                </div>
               </SectionCard>
               )}
 
               {/* Summary */}
-              <SectionCard title="Summary">
+              <SectionCard title="Summary" open={isOpen("summary")} onToggle={() => toggleSection("summary")}>
                 <textarea value={struct.summary} rows={4} maxLength={LIMITS.summary} onChange={(e) => patchStruct({ summary: e.target.value })} placeholder="No summary detected — add one if you like." className={cn(compactInput, "resize-y")} />
               </SectionCard>
 
               {/* Skills (editable + base-overlap coloring) */}
-              <SectionCard title={`Skills (${struct.skills.length})`}>
+              <SectionCard title={`Skills (${struct.skills.length})`} open={isOpen("skills")} onToggle={() => toggleSection("skills")}>
                 <SkillChips skills={struct.skills} baseSet={baseSet} onChange={(next) => patchStruct({ skills: next })} />
                 <SkillLegend />
               </SectionCard>
 
               {/* Experience — full entries with editable bullets */}
-              <SectionCard title={`Experience (${struct.experience.length})`} action={<AddBtn onClick={addExp} label="Add role" />}>
+              <SectionCard title={`Experience (${struct.experience.length})`} open={isOpen("experience")} onToggle={() => toggleSection("experience")} action={<AddBtn onClick={addExp} label="Add role" />}>
                 <div className="flex flex-col gap-4">
                   {struct.experience.map((exp, i) => (
                     <ExperienceEditor
@@ -948,7 +1031,7 @@ export default function ResumeUpload({
               </SectionCard>
 
               {/* Projects */}
-              <SectionCard title={`Projects (${struct.projects.length})`} action={<AddBtn onClick={addProj} label="Add project" />}>
+              <SectionCard title={`Projects (${struct.projects.length})`} open={isOpen("projects")} onToggle={() => toggleSection("projects")} action={<AddBtn onClick={addProj} label="Add project" />}>
                 <div className="flex flex-col gap-4">
                   {struct.projects.map((proj, i) => (
                     <ProjectEditor
@@ -965,7 +1048,7 @@ export default function ResumeUpload({
               </SectionCard>
 
               {/* Education */}
-              <SectionCard title={`Education (${struct.education.length})`} action={<AddBtn onClick={addEdu} label="Add education" />}>
+              <SectionCard title={`Education (${struct.education.length})`} open={isOpen("education")} onToggle={() => toggleSection("education")} action={<AddBtn onClick={addEdu} label="Add education" />}>
                 <div className="flex flex-col gap-4">
                   {struct.education.map((edu, i) => (
                     <EducationEditor
