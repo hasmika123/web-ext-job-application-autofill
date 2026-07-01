@@ -74,14 +74,19 @@ publish install workspace-root; `job-autofill/package-lock.json` removed). Build
    JAF engine into the panel; `App.tsx` reads the handoff (`chrome.storage.local["pendingResumeReview"]` +
    IndexedDB temp file) and mounts the form; `panel.ts` provides `parseFile` (→ `JAF.parser`) + `onSave` (**save**
    flow). Extension `tsconfig.json` + `@types/chrome` + a `typecheck` CI gate added. Attach mode is stubbed.
-3. **W3.3 (NEXT)** Implement `onSave`'s **attach** branch in `entrypoints/sidepanel/panel.ts` (currently returns
-   a "coming in W3.3" error). Port `review.js` `attachAndFill`: `ensureInjected(jobTabId)` (executeScript
-   `content-scripts/content.js`) → `JAF_CAPTURE_JOB` → `JAF.appTracking.pushDraft` → `provider.uploadApplication
-   Attachment(appId, blob, fileName)` → `JAF.schema.buildFillValues` + `JAF_FILL` on the picked frame → focus the
-   job tab. The helpers (`sendTo`/`pickFrame`/`blobToBase64`) are in `review.js` — lift them into `panel.ts`.
-4. **W3.4** Popup: both upload options call `chrome.sidePanel.open({tabId})` (sync, in the click handler) + write
-   the handoff; remove `src/review/*` + the `review` entrypoint. **Only then is the panel reachable + testable in Chrome.**
+3. ✅ **W3.3** done — `onSave`'s **attach** branch ported from `review.js` `attachAndFill` into `panel.ts`
+   (capture → `pushDraft` → `uploadApplicationAttachment` → fill the job tab → focus). Both save + attach work.
+4. **W3.4 (NEXT)** Wire the popup to the side panel. In `src/popup/popup.js` `openReview(file, mode)`: keep writing
+   the handoff (`chrome.storage.local["pendingResumeReview"]` = `{fileName, fileType, mode, jobTabId}` + the file to
+   the IndexedDB temp key — the pre-parse can be dropped, the panel parses), but replace
+   `chrome.tabs.create(getURL("review.html"))` with **`chrome.sidePanel.open({ tabId })`** called **synchronously
+   in the click handler** (capture `tabId` first — `open()` needs an unbroken user gesture, no `await` before it).
+   Then **remove `entrypoints/review/` + `src/review/*`** (the vanilla tab is superseded). **Only after W3.4 is the
+   panel reachable in Chrome** → do the manual walkthrough (both modes).
 5. **W3.5** Loading/empty/error/cancel polish; verify both modes unpacked.
+
+**Note on the handoff:** today `openReview` pre-parses + writes `structured`; the side panel IGNORES that and
+re-parses via `parseFile`. In W3.4 you can drop the popup pre-parse (hand off just the file + meta).
 3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
    **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
    `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).
