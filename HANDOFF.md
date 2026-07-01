@@ -102,10 +102,15 @@ Watch: the panel opening on click (gesture); the handoff landing (race handling)
     (`.kiwi-fade-in`/`.kiwi-slide-up`) imported by all 3 surfaces; popup **loading skeleton** + fade-in; options nav
     **scroll-spy** (active section highlight) + fade-in; keyed **fade-in** on side-panel state screens; `Skeleton`
     honors `prefers-reduced-motion`.
-  - **W5.6 (NEXT)** — **accessibility** pass (roles, labels, contrast, focus traps) and wire **dark mode** across the
-    surfaces. The dark tokens already exist (W5.1, opt-in via `.dark`/`[data-theme=dark]`); W5.6 is where a surface
-    actually sets the class (e.g. follow `prefers-color-scheme`, or a toggle) and each surface is checked in dark.
-    Then W5.7 visual QA vs the web app (before/after screenshots in the PR).
+  - ✅ **W5.6 DONE** — **dark mode** is wired via a manual **Light / System / Dark** toggle (new *Appearance* section
+    in options). `job-autofill/lib/theme.ts` applies `.dark` on `<html>` from a persisted pref, follows the OS on
+    *System*, and syncs across open surfaces; `initTheme()` runs in each `main.tsx`. On-page overlay stays light.
+    A11y: `aria-live` status regions, `radiogroup`/`aria-current`/`aria-busy`. (NOTE: shared helpers must live OUTSIDE
+    `entrypoints/` — WXT treats a bare `entrypoints/*.ts` as an unlisted-script entrypoint.)
+  - **W5.7 (NEXT — needs Chrome)** — **visual QA** vs the web app in **light + dark**: load `.output/chrome-mv3`
+    unpacked, walk popup / options / side-panel review / on-page overlay, toggle the theme, and capture before/after
+    screenshots for the PR. This is the phase that needs the manual walkthrough (surfaces need `chrome.*`). After
+    W5.7, W5 is complete → W6 (Firefox parity, cleanup, docs, ship).
   - Two wrinkles to close while redesigning: wire the new **Toast** into the side panel (success is currently silent →
     the "done" view covers it) + make the shared Save button copy mode-aware (reads "Save to my account" in attach mode).
 - **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)

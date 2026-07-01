@@ -4,7 +4,7 @@
  * consistent Cards and controls (Switch/Field/Input/Select/Button/Badge). Engine logic lives
  * in actions.ts (unchanged). Profile/resumes/board are managed on kiwiply.com — no login here.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Button,
   Card,
@@ -19,13 +19,21 @@ import {
   inputClass,
 } from "@kiwiply/ui";
 import { loadSettings, saveSettings, readAccount, signOut, sendBug, WEB, type Settings, type Account } from "./actions";
+import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
 
 const SECTIONS = [
   { id: "account", label: "Account" },
+  { id: "appearance", label: "Appearance" },
   { id: "ai", label: "AI drafting" },
   { id: "filling", label: "Filling" },
   { id: "bug", label: "Feedback" },
 ] as const;
+
+const THEMES: { value: ThemePref; label: string; icon: ReactNode }[] = [
+  { value: "light", label: "Light", icon: <SunIcon /> },
+  { value: "system", label: "System", icon: <SystemIcon /> },
+  { value: "dark", label: "Dark", icon: <MoonIcon /> },
+];
 
 const subhead = "text-[11.5px] font-bold uppercase tracking-[0.06em] text-accent-deep";
 const hint = "text-[12.5px] leading-relaxed text-muted";
@@ -38,12 +46,14 @@ export function OptionsApp() {
   const [bugStatus, setBugStatus] = useState<{ msg: string; kind: "ok" | "err" | "neutral" }>({ msg: "", kind: "neutral" });
   const [bugSending, setBugSending] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("account");
+  const [theme, setTheme] = useState<ThemePref>("system");
 
   const bugMsgRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     loadSettings().then(setForm);
     readAccount().then(setAccount);
+    getThemePref().then(setTheme);
     const onChange = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
       if (area === "local" && changes.trackingAuth) readAccount().then(setAccount);
     };
@@ -85,6 +95,11 @@ export function OptionsApp() {
   async function onSignOut() {
     await signOut();
     setAccount(await readAccount());
+  }
+
+  function onPickTheme(v: ThemePref) {
+    setTheme(v);
+    void setThemePref(v); // the global initTheme() listener applies .dark across surfaces
   }
 
   async function onSendBug() {
@@ -175,6 +190,35 @@ export function OptionsApp() {
               )}
             </Card>
 
+            {/* Appearance */}
+            <Card id="appearance" className="scroll-mt-6">
+              <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Choose a theme for the extension&rsquo;s popup, settings, and review panel.</CardDescription>
+              </CardHeader>
+              <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-[var(--radius)] border border-line bg-paper-2 p-1">
+                {THEMES.map((t) => {
+                  const selected = theme === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => onPickTheme(t.value)}
+                      className={`flex items-center gap-1.5 rounded-[var(--radius-sm)] px-3 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                        selected ? "bg-paper text-ink shadow-[var(--shadow-sm)]" : "text-muted hover:text-ink"
+                      }`}
+                    >
+                      {t.icon}
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2.5 text-[12.5px] text-muted">System follows your device&rsquo;s light/dark setting.</p>
+            </Card>
+
             {/* AI */}
             <Card id="ai" className="scroll-mt-6">
               <CardHeader>
@@ -247,7 +291,9 @@ export function OptionsApp() {
                 <Button onClick={onSave} disabled={!form}>
                   Save settings
                 </Button>
-                {saved && <span className="text-[12.5px] font-semibold text-accent-deep">Saved ✓</span>}
+                <span role="status" aria-live="polite" className="text-[12.5px] font-semibold text-accent-deep">
+                  {saved ? "Saved ✓" : ""}
+                </span>
               </div>
             </Card>
 
@@ -289,12 +335,40 @@ export function OptionsApp() {
                 <Button onClick={onSendBug} disabled={bugSending}>
                   Send report
                 </Button>
-                {bugStatus.msg && <span className={`text-[12.5px] font-medium ${bugColor}`}>{bugStatus.msg}</span>}
+                <span role="status" aria-live="polite" className={`text-[12.5px] font-medium ${bugColor}`}>
+                  {bugStatus.msg}
+                </span>
               </div>
             </Card>
           </div>
         </div>
       </main>
     </div>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
+      <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SystemIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
+      <rect x="3" y="4" width="18" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8 20h8m-4-4v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
   );
 }

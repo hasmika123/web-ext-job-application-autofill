@@ -212,13 +212,15 @@ export function PopupApp() {
         </Button>
       </div>
 
-      {/* Status */}
-      {status.msg && (
-        <div className={`mt-2.5 flex items-start gap-1.5 text-[12px] leading-snug ${statusColor}`}>
-          {busy && <Spinner className="mt-px shrink-0" />}
-          <span>{status.msg}</span>
-        </div>
-      )}
+      {/* Status — a persistent live region so updates are announced */}
+      <div role="status" aria-live="polite" className={`mt-2.5 min-h-[16px] text-[12px] leading-snug ${statusColor}`}>
+        {status.msg && (
+          <span className="flex items-start gap-1.5">
+            {busy && <Spinner className="mt-px shrink-0" />}
+            <span>{status.msg}</span>
+          </span>
+        )}
+      </div>
 
       {/* Trust footer */}
       <footer className="mt-3.5 flex items-center justify-between gap-2 border-t border-line pt-3 text-[10.5px] text-muted">
