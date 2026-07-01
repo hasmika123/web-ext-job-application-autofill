@@ -5,7 +5,7 @@
  * this stays presentational. The engine itself stays framework-free.
  */
 import { useEffect, useRef, useState } from "react";
-import { Button, Select, Field, Badge, Spinner } from "@kiwiply/ui";
+import { Button, Select, Field, Badge, Spinner, Switch } from "@kiwiply/ui";
 import { loadData, refreshMirror, fillPage, saveJob, openReview, type PopupData } from "./actions";
 
 const WEB = "https://kiwiply.com";
@@ -183,14 +183,9 @@ export function PopupApp() {
       )}
 
       {/* Options */}
-      <label className="mt-3.5 flex cursor-pointer items-center justify-between gap-3 rounded-[var(--radius)] border border-line bg-paper-2 px-3 py-2.5">
-        <span className="text-[12.5px] leading-snug text-ink-soft">Auto-advance to next step after filling</span>
-        <span className="relative inline-flex flex-none">
-          <input type="checkbox" className="peer sr-only" checked={autoAdv} onChange={(e) => setAutoAdv(e.target.checked)} />
-          <span className="h-5 w-9 rounded-full bg-line transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent" />
-          <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-paper shadow-[var(--shadow-sm)] transition-transform peer-checked:translate-x-4" />
-        </span>
-      </label>
+      <div className="mt-3.5 rounded-[var(--radius)] border border-line bg-paper-2 px-3 py-2.5">
+        <Switch checked={autoAdv} onCheckedChange={setAutoAdv} label="Auto-advance to next step after filling" />
+      </div>
 
       {/* Primary actions */}
       <div className="mt-3.5 flex flex-col gap-2">

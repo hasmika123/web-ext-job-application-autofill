@@ -89,9 +89,15 @@ Watch: the panel opening on click (gesture); the handoff landing (race handling)
     gear header, `Field`+`Select` resume picker with meta `Badge`s, upload entry, an auto-advance **toggle switch**,
     accent/ghost `Button` actions with a `Spinner`, tokened status line + trust footer. Engine (`actions.ts`) untouched;
     fills edge-to-edge on `--paper` (dark-ready). No version bump (single ship bump at W6.4).
-  - **W5.3 (NEXT)** — redesign the **options/settings** app on the system (sectioned nav, account, AI, filling, bug
-    report; consistent Cards/controls — a shared `Switch`/`Field` pass will help). Then W5.4 side-panel/injected panel,
-    W5.5 state+interaction polish, W5.6 a11y + wire **dark mode** across surfaces, W5.7 visual QA vs the web app.
+  - ✅ **W5.3 DONE** — the **options** page is redesigned (`entrypoints/options/OptionsApp.tsx`): a sticky sectioned
+    **nav rail** beside `Card` sections, all controls unified (shared **`Switch`**, `Field`+`Input`, `Select`, `Button`,
+    account `Badge`). Added the shared `Switch` primitive and retrofit the popup toggle to it. `#bug` deep-link + single
+    Save preserved; `actions.ts` untouched.
+  - **W5.4 (NEXT)** — polish the **side-panel review** (the shared `ResumeUpload` form + panel states in
+    `entrypoints/sidepanel/App.tsx`) and the **injected on-page autofill panel** (Shadow-DOM overlay in the content
+    script) for visual consistency with the web app. Good moment to close the two carried wrinkles: wire the new
+    **`Toast`** into the side panel + make the shared Save button copy mode-aware (attach vs save). Then W5.5 state/
+    interaction polish, W5.6 a11y + wire **dark mode** across surfaces, W5.7 visual QA vs the web app.
   - Two wrinkles to close while redesigning: wire the new **Toast** into the side panel (success is currently silent →
     the "done" view covers it) + make the shared Save button copy mode-aware (reads "Save to my account" in attach mode).
 - **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)
