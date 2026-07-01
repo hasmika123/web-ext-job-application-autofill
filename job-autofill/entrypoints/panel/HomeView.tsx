@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Select, Badge, Spinner, Switch, Skeleton, Check, IconButton } from "@kiwiply/ui";
 import { BrandLogo } from "../../lib/Brand";
 import { closePanel } from "../../lib/panel-frame";
+import { extensionAlive } from "../../lib/ext-context";
 import { loadData, refreshMirror, fillPage, saveJob, readAccount, type HomeData, type Account } from "./home-actions";
 import type { Handoff } from "./services";
 
@@ -37,6 +38,11 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Orphaned drawer (extension reloaded/updated while open) → chrome.* is dead; bow out.
+    if (!extensionAlive()) {
+      closePanel();
+      return;
+    }
     chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
       activeTab.current = tab && tab.id != null ? tab.id : null;
     });
@@ -66,6 +72,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
 
   async function onFill() {
     if (!selectedResume || !data) return;
+    if (!extensionAlive()) return setStatus({ msg: "Kiwiply was updated — close and reopen this drawer.", kind: "err" });
     setBusy(true);
     setStatus({ msg: "Scanning page…", kind: "neutral" });
     const res = await fillPage(selectedResume, data.bio, autoAdv);
@@ -79,6 +86,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   }
 
   async function onSaveJob() {
+    if (!extensionAlive()) return setStatus({ msg: "Kiwiply was updated — close and reopen this drawer.", kind: "err" });
     setBusy(true);
     setStatus({ msg: "Reading this job…", kind: "neutral" });
     const res = await saveJob();
