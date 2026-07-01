@@ -4,6 +4,11 @@ const SCH = window.JAF.schema;
 const JAF = window.JAF;
 const WEB = "https://kiwiply.com";
 
+// The active tab behind the popup — captured on open so opening the side panel can pass a
+// tabId SYNCHRONOUSLY inside the click gesture (chrome.sidePanel.open needs an unbroken user
+// gesture; an `await chrome.tabs.query` first would lose it).
+let activeTabId = null;
+
 // The content script is bundled by WXT into one self-contained file; inject THAT on pages
 // the manifest content_scripts don't already cover (activeTab). It re-runs standalone.
 const CONTENT_FILES = ["content-scripts/content.js"];
@@ -11,6 +16,9 @@ const CONTENT_FILES = ["content-scripts/content.js"];
 const $ = (id) => document.getElementById(id);
 
 async function init() {
+  // Pre-capture the active tab (non-blocking) for the side-panel open gesture (see activeTabId).
+  chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => { activeTabId = tab && tab.id != null ? tab.id : null; }).catch(() => {});
+
   $("manage").onclick = () => chrome.tabs.create({ url: WEB + "/dashboard" });
   $("settings-link").onclick = () => chrome.runtime.openOptionsPage();
   $("bio-warn").onclick = () => chrome.tabs.create({ url: WEB });
@@ -88,70 +96,38 @@ async function init() {
   };
 }
 
-// Keep only the fields the review editor + server care about (drop __rawText/__warning).
-function sanitizeStructured(s) {
-  s = s || {};
-  return {
-    summary: typeof s.summary === "string" ? s.summary : "",
-    skills: Array.isArray(s.skills) ? s.skills.filter((x) => typeof x === "string") : [],
-    experience: Array.isArray(s.experience) ? s.experience : [],
-    education: Array.isArray(s.education) ? s.education : [],
-    languages: Array.isArray(s.languages) ? s.languages : [],
-    projects: Array.isArray(s.projects) ? s.projects : [],
-  };
-}
-
-// Upload on the fly: parse locally, then hand the file + parsed structure to the dedicated
-// review tab. mode "save" → review & save as a library resume; mode "attach" → review, fill
-// THIS job page, and attach the PDF to the resulting application (no resume row). Both need a
-// connected account (save creates a resume; attach uploads the PDF to the application).
-async function openReview(file, mode) {
-  const settings = await S.getSettings();
-  // Authoritative connection check: read the session token directly — exactly what the options
-  // page's "connected" status uses (stored by the kiwiply.com /connect handoff). This avoids any
-  // provider-construction edge that could falsely report "not connected".
-  const tok = await new Promise((res) => chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})));
-  if (!settings.apiBaseUrl || !tok.access) {
-    return setStatus("Connect the extension first — open Settings → “Connect to kiwiply.com”.", true);
-  }
-
-  setStatus("Reading resume…");
-  let structured;
+// Upload on the fly → open the side panel with the SHARED review form. Handoff: the file bytes
+// to a temp IndexedDB key + the meta to chrome.storage.local. The panel PARSES + reviews, then
+// mode "save" → save a library resume; mode "attach" → fill THIS job page + attach the PDF to the
+// resulting application. The panel does its own connection check on save.
+//
+// NOT async on entry: chrome.sidePanel.open must run SYNCHRONOUSLY inside the click gesture (an
+// `await` before it loses the gesture). We open first, then write the handoff the panel waits for.
+function openReview(file, mode) {
   try {
-    structured = await JAF.parser.parse(file, settings);
+    if (activeTabId != null) chrome.sidePanel.open({ tabId: activeTabId });
   } catch (e) {
-    return setStatus("Couldn't read that file: " + (e.message || e), true);
+    /* no gesture / unsupported — the handoff still lands; the panel opens on the next toolbar click */
   }
-
-  // The review tab drives the fill on THIS job tab (mode "attach"), so capture its id now.
-  let jobTabId = null;
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab) jobTabId = tab.id;
-  } catch (e) {
-    /* no active tab — attach mode will warn */
-  }
-
   const label = (file.name || "Resume").replace(/\.[^.]+$/, "").trim() || "Resume";
-  // Handoff: file bytes -> temp IndexedDB key; parsed structure + meta -> chrome.storage.local.
-  await S.saveResumeFile("__pending_review", file);
-  await new Promise((res) =>
-    chrome.storage.local.set(
-      {
-        pendingResumeReview: {
-          structured: sanitizeStructured(structured),
-          label,
-          fileName: file.name,
-          fileType: file.type || "application/pdf",
-          mode: mode === "attach" ? "attach" : "save",
-          jobTabId,
+  return (async () => {
+    await S.saveResumeFile("__pending_review", file); // file bytes -> temp IndexedDB key
+    await new Promise((res) =>
+      chrome.storage.local.set(
+        {
+          pendingResumeReview: {
+            label,
+            fileName: file.name,
+            fileType: file.type || "application/pdf",
+            mode: mode === "attach" ? "attach" : "save",
+            jobTabId: activeTabId,
+          },
         },
-      },
-      () => res(),
-    ),
-  );
-  await chrome.tabs.create({ url: chrome.runtime.getURL("review.html") });
-  window.close();
+        () => res(),
+      ),
+    );
+    window.close();
+  })();
 }
 
 // Read-only mirror: pull the latest profile + resumes from the server (best-effort,

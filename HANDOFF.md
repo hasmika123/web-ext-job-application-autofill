@@ -76,17 +76,19 @@ publish install workspace-root; `job-autofill/package-lock.json` removed). Build
    flow). Extension `tsconfig.json` + `@types/chrome` + a `typecheck` CI gate added. Attach mode is stubbed.
 3. ✅ **W3.3** done — `onSave`'s **attach** branch ported from `review.js` `attachAndFill` into `panel.ts`
    (capture → `pushDraft` → `uploadApplicationAttachment` → fill the job tab → focus). Both save + attach work.
-4. **W3.4 (NEXT)** Wire the popup to the side panel. In `src/popup/popup.js` `openReview(file, mode)`: keep writing
-   the handoff (`chrome.storage.local["pendingResumeReview"]` = `{fileName, fileType, mode, jobTabId}` + the file to
-   the IndexedDB temp key — the pre-parse can be dropped, the panel parses), but replace
-   `chrome.tabs.create(getURL("review.html"))` with **`chrome.sidePanel.open({ tabId })`** called **synchronously
-   in the click handler** (capture `tabId` first — `open()` needs an unbroken user gesture, no `await` before it).
-   Then **remove `entrypoints/review/` + `src/review/*`** (the vanilla tab is superseded). **Only after W3.4 is the
-   panel reachable in Chrome** → do the manual walkthrough (both modes).
-5. **W3.5** Loading/empty/error/cancel polish; verify both modes unpacked.
+4. ✅ **W3.4** done — popup `openReview` opens the side panel (`chrome.sidePanel.open` sync in the gesture,
+   `activeTabId` pre-fetched) + writes the handoff; panel handles the race/re-upload via `storage.onChanged`.
+   Dropped the popup pre-parse/pre-auth; **removed the vanilla review tab** (`entrypoints/review/`, `src/review/`).
+5. **W3.5 (NEXT)** Polish the panel states (loading/empty/**error**/cancel) + close-on-done, then the **manual
+   walkthrough in Chrome** (the panel is reachable now): `cd job-autofill && npm run build`, load
+   `.output/chrome-mv3`, and on a real ATS use popup → **+ Upload a resume** → **Parse & add to list** (save mode:
+   panel opens, parses, review, Save → resume appears in the picker) and **Parse, don't add to list** (attach mode:
+   fills the job tab + attaches the PDF). Watch for: side-panel open needing a user gesture; the handoff race
+   (should be covered); `window.close()` behavior in a side panel (the "done" view is the fallback).
 
-**Note on the handoff:** today `openReview` pre-parses + writes `structured`; the side panel IGNORES that and
-re-parses via `parseFile`. In W3.4 you can drop the popup pre-parse (hand off just the file + meta).
+**Possible W3.5 polish:** a toast/status surface (the form currently has no `toast` service wired → silent
+success), and mode-aware copy (the shared Save button says "Save to my account" even in attach mode — a known
+wrinkle to revisit in the W5 UI overhaul).
 3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
    **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
    `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).

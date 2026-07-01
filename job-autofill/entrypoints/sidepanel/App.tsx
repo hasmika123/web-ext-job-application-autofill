@@ -17,9 +17,28 @@ export function SidePanelApp() {
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
-    readHandoff()
-      .then((h) => setState(h ? { status: "ready", handoff: h } : { status: "empty" }))
-      .catch(() => setState({ status: "empty" }));
+    let alive = true;
+    // The popup opens the panel THEN writes the handoff (MV3 gesture), so it may not be present
+    // yet on mount. load() only promotes to "ready" when found; storage.onChanged catches the
+    // handoff when it lands (and any later re-upload); a timeout falls back to "empty".
+    const load = () => {
+      readHandoff().then((h) => {
+        if (alive && h) setState({ status: "ready", handoff: h });
+      });
+    };
+    load();
+    const onChange = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area === "local" && changes.pendingResumeReview?.newValue) load();
+    };
+    chrome.storage.onChanged.addListener(onChange);
+    const t = setTimeout(() => {
+      if (alive) setState((s) => (s.status === "loading" ? { status: "empty" } : s));
+    }, 4000);
+    return () => {
+      alive = false;
+      chrome.storage.onChanged.removeListener(onChange);
+      clearTimeout(t);
+    };
   }, []);
 
   if (state.status === "ready") {
