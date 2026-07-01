@@ -16,9 +16,9 @@ import {
   Select,
   Switch,
   Badge,
-  BrandLockup,
   inputClass,
 } from "@kiwiply/ui";
+import { BrandLogo } from "../../lib/Brand";
 import { loadSettings, saveSettings, readAccount, signOut, sendBug, WEB, type Settings, type Account } from "./actions";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
 
@@ -124,11 +124,10 @@ export function OptionsApp() {
     <div className="min-h-screen bg-app-bg">
       <main className="mx-auto max-w-[880px] px-6 pb-16 pt-10 font-body text-ink">
         <header className="flex flex-col gap-4">
-          <BrandLockup size={28} wordClassName="text-[21px]" />
+          <BrandLogo height={26} />
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-[.1em] text-accent-deep">Settings</div>
-            <h1 className="mt-1.5 font-display text-[26px] font-semibold leading-tight">Extension settings</h1>
-            <p className="mt-2 max-w-[56ch] text-sm leading-relaxed text-muted">
+            <h1 className="font-display text-[26px] font-semibold leading-tight">Extension settings</h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
               Your profile, resumes, and job board live on <b className="text-ink">kiwiply.com</b>. This page holds the extension&rsquo;s device settings.
             </p>
           </div>

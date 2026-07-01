@@ -5,8 +5,9 @@
  * logic lives in actions.ts (unchanged); this stays presentational.
  */
 import { useEffect, useRef, useState } from "react";
-import { Button, Select, Badge, Spinner, Switch, Skeleton, BrandLockup, Check } from "@kiwiply/ui";
-import { loadData, refreshMirror, fillPage, saveJob, openReview, type PopupData } from "./actions";
+import { Button, Select, Badge, Spinner, Switch, Skeleton, Check } from "@kiwiply/ui";
+import { BrandLogo } from "../../lib/Brand";
+import { loadData, refreshMirror, fillPage, saveJob, openReview, readAccount, type PopupData, type Account } from "./actions";
 
 const WEB = "https://kiwiply.com";
 
@@ -26,6 +27,7 @@ export function PopupApp() {
   const [status, setStatus] = useState<Status>(NEUTRAL);
   const [pending, setPending] = useState<File | null>(null); // chosen file → save/attach choice
   const [busy, setBusy] = useState(false);
+  const [account, setAccount] = useState<Account>({ connected: false, who: "" });
 
   const activeTabId = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -34,6 +36,13 @@ export function PopupApp() {
     chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
       activeTabId.current = tab && tab.id != null ? tab.id : null;
     });
+    readAccount().then(setAccount);
+    // Reflect a connect/disconnect that lands while the popup is open (the web /connect handoff
+    // writes trackingAuth) — the prompt hides and the signed-in identity appears live.
+    const onChange = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area === "local" && changes.trackingAuth) readAccount().then(setAccount);
+    };
+    chrome.storage.onChanged.addListener(onChange);
     (async () => {
       await refreshMirror();
       const d = await loadData();
@@ -43,11 +52,11 @@ export function PopupApp() {
       if (d.settings.lastResumeId && pickable.some((r) => r.id === d.settings.lastResumeId)) setSelectedId(d.settings.lastResumeId);
       else if (pickable.length) setSelectedId(pickable[0].id);
     })();
+    return () => chrome.storage.onChanged.removeListener(onChange);
   }, []);
 
   const pickable = data?.resumes ?? [];
   const selectedResume = pickable.find((r) => r.id === selectedId) ?? null;
-  const hasBio = !!(data?.bio && (data.bio.firstName || data.bio.email));
   const loaded = data !== null;
   const firstName = (data?.bio?.firstName as string) || "";
 
@@ -83,11 +92,22 @@ export function PopupApp() {
 
   return (
     <div className="kiwi-fade-in flex w-[344px] flex-col gap-3 bg-app-bg px-4 pb-3.5 pt-4 font-body text-ink">
-      {/* Header — brand + settings */}
-      <header className="flex items-center justify-between">
-        <BrandLockup size={24} wordClassName="text-[18px]" />
+      {/* Header — real brand lockup + a context subline (same structure as the review panel) */}
+      <header className="flex items-start justify-between">
+        <div className="flex min-w-0 flex-col gap-1">
+          <BrandLogo height={22} />
+          <span className="truncate text-[12px] text-muted">
+            {account.connected ? (
+              <>
+                Signed in as <b className="font-semibold text-ink-soft">{account.who}</b>
+              </>
+            ) : (
+              "Autofill for job applications"
+            )}
+          </span>
+        </div>
         <button
-          className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius)] text-ink-soft transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-ink-soft transition-colors hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           title="Extension settings"
           aria-label="Extension settings"
           onClick={() => chrome.runtime.openOptionsPage()}
@@ -96,8 +116,8 @@ export function PopupApp() {
         </button>
       </header>
 
-      {/* Connect prompt — only until the bio mirror is populated */}
-      {loaded && !hasBio && (
+      {/* Connect prompt — only until an account is connected */}
+      {loaded && !account.connected && (
         <button
           onClick={() => chrome.tabs.create({ url: WEB + "/connect" })}
           className="flex w-full items-start gap-2.5 rounded-[var(--radius-lg)] border border-brown-2 bg-brown-soft px-3.5 py-3 text-left transition-colors hover:border-brown"
@@ -243,11 +263,11 @@ export function PopupApp() {
 function GearIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden>
-      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
       <path
-        d="M19.4 13a7.7 7.7 0 0 0 .05-2l1.6-1.25-1.6-2.77-1.9.77a7.6 7.6 0 0 0-1.73-1l-.29-2.02h-3.2l-.29 2.02c-.62.24-1.2.58-1.73 1l-1.9-.77-1.6 2.77L6.55 11a7.7 7.7 0 0 0 0 2l-1.6 1.25 1.6 2.77 1.9-.77c.53.42 1.11.76 1.73 1l.29 2.02h3.2l.29-2.02c.62-.24 1.2-.58 1.73-1l1.9.77 1.6-2.77L19.4 13Z"
+        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
         stroke="currentColor"
-        strokeWidth="1.6"
+        strokeWidth="1.7"
         strokeLinejoin="round"
       />
     </svg>

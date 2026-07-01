@@ -28,12 +28,15 @@ export function applyResolvedTheme(pref: ThemePref): void {
   document.documentElement.classList.toggle("dark", resolveTheme(pref) === "dark");
 }
 
+// Light is the default appearance for the extension; users opt into System/Dark in options.
+const DEFAULT_PREF: ThemePref = "light";
+
 export function getThemePref(): Promise<ThemePref> {
   return new Promise((res) => {
     try {
-      chrome.storage.local.get(KEY, (o) => res(isPref(o?.[KEY]) ? (o[KEY] as ThemePref) : "system"));
+      chrome.storage.local.get(KEY, (o) => res(isPref(o?.[KEY]) ? (o[KEY] as ThemePref) : DEFAULT_PREF));
     } catch {
-      res("system");
+      res(DEFAULT_PREF);
     }
   });
 }
@@ -55,10 +58,10 @@ export function setThemePref(pref: ThemePref): Promise<void> {
  * pref changing in another surface. Returns a cleanup fn (unused on pages that live until close).
  */
 export function initTheme(): () => void {
-  // Sync default (matchMedia is synchronous) → no round-trip flash for the common "system" case.
-  applyResolvedTheme("system");
+  // Apply the default (light) synchronously → no round-trip flash before the stored pref loads.
+  applyResolvedTheme(DEFAULT_PREF);
 
-  let current: ThemePref = "system";
+  let current: ThemePref = DEFAULT_PREF;
   const refine = async () => {
     current = await getThemePref();
     applyResolvedTheme(current);

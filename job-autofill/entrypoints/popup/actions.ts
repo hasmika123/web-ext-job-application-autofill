@@ -92,6 +92,20 @@ export async function refreshMirror(): Promise<void> {
   }
 }
 
+export type Account = { connected: boolean; who: string };
+
+/**
+ * Read the live connected-account status straight from the session token (not the cached store),
+ * so the connect prompt hides and the signed-in identity shows the moment the web /connect handoff
+ * lands. Mirrors options/actions.ts readAccount.
+ */
+export async function readAccount(): Promise<Account> {
+  const tok: any = await new Promise((res) =>
+    chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})),
+  );
+  return { connected: !!(tok && tok.access), who: tok.username || "your account" };
+}
+
 export type PopupData = { bio: any; resumes: any[]; settings: any };
 
 /** Load the popup's data after the mirror refresh. `resumes` are the pickable (non-archived) ones. */
