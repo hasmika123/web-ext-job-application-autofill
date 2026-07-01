@@ -189,7 +189,7 @@ export default function BugReportWidget() {
                 />
 
                 <label className="mb-4 flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-soft">
-                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-[var(--accent)]" />
+                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-accent)]" />
                   <span>Include this page&apos;s address and my browser info to help us debug.</span>
                 </label>
 

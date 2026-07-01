@@ -73,9 +73,9 @@ export interface WordmarkProps {
 /**
  * Two-tone serif wordmark (prototype `.wm`): green "kiwi" + "ply". Use on DARK
  * surfaces (hero, auth panel) where the raster lockup's charcoal "ply" vanishes —
- * pass `plyColor="var(--hero-ink)"`. Renders in the loaded Fraunces display font.
+ * pass `plyColor="var(--color-hero-ink)"`. Renders in the loaded Fraunces display font.
  */
-export function Wordmark({ plyColor = "var(--ink)", className }: WordmarkProps) {
+export function Wordmark({ plyColor = "var(--color-ink)", className }: WordmarkProps) {
   return (
     <span className={cn("font-display font-bold tracking-[-.01em] leading-none", className)}>
       <span className="text-accent">kiwi</span>

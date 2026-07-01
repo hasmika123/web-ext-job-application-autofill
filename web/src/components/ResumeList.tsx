@@ -129,7 +129,7 @@ function Row({
         checked={selected}
         onChange={onToggleSelect}
         aria-label={`Select ${resume.label}`}
-        className="h-4 w-4 flex-none accent-[var(--accent)]"
+        className="h-4 w-4 flex-none accent-[var(--color-accent)]"
       />
       <FileIcon />
       <div className="min-w-[160px] flex-1">
@@ -402,7 +402,7 @@ export default function ResumeList({
               type="checkbox"
               checked={allVisibleSelected}
               onChange={(e) => setSelected(e.target.checked ? new Set(visibleIds) : new Set())}
-              className="h-4 w-4 accent-[var(--accent)]"
+              className="h-4 w-4 accent-[var(--color-accent)]"
             />
             Select all ({anyVisible})
           </label>

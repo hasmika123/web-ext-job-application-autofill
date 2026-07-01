@@ -11,5 +11,5 @@ body {
 }
 body {
   width: 344px;
-  background: var(--app-bg);
+  background: var(--color-app-bg);
 }

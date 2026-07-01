@@ -9,5 +9,5 @@ body {
   margin: 0;
 }
 body {
-  background: var(--app-bg);
+  background: var(--color-app-bg);
 }

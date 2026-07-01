@@ -197,7 +197,7 @@ export default async function DashboardPage() {
               { icon: "✏️", t: "Edit your profile", s: "Update details & answers", href: "/profile" },
               { icon: "📊", t: "View your board", s: "Every application you've tracked", href: "/board" },
             ].map((a) => (
-              <Link key={a.t} href={a.href} className="flex items-center gap-3 rounded-[var(--radius)] bg-paper-2 p-[13px] transition-colors hover:bg-[var(--brown-soft)]">
+              <Link key={a.t} href={a.href} className="flex items-center gap-3 rounded-[var(--radius)] bg-paper-2 p-[13px] transition-colors hover:bg-[var(--color-brown-soft)]">
                 <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-accent-soft text-[17px]">{a.icon}</span>
                 <div>
                   <div className="text-[13.5px] font-semibold text-ink">{a.t}</div>

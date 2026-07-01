@@ -12,8 +12,8 @@
 @source "../../../packages/ui/src";
 
 body {
-  background: var(--app-bg);
-  color: var(--ink);
+  background: var(--color-app-bg);
+  color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
@@ -22,7 +22,7 @@ body {
    `:where()` keeps specificity 0 so component focus styles still win. Form controls
    (input/select/textarea) keep their own focus treatment. */
 :where(a, button, summary, [role="button"], [role="switch"], [tabindex]):focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 

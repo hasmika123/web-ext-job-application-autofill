@@ -136,7 +136,7 @@ export default function Menu({ trigger, items, align = "end", className }: MenuP
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors " +
                   "focus:outline-none focus-visible:bg-paper-2 disabled:opacity-50 disabled:pointer-events-none",
-                item.danger ? "text-danger hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]" : "text-ink hover:bg-paper-2",
+                item.danger ? "text-danger hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]" : "text-ink hover:bg-paper-2",
               )}
             >
               {item.icon != null && <span className="shrink-0 text-muted">{item.icon}</span>}

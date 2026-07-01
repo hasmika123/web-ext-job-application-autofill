@@ -358,7 +358,7 @@ function SignupForm({ next }: { next?: string }) {
             type="checkbox"
             checked={newsletter}
             onChange={(e) => setNewsletter(e.target.checked)}
-            className="mt-0.5 h-4 w-4 flex-none accent-[var(--accent)]"
+            className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-accent)]"
           />
           <span>Send me occasional product updates and tips (optional). You can unsubscribe anytime.</span>
         </label>
@@ -395,7 +395,7 @@ export default function AuthScreen({ mode, next }: { mode: Mode; next?: string }
       {/* Brand panel (desktop only) */}
       <div
         className="hidden flex-col p-[52px] text-hero-ink lg:flex"
-        style={{ background: "var(--hero-bg)" }}
+        style={{ background: "linear-gradient(165deg, #2D3133, #2F3330, #37322B)" }}
       >
         <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2.5">
           <Image src="/logo-dark-mode.png" alt="Kiwiply" width={108} height={32} priority className="h-8 w-auto" />
@@ -405,15 +405,15 @@ export default function AuthScreen({ mode, next }: { mode: Mode; next?: string }
           <h2 className="max-w-[380px] font-display text-[32px] font-semibold leading-tight">
             Your whole job search, in one tidy file.
           </h2>
-          <p className="mt-4 max-w-[360px] text-[15px] leading-relaxed text-[color-mix(in_srgb,var(--hero-ink)_78%,transparent)]">
+          <p className="mt-4 max-w-[360px] text-[15px] leading-relaxed text-[color-mix(in_srgb,var(--color-hero-ink)_78%,transparent)]">
             Create your profile once and let the extension do the typing. Free to start — no card
             required.
           </p>
         </div>
-        <blockquote className="border-l-[3px] border-accent pl-4 text-sm leading-relaxed text-[color-mix(in_srgb,var(--hero-ink)_82%,transparent)]">
+        <blockquote className="border-l-[3px] border-accent pl-4 text-sm leading-relaxed text-[color-mix(in_srgb,var(--color-hero-ink)_82%,transparent)]">
           &quot;I went from 20 minutes per application to about 90 seconds. The tracker filling
           itself is the part I didn&apos;t know I needed.&quot;
-          <span className="mt-2 block text-[color-mix(in_srgb,var(--hero-ink)_60%,transparent)]">
+          <span className="mt-2 block text-[color-mix(in_srgb,var(--color-hero-ink)_60%,transparent)]">
             — early user
           </span>
         </blockquote>

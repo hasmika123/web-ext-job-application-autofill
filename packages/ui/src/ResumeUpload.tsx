@@ -431,7 +431,7 @@ function ExperienceEditor({
         </div>
       </div>
       <label className="mt-3 flex w-fit items-center gap-2 text-[12.5px] text-ink-soft">
-        <input type="checkbox" checked={exp.current} onChange={(e) => onPatch({ current: e.target.checked })} className="accent-[var(--accent)]" /> Current role
+        <input type="checkbox" checked={exp.current} onChange={(e) => onPatch({ current: e.target.checked })} className="accent-[var(--color-accent)]" /> Current role
       </label>
       <div className="mt-3">
         <BulletList label="Highlights" bullets={exp.bullets} onChange={(next) => onPatch({ bullets: next })} />
@@ -875,7 +875,7 @@ export default function ResumeUpload({
                       className={cn(
                         "rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
                         baseDiffers && !updatingProfile
-                          ? "border-accent bg-accent-soft text-accent-deep hover:bg-[color-mix(in_srgb,var(--accent)_22%,var(--paper))]"
+                          ? "border-accent bg-accent-soft text-accent-deep hover:bg-[color-mix(in_srgb,var(--color-accent)_22%,var(--color-paper))]"
                           : "cursor-not-allowed border-line text-muted opacity-60",
                       )}
                     >

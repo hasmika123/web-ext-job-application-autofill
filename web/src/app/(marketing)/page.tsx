@@ -59,7 +59,7 @@ export default function Home() {
       {/* Hero */}
       <section
         className="relative overflow-hidden"
-        style={{ background: "var(--hero-bg)", color: "var(--hero-ink)" }}
+        style={{ background: "linear-gradient(165deg, #2D3133, #2F3330, #37322B)", color: "var(--color-hero-ink)" }}
       >
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.05fr_.95fr] lg:py-[74px]">
           {/* min-w-0: lets this grid column hold its fr share so the marquee's wide track

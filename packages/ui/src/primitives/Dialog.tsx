@@ -99,7 +99,7 @@ export default function Dialog({
         if (e.target === e.currentTarget) requestClose();
       }}
     >
-      <div className="absolute inset-0 bg-[color-mix(in_srgb,var(--ink)_55%,transparent)]" aria-hidden />
+      <div className="absolute inset-0 bg-[color-mix(in_srgb,var(--color-ink)_55%,transparent)]" aria-hidden />
       <div
         ref={panelRef}
         role="dialog"

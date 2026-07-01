@@ -42,7 +42,7 @@ export interface WordmarkProps {
 }
 
 /** Two-tone serif wordmark: green "kiwi" + "ply". Renders in the display (Fraunces) font. */
-export function Wordmark({ plyColor = "var(--ink)", className }: WordmarkProps) {
+export function Wordmark({ plyColor = "var(--color-ink)", className }: WordmarkProps) {
   return (
     <span className={cn("font-display font-bold tracking-[-.01em] leading-none", className)}>
       <span className="text-accent">kiwi</span>

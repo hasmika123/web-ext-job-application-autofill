@@ -28,12 +28,12 @@ export interface Application {
 
 // Board columns, left to right (the funnel order), each with a status dot color.
 const COLUMNS: { key: string; label: string; dot: string }[] = [
-  { key: "DRAFT", label: "Draft", dot: "var(--brown)" },
-  { key: "SAVED", label: "Saved", dot: "var(--brown-2)" },
-  { key: "APPLIED", label: "Applied", dot: "var(--accent)" },
+  { key: "DRAFT", label: "Draft", dot: "var(--color-brown)" },
+  { key: "SAVED", label: "Saved", dot: "var(--color-brown-2)" },
+  { key: "APPLIED", label: "Applied", dot: "var(--color-accent)" },
   { key: "INTERVIEW", label: "Interview", dot: "#1d4ed8" },
-  { key: "OFFER", label: "Offer", dot: "var(--accent-deep)" },
-  { key: "REJECTED", label: "Rejected", dot: "var(--muted)" },
+  { key: "OFFER", label: "Offer", dot: "var(--color-accent-deep)" },
+  { key: "REJECTED", label: "Rejected", dot: "var(--color-muted)" },
 ];
 const STATUS_LABEL: Record<string, string> = Object.fromEntries(COLUMNS.map((c) => [c.key, c.label]));
 
