@@ -107,10 +107,12 @@ Watch: the panel opening on click (gesture); the handoff landing (race handling)
     *System*, and syncs across open surfaces; `initTheme()` runs in each `main.tsx`. On-page overlay stays light.
     A11y: `aria-live` status regions, `radiogroup`/`aria-current`/`aria-busy`. (NOTE: shared helpers must live OUTSIDE
     `entrypoints/` — WXT treats a bare `entrypoints/*.ts` as an unlisted-script entrypoint.)
-  - **W5.7 (NEXT — needs Chrome)** — **visual QA** vs the web app in **light + dark**: load `.output/chrome-mv3`
-    unpacked, walk popup / options / side-panel review / on-page overlay, toggle the theme, and capture before/after
-    screenshots for the PR. This is the phase that needs the manual walkthrough (surfaces need `chrome.*`). After
-    W5.7, W5 is complete → W6 (Firefox parity, cleanup, docs, ship).
+  - **W5.7 (NEXT — needs Chrome; checklist ready)** — **visual QA** vs the web app in **light + dark**. Follow
+    **`job-autofill/W5-QA.md`** (built into a fresh `.output/chrome-mv3`): load unpacked, walk popup / options /
+    side-panel review / on-page overlay, toggle the theme, check a11y/keyboard/reduced-motion + W0 parity, capture
+    before/after screenshots for PR #22. Log issues in the checklist's Findings; each becomes a `w5.7: fix …` commit;
+    check the box when it passes. This is the only phase that needs the manual walkthrough (surfaces need `chrome.*`).
+    After W5.7, **W5 is complete → W6** (Firefox parity, cleanup, docs, ship).
   - Two wrinkles to close while redesigning: wire the new **Toast** into the side panel (success is currently silent →
     the "done" view covers it) + make the shared Save button copy mode-aware (reads "Save to my account" in attach mode).
 - **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)
