@@ -73,6 +73,11 @@ public class Application implements Serializable {
     @Column(name = "email", length = 254)
     private String email;
 
+    // Captured pay range (free text, e.g. "$120,000 – $150,000/yr"); not always present.
+    @Size(max = 100)
+    @Column(name = "salary", length = 100)
+    private String salary;
+
     // User-pinned favorite.
     @Column(name = "starred")
     private Boolean starred;
@@ -267,6 +272,19 @@ public class Application implements Serializable {
         this.email = email;
     }
 
+    public String getSalary() {
+        return this.salary;
+    }
+
+    public Application salary(String salary) {
+        this.setSalary(salary);
+        return this;
+    }
+
+    public void setSalary(String salary) {
+        this.salary = salary;
+    }
+
     public Boolean getStarred() {
         return this.starred;
     }
@@ -444,6 +462,7 @@ public class Application implements Serializable {
             ", jobType='" + getJobType() + "'" +
             ", jobMode='" + getJobMode() + "'" +
             ", email='" + getEmail() + "'" +
+            ", salary='" + getSalary() + "'" +
             ", starred='" + getStarred() + "'" +
             ", archived='" + getArchived() + "'" +
             ", externalJobId='" + getExternalJobId() + "'" +

@@ -25,6 +25,7 @@ type PutBody = {
   jobType?: unknown;
   jobMode?: unknown;
   email?: unknown;
+  salary?: unknown;
   jobUrl?: unknown;
   jobDescription?: unknown;
 };
@@ -35,6 +36,7 @@ const TEXT_FIELDS: [keyof PutBody, number, boolean][] = [
   ["roleTitle", 200, true],
   ["location", 200, false],
   ["email", 254, false],
+  ["salary", 100, false],
   ["jobUrl", 2000, false],
   ["jobDescription", 20000, false],
 ];

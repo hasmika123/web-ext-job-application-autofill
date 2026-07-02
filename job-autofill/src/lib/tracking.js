@@ -120,6 +120,7 @@
     if (app.jobType != null) dto.jobType = app.jobType;
     if (app.jobMode != null) dto.jobMode = app.jobMode;
     if (app.email != null) dto.email = app.email;
+    if (app.salary != null) dto.salary = app.salary;
     if (app.externalJobId != null) dto.externalJobId = app.externalJobId;
     if (app.atsPlatform != null) dto.atsPlatform = app.atsPlatform;
     if (app.jobDescription != null) dto.jobDescription = app.jobDescription;
@@ -142,6 +143,7 @@
       jobType: dto.jobType,
       jobMode: dto.jobMode,
       email: dto.email,
+      salary: dto.salary,
       externalJobId: dto.externalJobId,
       atsPlatform: dto.atsPlatform,
       jobDescription: dto.jobDescription,

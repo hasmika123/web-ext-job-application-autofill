@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Additive migration: persist the captured pay range on an application (free text, e.g.
+        "$120,000 – $150,000/yr"). The extension already captures it (job-capture.js); this
+        stores it so the board can display it. dossier.jdl is updated separately as documentation.
+    -->
+    <changeSet id="20260703000100-1" author="dossier">
+        <addColumn tableName="application">
+            <column name="salary" type="varchar(100)" />
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

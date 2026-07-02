@@ -19,6 +19,7 @@ export interface Application {
   jobType?: string | null;
   jobMode?: string | null;
   email?: string | null;
+  salary?: string | null;
   externalJobId?: string | null;
   atsPlatform?: string | null;
   jobDescription?: string | null;
@@ -639,6 +640,7 @@ interface NewApplication {
   jobType?: string;
   jobMode?: string;
   email?: string;
+  salary?: string;
   jobDescription?: string;
   resumeId?: number;
   attachmentFile?: File;
@@ -667,6 +669,7 @@ function AddApplicationDialog({
   const [jobType, setJobType] = useState("");
   const [jobMode, setJobMode] = useState("");
   const [email, setEmail] = useState("");
+  const [salary, setSalary] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   // Preselect the user's default resume, if they have one.
   const [resumeId, setResumeId] = useState(() => {
@@ -735,6 +738,7 @@ function AddApplicationDialog({
       jobType: jobType || undefined,
       jobMode: jobMode || undefined,
       email: email.trim() || undefined,
+      salary: salary.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
       resumeId: resumeId ? Number(resumeId) : undefined,
       attachmentFile: attachment ?? undefined,
@@ -798,10 +802,16 @@ function AddApplicationDialog({
               </select>
             </label>
           </div>
-          <label className={labelClass}>
-            Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} placeholder="Defaults to your profile email" />
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={labelClass}>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} placeholder="Defaults to your profile email" />
+            </label>
+            <label className={labelClass}>
+              Salary
+              <input value={salary} onChange={(e) => setSalary(e.target.value)} className={fieldClass} placeholder="$120k – $150k/yr" />
+            </label>
+          </div>
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resume sent</span>
             {resumes.length > 0 && (
@@ -1121,7 +1131,7 @@ function DetailPanel({
   const open = !!app;
   const closeRef = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobType: "", jobMode: "", email: "", jobUrl: "", jobDescription: "" });
+  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobType: "", jobMode: "", email: "", salary: "", jobUrl: "", jobDescription: "" });
   const [descOpen, setDescOpen] = useState(false); // job description collapsed by default
 
   // Reset the transient panel view whenever the selected application changes (render-phase
@@ -1142,6 +1152,7 @@ function DetailPanel({
       jobType: app.jobType ?? "",
       jobMode: app.jobMode ?? "",
       email: app.email ?? "",
+      salary: app.salary ?? "",
       jobUrl: app.jobUrl ?? "",
       jobDescription: app.jobDescription ?? "",
     });
@@ -1158,6 +1169,7 @@ function DetailPanel({
       jobType: form.jobType,
       jobMode: form.jobMode,
       email: form.email.trim(),
+      salary: form.salary.trim(),
       jobUrl: form.jobUrl.trim(),
       jobDescription: form.jobDescription.trim(),
     });
@@ -1255,10 +1267,16 @@ function DetailPanel({
                       </select>
                     </label>
                   </div>
-                  <label className={dLabel}>
-                    Email
-                    <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={dField} placeholder="you@example.com" />
-                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className={dLabel}>
+                      Email
+                      <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={dField} placeholder="you@example.com" />
+                    </label>
+                    <label className={dLabel}>
+                      Salary
+                      <input value={form.salary} onChange={(e) => setForm((f) => ({ ...f, salary: e.target.value }))} className={dField} placeholder="$120k – $150k/yr" />
+                    </label>
+                  </div>
                   <label className={dLabel}>
                     Job URL
                     <input type="url" value={form.jobUrl} onChange={(e) => setForm((f) => ({ ...f, jobUrl: e.target.value }))} className={dField} placeholder="https://…" />
@@ -1295,6 +1313,7 @@ function DetailPanel({
                     {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
                     {app.jobType && JOB_TYPE_LABEL[app.jobType] && (<><dt className="text-muted">Job type</dt><dd className="text-ink">{JOB_TYPE_LABEL[app.jobType]}</dd></>)}
                     {app.jobMode && JOB_MODE_LABEL[app.jobMode] && (<><dt className="text-muted">Job mode</dt><dd className="text-ink">{JOB_MODE_LABEL[app.jobMode]}</dd></>)}
+                    {app.salary && (<><dt className="text-muted">Salary</dt><dd className="text-ink">{app.salary}</dd></>)}
                     {app.email && (<><dt className="text-muted">Email</dt><dd className="break-all text-ink">{app.email}</dd></>)}
                     {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
                     {hostOf(app.jobUrl) && (<><dt className="text-muted">Source</dt><dd className="truncate text-ink">{hostOf(app.jobUrl)}</dd></>)}

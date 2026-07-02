@@ -62,6 +62,7 @@ entity Application {
   jobType JobType                     // employment type (full-time/contract/…)
   jobMode JobMode                     // workplace mode (in-person/hybrid/remote)
   email String maxlength(254)         // email supplied on the application (defaults to profile email)
+  salary String maxlength(100)        // captured pay range (free text)
   starred Boolean                     // user-pinned favorite
   archived Boolean                    // soft-hidden from the active board
   jobUrl String maxlength(1000)

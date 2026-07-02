@@ -20,6 +20,7 @@ type PostBody = {
   jobType?: unknown;
   jobMode?: unknown;
   email?: unknown;
+  salary?: unknown;
   jobDescription?: unknown;
   resumeId?: unknown;
 };
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
   // Email: forward if provided, else the backend defaults it to the user's profile email.
   const email = str(body.email).slice(0, 254);
   if (email) forward.email = email;
+  const salary = str(body.salary).slice(0, 100);
+  if (salary) forward.salary = salary;
   const rid = resumeId(body.resumeId);
   if (rid) forward.resume = { id: rid }; // Spring links it only if the current user owns it
 

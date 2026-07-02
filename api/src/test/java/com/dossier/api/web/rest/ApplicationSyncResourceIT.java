@@ -249,12 +249,14 @@ class ApplicationSyncResourceIT {
         body.put("jobType", "CONTRACT");
         body.put("jobMode", "REMOTE");
         body.put("email", "given@example.com");
+        body.put("salary", "$120,000 – $150,000/yr");
         mockMvc
             .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(body)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.jobType").value("CONTRACT"))
             .andExpect(jsonPath("$.jobMode").value("REMOTE"))
-            .andExpect(jsonPath("$.email").value("given@example.com"));
+            .andExpect(jsonPath("$.email").value("given@example.com"))
+            .andExpect(jsonPath("$.salary").value("$120,000 – $150,000/yr"));
 
         // A partial update can change the enum fields.
         Long id = applicationRepository.findByUserIsCurrentUser().get(0).getId();

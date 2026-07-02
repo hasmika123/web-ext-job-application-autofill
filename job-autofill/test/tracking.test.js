@@ -135,10 +135,10 @@ function mockFetch(handler) {
   ok("applicationToDto stays partial (only set fields sent)", JSON.stringify(partial) === JSON.stringify({ status: "APPLIED" }));
 
   // job type / mode / email round-trip through the DTO mappers.
-  const metaDto = T.applicationToDto({ company: "Acme", roleTitle: "Eng", status: "DRAFT", jobType: "FULL_TIME", jobMode: "REMOTE", email: "a@b.co" });
-  ok("applicationToDto sends jobType/jobMode/email", metaDto.jobType === "FULL_TIME" && metaDto.jobMode === "REMOTE" && metaDto.email === "a@b.co");
-  const metaRt = T.dtoToApplication({ id: 5, company: "Acme", roleTitle: "Eng", status: "DRAFT", jobType: "CONTRACT", jobMode: "HYBRID", email: "x@y.co" });
-  ok("dtoToApplication reads jobType/jobMode/email", metaRt.jobType === "CONTRACT" && metaRt.jobMode === "HYBRID" && metaRt.email === "x@y.co");
+  const metaDto = T.applicationToDto({ company: "Acme", roleTitle: "Eng", status: "DRAFT", jobType: "FULL_TIME", jobMode: "REMOTE", email: "a@b.co", salary: "$120k/yr" });
+  ok("applicationToDto sends jobType/jobMode/email/salary", metaDto.jobType === "FULL_TIME" && metaDto.jobMode === "REMOTE" && metaDto.email === "a@b.co" && metaDto.salary === "$120k/yr");
+  const metaRt = T.dtoToApplication({ id: 5, company: "Acme", roleTitle: "Eng", status: "DRAFT", jobType: "CONTRACT", jobMode: "HYBRID", email: "x@y.co", salary: "$90k/yr" });
+  ok("dtoToApplication reads jobType/jobMode/email/salary", metaRt.jobType === "CONTRACT" && metaRt.jobMode === "HYBRID" && metaRt.email === "x@y.co" && metaRt.salary === "$90k/yr");
 
   /* ---- pushApplication upserts via POST and maps the result back ---- */
   const fetchApp = mockFetch((c) => ({ status: 200, json: { id: 11, company: c.body.company, roleTitle: c.body.roleTitle, externalJobId: c.body.externalJobId, status: c.body.status, resume: c.body.resume } }));
