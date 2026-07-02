@@ -16,6 +16,8 @@ type PutBody = {
   submissionConfirmed?: unknown;
   appliedAt?: unknown;
   resumeId?: unknown;
+  starred?: unknown;
+  archived?: unknown;
   // Manual detail edits from the board's detail panel.
   company?: unknown;
   roleTitle?: unknown;
@@ -58,6 +60,8 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
   }
   if (typeof body.submissionConfirmed === "boolean") forward.submissionConfirmed = body.submissionConfirmed;
   if (typeof body.appliedAt === "string") forward.appliedAt = body.appliedAt;
+  if (typeof body.starred === "boolean") forward.starred = body.starred;
+  if (typeof body.archived === "boolean") forward.archived = body.archived;
   if (body.resumeId !== undefined) {
     const n = typeof body.resumeId === "number" ? body.resumeId : typeof body.resumeId === "string" && /^\d+$/.test(body.resumeId) ? Number(body.resumeId) : NaN;
     if (!Number.isInteger(n) || n <= 0) {
