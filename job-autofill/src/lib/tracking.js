@@ -77,6 +77,7 @@
   function stripLocalResume(resume) {
     const r = Object.assign({}, resume);
     delete r.serverId; delete r.r2ObjectKey; delete r.status; delete r.hasFile; delete r.archived;
+    delete r.starred; delete r.defaultResume;
     return r;
   }
   function resumeToDto(resume) {
@@ -100,6 +101,8 @@
       status: dto.status,
       r2ObjectKey: dto.r2ObjectKey,
       archived: dto.archived,
+      starred: dto.starred,
+      defaultResume: dto.defaultResume,
     });
   }
   // Application (the tracker entry) <-> server ApplicationDTO. Only fields the caller
