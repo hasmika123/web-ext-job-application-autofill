@@ -250,16 +250,20 @@ class ApplicationSyncResourceIT {
         body.put("jobMode", "REMOTE");
         body.put("email", "given@example.com");
         body.put("salary", "$120,000 – $150,000/yr");
-        mockMvc
+        String created = mockMvc
             .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(body)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.jobType").value("CONTRACT"))
             .andExpect(jsonPath("$.jobMode").value("REMOTE"))
             .andExpect(jsonPath("$.email").value("given@example.com"))
-            .andExpect(jsonPath("$.salary").value("$120,000 – $150,000/yr"));
+            .andExpect(jsonPath("$.salary").value("$120,000 – $150,000/yr"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
 
-        // A partial update can change the enum fields.
-        Long id = applicationRepository.findByUserIsCurrentUser().get(0).getId();
+        // A partial update can change the enum fields. Take the id from the response — the
+        // user-scoped repository query needs the request's security context, not the test thread.
+        Long id = om.readTree(created).get("id").asLong();
         mockMvc
             .perform(put("/api/profile/applications/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("jobMode", "HYBRID"))))
             .andExpect(status().isOk())
