@@ -551,6 +551,10 @@ export type ResumeUploadServices = {
   /** Optional: persist edited contact fields to the base profile. When omitted, the
    *  "Detected contact" panel is hidden (e.g. the extension has no in-app base profile). */
   onUpdateProfile?: (merged: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+  /** Optional: mark the just-created resume as the user's default/base resume. When provided,
+   *  a "Set as my default resume" checkbox is shown on CREATE; on save it's called with the new id.
+   *  Omit it (e.g. the extension) to hide the checkbox entirely. */
+  onSetDefault?: (id: number) => Promise<void> | void;
   /** Optional analytics hook (coarse event name only). */
   track?: (event: string) => void;
   /** Optional toast surface. */
@@ -574,6 +578,7 @@ export default function ResumeUpload({
   parseFile,
   onSave,
   onUpdateProfile,
+  onSetDefault,
   track,
   toast,
   onRefresh,
@@ -616,6 +621,7 @@ export default function ResumeUpload({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [setAsDefault, setSetAsDefault] = useState(false); // "Set as my default resume" (create only)
   // Duplicate-name confirmation (create only): first Save on a name that already exists arms this
   // warning; a second Save proceeds. Reset whenever the label changes.
   const [dupConfirm, setDupConfirm] = useState(false);
@@ -758,6 +764,14 @@ export default function ResumeUpload({
         toast?.({ variant: "error", title: "Resume added — with a warning", description: result.warning });
       } else {
         toast?.(savedToast ?? { variant: "success", title: `Saved “${result.label}”`, description: "Added to your account." });
+      }
+      // Opt-in: promote the just-created resume to the user's default (best-effort; it's saved regardless).
+      if (setAsDefault && onSetDefault) {
+        try {
+          await onSetDefault(result.id);
+        } catch {
+          /* the resume was created; the default flag is a follow-up nicety */
+        }
       }
       onSaved?.({ id: result.id, label: result.label });
       if (embedded) {
@@ -948,6 +962,17 @@ export default function ResumeUpload({
                   />
                   {SaveBtn}
                 </div>
+                {!editing && onSetDefault && (
+                  <label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
+                    <input
+                      type="checkbox"
+                      checked={setAsDefault}
+                      onChange={(e) => setSetAsDefault(e.target.checked)}
+                      className="h-4 w-4 accent-[var(--color-accent)]"
+                    />
+                    Set as my default resume
+                  </label>
+                )}
                 {dupConfirm && !saveError && (
                   <p role="alert" className="mt-2 text-sm font-medium text-brown-deep">
                     You already have a resume named “{label.trim() || "Resume"}”. Save anyway, or rename it above.
