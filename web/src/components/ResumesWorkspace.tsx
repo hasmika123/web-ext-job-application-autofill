@@ -5,6 +5,7 @@ import { ResumeUpload, type EditTarget } from "@kiwiply/ui";
 import ResumeList, { type Resume } from "@/components/ResumeList";
 import type { StructuredResume } from "@/lib/parser-core";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
+import { useAiParseConsent, AI_PARSE_LABEL, AI_PARSE_DESCRIPTION } from "@/lib/ai-parse-consent";
 
 type BaseProfile = Record<string, unknown>;
 
@@ -79,6 +80,7 @@ export default function ResumesWorkspace({
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editSeq, setEditSeq] = useState(0);
   const services = useResumeUploadServices();
+  const [aiConsent, setAiConsent] = useAiParseConsent();
 
   const onEdit = (r: Resume) => {
     setEditTarget({ id: r.id, label: r.label, structured: coerceStruct(r.parsedJson) });
@@ -93,6 +95,7 @@ export default function ResumesWorkspace({
         editTarget={editTarget}
         sectionsDefaultOpen
         existingLabels={resumes.map((r) => r.label)}
+        aiParse={{ checked: aiConsent, onChange: setAiConsent, label: AI_PARSE_LABEL, description: AI_PARSE_DESCRIPTION }}
         {...services}
       />
       <ResumeList resumes={resumes} usage={usage} onEdit={onEdit} />
