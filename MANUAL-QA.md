@@ -244,3 +244,35 @@ Backend migration (`application.starred/archived`, `resume.starred/is_default`) 
       "… · default").
 - [ ] In the **extension** drawer (reload the unpacked build first): with no last-used resume, the
       picker **preselects your default resume**.
+
+---
+
+## Batch 7 — Salary on applications + "Set as default" in the upload form (2026-07-01) · extension v0.44.0
+
+Backend migration (`application.salary`) + web board + shared upload form. Deploy the API first.
+
+### 1. Salary shows in the side panel
+- [ ] Web → **Board** → open a card whose posting had a pay range (or add one manually, below) →
+      the detail panel shows a **Salary** row.
+
+### 2. Salary is editable (add + edit)
+- [ ] **+ Add application**: the dialog has a **Salary** field (next to Email). Add one with e.g.
+      `$120k – $150k/yr` → it appears in the new card's detail panel.
+- [ ] Open a card → **Edit details** → the edit form has a **Salary** field → change it → **Save
+      details** → the detail panel reflects the new value.
+
+### 3. Salary auto-capture (extension)
+- [ ] On a job posting that publishes a schema.org `baseSalary` (many Greenhouse/Lever posts) or shows
+      a clear pay range, **Save this job** or fill it → the board entry's detail panel shows the
+      captured **Salary**. (Reload the unpacked v0.44.0 build first.)
+
+### 4. "Set as my default resume" checkbox on upload
+- [ ] Web → **Resumes** → drop a resume → in the review, under **Resume name**, tick **"Set as my
+      default resume"** → **Save**. The saved resume shows the **Default** badge (and any previous
+      default loses it).
+- [ ] Leaving the box unticked saves normally (no default change) — except the very first resume,
+      which still auto-defaults.
+- [ ] Board → **+ Add application** → **+ Upload a new resume** → the same checkbox appears in that
+      embedded review too.
+- [ ] (Extension) The on-the-fly upload in the drawer does **not** show the checkbox (default
+      management stays on the web) — confirm it's absent and the upload still works.
