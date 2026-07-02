@@ -665,6 +665,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-02 · **AI resume parsing (user-directed)** · Branch `feat/llm-resume-parse`. Server-side
+  resume parsing on the existing Gemini seam: `AiProvider.parseResume` (structured-output
+  responseSchema, text or original-PDF mode for scanned/multi-column resumes) + metered
+  consent-gated `POST /api/ai/parse-resume` (one parse = one AI credit). Shared `cleanForLlm`
+  + `looksGarbled` preprocessing in parser-core. Web: opt-in checkbox (remembered) on
+  ResumeUpload → server-first parse w/ heuristic fallback via Next proxy. Extension: `aiParseResume`
+  on the TrackingProvider + parser.js precedence BYO-key > Kiwiply AI > heuristic (v0.45.0).
+  All test suites green (api unit, parser-core 56, tracking 58, web tsc/eslint).
 - 2026-06-30 · **phase9.A4.4 MERGED + DEPLOYED** · PR #14 merged → Brevo list sync + newsletter postal
   address live on prod. Ops done this session: admin MFA enabled on VPS; Brevo `BREVO_API_KEY`/`BREVO_LIST_ID`
   + `NEWSLETTER_POSTAL_ADDRESS` set; admin email → `admin@kiwiply.com` (Cloudflare-routed to
