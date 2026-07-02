@@ -31,6 +31,8 @@ application {
 enum ResumeStatus { NEEDS_REVIEW, CONFIRMED }
 // DRAFT = fill started, submission NOT yet confirmed by the extension.
 enum ApplicationStatus { DRAFT, SAVED, APPLIED, INTERVIEW, OFFER, REJECTED }
+enum JobType { FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP, TEMPORARY, OTHER } // employment type
+enum JobMode { ON_SITE, HYBRID, REMOTE, OTHER }                              // workplace mode
 
 // ---------- entities ----------
 // One bio per user (shared across applications).
@@ -55,6 +57,9 @@ entity Application {
   company String required maxlength(200)
   roleTitle String required maxlength(200)
   location String maxlength(200)      // captured from the job posting
+  jobType JobType                     // employment type (full-time/contract/…)
+  jobMode JobMode                     // workplace mode (in-person/hybrid/remote)
+  email String maxlength(254)         // email supplied on the application (defaults to profile email)
   jobUrl String maxlength(1000)
   externalJobId String maxlength(200) // dedup key (+ jobUrl); upsert on revisit
   atsPlatform String maxlength(100)

@@ -7,6 +7,9 @@ import { serverApiFetch } from "@/lib/api";
  * owns createdAt/updatedAt/user; we only forward the fields a person can fill in.
  */
 const STATUSES = ["DRAFT", "SAVED", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+// Strict enums, mirrored from the backend JobType / JobMode.
+const JOB_TYPES = ["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "TEMPORARY", "OTHER"];
+const JOB_MODES = ["ON_SITE", "HYBRID", "REMOTE", "OTHER"];
 
 type PostBody = {
   company?: unknown;
@@ -14,6 +17,9 @@ type PostBody = {
   status?: unknown;
   jobUrl?: unknown;
   location?: unknown;
+  jobType?: unknown;
+  jobMode?: unknown;
+  email?: unknown;
   jobDescription?: unknown;
   resumeId?: unknown;
 };
@@ -54,6 +60,21 @@ export async function POST(request: Request) {
   if (jobUrl) forward.jobUrl = jobUrl;
   if (location) forward.location = location;
   if (jobDescription) forward.jobDescription = jobDescription;
+
+  // Job type / mode are strict enums; reject unknown values, omit when blank.
+  const jobType = str(body.jobType);
+  if (jobType) {
+    if (!JOB_TYPES.includes(jobType)) return Response.json({ error: "Invalid job type." }, { status: 400 });
+    forward.jobType = jobType;
+  }
+  const jobMode = str(body.jobMode);
+  if (jobMode) {
+    if (!JOB_MODES.includes(jobMode)) return Response.json({ error: "Invalid job mode." }, { status: 400 });
+    forward.jobMode = jobMode;
+  }
+  // Email: forward if provided, else the backend defaults it to the user's profile email.
+  const email = str(body.email).slice(0, 254);
+  if (email) forward.email = email;
   const rid = resumeId(body.resumeId);
   if (rid) forward.resume = { id: rid }; // Spring links it only if the current user owns it
 

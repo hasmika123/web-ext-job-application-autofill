@@ -7,6 +7,9 @@ import { serverApiFetch } from "@/lib/api";
  * Ownership is enforced server-side (404 if not the caller's application).
  */
 const STATUSES = ["DRAFT", "SAVED", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+// Strict enums, mirrored from the backend JobType / JobMode.
+const JOB_TYPES = ["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "TEMPORARY", "OTHER"];
+const JOB_MODES = ["ON_SITE", "HYBRID", "REMOTE", "OTHER"];
 
 type PutBody = {
   status?: unknown;
@@ -17,6 +20,9 @@ type PutBody = {
   company?: unknown;
   roleTitle?: unknown;
   location?: unknown;
+  jobType?: unknown;
+  jobMode?: unknown;
+  email?: unknown;
   jobUrl?: unknown;
   jobDescription?: unknown;
 };
@@ -26,6 +32,7 @@ const TEXT_FIELDS: [keyof PutBody, number, boolean][] = [
   ["company", 200, true],
   ["roleTitle", 200, true],
   ["location", 200, false],
+  ["email", 254, false],
   ["jobUrl", 2000, false],
   ["jobDescription", 20000, false],
 ];
@@ -57,6 +64,20 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
       return Response.json({ error: "Invalid resume id." }, { status: 400 });
     }
     forward.resume = { id: n }; // Spring links it only if the current user owns the resume
+  }
+  // Job type / mode are strict enums; reject unknown values. A blank pick is a no-op (the
+  // partial-update backend can't null an enum), so we simply don't forward it.
+  if (body.jobType !== undefined && body.jobType !== "") {
+    if (typeof body.jobType !== "string" || !JOB_TYPES.includes(body.jobType)) {
+      return Response.json({ error: "Invalid job type." }, { status: 400 });
+    }
+    forward.jobType = body.jobType;
+  }
+  if (body.jobMode !== undefined && body.jobMode !== "") {
+    if (typeof body.jobMode !== "string" || !JOB_MODES.includes(body.jobMode)) {
+      return Response.json({ error: "Invalid job mode." }, { status: 400 });
+    }
+    forward.jobMode = body.jobMode;
   }
   for (const [key, max, required] of TEXT_FIELDS) {
     const raw = body[key];

@@ -1,6 +1,8 @@
 package com.dossier.api.domain;
 
 import com.dossier.api.domain.enumeration.ApplicationStatus;
+import com.dossier.api.domain.enumeration.JobMode;
+import com.dossier.api.domain.enumeration.JobType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -55,6 +57,21 @@ public class Application implements Serializable {
     @Size(max = 200)
     @Column(name = "location", length = 200)
     private String location;
+
+    // Employment type (full-time/contract/…) — strictly-validated enum, stored as varchar.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "job_type", length = 20)
+    private JobType jobType;
+
+    // Workplace mode (in-person/hybrid/remote) — strictly-validated enum, stored as varchar.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "job_mode", length = 20)
+    private JobMode jobMode;
+
+    // The email supplied on this application. Defaults to the user's profile email on create.
+    @Size(max = 254)
+    @Column(name = "email", length = 254)
+    private String email;
 
     // ATS-native job id; with job_url this is the dedup key for the tracker.
     @Size(max = 200)
@@ -201,6 +218,45 @@ public class Application implements Serializable {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public JobType getJobType() {
+        return this.jobType;
+    }
+
+    public Application jobType(JobType jobType) {
+        this.setJobType(jobType);
+        return this;
+    }
+
+    public void setJobType(JobType jobType) {
+        this.jobType = jobType;
+    }
+
+    public JobMode getJobMode() {
+        return this.jobMode;
+    }
+
+    public Application jobMode(JobMode jobMode) {
+        this.setJobMode(jobMode);
+        return this;
+    }
+
+    public void setJobMode(JobMode jobMode) {
+        this.jobMode = jobMode;
+    }
+
+    public String getEmail() {
+        return this.email;
+    }
+
+    public Application email(String email) {
+        this.setEmail(email);
+        return this;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getExternalJobId() {
@@ -351,6 +407,9 @@ public class Application implements Serializable {
             ", roleTitle='" + getRoleTitle() + "'" +
             ", jobUrl='" + getJobUrl() + "'" +
             ", location='" + getLocation() + "'" +
+            ", jobType='" + getJobType() + "'" +
+            ", jobMode='" + getJobMode() + "'" +
+            ", email='" + getEmail() + "'" +
             ", externalJobId='" + getExternalJobId() + "'" +
             ", submissionConfirmed='" + getSubmissionConfirmed() + "'" +
             ", atsPlatform='" + getAtsPlatform() + "'" +

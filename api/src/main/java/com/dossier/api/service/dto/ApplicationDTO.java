@@ -1,6 +1,8 @@
 package com.dossier.api.service.dto;
 
 import com.dossier.api.domain.enumeration.ApplicationStatus;
+import com.dossier.api.domain.enumeration.JobMode;
+import com.dossier.api.domain.enumeration.JobType;
 import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
@@ -28,6 +30,13 @@ public class ApplicationDTO implements Serializable {
 
     @Size(max = 200)
     private String location;
+
+    private JobType jobType;
+
+    private JobMode jobMode;
+
+    @Size(max = 254)
+    private String email;
 
     @Size(max = 200)
     private String externalJobId;
@@ -101,6 +110,30 @@ public class ApplicationDTO implements Serializable {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public JobType getJobType() {
+        return jobType;
+    }
+
+    public void setJobType(JobType jobType) {
+        this.jobType = jobType;
+    }
+
+    public JobMode getJobMode() {
+        return jobMode;
+    }
+
+    public void setJobMode(JobMode jobMode) {
+        this.jobMode = jobMode;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getExternalJobId() {
@@ -229,6 +262,9 @@ public class ApplicationDTO implements Serializable {
             ", roleTitle='" + getRoleTitle() + "'" +
             ", jobUrl='" + getJobUrl() + "'" +
             ", location='" + getLocation() + "'" +
+            ", jobType='" + getJobType() + "'" +
+            ", jobMode='" + getJobMode() + "'" +
+            ", email='" + getEmail() + "'" +
             ", externalJobId='" + getExternalJobId() + "'" +
             ", submissionConfirmed='" + getSubmissionConfirmed() + "'" +
             ", atsPlatform='" + getAtsPlatform() + "'" +

@@ -114,6 +114,9 @@
     if (role != null) dto.roleTitle = role;
     if (app.jobUrl != null) dto.jobUrl = app.jobUrl;
     if (app.location != null) dto.location = app.location;
+    if (app.jobType != null) dto.jobType = app.jobType;
+    if (app.jobMode != null) dto.jobMode = app.jobMode;
+    if (app.email != null) dto.email = app.email;
     if (app.externalJobId != null) dto.externalJobId = app.externalJobId;
     if (app.atsPlatform != null) dto.atsPlatform = app.atsPlatform;
     if (app.jobDescription != null) dto.jobDescription = app.jobDescription;
@@ -133,6 +136,9 @@
       roleTitle: dto.roleTitle,
       jobUrl: dto.jobUrl,
       location: dto.location,
+      jobType: dto.jobType,
+      jobMode: dto.jobMode,
+      email: dto.email,
       externalJobId: dto.externalJobId,
       atsPlatform: dto.atsPlatform,
       jobDescription: dto.jobDescription,

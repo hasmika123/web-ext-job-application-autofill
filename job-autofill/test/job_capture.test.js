@@ -220,6 +220,33 @@ const ASHBY_ID = "0c1d2e3f-aaaa-bbbb-cccc-ddddeeeeffff";
   ok("hasJsonLdJobPosting true on a JobPosting page", ldSig.JAF.jobCapture.hasJsonLdJobPosting(ldSig.document) === true);
   ok("hasJsonLdJobPosting false on a plain page", HS.JAF.jobCapture.hasJsonLdJobPosting(HS.document) === false);
 
+  /* ---- 13. job type / mode: schema.org employmentType + jobLocationType → strict enums ---- */
+  const JC = win("<head></head>").JAF.jobCapture;
+  eq("employmentType FULL_TIME", JC.employmentTypeToJobType("FULL_TIME"), "FULL_TIME");
+  eq("employmentType full-time (loose)", JC.employmentTypeToJobType("Full-time"), "FULL_TIME");
+  eq("employmentType CONTRACTOR → CONTRACT", JC.employmentTypeToJobType("CONTRACTOR"), "CONTRACT");
+  eq("employmentType INTERN → INTERNSHIP", JC.employmentTypeToJobType("INTERN"), "INTERNSHIP");
+  eq("employmentType TEMPORARY", JC.employmentTypeToJobType("TEMPORARY"), "TEMPORARY");
+  eq("employmentType array picks first mappable", JC.employmentTypeToJobType(["PART_TIME", "OTHER"]), "PART_TIME");
+  eq("employmentType unknown non-empty → OTHER", JC.employmentTypeToJobType("SEASONAL"), "OTHER");
+  eq("employmentType empty → undefined", JC.employmentTypeToJobType(""), undefined);
+  eq("jobMode TELECOMMUTE → REMOTE", JC.jobModeFrom("TELECOMMUTE", ""), "REMOTE");
+  eq("jobMode from 'Remote' location text", JC.jobModeFrom(null, "Remote (US)"), "REMOTE");
+  eq("jobMode from 'Hybrid' location text", JC.jobModeFrom(null, "Hybrid — NYC"), "HYBRID");
+  eq("jobMode no signal → undefined (never guesses on-site)", JC.jobModeFrom(null, "New York, NY"), undefined);
+
+  // fromJsonLd surfaces jobType + raw jobLocationType; captureJob resolves jobMode.
+  const meta = win(
+    '<head><script type="application/ld+json">' +
+    JSON.stringify({ "@type": "JobPosting", title: "SRE", hiringOrganization: { name: "Acme" },
+      employmentType: "FULL_TIME", jobLocationType: "TELECOMMUTE" }) +
+    "</script></head>"
+  );
+  eq("fromJsonLd sets jobType", meta.JAF.jobCapture.fromJsonLd(meta.document).jobType, "FULL_TIME");
+  const metaCap = meta.JAF.jobCapture.captureJob({ doc: meta.document, loc: { href: "https://co.example/jobs/1" }, adapter: null });
+  eq("captureJob resolves jobType", metaCap.jobType, "FULL_TIME");
+  eq("captureJob resolves jobMode from TELECOMMUTE", metaCap.jobMode, "REMOTE");
+
   console.log(`\n[job_capture] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[job_capture] All green.");

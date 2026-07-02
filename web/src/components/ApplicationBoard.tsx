@@ -15,6 +15,9 @@ export interface Application {
   roleTitle: string;
   jobUrl?: string | null;
   location?: string | null;
+  jobType?: string | null;
+  jobMode?: string | null;
+  email?: string | null;
   externalJobId?: string | null;
   atsPlatform?: string | null;
   jobDescription?: string | null;
@@ -36,6 +39,25 @@ const COLUMNS: { key: string; label: string; dot: string }[] = [
   { key: "REJECTED", label: "Rejected", dot: "var(--color-muted)" },
 ];
 const STATUS_LABEL: Record<string, string> = Object.fromEntries(COLUMNS.map((c) => [c.key, c.label]));
+
+// Strict enums, mirrored from the backend JobType / JobMode. `value` is the wire/enum name;
+// `label` is what the user sees. Empty string = "unset" (the field is nullable).
+const JOB_TYPES: { value: string; label: string }[] = [
+  { value: "FULL_TIME", label: "Full-time" },
+  { value: "PART_TIME", label: "Part-time" },
+  { value: "CONTRACT", label: "Contract" },
+  { value: "INTERNSHIP", label: "Internship" },
+  { value: "TEMPORARY", label: "Temporary" },
+  { value: "OTHER", label: "Other" },
+];
+const JOB_MODES: { value: string; label: string }[] = [
+  { value: "ON_SITE", label: "In-person" },
+  { value: "HYBRID", label: "Hybrid" },
+  { value: "REMOTE", label: "Remote" },
+  { value: "OTHER", label: "Other" },
+];
+const JOB_TYPE_LABEL: Record<string, string> = Object.fromEntries(JOB_TYPES.map((t) => [t.value, t.label]));
+const JOB_MODE_LABEL: Record<string, string> = Object.fromEntries(JOB_MODES.map((m) => [m.value, m.label]));
 const COL_BY_KEY: Record<string, { key: string; label: string; dot: string }> = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
 // Draft + Saved sit as full-width collapsible ROWS at the top; the funnel stages spread out
 // underneath as a responsive GRID (so the column band never needs a page-level horizontal scroll).
@@ -445,6 +467,9 @@ interface NewApplication {
   status: string;
   jobUrl?: string;
   location?: string;
+  jobType?: string;
+  jobMode?: string;
+  email?: string;
   jobDescription?: string;
   resumeId?: number;
   attachmentFile?: File;
@@ -470,6 +495,9 @@ function AddApplicationDialog({
   const [status, setStatus] = useState("SAVED");
   const [jobUrl, setJobUrl] = useState("");
   const [location, setLocation] = useState("");
+  const [jobType, setJobType] = useState("");
+  const [jobMode, setJobMode] = useState("");
+  const [email, setEmail] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [resumeId, setResumeId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -531,6 +559,9 @@ function AddApplicationDialog({
       status,
       jobUrl: jobUrl.trim() || undefined,
       location: location.trim() || undefined,
+      jobType: jobType || undefined,
+      jobMode: jobMode || undefined,
+      email: email.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
       resumeId: resumeId ? Number(resumeId) : undefined,
       attachmentFile: attachment ?? undefined,
@@ -578,6 +609,26 @@ function AddApplicationDialog({
               <input value={location} onChange={(e) => { setLocation(e.target.value); setDupConfirm(false); }} className={fieldClass} placeholder="Remote · NYC…" />
             </label>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={labelClass}>
+              Job type
+              <select value={jobType} onChange={(e) => setJobType(e.target.value)} className={fieldClass}>
+                <option value="">—</option>
+                {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+              </select>
+            </label>
+            <label className={labelClass}>
+              Job mode
+              <select value={jobMode} onChange={(e) => setJobMode(e.target.value)} className={fieldClass}>
+                <option value="">—</option>
+                {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+              </select>
+            </label>
+          </div>
+          <label className={labelClass}>
+            Email
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} placeholder="Defaults to your profile email" />
+          </label>
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resume sent</span>
             {resumes.length > 0 && (
@@ -734,6 +785,12 @@ function BoardCard({
         {app.atsPlatform && (
           <span className="rounded-[5px] border border-line bg-paper-2 px-1.5 py-0.5 capitalize">{app.atsPlatform}</span>
         )}
+        {app.jobMode && JOB_MODE_LABEL[app.jobMode] && (
+          <span className="rounded-[5px] border border-line bg-paper-2 px-1.5 py-0.5">{JOB_MODE_LABEL[app.jobMode]}</span>
+        )}
+        {app.jobType && JOB_TYPE_LABEL[app.jobType] && (
+          <span className="rounded-[5px] border border-line bg-paper-2 px-1.5 py-0.5">{JOB_TYPE_LABEL[app.jobType]}</span>
+        )}
         {app.location && <span className="truncate">{app.location}</span>}
       </div>
       {app.resume?.label && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">📄 <span className="truncate">{app.resume.label}</span></div>}
@@ -791,7 +848,7 @@ function DetailPanel({
   const open = !!app;
   const closeRef = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobUrl: "", jobDescription: "" });
+  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobType: "", jobMode: "", email: "", jobUrl: "", jobDescription: "" });
   const [resumeOpen, setResumeOpen] = useState(false); // resume preview collapsed by default
   const [descOpen, setDescOpen] = useState(false); // job description collapsed by default
 
@@ -811,6 +868,9 @@ function DetailPanel({
       company: app.company ?? "",
       roleTitle: app.roleTitle ?? "",
       location: app.location ?? "",
+      jobType: app.jobType ?? "",
+      jobMode: app.jobMode ?? "",
+      email: app.email ?? "",
       jobUrl: app.jobUrl ?? "",
       jobDescription: app.jobDescription ?? "",
     });
@@ -820,7 +880,16 @@ function DetailPanel({
     const company = form.company.trim();
     const roleTitle = form.roleTitle.trim();
     if (!company || !roleTitle) return;
-    onSaveDetails({ company, roleTitle, location: form.location.trim(), jobUrl: form.jobUrl.trim(), jobDescription: form.jobDescription.trim() });
+    onSaveDetails({
+      company,
+      roleTitle,
+      location: form.location.trim(),
+      jobType: form.jobType,
+      jobMode: form.jobMode,
+      email: form.email.trim(),
+      jobUrl: form.jobUrl.trim(),
+      jobDescription: form.jobDescription.trim(),
+    });
     setEditing(false);
   }
 
@@ -885,6 +954,26 @@ function DetailPanel({
                     Location
                     <input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className={dField} placeholder="Remote · NYC…" />
                   </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className={dLabel}>
+                      Job type
+                      <select value={form.jobType} onChange={(e) => setForm((f) => ({ ...f, jobType: e.target.value }))} className={dField}>
+                        <option value="">—</option>
+                        {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+                      </select>
+                    </label>
+                    <label className={dLabel}>
+                      Job mode
+                      <select value={form.jobMode} onChange={(e) => setForm((f) => ({ ...f, jobMode: e.target.value }))} className={dField}>
+                        <option value="">—</option>
+                        {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+                      </select>
+                    </label>
+                  </div>
+                  <label className={dLabel}>
+                    Email
+                    <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={dField} placeholder="you@example.com" />
+                  </label>
                   <label className={dLabel}>
                     Job URL
                     <input type="url" value={form.jobUrl} onChange={(e) => setForm((f) => ({ ...f, jobUrl: e.target.value }))} className={dField} placeholder="https://…" />
@@ -919,6 +1008,9 @@ function DetailPanel({
 
                   <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
                     {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
+                    {app.jobType && JOB_TYPE_LABEL[app.jobType] && (<><dt className="text-muted">Job type</dt><dd className="text-ink">{JOB_TYPE_LABEL[app.jobType]}</dd></>)}
+                    {app.jobMode && JOB_MODE_LABEL[app.jobMode] && (<><dt className="text-muted">Job mode</dt><dd className="text-ink">{JOB_MODE_LABEL[app.jobMode]}</dd></>)}
+                    {app.email && (<><dt className="text-muted">Email</dt><dd className="break-all text-ink">{app.email}</dd></>)}
                     {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
                     <dt className="self-center text-muted">Resume sent</dt>
                     <dd className="min-w-0">

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Additive migration: per-application job metadata surfaced on the board.
+        Application gains job_type (employment type) + job_mode (workplace mode),
+        both stored as varchar (strictly-validated JobType/JobMode enums, like
+        ApplicationStatus), and email (the address supplied on the application,
+        defaulted to the user's profile email on create). dossier.jdl is updated
+        separately as documentation.
+    -->
+    <changeSet id="20260702000000-1" author="dossier">
+        <addColumn tableName="application">
+            <column name="job_type" type="varchar(20)" />
+            <column name="job_mode" type="varchar(20)" />
+            <column name="email" type="varchar(254)" />
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
