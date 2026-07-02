@@ -15,7 +15,15 @@ WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages/ui/package.json ./packages/ui/
 COPY web/package.json ./web/
-RUN npm ci
+# job-autofill is also a workspace member, so a root `npm ci` needs its manifest present to
+# resolve the workspace (its deps install into this build stage only — the runtime image is the
+# standalone output, which doesn't carry node_modules).
+COPY job-autofill/package.json ./job-autofill/
+# --ignore-scripts: skip lifecycle scripts at install. Critically, job-autofill's
+# `postinstall: wxt prepare` needs its entrypoints/ source (not copied here) and would fail.
+# The web image only builds WEB (`npm run build -w web` runs web's own scripts), so no install
+# script is needed; native deps still come via optionalDependencies regardless of this flag.
+RUN npm ci --ignore-scripts
 
 # ---- build ----
 FROM node:20-alpine AS build

@@ -87,7 +87,14 @@ export default function ResumesWorkspace({
 
   return (
     <div className="flex flex-col gap-10">
-      <ResumeUpload key={editSeq} baseProfile={baseProfile} editTarget={editTarget} {...services} />
+      <ResumeUpload
+        key={editSeq}
+        baseProfile={baseProfile}
+        editTarget={editTarget}
+        sectionsDefaultOpen
+        existingLabels={resumes.map((r) => r.label)}
+        {...services}
+      />
       <ResumeList resumes={resumes} usage={usage} onEdit={onEdit} />
     </div>
   );

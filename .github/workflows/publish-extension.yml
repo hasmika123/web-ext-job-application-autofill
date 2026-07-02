@@ -31,11 +31,14 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: job-autofill/package-lock.json
+          # job-autofill is a workspace member → install from the ROOT lockfile.
+          cache-dependency-path: package-lock.json
+
+      - name: Install (workspace root)
+        run: npm ci
 
       - name: Test (gate before publishing)
-        run: npm ci && npm test
-        working-directory: job-autofill
+        run: npm test --workspace job-autofill
 
       - name: Inject GA analytics credentials (build-time only)
         # Substitutes the GA4 Measurement Protocol id + api secret into the bundled
@@ -50,11 +53,10 @@ jobs:
         run: node .github/scripts/inject-ga.js
 
       - name: Build extension (WXT)
-        # WXT generates the manifest + bundles everything into .output/chrome-mv3. Runs AFTER
-        # inject-ga so the bundle carries the injected analytics credentials. Deps were already
-        # installed by the test step above (npm ci in job-autofill).
-        run: npm run build
-        working-directory: job-autofill
+        # WXT generates the manifest + bundles everything into job-autofill/.output/chrome-mv3.
+        # Runs AFTER inject-ga so the bundle carries the injected analytics credentials. Deps were
+        # already installed by the workspace-root npm ci above.
+        run: npm run build --workspace job-autofill
 
       - name: Package extension zip
         # The WXT output IS the CWS-ready bundle (manifest.json already at its root). Zip its

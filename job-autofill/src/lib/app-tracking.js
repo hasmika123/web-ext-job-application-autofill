@@ -68,6 +68,9 @@
       status: status || "DRAFT",
       source: "extension",
     };
+    // Salary range if the capture chain found one (schema.org baseSalary / a clear text range).
+    // Only sent when present so the DTO stays clean for backends that don't store it yet.
+    if (nonEmpty(capture.salary)) app.salary = capture.salary;
     if (resume && resume.serverId != null) app.resumeId = resume.serverId;
     return app;
   }

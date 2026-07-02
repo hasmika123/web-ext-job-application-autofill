@@ -139,7 +139,7 @@ export default function AppShell({
         >
           ☰
         </button>
-        <Link href="/dashboard" aria-label="Kiwiply" className="flex items-center gap-2">
+        <Link href="/" aria-label="Kiwiply" className="flex items-center gap-2">
           <Logo height={26} />
           <BetaBadge />
         </Link>
@@ -158,7 +158,7 @@ export default function AppShell({
       >
         {/* Brand — full lockup expanded; kiwi mark when collapsed (lg only) */}
         <Link
-          href="/dashboard"
+          href="/"
           aria-label="Kiwiply"
           onClick={() => setOpen(false)}
           className={cn("mb-4 flex items-center gap-2 px-2", collapsed && "lg:hidden")}
@@ -167,7 +167,7 @@ export default function AppShell({
           <BetaBadge />
         </Link>
         <Link
-          href="/dashboard"
+          href="/"
           aria-label="Kiwiply"
           onClick={() => setOpen(false)}
           className={cn("mb-4 hidden items-center justify-center", collapsed && "lg:flex")}
@@ -226,17 +226,18 @@ export default function AppShell({
 
         <div className="flex-1" />
 
-        {/* User chip */}
-        <div
+        {/* User chip — opens Settings. Sign out stays a separate control below. */}
+        <Link
+          href="/settings"
+          onClick={() => setOpen(false)}
+          aria-label="Account settings"
+          title={collapsed ? displayName(account ?? undefined) : "Account settings"}
           className={cn(
-            "flex items-center gap-2.5 rounded-[var(--radius)] border border-line p-2.5",
+            "flex items-center gap-2.5 rounded-[var(--radius)] border border-line p-2.5 transition-colors hover:bg-paper-2",
             collapsed && "lg:justify-center lg:border-0 lg:p-1",
           )}
         >
-          <span
-            className="grid h-[30px] w-[30px] flex-none place-items-center rounded-full bg-accent text-[13px] font-bold text-on-accent"
-            title={collapsed ? displayName(account ?? undefined) : undefined}
-          >
+          <span className="grid h-[30px] w-[30px] flex-none place-items-center rounded-full bg-accent text-[13px] font-bold text-on-accent">
             {initialFor(account ?? undefined)}
           </span>
           <span
@@ -245,7 +246,7 @@ export default function AppShell({
           >
             {displayName(account ?? undefined)}
           </span>
-        </div>
+        </Link>
         <SignOutButton collapsed={collapsed} />
       </aside>
 

@@ -1,9 +1,52 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
 
 const NUDGE_SEEN_KEY = "kiwiply_bugnudge_seen";
 const NUDGE_LABEL = "Found a bug? Let us know 🐛";
+
+// Draggable position — the button snaps to one of four corners; the choice persists.
+const POS_KEY = "kiwiply_bugpos";
+type Corner = "bottom-right" | "bottom-left" | "top-right" | "top-left";
+const CORNERS: Corner[] = ["bottom-right", "bottom-left", "top-right", "top-left"];
+const OFFSET = 20; // matches the old bottom-5/right-5 (5 * 4px)
+
+function cornerStyle(c: Corner): CSSProperties {
+  return {
+    top: c.startsWith("top") ? OFFSET : undefined,
+    bottom: c.startsWith("bottom") ? OFFSET : undefined,
+    left: c.endsWith("left") ? OFFSET : undefined,
+    right: c.endsWith("right") ? OFFSET : undefined,
+  };
+}
+
+// Persisted corner via an external store (server snapshot = default) — hydrates cleanly without a
+// setState-in-effect, matching the sidebar-collapse pattern in AppShell.
+function subscribePos(cb: () => void) {
+  window.addEventListener("kiwiply:bugpos", cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener("kiwiply:bugpos", cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+function readPos(): Corner {
+  try {
+    const v = localStorage.getItem(POS_KEY);
+    if (v && (CORNERS as string[]).includes(v)) return v as Corner;
+  } catch {
+    /* private mode */
+  }
+  return "bottom-right";
+}
+function writePos(c: Corner) {
+  try {
+    localStorage.setItem(POS_KEY, c);
+  } catch {
+    /* private mode — position just won't persist */
+  }
+  window.dispatchEvent(new Event("kiwiply:bugpos"));
+}
 
 /**
  * Floating "report a bug" button (Phase 9.A5.2) — a persistent circle at the bottom-right that
@@ -21,6 +64,10 @@ export default function BugReportWidget() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nudge, setNudge] = useState(false); // one-time "Found a bug?" bubble on first visit
+  const corner = useSyncExternalStore(subscribePos, readPos, () => "bottom-right" as Corner);
+  const [drag, setDrag] = useState<{ x: number; y: number } | null>(null); // live pointer pos while dragging
+  const draggedRef = useRef(false); // set once a pointerdown turns into a real drag
+  const downRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -96,7 +143,10 @@ export default function BugReportWidget() {
 
   return (
     <>
-      <div className="group fixed bottom-5 right-5 z-[200] flex items-center gap-2">
+      <div
+        className={`group fixed z-[200] flex items-center gap-2 ${corner.endsWith("left") ? "flex-row-reverse" : ""}`}
+        style={drag ? { left: drag.x, top: drag.y, transform: "translate(-50%, -50%)" } : cornerStyle(corner)}
+      >
         {!open &&
           (nudge ? (
             <div className="flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3.5 pr-2 text-[13px] font-medium text-ink shadow-[0_6px_20px_rgba(0,0,0,.18)]">
@@ -117,14 +167,50 @@ export default function BugReportWidget() {
           ))}
         <button
           type="button"
-          aria-label="Report a bug"
-          title="Report a bug"
+          aria-label="Report a bug (drag to move)"
+          title="Report a bug — drag to move"
+          onPointerDown={(e) => {
+            downRef.current = { x: e.clientX, y: e.clientY };
+            draggedRef.current = false;
+            try {
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+            } catch {
+              /* capture is best-effort */
+            }
+          }}
+          onPointerMove={(e) => {
+            if (!downRef.current) return;
+            const dx = e.clientX - downRef.current.x;
+            const dy = e.clientY - downRef.current.y;
+            if (!draggedRef.current && Math.hypot(dx, dy) < 6) return; // ignore tiny jitters (still a click)
+            draggedRef.current = true;
+            setDrag({ x: e.clientX, y: e.clientY });
+          }}
+          onPointerUp={(e) => {
+            if (draggedRef.current) {
+              const c = `${e.clientY < window.innerHeight / 2 ? "top" : "bottom"}-${
+                e.clientX < window.innerWidth / 2 ? "left" : "right"
+              }` as Corner;
+              writePos(c);
+            }
+            setDrag(null);
+            downRef.current = null;
+            try {
+              (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+            } catch {
+              /* best-effort */
+            }
+          }}
           onClick={() => {
+            if (draggedRef.current) {
+              draggedRef.current = false; // a drag just ended — swallow the click
+              return;
+            }
             dismissNudge();
             reset();
             setOpen(true);
           }}
-          className="grid h-13 w-13 flex-none place-items-center rounded-full bg-ink text-paper shadow-[0_6px_20px_rgba(0,0,0,.25)] transition-transform hover:scale-105"
+          className="grid h-13 w-13 flex-none touch-none cursor-grab place-items-center rounded-full bg-ink text-paper shadow-[0_6px_20px_rgba(0,0,0,.25)] transition-transform hover:scale-105 active:cursor-grabbing"
           style={{ height: 52, width: 52 }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
@@ -189,7 +275,7 @@ export default function BugReportWidget() {
                 />
 
                 <label className="mb-4 flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-soft">
-                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-[var(--accent)]" />
+                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-accent)]" />
                   <span>Include this page&apos;s address and my browser info to help us debug.</span>
                 </label>
 

@@ -15,18 +15,22 @@
     },
     plan(values) {
       const f = F();
+      const items = [];
+      const claimed = new Set();
+      // Ashby's single legal-name field is `_systemfield_name` labeled "Legal First and
+      // Last Name" — a FULL name. Claim it as fullName FIRST, so the generic scanner
+      // (which would grab it as lastName from the "…last name" substring) can't win.
+      const nameEl = document.querySelector('input[name="_systemfield_name"]');
+      if (nameEl && B.isFillable(nameEl) && values[f.fullName] !== undefined) {
+        items.push({ el: nameEl, field: f.fullName, value: values[f.fullName], label: "name", kind: "text" });
+        claimed.add(nameEl);
+      }
       // Ashby labels are explicit; reuse the generic scanner scoped to the form.
       const form = document.querySelector("form") || document;
-      const found = B.scanGeneric(form);
-      const items = [];
-      for (const c of found) {
-        if (values[c.field] === undefined) continue;
+      for (const c of B.scanGeneric(form)) {
+        if (claimed.has(c.el) || values[c.field] === undefined) continue;
         items.push({ el: c.el, field: c.field, value: values[c.field], label: c.label, kind: c.kind });
       }
-      // Ashby commonly uses _systemfield_name for the full name.
-      const nameEl = document.querySelector('input[name="_systemfield_name"]');
-      if (nameEl && values[f.fullName] && !items.find((i) => i.el === nameEl))
-        items.push({ el: nameEl, field: f.fullName, value: values[f.fullName], label: "name", kind: "text" });
       return items;
     },
     fileInput() {

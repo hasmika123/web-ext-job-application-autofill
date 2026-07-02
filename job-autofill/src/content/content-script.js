@@ -21,9 +21,13 @@
     }
     if (msg.type === "JAF_CAPTURE_JOB") {
       // Save-a-job (3.3): read the current page into a canonical JobCapture for the popup.
+      // `signal` = does this page strongly look like a job posting/application (used to warn,
+      // never block, before Save/Fill).
       let capture = null;
+      let signal = false;
       try { capture = JAF.jobCapture ? JAF.jobCapture.captureJob() : null; } catch (e) {}
-      sendResponse({ ok: !!capture, capture });
+      try { signal = JAF.jobCapture ? JAF.jobCapture.hasJobSignal() : false; } catch (e) {}
+      sendResponse({ ok: !!capture, capture, signal });
       return true;
     }
     if (msg.type === "JAF_FILL") {

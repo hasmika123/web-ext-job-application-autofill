@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import "@kiwiply/ui/styles/tokens.css";
+@import "@kiwiply/ui/styles/animations.css";
+@source "../../../packages/ui/src";
+
+/* `dark:` utilities track the `.dark` CLASS the theme toggle sets (not the OS scheme). See
+   panel/style.css for the rationale (keeps the light/dark logo swap on the extension theme). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Point the design-system font vars at the bundled brand families (main.tsx imports the
+   Inter + Fraunces @font-face css). Declared via @theme (non-inline) so Tailwind emits them to
+   :root and preserves them — a bare :root block would be stripped by the v4 build. */
+@theme {
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+}
+
+/* The options page opens in a full tab — warm canvas behind the slim card layout. */
+html,
+body {
+  margin: 0;
+}
+body {
+  background: var(--color-app-bg);
+}

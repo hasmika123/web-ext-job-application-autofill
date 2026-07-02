@@ -16,6 +16,9 @@
       const f = F();
       const byName = {
         name: f.fullName, email: f.email, phone: f.phone, org: null,
+        // Lever's "Current location" is an async autocomplete input[name=location];
+        // seed it with the user's city (BUG-2 — it was previously missed entirely).
+        location: f.city,
         "urls[LinkedIn]": f.linkedin, "urls[GitHub]": f.github,
         "urls[Portfolio]": f.website, "urls[Other]": f.website,
       };

@@ -1,0 +1,40 @@
+/* @kiwiply/ui — shared motion. Small, reduced-motion-safe micro-interactions used across the
+ * extension surfaces (mount fade-ins, state-screen transitions). Imported alongside tokens.css
+ * from each surface's Tailwind entry. Plain CSS classes (not Tailwind utilities), so they pass
+ * through untouched; consumers opt in per element (className="kiwi-fade-in").
+ *
+ * Everything here degrades to no motion under prefers-reduced-motion. */
+@keyframes kiwi-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kiwi-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.kiwi-fade-in {
+  animation: kiwi-fade-in 0.2s ease-out both;
+}
+
+.kiwi-slide-up {
+  animation: kiwi-slide-up 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kiwi-fade-in,
+  .kiwi-slide-up {
+    animation: none;
+  }
+}

@@ -107,11 +107,13 @@
       skills: Array.isArray(resume.skills) ? resume.skills.join(", ") : (resume.skills || ""),
     };
     Object.keys(map).forEach((k) => { if (map[k] !== undefined && map[k] !== "") v[k] = map[k]; });
-    if (opts.includeEEO) {
-      [FIELDS.gender, FIELDS.race, FIELDS.ethnicity, FIELDS.veteranStatus, FIELDS.disabilityStatus].forEach((k) => {
-        if (bio[k]) v[k] = bio[k];
-      });
-    }
+    // EEO / demographic self-ID: ALWAYS included when the user has provided it (no
+    // opt-in gate — user decision 2026-07-01: this data is always available). It only
+    // fills where the page actually asks, and the user still reviews/unchecks each value
+    // in the overlay before anything is written. `opts` is retained for call compatibility.
+    [FIELDS.gender, FIELDS.race, FIELDS.ethnicity, FIELDS.veteranStatus, FIELDS.disabilityStatus].forEach((k) => {
+      if (bio[k]) v[k] = bio[k];
+    });
     // structured experience/education travel alongside for adapters that use them
     v.__experience = resume.experience || [];
     v.__education = resume.education || [];

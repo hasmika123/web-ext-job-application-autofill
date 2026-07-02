@@ -1,0 +1,31 @@
+@import "tailwindcss";
+/* Shared brand tokens (palette + shape/elevation + the Tailwind v4 @theme inline mapping) —
+   the same single source the web app uses. */
+@import "@kiwiply/ui/styles/tokens.css";
+/* Shared motion (reduced-motion-safe fade/slide utilities). */
+@import "@kiwiply/ui/styles/animations.css";
+/* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
+   (the ResumeUpload form mounts here), which live outside this extension's source. */
+@source "../../../packages/ui/src";
+
+/* Make `dark:` utilities track the `.dark` CLASS the theme toggle sets (lib/theme.ts), not the
+   OS prefers-color-scheme (v4's default) — otherwise the light/dark logo swap follows the OS
+   instead of the extension's own theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Point the design-system font vars at the bundled brand families (main.tsx imports the
+   Inter + Fraunces @font-face css). Declared via @theme (non-inline) so Tailwind emits them to
+   :root and preserves them — a bare :root block would be stripped by the v4 build. */
+@theme {
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+}
+
+/* The drawer renders inside an iframe (background.ts injects it as an on-page overlay). Kill the
+   default body margin so the app fills the frame edge-to-edge, and paint the warm canvas so there
+   is no white flash before React mounts (token-driven → tracks light/dark). */
+html,
+body {
+  margin: 0;
+  background: var(--color-app-bg);
+}

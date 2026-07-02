@@ -1,7 +1,7 @@
 /* job-capture.js — JAF.jobCapture
  *
  * Reads the current job page and returns a canonical JobCapture DTO for the tracker:
- *   { company, role, location, jobUrl, externalJobId, atsPlatform, jobDescription }
+ *   { company, role, location, jobUrl, externalJobId, atsPlatform, jobDescription, salary }
  *
  * Extractor chain (the ROADMAP order):
  *   1. schema.org/JobPosting JSON-LD  — standardized across most ATS/boards, so it
@@ -41,6 +41,116 @@
       .trim();
     if (!s) return undefined;
     return s.length > MAX_DESC ? s.slice(0, MAX_DESC) : s;
+  }
+
+  // ---- salary (schema.org baseSalary/estimatedSalary + a conservative text fallback) ----
+  const CUR_SYMBOL = {
+    USD: "$", CAD: "C$", AUD: "A$", NZD: "NZ$", GBP: "£", EUR: "€", INR: "₹",
+    JPY: "¥", CNY: "¥", CHF: "CHF ", SEK: "kr ", BRL: "R$", MXN: "MX$", SGD: "S$", ZAR: "R",
+  };
+  const UNIT_SUFFIX = {
+    YEAR: "/yr", ANNUAL: "/yr", HOUR: "/hr", HOURLY: "/hr", MONTH: "/mo", MONTHLY: "/mo",
+    WEEK: "/wk", WEEKLY: "/wk", DAY: "/day", DAILY: "/day",
+  };
+
+  function fmtNum(n) {
+    const x = Number(String(n).replace(/[, ]/g, ""));
+    if (!isFinite(x) || x <= 0) return undefined;
+    return Math.round(x).toLocaleString("en-US");
+  }
+  function curSymbol(c) {
+    if (!c) return "";
+    const s = String(c).trim();
+    const up = s.toUpperCase();
+    if (CUR_SYMBOL[up]) return CUR_SYMBOL[up];
+    if (/^[^\w\s]{1,3}$/.test(s)) return s;        // already a symbol ($, £, €)
+    if (/^[A-Z]{3}$/.test(up)) return up + " ";    // unknown ISO code → "SEK 1,000"
+    return "";
+  }
+  function unitSuffix(u) {
+    if (!u) return "";
+    return UNIT_SUFFIX[String(u).toUpperCase().replace(/[^A-Z]/g, "")] || "";
+  }
+
+  // A schema.org MonetaryAmount (baseSalary/estimatedSalary) → "$120,000 – $150,000/yr".
+  function moneyAmount(m) {
+    if (m == null) return undefined;
+    if (Array.isArray(m)) { for (const x of m) { const r = moneyAmount(x); if (r) return r; } return undefined; }
+    if (typeof m === "number" || typeof m === "string") {
+      const s = str(m);
+      return s && /\d/.test(s) ? s : undefined; // a pre-formatted string like "$120k–$150k/yr"
+    }
+    if (typeof m !== "object") return undefined;
+    const currency = m.currency || m.currencyCode || m.salaryCurrency;
+    let min, max, unit = m.unitText || m.unitCode;
+    const v = m.value;
+    if (v && typeof v === "object") {
+      unit = v.unitText || v.unitCode || unit;
+      if (v.minValue != null || v.maxValue != null) { min = v.minValue; max = v.maxValue; }
+      else if (v.value != null) min = v.value;
+    } else if (v != null) {
+      min = v;
+    } else if (m.minValue != null || m.maxValue != null) {
+      min = m.minValue; max = m.maxValue;
+    }
+    const sym = curSymbol(currency);
+    const nmin = min != null ? fmtNum(min) : undefined;
+    const nmax = max != null ? fmtNum(max) : undefined;
+    if (!nmin && !nmax) return undefined;
+    const range = nmin && nmax && nmin !== nmax ? sym + nmin + " – " + sym + nmax : sym + (nmin || nmax);
+    return (range + unitSuffix(unit)) || undefined;
+  }
+
+  function cleanSalary(s) {
+    return str(
+      String(s)
+        .replace(/\s+/g, " ")
+        .replace(/\s*[-–—]\s*/g, "–") // normalize hyphen/dash ranges
+        .replace(/\s+to\s+/gi, "–")   // "80,000 to 95,000" → "80,000–95,000"
+        .trim(),
+    );
+  }
+
+  // Conservative visible-text fallback for pages that show a salary but publish no JSON-LD amount.
+  // Anchored near a salary keyword (to avoid matching funding/revenue money), or — with no keyword —
+  // only a clear currency RANGE that carries a pay period. Never a bare number. (Dossier rule: we
+  // capture a strong signal, we don't guess.)
+  function salaryFromText(text) {
+    if (!text) return undefined;
+    const t = String(text).replace(/\s+/g, " ").slice(0, 20000);
+    const CUR = "[$£€₹]|USD|GBP|EUR|CAD|AUD|C\\$|A\\$";
+    const BIG = "\\d{2,3}(?:,\\d{3})+|\\d{2,3}(?:\\.\\d+)?\\s?[kK]|\\d{4,6}"; // annual-ish (thousands)
+    const SMALL = "\\d{1,3}(?:\\.\\d{1,2})?"; // hourly-ish (e.g. 25, 25.50)
+    const PERIOD = "(?:\\s?(?:per|/|an?)\\s?(?:year|annum|yr|hour|hr|month|mo|week|wk))";
+    const HOUR = "(?:\\s?(?:per|/|an?)\\s?(?:hour|hr))";
+
+    // Hourly wages use small numbers, so they must ALWAYS carry the hour period (else "$25 fee"
+    // would match). Checked first — it's the most specific, period-gated pattern.
+    const HOURLY = new RegExp(
+      "(?:" + CUR + ")\\s?(?:" + SMALL + ")(?:\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + SMALL + "))?" + HOUR,
+      "i",
+    );
+    const hm = t.match(HOURLY);
+    if (hm) return cleanSalary(hm[0]);
+
+    // Annual/large amounts (thousands), anchored near a salary keyword.
+    const BIGRANGE = new RegExp(
+      "(?:" + CUR + ")\\s?(?:" + BIG + ")(?:\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + BIG + "))?" + PERIOD + "?",
+      "i",
+    );
+    const KW = /salary|salaries|compensation|\bcomp\b|\bpay\b|pay range|pay rate|wage|\bOTE\b|remuneration/i;
+    const kw = t.search(KW);
+    if (kw !== -1) {
+      const m = t.slice(Math.max(0, kw - 20), kw + 160).match(BIGRANGE);
+      if (m) return cleanSalary(m[0]);
+    }
+    // No keyword nearby → require a currency range WITH a pay period, anywhere.
+    const STRICT = new RegExp(
+      "(?:" + CUR + ")\\s?(?:" + BIG + ")\\s?(?:-|–|—|to)\\s?(?:(?:" + CUR + ")\\s?)?(?:" + BIG + ")" + PERIOD,
+      "i",
+    );
+    const m2 = t.match(STRICT);
+    return m2 ? cleanSalary(m2[0]) : undefined;
   }
 
   // ---- 1. schema.org/JobPosting JSON-LD ----------------------------------
@@ -109,6 +219,7 @@
       out.location = jobLocationText(jp.jobLocation || jp.applicantLocationRequirements);
       out.jobDescription = htmlToText(jp.description);
       out.externalJobId = identifierValue(jp.identifier);
+      out.salary = moneyAmount(jp.baseSalary) || moneyAmount(jp.estimatedSalary);
       break; // first JobPosting on the page wins
     }
     return out;
@@ -192,6 +303,35 @@
     return null;
   }
 
+  // ---- job-page signal (soft validation) ---------------------------------
+  // Does this page carry a STRONG signal that it's a job posting / application, as opposed
+  // to just any site? Used to warn (never hard-block) before Save/Fill. A signal is any of:
+  //   • a fillable-ATS adapter matches (Workday/Greenhouse/Lever/Ashby/Workable/Indeed…),
+  //   • the page publishes a schema.org/JobPosting (JSON-LD), or
+  //   • it's a recognized job board (LinkedIn/Indeed/Dice/Google Jobs — by URL shape).
+  // Deliberately ignores the weak og:title/<title> fallback so a generic page isn't a "job".
+  function hasJsonLdJobPosting(doc) {
+    if (!doc || !doc.querySelectorAll) return false;
+    const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      let data;
+      try { data = JSON.parse(s.textContent); } catch (e) { continue; }
+      if (findJobPosting(data)) return true;
+    }
+    return false;
+  }
+
+  function hasJobSignal(opts) {
+    opts = opts || {};
+    const doc = opts.doc || (typeof document !== "undefined" ? document : null);
+    const loc = opts.loc || (typeof location !== "undefined" ? location : {});
+    const adapter = opts.adapter !== undefined ? opts.adapter : detectAdapter();
+    if (adapter) return true;
+    if (hasJsonLdJobPosting(doc)) return true;
+    if (boardCapture(loc).atsPlatform) return true;
+    return false;
+  }
+
   // ---- merge + public entry ----------------------------------------------
   function pick(field, sources) {
     for (const s of sources) {
@@ -221,12 +361,20 @@
     const boards = boardCapture(loc);
     const generic = fromGeneric(doc, loc);
 
+    // Salary: the JSON-LD amount (or an adapter, if any) wins; else scan the page text.
+    let salary = pick("salary", [jsonld, acap, generic]);
+    if (!salary) {
+      const bodyText = doc && doc.body ? doc.body.textContent || "" : "";
+      salary = salaryFromText(bodyText || jsonld.jobDescription);
+    }
+
     return {
       // Descriptive fields: JSON-LD first, then adapter, then generic.
       company: pick("company", [jsonld, acap, generic]),
       role: pick("role", [jsonld, acap, generic]),
       location: pick("location", [jsonld, acap, generic]),
       jobDescription: pick("jobDescription", [jsonld, acap, generic]),
+      salary: salary,
       // Identity: a filled-ATS adapter is authoritative; then the URL-shape board id;
       // then the JSON-LD identifier. (Board id beats JSON-LD's, which can be an internal
       // requisition number — the URL id is what the user sees and what dedups.)
@@ -239,11 +387,15 @@
   JAF.jobCapture = {
     captureJob,
     detectAdapter,
+    hasJobSignal,
     // exposed for tests
     fromJsonLd,
     fromGeneric,
     boardCapture,
     findJobPosting,
+    hasJsonLdJobPosting,
     htmlToText,
+    moneyAmount,
+    salaryFromText,
   };
 })();

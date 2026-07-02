@@ -1,4 +1,5 @@
 import { defineConfig } from "wxt";
+import tailwindcss from "@tailwindcss/vite";
 
 /**
  * WXT build config — W0.2 of the extension UI-platform migration.
@@ -13,9 +14,25 @@ import { defineConfig } from "wxt";
  * `public/` (copied verbatim to the output root, preserving subpaths).
  */
 export default defineConfig({
+  // React for the side panel (W3) — adds @vitejs/plugin-react (JSX + Fast Refresh) + the react
+  // auto-import preset. The engine entrypoints (background/content/popup/options/review) stay
+  // framework-free; only the new React surfaces use it.
+  modules: ["@wxt-dev/module-react"],
+  // Tailwind v4 for the React panels. Create the plugin INSIDE the factory — WXT runs multiple
+  // build steps and a shared stateful plugin instance can fail.
+  vite: () => ({
+    plugins: [tailwindcss()],
+    // Force a SINGLE React copy into the bundle. In the workspace the extension and
+    // @kiwiply/ui can otherwise resolve different physical React installs (root vs
+    // job-autofill/node_modules) → two dispatchers → "Cannot read properties of null
+    // (reading 'useId')" at runtime. Dedupe unifies them at bundle time (also protects CI).
+    resolve: {
+      dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    },
+  }),
   manifest: {
     name: "Kiwiply — Job Application Autofill",
-    version: "0.28.0",
+    version: "0.41.0",
     description:
       "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
     // Preserve the manifest key so the unpacked extension ID stays stable (keeps the
@@ -61,8 +78,11 @@ export default defineConfig({
       ],
     },
     action: {
-      default_title: "Kiwiply — pick a resume and fill",
-      // default_popup is wired automatically from entrypoints/popup.
+      default_title: "Kiwiply — open the autofill drawer",
+      // No default_popup and no native side panel: background.ts's chrome.action.onClicked
+      // injects panel.html as an on-page iframe drawer that floats over the site (see the
+      // panel.html web_accessible_resources entry below). This avoids the native side panel,
+      // which docks and compresses the page.
     },
     icons: {
       16: "icons/icon16.png",
@@ -75,7 +95,10 @@ export default defineConfig({
     // WAR entries are gone — those modules are now bundled into entrypoints, not fetched.
     web_accessible_resources: [
       {
-        resources: ["vendor/*", "icons/*"],
+        // vendor/* (pdf.js dynamic import) + icons/* (fill-overlay logo) are injected into pages;
+        // panel.html is the drawer, embedded as an iframe into the active tab by background.ts
+        // (its own JS/CSS load same-origin from the extension, so only the HTML needs listing).
+        resources: ["vendor/*", "icons/*", "panel.html"],
         matches: ["<all_urls>"],
       },
     ],

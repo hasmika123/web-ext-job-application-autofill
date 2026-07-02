@@ -19,13 +19,29 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
 - `entrypoints/background.ts` — `defineBackground`; side-effect-imports tracking/sync/app-tracking/
   analytics, then `src/background/service-worker.js` (registers all SW listeners). Bundled → `background.js`.
 - `entrypoints/content.ts` — `defineContentScript` (same matches/`all_frames`/`run_at`); imports the
-  18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the popup/review
-  inject via `executeScript` on activeTab pages).
-- `entrypoints/{popup,options,review}/index.html` + `main.js` — each `main.js` side-effect-imports the
-  page's libs in order, then the page script (`src/{popup,options,review}/*.js`, imported as-is). `review`
-  is an unlisted page reached via `getURL("review.html")`.
-- `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*` are web-accessible
-  (`getURL` for pdf.js / the fill-overlay logo). `mammoth` loads as a classic public `<script>` (global).
+  18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the drawer
+  injects via `executeScript` on activeTab pages).
+- `entrypoints/{options,panel}/` — **React** surfaces (`index.html` + `main.tsx` → `engine.ts`
+  loads `window.JAF`, then the App). There is **no popup and no native side panel**: the toolbar
+  icon toggles an **on-page drawer** — `background.ts`'s `chrome.action.onClicked` injects `panel.html`
+  as a fixed, right-edge **iframe overlay** (self-contained `toggleDrawer` via `executeScript`) that
+  floats over the site without resizing it (unlike the native side panel, which docks + compresses).
+  The framed app closes itself by posting a namespaced message the injected host listens for
+  (`lib/panel-frame.ts` `closePanel()`). The drawer (`panel/App.tsx`) routes **home** (`HomeView` —
+  resume picker → scan & fill, save-a-job, account status; logic in `home-actions.ts`) ↔ **review**
+  (the shared `@kiwiply/ui` `ResumeUpload`, seeded in memory from an upload; services in `services.ts`).
+  "Scan & fill" closes the drawer so the on-page fill overlay shows. Options opens as its own tab
+  (`options_ui.open_in_tab`). Both call `initTheme()` before render. Cross-browser (no `chrome.sidePanel`).
+  Both `main.tsx` bundle **Inter + Fraunces** (latin subset, `@fontsource/*`); a per-surface `@theme`
+  override points `--font-body`/`--font-display` at them so headings render in Fraunces + body in Inter
+  (the on-page fill overlay stays on the system stack — shadow-DOM `@font-face` is unreliable). Each
+  surface CSS also sets `@custom-variant dark (&:where(.dark, .dark *))` so Tailwind's `dark:` tracks
+  the `.dark` CLASS (`lib/theme.ts`), not the OS scheme — required for the light/dark logo swap.
+  Icon-only buttons (close, settings) use the shared `IconButton` primitive; the fill overlay mirrors
+  its metrics in CSS.
+- `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*`+`panel.html` are
+  web-accessible (`getURL` for pdf.js / the fill-overlay logo / the drawer iframe). `mammoth` loads as
+  a classic public `<script>` (global).
 - Build: `npm run build` → `.output/chrome-mv3` (gitignored; load THIS unpacked, not the source
   dir). Dev: `npm run dev`. Engine `npm test` is unchanged (the IIFE source files are untouched).
   The legacy root `manifest.json` + `src/{popup,options,review}/*.html` have been **removed** — WXT
@@ -114,7 +130,9 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   tests. The SW wires `extension_install`/`autofill`/`save_job`/`answer_draft`/`application_submitted`.
 - `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
   canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
-  jobDescription). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
+  jobDescription/salary). `salary` = schema.org `baseSalary`/`estimatedSalary` formatted
+  ("$120,000 – $150,000/yr"), else a conservative keyword-anchored text range; flows through
+  `app-tracking.buildApplication` only when present. Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
   active adapter `captureJob({loc})` (authoritative for externalJobId + atsPlatform,
   parsed from the public URL shape) → `boardCapture(loc)` (LinkedIn/Indeed/Dice — they
   have no fill adapter, so recognize them by host + derive {atsPlatform, externalJobId}

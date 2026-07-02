@@ -255,8 +255,10 @@
       if (!res.ok) { await setTokens({}); return false; }
       const json = await parse(res);
       // The server rotates the refresh token on every refresh — store the new one (the
-      // old one is now revoked); fall back to the current one if none is returned.
-      await setTokens({ access: json.accessToken, refresh: json.refreshToken || t.refresh });
+      // old one is now revoked); fall back to the current one if none is returned. Spread the
+      // existing tokens so display-only fields (e.g. `username`, used by the drawer avatar) survive
+      // the refresh instead of reverting to "your account".
+      await setTokens({ ...t, access: json.accessToken, refresh: json.refreshToken || t.refresh });
       return true;
     }
 

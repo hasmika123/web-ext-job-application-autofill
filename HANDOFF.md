@@ -52,9 +52,82 @@ before writing selectors.
 
 ---
 
-## ▶️ KICKSTART — W2.2 (web parity verify + deploy gate)
+## ▶️ KICKSTART — W3 is CODE-COMPLETE → manual walkthrough, then W4
 
-Work on branch **`feat/extension-redesign`**. Full task list: **`EXT-UI-PLATFORM-PLAN.md`** (W2.2 → W3).
+Work on branch **`feat/extension-redesign`** (W0–W2 are **merged to `main` + LIVE**; the branch continues for W3+,
+accumulating on open **PR #22**). Full task list: **`EXT-UI-PLATFORM-PLAN.md`**.
+
+**W2 DONE + DEPLOYED.** `@kiwiply/ui` holds the portable `ResumeUpload`; the web app consumes it and is live.
+**W3 DONE (code).** The extension renders the SHARED React form in a Chrome **side panel** for BOTH on-the-fly
+upload modes (save a library resume / attach-and-fill a job page). `job-autofill/` is a workspace member;
+`entrypoints/sidepanel/` = React + Tailwind v4 (`engine.ts` loads `window.JAF`; `App.tsx` reads the popup handoff
++ owns the loading/empty/error/ready/done states; `panel.ts` = the extension services `parseFile`/`onSave`
+save+attach). Popup opens the panel (`chrome.sidePanel.open`, gesture-safe) + hands off; the old `review.html` tab
+is gone. Extension has a `typecheck` CI gate. All CI green on PR #22.
+
+**▶️ IMMEDIATE GATE — the manual walkthrough (only you can do this; the panel needs a real Chrome):**
+`cd job-autofill && npm run build`, load `job-autofill/.output/chrome-mv3` unpacked. On a real ATS: popup →
+**+ Upload a resume** →
+- **Parse & add to resumes list** (save): the side panel opens, parses, shows the review editor; **Save** → the
+  resume appears in the popup picker.
+- **Parse, don't add to list** (attach): fills the job page (review overlay) + attaches the PDF to the application.
+Watch: the panel opening on click (gesture); the handoff landing (race handling); `window.close()` on done (the
+"done" view is the fallback). Also re-confirm the W0 parity items (autofill / save-a-job / `/connect` / bug report).
+
+**Then — pick the next phase (`EXT-UI-PLATFORM-PLAN.md`):**
+- ✅ **W4 DONE** — popup + options + sidepanel are ALL React now (`entrypoints/*`: each = `index.html` + `main.tsx`
+  → `engine.ts` (`window.JAF`) + `*App.tsx` (UI) + `actions.ts` (engine logic) + Tailwind `style.css`). `src/` is
+  now **engine-only** (background/config/content/lib). The engine stays framework-free.
+- **W5 (IN PROGRESS)** — the **UI overhaul** (`EXT-UI-PLATFORM-PLAN.md` W5.1–W5.7).
+  - ✅ **W5.1 DONE** — `packages/ui` is now a real **design system**: tokens **light + dark** (dark is opt-in via
+    `.dark`/`[data-theme=dark]`; `@theme inline` flips every utility automatically) and now the **single source**
+    (web's `globals.css` imports the package tokens — no more inline dup; `next build` green). Full primitive set added
+    (dependency-free, on the shared tokens): Button, Input, Select, Field, Card, Badge, Tabs, **Toast** (`ToastProvider`
+    +`useToast` — the surface W3 deferred), Skeleton, Spinner, EmptyState, Dialog (focus trap), SidePanel shell,
+    Tooltip, Menu. No surface consumes them yet (bundle tree-shakes them) → no version bump.
+  - ✅ **W5.2 DONE** — the **popup** is redesigned on the system (`entrypoints/popup/PopupApp.tsx`): logo + Manage +
+    gear header, `Field`+`Select` resume picker with meta `Badge`s, upload entry, an auto-advance **toggle switch**,
+    accent/ghost `Button` actions with a `Spinner`, tokened status line + trust footer. Engine (`actions.ts`) untouched;
+    fills edge-to-edge on `--paper` (dark-ready). No version bump (single ship bump at W6.4).
+  - ✅ **W5.3 DONE** — the **options** page is redesigned (`entrypoints/options/OptionsApp.tsx`): a sticky sectioned
+    **nav rail** beside `Card` sections, all controls unified (shared **`Switch`**, `Field`+`Input`, `Select`, `Button`,
+    account `Badge`). Added the shared `Switch` primitive and retrofit the popup toggle to it. `#bug` deep-link + single
+    Save preserved; `actions.ts` untouched.
+  - ✅ **W5.4 DONE** — the **side-panel review** is polished and **both W3 wrinkles are closed**: the shared
+    `ResumeUpload` got optional `saveLabel`/`savedToast` props → mode-aware copy (attach vs save); the side panel is
+    wrapped in `ToastProvider` with a wired `toast` service (success no longer silent); panel states rebuilt on
+    `EmptyState`/`Spinner`. The **injected on-page overlay** (`src/content/filler.js`, Shadow-DOM) got a token
+    consistency fix only — a deeper on-page restyle needs a real ATS (do it during visual QA). Web unaffected.
+  - ✅ **W5.5 DONE** — cross-surface state/interaction polish: shared reduced-motion-safe `animations.css`
+    (`.kiwi-fade-in`/`.kiwi-slide-up`) imported by all 3 surfaces; popup **loading skeleton** + fade-in; options nav
+    **scroll-spy** (active section highlight) + fade-in; keyed **fade-in** on side-panel state screens; `Skeleton`
+    honors `prefers-reduced-motion`.
+  - ✅ **W5.6 DONE** — **dark mode** is wired via a manual **Light / System / Dark** toggle (new *Appearance* section
+    in options). `job-autofill/lib/theme.ts` applies `.dark` on `<html>` from a persisted pref, follows the OS on
+    *System*, and syncs across open surfaces; `initTheme()` runs in each `main.tsx`. On-page overlay stays light.
+    A11y: `aria-live` status regions, `radiogroup`/`aria-current`/`aria-busy`. (NOTE: shared helpers must live OUTSIDE
+    `entrypoints/` — WXT treats a bare `entrypoints/*.ts` as an unlisted-script entrypoint.)
+  - **W5.7 (NEXT — needs Chrome; checklist ready)** — **visual QA** vs the web app in **light + dark**. Follow
+    **`job-autofill/W5-QA.md`** (built into a fresh `.output/chrome-mv3`): load unpacked, walk popup / options /
+    side-panel review / on-page overlay, toggle the theme, check a11y/keyboard/reduced-motion + W0 parity, capture
+    before/after screenshots for PR #22. Log issues in the checklist's Findings; each becomes a `w5.7: fix …` commit;
+    check the box when it passes. This is the only phase that needs the manual walkthrough (surfaces need `chrome.*`).
+    After W5.7, **W5 is complete → W6** (Firefox parity, cleanup, docs, ship).
+  - Two wrinkles to close while redesigning: wire the new **Toast** into the side panel (success is currently silent →
+    the "done" view covers it) + make the shared Save button copy mode-aware (reads "Save to my account" in attach mode).
+- **Merge/ship:** PR #22 is open (accumulating W3+). Merging → deploys a web image rebuild (no web behavior change)
+  + lands the extension changes in `main` (still unshipped — CWS upload is manual, W6.4). Reasonable to merge once
+  the walkthrough passes, or to keep accumulating W5.
+3. **W3.3** Extension `onSave` (logic from `src/review/review.js`): **save** → `createResume`+`uploadResumeFile`+pull;
+   **attach** → capture→`pushDraft`→`uploadApplicationAttachment`→fill `jobTabId`. `parseFile` → the extension's
+   `parser.js`. `onUpdateProfile` omitted (no in-app bio → contact panel hidden).
+4. **W3.4** Popup upload options call `chrome.sidePanel.open({tabId})` + handoff; remove the vanilla `src/review/*`.
+5. **W3.5** Loading/empty/error/cancel; verify both modes unpacked.
+
+Keep web green (it's live). One W0 manual gate still open: load `job-autofill/.output/chrome-mv3` unpacked and walk
+parity (autofill/save-a-job/options/`/connect`/bug/on-the-fly upload).
+
+*(Prior W2.2 deploy gate — now satisfied — kept below for reference.)*
 
 **W0/W1 DONE.** The shared form now lives in `@kiwiply/ui` and **web consumes it**: `ResumeUpload` moved into
 `packages/ui/src` (self-contained primitives + `parser-core` types; parsing is the injected `parseFile` service).
