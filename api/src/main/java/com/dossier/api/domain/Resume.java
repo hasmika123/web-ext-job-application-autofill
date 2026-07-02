@@ -52,6 +52,15 @@ public class Resume implements Serializable {
     @Column(name = "archived")
     private Boolean archived;
 
+    // User-pinned favorite.
+    @Column(name = "starred")
+    private Boolean starred;
+
+    // The user's default/base resume (at most one true per user; column is is_default
+    // because `default` is a reserved word). Preselected in the pickers.
+    @Column(name = "is_default")
+    private Boolean defaultResume;
+
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
 
@@ -148,6 +157,32 @@ public class Resume implements Serializable {
         this.archived = archived;
     }
 
+    public Boolean getStarred() {
+        return this.starred;
+    }
+
+    public Resume starred(Boolean starred) {
+        this.setStarred(starred);
+        return this;
+    }
+
+    public void setStarred(Boolean starred) {
+        this.starred = starred;
+    }
+
+    public Boolean getDefaultResume() {
+        return this.defaultResume;
+    }
+
+    public Resume defaultResume(Boolean defaultResume) {
+        this.setDefaultResume(defaultResume);
+        return this;
+    }
+
+    public void setDefaultResume(Boolean defaultResume) {
+        this.defaultResume = defaultResume;
+    }
+
     public User getUser() {
         return this.user;
     }
@@ -191,6 +226,8 @@ public class Resume implements Serializable {
             ", status='" + getStatus() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", archived='" + getArchived() + "'" +
+            ", starred='" + getStarred() + "'" +
+            ", defaultResume='" + getDefaultResume() + "'" +
             "}";
     }
 }

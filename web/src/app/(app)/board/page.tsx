@@ -16,9 +16,11 @@ export default async function BoardPage() {
 
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
 
-  // Resume options for the board's "which resume did I send?" pickers (id + label only).
-  const rawResumes = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as Array<{ id: number; label?: string | null }>) : [];
-  const resumes = rawResumes.map((r) => ({ id: r.id, label: r.label || `Resume #${r.id}` }));
+  // Resume options for the board's "which resume did I send?" pickers (id + label + default flag).
+  const rawResumes = resumesRes.ok
+    ? ((await resumesRes.json().catch(() => [])) as Array<{ id: number; label?: string | null; defaultResume?: boolean | null }>)
+    : [];
+  const resumes = rawResumes.map((r) => ({ id: r.id, label: r.label || `Resume #${r.id}`, defaultResume: !!r.defaultResume }));
 
   // Base profile bio — lets the on-the-fly resume review offer "update base profile" correctly.
   let baseProfile: Record<string, unknown> = {};

@@ -10,11 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.Application;
+import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.domain.enumeration.ResumeStatus;
 import com.dossier.api.repository.ApplicationRepository;
+import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,6 +55,9 @@ class ApplicationSyncResourceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private BioRepository bioRepository;
 
     private static Map<String, Object> app(String company, String role) {
         Map<String, Object> m = new HashMap<>();
@@ -185,6 +190,25 @@ class ApplicationSyncResourceIT {
 
     @Test
     @Transactional
+    void starAndArchiveArePartialUpdates() throws Exception {
+        Long id = createOne(app("Pied Piper", "Compression Engineer"));
+
+        mockMvc
+            .perform(put("/api/profile/applications/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("starred", true, "archived", true))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.starred").value(true))
+            .andExpect(jsonPath("$.archived").value(true))
+            .andExpect(jsonPath("$.company").value("Pied Piper")); // untouched fields survive
+
+        mockMvc
+            .perform(put("/api/profile/applications/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("archived", false))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.archived").value(false))
+            .andExpect(jsonPath("$.starred").value(true)); // starred untouched by the archive change
+    }
+
+    @Test
+    @Transactional
     void deleteRemovesTheEntry() throws Exception {
         Long id = createOne(app("Umbrella", "Analyst"));
         mockMvc.perform(delete("/api/profile/applications/" + id)).andExpect(status().isNoContent());
@@ -215,6 +239,71 @@ class ApplicationSyncResourceIT {
             .andExpect(status().isNotFound());
         mockMvc.perform(delete("/api/profile/applications/" + adminApp.getId())).andExpect(status().isNotFound());
         assertThat(applicationRepository.findById(adminApp.getId())).isPresent();
+    }
+
+    @Test
+    @Transactional
+    void upsertPersistsJobTypeModeAndEmail() throws Exception {
+        Map<String, Object> body = app("Wonka", "Chocolatier");
+        body.put("externalJobId", "JOB-META");
+        body.put("jobType", "CONTRACT");
+        body.put("jobMode", "REMOTE");
+        body.put("email", "given@example.com");
+        body.put("salary", "$120,000 – $150,000/yr");
+        mockMvc
+            .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(body)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobType").value("CONTRACT"))
+            .andExpect(jsonPath("$.jobMode").value("REMOTE"))
+            .andExpect(jsonPath("$.email").value("given@example.com"))
+            .andExpect(jsonPath("$.salary").value("$120,000 – $150,000/yr"));
+
+        // A partial update can change the enum fields.
+        Long id = applicationRepository.findByUserIsCurrentUser().get(0).getId();
+        mockMvc
+            .perform(put("/api/profile/applications/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("jobMode", "HYBRID"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobMode").value("HYBRID"))
+            .andExpect(jsonPath("$.jobType").value("CONTRACT")); // untouched
+    }
+
+    @Test
+    @Transactional
+    void rejectsAnUnknownJobTypeEnum() throws Exception {
+        Map<String, Object> body = app("Wayne", "Engineer");
+        body.put("jobType", "NOT_A_REAL_TYPE");
+        mockMvc
+            .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(body)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @Transactional
+    void newApplicationDefaultsEmailToProfileEmailButKeepsAnExplicitOne() throws Exception {
+        // Give "user" a profile (bio) whose payload carries an email.
+        User user = userRepository.findOneByLogin("user").orElseThrow();
+        Bio bio = new Bio();
+        bio.setPayload("{\"firstName\":\"Sam\",\"email\":\"profile@example.com\"}");
+        bio.setUpdatedAt(Instant.ofEpochMilli(0));
+        bio.setUser(user);
+        bioRepository.saveAndFlush(bio);
+
+        // A new application with NO email inherits the profile email.
+        Map<String, Object> body = app("Cyberdyne", "Engineer");
+        body.put("externalJobId", "JOB-DEF");
+        mockMvc
+            .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(body)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.email").value("profile@example.com"));
+
+        // An explicit email is NOT overridden by the default.
+        Map<String, Object> given = app("Tyrell", "Designer");
+        given.put("externalJobId", "JOB-DEF-2");
+        given.put("email", "mine@example.com");
+        mockMvc
+            .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(given)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.email").value("mine@example.com"));
     }
 
     // ---- helpers -----------------------------------------------------------

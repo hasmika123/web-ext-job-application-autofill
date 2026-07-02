@@ -1,15 +1,19 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.Application;
+import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.repository.ApplicationRepository;
+import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.ApplicationDTO;
 import com.dossier.api.service.mapper.ApplicationMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
@@ -39,18 +43,24 @@ public class ApplicationSyncService {
     private final ApplicationRepository applicationRepository;
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
+    private final BioRepository bioRepository;
     private final ApplicationMapper applicationMapper;
+    private final ObjectMapper objectMapper;
 
     public ApplicationSyncService(
         ApplicationRepository applicationRepository,
         ResumeRepository resumeRepository,
         UserRepository userRepository,
-        ApplicationMapper applicationMapper
+        BioRepository bioRepository,
+        ApplicationMapper applicationMapper,
+        ObjectMapper objectMapper
     ) {
         this.applicationRepository = applicationRepository;
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
+        this.bioRepository = bioRepository;
         this.applicationMapper = applicationMapper;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -84,6 +94,12 @@ public class ApplicationSyncService {
         if (dto.getRoleTitle() != null) app.setRoleTitle(dto.getRoleTitle());
         if (dto.getJobUrl() != null) app.setJobUrl(dto.getJobUrl());
         if (dto.getLocation() != null) app.setLocation(dto.getLocation());
+        if (dto.getJobType() != null) app.setJobType(dto.getJobType());
+        if (dto.getJobMode() != null) app.setJobMode(dto.getJobMode());
+        if (dto.getEmail() != null) app.setEmail(dto.getEmail());
+        if (dto.getSalary() != null) app.setSalary(dto.getSalary());
+        if (dto.getStarred() != null) app.setStarred(dto.getStarred());
+        if (dto.getArchived() != null) app.setArchived(dto.getArchived());
         if (dto.getExternalJobId() != null) app.setExternalJobId(dto.getExternalJobId());
         if (dto.getAtsPlatform() != null) app.setAtsPlatform(dto.getAtsPlatform());
         if (dto.getJobDescription() != null) app.setJobDescription(dto.getJobDescription());
@@ -92,6 +108,12 @@ public class ApplicationSyncService {
         if (dto.getAppliedAt() != null) app.setAppliedAt(dto.getAppliedAt());
         if (dto.getResume() != null && dto.getResume().getId() != null) {
             app.setResume(ownedResume(dto.getResume().getId()));
+        }
+
+        // Default the application email to the user's profile email on create (when the client
+        // didn't supply one). Existing entries keep whatever they already have.
+        if (existing == null && isBlank(app.getEmail())) {
+            app.setEmail(profileEmail());
         }
 
         // company + roleTitle are genuinely client-required (NOT NULL); fail friendly.
@@ -116,6 +138,12 @@ public class ApplicationSyncService {
         if (dto.getRoleTitle() != null) app.setRoleTitle(dto.getRoleTitle());
         if (dto.getJobUrl() != null) app.setJobUrl(dto.getJobUrl());
         if (dto.getLocation() != null) app.setLocation(dto.getLocation());
+        if (dto.getJobType() != null) app.setJobType(dto.getJobType());
+        if (dto.getJobMode() != null) app.setJobMode(dto.getJobMode());
+        if (dto.getEmail() != null) app.setEmail(dto.getEmail());
+        if (dto.getSalary() != null) app.setSalary(dto.getSalary());
+        if (dto.getStarred() != null) app.setStarred(dto.getStarred());
+        if (dto.getArchived() != null) app.setArchived(dto.getArchived());
         if (dto.getJobDescription() != null) app.setJobDescription(dto.getJobDescription());
         if (dto.getSource() != null) app.setSource(dto.getSource());
         if (dto.getResume() != null && dto.getResume().getId() != null) {
@@ -164,6 +192,27 @@ public class ApplicationSyncService {
             }
         }
         return null;
+    }
+
+    /**
+     * The current user's profile (bio) email, or {@code null} if there's no bio or no email
+     * in it. The bio is stored as an opaque JSON {@code payload} string (see ProfileService),
+     * so we parse it here and read the {@code email} field the extension/web write.
+     */
+    private String profileEmail() {
+        Bio bio = bioRepository.findByUserIsCurrentUser().stream().findFirst().orElse(null);
+        if (bio == null || isBlank(bio.getPayload())) {
+            return null;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(bio.getPayload());
+            JsonNode email = node.get("email");
+            String value = email != null && email.isTextual() ? email.asText() : null;
+            return isBlank(value) ? null : value.trim();
+        } catch (Exception e) {
+            LOG.debug("Could not read profile email from bio payload", e);
+            return null;
+        }
     }
 
     private User currentUser() {

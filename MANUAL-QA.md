@@ -170,3 +170,109 @@ Extension-only. Reload the unpacked extension first.
       shows your username**, not "your account".
 - [ ] (If you can) confirm the same after the browser has been idle and the session silently refreshed
       — the username persists.
+
+---
+
+## Batch 5 — Job type / mode / email on applications (2026-07-01) · extension v0.42.0
+
+Backend migration (`application.job_type`, `job_mode`, `email`) + web board + extension capture.
+Deploy the API (runs the migration) before validating the web bits.
+
+### 1. Manual add shows the new fields
+- [ ] Web → **Board** → **+ Add application**. The dialog has **Job type** and **Job mode** dropdowns
+      (Full-time/Part-time/Contract/Internship/Temporary/Other · In-person/Hybrid/Remote/Other) and an
+      **Email** field (placeholder "Defaults to your profile email").
+- [ ] Add one leaving Email blank → open the card's detail panel → **Email** shows your **profile
+      (bio) email** (set one on the Profile page first). Add another with an explicit email → that one
+      is kept, not overwritten.
+
+### 2. Edit + display
+- [ ] Open a card → **Edit details** → set Job type / Job mode / Email → **Save details**. The detail
+      panel shows Job type, Job mode, Email.
+
+### 3. Extension auto-capture
+- [ ] On a job posting that publishes schema.org `JobPosting` with `employmentType` (many Greenhouse/
+      Lever/LinkedIn posts do), fill or **Save this job** → the board entry shows a **Job type** (and
+      **Remote** mode if the post is `TELECOMMUTE`). Missing/odd values simply stay blank.
+
+---
+
+## Batch 6 — Board declutter, favorites, bulk actions, archive, resume download + default resume (2026-07-01) · extension v0.43.0
+
+Backend migration (`application.starred/archived`, `resume.starred/is_default`) + web board & resumes
++ extension default-resume preselect. Deploy the API before validating.
+
+### 1. Decluttered cards
+- [ ] Web → **Board**. Each card shows only **role**, **company**, and a **date** line
+      (`Applied · <date>` for applied entries, otherwise `Added · <date>`). ATS/location/mode/type/resume
+      details no longer clutter the card face — they live in the side detail panel (click a card).
+
+### 2. Fixed heights + internal scroll
+- [ ] The four funnel columns (Applied/Interview/Offer/Rejected) are all the **same height**; a column
+      with many cards **scrolls internally** rather than stretching the page.
+
+### 3. Star / favorite
+- [ ] Click the **☆** on a card → it fills **★** and the card sorts to the **top** of its column.
+- [ ] Toggle the **★ Starred** chip in the toolbar → only starred entries show.
+- [ ] Reload the page → the starred state persists (saved server-side).
+
+### 4. Per-card ⋯ menu
+- [ ] Click **⋯** on a card → menu opens (not clipped, even for the bottom card of a scrolled column):
+      **Star/Unstar**, **Move to** (each stage), **Archive**, **Delete**. Each works.
+
+### 5. Multi-select bulk actions
+- [ ] Tick the checkboxes on 2–3 cards → a selection toolbar appears (**N selected**).
+- [ ] **Move to…** a stage → all move at once. **Star** / **Unstar** → all toggle. **Archive** →
+      all move to the Archived row. **Delete** → confirm → all removed. **Clear** deselects.
+
+### 6. Archived section
+- [ ] Archive an entry (⋯ → Archive, bulk Archive, or the detail panel **Archive** button). It leaves
+      its column and appears in a collapsible **Archived** row **below** the four funnel columns, with
+      **greyed-out** cards.
+- [ ] Expand Archived → open a card → **Unarchive** (detail panel or ⋯) returns it to its stage.
+
+### 7. Resume download (side panel)
+- [ ] Open a card that has a resume sent (or a one-off attachment) → click **Download resume sent /
+      attached** → the file **downloads** (it no longer expands an inline preview).
+
+### 8. Default / base resume
+- [ ] Web → **Resumes**. Upload your **first** resume → it shows a **Default** badge automatically.
+- [ ] Upload a second → it has a **Set as default** link. Click it → the **Default** badge moves to it
+      and the old default loses the badge (only one default at a time). A success toast confirms.
+- [ ] Star a resume (**★** icon on the row) → persists after reload.
+- [ ] On the **Board** → **+ Add application**, the resume picker **preselects your default** (shown as
+      "… · default").
+- [ ] In the **extension** drawer (reload the unpacked build first): with no last-used resume, the
+      picker **preselects your default resume**.
+
+---
+
+## Batch 7 — Salary on applications + "Set as default" in the upload form (2026-07-01) · extension v0.44.0
+
+Backend migration (`application.salary`) + web board + shared upload form. Deploy the API first.
+
+### 1. Salary shows in the side panel
+- [ ] Web → **Board** → open a card whose posting had a pay range (or add one manually, below) →
+      the detail panel shows a **Salary** row.
+
+### 2. Salary is editable (add + edit)
+- [ ] **+ Add application**: the dialog has a **Salary** field (next to Email). Add one with e.g.
+      `$120k – $150k/yr` → it appears in the new card's detail panel.
+- [ ] Open a card → **Edit details** → the edit form has a **Salary** field → change it → **Save
+      details** → the detail panel reflects the new value.
+
+### 3. Salary auto-capture (extension)
+- [ ] On a job posting that publishes a schema.org `baseSalary` (many Greenhouse/Lever posts) or shows
+      a clear pay range, **Save this job** or fill it → the board entry's detail panel shows the
+      captured **Salary**. (Reload the unpacked v0.44.0 build first.)
+
+### 4. "Set as my default resume" checkbox on upload
+- [ ] Web → **Resumes** → drop a resume → in the review, under **Resume name**, tick **"Set as my
+      default resume"** → **Save**. The saved resume shows the **Default** badge (and any previous
+      default loses it).
+- [ ] Leaving the box unticked saves normally (no default change) — except the very first resume,
+      which still auto-defaults.
+- [ ] Board → **+ Add application** → **+ Upload a new resume** → the same checkbox appears in that
+      embedded review too.
+- [ ] (Extension) The on-the-fly upload in the drawer does **not** show the checkbox (default
+      management stays on the web) — confirm it's absent and the upload still works.

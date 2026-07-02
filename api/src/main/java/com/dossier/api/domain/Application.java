@@ -1,6 +1,8 @@
 package com.dossier.api.domain;
 
 import com.dossier.api.domain.enumeration.ApplicationStatus;
+import com.dossier.api.domain.enumeration.JobMode;
+import com.dossier.api.domain.enumeration.JobType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -55,6 +57,34 @@ public class Application implements Serializable {
     @Size(max = 200)
     @Column(name = "location", length = 200)
     private String location;
+
+    // Employment type (full-time/contract/…) — strictly-validated enum, stored as varchar.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "job_type", length = 20)
+    private JobType jobType;
+
+    // Workplace mode (in-person/hybrid/remote) — strictly-validated enum, stored as varchar.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "job_mode", length = 20)
+    private JobMode jobMode;
+
+    // The email supplied on this application. Defaults to the user's profile email on create.
+    @Size(max = 254)
+    @Column(name = "email", length = 254)
+    private String email;
+
+    // Captured pay range (free text, e.g. "$120,000 – $150,000/yr"); not always present.
+    @Size(max = 100)
+    @Column(name = "salary", length = 100)
+    private String salary;
+
+    // User-pinned favorite.
+    @Column(name = "starred")
+    private Boolean starred;
+
+    // Soft-hidden from the active board (kept, not deleted).
+    @Column(name = "archived")
+    private Boolean archived;
 
     // ATS-native job id; with job_url this is the dedup key for the tracker.
     @Size(max = 200)
@@ -201,6 +231,84 @@ public class Application implements Serializable {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public JobType getJobType() {
+        return this.jobType;
+    }
+
+    public Application jobType(JobType jobType) {
+        this.setJobType(jobType);
+        return this;
+    }
+
+    public void setJobType(JobType jobType) {
+        this.jobType = jobType;
+    }
+
+    public JobMode getJobMode() {
+        return this.jobMode;
+    }
+
+    public Application jobMode(JobMode jobMode) {
+        this.setJobMode(jobMode);
+        return this;
+    }
+
+    public void setJobMode(JobMode jobMode) {
+        this.jobMode = jobMode;
+    }
+
+    public String getEmail() {
+        return this.email;
+    }
+
+    public Application email(String email) {
+        this.setEmail(email);
+        return this;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getSalary() {
+        return this.salary;
+    }
+
+    public Application salary(String salary) {
+        this.setSalary(salary);
+        return this;
+    }
+
+    public void setSalary(String salary) {
+        this.salary = salary;
+    }
+
+    public Boolean getStarred() {
+        return this.starred;
+    }
+
+    public Application starred(Boolean starred) {
+        this.setStarred(starred);
+        return this;
+    }
+
+    public void setStarred(Boolean starred) {
+        this.starred = starred;
+    }
+
+    public Boolean getArchived() {
+        return this.archived;
+    }
+
+    public Application archived(Boolean archived) {
+        this.setArchived(archived);
+        return this;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.archived = archived;
     }
 
     public String getExternalJobId() {
@@ -351,6 +459,12 @@ public class Application implements Serializable {
             ", roleTitle='" + getRoleTitle() + "'" +
             ", jobUrl='" + getJobUrl() + "'" +
             ", location='" + getLocation() + "'" +
+            ", jobType='" + getJobType() + "'" +
+            ", jobMode='" + getJobMode() + "'" +
+            ", email='" + getEmail() + "'" +
+            ", salary='" + getSalary() + "'" +
+            ", starred='" + getStarred() + "'" +
+            ", archived='" + getArchived() + "'" +
             ", externalJobId='" + getExternalJobId() + "'" +
             ", submissionConfirmed='" + getSubmissionConfirmed() + "'" +
             ", atsPlatform='" + getAtsPlatform() + "'" +

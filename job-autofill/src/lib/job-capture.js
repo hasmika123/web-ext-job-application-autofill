@@ -205,6 +205,36 @@
     return str(id.value);
   }
 
+  // schema.org employmentType (FULL_TIME/PART_TIME/CONTRACTOR/TEMPORARY/INTERN/…; may be an
+  // array or comma-joined) → our strict JobType enum name. Anything non-empty that doesn't map
+  // to a named value becomes OTHER (the backend rejects unknown enum names). Undefined = absent.
+  function employmentTypeToJobType(v) {
+    if (Array.isArray(v)) { for (const x of v) { const r = employmentTypeToJobType(x); if (r) return r; } return undefined; }
+    const s = str(v);
+    if (!s) return undefined;
+    const k = s.toUpperCase().replace(/[^A-Z]/g, "");
+    if (/FULLTIME/.test(k)) return "FULL_TIME";
+    if (/PARTTIME/.test(k)) return "PART_TIME";
+    if (/CONTRACT/.test(k)) return "CONTRACT"; // CONTRACTOR / CONTRACT
+    if (/INTERN/.test(k)) return "INTERNSHIP"; // INTERN / INTERNSHIP
+    if (/TEMP/.test(k)) return "TEMPORARY";
+    return "OTHER";
+  }
+
+  // Workplace mode → our strict JobMode enum name. schema.org only reliably signals REMOTE
+  // (jobLocationType == "TELECOMMUTE"); beyond that we read a clear hybrid/remote cue from the
+  // location text. We never guess ON_SITE. Undefined = absent.
+  function jobModeFrom(locationType, locationText) {
+    const lt = str(locationType);
+    if (lt && /TELECOMMUTE|REMOTE/i.test(lt)) return "REMOTE";
+    const t = str(locationText);
+    if (t) {
+      if (/\bhybrid\b/i.test(t)) return "HYBRID";
+      if (/\bremote\b|work from home|\bwfh\b/i.test(t)) return "REMOTE";
+    }
+    return undefined;
+  }
+
   function fromJsonLd(doc) {
     const out = {};
     if (!doc || !doc.querySelectorAll) return out;
@@ -220,6 +250,8 @@
       out.jobDescription = htmlToText(jp.description);
       out.externalJobId = identifierValue(jp.identifier);
       out.salary = moneyAmount(jp.baseSalary) || moneyAmount(jp.estimatedSalary);
+      out.jobType = employmentTypeToJobType(jp.employmentType);
+      out.jobLocationType = str(jp.jobLocationType); // raw; resolved to jobMode in captureJob
       break; // first JobPosting on the page wins
     }
     return out;
@@ -368,11 +400,15 @@
       salary = salaryFromText(bodyText || jsonld.jobDescription);
     }
 
+    const location = pick("location", [jsonld, acap, generic]);
     return {
       // Descriptive fields: JSON-LD first, then adapter, then generic.
       company: pick("company", [jsonld, acap, generic]),
       role: pick("role", [jsonld, acap, generic]),
-      location: pick("location", [jsonld, acap, generic]),
+      location: location,
+      // Job metadata → strict enum names (JobType/JobMode); omitted when not confidently found.
+      jobType: pick("jobType", [jsonld, acap]),
+      jobMode: pick("jobMode", [acap]) || jobModeFrom(jsonld.jobLocationType, location),
       jobDescription: pick("jobDescription", [jsonld, acap, generic]),
       salary: salary,
       // Identity: a filled-ATS adapter is authoritative; then the URL-shape board id;
@@ -397,5 +433,7 @@
     htmlToText,
     moneyAmount,
     salaryFromText,
+    employmentTypeToJobType,
+    jobModeFrom,
   };
 })();

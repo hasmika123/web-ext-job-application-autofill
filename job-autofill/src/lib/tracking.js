@@ -77,6 +77,7 @@
   function stripLocalResume(resume) {
     const r = Object.assign({}, resume);
     delete r.serverId; delete r.r2ObjectKey; delete r.status; delete r.hasFile; delete r.archived;
+    delete r.starred; delete r.defaultResume;
     return r;
   }
   function resumeToDto(resume) {
@@ -100,6 +101,8 @@
       status: dto.status,
       r2ObjectKey: dto.r2ObjectKey,
       archived: dto.archived,
+      starred: dto.starred,
+      defaultResume: dto.defaultResume,
     });
   }
   // Application (the tracker entry) <-> server ApplicationDTO. Only fields the caller
@@ -114,6 +117,10 @@
     if (role != null) dto.roleTitle = role;
     if (app.jobUrl != null) dto.jobUrl = app.jobUrl;
     if (app.location != null) dto.location = app.location;
+    if (app.jobType != null) dto.jobType = app.jobType;
+    if (app.jobMode != null) dto.jobMode = app.jobMode;
+    if (app.email != null) dto.email = app.email;
+    if (app.salary != null) dto.salary = app.salary;
     if (app.externalJobId != null) dto.externalJobId = app.externalJobId;
     if (app.atsPlatform != null) dto.atsPlatform = app.atsPlatform;
     if (app.jobDescription != null) dto.jobDescription = app.jobDescription;
@@ -133,6 +140,10 @@
       roleTitle: dto.roleTitle,
       jobUrl: dto.jobUrl,
       location: dto.location,
+      jobType: dto.jobType,
+      jobMode: dto.jobMode,
+      email: dto.email,
+      salary: dto.salary,
       externalJobId: dto.externalJobId,
       atsPlatform: dto.atsPlatform,
       jobDescription: dto.jobDescription,

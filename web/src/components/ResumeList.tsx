@@ -11,6 +11,8 @@ export interface Resume {
   status?: string | null;
   createdAt?: string | null;
   archived?: boolean | null;
+  starred?: boolean | null;
+  defaultResume?: boolean | null;
   parsedJson?: string | null;
 }
 
@@ -92,6 +94,11 @@ const PencilIcon = () => (
     <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
   </svg>
 );
+const StarIcon = ({ filled }: { filled: boolean }) => (
+  <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={ICON}>
+    <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.8 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z" />
+  </svg>
+);
 
 function Row({
   resume,
@@ -102,6 +109,8 @@ function Row({
   onArchive,
   onDelete,
   onEdit,
+  onStar,
+  onSetDefault,
   guard,
 }: {
   resume: Resume;
@@ -112,9 +121,12 @@ function Row({
   onArchive: () => void;
   onDelete: () => void;
   onEdit?: () => void;
+  onStar: () => void;
+  onSetDefault: () => void;
   guard: string | null;
 }) {
   const archived = !!resume.archived;
+  const isDefault = !!resume.defaultResume;
   const badge = statusBadge(resume.status);
   // The whole card opens the editor (when editable); inner controls stopPropagation below.
   const cardClick = onEdit
@@ -153,6 +165,11 @@ function Row({
       <div className="min-w-[160px] flex-1">
         <div className="flex items-center gap-2 text-[15px] font-bold text-ink">
           <span className="min-w-0 flex-1 truncate" title={resume.label}>{resume.label}</span>
+          {isDefault && (
+            <span className="shrink-0 rounded-full border border-accent bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent-deep">
+              Default
+            </span>
+          )}
           {!archived && badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
         <div className="mt-1 text-[12.5px] text-muted">
@@ -162,6 +179,19 @@ function Row({
             <span className="text-ink-soft">used in {usage} application{usage === 1 ? "" : "s"}</span>
           ) : (
             "not used yet"
+          )}
+          {!archived && !isDefault && (
+            <>
+              {" · "}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onSetDefault(); }}
+                disabled={busy}
+                className="font-semibold text-accent-deep hover:underline disabled:opacity-50"
+              >
+                Set as default
+              </button>
+            </>
           )}
         </div>
         {guard && (
@@ -179,6 +209,11 @@ function Row({
         </Badge>
       )}
       <div className="flex shrink-0 items-center gap-2 self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
+        <IconBtn onClick={onStar} disabled={busy} label={resume.starred ? "Unstar" : "Star"}>
+          <span className={cn(resume.starred && "text-[color:var(--color-accent-deep)]")}>
+            <StarIcon filled={!!resume.starred} />
+          </span>
+        </IconBtn>
         {onEdit && (
           <IconBtn onClick={onEdit} disabled={busy} label="Edit">
             <PencilIcon />
@@ -261,6 +296,34 @@ export default function ResumeList({
       return "guard";
     }
     return "error";
+  }
+
+  async function rowStar(r: Resume) {
+    setRowBusy([r.id], true);
+    const res = await fetch(`/api/resumes/${r.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ starred: !r.starred }),
+    });
+    setRowBusy([r.id], false);
+    if (res.ok) router.refresh();
+    else toast({ variant: "error", title: "Couldn't update the resume." });
+  }
+
+  async function rowSetDefault(r: Resume) {
+    setRowBusy([r.id], true);
+    const res = await fetch(`/api/resumes/${r.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ defaultResume: true }),
+    });
+    setRowBusy([r.id], false);
+    if (res.ok) {
+      toast({ variant: "success", title: `“${r.label}” is now your default resume` });
+      router.refresh();
+    } else {
+      toast({ variant: "error", title: "Couldn't set the default resume." });
+    }
   }
 
   async function rowArchive(r: Resume) {
@@ -375,6 +438,8 @@ export default function ResumeList({
       onArchive={() => rowArchive(r)}
       onDelete={() => rowDelete(r)}
       onEdit={onEdit ? () => onEdit(r) : undefined}
+      onStar={() => rowStar(r)}
+      onSetDefault={() => rowSetDefault(r)}
       guard={guards[r.id] || null}
     />
   );

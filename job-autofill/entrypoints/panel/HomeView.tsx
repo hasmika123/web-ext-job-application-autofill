@@ -66,8 +66,14 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
       setData(d);
       setAutoAdv(!!d.settings.autoAdvance);
       const pickable = d.resumes;
-      if (d.settings.lastResumeId && pickable.some((r) => r.id === d.settings.lastResumeId)) setSelectedId(d.settings.lastResumeId);
-      else if (pickable.length) setSelectedId(pickable[0].id);
+      // Preselect: the last-used resume if still available, else the user's default/base resume,
+      // else the first one.
+      if (d.settings.lastResumeId && pickable.some((r) => r.id === d.settings.lastResumeId)) {
+        setSelectedId(d.settings.lastResumeId);
+      } else {
+        const preferred = pickable.find((r) => r.defaultResume) ?? pickable[0];
+        if (preferred) setSelectedId(preferred.id);
+      }
     })();
     return () => chrome.storage.onChanged.removeListener(onChange);
   }, []);

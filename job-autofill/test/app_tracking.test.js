@@ -74,6 +74,12 @@ function docWith(text) {
   ok("draft omits salary when absent", !("salary" in A.buildApplicationDraft({ company: "A", role: "B" }, null)));
   ok("draft omits blank salary", !("salary" in A.buildApplicationDraft({ company: "A", role: "B", salary: "  " }, null)));
 
+  /* ---- job type / mode flow through from the capture ---- */
+  const meta = A.buildApplicationDraft({ company: "A", role: "B", jobType: "FULL_TIME", jobMode: "REMOTE" }, null);
+  ok("draft carries jobType/jobMode when captured", meta.jobType === "FULL_TIME" && meta.jobMode === "REMOTE");
+  const noMeta = A.buildApplicationDraft({ company: "A", role: "B" }, null);
+  ok("draft leaves jobType/jobMode undefined when absent", noMeta.jobType === undefined && noMeta.jobMode === undefined);
+
   /* ---- pushDraft -> provider.pushApplication with the DRAFT ---- */
   const p1 = mockProvider();
   const saved = await A.pushDraft(p1, { company: "Acme", role: "SRE", externalJobId: "JR-1" }, { serverId: 7 });

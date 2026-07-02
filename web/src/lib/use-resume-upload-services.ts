@@ -44,6 +44,14 @@ export function useResumeUploadServices(): ResumeUploadServices {
         if (!res.ok) return { ok: false, error: data.error ?? "Couldn't save the resume." };
         return { ok: true, id: data.id, label: data.label ?? input.label };
       },
+      onSetDefault: async (id: number) => {
+        // Promote the newly-created resume to the user's default (unsets the others server-side).
+        await fetch(`/api/resumes/${id}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ defaultResume: true }),
+        });
+      },
       onUpdateProfile: async (merged) => {
         const res = await fetch("/api/profile", {
           method: "PUT",

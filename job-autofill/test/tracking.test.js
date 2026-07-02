@@ -38,6 +38,12 @@ function mockFetch(handler) {
   ok("resume round-trip keeps server fields", rt.serverId === 5 && rt.label === "Eng" && rt.status === "CONFIRMED");
   ok("dtoToResume maps the archived flag (3.5)", T.dtoToResume({ id: 1, label: "X", parsedJson: "{}", archived: true }).archived === true);
   ok("resumeToDto doesn't leak archived into parsedJson", JSON.parse(T.resumeToDto({ label: "X", archived: true, skills: ["a"] }).parsedJson).archived === undefined);
+  const rMeta = T.dtoToResume({ id: 2, label: "Y", parsedJson: "{}", starred: true, defaultResume: true });
+  ok("dtoToResume maps starred + defaultResume", rMeta.starred === true && rMeta.defaultResume === true);
+  ok("resumeToDto doesn't leak starred/defaultResume into parsedJson", (() => {
+    const p = JSON.parse(T.resumeToDto({ label: "Z", starred: true, defaultResume: true, skills: ["a"] }).parsedJson);
+    return p.starred === undefined && p.defaultResume === undefined;
+  })());
 
   /* ---- contract: base provider rejects until implemented ---- */
   const base = new T.TrackingProvider();
@@ -127,6 +133,12 @@ function mockFetch(handler) {
   ok("application round-trip keeps server + resume id", appRt.serverId === 3 && appRt.externalJobId === "J1" && appRt.resumeId === 8);
   const partial = T.applicationToDto({ status: "APPLIED" });
   ok("applicationToDto stays partial (only set fields sent)", JSON.stringify(partial) === JSON.stringify({ status: "APPLIED" }));
+
+  // job type / mode / email round-trip through the DTO mappers.
+  const metaDto = T.applicationToDto({ company: "Acme", roleTitle: "Eng", status: "DRAFT", jobType: "FULL_TIME", jobMode: "REMOTE", email: "a@b.co", salary: "$120k/yr" });
+  ok("applicationToDto sends jobType/jobMode/email/salary", metaDto.jobType === "FULL_TIME" && metaDto.jobMode === "REMOTE" && metaDto.email === "a@b.co" && metaDto.salary === "$120k/yr");
+  const metaRt = T.dtoToApplication({ id: 5, company: "Acme", roleTitle: "Eng", status: "DRAFT", jobType: "CONTRACT", jobMode: "HYBRID", email: "x@y.co", salary: "$90k/yr" });
+  ok("dtoToApplication reads jobType/jobMode/email/salary", metaRt.jobType === "CONTRACT" && metaRt.jobMode === "HYBRID" && metaRt.email === "x@y.co" && metaRt.salary === "$90k/yr");
 
   /* ---- pushApplication upserts via POST and maps the result back ---- */
   const fetchApp = mockFetch((c) => ({ status: 200, json: { id: 11, company: c.body.company, roleTitle: c.body.roleTitle, externalJobId: c.body.externalJobId, status: c.body.status, resume: c.body.resume } }));

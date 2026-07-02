@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
@@ -15,6 +16,10 @@ export interface Application {
   roleTitle: string;
   jobUrl?: string | null;
   location?: string | null;
+  jobType?: string | null;
+  jobMode?: string | null;
+  email?: string | null;
+  salary?: string | null;
   externalJobId?: string | null;
   atsPlatform?: string | null;
   jobDescription?: string | null;
@@ -22,6 +27,8 @@ export interface Application {
   submissionConfirmed?: boolean | null;
   appliedAt?: string | null;
   createdAt?: string | null;
+  starred?: boolean | null;
+  archived?: boolean | null;
   resume?: { id: number; label?: string | null } | null;
   attachmentFilename?: string | null;
 }
@@ -36,11 +43,32 @@ const COLUMNS: { key: string; label: string; dot: string }[] = [
   { key: "REJECTED", label: "Rejected", dot: "var(--color-muted)" },
 ];
 const STATUS_LABEL: Record<string, string> = Object.fromEntries(COLUMNS.map((c) => [c.key, c.label]));
+
+// Strict enums, mirrored from the backend JobType / JobMode. `value` is the wire/enum name;
+// `label` is what the user sees. Empty string = "unset" (the field is nullable).
+const JOB_TYPES: { value: string; label: string }[] = [
+  { value: "FULL_TIME", label: "Full-time" },
+  { value: "PART_TIME", label: "Part-time" },
+  { value: "CONTRACT", label: "Contract" },
+  { value: "INTERNSHIP", label: "Internship" },
+  { value: "TEMPORARY", label: "Temporary" },
+  { value: "OTHER", label: "Other" },
+];
+const JOB_MODES: { value: string; label: string }[] = [
+  { value: "ON_SITE", label: "In-person" },
+  { value: "HYBRID", label: "Hybrid" },
+  { value: "REMOTE", label: "Remote" },
+  { value: "OTHER", label: "Other" },
+];
+const JOB_TYPE_LABEL: Record<string, string> = Object.fromEntries(JOB_TYPES.map((t) => [t.value, t.label]));
+const JOB_MODE_LABEL: Record<string, string> = Object.fromEntries(JOB_MODES.map((m) => [m.value, m.label]));
 const COL_BY_KEY: Record<string, { key: string; label: string; dot: string }> = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
 // Draft + Saved sit as full-width collapsible ROWS at the top; the funnel stages spread out
-// underneath as a responsive GRID (so the column band never needs a page-level horizontal scroll).
+// underneath as a responsive GRID; Archived is a collapsible ROW at the very bottom.
 const ROW_STATUSES = ["DRAFT", "SAVED"];
 const GRID_STATUSES = ["APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+// A single set height for every board column/section, with internal scroll when content overflows.
+const COLUMN_H = "h-[440px]";
 
 function Chevron({ open, className }: { open: boolean; className?: string }) {
   return (
@@ -73,9 +101,42 @@ function formatDate(iso?: string | null): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+// The one date shown on a decluttered card: the applied date once applied, otherwise the
+// date the entry was added (Draft/Saved never have an applied date).
+function cardDate(app: Application): string {
+  const applied = formatDate(app.appliedAt);
+  if (applied) return `Applied · ${applied}`;
+  const added = formatDate(app.createdAt);
+  return added ? `Added · ${added}` : "";
+}
+
+function StarButton({ starred, busy, onToggle, className }: { starred: boolean; busy: boolean; onToggle: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      aria-pressed={starred}
+      aria-label={starred ? "Unstar" : "Star"}
+      title={starred ? "Unstar" : "Star"}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className={cn(
+        "shrink-0 rounded-md px-1 text-[15px] leading-none transition-colors disabled:opacity-50",
+        starred ? "text-[color:var(--color-accent-deep)]" : "text-muted hover:text-ink",
+        className,
+      )}
+    >
+      {starred ? "★" : "☆"}
+    </button>
+  );
+}
+
 export interface ResumeOption {
   id: number;
   label: string;
+  defaultResume?: boolean;
 }
 
 export default function ApplicationBoard({
@@ -97,12 +158,15 @@ export default function ApplicationBoard({
   const [search, setSearch] = useState("");
   const [resumeFilter, setResumeFilter] = useState("all");
   const [sort, setSort] = useState<"recent" | "company">("recent");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null); // open in the detail panel
+  const [picked, setPicked] = useState<Set<number>>(new Set()); // multi-select for bulk actions
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set()); // Draft/Saved rows, expanded by default
+  // Draft/Saved rows expanded by default; the Archived row collapsed by default.
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set(["ARCHIVED"]));
   const toggleRow = (key: string) =>
     setCollapsedRows((prev) => {
       const next = new Set(prev);
@@ -136,6 +200,15 @@ export default function ApplicationBoard({
       else next.delete(id);
       return next;
     });
+
+  const togglePick = (id: number) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clearPicked = () => setPicked(new Set());
 
   /**
    * Optimistically patch a card, then PUT/DELETE; router.refresh() reconciles (or reverts).
@@ -175,6 +248,11 @@ export default function ApplicationBoard({
   const changeStatus = (id: number, status: string) => void mutate(id, "PUT", { status });
   const confirmSubmitted = (id: number) =>
     void mutate(id, "PUT", { status: "APPLIED", submissionConfirmed: true, appliedAt: new Date().toISOString() });
+  // Moving an archived entry to a stage brings it back onto the active board.
+  const moveTo = (app: Application, status: string) =>
+    void mutate(app.id, "PUT", app.archived ? { status, archived: false } : { status });
+  const toggleStar = (app: Application) => void mutate(app.id, "PUT", { starred: !app.starred });
+  const setArchived = (app: Application, archived: boolean) => void mutate(app.id, "PUT", { archived });
   const remove = (app: Application) => {
     if (window.confirm(`Delete this entry — ${app.company} · ${app.roleTitle}?`)) {
       if (selectedId === app.id) setSelectedId(null);
@@ -185,6 +263,52 @@ export default function ApplicationBoard({
     const r = resumeOpts.find((x) => x.id === resumeId);
     void mutate(id, "PUT", { resumeId }, { resume: r ? { id: r.id, label: r.label } : null });
   };
+
+  /** Apply one partial update to every picked application at once (client-side fan-out). */
+  async function bulkPatch(body: Record<string, unknown>) {
+    const ids = [...picked];
+    if (!ids.length) return;
+    setError(null);
+    ids.forEach((id) => setBusy(id, true));
+    setApps((prev) => prev.map((a) => (picked.has(a.id) ? { ...a, ...body } : a)));
+    try {
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/applications/${id}`, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          }).then((r) => r.ok),
+        ),
+      );
+      if (results.some((ok) => !ok)) setError("Some updates couldn't be applied. Reverting…");
+    } catch {
+      setError("Something went wrong applying the bulk action.");
+    } finally {
+      ids.forEach((id) => setBusy(id, false));
+      clearPicked();
+      router.refresh();
+    }
+  }
+
+  async function bulkDelete() {
+    const ids = [...picked];
+    if (!ids.length) return;
+    if (!window.confirm(`Delete ${ids.length} selected application${ids.length === 1 ? "" : "s"}?`)) return;
+    setError(null);
+    ids.forEach((id) => setBusy(id, true));
+    if (selectedId != null && picked.has(selectedId)) setSelectedId(null);
+    setApps((prev) => prev.filter((a) => !picked.has(a.id)));
+    try {
+      const results = await Promise.all(ids.map((id) => fetch(`/api/applications/${id}`, { method: "DELETE" }).then((r) => r.ok)));
+      if (results.some((ok) => !ok)) setError("Some entries couldn't be deleted.");
+    } catch {
+      setError("Something went wrong deleting the selected entries.");
+    } finally {
+      clearPicked();
+      router.refresh();
+    }
+  }
 
   /**
    * Create a board entry by hand (no extension). If an on-the-fly file was chosen with
@@ -239,23 +363,44 @@ export default function ApplicationBoard({
     return [...m.entries()];
   }, [apps]);
 
-  const visible = useMemo(() => {
+  // Filter + sort once; split into active (on the board) vs archived (bottom row). Starred
+  // entries sort to the top of every column, then by the chosen sort.
+  const { active, archivedItems } = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = apps.filter((a) => {
       if (resumeFilter !== "all" && String(a.resume?.id ?? "") !== resumeFilter) return false;
+      if (starredOnly && !a.starred) return false;
       if (!q) return true;
       return `${a.company} ${a.roleTitle} ${a.location ?? ""}`.toLowerCase().includes(q);
     });
     filtered.sort((a, b) => {
+      if (!!a.starred !== !!b.starred) return a.starred ? -1 : 1;
       if (sort === "company") return a.company.localeCompare(b.company);
       const ta = new Date(a.appliedAt || a.createdAt || 0).getTime();
       const tb = new Date(b.appliedAt || b.createdAt || 0).getTime();
       return tb - ta;
     });
-    return filtered;
-  }, [apps, search, resumeFilter, sort]);
+    return {
+      active: filtered.filter((a) => !a.archived),
+      archivedItems: filtered.filter((a) => a.archived),
+    };
+  }, [apps, search, resumeFilter, sort, starredOnly]);
 
+  const totalVisible = active.length + archivedItems.length;
   const selected = selectedId == null ? null : apps.find((a) => a.id === selectedId) ?? null;
+
+  const cardHandlers = (a: Application) => ({
+    app: a,
+    busy: pending.has(a.id),
+    picked: picked.has(a.id),
+    onTogglePick: () => togglePick(a.id),
+    onOpen: () => setSelectedId(a.id),
+    onConfirm: () => confirmSubmitted(a.id),
+    onStar: () => toggleStar(a),
+    onArchive: (v: boolean) => setArchived(a, v),
+    onMoveTo: (s: string) => moveTo(a, s),
+    onDelete: () => remove(a),
+  });
 
   return (
     <div>
@@ -286,6 +431,17 @@ export default function ApplicationBoard({
           placeholder="Search company, role, location…"
           className="min-w-[180px] max-w-[320px] flex-1 rounded-full border border-line bg-paper px-4 py-2 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent"
         />
+        <button
+          type="button"
+          onClick={() => setStarredOnly((v) => !v)}
+          aria-pressed={starredOnly}
+          className={cn(
+            "rounded-full border px-3 py-2 text-[13px] font-medium transition-colors",
+            starredOnly ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink-soft hover:border-accent",
+          )}
+        >
+          ★ Starred
+        </button>
         {resumeOptions.length > 0 && (
           <select
             value={resumeFilter}
@@ -312,18 +468,44 @@ export default function ApplicationBoard({
       </div>
       )}
 
+      {/* Bulk-action toolbar — appears once one or more cards are selected. */}
+      {picked.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius-lg)] border border-accent bg-accent-soft px-3 py-2 text-[13px]">
+          <span className="font-semibold text-accent-deep">{picked.size} selected</span>
+          <select
+            aria-label="Move selected to a status"
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) void bulkPatch({ status: e.target.value, archived: false });
+              e.target.value = "";
+            }}
+            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink-soft outline-none focus:border-accent"
+          >
+            <option value="" disabled>Move to…</option>
+            {COLUMNS.map((c) => (
+              <option key={c.key} value={c.key}>{c.label}</option>
+            ))}
+          </select>
+          <button type="button" onClick={() => void bulkPatch({ starred: true })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">★ Star</button>
+          <button type="button" onClick={() => void bulkPatch({ starred: false })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">☆ Unstar</button>
+          <button type="button" onClick={() => void bulkPatch({ archived: true })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">Archive</button>
+          <button type="button" onClick={() => void bulkDelete()} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-danger hover:bg-paper-2">Delete</button>
+          <button type="button" onClick={clearPicked} className="ml-auto rounded-full px-3 py-1.5 font-medium text-muted hover:text-ink">Clear</button>
+        </div>
+      )}
+
       {error && <p role="alert" className="mb-3 text-sm font-medium text-danger">{error}</p>}
 
-      {apps.length > 0 && visible.length === 0 ? (
+      {apps.length > 0 && totalVisible === 0 ? (
         <p className="rounded-[var(--radius-lg)] border border-dashed border-line bg-paper py-12 text-center text-sm text-muted">
           No applications match your search or filter.
         </p>
       ) : (
-        /* Board — Draft/Saved as full-width collapsible rows; the funnel stages as a grid below */
+        /* Board — Draft/Saved rows on top; the funnel stages as a fixed-height grid; Archived row below */
         <div className="flex flex-col gap-3.5">
           {ROW_STATUSES.map((key) => {
             const col = COL_BY_KEY[key];
-            const items = visible.filter((a) => a.status === key);
+            const items = active.filter((a) => a.status === key);
             const collapsed = collapsedRows.has(key);
             return (
               <section
@@ -335,7 +517,7 @@ export default function ApplicationBoard({
                 onDragLeave={() => setDragOver((c) => (c === key ? null : c))}
                 onDrop={(e) => onDrop(e, key)}
                 className={cn(
-                  "rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                  "flex flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
                   dragOver === key && "outline-2 outline-dashed outline-accent",
                 )}
               >
@@ -351,16 +533,7 @@ export default function ApplicationBoard({
                   (items.length ? (
                     <ul className="mt-3 flex gap-2.5 overflow-x-auto pb-1">
                       {items.map((a) => (
-                        <BoardCard
-                          key={a.id}
-                          app={a}
-                          busy={pending.has(a.id)}
-                          className="w-[240px] shrink-0"
-                          onOpen={() => setSelectedId(a.id)}
-                          onConfirm={() => confirmSubmitted(a.id)}
-                          onChangeStatus={(s) => changeStatus(a.id, s)}
-                          onDelete={() => remove(a)}
-                        />
+                        <BoardCard key={a.id} className="w-[240px] shrink-0" {...cardHandlers(a)} />
                       ))}
                     </ul>
                   ) : (
@@ -373,7 +546,7 @@ export default function ApplicationBoard({
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
             {GRID_STATUSES.map((key) => {
               const col = COL_BY_KEY[key];
-              const items = visible.filter((a) => a.status === key);
+              const items = active.filter((a) => a.status === key);
               return (
                 <section
                   key={key}
@@ -384,7 +557,8 @@ export default function ApplicationBoard({
                   onDragLeave={() => setDragOver((c) => (c === key ? null : c))}
                   onDrop={(e) => onDrop(e, key)}
                   className={cn(
-                    "flex min-h-[320px] flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                    "flex flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                    COLUMN_H,
                     dragOver === key && "outline-2 outline-dashed outline-accent",
                   )}
                 >
@@ -395,23 +569,39 @@ export default function ApplicationBoard({
                     </span>
                     <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
                   </div>
-                  <ul className="flex flex-1 flex-col gap-2.5">
+                  <ul className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
                     {items.map((a) => (
-                      <BoardCard
-                        key={a.id}
-                        app={a}
-                        busy={pending.has(a.id)}
-                        onOpen={() => setSelectedId(a.id)}
-                        onConfirm={() => confirmSubmitted(a.id)}
-                        onChangeStatus={(s) => changeStatus(a.id, s)}
-                        onDelete={() => remove(a)}
-                      />
+                      <BoardCard key={a.id} {...cardHandlers(a)} />
                     ))}
                   </ul>
                 </section>
               );
             })}
           </div>
+
+          {/* Archived — full-width collapsible row below the funnel; cards greyed out. */}
+          {archivedItems.length > 0 && (() => {
+            const collapsed = collapsedRows.has("ARCHIVED");
+            return (
+              <section className="flex flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3">
+                <button type="button" onClick={() => toggleRow("ARCHIVED")} aria-expanded={!collapsed} className="flex w-full items-center gap-2 px-1 text-left">
+                  <Chevron open={!collapsed} className="text-muted" />
+                  <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[.06em] text-muted">
+                    <span className="h-2 w-2 rounded-full bg-[color:var(--color-muted)]" />
+                    Archived
+                  </span>
+                  <span className="ml-auto rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{archivedItems.length}</span>
+                </button>
+                {!collapsed && (
+                  <ul className="mt-3 flex max-h-[300px] gap-2.5 overflow-x-auto overflow-y-hidden pb-1">
+                    {archivedItems.map((a) => (
+                      <BoardCard key={a.id} archived className="w-[240px] shrink-0" {...cardHandlers(a)} />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            );
+          })()}
         </div>
       )}
 
@@ -422,6 +612,8 @@ export default function ApplicationBoard({
         onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
         onChangeResume={(rid) => selected && changeResume(selected.id, rid)}
         onSaveDetails={(changes) => selected && void mutate(selected.id, "PUT", changes)}
+        onStar={() => selected && toggleStar(selected)}
+        onArchive={(v) => selected && setArchived(selected, v)}
         onDelete={() => selected && remove(selected)}
       />
 
@@ -445,6 +637,10 @@ interface NewApplication {
   status: string;
   jobUrl?: string;
   location?: string;
+  jobType?: string;
+  jobMode?: string;
+  email?: string;
+  salary?: string;
   jobDescription?: string;
   resumeId?: number;
   attachmentFile?: File;
@@ -470,8 +666,16 @@ function AddApplicationDialog({
   const [status, setStatus] = useState("SAVED");
   const [jobUrl, setJobUrl] = useState("");
   const [location, setLocation] = useState("");
+  const [jobType, setJobType] = useState("");
+  const [jobMode, setJobMode] = useState("");
+  const [email, setEmail] = useState("");
+  const [salary, setSalary] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [resumeId, setResumeId] = useState("");
+  // Preselect the user's default resume, if they have one.
+  const [resumeId, setResumeId] = useState(() => {
+    const def = resumes.find((r) => r.defaultResume);
+    return def ? String(def.id) : "";
+  });
   const [saving, setSaving] = useState(false);
   const [dupConfirm, setDupConfirm] = useState(false); // armed when the entry matches an existing one
   const firstRef = useRef<HTMLInputElement>(null);
@@ -531,6 +735,10 @@ function AddApplicationDialog({
       status,
       jobUrl: jobUrl.trim() || undefined,
       location: location.trim() || undefined,
+      jobType: jobType || undefined,
+      jobMode: jobMode || undefined,
+      email: email.trim() || undefined,
+      salary: salary.trim() || undefined,
       jobDescription: jobDescription.trim() || undefined,
       resumeId: resumeId ? Number(resumeId) : undefined,
       attachmentFile: attachment ?? undefined,
@@ -578,13 +786,39 @@ function AddApplicationDialog({
               <input value={location} onChange={(e) => { setLocation(e.target.value); setDupConfirm(false); }} className={fieldClass} placeholder="Remote · NYC…" />
             </label>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={labelClass}>
+              Job type
+              <select value={jobType} onChange={(e) => setJobType(e.target.value)} className={fieldClass}>
+                <option value="">—</option>
+                {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+              </select>
+            </label>
+            <label className={labelClass}>
+              Job mode
+              <select value={jobMode} onChange={(e) => setJobMode(e.target.value)} className={fieldClass}>
+                <option value="">—</option>
+                {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+              </select>
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={labelClass}>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} placeholder="Defaults to your profile email" />
+            </label>
+            <label className={labelClass}>
+              Salary
+              <input value={salary} onChange={(e) => setSalary(e.target.value)} className={fieldClass} placeholder="$120k – $150k/yr" />
+            </label>
+          </div>
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resume sent</span>
             {resumes.length > 0 && (
               <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={cn(fieldClass, "min-w-0 truncate")}>
                 <option value="">— None —</option>
                 {resumes.map((r) => (
-                  <option key={r.id} value={String(r.id)}>{r.label}</option>
+                  <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
                 ))}
               </select>
             )}
@@ -667,34 +901,132 @@ function AddApplicationDialog({
   );
 }
 
-function BoardCard({
-  app,
+/** Per-card ⋯ options menu, rendered in a portal so a column's internal scroll never clips it. */
+function CardMenu({
+  starred,
+  archived,
   busy,
-  className,
-  onOpen,
-  onConfirm,
-  onChangeStatus,
+  onStar,
+  onArchive,
+  onMoveTo,
   onDelete,
 }: {
-  app: Application;
+  starred: boolean;
+  archived: boolean;
   busy: boolean;
-  className?: string;
-  onOpen: () => void;
-  onConfirm: () => void;
-  onChangeStatus: (status: string) => void;
+  onStar: () => void;
+  onArchive: (v: boolean) => void;
+  onMoveTo: (status: string) => void;
   onDelete: () => void;
 }) {
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
-  const host = hostOf(app.jobUrl);
-  const showNudge = app.status === "DRAFT" && !nudgeDismissed;
-  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const open = pos !== null;
+
+  function toggle(e: React.MouseEvent) {
     e.stopPropagation();
+    if (open) {
+      setPos(null);
+      return;
+    }
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 180) });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setPos(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  const item = "block w-full rounded-md px-2 py-1.5 text-left text-[12.5px] text-ink transition-colors hover:bg-paper-2";
+  const run = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPos(null);
     fn();
   };
 
   return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        disabled={busy}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Options"
+        title="Options"
+        onClick={toggle}
+        className="shrink-0 rounded-md px-1.5 leading-none text-muted transition-colors hover:bg-paper-2 hover:text-ink disabled:opacity-50"
+      >
+        ⋯
+      </button>
+      {pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[160]" aria-hidden onClick={(e) => { e.stopPropagation(); setPos(null); }} />
+            <div
+              role="menu"
+              onClick={(e) => e.stopPropagation()}
+              style={{ position: "fixed", top: pos.top, left: pos.left, width: 180 }}
+              className="z-[161] rounded-lg border border-line bg-paper p-1 shadow-[var(--shadow-lg)]"
+            >
+              <button role="menuitem" className={item} onClick={run(onStar)}>{starred ? "★ Unstar" : "☆ Star"}</button>
+              <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">Move to</div>
+              {COLUMNS.map((c) => (
+                <button key={c.key} role="menuitem" className={cn(item, "pl-4")} onClick={run(() => onMoveTo(c.key))}>{c.label}</button>
+              ))}
+              <div className="my-1 h-px bg-line" />
+              <button role="menuitem" className={item} onClick={run(() => onArchive(!archived))}>{archived ? "Unarchive" : "Archive"}</button>
+              <button role="menuitem" className={cn(item, "text-danger")} onClick={run(onDelete)}>Delete</button>
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+function BoardCard({
+  app,
+  busy,
+  picked,
+  archived = false,
+  className,
+  onTogglePick,
+  onOpen,
+  onConfirm,
+  onStar,
+  onArchive,
+  onMoveTo,
+  onDelete,
+}: {
+  app: Application;
+  busy: boolean;
+  picked: boolean;
+  archived?: boolean;
+  className?: string;
+  onTogglePick: () => void;
+  onOpen: () => void;
+  onConfirm: () => void;
+  onStar: () => void;
+  onArchive: (v: boolean) => void;
+  onMoveTo: (status: string) => void;
+  onDelete: () => void;
+}) {
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const showNudge = app.status === "DRAFT" && !archived && !nudgeDismissed;
+  const date = cardDate(app);
+
+  return (
     <li
-      draggable
+      draggable={!archived}
       role="button"
       tabIndex={0}
       onClick={onOpen}
@@ -705,68 +1037,72 @@ function BoardCard({
         }
       }}
       onDragStart={(e) => {
+        if (archived) {
+          e.preventDefault();
+          return;
+        }
         e.dataTransfer.setData("text/plain", String(app.id));
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "cursor-grab rounded-[var(--radius)] border border-line bg-paper p-3 shadow-[var(--shadow)] transition-colors hover:border-accent active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "rounded-[var(--radius)] border bg-paper p-3 shadow-[var(--shadow)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        archived ? "cursor-pointer opacity-60 grayscale hover:opacity-100" : "cursor-grab hover:border-accent active:cursor-grabbing",
+        picked ? "border-accent ring-1 ring-accent" : "border-line",
         busy && "opacity-60",
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={picked}
+          aria-label="Select application"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            onTogglePick();
+          }}
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent)]"
+        />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-bold text-ink">{app.company}</div>
-          <div className="truncate text-[12.5px] text-ink-soft">{app.roleTitle}</div>
+          <div className="truncate text-[13.5px] font-bold text-ink">{app.roleTitle}</div>
+          <div className="truncate text-[12.5px] text-ink-soft">{app.company}</div>
         </div>
-        <button
-          onClick={stop(onDelete)}
-          disabled={busy}
-          aria-label="Delete entry"
-          title="Delete entry"
-          className="shrink-0 rounded-md px-1.5 text-muted transition-colors hover:bg-paper-2 hover:text-danger disabled:opacity-50"
-        >
-          ×
-        </button>
+        <StarButton starred={!!app.starred} busy={busy} onToggle={onStar} />
+        <CardMenu
+          starred={!!app.starred}
+          archived={archived}
+          busy={busy}
+          onStar={onStar}
+          onArchive={onArchive}
+          onMoveTo={onMoveTo}
+          onDelete={onDelete}
+        />
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
-        {app.atsPlatform && (
-          <span className="rounded-[5px] border border-line bg-paper-2 px-1.5 py-0.5 capitalize">{app.atsPlatform}</span>
-        )}
-        {app.location && <span className="truncate">{app.location}</span>}
-      </div>
-      {app.resume?.label && <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">📄 <span className="truncate">{app.resume.label}</span></div>}
+      {date && <div className="mt-1.5 pl-[22px] text-[11px] text-muted">{date}</div>}
 
       {showNudge && (
         <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
           <div className="font-bold">Did you submit this application?</div>
           <div className="mt-1.5 flex gap-1.5">
-            <button onClick={stop(onConfirm)} disabled={busy} className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50">
+            <button
+              onClick={(e) => { e.stopPropagation(); onConfirm(); }}
+              disabled={busy}
+              className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50"
+            >
               Yes, I applied
             </button>
-            <button onClick={stop(() => setNudgeDismissed(true))} disabled={busy} className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep">
+            <button
+              onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
+              disabled={busy}
+              className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep"
+            >
               Not yet
             </button>
           </div>
         </div>
       )}
-
-      {/* a11y / fallback status control */}
-      <label className="sr-only" htmlFor={`status-${app.id}`}>Status</label>
-      <select
-        id={`status-${app.id}`}
-        value={app.status}
-        disabled={busy}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onChangeStatus(e.target.value)}
-        className="mt-2 w-full rounded-lg border border-line bg-paper px-2 py-1 text-[11.5px] text-ink-soft outline-none focus:border-accent disabled:opacity-50"
-      >
-        {COLUMNS.map((c) => (
-          <option key={c.key} value={c.key}>{c.label}</option>
-        ))}
-      </select>
-      {host && <div className="mt-1.5 truncate text-[10.5px] text-muted">{host}</div>}
     </li>
   );
 }
@@ -778,6 +1114,8 @@ function DetailPanel({
   onChangeStatus,
   onChangeResume,
   onSaveDetails,
+  onStar,
+  onArchive,
   onDelete,
 }: {
   app: Application | null;
@@ -786,13 +1124,14 @@ function DetailPanel({
   onChangeStatus: (status: string) => void;
   onChangeResume: (resumeId: number) => void;
   onSaveDetails: (changes: Record<string, unknown>) => void;
+  onStar: () => void;
+  onArchive: (v: boolean) => void;
   onDelete: () => void;
 }) {
   const open = !!app;
   const closeRef = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobUrl: "", jobDescription: "" });
-  const [resumeOpen, setResumeOpen] = useState(false); // resume preview collapsed by default
+  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobType: "", jobMode: "", email: "", salary: "", jobUrl: "", jobDescription: "" });
   const [descOpen, setDescOpen] = useState(false); // job description collapsed by default
 
   // Reset the transient panel view whenever the selected application changes (render-phase
@@ -801,7 +1140,6 @@ function DetailPanel({
   if (app?.id !== prevId) {
     setPrevId(app?.id);
     setEditing(false);
-    setResumeOpen(false);
     setDescOpen(false);
   }
 
@@ -811,6 +1149,10 @@ function DetailPanel({
       company: app.company ?? "",
       roleTitle: app.roleTitle ?? "",
       location: app.location ?? "",
+      jobType: app.jobType ?? "",
+      jobMode: app.jobMode ?? "",
+      email: app.email ?? "",
+      salary: app.salary ?? "",
       jobUrl: app.jobUrl ?? "",
       jobDescription: app.jobDescription ?? "",
     });
@@ -820,7 +1162,17 @@ function DetailPanel({
     const company = form.company.trim();
     const roleTitle = form.roleTitle.trim();
     if (!company || !roleTitle) return;
-    onSaveDetails({ company, roleTitle, location: form.location.trim(), jobUrl: form.jobUrl.trim(), jobDescription: form.jobDescription.trim() });
+    onSaveDetails({
+      company,
+      roleTitle,
+      location: form.location.trim(),
+      jobType: form.jobType,
+      jobMode: form.jobMode,
+      email: form.email.trim(),
+      salary: form.salary.trim(),
+      jobUrl: form.jobUrl.trim(),
+      jobDescription: form.jobDescription.trim(),
+    });
     setEditing(false);
   }
 
@@ -837,6 +1189,16 @@ function DetailPanel({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // The resume file actually used for this job: its one-off attachment if present, otherwise the
+  // linked library resume. Clicking downloads it (attachment disposition).
+  const fileHref = app
+    ? app.attachmentFilename
+      ? `/api/applications/${app.id}/attachment`
+      : app.resume?.id
+        ? `/api/resumes/${app.resume.id}/file?download=1`
+        : null
+    : null;
 
   return (
     <>
@@ -861,13 +1223,17 @@ function DetailPanel({
           <>
             <div className="flex items-start justify-between gap-3 border-b border-line p-5">
               <div className="min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-[.06em] text-accent-deep">
+                <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-accent-deep">
                   {STATUS_LABEL[app.status] ?? app.status}
+                  {app.archived && <span className="rounded-[5px] border border-line px-1.5 py-0.5 text-[10px] text-muted">Archived</span>}
                 </span>
-                <h2 className="mt-1 font-display text-xl font-semibold text-ink">{app.company}</h2>
-                <p className="text-sm text-ink-soft">{app.roleTitle}</p>
+                <h2 className="mt-1 font-display text-xl font-semibold text-ink">{app.roleTitle}</h2>
+                <p className="text-sm text-ink-soft">{app.company}</p>
               </div>
-              <button ref={closeRef} onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
+              <div className="flex shrink-0 items-center gap-1">
+                <StarButton starred={!!app.starred} busy={false} onToggle={onStar} className="text-[18px]" />
+                <button ref={closeRef} onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-auto p-5">
@@ -885,6 +1251,32 @@ function DetailPanel({
                     Location
                     <input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className={dField} placeholder="Remote · NYC…" />
                   </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className={dLabel}>
+                      Job type
+                      <select value={form.jobType} onChange={(e) => setForm((f) => ({ ...f, jobType: e.target.value }))} className={dField}>
+                        <option value="">—</option>
+                        {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+                      </select>
+                    </label>
+                    <label className={dLabel}>
+                      Job mode
+                      <select value={form.jobMode} onChange={(e) => setForm((f) => ({ ...f, jobMode: e.target.value }))} className={dField}>
+                        <option value="">—</option>
+                        {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className={dLabel}>
+                      Email
+                      <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={dField} placeholder="you@example.com" />
+                    </label>
+                    <label className={dLabel}>
+                      Salary
+                      <input value={form.salary} onChange={(e) => setForm((f) => ({ ...f, salary: e.target.value }))} className={dField} placeholder="$120k – $150k/yr" />
+                    </label>
+                  </div>
                   <label className={dLabel}>
                     Job URL
                     <input type="url" value={form.jobUrl} onChange={(e) => setForm((f) => ({ ...f, jobUrl: e.target.value }))} className={dField} placeholder="https://…" />
@@ -919,7 +1311,12 @@ function DetailPanel({
 
                   <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
                     {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
+                    {app.jobType && JOB_TYPE_LABEL[app.jobType] && (<><dt className="text-muted">Job type</dt><dd className="text-ink">{JOB_TYPE_LABEL[app.jobType]}</dd></>)}
+                    {app.jobMode && JOB_MODE_LABEL[app.jobMode] && (<><dt className="text-muted">Job mode</dt><dd className="text-ink">{JOB_MODE_LABEL[app.jobMode]}</dd></>)}
+                    {app.salary && (<><dt className="text-muted">Salary</dt><dd className="text-ink">{app.salary}</dd></>)}
+                    {app.email && (<><dt className="text-muted">Email</dt><dd className="break-all text-ink">{app.email}</dd></>)}
                     {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
+                    {hostOf(app.jobUrl) && (<><dt className="text-muted">Source</dt><dd className="truncate text-ink">{hostOf(app.jobUrl)}</dd></>)}
                     <dt className="self-center text-muted">Resume sent</dt>
                     <dd className="min-w-0">
                       <select
@@ -931,7 +1328,7 @@ function DetailPanel({
                       >
                         <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
                         {resumes.map((r) => (
-                          <option key={r.id} value={String(r.id)}>{r.label}</option>
+                          <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
                         ))}
                       </select>
                     </dd>
@@ -945,39 +1342,15 @@ function DetailPanel({
                     </a>
                   )}
 
-                  {(() => {
-                    // Preview the resume actually used for this job: its one-off attachment if present,
-                    // otherwise the linked library resume's file. Collapsed until the user expands it.
-                    const pdfUrl = app.attachmentFilename
-                      ? `/api/applications/${app.id}/attachment`
-                      : app.resume?.id
-                        ? `/api/resumes/${app.resume.id}/file`
-                        : null;
-                    if (!pdfUrl) return null;
-                    return (
-                      <div className="mt-6">
-                        <button
-                          type="button"
-                          onClick={() => setResumeOpen((o) => !o)}
-                          aria-expanded={resumeOpen}
-                          className="flex w-full items-center gap-1.5 text-left text-ink transition-colors hover:text-accent-deep"
-                        >
-                          <Chevron open={resumeOpen} className="text-muted" />
-                          <h3 className="font-display text-base font-semibold">Resume {app.attachmentFilename ? "attached" : "sent"}</h3>
-                        </button>
-                        {resumeOpen && (
-                          <object data={pdfUrl} type="application/pdf" className="mt-2 h-80 w-full rounded-[var(--radius)] border border-line">
-                            <div className="rounded-[var(--radius)] border border-line bg-paper-2/40 p-3 text-[13px] text-muted">
-                              Preview isn&apos;t available here.{" "}
-                              <a href={pdfUrl} target="_blank" rel="noreferrer noopener" className="font-medium text-accent-deep underline">
-                                Open the file ↗
-                              </a>
-                            </div>
-                          </object>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {fileHref && (
+                    <a
+                      href={fileHref}
+                      download
+                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
+                    >
+                      <span aria-hidden>⬇</span> Download resume {app.attachmentFilename ? "attached" : "sent"}
+                    </a>
+                  )}
 
                   <div className="mt-6">
                     <button
@@ -1014,6 +1387,12 @@ function DetailPanel({
                   <option key={c.key} value={c.key}>{c.label}</option>
                 ))}
               </select>
+              <button
+                onClick={() => onArchive(!app.archived)}
+                className="rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-paper-2"
+              >
+                {app.archived ? "Unarchive" : "Archive"}
+              </button>
               <button onClick={onDelete} className="rounded-lg border border-line px-3 py-2 text-sm font-semibold text-danger hover:bg-paper-2">
                 Delete
               </button>

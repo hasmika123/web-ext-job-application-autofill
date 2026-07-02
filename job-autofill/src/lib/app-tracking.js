@@ -62,6 +62,8 @@
       roleTitle: nonEmpty(capture.role) ? capture.role : "Application",
       jobUrl: capture.jobUrl,
       location: capture.location,
+      jobType: capture.jobType,
+      jobMode: capture.jobMode,
       externalJobId: capture.externalJobId,
       atsPlatform: capture.atsPlatform,
       jobDescription: capture.jobDescription,
