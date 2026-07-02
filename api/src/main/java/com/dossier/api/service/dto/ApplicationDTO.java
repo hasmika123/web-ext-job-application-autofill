@@ -38,6 +38,10 @@ public class ApplicationDTO implements Serializable {
     @Size(max = 254)
     private String email;
 
+    private Boolean starred;
+
+    private Boolean archived;
+
     @Size(max = 200)
     private String externalJobId;
 
@@ -134,6 +138,22 @@ public class ApplicationDTO implements Serializable {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Boolean getStarred() {
+        return starred;
+    }
+
+    public void setStarred(Boolean starred) {
+        this.starred = starred;
+    }
+
+    public Boolean getArchived() {
+        return archived;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.archived = archived;
     }
 
     public String getExternalJobId() {
@@ -265,6 +285,8 @@ public class ApplicationDTO implements Serializable {
             ", jobType='" + getJobType() + "'" +
             ", jobMode='" + getJobMode() + "'" +
             ", email='" + getEmail() + "'" +
+            ", starred='" + getStarred() + "'" +
+            ", archived='" + getArchived() + "'" +
             ", externalJobId='" + getExternalJobId() + "'" +
             ", submissionConfirmed='" + getSubmissionConfirmed() + "'" +
             ", atsPlatform='" + getAtsPlatform() + "'" +

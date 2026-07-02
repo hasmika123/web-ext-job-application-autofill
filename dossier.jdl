@@ -49,6 +49,8 @@ entity Resume {
   status ResumeStatus required
   archived Boolean                             // archive (don't delete) when a
                                                // tracked application references it
+  starred Boolean                              // user-pinned favorite
+  defaultResume Boolean                        // the user's default/base resume (is_default; one per user)
   createdAt Instant required
 }
 
@@ -60,6 +62,8 @@ entity Application {
   jobType JobType                     // employment type (full-time/contract/…)
   jobMode JobMode                     // workplace mode (in-person/hybrid/remote)
   email String maxlength(254)         // email supplied on the application (defaults to profile email)
+  starred Boolean                     // user-pinned favorite
+  archived Boolean                    // soft-hidden from the active board
   jobUrl String maxlength(1000)
   externalJobId String maxlength(200) // dedup key (+ jobUrl); upsert on revisit
   atsPlatform String maxlength(100)

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Additive migration for the board/resume UX pass:
+          * Application gains starred (favorite) + archived (soft-hide from the board).
+          * Resume gains starred (favorite) + is_default (the user's default/base resume).
+        dossier.jdl is updated separately as documentation.
+    -->
+
+    <!-- Application: favorite + archive. -->
+    <changeSet id="20260703000000-1" author="dossier">
+        <addColumn tableName="application">
+            <column name="starred" type="boolean" />
+            <column name="archived" type="boolean" />
+        </addColumn>
+    </changeSet>
+
+    <!-- Resume: favorite + default/base flag. -->
+    <changeSet id="20260703000000-2" author="dossier">
+        <addColumn tableName="resume">
+            <column name="starred" type="boolean" />
+            <column name="is_default" type="boolean" />
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

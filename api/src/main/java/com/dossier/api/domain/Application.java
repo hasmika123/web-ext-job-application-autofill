@@ -73,6 +73,14 @@ public class Application implements Serializable {
     @Column(name = "email", length = 254)
     private String email;
 
+    // User-pinned favorite.
+    @Column(name = "starred")
+    private Boolean starred;
+
+    // Soft-hidden from the active board (kept, not deleted).
+    @Column(name = "archived")
+    private Boolean archived;
+
     // ATS-native job id; with job_url this is the dedup key for the tracker.
     @Size(max = 200)
     @Column(name = "external_job_id", length = 200)
@@ -259,6 +267,32 @@ public class Application implements Serializable {
         this.email = email;
     }
 
+    public Boolean getStarred() {
+        return this.starred;
+    }
+
+    public Application starred(Boolean starred) {
+        this.setStarred(starred);
+        return this;
+    }
+
+    public void setStarred(Boolean starred) {
+        this.starred = starred;
+    }
+
+    public Boolean getArchived() {
+        return this.archived;
+    }
+
+    public Application archived(Boolean archived) {
+        this.setArchived(archived);
+        return this;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.archived = archived;
+    }
+
     public String getExternalJobId() {
         return this.externalJobId;
     }
@@ -410,6 +444,8 @@ public class Application implements Serializable {
             ", jobType='" + getJobType() + "'" +
             ", jobMode='" + getJobMode() + "'" +
             ", email='" + getEmail() + "'" +
+            ", starred='" + getStarred() + "'" +
+            ", archived='" + getArchived() + "'" +
             ", externalJobId='" + getExternalJobId() + "'" +
             ", submissionConfirmed='" + getSubmissionConfirmed() + "'" +
             ", atsPlatform='" + getAtsPlatform() + "'" +

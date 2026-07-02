@@ -38,5 +38,6 @@
     <include file="config/liquibase/changelog/20260629000400_admin_mfa_challenge.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260630000000_application_attachment.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260702000000_add_application_job_meta.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260703000000_favorites_archive_default.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

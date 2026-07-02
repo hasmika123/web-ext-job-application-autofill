@@ -190,6 +190,25 @@ class ApplicationSyncResourceIT {
 
     @Test
     @Transactional
+    void starAndArchiveArePartialUpdates() throws Exception {
+        Long id = createOne(app("Pied Piper", "Compression Engineer"));
+
+        mockMvc
+            .perform(put("/api/profile/applications/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("starred", true, "archived", true))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.starred").value(true))
+            .andExpect(jsonPath("$.archived").value(true))
+            .andExpect(jsonPath("$.company").value("Pied Piper")); // untouched fields survive
+
+        mockMvc
+            .perform(put("/api/profile/applications/" + id).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("archived", false))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.archived").value(false))
+            .andExpect(jsonPath("$.starred").value(true)); // starred untouched by the archive change
+    }
+
+    @Test
+    @Transactional
     void deleteRemovesTheEntry() throws Exception {
         Long id = createOne(app("Umbrella", "Analyst"));
         mockMvc.perform(delete("/api/profile/applications/" + id)).andExpect(status().isNoContent());

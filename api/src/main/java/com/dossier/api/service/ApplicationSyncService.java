@@ -97,6 +97,8 @@ public class ApplicationSyncService {
         if (dto.getJobType() != null) app.setJobType(dto.getJobType());
         if (dto.getJobMode() != null) app.setJobMode(dto.getJobMode());
         if (dto.getEmail() != null) app.setEmail(dto.getEmail());
+        if (dto.getStarred() != null) app.setStarred(dto.getStarred());
+        if (dto.getArchived() != null) app.setArchived(dto.getArchived());
         if (dto.getExternalJobId() != null) app.setExternalJobId(dto.getExternalJobId());
         if (dto.getAtsPlatform() != null) app.setAtsPlatform(dto.getAtsPlatform());
         if (dto.getJobDescription() != null) app.setJobDescription(dto.getJobDescription());
@@ -138,6 +140,8 @@ public class ApplicationSyncService {
         if (dto.getJobType() != null) app.setJobType(dto.getJobType());
         if (dto.getJobMode() != null) app.setJobMode(dto.getJobMode());
         if (dto.getEmail() != null) app.setEmail(dto.getEmail());
+        if (dto.getStarred() != null) app.setStarred(dto.getStarred());
+        if (dto.getArchived() != null) app.setArchived(dto.getArchived());
         if (dto.getJobDescription() != null) app.setJobDescription(dto.getJobDescription());
         if (dto.getSource() != null) app.setSource(dto.getSource());
         if (dto.getResume() != null && dto.getResume().getId() != null) {

@@ -148,6 +148,49 @@ class ProfileResourceIT {
 
     @Test
     @Transactional
+    void firstResumeAutoDefaultsAndSettingDefaultUnsetsTheOther() throws Exception {
+        // The FIRST resume auto-becomes the default.
+        Long first = createResume("Resume A");
+        mockMvc.perform(get("/api/profile/resumes")).andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.id == " + first + ")].defaultResume").value(true));
+
+        // A SECOND resume is not default.
+        Long second = createResume("Resume B");
+        mockMvc.perform(get("/api/profile/resumes")).andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.id == " + second + ")].defaultResume").value(false));
+
+        // Promoting the second to default clears the first (at most one default per user).
+        mockMvc
+            .perform(put("/api/profile/resumes/" + second).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("defaultResume", true))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.defaultResume").value(true));
+        mockMvc.perform(get("/api/profile/resumes")).andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.id == " + first + ")].defaultResume").value(false))
+            .andExpect(jsonPath("$[?(@.id == " + second + ")].defaultResume").value(true));
+
+        // Starring is a partial update like archive.
+        mockMvc
+            .perform(put("/api/profile/resumes/" + first).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("starred", true))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.starred").value(true));
+    }
+
+    private Long createResume(String label) throws Exception {
+        String created = mockMvc
+            .perform(
+                post("/api/profile/resumes")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsString(Map.of("label", label, "status", "NEEDS_REVIEW")))
+            )
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        return om.readTree(created).get("id").asLong();
+    }
+
+    @Test
+    @Transactional
     void anotherUsersResumeIsNeverVisibleOrMutable() throws Exception {
         // A resume owned by "admin", created directly.
         User admin = userRepository.findOneByLogin("admin").orElseThrow();

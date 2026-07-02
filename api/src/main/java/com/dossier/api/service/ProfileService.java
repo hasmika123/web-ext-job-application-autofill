@@ -100,6 +100,15 @@ public class ProfileService {
         if (resume.getr2ObjectKey() == null) {
             resume.setr2ObjectKey("");
         }
+        // Default/base resume: the user's FIRST resume auto-becomes the default; an explicit
+        // request also wins. Either way, unset any prior default first (at most one per user).
+        boolean firstResume = resumeRepository.findByUserIsCurrentUser().isEmpty();
+        if (Boolean.TRUE.equals(dto.getDefaultResume()) || firstResume) {
+            clearDefaultForCurrentUser();
+            resume.setDefaultResume(true);
+        } else {
+            resume.setDefaultResume(false);
+        }
         return resumeMapper.toDto(resumeRepository.save(resume));
     }
 
@@ -127,7 +136,30 @@ public class ProfileService {
         if (dto.getArchived() != null) {
             resume.setArchived(dto.getArchived());
         }
+        if (dto.getStarred() != null) {
+            resume.setStarred(dto.getStarred());
+        }
+        // Setting a resume as default clears any other default (one per user); clearing it
+        // just unsets this one (the user may then have no default).
+        if (dto.getDefaultResume() != null) {
+            if (Boolean.TRUE.equals(dto.getDefaultResume())) {
+                clearDefaultForCurrentUser();
+                resume.setDefaultResume(true);
+            } else {
+                resume.setDefaultResume(false);
+            }
+        }
         return resumeMapper.toDto(resumeRepository.save(resume));
+    }
+
+    /** Unset the default flag on all of the current user's resumes (before promoting a new default). */
+    private void clearDefaultForCurrentUser() {
+        for (Resume r : resumeRepository.findByUserIsCurrentUser()) {
+            if (Boolean.TRUE.equals(r.getDefaultResume())) {
+                r.setDefaultResume(false);
+                resumeRepository.save(r);
+            }
+        }
     }
 
     public void deleteResume(Long id) {

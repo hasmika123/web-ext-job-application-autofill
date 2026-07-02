@@ -34,6 +34,10 @@ public class ResumeDTO implements Serializable {
 
     private Boolean archived;
 
+    private Boolean starred;
+
+    private Boolean defaultResume;
+
     private UserDTO user;
 
     public Long getId() {
@@ -92,6 +96,22 @@ public class ResumeDTO implements Serializable {
         this.archived = archived;
     }
 
+    public Boolean getStarred() {
+        return starred;
+    }
+
+    public void setStarred(Boolean starred) {
+        this.starred = starred;
+    }
+
+    public Boolean getDefaultResume() {
+        return defaultResume;
+    }
+
+    public void setDefaultResume(Boolean defaultResume) {
+        this.defaultResume = defaultResume;
+    }
+
     public UserDTO getUser() {
         return user;
     }
@@ -132,6 +152,8 @@ public class ResumeDTO implements Serializable {
             ", status='" + getStatus() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", archived='" + getArchived() + "'" +
+            ", starred='" + getStarred() + "'" +
+            ", defaultResume='" + getDefaultResume() + "'" +
             ", user=" + getUser() +
             "}";
     }
