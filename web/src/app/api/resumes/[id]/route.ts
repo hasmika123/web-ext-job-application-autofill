@@ -16,7 +16,7 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { archived?: unknown; label?: unknown; parsedJson?: unknown }
+    | { archived?: unknown; label?: unknown; parsedJson?: unknown; starred?: unknown; defaultResume?: unknown }
     | null;
   if (!body || typeof body !== "object") {
     return Response.json({ error: "Expected a JSON body." }, { status: 400 });
@@ -28,6 +28,18 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
       return Response.json({ error: "'archived' must be a boolean." }, { status: 400 });
     }
     forward.archived = body.archived;
+  }
+  if (body.starred !== undefined) {
+    if (typeof body.starred !== "boolean") {
+      return Response.json({ error: "'starred' must be a boolean." }, { status: 400 });
+    }
+    forward.starred = body.starred;
+  }
+  if (body.defaultResume !== undefined) {
+    if (typeof body.defaultResume !== "boolean") {
+      return Response.json({ error: "'defaultResume' must be a boolean." }, { status: 400 });
+    }
+    forward.defaultResume = body.defaultResume;
   }
   if (body.label !== undefined) {
     if (typeof body.label !== "string" || !body.label.trim()) {
@@ -72,7 +84,14 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
   }
 
   const data = await res.json().catch(() => ({}));
-  return Response.json({ ok: true, id: Number(id), label: data.label, archived: data.archived });
+  return Response.json({
+    ok: true,
+    id: Number(id),
+    label: data.label,
+    archived: data.archived,
+    starred: data.starred,
+    defaultResume: data.defaultResume,
+  });
 }
 
 /**
