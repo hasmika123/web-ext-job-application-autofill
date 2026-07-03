@@ -285,6 +285,18 @@ nothing and power users like it. Server-side keeps your API key out of the clien
 > metered quota. This is the accuracy fix for varied resume structures that the
 > regex-only heuristic parser couldn't reliably handle.
 
+> **Extended to fill-engine matching quality (2026-07-03, see PROGRESS.md Phase 5.5).**
+> Four upgrades to the extension's autofill-matching pipeline, keeping the same
+> deterministic-first / AI-as-fallback shape: (1) the standardized W3C `autocomplete`
+> attribute as a high-confidence signal (data-driven per-host distrust list — Workday's
+> is unreliable); (2) tiered label-signal scoring so a real `<label>` beats a placeholder,
+> surfaced as low-confidence/unchecked rows in the review overlay; (3) a **cached AI
+> field-mapper** — fields the deterministic rules miss get one batched, cached model call
+> through the same BYO-key/server-AI gates as drafting, so any given page costs at most one
+> call ever per device; (4) **AI picks for constrained screening questions** (selects/radio
+> groups), where the model's reply is validated against the page's own literal option list
+> (hallucination-proof by construction). No new tech stack, no per-field LLM cost.
+
 ### Phase 6 — Google Analytics (full funnel)
 Extension events go through the **GA4 Measurement Protocol from the service
 worker** — gtag.js and any remote code are banned under MV3, so the Measurement

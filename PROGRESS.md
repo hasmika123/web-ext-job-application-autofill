@@ -25,6 +25,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ✅ **Phase 5.5 — Fill-engine matching upgrades MERGED (2026-07-03, PR #27, merge commit `49bbf36`)**,
+> four user-directed upgrades to the autofill engine's matching pipeline (see the Phase 5.5 entry below
+> for the full task breakdown + files touched). Extension **v0.44.0 → v0.48.0**, ruleset v4 → v5. No
+> loose ends — all 4 CI checks green, no legal/ops follow-up needed.
+>
 > ✅ **Phase 5.4 — AI-assisted resume parsing MERGED (2026-07-02, PR #26)**, extending the Phase 5
 > Gemini seam from answer-drafting to structured resume parsing (see the Phase 5.4 entry below for
 > the full task breakdown). **Live on prod as-is** — no new env vars needed, reuses `DOSSIER_AI_*`.
@@ -535,6 +540,55 @@ focused Claude Code session.
 - [ ] **Legal follow-up (not yet done)**: terms & privacy policy must disclose
   default-on AI resume parsing (resume content → Gemini free tier; Google may use
   inputs to improve its services) — fold into the **PL.1** lawyer-review item.
+
+### Phase 5.5 — Fill-engine matching upgrades (2026-07-03, PR #27, merged)
+> User-directed: after a full analysis of the autofill engine's matching logic (canonical-field
+> scanner, ruleset, AI assist), four upgrades were picked as highest-value while keeping the engine's
+> direction (deterministic-first, AI only where determinism can't work, everything reviewed in the
+> overlay, cost-effective — no LLM-per-field, no vision/agentic filling). Branch
+> `feat/fill-engine-upgrades`, one commit per task. Extension **v0.44.0 → v0.48.0**; ruleset **v4 → v5**.
+> Not done (flagged, deferred pending a product/privacy decision): a crowd-learning pipeline that
+> promotes real corrections into new ruleset versions (needs backend + a call on label telemetry
+> leaving the device), and relaxing the generic scanner's one-element-per-field cap (repeated blocks
+> like two references) — riskiest change for modest benefit.
+- [x] **5.5.1 W3C `autocomplete` token signal.** Valid autocomplete field tokens (`given-name`,
+  `email`, `postal-code`, …) map straight to canonical fields in the generic scanner and outrank
+  keyword matching — a standardized, zero-cost, high-precision signal it previously ignored.
+  **Workday hosts excluded** (its autocomplete attributes are unreliable — user call), via a
+  data-driven `autocomplete.distrust` host list in the ruleset (`src/config/rules.js`, **v5**,
+  remote-updatable — no extension release needed to add more distrusted hosts). Guard: a generic
+  `url` token never steals a linkedin/github-labeled field. `src/content/adapters/base.js`
+  (`autocompleteField`, `autocompleteTrusted`); new `autocomplete_confidence.test.js` (18). ext v0.45.0.
+- [x] **5.5.2 Signal-tier scoring + match confidence in the overlay.** `labelParts(el)` tiers every
+  label signal (automation-id 300 > label/aria 200 > placeholder/name/id 100); keyword hits score per
+  tier so a real `<label>` beats a placeholder hit for the same field — fixes cross-contamination from
+  the old flat-string concatenation. Matches backed only by weak signals carry `confidence:"low"` and
+  render **UNCHECKED with a "?" marker** in the review overlay (opt-in instead of un-noticing a wrong
+  fill); a field-cache hit (user confirmed before) keeps the row checked regardless. `base.js`,
+  `filler.js`, `field-cache.js`; +10 tests. ext v0.46.0.
+- [x] **5.5.3 Cached AI field-mapper fallback** for fields the deterministic rules miss entirely —
+  the biggest capability jump. Leftover labeled elements resolve from a local host+label cache
+  (`chrome.storage.local`); only NOVEL labels go to the service worker in one batched `JAF_MAP_FIELDS`
+  message, mapped to the canonical vocabulary through the **same consent gates as answer drafting**
+  (BYO key → dedicated JSON-only prompt; server AI → tolerant JSON-from-prose parse; both off ⇒ silent
+  no-op). Only labels leave the page, never values; sensitive demographic keys are never LLM-mappable;
+  results (incl. "unknown") are cached, so any given page costs **at most one model call ever per
+  device**. Mapped rows carry an AI badge. New `src/lib/field-map.js` (pure prompt/parse core, SW-safe)
+  + `src/content/field-mapper.js` (DOM half) + `field_mapper.test.js` (28). ext v0.47.0.
+- [x] **5.5.4 AI picks for constrained screening questions.** `assist.js` (previously textareas only)
+  now also handles native selects/radio groups whose label reads like a screener ("Years of
+  experience…", "Willing to relocate?", notice period, etc.): the SW (`JAF_PICK`) is sent the question
+  **plus the page's literal option list**; the reply is validated by `fieldMap.matchOption`
+  (word-boundary, unique-or-null, UNSURE ⇒ no fill) so the filled value is only ever an option the page
+  actually offers — hallucination-proof by construction. EEO/demographic questions are hard-excluded
+  from AI answering (`EEO_RE` guard). Picks are cached per question+options, reviewable and
+  regenerable like drafts; radio picks fill via a new `"choice"` kind in `base.js`.
+  `assist_picks.test.js` (23). ext v0.48.0.
+- [x] **Verification**: full extension suite (19 test files, ~500 assertions) + `npm run typecheck` +
+  `npm run build` all green throughout; merged main's concurrent Phase 5.4 work (resume parsing) with
+  a straightforward conflict resolution (PROGRESS.md log entries combined, version numbers reconciled
+  to the higher `0.48.0`). All 4 CI jobs (API tests, extension jsdom, web typecheck+lint+build, web
+  Docker build+smoke) green on the merge PR.
 
 ## Phase 6 — Google Analytics
 - [x] **6.1 Extension events** via GA4 Measurement Protocol from the service
