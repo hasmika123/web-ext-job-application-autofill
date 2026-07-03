@@ -263,6 +263,34 @@ Backend: additive migration (new Application/Resume columns + DRAFT enum value),
 and the provider/seam grows `updateApplication` (status changes, confirm submit)
 and `archiveResume` alongside the existing `pushApplication`/`listApplications`.
 
+#### Phase 3.6 — Job-details extraction v2 (capture provenance + structured salary + opt-in AI enrichment)
+Upgrade the capture chain from "first non-empty string wins" to a provenance-aware,
+queryable capture — keeping the deterministic pipeline as tier 1 (free, instant,
+private) and adding AI only as an opt-in gap-filler, never as the primary extractor.
+
+- **Structured salary.** Alongside the display string, derive
+  `salaryParsed {min,max,currency,period}` from schema.org amounts or the matched
+  salary text — the prerequisite for salary filtering/sorting on the web board.
+- **Field provenance.** Every captured field is tagged with its extractor
+  (`jsonld|adapter|board|generic|text|ai`) in `capture.sources`, so the UI and
+  future features can distinguish structured-data facts from heuristic guesses.
+- **Wider deterministic heuristics before AI.** Conservative description-text scans
+  for jobType (single unambiguous keyword; two different types = no call) and
+  jobMode (work/role/location-bound phrases only — "hybrid cloud"/"onsite
+  interviews" never match), cutting null rates without breaking the dossier
+  "capture a strong signal, don't guess" rule.
+- **Opt-in AI enrichment (its OWN toggle, default OFF).** `JAF.jobEnrich` + the SW's
+  `enrichCapture()` fill ONLY the remaining gaps (jobType/jobMode/salary) from the
+  posting's public description text — never profile/resume data, never overriding a
+  deterministic value. Rides the existing two-tier model chain (BYO Anthropic key →
+  consented Kiwiply AI/Gemini relay), strict JSON-out validation, per-posting cache
+  so a job costs at most one AI call ever.
+- **Later (unscheduled):** server-side `salary_min/max/currency/period` columns
+  (additive Liquibase) + board salary filters; cross-board dedup of the same posting
+  (normalized company+title+location match, no embeddings); adapter-rot telemetry
+  (anonymous per-tier extraction-miss counts so Workday markup changes surface
+  before users report them); review-overlay provenance badges (show `sources`).
+
 ### Phase 4 — Cached Field Choices (cloud sync)
 Promote the Phase 0 local cache to `field_cache` on the server so learned answers
 follow the user across devices and browsers. Add last-write-wins + `hit_count`
