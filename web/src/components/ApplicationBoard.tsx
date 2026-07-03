@@ -75,8 +75,16 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 // Draft + Saved sit as full-width collapsible ROWS at the top; the funnel stages spread out
 // underneath as a responsive GRID; Archived is a collapsible ROW at the very bottom.
-const ROW_STATUSES = ["DRAFT", "SAVED"];
-const GRID_STATUSES = ["APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+// Attention-first layout: the Saved bookmark shelf (wide, apply-forward tiles) sits on
+// top, the Draft tray (compact uniform cards) under it, the active pipeline
+// (Applied/Interview/Offer) spreads as columns — Interview and Offer wider with richer
+// cards — and Rejected/Archived collapse into slim list rows at the bottom.
+const ROW_STATUSES = ["SAVED", "DRAFT"];
+const GRID_STATUSES = ["APPLIED", "INTERVIEW", "OFFER"];
+const ROW_HINTS: Record<string, string> = {
+  SAVED: "bookmarks — ready to apply",
+  DRAFT: "fills in progress",
+};
 // A single set height for every board column/section, with internal scroll when content overflows.
 const COLUMN_H = "h-[440px]";
 
@@ -352,8 +360,9 @@ export default function ApplicationBoard({
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  // Saved row expanded by default; the Draft and Archived rows collapsed by default.
-  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set(["DRAFT", "ARCHIVED"]));
+  // Saved shelf expanded by default; the low-attention sections (Draft tray, Rejected,
+  // Archived) start collapsed.
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set(["DRAFT", "REJECTED", "ARCHIVED"]));
   const toggleRow = (key: string) =>
     setCollapsedRows((prev) => {
       const next = new Set(prev);
@@ -736,12 +745,14 @@ export default function ApplicationBoard({
           No applications match your search or filter.
         </p>
       ) : (
-        /* Board — Draft/Saved rows on top; the funnel stages as a fixed-height grid; Archived row below */
+        /* Board — Saved shelf + Draft tray on top; Applied/Interview/Offer as the active
+           pipeline (Interview/Offer wider + richer); Rejected/Archived as slim rows below. */
         <div className="flex flex-col gap-3.5">
           {ROW_STATUSES.map((key) => {
             const col = COL_BY_KEY[key];
             const items = active.filter((a) => a.status === key);
             const collapsed = collapsedRows.has(key);
+            const saved = key === "SAVED";
             return (
               <section
                 key={key}
@@ -762,13 +773,19 @@ export default function ApplicationBoard({
                     <span className="h-2 w-2 rounded-full" style={{ background: col.dot }} />
                     {col.label}
                   </span>
+                  {ROW_HINTS[key] && <span className="hidden text-[11px] font-medium text-muted sm:block">{ROW_HINTS[key]}</span>}
                   <span className="ml-auto rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
                 </button>
                 {!collapsed &&
                   (items.length ? (
                     <ul className="scroll-slim mt-3 flex gap-2.5 overflow-x-auto pb-1.5">
                       {items.map((a) => (
-                        <BoardCard key={a.id} className="w-[240px] shrink-0" {...cardHandlers(a)} />
+                        <BoardCard
+                          key={a.id}
+                          variant={saved ? "saved" : "compact"}
+                          className={saved ? "w-[300px] shrink-0" : "w-[240px] shrink-0"}
+                          {...cardHandlers(a)}
+                        />
                       ))}
                     </ul>
                   ) : (
@@ -778,7 +795,9 @@ export default function ApplicationBoard({
             );
           })}
 
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Active pipeline — Applied stays dense; Interview and Offer get wider tracks
+              and larger cards, since that's where the attention belongs. */}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-[1fr_1.15fr_1.15fr]">
             {GRID_STATUSES.map((key) => {
               const col = COL_BY_KEY[key];
               const items = active.filter((a) => a.status === key);
@@ -806,7 +825,9 @@ export default function ApplicationBoard({
                   </div>
                   <ul className="scroll-slim flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
                     {items.length ? (
-                      items.map((a) => <BoardCard key={a.id} {...cardHandlers(a)} />)
+                      items.map((a) => (
+                        <BoardCard key={a.id} variant={key === "APPLIED" ? "compact" : "rich"} {...cardHandlers(a)} />
+                      ))
                     ) : (
                       <li className="grid flex-1 place-items-center rounded-[var(--radius)] border border-dashed border-line text-[12px] text-muted">
                         Drag a card here
@@ -818,7 +839,47 @@ export default function ApplicationBoard({
             })}
           </div>
 
-          {/* Archived — full-width collapsible row below the funnel; cards greyed out. */}
+          {/* Rejected — slim collapsible list rows; still a drop target for drag-to-reject. */}
+          {(() => {
+            const col = COL_BY_KEY.REJECTED;
+            const items = active.filter((a) => a.status === "REJECTED");
+            const collapsed = collapsedRows.has("REJECTED");
+            return (
+              <section
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver("REJECTED");
+                }}
+                onDragLeave={() => setDragOver((c) => (c === "REJECTED" ? null : c))}
+                onDrop={(e) => onDrop(e, "REJECTED")}
+                className={cn(
+                  "flex flex-col rounded-[var(--radius-lg)] border border-line/60 bg-paper-2 p-3 transition-colors",
+                  dragOver === "REJECTED" && "outline-2 outline-dashed outline-accent",
+                )}
+              >
+                <button type="button" onClick={() => toggleRow("REJECTED")} aria-expanded={!collapsed} className="flex w-full items-center gap-2 px-1 text-left">
+                  <Chevron open={!collapsed} className="text-muted" />
+                  <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[.06em] text-ink-soft">
+                    <span className="h-2 w-2 rounded-full" style={{ background: col.dot }} />
+                    {col.label}
+                  </span>
+                  <span className="ml-auto rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
+                </button>
+                {!collapsed &&
+                  (items.length ? (
+                    <ul className="scroll-slim mt-3 flex max-h-[264px] flex-col gap-1.5 overflow-y-auto pr-1">
+                      {items.map((a) => (
+                        <BoardRow key={a.id} {...cardHandlers(a)} />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 px-1 text-[12px] text-muted">Nothing here — drag a card here when a rejection comes in.</p>
+                  ))}
+              </section>
+            );
+          })()}
+
+          {/* Archived — same slim rows, greyed out. */}
           {archivedItems.length > 0 && (() => {
             const collapsed = collapsedRows.has("ARCHIVED");
             return (
@@ -832,9 +893,9 @@ export default function ApplicationBoard({
                   <span className="ml-auto rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{archivedItems.length}</span>
                 </button>
                 {!collapsed && (
-                  <ul className="scroll-slim mt-3 flex max-h-[300px] gap-2.5 overflow-x-auto overflow-y-hidden pb-1.5">
+                  <ul className="scroll-slim mt-3 flex max-h-[264px] flex-col gap-1.5 overflow-y-auto pr-1">
                     {archivedItems.map((a) => (
-                      <BoardCard key={a.id} archived className="w-[240px] shrink-0" {...cardHandlers(a)} />
+                      <BoardRow key={a.id} archived {...cardHandlers(a)} />
                     ))}
                   </ul>
                 )}
@@ -1247,6 +1308,7 @@ function BoardCard({
   busy,
   picked,
   archived = false,
+  variant = "compact",
   className,
   onTogglePick,
   onOpen,
@@ -1261,6 +1323,8 @@ function BoardCard({
   busy: boolean;
   picked: boolean;
   archived?: boolean;
+  /** compact = dense pipeline card; rich = larger Interview/Offer card; saved = wide bookmark tile. */
+  variant?: "compact" | "rich" | "saved";
   className?: string;
   onTogglePick: () => void;
   onOpen: () => void;
@@ -1273,6 +1337,7 @@ function BoardCard({
 }) {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const isSaved = app.status === "SAVED";
+  const rich = variant === "rich";
   const showNudge = app.status === "DRAFT" && !archived && !nudgeDismissed;
   const date = cardDate(app);
   const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
@@ -1303,7 +1368,8 @@ function BoardCard({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "rounded-[var(--radius)] border bg-paper p-3 shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "rounded-[var(--radius)] border bg-paper shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        rich ? "p-3.5" : "p-3",
         archived
           ? "cursor-pointer opacity-60 grayscale hover:opacity-100"
           : "cursor-grab hover:border-accent hover:shadow-[var(--shadow)] active:cursor-grabbing",
@@ -1314,7 +1380,7 @@ function BoardCard({
     >
       <div className="flex items-start gap-2.5">
         {/* Company avatar; hovering it (or a picked state) swaps in the multi-select checkbox. */}
-        <span className="group/pick relative h-8 w-8 shrink-0">
+        <span className={cn("group/pick relative shrink-0", rich ? "h-9 w-9" : "h-8 w-8")}>
           <input
             type="checkbox"
             checked={picked}
@@ -1334,7 +1400,8 @@ function BoardCard({
           <span
             aria-hidden
             className={cn(
-              "grid h-full w-full place-items-center rounded-lg text-[13px] font-bold transition-opacity group-hover/pick:opacity-0 peer-focus-visible:opacity-0",
+              "grid h-full w-full place-items-center rounded-lg font-bold transition-opacity group-hover/pick:opacity-0 peer-focus-visible:opacity-0",
+              rich ? "text-[14px]" : "text-[13px]",
               picked && "opacity-0",
               avatarTint(app.company),
             )}
@@ -1343,8 +1410,8 @@ function BoardCard({
           </span>
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-bold leading-snug text-ink">{app.roleTitle}</div>
-          <div className="truncate text-[12.5px] text-ink-soft">{app.company}</div>
+          <div className={cn("truncate font-bold leading-snug text-ink", rich ? "text-[14px]" : "text-[13.5px]")}>{app.roleTitle}</div>
+          <div className={cn("truncate text-ink-soft", rich ? "text-[13px]" : "text-[12.5px]")}>{app.company}</div>
         </div>
         {isSaved ? (
           <BookmarkButton busy={busy} onRemove={onUnsave} />
@@ -1374,6 +1441,10 @@ function BoardCard({
             <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-soft">{modeLabel}</span>
           )}
         </div>
+      )}
+      {/* The bigger surfaces (Interview/Offer cards, Saved tiles) also carry the salary. */}
+      {(rich || variant === "saved") && app.salary && (
+        <div className="mt-1.5 truncate text-[12px] font-bold text-accent-deep">{app.salary}</div>
       )}
       {date && <div className={cn("text-[11px] text-muted", app.location || modeLabel ? "mt-1.5" : "mt-2")}>{date}</div>}
 
@@ -1434,6 +1505,108 @@ function BoardCard({
           </div>
         </div>
       )}
+    </li>
+  );
+}
+
+/**
+ * Slim one-line row for the low-attention lists (Rejected, Archived) — same avatar/
+ * checkbox swap and handlers as a card, a fraction of the height.
+ */
+function BoardRow({
+  app,
+  busy,
+  picked,
+  archived = false,
+  onTogglePick,
+  onOpen,
+  onStar,
+  onArchive,
+  onMoveTo,
+  onDelete,
+}: {
+  app: Application;
+  busy: boolean;
+  picked: boolean;
+  archived?: boolean;
+  onTogglePick: () => void;
+  onOpen: () => void;
+  onStar: () => void;
+  onArchive: (v: boolean) => void;
+  onMoveTo: (status: string) => void;
+  onDelete: () => void;
+}) {
+  const date = cardDate(app);
+  return (
+    <li
+      draggable={!archived}
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      onDragStart={(e) => {
+        if (archived) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.setData("text/plain", String(app.id));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className={cn(
+        "flex items-center gap-2.5 rounded-[var(--radius)] border bg-paper px-3 py-2 shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        archived ? "cursor-pointer opacity-60 grayscale hover:opacity-100" : "cursor-grab hover:border-accent active:cursor-grabbing",
+        picked ? "border-accent ring-1 ring-accent" : "border-line",
+        busy && "opacity-60",
+      )}
+    >
+      <span className="group/pick relative h-6 w-6 shrink-0">
+        <input
+          type="checkbox"
+          checked={picked}
+          aria-label="Select application"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            onTogglePick();
+          }}
+          className={cn(
+            "peer absolute inset-0 z-[1] m-auto h-3.5 w-3.5 accent-[color:var(--color-accent)] transition-opacity",
+            picked
+              ? "opacity-100"
+              : "pointer-events-none opacity-0 focus-visible:opacity-100 group-hover/pick:pointer-events-auto group-hover/pick:opacity-100",
+          )}
+        />
+        <span
+          aria-hidden
+          className={cn(
+            "grid h-full w-full place-items-center rounded-md text-[10.5px] font-bold transition-opacity group-hover/pick:opacity-0 peer-focus-visible:opacity-0",
+            picked && "opacity-0",
+            avatarTint(app.company),
+          )}
+        >
+          {companyInitial(app.company)}
+        </span>
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[13px]">
+        <span className="font-bold text-ink">{app.roleTitle}</span>
+        <span className="text-muted"> — {app.company}</span>
+      </span>
+      {date && <span className="hidden shrink-0 text-[11px] text-muted sm:block">{date}</span>}
+      <StarButton starred={!!app.starred} busy={busy} onToggle={onStar} />
+      <CardMenu
+        starred={!!app.starred}
+        archived={archived}
+        busy={busy}
+        onStar={onStar}
+        onArchive={onArchive}
+        onMoveTo={onMoveTo}
+        onDelete={onDelete}
+      />
     </li>
   );
 }

@@ -826,6 +826,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **web — attention-first board layout** · User-picked reorg: Saved shelf of wide
+  300px bookmark tiles (salary shown) on top, Draft tray of compact 240px cards (collapsed),
+  pipeline grid narrowed to Applied/Interview/Offer with `1fr/1.15fr/1.15fr` tracks — Interview
+  and Offer get larger "rich" cards (bigger avatar/type + salary line), Applied stays dense —
+  and Rejected/Archived collapse into slim one-line `BoardRow` lists (still drag targets /
+  greyed). Card sizing now varies by stage on purpose. Loading skeleton matched. tsc+eslint+
+  build green; web only.
 - 2026-07-03 · **web — board scrollbars + toolbar declutter** · `.scroll-slim` (thin, line-tinted
   scrollbars via standard `scrollbar-width/color` + webkit fallback) on all stage-section and
   panel scrollers. Toolbar condensed to search · Filters popover · sort · Add: starred/job-mode/
