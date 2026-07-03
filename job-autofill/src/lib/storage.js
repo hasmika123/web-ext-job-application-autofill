@@ -87,7 +87,7 @@
   const deleteResumeFile = (id) => idbDel(id);
 
   async function getSettings() {
-    const defaults = { llmEnabled: false, apiKey: "", lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "", apiBaseUrl: "https://api.kiwiply.com" };
+    const defaults = { llmEnabled: false, apiKey: "", jobAiEnabled: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, rulesUrl: "", apiBaseUrl: "https://api.kiwiply.com" };
     return Object.assign(defaults, (await get(KEYS.settings)) || {});
   }
   const saveSettings = (s) => set({ [KEYS.settings]: s });

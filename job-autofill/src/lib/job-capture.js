@@ -1,7 +1,8 @@
 /* job-capture.js — JAF.jobCapture
  *
  * Reads the current job page and returns a canonical JobCapture DTO for the tracker:
- *   { company, role, location, jobUrl, externalJobId, atsPlatform, jobDescription, salary }
+ *   { company, role, location, jobUrl, externalJobId, atsPlatform, jobDescription,
+ *     salary, salaryParsed, jobType, jobMode, sources }
  *
  * Extractor chain (the ROADMAP order):
  *   1. schema.org/JobPosting JSON-LD  — standardized across most ATS/boards, so it
@@ -9,6 +10,11 @@
  *   2. adapter.captureJob({loc})      — per-site, AUTHORITATIVE for externalJobId +
  *      atsPlatform (both derived from the public URL shape, not tenant DOM).
  *   3. generic <meta>/heuristics      — og:* + <title> + canonical, the final fallback.
+ *
+ * Every captured field is provenance-tagged in `sources` (field → "jsonld" | "adapter"
+ * | "board" | "generic" | "text"), so callers can tell a structured-data hit from a
+ * heuristic one. `salaryParsed` carries the queryable numbers
+ * ({ min, max, currency, period }) alongside the display string when derivable.
  *
  * Pure reads — no network, no DOM mutation, no auto-anything. Attaches to window.JAF
  * so it loads in the content script and popup alike. The fields are merged per-field
@@ -70,6 +76,105 @@
   function unitSuffix(u) {
     if (!u) return "";
     return UNIT_SUFFIX[String(u).toUpperCase().replace(/[^A-Z]/g, "")] || "";
+  }
+
+  // ---- structured salary --------------------------------------------------
+  // The board can only filter/sort on numbers, so alongside the display string we
+  // derive { min?, max?, currency?, period? } (period ∈ YEAR|MONTH|WEEK|DAY|HOUR).
+  // Same conservatism as the display path: derived only from a strong signal
+  // (schema.org amounts or an already-matched salary string), never guessed.
+  const SYMBOL_CUR = {
+    "$": "USD", "C$": "CAD", "A$": "AUD", "NZ$": "NZD", "£": "GBP", "€": "EUR",
+    "₹": "INR", "MX$": "MXN", "S$": "SGD", "R$": "BRL",
+  };
+
+  function unitPeriod(u) {
+    if (!u) return undefined;
+    const k = String(u).toUpperCase().replace(/[^A-Z]/g, "");
+    if (/^(YEAR|ANNUAL|YR)/.test(k)) return "YEAR";
+    if (/^(HOUR|HR)/.test(k)) return "HOUR";
+    if (/^(MONTH|MO)/.test(k)) return "MONTH";
+    if (/^(WEEK|WK)/.test(k)) return "WEEK";
+    if (/^(DAY|DAILY)/.test(k)) return "DAY";
+    return undefined;
+  }
+
+  function numVal(n) {
+    const x = Number(String(n).replace(/[, ]/g, ""));
+    return isFinite(x) && x > 0 ? x : undefined;
+  }
+
+  function isoCurrency(c) {
+    if (!c) return undefined;
+    const s = String(c).trim();
+    const up = s.toUpperCase();
+    if (/^[A-Z]{3}$/.test(up)) return up;
+    return SYMBOL_CUR[s] || SYMBOL_CUR[up] || undefined;
+  }
+
+  // schema.org MonetaryAmount → structured numbers. Walks the same shapes as
+  // moneyAmount (value / minValue+maxValue / nested MonetaryAmount.value).
+  function moneyParsed(m) {
+    if (m == null) return undefined;
+    if (Array.isArray(m)) { for (const x of m) { const r = moneyParsed(x); if (r) return r; } return undefined; }
+    if (typeof m === "number" || typeof m === "string") return parseSalaryText(str(m)); // pre-formatted
+    if (typeof m !== "object") return undefined;
+    const currency = isoCurrency(m.currency || m.currencyCode || m.salaryCurrency);
+    let min, max, unit = m.unitText || m.unitCode;
+    const v = m.value;
+    if (v && typeof v === "object") {
+      unit = v.unitText || v.unitCode || unit;
+      if (v.minValue != null || v.maxValue != null) { min = v.minValue; max = v.maxValue; }
+      else if (v.value != null) min = v.value;
+    } else if (v != null) {
+      min = v;
+    } else if (m.minValue != null || m.maxValue != null) {
+      min = m.minValue; max = m.maxValue;
+    }
+    min = min != null ? numVal(min) : undefined;
+    max = max != null ? numVal(max) : undefined;
+    if (min == null && max == null) return undefined;
+    if (min != null && max != null && max < min) { const t = min; min = max; max = t; }
+    const out = {};
+    if (min != null) out.min = min;
+    if (max != null) out.max = max;
+    const period = unitPeriod(unit);
+    if (currency) out.currency = currency;
+    if (period) out.period = period;
+    return out;
+  }
+
+  // Parse an already-captured salary STRING ("$120,000 – $150,000/yr", "£45k",
+  // "$25–$30 per hour") into structured numbers. Only runs on text the salary
+  // extractors matched (or a schema.org pre-formatted string) — never a raw page.
+  function parseSalaryText(s) {
+    const t = str(s);
+    if (!t) return undefined;
+    const cur = t.match(/C\$|A\$|NZ\$|MX\$|S\$|R\$|[$£€₹]|\b(USD|GBP|EUR|CAD|AUD|INR|NZD|SGD|BRL|MXN|ZAR|CHF|SEK|JPY|CNY)\b/i);
+    const currency = cur ? isoCurrency(cur[0]) : undefined;
+    let period;
+    if (/(?:per|\/|an?)\s?(?:year|annum|yr)\b|annually/i.test(t)) period = "YEAR";
+    else if (/(?:per|\/|an?)\s?(?:hour|hr)\b|hourly/i.test(t)) period = "HOUR";
+    else if (/(?:per|\/|a)\s?(?:month|mo)\b|monthly/i.test(t)) period = "MONTH";
+    else if (/(?:per|\/|a)\s?(?:week|wk)\b|weekly/i.test(t)) period = "WEEK";
+    else if (/(?:per|\/|a)\s?day\b|daily/i.test(t)) period = "DAY";
+    const nums = [];
+    const re = /(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s?([kK]\b)?/g;
+    let m;
+    while ((m = re.exec(t)) && nums.length < 2) {
+      let x = numVal(m[1]);
+      if (x == null) continue;
+      if (m[2]) x *= 1000;
+      nums.push(x);
+    }
+    if (!nums.length || (!currency && !period)) return undefined; // number alone = too weak
+    let min = nums[0], max = nums[1];
+    if (max != null && max < min) { const x = min; min = max; max = x; }
+    const out = { min };
+    if (max != null) out.max = max;
+    if (currency) out.currency = currency;
+    if (period) out.period = period;
+    return out;
   }
 
   // A schema.org MonetaryAmount (baseSalary/estimatedSalary) → "$120,000 – $150,000/yr".
@@ -235,6 +340,34 @@
     return undefined;
   }
 
+  // Employment type from the DESCRIPTION text — conservative: exactly ONE type keyword
+  // in the whole text wins; two different types ("full-time or part-time", a full-time
+  // JD that mentions the internship program) = ambiguous = no call. Dossier rule: we
+  // capture a strong signal, we don't guess.
+  function jobTypeFromText(text) {
+    const t = str(text);
+    if (!t) return undefined;
+    const hits = [];
+    if (/\bfull[\s-]?time\b/i.test(t)) hits.push("FULL_TIME");
+    if (/\bpart[\s-]?time\b/i.test(t)) hits.push("PART_TIME");
+    if (/\binternship\b|\bintern\b/i.test(t)) hits.push("INTERNSHIP");
+    if (/\bcontract(?:or)?\s+(?:role|position|basis|opportunity)\b|\bc2c\b|\bcorp[\s-]?to[\s-]?corp\b/i.test(t)) hits.push("CONTRACT");
+    if (/\btemporary\s+(?:role|position|assignment)\b/i.test(t)) hits.push("TEMPORARY");
+    return hits.length === 1 ? hits[0] : undefined;
+  }
+
+  // Workplace mode from the DESCRIPTION text — only unambiguous phrasings. Plain
+  // "hybrid"/"onsite" words are NOT enough here (a JD can say "hybrid cloud" or
+  // "onsite interviews"); the word must be bound to work/role/location phrasing.
+  function jobModeFromText(text) {
+    const t = str(text);
+    if (!t) return undefined;
+    if (/\bhybrid\s+(?:work(?:ing|place)?|role|position|schedule|model|arrangement|environment|setup)\b|\b(?:work(?:place)?|location|schedule|model)\s*:?\s*hybrid\b/i.test(t)) return "HYBRID";
+    if (/\b(?:fully|100%)\s*remote\b|\bremote[\s-](?:first|only|position|role|job|work)\b|\bwork(?:ing)?\s+from\s+home\b|\bwfh\b|\b(?:position|role|job)\s+is\s+remote\b|\blocation\s*:?\s*remote\b/i.test(t)) return "REMOTE";
+    if (/\b(?:fully|100%)\s*on[\s-]?site\b|\bon[\s-]?site\s+(?:only|position|role|requirement)\b|\b(?:work(?:place)?|location)\s*:?\s*on[\s-]?site\b/i.test(t)) return "ON_SITE";
+    return undefined;
+  }
+
   function fromJsonLd(doc) {
     const out = {};
     if (!doc || !doc.querySelectorAll) return out;
@@ -250,6 +383,7 @@
       out.jobDescription = htmlToText(jp.description);
       out.externalJobId = identifierValue(jp.identifier);
       out.salary = moneyAmount(jp.baseSalary) || moneyAmount(jp.estimatedSalary);
+      out.salaryParsed = moneyParsed(jp.baseSalary) || moneyParsed(jp.estimatedSalary);
       out.jobType = employmentTypeToJobType(jp.employmentType);
       out.jobLocationType = str(jp.jobLocationType); // raw; resolved to jobMode in captureJob
       break; // first JobPosting on the page wins
@@ -376,6 +510,9 @@
   /**
    * Capture the current page (or an injected doc/loc/adapter, for tests/popup).
    * Returns a canonical JobCapture; absent fields are simply omitted (undefined).
+   * `sources` tags every present field with where it came from
+   * ("jsonld" | "adapter" | "board" | "generic" | "text") — a confidence signal for
+   * callers (structured data > URL shape > meta tags > text heuristics).
    */
   function captureJob(opts) {
     opts = opts || {};
@@ -393,30 +530,69 @@
     const boards = boardCapture(loc);
     const generic = fromGeneric(doc, loc);
 
+    // Per-field merge with provenance: first non-empty wins, and `sources[field]`
+    // remembers which extractor supplied it.
+    const sources = {};
+    function take(field, list) {
+      for (const pair of list) {
+        const v = pair[1] && pair[1][field];
+        if (v != null && String(v).trim() !== "") { sources[field] = pair[0]; return v; }
+      }
+      return undefined;
+    }
+    const J = ["jsonld", jsonld], A = ["adapter", acap], B = ["board", boards], G = ["generic", generic];
+
     // Salary: the JSON-LD amount (or an adapter, if any) wins; else scan the page text.
-    let salary = pick("salary", [jsonld, acap, generic]);
+    let salary = take("salary", [J, A, G]);
     if (!salary) {
       const bodyText = doc && doc.body ? doc.body.textContent || "" : "";
       salary = salaryFromText(bodyText || jsonld.jobDescription);
+      if (salary) sources.salary = "text";
+    }
+    // Structured salary: schema.org numbers when we have them, else parse the matched string.
+    let salaryParsed = sources.salary === "jsonld" ? jsonld.salaryParsed : undefined;
+    if (!salaryParsed && salary) salaryParsed = parseSalaryText(salary);
+    if (salaryParsed && !sources.salaryParsed) sources.salaryParsed = sources.salary;
+
+    const location = take("location", [J, A, G]);
+    const jobDescription = take("jobDescription", [J, A, G]);
+
+    // Job metadata → strict enum names (JobType/JobMode); still omitted when there is
+    // no confident signal, but the DESCRIPTION text is now scanned (conservatively)
+    // before giving up — a posting that says "full-time" / "fully remote" in the body
+    // no longer yields null.
+    let jobType = take("jobType", [J, A]);
+    if (!jobType) {
+      jobType = jobTypeFromText(jobDescription);
+      if (jobType) sources.jobType = "text";
+    }
+    let jobMode = take("jobMode", [A]);
+    if (!jobMode) {
+      jobMode = jobModeFrom(jsonld.jobLocationType, undefined);
+      if (jobMode) sources.jobMode = "jsonld";
+    }
+    if (!jobMode) {
+      jobMode = jobModeFrom(undefined, location) || jobModeFromText(jobDescription);
+      if (jobMode) sources.jobMode = "text";
     }
 
-    const location = pick("location", [jsonld, acap, generic]);
     return {
       // Descriptive fields: JSON-LD first, then adapter, then generic.
-      company: pick("company", [jsonld, acap, generic]),
-      role: pick("role", [jsonld, acap, generic]),
+      company: take("company", [J, A, G]),
+      role: take("role", [J, A, G]),
       location: location,
-      // Job metadata → strict enum names (JobType/JobMode); omitted when not confidently found.
-      jobType: pick("jobType", [jsonld, acap]),
-      jobMode: pick("jobMode", [acap]) || jobModeFrom(jsonld.jobLocationType, location),
-      jobDescription: pick("jobDescription", [jsonld, acap, generic]),
+      jobType: jobType,
+      jobMode: jobMode,
+      jobDescription: jobDescription,
       salary: salary,
+      salaryParsed: salaryParsed,
       // Identity: a filled-ATS adapter is authoritative; then the URL-shape board id;
       // then the JSON-LD identifier. (Board id beats JSON-LD's, which can be an internal
       // requisition number — the URL id is what the user sees and what dedups.)
-      externalJobId: pick("externalJobId", [acap, boards, jsonld, generic]),
+      externalJobId: take("externalJobId", [A, B, J, G]),
       atsPlatform: acap.atsPlatform || boards.atsPlatform || null,
-      jobUrl: pick("jobUrl", [acap, generic]) || stripHash(loc && loc.href),
+      jobUrl: take("jobUrl", [A, G]) || stripHash(loc && loc.href),
+      sources: sources,
     };
   }
 
@@ -432,8 +608,12 @@
     hasJsonLdJobPosting,
     htmlToText,
     moneyAmount,
+    moneyParsed,
+    parseSalaryText,
     salaryFromText,
     employmentTypeToJobType,
     jobModeFrom,
+    jobTypeFromText,
+    jobModeFromText,
   };
 })();

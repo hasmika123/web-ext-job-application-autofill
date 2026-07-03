@@ -25,6 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ▶️ **Phase 3.6 — Job-details extraction v2 IN REVIEW (2026-07-03, branch `feat/job-extraction-v2`)**:
+> capture provenance (`sources`), structured salary (`salaryParsed {min,max,currency,period}`),
+> conservative description-text jobType/jobMode heuristics, and an **opt-in** AI gap-fill tier
+> (`settings.jobAiEnabled`, default OFF, own Options toggle) that only fills what the deterministic
+> chain left empty. Extension **v0.48.0 → v0.49.0**. See the Phase 3.6 entry below for tasks 3.6.1–3.6.3
+> and the unscheduled follow-ups (server salary columns + board filters, cross-board dedup,
+> adapter-rot telemetry, provenance badges).
+>
 > ✅ **Phase 5.5 — Fill-engine matching upgrades MERGED (2026-07-03, PR #27, merge commit `49bbf36`)**,
 > four user-directed upgrades to the autofill engine's matching pipeline (see the Phase 5.5 entry below
 > for the full task breakdown + files touched). Extension **v0.44.0 → v0.48.0**, ruleset v4 → v5. No
@@ -452,6 +460,48 @@ focused Claude Code session.
   syncs `archived` (stripped from `parsedJson`), popup picker hides archived resumes.
   All three suites green. ext v0.16.1. **Completes Phase 3.***
 
+### Phase 3.6 — Job-details extraction v2 (branch `feat/job-extraction-v2`, 2026-07-03)
+
+> **Direction:** keep the deterministic capture chain as tier 1 (free, instant, private);
+> make it queryable + provenance-aware; add AI only as an **opt-in gap-filler** behind its
+> own toggle (default OFF) — never as the primary extractor, never overriding what the
+> page states. Full spec: ROADMAP "Phase 3.6".
+
+- [x] **3.6.1 Capture v2 — structured salary + provenance + text heuristics.**
+  `captureJob()` now returns (1) `salaryParsed {min,max,currency,period}` — parsed from
+  schema.org amounts (`moneyParsed`) or the matched salary string (`parseSalaryText`);
+  the prerequisite for board salary filters. (2) `sources` — every field tagged with its
+  extractor (`jsonld|adapter|board|generic|text`). (3) Conservative DESCRIPTION-text
+  fallbacks: `jobTypeFromText` (exactly one type keyword in the text wins; two = ambiguous
+  = no call) and `jobModeFromText` (work/role/location-bound phrases only — "hybrid
+  cloud"/"onsite interviews" never match). *Done: `job-capture.js`;
+  `job_capture_v2.test.js` (41 tests); existing capture/tracking suites untouched + green.*
+- [x] **3.6.2 Opt-in AI job-detail enrichment (default OFF).** New `src/lib/job-enrich.js`
+  (`JAF.jobEnrich`, SW-safe pure core: gap detect / JSON-only prompt / strict enum+number
+  validation / gap-only merge with `sources=ai`) + SW `enrichCapture()` wired into
+  `logFill` and `saveJob`. Sends ONLY the posting's public description text (never
+  profile/resume data); fills ONLY missing jobType/jobMode/salary; deterministic values
+  always win. Two-tier model chain reused from drafting (BYO Anthropic key first, else
+  the consented Kiwiply AI relay — gated on `serverAiEnabled`+`serverAiConsent`+signed-in).
+  Per-posting cache (identity + description hash, 40-entry LRU) ⇒ ≤1 AI call per job.
+  New setting `jobAiEnabled` (default false) + Options → AI → "Job-detail enrichment"
+  toggle. `job_enrich` analytics outcomes (enriched/cached/quota/unparseable). *Done:
+  `job_enrich.test.js` (30 tests); full suite + typecheck green; ext v0.48.0 → v0.49.0.*
+- [x] **3.6.3 Docs.** This entry + ROADMAP Phase 3.6 + ARCHITECTURE.md (`job-capture.js`
+  v2 fields, new `job-enrich.js` module).
+- [ ] **3.6.4 Server structured salary (later).** Additive Liquibase migration:
+  `salary_min/salary_max/salary_currency/salary_period` columns on `application`,
+  DTO + mappers, extension sends `salaryParsed`, board gains salary filter/sort.
+- [ ] **3.6.5 Cross-board dedup (later).** Same posting saved from LinkedIn + the ATS
+  currently makes 2 entries; dedup on normalized company+title(+fuzzy location) at
+  upsert time (plain string match — no embeddings; cheap and good enough).
+- [ ] **3.6.6 Adapter-rot telemetry (later).** Anonymous per-tier extraction-miss counts
+  (which extractor/field came up empty — no page content, no PII) so Workday-style
+  markup changes surface in analytics before user reports.
+- [ ] **3.6.7 Provenance in the UI (later).** Review overlay / save-a-job editor show a
+  small source badge per field (`sources`), e.g. an "AI" chip on enriched values —
+  mirrors the existing AI badge on mapped fields.
+
 ## Phase 4 — Field cache (cloud sync)
 - [x] **4.1 Promote local cache to `field_cache` API**; last-write-wins +
   `hit_count` ranking; sync across devices. *Done: user-scoped
@@ -776,6 +826,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **3.6.1–3.6.3 Job-details extraction v2** · Capture chain upgraded: `salaryParsed`
+  {min,max,currency,period} (schema.org amounts or parsed from the matched string), per-field
+  provenance (`capture.sources`), conservative description-text jobType/jobMode fallbacks, and an
+  OPT-IN AI gap-fill tier (`jobAiEnabled`, default OFF, own Options toggle) — `job-enrich.js` pure
+  core + SW `enrichCapture()` on logFill/saveJob, BYO-key → Kiwiply-AI chain, per-posting cache,
+  never overrides deterministic values. 71 new jsdom tests; suite + typecheck green; ext v0.49.0.
+  Follow-ups tracked as 3.6.4–3.6.7 (server salary columns, dedup, rot telemetry, source badges).
 - 2026-07-03 · **engine — AI picks for constrained screening questions** · Batch 4/4. `assist.js`
   now also handles selects/radio groups whose label reads like a screener ("Years of experience…",
   "Willing to relocate?"): the SW (`JAF_PICK`) sends question + the LITERAL option list; the reply is

@@ -152,9 +152,16 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   tests. The SW wires `extension_install`/`autofill`/`save_job`/`answer_draft`/`application_submitted`.
 - `src/lib/job-capture.js` — `JAF.jobCapture`. Reads the current job page into a
   canonical `JobCapture` DTO (company/role/location/jobUrl/externalJobId/atsPlatform/
-  jobDescription/salary). `salary` = schema.org `baseSalary`/`estimatedSalary` formatted
-  ("$120,000 – $150,000/yr"), else a conservative keyword-anchored text range; flows through
-  `app-tracking.buildApplication` only when present. Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
+  jobDescription/salary/salaryParsed/jobType/jobMode/sources). `salary` = schema.org
+  `baseSalary`/`estimatedSalary` formatted ("$120,000 – $150,000/yr"), else a conservative
+  keyword-anchored text range; flows through `app-tracking.buildApplication` only when
+  present. **Since 3.6:** `salaryParsed` carries the queryable numbers
+  (`{min,max,currency,period}`, from the schema.org amount or by parsing the matched
+  string); `sources` provenance-tags every field with its extractor
+  (`jsonld|adapter|board|generic|text`, plus `ai` after enrichment); and jobType/jobMode
+  fall back to a CONSERVATIVE description-text scan (one unambiguous type keyword;
+  work/role/location-bound mode phrases — "hybrid cloud" and "onsite interviews" never
+  match). Chain: `schema.org/JobPosting` JSON-LD (wins descriptive fields) →
   active adapter `captureJob({loc})` (authoritative for externalJobId + atsPlatform,
   parsed from the public URL shape) → `boardCapture(loc)` (LinkedIn/Indeed/Dice — they
   have no fill adapter, so recognize them by host + derive {atsPlatform, externalJobId}
@@ -162,6 +169,17 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   network. Save-a-job (popup) injects under `activeTab`, so it captures on ANY site that
   publishes JSON-LD/og (boards, Google Jobs, company career pages), not just the ATS we
   auto-inject on. Each ATS adapter implements `captureJob({loc})`.
+- `src/lib/job-enrich.js` — `JAF.jobEnrich` (Phase 3.6, SW-safe pure core). Opt-in AI
+  gap-fill for captured job details, behind its OWN toggle (`settings.jobAiEnabled`,
+  default OFF — Options → AI → Job-detail enrichment). When the deterministic chain
+  leaves jobType/jobMode/salary empty and the posting has a real description, the
+  service worker's `enrichCapture()` (wired into `logFill` + `saveJob`) sends the
+  posting's PUBLIC text — never profile/resume data — through the same two-tier model
+  chain as drafting (BYO key → consented Kiwiply AI) with a JSON-only prompt. This file
+  is only the gap detector + prompt builder + strict enum/number validator + gap-only
+  merge (AI never overrides a captured field; filled fields get `sources[f]="ai"`).
+  Cached per posting (identity + description hash, 40-entry LRU in the SW), so a job
+  costs at most one call ever. Best-effort: any failure returns the capture unchanged.
 - `src/lib/app-tracking.js` — `JAF.appTracking`. Pure tracker orchestration (SW-safe,
   `globalThis.JAF`): `buildApplicationDraft(capture,resume)` (→ DRAFT app, company/role
   fallbacks), `pushDraft`/`confirmSubmission` (via a `TrackingProvider`), and the
