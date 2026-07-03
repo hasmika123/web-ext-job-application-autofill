@@ -278,6 +278,13 @@ BYO-key option** as a free "unlimited if you bring your own key" path; it costs 
 nothing and power users like it. Server-side keeps your API key out of the client
 (BYO-key in an extension is fine but your own key must never ship in the bundle).
 
+> **Extended to resume parsing (2026-07-02, see PROGRESS.md Phase 5.4).** The same
+> `AiProvider` seam now also does structured resume→JSON parsing (not just answer
+> drafting) — Gemini's `responseSchema` structured output, with the original PDF sent
+> when text extraction looks garbled (scanned/multi-column layouts), on the same
+> metered quota. This is the accuracy fix for varied resume structures that the
+> regex-only heuristic parser couldn't reliably handle.
+
 ### Phase 6 — Google Analytics (full funnel)
 Extension events go through the **GA4 Measurement Protocol from the service
 worker** — gtag.js and any remote code are banned under MV3, so the Measurement

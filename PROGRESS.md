@@ -25,6 +25,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ✅ **Phase 5.4 — AI-assisted resume parsing MERGED (2026-07-02, PR #26)**, extending the Phase 5
+> Gemini seam from answer-drafting to structured resume parsing (see the Phase 5.4 entry below for
+> the full task breakdown). **Live on prod as-is** — no new env vars needed, reuses `DOSSIER_AI_*`.
+> **Two loose ends:** (1) legal — the terms/privacy policy don't yet disclose default-on AI resume
+> parsing; fold into **PL.1**. (2) a live end-to-end parse against real Gemini hasn't been manually
+> verified yet (recommend one check post-deploy: upload a two-column or scanned PDF on
+> kiwiply.com/resumes with the "Parse with AI" checkbox on).
+>
 > ▶️ **PHASE 9 COMPLETE (A0–A5 + 9.X).** A0–A5 are LIVE on prod; **9.X (privacy/terms, DSAR export,
 > admin email-OTP MFA) DONE on `admin-buildout`**, shipping via the 9.X PR (CI → merge). The admin
 > console, comms, and cross-cutting compliance are all built.
@@ -478,6 +486,55 @@ focused Claude Code session.
   `ux_ai_answer_user_qhash(user_id,question_hash)` — no migration. `AiDraftServiceTest` (+3 cache
   cases) + new `AiAnswerCacheServiceTest` (7); compiled + unit tests green on JDK 17. **Completes
   Phase 5.** Backend-only (no extension bump).*
+
+### Phase 5.4 — AI-assisted resume parsing (2026-07-02, PR #26, merged)
+> Same `AiProvider`/Gemini seam as 5.1–5.3, extended from answer-drafting to structured
+> resume→JSON parsing — the fix for accuracy on multi-column, scanned, and otherwise
+> "unusual" resumes that the regex-only heuristic parser (`parser-core.js`) can't reliably
+> structure. One parse = one AI credit on the **same monthly quota** as drafts (no new
+> quota table). No new provider/account — reuses the configured Gemini key end to end.
+- [x] **Provider seam**: `AiProvider.parseResume(text | fileBase64, fileMimeType)` +
+  `GeminiAiProvider` implementation using Gemini's `responseSchema` structured output, so
+  the model returns the canonical resume JSON (summary/skills/experience/education/
+  languages/projects) plus a `bio` contact block directly — no prompt-engineered JSON
+  parsing/repair. Accepts either extracted text **or the original PDF** (base64, ~5MB,
+  PDF-only) — sending the file lets Gemini read the layout itself instead of trusting
+  extraction, which is what actually fixes two-column sidebars and scanned pages.
+  New `dossier.ai.parse-max-output-tokens` config (default 4000 — a full resume needs
+  far more room than a 2-4 sentence draft).
+- [x] **Metered endpoint**: `POST /api/ai/parse-resume` (`AiResumeParseService` +
+  `AiResource`) — same gating shape as `/draft`: feature enabled + provider configured,
+  explicit consent, per-user monthly quota. Validates exactly one of text/file is
+  present, size-caps both, PDF-only for file mode.
+- [x] **Shared pre-processing** (`job-autofill/src/lib/parser-core.js`, used by both
+  extension and web): `cleanForLlm()` — ligature/typographic normalization,
+  de-hyphenation of line-wrapped words, page-number and repeated-header/footer removal,
+  whitespace collapse, 30k-char cap (fewer tokens, cleaner signal) — and `looksGarbled()`
+  — detects failed text extraction (mojibake, symbol soup, near-empty output) so the
+  caller sends the original PDF instead. 16 new parser-core tests.
+- [x] **Web integration**: "Parse with AI for best accuracy" checkbox on the shared
+  `ResumeUpload` component (new optional `aiParse` prop), wired through a new
+  `/api/ai/parse-resume` Next proxy (JWT stays server-side) and
+  `parseResumeWithAi()` in `resume-parse.ts` — extracts text in-browser, cleans it,
+  sends text (or the PDF file when `looksGarbled`) to the server, and **falls back to
+  the local heuristic parser on any failure** (disabled/quota/network/5xx) so the
+  upload flow never blocks. **Defaults ON** (2026-07-02 product decision — opt-out
+  remembered per browser via a `useSyncExternalStore` localStorage hook); the embedded
+  Add-Application upload honors the same stored choice.
+- [x] **Extension integration**: `aiParseResume` added to the `TrackingProvider` seam
+  (`tracking.js`) and `parser.js`'s `parse()` gets a 3-way precedence — **BYO-key
+  (Anthropic) → Kiwiply server AI → local heuristic** — reusing the existing Options
+  "Use Dossier AI" toggle + consent checkbox (copy updated to cover resume parsing).
+  ext **v0.45.0**.
+- [x] **Verification**: 8 new API unit tests + full `integrationTest` suite green
+  (Testcontainers/MySQL); extension suites green (parser-core 56, tracking 58); web
+  `tsc`+`eslint` clean; WXT build clean. `api/openapi.json` contract snapshot
+  regenerated (had gone stale since 5.1a). All 4 CI jobs green on the merge PR.
+  ⚠️ **Not yet done**: a live end-to-end parse against real Gemini (blocked on a local
+  key at implementation time) — worth one manual check post-deploy.
+- [ ] **Legal follow-up (not yet done)**: terms & privacy policy must disclose
+  default-on AI resume parsing (resume content → Gemini free tier; Google may use
+  inputs to improve its services) — fold into the **PL.1** lawyer-review item.
 
 ## Phase 6 — Google Analytics
 - [x] **6.1 Extension events** via GA4 Measurement Protocol from the service
