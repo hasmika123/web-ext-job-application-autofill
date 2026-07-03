@@ -3,18 +3,21 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * The user's opt-in to AI resume parsing (sends resume content to our server, which
- * uses the configured AI provider — free-tier Gemini, so Google may use inputs; see
- * the privacy policy). Off by default, remembered per browser. Read at parse time by
- * `use-resume-upload-services` and surfaced as the ResumeUpload `aiParse` checkbox.
+ * The user's choice on AI resume parsing (sends resume content to our server, which
+ * uses the configured AI provider — free-tier Gemini, so Google may use inputs).
+ * ON by default (product decision 2026-07-02; disclosed by the visible checkbox — to
+ * be covered in the terms & privacy policy, see PROGRESS.md), opt-out remembered per
+ * browser. Read at parse time by `use-resume-upload-services` and surfaced as the
+ * ResumeUpload `aiParse` checkbox.
  */
 const KEY = "kiwiply.aiParseConsent";
 
 export function getAiParseConsent(): boolean {
   try {
-    return typeof window !== "undefined" && window.localStorage.getItem(KEY) === "1";
+    // Default ON: only an explicit opt-out ("0") disables it.
+    return typeof window === "undefined" || window.localStorage.getItem(KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -38,9 +41,9 @@ export function setAiParseConsent(v: boolean): void {
   listeners.forEach((l) => l());
 }
 
-/** Checkbox-friendly state backed by localStorage (SSR snapshot: false). */
+/** Checkbox-friendly state backed by localStorage (SSR snapshot matches the ON default). */
 export function useAiParseConsent(): [boolean, (v: boolean) => void] {
-  const consent = useSyncExternalStore(subscribe, getAiParseConsent, () => false);
+  const consent = useSyncExternalStore(subscribe, getAiParseConsent, () => true);
   return [consent, setAiParseConsent];
 }
 

@@ -665,6 +665,10 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-02 · **AI parsing default ON (user decision)** · Web "Parse with AI" checkbox now defaults
+  ON (explicit opt-out remembered per browser). ⚠️ LEGAL FOLLOW-UP: the terms & privacy policy must
+  disclose default-on AI resume parsing (resume content → Gemini free tier; Google may use inputs) —
+  fold into the lawyer-review item (PL.1). Extension parsing remains opt-in via Options.
 - 2026-07-02 · **AI resume parsing (user-directed)** · Branch `feat/llm-resume-parse`. Server-side
   resume parsing on the existing Gemini seam: `AiProvider.parseResume` (structured-output
   responseSchema, text or original-PDF mode for scanned/multi-column resumes) + metered
