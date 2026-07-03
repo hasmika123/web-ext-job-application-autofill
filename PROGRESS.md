@@ -826,6 +826,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **web — board card/panel refinements (12 fixes)** · Star/bookmark grouped tight
+  beside the ⋯ menu; CardMenu flips upward when near the viewport bottom (+ height cap/scroll) so
+  Rejected/Archived menus stay on-screen; Applied cards now carry the same detail set (salary +
+  chips) as Interview/Offer; pipeline is 3 equal columns; Saved+Draft shelf cards share one 280px
+  width; a Remote job no longer shows duplicate location+mode chips; Saved shelf starts collapsed.
+  Detail panel: every field always renders (— when empty), the "Download resume" button is gone,
+  and the sort control is a compact custom dropdown (styled, rounded menu) replacing the native
+  select. Nudge shrunk to a one-line "Did you apply?" with one-line Yes / Continue↗ (or Not yet)
+  buttons. tsc + eslint + `next build` green; web-only (no version bump).
 - 2026-07-03 · **web — attention-first board layout** · User-picked reorg: Saved shelf of wide
   300px bookmark tiles (salary shown) on top, Draft tray of compact 240px cards (collapsed),
   pipeline grid narrowed to Applied/Interview/Offer with `1fr/1.15fr/1.15fr` tracks — Interview

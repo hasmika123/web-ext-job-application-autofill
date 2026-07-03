@@ -37,7 +37,7 @@ export default function BoardLoading() {
             <Skeleton className="h-4 w-24" />
           </div>
           {/* Active pipeline */}
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-[1fr_1.15fr_1.15fr]">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-[440px] rounded-[var(--radius-lg)] bg-paper-2 p-3">
                 <Skeleton className="mb-3 h-4 w-24" />

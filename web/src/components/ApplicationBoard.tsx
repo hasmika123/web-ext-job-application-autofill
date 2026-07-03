@@ -324,6 +324,65 @@ function FilterMenu({
   );
 }
 
+/**
+ * Compact custom sort dropdown. A native <select> can't style its option popup (rounded
+ * corners, hover states are OS-rendered), so this renders its own menu instead.
+ */
+function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = SORT_OPTIONS.find((o) => o.value === value) ?? SORT_OPTIONS[0];
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3 pr-2.5 text-[13px] font-medium text-ink-soft transition-colors hover:border-accent"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5 text-muted">
+          <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />
+        </svg>
+        <span className="whitespace-nowrap">{current.label}</span>
+        <Chevron open={open} className="text-muted" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[120]" aria-hidden onClick={() => setOpen(false)} />
+          <div role="listbox" className="absolute right-0 top-[calc(100%+6px)] z-[121] w-52 rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]">
+            {SORT_OPTIONS.map((o) => {
+              const selected = o.value === value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
+                    selected ? "bg-accent-soft font-semibold text-accent-deep" : "text-ink hover:bg-paper-2",
+                  )}
+                >
+                  {o.label}
+                  {selected && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ApplicationBoard({
   applications,
   resumes,
@@ -360,9 +419,9 @@ export default function ApplicationBoard({
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  // Saved shelf expanded by default; the low-attention sections (Draft tray, Rejected,
-  // Archived) start collapsed.
-  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set(["DRAFT", "REJECTED", "ARCHIVED"]));
+  // Every collapsible section starts minimized: Saved shelf, Draft tray, Rejected and
+  // Archived lists. The active pipeline (Applied/Interview/Offer) is always open.
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set(["SAVED", "DRAFT", "REJECTED", "ARCHIVED"]));
   const toggleRow = (key: string) =>
     setCollapsedRows((prev) => {
       const next = new Set(prev);
@@ -672,30 +731,7 @@ export default function ApplicationBoard({
           onResume={setResumeFilter}
           onClear={clearFilters}
         />
-        <div className="relative">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
-          >
-            <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />
-          </svg>
-          <select
-            aria-label="Sort applications"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="rounded-full border border-line bg-paper py-2 pl-8 pr-3 text-[13px] font-medium text-ink-soft outline-none focus:border-accent"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
+        <SortMenu value={sort} onChange={setSort} />
         <button type="button" onClick={() => setAdding(true)} className={cn(buttonVariants("accent"), "ml-auto")}>
           + Add application
         </button>
@@ -783,7 +819,7 @@ export default function ApplicationBoard({
                         <BoardCard
                           key={a.id}
                           variant={saved ? "saved" : "compact"}
-                          className={saved ? "w-[300px] shrink-0" : "w-[240px] shrink-0"}
+                          className="w-[280px] shrink-0"
                           {...cardHandlers(a)}
                         />
                       ))}
@@ -795,9 +831,9 @@ export default function ApplicationBoard({
             );
           })}
 
-          {/* Active pipeline — Applied stays dense; Interview and Offer get wider tracks
-              and larger cards, since that's where the attention belongs. */}
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-[1fr_1.15fr_1.15fr]">
+          {/* Active pipeline — Applied/Interview/Offer as equal-width columns; every card
+              in them shows the same richer detail set. */}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {GRID_STATUSES.map((key) => {
               const col = COL_BY_KEY[key];
               const items = active.filter((a) => a.status === key);
@@ -825,9 +861,7 @@ export default function ApplicationBoard({
                   </div>
                   <ul className="scroll-slim flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
                     {items.length ? (
-                      items.map((a) => (
-                        <BoardCard key={a.id} variant={key === "APPLIED" ? "compact" : "rich"} {...cardHandlers(a)} />
-                      ))
+                      items.map((a) => <BoardCard key={a.id} variant="rich" {...cardHandlers(a)} />)
                     ) : (
                       <li className="grid flex-1 place-items-center rounded-[var(--radius)] border border-dashed border-line text-[12px] text-muted">
                         Drag a card here
@@ -1238,7 +1272,15 @@ function CardMenu({
       return;
     }
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 180) });
+    if (!r) return;
+    // Estimate the menu height from its row count so it can flip above the button when
+    // there isn't room below (fixes rows near the viewport bottom running off-screen).
+    const rows = (canStar ? 1 : 0) + STAGES.length + 2; // star + stages + archive/delete
+    const estH = rows * 30 + 44; // rows + "Move to" label + divider + padding
+    const spaceBelow = window.innerHeight - r.bottom;
+    const openUp = spaceBelow < estH + 12 && r.top > spaceBelow;
+    const top = openUp ? Math.max(8, r.top - estH - 4) : r.bottom + 4;
+    setPos({ top, left: Math.max(8, r.right - 180) });
   }
 
   useEffect(() => {
@@ -1282,8 +1324,8 @@ function CardMenu({
             <div
               role="menu"
               onClick={(e) => e.stopPropagation()}
-              style={{ position: "fixed", top: pos.top, left: pos.left, width: 180 }}
-              className="z-[161] rounded-lg border border-line bg-paper p-1 shadow-[var(--shadow-lg)]"
+              style={{ position: "fixed", top: pos.top, left: pos.left, width: 180, maxHeight: "calc(100vh - 16px)" }}
+              className="scroll-slim z-[161] overflow-y-auto rounded-lg border border-line bg-paper p-1 shadow-[var(--shadow-lg)]"
             >
               {canStar && (
                 <button role="menuitem" className={item} onClick={run(onStar)}>{starred ? "★ Unstar" : "☆ Star"}</button>
@@ -1341,6 +1383,8 @@ function BoardCard({
   const showNudge = app.status === "DRAFT" && !archived && !nudgeDismissed;
   const date = cardDate(app);
   const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
+  // Don't repeat a mode the location already conveys (e.g. location "Remote, US" + mode "Remote").
+  const showModeChip = !!modeLabel && !(app.location && app.location.toLowerCase().includes(modeLabel.toLowerCase()));
   const openPosting = () => {
     if (!app.jobUrl) return;
     track("board_apply_clicked", { status: app.status });
@@ -1413,40 +1457,43 @@ function BoardCard({
           <div className={cn("truncate font-bold leading-snug text-ink", rich ? "text-[14px]" : "text-[13.5px]")}>{app.roleTitle}</div>
           <div className={cn("truncate text-ink-soft", rich ? "text-[13px]" : "text-[12.5px]")}>{app.company}</div>
         </div>
-        {isSaved ? (
-          <BookmarkButton busy={busy} onRemove={onUnsave} />
-        ) : (
-          <StarButton starred={!!app.starred} busy={busy} onToggle={onStar} />
-        )}
-        <CardMenu
-          starred={!!app.starred}
-          archived={archived}
-          busy={busy}
-          canStar={!isSaved}
-          onStar={onStar}
-          onArchive={onArchive}
-          onMoveTo={onMoveTo}
-          onDelete={onDelete}
-        />
+        {/* Star/bookmark sits right beside the ⋯ menu, apart from the title. */}
+        <div className="flex items-start gap-0.5">
+          {isSaved ? (
+            <BookmarkButton busy={busy} onRemove={onUnsave} />
+          ) : (
+            <StarButton starred={!!app.starred} busy={busy} onToggle={onStar} />
+          )}
+          <CardMenu
+            starred={!!app.starred}
+            archived={archived}
+            busy={busy}
+            canStar={!isSaved}
+            onStar={onStar}
+            onArchive={onArchive}
+            onMoveTo={onMoveTo}
+            onDelete={onDelete}
+          />
+        </div>
       </div>
 
-      {(app.location || modeLabel) && (
+      {(app.location || showModeChip) && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {app.location && (
             <span className="max-w-full truncate rounded-full bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-soft">
               {app.location}
             </span>
           )}
-          {modeLabel && (
+          {showModeChip && (
             <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-soft">{modeLabel}</span>
           )}
         </div>
       )}
-      {/* The bigger surfaces (Interview/Offer cards, Saved tiles) also carry the salary. */}
+      {/* Pipeline (rich) cards and Saved tiles carry the salary line. */}
       {(rich || variant === "saved") && app.salary && (
         <div className="mt-1.5 truncate text-[12px] font-bold text-accent-deep">{app.salary}</div>
       )}
-      {date && <div className={cn("text-[11px] text-muted", app.location || modeLabel ? "mt-1.5" : "mt-2")}>{date}</div>}
+      {date && <div className={cn("text-[11px] text-muted", app.location || showModeChip ? "mt-1.5" : "mt-2")}>{date}</div>}
 
       {/* Saved bookmarks: one-click jump to the posting. Filling it there moves it to Draft. */}
       {isSaved && !archived && app.jobUrl && (
@@ -1465,25 +1512,25 @@ function BoardCard({
 
       {showNudge && (
         <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
-          <div className="flex items-start justify-between gap-1.5">
-            <div className="font-bold">Did you submit this application?</div>
+          <div className="flex items-center justify-between gap-1.5">
+            <div className="truncate font-bold">Did you apply?</div>
             <button
               onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
               disabled={busy}
               aria-label="Dismiss"
               title="Dismiss"
-              className="-mr-0.5 -mt-0.5 rounded px-1 leading-none text-muted hover:text-ink"
+              className="shrink-0 rounded px-1 leading-none text-muted hover:text-ink"
             >
               ✕
             </button>
           </div>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className="mt-1 flex gap-1.5">
             <button
               onClick={(e) => { e.stopPropagation(); onConfirm(); }}
               disabled={busy}
               className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50"
             >
-              Yes, I applied
+              Yes
             </button>
             {app.jobUrl ? (
               <button
@@ -1491,7 +1538,7 @@ function BoardCard({
                 disabled={busy}
                 className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep disabled:opacity-50"
               >
-                Continue applying ↗
+                Continue ↗
               </button>
             ) : (
               <button
@@ -1702,20 +1749,13 @@ function DetailPanel({
   }, [open, onClose]);
 
   // The resume file actually used for this job: its one-off attachment if present, otherwise
-  // the linked library resume. `previewHref` streams inline (embedded preview); `fileHref`
-  // forces a download. Neither is fetched until the user opens the preview / clicks download.
+  // the linked library resume. `previewHref` streams inline for the collapsible preview and
+  // isn't fetched until the user expands that section.
   const previewHref = app
     ? app.attachmentFilename
       ? `/api/applications/${app.id}/attachment`
       : app.resume?.id
         ? `/api/resumes/${app.resume.id}/file`
-        : null
-    : null;
-  const fileHref = app
-    ? app.attachmentFilename
-      ? `/api/applications/${app.id}/attachment`
-      : app.resume?.id
-        ? `/api/resumes/${app.resume.id}/file?download=1`
         : null
     : null;
   const resumeName = app ? app.attachmentFilename || app.resume?.label || (app.resume?.id ? `Resume #${app.resume.id}` : "") : "";
@@ -1891,78 +1931,51 @@ function DetailPanel({
                       Edit
                     </button>
                   </div>
+                  {/* Every field is always shown (— when empty) so nothing looks silently missing. */}
                   <dl className="divide-y divide-line overflow-hidden rounded-[var(--radius)] border border-line">
-                    {app.location && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">Location</dt>
-                        <dd className="min-w-0 text-right text-[13px] text-ink">{app.location}</dd>
-                      </div>
-                    )}
-                    {app.jobType && JOB_TYPE_LABEL[app.jobType] && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">Job type</dt>
-                        <dd className="min-w-0 text-right text-[13px] text-ink">{JOB_TYPE_LABEL[app.jobType]}</dd>
-                      </div>
-                    )}
-                    {app.jobMode && JOB_MODE_LABEL[app.jobMode] && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">Job mode</dt>
-                        <dd className="min-w-0 text-right text-[13px] text-ink">{JOB_MODE_LABEL[app.jobMode]}</dd>
-                      </div>
-                    )}
-                    {/* Salary is always shown (— when nothing was captured) so it's never silently missing. */}
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Location</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{app.location || "—"}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Job type</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{(app.jobType && (JOB_TYPE_LABEL[app.jobType] || app.jobType)) || "—"}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Job mode</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{(app.jobMode && (JOB_MODE_LABEL[app.jobMode] || app.jobMode)) || "—"}</dd>
+                    </div>
                     <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
                       <dt className="shrink-0 text-[12px] font-medium text-muted">Salary</dt>
                       <dd className="min-w-0 text-right text-[13px] text-ink">{app.salary || "—"}</dd>
                     </div>
-                    {app.email && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">Email</dt>
-                        <dd className="min-w-0 break-all text-right text-[13px] text-ink">{app.email}</dd>
-                      </div>
-                    )}
-                    {app.atsPlatform && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">ATS</dt>
-                        <dd className="min-w-0 text-right text-[13px] capitalize text-ink">{app.atsPlatform}</dd>
-                      </div>
-                    )}
-                    {formatDate(app.appliedAt) && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">Applied</dt>
-                        <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.appliedAt)}</dd>
-                      </div>
-                    )}
-                    {formatDate(app.createdAt) && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">Added</dt>
-                        <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.createdAt)}</dd>
-                      </div>
-                    )}
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Email</dt>
+                      <dd className="min-w-0 break-all text-right text-[13px] text-ink">{app.email || "—"}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">ATS</dt>
+                      <dd className="min-w-0 text-right text-[13px] capitalize text-ink">{app.atsPlatform || "—"}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Applied</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.appliedAt) || "—"}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Added</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.createdAt) || "—"}</dd>
+                    </div>
                   </dl>
 
-                  {(app.jobUrl || fileHref) && (
-                    <div className="mt-4 grid gap-2">
-                      {app.jobUrl && (
-                        <a
-                          href={app.jobUrl}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
-                        >
-                          View original posting <span aria-hidden>↗</span>
-                        </a>
-                      )}
-                      {fileHref && (
-                        <a
-                          href={fileHref}
-                          download
-                          className="flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
-                        >
-                          <span aria-hidden>⬇</span> Download resume {app.attachmentFilename ? "attached" : "sent"}
-                        </a>
-                      )}
-                    </div>
+                  {app.jobUrl && (
+                    <a
+                      href={app.jobUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
+                    >
+                      View original posting <span aria-hidden>↗</span>
+                    </a>
                   )}
 
                   <div className="mt-6">
