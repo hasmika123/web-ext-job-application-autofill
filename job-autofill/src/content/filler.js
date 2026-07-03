@@ -62,7 +62,7 @@
     const rowHtml = (i, idx) =>
       `<label class="row${i.assisted ? " assisted" : ""}${uncertain(i) ? " low" : ""}">
          <input type="checkbox" data-i="${idx}" ${uncertain(i) ? "" : "checked"} />
-         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}</span>
+         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${i.aiMapped ? ' <span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}</span>
          <span class="val">${esc(truncate(String(i.value), 60))}</span>
          ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
@@ -198,7 +198,15 @@
       try { await adapter0.ensureRows(values); } catch (e) {}
     }
     const plan = buildPlan(values);
-    // Optional AI layer: draft answers to open-ended screening questions.
+    // Optional AI layer 1: map leftover labeled fields to canonical values (one
+    // batched, cached call — silent no-op unless the user enabled AI).
+    try {
+      if (options.mapFields !== false && JAF.fieldMapper) {
+        const mapped = await JAF.fieldMapper.run(plan.items, values);
+        if (mapped && mapped.length) plan.items = plan.items.concat(mapped);
+      }
+    } catch (e) {}
+    // Optional AI layer 2: draft answers to open-ended screening questions.
     try {
       if (options.assist !== false && JAF.assist) {
         const extra = await JAF.assist.run(plan.items, values);

@@ -23,6 +23,8 @@ import "../src/content/adapters/indeed.js";
 import "../src/lib/job-capture.js";
 import "../src/lib/app-tracking.js";
 import "../src/content/submit-detect.js";
+import "../src/lib/field-map.js";
+import "../src/content/field-mapper.js";
 import "../src/content/assist.js";
 import "../src/content/filler.js";
 import "../src/content/content-script.js";

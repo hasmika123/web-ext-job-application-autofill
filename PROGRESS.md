@@ -665,6 +665,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **engine — cached AI field-mapper fallback** · Batch 3/4. Fields the deterministic
+  rules miss now get ONE batched model call: `field-mapper.js` collects leftover labeled elements,
+  resolves each from a local host+label cache, and sends only novel labels to the SW
+  (`JAF_MAP_FIELDS`), which maps them to the canonical vocabulary through the SAME consent gates as
+  drafting (BYO key → dedicated JSON prompt; server AI → tolerant JSON-from-prose parse; both off ⇒
+  silent no-op). Only labels leave the page; sensitive keys never LLM-mappable; results (incl.
+  "unknown") cached so a page costs ≤1 call ever per device. AI badge on mapped rows. New
+  `lib/field-map.js` (pure core) + `field_mapper.test.js` (28); typecheck green; ext v0.47.0.
 - 2026-07-03 · **engine — signal-tier scoring + match confidence in the overlay** · Batch 2/4.
   `labelParts(el)` tiers every label signal (automation-id 300 > label/aria 200 > placeholder/name/id
   100); keyword hits score per tier, so a real `<label>` beats a placeholder for the same field. Matches

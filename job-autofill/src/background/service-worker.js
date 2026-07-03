@@ -38,6 +38,32 @@ function sSet(k, v) { return new Promise((res) => chrome.storage.local.set({ [k]
 async function getCached(q) { const c = (await sGet(ANSWER_KEY)) || {}; return c[normQ(q)] || null; }
 async function putCached(q, a) { const c = (await sGet(ANSWER_KEY)) || {}; c[normQ(q)] = a; await sSet(ANSWER_KEY, c); }
 
+// One Anthropic messages call (BYO key). Returns { answer } or { error }.
+async function callAnthropic(apiKey, system, user, maxTokens) {
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: maxTokens || 400,
+        system,
+        messages: [{ role: "user", content: user }],
+      }),
+    });
+  } catch (e) { return { error: String((e && e.message) || e) }; }
+  if (!res.ok) { const t = await res.text().catch(() => ""); return { error: "API " + res.status + ": " + t.slice(0, 160) }; }
+  const data = await res.json();
+  const answer = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
+  return { answer };
+}
+
 async function draftAnswer(question, context) {
   const settings = (await sGet("settings")) || {};
   const cached = await getCached(question);             // reuse identical question
@@ -50,29 +76,10 @@ async function draftAnswer(question, context) {
       "grounded ONLY in the candidate background provided. 2-4 sentences. No preamble, no markdown, " +
       "no placeholders, and do not invent employers or facts not present in the background.";
     const user = "Question:\n" + question + "\n\nCandidate background:\n" + (context || "").slice(0, 6000) + "\n\nWrite the answer:";
-    let res;
-    try {
-      res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": settings.apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 400,
-          system,
-          messages: [{ role: "user", content: user }],
-        }),
-      });
-    } catch (e) { return { error: String((e && e.message) || e) }; }
-    if (!res.ok) { const t = await res.text().catch(() => ""); return { error: "API " + res.status + ": " + t.slice(0, 160) }; }
-    const data = await res.json();
-    const answer = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-    if (answer) await putCached(question, answer);
-    return { answer };
+    const r = await callAnthropic(settings.apiKey, system, user, 400);
+    if (r.error) return r;
+    if (r.answer) await putCached(question, r.answer);
+    return { answer: r.answer };
   }
 
   // 2. Dossier server-side AI (opt-in + explicit consent + signed in). Metered on the
@@ -101,8 +108,57 @@ function draftOutcome(r) {
   return "other";
 }
 
+// --- AI field mapping (JAF_MAP_FIELDS) -----------------------------------------
+// One batched call: map form-field LABELS (no user values) to the canonical
+// vocabulary. Same consent gates as drafting: BYO key first, else the opt-in
+// server AI, else {disabled}. The content side (field-mapper.js) caches results
+// per host+label, so a page costs at most one call ever per device.
+async function mapFields(labels) {
+  const F = self.JAF && self.JAF.fieldMap;
+  if (!F) return { error: "field-map core not loaded" };
+  const list = (Array.isArray(labels) ? labels : []).slice(0, 20).map((l) => String(l == null ? "" : l).slice(0, 160));
+  if (!list.length) return { mappings: {} };
+  const settings = (await sGet("settings")) || {};
+  const prompt = F.buildMapPrompt(list);
+
+  // 1. BYO key → a dedicated JSON-only system prompt.
+  if (settings.llmEnabled && settings.apiKey) {
+    const system =
+      "You map job-application form field labels to a fixed vocabulary of canonical keys. " +
+      "Reply with ONLY the requested JSON object — no prose, no markdown.";
+    const r = await callAnthropic(settings.apiKey, system, prompt, 300);
+    if (r.error) return r;
+    const mappings = F.parseMapResponse(r.answer, list.length);
+    return mappings ? { mappings } : { error: "unparseable" };
+  }
+
+  // 2. Server AI rides the drafting endpoint (its system prompt is drafting-shaped,
+  //    so the parse must stay tolerant — parseMapResponse digs the JSON out of prose).
+  if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF && self.JAF.sync) {
+    try {
+      const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
+      if (await provider.isAuthenticated()) {
+        const r = (await provider.aiDraft({ question: prompt, context: "", consent: true })) || {};
+        if (r.answer) {
+          const mappings = F.parseMapResponse(r.answer, list.length);
+          return mappings ? { mappings } : { error: "unparseable" };
+        }
+        if (r.quotaExceeded) return { error: "quota" };
+      }
+    } catch (e) { return { error: String((e && e.message) || e) }; }
+  }
+
+  return { disabled: true };
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.type !== "JAF_DRAFT") return;
+  if (!msg || (msg.type !== "JAF_DRAFT" && msg.type !== "JAF_MAP_FIELDS")) return;
+  if (msg.type === "JAF_MAP_FIELDS") {
+    mapFields(msg.labels)
+      .then((r) => { track("field_map", { outcome: r.mappings ? "mapped" : draftOutcome(r), n: msg.labels ? msg.labels.length : 0 }); sendResponse(r); })
+      .catch((e) => { track("field_map", { outcome: "error" }); sendResponse({ error: String(e) }); });
+    return true; // async
+  }
   draftAnswer(msg.question, msg.context)
     .then((r) => { track("answer_draft", { outcome: draftOutcome(r) }); sendResponse(r); })
     .catch((e) => { track("answer_draft", { outcome: "error" }); sendResponse({ error: String(e) }); });
