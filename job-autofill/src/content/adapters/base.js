@@ -151,46 +151,58 @@
     return fallback;
   }
 
-  // Build the visible label for an element from every available signal.
-  function labelText(el) {
+  // Label signal TIERS: where a label part came from decides how much a keyword
+  // hit in it is worth. A hit in a data-automation-id or a real <label> is far
+  // more trustworthy than one in a placeholder or a name attribute.
+  const TIER = { AUTOCOMPLETE: 400, AUTOMATION: 300, LABEL: 200, META: 100 };
+
+  // Every label signal for an element, as [{text, tier}] (strongest first).
+  function labelParts(el) {
     const parts = [];
+    const push = (text, tier) => {
+      const t = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+      if (t) parts.push({ text: t, tier });
+    };
     // 1) automation/test ids first — highest-signal on SPA-based ATSs.
-    const auto = automationWords(el);
-    if (auto) parts.push(auto);
+    push(automationWords(el), TIER.AUTOMATION);
     // 2) ARIA.
     if (el.getAttribute) {
-      const al = el.getAttribute("aria-label");
-      if (al) parts.push(al);
+      push(el.getAttribute("aria-label"), TIER.LABEL);
       const lb = el.getAttribute("aria-labelledby");
-      if (lb) lb.split(/\s+/).forEach((id) => { const n = document.getElementById(id); if (n) parts.push(n.textContent); });
+      if (lb) lb.split(/\s+/).forEach((id) => { const n = document.getElementById(id); if (n) push(n.textContent, TIER.LABEL); });
     }
     // 3) Associated <label for=…>.
     if (el.id) {
       const forLbl = document.querySelector('label[for="' + cssEscape(el.id) + '"]');
-      if (forLbl) parts.push(forLbl.textContent);
+      if (forLbl) push(forLbl.textContent, TIER.LABEL);
     }
     // 4) Wrapping <label>.
     const wrap = el.closest && el.closest("label");
-    if (wrap) parts.push(wrap.textContent);
+    if (wrap) push(wrap.textContent, TIER.LABEL);
     // 5) A <label> inside the field's automation container (Workday pattern).
     if (el.closest) {
       const cont = el.closest("[data-automation-id]");
       if (cont) {
         const lg = cont.querySelector("label, legend");
-        if (lg && !lg.contains(el)) parts.push(lg.textContent);
+        if (lg && !lg.contains(el)) push(lg.textContent, TIER.LABEL);
       }
     }
     // 5b) Radio/checkbox: the group's QUESTION prompt, not the option's own Yes/No.
     if (el.type === "radio" || el.type === "checkbox") {
       const gp = groupPrompt(el);
-      if (gp) parts.push(gp);
+      if (gp) push(gp, TIER.LABEL);
     }
-    // 6) placeholder / name.
-    if (el.placeholder) parts.push(el.placeholder);
-    if (el.name) parts.push(el.name.replace(/[_\-\[\]]/g, " "));
+    // 6) placeholder / name — weakest: often decorative or misleading.
+    push(el.placeholder, TIER.META);
+    if (el.name) push(el.name.replace(/[_\-\[\]]/g, " "), TIER.META);
     // 7) meaningful id only (skip framework-generated junk).
-    if (el.id && !isGeneratedId(el.id)) parts.push(humanize(el.id));
-    return parts.join(" ").replace(/\s+/g, " ").trim();
+    if (el.id && !isGeneratedId(el.id)) push(humanize(el.id), TIER.META);
+    return parts;
+  }
+
+  // Build the visible label for an element from every available signal.
+  function labelText(el) {
+    return labelParts(el).map((p) => p.text).join(" ").replace(/\s+/g, " ").trim();
   }
 
   function cssEscape(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/([^\w-])/g, "\\$1"); }
@@ -246,29 +258,37 @@
     const els = deepQueryAll(root, "input, textarea, select, [contenteditable='true']");
     for (const el of els) {
       if (!isFillable(el)) continue;
-      const lbl = labelText(el).toLowerCase();
+      const parts = labelParts(el);
+      const lbl = parts.map((p) => p.text).join(" ").replace(/\s+/g, " ").trim().toLowerCase();
       const acField = trustAC ? autocompleteField(el) : null;
       if (!lbl && !acField) continue;
       let best = null;
       for (const m of M) {
+        // neg words veto against the FULL combined label (any signal can disqualify).
         if (m.neg && m.neg.some((n) => lbl.includes(n))) continue;
-        const hit = m.any.find((a) => lbl.includes(a));
-        if (hit) {
-          const score = hit.length + (lbl.trim() === hit ? 50 : 0);
-          if (!best || score > best.score) best = { field: m.field, score };
+        // Positive hits are scored PER SIGNAL TIER: automation-id > label/aria > placeholder/name.
+        for (const p of parts) {
+          const pt = p.text.toLowerCase();
+          const hit = m.any.find((a) => pt.includes(a));
+          if (!hit) continue;
+          const score = p.tier + hit.length + (pt.trim() === hit ? 50 : 0);
+          if (!best || score > best.score) best = { field: m.field, score, tier: p.tier };
         }
       }
       // The autocomplete token outranks any keyword hit — EXCEPT when it says the
       // broad "website" and the label matched the more specific linkedin/github.
       if (acField && !(acField === "website" && best && (best.field === "linkedin" || best.field === "github"))) {
-        best = { field: acField, score: 400 };
+        best = { field: acField, score: TIER.AUTOCOMPLETE, tier: TIER.AUTOCOMPLETE };
       }
       // EEO/demographic fields are scanned like any other now (user decision: EEO is
       // always available, no opt-in). They only end up FILLED when the user actually
       // has that value (the adapter's plan gates on values[field]) and the user still
       // reviews/unchecks each one in the overlay before anything is written.
       if (best) {
-        out.push({ el, field: best.field, label: labelText(el), kind: elKind(el), score: best.score });
+        // A match backed only by placeholder/name/id is a GUESS: surfaced in the
+        // overlay unchecked so the user opts in instead of un-noticing a wrong fill.
+        const confidence = best.tier >= TIER.LABEL ? "high" : "low";
+        out.push({ el, field: best.field, label: labelText(el), kind: elKind(el), score: best.score, confidence });
       }
     }
     // keep only the highest-scoring element per field
@@ -519,7 +539,7 @@
   }
 
   JAF.adapterBase = {
-    setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText, groupPrompt,
+    setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText, labelParts, groupPrompt,
     cssEscape, isFillable, scanGeneric, deepQueryAll, elKind, applyItem, applyItemAsync, attachFile, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
     // exposed for unit tests (dropdown option scoping + matching + autocomplete)

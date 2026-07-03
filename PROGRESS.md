@@ -665,6 +665,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **engine — signal-tier scoring + match confidence in the overlay** · Batch 2/4.
+  `labelParts(el)` tiers every label signal (automation-id 300 > label/aria 200 > placeholder/name/id
+  100); keyword hits score per tier, so a real `<label>` beats a placeholder for the same field. Matches
+  backed only by weak signals carry `confidence:"low"` and render UNCHECKED (with a "?" marker) in the
+  review overlay — the user opts in instead of un-noticing a wrong fill. A field-cache hit marks the row
+  user-confirmed (stays checked). +10 tests; ext v0.46.0.
 - 2026-07-03 · **engine — W3C `autocomplete` signal in generic scanner** · On branch
   `feat/fill-engine-upgrades` (user-directed engine upgrades, batch 1/4). Valid autocomplete field
   tokens (given-name, email, postal-code, …) map straight to canonical fields and outrank keyword

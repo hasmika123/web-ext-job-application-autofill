@@ -77,7 +77,56 @@ const GH_URL = "https://job-boards.greenhouse.io/acme/jobs/123";
   ok("distrust: autocompleteTrusted() is true elsewhere", w2.JAF.adapterBase.autocompleteTrusted() === true);
 })();
 
+/* ----------------------- signal tiers: label beats placeholder/name ----- */
+(function tierScoring() {
+  const w = makeWindow(`<body><form>
+      <!-- placeholder-only "email" vs a real <label> "email" on another input -->
+      <input id="p1" placeholder="Email" name="f_17" />
+      <label for="p2">Email</label><input id="p2" />
+      <!-- placeholder-only match -> low confidence -->
+      <input id="p3" placeholder="City" />
+      <!-- label match -> high confidence -->
+      <label for="p4">Phone</label><input id="p4" />
+    </form></body>`, { url: GH_URL });
+  loadCore(w);
+  const found = w.JAF.adapterBase.scanGeneric(w.document);
+  const by = {};
+  found.forEach((c) => { by[c.field] = c; });
+  ok("tier: <label> hit beats placeholder hit for the same field", by.email && by.email.el.id === "p2");
+  ok("tier: placeholder-only match is low confidence", by.city && by.city.confidence === "low");
+  ok("tier: label-backed match is high confidence", by.phone && by.phone.confidence === "high");
+  ok("tier: autocomplete-less city still found", !!by.city);
+})();
+
+/* ------------------- overlay: low-confidence rows render UNCHECKED ------ */
+(function overlayUnchecked() {
+  const w = makeWindow(`<body><form>
+      <label for="a">Email</label><input id="a" />
+      <input id="b" placeholder="City" />
+    </form></body>`, { url: GH_URL });
+  loadCore(w);
+  ["src/content/adapters/generic.js", "src/content/filler.js"].forEach((p) => require("./harness").load(w, p));
+  let done = false;
+  w.JAF.filler.start({ email: "ada@example.com", city: "Atlanta" }, null, { assist: false })
+    .then(() => { done = true; });
+  return new Promise((r) => setTimeout(r, 30)).then(() => {
+    ok("overlay: start resolved", done);
+    const host = w.document.getElementById("__jaf_host");
+    ok("overlay: host rendered", !!host && !!host.shadowRoot);
+    const checks = Array.from(host.shadowRoot.querySelectorAll('.rows input[type="checkbox"][data-i]'));
+    ok("overlay: two rows", checks.length === 2, "got " + checks.length);
+    const rows = Array.from(host.shadowRoot.querySelectorAll(".rows label.row"));
+    const rowFor = (txt) => rows.find((r) => r.textContent.toLowerCase().includes(txt));
+    const emailRow = rowFor("email"), cityRow = rowFor("city");
+    ok("overlay: high-confidence email row is CHECKED", emailRow && emailRow.querySelector("input").checked === true);
+    ok("overlay: low-confidence city row is UNCHECKED", cityRow && cityRow.querySelector("input").checked === false);
+    ok("overlay: low row carries the ? marker", cityRow && !!cityRow.querySelector(".lowbadge"));
+  });
+})().then(report, (e) => { fail++; fails.push("overlay: threw -> " + (e && e.message)); report(); });
+
 /* --------------------------------------------------------------- report */
-console.log(`${tag} ${pass} passed, ${fail} failed`);
-if (fails.length) { console.log(`${tag} Failures:`); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
-console.log(`${tag} All green.`);
+function report() {
+  console.log(`${tag} ${pass} passed, ${fail} failed`);
+  if (fails.length) { console.log(`${tag} Failures:`); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
+  console.log(`${tag} All green.`);
+}

@@ -15,7 +15,7 @@
       const items = [];
       for (const c of found) {
         if (values[c.field] === undefined) continue;
-        items.push({ el: c.el, field: c.field, value: values[c.field], label: c.label || c.field, kind: c.kind });
+        items.push({ el: c.el, field: c.field, value: values[c.field], label: c.label || c.field, kind: c.kind, confidence: c.confidence });
       }
       return items;
     },

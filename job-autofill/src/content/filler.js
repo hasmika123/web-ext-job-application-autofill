@@ -55,10 +55,14 @@
     const manual = items.filter((i) => i.kind === "manual");
     const info = items.filter((i) => i.kind === "info");
 
+    // A low-confidence match (weak signal like placeholder/name only) renders
+    // UNCHECKED — the user opts in rather than un-noticing a wrong fill. A value
+    // the user already confirmed once (field cache) is trusted again.
+    const uncertain = (i) => i.confidence === "low" && !i.cached;
     const rowHtml = (i, idx) =>
-      `<label class="row${i.assisted ? " assisted" : ""}">
-         <input type="checkbox" data-i="${idx}" checked />
-         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}</span>
+      `<label class="row${i.assisted ? " assisted" : ""}${uncertain(i) ? " low" : ""}">
+         <input type="checkbox" data-i="${idx}" ${uncertain(i) ? "" : "checked"} />
+         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}</span>
          <span class="val">${esc(truncate(String(i.value), 60))}</span>
          ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
@@ -257,6 +261,10 @@
     /* AI badge: charcoal-on-lime (white/cream on lime is unreadable) */
     .aibadge { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .08em;
       color: var(--on-accent); background: var(--accent); border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
+    /* Uncertain-match marker: warn-tinted "?" on rows left unchecked for review. */
+    .lowbadge { display: inline-block; font-size: 10px; font-weight: 800; line-height: 1;
+      color: var(--warn); background: var(--brown-soft); border-radius: 999px; padding: 2px 6px; vertical-align: middle; }
+    .row.low .val { color: var(--muted); }
     .row.file { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
     .field { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
     .val { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
