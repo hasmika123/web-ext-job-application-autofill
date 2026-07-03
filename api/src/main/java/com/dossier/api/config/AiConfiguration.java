@@ -25,7 +25,13 @@ public class AiConfiguration {
     public AiProvider aiProvider(AiProperties props) {
         String provider = props.getProvider() == null ? "" : props.getProvider().trim().toLowerCase();
         if ("gemini".equals(provider)) {
-            return new GeminiAiProvider(props.getBaseUrl(), props.getModel(), props.getApiKey(), props.getMaxOutputTokens());
+            return new GeminiAiProvider(
+                props.getBaseUrl(),
+                props.getModel(),
+                props.getApiKey(),
+                props.getMaxOutputTokens(),
+                props.getParseMaxOutputTokens()
+            );
         }
         LOG.info("No AI provider configured (dossier.ai.provider='{}') — server-side drafting is off.", provider);
         return new DisabledAiProvider();
@@ -41,6 +47,11 @@ public class AiConfiguration {
 
         @Override
         public String draft(String question, String context) {
+            throw new AiProviderException("No AI provider configured");
+        }
+
+        @Override
+        public String parseResume(String text, String fileBase64, String fileMimeType) {
             throw new AiProviderException("No AI provider configured");
         }
     }

@@ -39,6 +39,10 @@ public class AiProperties {
     /** Cap on generated answer length. */
     private int maxOutputTokens = 400;
 
+    /** Cap on structured resume-parse output — the full JSON resume, so much roomier
+     *  than a 2-4 sentence draft. */
+    private int parseMaxOutputTokens = 4000;
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -93,5 +97,13 @@ public class AiProperties {
 
     public void setMaxOutputTokens(int maxOutputTokens) {
         this.maxOutputTokens = maxOutputTokens;
+    }
+
+    public int getParseMaxOutputTokens() {
+        return parseMaxOutputTokens;
+    }
+
+    public void setParseMaxOutputTokens(int parseMaxOutputTokens) {
+        this.parseMaxOutputTokens = parseMaxOutputTokens;
     }
 }

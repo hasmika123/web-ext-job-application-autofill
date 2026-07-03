@@ -129,6 +129,42 @@ const oneColItems = ys.map((y, i) => ({ x: 60, y, w: 300, str: "Line " + i }));
 const reconOne = core.reconstructPdfText(oneColItems);
 ok("single-col: preserved top-to-bottom", reconOne.startsWith("Line 0") && reconOne.trimEnd().endsWith("Line 9"), JSON.stringify(reconOne));
 
+// --- LLM pre-processing: cleanForLlm + looksGarbled ------------------------
+ok("exports cleanForLlm", typeof core.cleanForLlm === "function");
+ok("exports looksGarbled", typeof core.looksGarbled === "function");
+
+// Ligatures/typographic chars normalized, wrapped hyphenation joined.
+const dirty = "Proﬁle: staﬀ engineer, eﬃciency\nengin-\neering experience “quoted” and ‘quoted’ here​";
+const cleaned = core.cleanForLlm(dirty);
+ok("clean: ligatures", cleaned.includes("Profile") && cleaned.includes("staff") && cleaned.includes("efficiency"), JSON.stringify(cleaned));
+ok("clean: dehyphenated", cleaned.includes("engineering"), JSON.stringify(cleaned));
+ok("clean: quotes + nbsp + zero-width", cleaned.includes('"quoted"') && cleaned.includes("'quoted' here"), JSON.stringify(cleaned));
+
+// Page markers dropped; a header repeated on 3+ pages kept once.
+const paged = [
+  "Jane Doe — jane@x.com", "Experience line one", "Page 1 of 3", "",
+  "Jane Doe — jane@x.com", "Experience line two", "2/3", "",
+  "Jane Doe — jane@x.com", "Experience line three", "- 3 -",
+].join("\n");
+const pagedClean = core.cleanForLlm(paged);
+ok("clean: page markers gone", !/page 1|2\/3|- 3 -/i.test(pagedClean), JSON.stringify(pagedClean));
+ok("clean: repeated header kept once", (pagedClean.match(/Jane Doe/g) || []).length === 1, JSON.stringify(pagedClean));
+ok("clean: body lines kept", /line one/.test(pagedClean) && /line three/.test(pagedClean), JSON.stringify(pagedClean));
+
+// Blank-line runs collapse; twice-repeated lines (1-2 page resumes) are NOT deduped.
+const twice = core.cleanForLlm("Alpha beta gamma one\n\n\n\n\nAlpha beta gamma one");
+ok("clean: blank runs collapse", !/\n{3,}/.test(twice), JSON.stringify(twice));
+ok("clean: 2x lines not deduped", (twice.match(/Alpha beta gamma one/g) || []).length === 2, JSON.stringify(twice));
+
+// looksGarbled: real resume text is fine; empty/symbol-soup/mojibake are not.
+ok("garbled: real resume ok", core.looksGarbled(resume) === false);
+ok("garbled: empty is garbled", core.looksGarbled("") === true);
+ok("garbled: tiny is garbled", core.looksGarbled("John Doe") === true);
+const soup = Array(300).fill("■□ 12 //").join(" ");
+ok("garbled: symbol soup", core.looksGarbled(soup) === true, soup.slice(0, 40));
+const moji = (resume + " ").repeat(2) + Array(60).fill("�").join("");
+ok("garbled: mojibake ratio", core.looksGarbled(moji) === true);
+
 console.log(`\n[parser-core] ${pass} passed, ${fail} failed`);
 if (fails.length) { console.log("Failures:"); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
 console.log("[parser-core] All green.");

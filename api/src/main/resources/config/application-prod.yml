@@ -186,6 +186,9 @@ dossier:
     api-key: ${DOSSIER_AI_API_KEY:}
     free-monthly-quota: ${DOSSIER_AI_FREE_MONTHLY_QUOTA:50}
     max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}
+    # Structured resume parsing (POST /api/ai/parse-resume) — full-resume JSON output,
+    # so a much roomier cap than a 2-4 sentence draft. Same provider/model/key/quota.
+    parse-max-output-tokens: ${DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS:4000}
   admin:
     # Real production admin, created/promoted from env at startup by AdminBootstrap (Phase 9.A0).
     # The default admin/admin seed no longer reaches prod; set these to install a real admin.

@@ -60,6 +60,8 @@
     async syncFieldCache(/* entries */) { throw new NotSupportedError("syncFieldCache (Phase 4)"); }
     // Phase 5 — server-side metered AI drafting (opt-in). Implemented by createKiwiplyProvider.
     async aiDraft(/* { question, context, consent } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
+    // Server-side metered AI resume parsing (opt-in). Implemented by createKiwiplyProvider.
+    async aiParseResume(/* { text, fileBase64, fileMimeType, consent } */) { throw new NotSupportedError("aiParseResume"); }
     // Phase 9.A5 — user bug report (auth optional). Implemented by createKiwiplyProvider.
     async submitBugReport(/* { message, category, url, appVersion, userAgent } */) { throw new NotSupportedError("submitBugReport (Phase 9)"); }
   }
@@ -438,6 +440,17 @@
       // { answer, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
       async aiDraft({ question, context, consent } = {}) {
         return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false } });
+      },
+
+      // ---- server-side AI resume parsing ----------------------------------
+      // Same gating/metering as aiDraft (one parse = one AI credit). Send extracted
+      // text OR the original PDF (base64) — the server rejects both/neither. Returns:
+      // { parsed, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
+      async aiParseResume({ text, fileBase64, fileMimeType, consent } = {}) {
+        const body = fileBase64
+          ? { fileBase64, fileMimeType: fileMimeType || "application/pdf", consent: consent !== false }
+          : { text: text || "", consent: consent !== false };
+        return request("POST", "/api/ai/parse-resume", { body });
       },
 
       // ---- bug report (Phase 9.A5) ----------------------------------------

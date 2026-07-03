@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui";
 import { track } from "@/lib/analytics";
-import { parseResume } from "@/lib/resume-parse";
+import { parseResume, parseResumeWithAi } from "@/lib/resume-parse";
+import { getAiParseConsent } from "@/lib/ai-parse-consent";
 import type { ResumeUploadServices, SaveInput, SaveResult } from "@kiwiply/ui";
 
 /**
@@ -17,10 +18,13 @@ export function useResumeUploadServices(): ResumeUploadServices {
 
   return useMemo<ResumeUploadServices>(
     () => ({
-      // In-browser parse (pdf.js / mammoth → shared parser-core). Keeps resume content off
-      // the server until the user saves. The component only needs structure + contact.
+      // Default: in-browser parse (pdf.js / mammoth → shared parser-core), keeping resume
+      // content off the server until the user saves. With the user's AI-parsing opt-in
+      // (the checkbox under the drop-zone), the server-side LLM parses instead — much more
+      // accurate on unusual layouts — falling back to the heuristic on any failure.
       parseFile: async (file: File) => {
-        const parsed = await parseResume(file);
+        const parsed = getAiParseConsent() ? await parseResumeWithAi(file) : await parseResume(file);
+        track(parsed.source === "ai" ? "resume_parse_ai" : "resume_parse_local");
         return { structured: parsed.structured, bio: parsed.bio };
       },
       onSave: async (input: SaveInput): Promise<SaveResult> => {

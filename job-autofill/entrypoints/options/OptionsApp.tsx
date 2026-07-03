@@ -252,13 +252,13 @@ export function OptionsApp() {
                 <Switch
                   checked={!!form?.serverAi}
                   onCheckedChange={(v) => patch({ serverAi: v })}
-                  label="Use Kiwiply AI to draft answers"
-                  description="Sends the question + a short profile summary to your Kiwiply account, which uses Google Gemini (free tier — Google may use it to improve its services) to draft an answer you review. Off by default; requires being connected + your consent. Your own key takes priority."
+                  label="Use Kiwiply AI to draft answers and parse resumes"
+                  description="Drafting sends the question + a short profile summary; resume parsing sends the resume you upload. Both go to your Kiwiply account, which uses Google Gemini (free tier — Google may use it to improve its services); you review the result. Off by default; requires being connected + your consent. Your own key takes priority."
                 />
                 <Switch
                   checked={!!form?.serverAiConsent}
                   onCheckedChange={(v) => patch({ serverAiConsent: v })}
-                  label="I consent to sending my question + profile summary to Google Gemini for drafting"
+                  label="I consent to sending my question + profile summary (and, when parsing, my resume) to Google Gemini"
                 />
               </div>
             </Card>
