@@ -203,17 +203,52 @@
     return true;
   }
 
+  // --- W3C `autocomplete` tokens → canonical fields --------------------------
+  // A standardized, high-precision signal (autofill spec field names). Only real
+  // field tokens are mapped — "on"/"off"/section-*/shipping prefixes are skipped by
+  // scanning tokens from the END (the spec puts the field token last).
+  const AC_FIELDS = {
+    "given-name": "firstName", "family-name": "lastName", "name": "fullName",
+    "nickname": "preferredName", "email": "email", "tel": "phone",
+    "tel-national": "phone", "street-address": "addressLine1",
+    "address-line1": "addressLine1", "address-line2": "addressLine2",
+    "address-level2": "city", "address-level1": "state", "postal-code": "postalCode",
+    "country-name": "country", "country": "country", "url": "website",
+  };
+  function autocompleteField(el) {
+    const raw = el.getAttribute && el.getAttribute("autocomplete");
+    if (!raw) return null;
+    const tokens = raw.trim().toLowerCase().split(/\s+/);
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      if (AC_FIELDS[tokens[i]]) return AC_FIELDS[tokens[i]];
+    }
+    return null;
+  }
+  // Hosts whose forms set `autocomplete` unreliably (data-driven via the ruleset —
+  // Workday today). There the scanner falls back to keyword matching alone.
+  function autocompleteTrusted() {
+    let distrust = [];
+    try {
+      const rs = JAF.rules && JAF.rules.getActive && JAF.rules.getActive();
+      distrust = (rs && rs.autocomplete && rs.autocomplete.distrust) || [];
+    } catch (e) {}
+    const host = ((typeof location !== "undefined" && location.hostname) || "").toLowerCase();
+    return !distrust.some((d) => d && host.includes(d));
+  }
+
   // Generic label-based scan: returns [{el, field, label, kind, score}]
   function scanGeneric(root) {
     root = root || document;
     const M = (JAF.rules && JAF.rules.getActive().generic) || JAF.schema.MATCHERS;
     const out = [];
+    const trustAC = autocompleteTrusted();
     // deepQueryAll pierces open shadow roots (BUG-5: shadow-DOM ATS like SmartRecruiters).
     const els = deepQueryAll(root, "input, textarea, select, [contenteditable='true']");
     for (const el of els) {
       if (!isFillable(el)) continue;
       const lbl = labelText(el).toLowerCase();
-      if (!lbl) continue;
+      const acField = trustAC ? autocompleteField(el) : null;
+      if (!lbl && !acField) continue;
       let best = null;
       for (const m of M) {
         if (m.neg && m.neg.some((n) => lbl.includes(n))) continue;
@@ -222,6 +257,11 @@
           const score = hit.length + (lbl.trim() === hit ? 50 : 0);
           if (!best || score > best.score) best = { field: m.field, score };
         }
+      }
+      // The autocomplete token outranks any keyword hit — EXCEPT when it says the
+      // broad "website" and the label matched the more specific linkedin/github.
+      if (acField && !(acField === "website" && best && (best.field === "linkedin" || best.field === "github"))) {
+        best = { field: acField, score: 400 };
       }
       // EEO/demographic fields are scanned like any other now (user decision: EEO is
       // always available, no opt-in). They only end up FILLED when the user actually
@@ -482,7 +522,7 @@
     setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText, groupPrompt,
     cssEscape, isFillable, scanGeneric, deepQueryAll, elKind, applyItem, applyItemAsync, attachFile, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
-    // exposed for unit tests (dropdown option scoping + matching)
-    openListbox, visibleOptions, bestOption,
+    // exposed for unit tests (dropdown option scoping + matching + autocomplete)
+    openListbox, visibleOptions, bestOption, autocompleteField, autocompleteTrusted,
   };
 })();

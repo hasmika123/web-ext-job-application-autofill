@@ -19,8 +19,15 @@
   const JAF = (window.JAF = window.JAF || {});
 
   JAF.defaultRules = {
-    version: 4,
-    updatedAt: "2026-06-20",
+    version: 5,
+    updatedAt: "2026-07-03",
+
+    // W3C `autocomplete` attribute handling. Valid field tokens (given-name, email,
+    // postal-code, …) are a standardized, high-precision signal the generic scanner
+    // trusts ABOVE keyword matching — except on hosts listed here, whose forms set
+    // the attribute unreliably (Workday: user decision 2026-07-03). Substring match
+    // against location.hostname.
+    autocomplete: { distrust: ["myworkday"] },
 
     // Keyword matchers for the GENERIC (no dedicated adapter) label matcher.
     // Kept in the {field, any, neg} shape that scanGeneric consumes.

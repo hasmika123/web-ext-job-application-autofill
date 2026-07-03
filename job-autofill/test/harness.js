@@ -13,9 +13,10 @@ const { JSDOM } = require("jsdom");
 
 const ROOT = path.resolve(__dirname, "..");
 
-function makeWindow(html) {
+function makeWindow(html, opts) {
+  opts = opts || {};
   const dom = new JSDOM(html || "<!doctype html><html><body></body></html>", {
-    url: "https://acme.myworkdayjobs.com/en-US/careers",
+    url: opts.url || "https://acme.myworkdayjobs.com/en-US/careers",
     pretendToBeVisual: true,
     runScripts: "outside-only",
   });

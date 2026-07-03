@@ -665,6 +665,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **engine — W3C `autocomplete` signal in generic scanner** · On branch
+  `feat/fill-engine-upgrades` (user-directed engine upgrades, batch 1/4). Valid autocomplete field
+  tokens (given-name, email, postal-code, …) map straight to canonical fields and outrank keyword
+  matching — except on distrusted hosts (Workday, per user: its autocomplete attrs are unreliable),
+  listed as DATA in the ruleset (`autocomplete.distrust`, ruleset v5). Guard: an `url` token never
+  steals a linkedin/github-labeled field. New `autocomplete_confidence.test.js` (18) green; ext v0.45.0.
 - 2026-06-30 · **phase9.A4.4 MERGED + DEPLOYED** · PR #14 merged → Brevo list sync + newsletter postal
   address live on prod. Ops done this session: admin MFA enabled on VPS; Brevo `BREVO_API_KEY`/`BREVO_LIST_ID`
   + `NEWSLETTER_POSTAL_ADDRESS` set; admin email → `admin@kiwiply.com` (Cloudflare-routed to
