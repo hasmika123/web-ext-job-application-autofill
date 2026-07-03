@@ -20,7 +20,7 @@ function eq(name, got, want) {
   try { loadCore(w); } catch (e) { loaded = false; err = e.message; }
   ok("smoke: core files load", loaded, err);
   ok("smoke: JAF.schema present", !!(w.JAF && w.JAF.schema));
-  ok("smoke: ruleset version is 4", w.JAF && w.JAF.defaultRules && w.JAF.defaultRules.version === 4);
+  ok("smoke: ruleset version is 5", w.JAF && w.JAF.defaultRules && w.JAF.defaultRules.version === 5);
   ok("smoke: workday adapter registered", !!(w.JAF.adapters || []).find((a) => a.id === "workday"));
 })();
 

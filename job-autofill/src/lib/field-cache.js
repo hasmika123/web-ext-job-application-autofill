@@ -178,7 +178,11 @@
       for (const item of items) {
         if (!item || item.kind === "info" || item.kind === "file") continue;
         const cached = await get(item);
-        if (cached == null || cached === "" || String(cached) === String(item.value)) continue;
+        if (cached == null || cached === "") continue;
+        // Any hit means the user confirmed this field before — the overlay trusts
+        // it (keeps the row checked) even when the DOM match was low-confidence.
+        item.cached = true;
+        if (String(cached) === String(item.value)) continue;
         // keep the originally-planned value as a fallback for combos
         if (item.value != null && item.value !== "") {
           item.alts = (item.alts || []).slice();

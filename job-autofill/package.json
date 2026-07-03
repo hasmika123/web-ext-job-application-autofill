@@ -1,6 +1,6 @@
 {
   "name": "dossier-job-autofill",
-  "version": "0.45.0",
+  "version": "0.48.0",
   "private": true,
   "description": "Dev tooling for the Dossier job-application autofill extension. The extension itself has no build step; this is only for tests.",
   "scripts": {
@@ -11,7 +11,7 @@
     "zip": "wxt zip",
     "typecheck": "wxt prepare && tsc --noEmit -p tsconfig.json",
     "postinstall": "wxt prepare",
-    "test": "node test/run.js && node test/dropdown_and_addbtn.test.js && node test/eeo_edu_web.test.js && node test/upload_bio.test.js && node test/skills.test.js && node test/self_identify.test.js && node test/field_cache.test.js && node test/workable.test.js && node test/indeed.test.js && node test/tracking.test.js && node test/sync.test.js && node test/parser_core.test.js && node test/job_capture.test.js && node test/app_tracking.test.js && node test/analytics.test.js && node test/qa_fixes.test.js"
+    "test": "node test/run.js && node test/dropdown_and_addbtn.test.js && node test/eeo_edu_web.test.js && node test/upload_bio.test.js && node test/skills.test.js && node test/self_identify.test.js && node test/field_cache.test.js && node test/workable.test.js && node test/indeed.test.js && node test/tracking.test.js && node test/sync.test.js && node test/parser_core.test.js && node test/job_capture.test.js && node test/app_tracking.test.js && node test/analytics.test.js && node test/qa_fixes.test.js && node test/autocomplete_confidence.test.js && node test/field_mapper.test.js && node test/assist_picks.test.js"
   },
   "dependencies": {
     "@fontsource/fraunces": "^5.2.9",

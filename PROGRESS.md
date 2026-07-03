@@ -665,6 +665,33 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **engine — AI picks for constrained screening questions** · Batch 4/4. `assist.js`
+  now also handles selects/radio groups whose label reads like a screener ("Years of experience…",
+  "Willing to relocate?"): the SW (`JAF_PICK`) sends question + the LITERAL option list; the reply is
+  validated by `fieldMap.matchOption` (word-boundary, unique-or-null, UNSURE ⇒ no fill) so the fill is
+  only ever an option the page offers. EEO/demographic questions are never AI-answered; picks are
+  cached per question+options, reviewable + regenerable like drafts; radio picks fill via a new
+  `"choice"` kind. `assist_picks.test.js` (23); suite + typecheck + `npm run build` green; ext v0.48.0.
+- 2026-07-03 · **engine — cached AI field-mapper fallback** · Batch 3/4. Fields the deterministic
+  rules miss now get ONE batched model call: `field-mapper.js` collects leftover labeled elements,
+  resolves each from a local host+label cache, and sends only novel labels to the SW
+  (`JAF_MAP_FIELDS`), which maps them to the canonical vocabulary through the SAME consent gates as
+  drafting (BYO key → dedicated JSON prompt; server AI → tolerant JSON-from-prose parse; both off ⇒
+  silent no-op). Only labels leave the page; sensitive keys never LLM-mappable; results (incl.
+  "unknown") cached so a page costs ≤1 call ever per device. AI badge on mapped rows. New
+  `lib/field-map.js` (pure core) + `field_mapper.test.js` (28); typecheck green; ext v0.47.0.
+- 2026-07-03 · **engine — signal-tier scoring + match confidence in the overlay** · Batch 2/4.
+  `labelParts(el)` tiers every label signal (automation-id 300 > label/aria 200 > placeholder/name/id
+  100); keyword hits score per tier, so a real `<label>` beats a placeholder for the same field. Matches
+  backed only by weak signals carry `confidence:"low"` and render UNCHECKED (with a "?" marker) in the
+  review overlay — the user opts in instead of un-noticing a wrong fill. A field-cache hit marks the row
+  user-confirmed (stays checked). +10 tests; ext v0.46.0.
+- 2026-07-03 · **engine — W3C `autocomplete` signal in generic scanner** · On branch
+  `feat/fill-engine-upgrades` (user-directed engine upgrades, batch 1/4). Valid autocomplete field
+  tokens (given-name, email, postal-code, …) map straight to canonical fields and outrank keyword
+  matching — except on distrusted hosts (Workday, per user: its autocomplete attrs are unreliable),
+  listed as DATA in the ruleset (`autocomplete.distrust`, ruleset v5). Guard: an `url` token never
+  steals a linkedin/github-labeled field. New `autocomplete_confidence.test.js` (18) green; ext v0.45.0.
 - 2026-07-02 · **AI parsing default ON (user decision)** · Web "Parse with AI" checkbox now defaults
   ON (explicit opt-out remembered per browser). ⚠️ LEGAL FOLLOW-UP: the terms & privacy policy must
   disclose default-on AI resume parsing (resume content → Gemini free tier; Google may use inputs) —

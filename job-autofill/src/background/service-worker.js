@@ -38,6 +38,32 @@ function sSet(k, v) { return new Promise((res) => chrome.storage.local.set({ [k]
 async function getCached(q) { const c = (await sGet(ANSWER_KEY)) || {}; return c[normQ(q)] || null; }
 async function putCached(q, a) { const c = (await sGet(ANSWER_KEY)) || {}; c[normQ(q)] = a; await sSet(ANSWER_KEY, c); }
 
+// One Anthropic messages call (BYO key). Returns { answer } or { error }.
+async function callAnthropic(apiKey, system, user, maxTokens) {
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: maxTokens || 400,
+        system,
+        messages: [{ role: "user", content: user }],
+      }),
+    });
+  } catch (e) { return { error: String((e && e.message) || e) }; }
+  if (!res.ok) { const t = await res.text().catch(() => ""); return { error: "API " + res.status + ": " + t.slice(0, 160) }; }
+  const data = await res.json();
+  const answer = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
+  return { answer };
+}
+
 async function draftAnswer(question, context) {
   const settings = (await sGet("settings")) || {};
   const cached = await getCached(question);             // reuse identical question
@@ -50,29 +76,10 @@ async function draftAnswer(question, context) {
       "grounded ONLY in the candidate background provided. 2-4 sentences. No preamble, no markdown, " +
       "no placeholders, and do not invent employers or facts not present in the background.";
     const user = "Question:\n" + question + "\n\nCandidate background:\n" + (context || "").slice(0, 6000) + "\n\nWrite the answer:";
-    let res;
-    try {
-      res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": settings.apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 400,
-          system,
-          messages: [{ role: "user", content: user }],
-        }),
-      });
-    } catch (e) { return { error: String((e && e.message) || e) }; }
-    if (!res.ok) { const t = await res.text().catch(() => ""); return { error: "API " + res.status + ": " + t.slice(0, 160) }; }
-    const data = await res.json();
-    const answer = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-    if (answer) await putCached(question, answer);
-    return { answer };
+    const r = await callAnthropic(settings.apiKey, system, user, 400);
+    if (r.error) return r;
+    if (r.answer) await putCached(question, r.answer);
+    return { answer: r.answer };
   }
 
   // 2. Dossier server-side AI (opt-in + explicit consent + signed in). Metered on the
@@ -101,8 +108,115 @@ function draftOutcome(r) {
   return "other";
 }
 
+// --- AI option pick (JAF_PICK) --------------------------------------------------
+// Constrained screening question: the model answers, but the FILL is only ever an
+// option the page itself offers — fieldMap.matchOption validates the reply against
+// the literal list (ambiguous/UNSURE ⇒ no answer). Cached per question+options.
+const PICK_KEY = "pickCache";
+const pickCacheKey = (q, options) => normQ(q) + "::" + (options || []).map(normQ).join("|").slice(0, 400);
+
+async function pickAnswer(question, options, context) {
+  const F = self.JAF && self.JAF.fieldMap;
+  if (!F) return { error: "field-map core not loaded" };
+  const opts = (Array.isArray(options) ? options : []).map((o) => String(o == null ? "" : o).slice(0, 80)).filter(Boolean).slice(0, 30);
+  if (!question || opts.length < 2) return { error: "bad-question" };
+  const cache = (await sGet(PICK_KEY)) || {};
+  const ck = pickCacheKey(question, opts);
+  if (cache[ck] && opts.indexOf(cache[ck]) !== -1) return { answer: cache[ck], cached: true };
+
+  const settings = (await sGet("settings")) || {};
+  const instruction =
+    "Screening question from a job application:\n" + question +
+    "\n\nOptions (choose ONE):\n" + opts.map((o) => "- " + o).join("\n") +
+    "\n\nCandidate background:\n" + (context || "").slice(0, 6000) +
+    "\n\nReply with EXACTLY one option from the list, verbatim, and nothing else. " +
+    "If the background does not clearly determine the answer, reply UNSURE.";
+
+  let raw = null;
+  if (settings.llmEnabled && settings.apiKey) {
+    const system =
+      "You answer job-application screening questions by choosing from a fixed option list, " +
+      "based ONLY on the candidate background. Reply with exactly one option verbatim, or UNSURE. " +
+      "Never guess about demographics, legal status, or facts absent from the background.";
+    const r = await callAnthropic(settings.apiKey, system, instruction, 100);
+    if (r.error) return r;
+    raw = r.answer;
+  } else if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF && self.JAF.sync) {
+    try {
+      const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
+      if (!(await provider.isAuthenticated())) return { disabled: true };
+      const r = (await provider.aiDraft({ question: instruction, context: "", consent: true })) || {};
+      if (r.quotaExceeded) return { error: "quota" };
+      raw = r.answer || null;
+    } catch (e) { return { error: String((e && e.message) || e) }; }
+  } else {
+    return { disabled: true };
+  }
+
+  const answer = raw ? F.matchOption(raw, opts) : null;
+  if (!answer) return { unsure: true };
+  cache[ck] = answer;
+  await sSet(PICK_KEY, cache);
+  return { answer };
+}
+
+// --- AI field mapping (JAF_MAP_FIELDS) -----------------------------------------
+// One batched call: map form-field LABELS (no user values) to the canonical
+// vocabulary. Same consent gates as drafting: BYO key first, else the opt-in
+// server AI, else {disabled}. The content side (field-mapper.js) caches results
+// per host+label, so a page costs at most one call ever per device.
+async function mapFields(labels) {
+  const F = self.JAF && self.JAF.fieldMap;
+  if (!F) return { error: "field-map core not loaded" };
+  const list = (Array.isArray(labels) ? labels : []).slice(0, 20).map((l) => String(l == null ? "" : l).slice(0, 160));
+  if (!list.length) return { mappings: {} };
+  const settings = (await sGet("settings")) || {};
+  const prompt = F.buildMapPrompt(list);
+
+  // 1. BYO key → a dedicated JSON-only system prompt.
+  if (settings.llmEnabled && settings.apiKey) {
+    const system =
+      "You map job-application form field labels to a fixed vocabulary of canonical keys. " +
+      "Reply with ONLY the requested JSON object — no prose, no markdown.";
+    const r = await callAnthropic(settings.apiKey, system, prompt, 300);
+    if (r.error) return r;
+    const mappings = F.parseMapResponse(r.answer, list.length);
+    return mappings ? { mappings } : { error: "unparseable" };
+  }
+
+  // 2. Server AI rides the drafting endpoint (its system prompt is drafting-shaped,
+  //    so the parse must stay tolerant — parseMapResponse digs the JSON out of prose).
+  if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF && self.JAF.sync) {
+    try {
+      const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
+      if (await provider.isAuthenticated()) {
+        const r = (await provider.aiDraft({ question: prompt, context: "", consent: true })) || {};
+        if (r.answer) {
+          const mappings = F.parseMapResponse(r.answer, list.length);
+          return mappings ? { mappings } : { error: "unparseable" };
+        }
+        if (r.quotaExceeded) return { error: "quota" };
+      }
+    } catch (e) { return { error: String((e && e.message) || e) }; }
+  }
+
+  return { disabled: true };
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.type !== "JAF_DRAFT") return;
+  if (!msg || (msg.type !== "JAF_DRAFT" && msg.type !== "JAF_MAP_FIELDS" && msg.type !== "JAF_PICK")) return;
+  if (msg.type === "JAF_PICK") {
+    pickAnswer(msg.question, msg.options, msg.context)
+      .then((r) => { track("answer_pick", { outcome: r.answer ? (r.cached ? "cached" : "picked") : draftOutcome(r) }); sendResponse(r); })
+      .catch((e) => { track("answer_pick", { outcome: "error" }); sendResponse({ error: String(e) }); });
+    return true; // async
+  }
+  if (msg.type === "JAF_MAP_FIELDS") {
+    mapFields(msg.labels)
+      .then((r) => { track("field_map", { outcome: r.mappings ? "mapped" : draftOutcome(r), n: msg.labels ? msg.labels.length : 0 }); sendResponse(r); })
+      .catch((e) => { track("field_map", { outcome: "error" }); sendResponse({ error: String(e) }); });
+    return true; // async
+  }
   draftAnswer(msg.question, msg.context)
     .then((r) => { track("answer_draft", { outcome: draftOutcome(r) }); sendResponse(r); })
     .catch((e) => { track("answer_draft", { outcome: "error" }); sendResponse({ error: String(e) }); });

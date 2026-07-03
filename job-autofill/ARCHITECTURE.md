@@ -107,6 +107,25 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   (last-write-wins by `updatedAt`, `hitCount` = max); `JAF.sync.syncFieldCache` drives
   it through the provider's `syncFieldCache` (POST `/api/profile/field-caches/sync`).
   `create()` factory + pure helpers exposed for tests.
+- `src/content/assist.js` — `JAF.assist`, the optional AI layer. TWO shapes:
+  open-ended questions (textareas → `JAF_DRAFT`, drafted answers with regen) and
+  **constrained screeners** (native selects + radio groups with a fixed option
+  list → `JAF_PICK`). A pick is hallucination-proof by construction: the SW's
+  `pickAnswer` matches the model's reply against the page's literal options
+  (`fieldMap.matchOption` — word-boundary, unique-or-null, UNSURE ⇒ no fill) and
+  caches per question+options. Demographic/EEO questions are NEVER AI-answered
+  (`EEO_RE` guard); custom JS dropdowns are out of scope (options not in DOM until
+  opened). Radio picks fill via the `"choice"` kind (click one specific option).
+- `src/lib/field-map.js` + `src/content/field-mapper.js` — `JAF.fieldMap` /
+  `JAF.fieldMapper`, the **AI field-mapper fallback**. After the deterministic plan,
+  leftover labeled fields resolve from a local host+label cache (`chrome.storage.local`
+  `fieldMapCache`); only NOVEL labels go to the SW in one batched `JAF_MAP_FIELDS`
+  message, which maps them to the canonical vocabulary via the same BYO-key/server-AI
+  gates as drafting (off ⇒ silent no-op). Only labels leave the page, never values;
+  SENSITIVE demographic keys are never LLM-mappable. `field-map.js` is the pure,
+  SW-safe prompt/parse core (the server path rides the drafting endpoint, so the
+  parser tolerantly digs the JSON out of prose); `field-mapper.js` is the DOM half.
+  Mapped fields show an AI badge in the review overlay.
 - `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
   TrackingProvider section below). `createKiwiplyProvider()` + DTO mappers. Also exposes
   `aiDraft({question,context,consent})` → `POST /api/ai/draft` (Phase 5 opt-in server AI)
