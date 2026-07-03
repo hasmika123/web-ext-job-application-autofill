@@ -160,9 +160,15 @@ public class ApplicationSyncService {
 
     // ---- helpers -----------------------------------------------------------
 
-    /** A re-fill should not move an existing non-DRAFT entry back to DRAFT. */
+    /**
+     * A re-fill should not move an entry that's already in the pipeline (APPLIED and
+     * beyond) back to DRAFT. SAVED is exempt: it's a bookmark, not a pipeline stage —
+     * starting to fill a saved job is exactly how it enters the pipeline as a DRAFT.
+     */
     private static boolean isDraftDowngrade(ApplicationStatus incoming, ApplicationStatus existing) {
-        return incoming == ApplicationStatus.DRAFT && existing != ApplicationStatus.DRAFT;
+        return (
+            incoming == ApplicationStatus.DRAFT && existing != ApplicationStatus.DRAFT && existing != ApplicationStatus.SAVED
+        );
     }
 
     /**

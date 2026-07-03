@@ -139,6 +139,32 @@ class ApplicationSyncResourceIT {
 
     @Test
     @Transactional
+    void fillMovesSavedBookmarkToDraft() throws Exception {
+        // Save-a-job bookmarks the posting as SAVED…
+        Map<String, Object> saved = app("Umbrella", "Researcher");
+        saved.put("externalJobId", "JOB-42");
+        saved.put("status", "SAVED");
+        mockMvc
+            .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(saved)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("SAVED"));
+
+        // …then starting to fill it logs a DRAFT — the bookmark must enter the pipeline
+        // (SAVED is exempt from the draft-downgrade guard; it's a bookmark, not a stage).
+        Map<String, Object> fill = app("Umbrella", "Researcher");
+        fill.put("externalJobId", "JOB-42");
+        fill.put("status", "DRAFT");
+        mockMvc
+            .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(fill)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("DRAFT"));
+
+        // Still ONE entry — the fill upserted the saved row rather than duplicating it.
+        mockMvc.perform(get("/api/profile/applications")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @Transactional
     void companyAndRoleAreRequired() throws Exception {
         mockMvc
             .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(Map.of("company", "NoRole"))))

@@ -826,6 +826,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **web+api — board saved-vs-stage semantics + panel fixes** · SAVED is now a
+  bookmark, not a stage: bookmark icon (un-save = delete w/ confirm) replaces the star on saved
+  cards/panel (no starring saved jobs, incl. bulk + menu), stage pickers (stepper, move-to menus)
+  drop Saved, saved cards get "Apply now ↗" and the draft nudge's "Not yet" becomes "Continue
+  applying ↗" (both open the posting). Server: SAVED exempt from the draft-downgrade guard, so
+  the extension's fill-log flips a saved job to DRAFT (new IT). Draft row collapsed by default.
+  Panel: salary row always shown ("—" when empty), resume dropdown replaced by a lazy collapsible
+  preview (iframe only mounts—and the file is only fetched—on expand; re-linking moved into the
+  Edit form). Verified against a mock-data harness; web tsc+eslint+build green; api compiles
+  (ITs run in CI). Web+api only (no ext version bump).
 - 2026-07-03 · **web — application board UI polish** · Board page: pipeline stat chips in the
   header (tracked/applied/interviews/offers), search icon, bordered stage sections, "drag a card
   here" hints in empty funnel columns, layout-matched loading skeleton. Cards: company-initial

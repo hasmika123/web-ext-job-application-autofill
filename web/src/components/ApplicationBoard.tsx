@@ -62,6 +62,9 @@ const JOB_MODES: { value: string; label: string }[] = [
 const JOB_TYPE_LABEL: Record<string, string> = Object.fromEntries(JOB_TYPES.map((t) => [t.value, t.label]));
 const JOB_MODE_LABEL: Record<string, string> = Object.fromEntries(JOB_MODES.map((m) => [m.value, m.label]));
 const COL_BY_KEY: Record<string, { key: string; label: string; dot: string }> = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
+// SAVED is a bookmark, not a pipeline stage — stage pickers (stepper, move-to menus)
+// offer only these; the Saved section still exists on the board as the bookmark shelf.
+const STAGES = COLUMNS.filter((c) => c.key !== "SAVED");
 // Draft + Saved sit as full-width collapsible ROWS at the top; the funnel stages spread out
 // underneath as a responsive GRID; Archived is a collapsible ROW at the very bottom.
 const ROW_STATUSES = ["DRAFT", "SAVED"];
@@ -148,6 +151,30 @@ function StarButton({ starred, busy, onToggle, className }: { starred: boolean; 
   );
 }
 
+/** Filled bookmark on SAVED cards (a saved job is a bookmark, not a starrable pipeline entry). */
+function BookmarkButton({ busy, onRemove, className }: { busy: boolean; onRemove: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      aria-label="Remove from saved"
+      title="Remove from saved"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove();
+      }}
+      className={cn(
+        "shrink-0 rounded-md px-1 leading-none text-[color:var(--color-accent-deep)] transition-colors hover:text-danger disabled:opacity-50",
+        className,
+      )}
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-4 w-4">
+        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.2L5 21V4a1 1 0 0 1 1-1z" />
+      </svg>
+    </button>
+  );
+}
+
 export interface ResumeOption {
   id: number;
   label: string;
@@ -180,8 +207,8 @@ export default function ApplicationBoard({
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  // Draft/Saved rows expanded by default; the Archived row collapsed by default.
-  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set(["ARCHIVED"]));
+  // Saved row expanded by default; the Draft and Archived rows collapsed by default.
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set(["DRAFT", "ARCHIVED"]));
   const toggleRow = (key: string) =>
     setCollapsedRows((prev) => {
       const next = new Set(prev);
@@ -274,18 +301,25 @@ export default function ApplicationBoard({
       void mutate(app.id, "DELETE");
     }
   };
-  const changeResume = (id: number, resumeId: number) => {
-    const r = resumeOpts.find((x) => x.id === resumeId);
-    void mutate(id, "PUT", { resumeId }, { resume: r ? { id: r.id, label: r.label } : null });
+  // Un-bookmark a saved job: removing the bookmark deletes the entry (it was never applied to).
+  const unsave = (app: Application) => {
+    if (window.confirm(`Remove this saved job — ${app.company} · ${app.roleTitle}?`)) {
+      if (selectedId === app.id) setSelectedId(null);
+      void mutate(app.id, "DELETE");
+    }
   };
 
   /** Apply one partial update to every picked application at once (client-side fan-out). */
   async function bulkPatch(body: Record<string, unknown>) {
-    const ids = [...picked];
+    // Saved jobs are bookmarks, not starrable pipeline entries — skip them for a bulk star.
+    const eligible = new Set(
+      [...picked].filter((id) => body.starred !== true || apps.find((a) => a.id === id)?.status !== "SAVED"),
+    );
+    const ids = [...eligible];
     if (!ids.length) return;
     setError(null);
     ids.forEach((id) => setBusy(id, true));
-    setApps((prev) => prev.map((a) => (picked.has(a.id) ? { ...a, ...body } : a)));
+    setApps((prev) => prev.map((a) => (eligible.has(a.id) ? { ...a, ...body } : a)));
     try {
       const results = await Promise.all(
         ids.map((id) =>
@@ -412,6 +446,7 @@ export default function ApplicationBoard({
     onOpen: () => setSelectedId(a.id),
     onConfirm: () => confirmSubmitted(a.id),
     onStar: () => toggleStar(a),
+    onUnsave: () => unsave(a),
     onArchive: (v: boolean) => setArchived(a, v),
     onMoveTo: (s: string) => moveTo(a, s),
     onDelete: () => remove(a),
@@ -511,7 +546,7 @@ export default function ApplicationBoard({
             className="rounded-full border border-line bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink-soft outline-none focus:border-accent"
           >
             <option value="" disabled>Move to…</option>
-            {COLUMNS.map((c) => (
+            {STAGES.map((c) => (
               <option key={c.key} value={c.key}>{c.label}</option>
             ))}
           </select>
@@ -643,9 +678,15 @@ export default function ApplicationBoard({
         resumes={resumeOpts}
         onClose={() => setSelectedId(null)}
         onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
-        onChangeResume={(rid) => selected && changeResume(selected.id, rid)}
-        onSaveDetails={(changes) => selected && void mutate(selected.id, "PUT", changes)}
+        onSaveDetails={(changes) => {
+          if (!selected) return;
+          // A resume re-link sends { resumeId } but the card previews the resolved { resume }.
+          const rid = typeof changes.resumeId === "number" ? changes.resumeId : null;
+          const r = rid ? resumeOpts.find((x) => x.id === rid) : null;
+          void mutate(selected.id, "PUT", changes, r ? { ...changes, resume: { id: r.id, label: r.label } } : changes);
+        }}
         onStar={() => selected && toggleStar(selected)}
+        onUnsave={() => selected && unsave(selected)}
         onArchive={(v) => selected && setArchived(selected, v)}
         onDelete={() => selected && remove(selected)}
       />
@@ -807,10 +848,10 @@ function AddApplicationDialog({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className={labelClass}>
-              Stage
+              Add to
               <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
                 {COLUMNS.map((c) => (
-                  <option key={c.key} value={c.key}>{c.label}</option>
+                  <option key={c.key} value={c.key}>{c.key === "SAVED" ? "Saved (bookmark)" : c.label}</option>
                 ))}
               </select>
             </label>
@@ -939,6 +980,7 @@ function CardMenu({
   starred,
   archived,
   busy,
+  canStar = true,
   onStar,
   onArchive,
   onMoveTo,
@@ -947,6 +989,7 @@ function CardMenu({
   starred: boolean;
   archived: boolean;
   busy: boolean;
+  canStar?: boolean;
   onStar: () => void;
   onArchive: (v: boolean) => void;
   onMoveTo: (status: string) => void;
@@ -1010,9 +1053,11 @@ function CardMenu({
               style={{ position: "fixed", top: pos.top, left: pos.left, width: 180 }}
               className="z-[161] rounded-lg border border-line bg-paper p-1 shadow-[var(--shadow-lg)]"
             >
-              <button role="menuitem" className={item} onClick={run(onStar)}>{starred ? "★ Unstar" : "☆ Star"}</button>
+              {canStar && (
+                <button role="menuitem" className={item} onClick={run(onStar)}>{starred ? "★ Unstar" : "☆ Star"}</button>
+              )}
               <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">Move to</div>
-              {COLUMNS.map((c) => (
+              {STAGES.map((c) => (
                 <button key={c.key} role="menuitem" className={cn(item, "pl-4")} onClick={run(() => onMoveTo(c.key))}>{c.label}</button>
               ))}
               <div className="my-1 h-px bg-line" />
@@ -1036,6 +1081,7 @@ function BoardCard({
   onOpen,
   onConfirm,
   onStar,
+  onUnsave,
   onArchive,
   onMoveTo,
   onDelete,
@@ -1049,14 +1095,21 @@ function BoardCard({
   onOpen: () => void;
   onConfirm: () => void;
   onStar: () => void;
+  onUnsave: () => void;
   onArchive: (v: boolean) => void;
   onMoveTo: (status: string) => void;
   onDelete: () => void;
 }) {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const isSaved = app.status === "SAVED";
   const showNudge = app.status === "DRAFT" && !archived && !nudgeDismissed;
   const date = cardDate(app);
   const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
+  const openPosting = () => {
+    if (!app.jobUrl) return;
+    track("board_apply_clicked", { status: app.status });
+    window.open(app.jobUrl, "_blank", "noopener");
+  };
 
   return (
     <li
@@ -1122,11 +1175,16 @@ function BoardCard({
           <div className="truncate text-[13.5px] font-bold leading-snug text-ink">{app.roleTitle}</div>
           <div className="truncate text-[12.5px] text-ink-soft">{app.company}</div>
         </div>
-        <StarButton starred={!!app.starred} busy={busy} onToggle={onStar} />
+        {isSaved ? (
+          <BookmarkButton busy={busy} onRemove={onUnsave} />
+        ) : (
+          <StarButton starred={!!app.starred} busy={busy} onToggle={onStar} />
+        )}
         <CardMenu
           starred={!!app.starred}
           archived={archived}
           busy={busy}
+          canStar={!isSaved}
           onStar={onStar}
           onArchive={onArchive}
           onMoveTo={onMoveTo}
@@ -1148,10 +1206,36 @@ function BoardCard({
       )}
       {date && <div className={cn("text-[11px] text-muted", app.location || modeLabel ? "mt-1.5" : "mt-2")}>{date}</div>}
 
+      {/* Saved bookmarks: one-click jump to the posting. Filling it there moves it to Draft. */}
+      {isSaved && !archived && app.jobUrl && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation();
+            openPosting();
+          }}
+          className="mt-2 w-full rounded-md bg-accent px-2.5 py-1.5 text-[11.5px] font-bold text-on-accent transition-[filter] hover:brightness-95 disabled:opacity-50"
+        >
+          Apply now ↗
+        </button>
+      )}
+
       {showNudge && (
         <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
-          <div className="font-bold">Did you submit this application?</div>
-          <div className="mt-1.5 flex gap-1.5">
+          <div className="flex items-start justify-between gap-1.5">
+            <div className="font-bold">Did you submit this application?</div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
+              disabled={busy}
+              aria-label="Dismiss"
+              title="Dismiss"
+              className="-mr-0.5 -mt-0.5 rounded px-1 leading-none text-muted hover:text-ink"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             <button
               onClick={(e) => { e.stopPropagation(); onConfirm(); }}
               disabled={busy}
@@ -1159,13 +1243,23 @@ function BoardCard({
             >
               Yes, I applied
             </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
-              disabled={busy}
-              className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep"
-            >
-              Not yet
-            </button>
+            {app.jobUrl ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); openPosting(); }}
+                disabled={busy}
+                className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep disabled:opacity-50"
+              >
+                Continue applying ↗
+              </button>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
+                disabled={busy}
+                className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep"
+              >
+                Not yet
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1178,9 +1272,9 @@ function DetailPanel({
   resumes,
   onClose,
   onChangeStatus,
-  onChangeResume,
   onSaveDetails,
   onStar,
+  onUnsave,
   onArchive,
   onDelete,
 }: {
@@ -1188,17 +1282,18 @@ function DetailPanel({
   resumes: ResumeOption[];
   onClose: () => void;
   onChangeStatus: (status: string) => void;
-  onChangeResume: (resumeId: number) => void;
   onSaveDetails: (changes: Record<string, unknown>) => void;
   onStar: () => void;
+  onUnsave: () => void;
   onArchive: (v: boolean) => void;
   onDelete: () => void;
 }) {
   const open = !!app;
   const closeRef = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobType: "", jobMode: "", email: "", salary: "", jobUrl: "", jobDescription: "" });
+  const [form, setForm] = useState({ company: "", roleTitle: "", location: "", jobType: "", jobMode: "", email: "", salary: "", jobUrl: "", jobDescription: "", resumeId: "" });
   const [descOpen, setDescOpen] = useState(false); // job description collapsed by default
+  const [resumeOpen, setResumeOpen] = useState(false); // resume preview collapsed — the file loads only on expand
 
   // Reset the transient panel view whenever the selected application changes (render-phase
   // adjustment — the documented pattern for resetting state on a prop change, no effect needed).
@@ -1207,6 +1302,7 @@ function DetailPanel({
     setPrevId(app?.id);
     setEditing(false);
     setDescOpen(false);
+    setResumeOpen(false);
   }
 
   function startEdit() {
@@ -1221,6 +1317,7 @@ function DetailPanel({
       salary: app.salary ?? "",
       jobUrl: app.jobUrl ?? "",
       jobDescription: app.jobDescription ?? "",
+      resumeId: app.resume?.id ? String(app.resume.id) : "",
     });
     setEditing(true);
   }
@@ -1228,7 +1325,7 @@ function DetailPanel({
     const company = form.company.trim();
     const roleTitle = form.roleTitle.trim();
     if (!company || !roleTitle) return;
-    onSaveDetails({
+    const changes: Record<string, unknown> = {
       company,
       roleTitle,
       location: form.location.trim(),
@@ -1238,7 +1335,11 @@ function DetailPanel({
       salary: form.salary.trim(),
       jobUrl: form.jobUrl.trim(),
       jobDescription: form.jobDescription.trim(),
-    });
+    };
+    // The backend can only (re)link a resume, not unlink — send only a real new pick.
+    const rid = form.resumeId ? Number(form.resumeId) : null;
+    if (rid && rid !== app?.resume?.id) changes.resumeId = rid;
+    onSaveDetails(changes);
     setEditing(false);
   }
 
@@ -1256,8 +1357,16 @@ function DetailPanel({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // The resume file actually used for this job: its one-off attachment if present, otherwise the
-  // linked library resume. Clicking downloads it (attachment disposition).
+  // The resume file actually used for this job: its one-off attachment if present, otherwise
+  // the linked library resume. `previewHref` streams inline (embedded preview); `fileHref`
+  // forces a download. Neither is fetched until the user opens the preview / clicks download.
+  const previewHref = app
+    ? app.attachmentFilename
+      ? `/api/applications/${app.id}/attachment`
+      : app.resume?.id
+        ? `/api/resumes/${app.resume.id}/file`
+        : null
+    : null;
   const fileHref = app
     ? app.attachmentFilename
       ? `/api/applications/${app.id}/attachment`
@@ -1265,6 +1374,7 @@ function DetailPanel({
         ? `/api/resumes/${app.resume.id}/file?download=1`
         : null
     : null;
+  const resumeName = app ? app.attachmentFilename || app.resume?.label || (app.resume?.id ? `Resume #${app.resume.id}` : "") : "";
 
   return (
     <>
@@ -1307,7 +1417,11 @@ function DetailPanel({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <StarButton starred={!!app.starred} busy={false} onToggle={onStar} className="text-[18px]" />
+                {app.status === "SAVED" ? (
+                  <BookmarkButton busy={false} onRemove={onUnsave} className="px-1.5 py-1" />
+                ) : (
+                  <StarButton starred={!!app.starred} busy={false} onToggle={onStar} className="text-[18px]" />
+                )}
                 <button ref={closeRef} onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
               </div>
             </div>
@@ -1358,6 +1472,20 @@ function DetailPanel({
                     <input type="url" value={form.jobUrl} onChange={(e) => setForm((f) => ({ ...f, jobUrl: e.target.value }))} className={dField} placeholder="https://…" />
                   </label>
                   <label className={dLabel}>
+                    Resume sent
+                    <select
+                      value={form.resumeId}
+                      onChange={(e) => setForm((f) => ({ ...f, resumeId: e.target.value }))}
+                      disabled={resumes.length === 0}
+                      className={cn(dField, "min-w-0 truncate disabled:opacity-60")}
+                    >
+                      <option value="">{resumes.length ? "— None linked —" : "No resumes uploaded yet"}</option>
+                      {resumes.map((r) => (
+                        <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={dLabel}>
                     Job description
                     <textarea value={form.jobDescription} onChange={(e) => setForm((f) => ({ ...f, jobDescription: e.target.value }))} rows={6} className={cn(dField, "resize-y")} />
                   </label>
@@ -1375,11 +1503,18 @@ function DetailPanel({
                 </div>
               ) : (
                 <>
-                  {/* Stage stepper — the funnel at a glance; click a pill to move the application. */}
+                  {/* Stage stepper — the funnel at a glance; click a pill to move the application.
+                      SAVED is a bookmark, not a stage: a saved job shows no active pill, and
+                      picking one moves it into the pipeline. */}
                   <div className="mb-6">
                     <div className="mb-2 text-[11px] font-bold uppercase tracking-[.06em] text-muted">Stage</div>
+                    {app.status === "SAVED" && (
+                      <p className="mb-2 text-[12px] text-muted">
+                        This is a saved job — pick a stage to move it into your pipeline.
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-1.5">
-                      {COLUMNS.map((c) => {
+                      {STAGES.map((c) => {
                         const current = c.key === app.status;
                         return (
                           <button
@@ -1431,12 +1566,11 @@ function DetailPanel({
                         <dd className="min-w-0 text-right text-[13px] text-ink">{JOB_MODE_LABEL[app.jobMode]}</dd>
                       </div>
                     )}
-                    {app.salary && (
-                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                        <dt className="shrink-0 text-[12px] font-medium text-muted">Salary</dt>
-                        <dd className="min-w-0 text-right text-[13px] text-ink">{app.salary}</dd>
-                      </div>
-                    )}
+                    {/* Salary is always shown (— when nothing was captured) so it's never silently missing. */}
+                    <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Salary</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{app.salary || "—"}</dd>
+                    </div>
                     {app.email && (
                       <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
                         <dt className="shrink-0 text-[12px] font-medium text-muted">Email</dt>
@@ -1461,23 +1595,6 @@ function DetailPanel({
                         <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.createdAt)}</dd>
                       </div>
                     )}
-                    <div className="flex items-center justify-between gap-4 px-3.5 py-2">
-                      <dt className="shrink-0 text-[12px] font-medium text-muted">Resume sent</dt>
-                      <dd className="min-w-0 max-w-[240px] flex-1">
-                        <select
-                          aria-label="Resume sent"
-                          value={app.resume?.id ? String(app.resume.id) : ""}
-                          onChange={(e) => e.target.value && onChangeResume(Number(e.target.value))}
-                          disabled={resumes.length === 0}
-                          className="w-full min-w-0 truncate rounded-lg border border-line bg-paper px-2 py-1 text-[12.5px] text-ink outline-none focus:border-accent disabled:opacity-60"
-                        >
-                          <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
-                          {resumes.map((r) => (
-                            <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
-                          ))}
-                        </select>
-                      </dd>
-                    </div>
                   </dl>
 
                   {(app.jobUrl || fileHref) && (
@@ -1521,6 +1638,33 @@ function DetailPanel({
                         </div>
                       ) : (
                         <p className="mt-2 text-[13px] text-muted">No description was captured for this job.</p>
+                      ))}
+                  </div>
+
+                  {/* Resume preview — collapsed by default; the file is only requested from the
+                      backend once the user expands this section (the iframe mounts on open). */}
+                  <div className="mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setResumeOpen((o) => !o)}
+                      aria-expanded={resumeOpen}
+                      className="flex w-full items-center gap-1.5 text-left text-ink transition-colors hover:text-accent-deep"
+                    >
+                      <Chevron open={resumeOpen} className="text-muted" />
+                      <h3 className="font-display text-base font-semibold">Resume sent</h3>
+                      {resumeName && (
+                        <span className="ml-auto min-w-0 max-w-[45%] truncate text-[12px] text-muted">{resumeName}</span>
+                      )}
+                    </button>
+                    {resumeOpen &&
+                      (previewHref ? (
+                        <div className="mt-2 overflow-hidden rounded-[var(--radius)] border border-line bg-paper-2/40">
+                          <iframe src={previewHref} title="Resume preview" className="h-96 w-full" />
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-[13px] text-muted">
+                          No resume is linked to this application yet — link one via Edit.
+                        </p>
                       ))}
                   </div>
                 </>
