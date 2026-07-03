@@ -108,6 +108,58 @@ function draftOutcome(r) {
   return "other";
 }
 
+// --- AI option pick (JAF_PICK) --------------------------------------------------
+// Constrained screening question: the model answers, but the FILL is only ever an
+// option the page itself offers — fieldMap.matchOption validates the reply against
+// the literal list (ambiguous/UNSURE ⇒ no answer). Cached per question+options.
+const PICK_KEY = "pickCache";
+const pickCacheKey = (q, options) => normQ(q) + "::" + (options || []).map(normQ).join("|").slice(0, 400);
+
+async function pickAnswer(question, options, context) {
+  const F = self.JAF && self.JAF.fieldMap;
+  if (!F) return { error: "field-map core not loaded" };
+  const opts = (Array.isArray(options) ? options : []).map((o) => String(o == null ? "" : o).slice(0, 80)).filter(Boolean).slice(0, 30);
+  if (!question || opts.length < 2) return { error: "bad-question" };
+  const cache = (await sGet(PICK_KEY)) || {};
+  const ck = pickCacheKey(question, opts);
+  if (cache[ck] && opts.indexOf(cache[ck]) !== -1) return { answer: cache[ck], cached: true };
+
+  const settings = (await sGet("settings")) || {};
+  const instruction =
+    "Screening question from a job application:\n" + question +
+    "\n\nOptions (choose ONE):\n" + opts.map((o) => "- " + o).join("\n") +
+    "\n\nCandidate background:\n" + (context || "").slice(0, 6000) +
+    "\n\nReply with EXACTLY one option from the list, verbatim, and nothing else. " +
+    "If the background does not clearly determine the answer, reply UNSURE.";
+
+  let raw = null;
+  if (settings.llmEnabled && settings.apiKey) {
+    const system =
+      "You answer job-application screening questions by choosing from a fixed option list, " +
+      "based ONLY on the candidate background. Reply with exactly one option verbatim, or UNSURE. " +
+      "Never guess about demographics, legal status, or facts absent from the background.";
+    const r = await callAnthropic(settings.apiKey, system, instruction, 100);
+    if (r.error) return r;
+    raw = r.answer;
+  } else if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF && self.JAF.sync) {
+    try {
+      const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
+      if (!(await provider.isAuthenticated())) return { disabled: true };
+      const r = (await provider.aiDraft({ question: instruction, context: "", consent: true })) || {};
+      if (r.quotaExceeded) return { error: "quota" };
+      raw = r.answer || null;
+    } catch (e) { return { error: String((e && e.message) || e) }; }
+  } else {
+    return { disabled: true };
+  }
+
+  const answer = raw ? F.matchOption(raw, opts) : null;
+  if (!answer) return { unsure: true };
+  cache[ck] = answer;
+  await sSet(PICK_KEY, cache);
+  return { answer };
+}
+
 // --- AI field mapping (JAF_MAP_FIELDS) -----------------------------------------
 // One batched call: map form-field LABELS (no user values) to the canonical
 // vocabulary. Same consent gates as drafting: BYO key first, else the opt-in
@@ -152,7 +204,13 @@ async function mapFields(labels) {
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || (msg.type !== "JAF_DRAFT" && msg.type !== "JAF_MAP_FIELDS")) return;
+  if (!msg || (msg.type !== "JAF_DRAFT" && msg.type !== "JAF_MAP_FIELDS" && msg.type !== "JAF_PICK")) return;
+  if (msg.type === "JAF_PICK") {
+    pickAnswer(msg.question, msg.options, msg.context)
+      .then((r) => { track("answer_pick", { outcome: r.answer ? (r.cached ? "cached" : "picked") : draftOutcome(r) }); sendResponse(r); })
+      .catch((e) => { track("answer_pick", { outcome: "error" }); sendResponse({ error: String(e) }); });
+    return true; // async
+  }
   if (msg.type === "JAF_MAP_FIELDS") {
     mapFields(msg.labels)
       .then((r) => { track("field_map", { outcome: r.mappings ? "mapped" : draftOutcome(r), n: msg.labels ? msg.labels.length : 0 }); sendResponse(r); })

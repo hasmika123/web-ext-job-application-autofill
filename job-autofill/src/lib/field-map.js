@@ -58,5 +58,26 @@
     return out;
   }
 
-  JAF.fieldMap = { MAPPABLE, buildMapPrompt, parseMapResponse };
+  // --- option matcher (shared by the SW's JAF_PICK handler + tests) ----------
+  // The model answers a constrained screening question; the fill is only ever an
+  // option the page actually offers, matched here — hallucination-proof by
+  // construction. Word-boundary matching keeps tiny options ("No") from hitting
+  // inside words ("know"); an ambiguous or UNSURE reply returns null (no fill).
+  function matchOption(answer, options) {
+    const norm = (s) => String(s == null ? "" : s).toLowerCase().replace(/\s+/g, " ").trim();
+    const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const a = norm(answer);
+    if (!a || /^unsure[.!]?$/i.test(a)) return null;
+    const opts = (options || []).filter((o) => norm(o));
+    for (const o of opts) if (norm(o) === a) return o;              // exact wins
+    const unique = (matches) => (matches.length === 1 ? matches[0] : null);
+    // a verbose reply CONTAINING exactly one option (server path may add prose)
+    const inAnswer = opts.filter((o) => new RegExp("\\b" + escRe(norm(o)) + "\\b").test(a));
+    if (inAnswer.length) return unique(inAnswer);
+    // a terse reply contained in exactly one option ("3-5" → "3-5 years")
+    const inOption = a.length >= 2 ? opts.filter((o) => new RegExp("\\b" + escRe(a) + "\\b").test(norm(o))) : [];
+    return unique(inOption);
+  }
+
+  JAF.fieldMap = { MAPPABLE, buildMapPrompt, parseMapResponse, matchOption };
 })();

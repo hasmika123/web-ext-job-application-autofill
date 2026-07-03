@@ -665,6 +665,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **engine — AI picks for constrained screening questions** · Batch 4/4. `assist.js`
+  now also handles selects/radio groups whose label reads like a screener ("Years of experience…",
+  "Willing to relocate?"): the SW (`JAF_PICK`) sends question + the LITERAL option list; the reply is
+  validated by `fieldMap.matchOption` (word-boundary, unique-or-null, UNSURE ⇒ no fill) so the fill is
+  only ever an option the page offers. EEO/demographic questions are never AI-answered; picks are
+  cached per question+options, reviewable + regenerable like drafts; radio picks fill via a new
+  `"choice"` kind. `assist_picks.test.js` (23); suite + typecheck + `npm run build` green; ext v0.48.0.
 - 2026-07-03 · **engine — cached AI field-mapper fallback** · Batch 3/4. Fields the deterministic
   rules miss now get ONE batched model call: `field-mapper.js` collects leftover labeled elements,
   resolves each from a local host+label cache, and sends only novel labels to the SW

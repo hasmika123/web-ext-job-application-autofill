@@ -155,7 +155,8 @@
       setTimeout(close, 2400);
     };
 
-    // Regenerate an AI draft in place — re-asks the service worker for that question.
+    // Regenerate an AI draft/pick in place — re-asks the service worker for that
+    // question (a pick re-resolves against the page's own option list).
     root.querySelectorAll(".regen").forEach((btn) => {
       btn.onclick = async (ev) => {
         ev.preventDefault();
@@ -167,8 +168,19 @@
         btn.disabled = true;
         valEl.textContent = "Drafting…";
         try {
-          const r = await JAF.assist.draft(item.question, item.context);
-          if (r && r.answer) { item.value = r.answer; valEl.textContent = truncate(String(r.answer), 60); }
+          const r = item.options
+            ? await JAF.assist.pick(item.question, item.options, item.context)
+            : await JAF.assist.draft(item.question, item.context);
+          if (r && r.answer) {
+            // a radio pick must also re-point the element at the new option
+            if (item.choices) {
+              const hit = item.choices.find((o) => o.text === r.answer);
+              if (!hit) { valEl.textContent = truncate(String(prev), 60); return; }
+              item.el = hit.el;
+            }
+            item.value = r.answer;
+            valEl.textContent = truncate(String(r.answer), 60);
+          }
           else { valEl.textContent = truncate(String(prev), 60); }
         } catch (e) {
           valEl.textContent = truncate(String(prev), 60);

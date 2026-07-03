@@ -524,6 +524,15 @@
   // Async apply: drives combos; everything else delegates to the sync applyItem.
   async function applyItemAsync(item) {
     if (!item) return false;
+    // "choice": click ONE specific radio/checkbox option (an AI pick that was
+    // matched against the page's own option list — never free text).
+    if (item.kind === "choice") {
+      const el = item.el;
+      if (!el || !document.contains(el)) return false;
+      realClick(el);
+      if (!el.checked) { try { el.checked = true; fire(el, "input"); fire(el, "change"); } catch (e) {} }
+      return el.checked === true;
+    }
     if (item.kind === "combo") {
       const cands = [item.value].concat(item.alts || []).filter((v) => v != null && v !== "");
       for (const v of cands) { if (await selectCustom(item.el, v)) return true; }
