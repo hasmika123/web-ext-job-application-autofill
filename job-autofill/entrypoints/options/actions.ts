@@ -13,6 +13,7 @@ export type Settings = {
   apikey: string;
   serverAi: boolean;
   serverAiConsent: boolean;
+  jobAi: boolean;
   autoAdv: boolean;
   autoAdd: boolean;
   analytics: boolean; // checkbox = "share"; opt-out is the inverse
@@ -25,6 +26,7 @@ export async function loadSettings(): Promise<Settings> {
     apikey: s.apiKey || "",
     serverAi: !!s.serverAiEnabled,
     serverAiConsent: !!s.serverAiConsent,
+    jobAi: !!s.jobAiEnabled,
     autoAdv: !!s.autoAdvance,
     autoAdd: s.autoAddRows !== false, // default on
     analytics: !s.analyticsOptOut,
@@ -37,6 +39,7 @@ export async function saveSettings(v: Settings): Promise<void> {
   s.apiKey = v.apikey.trim();
   s.serverAiEnabled = v.serverAi;
   s.serverAiConsent = v.serverAiConsent;
+  s.jobAiEnabled = v.jobAi;
   s.autoAdvance = v.autoAdv;
   s.autoAddRows = v.autoAdd;
   s.analyticsOptOut = !v.analytics;

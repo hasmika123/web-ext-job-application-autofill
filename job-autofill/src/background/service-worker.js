@@ -245,6 +245,66 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   return true; // async
 });
 
+// --- AI job-detail enrichment (Phase 3.6) --------------------------------------
+// Opt-in via its OWN toggle (settings.jobAiEnabled, default OFF). Fills only the gaps
+// the deterministic capture chain left (jobType / jobMode / structured salary) from
+// the posting's PUBLIC description text — never profile or resume data — and never
+// overrides a field the page stated. Same two-tier model chain as drafting: BYO key
+// first, else the opt-in server AI. Cached per posting so a job costs at most one
+// call ever; best-effort throughout (a failure just returns the capture unchanged).
+const ENRICH_KEY = "enrichCache";
+const ENRICH_MAX = 40;
+
+async function enrichCapture(capture) {
+  const E = self.JAF && self.JAF.jobEnrich;
+  if (!E || !capture) return capture;
+  try {
+    const settings = (await sGet("settings")) || {};
+    if (!settings.jobAiEnabled) return capture;
+    if (!E.needsEnrichment(capture)) return capture;
+    const key = E.cacheKey(capture);
+    const cache = (await sGet(ENRICH_KEY)) || {};
+    if (cache[key]) {
+      track("job_enrich", { outcome: "cached" });
+      return E.applyEnrichment(capture, cache[key].parsed);
+    }
+
+    const prompt = E.buildEnrichPrompt(capture);
+    let raw = null;
+    if (settings.llmEnabled && settings.apiKey) {
+      const system =
+        "You extract structured facts from job postings. Reply with ONLY the requested JSON object — " +
+        "no prose, no markdown. Use null for anything the text does not explicitly state; never infer or guess.";
+      const r = await callAnthropic(settings.apiKey, system, prompt, 200);
+      if (r.error || !r.answer) { track("job_enrich", { outcome: "error" }); return capture; }
+      raw = r.answer;
+    } else if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF.sync) {
+      const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
+      if (!(await provider.isAuthenticated())) return capture;
+      const r = (await provider.aiDraft({ question: prompt, context: "", consent: true })) || {};
+      if (!r.answer) { track("job_enrich", { outcome: r.quotaExceeded ? "quota" : "disabled" }); return capture; }
+      raw = r.answer;
+    } else {
+      return capture; // toggle is on but no AI backend is available
+    }
+
+    const parsed = E.parseEnrichResponse(raw);
+    if (!parsed) { track("job_enrich", { outcome: "unparseable" }); return capture; }
+    cache[key] = { parsed, ts: Date.now() };
+    const keys = Object.keys(cache);
+    if (keys.length > ENRICH_MAX) {
+      keys.sort((a, b) => (cache[a].ts || 0) - (cache[b].ts || 0))
+        .slice(0, keys.length - ENRICH_MAX)
+        .forEach((k) => delete cache[k]);
+    }
+    await sSet(ENRICH_KEY, cache);
+    track("job_enrich", { outcome: "enriched" });
+    return E.applyEnrichment(capture, parsed);
+  } catch (e) {
+    return capture; // enrichment must never block tracking
+  }
+}
+
 // --- Application tracking (Phase 3.2) -----------------------------------------
 // On fill: upsert a DRAFT (dedup server-side on externalJobId/jobUrl). On a detected
 // submission: flip that DRAFT to APPLIED. Both are best-effort and silent — if the
@@ -265,6 +325,7 @@ async function pendGet() { return (await sGet(PENDING_KEY)) || {}; }
 async function logFill(capture, resume, tabId) {
   const provider = await trackingProvider();
   if (!provider) return; // not configured / not signed in
+  capture = await enrichCapture(capture); // opt-in gap-fill; no-op unless enabled
   let saved;
   try { saved = await self.JAF.appTracking.pushDraft(provider, capture, resume); } catch (e) { return; }
   if (saved && saved.serverId != null && tabId != null) {
@@ -277,6 +338,7 @@ async function logFill(capture, resume, tabId) {
 async function saveJob(capture) {
   const provider = await trackingProvider();
   if (!provider) return { ok: false, reason: "not-signed-in" };
+  capture = await enrichCapture(capture); // opt-in gap-fill; no-op unless enabled
   try {
     const saved = await self.JAF.appTracking.pushSaved(provider, capture);
     return { ok: true, serverId: saved && saved.serverId, status: saved && saved.status };

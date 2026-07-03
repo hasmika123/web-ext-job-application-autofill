@@ -261,6 +261,16 @@ export function OptionsApp() {
                   label="I consent to sending my question + profile summary (and, when parsing, my resume) to Google Gemini"
                 />
               </div>
+
+              <div className="mt-5 flex flex-col gap-3 border-t border-line pt-4">
+                <div className={subhead}>Job-detail enrichment</div>
+                <Switch
+                  checked={!!form?.jobAi}
+                  onCheckedChange={(v) => patch({ jobAi: v })}
+                  label="Use AI to fill gaps in captured job details (job type, workplace, salary)"
+                  description="When a posting states these only in prose, sends the job posting's public text — never your profile or resume — to the AI you chose above (your key first, else Kiwiply AI) and fills only the missing fields; details the page states directly are never overridden. Off by default; needs one of the two AI options above turned on."
+                />
+              </div>
             </Card>
 
             {/* Filling */}
