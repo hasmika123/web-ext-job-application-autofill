@@ -65,6 +65,14 @@ const COL_BY_KEY: Record<string, { key: string; label: string; dot: string }> = 
 // SAVED is a bookmark, not a pipeline stage — stage pickers (stepper, move-to menus)
 // offer only these; the Saved section still exists on the board as the bookmark shelf.
 const STAGES = COLUMNS.filter((c) => c.key !== "SAVED");
+
+type SortKey = "recent" | "oldest" | "applied" | "company";
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "recent", label: "Most recent" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "applied", label: "Recently applied" },
+  { value: "company", label: "Company A–Z" },
+];
 // Draft + Saved sit as full-width collapsible ROWS at the top; the funnel stages spread out
 // underneath as a responsive GRID; Archived is a collapsible ROW at the very bottom.
 const ROW_STATUSES = ["DRAFT", "SAVED"];
@@ -181,6 +189,133 @@ export interface ResumeOption {
   defaultResume?: boolean;
 }
 
+/**
+ * The toolbar's "Filters" popover — starred/mode/type/resume live here instead of as
+ * loose controls in the row, with an active-count badge on the trigger.
+ */
+function FilterMenu({
+  starredOnly,
+  mode,
+  type,
+  resume,
+  resumeOptions,
+  activeCount,
+  onStarred,
+  onMode,
+  onType,
+  onResume,
+  onClear,
+}: {
+  starredOnly: boolean;
+  mode: string;
+  type: string;
+  resume: string;
+  resumeOptions: [number, string][];
+  activeCount: number;
+  onStarred: (v: boolean) => void;
+  onMode: (v: string) => void;
+  onType: (v: string) => void;
+  onResume: (v: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const field = "w-full rounded-lg border border-line bg-paper px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-accent";
+  const lbl = "flex flex-col gap-1 text-[10.5px] font-bold uppercase tracking-wide text-muted";
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        className={cn(
+          "flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-medium transition-colors",
+          activeCount > 0 ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink-soft hover:border-accent",
+        )}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          className="h-3.5 w-3.5"
+        >
+          <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+        </svg>
+        Filters
+        {activeCount > 0 && (
+          <span className="grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10.5px] font-bold text-on-accent">
+            {activeCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[120]" aria-hidden onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-[calc(100%+6px)] z-[121] w-64 rounded-[var(--radius)] border border-line bg-paper p-3 shadow-[var(--shadow-lg)]">
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-ink">
+              <input
+                type="checkbox"
+                checked={starredOnly}
+                onChange={(e) => onStarred(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[color:var(--color-accent)]"
+              />
+              ★ Starred only
+            </label>
+            <div className="mt-3 flex flex-col gap-2.5">
+              <label className={lbl}>
+                Job mode
+                <select value={mode} onChange={(e) => onMode(e.target.value)} className={field}>
+                  <option value="all">All modes</option>
+                  {JOB_MODES.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className={lbl}>
+                Job type
+                <select value={type} onChange={(e) => onType(e.target.value)} className={field}>
+                  <option value="all">All types</option>
+                  {JOB_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </label>
+              {resumeOptions.length > 0 && (
+                <label className={lbl}>
+                  Resume sent
+                  <select value={resume} onChange={(e) => onResume(e.target.value)} className={field}>
+                    <option value="all">All resumes</option>
+                    {resumeOptions.map(([id, label]) => (
+                      <option key={id} value={String(id)}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-line pt-2.5">
+              <button
+                type="button"
+                disabled={activeCount === 0}
+                onClick={onClear}
+                className="text-[12px] font-semibold text-muted enabled:hover:text-danger disabled:opacity-50"
+              >
+                Clear all
+              </button>
+              <button type="button" onClick={() => setOpen(false)} className="text-[12px] font-semibold text-accent-deep hover:underline">
+                Done
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ApplicationBoard({
   applications,
   resumes,
@@ -199,8 +334,18 @@ export default function ApplicationBoard({
   const [resumesSyncedFrom, setResumesSyncedFrom] = useState(resumes);
   const [search, setSearch] = useState("");
   const [resumeFilter, setResumeFilter] = useState("all");
-  const [sort, setSort] = useState<"recent" | "company">("recent");
+  const [modeFilter, setModeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [sort, setSort] = useState<SortKey>("recent");
   const [starredOnly, setStarredOnly] = useState(false);
+  const activeFilterCount =
+    (starredOnly ? 1 : 0) + (modeFilter !== "all" ? 1 : 0) + (typeFilter !== "all" ? 1 : 0) + (resumeFilter !== "all" ? 1 : 0);
+  const clearFilters = () => {
+    setStarredOnly(false);
+    setModeFilter("all");
+    setTypeFilter("all");
+    setResumeFilter("all");
+  };
   const [selectedId, setSelectedId] = useState<number | null>(null); // open in the detail panel
   const [picked, setPicked] = useState<Set<number>>(new Set()); // multi-select for bulk actions
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -418,6 +563,8 @@ export default function ApplicationBoard({
     const q = search.trim().toLowerCase();
     const filtered = apps.filter((a) => {
       if (resumeFilter !== "all" && String(a.resume?.id ?? "") !== resumeFilter) return false;
+      if (modeFilter !== "all" && a.jobMode !== modeFilter) return false;
+      if (typeFilter !== "all" && a.jobType !== typeFilter) return false;
       if (starredOnly && !a.starred) return false;
       if (!q) return true;
       return `${a.company} ${a.roleTitle} ${a.location ?? ""}`.toLowerCase().includes(q);
@@ -427,13 +574,21 @@ export default function ApplicationBoard({
       if (sort === "company") return a.company.localeCompare(b.company);
       const ta = new Date(a.appliedAt || a.createdAt || 0).getTime();
       const tb = new Date(b.appliedAt || b.createdAt || 0).getTime();
+      if (sort === "oldest") return ta - tb;
+      if (sort === "applied") {
+        // Entries actually applied to first (newest applied date), the rest by recency.
+        const aa = a.appliedAt ? new Date(a.appliedAt).getTime() : 0;
+        const ba = b.appliedAt ? new Date(b.appliedAt).getTime() : 0;
+        if (aa !== ba) return ba - aa;
+        return tb - ta;
+      }
       return tb - ta;
     });
     return {
       active: filtered.filter((a) => !a.archived),
       archivedItems: filtered.filter((a) => a.archived),
     };
-  }, [apps, search, resumeFilter, sort, starredOnly]);
+  }, [apps, search, resumeFilter, modeFilter, typeFilter, sort, starredOnly]);
 
   const totalVisible = active.length + archivedItems.length;
   const selected = selectedId == null ? null : apps.find((a) => a.id === selectedId) ?? null;
@@ -472,10 +627,10 @@ export default function ApplicationBoard({
         </div>
       )}
 
-      {/* Tools — only meaningful once there are entries */}
+      {/* Tools — search + one Filters popover + sort, so the row stays calm. */}
       {apps.length > 0 && (
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[200px] max-w-[320px] flex-1">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[200px] max-w-[340px] flex-1">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -495,41 +650,57 @@ export default function ApplicationBoard({
             className="w-full rounded-full border border-line bg-paper py-2 pl-9 pr-4 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setStarredOnly((v) => !v)}
-          aria-pressed={starredOnly}
-          className={cn(
-            "rounded-full border px-3 py-2 text-[13px] font-medium transition-colors",
-            starredOnly ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink-soft hover:border-accent",
-          )}
-        >
-          ★ Starred
-        </button>
-        {resumeOptions.length > 0 && (
-          <select
-            value={resumeFilter}
-            onChange={(e) => setResumeFilter(e.target.value)}
-            className="rounded-full border border-line bg-paper px-3 py-2 text-[13px] font-medium text-ink-soft outline-none focus:border-accent"
+        <FilterMenu
+          starredOnly={starredOnly}
+          mode={modeFilter}
+          type={typeFilter}
+          resume={resumeFilter}
+          resumeOptions={resumeOptions}
+          activeCount={activeFilterCount}
+          onStarred={setStarredOnly}
+          onMode={setModeFilter}
+          onType={setTypeFilter}
+          onResume={setResumeFilter}
+          onClear={clearFilters}
+        />
+        <div className="relative">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
           >
-            <option value="all">All resumes</option>
-            {resumeOptions.map(([id, label]) => (
-              <option key={id} value={String(id)}>{label}</option>
+            <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />
+          </svg>
+          <select
+            aria-label="Sort applications"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="rounded-full border border-line bg-paper py-2 pl-8 pr-3 text-[13px] font-medium text-ink-soft outline-none focus:border-accent"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
-        )}
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as "recent" | "company")}
-          className="rounded-full border border-line bg-paper px-3 py-2 text-[13px] font-medium text-ink-soft outline-none focus:border-accent"
-        >
-          <option value="recent">Most recent</option>
-          <option value="company">Company A–Z</option>
-        </select>
+        </div>
         <button type="button" onClick={() => setAdding(true)} className={cn(buttonVariants("accent"), "ml-auto")}>
           + Add application
         </button>
       </div>
+      )}
+
+      {/* Active-filter summary — how much of the board is hidden, with a one-click reset. */}
+      {apps.length > 0 && activeFilterCount > 0 && (
+        <p className="-mt-2 mb-3 text-[12px] text-muted">
+          Showing {totalVisible} of {apps.length} application{apps.length === 1 ? "" : "s"} ·{" "}
+          <button type="button" onClick={clearFilters} className="font-semibold text-accent-deep hover:underline">
+            Clear filters
+          </button>
+        </p>
       )}
 
       {/* Bulk-action toolbar — appears once one or more cards are selected. */}
@@ -595,7 +766,7 @@ export default function ApplicationBoard({
                 </button>
                 {!collapsed &&
                   (items.length ? (
-                    <ul className="mt-3 flex gap-2.5 overflow-x-auto pb-1">
+                    <ul className="scroll-slim mt-3 flex gap-2.5 overflow-x-auto pb-1.5">
                       {items.map((a) => (
                         <BoardCard key={a.id} className="w-[240px] shrink-0" {...cardHandlers(a)} />
                       ))}
@@ -633,7 +804,7 @@ export default function ApplicationBoard({
                     </span>
                     <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
                   </div>
-                  <ul className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
+                  <ul className="scroll-slim flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
                     {items.length ? (
                       items.map((a) => <BoardCard key={a.id} {...cardHandlers(a)} />)
                     ) : (
@@ -661,7 +832,7 @@ export default function ApplicationBoard({
                   <span className="ml-auto rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{archivedItems.length}</span>
                 </button>
                 {!collapsed && (
-                  <ul className="mt-3 flex max-h-[300px] gap-2.5 overflow-x-auto overflow-y-hidden pb-1">
+                  <ul className="scroll-slim mt-3 flex max-h-[300px] gap-2.5 overflow-x-auto overflow-y-hidden pb-1.5">
                     {archivedItems.map((a) => (
                       <BoardCard key={a.id} archived className="w-[240px] shrink-0" {...cardHandlers(a)} />
                     ))}
@@ -1426,7 +1597,7 @@ function DetailPanel({
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-5">
+            <div className="scroll-slim flex-1 overflow-auto p-5">
               {editing ? (
                 <div className="flex flex-col gap-3">
                   <label className={dLabel}>
@@ -1633,7 +1804,7 @@ function DetailPanel({
                     </button>
                     {descOpen &&
                       (app.jobDescription ? (
-                        <div className="mt-2 max-h-72 overflow-y-auto overflow-x-hidden rounded-[var(--radius)] border border-line bg-paper-2/40 p-3">
+                        <div className="scroll-slim mt-2 max-h-72 overflow-y-auto overflow-x-hidden rounded-[var(--radius)] border border-line bg-paper-2/40 p-3">
                           <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink-soft">{app.jobDescription}</p>
                         </div>
                       ) : (

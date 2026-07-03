@@ -826,6 +826,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **web — board scrollbars + toolbar declutter** · `.scroll-slim` (thin, line-tinted
+  scrollbars via standard `scrollbar-width/color` + webkit fallback) on all stage-section and
+  panel scrollers. Toolbar condensed to search · Filters popover · sort · Add: starred/job-mode/
+  job-type/resume filters live in the popover (active-count badge, Clear all), sort gains
+  Oldest first + Recently applied, and an active-filter summary line ("Showing X of Y · Clear
+  filters") appears under the row. tsc+eslint+build green; web only.
 - 2026-07-03 · **web+api — board saved-vs-stage semantics + panel fixes** · SAVED is now a
   bookmark, not a stage: bookmark icon (un-save = delete w/ confirm) replaces the star on saved
   cards/panel (no starring saved jobs, incl. bulk + menu), stage pickers (stepper, move-to menus)
