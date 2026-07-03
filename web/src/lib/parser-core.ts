@@ -75,6 +75,8 @@ const impl = core as {
   parseBio: (text: string) => ParsedBio;
   splitSkills: (input: string | string[]) => string[];
   reconstructPdfText: (items: PdfTextItem[]) => string;
+  cleanForLlm: (text: string) => string;
+  looksGarbled: (text: string) => boolean;
 };
 
 /** Structure raw resume text into sections/fields (no API key, fully local). */
@@ -95,4 +97,14 @@ export function splitSkills(input: string | string[]): string[] {
 /** Column-aware reading-order text from positioned PDF items (handles two-column resumes). */
 export function reconstructPdfText(items: PdfTextItem[]): string {
   return impl.reconstructPdfText(items);
+}
+
+/** Tidy extracted resume text before sending it to the server-side LLM parser. */
+export function cleanForLlm(text: string): string {
+  return impl.cleanForLlm(text);
+}
+
+/** True when text extraction failed badly enough that the original PDF should be sent instead. */
+export function looksGarbled(text: string): boolean {
+  return impl.looksGarbled(text);
 }

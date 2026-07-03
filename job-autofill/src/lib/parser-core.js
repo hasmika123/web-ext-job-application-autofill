@@ -606,5 +606,62 @@
     return itemsToText(left) + "\n" + itemsToText(right);
   }
 
-  return { heuristicStructure, parseBio, splitSkills, reconstructPdfText };
+  // --- LLM pre-processing ----------------------------------------------------
+  // cleanForLlm(text): tidy extracted resume text before sending it to the
+  // server-side LLM parser — fewer tokens, cleaner signal. Only lossless-ish
+  // cleanups: ligature/typographic normalization, de-hyphenation of wrapped words,
+  // page-number and repeated header/footer removal, whitespace collapse, length cap.
+  const MAX_LLM_CHARS = 30000; // matches the server's cap; a resume is 1-3 pages
+  function cleanForLlm(text) {
+    let t = String(text == null ? "" : text);
+    // Ligatures + typographic variants → plain equivalents (pdf.js often emits these).
+    t = t
+      .replace(/ﬀ/g, "ff").replace(/ﬁ/g, "fi").replace(/ﬂ/g, "fl")
+      .replace(/ﬃ/g, "ffi").replace(/ﬄ/g, "ffl")
+      .replace(/[‘’‛]/g, "'")
+      .replace(/[“”‟]/g, '"')
+      .replace(/\u00A0/g, " ")
+      .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, ""); // zero-widths + BOM + soft hyphen
+    t = t.replace(/\r\n?/g, "\n");
+    // De-hyphenate words wrapped across lines: "engin-\neering" → "engineering".
+    t = t.replace(/([A-Za-z]{2,})-\n(?=[a-z])/g, "$1");
+    const lines = t.split("\n").map((l) => l.replace(/[ \t]+$/g, ""));
+    // Count exact occurrences so per-page repeats (headers/footers) can be deduped.
+    const counts = new Map();
+    for (const l of lines) {
+      const k = l.trim();
+      if (k) counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    const seen = new Set();
+    const out = [];
+    for (const l of lines) {
+      const k = l.trim();
+      // Pure page markers add nothing: "3", "2/3", "Page 1 of 2", "- 4 -".
+      if (/^(?:-\s*)?(?:page\s+)?\d{1,3}(?:\s*(?:of|\/)\s*\d{1,3})?(?:\s*-)?$/i.test(k)) continue;
+      // A substantial line repeated 3+ times is a per-page header/footer — keep the first.
+      if (k.length >= 12 && (counts.get(k) || 0) >= 3) {
+        if (seen.has(k)) continue;
+        seen.add(k);
+      }
+      out.push(l.replace(/[ \t]{3,}/g, "  ")); // collapse space runs; keep 2-space cell gaps
+    }
+    t = out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    return t.length > MAX_LLM_CHARS ? t.slice(0, MAX_LLM_CHARS) : t;
+  }
+
+  // looksGarbled(text): did text extraction fail badly enough that the ORIGINAL FILE
+  // should be sent to the LLM instead (scanned PDF, CID-glyph soup, mojibake)?
+  function looksGarbled(text) {
+    const t = String(text == null ? "" : text);
+    const nonSpace = t.replace(/\s+/g, "");
+    if (nonSpace.length < 200) return true; // image-only/empty PDF
+    const bad = (t.match(/�/g) || []).length;
+    if (bad / nonSpace.length > 0.01) return true; // mojibake
+    const letters = (nonSpace.match(/[A-Za-z]/g) || []).length;
+    if (letters / nonSpace.length < 0.5) return true; // symbol soup (broken CID maps)
+    const words = (t.match(/[A-Za-z]{3,}/g) || []).length;
+    return words < 30; // too little real prose to be a resume
+  }
+
+  return { heuristicStructure, parseBio, splitSkills, reconstructPdfText, cleanForLlm, looksGarbled };
 });

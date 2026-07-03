@@ -100,13 +100,55 @@
     };
   }
 
+  // --- Server-side structuring (Dossier AI, opt-in) -------------------------
+  // Same opt-in + consent as answer drafting (Options → Settings). Sends cleaned
+  // extracted text — or the original PDF when extraction looks garbled (scanned /
+  // shredded multi-column layouts) — to POST /api/ai/parse-resume on the server's
+  // key. Throws on anything short of a successful parse so parse() can fall back.
+  async function serverStructure(text, file, settings) {
+    const provider = JAF.sync.providerFromSettings(settings, JAF.tracking.chromeTokenStore());
+    if (!(await provider.isAuthenticated())) throw new Error("not connected");
+    const core = JAF.parserCore;
+    const name = ((file && file.name) || "").toLowerCase();
+    const isPdf = name.endsWith(".pdf") || (file && file.type === "application/pdf");
+    let r;
+    if (isPdf && core.looksGarbled(text)) {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      r = await provider.aiParseResume({ fileBase64: btoa(bin), fileMimeType: "application/pdf", consent: true });
+    } else {
+      r = await provider.aiParseResume({ text: core.cleanForLlm(text), consent: true });
+    }
+    if (!r || !r.parsed) {
+      if (r && r.quotaExceeded) throw new Error("monthly AI limit reached (" + r.used + "/" + r.quota + ")");
+      throw new Error("AI parsing unavailable");
+    }
+    const p = r.parsed;
+    return {
+      summary: p.summary || "",
+      skills: Array.isArray(p.skills) ? p.skills : [],
+      experience: Array.isArray(p.experience) ? p.experience : [],
+      education: Array.isArray(p.education) ? p.education : [],
+      languages: Array.isArray(p.languages) ? p.languages : [],
+      projects: Array.isArray(p.projects) ? p.projects : [],
+    };
+  }
+
   async function parse(file, settings) {
     const text = await extractText(file);
     let structured;
     if (settings && settings.llmEnabled && settings.apiKey) {
+      // 1. Bring-your-own key → direct LLM call (explicit user choice; takes priority).
       try { structured = await llmStructure(text, settings.apiKey); }
       catch (e) { structured = heuristicStructure(text); structured.__warning = "LLM parse failed (" + e.message + "); used heuristic instead."; }
+    } else if (settings && settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && JAF.sync && JAF.tracking) {
+      // 2. Dossier server-side AI (opt-in + consent + connected) — heuristic on failure.
+      try { structured = await serverStructure(text, file, settings); }
+      catch (e) { structured = heuristicStructure(text); structured.__warning = "AI parse failed (" + e.message + "); used heuristic instead."; }
     } else {
+      // 3. Fully local heuristic parse.
       structured = heuristicStructure(text);
     }
     structured.__rawText = text;

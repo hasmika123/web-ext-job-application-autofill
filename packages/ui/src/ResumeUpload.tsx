@@ -573,6 +573,7 @@ export default function ResumeUpload({
   saveLabel,
   savedToast,
   backLabel,
+  aiParse,
   onSaved,
   onClose,
   parseFile,
@@ -605,6 +606,11 @@ export default function ResumeUpload({
    *  instead of the corner ✕ — used when this view opens ON TOP of a host surface it returns to
    *  (e.g. the extension drawer's home). Web leaves it unset → the ✕ shows as before. */
   backLabel?: string;
+  /** Optional AI-parsing opt-in rendered under the drop-zone (page mode). The HOST owns the
+   *  choice (e.g. persisted in localStorage) and its `parseFile` impl honors it — this is
+   *  just the visible consent control. Omit it (e.g. the extension, whose consent lives in
+   *  Options) to hide the checkbox and keep the parsed-in-your-browser copy. */
+  aiParse?: { checked: boolean; onChange: (v: boolean) => void; label: string; description?: string };
   /** Called after a successful CREATE with the new resume's id + label. */
   onSaved?: (resume: { id: number; label: string }) => void;
   /** Embedded mode: asked to close (review dismissed or save finished). */
@@ -894,10 +900,25 @@ export default function ResumeUpload({
           <div className="text-3xl">📄</div>
           <h3 className="mt-2 font-display text-lg font-semibold text-ink">Drop a resume here</h3>
           <p className="mt-1 text-[13.5px] text-muted">
-            or <span className="font-semibold text-accent-deep">browse</span> — PDF, DOCX, or TXT. Parsed right here in your browser.
+            or <span className="font-semibold text-accent-deep">browse</span> — PDF, DOCX, or TXT.
+            {!aiParse?.checked && " Parsed right here in your browser."}
           </p>
           <input ref={inputRef} type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" onChange={onInput} className="hidden" />
         </div>
+        {aiParse && (
+          <label className="flex w-fit cursor-pointer items-start gap-2 text-[13px] text-ink-soft">
+            <input
+              type="checkbox"
+              checked={aiParse.checked}
+              onChange={(e) => aiParse.onChange(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]"
+            />
+            <span>
+              {aiParse.label}
+              {aiParse.description && <span className="block text-[12px] font-normal text-muted">{aiParse.description}</span>}
+            </span>
+          </label>
+        )}
         {parsing && <p className="text-sm text-muted">Reading your resume…</p>}
         {error && (
           <p role="alert" className="text-sm font-medium text-danger">
@@ -929,7 +950,9 @@ export default function ResumeUpload({
                   <p className="mt-1 text-sm text-muted">
                     {editing
                       ? "Edit the parsed details and save — your stored file stays the same."
-                      : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
+                      : aiParse?.checked
+                        ? "Edit anything before saving — parsed with AI; nothing is saved to your account until you save."
+                        : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
                   </p>
                 </div>
                 {!backLabel && (

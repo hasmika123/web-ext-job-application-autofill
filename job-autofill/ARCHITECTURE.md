@@ -128,7 +128,10 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   Mapped fields show an AI badge in the review overlay.
 - `src/lib/tracking.js` — `JAF.tracking`. The sole backend network seam (see the
   TrackingProvider section below). `createKiwiplyProvider()` + DTO mappers. Also exposes
-  `aiDraft({question,context,consent})` → `POST /api/ai/draft` (Phase 5 opt-in server AI).
+  `aiDraft({question,context,consent})` → `POST /api/ai/draft` (Phase 5 opt-in server AI)
+  and `aiParseResume({text|fileBase64,consent})` → `POST /api/ai/parse-resume` (server-side
+  structured resume parsing on the same opt-in/quota; parser.js precedence BYO-key >
+  Kiwiply AI > heuristic, sending the original PDF when extraction looks garbled).
   The service worker's `draftAnswer` tries BYO-key (direct to Anthropic) first, then the
   server proxy when the user has enabled + consented to Dossier AI (Options → Settings).
   **Status: LIVE** — the Options toggle/consent are active and prod runs `DOSSIER_AI_ENABLED=true`

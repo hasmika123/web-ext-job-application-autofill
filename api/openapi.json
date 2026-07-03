@@ -18,6 +18,9 @@
     "name" : "authentication",
     "description" : "Obtain and refresh the JWT access token. These endpoints are public (no bearer token required)."
   }, {
+    "name" : "authentication",
+    "description" : "Google sign-in (public)."
+  }, {
     "name" : "ai",
     "description" : "Server-side metered AI answer drafting (opt-in)."
   }, {
@@ -815,6 +818,88 @@
         }
       }
     },
+    "/api/admin/users/{login}/ai-quota" : {
+      "get" : {
+        "tags" : [ "admin-ai-quota-resource" ],
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "admin-ai-quota-resource" ],
+        "operationId" : "set",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/QuotaRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "admin-ai-quota-resource" ],
+        "operationId" : "clear",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
     "/api/admin/users/{login}" : {
       "get" : {
         "tags" : [ "user-resource" ],
@@ -994,6 +1079,68 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/bug-reports/{id}" : {
+      "get" : {
+        "tags" : [ "admin-bug-report-resource" ],
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BugReportDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "admin-bug-report-resource" ],
+        "operationId" : "update",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TriageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BugReportDTO"
                 }
               }
             }
@@ -1372,6 +1519,179 @@
         } ]
       }
     },
+    "/api/profile/applications/{id}/attachment" : {
+      "get" : {
+        "tags" : [ "application-attachment-resource" ],
+        "operationId" : "download_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "application-attachment-resource" ],
+        "operationId" : "upload_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "application-attachment-resource" ],
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/newsletter/unsubscribe" : {
+      "post" : {
+        "tags" : [ "newsletter-resource" ],
+        "operationId" : "unsubscribe",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/newsletter/subscribe" : {
+      "post" : {
+        "tags" : [ "newsletter-resource" ],
+        "operationId" : "subscribe",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/newsletter/confirm" : {
+      "post" : {
+        "tags" : [ "newsletter-resource" ],
+        "operationId" : "confirm",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/logout" : {
       "post" : {
         "tags" : [ "authentication" ],
@@ -1451,6 +1771,26 @@
         }
       }
     },
+    "/api/extension/session" : {
+      "post" : {
+        "tags" : [ "authentication" ],
+        "summary" : "Mint an extension session",
+        "description" : "For the authenticated user, issue a fresh access + refresh token pair in a NEW rotation family, for the browser extension. Requires a valid access token.",
+        "operationId" : "extensionSession",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/exception-translator-test/method-argument" : {
       "post" : {
         "tags" : [ "exception-translator-test-controller" ],
@@ -1468,6 +1808,37 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/bug-reports" : {
+      "post" : {
+        "tags" : [ "bug-report-resource" ],
+        "operationId" : "submit",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubmitRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "boolean"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1608,7 +1979,67 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/TokenResponse"
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/authenticate/mfa" : {
+      "post" : {
+        "tags" : [ "authentication" ],
+        "summary" : "Complete MFA sign-in",
+        "description" : "Exchange a valid mfaToken + emailed code for the token pair.",
+        "operationId" : "authorizeMfa",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MfaVM"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google" : {
+      "post" : {
+        "tags" : [ "authentication" ],
+        "summary" : "Sign in with Google",
+        "description" : "Verify a Google ID token and exchange it for our access + refresh tokens (find-or-create by verified email).",
+        "operationId" : "googleLogin",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GoogleLoginVM"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenPair"
                 }
               }
             }
@@ -2484,6 +2915,40 @@
         }
       }
     },
+    "/api/ai/parse-resume" : {
+      "post" : {
+        "tags" : [ "ai" ],
+        "summary" : "Parse a resume",
+        "description" : "Metered, opt-in server-side AI resume parsing for the current user.",
+        "operationId" : "parseResume",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AiParseResumeVM"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/ai/draft" : {
       "post" : {
         "tags" : [ "ai" ],
@@ -2567,6 +3032,202 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/AiAnswerDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/sessions/{familyId}/revoke" : {
+      "post" : {
+        "tags" : [ "admin-session-resource" ],
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        }, {
+          "name" : "familyId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/revoke-admin" : {
+      "post" : {
+        "tags" : [ "admin-user-action-resource" ],
+        "operationId" : "revokeAdmin",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/reset-password" : {
+      "post" : {
+        "tags" : [ "admin-user-action-resource" ],
+        "operationId" : "resetPassword",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/grant-admin" : {
+      "post" : {
+        "tags" : [ "admin-user-action-resource" ],
+        "operationId" : "grantAdmin",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/force-logout" : {
+      "post" : {
+        "tags" : [ "admin-user-action-resource" ],
+        "operationId" : "forceLogout",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "integer",
+                    "format" : "int32"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/deactivate" : {
+      "post" : {
+        "tags" : [ "admin-user-action-resource" ],
+        "operationId" : "deactivate",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/activate" : {
+      "post" : {
+        "tags" : [ "admin-user-action-resource" ],
+        "operationId" : "activate",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AdminUserDTO"
                 }
               }
             }
@@ -3730,6 +4391,330 @@
         }
       }
     },
+    "/api/admin/users/{login}/sessions" : {
+      "get" : {
+        "tags" : [ "admin-session-resource" ],
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SessionFamily"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscribers" : {
+      "get" : {
+        "tags" : [ "admin-subscriber-resource" ],
+        "operationId" : "list_2",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Zero-based page index (0..N)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "description" : "The size of the page to be returned",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AdminSubscriberDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscribers/export" : {
+      "get" : {
+        "tags" : [ "admin-subscriber-resource" ],
+        "operationId" : "export",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscribers/counts" : {
+      "get" : {
+        "tags" : [ "admin-subscriber-resource" ],
+        "operationId" : "counts",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "integer",
+                    "format" : "int64"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/bug-reports" : {
+      "get" : {
+        "tags" : [ "admin-bug-report-resource" ],
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Zero-based page index (0..N)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "description" : "The size of the page to be returned",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/BugReportDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/bug-reports/counts" : {
+      "get" : {
+        "tags" : [ "admin-bug-report-resource" ],
+        "operationId" : "counts_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "integer",
+                    "format" : "int64"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/audit" : {
+      "get" : {
+        "tags" : [ "admin-audit-resource" ],
+        "operationId" : "getAuditEvents",
+        "parameters" : [ {
+          "name" : "actor",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Zero-based page index (0..N)",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "description" : "The size of the page to be returned",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AdminAuditEventDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/analytics" : {
+      "get" : {
+        "tags" : [ "admin-analytics-resource" ],
+        "operationId" : "overview",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalyticsOverview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ai-usage" : {
+      "get" : {
+        "tags" : [ "admin-ai-usage-resource" ],
+        "operationId" : "getAiUsage",
+        "parameters" : [ {
+          "name" : "period",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AiUsageView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/activate" : {
       "get" : {
         "tags" : [ "account-resource" ],
@@ -3740,6 +4725,45 @@
           "required" : true,
           "schema" : {
             "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/account/export" : {
+      "get" : {
+        "tags" : [ "account-export-resource" ],
+        "operationId" : "export_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{login}/data" : {
+      "delete" : {
+        "tags" : [ "admin-user-action-resource" ],
+        "operationId" : "deleteAccount",
+        "parameters" : [ {
+          "name" : "login",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
           }
         } ],
         "responses" : {
@@ -3781,6 +4805,12 @@
             "format" : "date-time"
           },
           "archived" : {
+            "type" : "boolean"
+          },
+          "starred" : {
+            "type" : "boolean"
+          },
+          "defaultResume" : {
             "type" : "boolean"
           },
           "user" : {
@@ -3857,6 +4887,30 @@
             "maxLength" : 200,
             "minLength" : 0
           },
+          "jobType" : {
+            "type" : "string",
+            "enum" : [ "FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "TEMPORARY", "OTHER" ]
+          },
+          "jobMode" : {
+            "type" : "string",
+            "enum" : [ "ON_SITE", "HYBRID", "REMOTE", "OTHER" ]
+          },
+          "email" : {
+            "type" : "string",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "salary" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "starred" : {
+            "type" : "boolean"
+          },
+          "archived" : {
+            "type" : "boolean"
+          },
           "externalJobId" : {
             "type" : "string",
             "maxLength" : 200,
@@ -3899,6 +4953,11 @@
           },
           "resume" : {
             "$ref" : "#/components/schemas/ResumeDTO"
+          },
+          "attachmentFilename" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
           }
         },
         "required" : [ "company", "createdAt", "roleTitle", "status", "updatedAt" ]
@@ -3971,6 +5030,15 @@
         },
         "required" : [ "createdAt", "questionHash" ]
       },
+      "QuotaRequest" : {
+        "type" : "object",
+        "properties" : {
+          "quota" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "AdminUserDTO" : {
         "type" : "object",
         "properties" : {
@@ -4035,6 +5103,69 @@
           }
         },
         "required" : [ "login" ]
+      },
+      "TriageRequest" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "adminNotes" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BugReportDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "userLogin" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string",
+            "enum" : [ "BUG", "IDEA", "OTHER" ]
+          },
+          "severity" : {
+            "type" : "string",
+            "enum" : [ "LOW", "MEDIUM", "HIGH" ]
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "TRIAGED", "IN_PROGRESS", "RESOLVED", "WONTFIX" ]
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "appVersion" : {
+            "type" : "string"
+          },
+          "userAgent" : {
+            "type" : "string"
+          },
+          "adminNotes" : {
+            "type" : "string"
+          },
+          "createdDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
       },
       "ManagedUserVM" : {
         "type" : "object",
@@ -4126,6 +5257,25 @@
           }
         }
       },
+      "TokenRequest" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SubscribeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          }
+        }
+      },
       "TestDTO" : {
         "type" : "object",
         "properties" : {
@@ -4134,6 +5284,32 @@
           }
         },
         "required" : [ "test" ]
+      },
+      "SubmitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "source" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "appVersion" : {
+            "type" : "string"
+          },
+          "userAgent" : {
+            "type" : "string"
+          }
+        }
       },
       "Authority" : {
         "type" : "object",
@@ -4164,6 +5340,54 @@
           }
         },
         "required" : [ "password", "username" ]
+      },
+      "MfaVM" : {
+        "type" : "object",
+        "properties" : {
+          "mfaToken" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "mfaToken" ]
+      },
+      "GoogleLoginVM" : {
+        "type" : "object",
+        "properties" : {
+          "credential" : {
+            "type" : "string"
+          }
+        }
+      },
+      "TokenPair" : {
+        "type" : "object",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "refreshToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AiParseResumeVM" : {
+        "type" : "object",
+        "properties" : {
+          "text" : {
+            "type" : "string"
+          },
+          "fileBase64" : {
+            "type" : "string"
+          },
+          "fileMimeType" : {
+            "type" : "string"
+          },
+          "consent" : {
+            "type" : "boolean"
+          }
+        }
       },
       "AiDraftVM" : {
         "type" : "object",
@@ -4262,6 +5486,209 @@
           },
           "newPassword" : {
             "type" : "string"
+          }
+        }
+      },
+      "SessionFamily" : {
+        "type" : "object",
+        "properties" : {
+          "familyId" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tokenCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "active" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "AdminSubscriberDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "CONFIRMED", "UNSUBSCRIBED" ]
+          },
+          "consentSource" : {
+            "type" : "string"
+          },
+          "consentAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "confirmedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "unsubscribedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "AdminAuditEventDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "actorLogin" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "targetId" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "string"
+          },
+          "createdDate" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "AnalyticsOverview" : {
+        "type" : "object",
+        "properties" : {
+          "totalUsers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activatedUsers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activationRatePct" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "signups7d" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "signups30d" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activeUsers7d" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activeUsers30d" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalResumes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalApplications" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "funnel" : {
+            "$ref" : "#/components/schemas/Funnel"
+          },
+          "applicationsByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "Funnel" : {
+        "type" : "object",
+        "properties" : {
+          "signedUp" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activated" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "withProfile" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startedApplying" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "applied" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AiUsageView" : {
+        "type" : "object",
+        "properties" : {
+          "period" : {
+            "type" : "string"
+          },
+          "defaultQuota" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalDrafts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "userCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "users" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UserUsage"
+            }
+          }
+        }
+      },
+      "UserUsage" : {
+        "type" : "object",
+        "properties" : {
+          "login" : {
+            "type" : "string"
+          },
+          "draftCount" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       }

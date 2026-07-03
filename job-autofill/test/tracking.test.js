@@ -187,6 +187,18 @@ function mockFetch(handler) {
   ok("aiDraft POSTs /api/ai/draft with consent", fetchAi.calls[0].method === "POST" && fetchAi.calls[0].path === "/api/ai/draft" && fetchAi.calls[0].body.consent === true);
   ok("aiDraft returns the server result", ai.answer === "Because I'd thrive here." && ai.quota === 50);
 
+  /* ---- aiParseResume — POSTs /api/ai/parse-resume (text or file mode) ---- */
+  const fetchParse = mockFetch(() => ({ status: 200, json: { parsed: { summary: "s", skills: ["Java"] }, used: 2, quota: 50 } }));
+  const pParse = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchParse, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const pr = await pParse.aiParseResume({ text: "Jane Doe resume text", consent: true });
+  ok("aiParseResume POSTs /api/ai/parse-resume with text + consent",
+    fetchParse.calls[0].method === "POST" && fetchParse.calls[0].path === "/api/ai/parse-resume" &&
+    fetchParse.calls[0].body.text === "Jane Doe resume text" && fetchParse.calls[0].body.consent === true && !("fileBase64" in fetchParse.calls[0].body));
+  ok("aiParseResume returns the server result", pr.parsed && pr.parsed.skills[0] === "Java" && pr.used === 2);
+  await pParse.aiParseResume({ fileBase64: "aGVsbG8=", consent: true });
+  ok("aiParseResume file mode sends base64 + pdf mime, no text",
+    fetchParse.calls[1].body.fileBase64 === "aGVsbG8=" && fetchParse.calls[1].body.fileMimeType === "application/pdf" && !("text" in fetchParse.calls[1].body));
+
   /* ---- submitBugReport (Phase 9.A5) — POSTs /api/bug-reports, source=extension, attaches token ---- */
   const fetchBug = mockFetch(() => ({ status: 202, json: { ok: true } }));
   const pBug = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchBug, tokenStore: T.memoryTokenStore({ access: "A" }) });

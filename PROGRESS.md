@@ -692,6 +692,18 @@ focused Claude Code session.
   matching — except on distrusted hosts (Workday, per user: its autocomplete attrs are unreliable),
   listed as DATA in the ruleset (`autocomplete.distrust`, ruleset v5). Guard: an `url` token never
   steals a linkedin/github-labeled field. New `autocomplete_confidence.test.js` (18) green; ext v0.45.0.
+- 2026-07-02 · **AI parsing default ON (user decision)** · Web "Parse with AI" checkbox now defaults
+  ON (explicit opt-out remembered per browser). ⚠️ LEGAL FOLLOW-UP: the terms & privacy policy must
+  disclose default-on AI resume parsing (resume content → Gemini free tier; Google may use inputs) —
+  fold into the lawyer-review item (PL.1). Extension parsing remains opt-in via Options.
+- 2026-07-02 · **AI resume parsing (user-directed)** · Branch `feat/llm-resume-parse`. Server-side
+  resume parsing on the existing Gemini seam: `AiProvider.parseResume` (structured-output
+  responseSchema, text or original-PDF mode for scanned/multi-column resumes) + metered
+  consent-gated `POST /api/ai/parse-resume` (one parse = one AI credit). Shared `cleanForLlm`
+  + `looksGarbled` preprocessing in parser-core. Web: opt-in checkbox (remembered) on
+  ResumeUpload → server-first parse w/ heuristic fallback via Next proxy. Extension: `aiParseResume`
+  on the TrackingProvider + parser.js precedence BYO-key > Kiwiply AI > heuristic (v0.45.0).
+  All test suites green (api unit, parser-core 56, tracking 58, web tsc/eslint).
 - 2026-06-30 · **phase9.A4.4 MERGED + DEPLOYED** · PR #14 merged → Brevo list sync + newsletter postal
   address live on prod. Ops done this session: admin MFA enabled on VPS; Brevo `BREVO_API_KEY`/`BREVO_LIST_ID`
   + `NEWSLETTER_POSTAL_ADDRESS` set; admin email → `admin@kiwiply.com` (Cloudflare-routed to
