@@ -826,6 +826,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **web — application board UI polish** · Board page: pipeline stat chips in the
+  header (tracked/applied/interviews/offers), search icon, bordered stage sections, "drag a card
+  here" hints in empty funnel columns, layout-matched loading skeleton. Cards: company-initial
+  avatar (deterministic brand tint) that swaps to the multi-select checkbox on hover/pick,
+  location + job-mode chips, softer resting shadow with hover lift. Detail panel: avatar header
+  with source host, clickable stage-pill stepper (replaces the footer status select), card-style
+  details list, full-width posting/download action buttons, Archive/Delete footer. tsc + eslint +
+  `next build` green; web-only (no version bump).
 - 2026-07-03 · **3.6.1–3.6.3 Job-details extraction v2** · Capture chain upgraded: `salaryParsed`
   {min,max,currency,period} (schema.org amounts or parsed from the matched string), per-field
   provenance (`capture.sources`), conservative description-text jobType/jobMode fallbacks, and an

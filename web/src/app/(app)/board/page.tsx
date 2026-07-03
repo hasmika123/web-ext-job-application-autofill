@@ -36,13 +36,38 @@ export default async function BoardPage() {
     }
   }
 
+  // Pipeline-at-a-glance counts for the header (archived entries stay out of the funnel).
+  const activeApps = applications.filter((a) => !a.archived);
+  const stats: { label: string; count: number; dot?: string }[] = [
+    { label: "Tracked", count: activeApps.length },
+    { label: "Applied", count: activeApps.filter((a) => a.status === "APPLIED").length, dot: "var(--color-accent)" },
+    { label: "Interviews", count: activeApps.filter((a) => a.status === "INTERVIEW").length, dot: "#1d4ed8" },
+    { label: "Offers", count: activeApps.filter((a) => a.status === "OFFER").length, dot: "var(--color-accent-deep)" },
+  ];
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">Application board</h1>
-        <p className="mt-1 text-sm text-muted">
-          Every job you fill or save with the extension shows up here automatically.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Application board</h1>
+          <p className="mt-1 text-sm text-muted">
+            Every job you fill or save with the extension shows up here automatically.
+          </p>
+        </div>
+        {activeApps.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {stats.map((s) => (
+              <span
+                key={s.label}
+                className="flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-[12px] text-muted"
+              >
+                {s.dot && <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} />}
+                <span className="font-bold text-ink">{s.count}</span>
+                {s.label}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} />

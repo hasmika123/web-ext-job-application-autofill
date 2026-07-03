@@ -42,7 +42,6 @@ const COLUMNS: { key: string; label: string; dot: string }[] = [
   { key: "OFFER", label: "Offer", dot: "var(--color-accent-deep)" },
   { key: "REJECTED", label: "Rejected", dot: "var(--color-muted)" },
 ];
-const STATUS_LABEL: Record<string, string> = Object.fromEntries(COLUMNS.map((c) => [c.key, c.label]));
 
 // Strict enums, mirrored from the backend JobType / JobMode. `value` is the wire/enum name;
 // `label` is what the user sees. Empty string = "unset" (the field is nullable).
@@ -108,6 +107,22 @@ function cardDate(app: Application): string {
   if (applied) return `Applied · ${applied}`;
   const added = formatDate(app.createdAt);
   return added ? `Added · ${added}` : "";
+}
+
+// Deterministic brand-tint for a company's initial avatar — same company, same tint.
+const AVATAR_TINTS = [
+  "bg-accent-soft text-accent-deep",
+  "bg-brown-soft text-brown-deep",
+  "bg-paper-2 text-ink-soft",
+  "bg-[color:var(--color-accent-2)] text-on-accent",
+];
+function companyInitial(company: string): string {
+  return (company.trim()[0] ?? "•").toUpperCase();
+}
+function avatarTint(company: string): string {
+  let h = 0;
+  for (let i = 0; i < company.length; i++) h = (h * 31 + company.charCodeAt(i)) % AVATAR_TINTS.length;
+  return AVATAR_TINTS[h];
 }
 
 function StarButton({ starred, busy, onToggle, className }: { starred: boolean; busy: boolean; onToggle: () => void; className?: string }) {
@@ -425,12 +440,26 @@ export default function ApplicationBoard({
       {/* Tools — only meaningful once there are entries */}
       {apps.length > 0 && (
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search company, role, location…"
-          className="min-w-[180px] max-w-[320px] flex-1 rounded-full border border-line bg-paper px-4 py-2 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent"
-        />
+        <div className="relative min-w-[200px] max-w-[320px] flex-1">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search company, role, location…"
+            className="w-full rounded-full border border-line bg-paper py-2 pl-9 pr-4 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent"
+          />
+        </div>
         <button
           type="button"
           onClick={() => setStarredOnly((v) => !v)}
@@ -517,7 +546,7 @@ export default function ApplicationBoard({
                 onDragLeave={() => setDragOver((c) => (c === key ? null : c))}
                 onDrop={(e) => onDrop(e, key)}
                 className={cn(
-                  "flex flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                  "flex flex-col rounded-[var(--radius-lg)] border border-line/60 bg-paper-2 p-3 transition-colors",
                   dragOver === key && "outline-2 outline-dashed outline-accent",
                 )}
               >
@@ -557,7 +586,7 @@ export default function ApplicationBoard({
                   onDragLeave={() => setDragOver((c) => (c === key ? null : c))}
                   onDrop={(e) => onDrop(e, key)}
                   className={cn(
-                    "flex flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3 transition-colors",
+                    "flex flex-col rounded-[var(--radius-lg)] border border-line/60 bg-paper-2 p-3 transition-colors",
                     COLUMN_H,
                     dragOver === key && "outline-2 outline-dashed outline-accent",
                   )}
@@ -570,9 +599,13 @@ export default function ApplicationBoard({
                     <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-muted">{items.length}</span>
                   </div>
                   <ul className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
-                    {items.map((a) => (
-                      <BoardCard key={a.id} {...cardHandlers(a)} />
-                    ))}
+                    {items.length ? (
+                      items.map((a) => <BoardCard key={a.id} {...cardHandlers(a)} />)
+                    ) : (
+                      <li className="grid flex-1 place-items-center rounded-[var(--radius)] border border-dashed border-line text-[12px] text-muted">
+                        Drag a card here
+                      </li>
+                    )}
                   </ul>
                 </section>
               );
@@ -583,7 +616,7 @@ export default function ApplicationBoard({
           {archivedItems.length > 0 && (() => {
             const collapsed = collapsedRows.has("ARCHIVED");
             return (
-              <section className="flex flex-col rounded-[var(--radius-lg)] bg-paper-2 p-3">
+              <section className="flex flex-col rounded-[var(--radius-lg)] border border-line/60 bg-paper-2 p-3">
                 <button type="button" onClick={() => toggleRow("ARCHIVED")} aria-expanded={!collapsed} className="flex w-full items-center gap-2 px-1 text-left">
                   <Chevron open={!collapsed} className="text-muted" />
                   <span className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-[.06em] text-muted">
@@ -1023,6 +1056,7 @@ function BoardCard({
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const showNudge = app.status === "DRAFT" && !archived && !nudgeDismissed;
   const date = cardDate(app);
+  const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
 
   return (
     <li
@@ -1045,27 +1079,47 @@ function BoardCard({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "rounded-[var(--radius)] border bg-paper p-3 shadow-[var(--shadow)] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-        archived ? "cursor-pointer opacity-60 grayscale hover:opacity-100" : "cursor-grab hover:border-accent active:cursor-grabbing",
+        "rounded-[var(--radius)] border bg-paper p-3 shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        archived
+          ? "cursor-pointer opacity-60 grayscale hover:opacity-100"
+          : "cursor-grab hover:border-accent hover:shadow-[var(--shadow)] active:cursor-grabbing",
         picked ? "border-accent ring-1 ring-accent" : "border-line",
         busy && "opacity-60",
         className,
       )}
     >
-      <div className="flex items-start gap-2">
-        <input
-          type="checkbox"
-          checked={picked}
-          aria-label="Select application"
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            e.stopPropagation();
-            onTogglePick();
-          }}
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--color-accent)]"
-        />
+      <div className="flex items-start gap-2.5">
+        {/* Company avatar; hovering it (or a picked state) swaps in the multi-select checkbox. */}
+        <span className="group/pick relative h-8 w-8 shrink-0">
+          <input
+            type="checkbox"
+            checked={picked}
+            aria-label="Select application"
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              onTogglePick();
+            }}
+            className={cn(
+              "peer absolute inset-0 z-[1] m-auto h-4 w-4 accent-[color:var(--color-accent)] transition-opacity",
+              picked
+                ? "opacity-100"
+                : "pointer-events-none opacity-0 focus-visible:opacity-100 group-hover/pick:pointer-events-auto group-hover/pick:opacity-100",
+            )}
+          />
+          <span
+            aria-hidden
+            className={cn(
+              "grid h-full w-full place-items-center rounded-lg text-[13px] font-bold transition-opacity group-hover/pick:opacity-0 peer-focus-visible:opacity-0",
+              picked && "opacity-0",
+              avatarTint(app.company),
+            )}
+          >
+            {companyInitial(app.company)}
+          </span>
+        </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-bold text-ink">{app.roleTitle}</div>
+          <div className="truncate text-[13.5px] font-bold leading-snug text-ink">{app.roleTitle}</div>
           <div className="truncate text-[12.5px] text-ink-soft">{app.company}</div>
         </div>
         <StarButton starred={!!app.starred} busy={busy} onToggle={onStar} />
@@ -1080,7 +1134,19 @@ function BoardCard({
         />
       </div>
 
-      {date && <div className="mt-1.5 pl-[22px] text-[11px] text-muted">{date}</div>}
+      {(app.location || modeLabel) && (
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {app.location && (
+            <span className="max-w-full truncate rounded-full bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-soft">
+              {app.location}
+            </span>
+          )}
+          {modeLabel && (
+            <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-soft">{modeLabel}</span>
+          )}
+        </div>
+      )}
+      {date && <div className={cn("text-[11px] text-muted", app.location || modeLabel ? "mt-1.5" : "mt-2")}>{date}</div>}
 
       {showNudge && (
         <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
@@ -1222,13 +1288,23 @@ function DetailPanel({
         {app && (
           <>
             <div className="flex items-start justify-between gap-3 border-b border-line p-5">
-              <div className="min-w-0">
-                <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-accent-deep">
-                  {STATUS_LABEL[app.status] ?? app.status}
-                  {app.archived && <span className="rounded-[5px] border border-line px-1.5 py-0.5 text-[10px] text-muted">Archived</span>}
+              <div className="flex min-w-0 items-start gap-3">
+                <span
+                  aria-hidden
+                  className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[16px] font-bold", avatarTint(app.company))}
+                >
+                  {companyInitial(app.company)}
                 </span>
-                <h2 className="mt-1 font-display text-xl font-semibold text-ink">{app.roleTitle}</h2>
-                <p className="text-sm text-ink-soft">{app.company}</p>
+                <div className="min-w-0">
+                  <h2 className="font-display text-xl font-semibold leading-snug text-ink">{app.roleTitle}</h2>
+                  <p className="mt-0.5 flex items-baseline gap-1.5 text-sm text-ink-soft">
+                    <span className="truncate">{app.company}</span>
+                    {hostOf(app.jobUrl) && <span className="truncate text-[12px] text-muted">· {hostOf(app.jobUrl)}</span>}
+                    {app.archived && (
+                      <span className="shrink-0 rounded-[5px] border border-line px-1.5 py-0.5 text-[10px] text-muted">Archived</span>
+                    )}
+                  </p>
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <StarButton starred={!!app.starred} busy={false} onToggle={onStar} className="text-[18px]" />
@@ -1299,57 +1375,133 @@ function DetailPanel({
                 </div>
               ) : (
                 <>
-                  <div className="mb-4 flex justify-end">
+                  {/* Stage stepper — the funnel at a glance; click a pill to move the application. */}
+                  <div className="mb-6">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[.06em] text-muted">Stage</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {COLUMNS.map((c) => {
+                        const current = c.key === app.status;
+                        return (
+                          <button
+                            key={c.key}
+                            type="button"
+                            aria-pressed={current}
+                            onClick={() => !current && onChangeStatus(c.key)}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
+                              current
+                                ? "border-transparent bg-ink text-paper"
+                                : "border-line bg-paper text-muted hover:border-accent hover:text-ink",
+                            )}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.dot }} />
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-[.06em] text-muted">Details</span>
                     <button
                       type="button"
                       onClick={startEdit}
-                      className="rounded-lg border border-line px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
+                      className="rounded-full border border-line px-3 py-1 text-[12px] font-semibold text-ink-soft transition-colors hover:border-accent hover:text-ink"
                     >
-                      Edit details
+                      Edit
                     </button>
                   </div>
-
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
-                    {app.location && (<><dt className="text-muted">Location</dt><dd className="text-ink">{app.location}</dd></>)}
-                    {app.jobType && JOB_TYPE_LABEL[app.jobType] && (<><dt className="text-muted">Job type</dt><dd className="text-ink">{JOB_TYPE_LABEL[app.jobType]}</dd></>)}
-                    {app.jobMode && JOB_MODE_LABEL[app.jobMode] && (<><dt className="text-muted">Job mode</dt><dd className="text-ink">{JOB_MODE_LABEL[app.jobMode]}</dd></>)}
-                    {app.salary && (<><dt className="text-muted">Salary</dt><dd className="text-ink">{app.salary}</dd></>)}
-                    {app.email && (<><dt className="text-muted">Email</dt><dd className="break-all text-ink">{app.email}</dd></>)}
-                    {app.atsPlatform && (<><dt className="text-muted">ATS</dt><dd className="capitalize text-ink">{app.atsPlatform}</dd></>)}
-                    {hostOf(app.jobUrl) && (<><dt className="text-muted">Source</dt><dd className="truncate text-ink">{hostOf(app.jobUrl)}</dd></>)}
-                    <dt className="self-center text-muted">Resume sent</dt>
-                    <dd className="min-w-0">
-                      <select
-                        aria-label="Resume sent"
-                        value={app.resume?.id ? String(app.resume.id) : ""}
-                        onChange={(e) => e.target.value && onChangeResume(Number(e.target.value))}
-                        disabled={resumes.length === 0}
-                        className="w-full min-w-0 truncate rounded-lg border border-line bg-paper px-2 py-1 text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60"
-                      >
-                        <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
-                        {resumes.map((r) => (
-                          <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
-                        ))}
-                      </select>
-                    </dd>
-                    {formatDate(app.appliedAt) && (<><dt className="text-muted">Applied</dt><dd className="text-ink">{formatDate(app.appliedAt)}</dd></>)}
-                    {formatDate(app.createdAt) && (<><dt className="text-muted">Added</dt><dd className="text-ink">{formatDate(app.createdAt)}</dd></>)}
+                  <dl className="divide-y divide-line overflow-hidden rounded-[var(--radius)] border border-line">
+                    {app.location && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">Location</dt>
+                        <dd className="min-w-0 text-right text-[13px] text-ink">{app.location}</dd>
+                      </div>
+                    )}
+                    {app.jobType && JOB_TYPE_LABEL[app.jobType] && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">Job type</dt>
+                        <dd className="min-w-0 text-right text-[13px] text-ink">{JOB_TYPE_LABEL[app.jobType]}</dd>
+                      </div>
+                    )}
+                    {app.jobMode && JOB_MODE_LABEL[app.jobMode] && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">Job mode</dt>
+                        <dd className="min-w-0 text-right text-[13px] text-ink">{JOB_MODE_LABEL[app.jobMode]}</dd>
+                      </div>
+                    )}
+                    {app.salary && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">Salary</dt>
+                        <dd className="min-w-0 text-right text-[13px] text-ink">{app.salary}</dd>
+                      </div>
+                    )}
+                    {app.email && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">Email</dt>
+                        <dd className="min-w-0 break-all text-right text-[13px] text-ink">{app.email}</dd>
+                      </div>
+                    )}
+                    {app.atsPlatform && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">ATS</dt>
+                        <dd className="min-w-0 text-right text-[13px] capitalize text-ink">{app.atsPlatform}</dd>
+                      </div>
+                    )}
+                    {formatDate(app.appliedAt) && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">Applied</dt>
+                        <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.appliedAt)}</dd>
+                      </div>
+                    )}
+                    {formatDate(app.createdAt) && (
+                      <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
+                        <dt className="shrink-0 text-[12px] font-medium text-muted">Added</dt>
+                        <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.createdAt)}</dd>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-4 px-3.5 py-2">
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">Resume sent</dt>
+                      <dd className="min-w-0 max-w-[240px] flex-1">
+                        <select
+                          aria-label="Resume sent"
+                          value={app.resume?.id ? String(app.resume.id) : ""}
+                          onChange={(e) => e.target.value && onChangeResume(Number(e.target.value))}
+                          disabled={resumes.length === 0}
+                          className="w-full min-w-0 truncate rounded-lg border border-line bg-paper px-2 py-1 text-[12.5px] text-ink outline-none focus:border-accent disabled:opacity-60"
+                        >
+                          <option value="" disabled>{resumes.length ? "Select a resume…" : "No resumes uploaded yet"}</option>
+                          {resumes.map((r) => (
+                            <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
+                          ))}
+                        </select>
+                      </dd>
+                    </div>
                   </dl>
 
-                  {app.jobUrl && (
-                    <a href={app.jobUrl} target="_blank" rel="noreferrer noopener" className="mt-4 inline-block text-sm font-medium text-accent-deep underline underline-offset-2">
-                      View original posting ↗
-                    </a>
-                  )}
-
-                  {fileHref && (
-                    <a
-                      href={fileHref}
-                      download
-                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
-                    >
-                      <span aria-hidden>⬇</span> Download resume {app.attachmentFilename ? "attached" : "sent"}
-                    </a>
+                  {(app.jobUrl || fileHref) && (
+                    <div className="mt-4 grid gap-2">
+                      {app.jobUrl && (
+                        <a
+                          href={app.jobUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
+                        >
+                          View original posting <span aria-hidden>↗</span>
+                        </a>
+                      )}
+                      {fileHref && (
+                        <a
+                          href={fileHref}
+                          download
+                          className="flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
+                        >
+                          <span aria-hidden>⬇</span> Download resume {app.attachmentFilename ? "attached" : "sent"}
+                        </a>
+                      )}
+                    </div>
                   )}
 
                   <div className="mt-6">
@@ -1375,25 +1527,17 @@ function DetailPanel({
               )}
             </div>
 
-            <div className="flex items-center gap-3 border-t border-line p-4">
-              <label className="sr-only" htmlFor="detail-status">Status</label>
-              <select
-                id="detail-status"
-                value={app.status}
-                onChange={(e) => onChangeStatus(e.target.value)}
-                className="flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-              >
-                {COLUMNS.map((c) => (
-                  <option key={c.key} value={c.key}>{c.label}</option>
-                ))}
-              </select>
+            <div className="flex items-center gap-2 border-t border-line p-4">
               <button
                 onClick={() => onArchive(!app.archived)}
-                className="rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink-soft hover:bg-paper-2"
+                className="flex-1 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink-soft transition-colors hover:bg-paper-2"
               >
                 {app.archived ? "Unarchive" : "Archive"}
               </button>
-              <button onClick={onDelete} className="rounded-lg border border-line px-3 py-2 text-sm font-semibold text-danger hover:bg-paper-2">
+              <button
+                onClick={onDelete}
+                className="flex-1 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-danger transition-colors hover:bg-paper-2"
+              >
                 Delete
               </button>
             </div>
