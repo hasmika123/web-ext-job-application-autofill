@@ -906,11 +906,11 @@ export default function ResumeUpload({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={cn(
-            "flex cursor-pointer flex-col items-center gap-3 rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-6 text-center transition-colors sm:flex-row sm:gap-5 sm:py-5 sm:text-left",
+            "flex cursor-pointer flex-col items-center gap-3 rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-7 text-center transition-colors sm:flex-row sm:gap-5 sm:py-8 sm:text-left",
             dragging ? "border-accent bg-accent-soft" : "border-line bg-paper hover:border-accent-2 hover:bg-paper-2",
           )}
         >
-          <span aria-hidden className="grid h-12 w-12 flex-none place-items-center rounded-[var(--radius)] bg-accent-soft text-2xl">
+          <span aria-hidden className="grid h-14 w-14 flex-none place-items-center rounded-[var(--radius)] bg-accent-soft text-2xl">
             📄
           </span>
           <div className="min-w-0 flex-1">
@@ -947,19 +947,19 @@ export default function ResumeUpload({
       </div>
       )}
 
-      {/* Editable review — a dialog panel: fixed header, scrollable body, pinned footer with
-          the save action always in view. Full-bleed below `sm` (e.g. the extension drawer);
-          a centered panel over a scrim on larger screens. */}
+      {/* Editable review — a full-page dialog: fixed header, scrollable body, pinned footer
+          with the save action always in view. Expand/Collapse-all lives in the header, next
+          to the title. */}
       {struct && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label={editing ? "Edit resume" : "Review resume"}
-          className="fixed inset-0 z-[150] flex justify-center bg-[rgba(35,40,38,.45)] sm:px-6 sm:py-[3vh]"
+          className="fixed inset-0 z-[150] flex flex-col bg-app-bg"
         >
-          <div className="flex w-full max-w-3xl flex-col overflow-hidden bg-app-bg sm:rounded-[var(--radius-lg)] sm:border sm:border-line sm:shadow-[var(--shadow-lg)]">
-            {/* Header */}
-            <header className="flex items-start gap-3 border-b border-line bg-paper px-5 py-4 sm:px-6">
+          {/* Header */}
+          <header className="border-b border-line bg-paper px-5 py-4 sm:px-6">
+            <div className="mx-auto flex max-w-3xl items-start gap-3">
               {backLabel && (
                 <button
                   onClick={handleClose}
@@ -970,7 +970,14 @@ export default function ResumeUpload({
                 </button>
               )}
               <div className="min-w-0 flex-1">
-                <h2 className="truncate font-display text-xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <h2 className="truncate font-display text-xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
+                  <div className="flex items-center gap-2 whitespace-nowrap text-[12px] font-semibold text-ink-soft">
+                    <button type="button" onClick={() => setAllSections(true)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Expand all</button>
+                    <span aria-hidden className="text-muted">·</span>
+                    <button type="button" onClick={() => setAllSections(false)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Collapse all</button>
+                  </div>
+                </div>
                 <p className="mt-0.5 text-[12.5px] text-muted">
                   {editing
                     ? "Edit the parsed details and save — your stored file stays the same."
@@ -989,11 +996,12 @@ export default function ResumeUpload({
                   ✕
                 </button>
               )}
-            </header>
+            </div>
+          </header>
 
-            {/* Scrollable body */}
-            <div className="scroll-slim flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
-            <div className="flex flex-col gap-5">
+          {/* Scrollable body */}
+          <div className="scroll-slim flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5">
               {/* Resume name (saving lives in the pinned footer below) */}
               <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
                 <label htmlFor="resume-label" className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft">Resume name</label>
@@ -1017,13 +1025,6 @@ export default function ResumeUpload({
                     Set as my default resume
                   </label>
                 )}
-              </div>
-
-              {/* Expand all / Collapse all — drives every review section below at once. */}
-              <div className="-mb-1 flex items-center justify-end gap-2 text-[12px] font-semibold text-ink-soft">
-                <button type="button" onClick={() => setAllSections(true)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Expand all</button>
-                <span aria-hidden className="text-muted">·</span>
-                <button type="button" onClick={() => setAllSections(false)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Collapse all</button>
               </div>
 
               {/* Detected contact — collapsible, with a one-click base-profile update.
@@ -1126,8 +1127,9 @@ export default function ResumeUpload({
             </div>
             </div>
 
-            {/* Pinned footer: errors surface next to the actions, so they're never scrolled away */}
-            <footer className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t border-line bg-paper px-5 py-3.5 sm:px-6">
+          {/* Pinned footer: errors surface next to the actions, so they're never scrolled away */}
+          <footer className="border-t border-line bg-paper px-5 py-3.5 sm:px-6">
+            <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-end gap-x-3 gap-y-2">
               {dupConfirm && !saveError && (
                 <p role="alert" className="min-w-0 flex-1 basis-full text-[13px] font-medium leading-snug text-brown-deep sm:basis-0">
                   You already have a resume named “{label.trim() || "Resume"}”. Save anyway, or rename it first.
@@ -1140,8 +1142,8 @@ export default function ResumeUpload({
               )}
               <button onClick={handleClose} className={cn(buttonVariants("ghost"), "whitespace-nowrap")}>Cancel</button>
               {SaveBtn}
-            </footer>
-          </div>
+            </div>
+          </footer>
         </div>
       )}
     </>

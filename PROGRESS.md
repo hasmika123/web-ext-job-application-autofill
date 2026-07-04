@@ -826,6 +826,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-04 · **ui+web — resumes page & review-dialog polish pass 2** · Edit-resume review is
+  full-page again (dropped the scrim/centered-card look from the prior pass; kept the sticky
+  header/pinned-footer structure), with Expand all/Collapse all moved into the header next to the
+  title. Drop-zone is a bit taller and sits closer to the page subtitle (tighter header gap). The
+  AI-parse checkbox's long disclosure paragraph is removed (label only). Sort control drops the
+  "Sort:" label, sits right next to search, and now shows the board's arrows-up-down leading icon.
+  web tsc/eslint/build green; ext tests + build green; ext → 0.50.2.
 - 2026-07-04 · **ui+web — resumes page & review-dialog restructure** · The shared ResumeUpload
   review is now a real dialog: scrim + centered panel (full-bleed under `sm`, so the extension
   drawer keeps its full-screen layout), fixed header (title/subtitle/close), scrollable body, and

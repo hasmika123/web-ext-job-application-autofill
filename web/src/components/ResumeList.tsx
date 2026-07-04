@@ -6,6 +6,7 @@ import { Badge, EmptyState, useToast } from "@/components/ui";
 import Select from "@/components/ui/Select";
 import {
   ArchiveIcon as SharedArchiveIcon,
+  ArrowsUpDownIcon,
   ChevronDownIcon,
   PencilIcon as SharedPencilIcon,
   RestoreIcon as SharedRestoreIcon,
@@ -437,38 +438,38 @@ export default function ResumeList({
     <div className="flex flex-col gap-5">
       {/* Toolbar: search · sort · select-all */}
       <div className="flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[180px] max-w-[320px] flex-1">
-          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">
-            <SearchIcon className="h-[15px] w-[15px]" />
-          </span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search resumes…"
-            className={cn(
-              "w-full rounded-full border border-line bg-paper py-2 pl-9 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent",
-              query ? "pr-9" : "pr-4",
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <div className="relative min-w-[180px] max-w-[320px] flex-1">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">
+              <SearchIcon className="h-[15px] w-[15px]" />
+            </span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search resumes…"
+              className={cn(
+                "w-full rounded-full border border-line bg-paper py-2 pl-9 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent",
+                query ? "pr-9" : "pr-4",
+              )}
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-muted hover:bg-paper-2 hover:text-ink"
+              >
+                ✕
+              </button>
             )}
-          />
-          {query && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => setQuery("")}
-              className="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-muted hover:bg-paper-2 hover:text-ink"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-[12.5px] text-muted">
-          <span className="sr-only sm:not-sr-only">Sort:</span>
+          </div>
           <Select
             variant="pill"
             aria-label="Sort resumes"
             value={sort}
             onChange={(v) => setSort(v as SortKey)}
             options={SORTS.map((s) => ({ value: s.key, label: s.label }))}
+            leadingIcon={<ArrowsUpDownIcon className="h-3.5 w-3.5" />}
           />
         </div>
         {anyVisible > 0 && (
