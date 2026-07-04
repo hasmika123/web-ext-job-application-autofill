@@ -110,6 +110,20 @@ function formatDate(iso?: string | null): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/**
+ * Split a free-text location into its distinct locations. Only strong separators count
+ * (semicolon, pipe, newline, or a space-padded slash) — NEVER a comma, which lives inside a
+ * single "City, ST", and never the word "or", which collides with Oregon's "OR". Conservative
+ * on purpose: better to under-split (one tag) than to corrupt a legitimate single location.
+ */
+function parseLocations(location?: string | null): string[] {
+  if (!location) return [];
+  return location
+    .split(/\s*[;|\n]\s*|\s+\/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 // The one date shown on a decluttered card: the applied date once applied, otherwise the
 // date the entry was added (Draft/Saved never have an applied date).
 function cardDate(app: Application): string {
@@ -1375,6 +1389,7 @@ function BoardCard({
   const date = cardDate(app);
   const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
   const typeLabel = app.jobType ? JOB_TYPE_LABEL[app.jobType] : "";
+  const locations = parseLocations(app.location);
   // Don't repeat a mode the location already conveys (e.g. location "Remote, US" + mode "Remote").
   const showModeChip = !!modeLabel && !(app.location && app.location.toLowerCase().includes(modeLabel.toLowerCase()));
   const openPosting = () => {
@@ -1478,7 +1493,15 @@ function BoardCard({
           )}
           {app.location && (
             <span className="max-w-full truncate rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">
-              {app.location}
+              {locations[0] || app.location}
+            </span>
+          )}
+          {locations.length > 1 && (
+            <span
+              title={locations.join(" · ")}
+              className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent-deep"
+            >
+              +{locations.length - 1}
             </span>
           )}
           {typeLabel && (
@@ -1755,6 +1778,7 @@ function DetailPanel({
         : null
     : null;
   const resumeName = app ? app.attachmentFilename || app.resume?.label || (app.resume?.id ? `Resume #${app.resume.id}` : "") : "";
+  const panelLocations = parseLocations(app?.location);
 
   return (
     <>
@@ -1929,8 +1953,18 @@ function DetailPanel({
                   {/* Every field is always shown (— when empty) so nothing looks silently missing. */}
                   <dl className="divide-y divide-line overflow-hidden rounded-[var(--radius)] border border-line">
                     <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                      <dt className="shrink-0 text-[12px] font-medium text-muted">Location</dt>
-                      <dd className="min-w-0 text-right text-[13px] text-ink">{app.location || "—"}</dd>
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">{panelLocations.length > 1 ? "Locations" : "Location"}</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">
+                        {panelLocations.length > 1 ? (
+                          <span className="flex flex-wrap justify-end gap-1">
+                            {panelLocations.map((l, i) => (
+                              <span key={i} className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent-deep">{l}</span>
+                            ))}
+                          </span>
+                        ) : (
+                          app.location || "—"
+                        )}
+                      </dd>
                     </div>
                     <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
                       <dt className="shrink-0 text-[12px] font-medium text-muted">Job type</dt>
