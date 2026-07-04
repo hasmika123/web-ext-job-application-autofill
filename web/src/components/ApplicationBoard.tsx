@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -150,16 +150,23 @@ function cardDate(app: Application): string {
   return added ? `Added · ${added}` : "";
 }
 
-// One consistent neutral tint for every company-initial avatar.
-const AVATAR_TINT = "bg-paper-2 text-ink-soft";
+// One consistent charcoal tint for every company-initial avatar.
+const AVATAR_TINT = "bg-ink text-paper";
 
-// Card tag colors — one fixed color per category (not all green), shown in a consistent order
-// (location, mode, type, salary). Salary is an outlined, weightier chip so the pay stands out.
+// Card tag colors — one fixed color per category, shown in a consistent order
+// (location, mode, type, salary). Type is an outlined, weightier chip.
 const TAG_BASE = "max-w-full shrink-0 truncate rounded-full px-2 py-0.5 text-[10.5px]";
-const LOCATION_TAG = `${TAG_BASE} bg-paper-2 font-medium text-ink-soft`;
-const MODE_TAG = `${TAG_BASE} bg-accent-soft font-medium text-accent-deep`;
-const TYPE_TAG = `${TAG_BASE} bg-brown-soft font-medium text-brown-deep`;
-const SALARY_TAG = `${TAG_BASE} border border-line bg-paper font-semibold text-ink`;
+const LOCATION_TAG = `${TAG_BASE} bg-accent-soft font-medium text-accent-deep`;
+const MODE_TAG = `${TAG_BASE} bg-brown-soft font-medium text-brown-deep`;
+const TYPE_TAG = `${TAG_BASE} border border-line bg-paper font-semibold text-ink`;
+const SALARY_TAG = `${TAG_BASE} bg-paper-2 font-medium text-ink-soft`;
+
+// Shared side-panel footer buttons (outlined, equal-width) — used by the detail panel footer
+// (View posting / Archive / Delete and the edit-mode Cancel / Save) and the add form.
+const PANEL_BTN = "flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors";
+const PANEL_BTN_ACCENT = `${PANEL_BTN} border-accent text-accent-deep hover:bg-accent-soft`;
+const PANEL_BTN_NEUTRAL = `${PANEL_BTN} border-line text-ink-soft hover:bg-paper-2`;
+const PANEL_BTN_DANGER = `${PANEL_BTN} border-line text-danger hover:bg-paper-2`;
 function companyInitial(company: string): string {
   return (company.trim()[0] ?? "•").toUpperCase();
 }
@@ -1245,9 +1252,9 @@ function AddApplicationDialog({
                 You already have an application for this company and role. Add it anyway?
               </p>
             )}
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={onClose} className={buttonVariants("ghost")}>Cancel</button>
-              <button type="submit" disabled={!canSave} className={cn(buttonVariants("accent"), "disabled:opacity-50")}>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onClose} className={PANEL_BTN_NEUTRAL}>Cancel</button>
+              <button type="submit" disabled={!canSave} className={cn(PANEL_BTN_ACCENT, "disabled:opacity-50")}>
                 {saving ? "Adding…" : dupConfirm ? "Add anyway" : "Add to board"}
               </button>
             </div>
@@ -1399,6 +1406,45 @@ function CardMenu({
   );
 }
 
+/**
+ * A card's tag row, clamped to two lines. Renders every chip but caps the height at two rows;
+ * when some chips are clipped it overlays a "+N" badge with how many didn't fit. Re-measures on
+ * width changes and whenever the tag set (`sig`) changes.
+ */
+function CardTags({ children, sig }: { children: ReactNode; sig: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [hidden, setHidden] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const kids = Array.from(el.querySelectorAll<HTMLElement>("[data-chip]"));
+      const ch = el.clientHeight;
+      let h = 0;
+      for (const k of kids) if (k.offsetTop >= ch - 2) h++;
+      setHidden((prev) => (prev === h ? prev : h));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [sig]);
+  return (
+    <div ref={ref} className="relative mt-2 flex max-h-[44px] flex-wrap content-start gap-1 overflow-hidden">
+      {children}
+      {hidden > 0 && (
+        <span className="absolute bottom-0 right-0 rounded-full border border-line bg-paper px-1.5 py-0.5 text-[10px] font-semibold text-muted">
+          +{hidden}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function BoardCard({
   app,
   busy,
@@ -1441,15 +1487,19 @@ function BoardCard({
   const locations = parseLocations(app.location);
   // Don't repeat a mode the location already conveys (e.g. location "Remote, US" + mode "Remote").
   const showModeChip = !!modeLabel && !(app.location && app.location.toLowerCase().includes(modeLabel.toLowerCase()));
+  // Tag chips in fixed order: location (+N locations), mode, type, salary.
+  const tagChips: ReactNode[] = [];
+  if (app.location) tagChips.push(<span key="loc" data-chip className={LOCATION_TAG}>{locations[0] || app.location}</span>);
+  if (locations.length > 1) tagChips.push(<span key="locN" data-chip title={locations.join(" · ")} className={LOCATION_TAG}>+{locations.length - 1}</span>);
+  if (showModeChip) tagChips.push(<span key="mode" data-chip className={MODE_TAG}>{modeLabel}</span>);
+  if (typeLabel) tagChips.push(<span key="type" data-chip className={TYPE_TAG}>{typeLabel}</span>);
+  if (app.salary) tagChips.push(<span key="sal" data-chip className={SALARY_TAG}>{app.salary}</span>);
+  const tagSig = `${app.location ?? ""}|${locations.length}|${modeLabel}|${typeLabel}|${app.salary ?? ""}`;
   const openPosting = () => {
     if (!app.jobUrl) return;
     track("board_apply_clicked", { status: app.status });
     window.open(app.jobUrl, "_blank", "noopener");
   };
-  // Fixed per-section height so every card in a section matches, with a reserved 2-row tag area
-  // (below) that keeps the height steady no matter how many tags a job has. Saved is a touch
-  // taller for its Apply button; Draft is taller still for the nudge.
-  const cardHeight = variant === "saved" ? "h-[176px]" : variant === "rich" ? "h-[138px]" : "h-[214px]";
 
   return (
     <li
@@ -1472,9 +1522,8 @@ function BoardCard({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "flex flex-col overflow-hidden rounded-[var(--radius)] border bg-paper shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "rounded-[var(--radius)] border bg-paper shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         rich ? "p-3.5" : "p-3",
-        cardHeight,
         archived
           ? "cursor-pointer opacity-60 grayscale hover:opacity-100"
           : "cursor-grab hover:border-accent hover:shadow-[var(--shadow)] active:cursor-grabbing",
@@ -1538,18 +1587,9 @@ function BoardCard({
         </div>
       </div>
 
-      {/* Reserved 2-row tag area — always this height (empty space when there are fewer tags),
-          anything past two rows is clipped. Order: location, mode, type, salary; each a distinct,
-          consistent color. */}
-      <div className="mt-2 flex h-10 flex-wrap content-start items-start gap-1 overflow-hidden">
-        {app.location && <span className={LOCATION_TAG}>{locations[0] || app.location}</span>}
-        {locations.length > 1 && (
-          <span title={locations.join(" · ")} className={LOCATION_TAG}>+{locations.length - 1}</span>
-        )}
-        {showModeChip && <span className={MODE_TAG}>{modeLabel}</span>}
-        {typeLabel && <span className={TYPE_TAG}>{typeLabel}</span>}
-        {app.salary && <span className={SALARY_TAG}>{app.salary}</span>}
-      </div>
+      {/* Tags clamp to two rows; a "+N" badge shows how many didn't fit. Order: location,
+          mode, type, salary; each a distinct, consistent color. */}
+      {tagChips.length > 0 && <CardTags sig={tagSig}>{tagChips}</CardTags>}
       {date && <div className="mt-1.5 text-[11px] text-muted">{date}</div>}
 
       {/* Saved bookmarks: one-click jump to the posting. Filling it there moves it to Draft. */}
@@ -1568,7 +1608,7 @@ function BoardCard({
       )}
 
       {showNudge && (
-        <div className="mt-2 w-fit max-w-full rounded-lg border border-line bg-paper-2 p-2 text-[11.5px] text-ink">
+        <div className="mt-2 w-full rounded-lg border border-line bg-paper-2 p-2 text-[11.5px] text-ink">
           <div className="flex items-center justify-between gap-1.5">
             <div className="font-bold">Did you finish applying?</div>
             <button
@@ -1585,7 +1625,7 @@ function BoardCard({
             <button
               onClick={(e) => { e.stopPropagation(); onConfirm(); }}
               disabled={busy}
-              className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50"
+              className="flex-1 rounded-md bg-accent px-2.5 py-1 text-center font-bold text-on-accent disabled:opacity-50"
             >
               Applied
             </button>
@@ -1593,7 +1633,7 @@ function BoardCard({
             <button
               onClick={(e) => { e.stopPropagation(); if (app.jobUrl) openPosting(); else setNudgeDismissed(true); }}
               disabled={busy}
-              className="rounded-md border border-line bg-paper px-2.5 py-1 font-bold text-ink transition-colors hover:border-accent disabled:opacity-50"
+              className="flex-1 rounded-md border border-line bg-paper px-2.5 py-1 text-center font-bold text-ink transition-colors hover:border-accent disabled:opacity-50"
             >
               Continue →
             </button>
@@ -1921,17 +1961,6 @@ function DetailPanel({
                     Job description
                     <textarea value={form.jobDescription} onChange={(e) => setForm((f) => ({ ...f, jobDescription: e.target.value }))} rows={6} className={cn(dField, "resize-y")} />
                   </label>
-                  <div className="flex justify-end gap-2">
-                    <button type="button" onClick={() => setEditing(false)} className={buttonVariants("ghost")}>Cancel</button>
-                    <button
-                      type="button"
-                      onClick={saveEdit}
-                      disabled={!form.company.trim() || !form.roleTitle.trim()}
-                      className={cn(buttonVariants("accent"), "disabled:opacity-50")}
-                    >
-                      Save details
-                    </button>
-                  </div>
                 </div>
               ) : (
                 <>
@@ -2075,29 +2104,33 @@ function DetailPanel({
               )}
             </div>
 
+            {/* Footer swaps to Cancel / Save while editing, then restores the normal actions. */}
             <div className="flex items-center gap-2 border-t border-line p-4">
-              {app.jobUrl && (
-                <a
-                  href={app.jobUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-accent px-3 py-2 text-sm font-semibold text-accent-deep transition-colors hover:bg-accent-soft"
-                >
-                  View posting <span aria-hidden>↗</span>
-                </a>
+              {editing ? (
+                <>
+                  <button type="button" onClick={() => setEditing(false)} className={PANEL_BTN_NEUTRAL}>Cancel</button>
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    disabled={!form.company.trim() || !form.roleTitle.trim()}
+                    className={cn(PANEL_BTN_ACCENT, "disabled:opacity-50")}
+                  >
+                    Save details
+                  </button>
+                </>
+              ) : (
+                <>
+                  {app.jobUrl && (
+                    <a href={app.jobUrl} target="_blank" rel="noreferrer noopener" className={PANEL_BTN_ACCENT}>
+                      View posting <span aria-hidden>↗</span>
+                    </a>
+                  )}
+                  <button onClick={() => onArchive(!app.archived)} className={PANEL_BTN_NEUTRAL}>
+                    {app.archived ? "Unarchive" : "Archive"}
+                  </button>
+                  <button onClick={onDelete} className={PANEL_BTN_DANGER}>Delete</button>
+                </>
               )}
-              <button
-                onClick={() => onArchive(!app.archived)}
-                className="flex-1 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink-soft transition-colors hover:bg-paper-2"
-              >
-                {app.archived ? "Unarchive" : "Archive"}
-              </button>
-              <button
-                onClick={onDelete}
-                className="flex-1 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-danger transition-colors hover:bg-paper-2"
-              >
-                Delete
-              </button>
             </div>
           </>
         )}
