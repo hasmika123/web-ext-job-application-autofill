@@ -911,7 +911,7 @@ export default function ResumeUpload({
           )}
         >
           <div className="text-3xl">📄</div>
-          <h3 className="mt-2 font-display text-lg font-semibold text-ink">Drop a resume here</h3>
+          <h3 className="mt-1 font-display text-lg font-semibold text-ink">Drop a resume here</h3>
           <p className="mt-1 text-[13.5px] text-muted">
             or <span className="font-semibold text-accent-deep">browse</span> — PDF, DOCX, or TXT.
             {!aiParse?.checked && " Parsed right here in your browser."}
