@@ -38,7 +38,10 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   surface CSS also sets `@custom-variant dark (&:where(.dark, .dark *))` so Tailwind's `dark:` tracks
   the `.dark` CLASS (`lib/theme.ts`), not the OS scheme — required for the light/dark logo swap.
   Icon-only buttons (close, settings) use the shared `IconButton` primitive; the fill overlay mirrors
-  its metrics in CSS.
+  its metrics in CSS. **All primitives AND icons come from `@kiwiply/ui`** — never inline an `<svg>`
+  glyph in a React surface; add it to `packages/ui/src/primitives/icons.tsx` and import it
+  (see `packages/ui/README.md`). Local wrappers may pin a surface's size/stroke, but the artwork
+  is shared.
 - `public/{vendor,icons}/` — copied verbatim to the output root; `vendor/*`+`icons/*`+`panel.html` are
   web-accessible (`getURL` for pdf.js / the fill-overlay logo / the drawer iframe). `mammoth` loads as
   a classic public `<script>` (global).

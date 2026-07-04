@@ -17,6 +17,9 @@ import {
   Switch,
   Badge,
   inputClass,
+  MonitorIcon,
+  MoonIcon as SharedMoonIcon,
+  SunIcon as SharedSunIcon,
 } from "@kiwiply/ui";
 import { BrandLogo } from "../../lib/Brand";
 import { loadSettings, saveSettings, readAccount, signOut, sendBug, WEB, type Settings, type Account } from "./actions";
@@ -358,28 +361,15 @@ export function OptionsApp() {
   );
 }
 
+// Shared icons (@kiwiply/ui), wrapped to keep this surface's established size.
 function SunIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
-      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
+  return <SharedSunIcon className="h-4 w-4" />;
 }
 
 function MoonIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
-      <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-    </svg>
-  );
+  return <SharedMoonIcon className="h-4 w-4" />;
 }
 
 function SystemIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
-      <rect x="3" y="4" width="18" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M8 20h8m-4-4v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
+  return <MonitorIcon strokeWidth={1.6} className="h-4 w-4" />;
 }

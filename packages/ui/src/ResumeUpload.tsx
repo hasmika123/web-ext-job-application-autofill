@@ -7,6 +7,7 @@ import Select from "./primitives/Select";
 import { buttonVariants } from "./primitives/Button";
 import { cn } from "./primitives/cn";
 import { LIMITS } from "./primitives/limits";
+import { ChevronDownIcon, ChevronLeftIcon, GripIcon } from "./primitives/icons";
 
 type BaseProfile = Record<string, unknown>;
 
@@ -108,11 +109,7 @@ function SectionCard({
 }
 
 function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("h-[18px] w-[18px] transition-transform", open && "rotate-180")}>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
+  return <ChevronDownIcon className={cn("h-[18px] w-[18px] transition-transform", open && "rotate-180")} />;
 }
 
 function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
@@ -169,11 +166,7 @@ function DragGrip(props: { onPointerDown: () => void; onPointerUp: () => void })
       className="grid h-6 w-6 cursor-grab touch-none place-items-center rounded-md text-muted transition-colors hover:bg-paper hover:text-ink active:cursor-grabbing"
       {...props}
     >
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
-        <circle cx="3" cy="2.5" r="1.1" /><circle cx="9" cy="2.5" r="1.1" />
-        <circle cx="3" cy="6" r="1.1" /><circle cx="9" cy="6" r="1.1" />
-        <circle cx="3" cy="9.5" r="1.1" /><circle cx="9" cy="9.5" r="1.1" />
-      </svg>
+      <GripIcon size={12} />
     </button>
   );
 }
@@ -938,9 +931,7 @@ export default function ResumeUpload({
                   onClick={handleClose}
                   className="mb-3 -ml-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-                    <path d="M12.5 5L7.5 10l5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <ChevronLeftIcon strokeWidth={1.75} className="h-4 w-4" />
                   {backLabel}
                 </button>
               )}

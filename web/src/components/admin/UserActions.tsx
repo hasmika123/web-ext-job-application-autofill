@@ -28,7 +28,7 @@ const SUCCESS: Record<string, string> = {
  */
 export default function UserActions({ login, activated, isAdmin, isSelf }: Props) {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");

@@ -7,7 +7,22 @@
  * Uploading a resume hands the File straight to the panel's review view in memory (onReview).
  */
 import { useEffect, useRef, useState } from "react";
-import { Button, Select, Badge, Spinner, Switch, Skeleton, Check, IconButton, useToast } from "@kiwiply/ui";
+import {
+  Button,
+  Select,
+  Badge,
+  Spinner,
+  Switch,
+  Skeleton,
+  Check,
+  IconButton,
+  useToast,
+  GearIcon as SharedGearIcon,
+  LinkIcon as SharedLinkIcon,
+  UploadIcon as SharedUploadIcon,
+  UserIcon as SharedUserIcon,
+  XIcon,
+} from "@kiwiply/ui";
 import { BrandLogo } from "../../lib/Brand";
 import { closePanel } from "../../lib/panel-frame";
 import { extensionAlive } from "../../lib/ext-context";
@@ -358,61 +373,23 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
+// Shared icons (@kiwiply/ui), wrapped to keep this surface's established sizes/weights.
 function UserIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden>
-      <circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  );
+  return <SharedUserIcon strokeWidth={1.7} className="h-4 w-4" />;
 }
 
 function UploadIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5" aria-hidden>
-      <path
-        d="M10 13V4m0 0L6.5 7.5M10 4l3.5 3.5M4 14v1.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V14"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <SharedUploadIcon className="h-3.5 w-3.5" />;
 }
 
 function GearIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden>
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <SharedGearIcon strokeWidth={1.7} className="h-[18px] w-[18px]" />;
 }
 
 function CloseIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-[18px] w-[18px]" aria-hidden>
-      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
+  return <XIcon className="h-[18px] w-[18px]" />;
 }
 
 function LinkIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="mt-px h-4 w-4 flex-none text-brown-deep" aria-hidden>
-      <path
-        d="M9 15l6-6M10.5 6.5l1-1a4 4 0 0 1 5.66 5.66l-2 2M13.5 17.5l-1 1a4 4 0 0 1-5.66-5.66l2-2"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <SharedLinkIcon className="mt-px h-4 w-4 flex-none text-brown-deep" />;
 }

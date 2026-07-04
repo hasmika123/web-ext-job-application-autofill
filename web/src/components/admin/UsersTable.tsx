@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { SearchIcon } from "@kiwiply/ui";
 
 export interface AdminUser {
   id: number;
@@ -35,17 +36,7 @@ export default function UsersTable({ users }: { users: AdminUser[] }) {
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="M21 21l-4.3-4.3" />
-          </svg>
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             type="search"
             value={q}
