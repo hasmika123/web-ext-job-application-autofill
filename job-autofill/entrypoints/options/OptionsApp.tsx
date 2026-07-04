@@ -319,7 +319,7 @@ export function OptionsApp() {
               </CardHeader>
               <div className="flex flex-col gap-3">
                 <Field label="Type">
-                  <Select value={bug.category} onChange={(e) => setBug((b) => ({ ...b, category: e.target.value }))}>
+                  <Select aria-label="Type" value={bug.category} onChange={(v) => setBug((b) => ({ ...b, category: v }))}>
                     <option value="BUG">Bug</option>
                     <option value="IDEA">Idea / feedback</option>
                     <option value="OTHER">Other</option>

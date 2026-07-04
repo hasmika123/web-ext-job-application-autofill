@@ -95,3 +95,28 @@
   --shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 10px 26px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 22px 56px rgba(0, 0, 0, 0.55);
 }
+
+/* Slim, theme-tinted scrollbars for internal scrollers (board sections, panels, dropdown menus).
+   Shared here so both the web app and the extension get it. Standard properties for modern
+   engines; the ::-webkit-* rules cover older Chromium/Safari. */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+  background-clip: padding-box;
+}

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import { ResumeUpload } from "@kiwiply/ui";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 
@@ -254,7 +255,6 @@ function FilterMenu({
   onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const field = "w-full rounded-lg border border-line bg-paper px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-accent";
   const lbl = "flex flex-col gap-1 text-[10.5px] font-bold uppercase tracking-wide text-muted";
   return (
     <div className="relative">
@@ -303,31 +303,31 @@ function FilterMenu({
             <div className="mt-3 flex flex-col gap-2.5">
               <label className={lbl}>
                 Job mode
-                <select value={mode} onChange={(e) => onMode(e.target.value)} className={field}>
-                  <option value="all">All modes</option>
-                  {JOB_MODES.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
+                <Select
+                  aria-label="Job mode"
+                  value={mode}
+                  onChange={onMode}
+                  options={[{ value: "all", label: "All modes" }, ...JOB_MODES]}
+                />
               </label>
               <label className={lbl}>
                 Job type
-                <select value={type} onChange={(e) => onType(e.target.value)} className={field}>
-                  <option value="all">All types</option>
-                  {JOB_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                <Select
+                  aria-label="Job type"
+                  value={type}
+                  onChange={onType}
+                  options={[{ value: "all", label: "All types" }, ...JOB_TYPES]}
+                />
               </label>
               {resumeOptions.length > 0 && (
                 <label className={lbl}>
                   Resume sent
-                  <select value={resume} onChange={(e) => onResume(e.target.value)} className={field}>
-                    <option value="all">All resumes</option>
-                    {resumeOptions.map(([id, label]) => (
-                      <option key={id} value={String(id)}>{label}</option>
-                    ))}
-                  </select>
+                  <Select
+                    aria-label="Resume sent"
+                    value={resume}
+                    onChange={onResume}
+                    options={[{ value: "all", label: "All resumes" }, ...resumeOptions.map(([id, label]) => ({ value: String(id), label }))]}
+                  />
                 </label>
               )}
             </div>
@@ -352,61 +352,22 @@ function FilterMenu({
 }
 
 /**
- * Compact custom sort dropdown. A native <select> can't style its option popup (rounded
- * corners, hover states are OS-rendered), so this renders its own menu instead.
+ * The board's sort control — the reference dropdown; renders the shared Select (pill look).
  */
 function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
-  const [open, setOpen] = useState(false);
-  const current = SORT_OPTIONS.find((o) => o.value === value) ?? SORT_OPTIONS[0];
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3 pr-2.5 text-[13px] font-medium text-ink-soft transition-colors hover:border-accent"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5 text-muted">
+    <Select
+      variant="pill"
+      aria-label="Sort applications"
+      value={value}
+      onChange={(v) => onChange(v as SortKey)}
+      options={SORT_OPTIONS}
+      leadingIcon={
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5">
           <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />
         </svg>
-        <span className="whitespace-nowrap">{current.label}</span>
-        <Chevron open={open} className="text-muted" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-[120]" aria-hidden onClick={() => setOpen(false)} />
-          <div role="listbox" className="absolute inset-x-0 top-[calc(100%+6px)] z-[121] rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]">
-            {SORT_OPTIONS.map((o) => {
-              const selected = o.value === value;
-              return (
-                <button
-                  key={o.value}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => {
-                    onChange(o.value);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
-                    selected ? "bg-accent-soft font-semibold text-accent-deep" : "text-ink hover:bg-paper-2",
-                  )}
-                >
-                  {o.label}
-                  {selected && (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5">
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
+      }
+    />
   );
 }
 
@@ -779,20 +740,14 @@ export default function ApplicationBoard({
       {picked.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius-lg)] border border-accent bg-accent-soft px-3 py-2 text-[13px]">
           <span className="font-semibold text-accent-deep">{picked.size} selected</span>
-          <select
+          <Select
+            variant="pill"
             aria-label="Move selected to a status"
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) void bulkPatch({ status: e.target.value, archived: false });
-              e.target.value = "";
-            }}
-            className="rounded-full border border-line bg-paper px-3 py-1.5 text-[12.5px] font-medium text-ink-soft outline-none focus:border-accent"
-          >
-            <option value="" disabled>Move to…</option>
-            {STAGES.map((c) => (
-              <option key={c.key} value={c.key}>{c.label}</option>
-            ))}
-          </select>
+            value=""
+            placeholder="Move to…"
+            onChange={(v) => { if (v) void bulkPatch({ status: v, archived: false }); }}
+            options={STAGES.map((c) => ({ value: c.key, label: c.label }))}
+          />
           <button type="button" onClick={() => void bulkPatch({ starred: true })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">★ Star</button>
           <button type="button" onClick={() => void bulkPatch({ starred: false })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">☆ Unstar</button>
           <button type="button" onClick={() => void bulkPatch({ archived: true })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">Archive</button>
@@ -1155,11 +1110,12 @@ function AddApplicationDialog({
             </label>
             <label className={labelClass}>
               Add to
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
-                {COLUMNS.map((c) => (
-                  <option key={c.key} value={c.key}>{c.key === "SAVED" ? "Saved (bookmark)" : c.label}</option>
-                ))}
-              </select>
+              <Select
+                aria-label="Add to"
+                value={status}
+                onChange={setStatus}
+                options={COLUMNS.map((c) => ({ value: c.key, label: c.key === "SAVED" ? "Saved (bookmark)" : c.label }))}
+              />
             </label>
             <div className={labelClass}>
               <span>Location(s)</span>
@@ -1187,17 +1143,21 @@ function AddApplicationDialog({
             <div className="grid grid-cols-2 gap-3">
               <label className={labelClass}>
                 Job type
-                <select value={jobType} onChange={(e) => setJobType(e.target.value)} className={fieldClass}>
-                  <option value="">—</option>
-                  {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
-                </select>
+                <Select
+                  aria-label="Job type"
+                  value={jobType}
+                  onChange={setJobType}
+                  options={[{ value: "", label: "—" }, ...JOB_TYPES]}
+                />
               </label>
               <label className={labelClass}>
                 Job mode
-                <select value={jobMode} onChange={(e) => setJobMode(e.target.value)} className={fieldClass}>
-                  <option value="">—</option>
-                  {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
-                </select>
+                <Select
+                  aria-label="Job mode"
+                  value={jobMode}
+                  onChange={setJobMode}
+                  options={[{ value: "", label: "—" }, ...JOB_MODES]}
+                />
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1213,12 +1173,12 @@ function AddApplicationDialog({
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resume sent</span>
               {resumes.length > 0 && (
-                <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={cn(fieldClass, "min-w-0 truncate")}>
-                  <option value="">— None —</option>
-                  {resumes.map((r) => (
-                    <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
-                  ))}
-                </select>
+                <Select
+                  aria-label="Resume sent"
+                  value={resumeId}
+                  onChange={setResumeId}
+                  options={[{ value: "", label: "— None —" }, ...resumes.map((r) => ({ value: String(r.id), label: `${r.label}${r.defaultResume ? " · default" : ""}` }))]}
+                />
               )}
               <button
                 type="button"
@@ -1916,17 +1876,21 @@ function DetailPanel({
                   <div className="grid grid-cols-2 gap-3">
                     <label className={dLabel}>
                       Job type
-                      <select value={form.jobType} onChange={(e) => setForm((f) => ({ ...f, jobType: e.target.value }))} className={dField}>
-                        <option value="">—</option>
-                        {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
-                      </select>
+                      <Select
+                        aria-label="Job type"
+                        value={form.jobType}
+                        onChange={(v) => setForm((f) => ({ ...f, jobType: v }))}
+                        options={[{ value: "", label: "—" }, ...JOB_TYPES]}
+                      />
                     </label>
                     <label className={dLabel}>
                       Job mode
-                      <select value={form.jobMode} onChange={(e) => setForm((f) => ({ ...f, jobMode: e.target.value }))} className={dField}>
-                        <option value="">—</option>
-                        {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
-                      </select>
+                      <Select
+                        aria-label="Job mode"
+                        value={form.jobMode}
+                        onChange={(v) => setForm((f) => ({ ...f, jobMode: v }))}
+                        options={[{ value: "", label: "—" }, ...JOB_MODES]}
+                      />
                     </label>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -1945,17 +1909,14 @@ function DetailPanel({
                   </label>
                   <label className={dLabel}>
                     Resume sent
-                    <select
+                    <Select
+                      aria-label="Resume sent"
                       value={form.resumeId}
-                      onChange={(e) => setForm((f) => ({ ...f, resumeId: e.target.value }))}
+                      onChange={(v) => setForm((f) => ({ ...f, resumeId: v }))}
                       disabled={resumes.length === 0}
-                      className={cn(dField, "min-w-0 truncate disabled:opacity-60")}
-                    >
-                      <option value="">{resumes.length ? "— None linked —" : "No resumes uploaded yet"}</option>
-                      {resumes.map((r) => (
-                        <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
-                      ))}
-                    </select>
+                      placeholder={resumes.length ? "— None linked —" : "No resumes uploaded yet"}
+                      options={[{ value: "", label: resumes.length ? "— None linked —" : "No resumes uploaded yet" }, ...resumes.map((r) => ({ value: String(r.id), label: `${r.label}${r.defaultResume ? " · default" : ""}` }))]}
+                    />
                   </label>
                   <label className={dLabel}>
                     Job description

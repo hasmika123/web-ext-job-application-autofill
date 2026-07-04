@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui";
+import Select from "@/components/ui/Select";
+
+const statusLabel = (s: string) => (s === "IN_PROGRESS" ? "In progress" : s === "WONTFIX" ? "Won't fix" : s.charAt(0) + s.slice(1).toLowerCase());
 
 interface Props {
   id: number;
@@ -51,19 +54,21 @@ export default function BugTriageControl({ id, status, severity, adminNotes }: P
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-sm">
           <span className="mb-1 block text-[13px] font-medium text-ink-soft">Status</span>
-          <select value={st} onChange={(e) => setSt(e.target.value)} className="w-full rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink">
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{s === "IN_PROGRESS" ? "In progress" : s === "WONTFIX" ? "Won't fix" : s.charAt(0) + s.slice(1).toLowerCase()}</option>
-            ))}
-          </select>
+          <Select
+            aria-label="Status"
+            value={st}
+            onChange={setSt}
+            options={STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+          />
         </label>
         <label className="text-sm">
           <span className="mb-1 block text-[13px] font-medium text-ink-soft">Severity</span>
-          <select value={sev} onChange={(e) => setSev(e.target.value)} className="w-full rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink">
-            {SEVERITIES.map((s) => (
-              <option key={s || "none"} value={s}>{s || "—"}</option>
-            ))}
-          </select>
+          <Select
+            aria-label="Severity"
+            value={sev}
+            onChange={setSev}
+            options={SEVERITIES.map((s) => ({ value: s, label: s || "—" }))}
+          />
         </label>
       </div>
       <label className="mt-3 block text-sm">
