@@ -49,6 +49,3 @@ export function useAiParseConsent(): [boolean, (v: boolean) => void] {
 
 /** Shared checkbox copy for the ResumeUpload `aiParse` prop. */
 export const AI_PARSE_LABEL = "Parse with AI for best accuracy";
-export const AI_PARSE_DESCRIPTION =
-  "Sends the resume to your Kiwiply account, which uses Google Gemini (free tier — Google may use it to improve its services). " +
-  "Counts toward your monthly AI credits. Unchecked, parsing happens in your browser only.";
