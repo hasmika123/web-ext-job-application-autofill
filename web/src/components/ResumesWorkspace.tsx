@@ -88,7 +88,7 @@ export default function ResumesWorkspace({
   };
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <ResumeUpload
         key={editSeq}
         baseProfile={baseProfile}
