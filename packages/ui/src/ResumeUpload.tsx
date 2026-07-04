@@ -651,6 +651,11 @@ export default function ResumeUpload({
   const isOpen = (id: string) => openSections[id] ?? sectionsDefaultOpen;
   const toggleSection = (id: string) => setOpenSections((m) => ({ ...m, [id]: !m[id] }));
   const setAllSections = (open: boolean) => setOpenSections(Object.fromEntries(SECTION_IDS.map((id) => [id, open])));
+  // Which sections are actually rendered (the contact section only shows for a fresh parse), so
+  // Expand/Collapse-all can disable when there's nothing left to expand / collapse.
+  const visibleSectionIds = SECTION_IDS.filter((id) => id !== "contact" || (!editing && !!onUpdateProfile));
+  const anyClosed = visibleSectionIds.some((id) => !isOpen(id));
+  const anyOpen = visibleSectionIds.some((id) => isOpen(id));
 
   const baseSkills = Array.isArray(baseProfile.skills)
     ? (baseProfile.skills as unknown[]).filter((x): x is string => typeof x === "string")
@@ -982,11 +987,21 @@ export default function ResumeUpload({
               </div>
               <div className="flex flex-none items-center gap-2">
                 <div className="inline-flex items-center overflow-hidden rounded-full border border-line bg-paper text-[12px] font-semibold text-ink-soft shadow-[var(--shadow-sm)]">
-                  <button type="button" onClick={() => setAllSections(true)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
+                  <button
+                    type="button"
+                    onClick={() => setAllSections(true)}
+                    disabled={!anyClosed}
+                    className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+                  >
                     Expand all
                   </button>
                   <span aria-hidden className="h-4 w-px flex-none bg-line" />
-                  <button type="button" onClick={() => setAllSections(false)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
+                  <button
+                    type="button"
+                    onClick={() => setAllSections(false)}
+                    disabled={!anyOpen}
+                    className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+                  >
                     Collapse all
                   </button>
                 </div>
@@ -1006,7 +1021,7 @@ export default function ResumeUpload({
 
           {/* Scrollable body */}
           <div className="scroll-slim flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
-            <div className="mx-auto flex max-w-3xl flex-col gap-5">
+            <div className="mx-auto flex max-w-3xl flex-col gap-4">
               {/* Resume name (saving lives in the pinned footer below) */}
               <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
                 <label htmlFor="resume-label" className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft">Resume name</label>

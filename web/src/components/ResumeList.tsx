@@ -165,14 +165,17 @@ function Row({
           <span className="min-w-0 flex-1 truncate" title={resume.label}>{resume.label}</span>
           {!archived && badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
-        <div className="mt-1 text-[12.5px] text-muted">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted">
           {formatDate(resume.createdAt) && <span>Added {formatDate(resume.createdAt)}</span>}
-          {formatDate(resume.createdAt) && " · "}
-          {usage > 0 ? (
-            <span className="text-ink-soft">used in {usage} application{usage === 1 ? "" : "s"}</span>
-          ) : (
-            "not used yet"
-          )}
+          {/* Usage as a distinct pill so it isn't missed (it also gates deletion). */}
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-semibold",
+              usage > 0 ? "text-ink-soft" : "text-muted",
+            )}
+          >
+            {usage > 0 ? `Used in ${usage} application${usage === 1 ? "" : "s"}` : "Not used yet"}
+          </span>
         </div>
         {guard && (
           <p className="mt-2 rounded-[var(--radius)] border border-brown/40 bg-brown-soft px-3 py-2 text-[12.5px] text-brown-deep">

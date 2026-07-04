@@ -185,7 +185,7 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
               visibility: pos ? "visible" : "hidden",
             }}
             className={cn(
-              "scroll-slim z-[161] min-w-[184px] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              "scroll-slim z-[161] min-w-[9rem] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
               menuClassName,
             )}
           >
