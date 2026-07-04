@@ -826,6 +826,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-04 · **ui+web — resume cards declutter + review-header segmented control** · Resume
+  cards: per-row Edit/Set-as-default/Archive/Delete consolidated into a ⋯ menu (shared Menu
+  primitive, matching board cards) with star as the only visible quick action; "Set as default"
+  text link removed from the meta line; Default tag is a quieter borderless chip with a check;
+  the select checkbox hides until card hover (always visible on touch/while selecting); "Select
+  all" moved from the toolbar into the bulk bar. Review dialog: Expand/Collapse all restyled as a
+  bordered segmented pill on the subtitle line. Drop-zone reverted to the original tall centered
+  box + original page spacing. web tsc/eslint/build green; ext tests + build green; ext → 0.50.3.
 - 2026-07-04 · **ui+web — resumes page & review-dialog polish pass 2** · Edit-resume review is
   full-page again (dropped the scrim/centered-card look from the prior pass; kept the sticky
   header/pinned-footer structure), with Expand all/Collapse all moved into the header next to the

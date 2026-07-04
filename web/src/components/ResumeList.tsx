@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, EmptyState, useToast } from "@/components/ui";
 import Select from "@/components/ui/Select";
 import {
   ArchiveIcon as SharedArchiveIcon,
   ArrowsUpDownIcon,
+  CheckIcon,
   ChevronDownIcon,
+  Menu,
   PencilIcon as SharedPencilIcon,
   RestoreIcon as SharedRestoreIcon,
   SearchIcon,
   StarIcon as SharedStarIcon,
   TrashIcon as SharedTrashIcon,
+  type MenuItem,
 } from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
 
@@ -53,50 +56,15 @@ function FileIcon() {
   );
 }
 
-/** Small square icon button for the per-row actions (archive / restore / delete). */
-function IconBtn({
-  onClick,
-  disabled,
-  label,
-  danger,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  label: string;
-  danger?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "grid h-9 w-9 place-items-center rounded-lg border border-line bg-paper text-ink-soft transition-colors hover:bg-paper-2 disabled:opacity-50",
-        danger && "hover:border-danger/40 hover:text-danger",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-const ICON = "h-[17px] w-[17px]";
-const ArchiveIcon = () => <SharedArchiveIcon className={ICON} />;
-const RestoreIcon = () => <SharedRestoreIcon className={ICON} />;
-const TrashIcon = () => <SharedTrashIcon className={ICON} />;
-const PencilIcon = () => <SharedPencilIcon className={ICON} />;
 const StarIcon = ({ filled }: { filled: boolean }) => (
-  <SharedStarIcon fill={filled ? "currentColor" : "none"} className={ICON} />
+  <SharedStarIcon fill={filled ? "currentColor" : "none"} className="h-[17px] w-[17px]" />
 );
 
 function Row({
   resume,
   usage,
   selected,
+  anySelected,
   busy,
   onToggleSelect,
   onArchive,
@@ -109,6 +77,8 @@ function Row({
   resume: Resume;
   usage: number;
   selected: boolean;
+  /** True while ANY row is selected — keeps every checkbox visible during a selection. */
+  anySelected: boolean;
   busy: boolean;
   onToggleSelect: () => void;
   onArchive: () => void;
@@ -121,6 +91,23 @@ function Row({
   const archived = !!resume.archived;
   const isDefault = !!resume.defaultResume;
   const badge = statusBadge(resume.status);
+
+  // Everything but "star" lives in the ⋯ menu (same pattern as the board cards).
+  const menuItems: MenuItem[] = [
+    ...(onEdit
+      ? [{ label: "Edit", icon: <SharedPencilIcon className="h-4 w-4" />, onSelect: onEdit, disabled: busy }]
+      : []),
+    ...(!archived && !isDefault
+      ? [{ label: "Set as default", icon: <CheckIcon className="h-4 w-4" />, onSelect: onSetDefault, disabled: busy }]
+      : []),
+    {
+      label: archived ? "Restore" : "Archive",
+      icon: archived ? <SharedRestoreIcon className="h-4 w-4" /> : <SharedArchiveIcon className="h-4 w-4" />,
+      onSelect: onArchive,
+      disabled: busy,
+    },
+    { label: "Delete", icon: <SharedTrashIcon className="h-4 w-4" />, onSelect: onDelete, danger: true, disabled: busy },
+  ];
   // The whole card opens the editor (when editable); inner controls stopPropagation below.
   const cardClick = onEdit
     ? {
@@ -140,26 +127,35 @@ function Row({
     <li
       {...cardClick}
       className={cn(
-        "flex flex-wrap items-center gap-4 rounded-[var(--radius-lg)] border bg-paper p-4 shadow-[var(--shadow)] transition-[border-color,box-shadow]",
+        "group flex flex-wrap items-center gap-4 rounded-[var(--radius-lg)] border bg-paper p-4 shadow-[var(--shadow)] transition-[border-color,box-shadow]",
         selected ? "border-accent ring-1 ring-accent" : "border-line",
         archived && "opacity-60", // greyed out — de-emphasized vs. active resumes
         onEdit && "cursor-pointer hover:border-accent hover:shadow-[var(--shadow-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
       )}
     >
+      {/* Hidden until the card is hovered (mouse devices only) — always visible on touch,
+          while this row is selected, or while a bulk selection is in progress. */}
       <input
         type="checkbox"
         checked={selected}
         onChange={onToggleSelect}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
         aria-label={`Select ${resume.label}`}
-        className="h-4 w-4 flex-none accent-[var(--color-accent)]"
+        className={cn(
+          "h-4 w-4 flex-none accent-[var(--color-accent)] transition-opacity",
+          !selected &&
+            !anySelected &&
+            "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100",
+        )}
       />
       <FileIcon />
       <div className="min-w-[160px] flex-1">
         <div className="flex items-center gap-2 text-[15px] font-bold text-ink">
           <span className="min-w-0 flex-1 truncate" title={resume.label}>{resume.label}</span>
           {isDefault && (
-            <span className="shrink-0 rounded-full border border-accent bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent-deep">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-deep">
+              <CheckIcon className="h-3 w-3" strokeWidth={3} />
               Default
             </span>
           )}
@@ -172,19 +168,6 @@ function Row({
             <span className="text-ink-soft">used in {usage} application{usage === 1 ? "" : "s"}</span>
           ) : (
             "not used yet"
-          )}
-          {!archived && !isDefault && (
-            <>
-              {" · "}
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onSetDefault(); }}
-                disabled={busy}
-                className="font-semibold text-accent-deep hover:underline disabled:opacity-50"
-              >
-                Set as default
-              </button>
-            </>
           )}
         </div>
         {guard && (
@@ -201,23 +184,37 @@ function Row({
           Archived
         </Badge>
       )}
-      <div className="flex shrink-0 items-center gap-2 self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
-        <IconBtn onClick={onStar} disabled={busy} label={resume.starred ? "Unstar" : "Star"}>
-          <span className={cn(resume.starred && "text-[color:var(--color-accent-deep)]")}>
-            <StarIcon filled={!!resume.starred} />
-          </span>
-        </IconBtn>
-        {onEdit && (
-          <IconBtn onClick={onEdit} disabled={busy} label="Edit">
-            <PencilIcon />
-          </IconBtn>
-        )}
-        <IconBtn onClick={onArchive} disabled={busy} label={archived ? "Restore" : "Archive"}>
-          {archived ? <RestoreIcon /> : <ArchiveIcon />}
-        </IconBtn>
-        <IconBtn onClick={onDelete} disabled={busy} label="Delete" danger>
-          <TrashIcon />
-        </IconBtn>
+      <div
+        className="flex shrink-0 items-center gap-1 self-start sm:self-center"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onStar}
+          disabled={busy}
+          aria-label={resume.starred ? "Unstar" : "Star"}
+          title={resume.starred ? "Unstar" : "Star"}
+          className={cn(
+            "grid h-8 w-8 place-items-center rounded-full text-muted transition-colors hover:bg-paper-2 hover:text-ink disabled:opacity-50",
+            resume.starred && "text-[color:var(--color-accent-deep)]",
+          )}
+        >
+          <StarIcon filled={!!resume.starred} />
+        </button>
+        <Menu
+          align="end"
+          items={menuItems}
+          trigger={
+            <span
+              aria-label="More actions"
+              title="More actions"
+              className="grid h-8 w-8 place-items-center rounded-full text-lg leading-none text-muted transition-colors hover:bg-paper-2 hover:text-ink"
+            >
+              ⋯
+            </span>
+          }
+        />
       </div>
     </li>
   );
@@ -398,14 +395,6 @@ export default function ResumeList({
   const visibleIds = view.active.concat(view.archived).map((r) => r.id);
   const anyVisible = visibleIds.length;
   const allVisibleSelected = anyVisible > 0 && visibleIds.every((id) => selected.has(id));
-  const someVisibleSelected = visibleIds.some((id) => selected.has(id));
-
-  // "Select all" shows a dash (indeterminate) when only some visible rows are selected — there's
-  // no HTML attribute for it, so it's set imperatively on the DOM node.
-  const selectAllRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (selectAllRef.current) selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
-  }, [someVisibleSelected, allVisibleSelected]);
 
   if (resumes.length === 0) {
     return (
@@ -423,6 +412,7 @@ export default function ResumeList({
       resume={r}
       usage={usage[r.id] ?? 0}
       selected={selected.has(r.id)}
+      anySelected={selected.size > 0}
       busy={busy.has(r.id)}
       onToggleSelect={() => toggleSelect(r.id)}
       onArchive={() => rowArchive(r)}
@@ -472,24 +462,21 @@ export default function ResumeList({
             leadingIcon={<ArrowsUpDownIcon className="h-3.5 w-3.5" />}
           />
         </div>
-        {anyVisible > 0 && (
-          <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12.5px] font-medium text-ink-soft">
-            <input
-              ref={selectAllRef}
-              type="checkbox"
-              checked={allVisibleSelected}
-              onChange={(e) => setSelected(e.target.checked ? new Set(visibleIds) : new Set())}
-              className="h-4 w-4 accent-[var(--color-accent)]"
-            />
-            Select all ({anyVisible})
-          </label>
-        )}
       </div>
 
-      {/* Bulk action bar — only when something is selected */}
+      {/* Bulk action bar — only when something is selected. "Select all" lives here (not in
+          the toolbar) so it only appears once a selection is underway. */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-lg)] border border-accent bg-accent-soft px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-lg)] border border-accent bg-accent-soft px-4 py-2.5">
           <span className="text-[13px] font-semibold text-accent-deep">{selected.size} selected</span>
+          {!allVisibleSelected && (
+            <button
+              onClick={() => setSelected(new Set(visibleIds))}
+              className="text-[12.5px] font-semibold text-accent-deep underline-offset-2 hover:underline"
+            >
+              Select all ({anyVisible})
+            </button>
+          )}
           <div className="ml-auto flex flex-wrap gap-2">
             {selectedActive && (
               <button onClick={() => bulkArchive(true)} className="rounded-lg border border-line bg-paper px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft hover:bg-paper-2">
