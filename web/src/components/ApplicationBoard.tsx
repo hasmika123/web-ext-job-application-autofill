@@ -155,11 +155,13 @@ function cardDate(app: Application): string {
 const AVATAR_TINT = "bg-ink text-paper";
 
 // Card tag colors — one fixed color per category, shown in a consistent order
-// (location, mode, type, salary). Type is an outlined, weightier chip.
-const TAG_BASE = "max-w-full shrink-0 truncate rounded-full px-2 py-0.5 text-[10.5px]";
+// (location, mode, type, salary). Type is an outlined, weightier chip; its outline is an inset
+// RING (not a border) so it adds no box height and every chip stays the same height — pinned via
+// leading-[16px] so two rows clamp cleanly (see CardTags).
+const TAG_BASE = "max-w-full shrink-0 truncate rounded-full px-2 py-0.5 text-[10.5px] leading-[16px]";
 const LOCATION_TAG = `${TAG_BASE} bg-accent-soft font-medium text-accent-deep`;
 const MODE_TAG = `${TAG_BASE} bg-brown-soft font-medium text-brown-deep`;
-const TYPE_TAG = `${TAG_BASE} border border-line bg-paper font-semibold text-ink`;
+const TYPE_TAG = `${TAG_BASE} bg-paper font-semibold text-ink ring-1 ring-inset ring-line`;
 const SALARY_TAG = `${TAG_BASE} bg-paper-2 font-medium text-ink-soft`;
 
 // Shared side-panel footer buttons (outlined, equal-width) — used by the detail panel footer
@@ -1394,7 +1396,7 @@ function CardTags({ children, sig }: { children: ReactNode; sig: string }) {
     };
   }, [sig]);
   return (
-    <div ref={ref} className="relative mt-2 flex max-h-[44px] flex-wrap content-start gap-1 overflow-hidden">
+    <div ref={ref} className="relative mt-2 flex max-h-[46px] flex-wrap content-start gap-1 overflow-hidden">
       {children}
       {hidden > 0 && (
         <span className="absolute bottom-0 right-0 rounded-full border border-line bg-paper px-1.5 py-0.5 text-[10px] font-semibold text-muted">
@@ -1482,7 +1484,7 @@ function BoardCard({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "rounded-[var(--radius)] border bg-paper shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "flex flex-col rounded-[var(--radius)] border bg-paper shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         rich ? "p-3.5" : "p-3",
         archived
           ? "cursor-pointer opacity-60 grayscale hover:opacity-100"
@@ -1550,6 +1552,10 @@ function BoardCard({
       {/* Tags clamp to two rows; a "+N" badge shows how many didn't fit. Order: location,
           mode, type, salary; each a distinct, consistent color. */}
       {tagChips.length > 0 && <CardTags sig={tagSig}>{tagChips}</CardTags>}
+
+      {/* Bottom group — pinned to the card's bottom (mt-auto) so stretched shelf cards keep their
+          date / apply / nudge aligned, with any slack in the middle rather than at the bottom. */}
+      <div className="mt-auto">
       {date && <div className="mt-1.5 text-[11px] text-muted">{date}</div>}
 
       {/* Saved bookmarks: one-click jump to the posting. Filling it there moves it to Draft. */}
@@ -1600,6 +1606,7 @@ function BoardCard({
           </div>
         </div>
       )}
+      </div>
     </li>
   );
 }
