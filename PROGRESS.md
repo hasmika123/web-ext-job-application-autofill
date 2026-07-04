@@ -826,6 +826,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-04 · **ui+web — board/resumes card polish + one shared dropdown** · Upgraded the shared
+  `Menu` primitive to a portal popover (flip-up near the viewport bottom, heading + separator
+  entries, `disabled` trigger) and routed BOTH the board's ⋯ menu and the resume cards' menu
+  through it — same UI, unchanged behavior (board keeps Star / Move-to-stage / Archive / Delete).
+  Board: per-card star is now the shared round SVG star button (matches resumes) and the bulk bar
+  gained "Select all (N)". Resumes: the select checkbox now swaps in place of the DOC tile on hover
+  (not beside it); the Default tag moved to card-level, vertically centered. Edit dialog: Expand/
+  Collapse pill moved up onto the ✕ row (vertically centered); Cancel/Save restyled to the detail-
+  panel's outlined look. Also fixed a pre-existing class-conflict that rendered the *starred* star
+  muted instead of green on both surfaces. web tsc/eslint/build green; ext tests + build green; ext → 0.50.4.
 - 2026-07-04 · **ui+web — resume cards declutter + review-header segmented control** · Resume
   cards: per-row Edit/Set-as-default/Archive/Delete consolidated into a ⋯ menu (shared Menu
   primitive, matching board cards) with star as the only visible quick action; "Set as default"

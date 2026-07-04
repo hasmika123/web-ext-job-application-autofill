@@ -861,8 +861,14 @@ export default function ResumeUpload({
   const eduReorder = useReorder(struct?.education ?? [], (n) => patchStruct({ education: n }));
   const dndFor = (r: ReturnType<typeof useReorder>, i: number): RowDnd => ({ rowProps: r.rowProps(i), handleProps: r.handleProps(i), state: r.state(i) });
 
+  // Outlined footer buttons — mirror the board detail-panel's Cancel / Save look.
+  const footerBtn = "rounded-lg border px-4 py-2 text-sm font-semibold transition-colors whitespace-nowrap";
   const SaveBtn = (
-    <button onClick={handleSave} disabled={saving} className={cn(buttonVariants("accent"), "whitespace-nowrap disabled:opacity-50")}>
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      className={cn(footerBtn, "border-accent text-accent-deep hover:bg-accent-soft disabled:opacity-50")}
+    >
       {saving ? "Saving…" : editing ? "Save changes" : dupConfirm ? "Save anyway" : (saveLabel ?? "Save to my account")}
     </button>
   );
@@ -951,13 +957,14 @@ export default function ResumeUpload({
           aria-label={editing ? "Edit resume" : "Review resume"}
           className="fixed inset-0 z-[150] flex flex-col bg-app-bg"
         >
-          {/* Header */}
+          {/* Header — title/subtitle on the left; the Expand/Collapse pill sits on the same row
+              as the ✕, right-aligned and vertically centered against the title block. */}
           <header className="border-b border-line bg-paper px-5 py-4 sm:px-6">
-            <div className="mx-auto flex max-w-3xl items-start gap-3">
+            <div className="mx-auto flex max-w-3xl items-center gap-3">
               {backLabel && (
                 <button
                   onClick={handleClose}
-                  className="-ml-1.5 mt-0.5 inline-flex flex-none items-center gap-1 rounded-full px-2 py-1 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="-ml-1.5 inline-flex flex-none items-center gap-1 rounded-full px-2 py-1 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <ChevronLeftIcon strokeWidth={1.75} className="h-4 w-4" />
                   {backLabel}
@@ -965,37 +972,35 @@ export default function ResumeUpload({
               )}
               <div className="min-w-0 flex-1">
                 <h2 className="truncate font-display text-xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
-                {/* Subtitle + the section controls share a line; the segmented pill wraps under
-                    the text (right-aligned) when the header gets narrow. */}
-                <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                  <p className="min-w-0 flex-1 basis-[220px] text-[12.5px] text-muted">
-                    {editing
-                      ? "Edit the parsed details and save — your stored file stays the same."
-                      : aiParse?.checked
-                        ? "Edit anything before saving — parsed with AI; nothing is saved to your account until you save."
-                        : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
-                  </p>
-                  <div className="ml-auto inline-flex flex-none items-center overflow-hidden rounded-full border border-line bg-paper text-[12px] font-semibold text-ink-soft shadow-[var(--shadow-sm)]">
-                    <button type="button" onClick={() => setAllSections(true)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
-                      Expand all
-                    </button>
-                    <span aria-hidden className="h-4 w-px flex-none bg-line" />
-                    <button type="button" onClick={() => setAllSections(false)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
-                      Collapse all
-                    </button>
-                  </div>
-                </div>
+                <p className="mt-0.5 text-[12.5px] text-muted">
+                  {editing
+                    ? "Edit the parsed details and save — your stored file stays the same."
+                    : aiParse?.checked
+                      ? "Edit anything before saving — parsed with AI; nothing is saved to your account until you save."
+                      : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
+                </p>
               </div>
-              {!backLabel && (
-                <button
-                  onClick={handleClose}
-                  aria-label="Close review"
-                  title="Close (Esc)"
-                  className="grid h-9 w-9 flex-none place-items-center rounded-full border border-line bg-paper text-base text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
-                >
-                  ✕
-                </button>
-              )}
+              <div className="flex flex-none items-center gap-2">
+                <div className="inline-flex items-center overflow-hidden rounded-full border border-line bg-paper text-[12px] font-semibold text-ink-soft shadow-[var(--shadow-sm)]">
+                  <button type="button" onClick={() => setAllSections(true)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
+                    Expand all
+                  </button>
+                  <span aria-hidden className="h-4 w-px flex-none bg-line" />
+                  <button type="button" onClick={() => setAllSections(false)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
+                    Collapse all
+                  </button>
+                </div>
+                {!backLabel && (
+                  <button
+                    onClick={handleClose}
+                    aria-label="Close review"
+                    title="Close (Esc)"
+                    className="grid h-9 w-9 flex-none place-items-center rounded-full border border-line bg-paper text-base text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
           </header>
 
@@ -1140,7 +1145,7 @@ export default function ResumeUpload({
                   {saveError}
                 </p>
               )}
-              <button onClick={handleClose} className={cn(buttonVariants("ghost"), "whitespace-nowrap")}>Cancel</button>
+              <button onClick={handleClose} className={cn(footerBtn, "border-line text-ink-soft hover:bg-paper-2")}>Cancel</button>
               {SaveBtn}
             </div>
           </footer>

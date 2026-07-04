@@ -1,14 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
-import { ArrowsUpDownIcon, BookmarkIcon, ChevronDownIcon, FunnelIcon, SearchIcon } from "@kiwiply/ui";
+import {
+  ArchiveIcon,
+  ArrowsUpDownIcon,
+  BookmarkIcon,
+  ChevronDownIcon,
+  FunnelIcon,
+  Menu,
+  RestoreIcon,
+  SearchIcon,
+  StarIcon,
+  TrashIcon,
+  type MenuEntry,
+} from "@kiwiply/ui";
 import { ResumeUpload } from "@kiwiply/ui";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 
@@ -163,6 +174,13 @@ function companyInitial(company: string): string {
   return (company.trim()[0] ?? "•").toUpperCase();
 }
 
+// Round icon-button in a card's top-right cluster — shared by the star, saved-bookmark, and ⋯
+// trigger so they read as one control group (matches the resumes page's card action buttons).
+// No text color here — each user sets it exclusively so `text-muted` never coexists with
+// (and clobbers, via source order) the starred accent color.
+const CARD_ICON_BTN =
+  "grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors hover:bg-paper-2 disabled:opacity-50";
+
 function StarButton({ starred, busy, onToggle, className }: { starred: boolean; busy: boolean; onToggle: () => void; className?: string }) {
   return (
     <button
@@ -175,13 +193,9 @@ function StarButton({ starred, busy, onToggle, className }: { starred: boolean; 
         e.stopPropagation();
         onToggle();
       }}
-      className={cn(
-        "shrink-0 rounded-md px-1 text-[15px] leading-none transition-colors disabled:opacity-50",
-        starred ? "text-[color:var(--color-accent-deep)]" : "text-muted hover:text-ink",
-        className,
-      )}
+      className={cn(CARD_ICON_BTN, starred ? "text-[color:var(--color-accent-deep)]" : "text-muted hover:text-ink", className)}
     >
-      {starred ? "★" : "☆"}
+      <StarIcon fill={starred ? "currentColor" : "none"} className="h-[17px] w-[17px]" />
     </button>
   );
 }
@@ -198,10 +212,7 @@ function BookmarkButton({ busy, onRemove, className }: { busy: boolean; onRemove
         e.stopPropagation();
         onRemove();
       }}
-      className={cn(
-        "shrink-0 rounded-md px-1 leading-none text-[color:var(--color-accent-deep)] transition-colors hover:text-danger disabled:opacity-50",
-        className,
-      )}
+      className={cn(CARD_ICON_BTN, "text-[color:var(--color-accent-deep)] hover:bg-paper-2 hover:text-danger", className)}
     >
       <BookmarkIcon className="h-4 w-4" />
     </button>
@@ -623,6 +634,10 @@ export default function ApplicationBoard({
   const totalVisible = active.length + archivedItems.length;
   const selected = selectedId == null ? null : apps.find((a) => a.id === selectedId) ?? null;
 
+  // Ids currently on the board (post-filter) — the target of the bulk bar's "Select all".
+  const visibleIds = useMemo(() => [...active, ...archivedItems].map((a) => a.id), [active, archivedItems]);
+  const allVisiblePicked = visibleIds.length > 0 && visibleIds.every((id) => picked.has(id));
+
   const cardHandlers = (a: Application) => ({
     app: a,
     busy: pending.has(a.id),
@@ -703,6 +718,15 @@ export default function ApplicationBoard({
       {picked.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[var(--radius-lg)] border border-accent bg-accent-soft px-3 py-2 text-[13px]">
           <span className="font-semibold text-accent-deep">{picked.size} selected</span>
+          {!allVisiblePicked && (
+            <button
+              type="button"
+              onClick={() => setPicked(new Set(visibleIds))}
+              className="font-semibold text-accent-deep underline-offset-2 hover:underline"
+            >
+              Select all ({visibleIds.length})
+            </button>
+          )}
           <Select
             variant="pill"
             aria-label="Move selected to a status"
@@ -1225,7 +1249,10 @@ function AddApplicationDialog({
   );
 }
 
-/** Per-card ⋯ options menu, rendered in a portal so a column's internal scroll never clips it. */
+/**
+ * Per-card ⋯ options menu — the shared Menu primitive (portal + flip-up), so it reads identically
+ * to the resume cards' menu. Same behavior as before: Star, Move-to-stage, Archive/Unarchive, Delete.
+ */
 function CardMenu({
   starred,
   archived,
@@ -1245,87 +1272,31 @@ function CardMenu({
   onMoveTo: (status: string) => void;
   onDelete: () => void;
 }) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const open = pos !== null;
-
-  function toggle(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (open) {
-      setPos(null);
-      return;
-    }
-    const r = btnRef.current?.getBoundingClientRect();
-    if (!r) return;
-    // Estimate the menu height from its row count so it can flip above the button when
-    // there isn't room below (fixes rows near the viewport bottom running off-screen).
-    const rows = (canStar ? 1 : 0) + STAGES.length + 2; // star + stages + archive/delete
-    const estH = rows * 30 + 44; // rows + "Move to" label + divider + padding
-    const spaceBelow = window.innerHeight - r.bottom;
-    const openUp = spaceBelow < estH + 12 && r.top > spaceBelow;
-    const top = openUp ? Math.max(8, r.top - estH - 4) : r.bottom + 4;
-    setPos({ top, left: Math.max(8, r.right - 180) });
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setPos(null);
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-    };
-  }, [open]);
-
-  const item = "block w-full rounded-md px-2 py-1.5 text-left text-[12.5px] text-ink transition-colors hover:bg-paper-2";
-  const run = (fn: () => void) => (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setPos(null);
-    fn();
-  };
-
+  const items: MenuEntry[] = [
+    ...(canStar
+      ? [{ label: starred ? "Unstar" : "Star", icon: <StarIcon fill={starred ? "currentColor" : "none"} className="h-4 w-4" />, onSelect: onStar }]
+      : []),
+    { heading: "Move to" },
+    ...STAGES.map((c) => ({ label: c.label, onSelect: () => onMoveTo(c.key) })),
+    { separator: true },
+    {
+      label: archived ? "Unarchive" : "Archive",
+      icon: archived ? <RestoreIcon className="h-4 w-4" /> : <ArchiveIcon className="h-4 w-4" />,
+      onSelect: () => onArchive(!archived),
+    },
+    { label: "Delete", icon: <TrashIcon className="h-4 w-4" />, onSelect: onDelete, danger: true },
+  ];
   return (
-    <>
-      <button
-        ref={btnRef}
-        type="button"
-        disabled={busy}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Options"
-        title="Options"
-        onClick={toggle}
-        className="shrink-0 rounded-md px-1.5 leading-none text-muted transition-colors hover:bg-paper-2 hover:text-ink disabled:opacity-50"
-      >
-        ⋯
-      </button>
-      {pos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <>
-            <div className="fixed inset-0 z-[160]" aria-hidden onClick={(e) => { e.stopPropagation(); setPos(null); }} />
-            <div
-              role="menu"
-              onClick={(e) => e.stopPropagation()}
-              style={{ position: "fixed", top: pos.top, left: pos.left, width: 180, maxHeight: "calc(100vh - 16px)" }}
-              className="scroll-slim z-[161] overflow-y-auto rounded-lg border border-line bg-paper p-1 shadow-[var(--shadow-lg)]"
-            >
-              {canStar && (
-                <button role="menuitem" className={item} onClick={run(onStar)}>{starred ? "★ Unstar" : "☆ Star"}</button>
-              )}
-              <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">Move to</div>
-              {STAGES.map((c) => (
-                <button key={c.key} role="menuitem" className={cn(item, "pl-4")} onClick={run(() => onMoveTo(c.key))}>{c.label}</button>
-              ))}
-              <div className="my-1 h-px bg-line" />
-              <button role="menuitem" className={item} onClick={run(() => onArchive(!archived))}>{archived ? "Unarchive" : "Archive"}</button>
-              <button role="menuitem" className={cn(item, "text-danger")} onClick={run(onDelete)}>Delete</button>
-            </div>
-          </>,
-          document.body,
-        )}
-    </>
+    <Menu
+      align="end"
+      items={items}
+      disabled={busy}
+      trigger={
+        <span aria-label="Options" title="Options" className={cn(CARD_ICON_BTN, "text-lg leading-none text-muted hover:text-ink", busy && "opacity-50")}>
+          ⋯
+        </span>
+      }
+    />
   );
 }
 
@@ -1491,7 +1462,7 @@ function BoardCard({
           <div className={cn("truncate text-ink-soft", rich ? "text-[13px]" : "text-[12.5px]")}>{app.company}</div>
         </div>
         {/* Star/bookmark sits right beside the ⋯ menu, apart from the title. */}
-        <div className="flex items-start gap-0.5">
+        <div className="-mt-1 -mr-1 flex items-center gap-0.5">
           {isSaved ? (
             <BookmarkButton busy={busy} onRemove={onUnsave} />
           ) : (

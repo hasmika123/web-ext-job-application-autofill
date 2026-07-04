@@ -2,16 +2,20 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "./cn";
 
 /**
- * Menu — a dependency-free dropdown menu: a trigger + a popover list with click-outside and
- * Escape to close, arrow/Home/End roving focus, and `menu`/`menuitem` roles. Items are data
- * (not children) so the keyboard model stays simple. Anchored to the trigger; opens below,
- * right-aligned by default.
+ * Menu — a dependency-free dropdown menu: a trigger + a popover list with click-outside,
+ * Escape, scroll and resize to close, arrow/Home/End roving focus, and `menu`/`menuitem`
+ * roles. The popover renders in a PORTAL (fixed-positioned under the trigger, flipping above
+ * when there isn't room below) so a scrolling container — e.g. a board column — never clips
+ * it. Entries are data (not children) so the keyboard model stays simple; alongside action
+ * items you can pass `{ heading }` labels and `{ separator: true }` rules to group them.
  *
  *   <Menu trigger={<Button size="sm" variant="ghost">Actions</Button>} items={[
- *     { label: "Rename", onSelect: rename },
+ *     { label: "Rename", icon: <PencilIcon />, onSelect: rename },
+ *     { separator: true },
  *     { label: "Delete", onSelect: remove, danger: true },
  *   ]} />
  */
@@ -22,35 +26,80 @@ export interface MenuItem {
   danger?: boolean;
   disabled?: boolean;
 }
+/** A non-interactive section label (e.g. "Move to"). */
+export interface MenuHeading {
+  heading: ReactNode;
+}
+/** A horizontal rule between groups. */
+export interface MenuSeparator {
+  separator: true;
+}
+export type MenuEntry = MenuItem | MenuHeading | MenuSeparator;
+
+const isHeading = (e: MenuEntry): e is MenuHeading => "heading" in e;
+const isSeparator = (e: MenuEntry): e is MenuSeparator => "separator" in e;
 
 export interface MenuProps {
   trigger: ReactNode;
-  items: MenuItem[];
+  items: MenuEntry[];
   align?: "start" | "end";
   className?: string;
+  menuClassName?: string;
+  /** When true the trigger can't be opened (e.g. a row mid-mutation). */
+  disabled?: boolean;
 }
 
-export default function Menu({ trigger, items, align = "end", className }: MenuProps) {
+export default function Menu({ trigger, items, align = "end", className, menuClassName, disabled }: MenuProps) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const baseId = useId();
+
+  // Place the portal-rendered menu under the trigger (flipping above when it would run off the
+  // bottom), right- or left-aligned. Measured after render, so it's kept hidden until placed.
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const btn = triggerRef.current?.getBoundingClientRect();
+    if (!btn) return;
+    const menu = menuRef.current?.getBoundingClientRect();
+    const menuW = menu?.width ?? 200;
+    const menuH = menu?.height ?? 0;
+    const gap = 4;
+    const spaceBelow = window.innerHeight - btn.bottom;
+    const openUp = menuH > 0 && spaceBelow < menuH + gap + 8 && btn.top > spaceBelow;
+    const top = openUp ? Math.max(8, btn.top - menuH - gap) : btn.bottom + gap;
+    const left = align === "end" ? Math.max(8, btn.right - menuW) : Math.min(btn.left, window.innerWidth - menuW - 8);
+    setPos({ top, left });
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return;
-    function onDocMouseDown(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    }
+    const onDocMouseDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const close = () => setOpen(false);
     document.addEventListener("mousedown", onDocMouseDown);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
     // Focus the first enabled item on open.
-    const first = listRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])');
+    const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])');
     first?.focus();
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open]);
 
   function moveFocus(dir: 1 | -1 | "first" | "last") {
     const menuitems = Array.from(
-      listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? [],
+      menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? [],
     );
     if (menuitems.length === 0) return;
     const idx = menuitems.indexOf(document.activeElement as HTMLElement);
@@ -91,17 +140,25 @@ export default function Menu({ trigger, items, align = "end", className }: MenuP
   }
 
   return (
-    <div ref={rootRef} className={cn("relative inline-flex", className)}>
+    <div className={cn("inline-flex", className)}>
       <span
+        ref={triggerRef}
         role="button"
-        tabIndex={0}
+        tabIndex={disabled ? -1 : 0}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-disabled={disabled || undefined}
         aria-controls={open ? `${baseId}-menu` : undefined}
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (disabled) return;
+          setOpen((v) => !v);
+        }}
         onKeyDown={(e) => {
+          if (disabled) return;
           if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
             e.preventDefault();
+            e.stopPropagation();
             setOpen(true);
           }
         }}
@@ -110,43 +167,69 @@ export default function Menu({ trigger, items, align = "end", className }: MenuP
         {trigger}
       </span>
 
-      {open && (
-        <div
-          ref={listRef}
-          id={`${baseId}-menu`}
-          role="menu"
-          onKeyDown={onListKeyDown}
-          className={cn(
-            "absolute top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-[var(--radius)] " +
-              "border border-line bg-paper py-1 shadow-[var(--shadow-lg)]",
-            align === "end" ? "right-0" : "left-0",
-          )}
-        >
-          {items.map((item, i) => (
-            <button
-              key={i}
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              disabled={item.disabled}
-              aria-disabled={item.disabled || undefined}
-              onClick={() => {
-                if (item.disabled) return;
-                setOpen(false);
-                item.onSelect();
-              }}
-              className={cn(
-                "flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors " +
-                  "focus:outline-none focus-visible:bg-paper-2 disabled:opacity-50 disabled:pointer-events-none",
-                item.danger ? "text-danger hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]" : "text-ink hover:bg-paper-2",
-              )}
-            >
-              {item.icon != null && <span className="shrink-0 text-muted">{item.icon}</span>}
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={`${baseId}-menu`}
+            role="menu"
+            aria-orientation="vertical"
+            onKeyDown={onListKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              top: pos?.top ?? -9999,
+              left: pos?.left ?? -9999,
+              maxHeight: "calc(100vh - 16px)",
+              visibility: pos ? "visible" : "hidden",
+            }}
+            className={cn(
+              "scroll-slim z-[161] min-w-[184px] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              menuClassName,
+            )}
+          >
+            {items.map((entry, i) => {
+              if (isSeparator(entry)) return <div key={i} className="my-1 h-px bg-line" />;
+              if (isHeading(entry))
+                return (
+                  <div key={i} className="px-2.5 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">
+                    {entry.heading}
+                  </div>
+                );
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  disabled={entry.disabled}
+                  aria-disabled={entry.disabled || undefined}
+                  onClick={() => {
+                    if (entry.disabled) return;
+                    setOpen(false);
+                    entry.onSelect();
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors " +
+                      "focus:outline-none focus-visible:bg-paper-2 disabled:pointer-events-none disabled:opacity-50",
+                    entry.danger
+                      ? "text-danger hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]"
+                      : "text-ink hover:bg-paper-2",
+                  )}
+                >
+                  {entry.icon != null && (
+                    <span className={cn("grid shrink-0 place-items-center", entry.danger ? "text-danger" : "text-muted")}>
+                      {entry.icon}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
