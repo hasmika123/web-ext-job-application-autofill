@@ -539,17 +539,7 @@ export default function ResumeList({
                 aria-expanded={archivedOpen}
                 className="flex w-full items-center gap-2.5 text-sm font-semibold uppercase tracking-wide text-muted transition-colors hover:text-ink"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={cn("h-4 w-4 transition-transform", archivedOpen && "rotate-180")}
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
+                <ChevronDownIcon className={cn("h-4 w-4 transition-transform", archivedOpen && "rotate-180")} />
                 Archived
                 <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-bold tabular-nums text-ink-soft">
                   {view.archived.length}
