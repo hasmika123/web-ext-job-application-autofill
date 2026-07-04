@@ -349,7 +349,7 @@ function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) 
       {open && (
         <>
           <div className="fixed inset-0 z-[120]" aria-hidden onClick={() => setOpen(false)} />
-          <div role="listbox" className="absolute right-0 top-[calc(100%+6px)] z-[121] w-52 rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]">
+          <div role="listbox" className="absolute inset-x-0 top-[calc(100%+6px)] z-[121] rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]">
             {SORT_OPTIONS.map((o) => {
               const selected = o.value === value;
               return (
@@ -1383,6 +1383,7 @@ function BoardCard({
   const showNudge = app.status === "DRAFT" && !archived && !nudgeDismissed;
   const date = cardDate(app);
   const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
+  const typeLabel = app.jobType ? JOB_TYPE_LABEL[app.jobType] : "";
   // Don't repeat a mode the location already conveys (e.g. location "Remote, US" + mode "Remote").
   const showModeChip = !!modeLabel && !(app.location && app.location.toLowerCase().includes(modeLabel.toLowerCase()));
   const openPosting = () => {
@@ -1477,23 +1478,22 @@ function BoardCard({
         </div>
       </div>
 
-      {(app.location || showModeChip) && (
+      {(app.location || typeLabel || showModeChip) && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {app.location && (
-            <span className="max-w-full truncate rounded-full bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-soft">
+            <span className="max-w-full truncate rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">
               {app.location}
             </span>
           )}
+          {typeLabel && (
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">{typeLabel}</span>
+          )}
           {showModeChip && (
-            <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-soft">{modeLabel}</span>
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">{modeLabel}</span>
           )}
         </div>
       )}
-      {/* Pipeline (rich) cards and Saved tiles carry the salary line. */}
-      {(rich || variant === "saved") && app.salary && (
-        <div className="mt-1.5 truncate text-[12px] font-bold text-accent-deep">{app.salary}</div>
-      )}
-      {date && <div className={cn("text-[11px] text-muted", app.location || showModeChip ? "mt-1.5" : "mt-2")}>{date}</div>}
+      {date && <div className={cn("text-[11px] text-muted", app.location || typeLabel || showModeChip ? "mt-1.5" : "mt-2")}>{date}</div>}
 
       {/* Saved bookmarks: one-click jump to the posting. Filling it there moves it to Draft. */}
       {isSaved && !archived && app.jobUrl && (
@@ -1513,7 +1513,7 @@ function BoardCard({
       {showNudge && (
         <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
           <div className="flex items-center justify-between gap-1.5">
-            <div className="truncate font-bold">Did you apply?</div>
+            <div className="truncate font-bold">Did you finish applying?</div>
             <button
               onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
               disabled={busy}
@@ -1530,7 +1530,7 @@ function BoardCard({
               disabled={busy}
               className="rounded-md bg-accent px-2.5 py-1 font-bold text-on-accent disabled:opacity-50"
             >
-              Yes
+              Applied
             </button>
             {app.jobUrl ? (
               <button
@@ -1801,6 +1801,20 @@ function DetailPanel({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
+                {app.jobUrl && (
+                  <a
+                    href={app.jobUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label="View original posting"
+                    title="View original posting"
+                    className="rounded-md px-1.5 py-1 text-muted transition-colors hover:bg-paper-2 hover:text-accent-deep"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-4 w-4">
+                      <path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+                    </svg>
+                  </a>
+                )}
                 {app.status === "SAVED" ? (
                   <BookmarkButton busy={false} onRemove={onUnsave} className="px-1.5 py-1" />
                 ) : (
@@ -1966,17 +1980,6 @@ function DetailPanel({
                       <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.createdAt) || "—"}</dd>
                     </div>
                   </dl>
-
-                  {app.jobUrl && (
-                    <a
-                      href={app.jobUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2/40 px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-accent hover:text-accent-deep"
-                    >
-                      View original posting <span aria-hidden>↗</span>
-                    </a>
-                  )}
 
                   <div className="mt-6">
                     <button

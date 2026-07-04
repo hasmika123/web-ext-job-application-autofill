@@ -826,6 +826,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-03 · **web — board card tags + panel/sort tweaks** · Cards now show a job-type tag and
+  all tags are tinted green (accent-soft/accent-deep); the salary line is dropped from cards. The
+  detail panel's "View original posting" moved from under the details into the header as an icon
+  link left of the star (hidden when no URL). The sort dropdown's expanded menu now matches the
+  trigger width. Draft nudge reworded to "Did you finish applying?" with an "Applied" primary
+  button (Continue unchanged). tsc + eslint + `next build` green; web-only (no version bump).
 - 2026-07-03 · **web — board card/panel refinements (12 fixes)** · Star/bookmark grouped tight
   beside the ⋯ menu; CardMenu flips upward when near the viewport bottom (+ height cap/scroll) so
   Rejected/Archived menus stay on-screen; Applied cards now carry the same detail set (salary +
