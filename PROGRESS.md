@@ -826,6 +826,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-04 · **ui+web — usage pill, expand/collapse gating, menu width** · Resume cards: the
+  "used in N applications / not used yet" meta text is now a distinct rounded pill (standardized
+  wording, filled `bg-paper-2` chip) so it isn't missed. Edit dialog: Expand all / Collapse all
+  disable (greyed, in place) when there's nothing left to do — computed from the *visible* sections'
+  open states; section-to-section gap tightened `gap-5`→`gap-4` (resume-name card included). Shared
+  `Menu` popover min-width `184px`→`9rem` so both the board and resume ⋯ menus hug their content
+  (~10px slack, no wrapping); font (13px) + icons (16px) already unified via the one component. web
+  tsc/eslint/build green; ext tests + build green; ext → 0.50.5.
 - 2026-07-04 · **ui+web — board/resumes card polish + one shared dropdown** · Upgraded the shared
   `Menu` primitive to a portal popover (flip-up near the viewport bottom, heading + separator
   entries, `disabled` trigger) and routed BOTH the board's ⋯ menu and the resume cards' menu
