@@ -42,7 +42,7 @@ export default async function ResumesPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <header>
         <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-ink">
           Resumes
