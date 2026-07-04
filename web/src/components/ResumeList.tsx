@@ -154,7 +154,7 @@ function Row({
         <div className="flex items-center gap-2 text-[15px] font-bold text-ink">
           <span className="min-w-0 flex-1 truncate" title={resume.label}>{resume.label}</span>
           {isDefault && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-deep">
+            <span className="inline-flex shrink-0 self-center items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-deep">
               <CheckIcon className="h-3 w-3" strokeWidth={3} />
               Default
             </span>
