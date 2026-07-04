@@ -76,12 +76,14 @@ function LabeledInput({
  */
 function SectionCard({
   title,
+  count,
   action,
   open,
   onToggle,
   children,
 }: {
   title: string;
+  count?: number;
   action?: React.ReactNode;
   open: boolean;
   onToggle: () => void;
@@ -94,12 +96,19 @@ function SectionCard({
           type="button"
           onClick={onToggle}
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="group flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <span className="text-muted">
+          <span className="text-muted transition-colors group-hover:text-ink">
             <Chevron open={open} />
           </span>
-          <h3 className="truncate text-sm font-semibold uppercase tracking-wide text-muted">{title}</h3>
+          <h3 className="truncate text-sm font-semibold uppercase tracking-wide text-muted transition-colors group-hover:text-ink">
+            {title}
+          </h3>
+          {typeof count === "number" && (
+            <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-bold tabular-nums text-ink-soft">
+              {count}
+            </span>
+          )}
         </button>
         {open && action}
       </div>
@@ -702,6 +711,17 @@ export default function ResumeUpload({
     }
   }, [initialFile]);
 
+  // The review dialog scrolls internally — lock the page behind it while it's open.
+  const reviewOpen = struct != null;
+  useEffect(() => {
+    if (!reviewOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [reviewOpen]);
+
   // Esc closes the full-page review (and, when embedded, the host overlay).
   useEffect(() => {
     if (!struct && !(embedded && parsing)) return;
@@ -886,16 +906,22 @@ export default function ResumeUpload({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={cn(
-            "cursor-pointer rounded-[var(--radius-lg)] border-2 border-dashed p-8 text-center transition-colors",
-            dragging ? "border-accent bg-accent-soft" : "border-line bg-paper hover:bg-paper-2",
+            "flex cursor-pointer flex-col items-center gap-3 rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-6 text-center transition-colors sm:flex-row sm:gap-5 sm:py-5 sm:text-left",
+            dragging ? "border-accent bg-accent-soft" : "border-line bg-paper hover:border-accent-2 hover:bg-paper-2",
           )}
         >
-          <div className="text-3xl">📄</div>
-          <h3 className="mt-2 font-display text-lg font-semibold text-ink">Drop a resume here</h3>
-          <p className="mt-1 text-[13.5px] text-muted">
-            or <span className="font-semibold text-accent-deep">browse</span> — PDF, DOCX, or TXT.
-            {!aiParse?.checked && " Parsed right here in your browser."}
-          </p>
+          <span aria-hidden className="grid h-12 w-12 flex-none place-items-center rounded-[var(--radius)] bg-accent-soft text-2xl">
+            📄
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-display text-[17px] font-semibold text-ink">Add a resume</h3>
+            <p className="mt-0.5 text-[13.5px] text-muted">
+              Drag &amp; drop or browse — PDF, DOCX, or TXT.
+              {!aiParse?.checked && " Parsed right here in your browser."}
+            </p>
+          </div>
+          {/* Styled as a button, but the whole zone is the real click target (no nested button). */}
+          <span className={cn(buttonVariants("ghost", "sm"), "pointer-events-none flex-none")}>Browse files</span>
           <input ref={inputRef} type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" onChange={onInput} className="hidden" />
         </div>
         {aiParse && (
@@ -921,61 +947,65 @@ export default function ResumeUpload({
       </div>
       )}
 
-      {/* Full-page editable review */}
+      {/* Editable review — a dialog panel: fixed header, scrollable body, pinned footer with
+          the save action always in view. Full-bleed below `sm` (e.g. the extension drawer);
+          a centered panel over a scrim on larger screens. */}
       {struct && (
-        <div role="dialog" aria-modal="true" aria-label="Review resume" className="fixed inset-0 z-[150] overflow-y-auto bg-app-bg">
-          <div className="mx-auto max-w-3xl px-5 py-8 sm:px-6">
-            <div className="mb-6">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={editing ? "Edit resume" : "Review resume"}
+          className="fixed inset-0 z-[150] flex justify-center bg-[rgba(35,40,38,.45)] sm:px-6 sm:py-[3vh]"
+        >
+          <div className="flex w-full max-w-3xl flex-col overflow-hidden bg-app-bg sm:rounded-[var(--radius-lg)] sm:border sm:border-line sm:shadow-[var(--shadow-lg)]">
+            {/* Header */}
+            <header className="flex items-start gap-3 border-b border-line bg-paper px-5 py-4 sm:px-6">
               {backLabel && (
                 <button
                   onClick={handleClose}
-                  className="mb-3 -ml-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="-ml-1.5 mt-0.5 inline-flex flex-none items-center gap-1 rounded-full px-2 py-1 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <ChevronLeftIcon strokeWidth={1.75} className="h-4 w-4" />
                   {backLabel}
                 </button>
               )}
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-display text-2xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
-                  <p className="mt-1 text-sm text-muted">
-                    {editing
-                      ? "Edit the parsed details and save — your stored file stays the same."
-                      : aiParse?.checked
-                        ? "Edit anything before saving — parsed with AI; nothing is saved to your account until you save."
-                        : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
-                  </p>
-                </div>
-                {!backLabel && (
-                  <button
-                    onClick={handleClose}
-                    aria-label="Close review"
-                    title="Close (Esc)"
-                    className="grid h-10 w-10 flex-none place-items-center rounded-full border border-line bg-paper text-lg text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
-                  >
-                    ✕
-                  </button>
-                )}
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate font-display text-xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
+                <p className="mt-0.5 text-[12.5px] text-muted">
+                  {editing
+                    ? "Edit the parsed details and save — your stored file stays the same."
+                    : aiParse?.checked
+                      ? "Edit anything before saving — parsed with AI; nothing is saved to your account until you save."
+                      : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
+                </p>
               </div>
-            </div>
+              {!backLabel && (
+                <button
+                  onClick={handleClose}
+                  aria-label="Close review"
+                  title="Close (Esc)"
+                  className="grid h-9 w-9 flex-none place-items-center rounded-full border border-line bg-paper text-base text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
+                >
+                  ✕
+                </button>
+              )}
+            </header>
 
-            <div className="flex flex-col gap-5 pb-6">
-              {/* Resume name + Save (input & button share a row → aligned) */}
+            {/* Scrollable body */}
+            <div className="scroll-slim flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            <div className="flex flex-col gap-5">
+              {/* Resume name (saving lives in the pinned footer below) */}
               <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
                 <label htmlFor="resume-label" className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft">Resume name</label>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-                  <Input
-                    id="resume-label"
-                    value={label}
-                    maxLength={LIMITS.resumeLabel}
-                    onChange={(e) => {
-                      setLabel(e.target.value);
-                      if (dupConfirm) setDupConfirm(false); // a rename clears the duplicate warning
-                    }}
-                    className="flex-1"
-                  />
-                  {SaveBtn}
-                </div>
+                <Input
+                  id="resume-label"
+                  value={label}
+                  maxLength={LIMITS.resumeLabel}
+                  onChange={(e) => {
+                    setLabel(e.target.value);
+                    if (dupConfirm) setDupConfirm(false); // a rename clears the duplicate warning
+                  }}
+                />
                 {!editing && onSetDefault && (
                   <label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
                     <input
@@ -986,16 +1016,6 @@ export default function ResumeUpload({
                     />
                     Set as my default resume
                   </label>
-                )}
-                {dupConfirm && !saveError && (
-                  <p role="alert" className="mt-2 text-sm font-medium text-brown-deep">
-                    You already have a resume named “{label.trim() || "Resume"}”. Save anyway, or rename it above.
-                  </p>
-                )}
-                {saveError && (
-                  <p role="alert" className="mt-2 text-sm font-medium text-danger">
-                    {saveError}
-                  </p>
                 )}
               </div>
 
@@ -1047,13 +1067,13 @@ export default function ResumeUpload({
               </SectionCard>
 
               {/* Skills (editable + base-overlap coloring) */}
-              <SectionCard title={`Skills (${struct.skills.length})`} open={isOpen("skills")} onToggle={() => toggleSection("skills")}>
+              <SectionCard title="Skills" count={struct.skills.length} open={isOpen("skills")} onToggle={() => toggleSection("skills")}>
                 <SkillChips skills={struct.skills} baseSet={baseSet} onChange={(next) => patchStruct({ skills: next })} />
                 <SkillLegend />
               </SectionCard>
 
               {/* Experience — full entries with editable bullets */}
-              <SectionCard title={`Experience (${struct.experience.length})`} open={isOpen("experience")} onToggle={() => toggleSection("experience")} action={<AddBtn onClick={addExp} label="Add role" />}>
+              <SectionCard title="Experience" count={struct.experience.length} open={isOpen("experience")} onToggle={() => toggleSection("experience")} action={<AddBtn onClick={addExp} label="Add role" />}>
                 <div className="flex flex-col gap-4">
                   {struct.experience.map((exp, i) => (
                     <ExperienceEditor
@@ -1070,7 +1090,7 @@ export default function ResumeUpload({
               </SectionCard>
 
               {/* Projects */}
-              <SectionCard title={`Projects (${struct.projects.length})`} open={isOpen("projects")} onToggle={() => toggleSection("projects")} action={<AddBtn onClick={addProj} label="Add project" />}>
+              <SectionCard title="Projects" count={struct.projects.length} open={isOpen("projects")} onToggle={() => toggleSection("projects")} action={<AddBtn onClick={addProj} label="Add project" />}>
                 <div className="flex flex-col gap-4">
                   {struct.projects.map((proj, i) => (
                     <ProjectEditor
@@ -1087,7 +1107,7 @@ export default function ResumeUpload({
               </SectionCard>
 
               {/* Education */}
-              <SectionCard title={`Education (${struct.education.length})`} open={isOpen("education")} onToggle={() => toggleSection("education")} action={<AddBtn onClick={addEdu} label="Add education" />}>
+              <SectionCard title="Education" count={struct.education.length} open={isOpen("education")} onToggle={() => toggleSection("education")} action={<AddBtn onClick={addEdu} label="Add education" />}>
                 <div className="flex flex-col gap-4">
                   {struct.education.map((edu, i) => (
                     <EducationEditor
@@ -1103,11 +1123,24 @@ export default function ResumeUpload({
                 </div>
               </SectionCard>
 
-              <div className="flex justify-end gap-3">
-                <button onClick={handleClose} className={buttonVariants("ghost")}>Cancel</button>
-                {SaveBtn}
-              </div>
             </div>
+            </div>
+
+            {/* Pinned footer: errors surface next to the actions, so they're never scrolled away */}
+            <footer className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t border-line bg-paper px-5 py-3.5 sm:px-6">
+              {dupConfirm && !saveError && (
+                <p role="alert" className="min-w-0 flex-1 basis-full text-[13px] font-medium leading-snug text-brown-deep sm:basis-0">
+                  You already have a resume named “{label.trim() || "Resume"}”. Save anyway, or rename it first.
+                </p>
+              )}
+              {saveError && (
+                <p role="alert" className="min-w-0 flex-1 basis-full text-[13px] font-medium leading-snug text-danger sm:basis-0">
+                  {saveError}
+                </p>
+              )}
+              <button onClick={handleClose} className={cn(buttonVariants("ghost"), "whitespace-nowrap")}>Cancel</button>
+              {SaveBtn}
+            </footer>
           </div>
         </div>
       )}

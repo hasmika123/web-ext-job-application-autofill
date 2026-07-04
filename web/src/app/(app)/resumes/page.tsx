@@ -44,7 +44,14 @@ export default async function ResumesPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-10">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">Resumes</h1>
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-ink">
+          Resumes
+          {resumes.length > 0 && (
+            <span className="rounded-full border border-line bg-paper px-2.5 py-0.5 text-[13px] font-semibold tabular-nums text-ink-soft">
+              {resumes.filter((r) => !r.archived).length}
+            </span>
+          )}
+        </h1>
         <p className="mt-1 text-sm text-muted">
           Upload, review, and manage your resume variants. Each is parsed in your browser.
         </p>
