@@ -1,6 +1,9 @@
+"use client";
+
 import { useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { cn } from "./cn";
+import { XIcon } from "./icons";
 
 /**
  * Dialog — a modal built dependency-free: a scrim + centered panel with `role="dialog"`,
@@ -127,9 +130,7 @@ export default function Dialog({
                 aria-label="Close"
                 className="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-                  <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-                </svg>
+                <XIcon className="h-4 w-4" />
               </button>
             )}
           </div>

@@ -20,7 +20,7 @@ const SEVERITIES = ["", "LOW", "MEDIUM", "HIGH"];
 /** Admin triage controls for one bug report (Phase 9.A5.3): status, severity, notes → BFF PUT. */
 export default function BugTriageControl({ id, status, severity, adminNotes }: Props) {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const [st, setSt] = useState(status);
   const [sev, setSev] = useState(severity ?? "");
   const [notes, setNotes] = useState(adminNotes ?? "");

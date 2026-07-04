@@ -4,6 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, EmptyState, useToast } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import {
+  ArchiveIcon as SharedArchiveIcon,
+  ChevronDownIcon,
+  PencilIcon as SharedPencilIcon,
+  RestoreIcon as SharedRestoreIcon,
+  SearchIcon,
+  StarIcon as SharedStarIcon,
+  TrashIcon as SharedTrashIcon,
+} from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
 
 export interface Resume {
@@ -75,30 +84,12 @@ function IconBtn({
 }
 
 const ICON = "h-[17px] w-[17px]";
-const ArchiveIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={ICON}>
-    <rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" /><path d="M10 12h4" />
-  </svg>
-);
-const RestoreIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={ICON}>
-    <path d="M3 7v6h6" /><path d="M3.5 13a9 9 0 1 0 2.3-9.3L3 7" />
-  </svg>
-);
-const TrashIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={ICON}>
-    <path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />
-  </svg>
-);
-const PencilIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={ICON}>
-    <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-  </svg>
-);
+const ArchiveIcon = () => <SharedArchiveIcon className={ICON} />;
+const RestoreIcon = () => <SharedRestoreIcon className={ICON} />;
+const TrashIcon = () => <SharedTrashIcon className={ICON} />;
+const PencilIcon = () => <SharedPencilIcon className={ICON} />;
 const StarIcon = ({ filled }: { filled: boolean }) => (
-  <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={ICON}>
-    <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.8 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z" />
-  </svg>
+  <SharedStarIcon fill={filled ? "currentColor" : "none"} className={ICON} />
 );
 
 function Row({
@@ -254,7 +245,7 @@ export default function ResumeList({
   onEdit?: (r: Resume) => void;
 }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -448,10 +439,7 @@ export default function ResumeList({
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="relative min-w-[180px] max-w-[320px] flex-1">
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
+            <SearchIcon className="h-[15px] w-[15px]" />
           </span>
           <input
             value={query}

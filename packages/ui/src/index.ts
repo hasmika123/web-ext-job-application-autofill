@@ -21,7 +21,7 @@ export type { SelectProps, SelectOption } from "./primitives/Select";
 export { default as Field } from "./primitives/Field";
 export type { FieldProps } from "./primitives/Field";
 
-export { default as Card, CardHeader, CardTitle, CardDescription, CardFooter } from "./primitives/Card";
+export { default as Card, CardHeader, CardTitle, CardDescription, CardFooter, cardClass } from "./primitives/Card";
 export type { CardProps } from "./primitives/Card";
 
 export { default as Badge, Pill, Tag } from "./primitives/Badge";
@@ -57,6 +57,8 @@ export type { MenuProps, MenuItem } from "./primitives/Menu";
 
 export { Mark, Wordmark, BrandLockup, Check } from "./primitives/Brand";
 export type { MarkProps, WordmarkProps, BrandLockupProps } from "./primitives/Brand";
+
+export * from "./primitives/icons";
 
 export { cn } from "./primitives/cn";
 

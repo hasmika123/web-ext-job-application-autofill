@@ -5,6 +5,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import {
+  AiIcon,
+  BugIcon,
+  ChartIcon,
+  ChevronLeftIcon,
+  DashboardIcon,
+  FileTextIcon,
+  MailIcon,
+  MonitorIcon,
+  ShieldIcon,
+  UsersIcon,
+} from "@kiwiply/ui";
 
 export interface AdminAccount {
   login?: string;
@@ -16,23 +28,19 @@ export interface AdminAccount {
 
 type NavItem = { href: string; label: string; icon: React.ReactNode; soon?: boolean };
 
-const icon = (path: React.ReactNode) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] flex-none">
-    {path}
-  </svg>
-);
-
+// Shared stroke icons (@kiwiply/ui).
+const ICON = "h-[18px] w-[18px] flex-none";
 const I = {
-  overview: icon(<><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>),
-  users: icon(<><circle cx="9" cy="8" r="3.2" /><path d="M3.5 20v-1a5 5 0 0 1 5-5h1a5 5 0 0 1 5 5v1" /><path d="M16 4.2a3.2 3.2 0 0 1 0 6.1" /><path d="M17 14.2a5 5 0 0 1 3.5 4.8v1" /></>),
-  ai: icon(<><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M9 9h6M9 13h6M9 17h3" /></>),
-  security: icon(<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" />),
-  analytics: icon(<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />),
-  email: icon(<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M4 7l8 6 8-6" /></>),
-  bug: icon(<><rect x="8" y="8" width="8" height="11" rx="4" /><path d="M12 8V5M5 10h3M16 10h3M5 14h3M16 14h3M5 18h3M16 18h3" /></>),
-  system: icon(<><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></>),
-  audit: icon(<><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></>),
-  back: icon(<path d="M15 18l-6-6 6-6" />),
+  overview: <DashboardIcon className={ICON} />,
+  users: <UsersIcon className={ICON} />,
+  ai: <AiIcon className={ICON} />,
+  security: <ShieldIcon className={ICON} />,
+  analytics: <ChartIcon className={ICON} />,
+  email: <MailIcon className={ICON} />,
+  bug: <BugIcon className={ICON} />,
+  system: <MonitorIcon className={ICON} />,
+  audit: <FileTextIcon className={ICON} />,
+  back: <ChevronLeftIcon className={ICON} />,
 };
 
 const NAV: NavItem[] = [

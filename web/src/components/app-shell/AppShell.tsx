@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Logo, BetaBadge } from "@/components/ui";
+import { BoardIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, GearIcon, UserIcon } from "@kiwiply/ui";
 import SignOutButton from "@/components/SignOutButton";
 
 export interface AppAccount {
@@ -49,37 +50,14 @@ function useCollapsedPref(): [boolean, (v: boolean) => void] {
   return [collapsed, set];
 }
 
-// Stroke icons (24x24, currentColor) — clean and theme-aware.
+// Shared stroke icons (@kiwiply/ui) — clean and theme-aware.
+const ICON = "h-[18px] w-[18px]";
 const I = {
-  dashboard: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" />
-      <rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
-    </svg>
-  ),
-  profile: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
-    </svg>
-  ),
-  resumes: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h6" />
-    </svg>
-  ),
-  // Kanban columns sitting on a common baseline (ragged tops) — was upside-down (ragged bottoms).
-  board: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <rect x="3" y="8" width="5" height="12" rx="1.5" /><rect x="10" y="4" width="5" height="16" rx="1.5" /><rect x="17" y="6" width="4" height="14" rx="1.5" />
-    </svg>
-  ),
-  // Lucide "settings" gear — fits the 24x24 box (the old path clipped at the edges).
-  settings: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  ),
+  dashboard: <DashboardIcon className={ICON} />,
+  profile: <UserIcon className={ICON} />,
+  resumes: <FileTextIcon className={ICON} />,
+  board: <BoardIcon className={ICON} />,
+  settings: <GearIcon className={ICON} />,
 };
 
 const NAV: NavItem[] = [
@@ -210,17 +188,9 @@ export default function AppShell({
             collapsed && "lg:justify-center lg:gap-0 lg:px-0",
           )}
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <ChevronLeftIcon
             className={cn("h-[18px] w-[18px] flex-none transition-transform", collapsed && "rotate-180")}
-          >
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
+          />
           <span className={cn("truncate", collapsed && "lg:hidden")}>Collapse</span>
         </button>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
 import Select from "@/components/ui/Select";
+import { BugIcon } from "@kiwiply/ui";
 
 const NUDGE_SEEN_KEY = "kiwiply_bugnudge_seen";
 const NUDGE_LABEL = "Found a bug? Let us know 🐛";
@@ -214,10 +215,7 @@ export default function BugReportWidget() {
           className="grid h-13 w-13 flex-none touch-none cursor-grab place-items-center rounded-full bg-ink text-paper shadow-[0_6px_20px_rgba(0,0,0,.25)] transition-transform hover:scale-105 active:cursor-grabbing"
           style={{ height: 52, width: 52 }}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-            <rect x="8" y="6" width="8" height="13" rx="4" />
-            <path d="M12 6V4M5 9h3M16 9h3M4 13h4M16 13h4M5 17h3M16 17h3" />
-          </svg>
+          <BugIcon className="h-6 w-6" />
         </button>
       </div>
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { cn } from "./cn";
@@ -20,16 +22,18 @@ export interface SwitchProps {
   id?: string;
   className?: string;
   "aria-label"?: string;
+  "aria-labelledby"?: string;
 }
 
 // The track — a 1:1 port of the web app's ui/Switch look (pseudo-element thumb).
-function Track({ checked, disabled, id, labelledBy, ariaLabel, onToggle }: {
+function Track({ checked, disabled, id, labelledBy, ariaLabel, onToggle, className }: {
   checked: boolean;
   disabled?: boolean;
   id?: string;
   labelledBy?: string;
   ariaLabel?: string;
   onToggle: () => void;
+  className?: string;
 }) {
   return (
     <button
@@ -48,6 +52,7 @@ function Track({ checked, disabled, id, labelledBy, ariaLabel, onToggle }: {
         checked ? "bg-accent after:left-[21px]" : "bg-line after:left-[3px]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         "disabled:opacity-50 disabled:cursor-not-allowed",
+        className,
       )}
     />
   );
@@ -62,6 +67,7 @@ export default function Switch({
   id,
   className,
   "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
 }: SwitchProps) {
   const genId = useId();
   const toggle = () => {
@@ -70,7 +76,15 @@ export default function Switch({
 
   if (label == null) {
     return (
-      <Track checked={checked} disabled={disabled} id={id} ariaLabel={ariaLabel} onToggle={toggle} />
+      <Track
+        checked={checked}
+        disabled={disabled}
+        id={id}
+        ariaLabel={ariaLabel}
+        labelledBy={ariaLabelledBy}
+        onToggle={toggle}
+        className={className}
+      />
     );
   }
 
