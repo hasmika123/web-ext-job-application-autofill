@@ -906,22 +906,16 @@ export default function ResumeUpload({
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           className={cn(
-            "flex cursor-pointer flex-col items-center gap-3 rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-7 text-center transition-colors sm:flex-row sm:gap-5 sm:py-8 sm:text-left",
-            dragging ? "border-accent bg-accent-soft" : "border-line bg-paper hover:border-accent-2 hover:bg-paper-2",
+            "cursor-pointer rounded-[var(--radius-lg)] border-2 border-dashed p-8 text-center transition-colors",
+            dragging ? "border-accent bg-accent-soft" : "border-line bg-paper hover:bg-paper-2",
           )}
         >
-          <span aria-hidden className="grid h-14 w-14 flex-none place-items-center rounded-[var(--radius)] bg-accent-soft text-2xl">
-            📄
-          </span>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-display text-[17px] font-semibold text-ink">Add a resume</h3>
-            <p className="mt-0.5 text-[13.5px] text-muted">
-              Drag &amp; drop or browse — PDF, DOCX, or TXT.
-              {!aiParse?.checked && " Parsed right here in your browser."}
-            </p>
-          </div>
-          {/* Styled as a button, but the whole zone is the real click target (no nested button). */}
-          <span className={cn(buttonVariants("ghost", "sm"), "pointer-events-none flex-none")}>Browse files</span>
+          <div className="text-3xl">📄</div>
+          <h3 className="mt-2 font-display text-lg font-semibold text-ink">Drop a resume here</h3>
+          <p className="mt-1 text-[13.5px] text-muted">
+            or <span className="font-semibold text-accent-deep">browse</span> — PDF, DOCX, or TXT.
+            {!aiParse?.checked && " Parsed right here in your browser."}
+          </p>
           <input ref={inputRef} type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" onChange={onInput} className="hidden" />
         </div>
         {aiParse && (
@@ -970,21 +964,27 @@ export default function ResumeUpload({
                 </button>
               )}
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <h2 className="truncate font-display text-xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
-                  <div className="flex items-center gap-2 whitespace-nowrap text-[12px] font-semibold text-ink-soft">
-                    <button type="button" onClick={() => setAllSections(true)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Expand all</button>
-                    <span aria-hidden className="text-muted">·</span>
-                    <button type="button" onClick={() => setAllSections(false)} className="rounded-full px-2 py-1 transition-colors hover:bg-paper-2 hover:text-ink">Collapse all</button>
+                <h2 className="truncate font-display text-xl font-bold text-ink">{editing ? "Edit resume" : "Review & edit resume"}</h2>
+                {/* Subtitle + the section controls share a line; the segmented pill wraps under
+                    the text (right-aligned) when the header gets narrow. */}
+                <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                  <p className="min-w-0 flex-1 basis-[220px] text-[12.5px] text-muted">
+                    {editing
+                      ? "Edit the parsed details and save — your stored file stays the same."
+                      : aiParse?.checked
+                        ? "Edit anything before saving — parsed with AI; nothing is saved to your account until you save."
+                        : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
+                  </p>
+                  <div className="ml-auto inline-flex flex-none items-center overflow-hidden rounded-full border border-line bg-paper text-[12px] font-semibold text-ink-soft shadow-[var(--shadow-sm)]">
+                    <button type="button" onClick={() => setAllSections(true)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
+                      Expand all
+                    </button>
+                    <span aria-hidden className="h-4 w-px flex-none bg-line" />
+                    <button type="button" onClick={() => setAllSections(false)} className="px-3 py-1.5 transition-colors hover:bg-paper-2 hover:text-ink">
+                      Collapse all
+                    </button>
                   </div>
                 </div>
-                <p className="mt-0.5 text-[12.5px] text-muted">
-                  {editing
-                    ? "Edit the parsed details and save — your stored file stays the same."
-                    : aiParse?.checked
-                      ? "Edit anything before saving — parsed with AI; nothing is saved to your account until you save."
-                      : "Edit anything before saving — parsed in your browser, nothing leaves until you save."}
-                </p>
               </div>
               {!backLabel && (
                 <button

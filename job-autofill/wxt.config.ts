@@ -32,7 +32,7 @@ export default defineConfig({
   }),
   manifest: {
     name: "Kiwiply — Job Application Autofill",
-    version: "0.50.2",
+    version: "0.50.3",
     description:
       "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
     // Preserve the manifest key so the unpacked extension ID stays stable (keeps the
