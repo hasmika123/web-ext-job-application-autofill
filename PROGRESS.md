@@ -826,6 +826,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-07-04 · **ui+web — resumes page & review-dialog restructure** · The shared ResumeUpload
+  review is now a real dialog: scrim + centered panel (full-bleed under `sm`, so the extension
+  drawer keeps its full-screen layout), fixed header (title/subtitle/close), scrollable body, and
+  a pinned footer where Cancel/Save and the dup-name/save errors always stay in view; body scroll
+  locks behind it and section headers got count badges. Resumes page: slimmer horizontal drop-zone
+  (icon + copy + Browse button), header count pill, section headers with count + hairline, subtle
+  row hover elevation. web tsc/eslint green; ext tests + build green; ext → 0.50.1.
 - 2026-07-03 · **web — board card tags + panel/sort tweaks** · Cards now show a job-type tag and
   all tags are tinted green (accent-soft/accent-deep); the salary line is dropped from cards. The
   detail panel's "View original posting" moved from under the details into the header as an icon

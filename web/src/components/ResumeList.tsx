@@ -148,10 +148,10 @@ function Row({
     <li
       {...cardClick}
       className={cn(
-        "flex flex-wrap items-center gap-4 rounded-[var(--radius-lg)] border bg-paper p-4 shadow-[var(--shadow)] transition-colors",
+        "flex flex-wrap items-center gap-4 rounded-[var(--radius-lg)] border bg-paper p-4 shadow-[var(--shadow)] transition-[border-color,box-shadow]",
         selected ? "border-accent ring-1 ring-accent" : "border-line",
         archived && "opacity-60", // greyed out — de-emphasized vs. active resumes
-        onEdit && "cursor-pointer hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        onEdit && "cursor-pointer hover:border-accent hover:shadow-[var(--shadow-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
       )}
     >
       <input
@@ -529,8 +529,12 @@ export default function ResumeList({
       ) : (
         <>
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-              Your resumes ({view.active.length})
+            <h2 className="flex items-center gap-2.5 text-sm font-semibold uppercase tracking-wide text-muted">
+              Your resumes
+              <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-bold tabular-nums text-ink-soft">
+                {view.active.length}
+              </span>
+              <span aria-hidden className="h-px flex-1 bg-line" />
             </h2>
             {view.active.length > 0 ? (
               <ul className="flex flex-col gap-3">{view.active.map(renderRow)}</ul>
@@ -545,7 +549,7 @@ export default function ResumeList({
                 type="button"
                 onClick={() => setArchivedOpen((o) => !o)}
                 aria-expanded={archivedOpen}
-                className="flex w-fit items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted transition-colors hover:text-ink"
+                className="flex w-full items-center gap-2.5 text-sm font-semibold uppercase tracking-wide text-muted transition-colors hover:text-ink"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -558,7 +562,11 @@ export default function ResumeList({
                 >
                   <path d="M6 9l6 6 6-6" />
                 </svg>
-                Archived ({view.archived.length})
+                Archived
+                <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-bold tabular-nums text-ink-soft">
+                  {view.archived.length}
+                </span>
+                <span aria-hidden className="h-px flex-1 bg-line" />
               </button>
               {archivedOpen && <ul className="flex flex-col gap-3">{view.archived.map(renderRow)}</ul>}
             </section>
