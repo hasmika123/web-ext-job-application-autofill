@@ -104,19 +104,24 @@ function Chevron({ open, className }: { open: boolean; className?: string }) {
   );
 }
 
-function hostOf(url?: string | null): string {
-  if (!url) return "";
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
 function formatDate(iso?: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/**
+ * Split a free-text location into its distinct locations. Only strong separators count
+ * (semicolon, pipe, newline, or a space-padded slash) — NEVER a comma, which lives inside a
+ * single "City, ST", and never the word "or", which collides with Oregon's "OR". Conservative
+ * on purpose: better to under-split (one tag) than to corrupt a legitimate single location.
+ */
+function parseLocations(location?: string | null): string[] {
+  if (!location) return [];
+  return location
+    .split(/\s*[;|\n]\s*|\s+\/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 // The one date shown on a decluttered card: the applied date once applied, otherwise the
@@ -1384,6 +1389,7 @@ function BoardCard({
   const date = cardDate(app);
   const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
   const typeLabel = app.jobType ? JOB_TYPE_LABEL[app.jobType] : "";
+  const locations = parseLocations(app.location);
   // Don't repeat a mode the location already conveys (e.g. location "Remote, US" + mode "Remote").
   const showModeChip = !!modeLabel && !(app.location && app.location.toLowerCase().includes(modeLabel.toLowerCase()));
   const openPosting = () => {
@@ -1478,11 +1484,24 @@ function BoardCard({
         </div>
       </div>
 
-      {(app.location || typeLabel || showModeChip) && (
+      {(app.salary || app.location || typeLabel || showModeChip) && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
+          {app.salary && (
+            <span className="max-w-full truncate rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent-deep">
+              {app.salary}
+            </span>
+          )}
           {app.location && (
             <span className="max-w-full truncate rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">
-              {app.location}
+              {locations[0] || app.location}
+            </span>
+          )}
+          {locations.length > 1 && (
+            <span
+              title={locations.join(" · ")}
+              className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent-deep"
+            >
+              +{locations.length - 1}
             </span>
           )}
           {typeLabel && (
@@ -1493,7 +1512,7 @@ function BoardCard({
           )}
         </div>
       )}
-      {date && <div className={cn("text-[11px] text-muted", app.location || typeLabel || showModeChip ? "mt-1.5" : "mt-2")}>{date}</div>}
+      {date && <div className={cn("text-[11px] text-muted", app.salary || app.location || typeLabel || showModeChip ? "mt-1.5" : "mt-2")}>{date}</div>}
 
       {/* Saved bookmarks: one-click jump to the posting. Filling it there moves it to Draft. */}
       {isSaved && !archived && app.jobUrl && (
@@ -1511,9 +1530,9 @@ function BoardCard({
       )}
 
       {showNudge && (
-        <div className="mt-2 rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
+        <div className="mt-2 w-fit max-w-full rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
           <div className="flex items-center justify-between gap-1.5">
-            <div className="truncate font-bold">Did you finish applying?</div>
+            <div className="font-bold">Did you finish applying?</div>
             <button
               onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
               disabled={busy}
@@ -1759,6 +1778,7 @@ function DetailPanel({
         : null
     : null;
   const resumeName = app ? app.attachmentFilename || app.resume?.label || (app.resume?.id ? `Resume #${app.resume.id}` : "") : "";
+  const panelLocations = parseLocations(app?.location);
 
   return (
     <>
@@ -1793,7 +1813,6 @@ function DetailPanel({
                   <h2 className="font-display text-xl font-semibold leading-snug text-ink">{app.roleTitle}</h2>
                   <p className="mt-0.5 flex items-baseline gap-1.5 text-sm text-ink-soft">
                     <span className="truncate">{app.company}</span>
-                    {hostOf(app.jobUrl) && <span className="truncate text-[12px] text-muted">· {hostOf(app.jobUrl)}</span>}
                     {app.archived && (
                       <span className="shrink-0 rounded-[5px] border border-line px-1.5 py-0.5 text-[10px] text-muted">Archived</span>
                     )}
@@ -1801,20 +1820,6 @@ function DetailPanel({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {app.jobUrl && (
-                  <a
-                    href={app.jobUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    aria-label="View original posting"
-                    title="View original posting"
-                    className="rounded-md px-1.5 py-1 text-muted transition-colors hover:bg-paper-2 hover:text-accent-deep"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-4 w-4">
-                      <path d="M14 4h6v6M20 4l-9 9M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
-                    </svg>
-                  </a>
-                )}
                 {app.status === "SAVED" ? (
                   <BookmarkButton busy={false} onRemove={onUnsave} className="px-1.5 py-1" />
                 ) : (
@@ -1948,8 +1953,18 @@ function DetailPanel({
                   {/* Every field is always shown (— when empty) so nothing looks silently missing. */}
                   <dl className="divide-y divide-line overflow-hidden rounded-[var(--radius)] border border-line">
                     <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
-                      <dt className="shrink-0 text-[12px] font-medium text-muted">Location</dt>
-                      <dd className="min-w-0 text-right text-[13px] text-ink">{app.location || "—"}</dd>
+                      <dt className="shrink-0 text-[12px] font-medium text-muted">{panelLocations.length > 1 ? "Locations" : "Location"}</dt>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">
+                        {panelLocations.length > 1 ? (
+                          <span className="flex flex-wrap justify-end gap-1">
+                            {panelLocations.map((l, i) => (
+                              <span key={i} className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent-deep">{l}</span>
+                            ))}
+                          </span>
+                        ) : (
+                          app.location || "—"
+                        )}
+                      </dd>
                     </div>
                     <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
                       <dt className="shrink-0 text-[12px] font-medium text-muted">Job type</dt>
@@ -2032,6 +2047,16 @@ function DetailPanel({
             </div>
 
             <div className="flex items-center gap-2 border-t border-line p-4">
+              {app.jobUrl && (
+                <a
+                  href={app.jobUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-accent px-3 py-2 text-sm font-semibold text-accent-deep transition-colors hover:bg-accent-soft"
+                >
+                  View posting <span aria-hidden>↗</span>
+                </a>
+              )}
               <button
                 onClick={() => onArchive(!app.archived)}
                 className="flex-1 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink-soft transition-colors hover:bg-paper-2"
