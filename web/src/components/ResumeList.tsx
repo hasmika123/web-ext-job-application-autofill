@@ -133,32 +133,36 @@ function Row({
         onEdit && "cursor-pointer hover:border-accent hover:shadow-[var(--shadow-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
       )}
     >
-      {/* Hidden until the card is hovered (mouse devices only) — always visible on touch,
-          while this row is selected, or while a bulk selection is in progress. */}
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={onToggleSelect}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-        aria-label={`Select ${resume.label}`}
-        className={cn(
-          "h-4 w-4 flex-none accent-[var(--color-accent)] transition-opacity",
-          !selected &&
-            !anySelected &&
-            "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100",
-        )}
-      />
-      <FileIcon />
+      {/* The DOC tile doubles as the select target: hovering it (or a selection in progress)
+          swaps in the checkbox in place of the tile. Always shown on touch (no hover). */}
+      <span className="group/pick relative h-[52px] w-[42px] shrink-0">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          aria-label={`Select ${resume.label}`}
+          className={cn(
+            "peer absolute inset-0 z-[1] m-auto h-4 w-4 accent-[var(--color-accent)] transition-opacity",
+            selected || anySelected
+              ? "opacity-100"
+              : "pointer-events-none opacity-0 focus-visible:opacity-100 group-hover/pick:pointer-events-auto group-hover/pick:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
+          )}
+        />
+        <span
+          aria-hidden
+          className={cn(
+            "grid h-full w-full place-items-center transition-opacity group-hover/pick:opacity-0 peer-focus-visible:opacity-0 [@media(hover:none)]:opacity-0",
+            (selected || anySelected) && "opacity-0",
+          )}
+        >
+          <FileIcon />
+        </span>
+      </span>
       <div className="min-w-[160px] flex-1">
         <div className="flex items-center gap-2 text-[15px] font-bold text-ink">
           <span className="min-w-0 flex-1 truncate" title={resume.label}>{resume.label}</span>
-          {isDefault && (
-            <span className="inline-flex shrink-0 self-center items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-deep">
-              <CheckIcon className="h-3 w-3" strokeWidth={3} />
-              Default
-            </span>
-          )}
           {!archived && badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
         <div className="mt-1 text-[12.5px] text-muted">
@@ -179,13 +183,19 @@ function Row({
           </p>
         )}
       </div>
+      {isDefault && (
+        <span className="inline-flex shrink-0 self-center items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-deep">
+          <CheckIcon className="h-3 w-3" strokeWidth={3} />
+          Default
+        </span>
+      )}
       {archived && (
         <Badge variant="review" className="shrink-0 self-center">
           Archived
         </Badge>
       )}
       <div
-        className="flex shrink-0 items-center gap-1 self-start sm:self-center"
+        className="flex shrink-0 items-center gap-1 self-center"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -196,8 +206,8 @@ function Row({
           aria-label={resume.starred ? "Unstar" : "Star"}
           title={resume.starred ? "Unstar" : "Star"}
           className={cn(
-            "grid h-8 w-8 place-items-center rounded-full text-muted transition-colors hover:bg-paper-2 hover:text-ink disabled:opacity-50",
-            resume.starred && "text-[color:var(--color-accent-deep)]",
+            "grid h-8 w-8 place-items-center rounded-full transition-colors hover:bg-paper-2 disabled:opacity-50",
+            resume.starred ? "text-[color:var(--color-accent-deep)]" : "text-muted hover:text-ink",
           )}
         >
           <StarIcon filled={!!resume.starred} />

@@ -53,7 +53,7 @@ export { default as Tooltip } from "./primitives/Tooltip";
 export type { TooltipProps, TooltipSide } from "./primitives/Tooltip";
 
 export { default as Menu } from "./primitives/Menu";
-export type { MenuProps, MenuItem } from "./primitives/Menu";
+export type { MenuProps, MenuItem, MenuHeading, MenuSeparator, MenuEntry } from "./primitives/Menu";
 
 export { Mark, Wordmark, BrandLockup, Check } from "./primitives/Brand";
 export type { MarkProps, WordmarkProps, BrandLockupProps } from "./primitives/Brand";
