@@ -110,18 +110,35 @@ function formatDate(iso?: string | null): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+// A short all-caps token (ignoring dots) — a US state / country code like GA, CA, D.C., UK, USA.
+// Used to tell an intra-location "City, ST" comma from a between-locations comma.
+function isRegionToken(t: string): boolean {
+  return /^[A-Z]{2,3}$/.test(t.replace(/[.\s]/g, ""));
+}
+
+// Split one already-separated piece on its commas, re-attaching a region code to the city
+// before it: "Atlanta, GA, San Francisco, CA" -> ["Atlanta, GA", "San Francisco, CA"].
+function splitCommaPiece(piece: string): string[] {
+  const tokens = piece.split(",").map((t) => t.trim()).filter(Boolean);
+  const out: string[] = [];
+  for (const tok of tokens) {
+    if (out.length && isRegionToken(tok)) out[out.length - 1] += `, ${tok}`;
+    else out.push(tok);
+  }
+  return out;
+}
+
 /**
- * Split a free-text location into its distinct locations. Only strong separators count
- * (semicolon, pipe, newline, or a space-padded slash) — NEVER a comma, which lives inside a
- * single "City, ST", and never the word "or", which collides with Oregon's "OR". Conservative
- * on purpose: better to under-split (one tag) than to corrupt a legitimate single location.
+ * Split a free-text location into its distinct locations. Strong separators (semicolon, pipe,
+ * newline, space-padded slash) always split; commas split too, EXCEPT a comma before a region
+ * code (GA, CA, D.C.…), which stays part of the preceding "City, ST". So
+ * "Atlanta, GA, San Francisco, CA" -> two tags while "Portland, OR" stays one. A comma list with
+ * no region codes ("New York, San Francisco") is treated as separate locations.
  */
 function parseLocations(location?: string | null): string[] {
   if (!location) return [];
-  return location
-    .split(/\s*[;|\n]\s*|\s+\/\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const pieces = location.split(/\s*[;|\n]\s*|\s+\/\s+/).map((s) => s.trim()).filter(Boolean);
+  return pieces.flatMap(splitCommaPiece);
 }
 
 // The one date shown on a decluttered card: the applied date once applied, otherwise the
@@ -133,20 +150,18 @@ function cardDate(app: Application): string {
   return added ? `Added · ${added}` : "";
 }
 
-// Deterministic brand-tint for a company's initial avatar — same company, same tint.
-const AVATAR_TINTS = [
-  "bg-accent-soft text-accent-deep",
-  "bg-brown-soft text-brown-deep",
-  "bg-paper-2 text-ink-soft",
-  "bg-[color:var(--color-accent-2)] text-on-accent",
-];
+// One consistent neutral tint for every company-initial avatar.
+const AVATAR_TINT = "bg-paper-2 text-ink-soft";
+
+// Card tag colors — one fixed color per category (not all green), shown in a consistent order
+// (location, mode, type, salary). Salary is an outlined, weightier chip so the pay stands out.
+const TAG_BASE = "max-w-full shrink-0 truncate rounded-full px-2 py-0.5 text-[10.5px]";
+const LOCATION_TAG = `${TAG_BASE} bg-paper-2 font-medium text-ink-soft`;
+const MODE_TAG = `${TAG_BASE} bg-accent-soft font-medium text-accent-deep`;
+const TYPE_TAG = `${TAG_BASE} bg-brown-soft font-medium text-brown-deep`;
+const SALARY_TAG = `${TAG_BASE} border border-line bg-paper font-semibold text-ink`;
 function companyInitial(company: string): string {
   return (company.trim()[0] ?? "•").toUpperCase();
-}
-function avatarTint(company: string): string {
-  let h = 0;
-  for (let i = 0; i < company.length; i++) h = (h * 31 + company.charCodeAt(i)) % AVATAR_TINTS.length;
-  return AVATAR_TINTS[h];
 }
 
 function StarButton({ starred, busy, onToggle, className }: { starred: boolean; busy: boolean; onToggle: () => void; className?: string }) {
@@ -824,7 +839,7 @@ export default function ApplicationBoard({
                         <BoardCard
                           key={a.id}
                           variant={saved ? "saved" : "compact"}
-                          className="w-[280px] shrink-0"
+                          className="w-[260px] shrink-0"
                           {...cardHandlers(a)}
                         />
                       ))}
@@ -866,7 +881,7 @@ export default function ApplicationBoard({
                   </div>
                   <ul className="scroll-slim flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
                     {items.length ? (
-                      items.map((a) => <BoardCard key={a.id} variant="rich" {...cardHandlers(a)} />)
+                      items.map((a) => <BoardCard key={a.id} variant="rich" className="shrink-0" {...cardHandlers(a)} />)
                     ) : (
                       <li className="grid flex-1 place-items-center rounded-[var(--radius)] border border-dashed border-line text-[12px] text-muted">
                         Drag a card here
@@ -1010,7 +1025,9 @@ function AddApplicationDialog({
   const [roleTitle, setRoleTitle] = useState("");
   const [status, setStatus] = useState("SAVED");
   const [jobUrl, setJobUrl] = useState("");
-  const [location, setLocation] = useState("");
+  // Locations are entered as a list of chips; stored as a "; "-joined string on submit.
+  const [locations, setLocations] = useState<string[]>([]);
+  const [locationInput, setLocationInput] = useState("");
   const [jobType, setJobType] = useState("");
   const [jobMode, setJobMode] = useState("");
   const [email, setEmail] = useState("");
@@ -1039,6 +1056,15 @@ function AddApplicationDialog({
     if (f) setPendingFile(f);
   }
 
+  const addLocation = (raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    setLocations((prev) => (prev.some((l) => l.toLowerCase() === v.toLowerCase()) ? prev : [...prev, v]));
+    setLocationInput("");
+    setDupConfirm(false);
+  };
+  const removeLocation = (i: number) => setLocations((prev) => prev.filter((_, idx) => idx !== i));
+
   // Esc closes; focus the first field on open.
   useEffect(() => {
     firstRef.current?.focus();
@@ -1057,7 +1083,7 @@ function AddApplicationDialog({
     const c = company.trim().toLowerCase();
     const r = roleTitle.trim().toLowerCase();
     if (!c || !r) return false;
-    const loc = location.trim().toLowerCase();
+    const loc = locations.join("; ").trim().toLowerCase();
     return existingApps.some(
       (a) =>
         (a.company ?? "").trim().toLowerCase() === c &&
@@ -1074,12 +1100,14 @@ function AddApplicationDialog({
       return;
     }
     setSaving(true);
+    // Fold any location still typed but not yet added into the list.
+    const allLocations = locationInput.trim() ? [...locations, locationInput.trim()] : locations;
     const ok = await onCreate({
       company: company.trim(),
       roleTitle: roleTitle.trim(),
       status,
       jobUrl: jobUrl.trim() || undefined,
-      location: location.trim() || undefined,
+      location: allLocations.length ? allLocations.join("; ") : undefined,
       jobType: jobType || undefined,
       jobMode: jobMode || undefined,
       email: email.trim() || undefined,
@@ -1098,26 +1126,26 @@ function AddApplicationDialog({
   return (
     <>
       <div onClick={onClose} aria-hidden className="fixed inset-0 z-[145] bg-[rgba(35,40,38,.45)]" />
-      <div
+      <aside
         role="dialog"
         aria-modal="true"
         aria-label="Add application"
-        className="fixed left-1/2 top-1/2 z-[150] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-lg)] border border-line bg-paper shadow-[var(--shadow-lg)]"
+        className="fixed inset-y-0 right-0 z-[150] flex w-full max-w-md flex-col bg-paper shadow-[var(--shadow-lg)]"
       >
         <div className="flex items-center justify-between border-b border-line p-5">
           <h2 className="font-display text-xl font-semibold text-ink">Add application</h2>
           <button onClick={onClose} aria-label="Close" className="rounded-md px-2 py-1 text-muted hover:bg-paper-2">✕</button>
         </div>
-        <form onSubmit={submit} className="flex flex-col gap-3 p-5">
-          <label className={labelClass}>
-            Company *
-            <input ref={firstRef} value={company} onChange={(e) => { setCompany(e.target.value); setDupConfirm(false); }} className={fieldClass} required />
-          </label>
-          <label className={labelClass}>
-            Role title *
-            <input value={roleTitle} onChange={(e) => { setRoleTitle(e.target.value); setDupConfirm(false); }} className={fieldClass} required />
-          </label>
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={submit} className="flex flex-1 flex-col overflow-hidden">
+          <div className="scroll-slim flex flex-1 flex-col gap-3 overflow-auto p-5">
+            <label className={labelClass}>
+              Company *
+              <input ref={firstRef} value={company} onChange={(e) => { setCompany(e.target.value); setDupConfirm(false); }} className={fieldClass} required />
+            </label>
+            <label className={labelClass}>
+              Role title *
+              <input value={roleTitle} onChange={(e) => { setRoleTitle(e.target.value); setDupConfirm(false); }} className={fieldClass} required />
+            </label>
             <label className={labelClass}>
               Add to
               <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
@@ -1126,85 +1154,106 @@ function AddApplicationDialog({
                 ))}
               </select>
             </label>
-            <label className={labelClass}>
-              Location
-              <input value={location} onChange={(e) => { setLocation(e.target.value); setDupConfirm(false); }} className={fieldClass} placeholder="Remote · NYC…" />
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className={labelClass}>
-              Job type
-              <select value={jobType} onChange={(e) => setJobType(e.target.value)} className={fieldClass}>
-                <option value="">—</option>
-                {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
-              </select>
-            </label>
-            <label className={labelClass}>
-              Job mode
-              <select value={jobMode} onChange={(e) => setJobMode(e.target.value)} className={fieldClass}>
-                <option value="">—</option>
-                {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
-              </select>
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className={labelClass}>
-              Email
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} placeholder="Defaults to your profile email" />
-            </label>
-            <label className={labelClass}>
-              Salary
-              <input value={salary} onChange={(e) => setSalary(e.target.value)} className={fieldClass} placeholder="$120k – $150k/yr" />
-            </label>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resume sent</span>
-            {resumes.length > 0 && (
-              <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={cn(fieldClass, "min-w-0 truncate")}>
-                <option value="">— None —</option>
-                {resumes.map((r) => (
-                  <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
+            <div className={labelClass}>
+              <span>Location(s)</span>
+              <div className="flex flex-wrap items-center gap-1.5 rounded-[var(--radius)] border border-line bg-paper p-2 focus-within:border-accent">
+                {locations.map((l, i) => (
+                  <span key={i} className="flex items-center gap-1 rounded-full bg-paper-2 px-2 py-0.5 text-[12px] font-medium normal-case text-ink-soft">
+                    {l}
+                    <button type="button" onClick={() => removeLocation(i)} aria-label={`Remove ${l}`} className="text-muted hover:text-danger">✕</button>
+                  </span>
                 ))}
-              </select>
-            )}
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="self-start text-[12px] font-semibold text-accent-deep hover:underline"
-            >
-              + Upload a new resume
-            </button>
-            <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" onChange={onPickFile} className="hidden" />
-            {attachment && (
-              <p className="flex items-center gap-1.5 text-[12px] text-ink-soft">
-                <span>📎</span>
-                <span className="min-w-0 truncate">{attachment.name}</span>
-                <span className="flex-none text-muted">— attached to this application</span>
-                <button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment" className="flex-none text-muted hover:text-danger">✕</button>
+                <input
+                  value={locationInput}
+                  onChange={(e) => { setLocationInput(e.target.value); setDupConfirm(false); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); addLocation(locationInput); }
+                    else if (e.key === "Backspace" && !locationInput && locations.length) removeLocation(locations.length - 1);
+                  }}
+                  onBlur={() => addLocation(locationInput)}
+                  placeholder={locations.length ? "Add another…" : "Remote · New York, NY…"}
+                  className="min-w-[8ch] flex-1 bg-transparent text-sm normal-case text-ink outline-none placeholder:text-muted"
+                />
+              </div>
+              <span className="font-normal normal-case tracking-normal text-muted">Press Enter to add each location.</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={labelClass}>
+                Job type
+                <select value={jobType} onChange={(e) => setJobType(e.target.value)} className={fieldClass}>
+                  <option value="">—</option>
+                  {JOB_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+                </select>
+              </label>
+              <label className={labelClass}>
+                Job mode
+                <select value={jobMode} onChange={(e) => setJobMode(e.target.value)} className={fieldClass}>
+                  <option value="">—</option>
+                  {JOB_MODES.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+                </select>
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={labelClass}>
+                Email
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} placeholder="Defaults to your profile email" />
+              </label>
+              <label className={labelClass}>
+                Salary
+                <input value={salary} onChange={(e) => setSalary(e.target.value)} className={fieldClass} placeholder="$120k – $150k/yr" />
+              </label>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Resume sent</span>
+              {resumes.length > 0 && (
+                <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className={cn(fieldClass, "min-w-0 truncate")}>
+                  <option value="">— None —</option>
+                  {resumes.map((r) => (
+                    <option key={r.id} value={String(r.id)}>{r.label}{r.defaultResume ? " · default" : ""}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="self-start text-[12px] font-semibold text-accent-deep hover:underline"
+              >
+                + Upload a new resume
+              </button>
+              <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,application/pdf,text/plain" onChange={onPickFile} className="hidden" />
+              {attachment && (
+                <p className="flex items-center gap-1.5 text-[12px] text-ink-soft">
+                  <span>📎</span>
+                  <span className="min-w-0 truncate">{attachment.name}</span>
+                  <span className="flex-none text-muted">— attached to this application</span>
+                  <button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment" className="flex-none text-muted hover:text-danger">✕</button>
+                </p>
+              )}
+            </div>
+            <label className={labelClass}>
+              Job URL
+              <input type="url" value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} className={fieldClass} placeholder="https://…" />
+            </label>
+            <label className={labelClass}>
+              Job description
+              <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={3} className={cn(fieldClass, "resize-y")} />
+            </label>
+          </div>
+          <div className="border-t border-line p-4">
+            {dupConfirm && (
+              <p role="alert" className="mb-2 text-[12.5px] font-medium text-brown-deep">
+                You already have an application for this company and role. Add it anyway?
               </p>
             )}
-          </div>
-          <label className={labelClass}>
-            Job URL
-            <input type="url" value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} className={fieldClass} placeholder="https://…" />
-          </label>
-          <label className={labelClass}>
-            Job description
-            <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={3} className={cn(fieldClass, "resize-y")} />
-          </label>
-          {dupConfirm && (
-            <p role="alert" className="text-[12.5px] font-medium text-brown-deep">
-              You already have an application for this company and role. Add it anyway?
-            </p>
-          )}
-          <div className="mt-1 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className={buttonVariants("ghost")}>Cancel</button>
-            <button type="submit" disabled={!canSave} className={cn(buttonVariants("accent"), "disabled:opacity-50")}>
-              {saving ? "Adding…" : dupConfirm ? "Add anyway" : "Add to board"}
-            </button>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={onClose} className={buttonVariants("ghost")}>Cancel</button>
+              <button type="submit" disabled={!canSave} className={cn(buttonVariants("accent"), "disabled:opacity-50")}>
+                {saving ? "Adding…" : dupConfirm ? "Add anyway" : "Add to board"}
+              </button>
+            </div>
           </div>
         </form>
-      </div>
+      </aside>
 
       {/* After picking a file: parse & save to the board, or just attach the raw file. */}
       {pendingFile && (
@@ -1397,6 +1446,10 @@ function BoardCard({
     track("board_apply_clicked", { status: app.status });
     window.open(app.jobUrl, "_blank", "noopener");
   };
+  // Fixed per-section height so every card in a section matches, with a reserved 2-row tag area
+  // (below) that keeps the height steady no matter how many tags a job has. Saved is a touch
+  // taller for its Apply button; Draft is taller still for the nudge.
+  const cardHeight = variant === "saved" ? "h-[176px]" : variant === "rich" ? "h-[138px]" : "h-[214px]";
 
   return (
     <li
@@ -1419,8 +1472,9 @@ function BoardCard({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "rounded-[var(--radius)] border bg-paper shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "flex flex-col overflow-hidden rounded-[var(--radius)] border bg-paper shadow-[var(--shadow-sm)] transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         rich ? "p-3.5" : "p-3",
+        cardHeight,
         archived
           ? "cursor-pointer opacity-60 grayscale hover:opacity-100"
           : "cursor-grab hover:border-accent hover:shadow-[var(--shadow)] active:cursor-grabbing",
@@ -1454,7 +1508,7 @@ function BoardCard({
               "grid h-full w-full place-items-center rounded-lg font-bold transition-opacity group-hover/pick:opacity-0 peer-focus-visible:opacity-0",
               rich ? "text-[14px]" : "text-[13px]",
               picked && "opacity-0",
-              avatarTint(app.company),
+              AVATAR_TINT,
             )}
           >
             {companyInitial(app.company)}
@@ -1484,35 +1538,19 @@ function BoardCard({
         </div>
       </div>
 
-      {(app.salary || app.location || typeLabel || showModeChip) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          {app.salary && (
-            <span className="max-w-full truncate rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent-deep">
-              {app.salary}
-            </span>
-          )}
-          {app.location && (
-            <span className="max-w-full truncate rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">
-              {locations[0] || app.location}
-            </span>
-          )}
-          {locations.length > 1 && (
-            <span
-              title={locations.join(" · ")}
-              className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent-deep"
-            >
-              +{locations.length - 1}
-            </span>
-          )}
-          {typeLabel && (
-            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">{typeLabel}</span>
-          )}
-          {showModeChip && (
-            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent-deep">{modeLabel}</span>
-          )}
-        </div>
-      )}
-      {date && <div className={cn("text-[11px] text-muted", app.salary || app.location || typeLabel || showModeChip ? "mt-1.5" : "mt-2")}>{date}</div>}
+      {/* Reserved 2-row tag area — always this height (empty space when there are fewer tags),
+          anything past two rows is clipped. Order: location, mode, type, salary; each a distinct,
+          consistent color. */}
+      <div className="mt-2 flex h-10 flex-wrap content-start items-start gap-1 overflow-hidden">
+        {app.location && <span className={LOCATION_TAG}>{locations[0] || app.location}</span>}
+        {locations.length > 1 && (
+          <span title={locations.join(" · ")} className={LOCATION_TAG}>+{locations.length - 1}</span>
+        )}
+        {showModeChip && <span className={MODE_TAG}>{modeLabel}</span>}
+        {typeLabel && <span className={TYPE_TAG}>{typeLabel}</span>}
+        {app.salary && <span className={SALARY_TAG}>{app.salary}</span>}
+      </div>
+      {date && <div className="mt-1.5 text-[11px] text-muted">{date}</div>}
 
       {/* Saved bookmarks: one-click jump to the posting. Filling it there moves it to Draft. */}
       {isSaved && !archived && app.jobUrl && (
@@ -1530,7 +1568,7 @@ function BoardCard({
       )}
 
       {showNudge && (
-        <div className="mt-2 w-fit max-w-full rounded-lg border border-accent bg-accent-soft p-2 text-[11.5px] text-accent-deep">
+        <div className="mt-2 w-fit max-w-full rounded-lg border border-line bg-paper-2 p-2 text-[11.5px] text-ink">
           <div className="flex items-center justify-between gap-1.5">
             <div className="font-bold">Did you finish applying?</div>
             <button
@@ -1551,23 +1589,14 @@ function BoardCard({
             >
               Applied
             </button>
-            {app.jobUrl ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); openPosting(); }}
-                disabled={busy}
-                className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep disabled:opacity-50"
-              >
-                Continue ↗
-              </button>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); setNudgeDismissed(true); }}
-                disabled={busy}
-                className="rounded-md border border-accent px-2.5 py-1 font-bold text-accent-deep"
-              >
-                Not yet
-              </button>
-            )}
+            {/* Continue → takes them back to the posting to finish; falls back to dismiss if no URL. */}
+            <button
+              onClick={(e) => { e.stopPropagation(); if (app.jobUrl) openPosting(); else setNudgeDismissed(true); }}
+              disabled={busy}
+              className="rounded-md border border-line bg-paper px-2.5 py-1 font-bold text-ink transition-colors hover:border-accent disabled:opacity-50"
+            >
+              Continue →
+            </button>
           </div>
         </div>
       )}
@@ -1652,7 +1681,7 @@ function BoardRow({
           className={cn(
             "grid h-full w-full place-items-center rounded-md text-[10.5px] font-bold transition-opacity group-hover/pick:opacity-0 peer-focus-visible:opacity-0",
             picked && "opacity-0",
-            avatarTint(app.company),
+            AVATAR_TINT,
           )}
         >
           {companyInitial(app.company)}
@@ -1805,7 +1834,7 @@ function DetailPanel({
               <div className="flex min-w-0 items-start gap-3">
                 <span
                   aria-hidden
-                  className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[16px] font-bold", avatarTint(app.company))}
+                  className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[16px] font-bold", AVATAR_TINT)}
                 >
                   {companyInitial(app.company)}
                 </span>
