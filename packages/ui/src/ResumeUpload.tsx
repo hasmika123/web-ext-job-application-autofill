@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import type { StructuredResume, ResumeExperience, ResumeEducation, ResumeProject, ParsedBio } from "./parser-core-types";
 import Input from "./primitives/Input";
+import Select from "./primitives/Select";
 import { buttonVariants } from "./primitives/Button";
 import { cn } from "./primitives/cn";
 import { LIMITS } from "./primitives/limits";
@@ -324,17 +325,16 @@ function DegreeSelect({ value, onChange }: { value: string; onChange: (v: string
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Degree</span>
-      <select
+      <Select
+        aria-label="Degree"
         value={selectVal}
-        onChange={(e) => {
-          const v = e.target.value;
+        onChange={(v) => {
           if (v === "__other__") setOther(true);
           else {
             setOther(false);
             onChange(v);
           }
         }}
-        className={compactInput}
       >
         <option value="">—</option>
         {DEGREE_OPTIONS.map((d) => (
@@ -343,7 +343,7 @@ function DegreeSelect({ value, onChange }: { value: string; onChange: (v: string
           </option>
         ))}
         <option value="__other__">Other…</option>
-      </select>
+      </Select>
       {other && (
         <input
           type="text"

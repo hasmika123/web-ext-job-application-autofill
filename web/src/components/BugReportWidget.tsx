@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import Select from "@/components/ui/Select";
 
 const NUDGE_SEEN_KEY = "kiwiply_bugnudge_seen";
 const NUDGE_LABEL = "Found a bug? Let us know 🐛";
@@ -240,16 +241,18 @@ export default function BugReportWidget() {
                 </div>
 
                 <label className="mb-1 block text-[13px] font-medium text-ink-soft" htmlFor="br-category">Type</label>
-                <select
+                <Select
                   id="br-category"
+                  aria-label="Type"
+                  className="mb-3"
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="mb-3 w-full rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink"
-                >
-                  <option value="BUG">Bug</option>
-                  <option value="IDEA">Idea / feedback</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                  onChange={setCategory}
+                  options={[
+                    { value: "BUG", label: "Bug" },
+                    { value: "IDEA", label: "Idea / feedback" },
+                    { value: "OTHER", label: "Other" },
+                  ]}
+                />
 
                 <label className="mb-1 block text-[13px] font-medium text-ink-soft" htmlFor="br-message">What happened?</label>
                 <textarea

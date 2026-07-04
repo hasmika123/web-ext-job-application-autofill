@@ -307,7 +307,12 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
     return (
       <Field key={f.key} label={label} htmlFor={id} error={err} className={cn("mb-0", f.wide && "sm:col-span-2")}>
         {f.kind === "select" ? (
-          <Select id={id} value={val} onChange={(e) => setField(f.key, e.target.value)} onBlur={() => touch(f.key)}>
+          <Select
+            id={id}
+            aria-label={typeof f.label === "string" ? f.label : f.key}
+            value={val}
+            onChange={(v) => { setField(f.key, v); touch(f.key); }}
+          >
             <option value="">—</option>
             {(f.options ?? []).map((o) => (
               <option key={o} value={o}>{o}</option>

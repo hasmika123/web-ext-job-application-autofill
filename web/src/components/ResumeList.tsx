@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, EmptyState, useToast } from "@/components/ui";
+import Select from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 
 export interface Resume {
@@ -424,9 +425,6 @@ export default function ResumeList({
     );
   }
 
-  const toolInput =
-    "rounded-full border border-line bg-paper px-4 py-2 text-[13.5px] text-ink outline-none placeholder:text-muted focus:border-accent";
-
   const renderRow = (r: Resume) => (
     <Row
       key={r.id}
@@ -475,14 +473,16 @@ export default function ResumeList({
             </button>
           )}
         </div>
-        <label className="flex items-center gap-2 text-[12.5px] text-muted">
+        <div className="flex items-center gap-2 text-[12.5px] text-muted">
           <span className="sr-only sm:not-sr-only">Sort:</span>
-          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={cn(toolInput, "font-medium text-ink-soft")}>
-            {SORTS.map((s) => (
-              <option key={s.key} value={s.key}>{s.label}</option>
-            ))}
-          </select>
-        </label>
+          <Select
+            variant="pill"
+            aria-label="Sort resumes"
+            value={sort}
+            onChange={(v) => setSort(v as SortKey)}
+            options={SORTS.map((s) => ({ value: s.key, label: s.label }))}
+          />
+        </div>
         {anyVisible > 0 && (
           <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12.5px] font-medium text-ink-soft">
             <input

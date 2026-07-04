@@ -16,7 +16,7 @@ export { default as Input, inputClass } from "./primitives/Input";
 export type { InputProps } from "./primitives/Input";
 
 export { default as Select, selectClass } from "./primitives/Select";
-export type { SelectProps } from "./primitives/Select";
+export type { SelectProps, SelectOption } from "./primitives/Select";
 
 export { default as Field } from "./primitives/Field";
 export type { FieldProps } from "./primitives/Field";

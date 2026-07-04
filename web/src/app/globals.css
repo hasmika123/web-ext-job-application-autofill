@@ -35,31 +35,6 @@ h3 {
   font-weight: 600;
 }
 
-/* Slim, theme-tinted scrollbars for the board's stage sections and panel scrollers.
-   Modern engines (Chrome 121+, Firefox) use the standard properties; the ::-webkit-*
-   rules cover older Chromium/Safari (Chrome ignores them once scrollbar-width is set). */
-.scroll-slim {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-line) transparent;
-}
-.scroll-slim::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.scroll-slim::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scroll-slim::-webkit-scrollbar-thumb {
-  background: var(--color-line);
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background-clip: padding-box;
-}
-.scroll-slim::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
-  background-clip: padding-box;
-}
-
 /* Toast enter animation (used by ToastProvider) */
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(8px); }

@@ -215,7 +215,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
             value={selectedId}
             disabled={!pickable.length}
             aria-label="Choose a resume"
-            onChange={(e) => setSelectedId(e.target.value)}
+            onChange={(v) => setSelectedId(v)}
           >
             {!pickable.length ? (
               <option value="">No resumes yet</option>
