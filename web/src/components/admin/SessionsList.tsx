@@ -22,7 +22,7 @@ function day(iso?: string | null): string {
  */
 export default function SessionsList({ login, families }: { login: string; families: SessionFamily[] }) {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
 
   async function revoke(familyId: string) {

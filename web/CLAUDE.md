@@ -54,6 +54,11 @@ Confirmed against the bundled docs (`node_modules/next/dist/docs/01-app/02-guide
   standalone build is monorepo-NESTED (`.next/standalone/web/server.js`); the Dockerfile + CI are
   workspace-aware (see `web/Dockerfile`, `ci.yml` `web`/`web-docker` jobs). Tailwind scans the package
   via an `@source` in `globals.css`.
+- **UI consistency (enforced)**: import primitives from `@/components/ui` (thin re-exports of
+  `@kiwiply/ui`) and **icons from `@kiwiply/ui`** (`packages/ui/src/primitives/icons.tsx`).
+  Never inline an `<svg>` icon — an ESLint `no-restricted-syntax` rule fails the build
+  (exception: `src/app/opengraph-image.tsx`, which next/og needs self-contained). New shared
+  visual → add it to `packages/ui` first (see `packages/ui/README.md`).
 - **Tests**: `npm test` = `tsc --noEmit && eslint .` (run `npm run build -w web` / `npm test -w web`
   from the root, or `npm run build` from `web/`). `npm run build` is the strongest gate.
 - **This machine's npm shell**: a poisoned `COMSPEC` env var breaks npm spawns; `web/.npmrc`

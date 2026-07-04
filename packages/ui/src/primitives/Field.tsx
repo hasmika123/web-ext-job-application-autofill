@@ -1,3 +1,5 @@
+"use client";
+
 import { useId, cloneElement, isValidElement } from "react";
 import type { ReactNode, ReactElement } from "react";
 import { cn } from "./cn";
@@ -16,6 +18,8 @@ export interface FieldProps {
   error?: ReactNode;
   required?: boolean;
   className?: string;
+  /** Explicit control id — use when the child sets its own `id`; otherwise one is generated. */
+  htmlFor?: string;
   /** A single form control (input/select/textarea). Its id/aria props are managed here. */
   children: ReactNode;
   /** Escape hatch: render-prop form that receives the wiring ids. */
@@ -37,8 +41,9 @@ function injectControlProps(
   });
 }
 
-export default function Field({ label, hint, error, required, className, children, render }: FieldProps) {
-  const id = useId();
+export default function Field({ label, hint, error, required, className, htmlFor, children, render }: FieldProps) {
+  const genId = useId();
+  const id = htmlFor ?? genId;
   const msgId = `${id}-msg`;
   const invalid = error != null && error !== false;
   const describedBy = (invalid ? error : hint) != null ? msgId : undefined;

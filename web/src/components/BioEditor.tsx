@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "reac
 import { useRouter } from "next/navigation";
 import { Input, Field, Select } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
+import { CheckIcon as SharedCheckIcon, Spinner as SharedSpinner } from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
 import { isEmail, isUrl, isPhone, LIMITS } from "@/lib/validate";
 import { parseResume } from "@/lib/resume-parse";
@@ -139,21 +140,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 /** Spinning loader for the "Saving…" state. */
 function Spinner() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px] animate-spin text-muted" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
+  return <SharedSpinner className="h-[15px] w-[15px] text-muted" />;
 }
 
 /** Green check for the "All changes saved" state. */
 function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px] text-accent-deep" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
+  return <SharedCheckIcon strokeWidth={2.4} className="h-[15px] w-[15px] text-accent-deep" />;
 }
 
 export default function BioEditor({ initialBio }: { initialBio: Bio }) {

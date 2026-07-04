@@ -23,6 +23,12 @@ Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
 
 ## Hard rules
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
+- **One design system: `@kiwiply/ui` (`packages/ui`).** All shared visuals — icons,
+  primitives (Button/Badge/Card/…), tokens — live there; web + extension import them
+  (web's `@/components/ui` files are thin re-exports). Never inline an `<svg>` icon or
+  hand-roll a primitive's styles in a surface (web ESLint enforces the svg rule; only
+  exception: `web/src/app/opengraph-image.tsx`). New shared visual → add it to
+  `packages/ui` first. Contract: `packages/ui/README.md`.
 - **Capture real ATS DOM before writing selectors.** Never guess tenant markup —
   it's the #1 failure mode. Use real `data-automation-id`s / option text.
 - Extension **engine** code: vanilla JS on `window.JAF`/`globalThis.JAF` IIFE modules — keep it

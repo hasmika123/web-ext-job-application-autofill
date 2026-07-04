@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { track } from "@/lib/analytics";
 import { Input, PasswordInput, Field, Logo, BetaBadge } from "@/components/ui";
+import { ChevronLeftIcon } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { isEmail, isUsername, LIMITS } from "@/lib/validate";
@@ -426,16 +427,7 @@ export default function AuthScreen({ mode, next }: { mode: Mode; next?: string }
           href="/"
           className="absolute left-4 top-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink sm:left-6 sm:top-6"
         >
-          <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4">
-            <path
-              d="M10 3 5 8l5 5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <ChevronLeftIcon strokeWidth={1.6} className="h-4 w-4" />
           Back
         </Link>
         <div className="w-full max-w-[380px]">

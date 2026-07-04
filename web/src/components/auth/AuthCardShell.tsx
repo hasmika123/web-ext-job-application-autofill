@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo, BetaBadge } from "@/components/ui";
+import { ChevronLeftIcon } from "@kiwiply/ui";
 
 /**
  * Centered single-column shell for the standalone auth pages (forgot/reset password).
@@ -14,16 +15,7 @@ export default function AuthCardShell({ children }: { children: ReactNode }) {
         href="/login"
         className="absolute left-4 top-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink sm:left-6 sm:top-6"
       >
-        <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4">
-          <path
-            d="M10 3 5 8l5 5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <ChevronLeftIcon strokeWidth={1.6} className="h-4 w-4" />
         Back
       </Link>
       <div className="w-full max-w-[380px]">

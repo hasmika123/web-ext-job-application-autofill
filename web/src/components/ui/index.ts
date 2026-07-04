@@ -1,5 +1,7 @@
-// Kiwiply UI primitives (R0.2) — ported 1:1 from redesign/mockups.html.
-// Tokens live in web/src/app/globals.css (R0.1); these compose them.
+// Kiwiply UI — the design system lives in @kiwiply/ui (packages/ui); this barrel re-exports
+// it (plus the few web-only wrappers below) so app code imports from ONE place. Do not
+// re-implement primitives or inline SVG icons here — add them to packages/ui instead
+// (see packages/ui/README.md).
 export { default as Button, buttonVariants } from "./Button";
 export type { ButtonProps, ButtonVariant, ButtonSize } from "./Button";
 
@@ -11,7 +13,7 @@ export { default as PasswordInput } from "./PasswordInput";
 export { default as Select } from "./Select";
 export type { SelectProps } from "./Select";
 
-export { default as Card, cardClass } from "./Card";
+export { default as Card, CardHeader, CardTitle, CardDescription, CardFooter, cardClass } from "./Card";
 export type { CardProps } from "./Card";
 
 export { default as Badge, Pill } from "./Badge";
@@ -22,11 +24,8 @@ export { default as Tag } from "./Tag";
 export { default as Switch } from "./Switch";
 export type { SwitchProps } from "./Switch";
 
-export { default as Toast } from "./Toast";
-export type { ToastProps, ToastVariant } from "./Toast";
-
-export { default as ToastProvider, useToast } from "./ToastProvider";
-export type { ToastInput } from "./ToastProvider";
+export { ToastProvider, useToast } from "@kiwiply/ui";
+export type { ToastOptions, ToastVariant } from "@kiwiply/ui";
 
 export { default as Skeleton } from "./Skeleton";
 

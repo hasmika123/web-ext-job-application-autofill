@@ -8,6 +8,7 @@ import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 import { buttonVariants } from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import { ArrowsUpDownIcon, BookmarkIcon, ChevronDownIcon, FunnelIcon, SearchIcon } from "@kiwiply/ui";
 import { ResumeUpload } from "@kiwiply/ui";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 
@@ -90,19 +91,7 @@ const ROW_HINTS: Record<string, string> = {
 const COLUMN_H = "h-[440px]";
 
 function Chevron({ open, className }: { open: boolean; className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn("h-4 w-4 transition-transform", open && "rotate-180", className)}
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
+  return <ChevronDownIcon className={cn("h-4 w-4 transition-transform", open && "rotate-180", className)} />;
 }
 
 function formatDate(iso?: string | null): string {
@@ -212,9 +201,7 @@ function BookmarkButton({ busy, onRemove, className }: { busy: boolean; onRemove
         className,
       )}
     >
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-4 w-4">
-        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.2L5 21V4a1 1 0 0 1 1-1z" />
-      </svg>
+      <BookmarkIcon className="h-4 w-4" />
     </button>
   );
 }
@@ -268,18 +255,7 @@ function FilterMenu({
           activeCount > 0 ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink-soft hover:border-accent",
         )}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          className="h-3.5 w-3.5"
-        >
-          <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
-        </svg>
+        <FunnelIcon className="h-3.5 w-3.5" />
         Filters
         {activeCount > 0 && (
           <span className="grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10.5px] font-bold text-on-accent">
@@ -362,11 +338,7 @@ function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) 
       value={value}
       onChange={(v) => onChange(v as SortKey)}
       options={SORT_OPTIONS}
-      leadingIcon={
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5">
-          <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />
-        </svg>
-      }
+      leadingIcon={<ArrowsUpDownIcon className="h-3.5 w-3.5" />}
     />
   );
 }
@@ -687,18 +659,7 @@ export default function ApplicationBoard({
       {apps.length > 0 && (
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] max-w-[340px] flex-1">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="M21 21l-4.3-4.3" />
-          </svg>
+          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}

@@ -18,7 +18,7 @@ interface Props {
  */
 export default function AiQuotaControl({ login, defaultQuota, override }: Props) {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
   const [value, setValue] = useState(override === null ? "" : String(override));
   const [busy, setBusy] = useState(false);
 

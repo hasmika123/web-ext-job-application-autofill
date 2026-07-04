@@ -14,7 +14,7 @@ import type { ResumeUploadServices, SaveInput, SaveResult } from "@kiwiply/ui";
  */
 export function useResumeUploadServices(): ResumeUploadServices {
   const router = useRouter();
-  const { toast } = useToast();
+  const toast = useToast();
 
   return useMemo<ResumeUploadServices>(
     () => ({

@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useId } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { cn } from "./cn";

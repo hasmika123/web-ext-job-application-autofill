@@ -1,8 +1,11 @@
+"use client";
+
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "./cn";
 import { inputClass } from "./Input";
+import { CheckIcon, ChevronDownIcon } from "./icons";
 
 /**
  * Select — a custom dropdown whose expanded popup is fully styled (rounded, bordered, with a
@@ -63,18 +66,7 @@ function optionsFromChildren(children: ReactNode): SelectOption[] {
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={cn("h-4 w-4 shrink-0 text-muted transition-transform", open && "rotate-180")}
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
+    <ChevronDownIcon className={cn("h-4 w-4 shrink-0 text-muted transition-transform", open && "rotate-180")} />
   );
 }
 
@@ -192,11 +184,7 @@ export default function Select({
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                  {sel && (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5 shrink-0">
-                      <path d="M20 6L9 17l-5-5" />
-                    </svg>
-                  )}
+                  {sel && <CheckIcon className="h-3.5 w-3.5 shrink-0" />}
                 </button>
               );
             })}
