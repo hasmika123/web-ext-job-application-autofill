@@ -92,13 +92,20 @@ function Row({
   const isDefault = !!resume.defaultResume;
   const badge = statusBadge(resume.status);
 
-  // Everything but "star" lives in the ⋯ menu (same pattern as the board cards).
+  // The ⋯ menu mirrors the board cards: a Star/Unstar item alongside the standalone star button.
   const menuItems: MenuItem[] = [
+    {
+      label: resume.starred ? "Unstar" : "Star",
+      icon: <SharedStarIcon fill={resume.starred ? "currentColor" : "none"} className="h-4 w-4" />,
+      onSelect: onStar,
+      disabled: busy,
+    },
     ...(onEdit
       ? [{ label: "Edit", icon: <SharedPencilIcon className="h-4 w-4" />, onSelect: onEdit, disabled: busy }]
       : []),
-    ...(!archived && !isDefault
-      ? [{ label: "Set as default", icon: <CheckIcon className="h-4 w-4" />, onSelect: onSetDefault, disabled: busy }]
+    // Kept for the default resume too, just disabled (so the option doesn't vanish).
+    ...(!archived
+      ? [{ label: "Set as default", icon: <CheckIcon className="h-4 w-4" />, onSelect: onSetDefault, disabled: busy || isDefault }]
       : []),
     {
       label: archived ? "Restore" : "Archive",
@@ -170,8 +177,8 @@ function Row({
           {/* Usage as a distinct pill so it isn't missed (it also gates deletion). */}
           <span
             className={cn(
-              "inline-flex items-center rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-semibold",
-              usage > 0 ? "text-ink-soft" : "text-muted",
+              "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
+              usage > 0 ? "bg-brown-soft text-brown-deep" : "bg-paper-2 text-muted",
             )}
           >
             {usage > 0 ? `Used in ${usage} application${usage === 1 ? "" : "s"}` : "Not used yet"}
