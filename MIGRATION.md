@@ -285,8 +285,18 @@ It generates the DB password, JWT secret, and admin bcrypt hash, prompts for the
 only you can supply, and — importantly — **doubles every `$` to `$$`** across all values, not
 just the bcrypt hash, because Compose interpolates `$` in any `.env` value.
 
-Then run the from-scratch launch in **DEPLOY.md §3**, and pick this document back up at
-§6 (DNS) and §7 (CI).
+**Order matters, and it is simpler here than in a live migration.** Because the old box is
+already down, there is no traffic to protect — so **repoint DNS to the new IP first**, then
+launch. Caddy then gets its certificates on the first request instead of retrying failed ACME
+challenges while DNS still points elsewhere. There is no need to stage on sslip.io either;
+that step exists to avoid disrupting a *running* production.
+
+1. Provision the new host (§1).
+2. Repoint the Cloudflare A-records — `kiwiply.com`, `www`, `api` → new IP, grey-cloud (§6).
+3. `./scripts/migrate/05-bootstrap-env.sh` with `SSLIP_HOST=kiwiply.com`.
+4. Launch: `docker compose -f docker-compose.prod.yml pull && … up -d` (DEPLOY.md §3).
+5. Verify: `./scripts/migrate/04-verify.sh kiwiply.com` (§5.1).
+6. Retarget CI (§7).
 
 > A fresh `JWT_BASE64_SECRET` invalidates every existing session and extension token — all
 > users, and every connected extension, must sign in again. With an empty user table that is
