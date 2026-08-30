@@ -5,6 +5,9 @@
 > `main` (§7). The from-scratch steps below use **sslip.io** as the no-domain bootstrap; to use a
 > real domain instead, set `SSLIP_HOST` to it and point DNS at the IP (see §6).
 
+> **Moving to a different server?** See `MIGRATION.md` — it covers the data migration,
+> DNS cutover, and CI retarget that this from-scratch guide does not.
+
 The whole stack runs as Docker containers on one host: **MySQL + API + web**, behind
 **Caddy** (auto-HTTPS via Let's Encrypt). With no domain, **sslip.io** gives real certificates
 on the bare IP; with a domain, Caddy serves it directly. Object storage is **AWS S3** (private bucket).

@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts must keep LF even on Windows checkouts - they are scp'd to Linux hosts,
+# and CRLF makes the shebang fail with "bad interpreter: /usr/bin/env bash^M".
+*.sh text eol=lf
