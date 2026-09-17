@@ -49,7 +49,7 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.51.0",
+      version: "0.51.1",
       description:
         "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
       // Pins the unpacked extension ID (keeps the kiwiply.com /connect handoff working).

@@ -2,9 +2,9 @@
  *
  *  This is the single most rot-prone part of the extension: which DOM signals map
  *  to which canonical field on each ATS. Vendors change their markup, so instead
- *  of compiling these into the adapters we keep them here as data, and the
- *  ruleStore (rules-store.js) can replace this whole object at runtime with a
- *  newer version fetched from a hosted file — no extension re-release required.
+ *  of compiling these into the adapters we keep them here as data, read through
+ *  rules-store.js (JAF.rules). Updating them ships as an extension release —
+ *  the runtime fetch of a hosted ruleset was removed in W6.0 (see rules-store.js).
  *
  *  Shape of a "rule" (matched against an element's lowercased automation-id
  *  chain or label text):
@@ -12,8 +12,7 @@
  *  A rule matches when: every `all` present AND some `any` present (or `regex`
  *  matches) AND no `not` present. See JAF.rules.match().
  *
- *  Bump `version` whenever this changes; the store only adopts a remote ruleset
- *  whose version is strictly higher than the active one.
+ *  Bump `version` whenever this changes — the smoke test asserts it.
  */
 (function () {
   const JAF = (window.JAF = window.JAF || {});
