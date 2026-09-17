@@ -25,6 +25,15 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ▶️ **Extension → Chrome Web Store prep (started 2026-09-17).** ✅ **W6.0 manifest hygiene DONE**
+> (ext **v0.51.0**; env-aware manifest, unused/dev-only permissions dropped, manifest-derived
+> session-handoff gate, `PRIVACY.md` legal entity = **AutomoraLab LLC**, `DEPLOY.md` §8 first-upload
+> runbook). **Next code task: rewrite `job-autofill/W5-QA.md`** — it still walks `popup.html` and
+> `sidepanel.html`, both deleted in v0.30.0/0.31.0; the shipped surfaces are the on-page drawer
+> (`panel.html`) + the options tab. Then walk it (W5.7) and do W6.1–W6.4. **Blocked on the user:**
+> listing screenshots (≥1 at 1280×800), a reviewer test account, and the lawyer review (PL.1 —
+> deferred by decision, entity now settled).
+>
 > ▶️ **Phase 3.6 — Job-details extraction v2 IN REVIEW (2026-07-03, branch `feat/job-extraction-v2`)**:
 > capture provenance (`sources`), structured salary (`salaryParsed {min,max,currency,period}`),
 > conservative description-text jobType/jobMode heuristics, and an **opt-in** AI gap-fill tier
@@ -826,6 +835,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-17 · **w6.0 — extension manifest hygiene for the Chrome Web Store** · Pre-publish audit
+  of `job-autofill/` found dev-only and unused entries in the shipped manifest. `wxt.config.ts`'s
+  `manifest` is now a function of the build env: the production zip no longer carries
+  `localhost:8080`/`127.0.0.1:8080` host permissions or the `localhost:3000`
+  `externally_connectable` origin (dev builds still do), the two unused `githubusercontent` host
+  permissions are gone (`rules-store.js`'s remote fetch has no caller), `key` is Chrome-only and
+  `browser_specific_settings` Firefox-only. The service worker's session-handoff gate derives its
+  accept-list from the manifest instead of hardcoding an origin — new `test/connect_handoff.test.js`
+  (28 cases). `PRIVACY.md` records the legal entity **AutomoraLab LLC** + the real privacy URL and
+  its permission table matches the manifest again; `DEPLOY.md` §8 has the ordered first-upload
+  runbook. ext **v0.50.5 → v0.51.0**. Full detail in `EXT-UI-PLATFORM-PLAN.md` (W6.0).
 - 2026-07-04 · **ui+web — usage pill, expand/collapse gating, menu width** · Resume cards: the
   "used in N applications / not used yet" meta text is now a distinct rounded pill (standardized
   wording, filled `bg-paper-2` chip) so it isn't missed. Edit dialog: Expand all / Collapse all

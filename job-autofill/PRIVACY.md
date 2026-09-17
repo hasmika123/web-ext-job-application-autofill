@@ -1,11 +1,13 @@
 # Kiwiply extension — privacy & Chrome Web Store data-use disclosure
 
-This document is the source for the extension's **Chrome Web Store → Privacy** tab and
-its single-purpose / data-use certifications. The full policy users see lives on the web
-app at `/privacy`; keep the two consistent.
+Kiwiply is operated by **AutomoraLab LLC**. This document is the source for the
+extension's **Chrome Web Store → Privacy** tab and its single-purpose / data-use
+certifications. The full policy users see lives on the web app at
+**https://kiwiply.com/privacy** — that is the URL to put in the CWS listing; keep the two
+consistent.
 
-> Before publishing: set the hosted Privacy Policy URL in the CWS listing, and have the
-> policy reviewed for your jurisdiction.
+> Still outstanding before a public listing: a lawyer's review of this policy and the web
+> `/terms` for the operating jurisdiction (especially the AI data-use language below).
 
 ## Single purpose
 
@@ -64,8 +66,10 @@ To understand which features are used and where the experience breaks, the exten
 | Host access to ATS domains (Workday, Greenhouse, Lever, Ashby, Workable, iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite) | Run the autofill content script on those job-application sites. |
 | `api.anthropic.com` | **Optional** AI assistance for free-text answers — used **only if you supply your own API key**. No key, no calls. |
 | `www.google-analytics.com` | Send **anonymous** usage event counts (no personal data) so we can improve the extension. Opt out in Settings. |
-| `raw.githubusercontent.com`, `gist.githubusercontent.com` | Fetch updated field-matching rules (no personal data is sent). |
-| `localhost:8080` | Local development against a dev backend; not used in production. |
+| `api.kiwiply.com` | Sync your profile/resumes with your own Kiwiply account, and (only if you opt in) proxy AI drafting. |
+
+The published build requests nothing beyond this table. Local-development hosts
+(`localhost`) are added only to development builds, never to a released one.
 
 ## Data-use certifications (Chrome Web Store)
 
@@ -84,4 +88,4 @@ files. Removing the extension clears its local cache.
 
 ## Contact
 
-support@kiwiply.com
+AutomoraLab LLC — support@kiwiply.com

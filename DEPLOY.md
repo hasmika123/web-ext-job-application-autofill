@@ -182,12 +182,28 @@ The **`publish-extension.yml`** workflow packages the extension into a CWS-ready
 as a downloadable build artifact) and can publish it to the Chrome Web Store.
 
 **First listing (manual, one-time):** the CWS API can only *update* an existing item, so the
-first submission is by hand:
-1. Run **Actions → Publish extension → Run workflow** (it skips publishing, just builds the zip).
-2. Download the **`dossier-extension`** artifact from that run.
-3. Create a [Chrome Web Store developer account](https://chrome.google.com/webstore/devconsole)
-   (one-time $5 fee), **Add new item**, upload the zip, fill the listing (use the web `/privacy`
-   URL and `job-autofill/PRIVACY.md` for the data-use disclosure), and submit for review.
+first submission is by hand. **Do these in order — step 6 is not optional**, because the store
+assigns an extension id that the web `/connect` page must be told about, and `/connect` is the
+only way to sign in:
+1. In `job-autofill/wxt.config.ts`, **temporarily remove the `key`** from the manifest (spread
+   `{ key: MANIFEST_KEY }` out). A brand-new store item rejects a manifest that carries one.
+2. Run **Actions → Publish extension → Run workflow** (it skips publishing, just builds the zip).
+3. Download the **`dossier-extension`** artifact from that run.
+4. Create a [Chrome Web Store developer account](https://chrome.google.com/webstore/devconsole)
+   (one-time $5 fee), **Add new item**, upload the zip, fill the listing (privacy URL =
+   `https://kiwiply.com/privacy`; `job-autofill/PRIVACY.md` is the source for the Privacy tab's
+   single-purpose + per-permission + data-use answers), and submit for review. The item is
+   **login-gated**, so put working test credentials for kiwiply.com in the reviewer notes or it
+   gets rejected as broken.
+5. Once the item exists, copy its **public key** (devconsole → item → Package → *View public key*)
+   into `MANIFEST_KEY` in `wxt.config.ts` and restore the `key` spread, so the unpacked dev build
+   and the published item share one id forever.
+6. Copy the item's **extension id** (from its devconsole URL) into
+   **`NEXT_PUBLIC_KIWIPLY_EXTENSION_ID`** for the web build and **redeploy web**. It's a
+   `NEXT_PUBLIC_*` var, so it is baked in at build time — until web is rebuilt, `/connect` targets
+   the old dev id and every store user's sign-in silently fails. Verify on
+   `https://kiwiply.com/connect` with the published extension installed before making the listing
+   public (publish it **unlisted** first if you want to test with a real store install).
 
 **Automated updates (after the item exists):**
 1. Get CWS API credentials (Google Cloud project → enable the *Chrome Web Store API* → OAuth
@@ -196,7 +212,7 @@ first submission is by hand:
 2. Add repo **Secrets**: `CWS_EXTENSION_ID` (from the item's URL), `CWS_CLIENT_ID`,
    `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`.
 3. Add repo **Variable** `PUBLISH_EXTENSION` = `true`.
-4. To ship an update: bump the version in `job-autofill/manifest.json` (+ `package.json`), then
+4. To ship an update: bump the version in `job-autofill/wxt.config.ts` (+ `package.json`), then
    tag it — `git tag ext-v0.11.1 && git push origin ext-v0.11.1` — or run the workflow manually.
    CWS rejects re-uploading the same version, so the bump is required each release.
 

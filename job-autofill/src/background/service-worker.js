@@ -227,10 +227,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // kiwiply.com's /connect page hands the extension a session after the user signs in on
 // the web — single sign-in, no separate login in the extension. We only accept the
 // handoff from our own web origins.
+//
+// The accept-list is DERIVED from the manifest's `externally_connectable.matches` rather
+// than hardcoded. Chrome already enforces those matches; re-checking here is defence in
+// depth, and deriving it keeps ONE source of truth — a dev-only origin (localhost:3000,
+// added by wxt.config.ts in dev builds) can never outlive the manifest entry that allows it.
+function connectOriginAllowed(origin) {
+  if (!origin) return false;
+  const target = /^(https?):\/\/(.+)$/.exec(origin);
+  if (!target) return false;
+  let matches = [];
+  try {
+    const ec = chrome.runtime.getManifest().externally_connectable;
+    matches = (ec && ec.matches) || [];
+  } catch (_) {
+    return false;
+  }
+  return matches.some((pattern) => {
+    const m = /^(https?):\/\/(\*\.)?([^/*]+)\//.exec(pattern);
+    if (!m || m[1] !== target[1]) return false;
+    const host = m[3];
+    // `*.example.com` covers sub.example.com and example.com itself (Chrome's semantics).
+    return m[2] ? target[2] === host || target[2].endsWith("." + host) : target[2] === host;
+  });
+}
+
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   const origin = (sender && sender.origin) || "";
-  const allowed = /^https:\/\/(www\.|app\.)?kiwiply\.com$/.test(origin) || origin === "http://localhost:3000";
-  if (!allowed) return;
+  if (!connectOriginAllowed(origin)) return;
   if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
   const t = (msg && msg.tokens) || {};
   if (!t.access || !t.refresh) { sendResponse({ ok: false, reason: "missing-tokens" }); return; }

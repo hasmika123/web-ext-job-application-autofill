@@ -199,15 +199,27 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   mints a *separate* extension token pair (`POST /api/extension/session` ← web
   `/api/extension/token`) and hands it to the extension via `chrome.runtime.sendMessage`
   (manifest `externally_connectable`); the SW's `onMessageExternal` stores it in
-  `trackingAuth`. The extension **id is pinned** via the manifest `key` →
+  `trackingAuth`. That listener's accept-list is **derived from the manifest's
+  `externally_connectable.matches`** (`connectOriginAllowed`), not hardcoded — Chrome
+  enforces the matches too, so this is defence in depth with one source of truth, and the
+  dev-only `localhost:3000` origin cannot outlive the dev-only manifest entry. Covered by
+  `test/connect_handoff.test.js`. The extension **id is pinned** via the manifest `key` →
   `ejlamilajchikpbeipdkjljjgankbfii`, which the web `/connect` page targets (override per
   build with `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID`). **CWS caveat:** a NEW store item rejects
   `key` on its *first* upload — drop it for that one upload (the store assigns the id), then
-  add the store's `key` back so dev+prod ids match forever. The local store is a
+  add the store's `key` back so dev+prod ids match forever, and point
+  `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` at the store id + **redeploy web** (it's baked at build
+  time) or `/connect` hands the session to an id that no longer exists. The local store is a
   **read-only mirror**: the popup pulls
   `JAF.sync.pullAll` on open (throttled) for autofill and never pushes bio/resume *edits* —
   only resume *creates* (upload → server) write back, so the cache can't drift out of sync.
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).
+- **`wxt.config.ts` manifest is a function of the build env** (W6.0). `wxt build`
+  (mode=production, what CI zips for the store) emits only permissions the shipped code
+  uses; `wxt`/`wxt build --mode development` adds the local API hosts (`:8080`) and the
+  local web origin (`:3000`) back. `key` is Chrome-only; `browser_specific_settings` is
+  Firefox-only. Keep it that way — Chrome rejects permissions it can see no use for, and
+  `PRIVACY.md`'s permission table is a listing certification that has to stay true.
 
 ## Canonical-field model
 Everything maps to one vocabulary of canonical fields (`firstName`, `email`,
