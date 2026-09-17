@@ -25,14 +25,20 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **Extension → Chrome Web Store prep (started 2026-09-17).** ✅ **W6.0 manifest hygiene DONE**
-> (ext **v0.51.0**; env-aware manifest, unused/dev-only permissions dropped, manifest-derived
-> session-handoff gate, `PRIVACY.md` legal entity = **AutomoraLab LLC**, `DEPLOY.md` §8 first-upload
-> runbook). **Next code task: rewrite `job-autofill/W5-QA.md`** — it still walks `popup.html` and
-> `sidepanel.html`, both deleted in v0.30.0/0.31.0; the shipped surfaces are the on-page drawer
-> (`panel.html`) + the options tab. Then walk it (W5.7) and do W6.1–W6.4. **Blocked on the user:**
-> listing screenshots (≥1 at 1280×800), a reviewer test account, and the lawyer review (PL.1 —
-> deferred by decision, entity now settled).
+> ▶️ **Extension → Chrome Web Store prep (2026-09-17). Everything that can be done from here is
+> done; the remaining gates need a real Chrome and the user.** Ext **v0.51.1**. Landed: **W6.0**
+> manifest hygiene (env-aware manifest — no dev-only or unused permissions in the store zip;
+> session-handoff gate derived from the manifest; `test/connect_handoff.test.js`), **W6.2** (the
+> unreachable remote-ruleset path removed), `W5-QA.md` **rewritten** for the surfaces we actually
+> ship, **`job-autofill/STORE-LISTING.md`** (listing copy, privacy-tab answers, reviewer notes,
+> 1280×800 shot list), web `/privacy`+`/terms` naming **AutomoraLab LLC**, and the stale-doc sweep.
+> **Blocked on the user:** walk `W5-QA.md` in Chrome (W5.7, light + dark) · live re-verify autofill,
+> especially **SmartRecruiters** (its shadow-DOM fix shipped in v0.37.0 and has never been tested on
+> a real form) · five screenshots · a seeded reviewer test account · the CWS developer account · then
+> **`DEPLOY.md` §8 in order** — the `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy is the step that
+> breaks sign-in for every store user if skipped. Still deferred by decision: PL.1 lawyer review
+> (entity now settled), DPAs with Brevo + AWS S3. Optional next code task: **W6.1** Firefox parity
+> (WXT currently emits `firefox-mv2`).
 >
 > ▶️ **Phase 3.6 — Job-details extraction v2 IN REVIEW (2026-07-03, branch `feat/job-extraction-v2`)**:
 > capture provenance (`sources`), structured salary (`salaryParsed {min,max,currency,period}`),
@@ -836,6 +842,28 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-17 · **docs — correct the stale facts a new session would act on** · CLAUDE.md claimed
+  `job-autofill` is "standalone, not yet a workspace member" (it joined in W3, and
+  `publish-extension.yml`'s root `npm ci` depends on that — "fixing" the array to match would have
+  broken releases); HANDOFF.md and PROGRESS.md named v0.28.0 / v0.25.0 as the pending CWS upload,
+  ~25 versions stale; both `package.json` descriptions were pre-WXT. Historical Log entries left
+  intact.
+- 2026-09-17 · **w6.2 — drop the unreachable remote-ruleset update path** · `rules-store.js` could
+  fetch/validate/adopt a hosted ruleset, but nothing called it, no UI exposed `settings.rulesUrl`,
+  and W6.0 had already removed the host permissions it needed. Removed `checkForUpdates`/`init`/
+  `reset`/`info` + the storage override; kept `getActive`/`site`/`match`. Behaviour-neutral. ext
+  **v0.51.0 → v0.51.1**.
+- 2026-09-17 · **web — name AutomoraLab LLC as the operator in `/privacy` + `/terms`** · Both pages
+  carried a TODO that the policies needed a registered entity; the CWS listing points its Privacy
+  Policy URL at `/privacy`, so a reviewer reads it. Verified rendered in a dev server (JSX
+  whitespace collapsing had eaten a space on the first pass). Lawyer review still outstanding.
+- 2026-09-17 · **store — `job-autofill/STORE-LISTING.md`** · CWS listing copy (limits verified
+  mechanically), privacy-tab answers, login-gated reviewer notes, and a five-shot 1280×800
+  screenshot list. Only claims the five ATS verified live in `AUTOFILL-QA.md`.
+- 2026-09-17 · **w5.7 — rewrite `job-autofill/W5-QA.md`** · The one manual gate still walked
+  `popup.html` + `sidepanel.html`, deleted in v0.30.0/0.31.0. Rebuilt against the shipped surfaces
+  (drawer home, drawer review, on-page fill overlay, options tab) from the real components. Not yet
+  walked — that's the user's step.
 - 2026-09-17 · **w6.0 — extension manifest hygiene for the Chrome Web Store** · Pre-publish audit
   of `job-autofill/` found dev-only and unused entries in the shipped manifest. `wxt.config.ts`'s
   `manifest` is now a function of the build env: the production zip no longer carries
