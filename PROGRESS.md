@@ -37,8 +37,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > a real form) · five screenshots · a seeded reviewer test account · the CWS developer account · then
 > **`DEPLOY.md` §8 in order** — the `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy is the step that
 > breaks sign-in for every store user if skipped. Still deferred by decision: PL.1 lawyer review
-> (entity now settled), DPAs with Brevo + AWS S3. Optional next code task: **W6.1** Firefox parity
-> (WXT currently emits `firefox-mv2`).
+> (entity now settled), DPAs with Brevo + AWS S3.
+> **W6.1 Firefox parity is DONE** (ext **v0.52.0**): its own MV3 build, the connect-relay that
+> makes sign-in possible at all on Firefox, AMO's `data_collection_permissions`, `web-ext lint`
+> clean. **Also blocked on the user:** a live Firefox smoke test (`BROWSERS.md`) before any AMO
+> submission. Remaining code tasks: **W6.3** (docs sweep) and **W6.4** (package + upload).
 >
 > ▶️ **Phase 3.6 — Job-details extraction v2 IN REVIEW (2026-07-03, branch `feat/job-extraction-v2`)**:
 > capture provenance (`sources`), structured salary (`salaryParsed {min,max,currency,period}`),
@@ -842,6 +845,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-17 · **w6.1 — Firefox parity** · Firefox supports neither `externally_connectable` nor
+  web-page `runtime.sendMessage` (bug 1319168), and that handoff is the extension's only sign-in
+  path — so the previously-documented "Firefox support" would have shipped an add-on nobody could
+  sign into. Added a Firefox-only connect-relay content script + ping/handoff protocol on web
+  `/connect`, landing in the background through the same origin gate plus a `sender.tab` check.
+  Firefox builds are now MV3; `strict_min_version` 121 → 140; declared
+  `gecko.data_collection_permissions`, without which AMO rejects a new extension at signing.
+  `web-ext lint` 0 errors. Tests 28 → 52 cases across both transports. Chrome's manifest
+  unchanged. ext **v0.51.1 → v0.52.0**. Live Firefox smoke test still outstanding.
 - 2026-09-17 · **docs — correct the stale facts a new session would act on** · CLAUDE.md claimed
   `job-autofill` is "standalone, not yet a workspace member" (it joined in W3, and
   `publish-extension.yml`'s root `npm ci` depends on that — "fixing" the array to match would have

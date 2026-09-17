@@ -49,7 +49,7 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.51.1",
+      version: "0.52.0",
       description:
         "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
       // Pins the unpacked extension ID (keeps the kiwiply.com /connect handoff working).
@@ -59,10 +59,45 @@ export default defineConfig({
       // the dev and published IDs match forever. See DEPLOY.md §8.
       ...(browser === "firefox" ? {} : { key: MANIFEST_KEY }),
       // Firefox-only: Chrome ignores it, so don't ship it in the Chrome manifest.
+      // strict_min_version 140: two separate floors, and 140 is the higher one. (a) Firefox
+      // builds are MV3 (package.json's `-b firefox --mv3`), and only from 127 does Firefox show
+      // an MV3 extension's host permissions in the install prompt and grant them there — before
+      // that the user would install it and find it silently dead on every ATS. (b) 140
+      // introduced `data_collection_permissions` below, which AMO now requires; declaring it
+      // against a lower floor is a `web-ext lint` warning. 140 is also the current ESR.
       ...(browser === "firefox"
         ? {
             browser_specific_settings: {
-              gecko: { id: "dossier@kiwiply.com", strict_min_version: "121.0" },
+              gecko: {
+                id: "dossier@kiwiply.com",
+                strict_min_version: "140.0",
+                // REQUIRED by AMO since 2025-11-03 — a new extension without this is rejected
+                // at signing, not merely warned (`web-ext lint`:
+                // MISSING_DATA_COLLECTION_PERMISSIONS). Firefox shows these in the install
+                // prompt, and `required` entries must be accepted to install at all. Keep this
+                // in step with PRIVACY.md — it is the same disclosure, enforced by the browser.
+                data_collection_permissions: {
+                  required: [
+                    // The profile we fill: name, contact details, address, links,
+                    // work-authorization and voluntary self-identification answers.
+                    "personallyIdentifyingInfo",
+                    // The session the web app hands over at /connect, stored to call our API.
+                    "authenticationInfo",
+                    // We read the application page to match its fields, and a saved job sends
+                    // role/company/location/salary to the user's own account.
+                    "websiteContent",
+                  ],
+                  // Anonymous GA4 event counts — off unless CI injected credentials, and
+                  // opt-out in Settings either way. `technicalAndInteraction` is the only
+                  // value Mozilla requires to be optional rather than required.
+                  optional: ["technicalAndInteraction"],
+                },
+              },
+              // Firefox for Android got `data_collection_permissions` in 142, later than
+              // desktop's 140, so it needs its own floor or `web-ext lint` flags the mismatch.
+              // The UI is a 400px-wide drawer built for desktop; Android is not a target we
+              // test, but there is no reason to declare an impossible minimum.
+              gecko_android: { strict_min_version: "142.0" },
             },
           }
         : {}),

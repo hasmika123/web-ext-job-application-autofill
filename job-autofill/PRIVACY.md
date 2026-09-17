@@ -71,6 +71,13 @@ To understand which features are used and where the experience breaks, the exten
 The published build requests nothing beyond this table. Local-development hosts
 (`localhost`) are added only to development builds, never to a released one.
 
+On **Firefox** the same disclosure is additionally declared *in the manifest*, which AMO requires
+and Firefox shows in the install prompt (`browser_specific_settings.gecko.data_collection_permissions`):
+**required** — `personallyIdentifyingInfo`, `authenticationInfo`, `websiteContent`; **optional** —
+`technicalAndInteraction` (the anonymous analytics above). Keep the two in step. The Firefox build
+also carries a content script on kiwiply.com only, to receive the sign-in handoff that Firefox
+cannot deliver the way Chrome does — it reads nothing from the page (see `BROWSERS.md`).
+
 ## Data-use certifications (Chrome Web Store)
 
 - We do **not** sell user data.

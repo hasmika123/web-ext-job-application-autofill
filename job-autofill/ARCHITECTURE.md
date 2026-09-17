@@ -202,8 +202,13 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   `trackingAuth`. That listener's accept-list is **derived from the manifest's
   `externally_connectable.matches`** (`connectOriginAllowed`), not hardcoded — Chrome
   enforces the matches too, so this is defence in depth with one source of truth, and the
-  dev-only `localhost:3000` origin cannot outlive the dev-only manifest entry. Covered by
-  `test/connect_handoff.test.js`. The extension **id is pinned** via the manifest `key` →
+  dev-only `localhost:3000` origin cannot outlive the dev-only manifest entry.
+  **Firefox has no `externally_connectable`** ([bug 1319168](https://bugzil.la/1319168)), so the
+  Firefox build ships `entrypoints/connect-relay.content.ts` on our own web origins: `/connect`
+  pings it, posts the session to itself, and the relay forwards it to the background as an
+  ordinary internal message, which passes the *same* origin gate plus a `sender.tab` check. Chrome
+  doesn't ship the relay (`include: ["firefox"]`). Both paths covered by
+  `test/connect_handoff.test.js` (52 cases); the Firefox specifics are in `BROWSERS.md`. The extension **id is pinned** via the manifest `key` →
   `ejlamilajchikpbeipdkjljjgankbfii`, which the web `/connect` page targets (override per
   build with `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID`). **CWS caveat:** a NEW store item rejects
   `key` on its *first* upload — drop it for that one upload (the store assigns the id), then
