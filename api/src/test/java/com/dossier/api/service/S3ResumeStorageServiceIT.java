@@ -29,8 +29,11 @@ class S3ResumeStorageServiceIT {
 
     private static final String BUCKET = "dossier-resumes";
 
+    // quay.io, NOT Docker Hub: MinIO deleted the minio/minio repo from Docker Hub, so the
+    // old coordinate now fails with "pull access denied ... repository does not exist".
+    // Same RELEASE tag, different registry.
     @Container
-    private static final MinIOContainer MINIO = new MinIOContainer("minio/minio:RELEASE.2025-04-08T15-41-24Z");
+    private static final MinIOContainer MINIO = new MinIOContainer("quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z");
 
     private static S3Client s3Client;
     private static ResumeStorageService storageService;
