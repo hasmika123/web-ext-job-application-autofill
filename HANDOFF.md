@@ -43,7 +43,11 @@ before writing selectors.
   (admin console, analytics, email subscription + Brevo sync, bug reports, DSAR, admin MFA, per-
   application resume attachment + PDF preview, on-the-fly resume upload, etc.).
 - **Extension reaches users only via a manual Chrome Web Store upload** — currently **unshipped**:
-  ext **v0.28.0** + the connection-gate fix are on `main` but not yet uploaded to the CWS.
+  everything through ext **v0.51.1** is on `main` but the CWS item does not exist yet. The first
+  submission is a hand upload with an ordered set of steps (`DEPLOY.md` §8) — get the order wrong
+  and `/connect` breaks for every store user. Listing copy + shot list: `job-autofill/
+  STORE-LISTING.md`. Remaining gates: W5.7 visual QA (`job-autofill/W5-QA.md`), screenshots, a
+  reviewer test account.
 - **Active build-out: migrating the extension to a real UI platform (WXT/Vite).** Branch
   **`feat/extension-redesign`** (off `main`). Plan + task tracker: **`EXT-UI-PLATFORM-PLAN.md`**
   (phases W0–W6, incl. W5 UI overhaul). This **introduces a build step (WXT/Vite) for the

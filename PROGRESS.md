@@ -64,8 +64,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > postal address configured (A4.4 deployed, PR #14); ✅ admin email → `admin@kiwiply.com`, Cloudflare-routed
 > to `admin.kiwiply@gmail.com`. **Remaining:** backfill existing confirmed subscribers into the Brevo list
 > (`/admin/subscribers` CSV → import); lawyer review of `/privacy`+`/terms` (PL.1); **DPAs with Brevo + AWS
-> S3** (accept/sign in their dashboards); manual Chrome Web Store upload of extension **v0.25.0**;
-> screenshots for bug reports if wanted.
+> S3** (accept/sign in their dashboards); the first manual Chrome Web Store upload (now at ext
+> **v0.51.1** — follow `DEPLOY.md` §8 in order and use `job-autofill/STORE-LISTING.md` for the
+> listing copy); screenshots for bug reports if wanted.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
