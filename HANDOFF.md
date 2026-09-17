@@ -12,10 +12,16 @@ Canonical docs stay authoritative; this just points you at them and gets you mov
 - Root docs: `ROADMAP.md` (architecture), `PROGRESS.md` (task tracker + Log), `ADMIN-PLAN.md`
   (admin side), `DEPLOY.md` (ops), `CLAUDE.md` (working rules — read it).
 
-**Live** at https://kiwiply.com (web), https://api.kiwiply.com (API), on an IONOS VPS
-(Docker Compose + Caddy + AWS S3). **CI/CD auto-deploys on push to `main`** (build → GHCR →
-VPS pull/restart). Email verification + password reset are live (Brevo SMTP). See the
-`live-deployment` memory for URLs/ops.
+**Live** at https://kiwiply.com (web), https://api.kiwiply.com (API), **co-hosted with
+BeeCompete** on one box (Docker Compose + AWS S3). **CI/CD auto-deploys on push to `main`**
+(build → GHCR → box pull/restart). Email verification + password reset are live (Brevo SMTP).
+
+⚠️ **Shared host:** that box's `beecompete-edge-caddy` owns :80/:443, so our own Caddy must not
+run — deploy with `-f docker-compose.prod.yml -f docker-compose.shared-edge.yml`. Freeing those
+ports takes BeeCompete down. Read `MIGRATION.md` §10 before touching the proxy.
+
+⚠️ **The DB was rebuilt empty on 2026-09-17** after the original VPS was lost with no off-box
+dump. Don't expect historical accounts or applications. See the `live-deployment` memory.
 
 ## How to work here (the loop)
 Per `CLAUDE.md`: read `PROGRESS.md` → **Current focus**; do ONE task; tests green; bump

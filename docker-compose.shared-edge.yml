@@ -1,0 +1,42 @@
+# Overlay for running Dossier on a host that ALREADY has a shared edge Caddy owning :80/:443
+# (the box that also runs beecompete-edge / beecompete-prod / beecompete-staging).
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml up -d
+#
+# Two differences from the standalone stack:
+#   1. Our own Caddy does NOT start — it cannot bind :80/:443, and forcing it would take the
+#      other sites on this box down. It is parked behind a profile instead of deleted so the
+#      standalone path in docker-compose.prod.yml still works elsewhere.
+#   2. web + api join the shared `web_edge` network under stable aliases, which is how the
+#      edge Caddy addresses them (same convention as prod-web / staging-web).
+#
+# The edge Caddyfile needs matching site blocks — see MIGRATION.md §10.
+
+name: dossier
+
+services:
+  caddy:
+    # Opt-in only: `--profile standalone-edge` brings it back for a single-tenant host.
+    profiles: ["standalone-edge"]
+
+  web:
+    networks:
+      internal:
+      web_edge:
+        aliases: [dossier-web]
+
+  api:
+    # NOTE: this deviates from the edge's BFF rule, which says no API is routed publicly.
+    # Dossier's browser extension calls https://api.kiwiply.com DIRECTLY (the host permission
+    # is baked into the published build), so a public API route is a hard requirement here,
+    # not a convenience. Joining web_edge only makes the API reachable BY the edge proxy;
+    # what actually publishes it is the api.kiwiply.com block in the edge Caddyfile.
+    networks:
+      internal:
+      web_edge:
+        aliases: [dossier-api]
+
+networks:
+  # Created and owned by the beecompete-edge stack — never declared here.
+  web_edge:
+    external: true
