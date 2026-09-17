@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -29,8 +30,14 @@ class S3ResumeStorageServiceIT {
 
     private static final String BUCKET = "dossier-resumes";
 
+    // quay.io, NOT Docker Hub: MinIO deleted the minio/minio repo from Docker Hub, so the
+    // old coordinate now fails with "pull access denied ... repository does not exist".
+    // Same RELEASE tag, different registry — but MinIOContainer asserts the name is
+    // 'minio/minio', so the substitution has to be declared explicitly.
     @Container
-    private static final MinIOContainer MINIO = new MinIOContainer("minio/minio:RELEASE.2025-04-08T15-41-24Z");
+    private static final MinIOContainer MINIO = new MinIOContainer(
+        DockerImageName.parse("quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z").asCompatibleSubstituteFor("minio/minio")
+    );
 
     private static S3Client s3Client;
     private static ResumeStorageService storageService;
