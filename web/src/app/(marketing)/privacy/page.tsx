@@ -11,11 +11,13 @@ export const metadata: Metadata = {
  * Privacy policy. Written to match what the product actually does today (see 1.11): a
  * cloud account holding your profile + resumes, in-browser resume parsing, and a
  * self-service "delete everything" path. Contact = support@kiwiply.com (monitored, routed
- * to Gmail — see the email-architecture memory / DEPLOY §9.1). PL.1 (legal review +
- * registered entity) still stands before any wider public launch.
+ * to Gmail — see the email-architecture memory / DEPLOY §9.1). The operator is named here
+ * (AutomoraLab LLC) because the Chrome Web Store listing points its Privacy Policy URL at
+ * this page. PL.1's remaining piece — a lawyer's review — still stands before a wider launch.
  */
 const UPDATED = "June 2026";
 const CONTACT = "support@kiwiply.com";
+const ENTITY = "AutomoraLab LLC";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -35,8 +37,10 @@ export default function PrivacyPage() {
       </header>
 
       <p className="text-sm leading-relaxed text-ink-soft">
-        Kiwiply helps you keep one profile and several resume versions and autofill job
-        applications. This policy explains what we collect, why, how it&apos;s stored, and
+        Kiwiply is a service operated by {ENTITY}{" "}
+        (&quot;Kiwiply&quot;, &quot;we&quot;, &quot;us&quot;). It helps you keep one profile and
+        several resume versions and autofill
+        job applications. This policy explains what we collect, why, how it&apos;s stored, and
         how to delete it. We don&apos;t sell your data.
       </p>
 
@@ -208,7 +212,7 @@ export default function PrivacyPage() {
 
       <Section title="Contact">
         <p>
-          Questions about this policy or your data? Email{" "}
+          Kiwiply is operated by {ENTITY}. Questions about this policy or your data? Email{" "}
           <a href={`mailto:${CONTACT}`} className="font-medium text-accent-deep hover:underline">
             {CONTACT}
           </a>

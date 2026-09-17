@@ -11,12 +11,14 @@ export const metadata: Metadata = {
  * Terms of Service. Written to match what the product actually is today (1.11): a
  * free beta cloud account + browser extension that autofills (never auto-submits) job
  * applications. Pairs with the Privacy Policy (/privacy) for data handling. Contact =
- * support@kiwiply.com (routed to Gmail — see the email-architecture memory). PL.1 (legal
- * review + a registered entity + a real governing-law clause) still stands before any
- * wider public launch — this is a plain-language beta agreement, not a lawyer's draft.
+ * support@kiwiply.com (routed to Gmail — see the email-architecture memory). The contracting
+ * entity is named (AutomoraLab LLC) so the agreement has a real legal "we". PL.1's remaining
+ * pieces — a lawyer's review and a governing-law/jurisdiction clause — still stand before a
+ * wider public launch; this is a plain-language beta agreement, not a lawyer's draft.
  */
 const UPDATED = "June 2026";
 const CONTACT = "support@kiwiply.com";
+const ENTITY = "AutomoraLab LLC";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -36,8 +38,9 @@ export default function TermsPage() {
       </header>
 
       <p className="text-sm leading-relaxed text-ink-soft">
-        These terms are an agreement between you and Kiwiply (&quot;Kiwiply&quot;, &quot;we&quot;,
-        &quot;us&quot;) governing your use of the Kiwiply website, accounts, and browser extension
+        These terms are an agreement between you and {ENTITY}, which operates Kiwiply
+        (&quot;Kiwiply&quot;, &quot;we&quot;, &quot;us&quot;), governing your use of the Kiwiply
+        website, accounts, and browser extension
         (together, the &quot;Service&quot;). By creating an account or using the Service, you agree to
         these terms. If you don&apos;t agree, please don&apos;t use the Service.
       </p>
@@ -176,7 +179,7 @@ export default function TermsPage() {
 
       <Section title="Contact">
         <p>
-          Questions about these terms? Email{" "}
+          Kiwiply is operated by {ENTITY}. Questions about these terms? Email{" "}
           <a href={`mailto:${CONTACT}`} className="font-medium text-accent-deep hover:underline">
             {CONTACT}
           </a>
