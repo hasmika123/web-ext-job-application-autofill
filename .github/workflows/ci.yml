@@ -71,17 +71,29 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Smoke-run the container
         # Validates the RUNTIME, not just the build: a monorepo-nested standalone with the wrong
-        # paths would build fine but fail to start. We just need the server to bind + answer.
+        # paths would build fine but fail to start. We need the server to bind AND answer.
         run: |
           docker run -d --name web -p 3000:3000 -e HOSTNAME=0.0.0.0 dossier-web:ci
           ok=
+          code=
           for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || echo 000)
-            if [ "$code" != "000" ]; then echo "server responded: HTTP $code"; ok=1; break; fi
+            # `-w %{http_code}` prints 000 when curl cannot connect, AND curl exits non-zero.
+            # So DON'T add `|| echo 000` — that printed a second 000, making "000000", which
+            # is != "000" and passed the old check on the very first poll. This job reported
+            # success for months without the server ever answering.
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/) || code=000
+            # Any real status means it bound and routed. 5xx keeps polling: the app is up but
+            # broken, and we'd rather fail with that code than call it a pass.
+            case "$code" in
+              2??|3??|4??) echo "server responded: HTTP $code"; ok=1; break ;;
+            esac
             sleep 2
           done
           echo "--- container logs ---"; docker logs web 2>&1 | tail -40
-          if [ "$ok" != "1" ]; then echo "::error::web container never bound :3000 (check nested-standalone paths)"; exit 1; fi
+          if [ "$ok" != "1" ]; then
+            echo "::error::web container never answered on :3000 (last code: ${code:-none}) — check nested-standalone paths"
+            exit 1
+          fi
 
   api:
     name: API tests (unit + integration)
