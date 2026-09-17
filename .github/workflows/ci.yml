@@ -21,8 +21,8 @@ jobs:
       # runner — override it so npm ci works.
       npm_config_script_shell: /bin/bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -40,8 +40,8 @@ jobs:
       # here so npm lifecycle scripts work on the Linux runner.
       npm_config_script_shell: /bin/bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -56,11 +56,11 @@ jobs:
     name: Web Docker image builds + smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       # Build the production image (root context, workspace-aware) to validate the Dockerfile.
       # No push — this is a smoke check; the real build+push happens in deploy.yml on main.
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: ./web/Dockerfile
@@ -88,8 +88,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
