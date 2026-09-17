@@ -79,12 +79,16 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd ~/web-ext-job-application-autofill
+            cd ${{ vars.DEPLOY_PATH || '~/web-ext-job-application-autofill' }}
             git pull --ff-only
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            # The Caddyfile is a single-file bind mount; git pull swaps its inode, so the
-            # running container keeps the old content. Force-recreate Caddy to re-mount the
-            # current file (certs persist in the caddy-data volume, so this is a ~1s blip).
-            docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
+            # Dossier shares a host with another stack, so the shared-edge overlay applies:
+            # it keeps our Caddy from starting (the box's edge Caddy owns :80/:443) and puts
+            # web + api on the shared web_edge network. See MIGRATION.md §10.
+            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml"
+            $COMPOSE pull
+            $COMPOSE up -d
+            # No Caddy force-recreate here: there is no Dossier Caddy on this host, and the
+            # shared edge Caddyfile lives outside this repo (~/beecompete-edge/) so a deploy
+            # must never touch it. On a single-tenant host, drop the overlay and restore the
+            # force-recreate — the bind-mounted Caddyfile changes inode on git pull.
             docker image prune -f

@@ -304,3 +304,104 @@ that step exists to avoid disrupting a *running* production.
 
 > **Back the new `.env` up somewhere you can read it back from** — a password manager. That is
 > the gap that turned a server loss into a data loss.
+
+---
+
+## 10. Co-hosting behind a shared edge Caddy
+
+**This is how Dossier now runs.** The host it lives on (`74.208.212.158`) already serves
+BeeCompete, and a single `beecompete-edge-caddy` container owns `:80`/`:443` for the whole box.
+Dossier's own Caddy therefore **cannot start** — you will see `dossier-caddy-1` stuck in
+`Created` and every hostname failing its TLS handshake while HTTP still 308s.
+
+> **Never free the ports to let Dossier's Caddy bind.** That takes BeeCompete down with it.
+
+The box's convention, documented in its own `~/beecompete-edge/Caddyfile`: every app's web
+container joins the shared **`web_edge`** network under a stable alias, and the edge Caddy
+proxies to that alias. Dossier follows it via an overlay file.
+
+### 10.1 Bring the stack up on the shared network
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml up -d
+```
+
+`docker-compose.shared-edge.yml` parks our Caddy behind a profile (so the standalone path in
+`docker-compose.prod.yml` still works on a single-tenant host) and attaches `web` and `api` to
+`web_edge` as `dossier-web` and `dossier-api`.
+
+Clear the never-started container once:
+
+```bash
+docker rm dossier-caddy-1
+```
+
+### 10.2 Add the site blocks to the edge
+
+Edit `~/beecompete-edge/Caddyfile` (owned by the `deploy` user) and append:
+
+```
+# --- Dossier (kiwiply.com) ---
+kiwiply.com {
+	import common
+	reverse_proxy dossier-web:3000
+}
+
+www.kiwiply.com, app.kiwiply.com {
+	import common
+	redir https://kiwiply.com{uri} permanent
+}
+
+# Public API: Dossier's browser extension calls this origin directly, so unlike the
+# BeeCompete stacks it cannot hide behind the BFF.
+api.kiwiply.com {
+	import common
+	reverse_proxy dossier-api:8080
+}
+```
+
+Then reload with **no downtime** — Caddy validates first and keeps the old config if the new
+one is bad:
+
+```bash
+docker compose -f ~/beecompete-edge/docker-compose.edge.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+Certificates are issued on the first request to each new hostname.
+
+> **Security note.** The edge Caddyfile states that APIs are deliberately not routed publicly
+> (BFF pattern). `api.kiwiply.com` is a considered exception: the published extension has
+> `https://api.kiwiply.com` baked into its host permissions, so the API *must* be reachable
+> from the browser. Joining `web_edge` also means the BeeCompete containers can reach
+> `dossier-api` on that network — acceptable on a single-owner box, worth remembering if that
+> ever stops being true.
+
+### 10.3 Verify
+
+```bash
+./scripts/migrate/04-verify.sh kiwiply.com
+```
+
+Then confirm you did **not** disturb the neighbours:
+
+```bash
+curl -s -o /dev/null -w 'beecompete %{http_code}\n' https://beecompete.com/ && curl -s -o /dev/null -w 'staging %{http_code}\n' https://staging.beecompete.com/
+```
+
+### 10.4 CI on a shared box
+
+`deploy.yml` passes both compose files and no longer force-recreates Caddy — there is no
+Dossier Caddy to recreate, and the edge one is managed outside this repo.
+
+Two settings must match reality:
+
+| Secret / Variable | Value | Why |
+|---|---|---|
+| `VPS_HOST` | `74.208.212.158` | the shared box |
+| `VPS_USER` | the user owning the checkout | currently `/root/web-ext-job-application-autofill`, so `root` |
+| `DEPLOY_PATH` *(variable)* | `/root/web-ext-job-application-autofill` | `~` differs per user; be explicit |
+
+BeeCompete's own deploy user is `deploy`, which is in the `docker` group but has **no
+passwordless sudo** — so it cannot drive a stack living under `/root`. Either give CI the
+`root` user, or move the checkout to a home `deploy` can read and re-run §10.1 from there.
+The second is the better end state.
