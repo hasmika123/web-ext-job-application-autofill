@@ -82,11 +82,21 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Pre-launch gate (1.11):** multi-tenant leak fix + basic GDPR/CCPA account/data
   deletion + basic refresh-token rotation/revocation. Fuller SSO/multi-tenancy/audit
   = Phase 8.
-- **Deployed LIVE** on a self-managed **IONOS VPS** (Docker Compose + Caddy + **AWS S3**, not
-  R2). Domain **kiwiply.com** (Cloudflare DNS, grey-cloud; apex canonical, www/app 301 to it;
-  API at api.kiwiply.com). **CI/CD auto-deploys on merge to `main`** (build → GHCR → VPS pull).
-  Deploy/ops in `DEPLOY.md`; URLs + gotchas in the `live-deployment` memory. Targets this VPS,
-  not a PaaS.
+- **Deployed LIVE**, **co-hosted with BeeCompete** on one self-managed box `74.208.212.158`
+  (Docker Compose + **AWS S3**, not R2). Domain **kiwiply.com** (Cloudflare DNS, grey-cloud;
+  apex canonical, www/app 301 to it; API at api.kiwiply.com). **CI/CD auto-deploys on merge to
+  `main`** (build → GHCR → box pull). Ops: `DEPLOY.md` + `MIGRATION.md` §10; gotchas in the
+  `live-deployment` memory. Self-managed box, not a PaaS.
+- **Shared edge Caddy — never run ours.** `beecompete-edge-caddy` owns :80/:443 on that box, so
+  always deploy with the overlay: `-f docker-compose.prod.yml -f docker-compose.shared-edge.yml`
+  (it parks our Caddy behind a profile and joins web/api to the `web_edge` network). **Freeing
+  those ports takes BeeCompete down.** Public routes live in `~/beecompete-edge/Caddyfile`,
+  outside this repo; `api.kiwiply.com` is a deliberate exception to that file's no-public-API
+  rule, because the published extension calls it directly.
+- **Prod data was lost 2026-09-17** — the original IONOS VPS vanished with no off-box dump, so
+  the DB was rebuilt empty (S3 resume files survive but are orphaned). Keep `.env` in a password
+  manager (**GitHub secrets are write-only** and never held it), and make sure the nightly
+  off-box `mysqldump` in `DEPLOY.md` §5 actually runs — it never did.
 - **Email verification is LIVE** (Brevo SMTP, sends from **no-reply@kiwiply.com**; domain
   authenticated). Signups self-activate via the emailed link → web `/account/activate`.
   **Still no auto-activate** — verification is the gate, kept that way by decision.

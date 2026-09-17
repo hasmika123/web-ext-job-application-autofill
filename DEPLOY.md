@@ -1,9 +1,17 @@
 # Deploying Dossier (self-hosted VPS)
 
-> **Current production:** live on an IONOS VPS at **https://kiwiply.com** (apex canonical;
-> `www`/`app` 301 to it; API at `api.kiwiply.com`), deployed automatically by CI on merge to
-> `main` (§7). The from-scratch steps below use **sslip.io** as the no-domain bootstrap; to use a
-> real domain instead, set `SSLIP_HOST` to it and point DNS at the IP (see §6).
+> **Current production:** live at **https://kiwiply.com** (apex canonical; `www`/`app` 301 to it;
+> API at `api.kiwiply.com`), deployed automatically by CI on merge to `main` (§7).
+>
+> ⚠️ **Production is CO-HOSTED with BeeCompete on one box, behind a shared edge Caddy that owns
+> :80/:443.** The Caddy service in `docker-compose.prod.yml` therefore **does not run there** —
+> deploys must pass the overlay, `-f docker-compose.prod.yml -f docker-compose.shared-edge.yml`,
+> and the public routes live in `~/beecompete-edge/Caddyfile`, outside this repo. See
+> **`MIGRATION.md` §10** before changing anything about the proxy or the ports.
+>
+> The from-scratch steps below describe a **single-tenant** host, which production no longer is.
+> They stay accurate for a fresh box: they use **sslip.io** as the no-domain bootstrap; for a
+> real domain, set `SSLIP_HOST` to it and point DNS at the IP (see §6).
 
 > **Moving to a different server?** See `MIGRATION.md` — it covers the data migration,
 > DNS cutover, and CI retarget that this from-scratch guide does not.
