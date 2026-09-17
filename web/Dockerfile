@@ -8,7 +8,7 @@
 # runs from the repo root. (Next standalone output is monorepo-nested: standalone/web/server.js.)
 
 # ---- deps (workspace-aware install from the root lockfile) ----
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /repo
 # Only the manifests needed to resolve the install, so this layer caches until deps change.
 # NOTE: do NOT copy web/.npmrc — it pins a Windows cmd.exe script-shell that breaks npm here.
@@ -26,7 +26,7 @@ COPY job-autofill/package.json ./job-autofill/
 RUN npm ci --ignore-scripts
 
 # ---- build ----
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 # Root workspace manifests — `npm run build --workspace web` needs the root package.json to
@@ -50,7 +50,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 RUN npm run build --workspace web
 
 # ---- runtime ----
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
