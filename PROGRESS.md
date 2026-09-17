@@ -41,7 +41,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **W6.1 Firefox parity is DONE** (ext **v0.52.0**): its own MV3 build, the connect-relay that
 > makes sign-in possible at all on Firefox, AMO's `data_collection_permissions`, `web-ext lint`
 > clean. **Also blocked on the user:** a live Firefox smoke test (`BROWSERS.md`) before any AMO
-> submission. Remaining code tasks: **W6.3** (docs sweep) and **W6.4** (package + upload).
+> submission. **W6.3 docs sweep is DONE.** The only remaining W-task is **W6.4** (package +
+> upload), which is gated entirely on the human steps above — there is no further code work
+> queued for the extension.
 >
 > ▶️ **Phase 3.6 — Job-details extraction v2 IN REVIEW (2026-07-03, branch `feat/job-extraction-v2`)**:
 > capture provenance (`sources`), structured salary (`salaryParsed {min,max,currency,period}`),
@@ -845,6 +847,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-17 · **w6.3 — docs sweep** · `job-autofill/README.md` rewritten (it branded the product
+  Dossier, documented an in-extension bio/resume manager removed by locked decision, a hosted-
+  ruleset setting deleted in W6.2, and "All data stays on your device. No server."); `HANDOFF.md`
+  current-state + kickstart replaced (it said "no build step" and pointed at a merged branch);
+  `CLAUDE.md`, `ARCHITECTURE.md`, `DEPLOY.md` §4, `brand/README.md`, `BROWSERS.md` and a
+  `wxt.config.ts` comment corrected for the post-WXT layout. Every file path named in
+  `ARCHITECTURE.md`/`README.md` verified to exist. Docs only — no version bump.
 - 2026-09-17 · **w6.1 — Firefox parity** · Firefox supports neither `externally_connectable` nor
   web-page `runtime.sendMessage` (bug 1319168), and that handoff is the extension's only sign-in
   path — so the previously-documented "Firefox support" would have shipped an add-on nobody could

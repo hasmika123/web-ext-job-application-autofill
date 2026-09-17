@@ -115,7 +115,8 @@ Verify:
 
 ## 4. Point the extension at this API
 The extension calls the API directly, so it needs the public API origin:
-- Add `https://api.<SSLIP_HOST>/*` to `host_permissions` in `job-autofill/manifest.json`.
+- Add `https://api.<SSLIP_HOST>/*` to `host_permissions` in `job-autofill/wxt.config.ts`
+  (WXT generates the manifest; there is no checked-in `manifest.json`), then rebuild.
 - Set the extension's backend base URL to `https://api.<SSLIP_HOST>` (Options page / config).
 Reload the unpacked extension. (At Chrome Web Store launch, also pin
 `CORS_ALLOWED_ORIGIN_PATTERNS=chrome-extension://<published-id>` in `.env` and restart.)

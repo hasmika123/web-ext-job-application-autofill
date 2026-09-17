@@ -5,8 +5,9 @@ Claude Code reads this automatically every session. Keep it short.
 ## What this is
 Dossier: MV3 browser extension that autofills job applications. The autofill **engine** is
 vanilla JS on `window.JAF`/`globalThis.JAF`; since W0.2 the extension is **built with WXT (Vite)**
-— WXT owns the build, manifest generation, and `entrypoints/` (background/content/popup/options/
-review), importing the engine modules as-is. Being productized into extension + Spring Boot API +
+— WXT owns the build, manifest generation, and `entrypoints/` (background, content, the `panel/`
+drawer, `options/`, and the Firefox-only `connect-relay`), importing the engine modules as-is.
+There is **no popup and no native side panel**: the toolbar icon injects the drawer over the page. Being productized into extension + Spring Boot API +
 Next.js web app. Spec: `ROADMAP.md`. Task trackers: `PROGRESS.md` (product phases) +
 `EXT-UI-PLATFORM-PLAN.md` (the active extension UI-platform build-out, phases W0–W6).
 Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.

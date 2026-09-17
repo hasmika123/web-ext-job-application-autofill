@@ -24,8 +24,8 @@ surface we use is supported there:
 - `chrome.action`
 
 No Chrome-exclusive APIs are used (no `declarativeNetRequest`, `identity`, `gcm`, etc.), so there
-is **no code change and no separate build** for Edge — the same `manifest.json` and the same
-packaged zip work.
+is **no code change and no separate build** for Edge — the same generated manifest and the same
+packaged zip work. (Firefox is the exception: it gets its own build — see below.)
 
 ### Test it on Edge (sideload, ~2 min)
 1. Open `edge://extensions`.

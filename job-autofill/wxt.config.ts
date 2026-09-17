@@ -20,9 +20,9 @@ const MANIFEST_KEY =
   "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3HE6lDTraXYRpYr+QKqb/QLbtCh0CjFRH/CQbZPOM221cYqh3cDRHmSsbkq1MwCN0M9eWYJgtysjIRHLGIjsuIP3B4hOop0Hq7wHlmlie8/W7llDB7jDfZeJ9N9dpXQNKouXNFtiXwE694eLaP4ioMxMuAnUpW8PaZOUeBPwODh8G7EHvSZtn5SirkpiLZ+fakzfXGDze+6w24tQ4hfnk3bCFQYTrceS8i+4REBKxTbpUjad32m1AVlCeh+qPcPv24zsyDukVcAOVcr1JY+hWUwb+GxX44h7vbTrWV84cD9RBZQhotHf39H83ZwseHa+LJgVVO5WQflLAX2iru5F7QIDAQAB";
 
 export default defineConfig({
-  // React for the side panel (W3) — adds @vitejs/plugin-react (JSX + Fast Refresh) + the react
-  // auto-import preset. The engine entrypoints (background/content/popup/options/review) stay
-  // framework-free; only the new React surfaces use it.
+  // React for the drawer + options (W3/W4) — adds @vitejs/plugin-react (JSX + Fast Refresh) + the
+  // react auto-import preset. The background and content entrypoints stay framework-free (they are
+  // the vanilla engine, imported as-is); only the React surfaces under panel/ and options/ use it.
   modules: ["@wxt-dev/module-react"],
   // Tailwind v4 for the React panels. Create the plugin INSIDE the factory — WXT runs multiple
   // build steps and a shared stateful plugin instance can fail.

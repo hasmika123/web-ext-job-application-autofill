@@ -12,5 +12,5 @@ actually serve live elsewhere and are derived from these:
 
 If you change a logo: edit the source here, then regenerate the served copies (the web ones
 were produced with `sharp` — `fit: contain`, transparent bg; the ATS marks rasterized to
-small transparent PNGs). Keep the extension icon set + `manifest.json` version in sync per
-the version-bump ritual in `CLAUDE.md`.
+small transparent PNGs). Keep the extension icon set + the `manifest.version` in
+`job-autofill/wxt.config.ts` in sync per the version-bump ritual in `CLAUDE.md`.
