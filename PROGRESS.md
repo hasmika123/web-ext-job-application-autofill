@@ -25,6 +25,26 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ▶️ **Extension → Chrome Web Store prep (2026-09-17). Everything that can be done from here is
+> done; the remaining gates need a real Chrome and the user.** Ext **v0.51.1**. Landed: **W6.0**
+> manifest hygiene (env-aware manifest — no dev-only or unused permissions in the store zip;
+> session-handoff gate derived from the manifest; `test/connect_handoff.test.js`), **W6.2** (the
+> unreachable remote-ruleset path removed), `W5-QA.md` **rewritten** for the surfaces we actually
+> ship, **`job-autofill/STORE-LISTING.md`** (listing copy, privacy-tab answers, reviewer notes,
+> 1280×800 shot list), web `/privacy`+`/terms` naming **AutomoraLab LLC**, and the stale-doc sweep.
+> **Blocked on the user:** walk `W5-QA.md` in Chrome (W5.7, light + dark) · live re-verify autofill,
+> especially **SmartRecruiters** (its shadow-DOM fix shipped in v0.37.0 and has never been tested on
+> a real form) · five screenshots · a seeded reviewer test account · the CWS developer account · then
+> **`DEPLOY.md` §8 in order** — the `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy is the step that
+> breaks sign-in for every store user if skipped. Still deferred by decision: PL.1 lawyer review
+> (entity now settled), DPAs with Brevo + AWS S3.
+> **W6.1 Firefox parity is DONE** (ext **v0.52.0**): its own MV3 build, the connect-relay that
+> makes sign-in possible at all on Firefox, AMO's `data_collection_permissions`, `web-ext lint`
+> clean. **Also blocked on the user:** a live Firefox smoke test (`BROWSERS.md`) before any AMO
+> submission. **W6.3 docs sweep is DONE.** The only remaining W-task is **W6.4** (package +
+> upload), which is gated entirely on the human steps above — there is no further code work
+> queued for the extension.
+>
 > ▶️ **Phase 3.6 — Job-details extraction v2 IN REVIEW (2026-07-03, branch `feat/job-extraction-v2`)**:
 > capture provenance (`sources`), structured salary (`salaryParsed {min,max,currency,period}`),
 > conservative description-text jobType/jobMode heuristics, and an **opt-in** AI gap-fill tier
@@ -55,8 +75,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > postal address configured (A4.4 deployed, PR #14); ✅ admin email → `admin@kiwiply.com`, Cloudflare-routed
 > to `admin.kiwiply@gmail.com`. **Remaining:** backfill existing confirmed subscribers into the Brevo list
 > (`/admin/subscribers` CSV → import); lawyer review of `/privacy`+`/terms` (PL.1); **DPAs with Brevo + AWS
-> S3** (accept/sign in their dashboards); manual Chrome Web Store upload of extension **v0.25.0**;
-> screenshots for bug reports if wanted.
+> S3** (accept/sign in their dashboards); the first manual Chrome Web Store upload (now at ext
+> **v0.51.1** — follow `DEPLOY.md` §8 in order and use `job-autofill/STORE-LISTING.md` for the
+> listing copy); screenshots for bug reports if wanted.
 > Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
@@ -826,6 +847,55 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-17 · **w6.3 — docs sweep** · `job-autofill/README.md` rewritten (it branded the product
+  Dossier, documented an in-extension bio/resume manager removed by locked decision, a hosted-
+  ruleset setting deleted in W6.2, and "All data stays on your device. No server."); `HANDOFF.md`
+  current-state + kickstart replaced (it said "no build step" and pointed at a merged branch);
+  `CLAUDE.md`, `ARCHITECTURE.md`, `DEPLOY.md` §4, `brand/README.md`, `BROWSERS.md` and a
+  `wxt.config.ts` comment corrected for the post-WXT layout. Every file path named in
+  `ARCHITECTURE.md`/`README.md` verified to exist. Docs only — no version bump.
+- 2026-09-17 · **w6.1 — Firefox parity** · Firefox supports neither `externally_connectable` nor
+  web-page `runtime.sendMessage` (bug 1319168), and that handoff is the extension's only sign-in
+  path — so the previously-documented "Firefox support" would have shipped an add-on nobody could
+  sign into. Added a Firefox-only connect-relay content script + ping/handoff protocol on web
+  `/connect`, landing in the background through the same origin gate plus a `sender.tab` check.
+  Firefox builds are now MV3; `strict_min_version` 121 → 140; declared
+  `gecko.data_collection_permissions`, without which AMO rejects a new extension at signing.
+  `web-ext lint` 0 errors. Tests 28 → 52 cases across both transports. Chrome's manifest
+  unchanged. ext **v0.51.1 → v0.52.0**. Live Firefox smoke test still outstanding.
+- 2026-09-17 · **docs — correct the stale facts a new session would act on** · CLAUDE.md claimed
+  `job-autofill` is "standalone, not yet a workspace member" (it joined in W3, and
+  `publish-extension.yml`'s root `npm ci` depends on that — "fixing" the array to match would have
+  broken releases); HANDOFF.md and PROGRESS.md named v0.28.0 / v0.25.0 as the pending CWS upload,
+  ~25 versions stale; both `package.json` descriptions were pre-WXT. Historical Log entries left
+  intact.
+- 2026-09-17 · **w6.2 — drop the unreachable remote-ruleset update path** · `rules-store.js` could
+  fetch/validate/adopt a hosted ruleset, but nothing called it, no UI exposed `settings.rulesUrl`,
+  and W6.0 had already removed the host permissions it needed. Removed `checkForUpdates`/`init`/
+  `reset`/`info` + the storage override; kept `getActive`/`site`/`match`. Behaviour-neutral. ext
+  **v0.51.0 → v0.51.1**.
+- 2026-09-17 · **web — name AutomoraLab LLC as the operator in `/privacy` + `/terms`** · Both pages
+  carried a TODO that the policies needed a registered entity; the CWS listing points its Privacy
+  Policy URL at `/privacy`, so a reviewer reads it. Verified rendered in a dev server (JSX
+  whitespace collapsing had eaten a space on the first pass). Lawyer review still outstanding.
+- 2026-09-17 · **store — `job-autofill/STORE-LISTING.md`** · CWS listing copy (limits verified
+  mechanically), privacy-tab answers, login-gated reviewer notes, and a five-shot 1280×800
+  screenshot list. Only claims the five ATS verified live in `AUTOFILL-QA.md`.
+- 2026-09-17 · **w5.7 — rewrite `job-autofill/W5-QA.md`** · The one manual gate still walked
+  `popup.html` + `sidepanel.html`, deleted in v0.30.0/0.31.0. Rebuilt against the shipped surfaces
+  (drawer home, drawer review, on-page fill overlay, options tab) from the real components. Not yet
+  walked — that's the user's step.
+- 2026-09-17 · **w6.0 — extension manifest hygiene for the Chrome Web Store** · Pre-publish audit
+  of `job-autofill/` found dev-only and unused entries in the shipped manifest. `wxt.config.ts`'s
+  `manifest` is now a function of the build env: the production zip no longer carries
+  `localhost:8080`/`127.0.0.1:8080` host permissions or the `localhost:3000`
+  `externally_connectable` origin (dev builds still do), the two unused `githubusercontent` host
+  permissions are gone (`rules-store.js`'s remote fetch has no caller), `key` is Chrome-only and
+  `browser_specific_settings` Firefox-only. The service worker's session-handoff gate derives its
+  accept-list from the manifest instead of hardcoding an origin — new `test/connect_handoff.test.js`
+  (28 cases). `PRIVACY.md` records the legal entity **AutomoraLab LLC** + the real privacy URL and
+  its permission table matches the manifest again; `DEPLOY.md` §8 has the ordered first-upload
+  runbook. ext **v0.50.5 → v0.51.0**. Full detail in `EXT-UI-PLATFORM-PLAN.md` (W6.0).
 - 2026-07-04 · **ui+web — usage pill, expand/collapse gating, menu width** · Resume cards: the
   "used in N applications / not used yet" meta text is now a distinct rounded pill (standardized
   wording, filled `bg-paper-2` chip) so it isn't missed. Edit dialog: Expand all / Collapse all

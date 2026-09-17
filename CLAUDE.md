@@ -5,8 +5,9 @@ Claude Code reads this automatically every session. Keep it short.
 ## What this is
 Dossier: MV3 browser extension that autofills job applications. The autofill **engine** is
 vanilla JS on `window.JAF`/`globalThis.JAF`; since W0.2 the extension is **built with WXT (Vite)**
-— WXT owns the build, manifest generation, and `entrypoints/` (background/content/popup/options/
-review), importing the engine modules as-is. Being productized into extension + Spring Boot API +
+— WXT owns the build, manifest generation, and `entrypoints/` (background, content, the `panel/`
+drawer, `options/`, and the Firefox-only `connect-relay`), importing the engine modules as-is.
+There is **no popup and no native side panel**: the toolbar icon injects the drawer over the page. Being productized into extension + Spring Boot API +
 Next.js web app. Spec: `ROADMAP.md`. Task trackers: `PROGRESS.md` (product phases) +
 `EXT-UI-PLATFORM-PLAN.md` (the active extension UI-platform build-out, phases W0–W6).
 Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
@@ -50,9 +51,10 @@ Bump the `manifest.version` in `job-autofill/wxt.config.ts` + `job-autofill/pack
 the `version` in `src/config/rules.js` too (the smoke test asserts it).
 
 ## Layout (target monorepo)
-npm workspaces (root `package.json`, `workspaces: ["packages/*","web"]`; install at the ROOT).
+npm workspaces (root `package.json`, `workspaces: ["packages/*","web","job-autofill"]`; install at
+the ROOT — `job-autofill` joined in W3 and the publish workflow's `npm ci` depends on it).
 `/packages/ui` (`@kiwiply/ui`) shared React/Tailwind UI (tokens + `ResumeUpload`, consumed as
-source by web + extension) · `/job-autofill` extension (standalone, not yet a workspace member) ·
+source by web + extension) · `/job-autofill` extension (workspace member) ·
 `/api` Spring Boot · `/web` Next.js (workspace member) · `/brand` source logo/ATS
 art (originals only — served copies live in `web/public` + `job-autofill/icons`; see
 `brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/HANDOFF/CLAUDE.

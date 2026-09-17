@@ -227,21 +227,73 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // kiwiply.com's /connect page hands the extension a session after the user signs in on
 // the web — single sign-in, no separate login in the extension. We only accept the
 // handoff from our own web origins.
-chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
-  const origin = (sender && sender.origin) || "";
-  const allowed = /^https:\/\/(www\.|app\.)?kiwiply\.com$/.test(origin) || origin === "http://localhost:3000";
-  if (!allowed) return;
-  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
-  const t = (msg && msg.tokens) || {};
-  if (!t.access || !t.refresh) { sendResponse({ ok: false, reason: "missing-tokens" }); return; }
-  (async () => {
+//
+// The accept-list is DERIVED from the manifest's `externally_connectable.matches` rather
+// than hardcoded. Chrome already enforces those matches; re-checking here is defence in
+// depth, and deriving it keeps ONE source of truth — a dev-only origin (localhost:3000,
+// added by wxt.config.ts in dev builds) can never outlive the manifest entry that allows it.
+function connectOriginAllowed(origin) {
+  if (!origin) return false;
+  const target = /^(https?):\/\/(.+)$/.exec(origin);
+  if (!target) return false;
+  let matches = [];
+  try {
+    const ec = chrome.runtime.getManifest().externally_connectable;
+    matches = (ec && ec.matches) || [];
+  } catch (_) {
+    return false;
+  }
+  return matches.some((pattern) => {
+    const m = /^(https?):\/\/(\*\.)?([^/*]+)\//.exec(pattern);
+    if (!m || m[1] !== target[1]) return false;
+    const host = m[3];
+    // `*.example.com` covers sub.example.com and example.com itself (Chrome's semantics).
+    return m[2] ? target[2] === host || target[2].endsWith("." + host) : target[2] === host;
+  });
+}
+
+// A MessageSender's origin: `sender.origin` on Chrome, derived from `sender.url` on Firefox,
+// which doesn't populate `origin` for content scripts.
+function senderOrigin(sender) {
+  if (!sender) return "";
+  if (sender.origin) return sender.origin;
+  try { return new URL(sender.url).origin; } catch (_) { return ""; }
+}
+
+// Shared by both handoff paths below. Returns the response to send back.
+async function acceptConnectSession(tokens) {
+  const t = tokens || {};
+  if (!t.access || !t.refresh) return { ok: false, reason: "missing-tokens" };
+  try {
     // Ensure the API base is set, then store the session via the shared token store.
     const settings = (await sGet("settings")) || {};
     if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api.kiwiply.com"; await sSet("settings", settings); }
     await self.JAF.tracking.chromeTokenStore().set({ access: t.access, refresh: t.refresh, username: t.username || "" });
     track("extension_connected", {});
-    sendResponse({ ok: true });
-  })().catch((e) => sendResponse({ ok: false, reason: String((e && e.message) || e) }));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: String((e && e.message) || e) };
+  }
+}
+
+// Path 1 — Chrome: the web page messages the extension directly (externally_connectable).
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  if (!connectOriginAllowed(senderOrigin(sender))) return;
+  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
+  acceptConnectSession(msg.tokens).then(sendResponse);
+  return true; // async
+});
+
+// Path 2 — Firefox: there is no externally_connectable (https://bugzil.la/1319168), so the page
+// posts the session to itself and the connect-relay content script forwards it here as an
+// ordinary internal message. The sender is then one of OUR content scripts, and the origin gate
+// is the same one — a content script on an ATS page cannot hand over a session, only one running
+// on an origin the accept-list allows.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
+  if (!sender || !sender.tab) return;           // must come from a page, not another extension page
+  if (!connectOriginAllowed(senderOrigin(sender))) return;
+  acceptConnectSession(msg.tokens).then(sendResponse);
   return true; // async
 });
 

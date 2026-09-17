@@ -1,139 +1,142 @@
-# Dossier — Job Application Autofill
+# Kiwiply — Job Application Autofill
 
-One consistent bio. Many resume variants. Pick a resume, review what will be
-filled, and autofill applications on Workday, Greenhouse, Lever, Ashby, and most
-other ATS platforms via generic label matching. Nothing is ever submitted for you.
+One consistent profile. Many resume variants. Pick a resume, review exactly what will be
+filled, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.
+**Nothing is ever submitted for you.**
 
-## Install (unpacked, ~2 min)
+The extension is the on-page half of Kiwiply. Your profile, resumes and job board live on
+**kiwiply.com**; the extension reads them to fill forms, and can create a new resume. It has
+**no login of its own** — you sign in on the web and hand the session over once.
 
-1. Open `chrome://extensions` (works in Chrome, Edge, Brave, Arc).
-2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** and select the `job-autofill` folder.
-4. The manager page opens automatically. Fill in your **Bio profile** and save.
-5. Go to **Resumes**, upload your files, and review each parsed result.
+## Install
+
+**From a store:** not yet listed. `STORE-LISTING.md` has the copy and the root `DEPLOY.md` §8 the
+upload procedure; Firefox specifics are in `BROWSERS.md`.
+
+**Unpacked (development):**
+
+```bash
+cd job-autofill
+npm run build            # -> .output/chrome-mv3
+npm run build:firefox    # -> .output/firefox-mv3  (a genuinely different build; see BROWSERS.md)
+```
+
+- Chrome/Edge: `chrome://extensions` → **Developer mode** → **Load unpacked** →
+  `job-autofill/.output/chrome-mv3`.
+- Firefox: `about:debugging` → **This Firefox** → **Load Temporary Add-on** →
+  `.output/firefox-mv3/manifest.json`.
+
+`npm run dev` runs the WXT dev server with hot reload instead. `.output/` is gitignored — it is
+rebuilt from source, and CI produces the release zip.
+
+Then sign in at **kiwiply.com** and open **kiwiply.com/connect** once: the web app mints a
+separate extension session and hands it over. Add a resume on the web (or upload one straight from
+the drawer) and you're ready.
 
 ## How to use it
 
 1. Open a job application page.
-2. Click the Dossier toolbar icon.
+2. Click the Kiwiply toolbar icon. A **drawer** slides in over the page — it floats above the
+   site and never resizes it.
 3. Choose which resume variant to use, then **Scan & fill this page**.
-4. A review panel slides in listing every field and value. Uncheck anything you
-   don't want, then **Fill selected**.
+4. A review panel lists every field and the value it will write. Uncheck anything you don't want,
+   then **Fill selected**.
 5. Check the page yourself and click the site's own submit button.
 
-The **bio** (name, contact, address, links, work authorization) is shared across
-every application. The **experience and skills** come from whichever resume you
-pick — that's the core of the design.
+**Save this job for later** captures the role, company, location and salary from the posting into
+your board on kiwiply.com. **+ Upload** parses a new resume in the drawer, lets you correct it, and
+saves it to your account.
 
-## Parsing 50 resumes
-
-The manager extracts text from each PDF/DOCX/TXT and structures it into summary,
-skills, work experience, education, languages, and projects. Two modes:
-
-- **Heuristic (default, no key):** built in, free, rougher. It separates each job
-  into distinct company / title / location fields, splits date ranges into start
-  and end, and keeps **Projects** out of Work Experience (projects are stored
-  separately and only filled when an application explicitly has a projects
-  section). Resume layouts vary, so always review the result.
-- **Anthropic API (optional):** in **Settings**, toggle it on and paste your own
-  API key for much cleaner extraction. The key is stored locally on your device
-  and sent only to `api.anthropic.com`.
-
-The editor has sections for each of these, including Languages and Projects, so
-you can fix anything the parser got wrong before saving.
-
-Either way, each resume lands in the list marked **needs review**. Open it,
-confirm or edit the fields, and **Confirm & save**. That's your confirmation step.
+Your **profile** (name, contact, address, links, work authorization) is shared across every
+application. **Experience and skills** come from whichever resume you pick — that is the core of
+the design.
 
 ## Sites covered
 
-Dedicated adapters: **Workday, Greenhouse** (classic + new + embedded),
-**Lever, Ashby**. A **generic label-matching adapter** handles everything else —
-iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite, and most custom forms — by
-reading each field's visible label.
+Dedicated adapters: **Workday, Greenhouse** (classic + new + embedded), **Lever, Ashby,
+Workable, Indeed**. A **generic label-matching adapter** handles the rest — SmartRecruiters,
+iCIMS, Taleo, BambooHR, Jobvite and most custom forms — by reading each field's visible label,
+piercing open shadow roots where a vendor uses web components.
+
+Live-verified on real forms: Greenhouse, Lever, Ashby, Workable, Workday. The others are wired but
+not yet confirmed end-to-end — the ledger, including what broke and what was fixed, is
+`AUTOFILL-QA.md`.
 
 ### Reality check on Workday
-Workday is the hardest target: React-controlled inputs (handled), plus custom
-dropdown/typeahead widgets that can't be driven reliably. Workday also gives its
-inputs meaningless ids (`input-15`) and hides the field meaning in
-`data-automation-id` attributes — so the matcher reads that attribute chain (on
-the input and its wrappers) and tolerates tenant-to-tenant naming differences.
 
-Two steps are supported:
-- **My Information** — name, preferred name, email, phone, address, city, postal
-  fill automatically. Country and State are custom dropdowns, now driven
-  automatically (Dossier opens the menu, filters, and clicks the match).
-- **My Experience** — for every repeating section, Dossier first clicks
-  **"Add"** enough times to make room for all of your resume's entries, then
-  fills them: Work Experience (title, company, location, description, month/year
-  dates), Education (school, degree, field, year), Languages (language +
-  proficiency), and the Websites URLs. Skills are added to the multiselect.
+Workday is the hardest target: React-controlled inputs (handled), plus custom dropdown/typeahead
+widgets that vary tenant to tenant. Workday gives its inputs meaningless ids (`input-15`) and hides
+the meaning in `data-automation-id` attributes, so the matcher reads that attribute chain (on the
+input and its wrappers) and tolerates tenant-to-tenant naming differences.
 
-**Dropdowns.** Native `<select>` menus fill directly. Custom dropdowns and
-typeaheads (Workday prompts, react-select on Greenhouse/Lever/Ashby, etc.) are
-driven by opening the menu, optionally typing to filter, and clicking the
-best-matching option. If a value can't be matched to any option, that field is
-reported in the panel so you can set it by hand — nothing is left silently wrong.
+- **My Information** — name, preferred name, email, phone, address, city, postal fill
+  automatically. Country and State are custom dropdowns, driven by opening the menu, filtering and
+  clicking the match (country first, so the state list loads; "GA" still selects "Georgia").
+- **My Experience** — for every repeating section Kiwiply first clicks **"Add"** enough times to
+  make room for all your entries, then fills them: Work Experience, Education, Languages, Websites.
+  Skills go into the multiselect.
 
-**Work eligibility & EEO.** Authorized-to-work and sponsorship questions fill
-from your bio (set them in Manage → Bio as Yes/No). Gender, Hispanic/Latino,
-race, veteran, and disability fill from the values you enter in Manage; leave
-any of them blank and Dossier simply skips that question.
-State and country dropdowns are driven with abbreviation matching, so a bio value
-of "GA" still selects "Georgia" (country is set first so the state list loads).
+The flow is multi-step — run Kiwiply on each step. If a menu doesn't respond, the review panel
+tells you what to enter so you can finish by hand; nothing is left silently wrong.
 
-**Auto-advance (toggle, off by default).** After filling a step, Dossier can
-click the page's **Next / Continue** button. It only ever clicks forward-
-navigation buttons and **never Submit, Apply, or Finish** — you send the
-application yourself. Toggle it in the popup or in Settings.
+**Dropdowns.** Native `<select>` menus fill directly. Custom dropdowns and typeaheads (Workday
+prompts, react-select on Greenhouse/Lever/Ashby) are driven by opening the menu, optionally typing
+to filter, and clicking the best match. Anything unmatched is reported rather than guessed.
 
-Tips: the flow is multi-step — re-run Dossier on each step. Dropdown driving and
-"Add" clicking depend on each Workday tenant's markup, which varies; if a section
-or menu doesn't respond, the panel tells you what to enter so you can finish by
-hand. Some steps (Review, Voluntary Disclosures) have no fillable fields.
+**Work eligibility & EEO.** Authorized-to-work and sponsorship questions fill from your profile.
+Gender, ethnicity, race, veteran and disability answers fill only from values you entered
+yourself — never inferred from a resume — and every one is shown in the review panel before it is
+filled. Leave a field blank and that question is skipped.
 
-## Updatable field rules (no re-install to fix selector drift)
+**Auto-advance (off by default).** After filling a step, Kiwiply can click the page's
+**Next / Continue** button. It only ever clicks forward navigation and **never Submit, Apply or
+Finish**.
 
-The map from page fields to your data lives in a versioned ruleset
-(`src/config/rules.js`), separate from the adapter logic. A bundled copy ships
-with the extension; in **Settings → Field rules** you can point at a hosted
-ruleset JSON (same shape) and **Check for updates**. If an ATS changes its
-markup, an updated ruleset fixes filling without a new extension release. The
-extension only ever adopts a ruleset whose version is higher than the active one,
-and you can reset to the bundled copy anytime.
+## AI (optional, off by default)
 
-## AI answers for open-ended questions (optional)
+Kiwiply can draft answers to open-ended screening questions, and can fill gaps in captured job
+details. Both are off until you turn them on, and you choose how:
 
-With the API key on (Settings), Dossier drafts answers to screening questions
-like "Why do you want this role?" from your resume context, shown in the review
-panel with an **AI** badge so you edit before filling. Answers are cached and
-reused when the same question appears again, and drafting runs in the background
-service worker so it isn't blocked by a page's content-security policy.
+- **Bring your own key** — paste an Anthropic key in Settings; requests go from your browser
+  straight to `api.anthropic.com` under your own account.
+- **Kiwiply AI** — your account proxies to a third-party model (currently Google Gemini). This is
+  consent-gated, because the free tier means the provider may use the input to improve its
+  services. `PRIVACY.md` spells this out.
+
+Drafts appear in the review panel with an **AI** badge so you edit before filling, are cached and
+reused for the same question, and run in the background so a page's CSP can't block them.
 
 ## Architecture
 
+The autofill **engine** is framework-free vanilla JS on `window.JAF`; **WXT (Vite)** owns the build,
+the generated manifest and the UI entrypoints. See `ARCHITECTURE.md` for the full map.
+
 ```
-manifest.json            MV3 config, permissions, content-script matches
+wxt.config.ts            build config + the SOURCE of the generated manifest (per-browser)
+entrypoints/
+  background.ts          service worker (Chrome) / event page (Firefox); toolbar click -> drawer
+  content.ts             the autofill content script (engine modules, imported as-is)
+  connect-relay.content.ts  Firefox-only: receives the sign-in handoff (see BROWSERS.md)
+  panel/                 the drawer: home (pick + fill) and the resume review form
+  options/               slim settings: account, appearance, AI, filling, bug report
 src/config/rules.js      versioned field-mapping ruleset (data, not behavior)
-src/lib/rules-store.js   loads/validates/updates the active ruleset
+src/lib/rules-store.js   reads the active ruleset (getActive / site / match)
 src/lib/schema.js        canonical field model (matchers sourced from the ruleset)
-src/lib/storage.js       chrome.storage (profiles) + IndexedDB (resume files)
+src/lib/storage.js       chrome.storage (mirror) + IndexedDB (resume files)
 src/lib/parser.js        PDF/DOCX text extraction + heuristic/LLM structuring
+src/lib/tracking.js      the ONE network seam to the API (TrackingProvider)
 src/content/adapters/    base.js (DOM utils) + one file per ATS + generic.js
 src/content/filler.js    builds the plan, renders the review overlay, fills
-src/content/content-script.js   message listener (ping / fill)
-src/popup/               pick resume → inject → target frame → send fill
-src/options/             manager UI: bio, resumes, settings
-vendor/                  pdf.js + mammoth (bundled, no network needed)
+public/vendor/           pdf.js + mammoth (bundled — MV3 forbids remote code)
 ```
 
-Everything maps to one vocabulary of **canonical fields** (`firstName`, `email`,
-`linkedin`, etc.). An adapter's only job is to connect real DOM inputs to those
-keys. That's what makes adding sites easy.
+Everything maps to one vocabulary of **canonical fields** (`firstName`, `email`, `linkedin`, …).
+An adapter's only job is to connect real DOM inputs to those keys — that is what makes adding
+sites easy.
 
 ## Extending it to a new site
 
-Copy `src/content/adapters/lever.js` to a new file and edit three things:
+Copy `src/content/adapters/lever.js` and edit three things:
 
 ```js
 matches() { return location.hostname === "jobs.example.com"; }
@@ -145,30 +148,52 @@ plan(values) {
 fileInput() { return document.querySelector('input[type="file"]'); }
 ```
 
-Then add the file to two lists in `manifest.json` (the `content_scripts[].js`
-array) and to `CONTENT_FILES` in `src/popup/popup.js`. Site adapters take
-priority; the generic scanner fills any fields your adapter didn't cover.
+Then import it in `entrypoints/content.ts` (order matters — it mirrors the old manifest order) and
+add the site's origin to `matches` there and to `host_permissions` in `wxt.config.ts`. Site
+adapters take priority; the generic scanner fills anything your adapter didn't cover.
 
-To improve generic matching for a stubborn field, add a keyword set to
-`MATCHERS` in `src/lib/schema.js`.
+To improve generic matching for a stubborn field, add a keyword set to `MATCHERS` in
+`src/lib/schema.js`.
+
+**Capture the real DOM first.** Guessing tenant markup is the project's documented #1 failure
+mode — use real `data-automation-id`s and real option text.
 
 ## Selectors will drift
-ATS vendors change their markup. When a field stops filling, inspect it, grab a
-stable attribute (an `id`, `name`, or `data-automation-id`), and update that
-site's adapter. The generic scanner is the safety net in the meantime.
+
+ATS vendors change their markup. When a field stops filling, inspect it, grab a stable attribute
+(an `id`, `name`, or `data-automation-id`), and update that site's adapter. The generic scanner is
+the safety net in the meantime. Fixes ship as an extension release: the ruleset is versioned data,
+but the runtime fetch of a hosted ruleset was removed in W6.2 (nothing called it — see
+`rules-store.js`).
 
 ## Privacy & scope
-- All data stays on your device (chrome.storage + IndexedDB). No server.
-- No auto-submit, by design — you stay in control and it avoids tripping anti-bot
-  systems.
-- No CAPTCHA handling — out of scope.
-- EEO/demographic answers fill only from what you enter in your bio — never
-  guessed from a resume; leave a field blank and that question is skipped.
 
-## Known limits / roadmap
-- Heuristic experience parsing is approximate; the LLM mode is much better.
-- Workday/iCIMS custom dropdowns and iframe-heavy legacy flows need manual help.
-- Resume file auto-attach works on most file inputs (DataTransfer) but not all
-  custom uploaders (e.g. some Workday widgets) — attach manually there.
-- Possible next steps: per-site field overrides editable from the UI, structured
-  work-experience filling on Workday, cover-letter templating per resume.
+- Your profile and resumes **sync with your own kiwiply.com account**. The extension's local store
+  is a **read-only mirror** for offline filling; only resume *creates* push back. Editing lives on
+  the web.
+- Data is never sold and never used for advertising. Full disclosure — including the optional AI
+  paths and the anonymous, opt-out usage analytics — is in `PRIVACY.md`, which is also the source
+  for the store listings' privacy answers.
+- **No auto-submit, by design.** You stay in control, and it avoids tripping anti-bot systems.
+- **No CAPTCHA handling** — out of scope, permanently.
+- EEO/demographic answers fill only from what you entered yourself, and are reviewable before
+  every fill.
+
+## Development
+
+```bash
+npm test          # the engine suite (node + jsdom), 22 files — must be green
+npm run typecheck # wxt prepare + tsc
+npm run build     # -> .output/chrome-mv3
+```
+
+Bump `manifest.version` in **`wxt.config.ts`** and the version in `package.json` for any extension
+change; if `src/config/rules.js` changes, bump its `version` too (the smoke test asserts it).
+
+## Known limits
+
+- Heuristic resume parsing is approximate; the AI modes are much better.
+- Workday/iCIMS custom dropdowns and iframe-heavy legacy flows sometimes need manual help.
+- Resume auto-attach works on most file inputs (DataTransfer) but not every custom uploader.
+- A site with a strict `frame-src` CSP can block the drawer iframe. The fill overlay is immune —
+  it uses shadow DOM.

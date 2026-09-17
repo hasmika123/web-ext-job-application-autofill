@@ -7,7 +7,60 @@ import { buttonVariants } from "@/components/ui/Button";
 // Pinned extension id (derived from the manifest "key"). Stable for the unpacked/dev build
 // and for the published item after its first Web Store upload. Override per-build with
 // NEXT_PUBLIC_KIWIPLY_EXTENSION_ID if the Web Store ever assigns a different id.
+// Only the DIRECT transport below needs it; Firefox's relay addresses its own extension.
 const EXT_ID = process.env.NEXT_PUBLIC_KIWIPLY_EXTENSION_ID || "ejlamilajchikpbeipdkjljjgankbfii";
+
+// Firefox relay protocol. Firefox implements neither `externally_connectable` nor web-page
+// `runtime.sendMessage` (https://bugzil.la/1319168), so there the extension injects a content
+// script on this origin and we hand the session over by posting it to ourselves. See
+// job-autofill/entrypoints/connect-relay.content.ts — these names must match.
+const PING = "KIWIPLY_CONNECT_PING";
+const PONG = "KIWIPLY_CONNECT_PONG";
+const HANDOFF = "KIWIPLY_CONNECT";
+const RESULT = "KIWIPLY_CONNECT_RESULT";
+/** How long to wait for the relay to answer. Local postMessage, so this is generous. */
+const RELAY_TIMEOUT_MS = 2000;
+
+/** Resolves true if a connect relay is listening on this page (i.e. Firefox + extension installed). */
+function pingRelay(): Promise<boolean> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (found: boolean) => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("message", onMessage);
+      clearTimeout(timer);
+      resolve(found);
+    };
+    const onMessage = (e: MessageEvent) => {
+      if (e.source === window && e.origin === window.location.origin && e.data?.type === PONG) finish(true);
+    };
+    window.addEventListener("message", onMessage);
+    const timer = setTimeout(() => finish(false), RELAY_TIMEOUT_MS);
+    window.postMessage({ type: PING }, window.location.origin);
+  });
+}
+
+/** Hands `tokens` to the relay and resolves with the extension's answer. */
+function sendViaRelay(tokens: unknown): Promise<{ ok?: boolean; reason?: string } | null> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (result: { ok?: boolean; reason?: string } | null) => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("message", onMessage);
+      clearTimeout(timer);
+      resolve(result);
+    };
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== window || e.origin !== window.location.origin) return;
+      if (e.data?.type === RESULT) finish(e.data.result ?? null);
+    };
+    window.addEventListener("message", onMessage);
+    const timer = setTimeout(() => finish(null), RELAY_TIMEOUT_MS);
+    window.postMessage({ type: HANDOFF, tokens }, window.location.origin);
+  });
+}
 
 type ChromeRuntime = {
   sendMessage?: (extId: string, msg: unknown, cb?: (resp: unknown) => void) => void;
@@ -33,14 +86,20 @@ export default function ConnectPage() {
     const chromeApi = (window as unknown as { chrome?: { runtime?: ChromeRuntime } }).chrome;
 
     (async () => {
-      if (!EXT_ID) {
+      // Pick a transport first, so we don't mint a session pair that nothing will collect.
+      // Chrome/Edge: message the extension directly. Firefox: talk to the injected relay.
+      const direct = !!chromeApi?.runtime?.sendMessage;
+      if (direct && !EXT_ID) {
         setStatus("not-configured");
         return;
       }
-      if (!chromeApi?.runtime?.sendMessage) {
+      if (!direct && !(await pingRelay())) {
+        if (cancelled) return;
         setStatus("no-extension");
         return;
       }
+      if (cancelled) return;
+
       let tokens: unknown;
       try {
         const res = await fetch("/api/extension/token", { credentials: "include", cache: "no-store" });
@@ -61,16 +120,35 @@ export default function ConnectPage() {
       }
       if (cancelled) return;
 
-      chromeApi.runtime.sendMessage(EXT_ID, { type: "KIWIPLY_CONNECT", tokens }, () => {
-        if (cancelled) return;
-        const err = chromeApi.runtime?.lastError;
-        if (err) {
-          setStatus("no-extension");
-          setDetail(err.message ?? "");
-          return;
-        }
-        setStatus("connected");
-      });
+      if (direct) {
+        chromeApi!.runtime!.sendMessage!(EXT_ID, { type: HANDOFF, tokens }, () => {
+          if (cancelled) return;
+          const err = chromeApi?.runtime?.lastError;
+          if (err) {
+            setStatus("no-extension");
+            setDetail(err.message ?? "");
+            return;
+          }
+          setStatus("connected");
+        });
+        return;
+      }
+
+      const result = await sendViaRelay(tokens);
+      if (cancelled) return;
+      if (!result) {
+        // The relay answered the ping but not the handoff — usually the extension was
+        // reloaded or updated in between.
+        setStatus("no-extension");
+        setDetail("The extension stopped responding. Reload this page and try again.");
+        return;
+      }
+      if (!result.ok) {
+        setStatus("error");
+        setDetail(result.reason || "The extension refused the session.");
+        return;
+      }
+      setStatus("connected");
     })();
 
     return () => {

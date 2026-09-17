@@ -92,13 +92,17 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   country/state fill, exp/edu blocks, `ensureRows`, **Self-Identify (CC-305) block**
   (name/date-spinbuttons/language/disability checkbox), `degreeAlts`,
   `pickDisabilityCheckbox`, `todayMDY`. Exposes `JAF.__wdInternals` for tests.
-- `src/options/options.js` — **slim** extension settings + account status only. Profile,
-  resumes, and the board are managed on **kiwiply.com** (single source of truth); this page
-  only holds device-local settings (AI key, filling defaults, analytics) and the connected
-  account (Connect → `kiwiply.com/connect`, Sign out, "Manage on kiwiply.com →"). No bio
-  editor, no resume manager, no login form.
-- `src/popup/popup.js` — uploads resume under `uploadResumeName` (generic name) for
-  the application only.
+- `entrypoints/options/` (`OptionsApp.tsx` + `actions.ts`) — **slim** extension settings +
+  account status only. Profile, resumes, and the board are managed on **kiwiply.com** (single
+  source of truth); this page only holds device-local settings (appearance, AI key + consent,
+  filling defaults, analytics), the connected account (Connect → `kiwiply.com/connect`, Sign out,
+  "Manage on kiwiply.com →") and the bug reporter. No bio editor, no resume manager, no login
+  form. *(Was `src/options/options.js` before the W4 React conversion.)*
+- `entrypoints/panel/` (`HomeView.tsx`, `App.tsx`, `home-actions.ts`, `services.ts`) — the
+  drawer: pick a resume → scan & fill, save-a-job, and the on-the-fly resume upload, which hands
+  the `File` in memory to the shared `ResumeUpload` review form. An uploaded resume is stored
+  under a generic `uploadResumeName` when it is for this application only. *(Replaces the deleted
+  `src/popup/popup.js` and `src/review/`.)*
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
 - `src/lib/field-cache.js` — `JAF.fieldCache`. Local, per-profile memory of the
   user's field answers (IndexedDB `dossier-fieldcache`, falls back to in-memory
@@ -199,15 +203,32 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   mints a *separate* extension token pair (`POST /api/extension/session` ← web
   `/api/extension/token`) and hands it to the extension via `chrome.runtime.sendMessage`
   (manifest `externally_connectable`); the SW's `onMessageExternal` stores it in
-  `trackingAuth`. The extension **id is pinned** via the manifest `key` →
+  `trackingAuth`. That listener's accept-list is **derived from the manifest's
+  `externally_connectable.matches`** (`connectOriginAllowed`), not hardcoded — Chrome
+  enforces the matches too, so this is defence in depth with one source of truth, and the
+  dev-only `localhost:3000` origin cannot outlive the dev-only manifest entry.
+  **Firefox has no `externally_connectable`** ([bug 1319168](https://bugzil.la/1319168)), so the
+  Firefox build ships `entrypoints/connect-relay.content.ts` on our own web origins: `/connect`
+  pings it, posts the session to itself, and the relay forwards it to the background as an
+  ordinary internal message, which passes the *same* origin gate plus a `sender.tab` check. Chrome
+  doesn't ship the relay (`include: ["firefox"]`). Both paths covered by
+  `test/connect_handoff.test.js` (52 cases); the Firefox specifics are in `BROWSERS.md`. The extension **id is pinned** via the manifest `key` →
   `ejlamilajchikpbeipdkjljjgankbfii`, which the web `/connect` page targets (override per
   build with `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID`). **CWS caveat:** a NEW store item rejects
   `key` on its *first* upload — drop it for that one upload (the store assigns the id), then
-  add the store's `key` back so dev+prod ids match forever. The local store is a
+  add the store's `key` back so dev+prod ids match forever, and point
+  `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` at the store id + **redeploy web** (it's baked at build
+  time) or `/connect` hands the session to an id that no longer exists. The local store is a
   **read-only mirror**: the popup pulls
   `JAF.sync.pullAll` on open (throttled) for autofill and never pushes bio/resume *edits* —
   only resume *creates* (upload → server) write back, so the cache can't drift out of sync.
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).
+- **`wxt.config.ts` manifest is a function of the build env** (W6.0). `wxt build`
+  (mode=production, what CI zips for the store) emits only permissions the shipped code
+  uses; `wxt`/`wxt build --mode development` adds the local API hosts (`:8080`) and the
+  local web origin (`:3000`) back. `key` is Chrome-only; `browser_specific_settings` is
+  Firefox-only. Keep it that way — Chrome rejects permissions it can see no use for, and
+  `PRIVACY.md`'s permission table is a listing certification that has to stay true.
 
 ## Canonical-field model
 Everything maps to one vocabulary of canonical fields (`firstName`, `email`,
@@ -223,8 +244,8 @@ throw `NotSupportedError` until Phase 3/4 endpoints exist). `createKiwiplyProvid
 ({baseUrl, fetch, tokenStore})` implements it against the Spring Boot API: it maps
 canonical bio/resume shapes ↔ the server DTOs (bio→`payload` JSON, resume→`parsedJson`),
 adds the `Bearer` access token, and on a 401 refreshes once and retries. Endpoint
-(`settings.apiBaseUrl`) + auth (`tokenStore`) are config, not constants. Loaded in
-`popup.html` + `options.html` (and SW-safe via `globalThis.JAF`). 1.7 wires the
+(`settings.apiBaseUrl`) + auth (`tokenStore`) are config, not constants. Loaded by the
+drawer + options entrypoints (and SW-safe via `globalThis.JAF`). 1.7 wires the
 login UI + sync loop on top of this; a future provider can target a different
 backend by implementing the same contract. See root `ROADMAP.md` → "Pluggable
 tracking backend".
@@ -258,9 +279,10 @@ resume/bio/board management. The extension's tracking jobs:
 
 ## Adding a new site adapter
 Copy `src/content/adapters/lever.js`; implement `matches()`, `plan(values)` (return
-`[{el, field, value, label, kind}]`), and `fileInput()`. Register the file in
-`manifest.json` (`content_scripts[].js`) and in `CONTENT_FILES` in
-`src/popup/popup.js`. Site adapters take priority; the generic scanner fills
+`[{el, field, value, label, kind}]`), and `fileInput()`. Then import it in
+`entrypoints/content.ts` (import order mirrors the old manifest's `content_scripts[].js`
+array and still matters) and add the site's origin to the `matches` there **and** to
+`host_permissions` in `wxt.config.ts`. Site adapters take priority; the generic scanner fills
 anything the adapter missed. **Capture the real tenant DOM first** (see CLAUDE.md).
 
 ## Tests
@@ -273,6 +295,6 @@ anything the adapter missed. **Capture the real tenant DOM first** (see CLAUDE.m
 - Reproduce ATS DOM bugs from the **real tenant** (capture `data-automation-id`s +
   option text), then build jsdom tests mirroring that structure. Guessing tenant
   DOM is the #1 failure mode.
-- After changes: full suite green → bump `manifest.json` + `package.json` (keep
+- After changes: full suite green → bump `manifest.version` in `wxt.config.ts` + `package.json` (keep
   ruleset `version` in `rules.js` in sync when rules change; the smoke test asserts
   it). Reload the extension in Chrome to pick up changes before live re-testing.
