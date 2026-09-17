@@ -45,13 +45,15 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > upload), which is gated entirely on the human steps above — there is no further code work
 > queued for the extension.
 >
-> ▶️ **Phase 3.6 — Job-details extraction v2 IN REVIEW (2026-07-03, branch `feat/job-extraction-v2`)**:
+> ✅ **Phase 3.6 — Job-details extraction v2 MERGED (2026-07-03, PR #28, merge commit `4586822`)**:
 > capture provenance (`sources`), structured salary (`salaryParsed {min,max,currency,period}`),
 > conservative description-text jobType/jobMode heuristics, and an **opt-in** AI gap-fill tier
 > (`settings.jobAiEnabled`, default OFF, own Options toggle) that only fills what the deterministic
-> chain left empty. Extension **v0.48.0 → v0.49.0**. See the Phase 3.6 entry below for tasks 3.6.1–3.6.3
-> and the unscheduled follow-ups (server salary columns + board filters, cross-board dedup,
-> adapter-rot telemetry, provenance badges).
+> chain left empty. Extension **v0.48.0 → v0.49.0**. Tasks 3.6.1–3.6.3 are all done; the only
+> open item is the deliberately deferred **3.6.4** (server salary columns + board filter/sort),
+> plus the unscheduled follow-ups (cross-board dedup, adapter-rot telemetry, provenance badges).
+> *(Was marked "IN REVIEW" here until 2026-09-17 — it had in fact merged the same day it was
+> written; the branch is gone.)*
 >
 > ✅ **Phase 5.5 — Fill-engine matching upgrades MERGED (2026-07-03, PR #27, merge commit `49bbf36`)**,
 > four user-directed upgrades to the autofill engine's matching pipeline (see the Phase 5.5 entry below
@@ -481,7 +483,7 @@ focused Claude Code session.
   syncs `archived` (stripped from `parsedJson`), popup picker hides archived resumes.
   All three suites green. ext v0.16.1. **Completes Phase 3.***
 
-### Phase 3.6 — Job-details extraction v2 (branch `feat/job-extraction-v2`, 2026-07-03)
+### Phase 3.6 — Job-details extraction v2 (MERGED 2026-07-03, PR #28, merge commit `4586822`)
 
 > **Direction:** keep the deterministic capture chain as tier 1 (free, instant, private);
 > make it queryable + provenance-aware; add AI only as an **opt-in gap-filler** behind its
@@ -847,6 +849,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-17 · **docs — correct the Phase 3.6 status** · **Current focus** still announced Phase 3.6
+  as "IN REVIEW (branch `feat/job-extraction-v2`)". It had merged the same day it was written —
+  PR #28, merge commit `4586822`, 2026-07-03 — and tasks 3.6.1–3.6.3 were already `[x]` a few
+  hundred lines below, so the file contradicted itself. Surfaced while deleting merged branches:
+  the branch it named was fully in `main` with zero commits outside it. Status corrected in both
+  places; the only genuinely open item is the deferred **3.6.4** (server salary columns). Log
+  entries and "work was done on branch X" notes left intact — those are history, not status.
 - 2026-09-17 · **w6.3 — docs sweep** · `job-autofill/README.md` rewritten (it branded the product
   Dossier, documented an in-extension bio/resume manager removed by locked decision, a hosted-
   ruleset setting deleted in W6.2, and "All data stays on your device. No server."); `HANDOFF.md`
