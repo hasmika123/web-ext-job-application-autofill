@@ -37,6 +37,8 @@ export default defineConfig({
     },
   }),
   manifest: ({ mode, browser }) => {
+    // Set only for the one-off first-upload build (see the `key` note below).
+    const omitKey = process.env.KIWIPLY_OMIT_KEY === "1";
     // Dev builds only: a local API (`wxt`, or `wxt build --mode development`). The store zip
     // comes from `wxt build` (mode=production), which drops these.
     const dev = mode !== "production";
@@ -49,15 +51,22 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.52.0",
+      version: "0.52.2",
+      // ⚠️ Chrome Web Store hard limit: 132 characters. The upload is rejected outright above it,
+      // so `.github/scripts/check-manifest-limits.mjs` enforces it at build time. This is the same
+      // sentence as the listing's short description in STORE-LISTING.md — keep the two in step.
       description:
-        "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
+        "Fill job applications from one profile and the resume you choose. Review every field before it lands. Never submits for you.",
       // Pins the unpacked extension ID (keeps the kiwiply.com /connect handoff working).
       // Chrome, not Firefox, which ignores `key` and whose linter flags it.
-      // ⚠️ FIRST Chrome Web Store upload: a new item REJECTS `key` — remove it for that one
-      // upload, let the store assign the ID, then paste the store's public key back here so
-      // the dev and published IDs match forever. See DEPLOY.md §8.
-      ...(browser === "firefox" ? {} : { key: MANIFEST_KEY }),
+      //
+      // ⚠️ The FIRST Chrome Web Store upload REJECTS a manifest carrying `key` — the store
+      // assigns the ID itself. Build that one zip with KIWIPLY_OMIT_KEY=1 (the publish workflow
+      // exposes it as the `omit_key` input) rather than editing this file: a hand-edit in the
+      // middle of the launch sequence is easy to get wrong and easy to forget to undo. After the
+      // item exists, paste the store's public key into MANIFEST_KEY so the dev and published IDs
+      // match forever, and never pass the flag again. See DEPLOY.md §8.
+      ...(browser === "firefox" || omitKey ? {} : { key: MANIFEST_KEY }),
       // Firefox-only: Chrome ignores it, so don't ship it in the Chrome manifest.
       // strict_min_version 140: two separate floors, and 140 is the higher one. (a) Firefox
       // builds are MV3 (package.json's `-b firefox --mv3`), and only from 127 does Firefox show

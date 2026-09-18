@@ -14,6 +14,11 @@ name: Publish extension
 #   Variable: PUBLISH_EXTENSION = true   (until set, the publish step is skipped)
 on:
   workflow_dispatch:
+    inputs:
+      omit_key:
+        description: 'Omit the manifest `key` (ONLY for the very first Chrome Web Store upload — a new item rejects it)'
+        type: boolean
+        default: false
   push:
     tags: ['ext-v*']
 
@@ -53,10 +58,21 @@ jobs:
         run: node .github/scripts/inject-ga.js
 
       - name: Build extension (WXT)
+        # KIWIPLY_OMIT_KEY drops the manifest `key` for the first store upload only. A tag-driven
+        # release never sets it (inputs are empty outside workflow_dispatch), so ordinary releases
+        # always keep the key and therefore the stable extension ID.
         # WXT generates the manifest + bundles everything into job-autofill/.output/chrome-mv3.
         # Runs AFTER inject-ga so the bundle carries the injected analytics credentials. Deps were
         # already installed by the workspace-root npm ci above.
+        env:
+          KIWIPLY_OMIT_KEY: ${{ inputs.omit_key && '1' || '0' }}
         run: npm run build --workspace job-autofill
+
+      - name: Validate the manifest against Chrome Web Store limits
+        # These are enforced at UPLOAD, not at review: the console rejects the zip outright with
+        # e.g. "description ... exceeds maximum size limit of 132 characters", after you have
+        # already built, downloaded and dragged it in. Catch it here instead.
+        run: node .github/scripts/check-manifest-limits.mjs
 
       - name: Package extension zip
         # The WXT output IS the CWS-ready bundle (manifest.json already at its root). Zip its
