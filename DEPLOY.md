@@ -122,15 +122,29 @@ Reload the unpacked extension. (At Chrome Web Store launch, also pin
 `CORS_ALLOWED_ORIGIN_PATTERNS=chrome-extension://<published-id>` in `.env` and restart.)
 
 ## 5. Operations
+
+> ⚠️ **On production, ALWAYS pass the shared-edge overlay.** Production is co-hosted with
+> BeeCompete behind `beecompete-edge-caddy`, which owns :80/:443. A bare
+> `docker compose -f docker-compose.prod.yml up -d` starts **our** Caddy, which fights for those
+> ports and **takes BeeCompete down**. Set this once per shell and use `$COMPOSE` below — it is
+> the same command `deploy.yml` runs:
+>
+> ```bash
+> cd ~/web-ext-job-application-autofill
+> COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml"
+> ```
+>
+> (The from-scratch steps in §1–§3 omit the overlay on purpose — they describe a fresh
+> single-tenant box, which production no longer is.)
 - **Update to latest code:**
   ```bash
-  git pull && docker compose -f docker-compose.prod.yml up -d --build
+  git pull && $COMPOSE up -d --build
   ```
   Liquibase applies new DB migrations automatically on API start.
-- **Logs:** `docker compose -f docker-compose.prod.yml logs -f <service>`
+- **Logs:** `$COMPOSE logs -f <service>`
 - **Database backup** (cron nightly; also copy off-box, e.g. to S3):
   ```bash
-  docker compose -f docker-compose.prod.yml exec -T mysql \
+  $COMPOSE exec -T mysql \
     sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --databases dossierApi' > dossier-$(date +%F).sql
   ```
 - **Restore:** `… exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < backup.sql`
@@ -176,7 +190,7 @@ step is skipped):
 
 After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
 Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR; a manual
-`docker compose -f docker-compose.prod.yml up -d --build` still works for an off-pipeline deploy.
+`$COMPOSE up -d --build` still works for an off-pipeline deploy (**with the overlay** — see §5).
 
 ## 8. Publishing the browser extension (Chrome Web Store)
 The **`publish-extension.yml`** workflow packages the extension into a CWS-ready zip (always,
@@ -262,8 +276,11 @@ provider-agnostic (just `MAIL_*` env) — Brevo for now, swappable to SES/Resend
    MAIL_FROM=<your verified sender email>
    ```
    `MAIL_BASE_URL` auto-derives to `https://<SSLIP_HOST>` — only set it for a real domain.
-5. **Apply it:** `docker compose -f docker-compose.prod.yml up -d` (recreates the API with the
-   new env). No rebuild needed.
+5. **Apply it** — use `$COMPOSE` from §5; **the overlay is required on production**:
+   ```bash
+   $COMPOSE up -d api
+   ```
+   Recreates the API with the new env. No rebuild needed.
 6. **Test:** sign up with a real inbox → you get the activation email → the link opens
    `https://<SSLIP_HOST>/account/activate?key=…` → "Email verified" → sign in works. If the
    email doesn't arrive, check spam and the API logs (`… logs api | grep -i mail`).
@@ -327,8 +344,11 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
    ```
    (Leave `DOSSIER_AI_API_KEY` blank or `DOSSIER_AI_ENABLED=false` to keep AI off.)
    `DOSSIER_AI_FREE_MONTHLY_QUOTA` is the per-user monthly draft cap on **your** key.
-3. **Apply it:** `docker compose -f docker-compose.prod.yml up -d` (recreates the API with the
-   new env). No rebuild needed.
+3. **Apply it** — use `$COMPOSE` from §5; **the overlay is required on production**:
+   ```bash
+   $COMPOSE up -d api
+   ```
+   Recreates the API with the new env. No rebuild needed.
 4. **Test:** in the extension, Options → Settings → enable **"Use Dossier AI"** + tick the
    consent box, then trigger a draft on a question field. A first call should return an answer
    and `{used, quota}`. Without the env set, it returns `{"disabled":true}` (correct = off).
