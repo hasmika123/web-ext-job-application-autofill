@@ -5,11 +5,20 @@ submission is paste-and-go. `PRIVACY.md` is the source for the privacy answers; 
 source for the marketing copy and the asset shot list. The upload *procedure* (the `key` dance,
 the extension-ID redeploy) lives in `DEPLOY.md` §8 — do that, not this.
 
-> **Honesty rule.** The copy below only claims what `AUTOFILL-QA.md` has actually verified on a
-> live form: **Greenhouse, Lever, Ashby, Workable, Workday**. The other ATS in the manifest
-> (SmartRecruiters, iCIMS, Taleo, BambooHR, Jobvite, Indeed) run on the generic matcher and are
-> **not yet live-verified** — they're described as "also runs on", not promised. If you verify
-> them, promote them; if you drop them, cut them from the manifest too.
+> ⛔ **DO NOT list ATS vendor names in the description.** Version 0.52.2 was **rejected** on
+> 2026-09-18 — *Spam and Placement in the Store: "Having excessive keywords in the item's
+> description"*, citing exactly the two lists that used to be here (Greenhouse, Lever, Ashby,
+> Workable, Workday / SmartRecruiters, iCIMS, Taleo, BambooHR, Jobvite, Indeed). Eleven vendor
+> names across two consecutive paragraphs reads as keyword stuffing, however accurate it is.
+> The description now describes *capability* — multi-step forms, repeating sections, custom
+> dropdowns, label-based matching for unknown sites — and names no vendor at all.
+>
+> Vendor names are still fine where they are not public marketing metadata: the **host-permission
+> justification** on the Privacy tab needs them, and `PRIVACY.md` keeps them.
+>
+> **Honesty rule (still applies).** Don't claim a site works until `AUTOFILL-QA.md` verifies it on
+> a live form. Verified so far: Greenhouse, Lever, Ashby, Workable, Workday. The rest run on the
+> generic matcher and are unverified — which is now moot for the listing, since it names none.
 
 ---
 
@@ -36,45 +45,45 @@ Kiwiply fills it in for you, in front of you, and then stops.
 
 WHAT IT DOES
 
-Keep one profile and your resume variants on kiwiply.com. Open a job application, click the Kiwiply icon, and a drawer slides in over the page. Pick which resume you want to use and hit "Scan & fill this page".
+Keep one profile and your resume variants in your account. Open a job application, click the toolbar icon, and a drawer slides in over the page. Pick which resume you want to use and choose "Scan & fill this page".
 
-Kiwiply reads the form, works out which of your details belongs in which field, and shows you the whole plan before writing anything — every field it matched, grouped and labelled, with the value it intends to enter. Uncheck anything you disagree with. Then it fills.
+The extension reads the form, works out which of your details belongs in which field, and shows you the whole plan before writing anything — every field it matched, grouped and labelled, with the value it intends to enter. Uncheck anything you disagree with. Then it fills.
 
 YOU SEND EVERY APPLICATION YOURSELF
 
-Kiwiply never clicks Submit. It never touches CAPTCHAs. The review step is not a preference you can switch off — nothing is filled that you have not seen first.
+The extension never clicks Submit. It never touches CAPTCHAs. The review step is not a preference you can switch off — nothing is filled that you have not seen first.
 
 If you turn on auto-advance, it will click Next or Continue between the pages of a multi-step form. Never Submit, never Apply, never Finish. The last click is always yours, because an application sent without you reading it is worse than no application at all.
 
 WHERE IT WORKS
 
-Verified on live application forms: Greenhouse, Lever, Ashby, Workable and Workday — including Workday's multi-step flow, its "Add Another" experience rows, and work-authorization questions.
+The extension is built for the applicant tracking systems that most companies use to collect applications, and it handles the hard parts of them: multi-step forms, repeating sections for each role in your history, custom dropdowns that are not really dropdowns, and work-authorization questions.
 
-It also runs on SmartRecruiters, iCIMS, Taleo, BambooHR, Jobvite and Indeed through a generic field matcher that reads each field's visible label, with more sites being added. Where a field cannot be matched confidently, Kiwiply tells you rather than guessing.
+It also recognises forms it has never seen before by reading each field's visible label, so a company's own careers page is usually filled too. Where a field cannot be matched confidently, you are told rather than guessed at.
 
 ONE PROFILE, MANY RESUMES
 
-Keep a full-stack resume, a data resume and a new-grad resume side by side, each with its own skills and roles. Choose the right one per application and Kiwiply fills the form to match it and attaches the file. Upload a new resume straight from the drawer and it is parsed, reviewed by you, and saved to your account.
+Keep a full-stack resume, a data resume and a new-grad resume side by side, each with its own skills and roles. Choose the right one for an application and the form is filled to match it, with that file attached. Upload a new resume straight from the drawer and it is parsed, reviewed by you, and saved to your account.
 
 SAVE JOBS AS YOU GO
 
-"Save this job for later" captures the role, company, location and salary from the posting into your board on kiwiply.com — so the job you found at 11pm is still there in the morning, with the details attached.
+"Save this job for later" captures the role, company, location and salary from the posting into your board — so the job you found at 11pm is still there in the morning, with the details attached.
 
 OPTIONAL AI, OFF BY DEFAULT
 
-Kiwiply can draft answers to open-ended questions like "why do you want to work here?". It is off until you turn it on, and you choose how: bring your own API key, so requests go from your browser straight to that provider under your own account, or use Kiwiply AI, which is consent-gated and explained in full before you agree to anything. Drafts appear with an AI badge so you edit them before they are filled. Leave it off and every other feature works exactly the same.
+Answers to open-ended questions like "why do you want to work here?" can be drafted for you. This is off until you turn it on, and you choose how: bring your own API key, so requests go from your browser straight to that provider under your own account, or use the built-in option, which is consent-gated and explained in full before you agree to anything. Drafts appear with a badge so you edit them before they are filled. Leave it off and every other feature works exactly the same.
 
 YOUR DATA
 
-Your profile and resumes sync with your own Kiwiply account and go nowhere else. They are never sold and never used for advertising. Kiwiply reads the application page you are filling — not your browsing. Usage analytics are anonymous event counts with no personal data, and you can switch them off in Settings.
+Your profile and resumes sync with your own account and go nowhere else. They are never sold and never used for advertising. The extension reads the application page you are filling — not your browsing. Usage analytics are anonymous event counts with no personal data, and you can switch them off in Settings.
 
 Full policy: https://kiwiply.com/privacy
 
 GETTING STARTED
 
-Kiwiply needs a free account at kiwiply.com. Sign in there once, and the extension connects itself — there is no second login to remember.
+A free account at kiwiply.com is required. Sign in there once, and the extension connects itself — there is no second login to remember.
 
-Kiwiply is for filling in your own applications, honestly, one at a time. It is not a mass-apply bot, and it is not built to become one.
+This is a tool for filling in your own applications, honestly, one at a time. It is not a mass-apply bot, and it is not built to become one.
 ```
 
 ---
