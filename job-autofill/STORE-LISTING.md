@@ -30,53 +30,51 @@ Fill job applications from one profile and the resume you choose. Review every f
 
 **Detailed description**
 ```
-Applying for jobs means typing the same twenty answers into a different form every time. Kiwiply
-keeps one profile and your resume variants in one place, then fills the application in front of
-you — so you spend your time on the parts that actually differ.
+Every job application asks the same twenty questions. Your name, your address, your work history, whether you need sponsorship — typed again, into a slightly different form, for the fifth time this evening. It is the part of job hunting that takes the most time and deserves the least.
 
-HOW IT WORKS
-1. Keep your profile and resumes on kiwiply.com (free account).
-2. Open a job application and click the Kiwiply icon. A drawer slides in over the page.
-3. Pick the resume you want and hit "Scan & fill this page".
-4. Kiwiply shows you every field it matched, grouped and labelled. Uncheck anything you don't
-   want. Then it fills — and stops.
+Kiwiply fills it in for you, in front of you, and then stops.
+
+WHAT IT DOES
+
+Keep one profile and your resume variants on kiwiply.com. Open a job application, click the Kiwiply icon, and a drawer slides in over the page. Pick which resume you want to use and hit "Scan & fill this page".
+
+Kiwiply reads the form, works out which of your details belongs in which field, and shows you the whole plan before writing anything — every field it matched, grouped and labelled, with the value it intends to enter. Uncheck anything you disagree with. Then it fills.
 
 YOU SEND EVERY APPLICATION YOURSELF
-Kiwiply never clicks Submit. It never touches CAPTCHAs. The review step is not a setting you can
-turn off — nothing is filled that you haven't seen first. "Auto-advance", if you enable it, only
-clicks Next or Continue between the pages of a multi-step form. Never Submit.
 
-WORKS ON
-Verified on live application forms: Greenhouse, Lever, Ashby, Workable and Workday — including
-Workday's multi-step flow, "Add Another" experience rows, and work-authorization questions.
-Also runs on SmartRecruiters, iCIMS, Taleo, BambooHR, Jobvite and Indeed through the generic
-field matcher, with more sites being added.
+Kiwiply never clicks Submit. It never touches CAPTCHAs. The review step is not a preference you can switch off — nothing is filled that you have not seen first.
+
+If you turn on auto-advance, it will click Next or Continue between the pages of a multi-step form. Never Submit, never Apply, never Finish. The last click is always yours, because an application sent without you reading it is worse than no application at all.
+
+WHERE IT WORKS
+
+Verified on live application forms: Greenhouse, Lever, Ashby, Workable and Workday — including Workday's multi-step flow, its "Add Another" experience rows, and work-authorization questions.
+
+It also runs on SmartRecruiters, iCIMS, Taleo, BambooHR, Jobvite and Indeed through a generic field matcher that reads each field's visible label, with more sites being added. Where a field cannot be matched confidently, Kiwiply tells you rather than guessing.
 
 ONE PROFILE, MANY RESUMES
-Keep a full-stack resume, a data resume and a new-grad resume side by side, each with its own
-skills and roles. Pick the right one per application; Kiwiply fills the form to match and
-attaches the file. Upload a new resume straight from the drawer and it's parsed, reviewed by you,
-and saved to your account.
+
+Keep a full-stack resume, a data resume and a new-grad resume side by side, each with its own skills and roles. Choose the right one per application and Kiwiply fills the form to match it and attaches the file. Upload a new resume straight from the drawer and it is parsed, reviewed by you, and saved to your account.
 
 SAVE JOBS AS YOU GO
-"Save this job for later" captures the role, company, location and salary from the posting into
-your board on kiwiply.com, so the job you found at 11pm is still there in the morning.
+
+"Save this job for later" captures the role, company, location and salary from the posting into your board on kiwiply.com — so the job you found at 11pm is still there in the morning, with the details attached.
 
 OPTIONAL AI, OFF BY DEFAULT
-Kiwiply can draft answers to open-ended questions ("Why do you want to work here?"). It is off
-until you turn it on, and you choose how: bring your own API key, so requests go from your
-browser straight to that provider under your own account — or use Kiwiply AI, which is
-consent-gated and explained in full before you agree to anything. Leave it off and every other
-feature works exactly the same.
+
+Kiwiply can draft answers to open-ended questions like "why do you want to work here?". It is off until you turn it on, and you choose how: bring your own API key, so requests go from your browser straight to that provider under your own account, or use Kiwiply AI, which is consent-gated and explained in full before you agree to anything. Drafts appear with an AI badge so you edit them before they are filled. Leave it off and every other feature works exactly the same.
 
 YOUR DATA
-Your profile and resumes sync with your own Kiwiply account and go nowhere else. They are never
-sold and never used for advertising. Kiwiply reads the application page you're filling — not your
-browsing. Usage analytics are anonymous event counts with no personal data, and you can switch
-them off in Settings. Full policy: https://kiwiply.com/privacy
 
-Kiwiply is for filling in your own applications, honestly, one at a time. It is not a mass-apply
-bot, and it isn't built to become one.
+Your profile and resumes sync with your own Kiwiply account and go nowhere else. They are never sold and never used for advertising. Kiwiply reads the application page you are filling — not your browsing. Usage analytics are anonymous event counts with no personal data, and you can switch them off in Settings.
+
+Full policy: https://kiwiply.com/privacy
+
+GETTING STARTED
+
+Kiwiply needs a free account at kiwiply.com. Sign in there once, and the extension connects itself — there is no second login to remember.
+
+Kiwiply is for filling in your own applications, honestly, one at a time. It is not a mass-apply bot, and it is not built to become one.
 ```
 
 ---
@@ -122,10 +120,14 @@ https://kiwiply.com/privacy
 
 ---
 
-## Reviewer notes (the "Justification for permissions" / notes box)
+## Reviewer notes → the **Test instructions** tab
+
+**This is NOT on the Store listing form** — it's its own tab in the dashboard, which is easy to
+miss. Put the credentials there (and/or in the "Notes for reviewer" box that appears when you
+click *Submit for review*).
 
 The item is **login-gated**, so this is not optional — without credentials a reviewer sees only a
-sign-in prompt and rejects it as broken.
+sign-in prompt and rejects it as a non-functional extension.
 
 ```
 Kiwiply requires a free account at https://kiwiply.com. Test account:
