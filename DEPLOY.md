@@ -183,23 +183,25 @@ The **`publish-extension.yml`** workflow packages the extension into a CWS-ready
 as a downloadable build artifact) and can publish it to the Chrome Web Store.
 
 **First listing (manual, one-time):** the CWS API can only *update* an existing item, so the
-first submission is by hand. **Do these in order — step 6 is not optional**, because the store
+first submission is by hand. **Do these in order — step 5 is not optional**, because the store
 assigns an extension id that the web `/connect` page must be told about, and `/connect` is the
 only way to sign in:
-1. In `job-autofill/wxt.config.ts`, **temporarily remove the `key`** from the manifest (spread
-   `{ key: MANIFEST_KEY }` out). A brand-new store item rejects a manifest that carries one.
-2. Run **Actions → Publish extension → Run workflow** (it skips publishing, just builds the zip).
-3. Download the **`dossier-extension`** artifact from that run.
-4. Create a [Chrome Web Store developer account](https://chrome.google.com/webstore/devconsole)
+1. Run **Actions → Publish extension → Run workflow** with **`omit_key` ticked**. A brand-new
+   store item rejects a manifest carrying a `key`, so that one build drops it
+   (`KIWIPLY_OMIT_KEY=1`). Publishing is skipped — the run just builds the zip.
+   **Only ever tick this for the first upload**; every later release must keep the key or the
+   published extension ID changes. Tag-driven releases can't set it.
+2. Download the **`dossier-extension`** artifact from that run.
+3. Create a [Chrome Web Store developer account](https://chrome.google.com/webstore/devconsole)
    (one-time $5 fee), **Add new item**, upload the zip, fill the listing (privacy URL =
    `https://kiwiply.com/privacy`; `job-autofill/PRIVACY.md` is the source for the Privacy tab's
    single-purpose + per-permission + data-use answers), and submit for review. The item is
    **login-gated**, so put working test credentials for kiwiply.com in the reviewer notes or it
    gets rejected as broken.
-5. Once the item exists, copy its **public key** (devconsole → item → Package → *View public key*)
-   into `MANIFEST_KEY` in `wxt.config.ts` and restore the `key` spread, so the unpacked dev build
-   and the published item share one id forever.
-6. Copy the item's **extension id** (from its devconsole URL) into
+4. Once the item exists, copy its **public key** (devconsole → item → Package → *View public key*)
+   into `MANIFEST_KEY` in `wxt.config.ts`, so the unpacked dev build and the published item share
+   one id forever. Nothing else to undo — the omission was a build flag, not an edit.
+5. Copy the item's **extension id** (from its devconsole URL) into
    **`NEXT_PUBLIC_KIWIPLY_EXTENSION_ID`** for the web build and **redeploy web**. It's a
    `NEXT_PUBLIC_*` var, so it is baked in at build time — until web is rebuilt, `/connect` targets
    the old dev id and every store user's sign-in silently fails. Verify on
