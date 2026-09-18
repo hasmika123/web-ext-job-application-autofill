@@ -51,9 +51,12 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.52.1",
+      version: "0.52.2",
+      // ⚠️ Chrome Web Store hard limit: 132 characters. The upload is rejected outright above it,
+      // so `.github/scripts/check-manifest-limits.mjs` enforces it at build time. This is the same
+      // sentence as the listing's short description in STORE-LISTING.md — keep the two in step.
       description:
-        "Keep one consistent bio and many resume variants. Pick a resume, review, and autofill applications on Workday, Greenhouse, Lever, Ashby and more.",
+        "Fill job applications from one profile and the resume you choose. Review every field before it lands. Never submits for you.",
       // Pins the unpacked extension ID (keeps the kiwiply.com /connect handoff working).
       // Chrome, not Firefox, which ignores `key` and whose linter flags it.
       //

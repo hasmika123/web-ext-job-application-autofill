@@ -68,6 +68,12 @@ jobs:
           KIWIPLY_OMIT_KEY: ${{ inputs.omit_key && '1' || '0' }}
         run: npm run build --workspace job-autofill
 
+      - name: Validate the manifest against Chrome Web Store limits
+        # These are enforced at UPLOAD, not at review: the console rejects the zip outright with
+        # e.g. "description ... exceeds maximum size limit of 132 characters", after you have
+        # already built, downloaded and dragged it in. Catch it here instead.
+        run: node .github/scripts/check-manifest-limits.mjs
+
       - name: Package extension zip
         # The WXT output IS the CWS-ready bundle (manifest.json already at its root). Zip its
         # contents so manifest.json sits at the zip root.
