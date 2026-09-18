@@ -210,6 +210,25 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      <Section title="Browser extension data use">
+        <p>
+          The Kiwiply browser extension&apos;s use of data received through it adheres to the{" "}
+          <a
+            href="https://developer.chrome.com/docs/webstore/program-policies/limited-use"
+            className="font-medium text-accent-deep hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Chrome Web Store User Data Policy
+          </a>
+          , including the Limited Use requirements. The extension collects only what is needed for
+          its single purpose — filling in job applications from your saved profile and the resume
+          you choose — and transfers it only to your own Kiwiply account, never to advertising
+          networks, data brokers, or credit-assessment services, and never for training any
+          general-purpose model.
+        </p>
+      </Section>
+
       <Section title="Contact">
         <p>
           Kiwiply is operated by {ENTITY}. Questions about this policy or your data? Email{" "}

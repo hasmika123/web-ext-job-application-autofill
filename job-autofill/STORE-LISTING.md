@@ -13,6 +13,9 @@ the extension-ID redeploy) lives in `DEPLOY.md` §8 — do that, not this.
 > The description now describes *capability* — multi-step forms, repeating sections, custom
 > dropdowns, label-based matching for unknown sites — and names no vendor at all.
 >
+> **Also keep every word under 6 repetitions.** The same policy bans "unnatural repetition of the
+> same keyword more than 5 times". The current copy's highest is 5. Re-check after any edit.
+>
 > Vendor names are still fine where they are not public marketing metadata: the **host-permission
 > justification** on the Privacy tab needs them, and `PRIVACY.md` keeps them.
 >
@@ -45,45 +48,45 @@ Kiwiply fills it in for you, in front of you, and then stops.
 
 WHAT IT DOES
 
-Keep one profile and your resume variants in your account. Open a job application, click the toolbar icon, and a drawer slides in over the page. Pick which resume you want to use and choose "Scan & fill this page".
+Keep one profile and your resume variants in your account. Open a job posting's form, click the toolbar icon, and a drawer slides in over the page. Pick which resume to use and choose "Scan & fill this page".
 
 The extension reads the form, works out which of your details belongs in which field, and shows you the whole plan before writing anything — every field it matched, grouped and labelled, with the value it intends to enter. Uncheck anything you disagree with. Then it fills.
 
-YOU SEND EVERY APPLICATION YOURSELF
+YOU SEND EVERYTHING YOURSELF
 
-The extension never clicks Submit. It never touches CAPTCHAs. The review step is not a preference you can switch off — nothing is filled that you have not seen first.
+The extension does not click Submit, and does not touch CAPTCHAs. The review step is not a preference you can switch off — nothing is filled that you have not seen first.
 
-If you turn on auto-advance, it will click Next or Continue between the pages of a multi-step form. Never Submit, never Apply, never Finish. The last click is always yours, because an application sent without you reading it is worse than no application at all.
+If you turn on auto-advance, it will click Next or Continue between the pages of a multi-step form. Never Submit, never Apply, never Finish. The last click is always yours, because anything sent without you reading it is worse than nothing sent at all.
 
 WHERE IT WORKS
 
-The extension is built for the applicant tracking systems that most companies use to collect applications, and it handles the hard parts of them: multi-step forms, repeating sections for each role in your history, custom dropdowns that are not really dropdowns, and work-authorization questions.
+Built for the applicant tracking systems most companies use, and for the hard parts of them: multi-step forms, repeating sections for each role in your history, custom dropdowns that are not really dropdowns, and work-authorization questions.
 
-It also recognises forms it has never seen before by reading each field's visible label, so a company's own careers page is usually filled too. Where a field cannot be matched confidently, you are told rather than guessed at.
+Forms it has not seen before are handled too, by reading each field's visible label — so a company's careers page is usually filled the same way. Where a field cannot be matched confidently, you are told rather than guessed at.
 
-ONE PROFILE, MANY RESUMES
+ONE PROFILE, MANY VERSIONS
 
-Keep a full-stack resume, a data resume and a new-grad resume side by side, each with its own skills and roles. Choose the right one for an application and the form is filled to match it, with that file attached. Upload a new resume straight from the drawer and it is parsed, reviewed by you, and saved to your account.
+Keep a full-stack resume, a data one and a new-grad one side by side, each with its own skills and roles. Choose the right file for a role and the form is filled to match it, with that document attached. Upload a new one straight from the drawer and it is parsed, reviewed by you, and saved.
 
 SAVE JOBS AS YOU GO
 
-"Save this job for later" captures the role, company, location and salary from the posting into your board — so the job you found at 11pm is still there in the morning, with the details attached.
+"Save this job for later" captures the role, company, location and salary from the posting into your board — so the listing you found at 11pm is still there in the morning, with the details attached.
 
 OPTIONAL AI, OFF BY DEFAULT
 
-Answers to open-ended questions like "why do you want to work here?" can be drafted for you. This is off until you turn it on, and you choose how: bring your own API key, so requests go from your browser straight to that provider under your own account, or use the built-in option, which is consent-gated and explained in full before you agree to anything. Drafts appear with a badge so you edit them before they are filled. Leave it off and every other feature works exactly the same.
+Answers to open-ended questions like "why do you want to work here?" can be drafted for you. This stays off until you turn it on, and you choose how: bring your API key, so requests go from your browser straight to that provider under your account, or use the built-in option, which is consent-gated and explained in full before you agree to anything. Drafts appear with a badge so you edit them first. Leave it off and everything else works the same.
 
 YOUR DATA
 
-Your profile and resumes sync with your own account and go nowhere else. They are never sold and never used for advertising. The extension reads the application page you are filling — not your browsing. Usage analytics are anonymous event counts with no personal data, and you can switch them off in Settings.
+Your profile and files sync with your account and go nowhere else. They are not sold and not used for advertising. The extension reads the page you are filling — not your browsing. Usage analytics are anonymous event counts with no personal data, and you can switch them off in Settings.
 
 Full policy: https://kiwiply.com/privacy
 
 GETTING STARTED
 
-A free account at kiwiply.com is required. Sign in there once, and the extension connects itself — there is no second login to remember.
+A free account at kiwiply.com is required. Sign in there once and the extension connects itself — there is no second login to remember.
 
-This is a tool for filling in your own applications, honestly, one at a time. It is not a mass-apply bot, and it is not built to become one.
+This is a tool for filling in your applications, honestly, one at a time. It is not a mass-apply bot, and it is not built to become one.
 ```
 
 ---
