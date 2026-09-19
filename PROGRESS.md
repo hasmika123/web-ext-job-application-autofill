@@ -849,6 +849,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-19 · **ci — stop main pushes cancelling each other's CI** · `ci.yml` used `group:
+  ci-${{ github.ref }}` with `cancel-in-progress: true`, and on a push to main `github.ref` is
+  always `refs/heads/main` — so every merge cancelled the previous merge's CI run. Hit for real:
+  PR #54 and #53 merged 24s apart, #54's CI was cancelled, and `37c6e10` sits in main with a
+  `cancelled` status and no verdict. Fixed by splitting the group by event: pushes key on
+  `github.sha` (unique per commit, `cancel-in-progress: false`), PRs keep the per-PR group and
+  the cancel (superseding an old PR commit is the point). Flipping `cancel-in-progress` alone
+  would NOT have fixed it — GitHub still cancels a *pending* run when a newer one joins the
+  group, so 3 rapid merges would still lose the middle commit's verdict; the group has to be
+  unique. `deploy.yml` left as-is on purpose: its queue-and-supersede is correct when you only
+  want the newest code on the box. CI config only — no app code, no version bump.
 - 2026-09-18 · **web — robots.txt + sitemap.xml (search-engine submission)** · The live site
   404'd on both `/robots.txt` and `/sitemap.xml`, so there was nothing to submit to Google Search
   Console or Bing Webmaster Tools, and a 404 robots invites crawlers into the auth-gated app
