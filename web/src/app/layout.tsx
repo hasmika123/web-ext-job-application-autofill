@@ -4,6 +4,7 @@ import "./globals.css";
 import CookieConsent from "@/components/CookieConsent";
 import BugReportWidget from "@/components/BugReportWidget";
 import { ToastProvider } from "@/components/ui";
+import { SITE_URL } from "@/lib/site";
 
 // Inter (body) + Fraunces (display) — both variable fonts; no weight needed.
 const inter = Inter({
@@ -18,7 +19,6 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const SITE_URL = "https://kiwiply.com";
 const TITLE = "Kiwiply — one profile, every application";
 const DESCRIPTION =
   "Build one job-application profile, manage your resumes, and track every application in one place. The Kiwiply browser extension fills applications for you on the page.";
