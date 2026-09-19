@@ -7,9 +7,22 @@ on:
     branches: [main, phase-2]
   pull_request:
 
+# Concurrency is deliberately split by event, because the two cases want opposite things.
+#
+# On a PR, superseding an older commit is the point: nobody needs a verdict on a commit
+# that's already been force-pushed past, so those runs share a per-PR group and the older
+# one is cancelled for fast feedback.
+#
+# On a push to main/phase-2, every commit is permanent and needs its own verdict, so the
+# group is keyed by SHA — making it unique per commit, so no main run can ever cancel or
+# supersede another. `cancel-in-progress: false` alone would NOT achieve this: GitHub still
+# cancels a *pending* run when a newer one joins the same group, so merging three PRs in
+# quick succession would leave the middle commit with no CI result. That is not theoretical
+# — PR #54 and #53 merged 24s apart on 2026-09-19, #54's CI was cancelled, and its commit
+# sits in main today with a `cancelled` status.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   extension:
