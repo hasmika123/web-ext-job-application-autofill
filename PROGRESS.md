@@ -849,6 +849,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-18 · **web — robots.txt + sitemap.xml (search-engine submission)** · The live site
+  404'd on both `/robots.txt` and `/sitemap.xml`, so there was nothing to submit to Google Search
+  Console or Bing Webmaster Tools, and a 404 robots invites crawlers into the auth-gated app
+  shell and the single-use `/account/activate` + `/newsletter/*` token links. Added the App
+  Router convention files `web/src/app/robots.ts` and `web/src/app/sitemap.ts`, plus
+  `web/src/lib/site.ts` holding the canonical origin (was hardcoded in `layout.tsx`) and the
+  `NON_INDEXABLE_PATHS` disallow list. Sitemap = `/`, `/privacy`, `/terms` only, with
+  hand-maintained `lastModified` (a build-time `new Date()` would claim every page changed on
+  every deploy). Verified both routes serve 200 with the right content types on a dev server.
+  Web-only — no extension version bump. **Still owed by the user (console work, not code):**
+  verify the `kiwiply.com` domain property in Search Console via a Cloudflare DNS TXT record,
+  submit `sitemap.xml`, then import the property into Bing Webmaster Tools.
 - 2026-09-17 · **docs — correct the Phase 3.6 status** · **Current focus** still announced Phase 3.6
   as "IN REVIEW (branch `feat/job-extraction-v2`)". It had merged the same day it was written —
   PR #28, merge commit `4586822`, 2026-07-03 — and tasks 3.6.1–3.6.3 were already `[x]` a few
