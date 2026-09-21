@@ -523,24 +523,160 @@ pull only on change:**
   line. Docs-only commit.
 
 ### Phase 12 — Billing & entitlements (Stripe)  *(Launch 1 — build the gate before the gated features)*
-- **12.1 Stripe setup.** Products/Prices: `pro_monthly` $19.99, `pro_3mo` $44.99 (recurring
-  every 3 months). Stripe Tax on. Checkout (hosted) + Customer Portal (cancel / update card).
-- **12.2 Webhooks → `subscription` table.** `checkout.session.completed`, `invoice.paid`,
-  `invoice.payment_failed`, `customer.subscription.updated|deleted`. Columns: user, stripe
-  customer/sub ids, plan, status, `current_period_end`, `cancel_at_period_end`. Additive
-  Liquibase migration. Idempotent by event id.
-- **12.3 Entitlement service.** `isPro(user)` in the API — **the only source of truth; never
-  trust the client**. Gate every Pro endpoint (AI, inbox, sync, analytics). Plan + period end
-  travel in the extension session payload so the drawer/options can show plan state.
-- **12.4 Free-tier redefinition.** Server AI quota → 0 for free (keep the resume-parse
-  exception). Free resume cap = 3 (existing resumes over the cap stay readable, not editable
-  — never delete user data on downgrade). BYO key unchanged.
-- **12.5 Web surfaces.** `/pricing`, upgrade CTAs at every gated feature, `/settings/billing`
-  (plan, renewal, portal link), plan badge in extension options. Dunning: Stripe smart retries
-  + a "payment failed" email; downgrade at period end, not instantly.
-- **12.6 Admin.** Revenue / active subs / churn panel on `/admin/analytics` (extends A3).
-- **12.7 Legal hooks for PL.1.** Auto-renew disclosure at checkout, click-to-cancel (FTC rule +
-  California ARL), refund policy in the ToS.
+
+> **Planned to build depth 2026-09-21.** Build order is **12.0 → 12.1 → 12.2 → 12.3 → 12.4 →
+> 12.5 → 12.6 → 12.7**: schema + entitlement first (no UI, fully testable), then the webhook
+> (the only writer of subscription state), then checkout/portal + web, then the gates, then
+> admin, then copy, then the end-to-end checklist in Stripe test mode. Nothing in 13–16 may ship
+> before 12.3's `requirePro()` exists to gate it.
+
+**Decisions locked for this phase (don't re-derive):**
+- **Stripe is the source of truth for subscription state; our `subscription` row is a mirror
+  written only by webhooks** (never by the checkout return page — that page can be skipped,
+  replayed or faked). The extension and web read the mirror.
+- **`past_due` stays Pro until `current_period_end`.** Stripe Smart Retries run during that
+  window; we downgrade at period end, not on the first failed charge. `canceled` with
+  `cancel_at_period_end` likewise keeps Pro until the period ends (Stripe keeps `status=active`
+  until then anyway). `unpaid`, `incomplete_expired` → Free immediately.
+- **Gated calls fail with HTTP 402 `PRO_REQUIRED`** (a ProblemDetail with `code`), not 403 —
+  unambiguous for clients, and "forbidden" would be wrong: the user *may* do it, for $19.99.
+- **No free trial.** The 3-month price is the hook; trials plus a no-refund policy invite
+  disputes. Revisit with data.
+- **Free resume cap counts non-archived resumes.** Archived ones don't count (archiving is how
+  a Free user makes room); nothing is ever deleted on downgrade; over-cap resumes stay readable
+  and fillable, only *creating* is blocked.
+- **The admin AI-quota override (9.A2.2) outranks the plan gate** — an explicit override
+  grants that many calls whether or not the user is Pro. It is the support escape hatch and
+  must keep working.
+- **The plan rides on the version endpoint.** `GET /api/profile/version` returns
+  `{version, plan}`; the extension already polls it (11.3), so plan state reaches the drawer
+  and options within a check with no new round-trip. No plan claim in the JWT — a token would
+  go stale for a whole session after an upgrade.
+- **New backend dependency: `com.stripe:stripe-java`**, wrapped behind one `StripeGateway`
+  interface so every test stubs it and nothing else in the codebase imports Stripe types.
+
+- **12.0 Stripe account setup — human, before any code runs against it.** In the Stripe
+  dashboard, **test mode first, live mode identically later**: Product "Kiwiply Pro" with two
+  recurring Prices — `$19.99 / month` and `$44.99 / 3 months` (interval `month`, count `3`);
+  **Stripe Tax on**; Customer Portal configured (cancel at period end allowed, update payment
+  method, invoice history; no plan switching in the portal — one plan); a webhook endpoint at
+  `https://api.kiwiply.com/api/billing/webhook` subscribed to `checkout.session.completed`,
+  `customer.subscription.created`, `customer.subscription.updated`,
+  `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Record
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_3MO` in
+  the password manager (`.env` is never held by GitHub — see the data-loss decision) and in
+  the box's `.env`; `docker-compose.prod.yml` passes them through like the `DOSSIER_AI_*`
+  block. Local dev: `stripe listen --forward-to localhost:8080/api/billing/webhook` gives a
+  per-session webhook secret.
+- **12.1 Schema + entitlement + gateway (API only, no UI).**
+  - Liquibase `20260921000000_subscription.xml` (+ master include): table `subscription` —
+    `id`, `user_id` (FK `jhi_user`, **unique**: one row per user), `stripe_customer_id`
+    (unique, nullable until first checkout), `stripe_subscription_id` (unique, nullable),
+    `plan` (`FREE|PRO`), `status` (Stripe's string verbatim: `active|trialing|past_due|
+    canceled|unpaid|incomplete|incomplete_expired|none`), `price_id`, `current_period_end`
+    (timestamp), `cancel_at_period_end` (bool), `last_event_at` (timestamp — for ordering),
+    `created_at`, `updated_at`. Table `stripe_event` — `id` (the `evt_…` id, **PK** — this is
+    the idempotency key), `type`, `received_at`, `processed_at`, `status` (`ok|failed|
+    duplicate`), `error` (text). Both additive; no data migration.
+  - `domain/Subscription`, `domain/StripeEvent`, repositories, `service/dto/PlanDTO
+    {plan, status, currentPeriodEnd, cancelAtPeriodEnd, billingEnabled, hasCustomer}`.
+  - `service/EntitlementService`: `isPro(login)` and `plan(login)` per the decisions above
+    (pure function of the row + `Instant.now()`, unit-tested as a status × period matrix);
+    `requirePro(login)` throws `ResponseStatusException(402)` carrying `code=PRO_REQUIRED`.
+    Cache nothing — it is one indexed row read.
+  - `service/billing/StripeGateway` interface: `createCustomer(user)`, `createCheckoutSession
+    (customerId, priceId, userId, successUrl, cancelUrl)`, `createPortalSession(customerId,
+    returnUrl)`, `constructEvent(payload, sigHeader)`; `StripeGatewayImpl` is the only class
+    that imports `com.stripe.*`. `config/StripeProperties` (`dossier.stripe.secret-key`,
+    `webhook-secret`, `price-monthly`, `price-3mo`, `success-url`, `cancel-url`,
+    `portal-return-url`); **billing is disabled when the secret key is blank** — `PlanDTO.
+    billingEnabled=false`, checkout/portal return 503 `BILLING_DISABLED`, and the pricing page
+    renders "coming soon". That is how `develop` and CI run without keys.
+  - `GET /api/billing/me` → `PlanDTO` (authenticated). Tests: `EntitlementServiceTest` (matrix),
+    `BillingResourceIT` for `/me` on a user with no row (Free, `billingEnabled` reflects config).
+- **12.2 Webhook — the only writer.** `POST /api/billing/webhook`, **permitAll** in
+  `SecurityConfiguration`, declared with `@RequestBody String payload` so the raw bytes are
+  verified (`Stripe-Signature` + webhook secret via the gateway; bad or missing signature →
+  400, nothing recorded). Then, in one transaction: insert into `stripe_event` — a duplicate id
+  short-circuits with 200 (`status=duplicate`); ignore any event whose `created` is **older**
+  than the row's `last_event_at` (Stripe does not guarantee order); apply by type:
+  `checkout.session.completed` → bind `stripe_customer_id` ↔ user via `client_reference_id`
+  (the user id we set at checkout) and create the row if absent; `customer.subscription.
+  created|updated|deleted` → upsert `status`, `price_id`, `current_period_end`,
+  `cancel_at_period_end`, `stripe_subscription_id`, set `plan` from `isPro`-eligibility of the
+  new status; `invoice.paid` → status `active`; `invoice.payment_failed` → status `past_due` +
+  send the "payment failed — update your card" email through the existing `MailService`
+  (Brevo). A handler exception → `stripe_event.status=failed` + **HTTP 500 so Stripe retries**;
+  success → 200. Never trust the event's embedded objects beyond the ids you need for the
+  `subscription` object itself — that object *is* the state. Tests (`BillingWebhookIT`): sign a
+  fixture payload with the test secret (HMAC-SHA256 over `t.payload`, header
+  `t=…,v1=…`) → row upserted; wrong secret → 400 and no row; same event twice → second is 200
+  + `duplicate` + row unchanged; an older `created` after a newer one → ignored;
+  `subscription.deleted` → `canceled` and `isPro` false once `current_period_end` passes;
+  `payment_failed` → `past_due`, still Pro, one email captured on a `MailService` spy.
+- **12.3 Checkout + portal + web surfaces.**
+  - API: `POST /api/billing/checkout {price: "monthly"|"3mo"}` → creates the Stripe customer
+    on first use (stores id), then a hosted Checkout Session (`mode=subscription`,
+    `client_reference_id=userId`, `customer=…`, `allow_promotion_codes=true`,
+    `automatic_tax.enabled=true`, `success_url=…/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    `cancel_url=…/pricing`) → `{url}`. Already Pro → 409 `ALREADY_SUBSCRIBED`. `POST
+    /api/billing/portal` → Billing Portal session `{url}`; no customer yet → 404.
+  - Web BFF routes (`web/src/app/api/billing/{checkout,portal,me}/route.ts`) forward with the
+    session cookie, same shape as the other `/api/*` proxies. **`/pricing`** (marketing group,
+    public): Free vs Pro table straight from the Free/Pro section above, the two prices,
+    "Upgrade" → checkout when signed in, `/signup?next=/pricing` when not; billing disabled →
+    "coming soon". **`/billing/success`**: polls `/api/billing/me` every 1.5 s (≤ 20 s) until
+    `plan=PRO` — the webhook usually lands within a second or two — then "You're Pro"; on
+    timeout, "Payment received, activating…" with a refresh link (never an error: the money
+    went through). **Settings › Billing** replaces the placeholder: plan pill, renewal or
+    "cancels on" date, **Manage billing** → portal, **Upgrade** → checkout. `AppShell` shows a
+    small **Pro** pill next to the account name. Plan for client components comes from one
+    `serverApiFetch("/api/billing/me")` in the `(app)` layout passed down as a prop/context —
+    not a second fetch per component.
+  - Extension: `ProfileVersionVM` gains `plan`; `checkAndPull` stores `settings.plan` on
+    **every** answered check (unchanged included — plan can flip without the profile moving);
+    the 11.1 `changed` path stores it too. `tracking.js` `request()` surfaces 402 as an error
+    with `.status=402` and `.code`, so callers can branch. Options page: plan badge + "Upgrade
+    on kiwiply.com" link when Free.
+  - Tests: `BillingResourceIT` — checkout with a stubbed gateway returns the URL and stored the
+    customer id; second checkout reuses it; Pro → 409; portal without customer → 404; billing
+    disabled → 503. `tracking.test.js` — 402 mapping. `sync.test.js` — `checkAndPull` stores
+    `plan` on an unchanged check. Web: tsc + eslint (+ the Docker smoke).
+- **12.4 The gates (Free-tier redefinition).** Each is one `requirePro()` call at the service
+  boundary plus the client UX for the 402:
+  - **Server AI drafting, field mapping and picks** (`AiDraftService`, and whatever `JAF_MAP_
+    FIELDS` / `JAF_PICK` route through) → Pro, **unless** an admin quota override exists for
+    the login. New `Status.PRO_REQUIRED` in the result so the SW can show "Kiwiply AI is a Pro
+    feature — upgrade, or add your own key" instead of the quota message. **`AiResumeParseService`
+    is untouched** — the one free server-AI exception. Pro quota: new
+    `dossier.ai.pro-monthly-quota` (default 2000 calls; 13.1 turns this into cost credits).
+  - **Cross-device learned-answer sync** (`POST /api/profile/field-caches/sync`) → Pro. The
+    extension already treats any failure there as best-effort, so a 402 is a silent no-op;
+    answers keep working on-device.
+  - **Resume cap**: `ProfileService.createResume` (covers the web upload route and the
+    extension's on-the-fly upload, both of which land there) → if Free and non-archived count
+    ≥ 3 → 402 `RESUME_LIMIT` with `{limit:3, count}`. Web `ResumeUpload` shows the upgrade CTA
+    inline on that code; the extension's upload flow shows the same message with the link.
+  - Tests: `AiDraftResourceIT` (Free → `PRO_REQUIRED`; Free + override → drafts; Pro → drafts;
+    parse-resume Free → still works); `FieldCacheSyncResourceIT` (Free → 402, Pro → 200);
+    `ProfileResourceIT` (4th create Free → 402; archived don't count; Pro → 201).
+- **12.5 Admin revenue panel.** `AdminAnalyticsService.overview()` gains `billing {activePro,
+  monthlyCount, threeMonthCount, mrr, newThisMonth, churnedThisMonth, pastDue}` from the
+  `subscription` table (MRR = monthly × 19.99 + 3-month × 44.99 ÷ 3, from `price_id`); one
+  card on `/admin/analytics`. Test: `AdminAnalyticsResourceIT` with two seeded rows.
+- **12.6 Copy + legal hooks (feeds 15.2).** Checkout CTA and `/pricing` carry the
+  **auto-renew disclosure** ("renews monthly / every 3 months until you cancel; cancel any
+  time from Settings › Billing — takes effect at the end of the period"), the portal is the
+  **click-to-cancel** path (FTC rule + California ARL want cancellation as easy as sign-up),
+  and the ToS gains a Billing section (prices, renewal, no-trial, **refund policy — decide:
+  recommend "no refunds, cancel anytime" stated plainly**, price-change notice). Docs-only
+  commit; the lawyer reviews the wording in 15.2.
+- **12.7 End-to-end in Stripe test mode (before the phase is called done).** With `stripe
+  listen` forwarding: sign up → `/pricing` → checkout with card `4242…` → success page flips
+  to Pro → settings shows renewal date → extension options shows Pro within one version check
+  → cancel in the portal → settings shows "cancels on …" → simulate `invoice.payment_failed`
+  via `stripe trigger` → email arrives + still Pro → advance the clock (test-clock customer) →
+  Free, resumes intact, 4th upload blocked with the CTA. Record the run in the PROGRESS log.
 
 ### Phase 13 — Pro AI  *(Launch 1 — needs 12 for the gate, 10.3 for structured `experience[]`/`education[]`)*
 **Cost architecture first (13.1), features after — every feature inherits it.**

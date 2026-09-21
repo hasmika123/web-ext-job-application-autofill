@@ -126,6 +126,12 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   source of truth. **Core autofill stays free and identical in both tiers.** Free has **no
   server AI** (BYO key only) with exactly one exception: **AI resume parsing** (one call per
   resume, it's how the profile builds itself). Free = 3 resumes; downgrade never deletes data.
+  **Billing mechanics (Phase 12, locked):** Stripe is the truth and **only webhooks write** the
+  `subscription` mirror; `past_due` stays Pro until `current_period_end`; gated calls fail
+  **402 `PRO_REQUIRED`**; **no free trial**; the resume cap counts non-archived resumes; an
+  admin AI-quota override outranks the plan gate; the plan travels on `GET /api/profile/version`
+  (no JWT claim); `stripe-java` lives behind one `StripeGateway`; billing is **disabled when the
+  Stripe key is blank** so dev/CI run without secrets.
 - **Inbox = the user's own dedicated consumer Gmail over IMAP + App Password** (mirrors
   Sales-App). **No Kiwiply email address of any kind, no forwarding, no OAuth, no Google API.**
   Poll `INBOX` + `[Gmail]/Sent Mail`; store headers + body text only, **never attachments**;
