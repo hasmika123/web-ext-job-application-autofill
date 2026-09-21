@@ -849,6 +849,21 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **learned-answer cache: shared store + the sync that was never called** ·
+  Ext **v0.52.3**. Phase 4.1 built `JAF.sync.syncFieldCache` and the server endpoint, but
+  **nothing in the shipped extension ever called it** — the only sync call sites use
+  `pullAll`, so learned answers never left the device. Two defects behind that: (1) the
+  cache stored to **IndexedDB from a content script**, which is the *page's* origin — so
+  answers learned on greenhouse.io were invisible to every other ATS host *and* to the
+  drawer (an extension-origin iframe) that has to push them; (2) the drawer's engine
+  didn't load `field-cache.js` at all, so the documented `syncNow(…, cache)` path would
+  have silently no-opped on its `typeof cache.exportAll` guard. Fixed by moving the store
+  to a single **`chrome.storage.local`** key shared by every context (serialized
+  read-modify-write so concurrent fills don't clobber), draining the old per-origin IDB
+  rows once per host (`migrateLegacy`), loading the module in `panel/engine.ts`, and
+  calling `syncFieldCache` from `refreshMirror` on the existing 90s throttle — not
+  `syncNow`, which would re-push every resume on each drawer open. Learned answers now
+  survive a site-data clear, reach the server, and come back on the user's other devices.
 - 2026-09-21 · **ops — document the rebuilt production accurately (no backup, no monitoring)** ·
   Doc-only pass after the 2026-09-17 rebuild. `DEPLOY.md` §5 had claimed a "cron nightly"
   database backup; verified on the box that **no backup exists** (both crontabs empty, no timer,

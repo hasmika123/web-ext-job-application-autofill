@@ -98,6 +98,28 @@ export async function readAccount(): Promise<Account> {
   return { connected: !!(tok && tok.access), who: tok.username || "your account" };
 }
 
+/**
+ * Push the answers the filler learned from the user's corrections up to the server and merge
+ * the server's set back down, so they follow the user to their other devices and to ATS hosts
+ * they haven't filled on yet. Deliberately NOT part of `syncNow` here: this call site gates
+ * `pushAll` behind the one-time resume migration, and syncNow would re-push every resume on
+ * every drawer open. Best-effort — a field-cache failure must not break the mirror refresh.
+ *
+ * The profile id must match the one the filler writes under (`values.email`, see
+ * content/filler.js), or `exportAll` returns nothing.
+ */
+async function syncLearnedAnswers(provider: any): Promise<void> {
+  const cache = JAF().fieldCache;
+  if (!cache) return;
+  try {
+    const bio = await JAF().storage.getBio();
+    cache.setProfile((bio && bio.email) || "default");
+    await JAF().sync.syncFieldCache(provider, cache);
+  } catch {
+    /* offline / server without the endpoint → keep the local answers */
+  }
+}
+
 /** Read-only mirror: pull the latest profile + resumes (best-effort, throttled). */
 export async function refreshMirror(): Promise<void> {
   const S = JAF().storage;
@@ -121,6 +143,7 @@ export async function refreshMirror(): Promise<void> {
     const now = Date.now();
     if (settings.__lastPull && now - settings.__lastPull < 90 * 1000) return; // throttle
     await JAF().sync.pullAll(provider, S);
+    await syncLearnedAnswers(provider);
     const s2 = await S.getSettings();
     s2.__lastPull = now;
     await S.saveSettings(s2);

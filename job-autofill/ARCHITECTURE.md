@@ -105,15 +105,21 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   `src/popup/popup.js` and `src/review/`.)*
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
 - `src/lib/field-cache.js` — `JAF.fieldCache`. Local, per-profile memory of the
-  user's field answers (IndexedDB `dossier-fieldcache`, falls back to in-memory
-  when IDB is absent). `preferCached()` overrides planned values with learned
+  user's field answers. Stored in **`chrome.storage.local` under one `fieldCache`
+  key** (in-memory fallback when chrome.storage is absent) — deliberately NOT
+  IndexedDB: a content script's IDB belongs to the *page's* origin, so answers
+  learned on one ATS were invisible to every other host and to the drawer iframe
+  that syncs them. Rows written by the old per-origin `dossier-fieldcache` IDB are
+  drained into the shared store once per origin (`migrateLegacy`, flag kept in the
+  legacy DB). `preferCached()` overrides planned values with learned
   ones before the overlay; `watch()` learns from a user's correction on `change`/
   `blur`. Row shape `{profileId, fieldKey, contextHash, value, hitCount, updatedAt}`
   mirrors the server `field_cache` table. **Cloud sync (Phase 4.1):** `exportAll()` /
   `importEntries()` push the current profile's entries and merge a server set back in
   (last-write-wins by `updatedAt`, `hitCount` = max); `JAF.sync.syncFieldCache` drives
-  it through the provider's `syncFieldCache` (POST `/api/profile/field-caches/sync`).
-  `create()` factory + pure helpers exposed for tests.
+  it through the provider's `syncFieldCache` (POST `/api/profile/field-caches/sync`),
+  called from the drawer's `refreshMirror` (`panel/home-actions.ts`) on the same
+  90s throttle as the profile pull. `create()` factory + pure helpers exposed for tests.
 - `src/content/assist.js` — `JAF.assist`, the optional AI layer. TWO shapes:
   open-ended questions (textareas → `JAF_DRAFT`, drafted answers with regen) and
   **constrained screeners** (native selects + radio groups with a fixed option
