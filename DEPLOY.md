@@ -499,7 +499,9 @@ without it: the webhook is the only writer of subscription state.
 
 #### C. Start the API with the sandbox keys
 
-In a new terminal, with the `whsec_…` from step B:
+In a new terminal (not the one running `stripe listen`), with the `whsec_…` from step B.
+
+macOS/Linux/Git Bash:
 
 ```bash
 cd api
@@ -510,6 +512,16 @@ export STRIPE_PRICE_MONTHLY=price_...
 export STRIPE_PRICE_3MO=price_...
 ./gradlew bootRun
 ```
+
+Windows PowerShell — note the **Windows** `JAVA_HOME` path (the `/c/…` form is Git Bash only)
+and `.\gradlew.bat` (the extensionless `gradlew` is the shell script):
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-17"; $env:STRIPE_SECRET_KEY = "sk_test_..."; $env:STRIPE_WEBHOOK_SECRET = "whsec_..."; $env:STRIPE_PRICE_MONTHLY = "price_..."; $env:STRIPE_PRICE_3MO = "price_..."; .\gradlew.bat bootRun
+```
+
+Either way the values live in that shell only — nothing is written to disk. Wait for
+`Started DossierApiApp` before moving on.
 
 #### D. Start the web app and sign in
 
