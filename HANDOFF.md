@@ -25,6 +25,14 @@ ports takes BeeCompete down. Read `MIGRATION.md` §10 before touching the proxy.
 ⚠️ **The DB was rebuilt empty on 2026-09-17** after the original VPS was lost with no off-box
 dump. Don't expect historical accounts or applications. See the `live-deployment` memory.
 
+⚠️ **Two operational gaps are still OPEN** (verified 2026-09-21) — production has the same single
+point of failure the lost box did:
+- **No database backup.** Both crontabs empty, no timer, no dump anywhere. DEPLOY.md §5.
+- **No uptime monitoring.** Nothing reports a dead box; you find out by visiting it.
+
+CI/CD is live and hands-off (merge to `main` deploys). Live values in DEPLOY.md §7.1; the deploy
+traps worth knowing before you touch it are in §7.3.
+
 ## How to work here (the loop)
 Per `CLAUDE.md`: read `PROGRESS.md` → **Current focus**; do ONE task; tests green; bump
 versions if the extension changed; **one task = one commit** (`phaseN.x: subject`). Hard rules:

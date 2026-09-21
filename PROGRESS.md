@@ -849,6 +849,22 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **ops — document the rebuilt production accurately (no backup, no monitoring)** ·
+  Doc-only pass after the 2026-09-17 rebuild. `DEPLOY.md` §5 had claimed a "cron nightly"
+  database backup; verified on the box that **no backup exists** (both crontabs empty, no timer,
+  no dump on disk) — the old file described an intention everyone read as a fact, and that is
+  precisely what turned the loss of the old VPS into permanent loss of all user data. Now labelled
+  NOT SET UP and still owed, alongside a new note that there is **no monitoring** either (nothing
+  reports a dead box; the old VPS's death was noticed by accident). §7 rewritten: it still told
+  you to use `VPS_USER=adhya` and omitted `DEPLOY_PATH`, so following it would misconfigure CI —
+  split into §7.1 live values, §7.2 rebuild-from-scratch, §7.3 the three traps that each cost a
+  failed deploy (`DEPLOY_ENABLED` is snapshotted at run *creation* so flipping it cannot rescue a
+  queued run; never delete a branch the production checkout sits on; fail2ban bans your whole
+  public IP on failed root password attempts, recover via the KVM console). Windows specifics
+  captured too (no `ssh-copy-id` in PowerShell, its pipe appends `` and corrupts
+  `authorized_keys`, and Git Bash MSYS rewrites `/root/...` into `C:/Program Files/Git/root/...`).
+  `MIGRATION.md` §7 marked as history with a pointer to DEPLOY.md §7.1 / §10.4, and its
+  aftermath checklist corrected. No code, no version bump.
 - 2026-09-19 · **ci — stop main pushes cancelling each other's CI** · `ci.yml` used `group:
   ci-${{ github.ref }}` with `cancel-in-progress: true`, and on a push to main `github.ref` is
   always `refs/heads/main` — so every merge cancelled the previous merge's CI run. Hit for real:

@@ -142,13 +142,30 @@ Reload the unpacked extension. (At Chrome Web Store launch, also pin
   ```
   Liquibase applies new DB migrations automatically on API start.
 - **Logs:** `$COMPOSE logs -f <service>`
-- **Database backup** (cron nightly; also copy off-box, e.g. to S3):
+- **Database backup — ⚠️ NOT SET UP. There is no automated backup of production.**
+  Verified 2026-09-21: both the `root` and `deploy` crontabs are empty, there is no systemd
+  timer, and no Dossier dump exists on the box. This is the exact gap that turned the loss of
+  the old VPS into a permanent **loss of all user data** — the previous version of this file
+  described a nightly cron that had never actually been installed, and everyone read the
+  intention as a fact. Do not treat the command below as a backup strategy; it is a manual
+  dump you have to remember to run:
   ```bash
   $COMPOSE exec -T mysql \
     sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --databases dossierApi' > dossier-$(date +%F).sql
   ```
+  A real fix needs three things, and **is still owed**: a schedule (cron/systemd timer), a copy
+  that lands **off the box** (S3), and a restore that has actually been tested. Until a dump is
+  sitting somewhere other than this server, production is one server failure from zero.
 - **Restore:** `… exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < backup.sql`
-- **Resume files** live in S3 — durability/backup is handled by AWS.
+- **Resume files** live in S3 — durability/backup is handled by AWS. Note this saves the
+  *blobs* only: without the DB rows that point at them they are orphaned objects, which is
+  exactly what happened to the pre-2026-09 resumes.
+- **Monitoring — ⚠️ NONE.** There is no uptime check, no health polling, and no alerting on
+  either hostname. Nothing will tell you production is down; you find out by visiting it. The
+  old VPS's death was noticed only because someone happened to `curl` it during unrelated work.
+  If you add one, the obvious probes are `https://kiwiply.com/` and
+  `https://api.kiwiply.com/management/health` (returns `{"status":"UP"}`), and
+  `scripts/migrate/04-verify.sh kiwiply.com` covers the fuller surface by hand.
 
 ## 6. When you get a real domain
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
@@ -162,31 +179,71 @@ Two workflows live in `.github/workflows/`:
   pushes them to **GHCR**, then SSHes into the VPS to `pull` + restart. Building off-box keeps
   the heavy Gradle/npm builds from hammering the VPS.
 
-**One-time setup to enable auto-deploy** (until then, images still build/push; only the SSH
-step is skipped):
+### 7.1 Current configuration (live since 2026-09-17 — nothing to do)
 
-1. **Put the production checkout on `main`** (it was cloned on a feature branch):
-   ```bash
-   cd ~/web-ext-job-application-autofill && git checkout main && git pull
-   ```
+Auto-deploy **is enabled and working**. These are the values in use, for reference and for
+rebuilding it if it ever breaks:
+
+| Kind | Name | Value |
+|---|---|---|
+| Secret | `VPS_HOST` | `74.208.212.158` |
+| Secret | `VPS_USER` | `root` |
+| Secret | `VPS_SSH_KEY` | private half of `~/.ssh/dossier_deploy` |
+| Variable | `DEPLOY_PATH` | `/root/web-ext-job-application-autofill` |
+| Variable | `DEPLOY_ENABLED` | `true` |
+
+`DEPLOY_PATH` exists because the checkout lives under `/root`, so a bare `~` would resolve
+differently for any other user. `VPS_USER=root` is a **known compromise**: BeeCompete's `deploy`
+user is in the `docker` group but has no passwordless sudo, so it cannot drive a stack under
+`/root`. Moving the checkout somewhere `deploy` can read would let CI drop root — worth doing,
+not yet done.
+
+### 7.2 Setting this up again from scratch
+
+1. **Put the production checkout on `main`.** A checkout left on a feature branch breaks
+   `git pull --ff-only` the moment that branch is deleted (see §7.3).
 2. **Let the deploy user run Docker without sudo** (CI can't answer a sudo prompt):
    ```bash
    sudo usermod -aG docker $USER && exit   # then SSH back in
    ```
-3. **Create a deploy SSH key** (on your laptop), add the public half to the VPS:
+   Not needed when deploying as `root`.
+3. **Create a deploy SSH key** and install the public half on the box:
    ```bash
-   ssh-keygen -t ed25519 -f dossier_deploy -N ""        # makes dossier_deploy(.pub)
-   ssh-copy-id -i dossier_deploy.pub adhya@YOUR_VPS_IP   # or paste into ~/.ssh/authorized_keys
+   ssh-keygen -t ed25519 -f ~/.ssh/dossier_deploy -N ""
+   ssh-copy-id -i ~/.ssh/dossier_deploy.pub root@YOUR_IP
    ```
-4. **Add GitHub repo Secrets** (Settings → Secrets and variables → Actions → Secrets):
-   - `VPS_HOST` = your IP · `VPS_USER` = `adhya` · `VPS_SSH_KEY` = contents of the **private**
-     `dossier_deploy` file.
+   On **Windows, run this in Git Bash** — PowerShell has no `ssh-copy-id`, and it mangles
+   `-N ""` (use `-N '""'` there). The PowerShell equivalent of the install step is:
+   ```powershell
+   type $HOME\.ssh\dossier_deploy.pub | ssh root@YOUR_IP "mkdir -p ~/.ssh; chmod 700 ~/.ssh; tr -d '\r' >> ~/.ssh/authorized_keys; chmod 600 ~/.ssh/authorized_keys"
+   ```
+   The `tr -d '\r'` is required — PowerShell's pipe appends a carriage return that silently
+   corrupts `authorized_keys`.
+4. **Add the Secrets and Variables** from the table in §7.1. Set `VPS_SSH_KEY` from **Git Bash**
+   (`gh secret set VPS_SSH_KEY < ~/.ssh/dossier_deploy`) or by pasting into the web UI —
+   PowerShell has no `<` redirection and its pipe corrupts multi-line values. Beware MSYS path
+   conversion too: `gh variable set DEPLOY_PATH --body "/root/..."` from Git Bash rewrites the
+   value to `C:/Program Files/Git/root/...`, so set that one from PowerShell.
 5. **Make the two GHCR packages public** after the first `main` build runs (GitHub → your
    profile → Packages → `dossier-api`/`dossier-web` → Package settings → Change visibility →
-   Public). Then the VPS pulls with no registry login. *(Prefer private? Instead add a
+   Public). Then the box pulls with no registry login. *(Prefer private? Instead add a
    `docker login ghcr.io` with a read:packages PAT to the deploy script.)*
-6. **Flip the switch:** add repo **Variable** `DEPLOY_ENABLED` = `true` (Settings → Secrets and
-   variables → Actions → Variables).
+6. **Flip the switch:** set repo **Variable** `DEPLOY_ENABLED` = `true`.
+
+### 7.3 Deploy traps (all three cost a failed deploy on 2026-09-17)
+
+- **`DEPLOY_ENABLED` is snapshotted when a run is *created*, not when the job starts.** Flipping
+  it to `true` does **not** rescue a run that is already queued — that run keeps the old value
+  and silently skips the SSH step (`Pull + restart on the VPS: skipped`). Trigger a *new* run
+  after changing it.
+- **Never delete a branch the production checkout is sitting on.** `git pull --ff-only` then
+  fails with *"your configuration specifies to merge with the ref … but no such ref was
+  fetched"*, and the deploy dies before touching any container. Keep the box on `main`.
+- **fail2ban bans your whole public IP** after a few failed root password attempts. Ubuntu
+  defaults to `PermitRootLogin prohibit-password`, so root password auth fails *every* time and
+  retrying digs the ban deeper. The signature is a **timeout on :22 while :80/:443 stay fine**.
+  Recover through the hosting panel's **KVM/web console**, which bypasses SSH:
+  `fail2ban-client set sshd unbanip <your-ip>` — or wait it out (10 min default).
 
 After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
 Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR; a manual
