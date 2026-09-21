@@ -849,6 +849,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **learned answers now reuse across ATS sites** · Ext **v0.52.4**. The cache
+  keyed every answer by `hash(host|label)`, so the same question on a different ATS was a
+  clean miss — reuse only ever worked within one host, which is not what "remember my
+  answers" means to a user filling ten applications across five sites. Each answer is now
+  written twice: the host-scoped row, plus a host-agnostic twin `contextHash("", label)`.
+  Reads try the host row FIRST (`lookup()` returns `{value, scope}`), so a deliberate
+  site-specific answer is never overridden by the general one; only a miss falls through to
+  the twin. A carried-over hit sets `item.cachedCrossSite` → a "reused" badge in the review
+  overlay, and deliberately does NOT promote a low-confidence DOM match to checked, since
+  two soft signals don't make a hard one. Not retroactive: a hash is one-way, so answers
+  learned before this build have no twin until the user confirms them once more.
 - 2026-09-21 · **learned-answer cache: shared store + the sync that was never called** ·
   Ext **v0.52.3**. Phase 4.1 built `JAF.sync.syncFieldCache` and the server endpoint, but
   **nothing in the shipped extension ever called it** — the only sync call sites use

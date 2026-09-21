@@ -16,6 +16,11 @@
  *   store key = `${profileId}::${fieldKey}::${contextHash}`
  *   entry     = { profileId, fieldKey, contextHash, value, hitCount, updatedAt }
  *
+ * Each answer is stored TWICE: once under this host, and once under a host-agnostic
+ * twin (`contextHash("", label)`) so the same question on a different ATS reuses it.
+ * Reads try the host-scoped row first, so a deliberate site-specific answer always
+ * beats the carried-over one.
+ *
  * Exposes `JAF.fieldCache` (a default singleton used by the filler) plus
  * `JAF.fieldCache.create(opts)` and the pure helpers for isolated unit tests.
  */
@@ -46,9 +51,19 @@
 
   // A given field can appear in many question contexts (a "Yes/No" combo asks
   // different things). Bucket by host + the visible label so learned answers
-  // don't bleed across unrelated questions or sites.
+  // don't bleed across unrelated questions.
   function contextHash(host, label) {
     return hash(slug(host) + "|" + slug(label));
+  }
+
+  // Every answer is ALSO stored under a host-agnostic twin, so the same question
+  // on a different ATS reuses it: "Are you legally authorized to work in the US?"
+  // is one question whether Greenhouse or Lever is asking. The host-scoped entry
+  // stays the primary key and always wins, so a site-specific answer is never
+  // overridden by the general one — the twin is only consulted on a miss.
+  const GLOBAL_HOST = "";
+  function globalContextHash(label) {
+    return contextHash(GLOBAL_HOST, label);
   }
 
   // The canonical field is the primary key; fall back to a slug of the label
@@ -220,32 +235,60 @@
     function keyOf(item) {
       return storeKey(profileId, fieldKeyFor(item), contextHash(host, item.label || ""));
     }
+    // The host-agnostic twin of keyOf — the same question asked by any other ATS.
+    function globalKeyOf(item) {
+      return storeKey(profileId, fieldKeyFor(item), globalContextHash(item.label || ""));
+    }
 
-    // Read: the learned value for this item, or null. Bumps hitCount so Phase 4
-    // can rank by it; ranking is value-neutral so a failed read changes nothing.
-    async function get(item) {
-      if (!item) return null;
-      const k = keyOf(item);
+    // Read one key, bumping hitCount so ranking has something to rank by. Bumping
+    // is value-neutral, so a failed write here changes nothing the caller sees.
+    async function readKey(k) {
       const e = await store.get(k);
       if (!e || e.value == null || e.value === "") return null;
       try { await store.put(k, Object.assign({}, e, { hitCount: (e.hitCount || 0) + 1 })); } catch (x) {}
       return e.value;
     }
 
-    // Write (last-write-wins): persist the user's chosen/corrected value.
+    // Read: the learned value for this item plus WHERE it came from — "site" for an
+    // answer learned on this host, "global" for one carried over from another ATS.
+    // The host-scoped entry always wins, so a deliberate site-specific answer is
+    // never overridden by the general one.
+    async function lookup(item) {
+      if (!item) return { value: null, scope: null };
+      const onSite = await readKey(keyOf(item));
+      if (onSite != null) return { value: onSite, scope: "site" };
+      const anywhere = await readKey(globalKeyOf(item));
+      if (anywhere != null) return { value: anywhere, scope: "global" };
+      return { value: null, scope: null };
+    }
+
+    // Read: the learned value for this item, or null.
+    async function get(item) {
+      return (await lookup(item)).value;
+    }
+
+    // Write (last-write-wins): persist the user's chosen/corrected value, both under
+    // this host and under the host-agnostic twin that makes it reusable on the next
+    // ATS. Two rows rather than one shared row because they diverge the moment the
+    // user gives a different answer here than they gave elsewhere.
     async function remember(item, value) {
       if (!item || value == null || value === "") return false;
-      const k = keyOf(item);
-      const prev = await store.get(k);
-      const entry = {
-        profileId,
-        fieldKey: fieldKeyFor(item),
-        contextHash: contextHash(host, item.label || ""),
-        value: String(value),
-        hitCount: prev ? (prev.hitCount || 0) : 0,
-        updatedAt: Date.now(),
+      const fieldKey = fieldKeyFor(item);
+      const label = item.label || "";
+      const now = Date.now();
+      const write = async (k, ctxHash) => {
+        const prev = await store.get(k);
+        await store.put(k, {
+          profileId,
+          fieldKey,
+          contextHash: ctxHash,
+          value: String(value),
+          hitCount: prev ? (prev.hitCount || 0) : 0,
+          updatedAt: now,
+        });
       };
-      await store.put(k, entry);
+      await write(keyOf(item), contextHash(host, label));
+      await write(globalKeyOf(item), globalContextHash(label));
       return true;
     }
 
@@ -255,11 +298,15 @@
       if (!Array.isArray(items)) return items;
       for (const item of items) {
         if (!item || item.kind === "info" || item.kind === "file") continue;
-        const cached = await get(item);
+        const { value: cached, scope } = await lookup(item);
         if (cached == null || cached === "") continue;
         // Any hit means the user confirmed this field before — the overlay trusts
         // it (keeps the row checked) even when the DOM match was low-confidence.
         item.cached = true;
+        // A "global" hit is this user's own answer to the same question on a
+        // DIFFERENT ATS. Flagged so the overlay can say where it came from; still
+        // reviewed and still never auto-submitted.
+        if (scope === "global") item.cachedCrossSite = true;
         if (String(cached) === String(item.value)) continue;
         // keep the originally-planned value as a fallback for combos
         if (item.value != null && item.value !== "") {
@@ -320,7 +367,7 @@
     }
 
     return {
-      get, remember, preferCached, watch, setProfile, keyOf,
+      get, lookup, remember, preferCached, watch, setProfile, keyOf, globalKeyOf,
       committedValueOf, contextHash, fieldKeyFor, exportAll, importEntries, _store: store,
     };
   }
@@ -330,6 +377,7 @@
   api.slug = slug;
   api.hash = hash;
   api.contextHash = contextHash;
+  api.globalContextHash = globalContextHash;
   api.fieldKeyFor = fieldKeyFor;
   api.committedValueOf = committedValueOf;
   api.memoryStore = memoryStore;

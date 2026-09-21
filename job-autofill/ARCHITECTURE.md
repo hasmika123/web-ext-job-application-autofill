@@ -111,7 +111,13 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   learned on one ATS were invisible to every other host and to the drawer iframe
   that syncs them. Rows written by the old per-origin `dossier-fieldcache` IDB are
   drained into the shared store once per origin (`migrateLegacy`, flag kept in the
-  legacy DB). `preferCached()` overrides planned values with learned
+  legacy DB). **Cross-site reuse:** every answer is written TWICE — under this host,
+  and under a host-agnostic twin `contextHash("", label)` — so the same question on a
+  different ATS reuses it. `lookup()` returns `{value, scope}` and tries the
+  host-scoped row FIRST, so a deliberate site-specific answer always beats the
+  carried-over one; a `"global"` hit sets `item.cachedCrossSite`, which the overlay
+  shows as a "reused" badge and which does NOT promote a low-confidence row to
+  checked. `preferCached()` overrides planned values with learned
   ones before the overlay; `watch()` learns from a user's correction on `change`/
   `blur`. Row shape `{profileId, fieldKey, contextHash, value, hitCount, updatedAt}`
   mirrors the server `field_cache` table. **Cloud sync (Phase 4.1):** `exportAll()` /
