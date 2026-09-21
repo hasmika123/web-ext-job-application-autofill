@@ -112,6 +112,7 @@ there and nothing else is requested, so the boxes and the manifest agree line fo
 | `storage`, `unlimitedStorage` | Cache the user's profile/resumes locally for offline autofill. |
 | `scripting`, `activeTab` | Inject the field-matching/fill logic into the application tab, on demand. |
 | `webNavigation` | Detect the confirmation page to mark a job as applied. No auto-submit. |
+| `alarms` | Periodically check whether the user's profile changed on the web app or another device, so autofill uses current details. No new data collected. |
 | Host permissions | Run the autofill content script on the listed job-application sites; sync with the user's own account; optional BYO-key AI; anonymous analytics. |
 | Remote code | **No.** Everything is bundled by the build (pdf.js and mammoth are vendored). |
 

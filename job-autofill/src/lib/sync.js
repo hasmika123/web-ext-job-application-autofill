@@ -95,6 +95,43 @@
     return { count };
   }
 
+  // Phase 11.3 — the cheap check the alarm, the window-focus handler and the drawer all run.
+  // GET the server's profile fingerprint (11.2), compare it with the one we last pulled under,
+  // and pull ONLY on a mismatch or a first run. This replaces the drawer's old 90 s time
+  // throttle: the throttle guessed at staleness, this asks.
+  //
+  // A failed check means NO pull and the stored version is left alone — being offline must
+  // neither thrash the mirror nor destroy the marker that records what we already hold. A
+  // server that answers without a version (older API, odd proxy) is treated as "unknown", so
+  // we pull: having the data is the safe side of that trade.
+  //
+  // Pure data layer, like everything else here — the caller decides whether to tell anyone a
+  // pull happened (the SW broadcasts KIWIPLY_MIRROR_UPDATED; the drawer just repaints).
+  // Returns { pulled, version, reason }.
+  async function checkAndPull(provider, storage, settings) {
+    storage = storage || JAF.storage;
+    if (!settings) settings = await storage.getSettings();
+
+    let version = null;
+    try {
+      version = typeof provider.profileVersion === "function" ? await provider.profileVersion() : null;
+    } catch (e) {
+      return { pulled: false, version: null, reason: "check-failed" };
+    }
+
+    const known = settings.__profileVersion;
+    if (version && known && version === known) return { pulled: false, version, reason: "unchanged" };
+
+    // Throws on a failed pull, deliberately: the version is only stamped below, so a caller
+    // that swallows the error still re-checks next time instead of believing it is current.
+    await pullAll(provider, storage);
+    const s = await storage.getSettings();
+    s.__profileVersion = version || null;
+    s.__lastPull = Date.now();
+    await storage.saveSettings(s);
+    return { pulled: true, version, reason: known ? "changed" : "first-run" };
+  }
+
   // Convenience for "Sync now": push local changes up, then pull authoritative
   // server state back down. Pass a field-cache instance to also sync learned answers.
   async function syncNow(provider, storage, cache) {
@@ -107,5 +144,5 @@
     return out;
   }
 
-  JAF.sync = { providerFromSettings, pullAll, pushBio, pushResume, pushAll, syncNow, syncFieldCache, mergeResume };
+  JAF.sync = { providerFromSettings, pullAll, pushBio, pushResume, pushAll, syncNow, syncFieldCache, mergeResume, checkAndPull };
 })();

@@ -140,13 +140,16 @@ export async function refreshMirror(): Promise<void> {
       settings.__migratedResumes = true;
       await S.saveSettings(settings);
     }
-    const now = Date.now();
-    if (settings.__lastPull && now - settings.__lastPull < 90 * 1000) return; // throttle
-    await JAF().sync.pullAll(provider, S);
+    // 11.3: ask instead of guessing. The old 90 s throttle skipped refreshes that were
+    // needed and allowed ones that weren't; `checkAndPull` GETs the server's profile version
+    // and pulls only when it differs from the one we hold. It stamps __profileVersion +
+    // __lastPull itself, so there is nothing to save here.
+    await JAF().sync.checkAndPull(provider, S, settings);
+    // Learned answers are a separate, local-first store — a push+merge, not part of the
+    // profile version — so it runs whether or not the mirror moved. It used to sit behind
+    // the same throttle, so it now runs on every drawer open rather than at most once per
+    // 90 s: a user-initiated, best-effort round-trip, and the answers land sooner.
     await syncLearnedAnswers(provider);
-    const s2 = await S.getSettings();
-    s2.__lastPull = now;
-    await S.saveSettings(s2);
   } catch {
     /* offline / not connected → use the cached mirror */
   }

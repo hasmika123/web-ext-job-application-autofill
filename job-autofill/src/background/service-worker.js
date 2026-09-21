@@ -286,6 +286,15 @@ async function acceptConnectSession(tokens) {
 //   { type: "KIWIPLY_SYNC", event: "signedOut" } → revoke (best-effort) + drop the session
 const SYNC = "KIWIPLY_SYNC";
 
+// Tell an open drawer to repaint from the fresh mirror. With no drawer there is no receiver,
+// which Chrome reports through lastError rather than throwing — read it or the console fills
+// with "Unchecked runtime.lastError" on every sync.
+function broadcastMirrorUpdated() {
+  try {
+    chrome.runtime.sendMessage({ type: "KIWIPLY_MIRROR_UPDATED" }, () => { void chrome.runtime.lastError; });
+  } catch (e) { /* no receiver, or messaging unavailable */ }
+}
+
 async function handleSyncSignal(event) {
   const J = self.JAF || {};
   if (event === "signedOut") {
@@ -305,15 +314,18 @@ async function handleSyncSignal(event) {
       const settings = (await sGet("settings")) || {};
       const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
       if (!(await provider.isAuthenticated())) return { ok: false, reason: "not-connected" };
+      // Pull unconditionally: the web just told us it changed something, so asking for the
+      // version first would be a round-trip to learn what we already know.
       await J.sync.pullAll(provider, J.storage);
-      // Stamp the pull so a drawer opened right after doesn't repeat it (its 90 s throttle
-      // keys off this; 11.3 replaces the throttle with a version check).
+      // But DO record the version we just pulled under, or the next scheduled check (11.3)
+      // would see a stale marker and pull the very same data again.
+      let version = null;
+      try { version = await provider.profileVersion(); } catch (e) { /* older server / offline */ }
       const s2 = (await sGet("settings")) || {};
+      s2.__profileVersion = version || null;
       s2.__lastPull = Date.now();
       await sSet("settings", s2);
-      // Let an already-open drawer repaint from the fresh mirror. No listener = no receiver
-      // error we care about.
-      try { chrome.runtime.sendMessage({ type: "KIWIPLY_MIRROR_UPDATED" }, () => { void chrome.runtime.lastError; }); } catch (e) {}
+      broadcastMirrorUpdated();
       return { ok: true };
     } catch (e) {
       return { ok: false, reason: String((e && e.message) || e) };
@@ -354,6 +366,63 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   p.then(sendResponse);
   return true; // async
 });
+
+// --- Scheduled + focus-driven version checks (Phase 11.3) ----------------------
+// The 11.1 signal only fires while a kiwiply.com tab is open. These two cover everything
+// else: a change made on another device, or on the web with the extension's browser closed.
+// Both run the same cheap check — GET the profile version (11.2) and pull only if it moved.
+const SYNC_ALARM = "kiwiply-sync";
+const SYNC_ALARM_MINUTES = 15;
+// A guard, NOT the old throttle: it bounds how often we spend a round-trip asking, while the
+// pull itself is already gated on the answer. Refocusing the browser repeatedly is common.
+const FOCUS_CHECK_MS = 60 * 1000;
+let lastFocusCheck = 0;
+
+function ensureSyncAlarm() {
+  try { chrome.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_ALARM_MINUTES }); } catch (e) {}
+}
+
+// Ask the server whether anything changed; pull and tell the drawer only if it did.
+// Every exit is a reason rather than a throw — this runs unattended on a timer.
+async function runVersionCheck(source) {
+  const J = self.JAF || {};
+  try {
+    const settings = (await sGet("settings")) || {};
+    if (!settings.apiBaseUrl) return { ok: false, reason: "not-configured" };
+    const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
+    if (!(await provider.isAuthenticated())) return { ok: false, reason: "not-connected" };
+    const r = (await J.sync.checkAndPull(provider, J.storage, settings)) || {};
+    if (r.pulled) {
+      broadcastMirrorUpdated();
+      track("mirror_pulled", { source });
+    }
+    return { ok: true, pulled: !!r.pulled, reason: r.reason, source };
+  } catch (e) {
+    return { ok: false, reason: String((e && e.message) || e) };
+  }
+}
+
+// MV3 tears the worker down when idle, so the alarm is what wakes it; re-create it on both
+// install/update and browser start, since alarms don't survive an extension update.
+chrome.runtime.onInstalled.addListener(ensureSyncAlarm);
+if (chrome.runtime.onStartup) chrome.runtime.onStartup.addListener(ensureSyncAlarm);
+if (chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm && alarm.name === SYNC_ALARM) runVersionCheck("alarm");
+  });
+}
+
+// Coming back to the browser is the moment a stale mirror is about to be used. Guarded so
+// alt-tabbing doesn't spray requests. (chrome.windows is absent in some contexts.)
+if (chrome.windows && chrome.windows.onFocusChanged) {
+  chrome.windows.onFocusChanged.addListener((windowId) => {
+    if (windowId === chrome.windows.WINDOW_ID_NONE) return; // focus left the browser entirely
+    const now = Date.now();
+    if (now - lastFocusCheck < FOCUS_CHECK_MS) return;
+    lastFocusCheck = now;
+    runVersionCheck("focus");
+  });
+}
 
 // --- AI job-detail enrichment (Phase 3.6) --------------------------------------
 // Opt-in via its OWN toggle (settings.jobAiEnabled, default OFF). Fills only the gaps
