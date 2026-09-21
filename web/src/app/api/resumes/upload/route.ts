@@ -66,6 +66,23 @@ export async function POST(request: Request) {
   if (createRes.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  // The Free resume cap (Phase 12.4). Passed through with its code and counts rather than
+  // flattened into a 502: this is the one upload failure the user can actually do something
+  // about, and the upload screen turns it into an inline upgrade prompt.
+  if (createRes.status === 402) {
+    // `detail` carries our message; `title` is overwritten with the HTTP reason phrase by
+    // ExceptionTranslator, so don't read it.
+    const problem = (await createRes.json().catch(() => ({}))) as { code?: string; detail?: string; limit?: number; count?: number };
+    return Response.json(
+      {
+        error: problem.detail ?? "Free accounts keep up to 3 resumes — archive one, or upgrade to Pro.",
+        code: problem.code ?? "RESUME_LIMIT",
+        limit: problem.limit,
+        count: problem.count,
+      },
+      { status: 402 },
+    );
+  }
   if (!createRes.ok) {
     return Response.json({ error: "Couldn't save the resume." }, { status: 502 });
   }

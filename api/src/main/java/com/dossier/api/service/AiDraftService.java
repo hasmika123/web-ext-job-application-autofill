@@ -7,6 +7,7 @@ import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
 import java.time.YearMonth;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,14 +18,23 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * The metered server-side AI drafting proxy (Phase 5.1). Gates each request on:
- * (1) the feature being enabled + a provider configured, (2) the user's explicit
- * consent (the free-tier inputs may be used by the provider — opt-in only), and
- * (3) the per-user monthly free quota. Only a successful draft consumes quota.
+ * (1) the feature being enabled + a provider configured, (2) <b>Pro</b> (Phase 12.4),
+ * (3) the user's explicit consent (the free-tier inputs may be used by the provider —
+ * opt-in only), and (4) the monthly quota. Only a successful draft consumes quota.
  *
- * The provider key never reaches the client — this server holds it and proxies.
+ * <p>The provider key never reaches the client — this server holds it and proxies.
  * Server-side answer caching by question_hash (Phase 5.3) is delegated to
  * {@link AiAnswerCacheService}: a cache hit returns instantly without touching the
  * provider or the monthly quota.
+ *
+ * <p><b>Pro gate (12.4).</b> Server AI is a Pro feature: Free users bring their own key,
+ * which the extension already prefers when present, so a {@code PRO_REQUIRED} here is a
+ * nudge rather than a dead end. Two things ride this endpoint besides drafting — field
+ * mapping and constrained option picks — so gating here gates all three. <b>An admin
+ * quota override outranks the plan gate</b> (a locked decision): if someone has been
+ * granted a quota by hand, that grant is the entitlement. Resume parsing is deliberately
+ * NOT gated — see {@link AiResumeParseService}; it is how a profile builds itself, and it
+ * is the one free server-AI exception.
  */
 @Service
 @Transactional
@@ -36,6 +46,8 @@ public class AiDraftService {
         OK,
         DISABLED,
         CONSENT_REQUIRED,
+        /** Free plan and no admin override — server AI is Pro (Phase 12.4). */
+        PRO_REQUIRED,
         QUOTA_EXCEEDED,
         ERROR,
     }
@@ -46,8 +58,10 @@ public class AiDraftService {
     private final AiUsageRepository usageRepository;
     private final AiQuotaOverrideRepository quotaOverrideRepository;
     private final AiAnswerCacheService answerCache;
+    private final EntitlementService entitlementService;
     private final boolean enabled;
     private final int freeMonthlyQuota;
+    private final int proMonthlyQuota;
     private final String model;
 
     public AiDraftService(
@@ -55,16 +69,20 @@ public class AiDraftService {
         AiUsageRepository usageRepository,
         AiQuotaOverrideRepository quotaOverrideRepository,
         AiAnswerCacheService answerCache,
+        EntitlementService entitlementService,
         @Value("${dossier.ai.enabled:false}") boolean enabled,
         @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota,
+        @Value("${dossier.ai.pro-monthly-quota:2000}") int proMonthlyQuota,
         @Value("${dossier.ai.model:}") String model
     ) {
         this.provider = provider;
         this.usageRepository = usageRepository;
         this.quotaOverrideRepository = quotaOverrideRepository;
         this.answerCache = answerCache;
+        this.entitlementService = entitlementService;
         this.enabled = enabled;
         this.freeMonthlyQuota = freeMonthlyQuota;
+        this.proMonthlyQuota = proMonthlyQuota;
         this.model = model;
     }
 
@@ -72,21 +90,32 @@ public class AiDraftService {
         if (!enabled || !provider.isConfigured()) {
             return new Result(Status.DISABLED, null, 0, 0, false);
         }
-        // Opt-in: the free-tier provider may use inputs to improve its services, so we
-        // only proxy when the user has explicitly consented (enforced again here).
-        if (!consent) {
-            return new Result(Status.CONSENT_REQUIRED, null, 0, freeMonthlyQuota, false);
-        }
 
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
-        String period = YearMonth.now().toString(); // YYYY-MM, server clock
-        // Per-user override (Phase 9.A2.2) wins over the global default; absent ⇒ default.
-        int quota = quotaOverrideRepository
+
+        // Per-user override (Phase 9.A2.2) wins over both the plan gate and the default quota.
+        Optional<Integer> override = quotaOverrideRepository
             .findById(login)
-            .map(com.dossier.api.domain.AiQuotaOverride::getMonthlyQuota)
-            .orElse(freeMonthlyQuota);
+            .map(com.dossier.api.domain.AiQuotaOverride::getMonthlyQuota);
+        boolean pro = entitlementService.isPro(login);
+
+        // Checked BEFORE consent: telling a Free user "we need your consent" and then "…and
+        // also this is Pro" is two refusals for one request. Lead with the real one.
+        if (!pro && override.isEmpty()) {
+            return new Result(Status.PRO_REQUIRED, null, 0, 0, false);
+        }
+
+        int quota = override.orElse(pro ? proMonthlyQuota : freeMonthlyQuota);
+
+        // Opt-in: the free-tier provider may use inputs to improve its services, so we
+        // only proxy when the user has explicitly consented (enforced again here).
+        if (!consent) {
+            return new Result(Status.CONSENT_REQUIRED, null, 0, quota, false);
+        }
+
+        String period = YearMonth.now().toString(); // YYYY-MM, server clock
 
         AiUsage usage = usageRepository.findByLoginAndPeriod(login, period).orElseGet(() -> {
             AiUsage u = new AiUsage();

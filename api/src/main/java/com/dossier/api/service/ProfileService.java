@@ -15,6 +15,7 @@ import com.dossier.api.service.mapper.BioMapper;
 import com.dossier.api.service.mapper.ResumeMapper;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,13 +28,22 @@ import org.springframework.web.server.ResponseStatusException;
  * The sync surface the extension and web app use: everything is scoped to the
  * authenticated user. Unlike the generated {@code BioResource}/{@code ResumeResource}
  * (raw id-based CRUD), these operations never expose or touch another user's data.
- * One Bio per user (the "profile"); many resumes.
+ * One Bio per user (the "profile"); many resumes — capped at {@link #FREE_RESUME_LIMIT} on
+ * the Free plan (Phase 12.4).
  */
 @Service
 @Transactional
 public class ProfileService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProfileService.class);
+
+    /**
+     * How many live resumes a Free user may keep (Phase 12.4). <b>Archived resumes don't count</b>
+     * — archiving is how someone at the cap makes room, and it is also why a downgrade never
+     * destroys anything: a lapsed Pro user keeps every resume they had and simply can't add a
+     * fourth live one until they archive or upgrade.
+     */
+    public static final int FREE_RESUME_LIMIT = 3;
 
     private final BioRepository bioRepository;
     private final ResumeRepository resumeRepository;
@@ -42,6 +52,7 @@ public class ProfileService {
     private final BioMapper bioMapper;
     private final ResumeMapper resumeMapper;
     private final ResumeStorageService storageService;
+    private final EntitlementService entitlementService;
 
     public ProfileService(
         BioRepository bioRepository,
@@ -50,7 +61,8 @@ public class ProfileService {
         ApplicationRepository applicationRepository,
         BioMapper bioMapper,
         ResumeMapper resumeMapper,
-        ResumeStorageService storageService
+        ResumeStorageService storageService,
+        EntitlementService entitlementService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -59,6 +71,7 @@ public class ProfileService {
         this.bioMapper = bioMapper;
         this.resumeMapper = resumeMapper;
         this.storageService = storageService;
+        this.entitlementService = entitlementService;
     }
 
     // ---- profile (single bio per user) -------------------------------------
@@ -95,10 +108,21 @@ public class ProfileService {
         return ProfileVersion.compute(getProfile(), listResumes());
     }
 
+    /**
+     * Create a resume for the current user.
+     *
+     * <p>Both upload paths land here — the web's proxied upload and the extension's on-the-fly
+     * one — which is why the Free cap is enforced here rather than in either controller.
+     *
+     * @throws ProRequiredException 402 {@code RESUME_LIMIT} when a Free user already holds
+     *                              {@link #FREE_RESUME_LIMIT} live resumes.
+     */
     public ResumeDTO createResume(ResumeDTO dto) {
+        User user = currentUser();
+        enforceResumeLimit(user.getLogin());
         Resume resume = resumeMapper.toEntity(dto);
         resume.setId(null);
-        resume.setUser(currentUser());
+        resume.setUser(user);
         if (resume.getCreatedAt() == null) {
             resume.setCreatedAt(Instant.now());
         }
@@ -120,6 +144,25 @@ public class ProfileService {
             resume.setDefaultResume(false);
         }
         return resumeMapper.toDto(resumeRepository.save(resume));
+    }
+
+    /** The Free resume cap: non-archived resumes only, and Pro is unlimited. */
+    private void enforceResumeLimit(String login) {
+        if (entitlementService.isPro(login)) {
+            return;
+        }
+        long live = resumeRepository
+            .findByUserIsCurrentUser()
+            .stream()
+            .filter(r -> !Boolean.TRUE.equals(r.getArchived()))
+            .count();
+        if (live >= FREE_RESUME_LIMIT) {
+            throw new ProRequiredException(
+                ProRequiredException.CODE_RESUME_LIMIT,
+                "Free accounts keep up to " + FREE_RESUME_LIMIT + " resumes — archive one, or upgrade to Pro",
+                Map.of("limit", FREE_RESUME_LIMIT, "count", live)
+            );
+        }
     }
 
     /**

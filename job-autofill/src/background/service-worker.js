@@ -64,6 +64,18 @@ async function callAnthropic(apiKey, system, user, maxTokens) {
   return { answer };
 }
 
+// Phase 12.4 — server AI is Pro. The API answers 402 PRO_REQUIRED, which `tracking.js` lifts
+// onto `ApiError.code`. Everything that rides /api/ai/draft (drafting, field mapping, option
+// picks) funnels its failures through here so one refusal reads the same everywhere. The message
+// names the escape hatch, because there genuinely is one: a BYO key takes priority over the
+// server path in every one of these functions.
+const PRO_AI_MESSAGE = "Kiwiply AI is a Pro feature — upgrade, or add your own key.";
+
+function aiFailure(e) {
+  if (e && e.code === "PRO_REQUIRED") return { proRequired: true, error: PRO_AI_MESSAGE };
+  return { error: String((e && e.message) || e) };
+}
+
 async function draftAnswer(question, context) {
   const settings = (await sGet("settings")) || {};
   const cached = await getCached(question);             // reuse identical question
@@ -93,7 +105,7 @@ async function draftAnswer(question, context) {
         if (r.quotaExceeded) return { error: `Monthly AI limit reached (${r.used}/${r.quota}). Add your own key for unlimited drafting.` };
         // disabled / consentRequired / empty → fall through to "off".
       }
-    } catch (e) { return { error: String((e && e.message) || e) }; }
+    } catch (e) { return aiFailure(e); }
   }
 
   return { disabled: true };
@@ -104,6 +116,7 @@ function draftOutcome(r) {
   if (r.cached) return "cached";
   if (r.answer) return "drafted";
   if (r.disabled) return "disabled";
+  if (r.proRequired) return "pro_required"; // checked before `error`: it carries a message too
   if (r.error) return "error";
   return "other";
 }
@@ -148,7 +161,7 @@ async function pickAnswer(question, options, context) {
       const r = (await provider.aiDraft({ question: instruction, context: "", consent: true })) || {};
       if (r.quotaExceeded) return { error: "quota" };
       raw = r.answer || null;
-    } catch (e) { return { error: String((e && e.message) || e) }; }
+    } catch (e) { return aiFailure(e); }
   } else {
     return { disabled: true };
   }
@@ -197,7 +210,7 @@ async function mapFields(labels) {
         }
         if (r.quotaExceeded) return { error: "quota" };
       }
-    } catch (e) { return { error: String((e && e.message) || e) }; }
+    } catch (e) { return aiFailure(e); }
   }
 
   return { disabled: true };

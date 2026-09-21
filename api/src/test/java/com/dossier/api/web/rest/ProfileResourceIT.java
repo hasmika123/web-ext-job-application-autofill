@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.ProSubscriptions;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
@@ -18,7 +19,9 @@ import com.dossier.api.domain.enumeration.ResumeStatus;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ResumeRepository;
+import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.service.ProfileService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.Map;
@@ -57,6 +60,9 @@ class ProfileResourceIT {
 
     @Autowired
     private ApplicationRepository applicationRepository;
+
+    @Autowired
+    private SubscriptionRepository subscriptionRepository;
 
     @Test
     @Transactional
@@ -243,5 +249,62 @@ class ProfileResourceIT {
             .perform(put("/api/profile/resumes/" + resume.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("archived", true))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.archived").value(true));
+    }
+
+    // ---- the Free resume cap (12.4) -----------------------------------------
+
+    /**
+     * Three live resumes is the Free ceiling; the fourth is refused with a machine-readable
+     * 402 carrying {@code limit} and {@code count}, which is what the upload surfaces turn into
+     * an inline upgrade prompt.
+     */
+    @Test
+    @Transactional
+    void fourthResumeIsRefusedOnFree() throws Exception {
+        for (int i = 1; i <= ProfileService.FREE_RESUME_LIMIT; i++) {
+            createResume("Resume " + i);
+        }
+        mockMvc
+            .perform(
+                post("/api/profile/resumes")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsString(Map.of("label", "One too many", "status", "NEEDS_REVIEW")))
+            )
+            .andExpect(status().isPaymentRequired())
+            .andExpect(jsonPath("$.code").value("RESUME_LIMIT"))
+            .andExpect(jsonPath("$.limit").value(ProfileService.FREE_RESUME_LIMIT))
+            .andExpect(jsonPath("$.count").value(ProfileService.FREE_RESUME_LIMIT))
+            // `detail` is the copy both upload surfaces show; `title` gets the reason phrase.
+            .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("archive one")));
+    }
+
+    /** Archiving is how someone at the cap makes room, so archived resumes must not count. */
+    @Test
+    @Transactional
+    void archivedResumesDoNotCountTowardsTheCap() throws Exception {
+        Long first = createResume("Resume 1");
+        createResume("Resume 2");
+        createResume("Resume 3");
+        mockMvc
+            .perform(
+                put("/api/profile/resumes/" + first).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsString(Map.of("archived", true)))
+            )
+            .andExpect(status().isOk());
+
+        createResume("Resume 4"); // asserts 201 internally
+    }
+
+    /** Pro is uncapped — the same fourth create succeeds. */
+    @Test
+    @Transactional
+    void proCanCreateBeyondTheCap() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        for (int i = 1; i <= ProfileService.FREE_RESUME_LIMIT + 1; i++) {
+            createResume("Resume " + i);
+        }
+        mockMvc
+            .perform(get("/api/profile/resumes"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(ProfileService.FREE_RESUME_LIMIT + 1));
     }
 }

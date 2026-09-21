@@ -200,6 +200,27 @@ function mockFetch(handler) {
   try { await p402.profileVersion(); } catch (e) { err402 = e; }
   ok("402 raises an ApiError carrying the status", err402 && err402.status === 402, String(err402));
   ok("402 lifts `code` out of the ProblemDetail", err402 && err402.code === "PRO_REQUIRED", err402 && err402.code);
+
+  /* ---- the gates (Phase 12.4) — the two shapes the upload surfaces read off the error ---- */
+  const fetchCap = mockFetch(() => ({
+    status: 402,
+    json: { status: 402, code: "RESUME_LIMIT", detail: "Free accounts keep up to 3 resumes", limit: 3, count: 3 },
+  }));
+  const pCap = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchCap, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errCap = null;
+  try { await pCap.createResume({ label: "Fourth" }); } catch (e) { errCap = e; }
+  ok("createResume surfaces RESUME_LIMIT as a code", errCap && errCap.code === "RESUME_LIMIT", errCap && errCap.code);
+  // services.ts shows `message`, so `detail` has to be what lands there — the ProblemDetail's
+  // `title` is overwritten with the HTTP reason phrase by the server's exception translator.
+  ok("createResume's message is the server's detail", errCap && errCap.message === "Free accounts keep up to 3 resumes", errCap && errCap.message);
+  ok("the cap's counts ride along on the body", errCap && errCap.body && errCap.body.limit === 3 && errCap.body.count === 3);
+
+  const fetchProAi = mockFetch(() => ({ status: 402, json: { status: 402, code: "PRO_REQUIRED", detail: "Kiwiply AI is part of Pro" } }));
+  const pProAi = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchProAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errAiPro = null;
+  try { await pProAi.aiDraft({ question: "Why us?", context: "", consent: true }); } catch (e) { errAiPro = e; }
+  ok("aiDraft raises PRO_REQUIRED rather than returning a flag", errAiPro && errAiPro.code === "PRO_REQUIRED", errAiPro && errAiPro.code);
+
   const fetchPlain = mockFetch(() => ({ status: 500, json: { detail: "boom" } }));
   const pPlain = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchPlain, tokenStore: T.memoryTokenStore({ access: "A" }) });
   let errPlain = null;

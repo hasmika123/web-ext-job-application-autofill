@@ -3,6 +3,7 @@ package com.dossier.api.web.rest;
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.AiDraftService;
 import com.dossier.api.service.AiResumeParseService;
+import com.dossier.api.service.ProRequiredException;
 import com.dossier.api.web.rest.vm.AiDraftVM;
 import com.dossier.api.web.rest.vm.AiParseResumeVM;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,7 +48,7 @@ public class AiResource {
      * {@code POST /api/ai/draft} : draft an answer to an open-ended question, grounded
      * in the supplied background. Returns one of: {@code {answer,used,quota}},
      * {@code {disabled:true}}, {@code {consentRequired:true}}, {@code {quotaExceeded:true,...}},
-     * or HTTP 502 {@code {error}}.
+     * HTTP 402 {@code PRO_REQUIRED} (Phase 12.4), or HTTP 502 {@code {error}}.
      */
     @Operation(summary = "Draft an answer", description = "Metered, opt-in server-side AI drafting for the current user.")
     @PostMapping("/draft")
@@ -70,6 +71,15 @@ public class AiResource {
                 body.put("consentRequired", true);
                 return ResponseEntity.ok(body);
             }
+            // The one status that is an HTTP error rather than a 200 flag: every Pro gate in the
+            // product answers 402 with the same machine-readable `code`, so a client branches on
+            // one thing whether it hit AI, answer sync or the resume cap (Phase 12.4). Thrown as
+            // the SERVICE exception, like the other two gates, so ExceptionTranslator builds the
+            // body the same way and the message reliably lands in `detail`.
+            case PRO_REQUIRED -> throw new ProRequiredException(
+                ProRequiredException.CODE_PRO_REQUIRED,
+                "Kiwiply AI is part of Pro — upgrade, or add your own API key in the extension's settings"
+            );
             case QUOTA_EXCEEDED -> {
                 body.put("quotaExceeded", true);
                 body.put("used", r.used());
