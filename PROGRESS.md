@@ -38,8 +38,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > The gates are live too (ext v0.54.0): server AI, cross-device answer sync and the 4th resume are
 > all Pro, each refused with a 402 the clients turn into an upgrade prompt. **12.5 is DONE** —
 > `/admin/analytics` has a Revenue card (MRR, active Pro, new/churned this month, past due).
-> **Next: 12.6 — copy + legal hooks** (docs-only: the ToS Billing section; the auto-renew and
-> refund disclosures already ship on `/pricing` and in Settings › Billing from 12.3). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **12.6 is DONE** — the ToS has a Billing section and the Privacy Policy names Stripe.
+> **Everything buildable in Phase 12 is finished. The only task left is 12.7, which is yours:**
+> the end-to-end run against the Stripe sandbox (`stripe listen`, card `4242…`, cancel, a
+> simulated failed payment, then a test clock to watch Pro lapse). Ask for the walkthrough and
+> I'll take it step by step. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -963,7 +966,7 @@ focused Claude Code session.
 - [x] **12.5 Admin revenue panel.** `overview().billing {activePro, monthlyCount, threeMonthCount, mrr,
   newThisMonth, churnedThisMonth, pastDue}` from `subscription` (MRR = monthly×19.99 + 3-mo×44.99÷3);
   one card on `/admin/analytics`. Test: `AdminAnalyticsResourceIT` with two seeded rows.
-- [ ] **12.6 Copy + legal hooks (→ 15.2).** Auto-renew disclosure on `/pricing` + checkout CTA; portal =
+- [x] **12.6 Copy + legal hooks (→ 15.2).** Auto-renew disclosure on `/pricing` + checkout CTA; portal =
   click-to-cancel (FTC + CA ARL); ToS Billing section (prices, renewal, no trial, **refund policy =
   "no refunds, cancel anytime"** — decided 2026-09-21, stated plainly rather than buried; statutory
   withdrawal rights and chargebacks still override it, for 15.2's lawyer to confirm), price-change
@@ -1115,6 +1118,22 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.6 billing copy + legal hooks** · Docs/copy only, no extension change. The ToS
+  **Fees** placeholder ("free to start during beta") became a real **Billing and subscriptions**
+  section at `/terms#billing`: prices, auto-renew, **no free trial**, self-service cancellation
+  that takes effect at period end, **"no refunds, cancel any time"** with an explicit
+  statutory-rights carve-out, failed-payment retries, advance notice of price changes (new price
+  applies from the next renewal only), and Stripe as processor with "we never see your card
+  number". The Privacy Policy gained a matching **Payments** section plus a `Billing` line in
+  *What we collect*. Two contradictions the new copy exposed were fixed rather than left for the
+  lawyer: **Termination** and **Retention and deletion** both promised deletion of *everything*,
+  which is not true of transaction records we must keep for tax — both now carve that out and say
+  it contains no profile/resume/application data. `/pricing` and Settings › Billing now link to
+  `/terms#billing` (the point-of-sale copy stays inline — the FTC negative-option rule wants the
+  terms next to the button, and a link is not a substitute). Both pages dated **September 2026**.
+  Verified by rendering `/terms`, `/terms#billing` (anchor lands 96px down, clear of the header)
+  and `/privacy` in the browser; web typecheck, lint and build clean. The wording still goes to a
+  lawyer in **15.2** — the statutory-rights line and a governing-law clause are the open items.
 - 2026-09-21 · **12.5 admin revenue panel** · No extension change. `AdminAnalyticsService.overview()`
   gained `billing {activePro, monthlyCount, threeMonthCount, mrr, newThisMonth, churnedThisMonth,
   pastDue}`, folded in memory from `subscription` — one row per paying user, and the Pro rule is

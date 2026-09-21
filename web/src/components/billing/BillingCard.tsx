@@ -8,7 +8,9 @@ import UpgradeButton from "@/components/billing/UpgradeButton";
  *
  * Deliberately states the auto-renew terms and the refund policy inline rather than only in the
  * ToS: a renewal or a no-refund rule a user discovers after the fact is what produces
- * chargebacks, and the FTC's negative-option rule expects the terms next to the action.
+ * chargebacks, and the FTC's negative-option rule expects the terms next to the action. The link
+ * to /terms#billing (12.6) is the durable version of the same facts, not a substitute for saying
+ * them here.
  */
 export default function BillingCard({ plan }: { plan: Plan }) {
   const isPro = plan.plan === "PRO";
@@ -62,13 +64,21 @@ export default function BillingCard({ plan }: { plan: Plan }) {
           and it takes effect at the end of the period. No refunds for partial periods. See{" "}
           <Link href="/pricing" className="font-medium text-accent-deep hover:underline">
             what&apos;s included
+          </Link>{" "}
+          or the{" "}
+          <Link href="/terms#billing" className="font-medium text-accent-deep hover:underline">
+            billing terms
           </Link>
           .
         </p>
       ) : (
         <p className="text-[12.5px] text-muted">
           Renews automatically until you cancel. Cancelling takes effect at the end of the period you&apos;ve paid for;
-          we don&apos;t refund partial periods.
+          we don&apos;t refund partial periods. Full{" "}
+          <Link href="/terms#billing" className="font-medium text-accent-deep hover:underline">
+            billing terms
+          </Link>
+          .
         </p>
       )}
     </div>

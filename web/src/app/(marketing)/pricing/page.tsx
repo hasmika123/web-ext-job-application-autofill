@@ -92,7 +92,7 @@ export default async function PricingPage() {
         Pro renews automatically — monthly, or every 3 months — until you cancel. Cancel any time from Settings › Billing;
         it takes effect at the end of the period you&apos;ve paid for, and you keep Pro until then. We don&apos;t refund
         partial periods. See the{" "}
-        <Link href="/terms" className="font-medium text-accent-deep hover:underline">
+        <Link href="/terms#billing" className="font-medium text-accent-deep hover:underline">
           Terms
         </Link>{" "}
         and{" "}

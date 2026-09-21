@@ -8,21 +8,32 @@ export const metadata: Metadata = {
 };
 
 /**
- * Terms of Service. Written to match what the product actually is today (1.11): a
- * free beta cloud account + browser extension that autofills (never auto-submits) job
- * applications. Pairs with the Privacy Policy (/privacy) for data handling. Contact =
+ * Terms of Service. Written to match what the product actually is today: a cloud account +
+ * browser extension that autofills (never auto-submits) job applications, free to use, with an
+ * optional paid Pro plan. Pairs with the Privacy Policy (/privacy) for data handling. Contact =
  * support@kiwiply.com (routed to Gmail — see the email-architecture memory). The contracting
- * entity is named (AutomoraLab LLC) so the agreement has a real legal "we". PL.1's remaining
- * pieces — a lawyer's review and a governing-law/jurisdiction clause — still stand before a
- * wider public launch; this is a plain-language beta agreement, not a lawyer's draft.
+ * entity is named (AutomoraLab LLC) so the agreement has a real legal "we".
+ *
+ * <p>Phase 12.6 added the <b>Billing and subscriptions</b> section. It is deliberately specific
+ * — prices, renewal period, no trial, how to cancel, the refund policy, and how a price change
+ * is handled — because the FTC's negative-option rule and California's ARL both want those terms
+ * stated plainly, and because a renewal someone discovers after the fact is what produces
+ * chargebacks. The same facts appear at the point of purchase on /pricing and in Settings ›
+ * Billing; this section is the durable copy, not the only copy.
+ *
+ * <p>PL.1 / 15.2 still stand: a lawyer's review and a governing-law/jurisdiction clause. This is
+ * a plain-language agreement, not a lawyer's draft, and the statutory-rights carve-out below is
+ * exactly the sort of line that review has to confirm.
  */
-const UPDATED = "June 2026";
+const UPDATED = "September 2026";
 const CONTACT = "support@kiwiply.com";
 const ENTITY = "AutomoraLab LLC";
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+// `id` exists so the billing terms can be linked to directly — from the Beta section above, and
+// from anywhere else that has to point a user at the exact terms they are agreeing to.
+function Section({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
   return (
-    <section className="flex flex-col gap-2">
+    <section id={id} className="flex scroll-mt-24 flex-col gap-2">
       <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
       <div className="flex flex-col gap-2 text-sm leading-relaxed text-ink-soft">{children}</div>
     </section>
@@ -51,7 +62,11 @@ export default function TermsPage() {
           <strong>&quot;as is&quot; and &quot;as available&quot;</strong>, without warranties of any
           kind. Features may change or be removed, and the Service may be unavailable or interrupted
           while we improve it. Keep your own copy of anything important — you can export or delete your
-          data at any time.
+          data at any time. Beta does not change your payment terms: if you subscribe to Pro, the{" "}
+          <a href="#billing" className="font-medium text-accent-deep hover:underline">
+            Billing and subscriptions
+          </a>{" "}
+          section below applies in full.
         </p>
       </Section>
 
@@ -139,11 +154,61 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section title="Fees">
+      <Section title="Billing and subscriptions" id="billing">
         <p>
-          Kiwiply is free to start during beta. If we introduce paid plans, we&apos;ll show the price and
-          terms before you&apos;re charged, and these terms will continue to apply to the free portions of
-          the Service.
+          <strong>Kiwiply is free to use.</strong> Autofill, the application tracker, resume upload with
+          AI parsing, and up to three saved resumes cost nothing and are the same on both plans.{" "}
+          <strong>Pro</strong> is an optional paid subscription that adds Kiwiply&apos;s AI, resume
+          matching and tailoring, inbox tracking, unlimited resumes, and cross-device answer sync. What
+          each plan includes is listed on our{" "}
+          <Link href="/pricing" className="font-medium text-accent-deep hover:underline">
+            pricing page
+          </Link>
+          .
+        </p>
+        <p>
+          <strong>Price and renewal.</strong> Pro is <strong>$19.99 per month</strong> or{" "}
+          <strong>$44.99 every 3 months</strong>, in US dollars, charged at the start of each period.{" "}
+          <strong>Your subscription renews automatically</strong> — monthly, or every three months,
+          matching the plan you chose — and keeps renewing until you cancel. We do not offer a free
+          trial, so the first charge happens when you subscribe, not later.
+        </p>
+        <p>
+          <strong>Cancelling.</strong> You can cancel at any time, yourself, from{" "}
+          <Link href="/settings#billing" className="font-medium text-accent-deep hover:underline">
+            Settings &rsaquo; Billing
+          </Link>
+          {" "}— the same place you subscribed, with no email or phone call required. Cancelling stops
+          the next renewal and <strong>takes effect at the end of the period you have already paid
+          for</strong>; you keep Pro until then. After that your account returns to the free plan.{" "}
+          <strong>Downgrading never deletes your data</strong> — your resumes, profile and application
+          history stay in your account; you simply can&apos;t add a fourth live resume until you archive
+          one or resubscribe.
+        </p>
+        <p>
+          <strong>Refunds: no refunds, cancel any time.</strong> We don&apos;t refund partial periods.
+          Because cancelling keeps Pro running to the end of the period you paid for, you never lose
+          time you have already bought. <strong>This does not affect rights you have by law</strong> —
+          including any statutory right to withdraw or cancel where you live — and it does not limit
+          our obligations under applicable consumer-protection law.
+        </p>
+        <p>
+          <strong>Failed payments.</strong> If a charge fails, your card issuer and our payment
+          processor will retry it for a short period. You keep Pro while that happens and we&apos;ll
+          tell you, so you can update your card. If it still can&apos;t be collected by the end of the
+          period you paid for, the subscription ends and your account returns to the free plan.
+        </p>
+        <p>
+          <strong>Price changes.</strong> We may change the price of Pro. If we do, we will tell you{" "}
+          <strong>before</strong> the change takes effect for you, and the new price will only apply
+          from your next renewal — never to a period you have already paid for. If you don&apos;t want
+          the new price, cancel before that renewal.
+        </p>
+        <p>
+          <strong>Payments and taxes.</strong> Payments are processed by <strong>Stripe</strong>.{" "}
+          <strong>We never see or store your full card number</strong> — Stripe handles card details
+          directly; we keep only a payment-processor customer reference and your subscription status.
+          Prices are exclusive of any sales tax or VAT, which is added at checkout where it applies.
         </p>
       </Section>
 
@@ -153,8 +218,11 @@ export default function TermsPage() {
           <Link href="/settings" className="font-medium text-accent-deep hover:underline">
             your account settings
           </Link>
-          . We may suspend or end your access if you breach these terms or to protect the Service or other
-          users. Sections that by their nature should survive termination (such as disclaimers and
+          . If you have an active Pro subscription, cancel it first — deleting your account does not
+          refund a period you have already paid for. We are also required to keep basic records of
+          payments already made (amount, date, plan) for tax and accounting purposes, so those survive
+          an account deletion; nothing else does. We may suspend or end your access if you breach these
+          terms or to protect the Service or other users. Sections that by their nature should survive termination (such as disclaimers and
           limitation of liability) will continue to apply.
         </p>
       </Section>
