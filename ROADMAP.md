@@ -668,9 +668,15 @@ pull only on change:**
   **auto-renew disclosure** ("renews monthly / every 3 months until you cancel; cancel any
   time from Settings › Billing — takes effect at the end of the period"), the portal is the
   **click-to-cancel** path (FTC rule + California ARL want cancellation as easy as sign-up),
-  and the ToS gains a Billing section (prices, renewal, no-trial, **refund policy — decide:
-  recommend "no refunds, cancel anytime" stated plainly**, price-change notice). Docs-only
-  commit; the lawyer reviews the wording in 15.2.
+  and the ToS gains a Billing section (prices, renewal, no-trial, **refund policy**,
+  price-change notice). Docs-only commit; the lawyer reviews the wording in 15.2.
+  > **Refund policy — decided 2026-09-21: "no refunds, cancel anytime."** Stated plainly on
+  > `/pricing`, at checkout and in the ToS, not buried. It is coherent with the rest of the
+  > model: cancelling keeps Pro to the end of the paid period (`EntitlementService`), so nobody
+  > loses time they paid for, and the 3-month plan is the commitment device rather than a trial.
+  > Consumer law still overrides it where it applies — statutory withdrawal rights (EU/UK) and
+  > card-network chargebacks are not waived by a ToS line, which is one of the things 15.2's
+  > lawyer review has to confirm before launch.
 - **12.7 End-to-end in Stripe test mode (before the phase is called done).** With `stripe
   listen` forwarding: sign up → `/pricing` → checkout with card `4242…` → success page flips
   to Pro → settings shows renewal date → extension options shows Pro within one version check
