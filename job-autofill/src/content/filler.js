@@ -57,12 +57,15 @@
 
     // A low-confidence match (weak signal like placeholder/name only) renders
     // UNCHECKED — the user opts in rather than un-noticing a wrong fill. A value
-    // the user already confirmed once (field cache) is trusted again.
-    const uncertain = (i) => i.confidence === "low" && !i.cached;
+    // the user already confirmed once ON THIS SITE (field cache) is trusted again.
+    // An answer carried over from another ATS is NOT enough to override a weak DOM
+    // match: two soft signals don't make a hard one, and the cost of being wrong is
+    // a wrong value the user didn't notice.
+    const uncertain = (i) => i.confidence === "low" && !(i.cached && !i.cachedCrossSite);
     const rowHtml = (i, idx) =>
       `<label class="row${i.assisted ? " assisted" : ""}${uncertain(i) ? " low" : ""}">
          <input type="checkbox" data-i="${idx}" ${uncertain(i) ? "" : "checked"} />
-         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${i.aiMapped ? ' <span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}</span>
+         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${i.aiMapped ? ' <span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}${i.cachedCrossSite ? ' <span class="reusebadge" title="Your answer to this same question on another job site">reused</span>' : ""}</span>
          <span class="val">${esc(truncate(String(i.value), 60))}</span>
          ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
@@ -284,6 +287,10 @@
     /* Uncertain-match marker: warn-tinted "?" on rows left unchecked for review. */
     .lowbadge { display: inline-block; font-size: 10px; font-weight: 800; line-height: 1;
       color: var(--warn); background: var(--brown-soft); border-radius: 999px; padding: 2px 6px; vertical-align: middle; }
+    /* Carried-over answer: the user's own reply to this question on a different ATS. */
+    .reusebadge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .04em;
+      color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
+      border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
     .row.low .val { color: var(--muted); }
     .row.file { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
     .field { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
