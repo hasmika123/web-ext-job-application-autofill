@@ -490,12 +490,37 @@ pull only on change:**
   calls `chrome.runtime.sendMessage(extId, {type: "changed" | "signedOut"})` over the existing
   `externally_connectable` channel (`onMessageExternal` already exists for the connect
   handoff). `signedOut` clears `trackingAuth` immediately.
-- **11.2 `GET /api/profile/version`.** One monotonic number (or hash of bio + resumes
-  `updatedAt`). Cheap enough to call often.
-- **11.3 Extension checks.** `chrome.alarms` every 15 min + on tab focus + on drawer open:
-  compare version, pull only if different. **Delete the 90 s throttle.**
-- **11.4 Server-side revoke** is already built (1.11); document that a stale token dies at
-  next refresh. No WebSockets — MV3 kills the SW after 30 s idle.
+- **11.2 `GET /api/profile/version`.** Contract: `200 {"version": "<16 hex>"}`, Bearer like the
+  rest of `/api/profile`, **never 404** — a user with no profile yet still gets a stable "empty"
+  version, because the extension must always be able to compare. **It is a hash, not a counter:**
+  `Resume` has no `updatedAt` column (only `createdAt`), so a counter would need a migration and a
+  touch on every write path and could still miss one. Instead `ProfileService.profileVersion()`
+  SHA-256s a canonical string of exactly what a pull returns — bio `updatedAt` + `payload`, then
+  every resume DTO sorted by id (`id|label|status|archived|starred|defaultResume|createdAt|
+  r2ObjectKey|parsedJson`) — truncated to 16 hex. Cannot miss a change, needs no schema change,
+  ≤ 50 resumes so it is cheap. Extension: `TrackingProvider.profileVersion()` (base throws
+  NotSupported; Kiwiply provider GETs it, returns the string or null). Tests: IT — no data → 200 +
+  16 hex, stable across two GETs, changes after PUT profile / resume create / archive toggle /
+  delete, and another user's change does not move mine; `tracking.test.js` — path + mapping.
+- **11.3 Extension checks.** A pure `JAF.sync.checkAndPull(provider, storage, settings)`: GET
+  the version, compare with `settings.__profileVersion`; on mismatch (or first run) `pullAll` and
+  store `__profileVersion` + `__lastPull`; a provider error means **no pull and keep the old
+  version** (offline must not thrash). Callers: (1) `chrome.alarms` `"kiwiply-sync"` every 15 min,
+  created on `onInstalled` + `onStartup` — **new `"alarms"` permission** in `wxt.config.ts` (no new
+  data collected, so the store listing's privacy answers are unchanged); (2) `chrome.windows.
+  onFocusChanged` in the SW, guarded to at most one check per 60 s — a *cheap* guard on a cheap
+  GET, not the old throttle, since the pull itself only happens on change; (3) the drawer's
+  `refreshMirror`, which **replaces the 90 s throttle and its `pullAll`** with `checkAndPull`
+  (keep the one-time resume-migration push). Every pull that changed the mirror broadcasts
+  `KIWIPLY_MIRROR_UPDATED` (11.1). The 11.1 `changed` signal keeps pulling unconditionally (it
+  *knows* something changed) but must then fetch and store the new version so later checks agree.
+  Tests: `sync.test.js` for `checkAndPull` (first run, hit, miss, provider error); a
+  `sync_signal`-style SW test for alarm registration + `onAlarm` → check → pull/broadcast;
+  `tracking.test.js` for the provider method. Version bump.
+- **11.4 Docs.** `ARCHITECTURE.md` gets a "Sync model" section: signal → version check → alarm,
+  the revoke path (1.11 rotation: a stale token dies at its next refresh; `signedOut` clears at
+  once), and why there are no WebSockets — MV3 kills the SW after 30 s idle. `HANDOFF.md` one
+  line. Docs-only commit.
 
 ### Phase 12 — Billing & entitlements (Stripe)  *(Launch 1 — build the gate before the gated features)*
 - **12.1 Stripe setup.** Products/Prices: `pro_monthly` $19.99, `pro_3mo` $44.99 (recurring
