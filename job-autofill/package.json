@@ -1,6 +1,6 @@
 {
   "name": "dossier-job-autofill",
-  "version": "0.52.5",
+  "version": "0.52.6",
   "private": true,
   "description": "Kiwiply job-application autofill extension. Built with WXT/Vite (`npm run build` -> .output/chrome-mv3); the autofill engine under src/ stays framework-free and is covered by the node/jsdom suites in test/.",
   "scripts": {

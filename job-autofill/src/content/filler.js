@@ -63,7 +63,7 @@
     // a wrong value the user didn't notice.
     const uncertain = (i) => i.confidence === "low" && !(i.cached && !i.cachedCrossSite);
     // Badges go in ONE nowrap group rather than as loose inline siblings. The label
-    // column is a fixed 110px, so a row carrying two of them (a "?" and a "reused")
+    // column is fixed-width, so a row carrying two of them (a "?" and a "reused")
     // used to break between the badges and strand one on its own line.
     const badges = (i) => {
       const b = [];
@@ -77,7 +77,7 @@
       `<label class="row${i.assisted ? " assisted" : ""}${uncertain(i) ? " low" : ""}">
          <input type="checkbox" data-i="${idx}" ${uncertain(i) ? "" : "checked"} />
          <span class="field">${esc(i.label || L[i.field] || i.field)}${badges(i)}</span>
-         <span class="val">${esc(truncate(String(i.value), 60))}</span>
+         <span class="val" title="${esc(String(i.value))}">${esc(truncate(String(i.value), 60))}</span>
          ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
 
@@ -96,9 +96,9 @@
         <div class="body">
           ${fillable.length ? `<div class="group-title">Review &amp; uncheck anything you don't want</div>` : (manual.length || info.length ? "" : `<div class="empty">No matching fields found on this step. Try the next step, or this site may need a custom selector.</div>`)}
           <div class="rows">${fillable.map(rowHtml).join("")}</div>
-          ${file ? `<label class="row file"><input type="checkbox" id="filechk" checked /><span class="field">Attach résumé file</span><span class="val">${esc(file.name)}</span></label>` : ""}
+          ${file ? `<label class="row file"><input type="checkbox" id="filechk" checked /><span class="field">Attach résumé file</span><span class="val" title="${esc(file.name)}">${esc(file.name)}</span></label>` : ""}
           ${manual.length ? `<div class="group-title warn">Enter these yourself (custom dropdowns / typeaheads)</div>
-            <div class="rows">${manual.map((i) => `<div class="row manual"><span class="field">${esc(L[i.field] || i.field)}</span><span class="val">${esc(String(i.value))}</span>${i.note ? `<span class="mnote">${esc(i.note)}</span>` : ""}</div>`).join("")}</div>` : ""}
+            <div class="rows">${manual.map((i) => `<div class="row manual"><span class="field">${esc(L[i.field] || i.field)}</span><span class="val" title="${esc(String(i.value))}">${esc(String(i.value))}</span>${i.note ? `<span class="mnote">${esc(i.note)}</span>` : ""}</div>`).join("")}</div>` : ""}
           ${info.length ? `<div class="rows">${info.map((i) => `<div class="infonote">${esc(String(i.value))}</div>`).join("")}</div>` : ""}
         </div>
         <footer>
@@ -280,15 +280,15 @@
     .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 8px 2px 6px; }
     .group-title.warn { color: var(--warn); }
     .rows { display: flex; flex-direction: column; gap: 2px; }
-    .row { display: grid; grid-template-columns: 18px 110px 1fr; align-items: center; gap: 8px;
+    .row { display: grid; grid-template-columns: 18px 152px 1fr; align-items: center; gap: 8px;
       padding: 8px 8px; border-radius: 10px; cursor: pointer; }
     .row:hover { background: var(--paper-2); }
-    .row.assisted { grid-template-columns: 18px 110px 1fr auto; }
+    .row.assisted { grid-template-columns: 18px 152px 1fr auto; }
     .regen { border: 1px solid var(--line); background: var(--paper); color: var(--accent-deep);
       border-radius: 999px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 9px; }
     .regen:hover:not(:disabled) { border-color: var(--accent); }
     .regen:disabled { opacity: .5; cursor: default; }
-    .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
+    .row.manual { grid-template-columns: 170px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
     .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: var(--warn); line-height: 1.35; }
     .infonote { font-size: 12px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
       border-radius: 10px; padding: 9px 11px; margin-top: 8px; line-height: 1.45; }
