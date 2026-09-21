@@ -22,6 +22,18 @@ Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
    Never batch multiple tasks into a commit. Message: `phase<P>.<N>: <subject>`
    (e.g. `phase0.1: local field-choice cache`). Then `git push`.
 
+## Branching (set 2026-09-21 — `develop` is the integration branch)
+`main` is the **deploy** branch: a merge there auto-deploys to production (`deploy.yml`).
+`develop` branches off `main` and is where work accumulates until the user decides to
+promote a batch.
+
+- **Branch off `develop`**, never off `main`: `git checkout -b <topic> develop`.
+- **PR into `develop`**, never into `main`. CI runs on every PR and on pushes to
+  `develop`, so each merge there still gets its own verdict.
+- **Only the user promotes `develop` → `main`.** Don't open or merge that PR unless
+  they ask for it by name — that merge is a production deploy.
+- Delete a topic branch once it's merged; don't leave stale branches around.
+
 ## Hard rules
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
 - **One design system: `@kiwiply/ui` (`packages/ui`).** All shared visuals — icons,

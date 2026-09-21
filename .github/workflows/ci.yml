@@ -2,9 +2,14 @@ name: CI
 
 # Runs the three test suites on every PR and on pushes to the main/working branches.
 # Deployment lives in a separate workflow (deploy.yml) that runs only on main.
+#
+# `develop` is the integration branch: feature work merges there and accumulates until we
+# choose to promote it to main. Its commits are as permanent as main's, so it belongs in
+# this list — otherwise a merge into develop would get a verdict only from the PR run,
+# which tested the merge candidate rather than the merge result.
 on:
   push:
-    branches: [main, phase-2]
+    branches: [main, develop, phase-2]
   pull_request:
 
 # Concurrency is deliberately split by event, because the two cases want opposite things.
@@ -13,7 +18,7 @@ on:
 # that's already been force-pushed past, so those runs share a per-PR group and the older
 # one is cancelled for fast feedback.
 #
-# On a push to main/phase-2, every commit is permanent and needs its own verdict, so the
+# On a push to main/develop/phase-2, every commit is permanent and needs its own verdict, so the
 # group is keyed by SHA — making it unique per commit, so no main run can ever cancel or
 # supersede another. `cancel-in-progress: false` alone would NOT achieve this: GitHub still
 # cancels a *pending* run when a newer one joins the same group, so merging three PRs in
