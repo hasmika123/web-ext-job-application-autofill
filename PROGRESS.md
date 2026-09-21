@@ -959,8 +959,10 @@ focused Claude Code session.
   newThisMonth, churnedThisMonth, pastDue}` from `subscription` (MRR = monthly×19.99 + 3-mo×44.99÷3);
   one card on `/admin/analytics`. Test: `AdminAnalyticsResourceIT` with two seeded rows.
 - [ ] **12.6 Copy + legal hooks (→ 15.2).** Auto-renew disclosure on `/pricing` + checkout CTA; portal =
-  click-to-cancel (FTC + CA ARL); ToS Billing section (prices, renewal, no trial, **refund policy —
-  recommend "no refunds, cancel anytime", decide**, price-change notice). Docs-only commit.
+  click-to-cancel (FTC + CA ARL); ToS Billing section (prices, renewal, no trial, **refund policy =
+  "no refunds, cancel anytime"** — decided 2026-09-21, stated plainly rather than buried; statutory
+  withdrawal rights and chargebacks still override it, for 15.2's lawyer to confirm), price-change
+  notice. Docs-only commit.
 - [ ] **12.7 End-to-end in Stripe test mode.** `stripe listen` → signup → `/pricing` → `4242…` → success
   flips to Pro → settings renewal date → extension options Pro within one check → portal cancel →
   "cancels on" → `stripe trigger invoice.payment_failed` → email + still Pro → test clock past period end

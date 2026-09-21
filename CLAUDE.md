@@ -128,7 +128,9 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   resume, it's how the profile builds itself). Free = 3 resumes; downgrade never deletes data.
   **Billing mechanics (Phase 12, locked):** Stripe is the truth and **only webhooks write** the
   `subscription` mirror; `past_due` stays Pro until `current_period_end`; gated calls fail
-  **402 `PRO_REQUIRED`**; **no free trial**; the resume cap counts non-archived resumes; an
+  **402 `PRO_REQUIRED`**; **no free trial**; **refunds: "no refunds, cancel anytime"** (stated
+  plainly, not buried — cancelling keeps Pro to the end of the paid period, so no one loses time
+  they paid for); the resume cap counts non-archived resumes; an
   admin AI-quota override outranks the plan gate; the plan travels on `GET /api/profile/version`
   (no JWT claim); `stripe-java` lives behind one `StripeGateway`; billing is **disabled when the
   Stripe key is blank** so dev/CI run without secrets.
