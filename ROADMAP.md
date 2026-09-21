@@ -360,6 +360,84 @@ logout across both the extension Bearer and web cookie surfaces), **8.4 audit &
 compliance** (audit logging, PII retention tooling, GDPR/CCPA + SOC 2 groundwork,
 secrets in vault/KMS, deeper RBAC). Easy to reorder earlier if a B2B deal demands it.
 
+### Phase 10 — Fill Quality & the Self-Building Profile  *(the Pro-plan gate)*
+
+**Why this phase exists.** Phases 0–9 built the platform; this one makes the thing people
+actually pay for *good*. A paid user forgives a missing feature and does not forgive an
+autofill that leaves half the form empty. Today the engine has 6 adapters and a **23-field
+vocabulary** (`src/lib/schema.js`), so anything outside name/contact/links/EEO is AI-or-nothing
+— and AI is **off by default** (BYO key or server-AI opt-in). Five manifest hosts (iCIMS,
+Taleo, SmartRecruiters, BambooHR, Jobvite) run on the generic label scanner with no adapter at
+all. Market benchmark: Simplify advertises 100+ ATS and 20k+ career pages, a rich profile
+schema, and a saved-answer bank; reliability — not speed — is what users punish in reviews.
+
+#### 10.1 Measure first (do before any adapter work)
+- **Fill telemetry per ATS**: one event per fill with `{ats, fieldsFound, fieldsFilled,
+  userCorrected, requiredLeftEmpty}`. No values, only counts — same privacy line the field
+  mapper already holds (labels leave the page, values never do).
+- Feeds a `/admin/analytics` panel ranking ATS by failure rate, so adapter work is **directed
+  by data instead of guessed**. Without this, 10.4 is a guessing game.
+
+#### 10.2 Post-fill audit (biggest perceived-quality win per hour of work)
+After filling, scan for **required-but-empty** controls and tell the user: *"3 required fields
+still need you"*, each with a jump-to link. Cheap to build, and it converts the worst failure
+mode ("it silently missed things") into a handled one. Ship this before any schema work.
+
+#### 10.3 The self-building profile  *(user decision 2026-09-21 — the core idea)*
+> **Principle: never make the user fill a long profile form.** Ask the bare minimum, let the
+> resume do the heavy lifting, and learn the rest from real applications as they happen.
+
+Three tiers, and a field belongs in the *latest* tier that can supply it:
+
+| Tier | How it's populated | What belongs here |
+|---|---|---|
+| **A — Ask** (≤6 questions at signup) | A short, comfortable onboarding step | Only what a resume *cannot* give and an application *always* wants: work authorization + sponsorship, desired compensation, earliest start / notice period, remote-or-relocation preference. EEO self-ID is offered here but **always skippable** and never required. |
+| **B — Derive** | The existing resume parser (`parser-core.js` + AI parsing, Phase 5.4) | Name, contact, address, links, `experience[]`, `education[]`, `skills[]`, languages, certifications. The user confirms once in the review screen that already exists. |
+| **C — Capture** | Learned automatically **while applying** | Everything else and the long tail: years-of-experience-with-X, referral source, references, visa specifics, per-company free text. |
+
+**Tier C is the new mechanism, and it already has most of its plumbing.** The field cache
+learns an answer whenever the user corrects a filled value or picks a dropdown option, and
+(since the cross-site work) stores it under a host-agnostic twin and syncs it to the server.
+The missing step is **promotion**: when a learned answer's label resolves to a canonical
+profile field (via the deterministic rules or the cached AI mapper), push it up as a
+*suggested* profile value rather than leaving it as a per-question cache row. The web shows a
+quiet "we learned 3 things about you — keep these?" review; nothing is silently overwritten.
+
+> ⚠️ **This extends a locked decision.** CLAUDE.md says the extension is *pull-only, only
+> resume creates push back*. Tier C adds a second write-back path (learned answers → profile
+> suggestions). That is deliberate and user-decided, on the same reasoning as the 2026-06-30
+> resume-upload exception: it is **creation**, not editing — the server still owns the record,
+> the user still confirms, and editing existing values still happens only on the web.
+
+**Schema expansion is therefore a Tier-A/B job only.** Add `experience[]`, `education[]`,
+salary expectation, start date / notice, work-preference and referral source as *canonical*
+fields — because they are asked on nearly every application and deserve deterministic
+matching. Resist adding Tier-C long-tail fields to the vocabulary: they are unbounded, and the
+field cache already handles them better than a schema ever will. Expand `MAPPABLE` in
+`field-map.js` to match the new canonical set.
+
+#### 10.4 ATS coverage (the long grind — metered by 10.1)
+Real adapters for the five uncovered manifest hosts, and depth for the three thin ones
+(**Greenhouse is 61 lines / 6 selectors**, Lever 46, Ashby 49 — versus Workday's 479 with its
+experience/education blocks and self-ID handling). Capture real tenant DOM first, per the
+CLAUDE.md rule. Generalize the multi-step orchestration that only Workday and Indeed have.
+
+#### 10.5 AI posture for Pro
+Server-side AI **on by default for paying users** (metered, Phase 5's proxy), BYO key retained
+as the free unlimited path. The mapper and the answer drafter are what close the long tail, and
+today most users never switch them on — the quality gap is partly a defaults problem.
+
+#### 10.6 Defend it
+- **Real-DOM regression suite**: saved HTML snapshots per ATS as jsdom fixtures (Workday,
+  Workable and Indeed have this shape already; Greenhouse/Lever/Ashby have none), run in CI,
+  alerting when a fill rate drops. This is what stops silent adapter rot — the same concern
+  3.6.6 raised for job-detail extraction.
+- **Answer library on the web**: view/edit/delete learned answers, satisfying both the
+  usability want and the GDPR "see and correct what you hold on me" duty.
+
+**Sequencing:** 10.1 → 10.2 → 10.3 → (10.5 alongside) → 10.4 → 10.6. Measurement first,
+then the cheap visible win, then the schema/profile spine, then the grind.
+
 ### Order at a glance
 
 | Order | Feature | Depends on | Backend? |
@@ -374,6 +452,7 @@ secrets in vault/KMS, deeper RBAC). Easy to reorder earlier if a B2B deal demand
 | 7 | Other browsers (Edge/Firefox; Safari later) | 2 | No |
 | 8 | Enterprise & Compliance (SSO, multi-tenancy, audit) | 1, 2 | Yes |
 | 9 | Admin console, ops & comms — **see `ADMIN-PLAN.md`** (A0 default-admin fix → admin/users/audit → AI/sessions/ops → analytics → email subscription → bug reports) | 1, 2 | Yes |
+| 10 | **Fill quality & the self-building profile** (telemetry → post-fill audit → 3-tier profile + schema → ATS coverage → regression suite) — *the Pro-plan gate* | 1, 4, 5 | Yes |
 
 ---
 
