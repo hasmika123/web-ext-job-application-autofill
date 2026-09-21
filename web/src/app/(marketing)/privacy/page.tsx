@@ -14,8 +14,13 @@ export const metadata: Metadata = {
  * to Gmail — see the email-architecture memory / DEPLOY §9.1). The operator is named here
  * (AutomoraLab LLC) because the Chrome Web Store listing points its Privacy Policy URL at
  * this page. PL.1's remaining piece — a lawyer's review — still stands before a wider launch.
+ *
+ * <p>Phase 12.6 added the <b>Payments</b> section. It is here, not only in the Terms, because a
+ * privacy policy has to name the processors that receive personal data: paying for Pro sends a
+ * name, email and card details to Stripe. The point worth being unambiguous about is what we
+ * DON'T get back — we never see a full card number, only a customer reference and a status.
  */
-const UPDATED = "June 2026";
+const UPDATED = "September 2026";
 const CONTACT = "support@kiwiply.com";
 const ENTITY = "AutomoraLab LLC";
 
@@ -75,6 +80,11 @@ export default function PrivacyPage() {
             when you use those features.
           </li>
           <li>
+            <strong>Billing (Pro subscribers only):</strong> a reference to your customer record
+            at our payment processor, the plan you chose, and your subscription status and renewal
+            date. <strong>We never receive or store your card number.</strong>
+          </li>
+          <li>
             <strong>Technical:</strong> authentication tokens (stored in secure, http-only
             cookies on the web) and basic server logs needed to operate the service.
           </li>
@@ -120,8 +130,37 @@ export default function PrivacyPage() {
           Your data is stored in our database; resume files are kept in object storage. Data
           is transmitted over encrypted connections (HTTPS). We don&apos;t sell your personal
           information or share it with third parties for their own purposes. We rely on
-          infrastructure providers (such as database and file-storage hosting) to run the
-          service; they process data only on our behalf.
+          infrastructure providers (such as database and file-storage hosting), an email
+          delivery provider, and — for Pro subscriptions only — a payment processor to run the
+          service; they process data only on our behalf, or, in the payment processor&apos;s case,
+          as an independent processor of the payment itself (see <strong>Payments</strong> below).
+        </p>
+      </Section>
+
+      <Section title="Payments">
+        <p>
+          If you subscribe to <strong>Pro</strong>, payments are processed by{" "}
+          <strong>Stripe</strong>. You enter your card details on Stripe&apos;s own checkout page,
+          not ours: <strong>we never see or store your full card number</strong>. Stripe receives
+          the information it needs to take the payment — typically your email address, card
+          details and billing country — and handles it as a payment processor under its own{" "}
+          <a
+            href="https://stripe.com/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-accent-deep hover:underline"
+          >
+            privacy policy
+          </a>
+          .
+        </p>
+        <p>
+          What we keep on our side is only what we need to know whether your subscription is
+          active: a customer reference, the plan, the status, and the renewal date. We keep those
+          records while your account exists and for as long as tax and accounting rules require us
+          to retain proof of a transaction — which can outlast an account deletion, because
+          deleting an account does not undo a payment that happened. Nothing about your payments is
+          used for advertising, and we never sell it.
         </p>
       </Section>
 
@@ -164,7 +203,11 @@ export default function PrivacyPage() {
           <Link href="/settings" className="font-medium text-accent-deep hover:underline">
             your account settings
           </Link>
-          . Deletion is immediate and cannot be undone.
+          . Deletion is immediate and cannot be undone. The one exception is billing: if you have
+          ever paid for Pro, we are required to keep basic records of the transaction (amount, date,
+          plan) for tax and accounting purposes, and our payment processor keeps its own records
+          under its own policy. Those records contain no profile, resume or application data — see{" "}
+          <strong>Payments</strong> above.
         </p>
       </Section>
 
