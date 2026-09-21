@@ -6,6 +6,10 @@
  * synchronously at startup — exactly as the old classic worker did via importScripts.
  * WXT bundles everything into a single `background.js`; nothing here is remote code.
  */
+// storage.js (chrome.storage + IndexedDB, attaches to globalThis) is what sync.pullAll writes
+// the mirror into — needed since 11.1, when the web's change signal made the background pull
+// directly instead of waiting for the drawer to open.
+import "../src/lib/storage.js";
 import "../src/lib/tracking.js";
 import "../src/lib/sync.js";
 import "../src/lib/app-tracking.js";

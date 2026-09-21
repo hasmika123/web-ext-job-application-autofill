@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { notifyExtension } from "@/lib/extension-signal";
 import {
   AiIcon,
   BugIcon,
@@ -100,6 +101,7 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
     setSigningOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+      notifyExtension("signedOut"); // the extension drops its own session at once (11.1)
       router.push("/login");
       router.refresh();
     } finally {

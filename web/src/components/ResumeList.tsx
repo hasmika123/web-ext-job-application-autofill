@@ -18,6 +18,7 @@ import {
   type MenuItem,
 } from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
+import { notifyExtension } from "@/lib/extension-signal";
 
 export interface Resume {
   id: number;
@@ -293,13 +294,17 @@ export default function ResumeList({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ archived: next }),
     });
+    if (res.ok) notifyExtension("changed"); // archived resumes leave the drawer's picker
     return res.ok;
   }
 
   // One delete call. Returns "ok" | "guard" | "error" so callers can message precisely.
   async function deleteOne(id: number): Promise<"ok" | "guard" | "error"> {
     const res = await fetch(`/api/resumes/${id}`, { method: "DELETE" });
-    if (res.ok) return "ok";
+    if (res.ok) {
+      notifyExtension("changed");
+      return "ok";
+    }
     if (res.status === 409) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       setGuards((g) => ({ ...g, [id]: data.error ?? "This resume is used by an application. Archive it instead of deleting." }));
@@ -316,8 +321,10 @@ export default function ResumeList({
       body: JSON.stringify({ starred: !r.starred }),
     });
     setRowBusy([r.id], false);
-    if (res.ok) router.refresh();
-    else toast({ variant: "error", title: "Couldn't update the resume." });
+    if (res.ok) {
+      notifyExtension("changed");
+      router.refresh();
+    } else toast({ variant: "error", title: "Couldn't update the resume." });
   }
 
   async function rowSetDefault(r: Resume) {
@@ -329,6 +336,7 @@ export default function ResumeList({
     });
     setRowBusy([r.id], false);
     if (res.ok) {
+      notifyExtension("changed"); // the drawer preselects the default resume
       toast({ variant: "success", title: `“${r.label}” is now your default resume` });
       router.refresh();
     } else {

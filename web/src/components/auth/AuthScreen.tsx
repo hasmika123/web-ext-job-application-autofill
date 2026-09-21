@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { isEmail, isUsername, LIMITS } from "@/lib/validate";
 import GoogleSignIn from "@/components/auth/GoogleSignIn";
+import { notifyExtension } from "@/lib/extension-signal";
 
 type Mode = "login" | "signup";
 
@@ -97,6 +98,7 @@ function LoginForm({ next }: { next?: string }) {
         return;
       }
       track("login", { method: "password" });
+      notifyExtension("changed"); // a connected extension re-pulls the (possibly new) account's mirror
       router.push(safeNext(next) ?? "/dashboard");
       router.refresh();
     } catch {
@@ -126,6 +128,7 @@ function LoginForm({ next }: { next?: string }) {
         return;
       }
       track("login", { method: "password_mfa" });
+      notifyExtension("changed");
       router.push(safeNext(next) ?? "/dashboard");
       router.refresh();
     } catch {

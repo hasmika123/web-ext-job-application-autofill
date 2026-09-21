@@ -75,6 +75,12 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
       if (area === "local" && changes.trackingAuth) readAccount().then(setAccount);
     };
     chrome.storage.onChanged.addListener(onChange);
+    // The background re-pulled the mirror because the web app signalled a change (11.1) —
+    // repaint from the fresh store so a resume saved on kiwiply.com appears here at once.
+    const onMirror = (msg: { type?: string }) => {
+      if (msg && msg.type === "KIWIPLY_MIRROR_UPDATED") loadData().then(setData);
+    };
+    chrome.runtime.onMessage.addListener(onMirror);
     (async () => {
       await refreshMirror();
       const d = await loadData();
@@ -90,7 +96,10 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
         if (preferred) setSelectedId(preferred.id);
       }
     })();
-    return () => chrome.storage.onChanged.removeListener(onChange);
+    return () => {
+      chrome.storage.onChanged.removeListener(onChange);
+      chrome.runtime.onMessage.removeListener(onMirror);
+    };
   }, []);
 
   const pickable = data?.resumes ?? [];

@@ -16,8 +16,16 @@ bypass. The autofill **engine** is vanilla JS IIFE modules on `window.JAF`/`glob
 ## Build (WXT, since W0.2)
 The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the manifest; thin
 `entrypoints/` wrap the engine without rewriting it:
-- `entrypoints/background.ts` — `defineBackground`; side-effect-imports tracking/sync/app-tracking/
+- `entrypoints/background.ts` — `defineBackground`; side-effect-imports storage/tracking/sync/app-tracking/
   analytics, then `src/background/service-worker.js` (registers all SW listeners). Bundled → `background.js`.
+  **Web → extension sync signal (11.1):** the web app sends `{type:"KIWIPLY_SYNC", event:"changed"|"signedOut"}`
+  over the same origin-gated channel as the connect handoff (`onMessageExternal` on Chrome; the Firefox
+  connect-relay forwards it as an internal message with a `sender.tab`). `changed` → the SW runs
+  `JAF.sync.pullAll` into `JAF.storage` (why storage.js is loaded here now), stamps `settings.__lastPull`, and
+  broadcasts `KIWIPLY_MIRROR_UPDATED` so an open drawer repaints (`panel/HomeView.tsx`). `signedOut` →
+  best-effort `provider.logout()` then `chromeTokenStore().clear()` — the local clear must not fail.
+  Sender side: `web/src/lib/extension-signal.ts` (`notifyExtension`), called after profile/resume saves,
+  sign-in and sign-out. Tests: `test/sync_signal.test.js`.
 - `entrypoints/content.ts` — `defineContentScript` (same matches/`all_frames`/`run_at`); imports the
   18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the drawer
   injects via `executeScript` on activeTab pages).
