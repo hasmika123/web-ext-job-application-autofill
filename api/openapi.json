@@ -5824,6 +5824,41 @@
               "type" : "integer",
               "format" : "int64"
             }
+          },
+          "billing" : {
+            "$ref" : "#/components/schemas/Billing"
+          }
+        }
+      },
+      "Billing" : {
+        "type" : "object",
+        "properties" : {
+          "activePro" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "threeMonthCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "mrr" : {
+            "type" : "number"
+          },
+          "newThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "churnedThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pastDue" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
