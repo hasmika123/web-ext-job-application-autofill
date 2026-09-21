@@ -776,6 +776,39 @@ focused Claude Code session.
   **Remaining (need the user):** backfill confirmed subscribers into Brevo (CSV import); lawyer review of
   privacy/terms (PL.1); DPAs with Brevo + AWS S3; bug-report screenshots; manual CWS upload of ext v0.25.0.
 
+## Phase 10 — Fill quality & the self-building profile (the Pro-plan gate)
+> Spec: `ROADMAP.md` → **Phase 10**. Makes the autofill itself good enough to charge for.
+> Sequencing is deliberate: measure → cheap visible win → profile spine → the adapter grind.
+> Do NOT start 10.4 before 10.1 ships — adapter effort without telemetry is guesswork.
+
+- [ ] **10.1 Fill telemetry per ATS.** One event per fill: `{ats, fieldsFound, fieldsFilled,
+  userCorrected, requiredLeftEmpty}`. Counts only — no field values ever leave the page (same
+  line the field mapper holds: labels may leave, values never). Surface as an `/admin/analytics`
+  panel ranking ATS by failure rate. **This is what directs 10.4.**
+- [ ] **10.2 Post-fill audit.** After a fill, scan for required-but-empty controls and report
+  "N required fields still need you" with jump-to links. Converts the silent-miss failure mode
+  into a handled one; cheapest large win in the phase.
+- [ ] **10.3 Self-building profile (3 tiers).** Tier A = ≤6 onboarding questions (work auth +
+  sponsorship, desired comp, start/notice, remote-or-relocate; EEO offered but skippable).
+  Tier B = derived from the resume parser. Tier C = **learned while applying** — promote a
+  learned field-cache answer to a *suggested* profile value when its label resolves to a
+  canonical field, reviewed on the web, never silently overwritten. Extends the pull-only
+  locked decision (see CLAUDE.md, user decision 2026-09-21).
+- [ ] **10.3a Schema expansion (Tier A/B only).** Add `experience[]`, `education[]`, salary
+  expectation, start date / notice, work preference, referral source to `src/lib/schema.js` +
+  the web profile + `MAPPABLE` in `field-map.js`. **Deliberately NOT adding Tier-C long-tail
+  fields** — they're unbounded and the field cache already handles them better.
+- [ ] **10.4 ATS coverage.** Adapters for the 5 uncovered manifest hosts (iCIMS, Taleo,
+  SmartRecruiters, BambooHR, Jobvite); depth for Greenhouse (61 lines / 6 selectors), Lever
+  (46), Ashby (49). Capture real tenant DOM first. Generalize multi-step orchestration beyond
+  Workday/Indeed.
+- [ ] **10.5 AI posture for Pro.** Server AI on by default for paying users (metered, Phase 5
+  proxy); BYO key stays the free unlimited path. Today both the mapper and drafter are off by
+  default, so most users never see the layer that closes the long tail.
+- [ ] **10.6 Defend it.** Real-DOM regression fixtures per ATS in CI (Workday/Workable/Indeed
+  have the shape; Greenhouse/Lever/Ashby have none) + an answer library on the web
+  (view/edit/delete learned answers — also the GDPR "see and correct" duty).
+
 ## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
 > Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
 > `redesign/REDESIGN-PLAN.md`; prototype: `redesign/mockups.html`; on-ramp: `redesign/HANDOFF.md`.
@@ -849,6 +882,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **Phase 10 planned — fill quality & the self-building profile** · Docs only.
+  Review of the engine found the gap behind "it's not filling enough": a **23-field**
+  vocabulary, 6 adapters (5 manifest hosts — iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite
+  — on the generic scanner with none), Greenhouse at 61 lines / 6 selectors vs Workday's 479,
+  AI **off by default**, and no measurement or post-fill check anywhere. Logged as ROADMAP
+  Phase 10 + PROGRESS tasks 10.1–10.6, ordered measure → post-fill audit → profile spine →
+  adapter grind, so coverage work is directed by telemetry rather than guessed. Core user
+  decision recorded: **the profile builds itself** — ≤6 onboarding questions for what a resume
+  can't supply, resume parsing for the bulk, and the rest learned from real applications via
+  the field cache promoting answers to suggested profile values. That adds a second write-back
+  path, so CLAUDE.md's pull-only locked decision gained an explicit Exception 2.
 - 2026-09-21 · **overlay row layout: badges grouped, label column widened** · Ext **v0.52.6**.
   Cosmetic follow-up to the cross-site work, caught by rendering the real overlay and looking
   at it. A row carrying both a `?` and a `reused` badge broke *between* them and stranded one

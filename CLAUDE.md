@@ -89,6 +89,12 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   **on the fly** — parse + review + save a NEW resume (or store the raw file), pushing it
   back via the `TrackingProvider` seam. This is resume *creation*, consistent with
   "only resume creates push back"; editing existing resumes/bio still lives on the web.
+  **Exception 2 (user decision 2026-09-21, Phase 10.3):** the extension MAY promote an
+  answer it *learned while the user applied* into a **suggested** profile value, when that
+  answer's label resolves to a canonical field. Same reasoning — it's creation, the server
+  still owns the record, and the user confirms the suggestion on the web. The point is that
+  a user should never have to sit and fill a long profile form: ask the bare minimum, derive
+  the rest from the resume, and learn the remainder from real applications.
 - **Hosting = long-running containers, no serverless.** Web = Next `next start`
   (`output: 'standalone'`), **no Express**. API = Spring embedded Tomcat container.
   Resume upload = **Option A (Next-proxied), permanent**; Option B (presigned) is a
