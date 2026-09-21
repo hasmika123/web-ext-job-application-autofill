@@ -866,7 +866,14 @@ focused Claude Code session.
 - [ ] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
 - [ ] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
   NEW resume version via the `TrackingProvider` seam.
-- [ ] **13.5 Candidates (confirm first).** ATS resume score (0–100) · cover-letter generator.
+- [ ] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
+  structure/dates/contact/measurable-results checks + one Flash-Lite keyword read vs the captured
+  JD; cached per (resume × JD); shown on the resumes page + inside the job-fit panel.
+- [ ] **13.6 Daily job matches — LIGHT** *(Launch 1, user decision; strong version = 16.1).*
+  Greenhouse + Lever + Ashby public job-board APIs only; prefs = Tier A + resume-inferred
+  role/seniority/location; ≤ 48 h + dedup; Flash-Lite scoring in an overnight batch, ≤ 50
+  candidates/user/day; match %; **in-app list only**, dismiss hides; empty list allowed; never
+  auto-apply.
 
 ## Phase 14 — Inbox over IMAP (Launch 1 — needs 12)
 > Spec: `ROADMAP.md` → Phase 14. Mirrors Sales-App `integrations/email/imap`. **No Kiwiply address,
@@ -898,16 +905,22 @@ focused Claude Code session.
   path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
 
 ## Phase 16 — Between launches (after Launch 1, before Launch 2)
-- [ ] **16.1 Daily job matches** *(light plan in ROADMAP; refine before build).* Sources = public
-  ATS job-board APIs (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Recruitee), aggregator
-  only as fallback. Gates: ≤ 48 h old, ATS-verified company, dedup, agency/spam filter. Preference
-  profile from Tier A + resume + explicit prefs; match % via embeddings/Flash-Lite; like / dismiss
-  feedback re-ranks; in-app list + daily email; empty list allowed; batch-scored overnight; **never
-  auto-apply**.
+- [ ] **16.1 Daily job matches — STRONG** *(builds on 13.6; refine before build).* Adds: all six
+  ATS sources (+ Workable, SmartRecruiters, Recruitee) with aggregator fallback; full quality
+  gates (ATS-verified tenant, agency/spam filter); like / dismiss / applied **feedback loop** that
+  re-ranks; **daily email** at the user's chosen time; explicit preference editing. Still never
+  auto-apply.
 - [ ] **16.2 Analytics.** Response / interview rate by resume, ATS, role.
 - [ ] **16.3 Reminders + stale nudges.** "No reply in N days" → nudge; follow-up dates on cards.
 - [ ] **16.4 Weekly digest** email.
 - [ ] **16.5 Calendar export** (`.ics` / Google Calendar link) for interviews.
+- [ ] **16.6 Cover-letter generator** *(Launch 2, user decision).* Profile + resume + captured JD
+  → Flash, cached per (resume × JD), saved with the application; 13.4 truthfulness guardrails.
+- [ ] **16.7 Resume builder + templates** *(Launch 2, user decision — on top of upload-first).*
+  Build from the structured profile (10.3 schema) into ATS-friendly templates, PDF export, save
+  as a new resume.
+- *Later (Phase 18+, by decision):* contacts / referrals / insider connections · AI career coach.
+  **Agent auto-apply: never** (hard rule).
 
 ## Phase 17 — Launch 2
 - [ ] **17.1 Price → $24.99 / $54.99**; grandfather existing subscribers one cycle.
@@ -1002,6 +1015,11 @@ focused Claude Code session.
   14; 3.6.6 folded into 10.1. Competitor cross-check (Simplify, Teal, Jobright, Huntr,
   Careerflow) recorded with verdicts — job matches → build, ATS score + cover letter →
   candidates, resume builder / auto-apply / coach → no. CWS v1 published and under review.
+  **Follow-up decisions the same day:** job matches split into a **light 13.6 (Launch 1)** and a
+  **strong 16.1 (Launch 2)**; **ATS resume score → 13.5, Launch 1**; **cover-letter generator →
+  16.6** and **resume builder + templates → 16.7**, both Launch 2 (the builder reverses the
+  earlier "no", layered on upload-first); contacts/referrals and AI coach → Phase 18+;
+  auto-apply stays never.
 - 2026-09-21 · **Phase 10 planned — fill quality & the self-building profile** · Docs only.
   Review of the engine found the gap behind "it's not filling enough": a **23-field**
   vocabulary, 6 adapters (5 manifest hosts — iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite

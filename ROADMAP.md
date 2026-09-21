@@ -464,10 +464,11 @@ then the cheap visible win, then the schema/profile spine, then the grind.
 | Learned answers **synced across devices** | — | ✅ |
 | Bring-your-own Anthropic key (mapping, picks, drafting) | ✅ | ✅ |
 | **Kiwiply AI for autofill** (field mapping, constrained picks, answer drafting — already built) | — | ✅ |
-| Resume recommendation per job · job-fit panel · resume tailoring to JD | — | ✅ |
+| Resume recommendation per job · job-fit panel · resume tailoring to JD · **ATS resume score** | — | ✅ |
 | Inbox auto-status + notifications | — | ✅ |
+| Daily job matches | — | ✅ light (Launch 1) → strong with feedback loop + email (Launch 2) |
 | Reminders, stale nudges, weekly digest, calendar export | — | ✅ (Launch 2) |
-| Daily job matches | — | ✅ (Launch 2) |
+| Cover-letter generator · resume builder + templates | — | ✅ (Launch 2) |
 | Analytics (response rate by resume / ATS / role) | — | ✅ (Launch 2) |
 | Edge + Firefox, dark mode, bug reporter | ✅ | ✅ |
 
@@ -533,9 +534,17 @@ pull only on change:**
 - **13.4 Resume tailoring to JD.** Bullet rewrites with a diff, truthfulness guardrails (no
   invented employers/dates/degrees), saved as a **new** resume version — fits "resume creates
   push back".
-- **13.5 Candidates (confirm before building — see competitor cross-check):** ATS resume
-  score (0–100, structure/keyword checks; Teal's most-used free hook) · cover-letter generator
-  (Huntr/Simplify+ table stakes; we deferred Q&A drafting, a cover letter is a bounded cousin).
+- **13.5 ATS resume score** *(Launch 1 — user decision 2026-09-21).* 0–100 score per stored
+  resume: structure checks (sections, dates, contact), measurable-results density, keyword
+  coverage against the captured JD when one is present. Deterministic checks first (free to
+  run), one Flash-Lite call only for the keyword/impact read; cached per (resume × JD). Shown on
+  the resumes page and inside the job-fit panel. Teal's most-used hook — we match it at Launch 1.
+- **13.6 Daily job matches — LIGHT** *(Launch 1 — user decision 2026-09-21; the strong version
+  is 16.1).* Sources: the Greenhouse, Lever and Ashby **public job-board APIs** only. Preference
+  profile = Tier A answers + role/seniority/location inferred from the resume. Gates: posted
+  ≤ 48 h, dedup. Scoring: Flash-Lite, batch overnight, ≤ 50 candidates per user per day; show
+  match %. Delivery: **in-app list only** (no email yet); dismiss hides a job. Empty list allowed.
+  Never auto-apply.
 
 ### Phase 14 — Inbox: IMAP  *(Launch 1 — needs 12)*
 **Design — mirrors Sales-App `integrations/email/imap`: no Kiwiply address of any kind.** The
@@ -578,9 +587,12 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   support path for billing, W5-QA walked in Chrome (light + dark), SmartRecruiters live check.
 
 ### Phase 16 — Between launches  *(after Launch 1, before Launch 2)*
-- **16.1 Daily job matches** *(user request 2026-09-21; light plan, refine before build).*
+- **16.1 Daily job matches — STRONG** *(builds on the 13.6 light version; refine before build).*
   **Job:** 10–15 fresh, high-quality, well-matched jobs every day so the user never has to go
-  hunting; an empty list beats a padded one.
+  hunting; an empty list beats a padded one. What 16.1 adds over 13.6: all six ATS sources +
+  aggregator fallback, the full quality gates (ATS-verified tenant, agency/spam filter), the
+  like / dismiss / applied **feedback loop** that re-ranks, daily **email** delivery at the
+  user's chosen time, and explicit preference editing.
   - **Sources — direct from the ATS, not scraped boards.** Greenhouse, Lever, Ashby,
     Workable, SmartRecruiters and Recruitee all expose **public job-board JSON APIs** (no auth,
     no scraping). Direct-from-employer = verified company; posting timestamps = real recency.
@@ -600,6 +612,15 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
 - **16.3 Reminders + stale nudges.** "No reply in 10 days" → nudge; follow-up date on cards.
 - **16.4 Weekly digest.** Applications, replies, interviews, matches — one email.
 - **16.5 Calendar export.** Interview → `.ics` / Google Calendar link.
+- **16.6 Cover-letter generator** *(Launch 2 — user decision 2026-09-21).* From profile +
+  resume + captured JD; the bounded cousin of the Q&A drafting we deferred. Flash, cached per
+  (resume × JD), saved alongside the application. Truthfulness guardrails as in 13.4.
+- **16.7 Resume builder + templates** *(Launch 2 — user decision 2026-09-21; extends
+  upload-first, does not replace it).* Build a resume from the structured profile
+  (`experience[]`, `education[]`, skills) into ATS-friendly templates, export PDF, save as a
+  new resume. Reuses the 10.3 schema — the profile is already the data model a builder needs.
+  Later (Phase 18+, by decision): contacts / referrals / insider connections, AI career coach.
+  **Agent auto-apply stays never** — hard rule, ToS, and the reviews prove it.
 
 ### Phase 17 — Launch 2
 Price → **$24.99 / $54.99** (grandfather existing subscribers for one cycle) · adapter depth
@@ -609,12 +630,12 @@ milestone from 10.4 · listing refresh with matches + analytics · 13.5 candidat
 
 | They have | Who | Verdict |
 |---|---|---|
-| Job matches / daily recommendations with match score, early-posting alerts | Simplify (free), Jobright (core), Huntr (basic) | **Build — 16.1** |
-| ATS resume score (0–100, 15 checks) | Teal (free, their top hook), Careerflow | **Candidate — 13.5** (small, Pro) |
-| Cover-letter generator | Simplify+, Huntr Pro, Teal+ | **Candidate — 13.5** (Launch 2) |
-| Resume **builder** + templates | Teal, Simplify, Huntr | **No** — we are upload-first; the profile builds itself from the resume, not the reverse |
+| Job matches / daily recommendations with match score, early-posting alerts | Simplify (free), Jobright (core), Huntr (basic) | **Build — light 13.6 (Launch 1), strong 16.1 (Launch 2)** |
+| ATS resume score (0–100, 15 checks) | Teal (free, their top hook), Careerflow | **Build — 13.5 (Launch 1)** |
+| Cover-letter generator | Simplify+, Huntr Pro, Teal+ | **Build — 16.6 (Launch 2)** |
+| Resume **builder** + templates | Teal, Simplify, Huntr | **Build — 16.7 (Launch 2)**, on top of upload-first (user decision) |
 | Contacts / referral finder / insider connections | Teal, Huntr, Jobright | Later (Phase 18+) |
-| AI career coach / interview prep | Jobright (Orion) | Deferred by decision |
+| AI career coach / interview prep | Jobright (Orion) | Later (Phase 18+) |
 | Agent auto-apply | Jobright Agent, LazyApply | **Never** — hard rule, and it's what earns them 2★ reviews |
 | LinkedIn profile optimizer | Careerflow | No |
 | Weekly plan ($9–13/wk) | Teal | No — churn bait |
@@ -641,10 +662,10 @@ profile** — nobody in the table has either.
 | 10 | **Fill quality & the self-building profile** (telemetry → post-fill audit → 3-tier profile + schema → ATS coverage → regression suite) — ships free | 1, 4, 5 | Yes |
 | 11 | **Sync** — web→ext signal + `/api/profile/version` + alarms; drop the 90 s throttle | 1 | Yes |
 | 12 | **Billing & entitlements** — Stripe, `subscription`, `isPro()`, pricing page, free = BYO only | 1, 2 | Yes |
-| 13 | **Pro AI** — credit metering/routing/caching, resume recommendation, job-fit panel, tailoring | 12, 10.3 | Yes |
+| 13 | **Pro AI** — credit metering/routing/caching, resume recommendation, job-fit panel, tailoring, ATS score, light job matches | 12, 10.3 | Yes |
 | 14 | **Inbox (IMAP)** — dedicated Gmail + app password, poll inbox + sent, parser → status, notifications, dedup, retention | 12 | Yes |
 | 15 | **Launch 1** — ops (backup/monitoring/restore drill), PL.1 legal, CWS + AMO resubmit, checklist | 10–14 | — |
-| 16 | **Between launches** — daily job matches, analytics, reminders, digest, calendar | 14, 15 | Yes |
+| 16 | **Between launches** — strong job matches, analytics, reminders, digest, calendar, cover letter, resume builder | 14, 15 | Yes |
 | 17 | **Launch 2** — price rise to $24.99 / $54.99, adapter milestone, listing refresh | 16 | — |
 
 ---
