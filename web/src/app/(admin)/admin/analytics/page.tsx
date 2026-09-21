@@ -13,6 +13,15 @@ interface Funnel {
   startedApplying: number;
   applied: number;
 }
+interface Billing {
+  activePro: number;
+  monthlyCount: number;
+  threeMonthCount: number;
+  mrr: number;
+  newThisMonth: number;
+  churnedThisMonth: number;
+  pastDue: number;
+}
 interface Analytics {
   totalUsers: number;
   activatedUsers: number;
@@ -25,7 +34,10 @@ interface Analytics {
   totalApplications: number;
   funnel: Funnel;
   applicationsByStatus: Record<string, number>;
+  billing: Billing;
 }
+
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 export default async function AdminAnalyticsPage() {
   const res = await serverApiFetch("/api/admin/analytics");
@@ -48,6 +60,10 @@ export default async function AdminAnalyticsPage() {
   ];
   const funnelMax = Math.max(1, a.funnel.signedUp);
   const statusMax = Math.max(1, ...Object.values(a.applicationsByStatus));
+  const b = a.billing;
+  // Anything Pro that isn't on one of the two configured prices. Shown rather than swallowed:
+  // it means MRR is understated, and the cause is config, not the data.
+  const unpriced = b.activePro - b.monthlyCount - b.threeMonthCount;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -62,6 +78,26 @@ export default async function AdminAnalyticsPage() {
         <Stat label="Signups (7d / 30d)" value={`${a.signups7d} / ${a.signups30d}`} />
         <Stat label="Active (7d / 30d)" value={`${a.activeUsers7d} / ${a.activeUsers30d}`} sub="by session activity" />
       </div>
+
+      <section className="mb-6 rounded-[var(--radius)] border border-line bg-paper p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Revenue</h2>
+          <p className="text-xs text-ink-soft">
+            {b.monthlyCount} monthly · {b.threeMonthCount} on 3-month
+            {unpriced > 0 ? ` · ${unpriced} on an unrecognised price` : ""}
+          </p>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label="MRR" value={usd.format(b.mrr)} sub="3-month plans counted per month" />
+          <Stat label="Active Pro" value={b.activePro} />
+          <Stat label="New / churned (mo)" value={`${b.newThisMonth} / ${b.churnedThisMonth}`} sub="this calendar month" />
+          <Stat
+            label="Past due"
+            value={b.pastDue}
+            sub={b.pastDue > 0 ? "still Pro while Stripe retries" : "no failed payments"}
+          />
+        </div>
+      </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-[var(--radius)] border border-line bg-paper p-5">

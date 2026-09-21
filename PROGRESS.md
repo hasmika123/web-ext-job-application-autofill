@@ -36,8 +36,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > Settings › Billing, the sidebar Pro pill and the extension's plan badge. Everything still runs
 > keyless (blank `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`, checkout/portal → 503).
 > The gates are live too (ext v0.54.0): server AI, cross-device answer sync and the 4th resume are
-> all Pro, each refused with a 402 the clients turn into an upgrade prompt. **Next: 12.5 — the
-> admin revenue panel.** 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> all Pro, each refused with a 402 the clients turn into an upgrade prompt. **12.5 is DONE** —
+> `/admin/analytics` has a Revenue card (MRR, active Pro, new/churned this month, past due).
+> **Next: 12.6 — copy + legal hooks** (docs-only: the ToS Billing section; the auto-renew and
+> refund disclosures already ship on `/pricing` and in Settings › Billing from 12.3). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -958,7 +960,7 @@ focused Claude Code session.
   `AiDraftResourceIT` (Free → PRO_REQUIRED · Free+override drafts · Pro drafts · parse-resume Free ok) ·
   `FieldCacheSyncResourceIT` (Free 402 / Pro 200) · `ProfileResourceIT` (4th create Free 402 · archived
   don't count · Pro 201).
-- [ ] **12.5 Admin revenue panel.** `overview().billing {activePro, monthlyCount, threeMonthCount, mrr,
+- [x] **12.5 Admin revenue panel.** `overview().billing {activePro, monthlyCount, threeMonthCount, mrr,
   newThisMonth, churnedThisMonth, pastDue}` from `subscription` (MRR = monthly×19.99 + 3-mo×44.99÷3);
   one card on `/admin/analytics`. Test: `AdminAnalyticsResourceIT` with two seeded rows.
 - [ ] **12.6 Copy + legal hooks (→ 15.2).** Auto-renew disclosure on `/pricing` + checkout CTA; portal =
@@ -1113,6 +1115,22 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.5 admin revenue panel** · No extension change. `AdminAnalyticsService.overview()`
+  gained `billing {activePro, monthlyCount, threeMonthCount, mrr, newThisMonth, churnedThisMonth,
+  pastDue}`, folded in memory from `subscription` — one row per paying user, and the Pro rule is
+  `EntitlementService.isProFor`, a Java predicate that must not be duplicated in SQL. Three
+  decisions worth remembering: **revenue follows the entitlement rule, not the `plan` column**, so
+  the card can never bill us for someone being served Free; **`past_due` still counts as revenue**
+  (they are still Pro while Stripe retries) but is surfaced separately as risk; and **churn is
+  "the paid period ended this month"**, not "cancelled this month" — cancelling in March for a
+  period ending in May is a May loss. MRR normalises the 3-month plan to a third of its price. The
+  plan amounts are new config (`dossier.stripe.amount-monthly` 19.99 / `amount3mo` 44.99) rather
+  than constants, because Stripe owns the real price and we don't mirror the amount on the row —
+  so the Launch-2 rise is a deploy, not a code change, and the only thing that lies if they drift
+  is this one card. A Pro row on an unrecognised price counts as a user but contributes no
+  revenue, and the web card shows the gap rather than hiding it. Tests: `AdminAnalyticsResourceIT`
+  +5 (empty → 0 not an error · one of each plan → 34.99 · lapsed → no revenue + churn · past_due →
+  revenue + flagged · unknown price → no revenue). `api/openapi.json` re-published.
 - 2026-09-21 · **12.4 the gates — Free tier redefined** · Ext **v0.54.0**. Three `requirePro()`
   calls, all at the service boundary rather than in a controller, so both upload paths and all
   three AI callers are covered by one check each. (1) `AiDraftService` — new

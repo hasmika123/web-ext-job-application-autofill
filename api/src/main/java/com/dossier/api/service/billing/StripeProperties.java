@@ -1,5 +1,6 @@
 package com.dossier.api.service.billing;
 
+import java.math.BigDecimal;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -27,6 +28,19 @@ public class StripeProperties {
 
     /** Price id for the $44.99/3-months plan. */
     private String price3mo = "";
+
+    /**
+     * What the monthly plan charges, for the admin MRR figure only (Phase 12.5) — never for
+     * charging anyone. Stripe owns the real price; we don't mirror the amount on the
+     * {@code subscription} row, so revenue has to be reconstructed from {@code price_id} plus
+     * these. Config rather than constants so the Launch-2 price rise ($24.99 / $54.99) is a
+     * deployment change, not a code change. Keep them in step with the Stripe prices — if they
+     * drift, the only thing that lies is this one admin card.
+     */
+    private BigDecimal amountMonthly = new BigDecimal("19.99");
+
+    /** What the 3-month plan charges, for the admin MRR figure only. See {@link #amountMonthly}. */
+    private BigDecimal amount3mo = new BigDecimal("44.99");
 
     /** Where Stripe returns after a completed checkout. */
     private String successUrl = "https://kiwiply.com/billing/success?session_id={CHECKOUT_SESSION_ID}";
@@ -74,6 +88,22 @@ public class StripeProperties {
 
     public void setWebhookSecret(String webhookSecret) {
         this.webhookSecret = webhookSecret;
+    }
+
+    public BigDecimal getAmountMonthly() {
+        return amountMonthly;
+    }
+
+    public void setAmountMonthly(BigDecimal amountMonthly) {
+        this.amountMonthly = amountMonthly;
+    }
+
+    public BigDecimal getAmount3mo() {
+        return amount3mo;
+    }
+
+    public void setAmount3mo(BigDecimal amount3mo) {
+        this.amount3mo = amount3mo;
     }
 
     public String getPriceMonthly() {
