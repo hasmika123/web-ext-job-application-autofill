@@ -30,13 +30,14 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > /api/profile/version` gives a cheap fingerprint, the extension checks it on a 15-minute alarm, on
 > window focus and on drawer open — pulling only when it moved — and `ARCHITECTURE.md` → **Sync
 > model** documents the whole shape. **Phase 12 is planned to build depth** (ROADMAP Phase 12: locked
-> decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests). **12.1 + 12.2
-> are DONE**, and **12.3 is DONE** — schema, `EntitlementService`, the gateway seam,
+> decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests). **12.1–12.4 are DONE**
+> — schema, `EntitlementService`, the gateway seam,
 > `GET /api/billing/me`, the webhook, checkout + portal, `/pricing`, `/billing/success`,
 > Settings › Billing, the sidebar Pro pill and the extension's plan badge. Everything still runs
 > keyless (blank `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`, checkout/portal → 503).
-> **Next: 12.4 — the gates** (`requirePro()` on server AI, learned-answer sync, and the 3-resume
-> cap). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> The gates are live too (ext v0.54.0): server AI, cross-device answer sync and the 4th resume are
+> all Pro, each refused with a 402 the clients turn into an upgrade prompt. **Next: 12.5 — the
+> admin revenue panel.** 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -948,7 +949,7 @@ focused Claude Code session.
   `checkAndPull` + the `changed` path store `settings.plan` on every answer; `tracking.js` surfaces 402
   with `.status/.code`; options badge + upgrade link. Tests: `BillingResourceIT` (URL + stored customer,
   reuse, 409, 404, 503) · `tracking.test.js` 402 · `sync.test.js` plan stored on unchanged check · web gate.
-- [ ] **12.4 The gates.** `requirePro()` at: `AiDraftService` + field-map/pick routes (**unless** an
+- [x] **12.4 The gates.** `requirePro()` at: `AiDraftService` + field-map/pick routes (**unless** an
   admin quota override exists; new `Status.PRO_REQUIRED` → SW message "Pro feature — upgrade, or add
   your own key"; `AiResumeParseService` untouched; `dossier.ai.pro-monthly-quota` default 2000) ·
   `POST /api/profile/field-caches/sync` (extension already best-effort → silent) ·
@@ -1112,6 +1113,30 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.4 the gates — Free tier redefined** · Ext **v0.54.0**. Three `requirePro()`
+  calls, all at the service boundary rather than in a controller, so both upload paths and all
+  three AI callers are covered by one check each. (1) `AiDraftService` — new
+  `Status.PRO_REQUIRED`, mapped by `AiResource` to **402 `PRO_REQUIRED`**; drafting, field mapping
+  and option picks all ride `/api/ai/draft`, so gating it gates all three. An **admin quota
+  override outranks the plan gate** and supplies the quota; Pro gets the new
+  `dossier.ai.pro-monthly-quota` (2000). `AiResumeParseService` is deliberately untouched — it is
+  how a profile builds itself. The gate is checked **before consent**, so a Free user is told the
+  useful thing instead of being sent to tick a box that still wouldn't let them through.
+  (2) `POST /api/profile/field-caches/sync` — Pro; `GET` is not, because a downgrade must never
+  hide data you already own. The extension already treats this call as best-effort, so a 402 is a
+  silent no-op. (3) `ProfileService.createResume` — 402 `RESUME_LIMIT {limit,count}` at 3
+  **non-archived** resumes, so archiving is how you make room and a lapsed Pro user loses nothing.
+  Clients: the SW turns a `PRO_REQUIRED` into "Kiwiply AI is a Pro feature — upgrade, or add your
+  own key" (true: a BYO key still takes priority); `SaveResult` gained an optional `cta`, so the
+  cap shows an inline upgrade link in web `ResumeUpload` (→ `/pricing`) and the extension's
+  on-the-fly upload (→ kiwiply.com/pricing). Clients branch on `code` and display `detail` —
+  `title` is overwritten with the HTTP reason phrase by `ExceptionTranslator`. Tests:
+  `AiDraftServiceTest` (+4: PRO_REQUIRED, outranks consent, override drafts, Pro quota) ·
+  `AiResourceIT` (Free 402 · Pro drafts · override drafts · parse-resume still free — not
+  `@Transactional`, and asks for a bigger pool, because a successful draft's `REQUIRES_NEW` answer
+  cache needs a second connection and the shared test config pins Hikari to one) ·
+  `FieldCacheSyncResourceIT` (Free 402 / Pro 200 / list still works on Free) · `ProfileResourceIT`
+  (4th create 402 with counts · archived don't count · Pro uncapped) · `tracking.test.js` 71.
 - 2026-09-21 · **12.3 checkout, portal and every surface that shows a plan** · Ext **v0.53.0**.
   API: `POST /api/billing/checkout` (creates the Stripe customer once then reuses it forever, so
   invoices stay on one customer) and `POST /api/billing/portal` — the portal is the click-to-cancel

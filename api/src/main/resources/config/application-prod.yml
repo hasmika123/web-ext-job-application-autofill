@@ -184,7 +184,13 @@ dossier:
     base-url: ${DOSSIER_AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
     model: ${DOSSIER_AI_MODEL:gemini-2.5-flash-lite}
     api-key: ${DOSSIER_AI_API_KEY:}
+    # Server AI is a Pro feature (Phase 12.4) — Free users bring their own key. The free quota
+    # below still applies to the one ungated exception, resume parsing, and to anyone holding an
+    # admin quota override (a hand-granted quota outranks the plan gate).
     free-monthly-quota: ${DOSSIER_AI_FREE_MONTHLY_QUOTA:50}
+    # Pro drafting/mapping/picks. Deliberately far above real usage — it's an abuse ceiling, not
+    # a product limit; 13.1 replaces it with cost credits.
+    pro-monthly-quota: ${DOSSIER_AI_PRO_MONTHLY_QUOTA:2000}
     max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}
     # Structured resume parsing (POST /api/ai/parse-resume) — full-resume JSON output,
     # so a much roomier cap than a 2-4 sentence draft. Same provider/model/key/quota.

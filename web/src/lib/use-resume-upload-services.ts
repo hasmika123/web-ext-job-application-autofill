@@ -47,6 +47,10 @@ export function useResumeUploadServices(): ResumeUploadServices {
         form.append("parsedJson", input.parsedJson);
         const res = await fetch("/api/resumes/upload", { method: "POST", body: form });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 402) {
+          // The Free resume cap — the only save failure with a next step, so it gets a link.
+          return { ok: false, error: data.error ?? "You've reached the Free resume limit.", cta: { href: "/pricing", label: "See Pro" } };
+        }
         if (!res.ok) return { ok: false, error: data.error ?? "Couldn't save the resume." };
         notifyExtension("changed");
         return { ok: true, id: data.id, label: data.label ?? input.label };
