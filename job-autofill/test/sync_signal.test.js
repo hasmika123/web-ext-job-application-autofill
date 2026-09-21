@@ -26,15 +26,20 @@ const PROD_MATCHES = ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "htt
 function boot(opts) {
   opts = opts || {};
   const store = {};                 // chrome.storage.local
-  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [] };
+  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0 };
   const external = [];
   const internal = [];
+  const installed = [];             // 11.3: onInstalled listeners (the alarm is created here)
+  const startup = [];
+  const alarmListeners = [];
+  const focusListeners = [];
   const noop = { addListener() {} };
 
   const chrome = {
     runtime: {
       getManifest: () => ({ externally_connectable: { matches: PROD_MATCHES } }),
-      onInstalled: noop,
+      onInstalled: { addListener: (fn) => installed.push(fn) },
+      onStartup: { addListener: (fn) => startup.push(fn) },
       onMessage: { addListener: (fn) => internal.push(fn) },
       onMessageExternal: { addListener: (fn) => external.push(fn) },
       // The SW broadcasts "mirror updated" to any open drawer; with no drawer there is no
@@ -48,12 +53,22 @@ function boot(opts) {
       },
     },
     webNavigation: { onCompleted: noop },
-    tabs: { onRemoved: noop, sendMessage() {} },
+    tabs: { onRemoved: noop, sendMessage() {}, create() {} },
+    // 11.3 — the scheduled + focus-driven checks.
+    alarms: {
+      create: (name, cfg) => calls.alarmsCreated.push({ name, cfg }),
+      onAlarm: { addListener: (fn) => alarmListeners.push(fn) },
+    },
+    windows: {
+      WINDOW_ID_NONE: -1,
+      onFocusChanged: { addListener: (fn) => focusListeners.push(fn) },
+    },
   };
 
   const provider = {
     isAuthenticated: () => Promise.resolve(opts.connected !== false),
     logout: () => { calls.logout++; return opts.logoutFails ? Promise.reject(new Error("offline")) : Promise.resolve(); },
+    profileVersion: () => { calls.versionCalls++; return Promise.resolve(opts.version === undefined ? "v-new" : opts.version); },
   };
 
   const sandbox = {
@@ -64,6 +79,9 @@ function boot(opts) {
       sync: {
         providerFromSettings: () => provider,
         pullAll: (p, storage) => { calls.pullAll++; calls.pullStorage = storage; return Promise.resolve({ bio: {}, resumeCount: 1 }); },
+        // The real one lives in sync.js and is covered by sync.test.js; here we only need to
+        // know the SW calls it and reacts to "pulled".
+        checkAndPull: () => { calls.checkAndPull++; return Promise.resolve({ pulled: opts.pulled !== false, reason: "changed" }); },
       },
       tracking: {
         chromeTokenStore: () => ({
@@ -78,7 +96,7 @@ function boot(opts) {
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, "src/background/service-worker.js"), "utf8"), sandbox);
-  return { external: external[0], internal, calls, store };
+  return { external: external[0], internal, calls, store, installed, startup, alarmListeners, focusListeners, chrome };
 }
 
 // Drive the Chrome (external) listener; resolves with the response, or null if ignored.
@@ -113,6 +131,9 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
     ok("changed: pulled the mirror exactly once", calls.pullAll === 1, `got ${calls.pullAll}`);
     ok("changed: pull writes into JAF.storage (the SW now loads storage.js)", calls.pullStorage && calls.pullStorage.tag === "storage-stub");
     ok("changed: stamped __lastPull so the drawer doesn't re-pull", !!(store.settings && store.settings.__lastPull > 0));
+    // 11.3: the signal pulls without asking, but must still record what it pulled under —
+    // otherwise the next scheduled check compares against a stale marker and pulls again.
+    ok("changed: recorded the version it pulled under", store.settings && store.settings.__profileVersion === "v-new", JSON.stringify(store.settings));
     ok("changed: told open drawers to repaint", calls.broadcast.some((m) => m && m.type === "KIWIPLY_MIRROR_UPDATED"));
     ok("changed: did not touch the session", calls.clear === 0 && calls.logout === 0);
   }
@@ -184,6 +205,79 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
     ok("connect: handoff unaffected by the sync route", resp && resp.ok === true, JSON.stringify(resp));
     const junk = await sendExternal(external, "https://kiwiply.com", { type: "SOMETHING_ELSE" });
     ok("router: an unrelated message type is ignored (no response)", junk === null, JSON.stringify(junk));
+  }
+
+  /* ---- 11.3: the scheduled alarm + the window-focus check ---- */
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+
+  // Registration. The alarm is what wakes an idle MV3 worker, so it has to be (re)created on
+  // install/update AND on browser start — alarms don't survive an extension update.
+  {
+    const b = boot();
+    ok("alarm: registered an onAlarm listener", b.alarmListeners.length === 1, `got ${b.alarmListeners.length}`);
+    ok("alarm: registered a window-focus listener", b.focusListeners.length === 1, `got ${b.focusListeners.length}`);
+    ok("alarm: hooked onInstalled and onStartup", b.installed.length >= 1 && b.startup.length === 1);
+
+    b.installed.forEach((fn) => fn({ reason: "update" }));
+    ok("alarm: onInstalled creates kiwiply-sync", b.calls.alarmsCreated.some((a) => a.name === "kiwiply-sync"), JSON.stringify(b.calls.alarmsCreated));
+    ok("alarm: period is 15 minutes", b.calls.alarmsCreated.some((a) => a.cfg && a.cfg.periodInMinutes === 15), JSON.stringify(b.calls.alarmsCreated));
+    b.startup.forEach((fn) => fn());
+    ok("alarm: onStartup re-creates it (alarms don't survive an update)", b.calls.alarmsCreated.length >= 2, `got ${b.calls.alarmsCreated.length}`);
+  }
+
+  // Firing the alarm runs the cheap check and, when it pulled, tells an open drawer.
+  {
+    const b = boot();
+    b.store.settings = { apiBaseUrl: "https://api.test" };
+    await b.alarmListeners[0]({ name: "kiwiply-sync" });
+    await tick();
+    ok("alarm: fired → ran checkAndPull", b.calls.checkAndPull === 1, `got ${b.calls.checkAndPull}`);
+    ok("alarm: a pull that landed broadcasts to the drawer", b.calls.broadcast.some((m) => m && m.type === "KIWIPLY_MIRROR_UPDATED"));
+
+    // Somebody else's alarm is not ours.
+    await b.alarmListeners[0]({ name: "some-other-alarm" });
+    await tick();
+    ok("alarm: ignores alarms that aren't ours", b.calls.checkAndPull === 1, `got ${b.calls.checkAndPull}`);
+  }
+
+  // Nothing changed server-side → no broadcast, so the drawer doesn't repaint for nothing.
+  {
+    const b = boot({ pulled: false });
+    b.store.settings = { apiBaseUrl: "https://api.test" };
+    await b.alarmListeners[0]({ name: "kiwiply-sync" });
+    await tick();
+    ok("alarm/unchanged: checked but did not broadcast", b.calls.checkAndPull === 1 && b.calls.broadcast.length === 0);
+  }
+
+  // Not connected / not configured: quiet no-ops, not errors. This runs unattended on a timer.
+  {
+    const b = boot({ connected: false });
+    b.store.settings = { apiBaseUrl: "https://api.test" };
+    await b.alarmListeners[0]({ name: "kiwiply-sync" });
+    await tick();
+    ok("alarm/not connected: no check, no throw", b.calls.checkAndPull === 0);
+
+    const b2 = boot();                      // no settings at all → no apiBaseUrl
+    await b2.alarmListeners[0]({ name: "kiwiply-sync" });
+    await tick();
+    ok("alarm/not configured: no check", b2.calls.checkAndPull === 0);
+  }
+
+  // Focus: checks on return to the browser, guarded so alt-tabbing doesn't spray requests.
+  {
+    const b = boot();
+    b.store.settings = { apiBaseUrl: "https://api.test" };
+    await b.focusListeners[0](1);
+    await tick();
+    ok("focus: a focused window runs the check", b.calls.checkAndPull === 1, `got ${b.calls.checkAndPull}`);
+
+    await b.focusListeners[0](2);
+    await tick();
+    ok("focus: a second focus within the guard window does not re-check", b.calls.checkAndPull === 1, `got ${b.calls.checkAndPull}`);
+
+    await b.focusListeners[0](b.chrome.windows.WINDOW_ID_NONE);
+    await tick();
+    ok("focus: losing focus entirely is ignored", b.calls.checkAndPull === 1, `got ${b.calls.checkAndPull}`);
   }
 
   console.log(`\n[sync_signal] ${pass} passed, ${fail} failed`);

@@ -51,7 +51,7 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.52.8",
+      version: "0.52.9",
       // ⚠️ Chrome Web Store hard limit: 132 characters. The upload is rejected outright above it,
       // so `.github/scripts/check-manifest-limits.mjs` enforces it at build time. This is the same
       // sentence as the listing's short description in STORE-LISTING.md — keep the two in step.
@@ -110,7 +110,10 @@ export default defineConfig({
             },
           }
         : {}),
-      permissions: ["storage", "unlimitedStorage", "scripting", "activeTab", "webNavigation"],
+      // "alarms" (11.3) wakes the MV3 worker every 15 min to ask whether the profile changed
+      // on another device. It collects nothing new, so the store listing's privacy answers
+      // and the AMO data_collection_permissions above are unchanged.
+      permissions: ["storage", "unlimitedStorage", "scripting", "activeTab", "webNavigation", "alarms"],
       host_permissions: [
         "https://*.myworkdayjobs.com/*",
         "https://*.myworkday.com/*",

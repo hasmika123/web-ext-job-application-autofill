@@ -140,6 +140,122 @@ function fakeProvider(cfg) {
     ok("field-cache: provider without syncFieldCache is a no-op", noFC.count === 0);
   }
 
+  /* ---- checkAndPull (Phase 11.3): ask the server, pull only on a real change ---- */
+  {
+    // A provider whose version is scriptable and whose pulls are counted.
+    function versionedProvider(cfg) {
+      cfg = cfg || {};
+      const rec = { pulls: 0, versionCalls: 0 };
+      return {
+        rec,
+        profileVersion: async () => {
+          rec.versionCalls++;
+          if (cfg.throws) throw new Error("offline");
+          return cfg.version === undefined ? "v-one" : cfg.version;
+        },
+        pullProfile: async () => { rec.pulls++; return { firstName: "Ada" }; },
+        listResumes: async () => [],
+      };
+    }
+
+    // First run: nothing recorded locally, so pull and remember what we pulled under.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const p = versionedProvider({ version: "abc123" });
+      const r = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull/first run: pulled", r.pulled === true && r.reason === "first-run", JSON.stringify(r));
+      const s = await S.getSettings();
+      ok("checkAndPull/first run: stored the version", s.__profileVersion === "abc123", s.__profileVersion);
+      ok("checkAndPull/first run: stamped __lastPull", typeof s.__lastPull === "number" && s.__lastPull > 0);
+      ok("checkAndPull/first run: the mirror actually landed", (await S.getBio()).firstName === "Ada");
+    }
+
+    // Unchanged: the whole point — one cheap GET, no pull.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const s0 = await S.getSettings();
+      s0.__profileVersion = "abc123";
+      await S.saveSettings(s0);
+      const p = versionedProvider({ version: "abc123" });
+      const r = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull/unchanged: did NOT pull", r.pulled === false && r.reason === "unchanged", JSON.stringify(r));
+      ok("checkAndPull/unchanged: asked exactly once", p.rec.versionCalls === 1 && p.rec.pulls === 0);
+    }
+
+    // Changed: the server moved, so pull and record the new marker.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const s0 = await S.getSettings();
+      s0.__profileVersion = "old-version";
+      await S.saveSettings(s0);
+      const p = versionedProvider({ version: "new-version" });
+      const r = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull/changed: pulled", r.pulled === true && r.reason === "changed", JSON.stringify(r));
+      ok("checkAndPull/changed: stored the NEW version", (await S.getSettings()).__profileVersion === "new-version");
+    }
+
+    // Offline: no pull, and — the part that matters — the marker survives, so coming back
+    // online doesn't look like a first run and re-pull for nothing.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const s0 = await S.getSettings();
+      s0.__profileVersion = "kept";
+      await S.saveSettings(s0);
+      const p = versionedProvider({ throws: true });
+      const r = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull/offline: no pull", r.pulled === false && r.reason === "check-failed", JSON.stringify(r));
+      ok("checkAndPull/offline: kept the stored version", (await S.getSettings()).__profileVersion === "kept");
+      ok("checkAndPull/offline: never attempted a pull", p.rec.pulls === 0);
+    }
+
+    // A server that answers without a version, or a provider too old to have the method:
+    // treat it as unknown and pull, because having the data is the safe side.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const s0 = await S.getSettings();
+      s0.__profileVersion = "whatever";
+      await S.saveSettings(s0);
+      const p = versionedProvider({ version: null });
+      const r = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull/no version from server: pulls anyway", r.pulled === true && p.rec.pulls === 1, JSON.stringify(r));
+      ok("checkAndPull/no version: clears the stale marker", (await S.getSettings()).__profileVersion === null);
+
+      const w2 = freshStore();
+      const S2 = w2.JAF.storage, sync2 = w2.JAF.sync;
+      const r2 = await sync2.checkAndPull(fakeProvider({ bio: { firstName: "Grace" } }), S2, await S2.getSettings());
+      ok("checkAndPull/provider without profileVersion: pulls", r2.pulled === true && (await S2.getBio()).firstName === "Grace");
+    }
+
+    // settings is optional — read it from the store when the caller didn't pass one.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const s0 = await S.getSettings();
+      s0.__profileVersion = "same";
+      await S.saveSettings(s0);
+      const p = versionedProvider({ version: "same" });
+      const r = await sync.checkAndPull(p, S);
+      ok("checkAndPull: reads settings itself when not passed", r.pulled === false && r.reason === "unchanged", JSON.stringify(r));
+    }
+
+    // A failed pull must NOT stamp a version, or the next check would believe we're current.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const p = versionedProvider({ version: "v9" });
+      p.pullProfile = async () => { throw new Error("500"); };
+      let threw = false;
+      try { await sync.checkAndPull(p, S, await S.getSettings()); } catch (e) { threw = true; }
+      ok("checkAndPull: a failed pull propagates", threw);
+      ok("checkAndPull: a failed pull stamps no version", (await S.getSettings()).__profileVersion === undefined);
+    }
+  }
+
   console.log(`\n[sync] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[sync] All green.");

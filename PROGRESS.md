@@ -25,10 +25,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **Go-to-market build — next: 11.3 extension version checks (2026-09-21).** 11.1 + 11.2 are done
-> (ext v0.52.8): the web signals the extension on every change/sign-in/sign-out, the background pulls
-> the mirror itself, and `GET /api/profile/version` gives it a cheap fingerprint to compare. 11.3 and
-> 11.4 are specified to build depth in the Phase 11 list below. The plan to a sellable Pro tier is
+> ▶️ **Go-to-market build — next: 11.4 sync-model docs, then Phase 12 (2026-09-21).** 11.1–11.3 are
+> done (ext v0.52.9): the web signals the extension on every change/sign-in/sign-out, `GET
+> /api/profile/version` gives a cheap fingerprint, and the extension now checks it on a 15-minute
+> alarm, on window focus, and on drawer open — pulling only when it moved. **11.4 is docs only**
+> (`ARCHITECTURE.md` "Sync model" + one `HANDOFF.md` line), specified below. The plan to a sellable
+> Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
 > order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
@@ -848,7 +850,16 @@ focused Claude Code session.
   (base NotSupported; Kiwiply provider GETs it → string|null). Tests: `ProfileVersionResourceIT`
   (empty → 200/16 hex; stable; moves on PUT profile, resume create, archive toggle, delete; another
   user's change doesn't move mine) · `tracking.test.js` (path + mapping). Ext version bump.
-- [ ] **11.3 Extension version checks.** `JAF.sync.checkAndPull(provider, storage, settings)` —
+- [x] **11.3 Extension version checks.** ✅ DONE (ext **v0.52.9**) — built as specified below.
+  `checkAndPull` in `src/lib/sync.js`; alarm + `windows.onFocusChanged` + `runVersionCheck` in the
+  SW (both guarded, so the mock-`chrome` suites and any context without those APIs still load);
+  drawer `refreshMirror` now calls `checkAndPull`. `alarms` added to the manifest **and** to the
+  permission-justification tables in `PRIVACY.md` + `STORE-LISTING.md` (the listing requires a row
+  per shipped permission). 37 assertions in `sync.test.js`, 48 in `sync_signal.test.js`.
+  **Behaviour note:** removing the 90 s throttle also un-throttles `syncLearnedAnswers`, so the
+  field-cache push+merge now runs on every drawer open (user-initiated, best-effort) instead of at
+  most once per 90 s. Original spec below:
+  `JAF.sync.checkAndPull(provider, storage, settings)` —
   GET version, compare `settings.__profileVersion`, pull only on mismatch/first run, store version +
   `__lastPull`; provider error → no pull, keep old version. Callers: `chrome.alarms` `"kiwiply-sync"`
   / 15 min (created on `onInstalled` + `onStartup`; **add `"alarms"` permission** in `wxt.config.ts`) ·
@@ -1022,6 +1033,21 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **11.3 extension version checks — the 90 s throttle is gone** · Ext **v0.52.9**.
+  The drawer used to guess at staleness with a 90 s timer, which both skipped refreshes that were
+  needed and allowed ones that weren't. `JAF.sync.checkAndPull` now GETs the 11.2 fingerprint and
+  pulls only on a mismatch or first run; a failed check pulls nothing **and keeps the stored
+  marker**, so going offline neither thrashes the mirror nor makes the next check look like a
+  first run. Three callers: a `chrome.alarms` `kiwiply-sync` every 15 min (re-created on
+  `onInstalled` *and* `onStartup`, since alarms don't survive an update — new **`alarms`**
+  permission), `windows.onFocusChanged` guarded to one check per 60 s, and the drawer's
+  `refreshMirror`. Both SW listeners are feature-guarded, so contexts without `chrome.alarms` /
+  `chrome.windows` still load. The 11.1 `changed` signal keeps pulling unconditionally but now
+  records the version it pulled under, or the next alarm would re-fetch the same data. `alarms`
+  also added to the `PRIVACY.md` + `STORE-LISTING.md` justification tables. Side effect worth
+  knowing: `syncLearnedAnswers` sat behind the same throttle, so the field-cache push+merge now
+  runs on every drawer open. 37 assertions in `sync.test.js`, 48 in `sync_signal.test.js`; full
+  suite, typecheck and build green, and the built manifest carries the permission.
 - 2026-09-21 · **11.2 `GET /api/profile/version`** · Ext **v0.52.8**. The fingerprint the extension
   will poll (11.3) to re-pull only on change. It's a **hash of exactly what a pull returns**, not a
   counter: `Resume` has no `updatedAt` (only `createdAt`), so a counter would need a migration plus

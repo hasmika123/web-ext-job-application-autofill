@@ -63,6 +63,7 @@ To understand which features are used and where the experience breaks, the exten
 | `storage`, `unlimitedStorage` | Cache your profile/resumes locally for offline autofill. |
 | `scripting`, `activeTab` | Inject the field-matching/fill logic into the application tab you're on, on demand. |
 | `webNavigation` | Detect the application's success/confirmation page to mark a job as applied (no auto-submit). |
+| `alarms` | Check every 15 minutes whether your profile changed on kiwiply.com or another device, so the extension fills with current details. It asks for a short version marker first and only downloads your profile when that changed. Collects nothing new. |
 | Host access to ATS domains (Workday, Greenhouse, Lever, Ashby, Workable, iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite) | Run the autofill content script on those job-application sites. |
 | `api.anthropic.com` | **Optional** AI assistance for free-text answers — used **only if you supply your own API key**. No key, no calls. |
 | `www.google-analytics.com` | Send **anonymous** usage event counts (no personal data) so we can improve the extension. Opt out in Settings. |
