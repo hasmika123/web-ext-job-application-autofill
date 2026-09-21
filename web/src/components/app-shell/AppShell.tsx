@@ -80,9 +80,12 @@ function displayName(account?: AppAccount): string {
 
 export default function AppShell({
   account,
+  isPro = false,
   children,
 }: {
   account?: AppAccount | null;
+  /** Shows a Pro pill by the account chip. Display only — entitlement is enforced server-side. */
+  isPro?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -216,6 +219,16 @@ export default function AppShell({
           >
             {displayName(account ?? undefined)}
           </span>
+          {isPro && (
+            <span
+              className={cn(
+                "flex-none rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold text-accent-deep",
+                collapsed && "lg:hidden",
+              )}
+            >
+              PRO
+            </span>
+          )}
         </Link>
         <SignOutButton collapsed={collapsed} />
       </aside>

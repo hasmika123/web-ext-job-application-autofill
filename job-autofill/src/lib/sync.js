@@ -113,14 +113,23 @@
     if (!settings) settings = await storage.getSettings();
 
     let version = null;
+    let plan = null;
     try {
-      version = typeof provider.profileVersion === "function" ? await provider.profileVersion() : null;
+      const answer = typeof provider.profileVersion === "function" ? await provider.profileVersion() : null;
+      // Tolerates the pre-12.3 shape (a bare version string) as well as { version, plan }.
+      if (typeof answer === "string") version = answer;
+      else if (answer) { version = answer.version || null; plan = answer.plan || null; }
     } catch (e) {
-      return { pulled: false, version: null, reason: "check-failed" };
+      return { pulled: false, version: null, plan: null, reason: "check-failed" };
     }
 
     const known = settings.__profileVersion;
-    if (version && known && version === known) return { pulled: false, version, reason: "unchanged" };
+    if (version && known && version === known) {
+      // Unchanged profile, but the PLAN can still have moved (an upgrade changes no bio or
+      // resume), so it is recorded on every answered check rather than only alongside a pull.
+      await storePlan(storage, plan);
+      return { pulled: false, version, plan, reason: "unchanged" };
+    }
 
     // Throws on a failed pull, deliberately: the version is only stamped below, so a caller
     // that swallows the error still re-checks next time instead of believing it is current.
@@ -128,8 +137,20 @@
     const s = await storage.getSettings();
     s.__profileVersion = version || null;
     s.__lastPull = Date.now();
+    if (plan) s.plan = plan;
     await storage.saveSettings(s);
-    return { pulled: true, version, reason: known ? "changed" : "first-run" };
+    return { pulled: true, version, plan, reason: known ? "changed" : "first-run" };
+  }
+
+  // Record the plan (12.3) without disturbing anything else. Display only — every gated call is
+  // still refused server-side, so a stale value here costs a wrong badge, never wrong access.
+  // A null plan (older server, or a field the response omitted) leaves the last known one alone.
+  async function storePlan(storage, plan) {
+    if (!plan) return;
+    const s = await storage.getSettings();
+    if (s.plan === plan) return;
+    s.plan = plan;
+    await storage.saveSettings(s);
   }
 
   // Convenience for "Sync now": push local changes up, then pull authoritative

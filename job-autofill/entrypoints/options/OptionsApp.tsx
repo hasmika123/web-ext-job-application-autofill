@@ -45,7 +45,7 @@ const hint = "text-[12.5px] leading-relaxed text-muted";
 export function OptionsApp() {
   const [form, setForm] = useState<Settings | null>(null);
   const [saved, setSaved] = useState(false);
-  const [account, setAccount] = useState<Account>({ connected: false, who: "" });
+  const [account, setAccount] = useState<Account>({ connected: false, who: "", pro: false });
   const [bug, setBug] = useState({ category: "BUG", message: "", consent: true });
   const [bugStatus, setBugStatus] = useState<{ msg: string; kind: "ok" | "err" | "neutral" }>({ msg: "", kind: "neutral" });
   const [bugSending, setBugSending] = useState(false);
@@ -165,6 +165,7 @@ export function OptionsApp() {
                   <Badge variant={account.connected ? "ready" : "review"}>
                     {account.connected ? "Connected" : "Not connected"}
                   </Badge>
+                  {account.connected && account.pro && <Badge variant="ready">Pro</Badge>}
                 </div>
               </CardHeader>
               {account.connected ? (
@@ -180,6 +181,14 @@ export function OptionsApp() {
                       Sign out
                     </Button>
                   </div>
+                  {!account.pro && (
+                    <p className="mt-3 text-[12.5px] text-muted">
+                      On the free plan.{" "}
+                      <a href={WEB + "/pricing"} target="_blank" rel="noopener" className="font-medium text-accent-deep hover:underline">
+                        See what Pro adds →
+                      </a>
+                    </p>
+                  )}
                 </>
               ) : (
                 <>

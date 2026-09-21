@@ -231,6 +231,41 @@ function fakeProvider(cfg) {
       ok("checkAndPull/provider without profileVersion: pulls", r2.pulled === true && (await S2.getBio()).firstName === "Grace");
     }
 
+    // 12.3: the plan is recorded on EVERY answered check, including an unchanged one — an
+    // upgrade changes no bio and no resume, so it would otherwise never be noticed.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const s0 = await S.getSettings();
+      s0.__profileVersion = "same";
+      await S.saveSettings(s0);
+      const p = versionedProvider({ version: "same" });
+      p.profileVersion = async () => ({ version: "same", plan: "PRO" });
+      const r = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull/unchanged: still records the plan", r.pulled === false && (await S.getSettings()).plan === "PRO", JSON.stringify(r));
+
+      // A server that sends no plan must not wipe the one we know.
+      p.profileVersion = async () => ({ version: "same", plan: null });
+      await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull: a missing plan leaves the last known one alone", (await S.getSettings()).plan === "PRO");
+
+      // And a pull records it too.
+      p.profileVersion = async () => ({ version: "moved", plan: "FREE" });
+      const r2 = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull/changed: pulled and recorded the new plan", r2.pulled === true && (await S.getSettings()).plan === "FREE");
+    }
+
+    // The pre-12.3 shape (a bare version string) still works — an older server must not break
+    // the extension's sync loop.
+    {
+      const w = freshStore();
+      const S = w.JAF.storage, sync = w.JAF.sync;
+      const p = versionedProvider({ version: "legacy" });
+      p.profileVersion = async () => "legacy-string";
+      const r = await sync.checkAndPull(p, S, await S.getSettings());
+      ok("checkAndPull: tolerates a bare version string", r.pulled === true && (await S.getSettings()).__profileVersion === "legacy-string");
+    }
+
     // settings is optional — read it from the store when the caller didn't pass one.
     {
       const w = freshStore();

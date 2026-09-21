@@ -1,6 +1,14 @@
 package com.dossier.api.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -9,12 +17,18 @@ import com.dossier.api.domain.Subscription;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.service.billing.StripeGateway;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @AutoConfigureMockMvc
 @WithMockUser(username = "user")
+@TestPropertySource(
+    properties = { "dossier.stripe.price-monthly=price_test_monthly", "dossier.stripe.price3mo=price_test_3mo" }
+)
 class BillingResourceIT {
 
     @Autowired
@@ -38,6 +55,23 @@ class BillingResourceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    /**
+     * Stubbed rather than real: these tests are about OUR decisions — already-Pro, no customer,
+     * billing off, customer reuse — not about Stripe's API. A stub also means the suite needs no
+     * key and no network, which is how CI runs.
+     */
+    @MockitoBean
+    private StripeGateway stripeGateway;
+
+    @BeforeEach
+    void stubStripe() {
+        subscriptionRepository.deleteAll();
+        when(stripeGateway.isEnabled()).thenReturn(true);
+        when(stripeGateway.createCustomer(any(), any(), anyLong())).thenReturn("cus_stub_1");
+        when(stripeGateway.createCheckoutSession(any(), any(), anyLong(), any(), any())).thenReturn("https://checkout.stripe.test/session");
+        when(stripeGateway.createPortalSession(any(), any())).thenReturn("https://portal.stripe.test/session");
+    }
 
     private Subscription rowFor(String login) {
         User user = userRepository.findOneByLogin(login).orElseThrow();
@@ -56,8 +90,9 @@ class BillingResourceIT {
             .andExpect(jsonPath("$.status").value("none"))
             .andExpect(jsonPath("$.cancelAtPeriodEnd").value(false))
             .andExpect(jsonPath("$.hasCustomer").value(false))
-            // No STRIPE_SECRET_KEY in the test config — clients render "coming soon", not an error.
-            .andExpect(jsonPath("$.billingEnabled").value(false));
+            // Billing is configured here (the gateway stub says so); the keyless case has its
+            // own test below, which is also what CI and a fresh clone actually run.
+            .andExpect(jsonPath("$.billingEnabled").value(true));
     }
 
     @Test
@@ -124,6 +159,96 @@ class BillingResourceIT {
         sub.setCurrentPeriodEnd(Instant.now().minus(1, ChronoUnit.DAYS));
         subscriptionRepository.saveAndFlush(sub);
 
+        mockMvc.perform(get("/api/billing/me")).andExpect(status().isOk()).andExpect(jsonPath("$.plan").value("FREE"));
+    }
+
+    // ---- checkout + portal (12.3) ----------------------------------------------------------
+
+    private String checkout(String plan) throws Exception {
+        return mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"" + plan + "\"}"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("Checkout creates the Stripe customer once and reuses it forever after")
+    void checkoutCreatesCustomerOnceThenReusesIt() throws Exception {
+        mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"monthly\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.url").value("https://checkout.stripe.test/session"));
+
+        // The customer id is persisted, so their invoices and payment history stay on one customer.
+        assertThat(subscriptionRepository.findOneByUserLogin("user").orElseThrow().getStripeCustomerId()).isEqualTo("cus_stub_1");
+        // Crucially, checkout did NOT make them Pro — only the webhook can do that.
+        assertThat(subscriptionRepository.findOneByUserLogin("user").orElseThrow().getPlan()).isEqualTo(Subscription.PLAN_FREE);
+
+        checkout("3mo");
+        verify(stripeGateway, times(1)).createCustomer(any(), any(), anyLong());
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("An unknown plan is refused rather than guessed at")
+    void unknownPlanIsRejected() throws Exception {
+        mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"lifetime\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("UNKNOWN_PRICE"));
+        verify(stripeGateway, never()).createCheckoutSession(any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("An existing subscriber is sent to the portal, not charged a second time")
+    void alreadyProCannotCheckOutAgain() throws Exception {
+        Subscription sub = rowFor("user");
+        sub.setStatus("active");
+        sub.setStripeCustomerId("cus_existing_1");
+        sub.setCurrentPeriodEnd(Instant.now().plus(20, ChronoUnit.DAYS));
+        subscriptionRepository.saveAndFlush(sub);
+
+        mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"monthly\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ALREADY_SUBSCRIBED"));
+        verify(stripeGateway, never()).createCheckoutSession(any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("The portal opens for a customer, and 404s for someone who never checked out")
+    void portalRequiresACustomer() throws Exception {
+        mockMvc.perform(post("/api/billing/portal")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NO_CUSTOMER"));
+
+        Subscription sub = rowFor("user");
+        sub.setStripeCustomerId("cus_portal_1");
+        subscriptionRepository.saveAndFlush(sub);
+
+        mockMvc
+            .perform(post("/api/billing/portal"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.url").value("https://portal.stripe.test/session"));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("With no Stripe key, billing says so instead of failing — develop and CI run this way")
+    void billingDisabledIsAServiceUnavailableNotACrash() throws Exception {
+        when(stripeGateway.isEnabled()).thenReturn(false);
+
+        mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"monthly\"}"))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("BILLING_DISABLED"));
+        mockMvc
+            .perform(post("/api/billing/portal"))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("BILLING_DISABLED"));
+        // ...and /me still answers, so the UI can render "coming soon" rather than an error.
         mockMvc.perform(get("/api/billing/me")).andExpect(status().isOk()).andExpect(jsonPath("$.plan").value("FREE"));
     }
 }

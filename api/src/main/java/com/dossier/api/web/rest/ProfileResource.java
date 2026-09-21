@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
+import com.dossier.api.service.EntitlementService;
 import com.dossier.api.service.ProfileService;
 import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.ResumeDTO;
@@ -32,9 +33,11 @@ public class ProfileResource {
     private static final Logger LOG = LoggerFactory.getLogger(ProfileResource.class);
 
     private final ProfileService profileService;
+    private final EntitlementService entitlementService;
 
-    public ProfileResource(ProfileService profileService) {
+    public ProfileResource(ProfileService profileService, EntitlementService entitlementService) {
         this.profileService = profileService;
+        this.entitlementService = entitlementService;
     }
 
     /** {@code GET /api/profile} : the current user's bio, or 404 if none yet. */
@@ -52,6 +55,9 @@ public class ProfileResource {
      * The extension polls this — on an alarm, on window focus, on drawer open — and re-pulls its
      * mirror only when the value differs from the one it last pulled under. Deliberately never 404:
      * a user with no profile yet gets a stable "empty" version, so there is always something to compare.
+     *
+     * <p>Also carries the current {@code plan} (12.3), so the extension learns about an upgrade or
+     * a lapse inside a check it already makes, rather than needing its own poll.
      */
     @Operation(
         summary = "Get my profile version",
@@ -60,7 +66,7 @@ public class ProfileResource {
     @GetMapping("/version")
     public ResponseEntity<ProfileVersionVM> getProfileVersion() {
         LOG.debug("REST request to get the current user's profile version");
-        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion()));
+        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan()));
     }
 
     /** {@code PUT /api/profile} : create or overwrite the current user's bio. */

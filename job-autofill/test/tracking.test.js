@@ -181,14 +181,30 @@ function mockFetch(handler) {
   ok("syncFieldCache maps merged DTOs back to local (epoch ms)", mergedFC.length === 1 && mergedFC[0].hitCount === 7 && typeof mergedFC[0].updatedAt === "number");
 
   /* ---- profileVersion (Phase 11.2) — GET /api/profile/version → string | null ---- */
-  const fetchVer = mockFetch(() => ({ status: 200, json: { version: "9f2c4a1b7e3d0c55" } }));
+  const fetchVer = mockFetch(() => ({ status: 200, json: { version: "9f2c4a1b7e3d0c55", plan: "PRO" } }));
   const pVer = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchVer, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const ver = await pVer.profileVersion();
   ok("profileVersion GETs /api/profile/version", fetchVer.calls[0].method === "GET" && fetchVer.calls[0].path === "/api/profile/version");
-  ok("profileVersion returns the server's string", ver === "9f2c4a1b7e3d0c55");
+  ok("profileVersion returns the server's version", ver.version === "9f2c4a1b7e3d0c55");
+  ok("profileVersion carries the plan (12.3 — no extra round-trip for an upgrade)", ver.plan === "PRO");
   const fetchNoVer = mockFetch(() => ({ status: 200, json: {} }));
   const pNoVer = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchNoVer, tokenStore: T.memoryTokenStore({ access: "A" }) });
-  ok("profileVersion is null when the server sends none (caller pulls to be safe)", (await pNoVer.profileVersion()) === null);
+  const noVer = await pNoVer.profileVersion();
+  ok("profileVersion: null version when the server sends none (caller pulls to be safe)", noVer.version === null);
+  ok("profileVersion: null plan leaves the last known plan alone", noVer.plan === null);
+
+  /* ---- 402 surfacing (Phase 12.3) — clients branch on `code`, never the message ---- */
+  const fetch402 = mockFetch(() => ({ status: 402, json: { status: 402, code: "PRO_REQUIRED", detail: "This feature is part of Kiwiply Pro" } }));
+  const p402 = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetch402, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let err402 = null;
+  try { await p402.profileVersion(); } catch (e) { err402 = e; }
+  ok("402 raises an ApiError carrying the status", err402 && err402.status === 402, String(err402));
+  ok("402 lifts `code` out of the ProblemDetail", err402 && err402.code === "PRO_REQUIRED", err402 && err402.code);
+  const fetchPlain = mockFetch(() => ({ status: 500, json: { detail: "boom" } }));
+  const pPlain = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchPlain, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errPlain = null;
+  try { await pPlain.profileVersion(); } catch (e) { errPlain = e; }
+  ok("an error without a code leaves .code null rather than undefined", errPlain && errPlain.code === null);
   let verThrew = false; try { await base.profileVersion(); } catch (e) { verThrew = e.name === "NotSupportedError"; }
   ok("base TrackingProvider.profileVersion throws NotSupported", verThrew);
 

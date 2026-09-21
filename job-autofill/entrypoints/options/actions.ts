@@ -47,12 +47,25 @@ export async function saveSettings(v: Settings): Promise<void> {
   await JAF().storage.saveSettings(s);
 }
 
-export type Account = { connected: boolean; who: string };
+export type Account = { connected: boolean; who: string; pro: boolean };
 
-/** Read the session token directly (not the cached store) so the connect handoff reflects live. */
+/**
+ * Read the session token directly (not the cached store) so the connect handoff reflects live.
+ *
+ * `pro` is whatever the sync loop last recorded from `GET /api/profile/version` (12.3) — a badge,
+ * nothing more. Every Pro-only call is still refused by the server, so a stale value here shows
+ * the wrong pill for a few minutes at worst; it can never grant access.
+ */
 export async function readAccount(): Promise<Account> {
   const tok: any = await new Promise((res) => chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})));
-  return { connected: !!(tok && tok.access), who: tok.username || "your account" };
+  let pro = false;
+  try {
+    const s = await JAF().storage.getSettings();
+    pro = s.plan === "PRO";
+  } catch {
+    /* settings unreadable → show Free, the safe default */
+  }
+  return { connected: !!(tok && tok.access), who: tok.username || "your account", pro };
 }
 
 export async function signOut(): Promise<void> {

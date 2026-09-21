@@ -37,6 +37,24 @@ public class StripeProperties {
     /** Where the Billing Portal returns when the user is done. */
     private String portalReturnUrl = "https://kiwiply.com/settings#billing";
 
+    /**
+     * Stripe Managed Payments — Stripe becomes merchant of record and owns global sales tax/VAT,
+     * fraud and disputes, for an extra 3.5% per transaction (user decision 2026-09-21).
+     *
+     * <p>A flag, not a constant, for two reasons: it isn't available in every sandbox, and the
+     * economics change with volume — at scale the 3.5% may stop being worth it, and turning it
+     * off must not require a code change. Off by default so a misconfigured server fails toward
+     * the plain Stripe flow rather than toward a tax arrangement nobody chose.
+     */
+    private boolean managedPayments = false;
+
+    /**
+     * Stripe Tax on checkout. Redundant while {@link #managedPayments} is on (Stripe is then
+     * liable for tax), and it errors outright if Stripe Tax isn't configured on the account —
+     * which is exactly why it is a flag and defaults off.
+     */
+    private boolean automaticTax = false;
+
     /** True only when a secret key is configured. The single gate every billing path checks. */
     public boolean isEnabled() {
         return secretKey != null && !secretKey.isBlank();
@@ -96,5 +114,21 @@ public class StripeProperties {
 
     public void setPortalReturnUrl(String portalReturnUrl) {
         this.portalReturnUrl = portalReturnUrl;
+    }
+
+    public boolean isManagedPayments() {
+        return managedPayments;
+    }
+
+    public void setManagedPayments(boolean managedPayments) {
+        this.managedPayments = managedPayments;
+    }
+
+    public boolean isAutomaticTax() {
+        return automaticTax;
+    }
+
+    public void setAutomaticTax(boolean automaticTax) {
+        this.automaticTax = automaticTax;
     }
 }

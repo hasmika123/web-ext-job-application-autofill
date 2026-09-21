@@ -116,6 +116,25 @@ jhipster:
 # ===================================================================
 
 dossier:
+  # Billing (Phase 12). Blank secret key = billing disabled, which is the normal local state:
+  # the API starts, /api/billing/me reports FREE + billingEnabled:false, and checkout/portal
+  # return 503 BILLING_DISABLED. To work on billing locally, export these from your Stripe
+  # SANDBOX (keys stay in your shell/password manager, never in this file):
+  #   export STRIPE_SECRET_KEY=sk_test_...        STRIPE_PRICE_MONTHLY=price_...
+  #   export STRIPE_PRICE_3MO=price_...           STRIPE_WEBHOOK_SECRET=whsec_...  (from `stripe listen`)
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    price-monthly: ${STRIPE_PRICE_MONTHLY:}
+    price3mo: ${STRIPE_PRICE_3MO:}
+    # Local checkout returns to the dev web app, not production.
+    success-url: ${STRIPE_SUCCESS_URL:http://localhost:3000/billing/success?session_id={CHECKOUT_SESSION_ID}}
+    cancel-url: ${STRIPE_CANCEL_URL:http://localhost:3000/pricing}
+    portal-return-url: ${STRIPE_PORTAL_RETURN_URL:http://localhost:3000/settings#billing}
+    # Merchant of record. Off locally: sandboxes don't always support it, and the plain flow
+    # is what we want to exercise while building.
+    managed-payments: ${STRIPE_MANAGED_PAYMENTS:false}
+    automatic-tax: ${STRIPE_AUTOMATIC_TAX:false}
   # Local dev points at MinIO (docker compose -f src/main/docker/minio.yml up -d).
   storage:
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
