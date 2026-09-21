@@ -25,12 +25,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **Go-to-market build — next: 11.4 sync-model docs, then Phase 12 (2026-09-21).** 11.1–11.3 are
-> done (ext v0.52.9): the web signals the extension on every change/sign-in/sign-out, `GET
-> /api/profile/version` gives a cheap fingerprint, and the extension now checks it on a 15-minute
-> alarm, on window focus, and on drawer open — pulling only when it moved. **11.4 is docs only**
-> (`ARCHITECTURE.md` "Sync model" + one `HANDOFF.md` line), specified below. The plan to a sellable
-> Pro tier is
+> ▶️ **Go-to-market build — next: Phase 12, Stripe billing (2026-09-21).** **Phase 11 is COMPLETE**
+> (ext v0.52.9): the web signals the extension on every change/sign-in/sign-out, `GET
+> /api/profile/version` gives a cheap fingerprint, the extension checks it on a 15-minute alarm, on
+> window focus and on drawer open — pulling only when it moved — and `ARCHITECTURE.md` → **Sync
+> model** documents the whole shape. Phase 12 builds the entitlement gate **before** the features it
+> gates, so nothing ships ungated; it is specified below but has NOT had a Fable planning pass yet —
+> worth one before building, as Phase 11 got. The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
 > order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
@@ -868,7 +869,11 @@ focused Claude Code session.
   changed the mirror broadcast `KIWIPLY_MIRROR_UPDATED`. 11.1 `changed` keeps pulling unconditionally
   but then fetches + stores the version. Tests: `sync.test.js` (first run / hit / miss / error) ·
   SW test for alarm registration + `onAlarm` · `tracking.test.js`. Ext version bump.
-- [ ] **11.4 Docs.** `ARCHITECTURE.md` "Sync model" section (signal → version → alarm; revoke path:
+- [x] **11.4 Docs.** ✅ DONE — `ARCHITECTURE.md` gained a **Sync model (Phase 11)** section (the three
+  mechanisms, the offline rule, the revoke backstop, the no-WebSockets reason) and two stale lines were
+  corrected: the `background.ts` entry no longer duplicates 11.1 and the mirror note no longer says
+  "the popup pulls … (throttled)" — there is no popup and no throttle. `HANDOFF.md` points at it.
+  Original spec: `ARCHITECTURE.md` "Sync model" section (signal → version → alarm; revoke path:
   1.11 rotation kills a stale token at its next refresh, `signedOut` clears at once; no WebSockets —
   MV3 SW idles out after 30 s). `HANDOFF.md` one line. Docs-only commit.
 
@@ -1033,6 +1038,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **11.4 sync-model docs — Phase 11 complete** · Docs only, no version bump.
+  `ARCHITECTURE.md` gained a **Sync model (Phase 11)** section: the three refresh mechanisms
+  (instant web signal → version check → what triggers a check), the offline rule that a failed
+  check keeps the stored marker, the revoke backstop (1.11 rotation kills a stale token at its
+  next use if the `signedOut` signal never arrives), and why there are no WebSockets — MV3 tears
+  the worker down after ~30 s idle, so a persistent connection would reconnect constantly and
+  still miss events while dead. Two stale lines fixed while in there: the `background.ts` entry
+  duplicated the 11.1 detail and now points at the new section, and the read-only-mirror note
+  still said "the popup pulls `JAF.sync.pullAll` on open (throttled)" — there has been no popup
+  since W4 and no throttle since 11.3. `HANDOFF.md` points at the section.
 - 2026-09-21 · **11.3 extension version checks — the 90 s throttle is gone** · Ext **v0.52.9**.
   The drawer used to guess at staleness with a 90 s timer, which both skipped refreshes that were
   needed and allowed ones that weren't. `JAF.sync.checkAndPull` now GETs the 11.2 fingerprint and
