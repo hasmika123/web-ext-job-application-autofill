@@ -110,6 +110,50 @@ const itemOf = (field, label, value) => ({ field, label: label || field, value, 
   ok("import: stored under the importing profile", (await impZoe.get(itemOf("country", "Country"))) === "Mexico");
   ok("import: ignores malformed entries", (await imp.importEntries([{ value: "x" }, null, { fieldKey: "f" }])) === 0);
 
+  /* ---- chrome.storage backend: one store shared by every context ---- */
+  // A content script's IndexedDB is the PAGE's; chrome.storage is the extension's.
+  // These two instances stand in for "the filler on greenhouse.io" and "the drawer".
+  const area = w.chrome.storage.local;
+  const onPage = FC.create({ store: FC.chromeStore(area), profileId: "ada", host: "boards.greenhouse.io" });
+  const inDrawer = FC.create({ store: FC.chromeStore(area), profileId: "ada", host: "boards.greenhouse.io" });
+  await onPage.remember(itemOf("country", "Country"), "United States");
+  ok("chromeStore: the drawer reads what the content script wrote",
+    (await inDrawer.get(itemOf("country", "Country"))) === "United States");
+  ok("chromeStore: exportAll sees it too", (await inDrawer.exportAll()).some((e) => e.value === "United States"));
+  ok("chromeStore: persists under one key", !!(await new Promise((r) => area.get("fieldCache", (o) => r(o.fieldCache)))));
+
+  // Concurrent writes compose instead of clobbering (whole-map read-modify-write).
+  const racy = FC.create({ store: FC.chromeStore(area), profileId: "race", host: "h" });
+  await Promise.all([
+    racy.remember(itemOf("a", "A"), "1"),
+    racy.remember(itemOf("b", "B"), "2"),
+    racy.remember(itemOf("c", "C"), "3"),
+  ]);
+  ok("chromeStore: concurrent puts don't clobber each other", (await racy.exportAll()).length === 3);
+
+  // A profile the shared store has never seen stays a clean miss.
+  const other = FC.create({ store: FC.chromeStore(area), profileId: "zoe", host: "boards.greenhouse.io" });
+  ok("chromeStore: still namespaced per profile", (await other.get(itemOf("country", "Country"))) === null);
+
+  /* ---- one-time drain of the legacy per-origin IndexedDB ---- */
+  const legacyBack = new w.Map();
+  const legacy = FC.memoryStore(legacyBack);
+  const old = FC.create({ store: legacy, profileId: "ada", host: "jobs.lever.co" });
+  await old.remember(itemOf("phone", "Phone"), "555-0100");
+  const targetBack = new w.Map();
+  const target = FC.memoryStore(targetBack);
+  ok("migrate: drains legacy rows into the shared store", (await FC.migrateLegacy(target, legacy)) === 1);
+  const drained = FC.create({ store: target, profileId: "ada", host: "jobs.lever.co" });
+  ok("migrate: the drained answer is readable", (await drained.get(itemOf("phone", "Phone"))) === "555-0100");
+  ok("migrate: second run is a no-op (flag lives in the legacy store)", (await FC.migrateLegacy(target, legacy)) === 0);
+  // A newer answer already in the shared store (learned on another host) outranks the old row.
+  const legacy2 = FC.memoryStore(new w.Map());
+  const old2 = FC.create({ store: legacy2, profileId: "ada", host: "jobs.lever.co" });
+  await old2.remember(itemOf("phone", "Phone"), "555-STALE");
+  (await old2.exportAll())[0].updatedAt = 1; // pretend it was learned long ago
+  await FC.migrateLegacy(target, legacy2);
+  ok("migrate: does not regress a newer shared answer", (await drained.get(itemOf("phone", "Phone"))) === "555-0100");
+
   console.log(`\n[field_cache] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[field_cache] All green.");

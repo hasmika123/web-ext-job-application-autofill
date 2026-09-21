@@ -2,9 +2,16 @@
  *
  * When the user corrects a filled value or picks a custom-dropdown option, we
  * persist `{ profileId, fieldKey, contextHash, value }` and prefer that value on
- * the next fill. Fully local (IndexedDB), no network, no auto-submit. The row
- * shape mirrors the future server `field_cache` table so Phase 4 can sync it
- * without a migration. Attaches to window.JAF.fieldCache.
+ * the next fill. Local-first, no auto-submit. The row shape mirrors the server
+ * `field_cache` table so the sync in lib/sync.js needs no migration. Attaches to
+ * window.JAF.fieldCache.
+ *
+ * Storage lives in `chrome.storage.local` under one key, NOT in IndexedDB: a
+ * content script's IndexedDB belongs to the PAGE's origin, so answers learned on
+ * greenhouse.io were invisible both to every other ATS host and to the drawer
+ * (an extension-origin iframe) that has to push them to the server. The
+ * chrome.storage area is one store shared by every extension context. Entries
+ * written by the old per-origin IndexedDB are drained into it once per origin.
  *
  *   store key = `${profileId}::${fieldKey}::${contextHash}`
  *   entry     = { profileId, fieldKey, contextHash, value, hitCount, updatedAt }
@@ -122,11 +129,82 @@
     };
   }
 
+  // The real backend: ONE `chrome.storage.local` key holding a { storeKey: entry }
+  // map, shared by every extension context (the content script on any ATS host,
+  // the drawer iframe, the service worker). Entries are tiny and number in the
+  // hundreds, so a whole-map read-modify-write is cheap; writes are serialized
+  // through `chain` because two fills committing at once would otherwise
+  // read-then-clobber each other.
+  const CHROME_KEY = "fieldCache";
+  function chromeStore(area) {
+    const A = area || chrome.storage.local;
+    let chain = Promise.resolve();
+    const readAll = () =>
+      new Promise((resolve) => {
+        try {
+          A.get(CHROME_KEY, (o) => resolve((o && o[CHROME_KEY]) || {}));
+        } catch (e) { resolve({}); }
+      });
+    const writeAll = (map) =>
+      new Promise((resolve) => {
+        const patch = {};
+        patch[CHROME_KEY] = map;
+        try { A.set(patch, () => resolve()); } catch (e) { resolve(); }
+      });
+    // Queue a read-modify-write so concurrent puts compose instead of racing.
+    const mutate = (fn) => {
+      chain = chain.then(async () => {
+        const map = await readAll();
+        const next = fn(map);
+        if (next !== false) await writeAll(map);
+      }).catch(() => {});
+      return chain;
+    };
+    return {
+      get: (k) => readAll().then((m) => m[k] || null).catch(() => null),
+      put: (k, v) => mutate((m) => { m[k] = v; }),
+      all: () => readAll().then((m) => Object.keys(m).map((k) => m[k])).catch(() => []),
+      _readAll: readAll,
+    };
+  }
+
+  function hasChromeStorage() {
+    try {
+      return typeof chrome !== "undefined" && !!(chrome.storage && chrome.storage.local);
+    } catch (e) { return false; }
+  }
+
   function defaultStore() {
+    if (hasChromeStorage()) return chromeStore();
     try {
       if (typeof indexedDB !== "undefined" && indexedDB) return idbStore();
     } catch (e) {}
     return memoryStore();
+  }
+
+  // One-time drain of the pre-chrome.storage IndexedDB rows. The flag lives in the
+  // LEGACY store, not in chrome.storage: the old DB is per-origin, so each ATS host
+  // still holding rows has to drain its own exactly once. Best-effort and silent —
+  // a failure just means those answers get re-learned.
+  const DRAINED_KEY = "__drained";
+  async function migrateLegacy(target, legacy) {
+    try {
+      if (!target || !legacy) return 0;
+      if (await legacy.get(DRAINED_KEY)) return 0;
+      const rows = (await legacy.all()) || [];
+      let n = 0;
+      for (const e of rows) {
+        if (!e || !e.fieldKey || !e.contextHash || e.value == null || e.value === "") continue;
+        const k = storeKey(e.profileId || "default", e.fieldKey, e.contextHash);
+        const prev = await target.get(k);
+        // The shared store already holds this answer from another host; keep the newer.
+        if (prev && (Number(prev.updatedAt) || 0) >= (Number(e.updatedAt) || 0)) continue;
+        await target.put(k, e);
+        n++;
+      }
+      await legacy.put(DRAINED_KEY, { drained: true, at: Date.now() });
+      return n;
+    } catch (e) { return 0; }
   }
 
   // ---- the cache instance ------------------------------------------------
@@ -255,5 +333,14 @@
   api.fieldKeyFor = fieldKeyFor;
   api.committedValueOf = committedValueOf;
   api.memoryStore = memoryStore;
+  api.chromeStore = chromeStore;
+  api.migrateLegacy = migrateLegacy;
   JAF.fieldCache = api;
+
+  // Fire-and-forget: pull this origin's old IndexedDB answers into the shared store.
+  if (hasChromeStorage()) {
+    try {
+      if (typeof indexedDB !== "undefined" && indexedDB) migrateLegacy(api._store, idbStore());
+    } catch (e) {}
+  }
 })();
