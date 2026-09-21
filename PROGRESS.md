@@ -30,11 +30,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > /api/profile/version` gives a cheap fingerprint, the extension checks it on a 15-minute alarm, on
 > window focus and on drawer open — pulling only when it moved — and `ARCHITECTURE.md` → **Sync
 > model** documents the whole shape. **Phase 12 is planned to build depth** (ROADMAP Phase 12: locked
-> decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests). **12.1 is
-> DONE** — schema, `EntitlementService`, the Stripe gateway seam and `GET /api/billing/me`, all
-> running keyless (blank `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`), so **12.2 (the webhook) can
-> be built before you finish 12.0**. Nothing in 13–16 ships before 12.3's `requirePro()` exists to
-> gate it. The plan to a sellable Pro tier is
+> decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests). **12.1 + 12.2
+> are DONE** — schema, `EntitlementService`, the Stripe gateway seam, `GET /api/billing/me`, and
+> the webhook that is the only writer of subscription state. All of it runs keyless (blank
+> `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`), so the backend is complete and tested before the
+> Stripe account exists. **Next: 12.3** (checkout + portal + `/pricing` + Settings › Billing +
+> the extension plan badge) — that one needs **12.0** done first, since it calls Stripe for real.
+> Nothing in 13–16 ships before 12.4's gates. The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
 > order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
@@ -913,7 +915,19 @@ focused Claude Code session.
   `StripeGatewayImpl` (only importer of `com.stripe.*`); `StripeProperties` with **billing disabled when
   the key is blank** (`/me` says so, checkout/portal → 503 `BILLING_DISABLED`); `GET /api/billing/me` →
   `PlanDTO`. Tests: `EntitlementServiceTest` status × period matrix · `BillingResourceIT` `/me`.
-- [ ] **12.2 Webhook — the only writer.** `POST /api/billing/webhook` permitAll, raw `String` body,
+- [x] **12.2 Webhook — the only writer.** ✅ DONE — built as specified, with three deviations worth
+  knowing. (1) `StripeEvent` implements `Persistable<String>`: without it Spring Data treats an
+  assigned String id as "existing", turns `save()` into a merge, and a **replay would silently
+  update its own row instead of colliding** — the PK-as-idempotency-key claim was decorative until
+  this. (2) Transactions are driven by explicit `TransactionTemplate`s, not `@Transactional`: the
+  three steps are self-invoked from `handle()`, where Spring's proxy skips the annotation entirely.
+  (3) `checkout.session.completed` is **exempt from the ordering drop** — it writes identity
+  (customer↔user), not mutable state, so applying it late is harmless while skipping it would
+  orphan the subscription from its account. Also hardened `dataObject()` against Stripe
+  API-version drift (`getObject()` returns empty — or NPEs on an event with no `api_version` —
+  whenever the dashboard's version differs from the SDK's, which would silently strip state from
+  every webhook). `StripeGatewaySignatureTest` 4/4 + `BillingWebhookIT` 9/9; full API suites green.
+  Original spec: `POST /api/billing/webhook` permitAll, raw `String` body,
   signature verified (bad → 400, nothing recorded). One transaction: insert `stripe_event` (duplicate →
   200 `duplicate`, stop) · drop events older than `last_event_at` · apply by type (bind customer↔user on
   `checkout.session.completed` via `client_reference_id`; upsert from the `subscription` object on
@@ -1094,6 +1108,29 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.2 the Stripe webhook — the only writer of subscription state** · API only.
+  `POST /api/billing/webhook`, unauthenticated by necessity (Stripe has no session with us) but
+  **not unprotected**: the raw body is verified against the webhook secret before anything is
+  read, and the body is taken as a `String` because the signature covers the exact bytes sent.
+  Status codes are chosen for Stripe's retry logic, not a browser — 400 unverified (nothing
+  recorded), 200 applied-or-duplicate, **500 to ask for a retry**, with the event marked `failed`.
+  Three things the plan didn't foresee: **`StripeEvent` had to implement `Persistable`** or Spring
+  Data would treat the assigned id as "existing", make `save()` a merge, and let a replay quietly
+  *update* its own row — the PK-as-idempotency-key claim was decorative until this; **transactions
+  are explicit `TransactionTemplate`s**, because the three steps are self-invoked from `handle()`
+  where `@Transactional` is silently skipped by the proxy; and **`checkout.session.completed` is
+  exempt from the out-of-order drop**, since it writes identity (customer↔user) rather than
+  mutable state — applying it late is harmless, skipping it would orphan the subscription from its
+  account. Separately hardened `dataObject()` against Stripe API-version drift: `getObject()`
+  returns empty (or NPEs, for an event with no `api_version`) whenever the dashboard's version
+  differs from the SDK's, which would have silently stripped the state out of every webhook after
+  a routine upgrade on either side. Tests: `StripeGatewaySignatureTest` 4/4 — valid, wrong secret,
+  tampered-after-signing, no secret configured — and `BillingWebhookIT` 9/9, which signs its
+  fixtures exactly as Stripe does (HMAC-SHA256 over `t.payload`) so the real verification runs:
+  forged delivery leaves no trace, binding, state mirroring, replay changes nothing, a stale event
+  can't resurrect a cancelled subscription, cancellation stays Pro until the period ends, a failed
+  charge emails and keeps Pro, `invoice.paid` restores active silently, and an event for an unknown
+  customer is a quiet 200. Full API unit + integration suites green.
 - 2026-09-21 · **12.1 billing schema, entitlement service and the Stripe seam** · API only, no UI,
   no extension change. `subscription` (one row per user, Stripe's `status` stored verbatim) +
   `stripe_event` (**the `evt_…` id is the PK — that IS the idempotency**, so a Stripe retry
