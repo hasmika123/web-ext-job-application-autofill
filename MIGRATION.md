@@ -193,6 +193,11 @@ the old IP and run `docker compose -f docker-compose.prod.yml up -d` there. That
 
 ## 7. Retarget CI/CD
 
+> **For the CURRENT deployment, this section is history — do not follow it.** CI was retargeted
+> on 2026-09-17 and works. The live values are in **`DEPLOY.md` §7.1**, and the co-hosting
+> specifics are in **§10.4** below. What follows describes a generic move and names the *old*
+> box's deploy user, so reading it top-to-bottom will suggest work that is done or now wrong.
+
 `deploy.yml` SSHes into whatever `VPS_HOST` says, so it still points at the old box.
 
 1. On the new box, install the deploy key:
@@ -216,9 +221,13 @@ ssh-copy-id -i dossier_deploy.pub <newuser>@<newip>
 
 ## 8. After the dust settles
 
-- [ ] Re-point the nightly `mysqldump` backup cron at the new box (DEPLOY.md §5) and confirm one
-      backup actually lands off-box. **This migration is a good moment to notice whether that
-      cron was ever set up.**
+- [ ] **Set up a database backup — still OWED as of 2026-09-21.** The answer to "was that cron
+      ever set up?" turned out to be **no**, which is why this migration lost all user data.
+      It is *still* not set up on the new box: both crontabs are empty, there is no timer, and
+      no dump exists anywhere. See DEPLOY.md §5. Needs a schedule, an off-box copy, and a
+      restore you have actually tested.
+- [ ] **Set up uptime monitoring — still OWED.** There is none, so a dead box is silent. That is
+      how the old VPS's death went unnoticed. See DEPLOY.md §5.
 - [ ] Leave the old VPS **powered off but intact** for about a week as the rollback of last
       resort. Only then destroy it — and drop its key from `~/.ssh/known_hosts`.
 - [ ] Raise the Cloudflare TTLs back to Auto.
