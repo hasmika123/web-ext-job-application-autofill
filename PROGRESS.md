@@ -25,7 +25,19 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **Extension → Chrome Web Store prep (2026-09-17). Everything that can be done from here is
+> ▶️ **Go-to-market build — start at 11.1 (2026-09-21).** The plan to a sellable Pro tier is
+> fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
+> Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
+> order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
+> Launch 2**; 10.4–10.6 run continuously, ordered by 10.1 telemetry. Work on branches off
+> **`develop`**, PR into `develop`; only the user promotes to `main`.
+> **Store status:** the extension's **v1 is published on the Chrome Web Store and under review**
+> (uploaded 2026-09-21 — the `main` build at the time, believed **0.52.2**; confirm the number in
+> the CWS dashboard). It gets resubmitted in **15.3** with the Pro build. Ext on `develop`:
+> **v0.52.6**. Ops gaps (backup / monitoring / restore drill) are scheduled in **15.1** by
+> decision — don't pull them earlier.
+>
+> ✅ *(Superseded 2026-09-21 — kept for the human-gated items it lists.)* **Extension → Chrome Web Store prep (2026-09-17). Everything that can be done from here is
 > done; the remaining gates need a real Chrome and the user.** Ext **v0.51.1**. Landed: **W6.0**
 > manifest hygiene (env-aware manifest — no dev-only or unused permissions in the store zip;
 > session-handoff gate derived from the manifest; `test/connect_handoff.test.js`), **W6.2** (the
@@ -515,10 +527,10 @@ focused Claude Code session.
 - [ ] **3.6.4 Server structured salary (later).** Additive Liquibase migration:
   `salary_min/salary_max/salary_currency/salary_period` columns on `application`,
   DTO + mappers, extension sends `salaryParsed`, board gains salary filter/sort.
-- [ ] **3.6.5 Cross-board dedup (later).** Same posting saved from LinkedIn + the ATS
+- [ ] **3.6.5 Cross-board dedup (later → re-homed to 14.5, required by the inbox).** Same posting saved from LinkedIn + the ATS
   currently makes 2 entries; dedup on normalized company+title(+fuzzy location) at
   upsert time (plain string match — no embeddings; cheap and good enough).
-- [ ] **3.6.6 Adapter-rot telemetry (later).** Anonymous per-tier extraction-miss counts
+- [ ] **3.6.6 Adapter-rot telemetry (later → folded into 10.1).** Anonymous per-tier extraction-miss counts
   (which extractor/field came up empty — no page content, no PII) so Workday-style
   markup changes surface in analytics before user reports.
 - [ ] **3.6.7 Provenance in the UI (later).** Review overlay / save-a-job editor show a
@@ -714,7 +726,8 @@ focused Claude Code session.
 - [ ] **8.3 Session control.** Revocable sessions, refresh-token rotation at scale,
   forced logout / device list (extends the basic rotation shipped in 1.11; covers both
   auth surfaces — extension Bearer + web httpOnly cookie).
-- [ ] **8.4 Audit & compliance.** Audit logging; PII retention/deletion tooling;
+- [ ] **8.4 Audit & compliance.** *(Two slices pulled forward by the inbox: secrets-at-rest → 14.2,
+  retention/deletion → 14.7. The rest stays here.)* Audit logging; PII retention/deletion tooling;
   GDPR/CCPA + SOC 2 groundwork; secrets in a vault/KMS; deeper RBAC.
 
 ## Phase 9 — Admin, ops & comms
@@ -809,6 +822,107 @@ focused Claude Code session.
   have the shape; Greenhouse/Lever/Ashby have none) + an answer library on the web
   (view/edit/delete learned answers — also the GDPR "see and correct" duty).
 
+## Phase 11 — Sync: signal + version check (Launch 1)
+> Spec: `ROADMAP.md` → Phase 11. Signal when you can, version-check when you can't, pull only on change.
+- [ ] **11.1 Web→extension change signal.** After profile/resume save, sign-in, sign-out the web
+  sends `{type:"changed"|"signedOut"}` to the extension over `externally_connectable`
+  (`onMessageExternal` exists). `signedOut` clears `trackingAuth` at once. Test: jsdom for the
+  SW handler; web unit test that the call fires on save.
+- [ ] **11.2 `GET /api/profile/version`.** Monotonic number or hash of bio + resumes `updatedAt`.
+  IT test.
+- [ ] **11.3 Extension version checks.** `chrome.alarms` every 15 min + tab focus + drawer open →
+  compare, pull only on change. **Remove the 90 s throttle** in `panel/home-actions.ts`.
+- [ ] **11.4 Doc the revoke path.** 1.11 rotation means a stale token dies at next refresh;
+  record in `ARCHITECTURE.md`. No WebSockets (MV3 SW idles out).
+
+## Phase 12 — Billing & entitlements: Stripe (Launch 1 — the gate comes before the gated features)
+> Spec: `ROADMAP.md` → Phase 12 + the Free/Pro table. `isPro()` in the API is the ONLY source of truth.
+- [ ] **12.1 Stripe products.** `pro_monthly` $19.99 · `pro_3mo` $44.99 (recurring / 3 months).
+  Stripe Tax on. Hosted Checkout + Customer Portal. Test + live keys via env only.
+- [ ] **12.2 `subscription` table + webhooks.** Additive Liquibase migration (user, stripe ids,
+  plan, status, `current_period_end`, `cancel_at_period_end`). Handle `checkout.session.completed`,
+  `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated|deleted`; idempotent by
+  event id; signature verified. IT tests with Stripe fixtures.
+- [ ] **12.3 Entitlement service.** `isPro(user)`; gate every Pro endpoint; plan + period end in
+  the extension session payload. Never trust the client.
+- [ ] **12.4 Free-tier redefinition.** Server AI quota → 0 on free **except resume parsing**; free
+  resume cap 3 (over-cap resumes stay readable, never deleted on downgrade).
+- [ ] **12.5 Web surfaces.** `/pricing`, upgrade CTAs at each gated feature, `/settings/billing`,
+  plan badge in extension options. Dunning: smart retries + "payment failed" email; downgrade at
+  period end.
+- [ ] **12.6 Admin revenue panel.** Active subs / MRR / churn on `/admin/analytics` (extends A3).
+- [ ] **12.7 Legal hooks.** Auto-renew disclosure at checkout, click-to-cancel, refund policy text
+  → feeds 15.2.
+
+## Phase 13 — Pro AI (Launch 1 — needs 12 + 10.3)
+> Spec: `ROADMAP.md` → Phase 13. Build 13.1 first; every feature inherits it.
+- [ ] **13.1 Credit metering, routing, caching, batch.** Cost-based credits into a monthly Pro
+  budget (~$5 model cost) with a visible meter; soft cap → cheaper model, hard cap → top-up.
+  Routing: mapping/picks/classification → Flash-Lite, job-fit/tailoring → Flash. Cache per
+  (resume × JD); context-cache the resume prefix; batch overnight jobs; bounded inputs; per-feature
+  kill switch; model names config-driven (Flash-Lite retires 2026-10-16).
+- [ ] **13.2 Resume recommendation per job.** Score stored resumes vs captured JD; "best match:
+  X — NN %" in drawer + board.
+- [ ] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
+- [ ] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
+  NEW resume version via the `TrackingProvider` seam.
+- [ ] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
+  structure/dates/contact/measurable-results checks + one Flash-Lite keyword read vs the captured
+  JD; cached per (resume × JD); shown on the resumes page + inside the job-fit panel.
+- [ ] **13.6 Daily job matches — LIGHT** *(Launch 1, user decision; strong version = 16.1).*
+  Greenhouse + Lever + Ashby public job-board APIs only; prefs = Tier A + resume-inferred
+  role/seniority/location; ≤ 48 h + dedup; Flash-Lite scoring in an overnight batch, ≤ 50
+  candidates/user/day; match %; **in-app list only**, dismiss hides; empty list allowed.
+
+## Phase 14 — Inbox over IMAP (Launch 1 — needs 12)
+> Spec: `ROADMAP.md` → Phase 14. Mirrors Sales-App `integrations/email/imap`. **No Kiwiply address,
+> no forwarding, no OAuth.** Dedicated consumer Gmail + App Password; poll INBOX + Sent.
+- [ ] **14.1 Connect flow** `/settings/inbox`: guided steps (2-Step Verification → App Password),
+  test connection, disconnect. Consumer Gmail only.
+- [ ] **14.2 Credentials encrypted at rest** (server-side key; the 8.4 secrets slice, now required).
+- [ ] **14.3 IMAP poller.** UID-incremental sync + backfill on connect; headers + body text only,
+  **no attachments**; rate-limited; per-user error state surfaced in settings.
+- [ ] **14.4 Parser → status.** Deterministic ATS sender/subject templates → applied / interview /
+  rejected / offer; Flash-Lite only on ambiguous mail; match by company + role + sending address;
+  unmatched → *suggested* application.
+- [ ] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
+  count).* Normalized company + title (+ fuzzy location) at upsert.
+- [ ] **14.6 Notifications.** In-app + email to the user's real address on status change.
+- [ ] **14.7 Retention & deletion** *(the 8.4 slice).* Mail rows expire (12 months default); purge
+  on disconnect + account delete; DSAR export includes mail; read-only guarantee in product copy.
+
+## Phase 15 — Launch 1
+- [ ] **15.1 Ops hardening** *(scheduled here by decision — not earlier).* Nightly off-box
+  `mysqldump` → S3 with retention · uptime + error monitoring with alerting · **restore drill
+  performed and logged**.
+- [ ] **15.2 Legal — PL.1 completion.** Lawyer review of privacy + terms covering billing
+  (auto-renew, click-to-cancel, refunds), IMAP mail processing, AI data use, governing law + entity.
+  DPAs with Brevo + AWS S3.
+- [ ] **15.3 Store.** CWS resubmit with the Pro build · AMO first submission · listing copy for
+  the Free/Pro split · `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
+- [ ] **15.4 Launch checklist.** Pricing live, Stripe live keys + webhook verified, billing support
+  path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
+
+## Phase 16 — Between launches (after Launch 1, before Launch 2)
+- [ ] **16.1 Daily job matches — STRONG** *(builds on 13.6; refine before build).* Adds: all six
+  ATS sources (+ Workable, SmartRecruiters, Recruitee) with aggregator fallback; full quality
+  gates (ATS-verified tenant, agency/spam filter); like / dismiss / applied **feedback loop** that
+  re-ranks; **daily email** at the user's chosen time; explicit preference editing.
+- [ ] **16.2 Analytics.** Response / interview rate by resume, ATS, role.
+- [ ] **16.3 Reminders + stale nudges.** "No reply in N days" → nudge; follow-up dates on cards.
+- [ ] **16.4 Weekly digest** email.
+- [ ] **16.5 Calendar export** (`.ics` / Google Calendar link) for interviews.
+- [ ] **16.6 Cover-letter generator** *(Launch 2, user decision).* Profile + resume + captured JD
+  → Flash, cached per (resume × JD), saved with the application; 13.4 truthfulness guardrails.
+- [ ] **16.7 Resume builder + templates** *(Launch 2, user decision — on top of upload-first).*
+  Build from the structured profile (10.3 schema) into ATS-friendly templates, PDF export, save
+  as a new resume.
+
+## Phase 17 — Launch 2
+- [ ] **17.1 Price → $24.99 / $54.99**; grandfather existing subscribers one cycle.
+- [ ] **17.2 Adapter depth milestone** from 10.4 (telemetry-chosen ATS at target fill rate).
+- [ ] **17.3 Listing refresh** with matches + analytics; 13.5 candidates if confirmed.
+
 ## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
 > Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
 > `redesign/REDESIGN-PLAN.md`; prototype: `redesign/mockups.html`; on-ramp: `redesign/HANDOFF.md`.
@@ -882,6 +996,25 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **Go-to-market plan written — Phases 11–17** · Docs only. Everything decided in the
+  planning session is now build-ready: **Free + Pro** ($19.99 / $44.99-per-3-months at Launch 1 →
+  $24.99 / $54.99 at Launch 2, no annual), Free = no server AI except resume parsing, 3 resumes;
+  **sync** = web→ext signal + `/api/profile/version` + alarms; **billing** = Stripe with `isPro()`
+  in the API as the only truth; **Pro AI** = credit metering/routing/caching first, then resume
+  recommendation, job-fit panel, tailoring (~90 % gross margin at Gemini rates); **inbox** = the
+  user's dedicated consumer Gmail over IMAP + App Password, mirroring Sales-App — **no Kiwiply
+  address, no forwarding, no OAuth**, poll inbox + sent, no attachments, encrypted creds,
+  read-only. Two launches: ops hardening + PL.1 legal + store resubmit sit in **Phase 15** right
+  before Launch 1 (by decision, not earlier); **daily job matches** (public ATS job-board APIs,
+  ≤ 48 h, match %, feedback loop), analytics, reminders, digest and calendar
+  sit in **Phase 16** before Launch 2. 3.6.5 and the 8.4 secrets/retention slices re-homed into
+  14; 3.6.6 folded into 10.1. Competitor cross-check (Simplify, Teal, Jobright, Huntr,
+  Careerflow) recorded with verdicts — job matches → build, ATS score + cover letter →
+  candidates. CWS v1 published and under review.
+  **Follow-up decisions the same day:** job matches split into a **light 13.6 (Launch 1)** and a
+  **strong 16.1 (Launch 2)**; **ATS resume score → 13.5, Launch 1**; **cover-letter generator →
+  16.6** and **resume builder + templates → 16.7**, both Launch 2 (the builder reverses the
+  earlier "no", layered on upload-first).
 - 2026-09-21 · **Phase 10 planned — fill quality & the self-building profile** · Docs only.
   Review of the engine found the gap behind "it's not filling enough": a **23-field**
   vocabulary, 6 adapters (5 manifest hosts — iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite

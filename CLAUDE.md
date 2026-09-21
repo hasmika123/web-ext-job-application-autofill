@@ -120,6 +120,18 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Email verification is LIVE** (Brevo SMTP, sends from **no-reply@kiwiply.com**; domain
   authenticated). Signups self-activate via the emailed link → web `/account/activate`.
   **Still no auto-activate** — verification is the gate, kept that way by decision.
+- **Go-to-market (locked 2026-09-21, ROADMAP Phases 11–17).** Two tiers, **Free + Pro**.
+  Pro = **$19.99/mo · $44.99 / 3 months** at Launch 1 → **$24.99 / $54.99** at Launch 2.
+  **No annual plan.** Stripe Checkout + Portal; `isPro()` in the API is the only entitlement
+  source of truth. **Core autofill stays free and identical in both tiers.** Free has **no
+  server AI** (BYO key only) with exactly one exception: **AI resume parsing** (one call per
+  resume, it's how the profile builds itself). Free = 3 resumes; downgrade never deletes data.
+- **Inbox = the user's own dedicated consumer Gmail over IMAP + App Password** (mirrors
+  Sales-App). **No Kiwiply email address of any kind, no forwarding, no OAuth, no Google API.**
+  Poll `INBOX` + `[Gmail]/Sent Mail`; store headers + body text only, **never attachments**;
+  credentials encrypted at rest; we **never send, move or delete** mail. Two launches: ops
+  hardening (backup/monitoring/restore drill) is Phase 15, right before Launch 1 — not earlier.
+  Daily job matches source jobs from the ATS' public job-board APIs.
 
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions
