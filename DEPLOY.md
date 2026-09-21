@@ -442,6 +442,10 @@ Four secrets, all env-only (they never reach a client bundle):
 | `STRIPE_PRICE_3MO` | Price id for $44.99/3 months |
 
 Add them to the box's `.env` (same file as the `DOSSIER_AI_*` block), then `$COMPOSE up -d api`.
+**Paste them with no trailing space or newline.** The app trims them now, but Stripe rejects a
+key that carries whitespace with *"Your API key is invalid, as it contains whitespace"* — and it
+only says so at call time, so the server starts happily, reports billing as enabled, and then
+fails every checkout with a message that points nowhere near the cause.
 **Also put them in the password manager** — GitHub secrets are write-only and have never held
 our `.env`, which is exactly how the 2026-09-17 data loss happened.
 

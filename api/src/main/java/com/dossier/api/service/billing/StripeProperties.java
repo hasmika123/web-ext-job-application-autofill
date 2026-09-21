@@ -13,6 +13,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * pass their tests. Checkout and portal return 503 {@code BILLING_DISABLED} instead of throwing.
  *
  * <p>Keys live in the server env only and never reach a client bundle.
+ *
+ * <p><b>Every id and secret here is trimmed on the way in.</b> These values are pasted into a
+ * {@code .env} file or a shell by a human, and a trailing space or newline survives that trip
+ * intact. Stripe rejects such a key with <i>"Your API key is invalid, as it contains
+ * whitespace"</i> — but only when a call is actually made, so the server starts fine, reports
+ * billing as enabled, and then fails at checkout with a message that points nowhere near the
+ * cause. Cost an hour to diagnose once (2026-09-21); trimming here costs nothing.
  */
 @ConfigurationProperties(prefix = "dossier.stripe")
 public class StripeProperties {
@@ -74,12 +81,17 @@ public class StripeProperties {
         return secretKey != null && !secretKey.isBlank();
     }
 
+    /** Null-safe trim. A value that is nothing but whitespace becomes empty, i.e. "not set". */
+    private static String trim(String value) {
+        return value == null ? null : value.trim();
+    }
+
     public String getSecretKey() {
         return secretKey;
     }
 
     public void setSecretKey(String secretKey) {
-        this.secretKey = secretKey;
+        this.secretKey = trim(secretKey);
     }
 
     public String getWebhookSecret() {
@@ -87,7 +99,7 @@ public class StripeProperties {
     }
 
     public void setWebhookSecret(String webhookSecret) {
-        this.webhookSecret = webhookSecret;
+        this.webhookSecret = trim(webhookSecret);
     }
 
     public BigDecimal getAmountMonthly() {
@@ -111,7 +123,7 @@ public class StripeProperties {
     }
 
     public void setPriceMonthly(String priceMonthly) {
-        this.priceMonthly = priceMonthly;
+        this.priceMonthly = trim(priceMonthly);
     }
 
     public String getPrice3mo() {
@@ -119,7 +131,7 @@ public class StripeProperties {
     }
 
     public void setPrice3mo(String price3mo) {
-        this.price3mo = price3mo;
+        this.price3mo = trim(price3mo);
     }
 
     public String getSuccessUrl() {
