@@ -18,14 +18,10 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
 `entrypoints/` wrap the engine without rewriting it:
 - `entrypoints/background.ts` — `defineBackground`; side-effect-imports storage/tracking/sync/app-tracking/
   analytics, then `src/background/service-worker.js` (registers all SW listeners). Bundled → `background.js`.
-  **Web → extension sync signal (11.1):** the web app sends `{type:"KIWIPLY_SYNC", event:"changed"|"signedOut"}`
-  over the same origin-gated channel as the connect handoff (`onMessageExternal` on Chrome; the Firefox
-  connect-relay forwards it as an internal message with a `sender.tab`). `changed` → the SW runs
-  `JAF.sync.pullAll` into `JAF.storage` (why storage.js is loaded here now), stamps `settings.__lastPull`, and
-  broadcasts `KIWIPLY_MIRROR_UPDATED` so an open drawer repaints (`panel/HomeView.tsx`). `signedOut` →
-  best-effort `provider.logout()` then `chromeTokenStore().clear()` — the local clear must not fail.
-  Sender side: `web/src/lib/extension-signal.ts` (`notifyExtension`), called after profile/resume saves,
-  sign-in and sign-out. Tests: `test/sync_signal.test.js`.
+  The SW also owns **mirror sync** — the web's `KIWIPLY_SYNC` signal, the 15-minute `chrome.alarms`
+  check and the window-focus check — which is why `storage.js` is loaded here: `JAF.sync.pullAll`
+  writes the mirror from the background, not just from the drawer. See **Sync model (Phase 11)** below
+  for the whole picture; `panel/HomeView.tsx` repaints on the `KIWIPLY_MIRROR_UPDATED` broadcast.
 - `entrypoints/content.ts` — `defineContentScript` (same matches/`all_frames`/`run_at`); imports the
   18 engine+content IIFEs in order. Bundled → `content-scripts/content.js` (also what the drawer
   injects via `executeScript` on activeTab pages).
@@ -218,6 +214,7 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
 - `src/lib/sync.js` — `JAF.sync`. Bridges the local store and a `TrackingProvider`:
   `pullAll` (server→local cache; resumes matched by `serverId`, never deleting
   local-only ones), `pushBio`/`pushResume`/`pushAll`, `syncNow` (push then pull),
+  `checkAndPull` (11.3 — version check, pull only on change; see **Sync model** below),
   `providerFromSettings`. Pure data layer; the options Account tab drives it.
 - **Auth = web-app connect:** sign-in happens on kiwiply.com. The web `/connect` page
   mints a *separate* extension token pair (`POST /api/extension/session` ← web
@@ -239,9 +236,9 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   add the store's `key` back so dev+prod ids match forever, and point
   `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` at the store id + **redeploy web** (it's baked at build
   time) or `/connect` hands the session to an id that no longer exists. The local store is a
-  **read-only mirror**: the popup pulls
-  `JAF.sync.pullAll` on open (throttled) for autofill and never pushes bio/resume *edits* —
-  only resume *creates* (upload → server) write back, so the cache can't drift out of sync.
+  **read-only mirror**: the extension pulls it for autofill (see **Sync model** below) and never
+  pushes bio/resume *edits* — only resume *creates* (upload → server) write back, so the cache
+  can't drift out of sync.
 - `vendor/` — pdf.js + mammoth (bundled, no network needed).
 - **`wxt.config.ts` manifest is a function of the build env** (W6.0). `wxt build`
   (mode=production, what CI zips for the store) emits only permissions the shipped code
@@ -269,6 +266,50 @@ drawer + options entrypoints (and SW-safe via `globalThis.JAF`). 1.7 wires the
 login UI + sync loop on top of this; a future provider can target a different
 backend by implementing the same contract. See root `ROADMAP.md` → "Pluggable
 tracking backend".
+
+## Sync model (Phase 11)
+
+The server is the source of truth; the extension's store is a read-only mirror. Phase 11 is
+about **when** that mirror refreshes. Three mechanisms, in order of how quickly they react:
+
+**1. Signal (11.1) — instant, while a kiwiply.com tab is open.** The web app calls
+`notifyExtension("changed" | "signedOut")` (`web/src/lib/extension-signal.ts`) after any
+profile/resume save, sign-in or sign-out. Chrome/Edge message the extension directly
+(`externally_connectable`); Firefox posts to the page and the connect-relay content script
+forwards it. The SW handles it behind the **same origin gate as the connect handoff**, so an ATS
+content script or a foreign origin can neither fake a change nor sign the user out.
+`changed` pulls *without* asking for the version first — the web just said it moved, so a check
+would be a round-trip to learn what we already know — then records the version it pulled under.
+`signedOut` revokes server-side best-effort and **always** clears the local session.
+
+**2. Version check (11.2 + 11.3) — the steady state.** `GET /api/profile/version` returns a
+16-hex fingerprint of exactly what a pull would return (bio + every resume; see
+`api/.../service/ProfileVersion.java` for why it's a hash and not a counter). `JAF.sync.
+checkAndPull` compares it with `settings.__profileVersion` and pulls **only** on a mismatch or a
+first run. A failed check pulls nothing *and keeps the stored marker* — offline must neither
+thrash the mirror nor make the next check look like a first run. A failed pull stamps no version,
+so a caller that swallows the error re-checks rather than believing it's current.
+
+**3. What triggers a check.** `chrome.alarms` `kiwiply-sync` every 15 min (created on
+`onInstalled` **and** `onStartup` — alarms don't survive an extension update, so install-only
+registration would silently stop syncing); `chrome.windows.onFocusChanged`, guarded to one check
+per 60 s (a bound on how often we *ask*; the pull is already gated on the answer); and the
+drawer's `refreshMirror` on open. Any pull that lands broadcasts `KIWIPLY_MIRROR_UPDATED` so an
+open drawer repaints. Both SW listeners are feature-guarded, so a context without
+`chrome.alarms`/`chrome.windows` still loads the worker.
+
+**Revoke path.** Sign-out on the web reaches the extension via the `signedOut` signal and clears
+`trackingAuth` at once. If that signal never arrives (browser closed, extension disabled), the
+1.11 refresh-token rotation is the backstop: the stale refresh token is rejected at its next use,
+so the session dies on the next refresh rather than lingering. Server-side revocation is
+authoritative either way — the extension holding a token doesn't mean it can use it.
+
+**No WebSockets, deliberately.** MV3 tears the service worker down after ~30 s idle, so a
+persistent connection can't be held open; it would reconnect constantly and still miss events
+while dead. The signal-plus-poll shape above is what the platform actually supports.
+
+Tests: `test/sync.test.js` (`checkAndPull`), `test/sync_signal.test.js` (the SW: signal routing,
+the origin gate, alarm/focus registration and firing), `ProfileVersionResourceIT` (the endpoint).
 
 ## Tracking capture (Phase 3)
 This extension is the **on-page capture-and-fill agent**; the web app owns account/

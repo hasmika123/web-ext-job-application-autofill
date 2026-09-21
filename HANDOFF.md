@@ -37,6 +37,10 @@ traps worth knowing before you touch it are in §7.3.
 **Branching changed:** work goes on topic branches off **`develop`** and PRs into `develop`;
 only the user promotes `develop` → `main` (that merge deploys). See `CLAUDE.md` → Branching.
 
+**Phase 11 (sync) is DONE** — the mirror refreshes on a web-app signal, a 15-minute alarm, window
+focus and drawer open, pulling only when `GET /api/profile/version` says something moved. How it
+fits together (and why there are no WebSockets): `job-autofill/ARCHITECTURE.md` → **Sync model**.
+
 The whole plan to a sellable Pro tier is written out, build-ready, in `ROADMAP.md`
 **Phases 10–17** with tasks in `PROGRESS.md`. Order: **11 Sync → 12 Billing → 10.1–10.3 fill
 quality → 13 Pro AI → 14 Inbox (IMAP) → 15 Launch 1** (ops hardening + legal + store live
