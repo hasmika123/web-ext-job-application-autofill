@@ -3,6 +3,7 @@ package com.dossier.api;
 import com.dossier.api.config.AdminBootstrapProperties;
 import com.dossier.api.config.ApplicationProperties;
 import com.dossier.api.config.CRLFLogConverter;
+import com.dossier.api.service.billing.StripeProperties;
 import jakarta.annotation.PostConstruct;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -21,7 +22,9 @@ import tech.jhipster.config.DefaultProfileUtil;
 import tech.jhipster.config.JHipsterConstants;
 
 @SpringBootApplication
-@EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class, AdminBootstrapProperties.class })
+@EnableConfigurationProperties(
+    { LiquibaseProperties.class, ApplicationProperties.class, AdminBootstrapProperties.class, StripeProperties.class }
+)
 public class DossierApiApp {
 
     private static final Logger LOG = LoggerFactory.getLogger(DossierApiApp.class);

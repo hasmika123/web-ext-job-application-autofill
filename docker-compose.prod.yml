@@ -70,6 +70,12 @@ services:
       - DOSSIER_AI_API_KEY=${DOSSIER_AI_API_KEY:-}
       - DOSSIER_AI_FREE_MONTHLY_QUOTA=${DOSSIER_AI_FREE_MONTHLY_QUOTA:-50}
       - DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS=${DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS:-4000}
+      # Billing (Phase 12). Blank STRIPE_SECRET_KEY = billing disabled, which is a valid
+      # running state — the API starts and serves everything else normally.
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRICE_MONTHLY=${STRIPE_PRICE_MONTHLY:-}
+      - STRIPE_PRICE_3MO=${STRIPE_PRICE_3MO:-}
       # Real admin, created/promoted from env at startup (Phase 9.A0). ADMIN_PASSWORD_HASH is a
       # BCRYPT hash, not a plaintext password — nothing is committed. Blank ⇒ no admin bootstrap.
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}

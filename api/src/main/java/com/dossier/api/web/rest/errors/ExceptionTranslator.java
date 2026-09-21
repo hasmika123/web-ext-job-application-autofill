@@ -93,6 +93,13 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
             .getBody();
         if (ex instanceof com.dossier.api.service.InvalidPasswordException) return (ProblemDetailWithCause) new InvalidPasswordException()
             .getBody();
+        // Phase 12 — a Pro-only feature refused for a Free user. 402, not 403: they are not
+        // forbidden, they just haven't paid. Clients branch on the `code` property.
+        if (ex instanceof com.dossier.api.service.ProRequiredException proEx) return (ProblemDetailWithCause) new ProRequiredException(
+            proEx.getCode(),
+            proEx.getMessage(),
+            proEx.getExtra()
+        ).getBody();
 
         if (
             ex instanceof ErrorResponseException exp && exp.getBody() instanceof ProblemDetailWithCause problemDetailWithCause

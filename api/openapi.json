@@ -27,6 +27,9 @@
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
   }, {
+    "name" : "billing",
+    "description" : "The current user's plan. Stripe is the source of truth; this reads our mirror of it."
+  }, {
     "name" : "field-cache-sync",
     "description" : "User-scoped field-cache sync: the authenticated user's learned field answers."
   }, {
@@ -3413,6 +3416,29 @@
         }
       }
     },
+    "/api/profile/version" : {
+      "get" : {
+        "tags" : [ "profile-sync" ],
+        "summary" : "Get my profile version",
+        "description" : "A short fingerprint of the current user's bio + resumes. Changes whenever a pull of either would change. Never 404.",
+        "operationId" : "getProfileVersion",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileVersionVM"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/field-caches" : {
       "get" : {
         "tags" : [ "field-cache-sync" ],
@@ -3537,6 +3563,29 @@
             "description" : "OK"
           }
         }
+      }
+    },
+    "/api/billing/me" : {
+      "get" : {
+        "tags" : [ "billing" ],
+        "summary" : "Get my plan",
+        "description" : "Plan, status, renewal date and whether billing is configured. Free when there's no subscription.",
+        "operationId" : "myPlan",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
       }
     },
     "/api/authorities/{id}" : {
@@ -5486,6 +5535,41 @@
           },
           "newPassword" : {
             "type" : "string"
+          }
+        }
+      },
+      "ProfileVersionVM" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PlanDTO" : {
+        "type" : "object",
+        "properties" : {
+          "plan" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "currentPeriodEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cancelAtPeriodEnd" : {
+            "type" : "boolean"
+          },
+          "billingEnabled" : {
+            "type" : "boolean"
+          },
+          "hasCustomer" : {
+            "type" : "boolean"
+          },
+          "pro" : {
+            "type" : "boolean"
           }
         }
       },
