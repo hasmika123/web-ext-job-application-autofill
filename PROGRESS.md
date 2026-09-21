@@ -30,9 +30,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > /api/profile/version` gives a cheap fingerprint, the extension checks it on a 15-minute alarm, on
 > window focus and on drawer open — pulling only when it moved — and `ARCHITECTURE.md` → **Sync
 > model** documents the whole shape. **Phase 12 is planned to build depth** (ROADMAP Phase 12: locked
-> decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests) — start at
-> **12.0** (human: Stripe test-mode setup) then **12.1**. Nothing in 13–16 ships before 12.3's
-> `requirePro()` exists to gate it. The plan to a sellable Pro tier is
+> decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests). **12.1 is
+> DONE** — schema, `EntitlementService`, the Stripe gateway seam and `GET /api/billing/me`, all
+> running keyless (blank `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`), so **12.2 (the webhook) can
+> be built before you finish 12.0**. Nothing in 13–16 ships before 12.3's `requirePro()` exists to
+> gate it. The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
 > order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
@@ -892,7 +894,17 @@ focused Claude Code session.
   `invoice.{paid,payment_failed}`. `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`,
   `STRIPE_PRICE_3MO` → password manager + box `.env`; `docker-compose.prod.yml` passthrough. Local:
   `stripe listen --forward-to localhost:8080/api/billing/webhook`.
-- [ ] **12.1 Schema + entitlement + gateway (API, no UI).** Liquibase `20260921000000_subscription.
+- [x] **12.1 Schema + entitlement + gateway (API, no UI).** ✅ DONE — built as specified, plus two
+  things the spec didn't anticipate: `StripeProperties` lives in `service/billing/`, not `config/`
+  (ArchUnit's `TechnicalStructureTest` forbids services reaching into `..config..`), and
+  `ProRequiredException` is a **pair** — a service-layer `RuntimeException` plus the
+  `web.rest.errors` ProblemDetail, mapped in `ExceptionTranslator`, exactly like
+  `EmailAlreadyUsedException` (same layering rule). Also: no raw-JSON fallback for
+  `current_period_end` — Gson isn't on the compile classpath, and stripe-java 29 exposes it on the
+  subscription item, so it's read there and `null` (⇒ lapsed) when absent, which can only cost Pro,
+  never grant it. `DEPLOY.md` §11 documents the four secrets. 14 unit assertions +
+  `BillingResourceIT` 5/5; full API suite green. Original spec:
+  Liquibase `20260921000000_subscription.
   xml`: `subscription` (one row per user — `user_id` unique; `stripe_customer_id`/`stripe_subscription_id`
   unique nullable; `plan`, `status` verbatim from Stripe, `price_id`, `current_period_end`,
   `cancel_at_period_end`, `last_event_at`, timestamps) + `stripe_event` (`id` = `evt_…` **PK** as the
@@ -1082,6 +1094,24 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.1 billing schema, entitlement service and the Stripe seam** · API only, no UI,
+  no extension change. `subscription` (one row per user, Stripe's `status` stored verbatim) +
+  `stripe_event` (**the `evt_…` id is the PK — that IS the idempotency**, so a Stripe retry
+  collides on insert instead of re-applying). `EntitlementService.isProFor(status, periodEnd, now)`
+  is a pure static so the rule is testable as a matrix: `active`/`trialing` → Pro even if our
+  mirrored period end looks stale (a delayed renewal webhook must never downgrade someone who is
+  paying); `past_due`/`canceled` → Pro **until** the period ends (Smart Retries are still running;
+  cancelling means "don't renew", not "cut me off"); everything else, including any status Stripe
+  adds later, → Free. `StripeGateway` isolates the SDK — `StripeGatewayImpl` is the only class
+  importing `com.stripe.*`. **Blank `STRIPE_SECRET_KEY` disables billing** and that is a valid
+  running state, which is how develop, CI and prod run today. Two course corrections the plan
+  didn't foresee, both forced by `TechnicalStructureTest`'s layering rule: `StripeProperties` moved
+  `config/` → `service/billing/`, and `ProRequiredException` became a service/web pair mapped in
+  `ExceptionTranslator`, mirroring `EmailAlreadyUsedException`. Dropped the raw-JSON fallback for
+  `current_period_end` (Gson isn't on the compile classpath); it reads from the subscription item
+  and `null` means lapsed, so a missing value can only cost Pro, never grant it. `DEPLOY.md` §11
+  documents the four secrets and that a keyless server is fine. 14 unit assertions,
+  `BillingResourceIT` 5/5, full API unit + integration suites green.
 - 2026-09-21 · **Phase 12 planned to build depth (Stripe billing & entitlements)** · Docs only.
   Same treatment Phase 11 got before Opus built it: ROADMAP Phase 12 now opens with the locked
   decisions — **Stripe is the truth and only webhooks write our `subscription` mirror** (the

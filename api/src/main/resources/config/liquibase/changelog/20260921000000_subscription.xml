@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 12.1 — billing.
+
+        `subscription` is a MIRROR of Stripe, written only by the webhook (12.2). Stripe is the
+        source of truth; nothing here is authoritative on its own. One row per user, created on
+        first checkout — a user with no row is simply Free.
+
+        `stripe_event` exists for idempotency: Stripe retries, and at-least-once delivery means
+        the same `evt_…` can arrive twice. Its id is the PRIMARY KEY, so a replay collides on
+        insert instead of being applied again.
+
+        Both additive; no data migration.
+    -->
+    <changeSet id="20260921000000-1" author="dossier">
+        <createTable tableName="subscription">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- Unique: one subscription row per user, ever. -->
+            <column name="user_id" type="bigint">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_subscription_user"/>
+            </column>
+            <!-- Null until the user's first checkout creates the Stripe customer. -->
+            <column name="stripe_customer_id" type="varchar(255)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="ux_subscription_stripe_customer"/>
+            </column>
+            <column name="stripe_subscription_id" type="varchar(255)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="ux_subscription_stripe_sub"/>
+            </column>
+            <!-- Our derived tier: FREE | PRO. Derived from `status` + `current_period_end`. -->
+            <column name="plan" type="varchar(20)" defaultValue="FREE">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Stripe's own status string, stored verbatim so we never lose information:
+                 active | trialing | past_due | canceled | unpaid | incomplete |
+                 incomplete_expired | none (our own value, before any checkout). -->
+            <column name="status" type="varchar(32)" defaultValue="none">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price_id" type="varchar(255)"/>
+            <column name="current_period_end" type="timestamp"/>
+            <column name="cancel_at_period_end" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <!-- The `created` of the newest event applied to this row. Stripe does not guarantee
+                 delivery order, so the webhook drops anything older than this. -->
+            <column name="last_event_at" type="timestamp"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="subscription"
+            baseColumnNames="user_id"
+            constraintName="fk_subscription_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="20260921000000-2" author="dossier">
+        <createTable tableName="stripe_event">
+            <!-- The Stripe event id (evt_…). PK ON PURPOSE: this IS the idempotency key. -->
+            <column name="id" type="varchar(255)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="type" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="received_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="processed_at" type="timestamp"/>
+            <!-- ok | failed | duplicate -->
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="error" type="${clobType}"/>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

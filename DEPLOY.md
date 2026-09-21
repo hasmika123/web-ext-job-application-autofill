@@ -423,3 +423,34 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
 > server-side cache (`ai_answer`, keyed by a normalized-question hash) — a cache hit costs **no
 > quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
 > common questions. Nothing to configure; it's automatic.
+
+## 11. Billing (Phase 12, Stripe) — ⚠️ NOT configured yet
+
+> **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API
+> starts normally, `GET /api/billing/me` answers `FREE` with `billingEnabled:false`, and the
+> checkout/portal endpoints return **503 `BILLING_DISABLED`** so clients show "coming soon"
+> rather than an error. Production runs this way today, and so do CI and every fresh clone —
+> nothing below is needed until you actually want to take payments.
+
+Four secrets, all env-only (they never reach a client bundle):
+
+| Variable | What |
+|---|---|
+| `STRIPE_SECRET_KEY` | `sk_test_…` / `sk_live_…`. **Blank ⇒ billing off.** |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_…` — verifies deliveries really came from Stripe. Without it the webhook rejects everything. |
+| `STRIPE_PRICE_MONTHLY` | Price id for $19.99/month |
+| `STRIPE_PRICE_3MO` | Price id for $44.99/3 months |
+
+Add them to the box's `.env` (same file as the `DOSSIER_AI_*` block), then `$COMPOSE up -d api`.
+**Also put them in the password manager** — GitHub secrets are write-only and have never held
+our `.env`, which is exactly how the 2026-09-17 data loss happened.
+
+Set-up order lives in `ROADMAP.md` → **Phase 12 → 12.0**: create the product and both prices in
+**test mode first**, turn on Stripe Tax, configure the Customer Portal, and add the webhook
+endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
+`checkout.session.completed`, `customer.subscription.{created,updated,deleted}` and
+`invoice.{paid,payment_failed}`. Locally, `stripe listen --forward-to
+localhost:8080/api/billing/webhook` prints a per-session webhook secret.
+
+Optional overrides, only if the domain changes: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`,
+`STRIPE_PORTAL_RETURN_URL`.
