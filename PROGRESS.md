@@ -849,6 +849,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **overlay row layout: badges grouped, label column widened** · Ext **v0.52.6**.
+  Cosmetic follow-up to the cross-site work, caught by rendering the real overlay and looking
+  at it. A row carrying both a `?` and a `reused` badge broke *between* them and stranded one
+  on its own line. Badges now render inside a single nowrap `.badges` group (also replacing
+  the four-deep inline ternary chain in `rowHtml` with a readable builder). The label column
+  then went **110px → 152px** (manual rows 128 → 170, keeping the two row types aligned),
+  which fits `Notice period ? reused` on one line and drops a row of height off most long
+  questions. That space comes straight out of the value column, which ellipsises — so `.val`
+  now carries a `title` with the FULL value (the truncated text was previously unrecoverable,
+  even before this change). Width chosen by rendering 110/132/152 side by side. No behaviour
+  change: checked state and every badge condition are untouched.
 - 2026-09-21 · **learned answers now reuse across ATS sites** · Ext **v0.52.4**. The cache
   keyed every answer by `hash(host|label)`, so the same question on a different ATS was a
   clean miss — reuse only ever worked within one host, which is not what "remember my

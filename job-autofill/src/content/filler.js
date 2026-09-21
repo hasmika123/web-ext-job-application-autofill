@@ -62,11 +62,22 @@
     // match: two soft signals don't make a hard one, and the cost of being wrong is
     // a wrong value the user didn't notice.
     const uncertain = (i) => i.confidence === "low" && !(i.cached && !i.cachedCrossSite);
+    // Badges go in ONE nowrap group rather than as loose inline siblings. The label
+    // column is fixed-width, so a row carrying two of them (a "?" and a "reused")
+    // used to break between the badges and strand one on its own line.
+    const badges = (i) => {
+      const b = [];
+      if (i.assisted) b.push('<span class="aibadge">AI</span>');
+      if (i.aiMapped) b.push('<span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>');
+      if (uncertain(i)) b.push('<span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>');
+      if (i.cachedCrossSite) b.push('<span class="reusebadge" title="Your answer to this same question on another job site">reused</span>');
+      return b.length ? `<span class="badges">${b.join("")}</span>` : "";
+    };
     const rowHtml = (i, idx) =>
       `<label class="row${i.assisted ? " assisted" : ""}${uncertain(i) ? " low" : ""}">
          <input type="checkbox" data-i="${idx}" ${uncertain(i) ? "" : "checked"} />
-         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${i.aiMapped ? ' <span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}${i.cachedCrossSite ? ' <span class="reusebadge" title="Your answer to this same question on another job site">reused</span>' : ""}</span>
-         <span class="val">${esc(truncate(String(i.value), 60))}</span>
+         <span class="field">${esc(i.label || L[i.field] || i.field)}${badges(i)}</span>
+         <span class="val" title="${esc(String(i.value))}">${esc(truncate(String(i.value), 60))}</span>
          ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
 
@@ -85,9 +96,9 @@
         <div class="body">
           ${fillable.length ? `<div class="group-title">Review &amp; uncheck anything you don't want</div>` : (manual.length || info.length ? "" : `<div class="empty">No matching fields found on this step. Try the next step, or this site may need a custom selector.</div>`)}
           <div class="rows">${fillable.map(rowHtml).join("")}</div>
-          ${file ? `<label class="row file"><input type="checkbox" id="filechk" checked /><span class="field">Attach résumé file</span><span class="val">${esc(file.name)}</span></label>` : ""}
+          ${file ? `<label class="row file"><input type="checkbox" id="filechk" checked /><span class="field">Attach résumé file</span><span class="val" title="${esc(file.name)}">${esc(file.name)}</span></label>` : ""}
           ${manual.length ? `<div class="group-title warn">Enter these yourself (custom dropdowns / typeaheads)</div>
-            <div class="rows">${manual.map((i) => `<div class="row manual"><span class="field">${esc(L[i.field] || i.field)}</span><span class="val">${esc(String(i.value))}</span>${i.note ? `<span class="mnote">${esc(i.note)}</span>` : ""}</div>`).join("")}</div>` : ""}
+            <div class="rows">${manual.map((i) => `<div class="row manual"><span class="field">${esc(L[i.field] || i.field)}</span><span class="val" title="${esc(String(i.value))}">${esc(String(i.value))}</span>${i.note ? `<span class="mnote">${esc(i.note)}</span>` : ""}</div>`).join("")}</div>` : ""}
           ${info.length ? `<div class="rows">${info.map((i) => `<div class="infonote">${esc(String(i.value))}</div>`).join("")}</div>` : ""}
         </div>
         <footer>
@@ -269,15 +280,15 @@
     .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 8px 2px 6px; }
     .group-title.warn { color: var(--warn); }
     .rows { display: flex; flex-direction: column; gap: 2px; }
-    .row { display: grid; grid-template-columns: 18px 110px 1fr; align-items: center; gap: 8px;
+    .row { display: grid; grid-template-columns: 18px 152px 1fr; align-items: center; gap: 8px;
       padding: 8px 8px; border-radius: 10px; cursor: pointer; }
     .row:hover { background: var(--paper-2); }
-    .row.assisted { grid-template-columns: 18px 110px 1fr auto; }
+    .row.assisted { grid-template-columns: 18px 152px 1fr auto; }
     .regen { border: 1px solid var(--line); background: var(--paper); color: var(--accent-deep);
       border-radius: 999px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 9px; }
     .regen:hover:not(:disabled) { border-color: var(--accent); }
     .regen:disabled { opacity: .5; cursor: default; }
-    .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
+    .row.manual { grid-template-columns: 170px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
     .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: var(--warn); line-height: 1.35; }
     .infonote { font-size: 12px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
       border-radius: 10px; padding: 9px 11px; margin-top: 8px; line-height: 1.45; }
@@ -287,10 +298,13 @@
     /* Uncertain-match marker: warn-tinted "?" on rows left unchecked for review. */
     .lowbadge { display: inline-block; font-size: 10px; font-weight: 800; line-height: 1;
       color: var(--warn); background: var(--brown-soft); border-radius: 999px; padding: 2px 6px; vertical-align: middle; }
+    /* One nowrap group so a row's badges wrap together, never split across lines. */
+    .badges { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle;
+      white-space: nowrap; }
     /* Carried-over answer: the user's own reply to this question on a different ATS. */
-    .reusebadge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .04em;
+    .reusebadge { display: inline-block; font-size: 8.5px; font-weight: 700; letter-spacing: .02em;
       color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
-      border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
+      border-radius: 4px; padding: 1px 3px; vertical-align: middle; }
     .row.low .val { color: var(--muted); }
     .row.file { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
     .field { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
