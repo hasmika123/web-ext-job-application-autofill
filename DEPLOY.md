@@ -449,8 +449,8 @@ Set-up order lives in `ROADMAP.md` → **Phase 12 → 12.0**: create the product
 **test mode first**, turn on Stripe Tax, configure the Customer Portal, and add the webhook
 endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
 `checkout.session.completed`, `customer.subscription.{created,updated,deleted}` and
-`invoice.{paid,payment_failed}`. Locally, `stripe listen --forward-to
-localhost:8080/api/billing/webhook` prints a per-session webhook secret.
+`invoice.{paid,payment_failed}`. Locally, the equivalent is the `stripe listen --events …`
+command in §11.1, which prints a per-session webhook secret.
 
 Optional overrides, only if the domain changes: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`,
 `STRIPE_PORTAL_RETURN_URL`.
@@ -481,12 +481,21 @@ files first, and the web upload route deletes the resume row if the file upload 
 
 ```bash
 stripe login
-stripe listen --forward-to localhost:8080/api/billing/webhook
+stripe listen --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to http://localhost:8080/api/billing/webhook
 ```
+
+`--events` is **required** from CLI v1.51 (`must specify events to forward using --events,
+--all-snapshot, or --all-thin`). That list is exactly the `switch` in `BillingWebhookService`,
+and exactly what the real endpoint is subscribed to — keep the three in step.
 
 It prints `whsec_…`. **That secret is per-session** — it changes every time you restart
 `stripe listen`, so start it before the API and leave it running. Nothing marks anyone Pro
 without it: the webhook is the only writer of subscription state.
+
+> **No Stripe CLI?** There is no official `winget`/`choco` package. Download
+> `stripe_<version>_windows_x86_64.zip` from
+> <https://github.com/stripe/stripe-cli/releases/latest>, check it against the release's
+> `stripe-windows-checksums.txt`, unzip it somewhere on your PATH, and `stripe version`.
 
 #### C. Start the API with the sandbox keys
 
