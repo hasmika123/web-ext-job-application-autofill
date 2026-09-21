@@ -62,10 +62,21 @@
     // match: two soft signals don't make a hard one, and the cost of being wrong is
     // a wrong value the user didn't notice.
     const uncertain = (i) => i.confidence === "low" && !(i.cached && !i.cachedCrossSite);
+    // Badges go in ONE nowrap group rather than as loose inline siblings. The label
+    // column is a fixed 110px, so a row carrying two of them (a "?" and a "reused")
+    // used to break between the badges and strand one on its own line.
+    const badges = (i) => {
+      const b = [];
+      if (i.assisted) b.push('<span class="aibadge">AI</span>');
+      if (i.aiMapped) b.push('<span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>');
+      if (uncertain(i)) b.push('<span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>');
+      if (i.cachedCrossSite) b.push('<span class="reusebadge" title="Your answer to this same question on another job site">reused</span>');
+      return b.length ? `<span class="badges">${b.join("")}</span>` : "";
+    };
     const rowHtml = (i, idx) =>
       `<label class="row${i.assisted ? " assisted" : ""}${uncertain(i) ? " low" : ""}">
          <input type="checkbox" data-i="${idx}" ${uncertain(i) ? "" : "checked"} />
-         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${i.aiMapped ? ' <span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}${i.cachedCrossSite ? ' <span class="reusebadge" title="Your answer to this same question on another job site">reused</span>' : ""}</span>
+         <span class="field">${esc(i.label || L[i.field] || i.field)}${badges(i)}</span>
          <span class="val">${esc(truncate(String(i.value), 60))}</span>
          ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
@@ -287,10 +298,13 @@
     /* Uncertain-match marker: warn-tinted "?" on rows left unchecked for review. */
     .lowbadge { display: inline-block; font-size: 10px; font-weight: 800; line-height: 1;
       color: var(--warn); background: var(--brown-soft); border-radius: 999px; padding: 2px 6px; vertical-align: middle; }
+    /* One nowrap group so a row's badges wrap together, never split across lines. */
+    .badges { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle;
+      white-space: nowrap; }
     /* Carried-over answer: the user's own reply to this question on a different ATS. */
-    .reusebadge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .04em;
+    .reusebadge { display: inline-block; font-size: 8.5px; font-weight: 700; letter-spacing: .02em;
       color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
-      border-radius: 4px; padding: 1px 4px; vertical-align: middle; }
+      border-radius: 4px; padding: 1px 3px; vertical-align: middle; }
     .row.low .val { color: var(--muted); }
     .row.file { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
     .field { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }

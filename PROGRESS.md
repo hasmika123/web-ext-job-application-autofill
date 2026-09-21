@@ -849,6 +849,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **overlay badges wrap as one group** · Ext **v0.52.5**. Cosmetic follow-up to
+  the cross-site work, caught by rendering the real overlay and looking at it. The label
+  column is a fixed 110px, so a row carrying both a `?` and a `reused` badge broke *between*
+  them and stranded one on its own line. Badges now render inside a single nowrap
+  `.badges` group (also replacing the four-deep inline ternary chain in `rowHtml` with a
+  readable builder), and `reused` is a touch smaller. No behaviour change.
 - 2026-09-21 · **learned answers now reuse across ATS sites** · Ext **v0.52.4**. The cache
   keyed every answer by `hash(host|label)`, so the same question on a different ATS was a
   clean miss — reuse only ever worked within one host, which is not what "remember my
