@@ -24,6 +24,9 @@
     "name" : "ai",
     "description" : "Server-side metered AI answer drafting (opt-in)."
   }, {
+    "name" : "billing-webhook",
+    "description" : "Stripe webhook receiver. Authenticated by signature, not by session."
+  }, {
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
   }, {
@@ -1895,6 +1898,44 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BioDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/webhook" : {
+      "post" : {
+        "tags" : [ "billing-webhook" ],
+        "summary" : "Stripe webhook",
+        "description" : "Receives Stripe events. Verified by signature; 400 when it doesn't match, 500 to ask Stripe to retry.",
+        "operationId" : "receive",
+        "parameters" : [ {
+          "name" : "Stripe-Signature",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string"
                 }
               }
             }

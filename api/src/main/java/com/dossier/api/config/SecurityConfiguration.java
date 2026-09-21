@@ -55,6 +55,10 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/newsletter/confirm")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/newsletter/unsubscribe")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/bug-reports")).permitAll()
+                    // Stripe has no session with us, so this cannot be authenticated the usual
+                    // way. It is NOT unprotected: the Stripe-Signature header is verified against
+                    // the webhook secret before anything is read (see BillingWebhookResource).
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/billing/webhook")).permitAll()
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/**")).authenticated()
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)

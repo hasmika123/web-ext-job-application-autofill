@@ -4,6 +4,8 @@ import com.stripe.StripeClient;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.EventDataObjectDeserializer;
+import com.stripe.model.StripeObject;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
@@ -12,6 +14,7 @@ import com.stripe.param.billingportal.SessionCreateParams;
 import com.stripe.param.checkout.SessionCreateParams.LineItem;
 import com.stripe.param.checkout.SessionCreateParams.Mode;
 import java.time.Instant;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -117,9 +120,35 @@ public class StripeGatewayImpl implements StripeGateway {
         return toWebhookEvent(event);
     }
 
+    /**
+     * Get the event's embedded object, tolerating API-version drift.
+     *
+     * <p>{@code getObject()} returns empty — or, for an event with no {@code api_version} at all,
+     * throws — whenever the version Stripe sent doesn't match the one this SDK was built for.
+     * That is not an edge case: the API version is set in the Stripe dashboard and moves
+     * independently of our dependency, so a routine upgrade on either side would otherwise make
+     * every webhook silently stop carrying state. {@code deserializeUnsafe()} is Stripe's own
+     * answer for this, and is safe for our use because we only read a handful of stable fields.
+     */
+    private static Optional<StripeObject> dataObject(Event event) {
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+        try {
+            Optional<StripeObject> strict = deserializer.getObject();
+            if (strict.isPresent()) return strict;
+        } catch (RuntimeException e) {
+            LOG.debug("Strict deserialization of event {} failed; falling back", event.getId());
+        }
+        try {
+            return Optional.ofNullable(deserializer.deserializeUnsafe());
+        } catch (Exception e) {
+            LOG.warn("Could not deserialize the object on Stripe event {} ({})", event.getId(), event.getType());
+            return Optional.empty();
+        }
+    }
+
     /** Flatten the SDK event into the handful of fields the handler depends on. */
     private StripeWebhookEvent toWebhookEvent(Event event) {
-        var deserialized = event.getDataObjectDeserializer().getObject();
+        var deserialized = dataObject(event);
         String objectType = null;
         String customerId = null;
         String subscriptionId = null;

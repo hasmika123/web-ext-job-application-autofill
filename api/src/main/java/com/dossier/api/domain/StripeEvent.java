@@ -3,6 +3,7 @@ package com.dossier.api.domain;
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.time.Instant;
+import org.springframework.data.domain.Persistable;
 
 /**
  * One received Stripe webhook event (Phase 12).
@@ -16,7 +17,7 @@ import java.time.Instant;
  */
 @Entity
 @Table(name = "stripe_event")
-public class StripeEvent implements Serializable {
+public class StripeEvent implements Serializable, Persistable<String> {
 
     private static final long serialVersionUID = 1L;
 
@@ -45,6 +46,30 @@ public class StripeEvent implements Serializable {
     @Column(name = "error")
     private String error;
 
+    /**
+     * Not a column — it makes the id actually behave as an idempotency key.
+     *
+     * <p>Spring Data decides "new entity?" from whether the id is null. With an assigned String
+     * id it would always answer "existing", turn {@code save()} into a merge, and a replayed
+     * event would quietly <b>update</b> its row instead of colliding. Declaring newness
+     * explicitly makes {@code save()} a {@code persist()}, so a duplicate id raises a constraint
+     * violation — which is what the handler catches to recognise a replay.
+     */
+    @Transient
+    private boolean isNew = true;
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() {
+        this.isNew = false;
+    }
+
+    @Override
     public String getId() {
         return id;
     }
