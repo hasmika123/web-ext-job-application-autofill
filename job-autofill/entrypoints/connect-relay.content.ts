@@ -20,6 +20,11 @@
 
 /** Same-origin page → relay. The page sends these; we never accept them from a frame or another origin. */
 const REQUEST = "KIWIPLY_CONNECT";
+/**
+ * Page → relay → background: "profile changed" / "signed out" (Phase 11.1). Forwarded verbatim
+ * through the same gate; the page never waits on the reply (web/src/lib/extension-signal.ts).
+ */
+const SYNC = "KIWIPLY_SYNC";
 /** Page → relay: "is the extension here?". Lets /connect detect us before it mints a session. */
 const PING = "KIWIPLY_CONNECT_PING";
 /** Relay → page. */
@@ -48,13 +53,25 @@ export default defineContentScript({
       if (event.source !== window) return;
       if (event.origin !== window.location.origin) return;
 
-      const data = event.data as { type?: unknown; tokens?: unknown } | null;
+      const data = event.data as { type?: unknown; tokens?: unknown; event?: unknown } | null;
       if (!data) return;
 
       // Presence check: answering this is how /connect learns a relay is listening, so it can
       // show "install the extension" instead of minting a session pair nobody will collect.
       if (data.type === PING) {
         window.postMessage({ type: PONG }, window.location.origin);
+        return;
+      }
+
+      // Fire-and-forget sync signal: forward, swallow the reply (nobody is listening for it).
+      if (data.type === SYNC) {
+        try {
+          chrome.runtime.sendMessage({ type: SYNC, event: data.event }, () => {
+            void chrome.runtime.lastError;
+          });
+        } catch {
+          /* dead background — the extension's own version check is the safety net */
+        }
         return;
       }
       if (data.type !== REQUEST) return;

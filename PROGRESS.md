@@ -25,7 +25,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **Go-to-market build — start at 11.1 (2026-09-21).** The plan to a sellable Pro tier is
+> ▶️ **Go-to-market build — next: 11.2 `GET /api/profile/version` (2026-09-21).** 11.1 is done (ext
+> v0.52.7): the web now signals the extension on every profile/resume change, sign-in and sign-out, and
+> the background pulls the mirror itself. The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
 > order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
@@ -824,10 +826,16 @@ focused Claude Code session.
 
 ## Phase 11 — Sync: signal + version check (Launch 1)
 > Spec: `ROADMAP.md` → Phase 11. Signal when you can, version-check when you can't, pull only on change.
-- [ ] **11.1 Web→extension change signal.** After profile/resume save, sign-in, sign-out the web
-  sends `{type:"changed"|"signedOut"}` to the extension over `externally_connectable`
-  (`onMessageExternal` exists). `signedOut` clears `trackingAuth` at once. Test: jsdom for the
-  SW handler; web unit test that the call fires on save.
+- [x] **11.1 Web→extension change signal.** ✅ DONE (ext **v0.52.7**). `web/src/lib/extension-signal.ts`
+  `notifyExtension("changed"|"signedOut")` — fire-and-forget, Chrome direct / Firefox via the connect-relay —
+  called after profile save (BioEditor, upload-services), every resume mutation (ResumeList: archive, delete,
+  star, default; upload-services: save, set-default), sign-in (password + MFA) and sign-out (SignOutButton,
+  AdminShell). SW: `KIWIPLY_SYNC` routed through the same origin gate as the handoff; `changed` pulls the
+  mirror in the background (storage.js now loaded there), stamps `__lastPull`, broadcasts
+  `KIWIPLY_MIRROR_UPDATED` → open drawer repaints; `signedOut` revokes best-effort then always clears.
+  32 assertions in `test/sync_signal.test.js` (both transports, the gate, offline revoke, unknown event).
+  *Web side is covered by tsc + eslint only — the web workspace has no unit runner; adding one is a separate
+  decision.*
 - [ ] **11.2 `GET /api/profile/version`.** Monotonic number or hash of bio + resumes `updatedAt`.
   IT test.
 - [ ] **11.3 Extension version checks.** `chrome.alarms` every 15 min + tab focus + drawer open →
@@ -996,6 +1004,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **11.1 web → extension change signal** · Ext **v0.52.7**. The extension's mirror only
+  refreshed when the drawer opened (90 s throttle), and a web sign-out never reached it. Now the web
+  fires `notifyExtension("changed"|"signedOut")` after every profile/resume mutation, sign-in and
+  sign-out — Chrome direct via `externally_connectable`, Firefox via the existing connect-relay —
+  and the background handles `KIWIPLY_SYNC` through the **same origin gate** as the connect handoff
+  (an ATS content script or a foreign origin is ignored). `changed` pulls the mirror in the SW
+  (which now loads `storage.js`), stamps `__lastPull`, and broadcasts so an open drawer repaints;
+  `signedOut` revokes best-effort and always clears the session. `connect/page.tsx` now imports the
+  shared `EXT_ID`. 32 new assertions; full suite, typecheck, build and the web gate green.
 - 2026-09-21 · **Go-to-market plan written — Phases 11–17** · Docs only. Everything decided in the
   planning session is now build-ready: **Free + Pro** ($19.99 / $44.99-per-3-months at Launch 1 →
   $24.99 / $54.99 at Launch 2, no annual), Free = no server AI except resume parsing, 3 resumes;

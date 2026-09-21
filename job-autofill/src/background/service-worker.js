@@ -276,24 +276,82 @@ async function acceptConnectSession(tokens) {
   }
 }
 
+// --- Web → extension change signal (Phase 11.1) --------------------------------
+// The web app tells us the moment the profile/resumes changed or the user signed out,
+// over the SAME origin-gated channel as the connect handoff (web/src/lib/extension-signal.ts).
+// Before this, the mirror only refreshed when the drawer opened, throttled to 90 s, and a
+// web sign-out never reached the extension at all.
+//
+//   { type: "KIWIPLY_SYNC", event: "changed" }   → pull the mirror now
+//   { type: "KIWIPLY_SYNC", event: "signedOut" } → revoke (best-effort) + drop the session
+const SYNC = "KIWIPLY_SYNC";
+
+async function handleSyncSignal(event) {
+  const J = self.JAF || {};
+  if (event === "signedOut") {
+    // Mirrors options/actions.ts signOut(): revoke server-side if we can, then clear locally
+    // regardless — the local clear is the part that must not fail.
+    try {
+      const settings = (await sGet("settings")) || {};
+      const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
+      if (provider && provider.logout) await provider.logout();
+    } catch (e) { /* best-effort revoke */ }
+    try { await J.tracking.chromeTokenStore().clear(); } catch (e) { return { ok: false, reason: "clear-failed" }; }
+    track("extension_disconnected", { source: "web" });
+    return { ok: true };
+  }
+  if (event === "changed") {
+    try {
+      const settings = (await sGet("settings")) || {};
+      const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
+      if (!(await provider.isAuthenticated())) return { ok: false, reason: "not-connected" };
+      await J.sync.pullAll(provider, J.storage);
+      // Stamp the pull so a drawer opened right after doesn't repeat it (its 90 s throttle
+      // keys off this; 11.3 replaces the throttle with a version check).
+      const s2 = (await sGet("settings")) || {};
+      s2.__lastPull = Date.now();
+      await sSet("settings", s2);
+      // Let an already-open drawer repaint from the fresh mirror. No listener = no receiver
+      // error we care about.
+      try { chrome.runtime.sendMessage({ type: "KIWIPLY_MIRROR_UPDATED" }, () => { void chrome.runtime.lastError; }); } catch (e) {}
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: String((e && e.message) || e) };
+    }
+  }
+  return { ok: false, reason: "unknown-event" };
+}
+
+// Everything the web app may send us, once the origin gate has passed. Returns a promise
+// for a response, or null when the message isn't one of ours (so the listener stays quiet).
+function routeWebMessage(msg) {
+  if (!msg) return null;
+  if (msg.type === "KIWIPLY_CONNECT") return acceptConnectSession(msg.tokens);
+  if (msg.type === SYNC) return handleSyncSignal(msg.event);
+  return null;
+}
+
 // Path 1 — Chrome: the web page messages the extension directly (externally_connectable).
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   if (!connectOriginAllowed(senderOrigin(sender))) return;
-  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
-  acceptConnectSession(msg.tokens).then(sendResponse);
+  const p = routeWebMessage(msg);
+  if (!p) return;
+  p.then(sendResponse);
   return true; // async
 });
 
 // Path 2 — Firefox: there is no externally_connectable (https://bugzil.la/1319168), so the page
-// posts the session to itself and the connect-relay content script forwards it here as an
-// ordinary internal message. The sender is then one of OUR content scripts, and the origin gate
-// is the same one — a content script on an ATS page cannot hand over a session, only one running
-// on an origin the accept-list allows.
+// posts to itself and the connect-relay content script forwards it here as an ordinary internal
+// message. The sender is then one of OUR content scripts, and the origin gate is the same one —
+// a content script on an ATS page cannot hand over a session or fake a sync signal, only one
+// running on an origin the accept-list allows.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
+  if (!msg || (msg.type !== "KIWIPLY_CONNECT" && msg.type !== SYNC)) return;
   if (!sender || !sender.tab) return;           // must come from a page, not another extension page
   if (!connectOriginAllowed(senderOrigin(sender))) return;
-  acceptConnectSession(msg.tokens).then(sendResponse);
+  const p = routeWebMessage(msg);
+  if (!p) return;
+  p.then(sendResponse);
   return true; // async
 });
 

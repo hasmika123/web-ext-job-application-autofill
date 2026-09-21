@@ -8,6 +8,7 @@ import { CheckIcon as SharedCheckIcon, Spinner as SharedSpinner } from "@kiwiply
 import { cn } from "@/lib/cn";
 import { isEmail, isUrl, isPhone, LIMITS } from "@/lib/validate";
 import { parseResume } from "@/lib/resume-parse";
+import { notifyExtension } from "@/lib/extension-signal";
 
 /** The bio object stored as the server's opaque `payload` JSON (extension-canonical). */
 export type Bio = Record<string, unknown>;
@@ -240,6 +241,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
         }
         setDirty(false);
         setSavedOnce(true);
+        notifyExtension("changed");
         router.refresh();
       } catch {
         setError("Something went wrong while saving.");
