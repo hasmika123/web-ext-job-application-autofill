@@ -424,7 +424,7 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
 > quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
 > common questions. Nothing to configure; it's automatic.
 
-## 11. Billing (Phase 12, Stripe) — ⚠️ NOT configured yet
+## 11. Billing (Phase 12, Stripe) — ⚠️ sandbox ready, NOT live yet
 
 > **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API
 > starts normally, `GET /api/billing/me` answers `FREE` with `billingEnabled:false`, and the
@@ -454,3 +454,119 @@ localhost:8080/api/billing/webhook` prints a per-session webhook secret.
 
 Optional overrides, only if the domain changes: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`,
 `STRIPE_PORTAL_RETURN_URL`.
+
+---
+
+### 11.1 End-to-end test run (Phase 12.7) — do this before taking real money
+
+Run the whole billing flow **locally against the Stripe sandbox**, never against production:
+production holds real users, and pointing it at test keys would write test subscriptions into
+the live database. Everything below uses test keys, test cards and a local API.
+
+**You need:** Docker Desktop running, JDK 17, the Stripe CLI, and your sandbox's `sk_test_…`
+key plus both `price_…` ids.
+
+#### A. Bring the local stack up
+
+```bash
+cd api
+docker compose -f src/main/docker/mysql.yml up -d
+docker compose -f src/main/docker/minio.yml up -d
+```
+
+MinIO is needed even though this is a billing test: the resume-cap step has to upload three real
+files first, and the web upload route deletes the resume row if the file upload fails.
+
+#### B. Start the webhook forwarder FIRST
+
+```bash
+stripe login
+stripe listen --forward-to localhost:8080/api/billing/webhook
+```
+
+It prints `whsec_…`. **That secret is per-session** — it changes every time you restart
+`stripe listen`, so start it before the API and leave it running. Nothing marks anyone Pro
+without it: the webhook is the only writer of subscription state.
+
+#### C. Start the API with the sandbox keys
+
+In a new terminal, with the `whsec_…` from step B:
+
+```bash
+cd api
+export JAVA_HOME="/c/Program Files/Java/jdk-17"
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+export STRIPE_PRICE_MONTHLY=price_...
+export STRIPE_PRICE_3MO=price_...
+./gradlew bootRun
+```
+
+#### D. Start the web app and sign in
+
+```bash
+cd web && npm run dev
+```
+
+Sign in at <http://localhost:3000> as **`user` / `user`** — the seeded dev account, already
+activated, so no verification email is needed.
+
+#### E. The run
+
+| # | Do | Expect |
+|---|---|---|
+| 1 | Open `/pricing` | Both prices, the auto-renew disclosure, and live buttons (not "coming soon") |
+| 2 | Subscribe with card `4242 4242 4242 4242`, any future expiry, any CVC | `/billing/success` flips to **You're on Pro** within a second or two |
+| 3 | `/settings#billing` | Pro pill + **Renews on …** |
+| 4 | Upload a 4th resume | Blocked with a **402** and an inline upgrade link — *after* downgrading; on Pro it should succeed |
+| 5 | Portal → **Cancel** | Settings shows **Cancels on …**, and you still have Pro |
+| 6 | Watch the `stripe listen` window throughout | Every event **200**, never 4xx/5xx |
+
+#### F. The failed-payment path
+
+`stripe trigger invoice.payment_failed` on its own creates a **brand-new** customer, so our
+webhook will correctly log `No subscription row for Stripe customer … — skipping` and change
+nothing. To exercise *your* row, override the customer (find the id in Settings → the API log
+line `Created Stripe customer cus_… for user`, or in the sandbox Dashboard):
+
+```bash
+stripe trigger invoice.payment_failed --override invoice:customer=cus_...
+```
+
+Expect: status `past_due`, **still Pro** (Smart Retries are still running), and a
+payment-failed email attempted. Locally there is usually no SMTP configured, so the API logs
+`Could not send the payment-failed email` — that is the correct behaviour, not a bug: a mail
+failure must never fail a webhook, or Stripe would retry forever.
+
+#### G. Watching Pro actually lapse (test clock)
+
+A Stripe test clock can only be attached **when the customer is created**, and our checkout
+creates its own customer — so seed the row with a clock customer *before* the first checkout.
+`startCheckout` reuses an existing `stripe_customer_id` forever, which is what makes this work.
+
+1. Sandbox Dashboard → **Test clocks** → new clock → create a customer on it (`cus_…`).
+2. With no subscription row yet for `user`:
+
+```sql
+INSERT INTO subscription (user_id, plan, status, stripe_customer_id, cancel_at_period_end, created_at, updated_at)
+VALUES ((SELECT id FROM jhi_user WHERE login = 'user'), 'FREE', 'none', 'cus_...', false, NOW(), NOW());
+```
+
+3. Run the checkout in step E again — it will use that customer, so the subscription lands on
+   the clock.
+4. Advance the clock past `current_period_end`.
+
+Expect: the mirror follows Stripe, `/settings` shows **Free**, **every resume is still there**,
+and a 4th upload is refused with `RESUME_LIMIT`. If you skip the clock, cancelling *immediately*
+in the Dashboard exercises the same lapse rule with less setup — it just doesn't prove a renewal.
+
+#### H. The extension (optional)
+
+Point the extension's API base at `http://localhost:8080`, connect from the local `/connect`
+page, then open its options. Pro should appear **within one version check** — that is a
+15-minute alarm, or immediately on window focus or opening the drawer.
+
+#### Afterwards
+
+Record the run under **Log** in `PROGRESS.md`, then move the same four secrets into the box's
+`.env` (and the password manager) when you switch to live keys.

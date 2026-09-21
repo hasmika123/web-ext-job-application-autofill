@@ -40,9 +40,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > `/admin/analytics` has a Revenue card (MRR, active Pro, new/churned this month, past due).
 > **12.6 is DONE** — the ToS has a Billing section and the Privacy Policy names Stripe.
 > **Everything buildable in Phase 12 is finished. The only task left is 12.7, which is yours:**
-> the end-to-end run against the Stripe sandbox (`stripe listen`, card `4242…`, cancel, a
-> simulated failed payment, then a test clock to watch Pro lapse). Ask for the walkthrough and
-> I'll take it step by step. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> the end-to-end run against the Stripe sandbox. The runbook is written — `DEPLOY.md` **§11.1**,
+> step by step from `docker compose` to the test clock. Record the run under **Log** when it's
+> done, then Phase 12 closes and the build order moves to **10.1–10.3**. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1118,6 +1118,19 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.7 runbook written (the run itself is still owed)** · Docs only. `DEPLOY.md`
+  **§11.1** is the step-by-step for the end-to-end sandbox run: local stack, `stripe listen`
+  first (its `whsec_` is per-session), API with sandbox keys, sign in as the seeded `user`/`user`
+  so no verification email is needed, then the run itself. Three things the plan didn't
+  anticipate, found while writing it and worth knowing before you start: **(1)** MinIO has to be
+  up even for a billing test, because the resume-cap step uploads three real files and the web
+  upload route rolls the row back if the file upload fails; **(2)** `stripe trigger
+  invoice.payment_failed` creates a *brand-new* customer, so it never touches your row — use
+  `--override invoice:customer=cus_…`, and locally expect the payment-failed email to fail to
+  send, which is correct (a mail failure must not fail a webhook); **(3)** a **test clock can only
+  be attached when the customer is created**, and checkout creates its own customer — so seed the
+  `subscription` row with a clock customer id *before* the first checkout, which works because
+  `startCheckout` reuses an existing `stripe_customer_id` forever. The SQL is in the runbook.
 - 2026-09-21 · **12.6 billing copy + legal hooks** · Docs/copy only, no extension change. The ToS
   **Fees** placeholder ("free to start during beta") became a real **Billing and subscriptions**
   section at `/terms#billing`: prices, auto-renew, **no free trial**, self-service cancellation
