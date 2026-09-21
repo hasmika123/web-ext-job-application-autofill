@@ -438,6 +438,192 @@ today most users never switch them on — the quality gap is partly a defaults p
 **Sequencing:** 10.1 → 10.2 → 10.3 → (10.5 alongside) → 10.4 → 10.6. Measurement first,
 then the cheap visible win, then the schema/profile spine, then the grind.
 
+> **Scope note (2026-09-21):** fill quality ships **free** — core autofill is the acquisition
+> hook and is identical in both tiers. "Pro-plan gate" means *quality gate before we sell Pro*,
+> not a paid feature. 10.5's "server AI on for Pro" is the only Pro-gated piece of this phase.
+
+---
+
+## Go-to-market build (Phases 11–17) — locked 2026-09-21
+
+> Two launches. **Launch 1** = billing + Pro AI + inbox + sync + fill-quality core.
+> **Launch 2** = daily job matches + engagement + analytics + price rise. Everything below is
+> written so a session can pick up a phase and build without re-deriving the decisions.
+> Tasks live in `PROGRESS.md` under the same numbers.
+
+### Tiers, price, and what's where
+
+| | **Free** | **Pro** |
+|---|---|---|
+| Price | $0 | **Launch 1: $19.99/mo · $44.99 / 3 months** → **Launch 2: $24.99/mo · $54.99 / 3 months.** No annual plan (job searches run 3–6 months; Teal sells weekly/monthly/quarterly and no annual; Simplify's annual is a margin giveaway). |
+| Autofill on every supported ATS, review overlay, multi-step | ✅ | ✅ |
+| Job capture, board/tracker, auto-log on submit, save-a-job | ✅ | ✅ |
+| Self-building profile + post-fill audit (Phase 10) | ✅ | ✅ |
+| Resume upload + **AI parsing** (the one free server-AI exception — one call per resume, and the Tier-B moment the profile depends on) | ✅ **3 resumes** | ✅ unlimited |
+| Learned answers on this device | ✅ | ✅ |
+| Learned answers **synced across devices** | — | ✅ |
+| Bring-your-own Anthropic key (mapping, picks, drafting) | ✅ | ✅ |
+| **Kiwiply AI for autofill** (field mapping, constrained picks, answer drafting — already built) | — | ✅ |
+| Resume recommendation per job · job-fit panel · resume tailoring to JD | — | ✅ |
+| Inbox auto-status + notifications | — | ✅ |
+| Reminders, stale nudges, weekly digest, calendar export | — | ✅ (Launch 2) |
+| Daily job matches | — | ✅ (Launch 2) |
+| Analytics (response rate by resume / ATS / role) | — | ✅ (Launch 2) |
+| Edge + Firefox, dark mode, bug reporter | ✅ | ✅ |
+
+**Advertising line:** *Free — everything you need to apply. Pro — everything that gets you the
+interview: AI that picks and tailors your resume, and an inbox that updates your board for you.*
+
+**Margin (Gemini rates, Sep 2026):** median active Pro user ≈ $0.20–0.50/mo of model cost
+(mapping + picks on Flash-Lite, job-fit + tailoring on Flash, inbox classification only on
+ambiguous mail); p95 ≈ $2–3. At $19.99 that is 1–3 % of revenue, Stripe ≈ $0.88 → **gross
+margin ≈ 90 %+**. Gemini 2.5 Flash-Lite retires **2026-10-16** (successor ~5× the price);
+median still < $1. Model names are **config-driven** so the swap is an env change.
+
+### Phase 11 — Sync: signal + version check  *(Launch 1)*
+**Today:** the extension pulls only when the drawer opens, throttled to 90 s
+(`panel/home-actions.ts`); nothing tells it about a web-side change, and **sign-out on the web
+never reaches the extension**. **Design — signal when you can, version-check when you can't,
+pull only on change:**
+- **11.1 Web→extension signal.** After any profile/resume save, sign-in or sign-out, the web
+  calls `chrome.runtime.sendMessage(extId, {type: "changed" | "signedOut"})` over the existing
+  `externally_connectable` channel (`onMessageExternal` already exists for the connect
+  handoff). `signedOut` clears `trackingAuth` immediately.
+- **11.2 `GET /api/profile/version`.** One monotonic number (or hash of bio + resumes
+  `updatedAt`). Cheap enough to call often.
+- **11.3 Extension checks.** `chrome.alarms` every 15 min + on tab focus + on drawer open:
+  compare version, pull only if different. **Delete the 90 s throttle.**
+- **11.4 Server-side revoke** is already built (1.11); document that a stale token dies at
+  next refresh. No WebSockets — MV3 kills the SW after 30 s idle.
+
+### Phase 12 — Billing & entitlements (Stripe)  *(Launch 1 — build the gate before the gated features)*
+- **12.1 Stripe setup.** Products/Prices: `pro_monthly` $19.99, `pro_3mo` $44.99 (recurring
+  every 3 months). Stripe Tax on. Checkout (hosted) + Customer Portal (cancel / update card).
+- **12.2 Webhooks → `subscription` table.** `checkout.session.completed`, `invoice.paid`,
+  `invoice.payment_failed`, `customer.subscription.updated|deleted`. Columns: user, stripe
+  customer/sub ids, plan, status, `current_period_end`, `cancel_at_period_end`. Additive
+  Liquibase migration. Idempotent by event id.
+- **12.3 Entitlement service.** `isPro(user)` in the API — **the only source of truth; never
+  trust the client**. Gate every Pro endpoint (AI, inbox, sync, analytics). Plan + period end
+  travel in the extension session payload so the drawer/options can show plan state.
+- **12.4 Free-tier redefinition.** Server AI quota → 0 for free (keep the resume-parse
+  exception). Free resume cap = 3 (existing resumes over the cap stay readable, not editable
+  — never delete user data on downgrade). BYO key unchanged.
+- **12.5 Web surfaces.** `/pricing`, upgrade CTAs at every gated feature, `/settings/billing`
+  (plan, renewal, portal link), plan badge in extension options. Dunning: Stripe smart retries
+  + a "payment failed" email; downgrade at period end, not instantly.
+- **12.6 Admin.** Revenue / active subs / churn panel on `/admin/analytics` (extends A3).
+- **12.7 Legal hooks for PL.1.** Auto-renew disclosure at checkout, click-to-cancel (FTC rule +
+  California ARL), refund policy in the ToS.
+
+### Phase 13 — Pro AI  *(Launch 1 — needs 12 for the gate, 10.3 for structured `experience[]`/`education[]`)*
+**Cost architecture first (13.1), features after — every feature inherits it.**
+- **13.1 Credit metering & routing.** Meter by estimated cost (tokens × model rate) into a
+  monthly Pro budget (≈ $5 of model cost; effectively unreachable for real users) with a visible
+  meter; soft cap → cheaper model, hard cap → top-up. Route by task: mapping / picks /
+  classification → Flash-Lite; job-fit + tailoring → Flash. Cache per (question + options) —
+  exists — plus per (resume × JD). **Context-cache the resume prompt prefix** (cache reads at
+  10 % of input). Batch overnight scoring (50 % off). Bounded inputs: structured resume JSON,
+  JD capped by tokens. Kill switch per feature.
+- **13.2 Resume recommendation per job.** Score every stored resume against the captured JD
+  (Flash-Lite or embeddings); "best match: *Backend v3* — 82 %" in the drawer + on the board.
+  Later learns from inbox outcomes (Phase 14 + 16).
+- **13.3 Job-fit panel.** On the posting: match %, missing keywords, red flags. Cached per
+  (resume × JD).
+- **13.4 Resume tailoring to JD.** Bullet rewrites with a diff, truthfulness guardrails (no
+  invented employers/dates/degrees), saved as a **new** resume version — fits "resume creates
+  push back".
+- **13.5 Candidates (confirm before building — see competitor cross-check):** ATS resume
+  score (0–100, structure/keyword checks; Teal's most-used free hook) · cover-letter generator
+  (Huntr/Simplify+ table stakes; we deferred Q&A drafting, a cover letter is a bounded cousin).
+
+### Phase 14 — Inbox: IMAP  *(Launch 1 — needs 12)*
+**Design — mirrors Sales-App `integrations/email/imap`: no Kiwiply address of any kind.** The
+user creates a **dedicated consumer Gmail** for job applications, turns on 2-Step Verification,
+generates a Gmail **App Password**, and pastes address + app password into Kiwiply. The API
+polls `INBOX` **and** `[Gmail]/Sent Mail` over IMAP — both directions natively. No forwarding,
+no OAuth, no Google API → no restricted-scope verification, no CASA.
+- **14.1 Connect flow** (`/settings/inbox`): guided steps with the Gmail screenshots, test
+  connection, disconnect. Consumer Gmail only (Workspace blocks password auth since May 2025).
+- **14.2 Credentials at rest.** App password encrypted with a server-side key (pulls the 8.4
+  "secrets/KMS" slice forward as **required**). Deleting the app password in Gmail revokes us.
+- **14.3 Poller.** Scheduled IMAP sync (UID-based incremental, backfill on connect), stores
+  headers + body text only — **no attachments, ever**. Rate-limited; per-user error state.
+- **14.4 Parser → status.** Deterministic first: known ATS sender domains + subject templates
+  (Greenhouse, Lever, Workday, Ashby, iCIMS…) → `applied / interview / rejected / offer`. AI
+  (Flash-Lite) only on ambiguous mail. Match to an application by company + role + the
+  address the application was sent from; unmatched mail creates a *suggested* application.
+- **14.5 Cross-board dedup (was 3.6.5).** One application per posting, or auto-updates
+  double-count. Normalized company + title (+ fuzzy location) at upsert.
+- **14.6 Notifications.** In-app + email to the user's *real* address on status change;
+  browser push later.
+- **14.7 Retention & deletion (the 8.4 slice).** Mail rows expire (default 12 months), purge
+  on disconnect and on account delete; DSAR export includes mail. Read-only guarantee stated
+  in product and policy: *we never send, move or delete*.
+- **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
+  = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
+  ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard
+  because an app password cannot be scoped read-only.
+
+### Phase 15 — Launch 1
+- **15.1 Ops (deliberately here, not earlier).** Nightly off-box `mysqldump` to S3 with
+  retention · uptime + error monitoring with alerting · **a restore drill actually performed**.
+  Money cannot be at risk before this exists.
+- **15.2 Legal (PL.1 completion).** Lawyer review of privacy + terms now covering: billing
+  (auto-renew, click-to-cancel, refunds), IMAP mail processing, AI data use, governing law +
+  entity (AutomoraLab LLC). DPAs with Brevo + AWS S3.
+- **15.3 Store.** CWS resubmit with the Pro build + AMO first submission; listing copy for the
+  Free/Pro split; the `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
+- **15.4 Launch checklist.** Pricing page live, Stripe live keys, webhook signing verified,
+  support path for billing, W5-QA walked in Chrome (light + dark), SmartRecruiters live check.
+
+### Phase 16 — Between launches  *(after Launch 1, before Launch 2)*
+- **16.1 Daily job matches** *(user request 2026-09-21; light plan, refine before build).*
+  **Job:** 10–15 fresh, high-quality, well-matched jobs every day so the user never has to go
+  hunting; an empty list beats a padded one.
+  - **Sources — direct from the ATS, not scraped boards.** Greenhouse, Lever, Ashby,
+    Workable, SmartRecruiters and Recruitee all expose **public job-board JSON APIs** (no auth,
+    no scraping). Direct-from-employer = verified company; posting timestamps = real recency.
+    These are the same ATS the extension already fills, so a match is one click from an apply.
+    Aggregator API (LoopCV / Apify multi-ATS feeds) only as a coverage fallback.
+  - **Quality gates:** posted ≤ 48 h · company verified by ATS tenant · dedup across sources ·
+    staffing-agency / spam filter · location/remote fits preference.
+  - **Matching:** preference profile = Tier A answers + role/seniority/location inferred from
+    the resume + explicit preferences; score with embeddings or Flash-Lite, show **match %**.
+  - **Feedback loop:** like / dismiss / applied → re-rank; "not interested" companies excluded.
+  - **Delivery:** in-app list + daily email at the user's chosen time (Brevo). Never
+    auto-apply — the hard rule stands.
+  - **Cost:** batch scoring overnight; candidate set pre-filtered deterministically so the
+    model sees ≤ 50 jobs per user per day.
+- **16.2 Analytics.** Response / interview rate by resume, ATS, role, company size — the chart
+  only the inbox can power.
+- **16.3 Reminders + stale nudges.** "No reply in 10 days" → nudge; follow-up date on cards.
+- **16.4 Weekly digest.** Applications, replies, interviews, matches — one email.
+- **16.5 Calendar export.** Interview → `.ics` / Google Calendar link.
+
+### Phase 17 — Launch 2
+Price → **$24.99 / $54.99** (grandfather existing subscribers for one cycle) · adapter depth
+milestone from 10.4 · listing refresh with matches + analytics · 13.5 candidates if confirmed.
+
+### Competitor cross-check (2026-09-21) — what they offer that we don't, and the verdict
+
+| They have | Who | Verdict |
+|---|---|---|
+| Job matches / daily recommendations with match score, early-posting alerts | Simplify (free), Jobright (core), Huntr (basic) | **Build — 16.1** |
+| ATS resume score (0–100, 15 checks) | Teal (free, their top hook), Careerflow | **Candidate — 13.5** (small, Pro) |
+| Cover-letter generator | Simplify+, Huntr Pro, Teal+ | **Candidate — 13.5** (Launch 2) |
+| Resume **builder** + templates | Teal, Simplify, Huntr | **No** — we are upload-first; the profile builds itself from the resume, not the reverse |
+| Contacts / referral finder / insider connections | Teal, Huntr, Jobright | Later (Phase 18+) |
+| AI career coach / interview prep | Jobright (Orion) | Deferred by decision |
+| Agent auto-apply | Jobright Agent, LazyApply | **Never** — hard rule, and it's what earns them 2★ reviews |
+| LinkedIn profile optimizer | Careerflow | No |
+| Weekly plan ($9–13/wk) | Teal | No — churn bait |
+
+**Reading of the market:** everyone gives tracking + autofill away and charges for AI writing
+and matching; billing surprises and AI output "that needs heavy editing" are the top paid-tier
+complaints. Our differentiators are the **inbox that updates the board** and the **self-building
+profile** — nobody in the table has either.
+
 ### Order at a glance
 
 | Order | Feature | Depends on | Backend? |
@@ -452,7 +638,14 @@ then the cheap visible win, then the schema/profile spine, then the grind.
 | 7 | Other browsers (Edge/Firefox; Safari later) | 2 | No |
 | 8 | Enterprise & Compliance (SSO, multi-tenancy, audit) | 1, 2 | Yes |
 | 9 | Admin console, ops & comms — **see `ADMIN-PLAN.md`** (A0 default-admin fix → admin/users/audit → AI/sessions/ops → analytics → email subscription → bug reports) | 1, 2 | Yes |
-| 10 | **Fill quality & the self-building profile** (telemetry → post-fill audit → 3-tier profile + schema → ATS coverage → regression suite) — *the Pro-plan gate* | 1, 4, 5 | Yes |
+| 10 | **Fill quality & the self-building profile** (telemetry → post-fill audit → 3-tier profile + schema → ATS coverage → regression suite) — ships free | 1, 4, 5 | Yes |
+| 11 | **Sync** — web→ext signal + `/api/profile/version` + alarms; drop the 90 s throttle | 1 | Yes |
+| 12 | **Billing & entitlements** — Stripe, `subscription`, `isPro()`, pricing page, free = BYO only | 1, 2 | Yes |
+| 13 | **Pro AI** — credit metering/routing/caching, resume recommendation, job-fit panel, tailoring | 12, 10.3 | Yes |
+| 14 | **Inbox (IMAP)** — dedicated Gmail + app password, poll inbox + sent, parser → status, notifications, dedup, retention | 12 | Yes |
+| 15 | **Launch 1** — ops (backup/monitoring/restore drill), PL.1 legal, CWS + AMO resubmit, checklist | 10–14 | — |
+| 16 | **Between launches** — daily job matches, analytics, reminders, digest, calendar | 14, 15 | Yes |
+| 17 | **Launch 2** — price rise to $24.99 / $54.99, adapter milestone, listing refresh | 16 | — |
 
 ---
 

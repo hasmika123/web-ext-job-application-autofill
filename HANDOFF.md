@@ -33,6 +33,18 @@ point of failure the lost box did:
 CI/CD is live and hands-off (merge to `main` deploys). Live values in DEPLOY.md §7.1; the deploy
 traps worth knowing before you touch it are in §7.3.
 
+## What's next (2026-09-21) — the go-to-market build
+**Branching changed:** work goes on topic branches off **`develop`** and PRs into `develop`;
+only the user promotes `develop` → `main` (that merge deploys). See `CLAUDE.md` → Branching.
+
+The whole plan to a sellable Pro tier is written out, build-ready, in `ROADMAP.md`
+**Phases 10–17** with tasks in `PROGRESS.md`. Order: **11 Sync → 12 Billing → 10.1–10.3 fill
+quality → 13 Pro AI → 14 Inbox (IMAP) → 15 Launch 1** (ops hardening + legal + store live
+there), then **16 job matches / analytics / engagement → 17 Launch 2**. The two ops gaps above
+are scheduled in **15.1** by decision — don't pull them earlier. The extension's v1 is
+published on the Chrome Web Store and under review; it gets resubmitted in 15.3 with the Pro
+build. Start at `PROGRESS.md` → Current focus (**11.1**).
+
 ## How to work here (the loop)
 Per `CLAUDE.md`: read `PROGRESS.md` → **Current focus**; do ONE task; tests green; bump
 versions if the extension changed; **one task = one commit** (`phaseN.x: subject`). Hard rules:
