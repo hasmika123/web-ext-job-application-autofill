@@ -25,9 +25,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **Go-to-market build — next: 11.2 `GET /api/profile/version` (2026-09-21).** 11.1 is done (ext
-> v0.52.7): the web now signals the extension on every profile/resume change, sign-in and sign-out, and
-> the background pulls the mirror itself. The plan to a sellable Pro tier is
+> ▶️ **Go-to-market build — next: 11.3 extension version checks (2026-09-21).** 11.1 + 11.2 are done
+> (ext v0.52.8): the web signals the extension on every change/sign-in/sign-out, the background pulls
+> the mirror itself, and `GET /api/profile/version` gives it a cheap fingerprint to compare. 11.3 and
+> 11.4 are specified to build depth in the Phase 11 list below. The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
 > order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
@@ -836,12 +837,29 @@ focused Claude Code session.
   32 assertions in `test/sync_signal.test.js` (both transports, the gate, offline revoke, unknown event).
   *Web side is covered by tsc + eslint only — the web workspace has no unit runner; adding one is a separate
   decision.*
-- [ ] **11.2 `GET /api/profile/version`.** Monotonic number or hash of bio + resumes `updatedAt`.
-  IT test.
-- [ ] **11.3 Extension version checks.** `chrome.alarms` every 15 min + tab focus + drawer open →
-  compare, pull only on change. **Remove the 90 s throttle** in `panel/home-actions.ts`.
-- [ ] **11.4 Doc the revoke path.** 1.11 rotation means a stale token dies at next refresh;
-  record in `ARCHITECTURE.md`. No WebSockets (MV3 SW idles out).
+- [x] **11.2 `GET /api/profile/version`.** ✅ DONE (ext **v0.52.8**) — exactly as specified below;
+  `ProfileVersionResourceIT` 4/4 green locally against Testcontainers MySQL, `tracking.test.js` 62/62.
+  `200 {"version":"<16 hex>"}`, Bearer, **never 404**.
+  A **hash** of exactly what a pull returns (bio `updatedAt`+`payload`, resumes sorted by id with
+  `id|label|status|archived|starred|defaultResume|createdAt|r2ObjectKey|parsedJson`), SHA-256 → 16
+  hex — because `Resume` has no `updatedAt` and a counter would need a migration and could still
+  miss a path. API: `service/ProfileVersion.java` (pure hasher) + `ProfileService.profileVersion()`
+  + `ProfileResource` `GET /version` + `vm/ProfileVersionVM`. Ext: `TrackingProvider.profileVersion()`
+  (base NotSupported; Kiwiply provider GETs it → string|null). Tests: `ProfileVersionResourceIT`
+  (empty → 200/16 hex; stable; moves on PUT profile, resume create, archive toggle, delete; another
+  user's change doesn't move mine) · `tracking.test.js` (path + mapping). Ext version bump.
+- [ ] **11.3 Extension version checks.** `JAF.sync.checkAndPull(provider, storage, settings)` —
+  GET version, compare `settings.__profileVersion`, pull only on mismatch/first run, store version +
+  `__lastPull`; provider error → no pull, keep old version. Callers: `chrome.alarms` `"kiwiply-sync"`
+  / 15 min (created on `onInstalled` + `onStartup`; **add `"alarms"` permission** in `wxt.config.ts`) ·
+  `chrome.windows.onFocusChanged` in the SW, ≤ 1 check / 60 s · drawer `refreshMirror` replaces the
+  90 s throttle + `pullAll` with `checkAndPull` (keep the one-time resume-migration push). Pulls that
+  changed the mirror broadcast `KIWIPLY_MIRROR_UPDATED`. 11.1 `changed` keeps pulling unconditionally
+  but then fetches + stores the version. Tests: `sync.test.js` (first run / hit / miss / error) ·
+  SW test for alarm registration + `onAlarm` · `tracking.test.js`. Ext version bump.
+- [ ] **11.4 Docs.** `ARCHITECTURE.md` "Sync model" section (signal → version → alarm; revoke path:
+  1.11 rotation kills a stale token at its next refresh, `signedOut` clears at once; no WebSockets —
+  MV3 SW idles out after 30 s). `HANDOFF.md` one line. Docs-only commit.
 
 ## Phase 12 — Billing & entitlements: Stripe (Launch 1 — the gate comes before the gated features)
 > Spec: `ROADMAP.md` → Phase 12 + the Free/Pro table. `isPro()` in the API is the ONLY source of truth.
@@ -1004,6 +1022,19 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **11.2 `GET /api/profile/version`** · Ext **v0.52.8**. The fingerprint the extension
+  will poll (11.3) to re-pull only on change. It's a **hash of exactly what a pull returns**, not a
+  counter: `Resume` has no `updatedAt` (only `createdAt`), so a counter would need a migration plus
+  a touch on every write path and could still miss one — the IT's archive-toggle case is precisely
+  the change a `createdAt` scheme would have missed. `service/ProfileVersion.java` (pure SHA-256 →
+  16 hex over bio `updatedAt`+`payload` and every resume DTO sorted by id) + `ProfileService.
+  profileVersion()` + `ProfileResource GET /version` + `vm/ProfileVersionVM`; **never 404** so an
+  empty profile still compares. Ext: `TrackingProvider.profileVersion()` (base NotSupported; Kiwiply
+  GETs → string|null). `ProfileVersionResourceIT` 4/4 (empty → stable 16 hex; moves on bio PUT,
+  resume create/archive/unarchive/delete; another user's row doesn't move mine) — first local run
+  failed only because Docker couldn't pull Testcontainers' `ryuk` image; passed on retry.
+  Same day, the rest of Phase 11 (11.3 alarms + focus + drawer `checkAndPull`, 11.4 docs) was
+  specified to build depth in ROADMAP/PROGRESS so it can be implemented without re-deriving.
 - 2026-09-21 · **11.1 web → extension change signal** · Ext **v0.52.7**. The extension's mirror only
   refreshed when the drawer opened (90 s throttle), and a web sign-out never reached it. Now the web
   fires `notifyExtension("changed"|"signedOut")` after every profile/resume mutation, sign-in and

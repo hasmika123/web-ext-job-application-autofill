@@ -5,6 +5,7 @@ import com.dossier.api.service.ProfileService;
 import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.web.rest.vm.ProfileVM;
+import com.dossier.api.web.rest.vm.ProfileVersionVM;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +45,22 @@ public class ProfileResource {
         return profileService.getProfile()
             .map(ResponseEntity::ok)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No profile yet"));
+    }
+
+    /**
+     * {@code GET /api/profile/version} : a fingerprint of the current user's bio + resumes (Phase 11.2).
+     * The extension polls this — on an alarm, on window focus, on drawer open — and re-pulls its
+     * mirror only when the value differs from the one it last pulled under. Deliberately never 404:
+     * a user with no profile yet gets a stable "empty" version, so there is always something to compare.
+     */
+    @Operation(
+        summary = "Get my profile version",
+        description = "A short fingerprint of the current user's bio + resumes. Changes whenever a pull of either would change. Never 404."
+    )
+    @GetMapping("/version")
+    public ResponseEntity<ProfileVersionVM> getProfileVersion() {
+        LOG.debug("REST request to get the current user's profile version");
+        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion()));
     }
 
     /** {@code PUT /api/profile} : create or overwrite the current user's bio. */
