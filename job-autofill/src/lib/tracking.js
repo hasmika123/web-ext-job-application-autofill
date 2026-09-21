@@ -45,6 +45,8 @@
     async pullProfile() { throw new NotSupportedError("pullProfile"); }
     async pushProfile(/* bio */) { throw new NotSupportedError("pushProfile"); }
     async listResumes() { throw new NotSupportedError("listResumes"); }
+    // Phase 11.2 — the server's fingerprint of bio + resumes; the extension re-pulls only when it changes.
+    async profileVersion() { throw new NotSupportedError("profileVersion"); }
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
@@ -327,6 +329,14 @@
       async pushProfile(bio) {
         const dto = await request("PUT", "/api/profile", { body: { payload: bioToPayload(bio) } });
         return dto ? payloadToBio(dto.payload) : null;
+      },
+
+      // ---- profile version (Phase 11.2) ----------------------------------------
+      // GET /api/profile/version → {version}. A short hash of what pullProfile + listResumes
+      // would return; null when the server answers without one (the caller then pulls to be safe).
+      async profileVersion() {
+        const r = await request("GET", "/api/profile/version");
+        return r && typeof r.version === "string" && r.version ? r.version : null;
       },
 
       async listResumes() {

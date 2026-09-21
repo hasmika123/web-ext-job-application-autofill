@@ -85,6 +85,16 @@ public class ProfileService {
         return resumeRepository.findByUserIsCurrentUser().stream().map(resumeMapper::toDto).toList();
     }
 
+    /**
+     * A fingerprint of everything {@link #getProfile()} + {@link #listResumes()} would return
+     * (Phase 11.2). The extension compares it to the one it last pulled under and re-pulls only on
+     * a mismatch. See {@link ProfileVersion} for why this is a hash rather than a counter.
+     */
+    @Transactional(readOnly = true)
+    public String profileVersion() {
+        return ProfileVersion.compute(getProfile(), listResumes());
+    }
+
     public ResumeDTO createResume(ResumeDTO dto) {
         Resume resume = resumeMapper.toEntity(dto);
         resume.setId(null);

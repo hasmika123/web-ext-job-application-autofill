@@ -180,6 +180,18 @@ function mockFetch(handler) {
   ok("syncFieldCache sends an array of DTOs with ISO updatedAt", Array.isArray(fetchFC.calls[0].body) && typeof fetchFC.calls[0].body[0].updatedAt === "string");
   ok("syncFieldCache maps merged DTOs back to local (epoch ms)", mergedFC.length === 1 && mergedFC[0].hitCount === 7 && typeof mergedFC[0].updatedAt === "number");
 
+  /* ---- profileVersion (Phase 11.2) — GET /api/profile/version → string | null ---- */
+  const fetchVer = mockFetch(() => ({ status: 200, json: { version: "9f2c4a1b7e3d0c55" } }));
+  const pVer = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchVer, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const ver = await pVer.profileVersion();
+  ok("profileVersion GETs /api/profile/version", fetchVer.calls[0].method === "GET" && fetchVer.calls[0].path === "/api/profile/version");
+  ok("profileVersion returns the server's string", ver === "9f2c4a1b7e3d0c55");
+  const fetchNoVer = mockFetch(() => ({ status: 200, json: {} }));
+  const pNoVer = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchNoVer, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  ok("profileVersion is null when the server sends none (caller pulls to be safe)", (await pNoVer.profileVersion()) === null);
+  let verThrew = false; try { await base.profileVersion(); } catch (e) { verThrew = e.name === "NotSupportedError"; }
+  ok("base TrackingProvider.profileVersion throws NotSupported", verThrew);
+
   /* ---- aiDraft (Phase 5) — POSTs /api/ai/draft with consent, returns the server result ---- */
   const fetchAi = mockFetch(() => ({ status: 200, json: { answer: "Because I'd thrive here.", used: 1, quota: 50 } }));
   const pAi = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
