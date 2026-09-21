@@ -544,7 +544,6 @@ pull only on change:**
   profile = Tier A answers + role/seniority/location inferred from the resume. Gates: posted
   ≤ 48 h, dedup. Scoring: Flash-Lite, batch overnight, ≤ 50 candidates per user per day; show
   match %. Delivery: **in-app list only** (no email yet); dismiss hides a job. Empty list allowed.
-  Never auto-apply.
 
 ### Phase 14 — Inbox: IMAP  *(Launch 1 — needs 12)*
 **Design — mirrors Sales-App `integrations/email/imap`: no Kiwiply address of any kind.** The
@@ -603,8 +602,7 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   - **Matching:** preference profile = Tier A answers + role/seniority/location inferred from
     the resume + explicit preferences; score with embeddings or Flash-Lite, show **match %**.
   - **Feedback loop:** like / dismiss / applied → re-rank; "not interested" companies excluded.
-  - **Delivery:** in-app list + daily email at the user's chosen time (Brevo). Never
-    auto-apply — the hard rule stands.
+  - **Delivery:** in-app list + daily email at the user's chosen time (Brevo).
   - **Cost:** batch scoring overnight; candidate set pre-filtered deterministically so the
     model sees ≤ 50 jobs per user per day.
 - **16.2 Analytics.** Response / interview rate by resume, ATS, role, company size — the chart
@@ -619,8 +617,6 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   upload-first, does not replace it).* Build a resume from the structured profile
   (`experience[]`, `education[]`, skills) into ATS-friendly templates, export PDF, save as a
   new resume. Reuses the 10.3 schema — the profile is already the data model a builder needs.
-  Later (Phase 18+, by decision): contacts / referrals / insider connections, AI career coach.
-  **Agent auto-apply stays never** — hard rule, ToS, and the reviews prove it.
 
 ### Phase 17 — Launch 2
 Price → **$24.99 / $54.99** (grandfather existing subscribers for one cycle) · adapter depth
@@ -634,9 +630,6 @@ milestone from 10.4 · listing refresh with matches + analytics · 13.5 candidat
 | ATS resume score (0–100, 15 checks) | Teal (free, their top hook), Careerflow | **Build — 13.5 (Launch 1)** |
 | Cover-letter generator | Simplify+, Huntr Pro, Teal+ | **Build — 16.6 (Launch 2)** |
 | Resume **builder** + templates | Teal, Simplify, Huntr | **Build — 16.7 (Launch 2)**, on top of upload-first (user decision) |
-| Contacts / referral finder / insider connections | Teal, Huntr, Jobright | Later (Phase 18+) |
-| AI career coach / interview prep | Jobright (Orion) | Later (Phase 18+) |
-| Agent auto-apply | Jobright Agent, LazyApply | **Never** — hard rule, and it's what earns them 2★ reviews |
 | LinkedIn profile optimizer | Careerflow | No |
 | Weekly plan ($9–13/wk) | Teal | No — churn bait |
 

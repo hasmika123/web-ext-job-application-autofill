@@ -131,8 +131,7 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   Poll `INBOX` + `[Gmail]/Sent Mail`; store headers + body text only, **never attachments**;
   credentials encrypted at rest; we **never send, move or delete** mail. Two launches: ops
   hardening (backup/monitoring/restore drill) is Phase 15, right before Launch 1 — not earlier.
-  Daily job matches (Phase 16) source jobs from the ATS' public job-board APIs and **never
-  auto-apply**.
+  Daily job matches source jobs from the ATS' public job-board APIs.
 
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions

@@ -872,8 +872,7 @@ focused Claude Code session.
 - [ ] **13.6 Daily job matches — LIGHT** *(Launch 1, user decision; strong version = 16.1).*
   Greenhouse + Lever + Ashby public job-board APIs only; prefs = Tier A + resume-inferred
   role/seniority/location; ≤ 48 h + dedup; Flash-Lite scoring in an overnight batch, ≤ 50
-  candidates/user/day; match %; **in-app list only**, dismiss hides; empty list allowed; never
-  auto-apply.
+  candidates/user/day; match %; **in-app list only**, dismiss hides; empty list allowed.
 
 ## Phase 14 — Inbox over IMAP (Launch 1 — needs 12)
 > Spec: `ROADMAP.md` → Phase 14. Mirrors Sales-App `integrations/email/imap`. **No Kiwiply address,
@@ -908,8 +907,7 @@ focused Claude Code session.
 - [ ] **16.1 Daily job matches — STRONG** *(builds on 13.6; refine before build).* Adds: all six
   ATS sources (+ Workable, SmartRecruiters, Recruitee) with aggregator fallback; full quality
   gates (ATS-verified tenant, agency/spam filter); like / dismiss / applied **feedback loop** that
-  re-ranks; **daily email** at the user's chosen time; explicit preference editing. Still never
-  auto-apply.
+  re-ranks; **daily email** at the user's chosen time; explicit preference editing.
 - [ ] **16.2 Analytics.** Response / interview rate by resume, ATS, role.
 - [ ] **16.3 Reminders + stale nudges.** "No reply in N days" → nudge; follow-up dates on cards.
 - [ ] **16.4 Weekly digest** email.
@@ -919,8 +917,6 @@ focused Claude Code session.
 - [ ] **16.7 Resume builder + templates** *(Launch 2, user decision — on top of upload-first).*
   Build from the structured profile (10.3 schema) into ATS-friendly templates, PDF export, save
   as a new resume.
-- *Later (Phase 18+, by decision):* contacts / referrals / insider connections · AI career coach.
-  **Agent auto-apply: never** (hard rule).
 
 ## Phase 17 — Launch 2
 - [ ] **17.1 Price → $24.99 / $54.99**; grandfather existing subscribers one cycle.
@@ -1010,16 +1006,15 @@ focused Claude Code session.
   address, no forwarding, no OAuth**, poll inbox + sent, no attachments, encrypted creds,
   read-only. Two launches: ops hardening + PL.1 legal + store resubmit sit in **Phase 15** right
   before Launch 1 (by decision, not earlier); **daily job matches** (public ATS job-board APIs,
-  ≤ 48 h, match %, feedback loop, never auto-apply), analytics, reminders, digest and calendar
+  ≤ 48 h, match %, feedback loop), analytics, reminders, digest and calendar
   sit in **Phase 16** before Launch 2. 3.6.5 and the 8.4 secrets/retention slices re-homed into
   14; 3.6.6 folded into 10.1. Competitor cross-check (Simplify, Teal, Jobright, Huntr,
   Careerflow) recorded with verdicts — job matches → build, ATS score + cover letter →
-  candidates, resume builder / auto-apply / coach → no. CWS v1 published and under review.
+  candidates. CWS v1 published and under review.
   **Follow-up decisions the same day:** job matches split into a **light 13.6 (Launch 1)** and a
   **strong 16.1 (Launch 2)**; **ATS resume score → 13.5, Launch 1**; **cover-letter generator →
   16.6** and **resume builder + templates → 16.7**, both Launch 2 (the builder reverses the
-  earlier "no", layered on upload-first); contacts/referrals and AI coach → Phase 18+;
-  auto-apply stays never.
+  earlier "no", layered on upload-first).
 - 2026-09-21 · **Phase 10 planned — fill quality & the self-building profile** · Docs only.
   Review of the engine found the gap behind "it's not filling enough": a **23-field**
   vocabulary, 6 adapters (5 manifest hosts — iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite
