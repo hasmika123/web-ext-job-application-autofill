@@ -22,6 +22,10 @@
       this.name = "ApiError";
       this.status = status;
       this.body = body;
+      // The server's machine-readable reason, lifted out of the ProblemDetail so callers can
+      // branch without digging through the body: PRO_REQUIRED / RESUME_LIMIT (402),
+      // BILLING_DISABLED (503), ALREADY_SUBSCRIBED (409). Null when the error carries none.
+      this.code = (body && typeof body === "object" && typeof body.code === "string") ? body.code : null;
     }
   }
   class NotSupportedError extends Error {
@@ -45,7 +49,8 @@
     async pullProfile() { throw new NotSupportedError("pullProfile"); }
     async pushProfile(/* bio */) { throw new NotSupportedError("pushProfile"); }
     async listResumes() { throw new NotSupportedError("listResumes"); }
-    // Phase 11.2 — the server's fingerprint of bio + resumes; the extension re-pulls only when it changes.
+    // Phase 11.2 — the server's fingerprint of bio + resumes; the extension re-pulls only when it
+    // changes. Since 12.3 it also carries the plan: { version, plan }.
     async profileVersion() { throw new NotSupportedError("profileVersion"); }
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
@@ -331,12 +336,18 @@
         return dto ? payloadToBio(dto.payload) : null;
       },
 
-      // ---- profile version (Phase 11.2) ----------------------------------------
-      // GET /api/profile/version → {version}. A short hash of what pullProfile + listResumes
-      // would return; null when the server answers without one (the caller then pulls to be safe).
+      // ---- profile version + plan (Phase 11.2, extended in 12.3) ----------------
+      // GET /api/profile/version → { version, plan }. `version` is a short hash of what
+      // pullProfile + listResumes would return; `plan` is FREE|PRO, carried here so the
+      // extension learns about an upgrade inside a check it already makes.
+      // Either field is null when the server doesn't send it — a null version makes the
+      // caller pull to be safe, a null plan leaves the last known plan alone.
       async profileVersion() {
-        const r = await request("GET", "/api/profile/version");
-        return r && typeof r.version === "string" && r.version ? r.version : null;
+        const r = (await request("GET", "/api/profile/version")) || {};
+        return {
+          version: typeof r.version === "string" && r.version ? r.version : null,
+          plan: typeof r.plan === "string" && r.plan ? r.plan : null,
+        };
       },
 
       async listResumes() {

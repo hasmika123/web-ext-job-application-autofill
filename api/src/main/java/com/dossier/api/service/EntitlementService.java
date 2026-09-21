@@ -3,7 +3,7 @@ package com.dossier.api.service;
 import com.dossier.api.domain.Subscription;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.security.SecurityUtils;
-import com.dossier.api.service.billing.StripeProperties;
+import com.dossier.api.service.billing.StripeGateway;
 import com.dossier.api.service.dto.PlanDTO;
 import java.time.Instant;
 import java.util.Optional;
@@ -50,11 +50,17 @@ public class EntitlementService {
     // later — is Free immediately. Defaulting an unrecognised status to Free is the safe side.
 
     private final SubscriptionRepository subscriptionRepository;
-    private final StripeProperties stripeProperties;
 
-    public EntitlementService(SubscriptionRepository subscriptionRepository, StripeProperties stripeProperties) {
+    /**
+     * Asked whether billing is configured — deliberately the gateway rather than the properties,
+     * so what {@code /api/billing/me} reports and what checkout/portal actually enforce can never
+     * disagree. One source of truth for "is billing on".
+     */
+    private final StripeGateway stripeGateway;
+
+    public EntitlementService(SubscriptionRepository subscriptionRepository, StripeGateway stripeGateway) {
         this.subscriptionRepository = subscriptionRepository;
-        this.stripeProperties = stripeProperties;
+        this.stripeGateway = stripeGateway;
     }
 
     /**
@@ -92,7 +98,7 @@ public class EntitlementService {
     /** The full plan view for a login — what {@code GET /api/billing/me} returns. */
     public PlanDTO plan(String login) {
         Optional<Subscription> maybe = subscriptionRepository.findOneByUserLogin(login);
-        boolean billingEnabled = stripeProperties.isEnabled();
+        boolean billingEnabled = stripeGateway.isEnabled();
         if (maybe.isEmpty()) {
             return new PlanDTO(Subscription.PLAN_FREE, Subscription.STATUS_NONE, null, false, billingEnabled, false);
         }

@@ -320,10 +320,16 @@ async function handleSyncSignal(event) {
       // But DO record the version we just pulled under, or the next scheduled check (11.3)
       // would see a stale marker and pull the very same data again.
       let version = null;
-      try { version = await provider.profileVersion(); } catch (e) { /* older server / offline */ }
+      let plan = null;
+      try {
+        const answer = await provider.profileVersion();
+        if (typeof answer === "string") version = answer;
+        else if (answer) { version = answer.version || null; plan = answer.plan || null; }
+      } catch (e) { /* older server / offline */ }
       const s2 = (await sGet("settings")) || {};
       s2.__profileVersion = version || null;
       s2.__lastPull = Date.now();
+      if (plan) s2.plan = plan;              // 12.3 — display-only; gating stays server-side
       await sSet("settings", s2);
       broadcastMirrorUpdated();
       return { ok: true };

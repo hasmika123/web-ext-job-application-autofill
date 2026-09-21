@@ -74,7 +74,7 @@ public class StripeGatewayImpl implements StripeGateway {
     @Override
     public String createCheckoutSession(String customerId, String priceId, Long userId, String successUrl, String cancelUrl) {
         try {
-            com.stripe.param.checkout.SessionCreateParams params = com.stripe.param.checkout.SessionCreateParams.builder()
+            com.stripe.param.checkout.SessionCreateParams.Builder builder = com.stripe.param.checkout.SessionCreateParams.builder()
                 .setMode(Mode.SUBSCRIPTION)
                 .setCustomer(customerId)
                 // How the webhook binds this customer back to our user. The return URL is never
@@ -84,11 +84,18 @@ public class StripeGatewayImpl implements StripeGateway {
                 .setCancelUrl(cancelUrl)
                 .setAllowPromotionCodes(true)
                 .setAutomaticTax(
-                    com.stripe.param.checkout.SessionCreateParams.AutomaticTax.builder().setEnabled(true).build()
+                    com.stripe.param.checkout.SessionCreateParams.AutomaticTax.builder().setEnabled(props.isAutomaticTax()).build()
                 )
-                .addLineItem(LineItem.builder().setPrice(priceId).setQuantity(1L).build())
-                .build();
-            return require().checkout().sessions().create(params).getUrl();
+                .addLineItem(LineItem.builder().setPrice(priceId).setQuantity(1L).build());
+
+            // Managed Payments (merchant of record) is newer than this SDK's typed builders, so
+            // it goes through extra params. That also insulates us from the shape changing before
+            // the typed API catches up — the flag is what matters, not how it is spelled.
+            if (props.isManagedPayments()) {
+                builder.putExtraParam("managed_payments[enabled]", true);
+            }
+
+            return require().checkout().sessions().create(builder.build()).getUrl();
         } catch (StripeException e) {
             throw new StripeGatewayException("Could not start Stripe checkout", e);
         }

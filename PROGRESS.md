@@ -31,12 +31,13 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > window focus and on drawer open — pulling only when it moved — and `ARCHITECTURE.md` → **Sync
 > model** documents the whole shape. **Phase 12 is planned to build depth** (ROADMAP Phase 12: locked
 > decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests). **12.1 + 12.2
-> are DONE** — schema, `EntitlementService`, the Stripe gateway seam, `GET /api/billing/me`, and
-> the webhook that is the only writer of subscription state. All of it runs keyless (blank
-> `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`), so the backend is complete and tested before the
-> Stripe account exists. **Next: 12.3** (checkout + portal + `/pricing` + Settings › Billing +
-> the extension plan badge) — that one needs **12.0** done first, since it calls Stripe for real.
-> Nothing in 13–16 ships before 12.4's gates. The plan to a sellable Pro tier is
+> are DONE**, and **12.3 is DONE** — schema, `EntitlementService`, the gateway seam,
+> `GET /api/billing/me`, the webhook, checkout + portal, `/pricing`, `/billing/success`,
+> Settings › Billing, the sidebar Pro pill and the extension's plan badge. Everything still runs
+> keyless (blank `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`, checkout/portal → 503).
+> **Next: 12.4 — the gates** (`requirePro()` on server AI, learned-answer sync, and the 3-resume
+> cap). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
 > order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
@@ -936,7 +937,8 @@ focused Claude Code session.
   (`BillingWebhookIT`): signed fixture → upsert · wrong secret → 400 · replay → duplicate, row unchanged
   · older `created` ignored · `deleted` → canceled, Free after period end · `payment_failed` → past_due,
   still Pro, one email on a `MailService` spy.
-- [ ] **12.3 Checkout + portal + web.** API `POST /api/billing/checkout {price}` (creates/reuses
+- [x] **12.3 Checkout + portal + web.** ✅ DONE (ext **v0.53.0**) — see the Log entry for the three
+  course corrections. Original spec: API `POST /api/billing/checkout {price}` (creates/reuses
   customer; hosted session with `client_reference_id=userId`, promo codes, automatic tax, success/cancel
   URLs; Pro → 409) + `POST /api/billing/portal` (no customer → 404). Web BFF `api/billing/{checkout,
   portal,me}`; public **`/pricing`** (Free/Pro table + prices; Upgrade → checkout or `/signup?next=`;
@@ -1110,6 +1112,30 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.3 checkout, portal and every surface that shows a plan** · Ext **v0.53.0**.
+  API: `POST /api/billing/checkout` (creates the Stripe customer once then reuses it forever, so
+  invoices stay on one customer) and `POST /api/billing/portal` — the portal is the click-to-cancel
+  path rather than a screen we build. Neither ever marks anyone Pro; only the webhook does, because
+  a return URL can be skipped, replayed or forged. Web: public `/pricing`, `/billing/success` that
+  polls until the webhook lands and **has no error state** (the payment already succeeded — telling
+  someone who just paid that something failed would be alarming and untrue), Settings › Billing
+  with renewal/"cancels on" dates and the auto-renew + no-refund terms stated inline, and a Pro
+  pill in the sidebar fed by ONE plan fetch in the `(app)` layout. Extension: the plan now rides on
+  `GET /api/profile/version`, so an upgrade is noticed inside the 11.3 check the extension already
+  runs — no new round-trip and no stale JWT claim — and `ApiError` lifts `code` out of the
+  ProblemDetail so callers branch on `PRO_REQUIRED` rather than a message.
+  Three course corrections: **one source of truth for "is billing on"** — `EntitlementService` now
+  asks `StripeGateway`, not `StripeProperties`, because `/me` and the endpoints it gates were
+  reading different things and could have disagreed; **Managed Payments and Stripe Tax are config
+  flags, both default off** (MoR was hardcoded on, which would have forced tax setup before
+  anything worked, and the economics change with volume); and `checkAndPull` **records the plan on
+  every answered check, not just on a pull** — an upgrade changes no bio and no resume, so a
+  plan-only change would otherwise never be seen. Tests: `BillingResourceIT` 10/10 against a
+  stubbed gateway (customer created once and reused, unknown plan refused, already-Pro → 409,
+  portal 404 without a customer, billing-disabled → 503 while `/me` still answers),
+  `tracking.test.js` 67 (version+plan shape, 402 `code` surfacing, null-code stays null),
+  `sync.test.js` 41 (plan recorded on an unchanged check, a missing plan doesn't wipe the known
+  one, and the pre-12.3 bare-string shape still works). Full API, extension and web gates green.
 - 2026-09-21 · **12.2 the Stripe webhook — the only writer of subscription state** · API only.
   `POST /api/billing/webhook`, unauthenticated by necessity (Stripe has no session with us) but
   **not unprotected**: the raw body is verified against the webhook secret before anything is
@@ -1295,7 +1321,8 @@ focused Claude Code session.
   failed deploy (`DEPLOY_ENABLED` is snapshotted at run *creation* so flipping it cannot rescue a
   queued run; never delete a branch the production checkout sits on; fail2ban bans your whole
   public IP on failed root password attempts, recover via the KVM console). Windows specifics
-  captured too (no `ssh-copy-id` in PowerShell, its pipe appends `` and corrupts
+  captured too (no `ssh-copy-id` in PowerShell, its pipe appends `
+` and corrupts
   `authorized_keys`, and Git Bash MSYS rewrites `/root/...` into `C:/Program Files/Git/root/...`).
   `MIGRATION.md` §7 marked as history with a pointer to DEPLOY.md §7.1 / §10.4, and its
   aftermath checklist corrected. No code, no version bump.

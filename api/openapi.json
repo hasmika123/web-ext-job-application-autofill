@@ -1943,6 +1943,68 @@
         }
       }
     },
+    "/api/billing/portal" : {
+      "post" : {
+        "tags" : [ "billing" ],
+        "summary" : "Open the billing portal",
+        "description" : "Creates a Stripe Billing Portal session and returns its URL.",
+        "operationId" : "portal",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/billing/checkout" : {
+      "post" : {
+        "tags" : [ "billing" ],
+        "summary" : "Start checkout",
+        "description" : "Creates a Stripe Checkout Session for the chosen plan and returns its URL.",
+        "operationId" : "checkout",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckoutRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/authorities" : {
       "get" : {
         "tags" : [ "authority-resource" ],
@@ -5401,6 +5463,14 @@
           }
         }
       },
+      "CheckoutRequest" : {
+        "type" : "object",
+        "properties" : {
+          "plan" : {
+            "type" : "string"
+          }
+        }
+      },
       "Authority" : {
         "type" : "object",
         "properties" : {
@@ -5583,6 +5653,9 @@
         "type" : "object",
         "properties" : {
           "version" : {
+            "type" : "string"
+          },
+          "plan" : {
             "type" : "string"
           }
         }

@@ -93,6 +93,10 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
             .getBody();
         if (ex instanceof com.dossier.api.service.InvalidPasswordException) return (ProblemDetailWithCause) new InvalidPasswordException()
             .getBody();
+        // Phase 12.3 — a refused billing operation; status + code come from the service exception.
+        if (ex instanceof com.dossier.api.service.BillingException billingEx) return (ProblemDetailWithCause) new BillingProblemException(
+            billingEx
+        ).getBody();
         // Phase 12 — a Pro-only feature refused for a Free user. 402, not 403: they are not
         // forbidden, they just haven't paid. Clients branch on the `code` property.
         if (ex instanceof com.dossier.api.service.ProRequiredException proEx) return (ProblemDetailWithCause) new ProRequiredException(

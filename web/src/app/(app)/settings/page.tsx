@@ -3,6 +3,8 @@ import Link from "next/link";
 import { serverApiFetch } from "@/lib/api";
 import DeleteAccountButton from "@/components/DeleteAccountButton";
 import SettingsNav from "@/components/settings/SettingsNav";
+import BillingCard from "@/components/billing/BillingCard";
+import { getPlan } from "@/lib/billing";
 
 type Account = {
   login?: string;
@@ -32,6 +34,7 @@ export default async function SettingsPage() {
     redirect("/login");
   }
   const account: Account | null = res.ok ? await res.json() : null;
+  const plan = await getPlan();
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
@@ -122,13 +125,7 @@ export default async function SettingsPage() {
 
           {/* Billing */}
           <Card id="billing" title="Billing">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-bold text-accent-deep">Free plan</span>
-                <span className="text-sm text-muted">Unlimited autofill, resume parsing & tracker. Pro is coming soon.</span>
-              </div>
-              <Link href="/#pricing" className="text-sm font-semibold text-accent-deep hover:underline">See plans →</Link>
-            </div>
+            <BillingCard plan={plan} />
           </Card>
         </div>
       </div>
