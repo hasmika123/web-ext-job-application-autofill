@@ -71,6 +71,8 @@ class BillingResourceIT {
         when(stripeGateway.createCustomer(any(), any(), anyLong())).thenReturn("cus_stub_1");
         when(stripeGateway.createCheckoutSession(any(), any(), anyLong(), any(), any())).thenReturn("https://checkout.stripe.test/session");
         when(stripeGateway.createPortalSession(any(), any())).thenReturn("https://portal.stripe.test/session");
+        // Default: Stripe agrees with our mirror. Individual tests override it.
+        when(stripeGateway.hasLiveSubscription(any())).thenReturn(false);
     }
 
     private Subscription rowFor(String login) {
@@ -250,5 +252,43 @@ class BillingResourceIT {
             .andExpect(jsonPath("$.code").value("BILLING_DISABLED"));
         // ...and /me still answers, so the UI can render "coming soon" rather than an error.
         mockMvc.perform(get("/api/billing/me")).andExpect(status().isOk()).andExpect(jsonPath("$.plan").value("FREE"));
+    }
+
+    // ---- the double-checkout guard (found during the 12.7 run) --------------------------
+
+    /**
+     * Our mirror says Free, Stripe says otherwise, and Stripe wins.
+     *
+     * <p>This is the real failure it prevents: the mirror is only as current as the last
+     * webhook, so between paying and the webhook landing — or whenever a delivery is lost —
+     * {@code isPro()} answers false and a second checkout sails through. That happened for real
+     * during the 12.7 sandbox run: one customer, two active subscriptions, two invoices, two
+     * charges. With a no-refunds policy, a double charge is a chargeback.
+     */
+    @Test
+    @Transactional
+    void aSecondCheckoutIsRefusedWhenStripeSaysTheyAreAlreadySubscribed() throws Exception {
+        Subscription sub = rowFor("user");
+        sub.setStripeCustomerId("cus_known_1");
+        subscriptionRepository.saveAndFlush(sub); // plan FREE, status none — the stale mirror
+        when(stripeGateway.hasLiveSubscription("cus_known_1")).thenReturn(true);
+
+        mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"monthly\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ALREADY_SUBSCRIBED"));
+
+        verify(stripeGateway, never()).createCheckoutSession(any(), any(), anyLong(), any(), any());
+    }
+
+    /** A first-time subscriber has no customer id, so the guard costs them nothing. */
+    @Test
+    @Transactional
+    void aFirstCheckoutDoesNotAskStripeAnything() throws Exception {
+        mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"monthly\"}"))
+            .andExpect(status().isOk());
+
+        verify(stripeGateway, never()).hasLiveSubscription(any());
     }
 }

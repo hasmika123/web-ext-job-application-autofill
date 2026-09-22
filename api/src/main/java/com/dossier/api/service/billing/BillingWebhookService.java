@@ -13,6 +13,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -109,26 +110,38 @@ public class BillingWebhookService {
     /**
      * Insert the event row, in its own transaction so the record survives a failed apply.
      *
+     * <p>Two ways this says "already seen", and both matter because Stripe delivers
+     * <b>at-least-once</b>: the cheap read, and losing the race to insert. The primary key is the
+     * idempotency key, so the database settles a genuine race — but the losing side has to be
+     * handled <b>outside</b> the transaction. A failed flush marks the transaction rollback-only,
+     * so catching the violation inside the callback and returning a value does not rescue it: the
+     * commit then throws {@link UnexpectedRollbackException}, the handler 500s, and Stripe retries
+     * an event we had already stored. That is what this code used to do (fixed 2026-09-21) —
+     * self-healing, but it turned the cheapest path in the webhook into a round trip.
+     *
      * @return false when this event has already been seen
      */
     private boolean record(StripeWebhookEvent event) {
-        return Boolean.TRUE.equals(
-            newTx.execute(s -> {
-                if (stripeEventRepository.existsById(event.id())) return false;
-                StripeEvent row = new StripeEvent();
-                row.setId(event.id());
-                row.setType(event.type());
-                row.setReceivedAt(Instant.now());
-                row.setStatus(StripeEvent.STATUS_OK);
-                try {
+        // Cheap path first: the overwhelmingly common duplicate is a redelivery, not a race.
+        if (stripeEventRepository.existsById(event.id())) return false;
+        try {
+            return Boolean.TRUE.equals(
+                newTx.execute(s -> {
+                    StripeEvent row = new StripeEvent();
+                    row.setId(event.id());
+                    row.setType(event.type());
+                    row.setReceivedAt(Instant.now());
+                    row.setStatus(StripeEvent.STATUS_OK);
                     stripeEventRepository.saveAndFlush(row);
                     return true;
-                } catch (DataIntegrityViolationException e) {
-                    // Two deliveries of the same event racing. The primary key settles it.
-                    return false;
-                }
-            })
-        );
+                })
+            );
+        } catch (DataIntegrityViolationException | UnexpectedRollbackException e) {
+            // Another delivery of this same event inserted it first. Both exceptions mean the
+            // same thing here; which one surfaces depends on where the constraint was detected.
+            LOG.debug("Event {} was recorded by a concurrent delivery", event.id());
+            return false;
+        }
     }
 
     private void mark(String eventId, String status, String error) {
@@ -197,9 +210,12 @@ public class BillingWebhookService {
     private void upsertFromSubscription(StripeWebhookEvent event) {
         Subscription sub = findSubscription(event).orElse(null);
         if (sub == null) {
-            // Nothing to attach this to yet. The checkout.session.completed that carries the
-            // binding will create the row, and subsequent events will fill the state in.
-            LOG.info("No subscription row for Stripe customer {} yet — skipping {}", event.customerId(), event.type());
+            // No row this event belongs to: either the binding hasn't arrived (the
+            // checkout.session.completed that carries it will create the row, and later events
+            // fill the state in), or findSubscription deliberately declined it and has already
+            // logged why. Deliberately vague about which — claiming "not bound yet" when the
+            // customer IS bound is worse than saying nothing, and cost real time to unpick.
+            LOG.info("Nothing to apply {} to for Stripe customer {}", event.type(), event.customerId());
             return;
         }
         if (isStale(sub, event)) return;
@@ -218,7 +234,7 @@ public class BillingWebhookService {
     private void setStatusFromInvoice(StripeWebhookEvent event, String status) {
         Subscription sub = findSubscription(event).orElse(null);
         if (sub == null) {
-            LOG.info("No subscription row for Stripe customer {} yet — skipping {}", event.customerId(), event.type());
+            LOG.info("Nothing to apply {} to for Stripe customer {}", event.type(), event.customerId());
             return;
         }
         if (isStale(sub, event)) return;
@@ -239,7 +255,7 @@ public class BillingWebhookService {
     private void onPaymentFailed(StripeWebhookEvent event) {
         Subscription sub = findSubscription(event).orElse(null);
         if (sub == null) {
-            LOG.info("No subscription row for Stripe customer {} yet — skipping {}", event.customerId(), event.type());
+            LOG.info("Nothing to apply {} to for Stripe customer {}", event.type(), event.customerId());
             return;
         }
         if (isStale(sub, event)) return;
@@ -280,8 +296,37 @@ public class BillingWebhookService {
             Optional<Subscription> bySub = subscriptionRepository.findOneByStripeSubscriptionId(event.subscriptionId());
             if (bySub.isPresent()) return bySub;
         }
-        if (event.customerId() != null) return subscriptionRepository.findOneByStripeCustomerId(event.customerId());
+        if (event.customerId() == null) return Optional.empty();
+
+        Optional<Subscription> byCustomer = subscriptionRepository.findOneByStripeCustomerId(event.customerId());
+        if (byCustomer.isEmpty() || event.subscriptionId() == null) return byCustomer;
+
+        // The customer matches but the subscription does not: this event is about a DIFFERENT
+        // subscription on the same customer. Falling through to the customer row would write one
+        // subscription's fate onto another — cancelling a stray subscription would downgrade a
+        // user who is still paying. Only a subscription that is alive may take the row over,
+        // which is what a genuine resubscribe looks like.
+        String known = byCustomer.get().getStripeSubscriptionId();
+        if (known == null || known.equals(event.subscriptionId())) return byCustomer;
+        if (LIVE_STATUSES.contains(lower(event.status()))) {
+            LOG.info("Subscription {} supersedes {} for customer {}", event.subscriptionId(), known, event.customerId());
+            return byCustomer;
+        }
+        LOG.info(
+            "Ignoring {} for subscription {}: customer {} is mirrored against {}",
+            event.type(),
+            event.subscriptionId(),
+            event.customerId(),
+            known
+        );
         return Optional.empty();
+    }
+
+    /** Statuses that mean a subscription is alive enough to take over a customer's row. */
+    private static final java.util.Set<String> LIVE_STATUSES = java.util.Set.of("active", "trialing", "past_due");
+
+    private static String lower(String s) {
+        return s == null ? "" : s.trim().toLowerCase();
     }
 
     /**

@@ -35,6 +35,17 @@ public interface StripeGateway {
     String createCheckoutSession(String customerId, String priceId, Long userId, String successUrl, String cancelUrl);
 
     /**
+     * Whether this Stripe customer already has a subscription Stripe considers live.
+     *
+     * <p>Asked before starting a second checkout. Our {@code subscription} mirror cannot answer
+     * this: it is only as current as the last webhook, and the whole failure mode this guards
+     * against is a checkout that happens while the mirror is behind.
+     *
+     * @return false when billing is off, so a keyless server never blocks on this
+     */
+    boolean hasLiveSubscription(String customerId);
+
+    /**
      * Start a Billing Portal session — where the user updates their card or cancels.
      * This is the click-to-cancel path (FTC rule / California ARL), not a page we build.
      *

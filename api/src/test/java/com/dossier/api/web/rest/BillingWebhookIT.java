@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -32,6 +33,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -71,6 +73,13 @@ class BillingWebhookIT {
     /** Mocked so a payment-failure email is observable without sending anything. */
     @MockitoBean
     private MailService mailService;
+
+    /**
+     * A spy, not a mock: every method stays real, so only the one call a race would get wrong
+     * can be made to lie. See {@link #aLostInsertRaceIsATwoHundredNotAFiveHundred}.
+     */
+    @MockitoSpyBean
+    private StripeEventRepository stripeEventSpy;
 
     private User user;
 
@@ -354,5 +363,83 @@ class BillingWebhookIT {
         ).isEqualTo(200);
         assertThat(subscriptionRepository.count()).isZero();
         assertThat(stripeEventRepository.findById("evt_orphan").orElseThrow().getStatus()).isEqualTo(StripeEvent.STATUS_OK);
+    }
+
+    /**
+     * Two deliveries of one event arriving together: the loser must answer <b>200</b>, quietly.
+     *
+     * <p>Stripe delivers at-least-once, so this is not an edge case, it is Tuesday. The primary
+     * key is the idempotency key and the database settles the race — but the losing insert marks
+     * its transaction rollback-only, so the violation has to be handled outside the transaction.
+     * Handling it inside used to produce an {@code UnexpectedRollbackException} at commit, a 500,
+     * and a Stripe retry of an event we had already stored (seen live 2026-09-21).
+     *
+     * <p>The race is simulated rather than threaded: the row is committed first, then
+     * {@code existsById} is made to answer false exactly once, which is precisely what the losing
+     * delivery sees when it checks before the winner commits.
+     */
+    @Test
+    @DisplayName("Two deliveries racing: the one that loses the insert still answers 200")
+    void aLostInsertRaceIsATwoHundredNotAFiveHundred() throws Exception {
+        StripeEvent alreadyThere = new StripeEvent();
+        alreadyThere.setId("evt_raced");
+        alreadyThere.setType("customer.subscription.created");
+        alreadyThere.setReceivedAt(Instant.now());
+        alreadyThere.setStatus(StripeEvent.STATUS_OK);
+        stripeEventRepository.saveAndFlush(alreadyThere);
+
+        // The winner has inserted but, as far as this delivery could tell, had not yet committed.
+        doReturn(false).when(stripeEventSpy).existsById("evt_raced");
+
+        int status = deliver(
+            subscriptionEvent("evt_raced", "customer.subscription.created", "active", Instant.now(), Instant.now().plus(30, ChronoUnit.DAYS), false),
+            SECRET
+        );
+
+        assertThat(status).isEqualTo(200);
+        // And the winner's row is untouched — the loser recorded nothing and overwrote nothing.
+        assertThat(stripeEventRepository.count()).isEqualTo(1);
+    }
+
+    /**
+     * A cancellation for a <b>different</b> subscription on the same customer must not downgrade
+     * the one we mirror.
+     *
+     * <p>Before this, {@code findSubscription} fell back to the customer whenever the subscription
+     * id did not match, so a stray subscription's fate was written onto the row of the one the
+     * user is actually paying for. A customer can end up with two subscriptions whenever a
+     * webhook is missed (seen for real, 12.7), and cancelling the stray one revoked Pro from a
+     * paying customer.
+     */
+    @Test
+    @DisplayName("Cancelling another subscription on the same customer does not revoke Pro")
+    void aForeignSubscriptionCancellationIsIgnored() throws Exception {
+        // The subscription we mirror: bound to our user, alive, paid up.
+        deliver(checkoutCompleted("evt_bind_foreign", user.getId(), Instant.now()), SECRET);
+        assertThat(
+            deliver(
+                subscriptionEvent("evt_mine", "customer.subscription.created", "active", Instant.now(), Instant.now().plus(30, ChronoUnit.DAYS), false),
+                SECRET
+            )
+        ).isEqualTo(200);
+        assertThat(entitlementService.isPro("user")).isTrue();
+
+        // A DIFFERENT subscription on the same customer is cancelled outright.
+        String foreign = subscriptionEvent(
+            "evt_foreign",
+            "customer.subscription.deleted",
+            "canceled",
+            Instant.now().plusSeconds(60),
+            Instant.now().minus(1, ChronoUnit.DAYS),
+            false
+        ).replace(SUBSCRIPTION, "sub_someone_elses");
+
+        assertThat(deliver(foreign, SECRET)).isEqualTo(200);
+
+        // Still Pro, still mirroring our own subscription.
+        assertThat(entitlementService.isPro("user")).isTrue();
+        Subscription row = subscriptionRepository.findOneByUserLogin("user").orElseThrow();
+        assertThat(row.getStripeSubscriptionId()).isEqualTo(SUBSCRIPTION);
+        assertThat(row.getStatus()).isEqualTo("active");
     }
 }

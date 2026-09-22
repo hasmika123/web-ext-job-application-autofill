@@ -442,12 +442,16 @@ Four secrets, all env-only (they never reach a client bundle):
 | `STRIPE_PRICE_3MO` | Price id for $44.99/3 months |
 
 Add them to the box's `.env` (same file as the `DOSSIER_AI_*` block), then `$COMPOSE up -d api`.
+**Paste them with no trailing space or newline.** The app trims them now, but Stripe rejects a
+key that carries whitespace with *"Your API key is invalid, as it contains whitespace"* — and it
+only says so at call time, so the server starts happily, reports billing as enabled, and then
+fails every checkout with a message that points nowhere near the cause.
 **Also put them in the password manager** — GitHub secrets are write-only and have never held
 our `.env`, which is exactly how the 2026-09-17 data loss happened.
 
 Set-up order lives in `ROADMAP.md` → **Phase 12 → 12.0**: create the product and both prices in
-**test mode first**, turn on Stripe Tax, configure the Customer Portal, and add the webhook
-endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
+**test mode first**, **give the product a `tax_code`**, turn on Stripe Tax, configure the
+Customer Portal, and add the webhook endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
 `checkout.session.completed`, `customer.subscription.{created,updated,deleted}` and
 `invoice.{paid,payment_failed}`. Locally, the equivalent is the `stripe listen --events …`
 command in §11.1, which prints a per-session webhook secret.
@@ -455,6 +459,12 @@ command in §11.1, which prints a per-session webhook secret.
 Optional overrides, only if the domain changes: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`,
 `STRIPE_PORTAL_RETURN_URL`.
 
+**Managed Payments** (merchant of record, +3.5%) is **on by default on new Stripe accounts**, so
+`STRIPE_MANAGED_PAYMENTS` is deliberately **unset** by default — unset means "leave the account's
+own setting alone". Set it to `false` to force the plain Stripe flow, or `true` to force MoR on an
+account that has it off. Two things it demands when on, both of which fail the checkout call
+rather than startup: **automatic tax** (handled — we never send `automatic_tax[enabled]=false`)
+and a **product tax code** (you set that in Stripe, see 12.0).
 ---
 
 ### 11.1 End-to-end test run (Phase 12.7) — do this before taking real money
@@ -598,8 +608,13 @@ VALUES ((SELECT id FROM jhi_user WHERE login = 'user'), 'FREE', 'none', 'cus_...
 4. Advance the clock past `current_period_end`.
 
 Expect: the mirror follows Stripe, `/settings` shows **Free**, **every resume is still there**,
-and a 4th upload is refused with `RESUME_LIMIT`. If you skip the clock, cancelling *immediately*
-in the Dashboard exercises the same lapse rule with less setup — it just doesn't prove a renewal.
+and a 4th upload is refused with `RESUME_LIMIT`.
+
+**Cancelling is not a shortcut to this.** Stripe keeps `current_period_end` at the paid-through
+date even on an immediate cancel, and `EntitlementService` honours it — so a cancelled user stays
+Pro until that date, which is exactly the promise the ToS makes. Verified in the 12.7 run. Only
+time passing produces a lapse, so only a clock can show you one; to check the Free side without
+waiting, move `current_period_end` into the past in your LOCAL database and leave Stripe alone.
 
 #### H. The extension (optional)
 
