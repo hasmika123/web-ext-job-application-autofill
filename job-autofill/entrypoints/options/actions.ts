@@ -17,6 +17,7 @@ export type Settings = {
   autoAdv: boolean;
   autoAdd: boolean;
   analytics: boolean; // checkbox = "share"; opt-out is the inverse
+  learn: boolean; // 10.3d: suggest profile values from answers given while applying
 };
 
 export async function loadSettings(): Promise<Settings> {
@@ -30,6 +31,7 @@ export async function loadSettings(): Promise<Settings> {
     autoAdv: !!s.autoAdvance,
     autoAdd: s.autoAddRows !== false, // default on
     analytics: !s.analyticsOptOut,
+    learn: s.learnFromApplications !== false, // default on (user decision 2026-09-22)
   };
 }
 
@@ -43,6 +45,7 @@ export async function saveSettings(v: Settings): Promise<void> {
   s.autoAdvance = v.autoAdv;
   s.autoAddRows = v.autoAdd;
   s.analyticsOptOut = !v.analytics;
+  s.learnFromApplications = v.learn;
   if (!s.apiBaseUrl) s.apiBaseUrl = API_FALLBACK;
   await JAF().storage.saveSettings(s);
 }

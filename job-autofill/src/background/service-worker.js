@@ -592,6 +592,51 @@ async function recordFillCorrection(id) {
   catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
 }
 
+// --- Learned answers → suggested profile values (Phase 10.3d) ---------------------
+// The content script reports what the user answered to PROFILE questions after a fill. The server
+// keeps them as suggestions the user reviews on the web; nothing here touches the profile. The
+// page address never leaves the device: it is reduced to a salted hash that can only say "same
+// application or a different one" (the server's rule for offering a change needs 2 different
+// ones). The salt is random per install, so the hash can't be looked up against known job URLs.
+const LEARN_SALT_KEY = "learnSalt";
+const LEARN_MAX_BATCH = 25;
+
+async function learnAllowed() {
+  const s = (await sGet("settings")) || {};
+  return s.learnFromApplications !== false; // on by default (user decision 2026-09-22)
+}
+
+async function applicationContext(page) {
+  let salt = await sGet(LEARN_SALT_KEY);
+  if (!salt) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    salt = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    await sSet(LEARN_SALT_KEY, salt);
+  }
+  const data = new TextEncoder().encode(salt + "|" + String(page || "").toLowerCase());
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+  // base64url, 22 chars (~128 bits) — fits the server's [A-Za-z0-9_-]{1,64}.
+  let bin = "";
+  digest.slice(0, 16).forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function recordLearnedAnswers(answers, page) {
+  if (!Array.isArray(answers) || !answers.length) return { ok: false, reason: "empty" };
+  if (!(await learnAllowed())) return { ok: false, reason: "off" };
+  const provider = await trackingProvider();
+  if (!provider || !provider.recordLearnedAnswers) return { ok: false, reason: "not-connected" };
+  const context = await applicationContext(page);
+  const body = answers
+    .filter((a) => a && typeof a.fieldKey === "string" && typeof a.value === "string" && a.value.trim())
+    .slice(0, LEARN_MAX_BATCH)
+    .map((a) => ({ fieldKey: a.fieldKey, value: a.value.slice(0, 500), context }));
+  if (!body.length) return { ok: false, reason: "empty" };
+  try { await provider.recordLearnedAnswers(body); return { ok: true, sent: body.length }; }
+  catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+}
+
 async function logFill(capture, resume, tabId) {
   const provider = await trackingProvider();
   if (!provider) return; // not configured / not signed in
@@ -648,6 +693,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!sender || !sender.tab) return;
     const p = msg.type === "JAF_FILL_STATS" ? recordFillStats(msg.stats) : recordFillCorrection(msg.id);
     p.then(sendResponse).catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  // Phase 10.3d — learned answers, from our own content scripts only.
+  if (msg.type === "JAF_LEARNED_ANSWERS") {
+    if (!sender || !sender.tab) return;
+    recordLearnedAnswers(msg.answers, msg.page).then(sendResponse).catch(() => sendResponse({ ok: false }));
     return true; // async
   }
   if (msg.type === "JAF_SAVE_JOB") {

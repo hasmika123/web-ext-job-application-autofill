@@ -248,6 +248,14 @@ function mockFetch(handler) {
   await pTel.recordFillCorrection("../../admin");
   ok("recordFillCorrection can't be steered to another path", fetchTel.calls[2].path.indexOf("/api/telemetry/fills/") === 0 && fetchTel.calls[2].path.indexOf("/admin") === -1, fetchTel.calls[2].path);
 
+  /* ---- learned answers (Phase 10.3d) — POSTed as suggestions, never to the profile ---- */
+  const fetchLearn = mockFetch(() => ({ status: 204, json: null }));
+  const pLearn = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchLearn, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  await pLearn.recordLearnedAnswers([{ fieldKey: "desiredSalary", value: "$120,000", context: "abc" }]);
+  ok("recordLearnedAnswers POSTs /api/profile/suggestions", fetchLearn.calls[0].method === "POST" && fetchLearn.calls[0].path === "/api/profile/suggestions" && fetchLearn.calls[0].body[0].fieldKey === "desiredSalary");
+  ok("recordLearnedAnswers is authenticated", fetchLearn.calls[0].headers.Authorization === "Bearer A");
+  ok("recordLearnedAnswers never touches the profile itself", fetchLearn.calls.every((c) => c.path !== "/api/profile"));
+
   /* ---- aiParseResume — POSTs /api/ai/parse-resume (text or file mode) ---- */
   const fetchParse = mockFetch(() => ({ status: 200, json: { parsed: { summary: "s", skills: ["Java"] }, used: 2, quota: 50 } }));
   const pParse = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchParse, tokenStore: T.memoryTokenStore({ access: "A" }) });

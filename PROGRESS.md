@@ -50,7 +50,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > preference, relocate, "how did you hear") are canonical, matched by rules and editable on the web.
 > **10.3b is DONE** — `/welcome`: six one-tap questions a new user sees once after first sign-in.
 > **10.3c is DONE** — `/api/profile/suggestions`: learned answers become suggestions, only an accept
-> writes the profile. **Next: 10.3d** — the extension captures answers and sends them there. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> writes the profile. **10.3d is DONE** (ext v0.59.0) — after a fill, the extension reports answers to
+> profile questions there. **Next: 10.3e** — the web review card ("keep these?"). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -843,7 +844,7 @@ focused Claude Code session.
   - [x] **10.3c Suggestions API.** `profile_suggestion` table + send/list/accept/dismiss. Free
     and Pro alike (the Pro-only answer sync is untouched). Canonical keys only, never EEO,
     capped pending count, in export + deletion. Accepting writes the bio (so the version moves).
-  - [ ] **10.3d Extension capture (Tier C).** Watch canonical-field inputs even when the bio has
+  - [x] **10.3d Extension capture (Tier C).** Watch canonical-field inputs even when the bio has
     no value, plus user corrections of filled ones; send a suggestion on commit. A blank bio
     field is suggested at once; a *change* only after the same new value on 2 applications.
     "Learn from my applications" device setting, on by default.
@@ -1147,6 +1148,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **10.3d extension capture** · Ext **v0.59.0**. `profile-learn.js`: after a fill, the
+  extension watches the page's **profile questions** — the fill's canonical items (a later change is
+  a candidate change) plus high-confidence ones the profile is blank for (the answer fills it) —
+  and reports committed answers, debounced and de-duplicated, as `JAF_LEARNED_ANSWERS`. The SW
+  reduces the page to a **per-install salted SHA-256** (so the server can count distinct
+  applications without ever seeing, or being able to look up, the address) and POSTs
+  `/api/profile/suggestions` via the tracking seam. Never EEO, checkboxes or placeholder-only
+  guesses; Yes/No questions report "Yes"/"No" however worded. **"Learn from my applications"**
+  in Settings (on by default; separate from the analytics opt-out); signed-out sends nothing;
+  only our content scripts are heard. PRIVACY.md + the web privacy page disclose it.
+  `profile_learn` (26) + SW (13) + provider (3) tests.
 - 2026-09-22 · **10.3c suggestions API** · `profile_suggestion` table + `ProfileSuggestionService` +
   `/api/profile/suggestions` (`POST` learned answers, `GET` the ones worth showing, `POST
   {id}/accept` with an optional edit, `POST {id}/dismiss`). Free and Pro alike. Only the 22

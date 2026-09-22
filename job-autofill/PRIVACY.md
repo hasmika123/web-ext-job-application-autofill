@@ -74,6 +74,26 @@ fix those first:
   deletion).
 - **Opt out:** the same **"Share anonymous usage analytics"** setting turns this off too.
 
+## Learning from your applications (profile suggestions)
+
+When you're signed in, after you run an autofill Kiwiply notices the answers you give to
+**profile questions** on that page — the ones your Kiwiply profile could hold, like desired salary,
+notice period, work authorization or your city — and sends them to **your own Kiwiply account**
+as **suggestions**. You see them on kiwiply.com ("we learned 3 things about you — keep these?")
+and nothing changes in your profile unless you keep one.
+
+- **Sent:** the profile field and the answer you gave, plus a code that only tells the server
+  whether two answers came from the **same application or a different one**. That code is a hash of
+  the page address salted with a random value that never leaves your browser, so it can't be
+  turned back into the address or matched against known job pages.
+- **Never sent:** the page's address, other questions on the page, **EEO / self-identification
+  answers** (those are only ever set on kiwiply.com), or anything from a page you didn't autofill.
+- **Kept:** in your account until you keep or dismiss the suggestion. A dismissed value is
+  remembered only so it's never suggested again. Included in your data export; erased with your
+  account.
+- **Turn it off:** Settings → **"Learn from my applications"**. It's separate from the analytics
+  opt-out.
+
 ## Permission justifications
 
 | Permission | Why |
@@ -85,7 +105,7 @@ fix those first:
 | Host access to ATS domains (Workday, Greenhouse, Lever, Ashby, Workable, iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite) | Run the autofill content script on those job-application sites. |
 | `api.anthropic.com` | **Optional** AI assistance for free-text answers — used **only if you supply your own API key**. No key, no calls. |
 | `www.google-analytics.com` | Send **anonymous** usage event counts (no personal data) so we can improve the extension. Opt out in Settings. |
-| `api.kiwiply.com` | Sync your profile/resumes with your own Kiwiply account, (only if you opt in) proxy AI drafting, and report count-only fill-quality stats (opt out in Settings). |
+| `api.kiwiply.com` | Sync your profile/resumes with your own Kiwiply account, (only if you opt in) proxy AI drafting, report count-only fill-quality stats (opt out in Settings), and send answers you gave to profile questions as suggestions you review (turn off in Settings). |
 
 The published build requests nothing beyond this table. Local-development hosts
 (`localhost`) are added only to development builds, never to a released one.

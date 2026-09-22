@@ -26,7 +26,7 @@ const PROD_MATCHES = ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "htt
 function boot(opts) {
   opts = opts || {};
   const store = {};                 // chrome.storage.local
-  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0, forgot: 0, forgotOpts: [], fills: [], corrections: [] };
+  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0, forgot: 0, forgotOpts: [], fills: [], corrections: [], learned: [] };
   const external = [];
   const internal = [];
   const installed = [];             // 11.3: onInstalled listeners (the alarm is created here)
@@ -71,11 +71,14 @@ function boot(opts) {
     // Phase 10.1 — fill telemetry.
     recordFill: (e) => { calls.fills.push(e); return Promise.resolve(null); },
     recordFillCorrection: (id) => { calls.corrections.push(id); return Promise.resolve(null); },
+    // Phase 10.3d — learned answers.
+    recordLearnedAnswers: (a) => { calls.learned.push(a); return Promise.resolve(null); },
     profileVersion: () => { calls.versionCalls++; return Promise.resolve(opts.version === undefined ? "v-new" : opts.version); },
   };
 
   const sandbox = {
     chrome, console, setTimeout, clearTimeout, URL,
+    crypto: globalThis.crypto, TextEncoder, btoa: globalThis.btoa,
     fetch: () => Promise.reject(new Error("no network in tests")),
     JAF: {
       // clearAccountData is the real one in storage.js, covered by account_clear.test.js; here
@@ -286,6 +289,66 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
       store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
       const r = await sendRelayed(internal, {}, { type: "JAF_FILL_STATS", stats });
       ok("telemetry: only accepted from a page's content script", calls.fills.length === 0 && r === null, JSON.stringify(r));
+    }
+  }
+
+  /* ---- Phase 10.3d: learned answers → suggestions, with the page reduced to a salted hash ---- */
+  {
+    const page = { tab: { id: 7 }, url: "https://job-boards.greenhouse.io/acme/jobs/1" };
+    const answers = [{ fieldKey: "desiredSalary", value: "$120,000" }, { fieldKey: "noticePeriod", value: "2 weeks" }];
+    {
+      const { internal, calls, store } = boot();
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      const r = await sendRelayed(internal, page, { type: "JAF_LEARNED_ANSWERS", answers, page: "job-boards.greenhouse.io/acme/jobs/1" });
+      const sent = calls.learned[0] || [];
+      ok("learn: forwarded (on by default)", r && r.ok === true && sent.length === 2, JSON.stringify(r));
+      ok("learn: values pass through", sent[0] && sent[0].fieldKey === "desiredSalary" && sent[0].value === "$120,000");
+      const ctx = sent[0] && sent[0].context;
+      ok("learn: every answer carries the same opaque context", !!ctx && /^[A-Za-z0-9_-]{16,64}$/.test(ctx) && sent[1].context === ctx, ctx);
+      ok("learn: the page address never leaves the device", JSON.stringify(calls.learned).indexOf("greenhouse") === -1 && JSON.stringify(calls.learned).indexOf("acme") === -1);
+      ok("learn: a per-install salt was created", typeof store.learnSalt === "string" && store.learnSalt.length === 32);
+
+      await sendRelayed(internal, page, { type: "JAF_LEARNED_ANSWERS", answers: answers.slice(0, 1), page: "job-boards.greenhouse.io/acme/jobs/1" });
+      await sendRelayed(internal, page, { type: "JAF_LEARNED_ANSWERS", answers: answers.slice(0, 1), page: "jobs.lever.co/other/2" });
+      ok("learn: the same application hashes the same", calls.learned[1][0].context === ctx);
+      ok("learn: a different application hashes differently", calls.learned[2][0].context !== ctx);
+
+      const junk = [{ fieldKey: "city", value: "   " }, { fieldKey: 5, value: "x" }, null];
+      const rj = await sendRelayed(internal, page, { type: "JAF_LEARNED_ANSWERS", answers: junk, page: "x" });
+      ok("learn: junk entries are dropped, nothing sent", calls.learned.length === 3 && rj && rj.ok === false, JSON.stringify(rj));
+    }
+    {
+      // A different install (different salt) can't be matched against this one's hashes.
+      const a = boot(); a.store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      const b = boot(); b.store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      await sendRelayed(a.internal, page, { type: "JAF_LEARNED_ANSWERS", answers, page: "p/1" });
+      await sendRelayed(b.internal, page, { type: "JAF_LEARNED_ANSWERS", answers, page: "p/1" });
+      ok("learn: the hash is salted per install", a.calls.learned[0][0].context !== b.calls.learned[0][0].context);
+    }
+    {
+      const { internal, calls, store } = boot();
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com", learnFromApplications: false };
+      await sendRelayed(internal, page, { type: "JAF_LEARNED_ANSWERS", answers, page: "p/1" });
+      ok("learn: the setting turns it off", calls.learned.length === 0);
+    }
+    {
+      // Its own switch — the analytics opt-out is a different choice.
+      const { internal, calls, store } = boot();
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com", analyticsOptOut: true };
+      await sendRelayed(internal, page, { type: "JAF_LEARNED_ANSWERS", answers, page: "p/1" });
+      ok("learn: independent of the analytics opt-out", calls.learned.length === 1);
+    }
+    {
+      const { internal, calls, store } = boot({ connected: false });
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      await sendRelayed(internal, page, { type: "JAF_LEARNED_ANSWERS", answers, page: "p/1" });
+      ok("learn: signed out sends nothing", calls.learned.length === 0);
+    }
+    {
+      const { internal, calls, store } = boot();
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      const r = await sendRelayed(internal, {}, { type: "JAF_LEARNED_ANSWERS", answers, page: "p/1" });
+      ok("learn: only accepted from a page's content script", calls.learned.length === 0 && r === null);
     }
   }
 

@@ -156,6 +156,20 @@
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
         } else fileMsg = " · no file field found";
       }
+      // Phase 10.3d: from here on, answers the user gives to PROFILE questions on this page are
+      // reported as suggested profile values (the server keeps them as suggestions; the user
+      // decides on the web). The page address goes to the service worker only, which reduces it to
+      // a salted hash before anything leaves the device.
+      try {
+        if (JAF.profileLearn && typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+          JAF.profileLearn.start({
+            planned: fillable,
+            send: (answers) => {
+              try { chrome.runtime.sendMessage({ type: "JAF_LEARNED_ANSWERS", answers, page: location.hostname + location.pathname }); } catch (e) {}
+            },
+          });
+        }
+      } catch (e) {}
       // Auto-log this fill as a DRAFT application (best-effort; never blocks the fill)
       // and arm submission detection so a confirmation flips the entry to APPLIED. The
       // service worker owns the network and survives the post-submit navigation.
