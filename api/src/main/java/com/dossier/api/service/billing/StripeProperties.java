@@ -62,12 +62,17 @@ public class StripeProperties {
      * Stripe Managed Payments — Stripe becomes merchant of record and owns global sales tax/VAT,
      * fraud and disputes, for an extra 3.5% per transaction (user decision 2026-09-21).
      *
-     * <p>A flag, not a constant, for two reasons: it isn't available in every sandbox, and the
-     * economics change with volume — at scale the 3.5% may stop being worth it, and turning it
-     * off must not require a code change. Off by default so a misconfigured server fails toward
-     * the plain Stripe flow rather than toward a tax arrangement nobody chose.
+     * <p><b>Three states, and the default is "unset" on purpose.</b> Stripe now enables Managed
+     * Payments <b>by default on new accounts</b>, so a boolean here could only ever turn it on —
+     * the one thing it already was. {@code null} leaves the account's own setting alone,
+     * {@code true} forces it on for each session, {@code false} forces it off. That last one is
+     * the case that matters: the economics change with volume, and at scale the 3.5% may stop
+     * being worth it. Opting out must be a config change, not a code change.
+     *
+     * <p>Unset rather than {@code false} by default because forcing it off would silently
+     * discard the merchant-of-record arrangement on an account that had chosen it.
      */
-    private boolean managedPayments = false;
+    private Boolean managedPayments = null;
 
     /**
      * Stripe Tax on checkout. Redundant while {@link #managedPayments} is on (Stripe is then
@@ -158,11 +163,12 @@ public class StripeProperties {
         this.portalReturnUrl = portalReturnUrl;
     }
 
-    public boolean isManagedPayments() {
+    /** {@code null} = leave the Stripe account's own setting alone. See the field docs. */
+    public Boolean getManagedPayments() {
         return managedPayments;
     }
 
-    public void setManagedPayments(boolean managedPayments) {
+    public void setManagedPayments(Boolean managedPayments) {
         this.managedPayments = managedPayments;
     }
 

@@ -85,16 +85,19 @@ public class StripeGatewayImpl implements StripeGateway {
                 .setAllowPromotionCodes(true)
                 .addLineItem(LineItem.builder().setPrice(priceId).setQuantity(1L).build());
 
+            Boolean managedPayments = props.getManagedPayments();
+
             // Tax: send `true`, or send nothing at all. NEVER `false` — see #wantsAutomaticTax.
-            if (wantsAutomaticTax(props.isAutomaticTax(), props.isManagedPayments())) {
+            if (wantsAutomaticTax(props.isAutomaticTax(), Boolean.TRUE.equals(managedPayments))) {
                 builder.setAutomaticTax(com.stripe.param.checkout.SessionCreateParams.AutomaticTax.builder().setEnabled(true).build());
             }
 
             // Managed Payments (merchant of record) is newer than this SDK's typed builders, so
             // it goes through extra params. That also insulates us from the shape changing before
-            // the typed API catches up — the flag is what matters, not how it is spelled.
-            if (props.isManagedPayments()) {
-                builder.putExtraParam("managed_payments[enabled]", true);
+            // the typed API catches up — the setting is what matters, not how it is spelled.
+            // Null means "don't mention it", which leaves the account's own default in force.
+            if (managedPayments != null) {
+                builder.putExtraParam("managed_payments[enabled]", managedPayments);
             }
 
             return require().checkout().sessions().create(builder.build()).getUrl();

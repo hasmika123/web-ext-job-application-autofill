@@ -450,11 +450,18 @@ fails every checkout with a message that points nowhere near the cause.
 our `.env`, which is exactly how the 2026-09-17 data loss happened.
 
 Set-up order lives in `ROADMAP.md` → **Phase 12 → 12.0**: create the product and both prices in
-**test mode first**, turn on Stripe Tax, configure the Customer Portal, and add the webhook
-endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
+**test mode first**, **give the product a `tax_code`**, turn on Stripe Tax, configure the
+Customer Portal, and add the webhook endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
 `checkout.session.completed`, `customer.subscription.{created,updated,deleted}` and
 `invoice.{paid,payment_failed}`. Locally, `stripe listen --forward-to
 localhost:8080/api/billing/webhook` prints a per-session webhook secret.
 
 Optional overrides, only if the domain changes: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`,
 `STRIPE_PORTAL_RETURN_URL`.
+
+**Managed Payments** (merchant of record, +3.5%) is **on by default on new Stripe accounts**, so
+`STRIPE_MANAGED_PAYMENTS` is deliberately **unset** by default — unset means "leave the account's
+own setting alone". Set it to `false` to force the plain Stripe flow, or `true` to force MoR on an
+account that has it off. Two things it demands when on, both of which fail the checkout call
+rather than startup: **automatic tax** (handled — we never send `automatic_tax[enabled]=false`)
+and a **product tax code** (you set that in Stripe, see 12.0).

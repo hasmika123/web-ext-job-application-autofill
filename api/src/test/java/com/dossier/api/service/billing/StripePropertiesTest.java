@@ -47,6 +47,23 @@ class StripePropertiesTest {
         assertThat(props.isEnabled()).isFalse();
     }
 
+    /**
+     * Managed Payments is tri-state: Stripe turns it on by default for new accounts, so "unset"
+     * has to mean "leave the account alone" rather than "off" — otherwise the only thing the
+     * setting could express is the state it was already in.
+     */
+    @Test
+    void managedPaymentsDefaultsToUnset() {
+        StripeProperties props = new StripeProperties();
+        assertThat(props.getManagedPayments()).isNull();
+
+        props.setManagedPayments(false);
+        assertThat(props.getManagedPayments()).isFalse();
+
+        props.setManagedPayments(true);
+        assertThat(props.getManagedPayments()).isTrue();
+    }
+
     @Test
     void nullIsLeftAlone() {
         StripeProperties props = new StripeProperties();

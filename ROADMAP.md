@@ -558,7 +558,11 @@ pull only on change:**
 - **12.0 Stripe account setup — human, before any code runs against it.** In the Stripe
   dashboard, **test mode first, live mode identically later**: Product "Kiwiply Pro" with two
   recurring Prices — `$19.99 / month` and `$44.99 / 3 months` (interval `month`, count `3`);
-  **Stripe Tax on**; Customer Portal configured (cancel at period end allowed, update payment
+  **the Product needs a `tax_code`** (`txcd_10103000` SaaS-personal / `txcd_10103001`
+  SaaS-business — a tax determination, confirm it before going live). That is not optional:
+  **Managed Payments is on by default for new Stripe accounts**, and it rejects a Checkout
+  Session whose product has no tax code (`stripe products update prod_… -d
+  "tax_code=txcd_…"`). **Stripe Tax on**; Customer Portal configured (cancel at period end allowed, update payment
   method, invoice history; no plan switching in the portal — one plan); a webhook endpoint at
   `https://api.kiwiply.com/api/billing/webhook` subscribed to `checkout.session.completed`,
   `customer.subscription.created`, `customer.subscription.updated`,

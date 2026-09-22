@@ -131,9 +131,12 @@ dossier:
     success-url: ${STRIPE_SUCCESS_URL:http://localhost:3000/billing/success?session_id={CHECKOUT_SESSION_ID}}
     cancel-url: ${STRIPE_CANCEL_URL:http://localhost:3000/pricing}
     portal-return-url: ${STRIPE_PORTAL_RETURN_URL:http://localhost:3000/settings#billing}
-    # Merchant of record. Off locally: sandboxes don't always support it, and the plain flow
-    # is what we want to exercise while building.
-    managed-payments: ${STRIPE_MANAGED_PAYMENTS:false}
+    # Merchant of record. Unset by default = whatever the Stripe account already does, which
+    # for a new account means ON. Set STRIPE_MANAGED_PAYMENTS=false to force the plain Stripe
+    # flow for a session, or =true to force MoR on an account that has it off.
+    # An EMPTY default binds to null (Spring converts a blank string to null for a Boolean),
+    # which is how "unset" is expressed here.
+    managed-payments: ${STRIPE_MANAGED_PAYMENTS:}
     automatic-tax: ${STRIPE_AUTOMATIC_TAX:false}
   # Local dev points at MinIO (docker compose -f src/main/docker/minio.yml up -d).
   storage:
