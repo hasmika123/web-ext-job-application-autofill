@@ -46,13 +46,8 @@ export async function getPlan(): Promise<Plan> {
   }
 }
 
-/** "3 October 2026" — for renewal and cancellation dates. */
-export function formatPeriodEnd(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-}
+// Renewal and cancellation dates are rendered by <LocalDate> (components/LocalDate.tsx), in the
+// viewer's time zone. The formatter that used to live here ran on the server, in the box's.
 
 export const PRICE_MONTHLY = "$19.99";
 export const PRICE_3MO = "$44.99";
