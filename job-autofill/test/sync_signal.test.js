@@ -155,6 +155,18 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
     ok("signedOut: cleared the local session", calls.clear === 1);
     ok("signedOut: no pull", calls.pullAll === 0);
   }
+
+  /* ---- "signedOut" also forgets WHOSE mirror this was (pre-launch review 2026-09-22) ---- */
+  {
+    const { external, store } = boot();
+    store.settings = { apiBaseUrl: "https://api.kiwiply.com", plan: "PRO", __profileVersion: "v-old", autoAdvance: true };
+    const resp = await sendExternal(external, "https://kiwiply.com", signedOut);
+    ok("signedOut/markers: accepted", resp && resp.ok === true, JSON.stringify(resp));
+    // On a shared machine the next person to connect must not inherit a "Pro" pill.
+    ok("signedOut/markers: plan forgotten", !("plan" in store.settings), JSON.stringify(store.settings));
+    ok("signedOut/markers: version marker forgotten", !("__profileVersion" in store.settings));
+    ok("signedOut/markers: unrelated settings untouched", store.settings.autoAdvance === true && store.settings.apiBaseUrl === "https://api.kiwiply.com");
+  }
   {
     const { external, calls } = boot({ logoutFails: true });
     const resp = await sendExternal(external, "https://kiwiply.com", signedOut);

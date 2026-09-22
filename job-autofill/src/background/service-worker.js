@@ -308,6 +308,19 @@ function broadcastMirrorUpdated() {
   } catch (e) { /* no receiver, or messaging unavailable */ }
 }
 
+// The two settings that describe WHOSE mirror this is: the plan badge and the profile-version
+// marker. Both must go with the session, or on a shared machine the next person to connect sees
+// the previous user's "Pro" pill until their first version check lands. Best-effort — the token
+// clear above is the part that must not fail.
+async function forgetAccountMarkers() {
+  try {
+    const s = (await sGet("settings")) || {};
+    delete s.plan;
+    delete s.__profileVersion;
+    await sSet("settings", s);
+  } catch (e) { /* the badge is display-only; a stale one costs nothing but a wrong pill */ }
+}
+
 async function handleSyncSignal(event) {
   const J = self.JAF || {};
   if (event === "signedOut") {
@@ -319,6 +332,7 @@ async function handleSyncSignal(event) {
       if (provider && provider.logout) await provider.logout();
     } catch (e) { /* best-effort revoke */ }
     try { await J.tracking.chromeTokenStore().clear(); } catch (e) { return { ok: false, reason: "clear-failed" }; }
+    await forgetAccountMarkers();
     track("extension_disconnected", { source: "web" });
     return { ok: true };
   }
