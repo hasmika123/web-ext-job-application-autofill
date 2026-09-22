@@ -60,6 +60,12 @@ public class BillingService {
      *
      * @param plan {@code monthly} or {@code 3mo}
      */
+    // noRollbackFor: everything this method writes is worth keeping even when it fails — the
+    // row, and above all the Stripe customer id. Without this, a failure creating the Checkout
+    // Session rolled back the id we had just saved, so every failed attempt minted a fresh Stripe
+    // customer (the 12.7 run left several behind). The BillingException still propagates, so the
+    // client still gets its 502/409/503; only the rollback is suppressed.
+    @Transactional(noRollbackFor = BillingException.class)
     public String startCheckout(String plan) {
         requireBillingEnabled();
         User user = currentUser();

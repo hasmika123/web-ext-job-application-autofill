@@ -78,6 +78,16 @@ export async function signOut(): Promise<void> {
     /* best-effort revoke */
   }
   await tokenStore.clear();
+  // The plan badge and version marker describe whose mirror this is; they leave with the session
+  // (mirrors the SW's signedOut path), so the next account on this device starts clean.
+  try {
+    const s = await JAF().storage.getSettings();
+    delete s.plan;
+    delete s.__profileVersion;
+    await JAF().storage.saveSettings(s);
+  } catch {
+    /* display-only; a stale badge costs nothing but a wrong pill until the next check */
+  }
 }
 
 export type BugReport = { message: string; category: string; consent: boolean };

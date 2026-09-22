@@ -2,6 +2,7 @@ package com.dossier.api.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -80,6 +81,10 @@ class BillingWebhookIT {
      */
     @MockitoSpyBean
     private StripeEventRepository stripeEventSpy;
+
+    /** Spy so one save can be made to fail, which is what a transient database error looks like. */
+    @MockitoSpyBean
+    private SubscriptionRepository subscriptionSpy;
 
     private User user;
 
@@ -441,5 +446,73 @@ class BillingWebhookIT {
         Subscription row = subscriptionRepository.findOneByUserLogin("user").orElseThrow();
         assertThat(row.getStripeSubscriptionId()).isEqualTo(SUBSCRIPTION);
         assertThat(row.getStatus()).isEqualTo("active");
+    }
+
+    // ---- pre-launch review, 2026-09-22 ---------------------------------------------------------
+
+    /**
+     * When applying an event fails, Stripe's retry must actually re-apply it.
+     *
+     * <p>We answer 500 precisely so that Stripe retries — and then the retry hit the
+     * already-recorded row and was waved through as a duplicate. One transient database error
+     * and the event that would have made someone Pro was lost for good. The record has to know
+     * the difference between "handled" and "tried and failed".
+     */
+    @Test
+    @DisplayName("An event whose apply failed is re-applied when Stripe retries it")
+    void aFailedApplyIsRetriedNotTreatedAsADuplicate() throws Exception {
+        deliver(checkoutCompleted("evt_checkout_retry", user.getId(), Instant.now()), SECRET);
+        String payload = subscriptionEvent(
+            "evt_flaky",
+            "customer.subscription.created",
+            "active",
+            Instant.now(),
+            Instant.now().plus(30, ChronoUnit.DAYS),
+            false
+        );
+
+        // First delivery: the write blows up (a transient database error).
+        doThrow(new org.springframework.dao.QueryTimeoutException("simulated")).when(subscriptionSpy).save(any(Subscription.class));
+        assertThat(deliver(payload, SECRET)).isEqualTo(500);
+        assertThat(stripeEventRepository.findById("evt_flaky").orElseThrow().getStatus()).isEqualTo(StripeEvent.STATUS_FAILED);
+        assertThat(entitlementService.isPro("user")).isFalse();
+
+        // Stripe retries. Same event id, same payload. (reset(), not doCallRealMethod(): save()
+        // is an interface method on a Spring Data proxy, and a spy can't "call real" on an
+        // abstract method — resetting simply removes the stub so the proxy answers again.)
+        org.mockito.Mockito.reset(subscriptionSpy);
+        assertThat(deliver(payload, SECRET)).isEqualTo(200);
+
+        assertThat(stripeEventRepository.findById("evt_flaky").orElseThrow().getStatus()).isEqualTo(StripeEvent.STATUS_OK);
+        assertThat(entitlementService.isPro("user")).isTrue();
+    }
+
+    /**
+     * The payment-failed email survives out-of-order delivery.
+     *
+     * <p>Stripe emits {@code invoice.payment_failed} and the matching
+     * {@code customer.subscription.updated} (past_due) moments apart. When the updated event
+     * lands first, the payment_failed is older and is (correctly) not allowed to write state —
+     * but the user still has to be told. Before this, the email was dropped along with the write.
+     */
+    @Test
+    @DisplayName("A stale invoice.payment_failed still emails the user")
+    void aStalePaymentFailedStillEmails() throws Exception {
+        Instant t = Instant.now().minusSeconds(120);
+        deliver(checkoutCompleted("evt_checkout_stale", user.getId(), t), SECRET);
+        deliver(subscriptionEvent("evt_sub_ok", "customer.subscription.created", "active", t, t.plus(20, ChronoUnit.DAYS), false), SECRET);
+
+        // The newer event arrives first and already says past_due.
+        assertThat(
+            deliver(subscriptionEvent("evt_sub_pd", "customer.subscription.updated", "past_due", t.plusSeconds(60), t.plus(20, ChronoUnit.DAYS), false), SECRET)
+        ).isEqualTo(200);
+        verify(mailService, never()).sendEmail(any(), any(), any(), anyBoolean(), anyBoolean());
+
+        // Then the older payment_failed. Stale for state; not stale for the user.
+        assertThat(deliver(invoiceEvent("evt_pf_late", "invoice.payment_failed", t.plusSeconds(30)), SECRET)).isEqualTo(200);
+
+        assertThat(reload().getStatus()).isEqualTo("past_due");
+        assertThat(entitlementService.isPro("user")).isTrue();
+        verify(mailService, times(1)).sendEmail(eq(user.getEmail()), any(), any(), anyBoolean(), anyBoolean());
     }
 }

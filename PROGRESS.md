@@ -1128,6 +1128,39 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **Pre-launch review of Phases 11–12 — five more bugs, all fixed** · Ext **v0.54.1**.
+  A read-through of everything the 12.7 run could not reach, risk-ordered: money path, gates, web
+  and extension surfaces, sync. **(1) Account deletion was broken for every user who had ever
+  started a checkout** — `subscription.user_id` is a foreign key with no cascade and
+  `AccountDeletionService` never touched the row, so `DELETE /api/account` (and the admin path)
+  threw for exactly the users who pay. Worse, had the row been deleted, the Stripe subscription
+  would have kept renewing an account with no login left to cancel from. Deletion now cancels the
+  subscription in Stripe first (immediately — there will be no account to enjoy the remainder,
+  and the refund policy already covers it), then drops the row, then the user; a Stripe refusal
+  aborts the deletion rather than orphaning a billing subscription. **(2) A failed webhook apply
+  was never retried:** the event was recorded as `ok` before applying, so our own 500 asked
+  Stripe to retry and the retry was waved through as a duplicate — one transient DB error and the
+  event that would have made someone Pro was gone. `record()` now re-admits a row marked
+  `failed`. **(3) The payment-failed email could be dropped** when the matching
+  `subscription.updated` (past_due) arrived first and made the `invoice.payment_failed` stale:
+  the write was correctly skipped, and the email went with it. The email is now decided by the
+  row's state, not by which event wrote it. **(4) Every failed checkout leaked a Stripe customer:**
+  `startCheckout` is transactional, so a session failure rolled back the customer id we had just
+  saved. `noRollbackFor = BillingException` — the 502 still propagates, the binding stays.
+  **(5) Extension sign-out left the plan badge and version marker behind**, so on a shared
+  machine the next person saw the previous user's "Pro" pill until their first check; both now
+  leave with the session. **Two product decisions deliberately left open** (see the review
+  message of 2026-09-22): the extension mirror is never cleared on sign-out and a pull never
+  prunes resumes deleted on the web — a shared-machine leak and a stale picker, but clearing
+  would also drop a Free user's device-local learned answers; and renewal dates render in the
+  server's timezone, so the production box will show "October 22" where the portal says the 21st.
+  **Checked and clean:** signature over the raw body, webhook `permitAll` with CSRF off, the
+  entitlement rule, all three gates, token refresh on every pull path, archived resumes filtered
+  from the picker, the fingerprint covering every field a web edit can change, web routes passing
+  error codes through, the success page never erroring. Tests: `AccountDeletionResourceIT` +2
+  (subscribed user deletes and stops being billed · keyless server still deletes),
+  `BillingWebhookIT` +2 (failed apply re-applied on retry · stale payment_failed still emails),
+  `BillingResourceIT` +1 (failed session keeps the customer), `sync_signal.test.js` +4.
 - 2026-09-21 · **12.7 the end-to-end Stripe run — eight bugs, all fixed** · The point of this task
   was to find what reading the code could not, and it did. **Verified live:** checkout → 402-free
   session → payment → webhook → Pro within seconds; `checkout.session.completed` arriving **after**

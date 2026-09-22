@@ -123,7 +123,16 @@ public class BillingWebhookService {
      */
     private boolean record(StripeWebhookEvent event) {
         // Cheap path first: the overwhelmingly common duplicate is a redelivery, not a race.
-        if (stripeEventRepository.existsById(event.id())) return false;
+        Optional<StripeEvent> existing = stripeEventRepository.findById(event.id());
+        if (existing.isPresent()) {
+            // Seen before. If the previous apply blew up, Stripe is retrying exactly as we asked
+            // it to — this is the retry, so let it through. Treating it as a duplicate would
+            // make our 500 a request for a retry we then refuse, and lose the event for good
+            // (found in the pre-launch review, 2026-09-22).
+            if (!StripeEvent.STATUS_FAILED.equals(existing.get().getStatus())) return false;
+            LOG.info("Retrying Stripe event {} after a failed apply", event.id());
+            return true;
+        }
         try {
             return Boolean.TRUE.equals(
                 newTx.execute(s -> {
@@ -258,12 +267,23 @@ public class BillingWebhookService {
             LOG.info("Nothing to apply {} to for Stripe customer {}", event.type(), event.customerId());
             return;
         }
-        if (isStale(sub, event)) return;
-        sub.setStatus("past_due");
-        sub.setLastEventAt(event.created());
-        touch(sub);
-        subscriptionRepository.save(sub);
-        sendPaymentFailedEmail(sub);
+        if (!isStale(sub, event)) {
+            sub.setStatus("past_due");
+            sub.setLastEventAt(event.created());
+            touch(sub);
+            subscriptionRepository.save(sub);
+        }
+        // The email is decided by the row's state, not by whether THIS event wrote it. Stripe
+        // sends invoice.payment_failed and the matching subscription.updated (past_due) moments
+        // apart; delivered in the other order, the updated event is newer, this one is stale,
+        // and the status is already right — but nobody has told the user. Skipping the write is
+        // correct; skipping the email would silently drop the one thing past_due exists for.
+        // If a later invoice.paid already recovered the subscription, the row says so and no
+        // failure email goes out for a problem that is over. Once per event is guaranteed by
+        // record(), so a replay cannot double-send.
+        if ("past_due".equalsIgnoreCase(lower(sub.getStatus()))) {
+            sendPaymentFailedEmail(sub);
+        }
     }
 
     private void sendPaymentFailedEmail(Subscription sub) {

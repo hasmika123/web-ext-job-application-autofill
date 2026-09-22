@@ -7,6 +7,8 @@ import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.ResumeRepository;
+import com.dossier.api.repository.SubscriptionRepository;
+import com.dossier.api.service.billing.StripeGateway;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import java.util.List;
@@ -41,6 +43,8 @@ public class AccountDeletionService {
     private final UserService userService;
     private final UserRepository userRepository;
     private final RefreshTokenService refreshTokenService;
+    private final SubscriptionRepository subscriptionRepository;
+    private final StripeGateway stripeGateway;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -51,7 +55,9 @@ public class AccountDeletionService {
         ResumeStorageService storageService,
         UserService userService,
         UserRepository userRepository,
-        RefreshTokenService refreshTokenService
+        RefreshTokenService refreshTokenService,
+        SubscriptionRepository subscriptionRepository,
+        StripeGateway stripeGateway
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -62,6 +68,35 @@ public class AccountDeletionService {
         this.userService = userService;
         this.userRepository = userRepository;
         this.refreshTokenService = refreshTokenService;
+        this.subscriptionRepository = subscriptionRepository;
+        this.stripeGateway = stripeGateway;
+    }
+
+    /**
+     * End the user's billing before their account goes.
+     *
+     * <p>Two things at once, in this order. <b>Stripe first:</b> a subscription that outlives its
+     * account keeps charging someone with no login left to cancel from, so if Stripe refuses,
+     * the deletion aborts (this method is inside the deleting transaction) rather than leaving
+     * an orphaned subscription billing a ghost. <b>Then our row:</b> {@code subscription.user_id}
+     * is a foreign key with no cascade, so without this the user delete itself fails — which is
+     * how account deletion was broken for every user who had ever started a checkout
+     * (found in the pre-launch review, 2026-09-22).
+     *
+     * <p>Stripe keeps its own transaction records regardless, which is what the privacy policy
+     * says survives a deletion; nothing about the payment history needs to live here.
+     */
+    private void endBilling(Long userId) {
+        subscriptionRepository
+            .findOneByUserId(userId)
+            .ifPresent(sub -> {
+                String subscriptionId = sub.getStripeSubscriptionId();
+                if (subscriptionId != null && stripeGateway.isEnabled()) {
+                    stripeGateway.cancelSubscription(subscriptionId);
+                    LOG.info("Cancelled Stripe subscription {} ahead of deleting user {}", subscriptionId, userId);
+                }
+                subscriptionRepository.delete(sub);
+            });
     }
 
     /** Erase the current user's data and account. Idempotent per session: a second call
@@ -90,7 +125,13 @@ public class AccountDeletionService {
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserIsCurrentUser());
         // Refresh tokens are keyed by user id (the FK also cascades on user delete, but
         // remove them explicitly so the erasure is deterministic and self-contained).
-        userRepository.findOneByLogin(login).map(User::getId).ifPresent(refreshTokenService::deleteAllForUser);
+        userRepository
+            .findOneByLogin(login)
+            .map(User::getId)
+            .ifPresent(id -> {
+                refreshTokenService.deleteAllForUser(id);
+                endBilling(id);
+            });
         userService.deleteUser(login);
 
         LOG.info("Deleted account and all data for user: {}", login);
@@ -121,6 +162,7 @@ public class AccountDeletionService {
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserId(userId));
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
         refreshTokenService.deleteAllForUser(userId);
+        endBilling(userId);
         userService.deleteUser(login);
 
         LOG.info("Admin deleted account and all data for user: {}", login);
