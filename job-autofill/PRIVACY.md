@@ -56,6 +56,24 @@ To understand which features are used and where the experience breaks, the exten
 - **Opt out anytime:** Settings → uncheck **"Share anonymous usage analytics."** When off, nothing
   is sent. We honour the choice immediately.
 
+## Fill-quality counts (first-party)
+
+When you're signed in, each autofill run also reports a handful of **counts** to your Kiwiply
+account's server (`api.kiwiply.com`) so we can see which job sites the autofill handles badly and
+fix those first:
+
+- **Sent:** which ATS the page belongs to, as a fixed family name (`workday`, `icims`, …, or
+  `other`); which built-in adapter handled it; how many fields were found, filled, and failed;
+  how many **required** fields were still empty afterwards; and, later, how many of the filled
+  fields you changed.
+- **Never sent:** any field value, any field label, or the page's address. A company's own
+  careers site is reported only as `other` — the reduction happens in the extension before
+  anything leaves the page, and the server enforces the same vocabulary again.
+- **Not linked to you:** the server stores these counts with a random per-fill id and **no
+  account reference**, so they can't be traced back to you (and have nothing to erase on account
+  deletion).
+- **Opt out:** the same **"Share anonymous usage analytics"** setting turns this off too.
+
 ## Permission justifications
 
 | Permission | Why |
@@ -67,7 +85,7 @@ To understand which features are used and where the experience breaks, the exten
 | Host access to ATS domains (Workday, Greenhouse, Lever, Ashby, Workable, iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite) | Run the autofill content script on those job-application sites. |
 | `api.anthropic.com` | **Optional** AI assistance for free-text answers — used **only if you supply your own API key**. No key, no calls. |
 | `www.google-analytics.com` | Send **anonymous** usage event counts (no personal data) so we can improve the extension. Opt out in Settings. |
-| `api.kiwiply.com` | Sync your profile/resumes with your own Kiwiply account, and (only if you opt in) proxy AI drafting. |
+| `api.kiwiply.com` | Sync your profile/resumes with your own Kiwiply account, (only if you opt in) proxy AI drafting, and report count-only fill-quality stats (opt out in Settings). |
 
 The published build requests nothing beyond this table. Local-development hosts
 (`localhost`) are added only to development builds, never to a released one.

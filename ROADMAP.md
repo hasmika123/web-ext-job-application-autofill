@@ -377,6 +377,24 @@ schema, and a saved-answer bank; reliability — not speed — is what users pun
   mapper already holds (labels leave the page, values never do).
 - Feeds a `/admin/analytics` panel ranking ATS by failure rate, so adapter work is **directed
   by data instead of guessed**. Without this, 10.4 is a guessing game.
+- **As built (2026-09-22):**
+  - **First-party, into our DB** (`fill_event`), not GA4 — the admin panel has to read it.
+    **No user id on the row**: this measures the engine, not people, so there is nothing to link
+    back to an account or to erase with one.
+  - **ATS = a fixed family**, reduced from the hostname *in the content script*
+    (`fill-telemetry.js`), because the five uncovered hosts all run on the generic adapter and
+    would otherwise be indistinguishable — and a company's careers domain must never leave the
+    page. The server re-enforces the vocabulary (`FillTelemetryService.ATS_FAMILIES`).
+  - **`fieldsFound`** = fillable + manual rows; **`fieldsFailed`** = ticked but not applied;
+    **`requiredLeftEmpty`** from `required-audit.js` (native `required`/`aria-required` only —
+    under-counts custom widgets on purpose; 10.2 reuses the scan and can widen it).
+  - **`userCorrected`** arrives later: the first time the user commits a *different* value to a
+    field we filled (baseline taken right after the fill), one signal against that fill's random
+    id. Server-bounded to the fill's window (1 h) and to `fieldsFilled`. Radio-group changes
+    aren't seen yet (the change fires on the newly picked radio).
+  - Honours the existing **analytics opt-out**; nothing is sent when signed out.
+  - Panel ranks by **gap rate** (fills leaving ≥1 required field empty), then fill rate, then
+    volume.
 
 #### 10.2 Post-fill audit (biggest perceived-quality win per hour of work)
 After filling, scan for **required-but-empty** controls and tell the user: *"3 required fields

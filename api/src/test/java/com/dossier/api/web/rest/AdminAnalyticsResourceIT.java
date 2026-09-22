@@ -5,7 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.FillEvent;
 import com.dossier.api.domain.Subscription;
+import com.dossier.api.repository.FillEventRepository;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
@@ -44,6 +46,9 @@ class AdminAnalyticsResourceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private FillEventRepository fillEventRepository;
 
     @BeforeEach
     void clearSubscriptions() {
@@ -165,5 +170,60 @@ class AdminAnalyticsResourceIT {
             .andExpect(jsonPath("$.billing.monthlyCount").value(0))
             .andExpect(jsonPath("$.billing.threeMonthCount").value(0))
             .andExpect(jsonPath("$.billing.mrr").value(0.00));
+    }
+
+    // ---- fill quality (Phase 10.1) ---------------------------------------------------------
+
+    private void fillOn(String ats, String adapter, int found, int filled, int requiredLeftEmpty, int corrected, Instant at) {
+        FillEvent e = new FillEvent();
+        e.setId(java.util.UUID.randomUUID().toString());
+        e.setAts(ats);
+        e.setAdapter(adapter);
+        e.setFieldsFound(found);
+        e.setFieldsFilled(filled);
+        e.setRequiredLeftEmpty(requiredLeftEmpty);
+        e.setUserCorrected(corrected);
+        e.setCreatedAt(at);
+        fillEventRepository.save(e);
+    }
+
+    /**
+     * The panel's whole job: rank ATS by how often a fill leaves a required field empty, worst
+     * first, so adapter work (10.4) starts where users are actually let down.
+     */
+    @Test
+    @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
+    void fillQualityRanksTheWorstAtsFirst() throws Exception {
+        fillEventRepository.deleteAllInBatch();
+        Instant now = Instant.now();
+        // Greenhouse: dedicated adapter, fills well, never leaves a required field.
+        fillOn("greenhouse", "greenhouse", 10, 10, 0, 0, now);
+        fillOn("greenhouse", "greenhouse", 10, 9, 0, 1, now);
+        // iCIMS: no adapter, fills half, leaves required gaps every time.
+        fillOn("icims", "generic", 20, 10, 3, 2, now);
+        fillOn("icims", "generic", 20, 10, 1, 0, now);
+        // Old data is outside the 30-day window and must not count.
+        fillOn("lever", "lever", 10, 0, 5, 0, now.minus(45, ChronoUnit.DAYS));
+
+        mockMvc
+            .perform(get("/api/admin/analytics"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.fillQuality.length()").value(2))
+            .andExpect(jsonPath("$.fillQuality[0].ats").value("icims"))
+            .andExpect(jsonPath("$.fillQuality[0].fills").value(2))
+            .andExpect(jsonPath("$.fillQuality[0].fillRatePct").value(50))
+            .andExpect(jsonPath("$.fillQuality[0].gapRatePct").value(100))
+            .andExpect(jsonPath("$.fillQuality[0].correctionRatePct").value(10))
+            .andExpect(jsonPath("$.fillQuality[0].genericPct").value(100))
+            .andExpect(jsonPath("$.fillQuality[1].ats").value("greenhouse"))
+            .andExpect(jsonPath("$.fillQuality[1].fillRatePct").value(95))
+            .andExpect(jsonPath("$.fillQuality[1].gapRatePct").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
+    void noFillsIsAnEmptyListNotAnError() throws Exception {
+        fillEventRepository.deleteAllInBatch();
+        mockMvc.perform(get("/api/admin/analytics")).andExpect(status().isOk()).andExpect(jsonPath("$.fillQuality.length()").value(0));
     }
 }

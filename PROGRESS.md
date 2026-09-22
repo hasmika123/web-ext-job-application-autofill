@@ -42,8 +42,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **PHASE 12 IS COMPLETE.** 12.7's run happened on 2026-09-21 and found **eight bugs**, all fixed
 > with tests — including double billing and a webhook that could revoke Pro from a paying
 > customer. One piece is deliberately carried to **15.4**: a real failed renewal and lapse, which
-> need a Stripe test clock. **Next: 10.1** — fill-quality telemetry, then 10.2–10.3 (the
-> self-building profile), per the build order. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> need a Stripe test clock. **10.1 is DONE** (ext v0.56.0) — count-only fill telemetry per ATS
+> and an `/admin/analytics` panel ranking ATS worst-first. **Next: 10.2** — the post-fill audit
+> ("N required fields still need you"), which reuses 10.1's `required-audit.js` scan. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -813,7 +814,7 @@ focused Claude Code session.
 > Sequencing is deliberate: measure → cheap visible win → profile spine → the adapter grind.
 > Do NOT start 10.4 before 10.1 ships — adapter effort without telemetry is guesswork.
 
-- [ ] **10.1 Fill telemetry per ATS.** One event per fill: `{ats, fieldsFound, fieldsFilled,
+- [x] **10.1 Fill telemetry per ATS.** One event per fill: `{ats, fieldsFound, fieldsFilled,
   userCorrected, requiredLeftEmpty}`. Counts only — no field values ever leave the page (same
   line the field mapper holds: labels may leave, values never). Surface as an `/admin/analytics`
   panel ranking ATS by failure rate. **This is what directs 10.4.**
@@ -1128,6 +1129,24 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **10.1 fill telemetry per ATS** · Ext **v0.56.0**. One count-only event per autofill run —
+  ATS family, adapter, fields found / filled / failed, required left empty — plus a later
+  signal the first time the user changes a field we filled. First-party into a new `fill_event`
+  table (**no user id**: it measures the engine, not people), feeding a **Fill quality by ATS**
+  panel on `/admin/analytics` ranked worst-first by gap rate (fills that left a required field
+  empty), then fill rate, then volume — the list 10.4 takes its adapter work from. **The privacy
+  line is enforced twice:** the content script reduces the hostname to a fixed family before
+  anything leaves the page (so the five uncovered hosts are distinguishable without a company's
+  careers domain ever being sent), and the server maps anything outside the vocabulary to
+  `other` and clamps every count. Honours the existing analytics opt-out; disclosed in
+  `PRIVACY.md` and the web privacy policy. New: `fill-telemetry.js`, `required-audit.js` (10.2
+  reuses it), a correction hook on `fieldCache.watch`, `FillTelemetryResource`
+  (`POST /api/telemetry/fills`, `…/{id}/correction`, both always 204). Tests:
+  `fill_telemetry.test.js` (47, incl. an end-to-end run of the real overlay),
+  `sync_signal` +6, `tracking` +4, `FillTelemetryServiceTest` (9), `FillTelemetryResourceIT` (11),
+  `AdminAnalyticsResourceIT` +2. **Not verified locally:** the integration tests and the admin
+  panel in a browser — Docker Desktop was off, so neither MySQL nor the API could run; CI runs
+  the ITs. `api/openapi.json` will pick up the new endpoints on the next local IT run.
 - 2026-09-22 · **Pre-launch review follow-ups — the two open decisions, plus two more bugs** · Ext
   **v0.55.0**. User decisions: *clear the extension on sign-out* and *fix the timezone*.
   **(1) Sign-out means this browser forgets the account.** Before, sign-out dropped only the

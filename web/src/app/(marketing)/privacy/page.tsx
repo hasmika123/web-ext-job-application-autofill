@@ -241,6 +241,14 @@ export default function PrivacyPage() {
           Settings; on the website it is <strong>opt-in</strong> — it loads only after you accept the
           cookie banner, and never if you decline.
         </p>
+        <p>
+          Separately, when you&apos;re signed in, the extension reports <strong>fill-quality
+          counts</strong> to our own server after each autofill: which job-application system the page
+          uses (a fixed name like &quot;Workday&quot;, or &quot;other&quot;), and how many fields were
+          found, filled, left empty, or changed by you afterwards. It never sends a field&apos;s value or
+          label, or the address of the page, and we store these counts <strong>without any link to
+          your account</strong>. The same extension setting turns it off.
+        </p>
       </Section>
 
       <Section title="Cookies">
