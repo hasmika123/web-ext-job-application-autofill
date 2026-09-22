@@ -488,9 +488,20 @@ stripe listen --events checkout.session.completed,customer.subscription.created,
 --all-snapshot, or --all-thin`). That list is exactly the `switch` in `BillingWebhookService`,
 and exactly what the real endpoint is subscribed to — keep the three in step.
 
-It prints `whsec_…`. **That secret is per-session** — it changes every time you restart
-`stripe listen`, so start it before the API and leave it running. Nothing marks anyone Pro
-without it: the webhook is the only writer of subscription state.
+It prints `whsec_…`. Start it before the API and leave it running: nothing marks anyone Pro
+without it, because the webhook is the only writer of subscription state.
+
+**Do not copy that secret by hand.** It is ~70 characters, consoles wrap it, and a clipped
+selection produces the least helpful failure in the whole flow — deliveries arrive and are
+rejected with `Invalid Stripe signature`, so checkout succeeds, the customer is charged, and
+the subscription never activates. Let the CLI hand it over instead (PowerShell):
+
+```powershell
+$s = (stripe listen --print-secret | Out-String); $env:STRIPE_WEBHOOK_SECRET = [regex]::Match($s, 'whsec_[A-Za-z0-9]+').Value; "len=$($env:STRIPE_WEBHOOK_SECRET.Length)"
+```
+
+If billing is enabled and this is blank, the API logs an **ERROR at startup** saying so — that
+is the one misconfiguration that takes money and does nothing.
 
 > **No Stripe CLI?** There is no official `winget`/`choco` package. Download
 > `stripe_<version>_windows_x86_64.zip` from
@@ -542,6 +553,10 @@ activated, so no verification email is needed.
 | 4 | Upload a 4th resume | Blocked with a **402** and an inline upgrade link — *after* downgrading; on Pro it should succeed |
 | 5 | Portal → **Cancel** | Settings shows **Cancels on …**, and you still have Pro |
 | 6 | Watch the `stripe listen` window throughout | Every event **200**, never 4xx/5xx |
+
+> **`stripe events resend` does not reach the CLI listener** — it redelivers to endpoints
+> registered in the Dashboard. If an event was missed because the forwarder was down or its
+> secret was wrong, fix the cause and run the flow again; there is no replay into `stripe listen`.
 
 #### F. The failed-payment path
 
