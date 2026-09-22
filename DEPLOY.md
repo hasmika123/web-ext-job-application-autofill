@@ -424,7 +424,7 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
 > quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
 > common questions. Nothing to configure; it's automatic.
 
-## 11. Billing (Phase 12, Stripe) — ⚠️ NOT configured yet
+## 11. Billing (Phase 12, Stripe) — ⚠️ sandbox ready, NOT live yet
 
 > **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API
 > starts normally, `GET /api/billing/me` answers `FREE` with `billingEnabled:false`, and the
@@ -453,8 +453,8 @@ Set-up order lives in `ROADMAP.md` → **Phase 12 → 12.0**: create the product
 **test mode first**, **give the product a `tax_code`**, turn on Stripe Tax, configure the
 Customer Portal, and add the webhook endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
 `checkout.session.completed`, `customer.subscription.{created,updated,deleted}` and
-`invoice.{paid,payment_failed}`. Locally, `stripe listen --forward-to
-localhost:8080/api/billing/webhook` prints a per-session webhook secret.
+`invoice.{paid,payment_failed}`. Locally, the equivalent is the `stripe listen --events …`
+command in §11.1, which prints a per-session webhook secret.
 
 Optional overrides, only if the domain changes: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`,
 `STRIPE_PORTAL_RETURN_URL`.
@@ -465,3 +465,165 @@ own setting alone". Set it to `false` to force the plain Stripe flow, or `true` 
 account that has it off. Two things it demands when on, both of which fail the checkout call
 rather than startup: **automatic tax** (handled — we never send `automatic_tax[enabled]=false`)
 and a **product tax code** (you set that in Stripe, see 12.0).
+
+---
+
+### 11.1 End-to-end test run (Phase 12.7) — do this before taking real money
+
+Run the whole billing flow **locally against the Stripe sandbox**, never against production:
+production holds real users, and pointing it at test keys would write test subscriptions into
+the live database. Everything below uses test keys, test cards and a local API.
+
+**You need:** Docker Desktop running, JDK 17, the Stripe CLI, and your sandbox's `sk_test_…`
+key plus both `price_…` ids.
+
+#### A. Bring the local stack up
+
+```bash
+cd api
+docker compose -f src/main/docker/mysql.yml up -d
+docker compose -f src/main/docker/minio.yml up -d
+```
+
+MinIO is needed even though this is a billing test: the resume-cap step has to upload three real
+files first, and the web upload route deletes the resume row if the file upload fails.
+
+#### B. Start the webhook forwarder FIRST
+
+```bash
+stripe login
+stripe listen --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to http://localhost:8080/api/billing/webhook
+```
+
+`--events` is **required** from CLI v1.51 (`must specify events to forward using --events,
+--all-snapshot, or --all-thin`). That list is exactly the `switch` in `BillingWebhookService`,
+and exactly what the real endpoint is subscribed to — keep the three in step.
+
+It prints `whsec_…`. Start it before the API and leave it running: nothing marks anyone Pro
+without it, because the webhook is the only writer of subscription state.
+
+**Do not copy that secret by hand.** It is ~70 characters, consoles wrap it, and a clipped
+selection produces the least helpful failure in the whole flow — deliveries arrive and are
+rejected with `Invalid Stripe signature`, so checkout succeeds, the customer is charged, and
+the subscription never activates. Let the CLI hand it over instead (PowerShell):
+
+```powershell
+$s = (stripe listen --print-secret | Out-String); $env:STRIPE_WEBHOOK_SECRET = [regex]::Match($s, 'whsec_[A-Za-z0-9]+').Value; "len=$($env:STRIPE_WEBHOOK_SECRET.Length)"
+```
+
+If billing is enabled and this is blank, the API logs an **ERROR at startup** saying so — that
+is the one misconfiguration that takes money and does nothing.
+
+> **No Stripe CLI?** There is no official `winget`/`choco` package. Download
+> `stripe_<version>_windows_x86_64.zip` from
+> <https://github.com/stripe/stripe-cli/releases/latest>, check it against the release's
+> `stripe-windows-checksums.txt`, unzip it somewhere on your PATH, and `stripe version`.
+
+#### C. Start the API with the sandbox keys
+
+In a new terminal (not the one running `stripe listen`), with the `whsec_…` from step B.
+
+macOS/Linux/Git Bash:
+
+```bash
+cd api
+export JAVA_HOME="/c/Program Files/Java/jdk-17"
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+export STRIPE_PRICE_MONTHLY=price_...
+export STRIPE_PRICE_3MO=price_...
+./gradlew bootRun
+```
+
+Windows PowerShell — note the **Windows** `JAVA_HOME` path (the `/c/…` form is Git Bash only)
+and `.\gradlew.bat` (the extensionless `gradlew` is the shell script):
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-17"; $env:STRIPE_SECRET_KEY = "sk_test_..."; $env:STRIPE_WEBHOOK_SECRET = "whsec_..."; $env:STRIPE_PRICE_MONTHLY = "price_..."; $env:STRIPE_PRICE_3MO = "price_..."; .\gradlew.bat bootRun
+```
+
+Either way the values live in that shell only — nothing is written to disk. Wait for
+`Started DossierApiApp` before moving on.
+
+#### D. Start the web app and sign in
+
+```bash
+cd web && npm run dev
+```
+
+Sign in at <http://localhost:3000> as **`user` / `user`** — the seeded dev account, already
+activated, so no verification email is needed.
+
+#### E. The run
+
+| # | Do | Expect |
+|---|---|---|
+| 1 | Open `/pricing` | Both prices, the auto-renew disclosure, and live buttons (not "coming soon") |
+| 2 | Subscribe with card `4242 4242 4242 4242`, any future expiry, any CVC | `/billing/success` flips to **You're on Pro** within a second or two |
+| 3 | `/settings#billing` | Pro pill + **Renews on …** |
+| 4 | Upload a 4th resume | Blocked with a **402** and an inline upgrade link — *after* downgrading; on Pro it should succeed |
+| 5 | Portal → **Cancel** | Settings shows **Cancels on …**, and you still have Pro |
+| 6 | Watch the `stripe listen` window throughout | Every event **200**, never 4xx/5xx |
+
+> **`stripe events resend` does not reach the CLI listener** — it redelivers to endpoints
+> registered in the Dashboard. If an event was missed because the forwarder was down or its
+> secret was wrong, fix the cause and run the flow again; there is no replay into `stripe listen`.
+
+#### F. The failed-payment path
+
+**`stripe trigger` cannot exercise this, and that is by design.** The fixture builds its own
+customer *and its own subscription*, so the event is about a subscription we do not mirror — and
+since the double-billing fix, the webhook deliberately ignores those (a stray subscription's
+cancellation must never downgrade a paying customer). Overriding the customer does not help,
+because the subscription is still a stranger.
+
+A genuine failed renewal therefore needs a **test clock** (§G): attach a failing card such as
+`4000 0000 0000 0341`, then advance past the renewal.
+
+What to expect when it fires: status `past_due`, **still Pro** (Stripe's Smart Retries are
+running — dropping someone on the first failed charge punishes an expired card, not a
+non-payer), and a payment-failed email attempted. Locally there is usually no SMTP configured,
+so the API logs `Could not send the payment-failed email` — correct behaviour, not a bug: a mail
+failure must never fail a webhook, or Stripe would retry it forever.
+
+Without a clock, this path is covered by `BillingWebhookIT` (*"A failed charge marks past_due,
+emails the user, and does NOT cut them off"*) — a real HMAC-signed delivery against a real
+database. Worth doing for real once before live keys; not worth blocking a sandbox run on.
+
+#### G. Watching Pro actually lapse (test clock)
+
+A Stripe test clock can only be attached **when the customer is created**, and our checkout
+creates its own customer — so seed the row with a clock customer *before* the first checkout.
+`startCheckout` reuses an existing `stripe_customer_id` forever, which is what makes this work.
+
+1. Sandbox Dashboard → **Test clocks** → new clock → create a customer on it (`cus_…`).
+2. With no subscription row yet for `user`:
+
+```sql
+INSERT INTO subscription (user_id, plan, status, stripe_customer_id, cancel_at_period_end, created_at, updated_at)
+VALUES ((SELECT id FROM jhi_user WHERE login = 'user'), 'FREE', 'none', 'cus_...', false, NOW(), NOW());
+```
+
+3. Run the checkout in step E again — it will use that customer, so the subscription lands on
+   the clock.
+4. Advance the clock past `current_period_end`.
+
+Expect: the mirror follows Stripe, `/settings` shows **Free**, **every resume is still there**,
+and a 4th upload is refused with `RESUME_LIMIT`.
+
+**Cancelling is not a shortcut to this.** Stripe keeps `current_period_end` at the paid-through
+date even on an immediate cancel, and `EntitlementService` honours it — so a cancelled user stays
+Pro until that date, which is exactly the promise the ToS makes. Verified in the 12.7 run. Only
+time passing produces a lapse, so only a clock can show you one; to check the Free side without
+waiting, move `current_period_end` into the past in your LOCAL database and leave Stripe alone.
+
+#### H. The extension (optional)
+
+Point the extension's API base at `http://localhost:8080`, connect from the local `/connect`
+page, then open its options. Pro should appear **within one version check** — that is a
+15-minute alarm, or immediately on window focus or opening the drawer.
+
+#### Afterwards
+
+Record the run under **Log** in `PROGRESS.md`, then move the same four secrets into the box's
+`.env` (and the password manager) when you switch to live keys.
