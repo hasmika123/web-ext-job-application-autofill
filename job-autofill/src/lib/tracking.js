@@ -69,6 +69,9 @@
     async aiDraft(/* { question, context, consent } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
     // Server-side metered AI resume parsing (opt-in). Implemented by createKiwiplyProvider.
     async aiParseResume(/* { text, fileBase64, fileMimeType, consent } */) { throw new NotSupportedError("aiParseResume"); }
+    // Phase 10.1 — count-only fill telemetry. Implemented by createKiwiplyProvider.
+    async recordFill(/* event */) { throw new NotSupportedError("recordFill"); }
+    async recordFillCorrection(/* fillId */) { throw new NotSupportedError("recordFillCorrection"); }
     // Phase 9.A5 — user bug report (auth optional). Implemented by createKiwiplyProvider.
     async submitBugReport(/* { message, category, url, appVersion, userAgent } */) { throw new NotSupportedError("submitBugReport (Phase 9)"); }
   }
@@ -461,6 +464,16 @@
       // { answer, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
       async aiDraft({ question, context, consent } = {}) {
         return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false } });
+      },
+
+      // ---- fill telemetry (Phase 10.1) ------------------------------------
+      // Counts only: an ATS family, an adapter id and small integers (see fill-telemetry.js).
+      // The server answers 204 either way and re-enforces the vocabulary.
+      async recordFill(event) {
+        return request("POST", "/api/telemetry/fills", { body: event });
+      },
+      async recordFillCorrection(fillId) {
+        return request("POST", "/api/telemetry/fills/" + encodeURIComponent(String(fillId || "")) + "/correction");
       },
 
       // ---- server-side AI resume parsing ----------------------------------

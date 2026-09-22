@@ -120,16 +120,32 @@
       fillBtn.disabled = true;
       fillBtn.textContent = "Filling…";
       const checks = Array.from(root.querySelectorAll('.rows input[type="checkbox"][data-i]'));
+      // Phase 10.1: one count-only telemetry event per fill, plus a signal the first time the
+      // user changes each field we filled. The id is random and names this fill, not the user.
+      const T = JAF.fillTelemetry;
+      const fillId = T ? T.newFillId() : null;
+      const send = (msg) => { try { if (fillId && chrome.runtime && chrome.runtime.sendMessage) chrome.runtime.sendMessage(msg); } catch (e) {} };
+      const onCorrected = () => send({ type: "JAF_FILL_CORRECTED", id: fillId });
       let filled = 0;
+      let failedCount = 0;
       const failed = [];
       for (const c of checks) {
         if (!c.checked) continue;
         const item = fillable[Number(c.dataset.i)];
         const ok = await B.applyItemAsync(item);
-        // Learn from any later user correction to this field (local cache).
-        try { JAF.fieldCache && JAF.fieldCache.watch(item); } catch (e) {}
+        // Learn from any later user correction to this field (local cache) — and, for a field we
+        // actually filled, count that correction against this fill.
+        try {
+          if (JAF.fieldCache) {
+            const baseline = ok ? JAF.fieldCache.committedValueOf(item.el) : null;
+            JAF.fieldCache.watch(item, ok ? { baseline, onCorrected } : undefined);
+          }
+        } catch (e) {}
         if (ok) filled++;
-        else if (item.kind === "combo" || item.kind === "combo-multi") failed.push(L[item.field] || item.field);
+        else {
+          failedCount++;
+          if (item.kind === "combo" || item.kind === "combo-multi") failed.push(L[item.field] || item.field);
+        }
       }
       let fileMsg = "";
       const fchk = root.querySelector("#filechk");
@@ -150,6 +166,27 @@
           if (JAF.submitDetect) JAF.submitDetect.arm();
         }
       } catch (e) {}
+
+      // Phase 10.1: count what the fill left undone. A beat first so the page's own framework has
+      // reflected the values we set, and BEFORE any auto-advance moves on to the next step.
+      if (T && fillId) {
+        try {
+          await new Promise((r) => setTimeout(r, 250));
+          const missing = JAF.requiredAudit ? JAF.requiredAudit.findRequiredEmpty(document).length : 0;
+          send({
+            type: "JAF_FILL_STATS",
+            stats: T.buildEvent({
+              id: fillId,
+              hostname: location.hostname, // reduced to an ATS family inside buildEvent
+              adapter: adapter && adapter.id,
+              found: fillable.length + manual.length,
+              filled,
+              failed: failedCount,
+              requiredLeftEmpty: missing,
+            }),
+          });
+        } catch (e) {}
+      }
 
       const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
       let advanceMsg = "";

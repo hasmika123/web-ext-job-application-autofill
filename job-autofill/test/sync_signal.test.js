@@ -26,7 +26,7 @@ const PROD_MATCHES = ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "htt
 function boot(opts) {
   opts = opts || {};
   const store = {};                 // chrome.storage.local
-  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0, forgot: 0, forgotOpts: [] };
+  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0, forgot: 0, forgotOpts: [], fills: [], corrections: [] };
   const external = [];
   const internal = [];
   const installed = [];             // 11.3: onInstalled listeners (the alarm is created here)
@@ -68,6 +68,9 @@ function boot(opts) {
   const provider = {
     isAuthenticated: () => Promise.resolve(opts.connected !== false),
     logout: () => { calls.logout++; return opts.logoutFails ? Promise.reject(new Error("offline")) : Promise.resolve(); },
+    // Phase 10.1 — fill telemetry.
+    recordFill: (e) => { calls.fills.push(e); return Promise.resolve(null); },
+    recordFillCorrection: (id) => { calls.corrections.push(id); return Promise.resolve(null); },
     profileVersion: () => { calls.versionCalls++; return Promise.resolve(opts.version === undefined ? "v-new" : opts.version); },
   };
 
@@ -249,6 +252,41 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
     const noTab = { url: "https://kiwiply.com/resumes" };                          // another extension page
     const r3 = await sendRelayed(internal, noTab, signedOut);
     ok("relay: a non-page sender cannot sign the extension out", r3 === null && calls.clear === 0, JSON.stringify(r3));
+  }
+
+  /* ---- Phase 10.1: fill telemetry is forwarded, honouring the analytics opt-out ---- */
+  {
+    const stats = { id: "0f8fad5b-d9cb-469f-a165-70867728950e", ats: "icims", adapter: "generic", fieldsFound: 9, fieldsFilled: 6, fieldsFailed: 1, requiredLeftEmpty: 2 };
+    const page = { tab: { id: 7 }, url: "https://careers-acme.icims.com/jobs/1" };
+    {
+      const { internal, calls, store } = boot();
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      const r = await sendRelayed(internal, page, { type: "JAF_FILL_STATS", stats });
+      ok("telemetry: forwarded", r && r.ok === true && calls.fills.length === 1, JSON.stringify(r));
+      ok("telemetry: counts pass through", calls.fills[0] && calls.fills[0].ats === "icims" && calls.fills[0].requiredLeftEmpty === 2);
+      await sendRelayed(internal, page, { type: "JAF_FILL_CORRECTED", id: stats.id });
+      ok("telemetry: a correction is forwarded against its fill", calls.corrections.length === 1 && calls.corrections[0] === stats.id);
+    }
+    {
+      // The same switch that turns off the extension's other analytics.
+      const { internal, calls, store } = boot();
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com", analyticsOptOut: true };
+      const r = await sendRelayed(internal, page, { type: "JAF_FILL_STATS", stats });
+      await sendRelayed(internal, page, { type: "JAF_FILL_CORRECTED", id: stats.id });
+      ok("telemetry: opted out sends nothing", calls.fills.length === 0 && calls.corrections.length === 0, JSON.stringify(r));
+    }
+    {
+      const { internal, calls, store } = boot({ connected: false });
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      await sendRelayed(internal, page, { type: "JAF_FILL_STATS", stats });
+      ok("telemetry: signed out sends nothing", calls.fills.length === 0);
+    }
+    {
+      const { internal, calls, store } = boot();
+      store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
+      const r = await sendRelayed(internal, {}, { type: "JAF_FILL_STATS", stats });
+      ok("telemetry: only accepted from a page's content script", calls.fills.length === 0 && r === null, JSON.stringify(r));
+    }
   }
 
   /* ---- the connect handoff still works through the shared router ---- */

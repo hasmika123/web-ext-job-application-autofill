@@ -4,6 +4,8 @@ import com.dossier.api.domain.Subscription;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
+import com.dossier.api.repository.FillEventRepository;
+import com.dossier.api.repository.FillQualityRow;
 import com.dossier.api.repository.RefreshTokenRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.SubscriptionRepository;
@@ -15,6 +17,7 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,27 @@ public class AdminAnalyticsService {
 
     /** Acquisition → activation → setup → applied. Each value is a user count. */
     public record Funnel(long signedUp, long activated, long withProfile, long startedApplying, long applied) {}
+
+    /**
+     * Fill quality for one ATS family over the last {@link #FILL_WINDOW_DAYS} days (Phase 10.1).
+     *
+     * @param fillRatePct       of the fields the engine found, how many it filled
+     * @param gapRatePct        fills that left at least one REQUIRED field empty — the failure a
+     *                          user actually feels, so the panel ranks by it
+     * @param correctionRatePct of the fields filled, how many the user changed afterwards
+     * @param genericPct        fills handled by the generic scanner, i.e. no dedicated adapter
+     */
+    public record FillQuality(
+        String ats,
+        long fills,
+        int fillRatePct,
+        int gapRatePct,
+        int correctionRatePct,
+        int genericPct,
+        long fieldsFailed
+    ) {}
+
+    static final int FILL_WINDOW_DAYS = 30;
 
     /** Stripe's status for a subscription whose latest charge failed and is being retried. */
     private static final String STATUS_PAST_DUE = "past_due";
@@ -72,7 +96,8 @@ public class AdminAnalyticsService {
         long totalApplications,
         Funnel funnel,
         Map<String, Long> applicationsByStatus,
-        Billing billing
+        Billing billing,
+        List<FillQuality> fillQuality
     ) {}
 
     private final UserRepository userRepository;
@@ -82,6 +107,7 @@ public class AdminAnalyticsService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final StripeProperties stripeProperties;
+    private final FillEventRepository fillEventRepository;
 
     public AdminAnalyticsService(
         UserRepository userRepository,
@@ -90,7 +116,8 @@ public class AdminAnalyticsService {
         ApplicationRepository applicationRepository,
         RefreshTokenRepository refreshTokenRepository,
         SubscriptionRepository subscriptionRepository,
-        StripeProperties stripeProperties
+        StripeProperties stripeProperties,
+        FillEventRepository fillEventRepository
     ) {
         this.userRepository = userRepository;
         this.bioRepository = bioRepository;
@@ -99,6 +126,7 @@ public class AdminAnalyticsService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.stripeProperties = stripeProperties;
+        this.fillEventRepository = fillEventRepository;
     }
 
     public AnalyticsOverview overview() {
@@ -131,8 +159,51 @@ public class AdminAnalyticsService {
             applicationRepository.count(),
             new Funnel(total, activated, withProfile, startedApplying, applied),
             byStatus,
-            billing(now)
+            billing(now),
+            fillQuality(now)
         );
+    }
+
+    /**
+     * Fill quality per ATS, worst first (Phase 10.1) — the list 10.4's adapter work is taken from.
+     * Ranked by how often a fill leaves a required field empty, then by fill rate, then by volume
+     * so a bad ATS that many people use outranks an equally bad one that nobody does.
+     */
+    private List<FillQuality> fillQuality(Instant now) {
+        Instant since = now.minus(FILL_WINDOW_DAYS, ChronoUnit.DAYS);
+        return fillEventRepository
+            .qualityByAtsSince(since)
+            .stream()
+            .map(AdminAnalyticsService::toFillQuality)
+            .sorted(
+                Comparator.comparingInt(FillQuality::gapRatePct)
+                    .reversed()
+                    .thenComparingInt(FillQuality::fillRatePct)
+                    .thenComparing(Comparator.comparingLong(FillQuality::fills).reversed())
+            )
+            .toList();
+    }
+
+    static FillQuality toFillQuality(FillQualityRow r) {
+        long fills = nz(r.fills());
+        return new FillQuality(
+            r.ats(),
+            fills,
+            pct(nz(r.fieldsFilled()), nz(r.fieldsFound())),
+            pct(nz(r.fillsWithRequiredGaps()), fills),
+            pct(nz(r.userCorrected()), nz(r.fieldsFilled())),
+            pct(nz(r.fillsOnGenericAdapter()), fills),
+            nz(r.fieldsFailed())
+        );
+    }
+
+    private static long nz(Long n) {
+        return n == null ? 0L : n;
+    }
+
+    /** Whole-number percentage; 0 when there is nothing to divide by. */
+    private static int pct(long part, long whole) {
+        return whole <= 0 ? 0 : (int) Math.round((part * 100.0) / whole);
     }
 
     /**

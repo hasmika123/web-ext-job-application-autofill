@@ -230,6 +230,7 @@
     let host = opts.host;
     if (host == null) host = (typeof location !== "undefined" && location.hostname) || "";
     const bound = (typeof WeakSet !== "undefined") ? new WeakSet() : { has: () => false, add: () => {} };
+    const hooks = (typeof WeakMap !== "undefined") ? new WeakMap() : null;
 
     function setProfile(id) { profileId = slug(id || "default") || "default"; }
     function keyOf(item) {
@@ -322,13 +323,24 @@
     // Write path: learn from corrections. After we fill an element, watch it;
     // if the user changes it (typing or picking a custom-dropdown option), the
     // committed value is persisted for next time. One listener per element.
-    function watch(item) {
+    // Phase 10.1: `opts` = { baseline, onCorrected }. `baseline` is the field's committed value
+    // right after we filled it; the first time the user commits something DIFFERENT, onCorrected
+    // fires once — that is what "the user corrected our fill" means. Kept per element and replaced
+    // on every watch, so a re-fill of the same field reports against the newest fill.
+    function watch(item, opts) {
       const el = item && item.el;
-      if (!el || !el.addEventListener || bound.has(el)) return;
+      if (!el || !el.addEventListener) return;
+      if (opts && hooks) hooks.set(el, { baseline: String(opts.baseline == null ? "" : opts.baseline), onCorrected: opts.onCorrected, fired: false });
+      if (bound.has(el)) return;
       bound.add(el);
       const onChange = () => {
         const v = committedValueOf(el);
         if (v) remember(item, v);
+        const h = hooks && hooks.get(el);
+        if (h && !h.fired && typeof h.onCorrected === "function" && v !== h.baseline) {
+          h.fired = true;
+          try { h.onCorrected(); } catch (e) { /* telemetry must never break filling */ }
+        }
       };
       el.addEventListener("change", onChange, true);
       // custom dropdowns commit on blur without a reliable 'change'

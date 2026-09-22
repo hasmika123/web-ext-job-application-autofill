@@ -554,6 +554,44 @@ async function trackingProvider() {
 
 async function pendGet() { return (await sGet(PENDING_KEY)) || {}; }
 
+// --- Fill telemetry (Phase 10.1) -----------------------------------------------
+// Counts per fill, so adapter work (10.4) is directed by data. The content script has already
+// reduced the page to an ATS family; this adds the extension version and forwards. The same
+// opt-out as the rest of the extension's analytics applies, and nothing is sent when signed out.
+async function telemetryAllowed() {
+  const s = (await sGet("settings")) || {};
+  return !s.analyticsOptOut;
+}
+
+async function recordFillStats(stats) {
+  if (!stats || !stats.id) return { ok: false, reason: "no-stats" };
+  if (!(await telemetryAllowed())) return { ok: false, reason: "opted-out" };
+  const provider = await trackingProvider();
+  if (!provider || !provider.recordFill) return { ok: false, reason: "not-connected" };
+  let version = null;
+  try { version = (chrome.runtime.getManifest() || {}).version || null; } catch (e) {}
+  const event = {
+    id: String(stats.id),
+    ats: stats.ats,
+    adapter: stats.adapter,
+    fieldsFound: stats.fieldsFound,
+    fieldsFilled: stats.fieldsFilled,
+    fieldsFailed: stats.fieldsFailed,
+    requiredLeftEmpty: stats.requiredLeftEmpty,
+    extVersion: version,
+  };
+  try { await provider.recordFill(event); return { ok: true }; }
+  catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+}
+
+async function recordFillCorrection(id) {
+  if (!id || !(await telemetryAllowed())) return { ok: false, reason: "skipped" };
+  const provider = await trackingProvider();
+  if (!provider || !provider.recordFillCorrection) return { ok: false, reason: "not-connected" };
+  try { await provider.recordFillCorrection(String(id)); return { ok: true }; }
+  catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+}
+
 async function logFill(capture, resume, tabId) {
   const provider = await trackingProvider();
   if (!provider) return; // not configured / not signed in
@@ -603,6 +641,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === "JAF_SUBMIT_DETECTED") {
     confirmForTab(tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  // Phase 10.1 — fill telemetry, from our own content scripts only.
+  if (msg.type === "JAF_FILL_STATS" || msg.type === "JAF_FILL_CORRECTED") {
+    if (!sender || !sender.tab) return;
+    const p = msg.type === "JAF_FILL_STATS" ? recordFillStats(msg.stats) : recordFillCorrection(msg.id);
+    p.then(sendResponse).catch(() => sendResponse({ ok: false }));
     return true; // async
   }
   if (msg.type === "JAF_SAVE_JOB") {

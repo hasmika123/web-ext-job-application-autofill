@@ -236,6 +236,18 @@ function mockFetch(handler) {
   ok("aiDraft POSTs /api/ai/draft with consent", fetchAi.calls[0].method === "POST" && fetchAi.calls[0].path === "/api/ai/draft" && fetchAi.calls[0].body.consent === true);
   ok("aiDraft returns the server result", ai.answer === "Because I'd thrive here." && ai.quota === 50);
 
+  /* ---- fill telemetry (Phase 10.1) — counts to /api/telemetry, 204 back ---- */
+  const fetchTel = mockFetch(() => ({ status: 204, json: null }));
+  const pTel = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchTel, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const ev = { id: "0f8fad5b-d9cb-469f-a165-70867728950e", ats: "workday", adapter: "workday", fieldsFound: 5, fieldsFilled: 5, fieldsFailed: 0, requiredLeftEmpty: 0, extVersion: "0.56.0" };
+  await pTel.recordFill(ev);
+  ok("recordFill POSTs /api/telemetry/fills with the event", fetchTel.calls[0].method === "POST" && fetchTel.calls[0].path === "/api/telemetry/fills" && fetchTel.calls[0].body.ats === "workday");
+  ok("recordFill is authenticated", fetchTel.calls[0].headers.Authorization === "Bearer A");
+  await pTel.recordFillCorrection(ev.id);
+  ok("recordFillCorrection POSTs to the fill's correction path", fetchTel.calls[1].method === "POST" && fetchTel.calls[1].path === "/api/telemetry/fills/" + ev.id + "/correction");
+  await pTel.recordFillCorrection("../../admin");
+  ok("recordFillCorrection can't be steered to another path", fetchTel.calls[2].path.indexOf("/api/telemetry/fills/") === 0 && fetchTel.calls[2].path.indexOf("/admin") === -1, fetchTel.calls[2].path);
+
   /* ---- aiParseResume — POSTs /api/ai/parse-resume (text or file mode) ---- */
   const fetchParse = mockFetch(() => ({ status: 200, json: { parsed: { summary: "s", skills: ["Java"] }, used: 2, quota: 50 } }));
   const pParse = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchParse, tokenStore: T.memoryTokenStore({ access: "A" }) });

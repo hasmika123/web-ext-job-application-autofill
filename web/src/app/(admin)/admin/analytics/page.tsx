@@ -22,6 +22,16 @@ interface Billing {
   churnedThisMonth: number;
   pastDue: number;
 }
+/** One ATS family over the last 30 days (Phase 10.1). Counts only — see FillTelemetryService. */
+interface FillQuality {
+  ats: string;
+  fills: number;
+  fillRatePct: number;
+  gapRatePct: number;
+  correctionRatePct: number;
+  genericPct: number;
+  fieldsFailed: number;
+}
 interface Analytics {
   totalUsers: number;
   activatedUsers: number;
@@ -35,7 +45,26 @@ interface Analytics {
   funnel: Funnel;
   applicationsByStatus: Record<string, number>;
   billing: Billing;
+  fillQuality: FillQuality[];
 }
+
+const ATS_NAMES: Record<string, string> = {
+  workday: "Workday",
+  greenhouse: "Greenhouse",
+  lever: "Lever",
+  ashby: "Ashby",
+  workable: "Workable",
+  icims: "iCIMS",
+  taleo: "Taleo",
+  smartrecruiters: "SmartRecruiters",
+  bamboohr: "BambooHR",
+  jobvite: "Jobvite",
+  indeed: "Indeed",
+  successfactors: "SuccessFactors",
+  oracle: "Oracle",
+  linkedin: "LinkedIn",
+  other: "Other sites",
+};
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
@@ -97,6 +126,48 @@ export default async function AdminAnalyticsPage() {
             sub={b.pastDue > 0 ? "still Pro while Stripe retries" : "no failed payments"}
           />
         </div>
+      </section>
+
+      {/* Phase 10.1 — where the autofill lets people down, worst first. This is the list 10.4's
+          adapter work is taken from, so it ranks by the failure a user actually feels: a fill that
+          leaves a required field empty. */}
+      <section className="mb-6 rounded-[var(--radius)] border border-line bg-paper p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Fill quality by ATS</h2>
+          <p className="text-xs text-ink-soft">Last 30 days · worst first · counts only, never field values</p>
+        </div>
+        {(a.fillQuality ?? []).length === 0 ? (
+          <p className="mt-4 text-sm text-ink-soft">No fills recorded yet.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-ink-soft">
+                  <th className="pb-2 pr-3 font-medium">ATS</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Fills</th>
+                  <th className="pb-2 pr-3 text-right font-medium" title="Fills that left at least one required field empty">Left gaps</th>
+                  <th className="pb-2 pr-3 text-right font-medium" title="Of the fields found, how many were filled">Filled</th>
+                  <th className="pb-2 pr-3 text-right font-medium" title="Of the fields filled, how many the user changed afterwards">Corrected</th>
+                  <th className="pb-2 text-right font-medium" title="Fills handled by the generic scanner — no dedicated adapter">No adapter</th>
+                </tr>
+              </thead>
+              <tbody>
+                {a.fillQuality.map((q) => (
+                  <tr key={q.ats} className="border-t border-line">
+                    <td className="py-2 pr-3 text-ink">{ATS_NAMES[q.ats] ?? q.ats}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-ink">{q.fills}</td>
+                    <td className={`py-2 pr-3 text-right tabular-nums ${q.gapRatePct >= 50 ? "font-semibold text-danger" : "text-ink"}`}>
+                      {q.gapRatePct}%
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-ink">{q.fillRatePct}%</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-ink">{q.correctionRatePct}%</td>
+                    <td className="py-2 text-right tabular-nums text-ink-soft">{q.genericPct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
