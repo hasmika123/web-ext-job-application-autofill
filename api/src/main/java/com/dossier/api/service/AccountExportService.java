@@ -27,6 +27,7 @@ public class AccountExportService {
     private final FieldCacheSyncService fieldCacheSyncService;
     private final AiAnswerRepository aiAnswerRepository;
     private final AiAnswerMapper aiAnswerMapper;
+    private final ProfileSuggestionService profileSuggestionService;
 
     public AccountExportService(
         UserService userService,
@@ -34,7 +35,8 @@ public class AccountExportService {
         ApplicationSyncService applicationSyncService,
         FieldCacheSyncService fieldCacheSyncService,
         AiAnswerRepository aiAnswerRepository,
-        AiAnswerMapper aiAnswerMapper
+        AiAnswerMapper aiAnswerMapper,
+        ProfileSuggestionService profileSuggestionService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -42,6 +44,7 @@ public class AccountExportService {
         this.fieldCacheSyncService = fieldCacheSyncService;
         this.aiAnswerRepository = aiAnswerRepository;
         this.aiAnswerMapper = aiAnswerMapper;
+        this.profileSuggestionService = profileSuggestionService;
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -64,6 +67,7 @@ public class AccountExportService {
         out.put("resumes", profileService.listResumes());
         out.put("applications", applicationSyncService.listApplications());
         out.put("fieldCache", fieldCacheSyncService.list());
+        out.put("profileSuggestions", profileSuggestionService.exportCurrentUser());
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());
         return out;
     }

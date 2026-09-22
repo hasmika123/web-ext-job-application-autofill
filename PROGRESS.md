@@ -49,7 +49,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **10.3a is DONE** (ext v0.58.0) — six job-preference fields (salary, notice, start date, work
 > preference, relocate, "how did you hear") are canonical, matched by rules and editable on the web.
 > **10.3b is DONE** — `/welcome`: six one-tap questions a new user sees once after first sign-in.
-> **Next: 10.3c** — the suggestions API (learned answers → suggested profile values). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **10.3c is DONE** — `/api/profile/suggestions`: learned answers become suggestions, only an accept
+> writes the profile. **Next: 10.3d** — the extension captures answers and sends them there. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -839,7 +840,7 @@ focused Claude Code session.
   - [x] **10.3b Onboarding (Tier A).** `/welcome`, shown once after the first sign-in, "Skip for
     now" always visible: optional resume upload, then ≤6 questions (work auth, sponsorship,
     salary, start/notice, remote/relocate, EEO optional). The dashboard checklist links to it.
-  - [ ] **10.3c Suggestions API.** `profile_suggestion` table + send/list/accept/dismiss. Free
+  - [x] **10.3c Suggestions API.** `profile_suggestion` table + send/list/accept/dismiss. Free
     and Pro alike (the Pro-only answer sync is untouched). Canonical keys only, never EEO,
     capped pending count, in export + deletion. Accepting writes the bio (so the version moves).
   - [ ] **10.3d Extension capture (Tier C).** Watch canonical-field inputs even when the bio has
@@ -1146,6 +1147,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **10.3c suggestions API** · `profile_suggestion` table + `ProfileSuggestionService` +
+  `/api/profile/suggestions` (`POST` learned answers, `GET` the ones worth showing, `POST
+  {id}/accept` with an optional edit, `POST {id}/dismiss`). Free and Pro alike. Only the 22
+  canonical non-sensitive profile keys — **EEO and resume text are never stored**. A blank field
+  is suggested at once; a change needs the same value on **2 different applications** (an opaque
+  per-application hash, never a URL; seen twice on one application counts once). One suggestion
+  per field, newest wins; what the profile already says is never suggested; decided is decided
+  (a dismissed value never returns). Accept writes the bio over its other keys (so the extension's
+  version moves) and drops the field's other undecided values; it refuses (409) to write over an
+  unreadable profile rather than wipe it. Pending capped at 50. In account export and deletion
+  (FK, no cascade — the deletion test now covers it). `ProfileSuggestionServiceTest` (6, unit) +
+  `ProfileSuggestionResourceIT` (11).
 - 2026-09-22 · **10.3b onboarding** · `/welcome`: one question per screen — work authorization,
   sponsorship, salary, notice, work preference + relocation, and EEO self-ID (optional, says so).
   Every question skippable, **"Skip for now"** always on screen, each step saves as you go. The

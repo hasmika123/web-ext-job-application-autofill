@@ -13,6 +13,7 @@ import com.dossier.api.domain.AiAnswer;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.FieldCache;
+import com.dossier.api.domain.ProfileSuggestion;
 import com.dossier.api.domain.RefreshToken;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
@@ -22,6 +23,7 @@ import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.FieldCacheRepository;
+import com.dossier.api.repository.ProfileSuggestionRepository;
 import com.dossier.api.repository.RefreshTokenRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.SubscriptionRepository;
@@ -72,6 +74,9 @@ class AccountDeletionResourceIT {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private ProfileSuggestionRepository profileSuggestionRepository;
+
+    @Autowired
     private SubscriptionRepository subscriptionRepository;
 
     /** Stubbed: the test is about OUR ordering and cleanup, not Stripe's API. */
@@ -119,6 +124,13 @@ class AccountDeletionResourceIT {
         fc.setUser(user);
         fc = fieldCacheRepository.saveAndFlush(fc);
 
+        // Phase 10.3c: a learned-answer suggestion (FK user_id, no cascade) must go too.
+        ProfileSuggestion suggestion = new ProfileSuggestion();
+        suggestion.setUser(user);
+        suggestion.setFieldKey("city");
+        suggestion.setValue("Atlanta");
+        suggestion = profileSuggestionRepository.saveAndFlush(suggestion);
+
         mockMvc.perform(delete("/api/account")).andExpect(status().isNoContent());
 
         assertThat(userRepository.findOneByLogin("user")).isEmpty();
@@ -127,6 +139,7 @@ class AccountDeletionResourceIT {
         assertThat(applicationRepository.findById(app.getId())).isEmpty();
         assertThat(aiAnswerRepository.findById(ai.getId())).isEmpty();
         assertThat(fieldCacheRepository.findById(fc.getId())).isEmpty();
+        assertThat(profileSuggestionRepository.findById(suggestion.getId())).isEmpty();
         assertThat(refreshTokenRepository.findByJti("jti-del-test")).isEmpty();
     }
 

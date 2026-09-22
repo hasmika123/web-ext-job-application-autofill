@@ -45,6 +45,7 @@ public class AccountDeletionService {
     private final RefreshTokenService refreshTokenService;
     private final SubscriptionRepository subscriptionRepository;
     private final StripeGateway stripeGateway;
+    private final ProfileSuggestionService profileSuggestionService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -57,7 +58,8 @@ public class AccountDeletionService {
         UserRepository userRepository,
         RefreshTokenService refreshTokenService,
         SubscriptionRepository subscriptionRepository,
-        StripeGateway stripeGateway
+        StripeGateway stripeGateway,
+        ProfileSuggestionService profileSuggestionService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -70,6 +72,7 @@ public class AccountDeletionService {
         this.refreshTokenService = refreshTokenService;
         this.subscriptionRepository = subscriptionRepository;
         this.stripeGateway = stripeGateway;
+        this.profileSuggestionService = profileSuggestionService;
     }
 
     /**
@@ -130,6 +133,7 @@ public class AccountDeletionService {
             .map(User::getId)
             .ifPresent(id -> {
                 refreshTokenService.deleteAllForUser(id);
+                profileSuggestionService.deleteAllForUser(id);
                 endBilling(id);
             });
         userService.deleteUser(login);
@@ -162,6 +166,7 @@ public class AccountDeletionService {
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserId(userId));
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
         refreshTokenService.deleteAllForUser(userId);
+        profileSuggestionService.deleteAllForUser(userId);
         endBilling(userId);
         userService.deleteUser(login);
 

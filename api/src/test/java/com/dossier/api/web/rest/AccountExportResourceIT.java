@@ -35,6 +35,7 @@ class AccountExportResourceIT {
             .andExpect(jsonPath("$.exportedAt").exists())
             .andExpect(jsonPath("$.account.login").value("user"))
             .andExpect(jsonPath("$.resumes").isArray())
-            .andExpect(jsonPath("$.applications").isArray());
+            .andExpect(jsonPath("$.applications").isArray())
+            .andExpect(jsonPath("$.profileSuggestions").isArray());
     }
 }
