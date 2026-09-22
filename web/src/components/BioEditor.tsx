@@ -27,6 +27,10 @@ const VETERAN = [
   "I identify as one or more classifications of a protected veteran",
   "Prefer not to say",
 ];
+// Job preferences (Phase 10.3a). Fixed lists where the answer is a choice, so the value the
+// extension fills is one an application's own dropdown is likely to offer word for word.
+const NOTICE = ["Immediately", "1 week", "2 weeks", "3 weeks", "1 month", "2 months", "3 months"];
+const WORK_PREFERENCE = ["Remote", "Hybrid", "On-site"];
 const DISABILITY = [
   "Yes, I have a disability (or previously had one)",
   "No, I do not have a disability",
@@ -42,6 +46,8 @@ type FieldDef = {
   required?: boolean;
   /** Max characters (input maxLength). Defaults by kind via fieldMax(). */
   max?: number;
+  placeholder?: string;
+  hint?: string;
 };
 
 const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
@@ -85,6 +91,28 @@ const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
       { key: "requireSponsorship", label: "Need sponsorship?", kind: "select", options: YESNO },
     ],
   },
+  {
+    id: "preferences",
+    title: "Job preferences",
+    fields: [
+      { key: "desiredSalary", label: "Desired salary", placeholder: "e.g. $120,000", hint: "A number-only box gets just the number." },
+      { key: "noticePeriod", label: "Notice period", kind: "select", options: NOTICE },
+      {
+        key: "earliestStartDate",
+        label: "Earliest start date",
+        placeholder: "e.g. 2026-11-02, or Immediately",
+        hint: "Date pickers only take a real date.",
+      },
+      { key: "workPreference", label: "Work preference", kind: "select", options: WORK_PREFERENCE },
+      { key: "willingToRelocate", label: "Willing to relocate?", kind: "select", options: YESNO },
+      {
+        key: "referralSource",
+        label: "How you usually hear about jobs",
+        placeholder: "e.g. LinkedIn",
+        hint: "Your answer to “How did you hear about us?”",
+      },
+    ],
+  },
 ];
 
 const EEO_FIELDS: FieldDef[] = [
@@ -107,6 +135,7 @@ const NAV = [
   { id: "location", label: "Location" },
   { id: "links", label: "Links" },
   { id: "work", label: "Work authorization" },
+  { id: "preferences", label: "Job preferences" },
   { id: "eeo", label: "EEO / demographics" },
   { id: "skills", label: "Base skills" },
 ];
@@ -299,7 +328,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
       f.label
     );
     return (
-      <Field key={f.key} label={label} htmlFor={id} error={err} className={cn("mb-0", f.wide && "sm:col-span-2")}>
+      <Field key={f.key} label={label} htmlFor={id} error={err} hint={f.hint} className={cn("mb-0", f.wide && "sm:col-span-2")}>
         {f.kind === "select" ? (
           <Select
             id={id}
@@ -317,6 +346,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
             id={id}
             type={inputType(f.kind)}
             maxLength={fieldMax(f)}
+            placeholder={f.placeholder}
             value={val}
             onChange={(e) => setField(f.key, e.target.value)}
             onBlur={() => touch(f.key)}

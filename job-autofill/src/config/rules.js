@@ -18,8 +18,8 @@
   const JAF = (window.JAF = window.JAF || {});
 
   JAF.defaultRules = {
-    version: 5,
-    updatedAt: "2026-07-03",
+    version: 6,
+    updatedAt: "2026-09-22",
 
     // W3C `autocomplete` attribute handling. Valid field tokens (given-name, email,
     // postal-code, …) are a standardized, high-precision signal the generic scanner
@@ -51,6 +51,15 @@
       { field: "skills", any: ["skills", "technical skills", "key skills"] },
       { field: "authorizedToWork", any: ["authorized to work", "legally authorized", "right to work", "work authorization", "eligible to work", "authorization to work"] },
       { field: "requireSponsorship", any: ["sponsorship", "require visa", "need visa", "visa support", "require sponsorship", "immigration"] },
+      // Job preferences (Phase 10.3a). Phrases, not single words: "salary", "start date" and
+      // "remote" on their own also appear in a work-history block ("Start date") or in questions
+      // these values can't answer ("Current salary", "Can you work on-site 3 days a week?").
+      { field: "desiredSalary", any: ["desired salary", "salary expectation", "expected salary", "salary requirement", "desired compensation", "expected compensation", "compensation expectation", "desired pay", "expected pay", "pay expectation", "target salary", "target compensation", "desired base", "expected base"], neg: ["current", "previous", "last salary", "currency"] },
+      { field: "noticePeriod", any: ["notice period", "notice required", "how much notice", "weeks notice", "weeks' notice"] },
+      { field: "earliestStartDate", any: ["earliest start", "when can you start", "when could you start", "when would you be able to start", "available to start", "availability to start", "desired start date", "preferred start date", "potential start date", "available start date", "start date availability", "date available", "availability date"], neg: ["end date", "graduation"] },
+      { field: "workPreference", any: ["work preference", "workplace preference", "work arrangement", "work setting", "work model", "preferred work location", "work location preference", "working preference", "remote, hybrid", "remote/hybrid", "remote or on-site", "remote or onsite", "remote or in-office"] },
+      { field: "willingToRelocate", any: ["relocate", "relocation", "willing to move", "open to moving"], neg: ["assistance", "package", "reimburse", "benefit", "bonus"] },
+      { field: "referralSource", any: ["how did you hear", "how did you find", "where did you hear", "where did you find", "how did you learn about", "referral source", "source of application", "how you heard"], neg: ["name of", "employee name", "referrer"] },
       { field: "ethnicity", any: ["hispanic", "latino", "latinx", "ethnicity"], neg: ["non-hispanic"] },
       { field: "race", any: ["race", "racial", "ethnic background", "race/ethnicity"], neg: ["embrace", "trace"] },
       { field: "gender", any: ["gender", "what is your sex", "your sex", "gender identity"], neg: ["identity document"] },

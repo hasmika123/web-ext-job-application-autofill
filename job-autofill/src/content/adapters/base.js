@@ -45,6 +45,48 @@
     return true;
   }
 
+  // A value that answers a yes/no control. Anything else ("Hybrid", "Female") must never be
+  // coerced to "No" — it either names one of the group's options or it doesn't fit.
+  const YESNO_RE = /^(yes|no|true|false|1|0)$/i;
+
+  // A radio group whose options are choices, not Yes/No: pick the option the value names.
+  // Exact label first, then a prefix either way ("On-site" ↔ "On-site (5 days a week)"), with
+  // a length floor so a two-letter answer can't match a long option by accident.
+  function setChoiceGroup(container, value) {
+    const norm = (t) => String(t || "").toLowerCase().replace(/\s+/g, " ").trim();
+    const want = norm(value);
+    if (!want) return false;
+    const radios = Array.from(container.querySelectorAll('input[type="radio"]'));
+    const named = radios.map((r) => ({ r, t: norm(labelText(r)) || norm(r.value) }));
+    const hit = named.find((x) => x.t === want)
+      || named.find((x) => x.t.startsWith(want) && want.length >= 4)
+      || named.find((x) => want.startsWith(x.t) && x.t.length >= 4);
+    if (!hit) return false;
+    hit.r.click();
+    return hit.r.checked;
+  }
+
+  // <input type="number"> rejects "$120,000" outright, leaving the field empty. Take the first
+  // number, honouring a "k" suffix; a range keeps its lower bound.
+  function numericValue(v) {
+    const m = String(v == null ? "" : v).match(/(\d[\d,]*(?:\.\d+)?)\s*(k\b)?/i);
+    if (!m) return "";
+    const n = parseFloat(m[1].replace(/,/g, "")) * (m[2] ? 1000 : 1);
+    return isFinite(n) ? String(n) : "";
+  }
+
+  // <input type="date"> needs YYYY-MM-DD. Anything that isn't a real date ("Immediately",
+  // "2 weeks") is left for the user rather than guessed.
+  function isoDate(v) {
+    const t = String(v == null ? "" : v).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    if (!/\b\d{4}\b/.test(t)) return "";
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+
   // Yes/No radio groups: find the radio whose label matches the desired answer.
   function setBooleanGroup(container, truthy) {
     const want = truthy ? "yes" : "no";
@@ -316,7 +358,12 @@
     try {
       if (kind === "select") return selectOption(el, value);
       if (kind === "boolean") {
-        const truthy = /^(yes|true|1)$/i.test(String(value));
+        const grp = el.closest('[role="group"],fieldset,div') || document;
+        if (!YESNO_RE.test(String(value).trim())) {
+          // Not a yes/no answer: a radio group may offer it as an option; a checkbox can't.
+          return el.type === "radio" ? setChoiceGroup(grp, value) : false;
+        }
+        const truthy = /^(yes|true|1)$/i.test(String(value).trim());
         if (el.type === "checkbox") {
           // Workday/React checkboxes ignore a programmatic `el.checked = …` (the box
           // gets focus but aria-checked stays false). A real click lets the framework
@@ -325,10 +372,11 @@
           if (el.checked !== truthy) { el.checked = truthy; fire(el, "input"); fire(el, "change"); }
           return el.checked === truthy;
         }
-        const grp = el.closest('[role="group"],fieldset,div') || document;
         return setBooleanGroup(grp, truthy);
       }
       if (kind === "file") return false; // files handled separately
+      if (el.type === "number") { value = numericValue(value); if (!value) return false; }
+      if (el.type === "date") { value = isoDate(value); if (!value) return false; }
       return fillText(el, value);
     } catch (e) { return false; }
   }
@@ -548,7 +596,7 @@
   }
 
   JAF.adapterBase = {
-    setNativeValue, fire, fillText, selectOption, setBooleanGroup, labelText, labelParts, groupPrompt,
+    setNativeValue, fire, fillText, selectOption, setBooleanGroup, setChoiceGroup, numericValue, isoDate, labelText, labelParts, groupPrompt,
     cssEscape, isFillable, scanGeneric, deepQueryAll, elKind, applyItem, applyItemAsync, attachFile, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
     // exposed for unit tests (dropdown option scoping + matching + autocomplete)

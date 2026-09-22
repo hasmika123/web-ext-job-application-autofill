@@ -65,7 +65,8 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   `chrome.runtime`, mammoth, txt) + `llmStructure()` (Anthropic) + `parse()`. Delegates
   structuring to `JAF.parserCore` (loads after `parser-core.js`); re-exports
   `heuristicStructure`/`parseBio` on `JAF.parser` for back-compat.
-- `src/config/rules.js` — `JAF.defaultRules` (DATA only; **version 4**). Workday
+- `src/config/rules.js` — `JAF.defaultRules` (DATA only; **version 6** — v6 added the 10.3a
+  job-preference phrases to `generic`). Workday
   field/question/section matchers. Includes `fields.fullName`, `fields.dateSigned`,
   `fields.website` (matches `url`); `questions.ethnicity`/`race` split;
   `questions.disabilityStatus` excludes `language`/`disabilityform`.
