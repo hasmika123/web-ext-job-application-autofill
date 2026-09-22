@@ -465,6 +465,7 @@ own setting alone". Set it to `false` to force the plain Stripe flow, or `true` 
 account that has it off. Two things it demands when on, both of which fail the checkout call
 rather than startup: **automatic tax** (handled — we never send `automatic_tax[enabled]=false`)
 and a **product tax code** (you set that in Stripe, see 12.0).
+
 ---
 
 ### 11.1 End-to-end test run (Phase 12.7) — do this before taking real money
