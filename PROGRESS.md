@@ -1139,7 +1139,11 @@ focused Claude Code session.
   stay (BYO key, auto-advance, theme, label/job caches). Both paths use it; the options page now
   confirms first and says plainly that on Free, learned answers exist only in this browser.
   Connecting a *different* account over one that never signed out also clears first (only when
-  both names are known — a guess would cost a Free user their only copy). **(2) A pull prunes
+  both names are known — a guess would cost a Free user their only copy). **Web sign-out keeps
+  learned answers** (user decision, option B): on Free they're the only copy and web sign-out is
+  routine, so they stay — with an owner marker, since the session holding the username is gone —
+  and are wiped the moment a different account connects. The options-page sign-out confirms
+  and clears everything. **(2) A pull prunes
   resumes deleted on the web** — they used to linger in the picker until reinstall; local-only
   (unpushed) resumes are never touched, and a failed list prunes nothing. **(3) Dates render in
   the viewer's zone and hydrate cleanly.** All web dates were formatted on the UTC/en-US box —

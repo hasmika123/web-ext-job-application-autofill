@@ -37,8 +37,19 @@ function raw(w) {
     },
   }, () => res()));
 
+  /* ---- web sign-out: keep learned answers and their owner (user decision 2026-09-22) ---- */
+  await new Promise((res) => w.chrome.storage.local.set({ learnedAnswersOwner: "ada" }, () => res()));
+  await S.clearAccountData({ keepLearnedAnswers: true });
+  const soft = await raw(w);
+  ok("web sign-out keeps learned answers", !!soft.fieldCache);
+  ok("web sign-out keeps their owner, so a different account can be spotted later", soft.learnedAnswersOwner === "ada");
+  ok("web sign-out still removes the profile and resumes", !("bio" in soft) && !("resumes" in soft));
+  ok("web sign-out still removes AI drafts and pending tracking", !("answerCache" in soft) && !("trackingPending" in soft));
+
+  /* ---- full clear (options sign-out, account switch) ---- */
   await S.clearAccountData();
   const after = await raw(w);
+  ok("full clear removes the owner marker too", !("learnedAnswersOwner" in after));
 
   for (const k of ["bio", "resumes", "fieldCache", "answerCache", "pickCache", "trackingPending"]) {
     ok("account data removed: " + k, !(k in after), JSON.stringify(after[k]));

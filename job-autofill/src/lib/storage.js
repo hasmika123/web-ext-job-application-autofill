@@ -118,13 +118,25 @@
   const ACCOUNT_KEYS = ["bio", "resumes", "fieldCache", "answerCache", "pickCache", "trackingPending"];
   // Settings that describe WHOSE mirror this is, rather than how the device behaves.
   const ACCOUNT_SETTINGS = ["plan", "__profileVersion", "__lastPull", "lastResumeId"];
+  // Whose learned answers these are. Written on every connect and survives a web sign-out (which
+  // keeps the answers, see below), because by then the session — and the username in it — is
+  // gone, and this is the only way to tell that the NEXT account to connect is someone else.
+  const OWNER_KEY = "learnedAnswersOwner";
 
   // Sign-out means this browser forgets the account. Before this, sign-out dropped only the
   // tokens: the drawer kept the previous user's profile and resumes (and would autofill with
   // them), and on a shared computer the next person inherited all of it. Found in the
   // pre-launch review, 2026-09-22. The server copy is untouched — reconnecting pulls it back.
-  async function clearAccountData() {
-    await new Promise((res) => chrome.storage.local.remove(ACCOUNT_KEYS, () => res(true)));
+  //
+  // { keepLearnedAnswers: true } is the web sign-out (user decision 2026-09-22): on Free, learned
+  // answers exist only in this browser, and signing out on kiwiply.com is routine — wiping them
+  // every time would undo the whole "learn as you apply" idea. They are kept, with their owner,
+  // and wiped the moment a DIFFERENT account connects. The options-page sign-out confirms first
+  // and clears everything.
+  async function clearAccountData(opts) {
+    const keepLearned = !!(opts && opts.keepLearnedAnswers);
+    const keys = keepLearned ? ACCOUNT_KEYS.filter((k) => k !== "fieldCache") : ACCOUNT_KEYS.concat([OWNER_KEY]);
+    await new Promise((res) => chrome.storage.local.remove(keys, () => res(true)));
     try { await idbClear(); } catch (e) { /* no IndexedDB in this context — nothing stored there */ }
     const s = (await get(KEYS.settings)) || {};
     for (const k of ACCOUNT_SETTINGS) delete s[k];
@@ -143,6 +155,6 @@
   JAF.storage = {
     getBio, saveBio, getResumes, getResume, saveResume, deleteResume,
     saveResumeFile, getResumeFile, deleteResumeFile, getSettings, saveSettings, estimateUsage,
-    clearAccountData, ACCOUNT_KEYS, ACCOUNT_SETTINGS,
+    clearAccountData, ACCOUNT_KEYS, ACCOUNT_SETTINGS, OWNER_KEY,
   };
 })();

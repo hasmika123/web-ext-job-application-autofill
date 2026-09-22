@@ -26,7 +26,7 @@ const PROD_MATCHES = ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "htt
 function boot(opts) {
   opts = opts || {};
   const store = {};                 // chrome.storage.local
-  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0, forgot: 0 };
+  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0, forgot: 0, forgotOpts: [] };
   const external = [];
   const internal = [];
   const installed = [];             // 11.3: onInstalled listeners (the alarm is created here)
@@ -77,7 +77,7 @@ function boot(opts) {
     JAF: {
       // clearAccountData is the real one in storage.js, covered by account_clear.test.js; here
       // we only need to know the SW calls it, and when.
-      storage: { tag: "storage-stub", clearAccountData: () => { calls.forgot++; return Promise.resolve(true); } },
+      storage: { tag: "storage-stub", clearAccountData: (o) => { calls.forgot++; calls.forgotOpts.push(o || {}); return Promise.resolve(true); } },
       sync: {
         providerFromSettings: () => provider,
         pullAll: (p, storage) => { calls.pullAll++; calls.pullStorage = storage; return Promise.resolve({ bio: {}, resumeCount: 1 }); },
@@ -166,6 +166,8 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
     ok("signedOut/forget: accepted", resp && resp.ok === true, JSON.stringify(resp));
     // Tokens alone left the previous user's profile and resumes in the drawer, ready to autofill.
     ok("signedOut/forget: the account's data was cleared", calls.forgot === 1, `got ${calls.forgot}`);
+    // User decision 2026-09-22: a web sign-out keeps learned answers (the only copy, on Free).
+    ok("signedOut/forget: learned answers are kept on a web sign-out", calls.forgotOpts[0] && calls.forgotOpts[0].keepLearnedAnswers === true, JSON.stringify(calls.forgotOpts));
     ok("signedOut/forget: an open drawer is told to repaint", calls.broadcast.some((m) => m && m.type === "KIWIPLY_MIRROR_UPDATED"));
   }
 
@@ -177,6 +179,22 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
     const resp = await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "bob" } });
     ok("switch: connect accepted", resp && resp.ok === true, JSON.stringify(resp));
     ok("switch: alice's data is cleared before bob's session is stored", calls.forgot === 1, `got ${calls.forgot}`);
+    ok("switch: the clear includes learned answers", !calls.forgotOpts[0].keepLearnedAnswers, JSON.stringify(calls.forgotOpts));
+  }
+  {
+    // The case option B depends on: alice signed out on the web (session gone, answers kept),
+    // then bob connects. Only the owner marker can tell that bob is someone else.
+    const { external, calls, store } = boot({ prevAuth: {} });
+    store.learnedAnswersOwner = "alice";
+    await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "bob" } });
+    ok("switch after web sign-out: alice's kept answers are wiped when bob connects", calls.forgot === 1 && !calls.forgotOpts[0].keepLearnedAnswers, JSON.stringify(calls.forgotOpts));
+    ok("switch after web sign-out: bob now owns the learned answers", store.learnedAnswersOwner === "bob");
+  }
+  {
+    const { external, calls, store } = boot({ prevAuth: {} });
+    store.learnedAnswersOwner = "alice";
+    await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "alice" } });
+    ok("same user back after web sign-out: learned answers survive", calls.forgot === 0, `got ${calls.forgot}`);
   }
   {
     const { external, calls } = boot({ prevAuth: { access: "old", refresh: "old", username: "alice" } });
