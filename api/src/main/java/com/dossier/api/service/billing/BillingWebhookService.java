@@ -13,6 +13,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -109,26 +110,38 @@ public class BillingWebhookService {
     /**
      * Insert the event row, in its own transaction so the record survives a failed apply.
      *
+     * <p>Two ways this says "already seen", and both matter because Stripe delivers
+     * <b>at-least-once</b>: the cheap read, and losing the race to insert. The primary key is the
+     * idempotency key, so the database settles a genuine race — but the losing side has to be
+     * handled <b>outside</b> the transaction. A failed flush marks the transaction rollback-only,
+     * so catching the violation inside the callback and returning a value does not rescue it: the
+     * commit then throws {@link UnexpectedRollbackException}, the handler 500s, and Stripe retries
+     * an event we had already stored. That is what this code used to do (fixed 2026-09-21) —
+     * self-healing, but it turned the cheapest path in the webhook into a round trip.
+     *
      * @return false when this event has already been seen
      */
     private boolean record(StripeWebhookEvent event) {
-        return Boolean.TRUE.equals(
-            newTx.execute(s -> {
-                if (stripeEventRepository.existsById(event.id())) return false;
-                StripeEvent row = new StripeEvent();
-                row.setId(event.id());
-                row.setType(event.type());
-                row.setReceivedAt(Instant.now());
-                row.setStatus(StripeEvent.STATUS_OK);
-                try {
+        // Cheap path first: the overwhelmingly common duplicate is a redelivery, not a race.
+        if (stripeEventRepository.existsById(event.id())) return false;
+        try {
+            return Boolean.TRUE.equals(
+                newTx.execute(s -> {
+                    StripeEvent row = new StripeEvent();
+                    row.setId(event.id());
+                    row.setType(event.type());
+                    row.setReceivedAt(Instant.now());
+                    row.setStatus(StripeEvent.STATUS_OK);
                     stripeEventRepository.saveAndFlush(row);
                     return true;
-                } catch (DataIntegrityViolationException e) {
-                    // Two deliveries of the same event racing. The primary key settles it.
-                    return false;
-                }
-            })
-        );
+                })
+            );
+        } catch (DataIntegrityViolationException | UnexpectedRollbackException e) {
+            // Another delivery of this same event inserted it first. Both exceptions mean the
+            // same thing here; which one surfaces depends on where the constraint was detected.
+            LOG.debug("Event {} was recorded by a concurrent delivery", event.id());
+            return false;
+        }
     }
 
     private void mark(String eventId, String status, String error) {
