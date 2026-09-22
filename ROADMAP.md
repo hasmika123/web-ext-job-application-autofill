@@ -483,6 +483,11 @@ suggestions API → 10.3d extension capture → 10.3e web review, one PR each.
   per-install **salted** hash — a plain hash of a job URL could be reversed by hashing known URLs.
   A known limit: a multi-step ATS whose path changes per step can count one application twice
   toward the change rule; blank-field suggestions are unaffected.
+- **10.3e as built (2026-09-22):** a dashboard card, rendered only when the server has something
+  worth showing — the server owns every rule, the card just renders the list. Keep / Edit /
+  Dismiss per row; Edit offers the same fixed list the profile editor uses for list fields.
+  **10.3 is complete:** ask ≤6 questions once (10.3b), derive the rest from the resume (the
+  existing review screen), learn the remainder while applying (10.3c–e).
 
 #### 10.4 ATS coverage (the long grind — metered by 10.1)
 Real adapters for the five uncovered manifest hosts, and depth for the three thin ones
