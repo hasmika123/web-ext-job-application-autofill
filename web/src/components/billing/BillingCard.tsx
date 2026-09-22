@@ -42,6 +42,12 @@ export default function BillingCard({ plan }: { plan: Plan }) {
             <span className="text-sm text-muted">
               {plan.cancelAtPeriodEnd ? (
                 <>Cancels on {ends ? <LocalDate iso={ends} /> : "the end of the period"} — you keep Pro until then.</>
+              ) : plan.status === "canceled" ? (
+                // Cancelled outright (not at period end): Stripe says `canceled` with
+                // cancelAtPeriodEnd false, and the grace rule keeps Pro until the paid-for period
+                // ends. This used to fall through to "Renews on …" — for a subscription that
+                // will never renew (pre-launch review, 2026-09-22).
+                <>Cancelled — you keep Pro until {ends ? <LocalDate iso={ends} /> : "the end of the period"}.</>
               ) : ends ? (
                 <>
                   Renews on <LocalDate iso={ends} />.
