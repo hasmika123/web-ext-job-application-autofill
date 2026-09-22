@@ -560,19 +560,24 @@ activated, so no verification email is needed.
 
 #### F. The failed-payment path
 
-`stripe trigger invoice.payment_failed` on its own creates a **brand-new** customer, so our
-webhook will correctly log `No subscription row for Stripe customer … — skipping` and change
-nothing. To exercise *your* row, override the customer (find the id in Settings → the API log
-line `Created Stripe customer cus_… for user`, or in the sandbox Dashboard):
+**`stripe trigger` cannot exercise this, and that is by design.** The fixture builds its own
+customer *and its own subscription*, so the event is about a subscription we do not mirror — and
+since the double-billing fix, the webhook deliberately ignores those (a stray subscription's
+cancellation must never downgrade a paying customer). Overriding the customer does not help,
+because the subscription is still a stranger.
 
-```bash
-stripe trigger invoice.payment_failed --override invoice:customer=cus_...
-```
+A genuine failed renewal therefore needs a **test clock** (§G): attach a failing card such as
+`4000 0000 0000 0341`, then advance past the renewal.
 
-Expect: status `past_due`, **still Pro** (Smart Retries are still running), and a
-payment-failed email attempted. Locally there is usually no SMTP configured, so the API logs
-`Could not send the payment-failed email` — that is the correct behaviour, not a bug: a mail
-failure must never fail a webhook, or Stripe would retry forever.
+What to expect when it fires: status `past_due`, **still Pro** (Stripe's Smart Retries are
+running — dropping someone on the first failed charge punishes an expired card, not a
+non-payer), and a payment-failed email attempted. Locally there is usually no SMTP configured,
+so the API logs `Could not send the payment-failed email` — correct behaviour, not a bug: a mail
+failure must never fail a webhook, or Stripe would retry it forever.
+
+Without a clock, this path is covered by `BillingWebhookIT` (*"A failed charge marks past_due,
+emails the user, and does NOT cut them off"*) — a real HMAC-signed delivery against a real
+database. Worth doing for real once before live keys; not worth blocking a sandbox run on.
 
 #### G. Watching Pro actually lapse (test clock)
 
