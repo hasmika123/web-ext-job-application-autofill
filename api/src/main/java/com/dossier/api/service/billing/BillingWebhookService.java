@@ -293,8 +293,37 @@ public class BillingWebhookService {
             Optional<Subscription> bySub = subscriptionRepository.findOneByStripeSubscriptionId(event.subscriptionId());
             if (bySub.isPresent()) return bySub;
         }
-        if (event.customerId() != null) return subscriptionRepository.findOneByStripeCustomerId(event.customerId());
+        if (event.customerId() == null) return Optional.empty();
+
+        Optional<Subscription> byCustomer = subscriptionRepository.findOneByStripeCustomerId(event.customerId());
+        if (byCustomer.isEmpty() || event.subscriptionId() == null) return byCustomer;
+
+        // The customer matches but the subscription does not: this event is about a DIFFERENT
+        // subscription on the same customer. Falling through to the customer row would write one
+        // subscription's fate onto another — cancelling a stray subscription would downgrade a
+        // user who is still paying. Only a subscription that is alive may take the row over,
+        // which is what a genuine resubscribe looks like.
+        String known = byCustomer.get().getStripeSubscriptionId();
+        if (known == null || known.equals(event.subscriptionId())) return byCustomer;
+        if (LIVE_STATUSES.contains(lower(event.status()))) {
+            LOG.info("Subscription {} supersedes {} for customer {}", event.subscriptionId(), known, event.customerId());
+            return byCustomer;
+        }
+        LOG.info(
+            "Ignoring {} for subscription {}: customer {} is mirrored against {}",
+            event.type(),
+            event.subscriptionId(),
+            event.customerId(),
+            known
+        );
         return Optional.empty();
+    }
+
+    /** Statuses that mean a subscription is alive enough to take over a customer's row. */
+    private static final java.util.Set<String> LIVE_STATUSES = java.util.Set.of("active", "trialing", "past_due");
+
+    private static String lower(String s) {
+        return s == null ? "" : s.trim().toLowerCase();
     }
 
     /**

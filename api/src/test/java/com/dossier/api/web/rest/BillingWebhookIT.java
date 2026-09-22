@@ -400,4 +400,46 @@ class BillingWebhookIT {
         // And the winner's row is untouched — the loser recorded nothing and overwrote nothing.
         assertThat(stripeEventRepository.count()).isEqualTo(1);
     }
+
+    /**
+     * A cancellation for a <b>different</b> subscription on the same customer must not downgrade
+     * the one we mirror.
+     *
+     * <p>Before this, {@code findSubscription} fell back to the customer whenever the subscription
+     * id did not match, so a stray subscription's fate was written onto the row of the one the
+     * user is actually paying for. A customer can end up with two subscriptions whenever a
+     * webhook is missed (seen for real, 12.7), and cancelling the stray one revoked Pro from a
+     * paying customer.
+     */
+    @Test
+    @DisplayName("Cancelling another subscription on the same customer does not revoke Pro")
+    void aForeignSubscriptionCancellationIsIgnored() throws Exception {
+        // The subscription we mirror: bound to our user, alive, paid up.
+        deliver(checkoutCompleted("evt_bind_foreign", user.getId(), Instant.now()), SECRET);
+        assertThat(
+            deliver(
+                subscriptionEvent("evt_mine", "customer.subscription.created", "active", Instant.now(), Instant.now().plus(30, ChronoUnit.DAYS), false),
+                SECRET
+            )
+        ).isEqualTo(200);
+        assertThat(entitlementService.isPro("user")).isTrue();
+
+        // A DIFFERENT subscription on the same customer is cancelled outright.
+        String foreign = subscriptionEvent(
+            "evt_foreign",
+            "customer.subscription.deleted",
+            "canceled",
+            Instant.now().plusSeconds(60),
+            Instant.now().minus(1, ChronoUnit.DAYS),
+            false
+        ).replace(SUBSCRIPTION, "sub_someone_elses");
+
+        assertThat(deliver(foreign, SECRET)).isEqualTo(200);
+
+        // Still Pro, still mirroring our own subscription.
+        assertThat(entitlementService.isPro("user")).isTrue();
+        Subscription row = subscriptionRepository.findOneByUserLogin("user").orElseThrow();
+        assertThat(row.getStripeSubscriptionId()).isEqualTo(SUBSCRIPTION);
+        assertThat(row.getStatus()).isEqualTo("active");
+    }
 }

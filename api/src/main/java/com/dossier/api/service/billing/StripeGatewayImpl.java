@@ -137,6 +137,37 @@ public class StripeGatewayImpl implements StripeGateway {
         return automaticTax || managedPayments;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Asks Stripe for this customer's subscriptions and reports whether any is live. Stripe's
+     * {@code status=all} is deliberate: {@code active} alone would miss {@code past_due} and
+     * {@code trialing}, both of which are subscriptions the customer is still in — starting a
+     * second one would bill them twice.
+     */
+    @Override
+    public boolean hasLiveSubscription(String customerId) {
+        if (client == null || customerId == null || customerId.isBlank()) return false;
+        try {
+            com.stripe.param.SubscriptionListParams params = com.stripe.param.SubscriptionListParams.builder()
+                .setCustomer(customerId)
+                .setStatus(com.stripe.param.SubscriptionListParams.Status.ALL)
+                .setLimit(20L)
+                .build();
+            return require()
+                .subscriptions()
+                .list(params)
+                .getData()
+                .stream()
+                .anyMatch(sub -> LIVE_SUBSCRIPTION_STATUSES.contains(String.valueOf(sub.getStatus()).toLowerCase()));
+        } catch (StripeException e) {
+            throw new StripeGatewayException("Could not list the customer's subscriptions", e);
+        }
+    }
+
+    /** Statuses that mean "this customer is already subscribed" for the purposes of the guard. */
+    private static final java.util.Set<String> LIVE_SUBSCRIPTION_STATUSES = java.util.Set.of("active", "trialing", "past_due", "unpaid");
+
     @Override
     public String createPortalSession(String customerId, String returnUrl) {
         try {
