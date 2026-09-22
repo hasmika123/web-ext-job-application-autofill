@@ -210,9 +210,12 @@ public class BillingWebhookService {
     private void upsertFromSubscription(StripeWebhookEvent event) {
         Subscription sub = findSubscription(event).orElse(null);
         if (sub == null) {
-            // Nothing to attach this to yet. The checkout.session.completed that carries the
-            // binding will create the row, and subsequent events will fill the state in.
-            LOG.info("No subscription row for Stripe customer {} yet — skipping {}", event.customerId(), event.type());
+            // No row this event belongs to: either the binding hasn't arrived (the
+            // checkout.session.completed that carries it will create the row, and later events
+            // fill the state in), or findSubscription deliberately declined it and has already
+            // logged why. Deliberately vague about which — claiming "not bound yet" when the
+            // customer IS bound is worse than saying nothing, and cost real time to unpick.
+            LOG.info("Nothing to apply {} to for Stripe customer {}", event.type(), event.customerId());
             return;
         }
         if (isStale(sub, event)) return;
@@ -231,7 +234,7 @@ public class BillingWebhookService {
     private void setStatusFromInvoice(StripeWebhookEvent event, String status) {
         Subscription sub = findSubscription(event).orElse(null);
         if (sub == null) {
-            LOG.info("No subscription row for Stripe customer {} yet — skipping {}", event.customerId(), event.type());
+            LOG.info("Nothing to apply {} to for Stripe customer {}", event.type(), event.customerId());
             return;
         }
         if (isStale(sub, event)) return;
@@ -252,7 +255,7 @@ public class BillingWebhookService {
     private void onPaymentFailed(StripeWebhookEvent event) {
         Subscription sub = findSubscription(event).orElse(null);
         if (sub == null) {
-            LOG.info("No subscription row for Stripe customer {} yet — skipping {}", event.customerId(), event.type());
+            LOG.info("Nothing to apply {} to for Stripe customer {}", event.type(), event.customerId());
             return;
         }
         if (isStale(sub, event)) return;
