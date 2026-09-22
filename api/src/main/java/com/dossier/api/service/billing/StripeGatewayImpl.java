@@ -41,6 +41,17 @@ public class StripeGatewayImpl implements StripeGateway {
         this.client = props.isEnabled() ? new StripeClient(props.getSecretKey()) : null;
         if (client == null) {
             LOG.info("Stripe is not configured (dossier.stripe.secret-key is blank) — billing is disabled.");
+        } else if (props.getWebhookSecret() == null || props.getWebhookSecret().isBlank()) {
+            // Loud, because the symptom is silent and the diagnosis is not: checkout succeeds,
+            // the customer is charged, and then NOTHING happens — the webhook is the only writer
+            // of subscription state, so without a secret every delivery is rejected unverified
+            // and nobody ever becomes Pro. Half-configured billing is worse than none, and this
+            // is the only moment we can say so before a real payment is taken.
+            LOG.error(
+                "Stripe is ENABLED but dossier.stripe.webhook-secret is BLANK. Checkout will work and customers " +
+                "WILL be charged, but no payment can ever activate a subscription: the webhook is the only writer " +
+                "of subscription state and every delivery will be rejected. Set STRIPE_WEBHOOK_SECRET."
+            );
         }
     }
 
