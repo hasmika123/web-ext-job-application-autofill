@@ -28,6 +28,14 @@
     // work authorization
     authorizedToWork: "authorizedToWork",
     requireSponsorship: "requireSponsorship",
+    // job preferences (Phase 10.3a) — asked on nearly every application and never on a resume,
+    // so they're canonical and matched deterministically instead of left to the AI.
+    desiredSalary: "desiredSalary",
+    noticePeriod: "noticePeriod",
+    earliestStartDate: "earliestStartDate",
+    workPreference: "workPreference",
+    willingToRelocate: "willingToRelocate",
+    referralSource: "referralSource",
     // free-text / structured resume content
     summary: "summary",
     skills: "skills",
@@ -57,6 +65,8 @@
     state: "State / Province", postalCode: "Postal code", country: "Country",
     linkedin: "LinkedIn", github: "GitHub", website: "Website",
     authorizedToWork: "Authorized to work", requireSponsorship: "Needs sponsorship",
+    desiredSalary: "Desired salary", noticePeriod: "Notice period", earliestStartDate: "Earliest start date",
+    workPreference: "Work preference", willingToRelocate: "Willing to relocate", referralSource: "How you heard about us",
     summary: "Summary", skills: "Skills", coverLetter: "Cover letter",
     gender: "Gender", race: "Race", ethnicity: "Hispanic / Latino", veteranStatus: "Veteran status",
     disabilityStatus: "Disability status",
@@ -69,6 +79,7 @@
       addressLine1: "", addressLine2: "", city: "", state: "", postalCode: "",
       country: "", linkedin: "", github: "", website: "",
       authorizedToWork: "", requireSponsorship: "",
+      desiredSalary: "", noticePeriod: "", earliestStartDate: "", workPreference: "", willingToRelocate: "", referralSource: "",
       // EEO answers are part of bio but only used when the user enables them
       gender: "", race: "", ethnicity: "", veteranStatus: "", disabilityStatus: "",
     };
@@ -103,6 +114,8 @@
       city: bio.city, state: bio.state, postalCode: bio.postalCode, country: bio.country,
       linkedin: bio.linkedin, github: bio.github, website: bio.website,
       authorizedToWork: bio.authorizedToWork, requireSponsorship: bio.requireSponsorship,
+      desiredSalary: bio.desiredSalary, noticePeriod: bio.noticePeriod, earliestStartDate: bio.earliestStartDate,
+      workPreference: bio.workPreference, willingToRelocate: bio.willingToRelocate, referralSource: bio.referralSource,
       summary: resume.summary || "",
       skills: Array.isArray(resume.skills) ? resume.skills.join(", ") : (resume.skills || ""),
     };

@@ -51,7 +51,7 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.57.0",
+      version: "0.58.0",
       // ⚠️ Chrome Web Store hard limit: 132 characters. The upload is rejected outright above it,
       // so `.github/scripts/check-manifest-limits.mjs` enforces it at build time. This is the same
       // sentence as the listing's short description in STORE-LISTING.md — keep the two in step.

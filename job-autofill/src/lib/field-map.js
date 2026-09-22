@@ -22,6 +22,7 @@
     "firstName", "lastName", "fullName", "preferredName", "email", "phone",
     "addressLine1", "addressLine2", "city", "state", "postalCode", "country",
     "linkedin", "github", "website", "authorizedToWork", "requireSponsorship",
+    "desiredSalary", "noticePeriod", "earliestStartDate", "workPreference", "willingToRelocate", "referralSource",
     "summary", "skills", "coverLetter",
   ];
 

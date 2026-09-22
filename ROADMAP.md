@@ -442,6 +442,27 @@ matching. Resist adding Tier-C long-tail fields to the vocabulary: they are unbo
 field cache already handles them better than a schema ever will. Expand `MAPPABLE` in
 `field-map.js` to match the new canonical set.
 
+**Plan (2026-09-22, user-approved defaults):** 10.3a fields → 10.3b onboarding → 10.3c
+suggestions API → 10.3d extension capture → 10.3e web review, one PR each.
+- **`experience[]`/`education[]` stay on each resume**, not the profile: they already exist in
+  every resume's parsed data (Workday fills from it), and a profile copy would drift.
+- **Tier C is free**, through its own suggestions endpoint — the field-cache sync stays Pro and
+  is not the carrier (it holds only label *hashes*, and only learns fields it planned to fill).
+- **A blank field is suggested at once; a change to an existing value only after the same new
+  value appears on 2 applications** — a salary typed for one job must not replace the default.
+- **EEO is never learned from pages**, only set on the web. **"Learn from my applications"** is
+  a device setting, on by default. **Onboarding shows once** after the first sign-in.
+
+- **10.3a as built (2026-09-22):** `desiredSalary`, `noticePeriod`, `earliestStartDate`,
+  `workPreference`, `willingToRelocate`, `referralSource`. Matched by **phrases**, never the bare
+  word — "salary", "start date" and "remote" alone also label "Current salary", a work-history
+  row and Yes/No questions these values can't answer. The web offers fixed lists for notice
+  period and work preference so the stored value is one an ATS dropdown is likely to offer word
+  for word. Three fill guards came with it: `type=number` gets the number (`$120,000`/`120k`),
+  `type=date` only a real date, and a radio group of choices gets the option it names — a
+  non-Yes/No value is never coerced into "No". Workday-specific rules wait for captured DOM; the
+  generic scan already runs over Workday's leftovers.
+
 #### 10.4 ATS coverage (the long grind — metered by 10.1)
 Real adapters for the five uncovered manifest hosts, and depth for the three thin ones
 (**Greenhouse is 61 lines / 6 selectors**, Lever 46, Ashby 49 — versus Workday's 479 with its

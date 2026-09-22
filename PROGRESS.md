@@ -45,8 +45,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > need a Stripe test clock. **10.1 is DONE** (ext v0.56.0) — count-only fill telemetry per ATS
 > and an `/admin/analytics` panel ranking ATS worst-first. **10.2 is DONE** (ext v0.57.0) — after
 > a fill, "N required fields still need you" with jump-to links, and auto-advance waits for them.
-> **Next: 10.3** — the self-building profile (the three tiers; Tier C promotes learned answers
-> to suggested profile values). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **10.3 is planned** as five steps, 10.3a–e (user-approved defaults 2026-09-22, see ROADMAP 10.3).
+> **10.3a is DONE** (ext v0.58.0) — six job-preference fields (salary, notice, start date, work
+> preference, relocate, "how did you hear") are canonical, matched by rules and editable on the web.
+> **Next: 10.3b** — the onboarding step (Tier A). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -823,16 +825,28 @@ focused Claude Code session.
 - [x] **10.2 Post-fill audit.** After a fill, scan for required-but-empty controls and report
   "N required fields still need you" with jump-to links. Converts the silent-miss failure mode
   into a handled one; cheapest large win in the phase.
-- [ ] **10.3 Self-building profile (3 tiers).** Tier A = ≤6 onboarding questions (work auth +
+- **10.3 Self-building profile (3 tiers).** Tier A = ≤6 onboarding questions (work auth +
   sponsorship, desired comp, start/notice, remote-or-relocate; EEO offered but skippable).
-  Tier B = derived from the resume parser. Tier C = **learned while applying** — promote a
-  learned field-cache answer to a *suggested* profile value when its label resolves to a
-  canonical field, reviewed on the web, never silently overwritten. Extends the pull-only
-  locked decision (see CLAUDE.md, user decision 2026-09-21).
-- [ ] **10.3a Schema expansion (Tier A/B only).** Add `experience[]`, `education[]`, salary
-  expectation, start date / notice, work preference, referral source to `src/lib/schema.js` +
-  the web profile + `MAPPABLE` in `field-map.js`. **Deliberately NOT adding Tier-C long-tail
-  fields** — they're unbounded and the field cache already handles them better.
+  Tier B = derived from the resume parser. Tier C = **learned while applying** — a *suggested*
+  profile value, reviewed on the web, never silently overwritten. Extends the pull-only locked
+  decision (see CLAUDE.md, user decision 2026-09-21). Split into five steps (plan 2026-09-22):
+  - [x] **10.3a Job-preference fields.** `desiredSalary`, `noticePeriod`, `earliestStartDate`,
+    `workPreference`, `willingToRelocate`, `referralSource` in `schema.js` + rules + `MAPPABLE` +
+    the web profile. **`experience[]`/`education[]` stay on each resume** (user decision
+    2026-09-22) — they already exist there and a profile copy would drift. **No Tier-C long-tail
+    fields** — they're unbounded and the field cache handles them better.
+  - [ ] **10.3b Onboarding (Tier A).** `/welcome`, shown once after the first sign-in, "Skip for
+    now" always visible: optional resume upload, then ≤6 questions (work auth, sponsorship,
+    salary, start/notice, remote/relocate, EEO optional). The dashboard checklist links to it.
+  - [ ] **10.3c Suggestions API.** `profile_suggestion` table + send/list/accept/dismiss. Free
+    and Pro alike (the Pro-only answer sync is untouched). Canonical keys only, never EEO,
+    capped pending count, in export + deletion. Accepting writes the bio (so the version moves).
+  - [ ] **10.3d Extension capture (Tier C).** Watch canonical-field inputs even when the bio has
+    no value, plus user corrections of filled ones; send a suggestion on commit. A blank bio
+    field is suggested at once; a *change* only after the same new value on 2 applications.
+    "Learn from my applications" device setting, on by default.
+  - [ ] **10.3e Web review.** Dashboard card "We learned N things about you — keep these?" with
+    Keep / Edit / Dismiss; a dismissed value isn't suggested again.
 - [ ] **10.4 ATS coverage.** Adapters for the 5 uncovered manifest hosts (iCIMS, Taleo,
   SmartRecruiters, BambooHR, Jobvite); depth for Greenhouse (61 lines / 6 selectors), Lever
   (46), Ashby (49). Capture real tenant DOM first. Generalize multi-step orchestration beyond
@@ -1131,6 +1145,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **10.3a job-preference fields** · Ext **v0.58.0**, rules **v6**. Desired salary, notice
+  period, earliest start date, work preference, willing to relocate and "how did you hear about
+  us" are canonical fields: matched by phrase rules (not bare words — "Current salary", a
+  work-history "Start date" and "relocation assistance" stay unmatched), in the AI mapper's
+  vocabulary, and editable under **Job preferences** on the web profile. Filling got three
+  guards: a number box takes the number out of "$120,000"/"120k", a date picker only takes a
+  real date ("Immediately" is left for the user), and a radio group of choices picks the named
+  option — a non-Yes/No value is **never coerced into "No"** any more (the old path would have
+  answered a Yes/No question with "No" for "Hybrid", or unticked a checkbox). `profile_fields`
+  tests (43). Experience/education stay per resume (user decision).
 - 2026-09-22 · **10.2 post-fill audit** · Ext **v0.57.0**. When a fill leaves required fields empty, the
   modal panel becomes a small non-modal card — *"2 required fields still need you"* — naming each
   field by its label (a radio group by its question); **Go →** scrolls to it, focuses it and
