@@ -469,6 +469,13 @@ suggestions API → 10.3d extension capture → 10.3e web review, one PR each.
   existing profiles aren't nagged, and deep links (`/connect`, `?next=`) never are. A failed
   profile fetch (anything but 404) never triggers it. The resume comes **last**, as the finish
   screen's call to action, because the questions are the part a user abandons.
+- **10.3c as built (2026-09-22):** `profile_suggestion` (user, field, value, status
+  PENDING/ACCEPTED/DISMISSED, `seen_count`, `last_context`). The extension posts `{fieldKey, value,
+  context}` where `context` is an opaque hash of the application — enough to count *distinct*
+  applications for the 2-application change rule without storing where anyone applied. The server
+  owns every rule (allowed keys, thresholds, caps) so a buggy or old extension can't widen them.
+  Dismissed rows are kept on purpose: they're what stops a value coming back. Accepting writes
+  through `ProfileService.upsertProfile`, so the profile version moves and the extension pulls.
 
 #### 10.4 ATS coverage (the long grind — metered by 10.1)
 Real adapters for the five uncovered manifest hosts, and depth for the three thin ones
