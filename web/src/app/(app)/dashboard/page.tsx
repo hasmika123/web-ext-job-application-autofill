@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverApiFetch } from "@/lib/api";
 import { needsOnboarding, parseBioPayload } from "@/lib/profile-options";
+import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
 import { buttonVariants } from "@/components/ui/Button";
 import type { Application } from "@/components/ApplicationBoard";
 
@@ -71,16 +72,22 @@ function PanelCard({ children, className }: { children: React.ReactNode; classNa
 }
 
 export default async function DashboardPage() {
-  const [accountRes, appsRes, resumesRes, profileRes] = await Promise.all([
+  const [accountRes, appsRes, resumesRes, profileRes, suggestionsRes] = await Promise.all([
     serverApiFetch("/api/account"),
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile"),
+    // Phase 10.3e — answers learned while applying, awaiting the user's decision. Best-effort: a
+    // failure here just means no card, never a broken dashboard.
+    serverApiFetch("/api/profile/suggestions").catch(() => null),
   ]);
 
   const account: Account | null = accountRes.ok ? await accountRes.json().catch(() => null) : null;
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
   const resumes: unknown[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as unknown[]) : [];
+  const suggestions: Suggestion[] = suggestionsRes?.ok
+    ? ((await suggestionsRes.json().catch(() => [])) as Suggestion[])
+    : [];
 
   // 404 = no bio yet (a brand-new account). Any other failure is NOT "no profile" — it must not
   // bounce someone with a full profile into onboarding because the API hiccuped.
@@ -140,6 +147,9 @@ export default async function DashboardPage() {
         <Kpi label="Response rate" value={`${responseRate}%`} note="interviews ÷ applied" />
         <Kpi label="Drafts to confirm" value={String(draftCount)} note={draftCount > 0 ? "Needs review" : "All clear"} warn={draftCount > 0} />
       </div>
+
+      {/* Learned while applying — keep or dismiss (renders nothing when there's nothing to review) */}
+      <SuggestionsCard initial={suggestions} />
 
       {/* Checklist + quick actions */}
       <div className="grid gap-[18px] lg:grid-cols-[1.4fr_1fr]">

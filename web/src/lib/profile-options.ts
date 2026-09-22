@@ -31,6 +31,41 @@ export const DISABILITY = [
   "Prefer not to answer",
 ];
 
+/** Human names for the profile fields a suggestion can be about (Phase 10.3e). */
+export const FIELD_LABELS: Record<string, string> = {
+  firstName: "First name",
+  lastName: "Last name",
+  preferredName: "Preferred name",
+  email: "Email",
+  phone: "Phone",
+  addressLine1: "Address",
+  addressLine2: "Address line 2",
+  city: "City",
+  state: "State / Province",
+  postalCode: "Postal code",
+  country: "Country",
+  linkedin: "LinkedIn",
+  github: "GitHub",
+  website: "Website",
+  authorizedToWork: "Authorized to work",
+  requireSponsorship: "Needs sponsorship",
+  desiredSalary: "Desired salary",
+  noticePeriod: "Notice period",
+  earliestStartDate: "Earliest start date",
+  workPreference: "Work preference",
+  willingToRelocate: "Willing to relocate",
+  referralSource: "How you usually hear about jobs",
+};
+
+/** Fields answered from a fixed list — editing a suggestion for one offers the same list. */
+export const FIELD_OPTIONS: Record<string, string[]> = {
+  authorizedToWork: YESNO,
+  requireSponsorship: YESNO,
+  willingToRelocate: YESNO,
+  noticePeriod: NOTICE,
+  workPreference: WORK_PREFERENCE,
+};
+
 /**
  * Set (ISO time) when the user finishes OR skips onboarding. Lives in the bio payload like
  * everything else; the extension ignores it (its fill whitelist doesn't include it).

@@ -51,7 +51,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **10.3b is DONE** — `/welcome`: six one-tap questions a new user sees once after first sign-in.
 > **10.3c is DONE** — `/api/profile/suggestions`: learned answers become suggestions, only an accept
 > writes the profile. **10.3d is DONE** (ext v0.59.0) — after a fill, the extension reports answers to
-> profile questions there. **Next: 10.3e** — the web review card ("keep these?"). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> profile questions there. **10.3e is DONE** — the dashboard's "We learned N things about you — keep
+> these?" card. **10.3 IS COMPLETE.** **Next: 13.1** — Pro AI credit metering, routing and caching
+> (build order: 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1; 10.4–10.6 continue alongside). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -848,7 +850,7 @@ focused Claude Code session.
     no value, plus user corrections of filled ones; send a suggestion on commit. A blank bio
     field is suggested at once; a *change* only after the same new value on 2 applications.
     "Learn from my applications" device setting, on by default.
-  - [ ] **10.3e Web review.** Dashboard card "We learned N things about you — keep these?" with
+  - [x] **10.3e Web review.** Dashboard card "We learned N things about you — keep these?" with
     Keep / Edit / Dismiss; a dismissed value isn't suggested again.
 - [ ] **10.4 ATS coverage.** Adapters for the 5 uncovered manifest hosts (iCIMS, Taleo,
   SmartRecruiters, BambooHR, Jobvite); depth for Greenhouse (61 lines / 6 selectors), Lever
@@ -1148,6 +1150,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **10.3e suggestions review** · The dashboard shows **"We learned N things about you —
+  keep these?"** above the setup checklist, only when there's something to review. Each row names
+  the field and shows the value, or *old → new* for a change. **Keep** writes it to the profile;
+  **Edit** adjusts it first (a dropdown for list fields like notice period, so the value stays one
+  forms offer); **Dismiss** means never again. Keeping signals the extension to pull and refreshes
+  the checklist; a row already decided in another tab just disappears. Proxy route
+  `POST /api/suggestions/:id/(accept|dismiss)` validates the id, the action and the edit. The
+  suggestions fetch is best-effort — a failure means no card, never a broken dashboard.
+  Browser-checked at desktop and phone width against a stubbed API (a phone-width overlap of
+  buttons over the value was found and fixed). **10.3 complete.**
 - 2026-09-22 · **10.3d extension capture** · Ext **v0.59.0**. `profile-learn.js`: after a fill, the
   extension watches the page's **profile questions** — the fill's canonical items (a later change is
   a candidate change) plus high-confidence ones the profile is blank for (the answer fills it) —
