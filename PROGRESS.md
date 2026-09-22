@@ -39,10 +39,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > all Pro, each refused with a 402 the clients turn into an upgrade prompt. **12.5 is DONE** —
 > `/admin/analytics` has a Revenue card (MRR, active Pro, new/churned this month, past due).
 > **12.6 is DONE** — the ToS has a Billing section and the Privacy Policy names Stripe.
-> **Everything buildable in Phase 12 is finished. The only task left is 12.7, which is yours:**
-> the end-to-end run against the Stripe sandbox. The runbook is written — `DEPLOY.md` **§11.1**,
-> step by step from `docker compose` to the test clock. Record the run under **Log** when it's
-> done, then Phase 12 closes and the build order moves to **10.1–10.3**. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **PHASE 12 IS COMPLETE.** 12.7's run happened on 2026-09-21 and found **eight bugs**, all fixed
+> with tests — including double billing and a webhook that could revoke Pro from a paying
+> customer. One piece is deliberately carried to **15.4**: a real failed renewal and lapse, which
+> need a Stripe test clock. **Next: 10.1** — fill-quality telemetry, then 10.2–10.3 (the
+> self-building profile), per the build order. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -971,10 +972,11 @@ focused Claude Code session.
   "no refunds, cancel anytime"** — decided 2026-09-21, stated plainly rather than buried; statutory
   withdrawal rights and chargebacks still override it, for 15.2's lawyer to confirm), price-change
   notice. Docs-only commit.
-- [ ] **12.7 End-to-end in Stripe test mode.** `stripe listen` → signup → `/pricing` → `4242…` → success
-  flips to Pro → settings renewal date → extension options Pro within one check → portal cancel →
-  "cancels on" → `stripe trigger invoice.payment_failed` → email + still Pro → test clock past period end
-  → Free, resumes intact, 4th upload blocked with CTA. Record the run in the Log.
+- [x] **12.7 End-to-end in Stripe test mode — RUN 2026-09-21.** Walked end to end against the
+  sandbox. Everything in the checklist verified except a **real failed renewal and a real lapse**,
+  which need a test clock and are deferred to **15.4** by decision — a clock can only be attached
+  when the customer is created, and the run's customer already existed. The run found **eight
+  bugs**; see the Log.
 
 ## Phase 13 — Pro AI (Launch 1 — needs 12 + 10.3)
 > Spec: `ROADMAP.md` → Phase 13. Build 13.1 first; every feature inherits it.
@@ -1024,6 +1026,14 @@ focused Claude Code session.
   the Free/Pro split · `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
 - [ ] **15.4 Launch checklist.** Pricing live, Stripe live keys + webhook verified, billing support
   path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
+  - **Test-clock run (carried over from 12.7, user decision 2026-09-21: "A now, B before live
+    keys").** The one thing the 12.7 run could not do: a **real failed renewal and a real lapse**.
+    A Stripe test clock can only be attached when the customer is created, so seed a fresh user's
+    `subscription` row with a clock customer id *before* their first checkout — `startCheckout`
+    reuses an existing `stripe_customer_id` forever, which is what makes that work (SQL in
+    `DEPLOY.md` §11.1 §G). Then attach a failing card (`4000 0000 0000 0341`) and advance past the
+    renewal: expect `past_due` → **still Pro** → email → lapse to Free at period end, with every
+    resume intact.
 
 ## Phase 16 — Between launches (after Launch 1, before Launch 2)
 - [ ] **16.1 Daily job matches — STRONG** *(builds on 13.6; refine before build).* Adds: all six
@@ -1118,6 +1128,41 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-21 · **12.7 the end-to-end Stripe run — eight bugs, all fixed** · The point of this task
+  was to find what reading the code could not, and it did. **Verified live:** checkout → 402-free
+  session → payment → webhook → Pro within seconds; `checkout.session.completed` arriving **after**
+  `customer.subscription.created` and still binding correctly (the out-of-order case 12.2 was
+  designed for, seen against real Stripe delivery rather than a fixture); renewal date in Settings;
+  portal cancel → "cancels on"; **cancelling does NOT revoke access** — Stripe keeps
+  `current_period_end` at the paid-through date, so the ToS promise ("you keep Pro until then")
+  holds; lapse → Free with **all four resumes intact** and a 5th refused **402 `RESUME_LIMIT`
+  {limit:3,count:4}**; `POST /field-caches/sync` → **402 `PRO_REQUIRED`** while `GET` stays 200.
+  **The eight bugs:** (1) Stripe config values were not trimmed — one trailing character in a
+  pasted key produced a 502 whose only real explanation lived inside a Stripe exception, and .NET
+  trims headers so probing the key from PowerShell *succeeded*, pointing the diagnosis the wrong
+  way. (2) `automatic_tax[enabled]=false` was sent unconditionally, which **Managed Payments
+  rejects** — and Stripe enables Managed Payments by default on new accounts, so our default
+  config was invalid against a default Stripe account. Now sent as `true` or omitted, never
+  `false`. (3) `managedPayments` was a boolean that could only turn MoR *on*, the state it was
+  already in, with no way to turn it *off* — despite its own comment promising otherwise. Now
+  tri-state, unset by default. (4) The API started happily with billing on and **no webhook
+  secret**: checkout works, the customer is charged, nothing ever activates. Now an ERROR at
+  startup — the last moment to say so before money moves. (5) A **racing duplicate delivery
+  returned 500**: the constraint violation was caught inside the transaction, which was already
+  rollback-only, so the commit threw. Self-healing via Stripe's retry, which is why nobody noticed.
+  (6) **Double billing.** `startCheckout` guarded on our mirror, which is only as current as the
+  last webhook — one lost delivery and a second checkout sails through. It produced **one customer,
+  two active subscriptions, two invoices, two charges**, live. It now asks Stripe. (7) Worse: a
+  webhook for **any** subscription on a customer was applied to the single row we mirror, so
+  cancelling a stray subscription **revoked Pro from a customer still paying** for a different one.
+  Only a live subscription may take a row over now. (8) A log line that said "no subscription row
+  … yet" immediately after correctly logging that the customer *was* bound. **Docs the run
+  fixed:** the product needs a `tax_code` (mandatory under Managed Payments — undocumented, and it
+  surfaces as a 502 pointing nowhere); `stripe listen` needs `--events` from CLI v1.51; the webhook
+  secret is ~70 chars and must not be hand-copied; `stripe events resend` cannot reach the CLI
+  listener; `stripe trigger` cannot fake a failed payment (by design, since fix 7); and the runbook
+  now carries PowerShell as well as bash. **Six of the eight would have behaved identically in
+  production, and three of them take money without delivering Pro.**
 - 2026-09-21 · **12.7 runbook written (the run itself is still owed)** · Docs only. `DEPLOY.md`
   **§11.1** is the step-by-step for the end-to-end sandbox run: local stack, `stripe listen`
   first (its `whsec_` is per-session), API with sandbox keys, sign in as the seeded `user`/`user`
