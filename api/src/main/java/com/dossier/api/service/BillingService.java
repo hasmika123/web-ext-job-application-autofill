@@ -77,6 +77,21 @@ public class BillingService {
         String priceId = priceFor(plan);
         Subscription sub = findOrCreateRow(user);
         String customerId = sub.getStripeCustomerId();
+
+        // The mirror said Free, but the mirror is only as current as the last webhook — and a
+        // checkout started while it is behind is exactly how someone ends up paying twice (seen
+        // for real during the 12.7 run: one customer, two active subscriptions, two invoices).
+        // So when we already know this customer, ask Stripe rather than trusting ourselves.
+        // A first-time subscriber has no customer id and skips the call entirely.
+        final String knownCustomer = customerId;
+        if (knownCustomer != null && stripeBool(() -> stripeGateway.hasLiveSubscription(knownCustomer))) {
+            throw new BillingException(
+                HttpStatus.CONFLICT.value(),
+                BillingException.CODE_ALREADY_SUBSCRIBED,
+                "You're already on Kiwiply Pro"
+            );
+        }
+
         if (customerId == null) {
             // First checkout for this user. Created once and reused forever after, so their
             // payment history and invoices stay on one Stripe customer.
@@ -151,6 +166,16 @@ public class BillingService {
     }
 
     /** Turn a gateway failure into a 502 with a code, rather than a 500 with a stack trace. */
+    /** {@link #stripe} for a call that answers a boolean. */
+    private boolean stripeBool(java.util.function.BooleanSupplier call) {
+        try {
+            return call.getAsBoolean();
+        } catch (StripeGatewayException e) {
+            LOG.error("Stripe call failed", e);
+            throw new BillingException(HttpStatus.BAD_GATEWAY.value(), BillingException.CODE_STRIPE_ERROR, "Stripe couldn't complete that");
+        }
+    }
+
     private String stripe(java.util.function.Supplier<String> call) {
         try {
             return call.get();

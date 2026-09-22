@@ -41,6 +41,17 @@ public class StripeGatewayImpl implements StripeGateway {
         this.client = props.isEnabled() ? new StripeClient(props.getSecretKey()) : null;
         if (client == null) {
             LOG.info("Stripe is not configured (dossier.stripe.secret-key is blank) — billing is disabled.");
+        } else if (props.getWebhookSecret() == null || props.getWebhookSecret().isBlank()) {
+            // Loud, because the symptom is silent and the diagnosis is not: checkout succeeds,
+            // the customer is charged, and then NOTHING happens — the webhook is the only writer
+            // of subscription state, so without a secret every delivery is rejected unverified
+            // and nobody ever becomes Pro. Half-configured billing is worse than none, and this
+            // is the only moment we can say so before a real payment is taken.
+            LOG.error(
+                "Stripe is ENABLED but dossier.stripe.webhook-secret is BLANK. Checkout will work and customers " +
+                "WILL be charged, but no payment can ever activate a subscription: the webhook is the only writer " +
+                "of subscription state and every delivery will be rejected. Set STRIPE_WEBHOOK_SECRET."
+            );
         }
     }
 
@@ -83,16 +94,21 @@ public class StripeGatewayImpl implements StripeGateway {
                 .setSuccessUrl(successUrl)
                 .setCancelUrl(cancelUrl)
                 .setAllowPromotionCodes(true)
-                .setAutomaticTax(
-                    com.stripe.param.checkout.SessionCreateParams.AutomaticTax.builder().setEnabled(props.isAutomaticTax()).build()
-                )
                 .addLineItem(LineItem.builder().setPrice(priceId).setQuantity(1L).build());
+
+            Boolean managedPayments = props.getManagedPayments();
+
+            // Tax: send `true`, or send nothing at all. NEVER `false` — see #wantsAutomaticTax.
+            if (wantsAutomaticTax(props.isAutomaticTax(), Boolean.TRUE.equals(managedPayments))) {
+                builder.setAutomaticTax(com.stripe.param.checkout.SessionCreateParams.AutomaticTax.builder().setEnabled(true).build());
+            }
 
             // Managed Payments (merchant of record) is newer than this SDK's typed builders, so
             // it goes through extra params. That also insulates us from the shape changing before
-            // the typed API catches up — the flag is what matters, not how it is spelled.
-            if (props.isManagedPayments()) {
-                builder.putExtraParam("managed_payments[enabled]", true);
+            // the typed API catches up — the setting is what matters, not how it is spelled.
+            // Null means "don't mention it", which leaves the account's own default in force.
+            if (managedPayments != null) {
+                builder.putExtraParam("managed_payments[enabled]", managedPayments);
             }
 
             return require().checkout().sessions().create(builder.build()).getUrl();
@@ -100,6 +116,57 @@ public class StripeGatewayImpl implements StripeGateway {
             throw new StripeGatewayException("Could not start Stripe checkout", e);
         }
     }
+
+    /**
+     * Whether to send {@code automatic_tax[enabled]=true} on a Checkout Session. When this is
+     * false the parameter is <b>omitted entirely</b> rather than sent as {@code false}.
+     *
+     * <p>That distinction is the whole point. Stripe enables <b>Managed Payments by default on
+     * new accounts</b>, and a Managed Payments account rejects an explicit
+     * {@code automatic_tax[enabled]=false}: <i>"Managed Payments handles taxes for you … omit
+     * this parameter or pass automatic_tax[enabled]=true"</i>. We used to send it unconditionally,
+     * which meant our default configuration was invalid against a default Stripe account — every
+     * checkout failed with a 502 (found during the 12.7 sandbox run, 2026-09-21).
+     *
+     * <p>Omitting lets the account's own setting decide, so all three cases work: Managed
+     * Payments on (Stripe handles tax), Stripe Tax configured and wanted (we ask for it), and
+     * neither (Stripe's default, off).
+     */
+    static boolean wantsAutomaticTax(boolean automaticTax, boolean managedPayments) {
+        // Managed Payments *requires* automatic tax, so asking for one asks for both.
+        return automaticTax || managedPayments;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Asks Stripe for this customer's subscriptions and reports whether any is live. Stripe's
+     * {@code status=all} is deliberate: {@code active} alone would miss {@code past_due} and
+     * {@code trialing}, both of which are subscriptions the customer is still in — starting a
+     * second one would bill them twice.
+     */
+    @Override
+    public boolean hasLiveSubscription(String customerId) {
+        if (client == null || customerId == null || customerId.isBlank()) return false;
+        try {
+            com.stripe.param.SubscriptionListParams params = com.stripe.param.SubscriptionListParams.builder()
+                .setCustomer(customerId)
+                .setStatus(com.stripe.param.SubscriptionListParams.Status.ALL)
+                .setLimit(20L)
+                .build();
+            return require()
+                .subscriptions()
+                .list(params)
+                .getData()
+                .stream()
+                .anyMatch(sub -> LIVE_SUBSCRIPTION_STATUSES.contains(String.valueOf(sub.getStatus()).toLowerCase()));
+        } catch (StripeException e) {
+            throw new StripeGatewayException("Could not list the customer's subscriptions", e);
+        }
+    }
+
+    /** Statuses that mean "this customer is already subscribed" for the purposes of the guard. */
+    private static final java.util.Set<String> LIVE_SUBSCRIPTION_STATUSES = java.util.Set.of("active", "trialing", "past_due", "unpaid");
 
     @Override
     public String createPortalSession(String customerId, String returnUrl) {

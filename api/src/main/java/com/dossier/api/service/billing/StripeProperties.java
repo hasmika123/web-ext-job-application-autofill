@@ -13,6 +13,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * pass their tests. Checkout and portal return 503 {@code BILLING_DISABLED} instead of throwing.
  *
  * <p>Keys live in the server env only and never reach a client bundle.
+ *
+ * <p><b>Every id and secret here is trimmed on the way in.</b> These values are pasted into a
+ * {@code .env} file or a shell by a human, and a trailing space or newline survives that trip
+ * intact. Stripe rejects such a key with <i>"Your API key is invalid, as it contains
+ * whitespace"</i> — but only when a call is actually made, so the server starts fine, reports
+ * billing as enabled, and then fails at checkout with a message that points nowhere near the
+ * cause. Cost an hour to diagnose once (2026-09-21); trimming here costs nothing.
  */
 @ConfigurationProperties(prefix = "dossier.stripe")
 public class StripeProperties {
@@ -55,12 +62,17 @@ public class StripeProperties {
      * Stripe Managed Payments — Stripe becomes merchant of record and owns global sales tax/VAT,
      * fraud and disputes, for an extra 3.5% per transaction (user decision 2026-09-21).
      *
-     * <p>A flag, not a constant, for two reasons: it isn't available in every sandbox, and the
-     * economics change with volume — at scale the 3.5% may stop being worth it, and turning it
-     * off must not require a code change. Off by default so a misconfigured server fails toward
-     * the plain Stripe flow rather than toward a tax arrangement nobody chose.
+     * <p><b>Three states, and the default is "unset" on purpose.</b> Stripe now enables Managed
+     * Payments <b>by default on new accounts</b>, so a boolean here could only ever turn it on —
+     * the one thing it already was. {@code null} leaves the account's own setting alone,
+     * {@code true} forces it on for each session, {@code false} forces it off. That last one is
+     * the case that matters: the economics change with volume, and at scale the 3.5% may stop
+     * being worth it. Opting out must be a config change, not a code change.
+     *
+     * <p>Unset rather than {@code false} by default because forcing it off would silently
+     * discard the merchant-of-record arrangement on an account that had chosen it.
      */
-    private boolean managedPayments = false;
+    private Boolean managedPayments = null;
 
     /**
      * Stripe Tax on checkout. Redundant while {@link #managedPayments} is on (Stripe is then
@@ -74,12 +86,17 @@ public class StripeProperties {
         return secretKey != null && !secretKey.isBlank();
     }
 
+    /** Null-safe trim. A value that is nothing but whitespace becomes empty, i.e. "not set". */
+    private static String trim(String value) {
+        return value == null ? null : value.trim();
+    }
+
     public String getSecretKey() {
         return secretKey;
     }
 
     public void setSecretKey(String secretKey) {
-        this.secretKey = secretKey;
+        this.secretKey = trim(secretKey);
     }
 
     public String getWebhookSecret() {
@@ -87,7 +104,7 @@ public class StripeProperties {
     }
 
     public void setWebhookSecret(String webhookSecret) {
-        this.webhookSecret = webhookSecret;
+        this.webhookSecret = trim(webhookSecret);
     }
 
     public BigDecimal getAmountMonthly() {
@@ -111,7 +128,7 @@ public class StripeProperties {
     }
 
     public void setPriceMonthly(String priceMonthly) {
-        this.priceMonthly = priceMonthly;
+        this.priceMonthly = trim(priceMonthly);
     }
 
     public String getPrice3mo() {
@@ -119,7 +136,7 @@ public class StripeProperties {
     }
 
     public void setPrice3mo(String price3mo) {
-        this.price3mo = price3mo;
+        this.price3mo = trim(price3mo);
     }
 
     public String getSuccessUrl() {
@@ -146,11 +163,12 @@ public class StripeProperties {
         this.portalReturnUrl = portalReturnUrl;
     }
 
-    public boolean isManagedPayments() {
+    /** {@code null} = leave the Stripe account's own setting alone. See the field docs. */
+    public Boolean getManagedPayments() {
         return managedPayments;
     }
 
-    public void setManagedPayments(boolean managedPayments) {
+    public void setManagedPayments(Boolean managedPayments) {
         this.managedPayments = managedPayments;
     }
 
