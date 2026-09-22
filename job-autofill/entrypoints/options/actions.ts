@@ -78,15 +78,13 @@ export async function signOut(): Promise<void> {
     /* best-effort revoke */
   }
   await tokenStore.clear();
-  // The plan badge and version marker describe whose mirror this is; they leave with the session
-  // (mirrors the SW's signedOut path), so the next account on this device starts clean.
+  // Sign-out means this browser forgets the account (mirrors the SW's signedOut path): profile,
+  // resumes, learned answers and the plan badge go, device settings stay. The confirmation in
+  // OptionsApp says so before the user commits.
   try {
-    const s = await JAF().storage.getSettings();
-    delete s.plan;
-    delete s.__profileVersion;
-    await JAF().storage.saveSettings(s);
+    await JAF().storage.clearAccountData();
   } catch {
-    /* display-only; a stale badge costs nothing but a wrong pill until the next check */
+    /* the session is gone regardless; the next connect starts from the server */
   }
 }
 

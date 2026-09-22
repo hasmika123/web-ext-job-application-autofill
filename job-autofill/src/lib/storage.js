@@ -49,6 +49,19 @@
     });
   }
 
+  // Empty the resume-file store. Only resume bytes (and the short-lived upload handoff) live
+  // there, so on sign-out the whole store goes rather than walking resume ids that may already
+  // be out of sync with it.
+  async function idbClear() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
   const get = (k) => new Promise((res) => chrome.storage.local.get(k, (o) => res(o[k])));
   const set = (obj) => new Promise((res) => chrome.storage.local.set(obj, () => res(true)));
 
@@ -92,6 +105,33 @@
   }
   const saveSettings = (s) => set({ [KEYS.settings]: s });
 
+  // Everything on this device that belongs to the signed-in ACCOUNT rather than to the device.
+  // Owners, so a new key gets added here when it is added there:
+  //   bio, resumes          this module (the pulled mirror)
+  //   fieldCache            field-cache.js — answers learned while applying (salary, visa, …)
+  //   answerCache, pickCache  service-worker.js — AI drafts and screening picks
+  //   trackingPending       service-worker.js — application ids awaiting submit detection; left
+  //                         behind, they would be attributed to whoever connects next
+  // Deliberately NOT here: trackingAuth (the caller clears the session), and device settings —
+  // the BYO API key, auto-advance, theme, fieldMapCache/enrichCache (label and job-page caches,
+  // nothing personal), and the analytics client id.
+  const ACCOUNT_KEYS = ["bio", "resumes", "fieldCache", "answerCache", "pickCache", "trackingPending"];
+  // Settings that describe WHOSE mirror this is, rather than how the device behaves.
+  const ACCOUNT_SETTINGS = ["plan", "__profileVersion", "__lastPull", "lastResumeId"];
+
+  // Sign-out means this browser forgets the account. Before this, sign-out dropped only the
+  // tokens: the drawer kept the previous user's profile and resumes (and would autofill with
+  // them), and on a shared computer the next person inherited all of it. Found in the
+  // pre-launch review, 2026-09-22. The server copy is untouched — reconnecting pulls it back.
+  async function clearAccountData() {
+    await new Promise((res) => chrome.storage.local.remove(ACCOUNT_KEYS, () => res(true)));
+    try { await idbClear(); } catch (e) { /* no IndexedDB in this context — nothing stored there */ }
+    const s = (await get(KEYS.settings)) || {};
+    for (const k of ACCOUNT_SETTINGS) delete s[k];
+    await set({ [KEYS.settings]: s });
+    return true;
+  }
+
   async function estimateUsage() {
     return new Promise((res) => {
       if (navigator.storage && navigator.storage.estimate) {
@@ -103,5 +143,6 @@
   JAF.storage = {
     getBio, saveBio, getResumes, getResume, saveResume, deleteResume,
     saveResumeFile, getResumeFile, deleteResumeFile, getSettings, saveSettings, estimateUsage,
+    clearAccountData, ACCOUNT_KEYS, ACCOUNT_SETTINGS,
   };
 })();
