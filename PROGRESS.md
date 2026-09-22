@@ -48,7 +48,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **10.3 is planned** as five steps, 10.3a–e (user-approved defaults 2026-09-22, see ROADMAP 10.3).
 > **10.3a is DONE** (ext v0.58.0) — six job-preference fields (salary, notice, start date, work
 > preference, relocate, "how did you hear") are canonical, matched by rules and editable on the web.
-> **Next: 10.3b** — the onboarding step (Tier A). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **10.3b is DONE** — `/welcome`: six one-tap questions a new user sees once after first sign-in.
+> **Next: 10.3c** — the suggestions API (learned answers → suggested profile values). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -835,7 +836,7 @@ focused Claude Code session.
     the web profile. **`experience[]`/`education[]` stay on each resume** (user decision
     2026-09-22) — they already exist there and a profile copy would drift. **No Tier-C long-tail
     fields** — they're unbounded and the field cache handles them better.
-  - [ ] **10.3b Onboarding (Tier A).** `/welcome`, shown once after the first sign-in, "Skip for
+  - [x] **10.3b Onboarding (Tier A).** `/welcome`, shown once after the first sign-in, "Skip for
     now" always visible: optional resume upload, then ≤6 questions (work auth, sponsorship,
     salary, start/notice, remote/relocate, EEO optional). The dashboard checklist links to it.
   - [ ] **10.3c Suggestions API.** `profile_suggestion` table + send/list/accept/dismiss. Free
@@ -1145,6 +1146,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **10.3b onboarding** · `/welcome`: one question per screen — work authorization,
+  sponsorship, salary, notice, work preference + relocation, and EEO self-ID (optional, says so).
+  Every question skippable, **"Skip for now"** always on screen, each step saves as you go. The
+  dashboard (the post-login landing page) sends a user there **once** — until they finish or
+  skip (`onboardedAt` in the bio) — and never if they'd already answered work authorization or if
+  the profile fetch failed (an API hiccup must not bounce a full profile into onboarding);
+  `?next=` flows like `/connect` are untouched. The last screen points to **Upload your resume**
+  when there isn't one (Tier B). New `ChoiceGroup` primitive in `@kiwiply/ui` (radio-group
+  semantics, arrow keys, one tab stop); answer lists moved to `lib/profile-options.ts`, shared
+  with the profile editor. Browser-checked at desktop and phone width against a stubbed save.
 - 2026-09-22 · **10.3a job-preference fields** · Ext **v0.58.0**, rules **v6**. Desired salary, notice
   period, earliest start date, work preference, willing to relocate and "how did you hear about
   us" are canonical fields: matched by phrase rules (not bare words — "Current salary", a

@@ -30,6 +30,9 @@ export type { BadgeProps, BadgeVariant } from "./primitives/Badge";
 export { default as Switch } from "./primitives/Switch";
 export type { SwitchProps } from "./primitives/Switch";
 
+export { default as ChoiceGroup } from "./primitives/ChoiceGroup";
+export type { ChoiceGroupProps } from "./primitives/ChoiceGroup";
+
 export { default as Tabs, TabList, Tab, TabPanel } from "./primitives/Tabs";
 export type { TabsProps } from "./primitives/Tabs";
 
