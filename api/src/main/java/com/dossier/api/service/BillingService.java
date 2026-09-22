@@ -171,7 +171,6 @@ public class BillingService {
         return userRepository.findOneByLogin(login).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unknown user"));
     }
 
-    /** Turn a gateway failure into a 502 with a code, rather than a 500 with a stack trace. */
     /** {@link #stripe} for a call that answers a boolean. */
     private boolean stripeBool(java.util.function.BooleanSupplier call) {
         try {
@@ -182,6 +181,7 @@ public class BillingService {
         }
     }
 
+    /** Turn a gateway failure into a 502 with a code, rather than a 500 with a stack trace. */
     private String stripe(java.util.function.Supplier<String> call) {
         try {
             return call.get();
