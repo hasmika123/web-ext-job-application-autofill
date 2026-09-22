@@ -80,6 +80,15 @@ export default function PrivacyPage() {
             when you use those features.
           </li>
           <li>
+            <strong>Profile suggestions:</strong> after you autofill an application with the
+            extension, the answers you give there to questions your profile could hold (for example
+            desired salary or notice period), so we can suggest them for your profile. Nothing
+            changes in your profile unless you keep a suggestion. We never take self-identification
+            (EEO) answers this way, and we never store the address of the page — only a salted code
+            that tells two applications apart. You can turn this off in the extension&apos;s
+            settings.
+          </li>
+          <li>
             <strong>Billing (Pro subscribers only):</strong> a reference to your customer record
             at our payment processor, the plan you chose, and your subscription status and renewal
             date. <strong>We never receive or store your card number.</strong>

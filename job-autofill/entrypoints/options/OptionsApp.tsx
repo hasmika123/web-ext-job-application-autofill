@@ -329,6 +329,12 @@ export function OptionsApp() {
                   onCheckedChange={(v) => patch({ autoAdd: v })}
                   label="Auto-add rows for every resume role (Workday)"
                 />
+                <Switch
+                  checked={!!form?.learn}
+                  onCheckedChange={(v) => patch({ learn: v })}
+                  label="Learn from my applications"
+                  description="After a fill, answers you give to profile questions — salary, notice period, work authorization and the like — are suggested for your profile on kiwiply.com. Nothing changes until you keep a suggestion there. Never your EEO answers, and never the address of the page."
+                />
                 <div className="border-t border-line pt-3.5">
                   <Switch
                     checked={!!form?.analytics}

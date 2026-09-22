@@ -72,6 +72,8 @@
     // Phase 10.1 — count-only fill telemetry. Implemented by createKiwiplyProvider.
     async recordFill(/* event */) { throw new NotSupportedError("recordFill"); }
     async recordFillCorrection(/* fillId */) { throw new NotSupportedError("recordFillCorrection"); }
+    // Phase 10.3d — answers learned while applying, kept server-side as SUGGESTED profile values.
+    async recordLearnedAnswers(/* [{fieldKey, value, context}] */) { throw new NotSupportedError("recordLearnedAnswers"); }
     // Phase 9.A5 — user bug report (auth optional). Implemented by createKiwiplyProvider.
     async submitBugReport(/* { message, category, url, appVersion, userAgent } */) { throw new NotSupportedError("submitBugReport (Phase 9)"); }
   }
@@ -474,6 +476,13 @@
       },
       async recordFillCorrection(fillId) {
         return request("POST", "/api/telemetry/fills/" + encodeURIComponent(String(fillId || "")) + "/correction");
+      },
+
+      // ---- Phase 10.3d: learned answers → suggested profile values ------------
+      // Never written to the profile: the server keeps them as suggestions the user reviews on
+      // the web. `context` is a salted hash of the application page, never its address.
+      async recordLearnedAnswers(answers) {
+        return request("POST", "/api/profile/suggestions", { body: Array.isArray(answers) ? answers : [] });
       },
 
       // ---- server-side AI resume parsing ----------------------------------

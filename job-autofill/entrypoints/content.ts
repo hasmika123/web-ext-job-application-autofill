@@ -28,6 +28,7 @@ import "../src/content/field-mapper.js";
 import "../src/content/assist.js";
 import "../src/lib/fill-telemetry.js";
 import "../src/content/required-audit.js";
+import "../src/content/profile-learn.js";
 import "../src/content/filler.js";
 import "../src/content/content-script.js";
 

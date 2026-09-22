@@ -476,6 +476,13 @@ suggestions API → 10.3d extension capture → 10.3e web review, one PR each.
   owns every rule (allowed keys, thresholds, caps) so a buggy or old extension can't widen them.
   Dismissed rows are kept on purpose: they're what stops a value coming back. Accepting writes
   through `ProfileService.upsertProfile`, so the profile version moves and the extension pulls.
+- **10.3d as built (2026-09-22):** learning starts **after a fill** (the moment the user is
+  applying with Kiwiply), not on every page view. Watched: the fill's canonical items (a later
+  change = a candidate change) and high-confidence profile questions the fill had no value for (the
+  answer = a blank field filled). The page address reaches only the service worker, which sends a
+  per-install **salted** hash — a plain hash of a job URL could be reversed by hashing known URLs.
+  A known limit: a multi-step ATS whose path changes per step can count one application twice
+  toward the change rule; blank-field suggestions are unaffected.
 
 #### 10.4 ATS coverage (the long grind — metered by 10.1)
 Real adapters for the five uncovered manifest hosts, and depth for the three thin ones

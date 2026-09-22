@@ -212,6 +212,14 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
 - `src/content/submit-detect.js` — `JAF.submitDetect`. Armed by the filler after a fill
   commit; a `MutationObserver` scans for `appTracking.hasSuccessSignal` and pings the SW
   (`JAF_SUBMIT_DETECTED`). Self-disarms after ~2 min. Complements the SW's webNavigation path.
+- `src/content/profile-learn.js` — `JAF.profileLearn` (10.3d). Started by the filler after a
+  fill: watches the page's high-confidence **profile** questions (the fill's canonical items +
+  blank-in-profile ones from `scanGeneric`) and reports committed answers as `JAF_LEARNED_ANSWERS`
+  `{answers:[{fieldKey,value}], page}`. The SW (`recordLearnedAnswers`) reduces `page` to a
+  per-install salted SHA-256 `context` and POSTs `/api/profile/suggestions`, where they become
+  **suggestions** the user reviews on the web — the profile itself is never written. Never EEO,
+  checkboxes or placeholder-only guesses; Yes/No fields normalized to "Yes"/"No". Setting:
+  `settings.learnFromApplications` (default on).
 - `src/lib/sync.js` — `JAF.sync`. Bridges the local store and a `TrackingProvider`:
   `pullAll` (server→local cache; resumes matched by `serverId`, never deleting
   local-only ones), `pushBio`/`pushResume`/`pushAll`, `syncNow` (push then pull),
