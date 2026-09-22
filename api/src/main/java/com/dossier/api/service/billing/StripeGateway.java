@@ -46,6 +46,19 @@ public interface StripeGateway {
     boolean hasLiveSubscription(String customerId);
 
     /**
+     * Cancel a subscription in Stripe, immediately.
+     *
+     * <p>Used when an account is deleted: a subscription that outlives its account keeps
+     * charging someone who has no login left to cancel from. Immediate rather than at period
+     * end, because there will be no account to enjoy the remainder of the period — and the
+     * refund policy the user agreed to already covers the unused part.
+     *
+     * <p>Tolerant of a subscription that is already cancelled or gone: the goal is "not
+     * billing", and both of those states satisfy it.
+     */
+    void cancelSubscription(String subscriptionId);
+
+    /**
      * Start a Billing Portal session — where the user updates their card or cancels.
      * This is the click-to-cancel path (FTC rule / California ARL), not a page we build.
      *

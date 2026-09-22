@@ -165,6 +165,20 @@ public class StripeGatewayImpl implements StripeGateway {
         }
     }
 
+    @Override
+    public void cancelSubscription(String subscriptionId) {
+        if (subscriptionId == null || subscriptionId.isBlank()) return;
+        try {
+            require().subscriptions().cancel(subscriptionId);
+        } catch (com.stripe.exception.InvalidRequestException e) {
+            // Already cancelled, or no longer exists. Either way it is not billing anyone, which
+            // is the outcome this call is for.
+            LOG.info("Subscription {} was not cancellable ({}); treating as already ended", subscriptionId, e.getCode());
+        } catch (StripeException e) {
+            throw new StripeGatewayException("Could not cancel subscription " + subscriptionId, e);
+        }
+    }
+
     /** Statuses that mean "this customer is already subscribed" for the purposes of the guard. */
     private static final java.util.Set<String> LIVE_SUBSCRIPTION_STATUSES = java.util.Set.of("active", "trialing", "past_due", "unpaid");
 

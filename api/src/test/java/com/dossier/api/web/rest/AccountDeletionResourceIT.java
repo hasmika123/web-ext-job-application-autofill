@@ -1,6 +1,10 @@
 package com.dossier.api.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,7 +24,11 @@ import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.RefreshTokenRepository;
 import com.dossier.api.repository.ResumeRepository;
+import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.domain.Subscription;
+import com.dossier.api.service.billing.StripeGateway;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +70,13 @@ class AccountDeletionResourceIT {
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private SubscriptionRepository subscriptionRepository;
+
+    /** Stubbed: the test is about OUR ordering and cleanup, not Stripe's API. */
+    @MockitoBean
+    private StripeGateway stripeGateway;
 
     @Test
     @Transactional
@@ -113,5 +128,55 @@ class AccountDeletionResourceIT {
         assertThat(aiAnswerRepository.findById(ai.getId())).isEmpty();
         assertThat(fieldCacheRepository.findById(fc.getId())).isEmpty();
         assertThat(refreshTokenRepository.findByJti("jti-del-test")).isEmpty();
+    }
+
+    // ---- billing (pre-launch review, 2026-09-22) ---------------------------------------------
+
+    /**
+     * A paying user can delete their account, and stops being charged when they do.
+     *
+     * <p>Two failures this pins, both found in review. {@code subscription.user_id} is a foreign
+     * key with no cascade, so with the row left behind the user delete itself threw and the GDPR
+     * erasure path 500'd for exactly the users who pay. And even with the row gone, the Stripe
+     * subscription would have kept renewing an account with no login left to cancel from.
+     */
+    @Test
+    @Transactional
+    @WithMockUser(username = "user")
+    void aSubscribedUserCanDeleteTheirAccountAndStopsBeingBilled() throws Exception {
+        User user = userRepository.findOneByLogin("user").orElseThrow();
+        Subscription sub = new Subscription();
+        sub.setUser(user);
+        sub.setStripeCustomerId("cus_del_1");
+        sub.setStripeSubscriptionId("sub_del_1");
+        sub.setPlan(Subscription.PLAN_PRO);
+        sub.setStatus("active");
+        subscriptionRepository.saveAndFlush(sub);
+        when(stripeGateway.isEnabled()).thenReturn(true);
+
+        mockMvc.perform(delete("/api/account")).andExpect(status().isNoContent());
+
+        verify(stripeGateway).cancelSubscription("sub_del_1");
+        assertThat(subscriptionRepository.findOneByUserLogin("user")).isEmpty();
+        assertThat(userRepository.findOneByLogin("user")).isEmpty();
+    }
+
+    /** A keyless server (develop, CI) must still be able to delete an account that has a row. */
+    @Test
+    @Transactional
+    @WithMockUser(username = "user")
+    void deletionWorksWithBillingOffAndNoStripeCall() throws Exception {
+        User user = userRepository.findOneByLogin("user").orElseThrow();
+        Subscription sub = new Subscription();
+        sub.setUser(user);
+        sub.setStripeCustomerId("cus_del_2");
+        subscriptionRepository.saveAndFlush(sub);
+        when(stripeGateway.isEnabled()).thenReturn(false);
+
+        mockMvc.perform(delete("/api/account")).andExpect(status().isNoContent());
+
+        verify(stripeGateway, never()).cancelSubscription(any());
+        assertThat(subscriptionRepository.findOneByUserLogin("user")).isEmpty();
+        assertThat(userRepository.findOneByLogin("user")).isEmpty();
     }
 }
