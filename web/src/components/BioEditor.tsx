@@ -9,33 +9,10 @@ import { cn } from "@/lib/cn";
 import { isEmail, isUrl, isPhone, LIMITS } from "@/lib/validate";
 import { parseResume } from "@/lib/resume-parse";
 import { notifyExtension } from "@/lib/extension-signal";
+import { YESNO, NOTICE, WORK_PREFERENCE, GENDERS, HISPANIC, RACES, VETERAN, DISABILITY } from "@/lib/profile-options";
 
 /** The bio object stored as the server's opaque `payload` JSON (extension-canonical). */
 export type Bio = Record<string, unknown>;
-
-// Option lists mirror the extension's options.js exactly so both surfaces write
-// identical values (the dossier "no guessing" rule — these are the real keys/values).
-const YESNO = ["Yes", "No"];
-const GENDERS = ["Male", "Female", "Non-binary", "Prefer not to say"];
-const RACES = [
-  "American Indian or Alaska Native", "Asian", "Black or African American",
-  "Hispanic or Latino", "Native Hawaiian or Other Pacific Islander", "White",
-  "Two or More Races", "Prefer not to say",
-];
-const VETERAN = [
-  "I am not a protected veteran",
-  "I identify as one or more classifications of a protected veteran",
-  "Prefer not to say",
-];
-// Job preferences (Phase 10.3a). Fixed lists where the answer is a choice, so the value the
-// extension fills is one an application's own dropdown is likely to offer word for word.
-const NOTICE = ["Immediately", "1 week", "2 weeks", "3 weeks", "1 month", "2 months", "3 months"];
-const WORK_PREFERENCE = ["Remote", "Hybrid", "On-site"];
-const DISABILITY = [
-  "Yes, I have a disability (or previously had one)",
-  "No, I do not have a disability",
-  "Prefer not to answer",
-];
 
 type FieldDef = {
   key: string;
@@ -117,7 +94,7 @@ const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
 
 const EEO_FIELDS: FieldDef[] = [
   { key: "gender", label: "Gender", kind: "select", options: GENDERS },
-  { key: "ethnicity", label: "Hispanic / Latino?", kind: "select", options: ["Yes", "No", "Prefer not to say"] },
+  { key: "ethnicity", label: "Hispanic / Latino?", kind: "select", options: HISPANIC },
   { key: "race", label: "Race", kind: "select", options: RACES },
   { key: "veteranStatus", label: "Veteran status", kind: "select", options: VETERAN },
   { key: "disabilityStatus", label: "Disability status", kind: "select", options: DISABILITY },

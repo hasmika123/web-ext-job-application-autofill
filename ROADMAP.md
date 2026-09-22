@@ -462,6 +462,13 @@ suggestions API → 10.3d extension capture → 10.3e web review, one PR each.
   `type=date` only a real date, and a radio group of choices gets the option it names — a
   non-Yes/No value is never coerced into "No". Workday-specific rules wait for captured DOM; the
   generic scan already runs over Workday's leftovers.
+- **10.3b as built (2026-09-22):** `/welcome`, one question per screen, six screens (work auth,
+  sponsorship, salary, notice, work preference + relocation, EEO — optional and labelled so).
+  Every question skippable; "Skip for now" always visible; saves per step. The **dashboard**
+  redirects there while the bio has neither `onboardedAt` nor `authorizedToWork` — so it's once,
+  existing profiles aren't nagged, and deep links (`/connect`, `?next=`) never are. A failed
+  profile fetch (anything but 404) never triggers it. The resume comes **last**, as the finish
+  screen's call to action, because the questions are the part a user abandons.
 
 #### 10.4 ATS coverage (the long grind — metered by 10.1)
 Real adapters for the five uncovered manifest hosts, and depth for the three thin ones

@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { serverApiFetch } from "@/lib/api";
+import { needsOnboarding, parseBioPayload } from "@/lib/profile-options";
 import { buttonVariants } from "@/components/ui/Button";
 import type { Application } from "@/components/ApplicationBoard";
 
@@ -80,18 +82,15 @@ export default async function DashboardPage() {
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
   const resumes: unknown[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as unknown[]) : [];
 
-  let bio: Bio = {};
-  if (profileRes.ok) {
-    const dto = (await profileRes.json().catch(() => null)) as { payload?: string } | null;
-    if (dto?.payload) {
-      try {
-        const parsed = JSON.parse(dto.payload);
-        if (parsed && typeof parsed === "object") bio = parsed as Bio;
-      } catch {
-        /* empty/corrupt bio — treat as not-set */
-      }
-    }
-  }
+  // 404 = no bio yet (a brand-new account). Any other failure is NOT "no profile" — it must not
+  // bounce someone with a full profile into onboarding because the API hiccuped.
+  const bio: Bio = profileRes.ok ? parseBioPayload(await profileRes.json().catch(() => null)) : {};
+  const bioKnown = profileRes.ok || profileRes.status === 404;
+
+  // Phase 10.3b: a new user answers the few questions a resume can't, once. The dashboard is the
+  // post-login landing page, so this catches first sign-in without touching `?next=` flows
+  // (e.g. /connect) — those land where they asked to.
+  if (bioKnown && needsOnboarding(bio)) redirect("/welcome");
 
   // KPIs
   const appliedCount = applications.filter((a) => APPLIED_STATUSES.has(a.status)).length;
@@ -105,7 +104,7 @@ export default async function DashboardPage() {
   const checklist = [
     { label: "Add your contact details", hint: "Name, email, phone — the basics every form asks for", done: isTruthy(bio.firstName) && isTruthy(bio.email), href: "/profile", cta: "Add" },
     { label: "Upload a resume", hint: "Kiwiply parses it so the right details autofill", done: resumes.length > 0, href: "/resumes", cta: "Upload" },
-    { label: "Answer work-authorization questions", hint: "Speeds up Workday & Greenhouse forms", done: isTruthy(bio.authorizedToWork), href: "/profile", cta: "Add" },
+    { label: "Answer the quick questions", hint: "Work authorization, salary, notice — asked on almost every form", done: isTruthy(bio.authorizedToWork), href: "/welcome", cta: "Answer" },
   ];
   const doneCount = checklist.filter((i) => i.done).length;
   const pct = Math.round((doneCount / checklist.length) * 100);
