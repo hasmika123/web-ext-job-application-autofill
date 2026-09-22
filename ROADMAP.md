@@ -400,6 +400,14 @@ schema, and a saved-answer bank; reliability — not speed — is what users pun
 After filling, scan for **required-but-empty** controls and tell the user: *"3 required fields
 still need you"*, each with a jump-to link. Cheap to build, and it converts the worst failure
 mode ("it silently missed things") into a handled one. Ship this before any schema work.
+- **As built (2026-09-22):** when a fill leaves required fields empty, the modal panel becomes a
+  small **non-modal card** (bottom-right, the page stays usable): *"2 required fields still need
+  you"*, each field named by its label (a radio group by its question), **Go →** scrolls to it,
+  focuses it and outlines it briefly, and items tick off as the user fills them; once the last is
+  done it says so, reminds them the submit is theirs, and goes. **Auto-advance waits** while any
+  are missing — the page would refuse the step anyway. Same scan as 10.1, so the admin count and
+  the user's list can't disagree; widened to fields whose label ends in `*` (a leading `*` is a
+  footnote, not a requirement). Custom widgets with no native control are still unseen.
 
 #### 10.3 The self-building profile  *(user decision 2026-09-21 — the core idea)*
 > **Principle: never make the user fill a long profile form.** Ask the bare minimum, let the

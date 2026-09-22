@@ -167,12 +167,17 @@
         }
       } catch (e) {}
 
-      // Phase 10.1: count what the fill left undone. A beat first so the page's own framework has
-      // reflected the values we set, and BEFORE any auto-advance moves on to the next step.
-      if (T && fillId) {
+      // What did the fill leave undone? (10.1 counts it; 10.2 shows it.) A beat first so the page's
+      // own framework has reflected the values we set, and BEFORE any auto-advance moves on.
+      let gaps = [];
+      if (JAF.requiredAudit) {
         try {
           await new Promise((r) => setTimeout(r, 250));
-          const missing = JAF.requiredAudit ? JAF.requiredAudit.findRequiredEmpty(document).length : 0;
+          gaps = JAF.requiredAudit.findRequiredEmpty(document);
+        } catch (e) { gaps = []; }
+      }
+      if (T && fillId) {
+        try {
           send({
             type: "JAF_FILL_STATS",
             stats: T.buildEvent({
@@ -182,13 +187,21 @@
               found: fillable.length + manual.length,
               filled,
               failed: failedCount,
-              requiredLeftEmpty: missing,
+              requiredLeftEmpty: gaps.length,
             }),
           });
         } catch (e) {}
       }
 
       const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
+      // Phase 10.2: required fields are still empty. Don't auto-advance — the page would refuse
+      // the step anyway, and the user would be left guessing why — and hand them a short list that
+      // takes them to each one, instead of a toast that vanishes in two seconds.
+      if (gaps.length) {
+        const summary = `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${failMsg}.`;
+        showGaps(host, root, gaps, autoAdvance ? summary + " Auto-advance paused until these are done." : summary, close);
+        return;
+      }
       let advanceMsg = "";
       if (autoAdvance) {
         const nextBtn = (adapter.nextButton && adapter.nextButton()) || B.findNextButton();
@@ -240,6 +253,71 @@
         }
       };
     });
+  }
+
+  // Phase 10.2 — "N required fields still need you".
+  //
+  // The modal panel is swapped for a small card that does NOT cover the page, because the user's
+  // next move is to fill the page. Each item jumps to its field (scroll, focus, a brief outline);
+  // items tick off as the user fills them; once the last one is done the card says so and goes.
+  // Labels come from the page and stay on it — nothing here is sent anywhere.
+  function showGaps(host, root, els, lead, closeOverlay) {
+    const A = JAF.requiredAudit;
+    host.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:2147483647;";
+    root.querySelectorAll(".backdrop, .panel").forEach((n) => n.remove());
+    const items = els.map((el) => ({ el, name: A.describe(el), done: false }));
+
+    const card = document.createElement("section");
+    card.className = "gaps";
+    card.setAttribute("role", "region");
+    card.setAttribute("aria-label", "Required fields still to fill");
+    card.innerHTML = `
+      <header><strong class="gtitle" aria-live="polite"></strong><button class="gx" aria-label="Close">×</button></header>
+      <p class="glead">${esc(lead)}</p>
+      <ul class="glist">${items.map((it, i) => `<li><button class="gjump" data-g="${i}"><span class="gdot"></span><span class="gname">${esc(it.name)}</span><span class="ggo">Go →</span></button></li>`).join("")}</ul>
+      <p class="gnote">Kiwiply never submits for you.</p>`;
+    root.appendChild(card);
+
+    let closing = false;
+    const close = () => {
+      document.removeEventListener("input", recheck, true);
+      document.removeEventListener("change", recheck, true);
+      closeOverlay();
+    };
+    const render = () => {
+      const left = items.filter((it) => !it.done).length;
+      card.querySelector(".gtitle").textContent = left
+        ? `${left} required field${left === 1 ? "" : "s"} still need${left === 1 ? "s" : ""} you`
+        : "All required fields are filled";
+      items.forEach((it, i) => card.querySelector(`[data-g="${i}"]`).parentElement.classList.toggle("done", it.done));
+      if (!left && !closing) {
+        closing = true;
+        card.querySelector(".glead").textContent = "Review the page, then submit it yourself.";
+        setTimeout(close, 4000);
+      }
+    };
+    function recheck() {
+      let changed = false;
+      for (const it of items) {
+        if (!it.done && !A.isStillEmpty(it.el)) { it.done = true; changed = true; }
+      }
+      if (changed) render();
+    }
+    document.addEventListener("input", recheck, true);
+    document.addEventListener("change", recheck, true);
+    card.querySelector(".gx").onclick = close;
+    card.querySelectorAll(".gjump").forEach((b) => { b.onclick = () => jumpTo(items[Number(b.dataset.g)].el); });
+    render();
+  }
+
+  function jumpTo(el) {
+    try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+    try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) {} }
+    // A brief outline so the eye lands on it; the page's own styling comes back afterwards.
+    const prev = el.style.outline, prevOffset = el.style.outlineOffset;
+    el.style.outline = "3px solid #94BD37";
+    el.style.outlineOffset = "2px";
+    setTimeout(() => { el.style.outline = prev; el.style.outlineOffset = prevOffset; }, 2200);
   }
 
   function flash(root, msg) {
@@ -359,6 +437,24 @@
     .note { font-size: 11px; color: var(--muted); padding: 0 16px 14px; line-height: 1.4; }
     .flash { position: absolute; left: 16px; right: 16px; bottom: 16px; background: var(--ink); color: var(--paper);
       padding: 12px 14px; border-radius: 12px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+    /* 10.2 — the post-fill checklist card (non-modal; the host shrinks to fit it). */
+    .gaps { width: 320px; max-width: calc(100vw - 32px); background: var(--paper); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgba(45,49,51,.22); padding: 14px 14px 10px; }
+    .gaps header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .gtitle { font-size: 14px; }
+    .gx { border: 0; background: transparent; font-size: 18px; line-height: 1; cursor: pointer; color: var(--muted); padding: 0 2px; }
+    .glead { margin: 4px 0 8px; font-size: 12.5px; color: var(--ink-soft); }
+    .glist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow: auto; }
+    .gjump { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid var(--line);
+      border-radius: 9px; background: #fff; cursor: pointer; text-align: left; font-size: 13px; color: var(--ink); }
+    .gjump:hover, .gjump:focus-visible { border-color: var(--accent); outline: none; }
+    .gdot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+    .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ggo { font-size: 12px; color: var(--accent-deep); flex: none; }
+    .glist li.done .gdot { background: var(--accent); }
+    .glist li.done .gname { text-decoration: line-through; color: var(--muted); }
+    .glist li.done .ggo { visibility: hidden; }
+    .gnote { margin: 8px 0 0; font-size: 11px; color: var(--muted); }
   `;
 
   JAF.filler = { start, buildPlan };

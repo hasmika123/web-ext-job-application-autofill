@@ -43,8 +43,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > with tests — including double billing and a webhook that could revoke Pro from a paying
 > customer. One piece is deliberately carried to **15.4**: a real failed renewal and lapse, which
 > need a Stripe test clock. **10.1 is DONE** (ext v0.56.0) — count-only fill telemetry per ATS
-> and an `/admin/analytics` panel ranking ATS worst-first. **Next: 10.2** — the post-fill audit
-> ("N required fields still need you"), which reuses 10.1's `required-audit.js` scan. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> and an `/admin/analytics` panel ranking ATS worst-first. **10.2 is DONE** (ext v0.57.0) — after
+> a fill, "N required fields still need you" with jump-to links, and auto-advance waits for them.
+> **Next: 10.3** — the self-building profile (the three tiers; Tier C promotes learned answers
+> to suggested profile values). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -818,7 +820,7 @@ focused Claude Code session.
   userCorrected, requiredLeftEmpty}`. Counts only — no field values ever leave the page (same
   line the field mapper holds: labels may leave, values never). Surface as an `/admin/analytics`
   panel ranking ATS by failure rate. **This is what directs 10.4.**
-- [ ] **10.2 Post-fill audit.** After a fill, scan for required-but-empty controls and report
+- [x] **10.2 Post-fill audit.** After a fill, scan for required-but-empty controls and report
   "N required fields still need you" with jump-to links. Converts the silent-miss failure mode
   into a handled one; cheapest large win in the phase.
 - [ ] **10.3 Self-building profile (3 tiers).** Tier A = ≤6 onboarding questions (work auth +
@@ -1129,6 +1131,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **10.2 post-fill audit** · Ext **v0.57.0**. When a fill leaves required fields empty, the
+  modal panel becomes a small non-modal card — *"2 required fields still need you"* — naming each
+  field by its label (a radio group by its question); **Go →** scrolls to it, focuses it and
+  outlines it; items tick off as the user fills them, and the card closes itself once all are
+  done. **Auto-advance now waits** while any are missing (the page would refuse the step and the
+  user would be left guessing why). Reuses 10.1's scan, so the admin count and the user's list
+  can't disagree; the scan now also treats a label ending in `*` as required. Nothing here leaves
+  the page. Tests: `required_gaps.test.js` (30: asterisk rules, naming, the card, jump-to,
+  tick-off, auto-advance paused *and* unchanged when nothing is missing). **Verified in a
+  browser** on a mock application form running the real extension scripts: card, jump-to below
+  the fold, tick-off, and auto-advance held.
 - 2026-09-22 · **10.1 fill telemetry per ATS** · Ext **v0.56.0**. One count-only event per autofill run —
   ATS family, adapter, fields found / filled / failed, required left empty — plus a later
   signal the first time the user changes a field we filled. First-party into a new `fill_event`
