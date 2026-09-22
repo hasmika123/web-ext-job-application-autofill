@@ -22,6 +22,8 @@ import {
 } from "@kiwiply/ui";
 import { ResumeUpload } from "@kiwiply/ui";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
+import { formatDate as formatDateIn, type DateDisplay } from "@/lib/dates";
+import { useDateDisplay } from "@/lib/use-date-display";
 
 export interface Application {
   id: number;
@@ -105,10 +107,10 @@ function Chevron({ open, className }: { open: boolean; className?: string }) {
   return <ChevronDownIcon className={cn("h-4 w-4 transition-transform", open && "rotate-180", className)} />;
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+// Board dates arrive as server-rendered props, so they are formatted on the server AND in the
+// browser; `display` keeps the two passes identical, then switches to the viewer's own zone.
+function formatDate(iso: string | null | undefined, display: DateDisplay): string {
+  return formatDateIn(iso, { month: "short", day: "numeric", year: "numeric" }, display);
 }
 
 // A short all-caps token (ignoring dots) — a US state / country code like GA, CA, D.C., UK, USA.
@@ -144,10 +146,10 @@ function parseLocations(location?: string | null): string[] {
 
 // The one date shown on a decluttered card: the applied date once applied, otherwise the
 // date the entry was added (Draft/Saved never have an applied date).
-function cardDate(app: Application): string {
-  const applied = formatDate(app.appliedAt);
+function cardDate(app: Application, display: DateDisplay): string {
+  const applied = formatDate(app.appliedAt, display);
   if (applied) return `Applied · ${applied}`;
-  const added = formatDate(app.createdAt);
+  const added = formatDate(app.createdAt, display);
   return added ? `Added · ${added}` : "";
 }
 
@@ -1375,7 +1377,8 @@ function BoardCard({
   const isSaved = app.status === "SAVED";
   const rich = variant === "rich";
   const showNudge = app.status === "DRAFT" && !archived && !nudgeDismissed;
-  const date = cardDate(app);
+  const display = useDateDisplay();
+  const date = cardDate(app, display);
   const modeLabel = app.jobMode ? JOB_MODE_LABEL[app.jobMode] : "";
   const typeLabel = app.jobType ? JOB_TYPE_LABEL[app.jobType] : "";
   const locations = parseLocations(app.location);
@@ -1570,7 +1573,8 @@ function BoardRow({
   onMoveTo: (status: string) => void;
   onDelete: () => void;
 }) {
-  const date = cardDate(app);
+  const display = useDateDisplay();
+  const date = cardDate(app, display);
   return (
     <li
       draggable={!archived}
@@ -1666,6 +1670,7 @@ function DetailPanel({
   onArchive: (v: boolean) => void;
   onDelete: () => void;
 }) {
+  const display = useDateDisplay();
   const open = !!app;
   const closeRef = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
@@ -1946,11 +1951,11 @@ function DetailPanel({
                     </div>
                     <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
                       <dt className="shrink-0 text-[12px] font-medium text-muted">Applied</dt>
-                      <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.appliedAt) || "—"}</dd>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.appliedAt, display) || "—"}</dd>
                     </div>
                     <div className="flex items-start justify-between gap-4 px-3.5 py-2.5">
                       <dt className="shrink-0 text-[12px] font-medium text-muted">Added</dt>
-                      <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.createdAt) || "—"}</dd>
+                      <dd className="min-w-0 text-right text-[13px] text-ink">{formatDate(app.createdAt, display) || "—"}</dd>
                     </div>
                   </dl>
 

@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { formatPeriodEnd, PRICE_3MO, PRICE_MONTHLY, type Plan } from "@/lib/billing";
+import { PRICE_3MO, PRICE_MONTHLY, type Plan } from "@/lib/billing";
+import { formatDate } from "@/lib/dates";
+import LocalDate from "@/components/LocalDate";
 import ManageBillingButton from "@/components/billing/ManageBillingButton";
 import UpgradeButton from "@/components/billing/UpgradeButton";
 
@@ -14,7 +16,9 @@ import UpgradeButton from "@/components/billing/UpgradeButton";
  */
 export default function BillingCard({ plan }: { plan: Plan }) {
   const isPro = plan.plan === "PRO";
-  const ends = formatPeriodEnd(plan.currentPeriodEnd);
+  // Validity only — the date itself is rendered by <LocalDate>, in the viewer's time zone. The
+  // server can't know it, and the box's UTC would put a 02:53 UTC renewal on the wrong day.
+  const ends = formatDate(plan.currentPeriodEnd, {}) ? plan.currentPeriodEnd : null;
 
   if (!plan.billingEnabled) {
     return (
@@ -36,11 +40,21 @@ export default function BillingCard({ plan }: { plan: Plan }) {
           </span>
           {isPro ? (
             <span className="text-sm text-muted">
-              {plan.cancelAtPeriodEnd
-                ? `Cancels on ${ends || "the end of the period"} — you keep Pro until then.`
-                : ends
-                  ? `Renews on ${ends}.`
-                  : "Active."}
+              {plan.cancelAtPeriodEnd ? (
+                <>Cancels on {ends ? <LocalDate iso={ends} /> : "the end of the period"} — you keep Pro until then.</>
+              ) : plan.status === "canceled" ? (
+                // Cancelled outright (not at period end): Stripe says `canceled` with
+                // cancelAtPeriodEnd false, and the grace rule keeps Pro until the paid-for period
+                // ends. This used to fall through to "Renews on …" — for a subscription that
+                // will never renew (pre-launch review, 2026-09-22).
+                <>Cancelled — you keep Pro until {ends ? <LocalDate iso={ends} /> : "the end of the period"}.</>
+              ) : ends ? (
+                <>
+                  Renews on <LocalDate iso={ends} />.
+                </>
+              ) : (
+                "Active."
+              )}
             </span>
           ) : (
             <span className="text-sm text-muted">Unlimited autofill, resume parsing &amp; tracker.</span>

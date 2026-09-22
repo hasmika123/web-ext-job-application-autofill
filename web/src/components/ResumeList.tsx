@@ -19,6 +19,8 @@ import {
 } from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
 import { notifyExtension } from "@/lib/extension-signal";
+import { formatDate as formatDateIn, type DateDisplay } from "@/lib/dates";
+import { useDateDisplay } from "@/lib/use-date-display";
 
 export interface Resume {
   id: number;
@@ -39,12 +41,9 @@ function statusBadge(status?: string | null) {
   return null;
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+// Server-rendered props: formatted identically on both passes, then in the viewer's own zone.
+function formatDate(iso: string | null | undefined, display: DateDisplay): string {
+  return formatDateIn(iso, { year: "numeric", month: "short", day: "numeric" }, display);
 }
 
 function FileIcon() {
@@ -89,6 +88,7 @@ function Row({
   onSetDefault: () => void;
   guard: string | null;
 }) {
+  const display = useDateDisplay();
   const archived = !!resume.archived;
   const isDefault = !!resume.defaultResume;
   const badge = statusBadge(resume.status);
@@ -174,7 +174,7 @@ function Row({
           {!archived && badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted">
-          {formatDate(resume.createdAt) && <span>Added {formatDate(resume.createdAt)}</span>}
+          {formatDate(resume.createdAt, display) && <span>Added {formatDate(resume.createdAt, display)}</span>}
           {/* Usage as a distinct pill so it isn't missed (it also gates deletion). */}
           <span
             className={cn(

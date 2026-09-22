@@ -26,7 +26,7 @@ const PROD_MATCHES = ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "htt
 function boot(opts) {
   opts = opts || {};
   const store = {};                 // chrome.storage.local
-  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0 };
+  const calls = { pullAll: 0, logout: 0, clear: 0, broadcast: [], checkAndPull: 0, alarmsCreated: [], versionCalls: 0, forgot: 0, forgotOpts: [] };
   const external = [];
   const internal = [];
   const installed = [];             // 11.3: onInstalled listeners (the alarm is created here)
@@ -75,7 +75,9 @@ function boot(opts) {
     chrome, console, setTimeout, clearTimeout, URL,
     fetch: () => Promise.reject(new Error("no network in tests")),
     JAF: {
-      storage: { tag: "storage-stub" },
+      // clearAccountData is the real one in storage.js, covered by account_clear.test.js; here
+      // we only need to know the SW calls it, and when.
+      storage: { tag: "storage-stub", clearAccountData: (o) => { calls.forgot++; calls.forgotOpts.push(o || {}); return Promise.resolve(true); } },
       sync: {
         providerFromSettings: () => provider,
         pullAll: (p, storage) => { calls.pullAll++; calls.pullStorage = storage; return Promise.resolve({ bio: {}, resumeCount: 1 }); },
@@ -85,6 +87,7 @@ function boot(opts) {
       },
       tracking: {
         chromeTokenStore: () => ({
+          get: () => Promise.resolve(opts.prevAuth || {}),
           set: () => Promise.resolve(true),
           clear: () => { calls.clear++; return Promise.resolve(); },
         }),
@@ -156,16 +159,54 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
     ok("signedOut: no pull", calls.pullAll === 0);
   }
 
-  /* ---- "signedOut" also forgets WHOSE mirror this was (pre-launch review 2026-09-22) ---- */
+  /* ---- "signedOut" means this browser forgets the account (pre-launch review 2026-09-22) ---- */
   {
-    const { external, store } = boot();
-    store.settings = { apiBaseUrl: "https://api.kiwiply.com", plan: "PRO", __profileVersion: "v-old", autoAdvance: true };
+    const { external, calls } = boot();
     const resp = await sendExternal(external, "https://kiwiply.com", signedOut);
-    ok("signedOut/markers: accepted", resp && resp.ok === true, JSON.stringify(resp));
-    // On a shared machine the next person to connect must not inherit a "Pro" pill.
-    ok("signedOut/markers: plan forgotten", !("plan" in store.settings), JSON.stringify(store.settings));
-    ok("signedOut/markers: version marker forgotten", !("__profileVersion" in store.settings));
-    ok("signedOut/markers: unrelated settings untouched", store.settings.autoAdvance === true && store.settings.apiBaseUrl === "https://api.kiwiply.com");
+    ok("signedOut/forget: accepted", resp && resp.ok === true, JSON.stringify(resp));
+    // Tokens alone left the previous user's profile and resumes in the drawer, ready to autofill.
+    ok("signedOut/forget: the account's data was cleared", calls.forgot === 1, `got ${calls.forgot}`);
+    // User decision 2026-09-22: a web sign-out keeps learned answers (the only copy, on Free).
+    ok("signedOut/forget: learned answers are kept on a web sign-out", calls.forgotOpts[0] && calls.forgotOpts[0].keepLearnedAnswers === true, JSON.stringify(calls.forgotOpts));
+    ok("signedOut/forget: an open drawer is told to repaint", calls.broadcast.some((m) => m && m.type === "KIWIPLY_MIRROR_UPDATED"));
+  }
+
+  /* ---- connecting a DIFFERENT account over one that never signed out ---- */
+  {
+    // The sign-out signal can be missed (browser closed, extension updated); the next account
+    // to connect must not inherit the previous one's data.
+    const { external, calls } = boot({ prevAuth: { access: "old", refresh: "old", username: "alice" } });
+    const resp = await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "bob" } });
+    ok("switch: connect accepted", resp && resp.ok === true, JSON.stringify(resp));
+    ok("switch: alice's data is cleared before bob's session is stored", calls.forgot === 1, `got ${calls.forgot}`);
+    ok("switch: the clear includes learned answers", !calls.forgotOpts[0].keepLearnedAnswers, JSON.stringify(calls.forgotOpts));
+  }
+  {
+    // The case option B depends on: alice signed out on the web (session gone, answers kept),
+    // then bob connects. Only the owner marker can tell that bob is someone else.
+    const { external, calls, store } = boot({ prevAuth: {} });
+    store.learnedAnswersOwner = "alice";
+    await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "bob" } });
+    ok("switch after web sign-out: alice's kept answers are wiped when bob connects", calls.forgot === 1 && !calls.forgotOpts[0].keepLearnedAnswers, JSON.stringify(calls.forgotOpts));
+    ok("switch after web sign-out: bob now owns the learned answers", store.learnedAnswersOwner === "bob");
+  }
+  {
+    const { external, calls, store } = boot({ prevAuth: {} });
+    store.learnedAnswersOwner = "alice";
+    await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "alice" } });
+    ok("same user back after web sign-out: learned answers survive", calls.forgot === 0, `got ${calls.forgot}`);
+  }
+  {
+    const { external, calls } = boot({ prevAuth: { access: "old", refresh: "old", username: "alice" } });
+    await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "alice" } });
+    ok("switch: reconnecting as the same account keeps its data", calls.forgot === 0, `got ${calls.forgot}`);
+  }
+  {
+    // An unknown name can't prove a switch, and wiping on a guess costs a Free user the only
+    // copy of their learned answers.
+    const { external, calls } = boot({ prevAuth: { access: "old", refresh: "old" } });
+    await sendExternal(external, "https://kiwiply.com", { type: "KIWIPLY_CONNECT", tokens: { access: "a", refresh: "r", username: "bob" } });
+    ok("switch: an unknown previous account is not treated as a switch", calls.forgot === 0, `got ${calls.forgot}`);
   }
   {
     const { external, calls } = boot({ logoutFails: true });

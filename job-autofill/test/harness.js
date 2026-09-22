@@ -34,7 +34,7 @@ function makeWindow(html, opts) {
   const api = {
     get: (k, cb) => (cb ? cb(store) : Promise.resolve(store)),
     set: (o, cb) => { Object.assign(store, o); cb && cb(); return Promise.resolve(); },
-    remove: (k, cb) => { delete store[k]; cb && cb(); return Promise.resolve(); },
+    remove: (k, cb) => { (Array.isArray(k) ? k : [k]).forEach((x) => delete store[x]); cb && cb(); return Promise.resolve(); },
   };
   window.chrome = {
     storage: { local: api, sync: api },

@@ -281,7 +281,19 @@ async function acceptConnectSession(tokens) {
     // Ensure the API base is set, then store the session via the shared token store.
     const settings = (await sGet("settings")) || {};
     if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api.kiwiply.com"; await sSet("settings", settings); }
-    await self.JAF.tracking.chromeTokenStore().set({ access: t.access, refresh: t.refresh, username: t.username || "" });
+    // A DIFFERENT account connecting over one that never signed out (the sign-out signal can be
+    // missed — browser closed, extension updated) must not inherit its data. Only when both
+    // names are known: an unknown name can't prove a switch, and wiping on a guess would cost a
+    // Free user their device-only learned answers.
+    // After a web sign-out the session is gone, so the owner of any kept learned answers is read
+    // from the marker that sign-out leaves behind.
+    const store = self.JAF.tracking.chromeTokenStore();
+    let previous = "";
+    try { previous = ((store.get ? await store.get() : {}) || {}).username || ""; } catch (e) {}
+    if (!previous) previous = (await sGet(LEARNED_OWNER_KEY)) || "";
+    if (previous && t.username && previous !== t.username) await forgetAccount();
+    await store.set({ access: t.access, refresh: t.refresh, username: t.username || "" });
+    if (t.username) await sSet(LEARNED_OWNER_KEY, t.username);
     track("extension_connected", {});
     return { ok: true };
   } catch (e) {
@@ -308,17 +320,18 @@ function broadcastMirrorUpdated() {
   } catch (e) { /* no receiver, or messaging unavailable */ }
 }
 
-// The two settings that describe WHOSE mirror this is: the plan badge and the profile-version
-// marker. Both must go with the session, or on a shared machine the next person to connect sees
-// the previous user's "Pro" pill until their first version check lands. Best-effort — the token
-// clear above is the part that must not fail.
-async function forgetAccountMarkers() {
+// Sign-out means this browser forgets the account: profile, resumes, learned answers, AI
+// drafts and the plan badge (JAF.storage.clearAccountData owns the list). Best-effort — the
+// token clear is the part that must not fail — and followed by a repaint so an open drawer
+// doesn't keep showing what was just removed.
+const LEARNED_OWNER_KEY = "learnedAnswersOwner"; // mirrors JAF.storage.OWNER_KEY
+
+async function forgetAccount(opts) {
+  const J = self.JAF || {};
   try {
-    const s = (await sGet("settings")) || {};
-    delete s.plan;
-    delete s.__profileVersion;
-    await sSet("settings", s);
-  } catch (e) { /* the badge is display-only; a stale one costs nothing but a wrong pill */ }
+    if (J.storage && J.storage.clearAccountData) await J.storage.clearAccountData(opts);
+  } catch (e) { /* the session is already gone; the next connect starts from the server */ }
+  broadcastMirrorUpdated();
 }
 
 async function handleSyncSignal(event) {
@@ -326,13 +339,20 @@ async function handleSyncSignal(event) {
   if (event === "signedOut") {
     // Mirrors options/actions.ts signOut(): revoke server-side if we can, then clear locally
     // regardless — the local clear is the part that must not fail.
+    // First note whose learned answers these are: they survive a web sign-out, and once the
+    // session is cleared below its username is gone.
+    try {
+      const who = ((await J.tracking.chromeTokenStore().get()) || {}).username;
+      if (who) await sSet(LEARNED_OWNER_KEY, who);
+    } catch (e) { /* the marker is also written on every connect */ }
     try {
       const settings = (await sGet("settings")) || {};
       const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
       if (provider && provider.logout) await provider.logout();
     } catch (e) { /* best-effort revoke */ }
     try { await J.tracking.chromeTokenStore().clear(); } catch (e) { return { ok: false, reason: "clear-failed" }; }
-    await forgetAccountMarkers();
+    // Web sign-out keeps learned answers (user decision 2026-09-22) — see clearAccountData.
+    await forgetAccount({ keepLearnedAnswers: true });
     track("extension_disconnected", { source: "web" });
     return { ok: true };
   }

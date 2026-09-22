@@ -96,8 +96,12 @@ export function OptionsApp() {
     setTimeout(() => setSaved(false), 1500);
   }
 
+  // Two steps, because sign-out now removes this browser's copy of the account — and for a Free
+  // user that includes the only copy of the answers Kiwiply learned while they applied.
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   async function onSignOut() {
     await signOut();
+    setConfirmingSignOut(false);
     setAccount(await readAccount());
   }
 
@@ -177,10 +181,34 @@ export function OptionsApp() {
                     <a href={WEB + "/dashboard"} target="_blank" rel="noopener" className="inline-flex">
                       <Button>Manage profile &amp; resumes →</Button>
                     </a>
-                    <Button variant="ghost" onClick={onSignOut}>
-                      Sign out
-                    </Button>
+                    {!confirmingSignOut && (
+                      <Button variant="ghost" onClick={() => setConfirmingSignOut(true)}>
+                        Sign out
+                      </Button>
+                    )}
                   </div>
+                  {confirmingSignOut && (
+                    <div className="mt-4 rounded-[var(--radius)] border border-line bg-paper-2 p-3.5">
+                      <p className="text-sm font-medium text-ink">Sign out of this browser?</p>
+                      <p className="mt-1 text-[13px] text-ink-soft">
+                        Your profile, resumes and applications stay safe in your Kiwiply account. What&apos;s removed is
+                        this browser&apos;s copy, so the next person to use it can&apos;t see them.
+                      </p>
+                      <p className="mt-1.5 text-[13px] text-ink-soft">
+                        {account.pro
+                          ? "Answers Kiwiply learned while you applied are synced to your account and come back when you sign in again."
+                          : "On the free plan, answers Kiwiply learned while you applied are stored only in this browser, so they'll be removed too."}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button variant="danger" size="sm" onClick={onSignOut}>
+                          Sign out
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmingSignOut(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   {!account.pro && (
                     <p className="mt-3 text-[12.5px] text-muted">
                       On the free plan.{" "}

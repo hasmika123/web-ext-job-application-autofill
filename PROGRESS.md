@@ -1128,6 +1128,36 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **Pre-launch review follow-ups — the two open decisions, plus two more bugs** · Ext
+  **v0.55.0**. User decisions: *clear the extension on sign-out* and *fix the timezone*.
+  **(1) Sign-out means this browser forgets the account.** Before, sign-out dropped only the
+  tokens: the drawer kept the previous user's profile and resumes (and would autofill with
+  them), and a shared computer's next user inherited everything, learned answers included.
+  `JAF.storage.clearAccountData()` is now the one definition of account-vs-device data — bio,
+  resumes + files, learned answers, AI drafts/picks, the plan badge, and `trackingPending`
+  (whose application ids would otherwise be attributed to the next account). Device settings
+  stay (BYO key, auto-advance, theme, label/job caches). Both paths use it; the options page now
+  confirms first and says plainly that on Free, learned answers exist only in this browser.
+  Connecting a *different* account over one that never signed out also clears first (only when
+  both names are known — a guess would cost a Free user their only copy). **Web sign-out keeps
+  learned answers** (user decision, option B): on Free they're the only copy and web sign-out is
+  routine, so they stay — with an owner marker, since the session holding the username is gone —
+  and are wiped the moment a different account connects. The options-page sign-out confirms
+  and clears everything. **(2) A pull prunes
+  resumes deleted on the web** — they used to linger in the picker until reinstall; local-only
+  (unpushed) resumes are never touched, and a failed list prunes nothing. **(3) Dates render in
+  the viewer's zone and hydrate cleanly.** All web dates were formatted on the UTC/en-US box —
+  a 02:53 UTC renewal read "October 22" while Stripe said the 21st — and the board and resume
+  list mismatched on hydration for anyone off UTC or en-US. Now a fixed form on the server and
+  during hydration, the viewer's own afterwards (`lib/dates.ts` pure, the hook in its own
+  client-only module so Server Components can import the formatter — the Next build caught that,
+  typecheck and lint don't). **(4) A cancelled subscription said "Renews on".** An immediate
+  cancel leaves `canceled` + `cancelAtPeriodEnd:false`, and the card fell through to "Renews on"
+  for a subscription that will never renew; now "Cancelled — you keep Pro until …". Tests:
+  `account_clear.test.js` (21, new), `sync.test.js` +3 prune cases, `sync_signal` +4. The web
+  has no unit runner, so the formatter was exercised directly under two machine time zones.
+  **Not done:** a live-browser check of the board and resume dates — Docker Desktop wasn't
+  running, so the API couldn't boot.
 - 2026-09-22 · **Pre-launch review of Phases 11–12 — five more bugs, all fixed** · Ext **v0.54.1**.
   A read-through of everything the 12.7 run could not reach, risk-ordered: money path, gates, web
   and extension surfaces, sync. **(1) Account deletion was broken for every user who had ever

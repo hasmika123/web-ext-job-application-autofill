@@ -29,8 +29,11 @@
     return merged;
   }
 
-  // PULL: server -> local cache. Profile (one bio) + resumes (matched by serverId,
-  // never deleting local-only resumes). Returns a small summary.
+  // PULL: server -> local cache. Profile (one bio) + resumes (matched by serverId). A resume
+  // that has a serverId but is no longer on the server was deleted on the web, so it is removed
+  // here too — before this, it lingered in the drawer's picker until the extension was
+  // reinstalled (found in the pre-launch review, 2026-09-22). Local-only resumes (no serverId
+  // yet: an on-the-fly upload still waiting to push) are never touched. Returns a small summary.
   async function pullAll(provider, storage) {
     storage = storage || JAF.storage;
     const out = { bio: null, resumeCount: 0 };
@@ -42,14 +45,29 @@
     }
 
     const serverResumes = await provider.listResumes();
-    if (Array.isArray(serverResumes) && serverResumes.length) {
+    // Only a real array is an answer. listResumes throws on failure, so an empty array means the
+    // account genuinely has no resumes — and pruning then is correct, not a hazard.
+    if (Array.isArray(serverResumes)) {
       const local = await storage.getResumes();
       const byServerId = {};
       local.forEach((r) => { if (r.serverId != null) byServerId[r.serverId] = r; });
+      const onServer = new Set();
       for (const sr of serverResumes) {
         const existing = sr.serverId != null ? byServerId[sr.serverId] : null;
         await storage.saveResume(mergeResume(existing, sr));
+        if (sr.serverId != null) onServer.add(String(sr.serverId));
         out.resumeCount++;
+      }
+      const gone = local.filter((r) => r.serverId != null && !onServer.has(String(r.serverId)));
+      for (const r of gone) await storage.deleteResume(r.id); // also drops its stored file
+      out.pruned = gone.length;
+      if (gone.length) {
+        // Don't leave the picker preselecting a resume that no longer exists.
+        const s = await storage.getSettings();
+        if (gone.some((r) => r.id === s.lastResumeId)) {
+          s.lastResumeId = "";
+          await storage.saveSettings(s);
+        }
       }
     }
     return out;

@@ -64,6 +64,44 @@ function fakeProvider(cfg) {
     ok("merge: kept local-only field (hasFile)", resumes[0].hasFile === true);
   }
 
+  /* ---- a pull prunes resumes deleted on the web (pre-launch review 2026-09-22) ---- */
+  {
+    const w = freshStore();
+    const S = w.JAF.storage, sync = w.JAF.sync, SCH = w.JAF.schema;
+    await S.saveResume(Object.assign(SCH.emptyResume(), { id: "res_kept", serverId: 1, label: "Kept" }));
+    await S.saveResume(Object.assign(SCH.emptyResume(), { id: "res_gone", serverId: 2, label: "Deleted on the web" }));
+    await S.saveResume(Object.assign(SCH.emptyResume(), { id: "res_local", label: "Uploaded, not pushed yet" }));
+    const s0 = await S.getSettings(); s0.lastResumeId = "res_gone"; await S.saveSettings(s0);
+
+    const out = await sync.pullAll(fakeProvider({ resumes: [{ serverId: 1, label: "Kept" }] }), S);
+    const ids = (await S.getResumes()).map((r) => r.id).sort();
+    ok("prune: a resume deleted on the web leaves the drawer", ids.indexOf("res_gone") === -1, ids.join(","));
+    ok("prune: a resume still on the server stays", ids.indexOf("res_kept") !== -1);
+    ok("prune: a local-only resume (not pushed yet) is never touched", ids.indexOf("res_local") !== -1);
+    ok("prune: reported in the summary", out.pruned === 1, JSON.stringify(out));
+    ok("prune: the picker no longer preselects the deleted resume", (await S.getSettings()).lastResumeId === "");
+  }
+  {
+    // An account with NO resumes left is a real answer, not a failed request (listResumes throws
+    // on failure) — so every synced resume goes.
+    const w = freshStore();
+    const S = w.JAF.storage, sync = w.JAF.sync, SCH = w.JAF.schema;
+    await S.saveResume(Object.assign(SCH.emptyResume(), { id: "res_a", serverId: 5, label: "A" }));
+    await sync.pullAll(fakeProvider({ resumes: [] }), S);
+    ok("prune: deleting the last resume on the web empties the picker", (await S.getResumes()).length === 0);
+  }
+  {
+    // A failed listResumes must NOT be mistaken for "no resumes".
+    const w = freshStore();
+    const S = w.JAF.storage, sync = w.JAF.sync, SCH = w.JAF.schema;
+    await S.saveResume(Object.assign(SCH.emptyResume(), { id: "res_b", serverId: 6, label: "B" }));
+    const broken = fakeProvider({});
+    broken.listResumes = async () => { throw new Error("offline"); };
+    let threw = false;
+    try { await sync.pullAll(broken, S); } catch (e) { threw = true; }
+    ok("prune: a failed list throws and prunes nothing", threw && (await S.getResumes()).length === 1);
+  }
+
   /* ---- push bio on change ---- */
   {
     const w = freshStore();
