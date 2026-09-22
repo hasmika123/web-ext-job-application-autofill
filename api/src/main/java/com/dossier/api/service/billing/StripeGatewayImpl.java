@@ -83,10 +83,12 @@ public class StripeGatewayImpl implements StripeGateway {
                 .setSuccessUrl(successUrl)
                 .setCancelUrl(cancelUrl)
                 .setAllowPromotionCodes(true)
-                .setAutomaticTax(
-                    com.stripe.param.checkout.SessionCreateParams.AutomaticTax.builder().setEnabled(props.isAutomaticTax()).build()
-                )
                 .addLineItem(LineItem.builder().setPrice(priceId).setQuantity(1L).build());
+
+            // Tax: send `true`, or send nothing at all. NEVER `false` — see #wantsAutomaticTax.
+            if (wantsAutomaticTax(props.isAutomaticTax(), props.isManagedPayments())) {
+                builder.setAutomaticTax(com.stripe.param.checkout.SessionCreateParams.AutomaticTax.builder().setEnabled(true).build());
+            }
 
             // Managed Payments (merchant of record) is newer than this SDK's typed builders, so
             // it goes through extra params. That also insulates us from the shape changing before
@@ -99,6 +101,26 @@ public class StripeGatewayImpl implements StripeGateway {
         } catch (StripeException e) {
             throw new StripeGatewayException("Could not start Stripe checkout", e);
         }
+    }
+
+    /**
+     * Whether to send {@code automatic_tax[enabled]=true} on a Checkout Session. When this is
+     * false the parameter is <b>omitted entirely</b> rather than sent as {@code false}.
+     *
+     * <p>That distinction is the whole point. Stripe enables <b>Managed Payments by default on
+     * new accounts</b>, and a Managed Payments account rejects an explicit
+     * {@code automatic_tax[enabled]=false}: <i>"Managed Payments handles taxes for you … omit
+     * this parameter or pass automatic_tax[enabled]=true"</i>. We used to send it unconditionally,
+     * which meant our default configuration was invalid against a default Stripe account — every
+     * checkout failed with a 502 (found during the 12.7 sandbox run, 2026-09-21).
+     *
+     * <p>Omitting lets the account's own setting decide, so all three cases work: Managed
+     * Payments on (Stripe handles tax), Stripe Tax configured and wanted (we ask for it), and
+     * neither (Stripe's default, off).
+     */
+    static boolean wantsAutomaticTax(boolean automaticTax, boolean managedPayments) {
+        // Managed Payments *requires* automatic tax, so asking for one asks for both.
+        return automaticTax || managedPayments;
     }
 
     @Override
