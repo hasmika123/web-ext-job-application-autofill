@@ -18,6 +18,7 @@ import com.dossier.api.domain.User;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.billing.StripeGateway;
+import com.dossier.api.service.billing.StripeGatewayException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,13 +67,21 @@ class BillingResourceIT {
 
     @BeforeEach
     void stubStripe() {
-        subscriptionRepository.deleteAll();
+        // In batch, so the DELETE runs now: Hibernate flushes inserts before deletes, and one
+        // test below commits a real row, which the next test's insert would otherwise collide with.
+        subscriptionRepository.deleteAllInBatch();
         when(stripeGateway.isEnabled()).thenReturn(true);
         when(stripeGateway.createCustomer(any(), any(), anyLong())).thenReturn("cus_stub_1");
         when(stripeGateway.createCheckoutSession(any(), any(), anyLong(), any(), any())).thenReturn("https://checkout.stripe.test/session");
         when(stripeGateway.createPortalSession(any(), any())).thenReturn("https://portal.stripe.test/session");
         // Default: Stripe agrees with our mirror. Individual tests override it.
         when(stripeGateway.hasLiveSubscription(any())).thenReturn(false);
+    }
+
+    /** The one non-transactional test commits a row; nothing after it may inherit that. */
+    @org.junit.jupiter.api.AfterEach
+    void cleanUp() {
+        subscriptionRepository.deleteAllInBatch();
     }
 
     private Subscription rowFor(String login) {
@@ -290,5 +299,27 @@ class BillingResourceIT {
             .andExpect(status().isOk());
 
         verify(stripeGateway, never()).hasLiveSubscription(any());
+    }
+
+    /**
+     * A failure creating the Checkout Session must not roll back the Stripe customer we had just
+     * created and saved — otherwise every failed attempt mints a fresh customer (the 12.7 run
+     * left several behind). Deliberately NOT {@code @Transactional}: inside a test transaction a
+     * rollback-only mark is invisible until commit, so the assertion would pass either way.
+     */
+    @Test
+    void aFailedSessionKeepsTheCustomerBinding() throws Exception {
+        when(stripeGateway.createCheckoutSession(any(), any(), anyLong(), any(), any())).thenThrow(
+            new StripeGatewayException("simulated Stripe outage")
+        );
+
+        mockMvc
+            .perform(post("/api/billing/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"plan\":\"monthly\"}"))
+            .andExpect(status().isBadGateway())
+            .andExpect(jsonPath("$.code").value("STRIPE_ERROR"));
+
+        // The customer was created once and is still bound; a retry will reuse it.
+        assertThat(subscriptionRepository.findOneByUserLogin("user").orElseThrow().getStripeCustomerId()).isEqualTo("cus_stub_1");
+        verify(stripeGateway, times(1)).createCustomer(any(), any(), anyLong());
     }
 }
