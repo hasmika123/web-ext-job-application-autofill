@@ -904,6 +904,9 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   - **14.3 as built (2026-09-23):** UID + UIDVALIDITY per folder, one session per read, 60-day /
     500-message backfill, bodies only for job mail (`JobMailRules`), attachments never opened,
     NEEDS_RECONNECT on a rejected password, backoff to 6 h, first read right after connecting.
+  - **14.5 as built (2026-09-23):** upsert matches by ATS id → link (tracking noise stripped) →
+    company + title + compatible location (< 180 days, not archived), via `ApplicationKeys`; the
+    first board's id and link are kept. No retroactive merge.
 - **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
   = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
   ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard

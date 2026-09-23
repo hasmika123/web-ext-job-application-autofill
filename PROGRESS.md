@@ -75,7 +75,7 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > mail; poll every 15 min; email only for interview/offer; order 14.2 → 14.1 → 14.3 → 14.5 → 14.4 →
 > 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **14.1 is DONE** — the
 > connect flow at `/settings/inbox`. **14.3 is DONE** — the poller reads Inbox + Sent every 15 min.
-> **Next: 14.5** — cross-board dedup (ahead of 14.4 by the plan). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **14.5 is DONE** — one application per job across boards. **Next: 14.4** — the parser (mail → status). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1076,7 +1076,7 @@ focused Claude Code session.
 - [ ] **14.4 Parser → status.** Deterministic ATS sender/subject templates → applied / interview /
   rejected / offer; Flash-Lite only on ambiguous mail; match by company + role + sending address;
   unmatched → *suggested* application.
-- [ ] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
+- [x] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
   count).* Normalized company + title (+ fuzzy location) at upsert.
 - [ ] **14.6 Notifications.** In-app + email to the user's real address on status change.
 - [ ] **14.7 Retention & deletion** *(the 8.4 slice).* Mail rows expire (12 months default); purge
@@ -1195,6 +1195,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **14.5 cross-board dedup** · The board's upsert (every path: extension fills, manual add,
+  save-from-matches) now finds the existing entry by ATS job id, then by **link without tracking noise**
+  (`gh_src`, `utm_*`, `www.`, trailing slash), then — new — by **company + title + a compatible
+  location** among entries that aren't archived and are < 180 days old (a re-try a year later is a new
+  application). `ApplicationKeys` is the one "same job" definition (14.4 will reuse it for mail):
+  "Acme, Inc." = "ACME" = "Acme.com"; "Sr. Backend Engineer II (Remote)" = "Senior Backend Engineer 2";
+  locations clash only when both name places with no place word in common ("New York" vs "New Delhi"
+  clash — shared words like "new"/"san" don't count), so one title in two cities stays two
+  applications. On a company+title match the first board's job id and link are kept, so fills from
+  either board keep landing on the same entry; status never goes back to DRAFT. Existing duplicates
+  aren't merged retroactively (prod data restarted 2026-09-17 — little to merge). No ext change.
 - 2026-09-23 · **14.3 inbox poller** · Every 15 min (`DOSSIER_INBOX_POLL_CRON`), one inbox at a time,
   one IMAP session each, read-only; and once straight after connecting (after commit, async). Per
   folder (Inbox + Sent): **UID-incremental with UIDVALIDITY** (`inbox_folder_state`) — first read /

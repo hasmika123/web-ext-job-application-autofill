@@ -353,4 +353,80 @@ class ApplicationSyncResourceIT {
         r.setUser(owner);
         return r;
     }
+
+    // ---- 14.5: the same job met on another board ----------------------------------------------
+
+    private String upsert(Map<String, Object> body) throws Exception {
+        return mockMvc
+            .perform(post("/api/profile/applications").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(body)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    }
+
+    @Test
+    @Transactional
+    void theSameJobOnAnotherBoardUpdatesTheSameEntry() throws Exception {
+        Map<String, Object> greenhouse = app("Acme, Inc.", "Sr. Backend Engineer (Remote)");
+        greenhouse.put("externalJobId", "gh-4012");
+        greenhouse.put("atsPlatform", "greenhouse");
+        greenhouse.put("jobUrl", "https://boards.greenhouse.io/acme/jobs/4012");
+        greenhouse.put("status", "APPLIED");
+        Long id = om.readTree(upsert(greenhouse)).path("id").asLong();
+
+        Map<String, Object> linkedin = app("ACME", "Senior Backend Engineer");
+        linkedin.put("externalJobId", "li-99");
+        linkedin.put("atsPlatform", "linkedin");
+        linkedin.put("jobUrl", "https://www.linkedin.com/jobs/view/99");
+        linkedin.put("status", "DRAFT");
+        String body = upsert(linkedin);
+
+        assertThat(om.readTree(body).path("id").asLong()).isEqualTo(id);
+        assertThat(om.readTree(body).path("status").asText()).isEqualTo("APPLIED"); // never back to DRAFT
+        // The first board's own id and link stay, so fills from either board land here.
+        assertThat(om.readTree(body).path("externalJobId").asText()).isEqualTo("gh-4012");
+        assertThat(om.readTree(body).path("jobUrl").asText()).isEqualTo("https://boards.greenhouse.io/acme/jobs/4012");
+        mockMvc.perform(get("/api/profile/applications")).andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @Transactional
+    void theSameTitleInAnotherCityIsAnotherApplication() throws Exception {
+        Map<String, Object> ny = app("Acme", "Backend Engineer");
+        ny.put("location", "New York, NY");
+        upsert(ny);
+        Map<String, Object> sf = app("Acme", "Backend Engineer");
+        sf.put("location", "San Francisco, CA");
+        upsert(sf);
+        mockMvc.perform(get("/api/profile/applications")).andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    @Transactional
+    void linksMatchWithoutTrackingParameters() throws Exception {
+        Map<String, Object> first = app("Globex", "Designer");
+        first.put("jobUrl", "https://boards.greenhouse.io/globex/jobs/77?gh_src=linkedin");
+        upsert(first);
+        Map<String, Object> again = app("Globex Corporation", "Product Designer"); // title differs; the link is the job
+        again.put("jobUrl", "https://boards.greenhouse.io/globex/jobs/77/");
+        upsert(again);
+        mockMvc.perform(get("/api/profile/applications")).andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @Transactional
+    void anArchivedOrOldEntryIsNotReused() throws Exception {
+        User user = userRepository.findOneByLogin("user").orElseThrow();
+        Application old = new Application()
+            .company("Initech")
+            .roleTitle("Backend Engineer")
+            .status(ApplicationStatus.REJECTED)
+            .createdAt(Instant.now().minus(java.time.Duration.ofDays(400)))
+            .updatedAt(Instant.now().minus(java.time.Duration.ofDays(400)));
+        old.setUser(user);
+        applicationRepository.saveAndFlush(old);
+        upsert(app("Initech", "Backend Engineer")); // a new try a year later
+        mockMvc.perform(get("/api/profile/applications")).andExpect(jsonPath("$.length()").value(2));
+    }
 }
