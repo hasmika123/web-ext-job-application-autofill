@@ -236,6 +236,16 @@ dossier:
     backfill-days: ${DOSSIER_INBOX_BACKFILL_DAYS:60}
     # Stored mail is deleted this long after it was sent (14.7).
     retention-days: ${DOSSIER_INBOX_RETENTION_DAYS:365}
+  # Server errors, emailed to the admin (15.1b): at most one digest every 15 minutes, each kind of
+  # error once with a count. Blank recipient = off. Defaults to the bootstrap admin's email.
+  ops:
+    error-digest:
+      # Compose passes DOSSIER_ERROR_DIGEST_TO even when it's empty, so the fallback is a
+      # property of its own rather than a nested placeholder (which only covers "unset").
+      to: ${DOSSIER_ERROR_DIGEST_TO:}
+      fallback-to: ${ADMIN_EMAIL:}
+      interval: ${DOSSIER_ERROR_DIGEST_INTERVAL:15m}
+      environment: ${DOSSIER_ENVIRONMENT:prod}
   stripe:
     # Billing (Phase 12). A BLANK secret key disables billing entirely: /api/billing/me still
     # answers (Free, billingEnabled=false) and checkout/portal return 503 BILLING_DISABLED, so
