@@ -176,8 +176,10 @@ export default function PrivacyPage() {
           create for Kiwiply — encrypted, never as you typed it, and never shown back. We use them only to sign
           in and read that mailbox&apos;s inbox and sent mail, every 15 minutes. From each message we keep the
           sender, recipients, subject and date; we keep the text only of mail about your job search (from a
-          hiring system, or about an application you track), and never attachments. We never send, move or
-          delete mail. Disconnecting deletes the app password and everything we read; deleting the app password
+          hiring system, or about an application you track), and never attachments. We read that job mail to
+          update your board — confirmations, interviews, rejections, offers — by fixed rules first; only an email
+          the rules can&apos;t settle is sent to Google Gemini (sender, subject and the start of its text). We never
+          send, move or delete mail. Disconnecting deletes the app password and everything we read; deleting the app password
           in your Google account cuts us off as well. We ask you to connect a Gmail made just for job hunting, so
           your personal mail stays out of it.
         </p>

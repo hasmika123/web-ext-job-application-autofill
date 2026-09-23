@@ -70,6 +70,37 @@ public class InboxMessage implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    // ---- 14.4a: what it said, and what it did --------------------------------------------------
+
+    /** APPLIED, INTERVIEW, ASSESSMENT, REJECTED, OFFER, ALERT or OTHER; null until read. */
+    @Column(name = "category", length = 20)
+    private String category;
+
+    /** RULE, AI or NONE. */
+    @Column(name = "classified_by", length = 10)
+    private String classifiedBy;
+
+    /** The tracked application it's about (null if none, or that application was deleted). */
+    @Column(name = "application_id")
+    private Long applicationId;
+
+    /** The status it moved that application to, when it moved it. */
+    @Column(name = "status_change", length = 20)
+    private String statusChange;
+
+    @Column(name = "company_guess", length = 200)
+    private String companyGuess;
+
+    @Column(name = "role_guess", length = 300)
+    private String roleGuess;
+
+    /** NEW / ACCEPTED / DISMISSED when this mail suggests an application nothing matched. */
+    @Column(name = "suggestion", length = 20)
+    private String suggestion;
+
+    @Column(name = "parsed_at")
+    private Instant parsedAt;
+
     public Long getId() {
         return id;
     }
@@ -188,5 +219,69 @@ public class InboxMessage implements Serializable {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getClassifiedBy() {
+        return classifiedBy;
+    }
+
+    public void setClassifiedBy(String classifiedBy) {
+        this.classifiedBy = classifiedBy;
+    }
+
+    public Long getApplicationId() {
+        return applicationId;
+    }
+
+    public void setApplicationId(Long applicationId) {
+        this.applicationId = applicationId;
+    }
+
+    public String getStatusChange() {
+        return statusChange;
+    }
+
+    public void setStatusChange(String statusChange) {
+        this.statusChange = statusChange;
+    }
+
+    public String getCompanyGuess() {
+        return companyGuess;
+    }
+
+    public void setCompanyGuess(String companyGuess) {
+        this.companyGuess = companyGuess == null || companyGuess.length() <= 200 ? companyGuess : companyGuess.substring(0, 200);
+    }
+
+    public String getRoleGuess() {
+        return roleGuess;
+    }
+
+    public void setRoleGuess(String roleGuess) {
+        this.roleGuess = roleGuess == null || roleGuess.length() <= 300 ? roleGuess : roleGuess.substring(0, 300);
+    }
+
+    public String getSuggestion() {
+        return suggestion;
+    }
+
+    public void setSuggestion(String suggestion) {
+        this.suggestion = suggestion;
+    }
+
+    public Instant getParsedAt() {
+        return parsedAt;
+    }
+
+    public void setParsedAt(Instant parsedAt) {
+        this.parsedAt = parsedAt;
     }
 }

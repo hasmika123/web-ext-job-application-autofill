@@ -53,5 +53,6 @@
     <include file="config/liquibase/changelog/20260922090000_secret_canary.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922100000_inbox_connection.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260923010000_inbox_messages.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260923020000_inbox_parse.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
