@@ -873,6 +873,28 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
 - **14.7 Retention & deletion (the 8.4 slice).** Mail rows expire (default 12 months), purge
   on disconnect and on account delete; DSAR export includes mail. Read-only guarantee stated
   in product and policy: *we never send, move or delete*.
+- **Phase 14 plan (2026-09-22, user decisions).** Sales-App's IMAP code (Node: imapflow + an
+  AES-256-GCM env key) is the model; the port uses Jakarta Mail (already on the classpath via
+  `spring-boot-starter-mail`) and fixes four things it lacks: **UID + UIDVALIDITY per folder**
+  (it syncs by date), **one connection per sync** (it opens one per message), **backoff and a
+  stopped state** — a rejected password stops polling and says "reconnect" (it retries forever),
+  and **real IMAP tests with GreenMail** (it has none). Kept from it: the Sent folder found by its
+  `\Sent` special-use flag, never by name (localised names); Message-ID dedup; an error listener on
+  every connection (an unhandled socket error once took its whole process down).
+  - **Key:** AES-256-GCM with one 32-byte key from `DOSSIER_INBOX_KEY` (box `.env` + password
+    manager — never the repo, never GitHub secrets); each ciphertext carries a key version so it
+    can be rotated; a startup canary warns when the key can't read what's stored. KMS: not now.
+  - **What's kept:** headers of every message (dedup, matching); **body text only for job mail**
+    — from a known ATS sender or tied to an application. Everything else is read in memory and
+    dropped. Never attachments. 12-month expiry (14.7).
+  - **Cadence:** every **15 minutes**, one mailbox at a time. Backfill on connect: 60 days,
+    ≤ 500 messages per folder.
+  - **Emails to the user:** **interview and offer** go out at once; applied / rejected are in-app
+    only.
+  - **Order:** 14.2 (encryption) → 14.1 (connect) → 14.3 (poller) → **14.5 (dedup) before 14.4**
+    (so mail never updates a duplicate) → 14.4 (parser) → 14.6 (notifications) → 14.7 (retention,
+    export, the read-only line). Purge-on-disconnect and account deletion land with each step, not
+    saved up for 14.7. Pro only.
 - **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
   = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
   ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard
