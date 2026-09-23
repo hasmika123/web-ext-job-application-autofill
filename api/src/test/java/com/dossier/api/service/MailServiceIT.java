@@ -153,6 +153,23 @@ class MailServiceIT {
     }
 
     @Test
+    void testStatusChangeEmail() throws Exception {
+        // Phase 14.6: the interview/offer email renders, with the company in the subject and the link.
+        User user = new User();
+        user.setLangKey(Constants.DEFAULT_LANGUAGE);
+        user.setLogin("john");
+        user.setFirstName("John");
+        user.setEmail("john.doe@example.com");
+        mailService.sendStatusChangeEmail(user, "Acme", "Backend Engineer", "INTERVIEW", "https://kiwiply.com/board?app=42");
+        verify(javaMailSender).send(messageCaptor.capture());
+        MimeMessage message = messageCaptor.getValue();
+        assertThat(message.getSubject()).isEqualTo("Interview invite: Acme");
+        assertThat(message.getAllRecipients()[0]).hasToString(user.getEmail());
+        String html = message.getContent().toString();
+        assertThat(html).contains("Hi John,").contains("interview invite for Backend Engineer").contains("https://kiwiply.com/board?app=42");
+    }
+
+    @Test
     void testCreationEmail() throws Exception {
         User user = new User();
         user.setLangKey(Constants.DEFAULT_LANGUAGE);

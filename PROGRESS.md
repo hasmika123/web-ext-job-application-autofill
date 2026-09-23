@@ -77,8 +77,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > connect flow at `/settings/inbox`. **14.3 is DONE** — the poller reads Inbox + Sent every 15 min.
 > **14.5 is DONE** — one application per job across boards. **14.4 is split**: **14.4a is DONE** — mail
 > read into status changes (rules first, Flash-Lite only when unsure). **14.4b is DONE** — "From your
-> inbox" suggestions on the board + each application's Emails. **14.4 is complete.** **Next: 14.6** —
-> notifications (in-app + email for interview/offer). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> inbox" suggestions on the board + each application's Emails. **14.4 is complete.** **14.6 is DONE** —
+> in-app notifications + emails for interviews and offers. **Next: 14.7** — retention, export, the
+> read-only line. **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1081,7 +1082,7 @@ focused Claude Code session.
   unmatched → *suggested* application.
 - [x] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
   count).* Normalized company + title (+ fuzzy location) at upsert.
-- [ ] **14.6 Notifications.** In-app + email to the user's real address on status change.
+- [x] **14.6 Notifications.** In-app + email to the user's real address on status change.
 - [ ] **14.7 Retention & deletion** *(the 8.4 slice).* Mail rows expire (12 months default); purge
   on disconnect + account delete; DSAR export includes mail; read-only guarantee in product copy.
 
@@ -1198,6 +1199,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **14.6 notifications** · Every status change from mail (`StatusChanged`) → an in-app
+  `notification` ("Acme · Backend Engineer — Moved to Interview"), linking to `/board?app=ID` (the
+  board now opens that application's panel). **Email only for Interview and Offer** (user decision) to
+  the account's own address via Brevo (`mail/statusChangeEmail`), with an off switch on the Inbox
+  page (`inbox_connection.notify_email`, on by default). **No backfill flood:** mail older than 7 days
+  notifies no one (the board still updates); only mail from the last 48 h is emailed; one notice per
+  application + status, ever. Sidebar bell with an unread badge; opening the list marks all read —
+  and reloads only after the server has, so a focus refresh can't bring the count back (found in the
+  browser check). New shared `BellIcon` in `@kiwiply/ui`. Deleted with the account. Privacy page
+  updated. No ext change.
 - 2026-09-23 · **14.4b inbox on the board** · "From your inbox" above the board (Pro): jobs the mail
   shows that aren't tracked — company · role · what the mail was (confirmation / interview invite /
   assessment / offer) · date · subject; **Add to board** lands it at the stage the mail showed, dated

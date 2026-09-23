@@ -365,12 +365,15 @@ export default function ApplicationBoard({
   resumes,
   baseProfile = {},
   isPro = false,
+  initialSelectedId = null,
 }: {
   applications: Application[];
   resumes: ResumeOption[];
   baseProfile?: Record<string, unknown>;
   /** Pro unlocks "Resume fit" in the detail panel (13.2). */
   isPro?: boolean;
+  /** Open this application's panel on load — notification links use ?app= (14.6). */
+  initialSelectedId?: number | null;
 }) {
   const router = useRouter();
   const [apps, setApps] = useState(applications);
@@ -393,7 +396,7 @@ export default function ApplicationBoard({
     setTypeFilter("all");
     setResumeFilter("all");
   };
-  const [selectedId, setSelectedId] = useState<number | null>(null); // open in the detail panel
+  const [selectedId, setSelectedId] = useState<number | null>(initialSelectedId); // open in the detail panel
   const [picked, setPicked] = useState<Set<number>>(new Set()); // multi-select for bulk actions
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [pending, setPending] = useState<Set<number>>(new Set());

@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
  *       password), 422 (Gmail refused — which way, in {@code code}), 429 (too many tries), 502
  *       (couldn't reach Gmail) or 503 (inbox unavailable). 402 {@code PRO_REQUIRED} on Free.</li>
  *   <li>{@code DELETE /api/profile/inbox} — disconnect: the connection and its password are deleted.</li>
+ *   <li>{@code PUT /api/profile/inbox/notify} {@code {email}} — emails about interviews and offers on
+ *       or off (14.6).</li>
  * </ul>
  */
 @RestController
@@ -29,6 +31,8 @@ import org.springframework.web.bind.annotation.*;
 public class InboxResource {
 
     public record ConnectVM(String address, String appPassword) {}
+
+    public record NotifyVM(Boolean email) {}
 
     private final InboxService service;
 
@@ -50,6 +54,12 @@ public class InboxResource {
             return ResponseEntity.status(r.refusal().status()).body(Map.of("code", r.refusal().code(), "message", r.refusal().message()));
         }
         return ResponseEntity.ok(r.view());
+    }
+
+    @Operation(summary = "Switch emails about interviews and offers on or off")
+    @PutMapping("/notify")
+    public InboxService.View notify(@RequestBody NotifyVM vm) {
+        return service.setNotifyEmail(vm.email() == null || vm.email());
     }
 
     @Operation(summary = "Disconnect the inbox")

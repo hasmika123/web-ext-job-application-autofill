@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 14.6 - notifications. `notification` is one in-app notice: what happened (title, body),
+        where to look (link), which application it's about, and when it was read. `status` records the
+        status it announced, so an application is never told about the same status twice. Deleted
+        with the account (and set loose if its application is deleted).
+
+        `inbox_connection.notify_email` is the user's switch for emails about interviews and offers
+        (user decision 2026-09-22: those two only; on by default). Additive.
+    -->
+    <changeSet id="20260923030000-1" author="dossier">
+        <createTable tableName="notification">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body" type="varchar(500)"/>
+            <column name="link" type="varchar(300)"/>
+            <column name="application_id" type="bigint"/>
+            <column name="status" type="varchar(20)"/>
+            <column name="read_at" type="timestamp"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="notification" indexName="ix_notification_user_created">
+            <column name="user_id"/>
+            <column name="created_at"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="notification"
+            baseColumnNames="user_id"
+            constraintName="fk_notification_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="notification"
+            baseColumnNames="application_id"
+            constraintName="fk_notification_application_id"
+            referencedTableName="application"
+            referencedColumnNames="id"
+            onDelete="SET NULL"/>
+
+        <addColumn tableName="inbox_connection">
+            <column name="notify_email" type="boolean" valueBoolean="true" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

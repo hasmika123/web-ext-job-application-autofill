@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge, Field, Input, useToast } from "@/components/ui";
+import { Badge, Field, Input, Switch, useToast } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import LocalDate from "@/components/LocalDate";
 import { cn } from "@/lib/cn";
@@ -28,6 +28,8 @@ export interface InboxView {
   lastError: string | null;
   /** Messages read so far (headers for all; text only for job mail). */
   messages: number;
+  /** Email me about interviews and offers (14.6). */
+  notifyEmail: boolean;
 }
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
@@ -54,6 +56,20 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState(view?.notifyEmail ?? true);
+
+  async function toggleNotify(on: boolean) {
+    setNotifyEmail(on);
+    const res = await fetch("/api/inbox/notify", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: on }),
+    });
+    if (!res.ok) {
+      setNotifyEmail(!on);
+      toast({ variant: "error", title: "Couldn't change that right now." });
+    }
+  }
 
   if (!isPro) {
     return (
@@ -146,6 +162,15 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
             </p>
           )}
           <p className="mt-3 text-[13px] text-ink-soft">We check it every 15 minutes, the inbox and the sent mail.</p>
+
+          <div className="mt-4 border-t border-line pt-4">
+            <Switch
+              label="Email me about interviews and offers"
+              description="Sent to your Kiwiply account's email, not this Gmail. Every other update shows under Notifications."
+              checked={notifyEmail}
+              onCheckedChange={(v) => void toggleNotify(v)}
+            />
+          </div>
 
           <div className="mt-4 border-t border-line pt-4">
             {confirming ? (

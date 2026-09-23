@@ -1,0 +1,18 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
+  <head>
+    <title th:text="${subject}">Interview invite</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #232826; line-height: 1.5">
+    <p th:text="#{email.status.greeting(${name})}">Hi Sam,</p>
+    <p th:if="${stage == 'OFFER'}" th:text="#{email.status.offer.text(${company}, ${role})}">An offer.</p>
+    <p th:unless="${stage == 'OFFER'}" th:text="#{email.status.interview.text(${company}, ${role})}">An interview.</p>
+    <p th:text="#{email.status.check}">Read the original email.</p>
+    <p>
+      <a th:href="${link}" th:text="#{email.status.link}" style="color: #4c7a1f; font-weight: 600">Open your board</a>
+    </p>
+    <p style="color: #6b726e; font-size: 12px" th:text="#{email.status.footer}">Footer</p>
+    <p><em th:text="#{email.signature}">Kiwiply Team.</em></p>
+  </body>
+</html>
