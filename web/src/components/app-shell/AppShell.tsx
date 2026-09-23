@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Logo, BetaBadge } from "@/components/ui";
-import { BoardIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, GearIcon, UserIcon } from "@kiwiply/ui";
+import { BoardIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, GearIcon, SearchIcon, UserIcon } from "@kiwiply/ui";
 import SignOutButton from "@/components/SignOutButton";
 
 export interface AppAccount {
@@ -57,6 +57,7 @@ const I = {
   profile: <UserIcon className={ICON} />,
   resumes: <FileTextIcon className={ICON} />,
   board: <BoardIcon className={ICON} />,
+  matches: <SearchIcon className={ICON} />,
   settings: <GearIcon className={ICON} />,
 };
 
@@ -65,6 +66,7 @@ const NAV: NavItem[] = [
   { href: "/profile", label: "Profile", icon: I.profile },
   { href: "/resumes", label: "Resumes", icon: I.resumes },
   { href: "/board", label: "Application board", icon: I.board },
+  { href: "/matches", label: "Job matches", icon: I.matches },
   { href: "/settings", label: "Settings", icon: I.settings },
 ];
 

@@ -846,6 +846,9 @@ pull only on change:**
   no-AI pre-filter (location segment, title words, level, skills) picks ≤ 50; one Flash-Lite call
   scores them (match % + ≤ 15-word reason), metered against the user's budget; ≥ 60 is shown. Ashby's
   `isRemote` is set on hybrid jobs, so a stated workplace type always wins.
+- **13.6c as built (2026-09-22):** `/matches` — the switch (its caption is the consent), today's list
+  (≥ 60, best first, with the reason), save to board as a SAVED application built server-side from the
+  posting, or dismiss for good. **Phase 13 is complete.**
 
 ### Phase 14 — Inbox: IMAP  *(Launch 1 — needs 12)*
 **Design — mirrors Sales-App `integrations/email/imap`: no Kiwiply address of any kind.** The
