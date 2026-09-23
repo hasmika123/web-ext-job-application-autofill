@@ -20,6 +20,14 @@ public interface InboxMessageRepository extends JpaRepository<InboxMessage, Long
     /** Messages not read by the parser yet (14.4a), oldest first — later mail should win. */
     List<InboxMessage> findTop500ByUserIdAndParsedAtIsNullOrderBySentAtAscIdAsc(Long userId);
 
+    /** A user's suggestions in one state (14.4b), newest first. */
+    List<InboxMessage> findByUserIdAndSuggestionOrderBySentAtDesc(Long userId, String suggestion);
+
+    /** The mail about one application (14.4b), newest first. */
+    List<InboxMessage> findByUserIdAndApplicationIdOrderBySentAtDesc(Long userId, Long applicationId);
+
+    Optional<InboxMessage> findOneByIdAndUserId(Long id, Long userId);
+
     /** The message a reply answers, by its Message-ID — to follow a thread to its application. */
     Optional<InboxMessage> findFirstByUserIdAndMessageId(Long userId, String messageId);
 

@@ -25,6 +25,7 @@ import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 import { formatDate as formatDateIn, type DateDisplay } from "@/lib/dates";
 import { useDateDisplay } from "@/lib/use-date-display";
 import ResumeFit from "@/components/board/ResumeFit";
+import ApplicationEmails from "@/components/board/ApplicationEmails";
 
 export interface Application {
   id: number;
@@ -1996,6 +1997,9 @@ function DetailPanel({
                     linkedResumeId={app.resume?.id ?? null}
                     onLink={(resumeId) => onSaveDetails({ resumeId })}
                   />
+
+                  {/* 14.4b — the mail the inbox matched to this application (hidden when there's none). */}
+                  <ApplicationEmails key={`mail-${app.id}`} appId={app.id} />
 
                   {/* Resume preview — collapsed by default; the file is only requested from the
                       backend once the user expands this section (the iframe mounts on open). */}

@@ -1,6 +1,7 @@
 import { serverApiFetch } from "@/lib/api";
 import ApplicationBoard, { type Application } from "@/components/ApplicationBoard";
 import { getPlan } from "@/lib/billing";
+import InboxSuggestions, { type InboxSuggestion } from "@/components/board/InboxSuggestions";
 
 /**
  * Application board. The self-populating tracker: the extension logs a DRAFT as you
@@ -17,6 +18,13 @@ export default async function BoardPage() {
   ]);
 
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
+
+  // 14.4b — jobs the connected inbox found that the board doesn't track (Pro; empty otherwise).
+  let suggestions: InboxSuggestion[] = [];
+  if (plan.plan === "PRO") {
+    const sugRes = await serverApiFetch("/api/profile/inbox/suggestions");
+    if (sugRes.ok) suggestions = ((await sugRes.json().catch(() => [])) as InboxSuggestion[]) ?? [];
+  }
 
   // Resume options for the board's "which resume did I send?" pickers (id + label + default flag).
   const rawResumes = resumesRes.ok
@@ -72,7 +80,10 @@ export default async function BoardPage() {
         )}
       </header>
 
-      <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} isPro={plan.plan === "PRO"} />
+      <div>
+        <InboxSuggestions items={suggestions} />
+        <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} isPro={plan.plan === "PRO"} />
+      </div>
     </div>
   );
 }
