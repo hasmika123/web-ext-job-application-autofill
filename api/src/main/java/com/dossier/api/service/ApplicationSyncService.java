@@ -14,6 +14,7 @@ import com.dossier.api.service.dto.ApplicationDTO;
 import com.dossier.api.service.mapper.ApplicationMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
@@ -32,7 +33,9 @@ import org.springframework.web.server.ResponseStatusException;
  * <p>The headline operation is {@link #upsertApplication}: re-filling the same job
  * updates the same entry instead of piling up duplicates. The dedup key is the
  * ATS-native {@code externalJobId} first, then {@code jobUrl} (the pinned 3.2
- * decision: create a DRAFT on every fill, dedup so the board stays clean).
+ * decision: create a DRAFT on every fill, dedup so the board stays clean), then — since
+ * 14.5 — the same company + title + a compatible location, for the same job met on
+ * another board ({@link ApplicationKeys}).
  */
 @Service
 @Transactional
@@ -76,7 +79,11 @@ public class ApplicationSyncService {
      */
     public ApplicationDTO upsertApplication(ApplicationDTO dto) {
         User user = currentUser();
-        Application existing = findDedupMatch(dto);
+        DedupMatch match = findDedupMatch(dto);
+        Application existing = match == null ? null : match.application();
+        // Matched as the same job seen on another board (14.5): keep the first board's own id and
+        // link rather than swapping them for this one's, so later fills from either still land here.
+        boolean sameJobElsewhere = match != null && match.byCompanyAndTitle();
         Application app = existing != null ? existing : new Application();
         Instant now = Instant.now();
 
@@ -92,7 +99,7 @@ public class ApplicationSyncService {
         // Captured job fields — refresh with the latest capture when the client sends them.
         if (dto.getCompany() != null) app.setCompany(dto.getCompany());
         if (dto.getRoleTitle() != null) app.setRoleTitle(dto.getRoleTitle());
-        if (dto.getJobUrl() != null) app.setJobUrl(dto.getJobUrl());
+        if (dto.getJobUrl() != null && !(sameJobElsewhere && !isBlank(app.getJobUrl()))) app.setJobUrl(dto.getJobUrl());
         if (dto.getLocation() != null) app.setLocation(dto.getLocation());
         if (dto.getJobType() != null) app.setJobType(dto.getJobType());
         if (dto.getJobMode() != null) app.setJobMode(dto.getJobMode());
@@ -100,8 +107,8 @@ public class ApplicationSyncService {
         if (dto.getSalary() != null) app.setSalary(dto.getSalary());
         if (dto.getStarred() != null) app.setStarred(dto.getStarred());
         if (dto.getArchived() != null) app.setArchived(dto.getArchived());
-        if (dto.getExternalJobId() != null) app.setExternalJobId(dto.getExternalJobId());
-        if (dto.getAtsPlatform() != null) app.setAtsPlatform(dto.getAtsPlatform());
+        if (dto.getExternalJobId() != null && !(sameJobElsewhere && !isBlank(app.getExternalJobId()))) app.setExternalJobId(dto.getExternalJobId());
+        if (dto.getAtsPlatform() != null && !(sameJobElsewhere && !isBlank(app.getAtsPlatform()))) app.setAtsPlatform(dto.getAtsPlatform());
         if (dto.getJobDescription() != null) app.setJobDescription(dto.getJobDescription());
         if (dto.getSource() != null) app.setSource(dto.getSource());
         if (dto.getSubmissionConfirmed() != null) app.setSubmissionConfirmed(dto.getSubmissionConfirmed());
@@ -171,33 +178,50 @@ public class ApplicationSyncService {
         );
     }
 
+    /** An existing entry for this job, and whether it was found by company + title (another board). */
+    record DedupMatch(Application application, boolean byCompanyAndTitle) {}
+
+    /** How far back a company + title match reaches: a job search runs 3–6 months. */
+    static final Duration SAME_JOB_WINDOW = Duration.ofDays(180);
+
     /**
-     * Find the current user's existing entry for this job: by {@code externalJobId}
-     * first (ATS-native, most precise), then by {@code jobUrl}. Null = no match =
-     * create a new row.
+     * Find the current user's existing entry for this job (null = create a new row):
+     *
+     * <ol>
+     *   <li>by {@code externalJobId} — ATS-native, most precise;</li>
+     *   <li>by {@code jobUrl}, ignoring tracking parameters, "www." and a trailing slash;</li>
+     *   <li>14.5 — by company + title + a compatible location ({@link ApplicationKeys}): the same
+     *       job met on another board. Only among entries that aren't archived and were created in
+     *       the last 180 days, so re-applying to the same role a year later is a new application.</li>
+     * </ol>
      */
-    private Application findDedupMatch(ApplicationDTO dto) {
+    private DedupMatch findDedupMatch(ApplicationDTO dto) {
         String ext = trimToNull(dto.getExternalJobId());
         String url = trimToNull(dto.getJobUrl());
-        if (ext == null && url == null) {
-            return null;
-        }
         List<Application> mine = applicationRepository.findByUserIsCurrentUser();
         if (ext != null) {
             for (Application a : mine) {
                 if (ext.equals(a.getExternalJobId())) {
-                    return a;
+                    return new DedupMatch(a, false);
                 }
             }
         }
         if (url != null) {
+            String key = ApplicationKeys.url(url);
             for (Application a : mine) {
-                if (url.equals(a.getJobUrl())) {
-                    return a;
+                if (a.getJobUrl() != null && key.equals(ApplicationKeys.url(a.getJobUrl()))) {
+                    return new DedupMatch(a, false);
                 }
             }
         }
-        return null;
+        Instant since = Instant.now().minus(SAME_JOB_WINDOW);
+        Application best = null;
+        for (Application a : mine) {
+            if (Boolean.TRUE.equals(a.getArchived()) || a.getCreatedAt() == null || a.getCreatedAt().isBefore(since)) continue;
+            if (!ApplicationKeys.sameJob(dto.getCompany(), dto.getRoleTitle(), dto.getLocation(), a.getCompany(), a.getRoleTitle(), a.getLocation())) continue;
+            if (best == null || a.getCreatedAt().isAfter(best.getCreatedAt())) best = a;
+        }
+        return best == null ? null : new DedupMatch(best, true);
     }
 
     /**
