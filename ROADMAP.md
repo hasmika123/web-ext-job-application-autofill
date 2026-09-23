@@ -895,6 +895,9 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
     (so mail never updates a duplicate) → 14.4 (parser) → 14.6 (notifications) → 14.7 (retention,
     export, the read-only line). Purge-on-disconnect and account deletion land with each step, not
     saved up for 14.7. Pro only.
+  - **14.2 as built (2026-09-22):** `SecretBox` (AES-256-GCM, per-row associated data, versioned
+    ciphertexts for rotation) + `InboxKeyCheck` (a startup canary: a changed key turns the inbox off
+    and says so, instead of failing every poll). DEPLOY.md §12.
 - **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
   = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
   ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard

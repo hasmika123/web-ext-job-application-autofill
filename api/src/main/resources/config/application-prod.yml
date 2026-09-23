@@ -223,6 +223,12 @@ dossier:
     fetch-cron: ${DOSSIER_JOBS_FETCH_CRON:0 0 2 * * *}
     # Daily matching for users who switched it on (13.6b), after the read.
     match-cron: ${DOSSIER_JOBS_MATCH_CRON:0 0 4 * * *}
+  # The inbox's encryption key (14.2): AES-256-GCM for Gmail app passwords. Generate once with
+  # `openssl rand -base64 32`, put it in the box's .env AND the password manager. Blank = inbox off.
+  # Rotating: new key + key-version + 1, and move the old one under retired-keys (DEPLOY.md §12).
+  inbox:
+    key: ${DOSSIER_INBOX_KEY:}
+    key-version: ${DOSSIER_INBOX_KEY_VERSION:1}
   stripe:
     # Billing (Phase 12). A BLANK secret key disables billing entirely: /api/billing/me still
     # answers (Free, billingEnabled=false) and checkout/portal return 503 BILLING_DISABLED, so
