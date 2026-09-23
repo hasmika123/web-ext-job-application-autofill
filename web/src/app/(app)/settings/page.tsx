@@ -5,6 +5,8 @@ import DeleteAccountButton from "@/components/DeleteAccountButton";
 import SettingsNav from "@/components/settings/SettingsNav";
 import BillingCard from "@/components/billing/BillingCard";
 import { getPlan } from "@/lib/billing";
+import { getAiUsage } from "@/lib/ai-usage";
+import AiUsageMeter from "@/components/settings/AiUsageMeter";
 
 type Account = {
   login?: string;
@@ -34,7 +36,7 @@ export default async function SettingsPage() {
     redirect("/login");
   }
   const account: Account | null = res.ok ? await res.json() : null;
-  const plan = await getPlan();
+  const [plan, aiUsage] = await Promise.all([getPlan(), getAiUsage()]);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
@@ -77,9 +79,10 @@ export default async function SettingsPage() {
 
           {/* AI & drafting */}
           <Card id="ai" title="AI & drafting">
+            {aiUsage && <AiUsageMeter usage={aiUsage} />}
             <SettingRow
               title="Kiwiply AI"
-              desc="Draft answers to open-ended application questions (e.g. “Why this role?”). Opt-in with explicit consent; free-tier quota."
+              desc="Draft answers to open-ended application questions (e.g. “Why this role?”), pick options and map fields. Part of Pro, opt-in with explicit consent. Resume parsing is free."
             />
             <SettingRow
               title="Bring your own key"

@@ -52,6 +52,8 @@
     // Phase 11.2 — the server's fingerprint of bio + resumes; the extension re-pulls only when it
     // changes. Since 12.3 it also carries the plan: { version, plan }.
     async profileVersion() { throw new NotSupportedError("profileVersion"); }
+    // Phase 13.1c — this month's AI meter. Implemented by createKiwiplyProvider.
+    async aiUsage() { throw new NotSupportedError("aiUsage"); }
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
@@ -347,6 +349,13 @@
       // extension learns about an upgrade inside a check it already makes.
       // Either field is null when the server doesn't send it — a null version makes the
       // caller pull to be safe, a null plan leaves the last known plan alone.
+      // ---- Phase 13.1c: this month's AI meter --------------------------------
+      // { metered: "budget", used: <percent>, limit: 100, resetsAt } for Pro (never dollars), or
+      // { metered: "count", used: <parses>, limit: <quota>, resetsAt } for Free.
+      async aiUsage() {
+        return request("GET", "/api/ai/usage");
+      },
+
       async profileVersion() {
         const r = (await request("GET", "/api/profile/version")) || {};
         return {

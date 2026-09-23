@@ -7,16 +7,41 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-interface UserUsage {
-  login: string;
-  draftCount: number;
+interface UserSpend {
+  /** null = spend kept from deleted accounts. */
+  login: string | null;
+  calls: number;
+  costMicros: number;
+  percentOfProBudget: number;
+}
+interface TaskSpend {
+  task: string;
+  calls: number;
+  costMicros: number;
 }
 interface AiUsageView {
   period: string;
-  defaultQuota: number;
-  totalDrafts: number;
+  proBudgetMicros: number;
+  freeParsesPerMonth: number;
+  totalCostMicros: number;
+  totalCalls: number;
   userCount: number;
-  users: UserUsage[];
+  users: UserSpend[];
+  tasks: TaskSpend[];
+}
+
+const TASK_LABELS: Record<string, string> = {
+  draft: "Answer drafting",
+  pick: "Option picks",
+  map: "Field mapping",
+  enrich: "Job enrichment",
+  parse: "Resume parsing",
+};
+
+/** Dollars from millionths of a dollar. Small amounts keep 4 decimals so a $0.0024 call isn't "$0.00". */
+function usd(micros: number): string {
+  const d = micros / 1_000_000;
+  return `$${d.toFixed(d !== 0 && Math.abs(d) < 1 ? 4 : 2)}`;
 }
 
 function shiftMonth(period: string, delta: number): string {
@@ -25,6 +50,11 @@ function shiftMonth(period: string, delta: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * Admin AI usage (Phase 9.A2.1; cost-based since 13.1c). What server AI actually cost in a UTC
+ * month, from the `ai_call` ledger: the total, per user (dearest first, with each user's share of the
+ * Pro budget) and per feature. This is the only place dollars appear — users see a percentage.
+ */
 export default async function AdminAiUsagePage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const sp = await searchParams;
   const periodParam = sp.period && /^\d{4}-\d{2}$/.test(sp.period) ? `?period=${sp.period}` : "";
@@ -41,13 +71,17 @@ export default async function AdminAiUsagePage({ searchParams }: { searchParams:
     );
   }
   const data = (await res.json()) as AiUsageView;
+  const avg = data.userCount > 0 ? data.totalCostMicros / data.userCount : 0;
 
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-[26px] font-bold tracking-tight text-ink">AI usage</h1>
-          <p className="mt-1 text-sm text-ink-soft">Server-side drafting meter for {data.period}.</p>
+          <p className="mt-1 text-sm text-ink-soft">
+            What server AI cost in {data.period} (UTC), from every call&apos;s billed tokens. Pro budget:{" "}
+            {usd(data.proBudgetMicros)}/user/month · Free: {data.freeParsesPerMonth} resume parses/month.
+          </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Link href={`/admin/ai?period=${shiftMonth(data.period, -1)}`} className="rounded-[var(--radius)] border border-line px-3 py-1.5 font-medium text-ink hover:bg-paper-2">
@@ -59,43 +93,79 @@ export default async function AdminAiUsagePage({ searchParams }: { searchParams:
         </div>
       </header>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Stat label="Total drafts" value={data.totalDrafts.toLocaleString()} />
-        <Stat label="Active users" value={data.userCount.toLocaleString()} />
-        <Stat label="Free quota / user" value={`${data.defaultQuota}/mo`} />
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Total cost" value={usd(data.totalCostMicros)} />
+        <Stat label="Calls" value={data.totalCalls.toLocaleString()} />
+        <Stat label="Users with AI" value={data.userCount.toLocaleString()} />
+        <Stat label="Average per user" value={usd(avg)} />
       </div>
 
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-soft">By feature</h2>
+      <div className="mb-8 overflow-x-auto rounded-[var(--radius)] border border-line">
+        <table className="w-full min-w-[420px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-line bg-paper-2 text-left text-[12px] uppercase tracking-wide text-ink-soft">
+              <th className="px-4 py-2.5 font-semibold">Feature</th>
+              <th className="px-4 py-2.5 font-semibold">Calls</th>
+              <th className="px-4 py-2.5 font-semibold">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.tasks.length === 0 && (
+              <tr>
+                <td colSpan={3} className="px-4 py-6 text-center text-ink-soft">
+                  No AI calls this month.
+                </td>
+              </tr>
+            )}
+            {data.tasks.map((t) => (
+              <tr key={t.task} className="border-b border-line bg-paper last:border-0">
+                <td className="px-4 py-2.5 font-medium text-ink">{TASK_LABELS[t.task] ?? t.task}</td>
+                <td className="px-4 py-2.5 text-ink">{t.calls.toLocaleString()}</td>
+                <td className="px-4 py-2.5 text-ink">{usd(t.costMicros)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-soft">By user</h2>
       <div className="overflow-x-auto rounded-[var(--radius)] border border-line">
-        <table className="w-full min-w-[480px] border-collapse text-sm">
+        <table className="w-full min-w-[520px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-line bg-paper-2 text-left text-[12px] uppercase tracking-wide text-ink-soft">
               <th className="px-4 py-2.5 font-semibold">User</th>
-              <th className="px-4 py-2.5 font-semibold">Drafts</th>
-              <th className="px-4 py-2.5 font-semibold">vs quota</th>
+              <th className="px-4 py-2.5 font-semibold">Calls</th>
+              <th className="px-4 py-2.5 font-semibold">Cost</th>
+              <th className="px-4 py-2.5 font-semibold">Of Pro budget</th>
             </tr>
           </thead>
           <tbody>
             {data.users.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-ink-soft">
+                <td colSpan={4} className="px-4 py-8 text-center text-ink-soft">
                   No AI usage this month.
                 </td>
               </tr>
             )}
             {data.users.map((u) => {
-              const over = u.draftCount >= data.defaultQuota;
+              const high = u.percentOfProBudget >= 80;
               return (
-                <tr key={u.login} className="border-b border-line last:border-0 bg-paper">
+                <tr key={u.login ?? "__deleted"} className="border-b border-line bg-paper last:border-0">
                   <td className="px-4 py-2.5">
-                    <Link href={`/admin/users/${encodeURIComponent(u.login)}`} className="font-medium text-ink hover:underline">
-                      {u.login}
-                    </Link>
+                    {u.login ? (
+                      <Link href={`/admin/users/${encodeURIComponent(u.login)}`} className="font-medium text-ink hover:underline">
+                        {u.login}
+                      </Link>
+                    ) : (
+                      <span className="italic text-ink-soft">Deleted accounts</span>
+                    )}
                   </td>
-                  <td className="px-4 py-2.5 text-ink">{u.draftCount}</td>
+                  <td className="px-4 py-2.5 text-ink">{u.calls.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-ink">{usd(u.costMicros)}</td>
                   <td className="px-4 py-2.5">
-                    <span className={over ? "font-semibold text-danger" : "text-ink-soft"}>
-                      {u.draftCount} / {data.defaultQuota}
-                      {over && " · over"}
+                    <span className={high ? "font-semibold text-danger" : "text-ink-soft"}>
+                      {u.percentOfProBudget}%{high && " · near the cap"}
                     </span>
                   </td>
                 </tr>

@@ -16,13 +16,26 @@ import {
   Select,
   Switch,
   Badge,
+  Meter,
   inputClass,
   MonitorIcon,
   MoonIcon as SharedMoonIcon,
   SunIcon as SharedSunIcon,
 } from "@kiwiply/ui";
 import { BrandLogo } from "../../lib/Brand";
-import { loadSettings, saveSettings, readAccount, signOut, sendBug, WEB, type Settings, type Account } from "./actions";
+import {
+  loadSettings,
+  saveSettings,
+  readAccount,
+  readAiUsage,
+  describeAiUsage,
+  signOut,
+  sendBug,
+  WEB,
+  type Settings,
+  type Account,
+  type AiUsage,
+} from "./actions";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
 
 const SECTIONS = [
@@ -51,8 +64,24 @@ export function OptionsApp() {
   const [bugSending, setBugSending] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("account");
   const [theme, setTheme] = useState<ThemePref>("system");
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
 
   const bugMsgRef = useRef<HTMLTextAreaElement>(null);
+
+  // 13.1c: this month's AI meter, fetched whenever the connection changes (null = not shown).
+  useEffect(() => {
+    if (!account.connected) {
+      setAiUsage(null);
+      return;
+    }
+    let live = true;
+    readAiUsage().then((u) => {
+      if (live) setAiUsage(u);
+    });
+    return () => {
+      live = false;
+    };
+  }, [account.connected, account.pro]);
 
   useEffect(() => {
     loadSettings().then(setForm);
@@ -289,6 +318,18 @@ export function OptionsApp() {
 
               <div className="mt-5 flex flex-col gap-3 border-t border-line pt-4">
                 <div className={subhead}>Kiwiply AI · no key needed</div>
+                {aiUsage && (
+                  <div className="rounded-[var(--radius)] border border-line bg-paper p-3">
+                    <div className="mb-2 text-[13px] font-semibold text-ink">{describeAiUsage(aiUsage).headline}</div>
+                    <Meter
+                      value={aiUsage.metered === "budget" ? Math.round(aiUsage.used) : aiUsage.used}
+                      max={aiUsage.limit || 100}
+                      label={aiUsage.metered === "budget" ? "Kiwiply AI used this month" : "AI resume parses used this month"}
+                      valueText={aiUsage.metered === "budget" ? `${Math.round(aiUsage.used)} percent` : `${aiUsage.used} of ${aiUsage.limit}`}
+                    />
+                    <p className="mt-1.5 text-[12px] text-muted">{describeAiUsage(aiUsage).detail}</p>
+                  </div>
+                )}
                 <Switch
                   checked={!!form?.serverAi}
                   onCheckedChange={(v) => patch({ serverAi: v })}

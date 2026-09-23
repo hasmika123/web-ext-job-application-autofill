@@ -262,6 +262,45 @@ class AiResourceIT {
         verify(aiProvider, never()).generate(any(), any(), anyString(), anyString());
     }
 
+    // ---- 13.1c: the meter ----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = "user")
+    void theMeterShowsAProUsersPercent() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        AiCall spent = new AiCall();
+        spent.setLogin("user");
+        spent.setTask("draft");
+        spent.setModel("gemini-2.5-flash-lite");
+        spent.setCostMicros(1_600_000L); // $1.60 of $5
+        aiCallRepository.save(spent);
+        mockMvc
+            .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/ai/usage"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.metered").value("budget"))
+            .andExpect(jsonPath("$.used").value(32))
+            .andExpect(jsonPath("$.limit").value(100))
+            .andExpect(jsonPath("$.resetsAt").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void theMeterShowsAFreeUsersParses() throws Exception {
+        mockMvc
+            .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/ai/usage"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.metered").value("count"))
+            .andExpect(jsonPath("$.used").value(0))
+            .andExpect(jsonPath("$.limit").value(50));
+    }
+
+    @Test
+    void theMeterRequiresAuthentication() throws Exception {
+        mockMvc
+            .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/ai/usage"))
+            .andExpect(status().isUnauthorized());
+    }
+
     /** Spend from a PREVIOUS month doesn't count against this one. */
     @Test
     @WithMockUser(username = "user")

@@ -71,6 +71,37 @@ export async function readAccount(): Promise<Account> {
   return { connected: !!(tok && tok.access), who: tok.username || "your account", pro };
 }
 
+/** This month's AI meter (13.1c): a percent for Pro, a resume-parse count for Free. Never dollars. */
+export type AiUsage = { metered: "budget" | "count"; used: number; limit: number; resetsAt: string; economy: boolean };
+
+/** null when not connected or the server can't say — the meter simply isn't shown. */
+export async function readAiUsage(): Promise<AiUsage | null> {
+  try {
+    const s = await JAF().storage.getSettings();
+    const tokenStore = JAF().tracking.chromeTokenStore();
+    const provider = JAF().tracking.createKiwiplyProvider({ baseUrl: s.apiBaseUrl || API_FALLBACK, tokenStore });
+    if (!(await provider.isAuthenticated())) return null;
+    const u: any = await provider.aiUsage();
+    if (!u || (u.metered !== "budget" && u.metered !== "count") || typeof u.used !== "number") return null;
+    return { metered: u.metered, used: u.used, limit: Number(u.limit) || 0, resetsAt: String(u.resetsAt || ""), economy: !!u.economy };
+  } catch {
+    return null;
+  }
+}
+
+/** The words for the meter. The reset is a UTC month boundary, so it is shown in UTC ("October 1"). */
+export function describeAiUsage(u: AiUsage): { headline: string; detail: string } {
+  const d = u.resetsAt ? new Date(u.resetsAt) : null;
+  const resets = d && !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" }) : "";
+  const when = resets ? `Resets ${resets}.` : "Resets at the start of next month.";
+  if (u.metered === "budget") {
+    const used = Math.min(100, Math.max(0, Math.round(u.used)));
+    if (used >= 100) return { headline: "You've used this month's Kiwiply AI", detail: `${when} Your own API key above still works until then.` };
+    return { headline: `${used}% of this month's Kiwiply AI used`, detail: u.economy ? `${when} Until then Kiwiply AI uses a lighter, faster model.` : when };
+  }
+  return { headline: `${u.used} of ${u.limit} AI resume parses used this month`, detail: `${when} Drafting and the other Kiwiply AI features come with Pro.` };
+}
+
 export async function signOut(): Promise<void> {
   const tokenStore = JAF().tracking.chromeTokenStore();
   try {
