@@ -274,6 +274,14 @@ function mockFetch(handler) {
   ok("resumeMatch caps the job description it sends", fetchFit.calls[0].body.jobDescription.length === 20000 && fetchFit.calls[0].body.role === "Backend Engineer" && fetchFit.calls[0].body.consent === true);
   ok("resumeMatch returns the server's best match", fit && fit.best && fit.best.resumeId === 11);
 
+  /* ---- job fit (Phase 13.3) — POST /api/ai/job-fit ---- */
+  const fetchJobFit = mockFetch(() => ({ status: 200, json: { fit: { resumeId: 11, score: 71, matched: ["Java"], missing: ["Terraform"], redFlags: [] }, cached: false } }));
+  const pJobFit = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchJobFit, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const jf = await pJobFit.jobFit({ resumeId: "11", jobDescription: "y".repeat(21000), role: "Backend Engineer", company: "Acme", consent: true });
+  ok("jobFit POSTs /api/ai/job-fit with the server resume id", fetchJobFit.calls[0].method === "POST" && fetchJobFit.calls[0].path === "/api/ai/job-fit" && fetchJobFit.calls[0].body.resumeId === 11);
+  ok("jobFit caps the job description", fetchJobFit.calls[0].body.jobDescription.length === 20000 && fetchJobFit.calls[0].headers.Authorization === "Bearer A");
+  ok("jobFit returns the report", jf && jf.fit && jf.fit.missing[0] === "Terraform");
+
   /* ---- aiParseResume — POSTs /api/ai/parse-resume (text or file mode) ---- */
   const fetchParse = mockFetch(() => ({ status: 200, json: { parsed: { summary: "s", skills: ["Java"] }, used: 2, quota: 50 } }));
   const pParse = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchParse, tokenStore: T.memoryTokenStore({ access: "A" }) });

@@ -56,6 +56,8 @@
     async aiUsage() { throw new NotSupportedError("aiUsage"); }
     // Phase 13.2 — score the user's resumes against a job description (Pro).
     async resumeMatch(/* { jobDescription, role, company, consent } */) { throw new NotSupportedError("resumeMatch"); }
+    // Phase 13.3 — one resume against one job: match %, missing keywords, red flags (Pro).
+    async jobFit(/* { resumeId, jobDescription, role, company, consent } */) { throw new NotSupportedError("jobFit"); }
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
@@ -365,6 +367,22 @@
       async resumeMatch({ jobDescription, role, company, consent } = {}) {
         return request("POST", "/api/ai/resume-match", {
           body: { jobDescription: String(jobDescription || "").slice(0, 20000), role: role || "", company: company || "", consent: consent !== false },
+        });
+      },
+
+      // ---- Phase 13.3: the job-fit panel (Pro) ----------------------------------
+      // { fit:{resumeId,label,score,summary,matched[],missing[],redFlags[]}, cached } | { disabled }
+      // | { consentRequired } | { quotaExceeded, resetsAt } | { noResume } | { noJobDescription };
+      // 402 PRO_REQUIRED on Free; 404 for a resume that isn't the user's. `resumeId` = SERVER id.
+      async jobFit({ resumeId, jobDescription, role, company, consent } = {}) {
+        return request("POST", "/api/ai/job-fit", {
+          body: {
+            resumeId: resumeId == null ? null : Number(resumeId),
+            jobDescription: String(jobDescription || "").slice(0, 20000),
+            role: role || "",
+            company: company || "",
+            consent: consent !== false,
+          },
         });
       },
 

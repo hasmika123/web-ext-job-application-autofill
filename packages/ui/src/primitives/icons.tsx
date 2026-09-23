@@ -274,6 +274,17 @@ export const GripIcon = makeIcon("GripIcon", {
 
 /* ── Admin / status ──────────────────────────────────────────────────────────────── */
 
+/** A warning triangle — red flags in the job-fit report (13.3). */
+export const AlertIcon = makeIcon("AlertIcon", {
+  node: (
+    <>
+      <path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </>
+  ),
+});
+
 export const ShieldIcon = makeIcon("ShieldIcon", {
   node: <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" />,
 });

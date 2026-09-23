@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Meter } from "@/components/ui";
+import { JobFitReport, type JobFitData } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/dates";
@@ -14,6 +15,9 @@ import { formatDate } from "@/lib/dates";
  * Nothing runs until the user asks — the click is their consent to send the job description and
  * their resumes to the AI provider, which the caption says. The server caches the answer per
  * (posting × resumes), so asking again, or reopening the panel and asking, costs nothing.
+ *
+ * 13.3: each scored resume can open its job-fit report — what it covers, what it's missing, and
+ * red flags — fetched on request and cached server-side the same way.
  */
 
 type Score = { resumeId: number; label: string; score: number; why: string };
@@ -50,6 +54,38 @@ export default function ResumeFit({
   const [scores, setScores] = useState<Score[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [upsell, setUpsell] = useState(false);
+  // 13.3 — the job-fit report per resume id: loading, the report, or a message.
+  const [reports, setReports] = useState<Record<number, JobFitData | "loading" | { message: string }>>({});
+
+  async function openReport(resumeId: number) {
+    if (reports[resumeId] && reports[resumeId] !== "loading" && !("message" in (reports[resumeId] as object))) {
+      setReports((r) => {
+        const next = { ...r };
+        delete next[resumeId]; // a second click folds it away
+        return next;
+      });
+      return;
+    }
+    setReports((r) => ({ ...r, [resumeId]: "loading" }));
+    try {
+      const res = await fetch(`/api/applications/${appId}/job-fit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resumeId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { fit?: JobFitData; quotaExceeded?: boolean; resetsAt?: string; error?: string };
+      if (res.ok && data.fit) {
+        setReports((r) => ({ ...r, [resumeId]: data.fit as JobFitData }));
+      } else if (data.quotaExceeded) {
+        const when = formatDate(data.resetsAt, { month: "long", day: "numeric" });
+        setReports((r) => ({ ...r, [resumeId]: { message: `You've used this month's Kiwiply AI — it resets${when ? ` on ${when}` : " next month"}.` } }));
+      } else {
+        setReports((r) => ({ ...r, [resumeId]: { message: data.error ?? "Couldn't check the fit right now. Please try again." } }));
+      }
+    } catch {
+      setReports((r) => ({ ...r, [resumeId]: { message: "Something went wrong. Please try again." } }));
+    }
+  }
   const hasJd = (jobDescription ?? "").replace(/\s+/g, " ").trim().length >= MIN_JD_CHARS;
 
   async function check() {
@@ -117,7 +153,7 @@ export default function ResumeFit({
                 </div>
                 <Meter value={s.score} label={`${s.label} fit`} valueText={`${s.score} percent`} neutral className="mt-2 h-1.5" />
                 {s.why && <p className="mt-1.5 text-[12.5px] text-muted">{s.why}</p>}
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                   {linked ? (
                     <span className="text-[12px] font-semibold text-accent-deep">Linked to this application</span>
                   ) : (
@@ -125,7 +161,22 @@ export default function ResumeFit({
                       Link this resume
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => void openReport(s.resumeId)}
+                    disabled={reports[s.resumeId] === "loading"}
+                    aria-expanded={!!reports[s.resumeId] && reports[s.resumeId] !== "loading"}
+                    className="text-[12px] font-semibold text-ink-soft hover:text-ink hover:underline disabled:opacity-60"
+                  >
+                    {reports[s.resumeId] === "loading" ? "Checking…" : "See gaps & red flags"}
+                  </button>
                 </div>
+                {(() => {
+                  const rep = reports[s.resumeId];
+                  if (!rep || rep === "loading") return null;
+                  if ("message" in rep) return <p role="status" className="mt-2 text-[12.5px] font-medium text-ink-soft">{rep.message}</p>;
+                  return <JobFitReport fit={rep} hideScore className="mt-3 border-t border-line pt-3" />;
+                })()}
               </li>
             );
           })}

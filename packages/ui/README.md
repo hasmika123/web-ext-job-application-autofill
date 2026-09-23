@@ -24,6 +24,8 @@ Concretely:
   (+ Pill/Tag), Switch, ChoiceGroup, Meter, Tabs, Toast (`ToastProvider`/`useToast`), Skeleton, Spinner,
   EmptyState, Dialog, SidePanel, Tooltip, Menu, Brand marks. Export new ones from
   `src/index.ts`.
+- **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`
+  (13.3 — one resume against one job, shown the same in the drawer and on the board).
 - **Tokens** → `styles/tokens.css` (Tailwind v4 `@theme`; light defaults + `.dark`
   overrides). Never hard-code a color/radius/shadow in a surface — use the token utilities
   (`bg-paper`, `text-ink`, `border-line`, `rounded-[var(--radius)]`, …).

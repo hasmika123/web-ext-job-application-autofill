@@ -60,7 +60,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > Settings + extension Options); the admin AI page shows real cost per user and per feature.
 > **13.1 IS COMPLETE.** Model stays **gemini-2.5-flash-lite** (user decision 2026-09-22, until the
 > Gemini API announces a shutdown). **13.2 is DONE** (ext v0.63.0) — "Best match: Backend v3 · 84%"
-> in the drawer and a "Resume fit" section on the board. **Next: 13.3** — the job-fit panel. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> in the drawer and a "Resume fit" section on the board. **13.3 is DONE** (ext v0.64.0) — the job-fit
+> report (match, missing keywords, red flags) in the drawer and per resume on the board.
+> **Next: 13.4** — resume tailoring to a job description. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1026,7 +1028,7 @@ focused Claude Code session.
     13.2/13.3; overnight batch → 13.6.
 - [x] **13.2 Resume recommendation per job.** Score stored resumes vs captured JD; "best match:
   X — NN %" in drawer + board.
-- [ ] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
+- [x] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
 - [ ] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
   NEW resume version via the `TrackingProvider` seam.
 - [ ] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
@@ -1167,6 +1169,21 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.3 job-fit panel** · Ext **v0.64.0**. `JobFitService`: one resume against one job
+  (task `fit`, JSON-schema output) → score, a one-line summary, ≤ 12 requirements the resume shows,
+  ≤ 10 it's **missing**, ≤ 5 **red flags**. Red flags may read exactly nine profile answers
+  (work auth, sponsorship, city/state/country, relocate, work preference, start date, notice) —
+  never name, contact or EEO — so "no sponsorship" is flagged only for someone who needs it.
+  Cached in `job_fit` per (JD × resume content × those answers), report only; deleted with the
+  account. Pro-gated + metered; the ROADMAP's Flash routing is `DOSSIER_AI_MODEL_FIT` (unset →
+  Flash-Lite). `POST /api/ai/job-fit` + `POST /api/profile/applications/{id}/job-fit` (linked
+  resume by default). Shared input bounding moved to `AiInputs` (13.2 uses it too). New
+  **`JobFitReport`** in `@kiwiply/ui` (+ `AlertIcon`) — red flags first, then missing, then covered
+  — used by both surfaces. **Drawer:** a "Check fit" card for the selected resume under the best
+  match (on click; resets when the resume changes). **Board:** "See gaps & red flags" per scored
+  resume. **One number per resume:** the report shows 13.2's ranking score (drawer) or none (board),
+  after the browser check showed the same resume at 84 % and 71 %. Privacy page + PRIVACY.md say
+  what's sent. Tests: `JobFitServiceTest` (11), `JobFitResourceIT` (4), provider +3.
 - 2026-09-22 · **13.2 resume recommendation per job** · Ext **v0.63.0**. `ResumeMatchService`: one
   Flash-Lite call (task `match`, JSON-schema output) scores every live resume (≤ 10, default first)
   against a job description, best first with a ≤ 12-word reason. Inputs bounded per 13.1: each

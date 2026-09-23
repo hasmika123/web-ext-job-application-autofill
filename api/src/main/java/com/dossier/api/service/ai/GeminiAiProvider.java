@@ -131,19 +131,37 @@ public class GeminiAiProvider implements AiProvider {
         contents.add(textPart(userText));
         ObjectNode genCfg = body.putObject("generationConfig");
         genCfg.put("maxOutputTokens", maxOutputTokens);
-        if (task == AiTask.MATCH) {
-            // 13.2: resume scores come back as schema-checked JSON, and need room for up to ten
-            // entries with a one-line reason each.
+        if (task == AiTask.MATCH || task == AiTask.FIT) {
+            // 13.2 / 13.3: scores and fit reports come back as schema-checked JSON, with room for a
+            // list of entries (ten resumes, or keyword lists) rather than a short draft.
             genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, 1200));
             genCfg.put("responseMimeType", "application/json");
             try {
-                genCfg.set("responseSchema", om.readTree(MATCH_SCHEMA_JSON));
+                genCfg.set("responseSchema", om.readTree(task == AiTask.MATCH ? MATCH_SCHEMA_JSON : FIT_SCHEMA_JSON));
             } catch (Exception e) {
-                throw new AiProviderException("Bad match schema", e); // unreachable: static constant
+                throw new AiProviderException("Bad response schema", e); // unreachable: static constants
             }
         }
         return body;
     }
+
+    /** Structured output for {@link AiTask#FIT}: one resume against one job. */
+    // spotless:off
+    private static final String FIT_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "score": { "type": "INTEGER" },
+            "summary": { "type": "STRING" },
+            "matched": { "type": "ARRAY", "items": { "type": "STRING" } },
+            "missing": { "type": "ARRAY", "items": { "type": "STRING" } },
+            "redFlags": { "type": "ARRAY", "items": { "type": "STRING" } }
+          },
+          "required": ["score", "matched", "missing", "redFlags"]
+        }
+        """;
+    // spotless:on
 
     /** Structured output for {@link AiTask#MATCH}: one score per resume id, with a short reason. */
     // spotless:off

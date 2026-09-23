@@ -46,6 +46,11 @@ default** and only runs after you explicitly enable it. There are two modes, and
   your saved resumes against it with the same provider and shows the best match. Only the scores
   and a one-line reason are kept (never the job text); asking again about the same job is free.
   Nothing is sent on pages without a real job description, or when Kiwiply AI is off.
+- **Job fit (Pro, same opt-in, only when you click "Check fit"):** the page's job description, the
+  chosen resume, and the profile answers that can rule a job out — work authorization,
+  sponsorship, city/state/country, relocation, work preference, start date, notice — go to your
+  Kiwiply account, which returns a match %, missing keywords and red flags. Never your name,
+  contact details or EEO answers; only the report is kept.
 
 Leave AI drafting off and every other feature works without sending anything to an AI provider.
 
