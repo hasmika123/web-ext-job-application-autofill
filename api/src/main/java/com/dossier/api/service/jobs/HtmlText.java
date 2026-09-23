@@ -8,9 +8,10 @@ import java.util.regex.Pattern;
  * Job descriptions arrive as HTML (Greenhouse's is even HTML-escaped once more). This turns them
  * into readable plain text — each block (paragraph, heading, list item) on its own line, list
  * items with a bullet, entities decoded — without a parser dependency. Good enough for a model to
- * read and a person to skim; nothing here is ever rendered as HTML.
+ * read and a person to skim; nothing here is ever rendered as HTML. Also used for HTML-only email
+ * bodies (14.3).
  */
-final class HtmlText {
+public final class HtmlText {
 
     private static final Pattern DROP = Pattern.compile("(?is)<(script|style)[^>]*>.*?</\\1>");
     private static final Pattern LI = Pattern.compile("(?i)<li[^>]*>");
@@ -38,7 +39,7 @@ final class HtmlText {
     private HtmlText() {}
 
     /** HTML (or HTML-escaped HTML) → plain text, capped at {@code max} characters. */
-    static String toText(String html, int max) {
+    public static String toText(String html, int max) {
         if (html == null || html.isBlank()) return "";
         String s = html;
         // Greenhouse escapes its HTML: "&lt;p&gt;" — decode once first so the tags are real.

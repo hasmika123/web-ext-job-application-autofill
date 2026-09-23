@@ -18,6 +18,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   <li><b>{@code imap-host} / {@code imap-port} / {@code imap-ssl}</b> — where mailboxes are read
  *       (14.1): Gmail, {@code imap.gmail.com:993} over TLS. Tests point these at GreenMail.</li>
  *   <li><b>{@code timeout-ms}</b> — connect and read timeout for one IMAP session.</li>
+ *   <li><b>{@code poll-cron}</b> — when connected inboxes are read (14.3): every 15 minutes.</li>
+ *   <li><b>{@code backfill-days}</b> / <b>{@code max-per-folder}</b> — the first read of a folder goes
+ *       back this many days (60), and no read takes more than this many messages per folder (500).</li>
  * </ul>
  */
 @ConfigurationProperties(prefix = "dossier.inbox")
@@ -30,6 +33,9 @@ public class InboxProperties {
     private int imapPort = 993;
     private boolean imapSsl = true;
     private int timeoutMs = 15000;
+    private String pollCron = "0 */15 * * * *";
+    private int backfillDays = 60;
+    private int maxPerFolder = 500;
 
     public String getKey() {
         return key;
@@ -85,5 +91,29 @@ public class InboxProperties {
 
     public void setTimeoutMs(int timeoutMs) {
         this.timeoutMs = timeoutMs;
+    }
+
+    public String getPollCron() {
+        return pollCron;
+    }
+
+    public void setPollCron(String pollCron) {
+        this.pollCron = pollCron;
+    }
+
+    public int getBackfillDays() {
+        return backfillDays;
+    }
+
+    public void setBackfillDays(int backfillDays) {
+        this.backfillDays = backfillDays;
+    }
+
+    public int getMaxPerFolder() {
+        return maxPerFolder;
+    }
+
+    public void setMaxPerFolder(int maxPerFolder) {
+        this.maxPerFolder = maxPerFolder;
     }
 }

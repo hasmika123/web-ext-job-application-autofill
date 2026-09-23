@@ -74,7 +74,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > (user decisions 2026-09-22, ROADMAP "Phase 14 plan"): env AES-256-GCM key; bodies kept only for job
 > mail; poll every 15 min; email only for interview/offer; order 14.2 → 14.1 → 14.3 → 14.5 → 14.4 →
 > 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **14.1 is DONE** — the
-> connect flow at `/settings/inbox`. **Next: 14.3** — the IMAP poller. **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> connect flow at `/settings/inbox`. **14.3 is DONE** — the poller reads Inbox + Sent every 15 min.
+> **Next: 14.5** — cross-board dedup (ahead of 14.4 by the plan). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1068,7 +1069,7 @@ focused Claude Code session.
   test connection, disconnect. Consumer Gmail only.
 - [x] **14.2 Credentials encrypted at rest** (server-side key; the 8.4 secrets slice, now required).
   AES-256-GCM, `DOSSIER_INBOX_KEY`, key version on each ciphertext, startup canary. *First.*
-- [ ] **14.3 IMAP poller.** UID-incremental sync + backfill on connect; headers + body text only,
+- [x] **14.3 IMAP poller.** UID-incremental sync + backfill on connect; headers + body text only,
   **no attachments**; rate-limited; per-user error state surfaced in settings. UIDVALIDITY per
   folder, `\Sent` by special-use flag, one connection per sync, backoff, GreenMail tests; every
   15 min; backfill 60 days / ≤ 500 per folder; body kept only for job mail.
@@ -1194,6 +1195,20 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **14.3 inbox poller** · Every 15 min (`DOSSIER_INBOX_POLL_CRON`), one inbox at a time,
+  one IMAP session each, read-only; and once straight after connecting (after commit, async). Per
+  folder (Inbox + Sent): **UID-incremental with UIDVALIDITY** (`inbox_folder_state`) — first read /
+  renumbered folder = backfill of 60 days, newest 500, then the position jumps to the folder's end;
+  ordinary reads take ≤ 500 new, oldest first. `inbox_message`: headers for every message; **body
+  text only for job mail** (`JobMailRules`: an ATS / job-board sending domain, a tracked company in
+  the other party's domain/name/subject, or a hiring subject) — `MailText` prefers text/plain, else
+  HTML→text, cuts quoted history, caps 20k, and **never opens attachment parts** (so IMAP never
+  downloads them). Same message in Inbox and Sent kept once (Message-ID hash). A rejected password →
+  NEEDS_RECONNECT, no more reads; other failures back off (30 min → 6 h), ERROR after 3. Non-Pro
+  users' inboxes are skipped, not deleted. Rotated keys re-encrypt on use. A disconnect racing a read
+  leaves nothing behind (checked before saving). Connecting a different Gmail drops the old mail.
+  Settings shows messages read. Tests: 8 against GreenMail (backfill window, attachment never stored,
+  quoted history cut, increments, UIDVALIDITY, rejected password, backoff, the race) + poller timing.
 - 2026-09-23 · **14.1 inbox connect flow** · Pro. `/settings/inbox` (+ an Inbox card on Settings):
   three guided steps with direct Google links (a Gmail just for job hunting — set it on the profile;
   2-Step Verification; an App password named "Kiwiply") — **links, not screenshots**: Google's pages

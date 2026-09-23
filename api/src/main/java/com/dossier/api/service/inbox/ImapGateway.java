@@ -1,5 +1,8 @@
 package com.dossier.api.service.inbox;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.Store;
+
 /**
  * The one seam between the inbox and a real mail server (Phase 14.1), so tests can use GreenMail and
  * nothing in CI ever calls Gmail.
@@ -30,4 +33,13 @@ public interface ImapGateway {
 
     /** Sign in, open the inbox read-only, find the Sent folder, sign out. Never throws. */
     Probe probe(String address, String password);
+
+    /**
+     * A signed-in session for the poller (14.3) — one per sync, the caller closes it. Throws
+     * {@code AuthenticationFailedException} when Gmail refuses the password.
+     */
+    Store open(String address, String password) throws MessagingException;
+
+    /** The account's Sent folder, by its {@code \Sent} flag, else a known Gmail name; null if none. */
+    String sentFolder(Store store) throws MessagingException;
 }

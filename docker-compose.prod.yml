@@ -97,6 +97,8 @@ services:
       # Inbox encryption key (14.2). Lives only in the box's .env and the password manager.
       - DOSSIER_INBOX_KEY=${DOSSIER_INBOX_KEY:-}
       - DOSSIER_INBOX_KEY_VERSION=${DOSSIER_INBOX_KEY_VERSION:-1}
+      - DOSSIER_INBOX_POLL_CRON=${DOSSIER_INBOX_POLL_CRON:-0 */15 * * * *}
+      - DOSSIER_INBOX_BACKFILL_DAYS=${DOSSIER_INBOX_BACKFILL_DAYS:-60}
       # Billing (Phase 12). Blank STRIPE_SECRET_KEY = billing disabled, which is a valid
       # running state — the API starts and serves everything else normally.
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}

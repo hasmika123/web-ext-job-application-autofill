@@ -46,11 +46,11 @@ public class JakartaImapGateway implements ImapGateway {
     public Probe probe(String address, String password) {
         Store store = null;
         try {
-            store = connect(address, password);
+            store = open(address, password);
             Folder inbox = store.getFolder("INBOX");
             inbox.open(Folder.READ_ONLY);
             inbox.close(false);
-            return new Probe(Outcome.OK, sentFolder(store));
+            return new Probe(Outcome.OK, findSentFolder(store));
         } catch (AuthenticationFailedException e) {
             return new Probe(classifyAuth(e.getMessage()), null);
         } catch (MessagingException e) {
@@ -63,8 +63,8 @@ public class JakartaImapGateway implements ImapGateway {
         }
     }
 
-    /** A signed-in store; the caller closes it. */
-    Store connect(String address, String password) throws MessagingException {
+    @Override
+    public Store open(String address, String password) throws MessagingException {
         String protocol = props.isImapSsl() ? "imaps" : "imap";
         Properties p = new Properties();
         String t = String.valueOf(props.getTimeoutMs());
@@ -78,7 +78,12 @@ public class JakartaImapGateway implements ImapGateway {
         return store;
     }
 
-    static String sentFolder(Store store) throws MessagingException {
+    @Override
+    public String sentFolder(Store store) throws MessagingException {
+        return findSentFolder(store);
+    }
+
+    static String findSentFolder(Store store) throws MessagingException {
         Folder[] all = store.getDefaultFolder().list("*");
         for (Folder f : all) {
             if (f instanceof IMAPFolder imap) {
