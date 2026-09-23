@@ -927,6 +927,21 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
 - **15.1 Ops (deliberately here, not earlier).** Nightly off-box `mysqldump` to S3 with
   retention · uptime + error monitoring with alerting · **a restore drill actually performed**.
   Money cannot be at risk before this exists.
+  **Plan (user decisions 2026-09-23):**
+  - **Where:** a separate bucket `kiwiply-db-backups` (versioned, private, SSE-S3) and an IAM user
+    that can **List + Put + Get but never Delete**, so a compromised box can't wipe its backups.
+    Lifecycle keeps 30 daily + 12 monthly (the 1st). The last 3 dumps also stay on the box.
+  - **Alarms:** Healthchecks.io for the backup (daily) and the drill (weekly): start / success /
+    fail pings, so a night cron didn't run alerts too. UptimeRobot every 5 min on `kiwiply.com` and
+    `api.kiwiply.com/management/health` (`"status":"UP"` = API and DB both up).
+  - **Errors:** in-house, no new processor: the API collects ERROR log events and emails the
+    admin a digest, grouped and counted, at most every 15 minutes, via the existing Brevo mail.
+  - **Drill:** `verify-restore.sh` restores the newest backup into a throwaway container weekly
+    (checks sha256, age ≤ 2 days, users + changelog + live tables, row counts), plus one run by
+    hand, logged in DEPLOY.md.
+  - **Steps:** **15.1a** scripts + runbook + CI job · **15.1b** the error digest · **15.1c** go
+    live on the box (bucket/IAM/accounts are the user's; needs `develop` → `main`) + the drill by
+    hand.
 - **15.2 Legal (PL.1 completion).** Lawyer review of privacy + terms now covering: billing
   (auto-renew, click-to-cancel, refunds), IMAP mail processing, AI data use, governing law +
   entity (AutomoraLab LLC). DPAs with Brevo + AWS S3.

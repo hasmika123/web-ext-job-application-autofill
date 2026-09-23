@@ -1,0 +1,25 @@
+{
+  "Rules": [
+    {
+      "ID": "daily-30-days",
+      "Filter": { "Prefix": "daily/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 30 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    },
+    {
+      "ID": "monthly-1-year",
+      "Filter": { "Prefix": "monthly/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 365 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    },
+    {
+      "ID": "tidy-delete-markers",
+      "Filter": {},
+      "Status": "Enabled",
+      "Expiration": { "ExpiredObjectDeleteMarker": true },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 2 }
+    }
+  ]
+}

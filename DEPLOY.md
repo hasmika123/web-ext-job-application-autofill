@@ -142,30 +142,104 @@ Reload the unpacked extension. (At Chrome Web Store launch, also pin
   ```
   Liquibase applies new DB migrations automatically on API start.
 - **Logs:** `$COMPOSE logs -f <service>`
-- **Database backup — ⚠️ NOT SET UP. There is no automated backup of production.**
-  Verified 2026-09-21: both the `root` and `deploy` crontabs are empty, there is no systemd
-  timer, and no Dossier dump exists on the box. This is the exact gap that turned the loss of
-  the old VPS into a permanent **loss of all user data** — the previous version of this file
-  described a nightly cron that had never actually been installed, and everyone read the
-  intention as a fact. Do not treat the command below as a backup strategy; it is a manual
-  dump you have to remember to run:
-  ```bash
-  $COMPOSE exec -T mysql \
-    sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --databases dossierApi' > dossier-$(date +%F).sql
-  ```
-  A real fix needs three things, and **is still owed**: a schedule (cron/systemd timer), a copy
-  that lands **off the box** (S3), and a restore that has actually been tested. Until a dump is
-  sitting somewhere other than this server, production is one server failure from zero.
-- **Restore:** `… exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < backup.sql`
+- **Database backup — nightly, off the box (Phase 15.1).** `scripts/ops/backup-db.sh` dumps
+  MySQL at 03:15 UTC into the separate **`kiwiply-db-backups`** bucket, and
+  `scripts/ops/verify-restore.sh` restores the newest one into a throwaway container every Sunday
+  to prove it works. Setup, alarms and the restore procedure: **§5.1–§5.3**. History, so nobody
+  repeats it: until 15.1 there was **no** backup. The earlier version of this file described a
+  nightly cron that had never been installed, and the loss of the old VPS became a permanent
+  loss of all user data. **A backup exists only if Healthchecks.io says it ran.**
 - **Resume files** live in S3 — durability/backup is handled by AWS. Note this saves the
   *blobs* only: without the DB rows that point at them they are orphaned objects, which is
   exactly what happened to the pre-2026-09 resumes.
-- **Monitoring — ⚠️ NONE.** There is no uptime check, no health polling, and no alerting on
-  either hostname. Nothing will tell you production is down; you find out by visiting it. The
-  old VPS's death was noticed only because someone happened to `curl` it during unrelated work.
-  If you add one, the obvious probes are `https://kiwiply.com/` and
-  `https://api.kiwiply.com/management/health` (returns `{"status":"UP"}`), and
-  `scripts/migrate/04-verify.sh kiwiply.com` covers the fuller surface by hand.
+- **Monitoring:** UptimeRobot watches both hostnames and Healthchecks.io watches the backup and
+  the drill (§5.2). `scripts/migrate/04-verify.sh kiwiply.com` still covers the fuller surface by
+  hand.
+
+### 5.1 Backups — setup (once)
+
+The backup key can **upload and read, never delete**: a compromised box can't wipe its own
+backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 daily** and
+**12 monthly** copies (the 1st of each month).
+
+1. **Bucket** (AWS console → S3 → Create bucket): name `kiwiply-db-backups` (if you pick another
+   name, change it in the policy below too), same region as the resume bucket. Keep **Block all
+   public access ON**, turn **Bucket Versioning ON** (an overwrite keeps the old copy for 30 days),
+   default encryption SSE-S3.
+2. **Lifecycle** (bucket → Management → Lifecycle rules), or in one command:
+   `aws s3api put-bucket-lifecycle-configuration --bucket kiwiply-db-backups --lifecycle-configuration file://scripts/ops/aws/lifecycle.json`.
+   It expires `daily/` after 30 days, `monthly/` after 365 days, and old versions 30 days after
+   they're replaced.
+3. **IAM user** `kiwiply-backup` with programmatic access only and exactly the inline policy in
+   `scripts/ops/aws/backup-user-policy.json` (List + Put + Get; **no** Delete). Create an access key.
+   Put it in the **password manager** first, then in the box's `.env`. Never in chat, the repo or
+   GitHub secrets.
+4. **`.env` on the box** (`/root/web-ext-job-application-autofill/.env`):
+   ```bash
+   BACKUP_S3_BUCKET=kiwiply-db-backups
+   BACKUP_S3_REGION=us-east-1
+   BACKUP_AWS_ACCESS_KEY_ID=...
+   BACKUP_AWS_SECRET_ACCESS_KEY=...
+   HC_BACKUP_URL=https://hc-ping.com/<uuid>     # §5.2
+   HC_RESTORE_URL=https://hc-ping.com/<uuid>    # §5.2
+   ```
+   These are read by the ops scripts only; the API never sees them.
+5. **Schedule** — a cron.d file of its own, so BeeCompete's crontabs are never touched:
+   ```bash
+   cd /root/web-ext-job-application-autofill
+   timedatectl | grep 'Time zone'      # the schedule assumes UTC
+   install -m 644 scripts/ops/kiwiply-ops.cron /etc/cron.d/kiwiply-ops
+   ```
+   Nightly backup at 03:15 UTC → `/var/log/kiwiply-backup.log`; Sunday 04:45 UTC restore drill →
+   `/var/log/kiwiply-restore-drill.log` (and one line per drill in
+   `/root/kiwiply-backups/restore-drills.log`). The last 3 dumps also stay in `/root/kiwiply-backups/`.
+6. **First run, by hand** — once the scripts are on the box, i.e. after `develop` is promoted to
+   `main` (the deploy's `git pull` brings them) — and check it landed:
+   ```bash
+   scripts/ops/backup-db.sh
+   scripts/ops/verify-restore.sh
+   ```
+   `verify-restore.sh` should end with `restore drill OK — dossier-<date>.sql.gz: N tables, …`.
+
+**Tested in CI** (the "Ops scripts" job): shellcheck, the helpers, `backup-db.sh` against a fake
+docker (upload names, the sha256, the monthly copy, the pings, refusing a cut-short dump), and a
+real `mysqldump` of a real MySQL of the production version restored by `verify-restore.sh`.
+
+### 5.2 Alarms — UptimeRobot + Healthchecks.io (once)
+
+Both are free; you create the accounts. Alerts go to your email.
+
+- **Healthchecks.io** — two checks. Each one expects a ping and emails you when it doesn't arrive:
+  - `kiwiply-backup`: period **1 day**, grace **2 hours**. Its ping URL → `HC_BACKUP_URL`.
+  - `kiwiply-restore-drill`: period **7 days**, grace **6 hours**. Its URL → `HC_RESTORE_URL`.
+  The scripts ping `/start` when they begin, the plain URL on success, and `/fail` on any failure,
+  so a crash, a cut-short dump, a missing bucket key or a restore that doesn't check out all
+  alert, and so does a night when cron didn't run at all.
+- **UptimeRobot** — two HTTP(S) monitors, 5-minute interval:
+  - `https://kiwiply.com/` — expects 200.
+  - `https://api.kiwiply.com/management/health` — keyword monitor, expects `"status":"UP"`.
+    (This probe is only UP when the API and the database are both up.)
+
+### 5.3 Restoring production from a backup (disaster)
+
+The weekly drill proves the dumps restore. This is the real thing, and it **replaces the live
+database**, so only do it when production data is lost or corrupt.
+
+1. Get the dump: the newest in `/root/kiwiply-backups/`, or download one from S3 (`daily/` or
+   `monthly/`) in the AWS console. The box has no AWS CLI installed; `verify-restore.sh` runs it
+   in a container. Check the file before you use it:
+   `scripts/ops/verify-restore.sh --file dossier-<date>.sql.gz --no-live`.
+   On a **new** box, follow `MIGRATION.md` and restore the `.env` from the password manager first.
+   The inbox passwords in the dump only decrypt with the **same `DOSSIER_INBOX_KEY`**; without it,
+   connected inboxes just have to reconnect.
+2. Restore (the API is stopped so Liquibase doesn't race the import):
+   ```bash
+   $COMPOSE stop api
+   gunzip -c dossier-<date>.sql.gz | $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot'
+   $COMPOSE up -d api          # Liquibase applies any migration newer than the dump
+   ```
+3. Check: `scripts/migrate/04-verify.sh kiwiply.com`, and sign in.
+Everything written after the dump was taken (up to a day) is gone. Tell affected users.
 
 ## 6. When you get a real domain
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
