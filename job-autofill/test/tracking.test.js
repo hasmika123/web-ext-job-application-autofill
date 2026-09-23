@@ -234,6 +234,9 @@ function mockFetch(handler) {
   const pAi = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const ai = await pAi.aiDraft({ question: "Why us?", context: "ctx", consent: true });
   ok("aiDraft POSTs /api/ai/draft with consent", fetchAi.calls[0].method === "POST" && fetchAi.calls[0].path === "/api/ai/draft" && fetchAi.calls[0].body.consent === true);
+  ok("aiDraft says it's a draft when no task is given (13.1a)", fetchAi.calls[0].body.task === "draft");
+  await pAi.aiDraft({ question: "Map: 1. First name", consent: true, task: "map" });
+  ok("aiDraft passes the task through", fetchAi.calls[1].body.task === "map");
   ok("aiDraft returns the server result", ai.answer === "Because I'd thrive here." && ai.quota === 50);
 
   /* ---- fill telemetry (Phase 10.1) — counts to /api/telemetry, 204 back ---- */

@@ -4,6 +4,7 @@ import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.AiDraftService;
 import com.dossier.api.service.AiResumeParseService;
 import com.dossier.api.service.ProRequiredException;
+import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.web.rest.vm.AiDraftVM;
 import com.dossier.api.web.rest.vm.AiParseResumeVM;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,7 +54,7 @@ public class AiResource {
     @Operation(summary = "Draft an answer", description = "Metered, opt-in server-side AI drafting for the current user.")
     @PostMapping("/draft")
     public ResponseEntity<Map<String, Object>> draft(@Valid @RequestBody AiDraftVM vm) {
-        AiDraftService.Result r = aiDraftService.draft(vm.getQuestion(), vm.getContext(), vm.isConsent());
+        AiDraftService.Result r = aiDraftService.run(AiTask.fromWire(vm.getTask()), vm.getQuestion(), vm.getContext(), vm.isConsent());
         Map<String, Object> body = new HashMap<>();
         switch (r.status()) {
             case OK -> {

@@ -66,7 +66,7 @@
     // Phase 4 (field-cache sync) — declared so the seam is complete; implemented later.
     async syncFieldCache(/* entries */) { throw new NotSupportedError("syncFieldCache (Phase 4)"); }
     // Phase 5 — server-side metered AI drafting (opt-in). Implemented by createKiwiplyProvider.
-    async aiDraft(/* { question, context, consent } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
+    async aiDraft(/* { question, context, consent, task } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
     // Server-side metered AI resume parsing (opt-in). Implemented by createKiwiplyProvider.
     async aiParseResume(/* { text, fileBase64, fileMimeType, consent } */) { throw new NotSupportedError("aiParseResume"); }
     // Phase 10.1 — count-only fill telemetry. Implemented by createKiwiplyProvider.
@@ -464,8 +464,10 @@
       // ---- server-side AI drafting (Phase 5) ------------------------------
       // Opt-in + metered on the server's key. Returns the raw server result:
       // { answer, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
-      async aiDraft({ question, context, consent } = {}) {
-        return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false } });
+      // `task` (13.1a) tells the server what the call is for — draft | pick | map | enrich — so each
+      // kind gets instructions written for it and is metered as itself. Omitted = draft.
+      async aiDraft({ question, context, consent, task } = {}) {
+        return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false, task: task || "draft" } });
       },
 
       // ---- fill telemetry (Phase 10.1) ------------------------------------

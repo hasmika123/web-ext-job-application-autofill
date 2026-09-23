@@ -770,6 +770,17 @@ pull only on change:**
   exists — plus per (resume × JD). **Context-cache the resume prompt prefix** (cache reads at
   10 % of input). Batch overnight scoring (50 % off). Bounded inputs: structured resume JSON,
   JD capped by tokens. Kill switch per feature.
+- **13.1 plan (2026-09-22, user-approved defaults):** 13.1a track real cost → 13.1b budget +
+  routing → 13.1c usage meter. **Top-up is deferred to Phase 16** (needs a price and one-time
+  Stripe payments; the $5 budget is meant to be unreachable) — at 100 % AI stops until the month
+  resets. Users see **a percentage, never dollars**. Resume-prefix context caching and the
+  (resume × JD) cache move to **13.2/13.3**, overnight batch to **13.6** — nothing exercises them yet.
+- **13.1a as built (2026-09-22):** `AiTask` on every request; `AiProvider.generate(task, …)` returns
+  an `AiResult` with the tokens Gemini billed; `AiMeteringService` counts (atomic upsert) and writes
+  the `ai_call` ledger at `AiPricing` rates. The ledger never holds prompts or answers. Found and
+  fixed on the way: Pro parse capped at the Free quota, the prod model default, the lost-update
+  counter. **Check the box's `.env`:** if it sets `DOSSIER_AI_MODEL=gemini-2.0-flash` explicitly,
+  the compose fix doesn't reach it.
 - **13.2 Resume recommendation per job.** Score every stored resume against the captured JD
   (Flash-Lite or embeddings); "best match: *Backend v3* — 82 %" in the drawer + on the board.
   Later learns from inbox outcomes (Phase 14 + 16).

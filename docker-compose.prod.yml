@@ -66,9 +66,15 @@ services:
       # use inputs to improve Google's services (the extension keeps this opt-in + disclosed).
       - DOSSIER_AI_ENABLED=${DOSSIER_AI_ENABLED:-false}
       - DOSSIER_AI_PROVIDER=${DOSSIER_AI_PROVIDER:-gemini}
-      - DOSSIER_AI_MODEL=${DOSSIER_AI_MODEL:-gemini-2.0-flash}
+      # 13.1a: the fallback was gemini-2.0-flash, which returned limit:0 — the app's own default
+      # is Flash-Lite, and this now agrees with it. The three lines after the key were never
+      # passed through before, so .env values for them were silently ignored.
+      - DOSSIER_AI_MODEL=${DOSSIER_AI_MODEL:-gemini-2.5-flash-lite}
       - DOSSIER_AI_API_KEY=${DOSSIER_AI_API_KEY:-}
+      - DOSSIER_AI_BASE_URL=${DOSSIER_AI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
       - DOSSIER_AI_FREE_MONTHLY_QUOTA=${DOSSIER_AI_FREE_MONTHLY_QUOTA:-50}
+      - DOSSIER_AI_PRO_MONTHLY_QUOTA=${DOSSIER_AI_PRO_MONTHLY_QUOTA:-2000}
+      - DOSSIER_AI_MAX_OUTPUT_TOKENS=${DOSSIER_AI_MAX_OUTPUT_TOKENS:-400}
       - DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS=${DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS:-4000}
       # Billing (Phase 12). Blank STRIPE_SECRET_KEY = billing disabled, which is a valid
       # running state — the API starts and serves everything else normally.

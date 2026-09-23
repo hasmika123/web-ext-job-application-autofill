@@ -12,6 +12,8 @@ import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.AiAnswer;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Bio;
+import com.dossier.api.domain.AiCall;
+import com.dossier.api.domain.AiUsage;
 import com.dossier.api.domain.FieldCache;
 import com.dossier.api.domain.ProfileSuggestion;
 import com.dossier.api.domain.RefreshToken;
@@ -22,6 +24,8 @@ import com.dossier.api.domain.enumeration.ResumeStatus;
 import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
+import com.dossier.api.repository.AiCallRepository;
+import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.ProfileSuggestionRepository;
 import com.dossier.api.repository.RefreshTokenRepository;
@@ -75,6 +79,12 @@ class AccountDeletionResourceIT {
 
     @Autowired
     private ProfileSuggestionRepository profileSuggestionRepository;
+
+    @Autowired
+    private AiUsageRepository aiUsageRepository;
+
+    @Autowired
+    private AiCallRepository aiCallRepository;
 
     @Autowired
     private SubscriptionRepository subscriptionRepository;
@@ -131,6 +141,20 @@ class AccountDeletionResourceIT {
         suggestion.setValue("Atlanta");
         suggestion = profileSuggestionRepository.saveAndFlush(suggestion);
 
+        // Phase 13.1a: AI usage is keyed by login. The month's count goes (a new account on the same
+        // login must not inherit it); the call ledger keeps the spend but loses the login.
+        AiUsage usage = new AiUsage();
+        usage.setLogin("user");
+        usage.setPeriod("2026-09");
+        usage.setDraftCount(3);
+        usage = aiUsageRepository.saveAndFlush(usage);
+        AiCall call = new AiCall();
+        call.setLogin("user");
+        call.setTask("draft");
+        call.setModel("gemini-2.5-flash-lite");
+        call.setCostMicros(24);
+        call = aiCallRepository.saveAndFlush(call);
+
         mockMvc.perform(delete("/api/account")).andExpect(status().isNoContent());
 
         assertThat(userRepository.findOneByLogin("user")).isEmpty();
@@ -140,6 +164,10 @@ class AccountDeletionResourceIT {
         assertThat(aiAnswerRepository.findById(ai.getId())).isEmpty();
         assertThat(fieldCacheRepository.findById(fc.getId())).isEmpty();
         assertThat(profileSuggestionRepository.findById(suggestion.getId())).isEmpty();
+        assertThat(aiUsageRepository.findById(usage.getId())).isEmpty();
+        AiCall kept = aiCallRepository.findById(call.getId()).orElseThrow();
+        assertThat(kept.getLogin()).as("spend kept, person dropped").isNull();
+        assertThat(kept.getCostMicros()).isEqualTo(24);
         assertThat(refreshTokenRepository.findByJti("jti-del-test")).isEmpty();
     }
 

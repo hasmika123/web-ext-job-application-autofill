@@ -52,8 +52,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **10.3c is DONE** — `/api/profile/suggestions`: learned answers become suggestions, only an accept
 > writes the profile. **10.3d is DONE** (ext v0.59.0) — after a fill, the extension reports answers to
 > profile questions there. **10.3e is DONE** — the dashboard's "We learned N things about you — keep
-> these?" card. **10.3 IS COMPLETE.** **Next: 13.1** — Pro AI credit metering, routing and caching
-> (build order: 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1; 10.4–10.6 continue alongside). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> these?" card. **10.3 IS COMPLETE.** **13.1 is planned** as 13.1a–c (user-approved defaults
+> 2026-09-22, see ROADMAP 13.1). **13.1a is DONE** (ext v0.60.0) — every AI call names its kind and
+> is recorded with its tokens and cost; three bugs fixed. **Next: 13.1b** — the monthly cost budget
+> and model routing (and a replacement for Flash-Lite, which retires 2026-10-16). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1002,11 +1004,21 @@ focused Claude Code session.
 
 ## Phase 13 — Pro AI (Launch 1 — needs 12 + 10.3)
 > Spec: `ROADMAP.md` → Phase 13. Build 13.1 first; every feature inherits it.
-- [ ] **13.1 Credit metering, routing, caching, batch.** Cost-based credits into a monthly Pro
+- **13.1 Credit metering, routing, caching, batch.** Cost-based credits into a monthly Pro
   budget (~$5 model cost) with a visible meter; soft cap → cheaper model, hard cap → top-up.
   Routing: mapping/picks/classification → Flash-Lite, job-fit/tailoring → Flash. Cache per
   (resume × JD); context-cache the resume prefix; batch overnight jobs; bounded inputs; per-feature
-  kill switch; model names config-driven (Flash-Lite retires 2026-10-16).
+  kill switch; model names config-driven (Flash-Lite retires 2026-10-16). Split (plan 2026-09-22):
+  - [x] **13.1a Track real cost.** Each call names its task; tokens + cost into the `ai_call`
+    ledger; task-specific instructions; three bugs fixed (Pro parse cap, prod model default,
+    lost-update counter).
+  - [ ] **13.1b Budget + routing.** Model per task and prices in config; Pro monthly cost budget
+    ($5 default) — 80 % → cheapest model, 100 % → stop until reset; per-feature kill switch; admin
+    override becomes a budget override; pick Flash-Lite's successor (user confirms).
+  - [ ] **13.1c Usage meter.** "% of this month's AI used" + reset date in Settings › Billing and the
+    extension; admin AI page shows cost per user and total.
+  - *Moved by decision:* top-up → Phase 16; resume-prefix context cache + (resume × JD) cache →
+    13.2/13.3; overnight batch → 13.6.
 - [ ] **13.2 Resume recommendation per job.** Score stored resumes vs captured JD; "best match:
   X — NN %" in drawer + board.
 - [ ] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
@@ -1150,6 +1162,19 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.1a AI cost tracking** · Ext **v0.60.0**. Every AI request now says what it's for
+  (`task`: draft / pick / map / enrich; parse on its own endpoint; absent = draft, so old builds
+  still work) and gets instructions written for it — picks, mapping and enrichment no longer get
+  the drafting prompt's "2-4 sentences". The Gemini response's `usageMetadata` is read (thinking
+  billed as output, cache hits split out) and every successful call lands in a new **`ai_call`
+  ledger** with its model, tokens and cost in micro-dollars (`AiPricing`, `dossier.ai.pricing.*`,
+  Flash-Lite + Flash built in; an unpriced model is costed high and logged). Bugs fixed: **Pro users
+  were capped at the Free 50 for resume parsing**; the **prod compose defaulted to
+  `gemini-2.0-flash`** (limit:0) and never passed the Pro quota / output cap / base URL through; the
+  **monthly counter lost updates** under concurrency (now one MySQL upsert). Account deletion drops
+  the month's count and strips the login from the ledger (spend kept, person gone). Tests:
+  `GeminiAiProviderTest` (6), `AiMeteringServiceTest` (3), draft/parse service tests reworked
+  (14/10), `AiResourceIT` +4, deletion IT extended, extension provider +2.
 - 2026-09-22 · **10.3e suggestions review** · The dashboard shows **"We learned N things about you —
   keep these?"** above the setup checklist, only when there's something to review. Each row names
   the field and shows the value, or *old → new* for a change. **Keep** writes it to the profile;

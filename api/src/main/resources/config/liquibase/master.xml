@@ -43,5 +43,6 @@
     <include file="config/liquibase/changelog/20260921000000_subscription.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922000000_fill_event.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922010000_profile_suggestion.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922020000_ai_call.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
