@@ -26,6 +26,8 @@ export interface InboxView {
   connectedAt: string | null;
   lastCheckedAt: string | null;
   lastError: string | null;
+  /** Messages read so far (headers for all; text only for job mail). */
+  messages: number;
 }
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
@@ -134,7 +136,9 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
               </>
             )}
             <dt className="text-muted">Last checked</dt>
-            <dd className="text-ink">{view.lastCheckedAt ? <LocalDate iso={view.lastCheckedAt} options={WHEN} /> : "Not yet — within 15 minutes"}</dd>
+            <dd className="text-ink">{view.lastCheckedAt ? <LocalDate iso={view.lastCheckedAt} options={WHEN} /> : "Not yet — it's reading now"}</dd>
+            <dt className="text-muted">Messages read</dt>
+            <dd className="text-ink tabular-nums">{view.messages.toLocaleString()}</dd>
           </dl>
           {view.status === "ERROR" && view.lastError && (
             <p role="status" className="mt-3 text-[13px] text-ink-soft">

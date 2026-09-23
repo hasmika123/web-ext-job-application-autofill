@@ -3,6 +3,8 @@ package com.dossier.api.service.inbox;
 import com.dossier.api.domain.InboxConnection;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.InboxConnectionRepository;
+import com.dossier.api.repository.InboxFolderStateRepository;
+import com.dossier.api.repository.InboxMessageRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.EntitlementService;
@@ -14,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +35,8 @@ import org.springframework.web.server.ResponseStatusException;
  * Google password by mistake never has it sent anywhere.
  *
  * <p>Attempts are limited to five per quarter hour per user, so a wrong password can't be retried
- * into a Google lock-out. Disconnecting deletes the connection (and, from 14.3, all stored mail).
+ * into a Google lock-out. Disconnecting deletes the connection and all stored mail; connecting a
+ * different Gmail drops what was read from the old one.
  */
 @Service
 public class InboxService {
@@ -44,7 +48,19 @@ public class InboxService {
     static final Duration ATTEMPT_WINDOW = Duration.ofMinutes(15);
 
     /** What the settings page shows. The password never leaves the server in any form. */
-    public record View(boolean available, boolean connected, String address, String status, Instant connectedAt, Instant lastCheckedAt, String lastError) {}
+    public record View(
+        boolean available,
+        boolean connected,
+        String address,
+        String status,
+        Instant connectedAt,
+        Instant lastCheckedAt,
+        String lastError,
+        long messages
+    ) {}
+
+    /** Published after a successful connect, so the first read starts now rather than at the next quarter hour. */
+    public record Connected(Long userId) {}
 
     /** Why a connect didn't happen — a code for the page, and the sentence to show. */
     public record Refusal(String code, String message, HttpStatus status) {}
@@ -57,6 +73,9 @@ public class InboxService {
     private final EntitlementService entitlement;
     private final SecretBox box;
     private final ImapGateway imap;
+    private final InboxMessageRepository messages;
+    private final InboxFolderStateRepository states;
+    private final ApplicationEventPublisher events;
     private final Map<Long, Deque<Instant>> attempts = new ConcurrentHashMap<>();
 
     public InboxService(
@@ -64,19 +83,25 @@ public class InboxService {
         UserRepository users,
         EntitlementService entitlement,
         SecretBox box,
-        ImapGateway imap
+        ImapGateway imap,
+        InboxMessageRepository messages,
+        InboxFolderStateRepository states,
+        ApplicationEventPublisher events
     ) {
         this.connections = connections;
         this.users = users;
         this.entitlement = entitlement;
         this.box = box;
         this.imap = imap;
+        this.messages = messages;
+        this.states = states;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
     public View mine() {
         User user = currentUser();
-        return connections.findById(user.getId()).map(c -> view(c)).orElse(new View(box.usable(), false, null, null, null, null, null));
+        return connections.findById(user.getId()).map(c -> view(c)).orElse(new View(box.usable(), false, null, null, null, null, null, 0));
     }
 
     /**
@@ -118,6 +143,11 @@ public class InboxService {
 
         InboxConnection c = connections.findById(user.getId()).orElseGet(() -> new InboxConnection(user.getId()));
         boolean changedAccount = c.getAddress() != null && !c.getAddress().equals(address);
+        if (changedAccount) {
+            // A different Gmail: nothing read from the old one stays.
+            messages.deleteByUser(user.getId());
+            states.deleteByUser(user.getId());
+        }
         c.setAddress(address);
         c.setPasswordEnc(box.encrypt(password, context(user.getId())));
         c.setSentFolder(probe.sentFolder());
@@ -127,10 +157,12 @@ public class InboxService {
         if (changedAccount || c.getLastCheckedAt() == null) c.setConnectedAt(Instant.now());
         c.setUpdatedAt(Instant.now());
         attempts.remove(user.getId());
-        return new ConnectResult(view(connections.save(c)), null);
+        InboxConnection saved = connections.save(c);
+        events.publishEvent(new Connected(user.getId()));
+        return new ConnectResult(view(saved), null);
     }
 
-    /** Forget the inbox: the connection and its password now; from 14.3, its stored mail too. */
+    /** Forget the inbox: the connection, its password, and every message read from it. */
     @Transactional
     public void disconnect() {
         User user = currentUser();
@@ -139,6 +171,8 @@ public class InboxService {
 
     public void deleteAllForUser(Long userId) {
         connections.findById(userId).ifPresent(connections::delete);
+        messages.deleteByUser(userId);
+        states.deleteByUser(userId);
         attempts.remove(userId);
     }
 
@@ -185,7 +219,16 @@ public class InboxService {
     }
 
     private View view(InboxConnection c) {
-        return new View(box.usable(), true, c.getAddress(), c.getStatus(), c.getConnectedAt(), c.getLastCheckedAt(), c.getLastError());
+        return new View(
+            box.usable(),
+            true,
+            c.getAddress(),
+            c.getStatus(),
+            c.getConnectedAt(),
+            c.getLastCheckedAt(),
+            c.getLastError(),
+            messages.countByUserId(c.getUserId())
+        );
     }
 
     private static ConnectResult refuse(String code, String message, HttpStatus status) {

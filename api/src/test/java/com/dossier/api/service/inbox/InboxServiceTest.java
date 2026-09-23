@@ -13,6 +13,8 @@ import static org.mockito.Mockito.when;
 import com.dossier.api.domain.InboxConnection;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.InboxConnectionRepository;
+import com.dossier.api.repository.InboxFolderStateRepository;
+import com.dossier.api.repository.InboxMessageRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.EntitlementService;
 import com.dossier.api.service.ProRequiredException;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,6 +39,9 @@ class InboxServiceTest {
     private ImapGateway imap;
     private SecretBox box;
     private InboxService service;
+    private InboxMessageRepository messages;
+    private InboxFolderStateRepository states;
+    private ApplicationEventPublisher events;
 
     private static SecretBox box(boolean withKey) {
         InboxProperties p = new InboxProperties();
@@ -60,7 +66,10 @@ class InboxServiceTest {
         when(connections.findById(7L)).thenReturn(Optional.empty());
         when(connections.save(any(InboxConnection.class))).thenAnswer(inv -> inv.getArgument(0));
         box = box(true);
-        service = new InboxService(connections, users, entitlement, box, imap);
+        messages = mock(InboxMessageRepository.class);
+        states = mock(InboxFolderStateRepository.class);
+        events = mock(ApplicationEventPublisher.class);
+        service = new InboxService(connections, users, entitlement, box, imap, messages, states, events);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("user", "x"));
     }
 
@@ -85,6 +94,7 @@ class InboxServiceTest {
         assertThat(box.decrypt(c.getPasswordEnc(), "inbox:7")).isEqualTo("abcdefghijklmnop");
         assertThat(c.getSentFolder()).isEqualTo("[Gmail]/Sent Mail");
         assertThat(c.getStatus()).isEqualTo(InboxConnection.CONNECTED);
+        verify(events).publishEvent(new InboxService.Connected(7L)); // the first read starts now
     }
 
     @Test
@@ -133,7 +143,7 @@ class InboxServiceTest {
                 return Optional.of(u);
             }
             return null;
-        }), entitlement, box(false), imap);
+        }), entitlement, box(false), imap, mock(InboxMessageRepository.class), mock(InboxFolderStateRepository.class), mock(ApplicationEventPublisher.class));
         assertThat(off.connect("jobs.hunt@gmail.com", "abcdefghijklmnop").refusal().code()).isEqualTo("UNAVAILABLE");
         assertThat(off.mine().available()).isFalse();
         verify(imap, never()).probe(anyString(), anyString());
@@ -152,5 +162,18 @@ class InboxServiceTest {
         when(connections.findById(7L)).thenReturn(Optional.of(c));
         service.disconnect();
         verify(connections).delete(c);
+        verify(messages).deleteByUser(7L);
+        verify(states).deleteByUser(7L);
+    }
+
+    @Test
+    void connectingADifferentGmailDropsTheOldMail() {
+        InboxConnection old = new InboxConnection(7L);
+        old.setAddress("old.jobs@gmail.com");
+        when(connections.findById(7L)).thenReturn(Optional.of(old));
+        when(imap.probe(anyString(), anyString())).thenReturn(new ImapGateway.Probe(ImapGateway.Outcome.OK, null));
+        service.connect("new.jobs@gmail.com", "abcdefghijklmnop");
+        verify(messages).deleteByUser(7L);
+        verify(states).deleteByUser(7L);
     }
 }
