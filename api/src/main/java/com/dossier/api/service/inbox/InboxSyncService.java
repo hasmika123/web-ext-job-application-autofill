@@ -77,6 +77,7 @@ public class InboxSyncService {
     private final ImapGateway imap;
     private final SecretBox box;
     private final InboxProperties props;
+    private final InboxParser parser;
 
     public InboxSyncService(
         InboxConnectionRepository connections,
@@ -85,7 +86,8 @@ public class InboxSyncService {
         ApplicationRepository applications,
         ImapGateway imap,
         SecretBox box,
-        InboxProperties props
+        InboxProperties props,
+        InboxParser parser
     ) {
         this.connections = connections;
         this.states = states;
@@ -94,6 +96,7 @@ public class InboxSyncService {
         this.imap = imap;
         this.box = box;
         this.props = props;
+        this.parser = parser;
     }
 
     /** Read one user's inbox now. */
@@ -121,6 +124,14 @@ public class InboxSyncService {
             c.setConsecutiveFailures(0);
             c.setLastCheckedAt(now);
             connections.save(c);
+            JakartaImapGateway.closeQuietly(store); // done with Gmail before the (possibly slower) reading
+            store = null;
+            try {
+                parser.parse(userId, c.getAddress());
+            } catch (RuntimeException e) {
+                // The mail is safely stored; what it says is read again next time.
+                LOG.warn("Reading inbox mail failed for a user: {}", e.getClass().getSimpleName());
+            }
             return Result.OK;
         } catch (AuthenticationFailedException e) {
             if (!stillConnected(userId)) return Result.SKIPPED;

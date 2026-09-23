@@ -131,17 +131,19 @@ public class GeminiAiProvider implements AiProvider {
         contents.add(textPart(userText));
         ObjectNode genCfg = body.putObject("generationConfig");
         genCfg.put("maxOutputTokens", maxOutputTokens);
-        if (task == AiTask.MATCH || task == AiTask.FIT || task == AiTask.TAILOR || task == AiTask.JOBS) {
+        if (task == AiTask.MATCH || task == AiTask.FIT || task == AiTask.TAILOR || task == AiTask.JOBS || task == AiTask.INBOX) {
             // 13.2 / 13.3: scores and fit reports come back as schema-checked JSON, with room for a
             // list of entries (ten resumes, or keyword lists) rather than a short draft. 13.6b scores up
             // to fifty postings at once, each with a reason — the same shape as MATCH, more of it.
-            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, task == AiTask.TAILOR || task == AiTask.JOBS ? 3000 : 1200));
+            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, task == AiTask.TAILOR || task == AiTask.JOBS || task == AiTask.INBOX ? 3000 : 1200));
             genCfg.put("responseMimeType", "application/json");
             try {
                 genCfg.set(
                     "responseSchema",
                     om.readTree(
-                        task == AiTask.MATCH || task == AiTask.JOBS ? MATCH_SCHEMA_JSON : task == AiTask.FIT ? FIT_SCHEMA_JSON : TAILOR_SCHEMA_JSON
+                        task == AiTask.MATCH || task == AiTask.JOBS
+                            ? MATCH_SCHEMA_JSON
+                            : task == AiTask.FIT ? FIT_SCHEMA_JSON : task == AiTask.INBOX ? INBOX_SCHEMA_JSON : TAILOR_SCHEMA_JSON
                     )
                 );
             } catch (Exception e) {
@@ -165,6 +167,24 @@ public class GeminiAiProvider implements AiProvider {
             "suggestions": { "type": "ARRAY", "items": { "type": "STRING" } }
           },
           "required": ["bullets"]
+        }
+        """;
+    // spotless:on
+
+    /** Structured output for {@link AiTask#INBOX}: one reading per email, from a fixed list. */
+    // spotless:off
+    private static final String INBOX_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "results": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {
+              "id": { "type": "STRING" },
+              "category": { "type": "STRING", "enum": ["APPLIED", "INTERVIEW", "ASSESSMENT", "REJECTED", "OFFER", "ALERT", "OTHER"] },
+              "company": { "type": "STRING" },
+              "role": { "type": "STRING" } }, "required": ["id", "category"] } }
+          },
+          "required": ["results"]
         }
         """;
     // spotless:on

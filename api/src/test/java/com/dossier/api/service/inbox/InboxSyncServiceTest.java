@@ -118,7 +118,7 @@ class InboxSyncServiceTest {
         Application acme = new Application().company("Acme Corp").roleTitle("Backend Engineer");
         when(applications.findByUserId(USER)).thenReturn(List.of(acme));
 
-        service = new InboxSyncService(connections, states, messages, applications, new JakartaImapGateway(props), box, props);
+        service = new InboxSyncService(connections, states, messages, applications, new JakartaImapGateway(props), box, props, mock(InboxParser.class));
     }
 
     @AfterEach
@@ -270,7 +270,8 @@ class InboxSyncServiceTest {
             mock(ApplicationRepository.class),
             new JakartaImapGateway(props),
             box,
-            props
+            props,
+            mock(InboxParser.class)
         );
         assertThat(racing.sync(USER)).isEqualTo(InboxSyncService.Result.SKIPPED);
         assertThat(stored).isEmpty();

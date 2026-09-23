@@ -75,7 +75,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > mail; poll every 15 min; email only for interview/offer; order 14.2 → 14.1 → 14.3 → 14.5 → 14.4 →
 > 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **14.1 is DONE** — the
 > connect flow at `/settings/inbox`. **14.3 is DONE** — the poller reads Inbox + Sent every 15 min.
-> **14.5 is DONE** — one application per job across boards. **Next: 14.4** — the parser (mail → status). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **14.5 is DONE** — one application per job across boards. **14.4 is split**: **14.4a is DONE** — mail
+> read into status changes (rules first, Flash-Lite only when unsure). **Next: 14.4b** — the board side:
+> suggested applications and each application's emails. **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1073,7 +1075,7 @@ focused Claude Code session.
   **no attachments**; rate-limited; per-user error state surfaced in settings. UIDVALIDITY per
   folder, `\Sent` by special-use flag, one connection per sync, backoff, GreenMail tests; every
   15 min; backfill 60 days / ≤ 500 per folder; body kept only for job mail.
-- [ ] **14.4 Parser → status.** Deterministic ATS sender/subject templates → applied / interview /
+- [ ] **14.4 Parser → status.** *(split: 14.4a engine ✅, 14.4b board UI)* Deterministic ATS sender/subject templates → applied / interview /
   rejected / offer; Flash-Lite only on ambiguous mail; match by company + role + sending address;
   unmatched → *suggested* application.
 - [x] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
@@ -1195,6 +1197,19 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **14.4a inbox parser** · After each read, new mail oldest-first. `MailClassifier` (rules,
+  from the wording ATS templates use): APPLIED / INTERVIEW / ASSESSMENT / REJECTED / OFFER / ALERT /
+  OTHER, plus the company and role the mail names. **Only mail the rules can't settle** (nothing
+  matched, or a contradiction like "unfortunately I need to move our interview") goes to Flash-Lite
+  (`AiTask.INBOX`, enum-constrained JSON, ≤ 20 per metered call, ≤ 3 calls a read); if the model can't
+  be asked it's marked UNSURE and **changes nothing** — a wrong "rejected" is worse than none.
+  Matching (`MailMatcher`): a reply follows its thread (sent mail is linked for this), else the
+  company (as `ApplicationKeys` compares it) in what the mail names / the sender's own domain / their
+  display name / the subject; two roles at one company need the role to decide, else it's left
+  unmatched rather than guessed. Status moves forward only; rejections and offers win; a confirmation
+  also confirms the submission and dates the application. Each change publishes `StatusChanged`
+  (for 14.6). A confirmation / invite / test / offer from an untracked company is marked a suggestion
+  (for 14.4b). ALERTs (job-board digests) change nothing. Privacy page updated. No ext change.
 - 2026-09-23 · **14.5 cross-board dedup** · The board's upsert (every path: extension fills, manual add,
   save-from-matches) now finds the existing entry by ATS job id, then by **link without tracking noise**
   (`gh_src`, `utm_*`, `www.`, trailing slash), then — new — by **company + title + a compatible

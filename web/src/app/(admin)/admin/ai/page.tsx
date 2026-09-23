@@ -40,6 +40,7 @@ const TASK_LABELS: Record<string, string> = {
   fit: "Job fit",
   tailor: "Resume tailoring",
   jobs: "Daily job matches",
+  inbox: "Inbox reading",
 };
 
 /** Dollars from millionths of a dollar. Small amounts keep 4 decimals so a $0.0024 call isn't "$0.00". */
