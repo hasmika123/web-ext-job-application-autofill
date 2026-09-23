@@ -15,6 +15,8 @@ import com.dossier.api.domain.JobMatchSetting;
 import com.dossier.api.domain.JobPosting;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
+import com.dossier.api.domain.enumeration.JobMode;
+import com.dossier.api.domain.enumeration.JobType;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.JobMatchRepository;
@@ -108,6 +110,7 @@ class JobMatchServiceTest {
             mock(EntitlementService.class),
             new JobBoardProperties(),
             mock(ApplicationEventPublisher.class),
+            mock(ApplicationSyncService.class),
             true
         );
     }
@@ -229,5 +232,16 @@ class JobMatchServiceTest {
         assertThat(JobMatchService.excerpt("We are Acme, founded 1999. What you bring: Java.")).isEqualTo("What you bring: Java.");
         assertThat(JobMatchService.excerpt(null)).isEqualTo("(no description)");
         assertThat(JobMatchService.excerpt("x".repeat(2000))).hasSize(JobMatchService.EXCERPT_CHARS);
+    }
+
+    @Test
+    void postingFieldsMapOntoTheBoard() {
+        assertThat(JobMatchService.jobType("Full-time")).isEqualTo(JobType.FULL_TIME);
+        assertThat(JobMatchService.jobType("FullTime")).isEqualTo(JobType.FULL_TIME);
+        assertThat(JobMatchService.jobType("Intern")).isEqualTo(JobType.INTERNSHIP);
+        assertThat(JobMatchService.jobType("Contract")).isEqualTo(JobType.CONTRACT);
+        assertThat(JobMatchService.jobType(null)).isNull();
+        assertThat(JobMatchService.jobMode("ONSITE")).isEqualTo(JobMode.ON_SITE);
+        assertThat(JobMatchService.jobMode(null)).isNull();
     }
 }

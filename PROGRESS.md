@@ -69,7 +69,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > ordinary overnight calls, Batch API waits for 16.1). **13.6a is DONE** — 217 verified job boards,
 > a nightly read keeping 48-hour-fresh postings, and an admin Job sources page. **13.6b is DONE** —
 > opt-in nightly matching: preferences from the profile + resume, a pre-filter to ≤ 50, one metered
-> Flash-Lite call per user. **Next: 13.6c** — the `/matches` page (and its on/off switch). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> Flash-Lite call per user. **13.6c is DONE** — the `/matches` page: the switch (with what it sends),
+> today's list, save to board / dismiss. **13.6 IS COMPLETE — so is Phase 13.** **Next: Phase 14** —
+> the inbox over IMAP (14.1 connect flow). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1041,7 +1043,7 @@ focused Claude Code session.
 - [x] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
   structure/dates/contact/measurable-results checks + one Flash-Lite keyword read vs the captured
   JD; cached per (resume × JD); shown on the resumes page + inside the job-fit panel.
-- [ ] **13.6 Daily job matches — LIGHT** *(Launch 1, user decision; strong version = 16.1).*
+- [x] **13.6 Daily job matches — LIGHT** *(Launch 1, user decision; strong version = 16.1).*
   Greenhouse + Lever + Ashby public job-board APIs only; prefs = Tier A + resume-inferred
   role/seniority/location; ≤ 48 h + dedup; Flash-Lite scoring in an overnight batch, ≤ 50
   candidates/user/day; match %; **in-app list only**, dismiss hides; empty list allowed.
@@ -1050,7 +1052,7 @@ focused Claude Code session.
     admin Job sources page.
   - [x] **13.6b Matching.** Preferences (Tier A + resume role/seniority/location) → deterministic
     pre-filter to ≤ 50 → one Flash-Lite call per Pro user per night (metered) → `job_match` rows.
-  - [ ] **13.6c Matches page** `/matches` (Pro): match %, reason, open / save to board / dismiss;
+  - [x] **13.6c Matches page** `/matches` (Pro): match %, reason, open / save to board / dismiss;
     empty list allowed; Free sees the upsell.
 
 ## Phase 14 — Inbox over IMAP (Launch 1 — needs 12)
@@ -1183,6 +1185,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.6c matches page** · `/matches` (nav "Job matches"), Pro. The switch comes first
+  because it is the consent: its caption says what's sent nightly and to whom. Today's list = undecided
+  matches scoring ≥ 60, best first — title (links to the posting), company · location · workplace,
+  match % with a meter, the model's reason, posted date; **Save to board** (the server builds a SAVED
+  application from the stored posting — description included, so resume fit / job fit / tailoring /
+  ATS score work on it; the board's usual dedup on the ATS job id then link; the browser sends only
+  the match id) · **View posting** · **Not for me** (dismissed for good). Switching on refreshes the
+  page for a minute while the first match runs; empty list and each last-run status (no resume,
+  nothing new, budget spent, paused, failed) get a plain sentence; Free sees what it is + "Part of
+  Pro". API: `GET /api/profile/job-matches`, `POST /{id}/save|dismiss` (404 for others'). Titles and
+  locations capped to the board's 200 chars. Checked in the browser (list, save, off, empty, Free,
+  375 px). No ext change.
 - 2026-09-22 · **13.6b job matching** · Pro, **opt-in** (`job_match_setting`, off by default: it sends
   the resume summary + preferences to Gemini nightly without a click, so the user says yes once — the
   switch is `PUT /api/profile/job-matches/settings`, its UI is 13.6c; switching on matches at once).

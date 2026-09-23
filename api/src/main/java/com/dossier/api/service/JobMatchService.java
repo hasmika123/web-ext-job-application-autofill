@@ -7,6 +7,9 @@ import com.dossier.api.domain.JobMatchSetting;
 import com.dossier.api.domain.JobPosting;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
+import com.dossier.api.domain.enumeration.ApplicationStatus;
+import com.dossier.api.domain.enumeration.JobMode;
+import com.dossier.api.domain.enumeration.JobType;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.JobMatchRepository;
@@ -19,6 +22,7 @@ import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
 import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
+import com.dossier.api.service.dto.ApplicationDTO;
 import com.dossier.api.service.jobs.JobBoardProperties;
 import com.dossier.api.service.jobs.JobPrefilter;
 import com.dossier.api.service.jobs.MatchPreferences;
@@ -84,6 +88,24 @@ public class JobMatchService {
 
     public record RunSummary(Instant startedAt, long durationMs, int users, int matched, int noCandidates, int skipped, int errors, int shown) {}
 
+    /** One match as the Matches page shows it: the score and reason, and the posting's public fields. */
+    public record MatchView(
+        Long id,
+        int score,
+        String reason,
+        String title,
+        String company,
+        String location,
+        String workplaceType,
+        String employmentType,
+        String url,
+        String applyUrl,
+        Instant publishedAt,
+        String ats
+    ) {}
+
+    public record ListView(SettingView setting, List<MatchView> matches) {}
+
     /** Published when a user switches matching on, so they're matched now rather than tonight. */
     public record MatchRequested(Long userId) {}
 
@@ -100,6 +122,7 @@ public class JobMatchService {
     private final EntitlementService entitlement;
     private final JobBoardProperties props;
     private final ApplicationEventPublisher events;
+    private final ApplicationSyncService applicationSync;
     private final boolean aiEnabled;
     private final ObjectMapper om = new ObjectMapper();
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -119,6 +142,7 @@ public class JobMatchService {
         EntitlementService entitlement,
         JobBoardProperties props,
         ApplicationEventPublisher events,
+        ApplicationSyncService applicationSync,
         @Value("${dossier.ai.enabled:false}") boolean aiEnabled
     ) {
         this.provider = provider;
@@ -134,6 +158,7 @@ public class JobMatchService {
         this.entitlement = entitlement;
         this.props = props;
         this.events = events;
+        this.applicationSync = applicationSync;
         this.aiEnabled = aiEnabled;
     }
 
@@ -156,6 +181,100 @@ public class JobMatchService {
         s = settings.save(s);
         if (enabled && !wasOn) events.publishEvent(new MatchRequested(user.getId()));
         return view(s);
+    }
+
+    // ---- the Matches page (13.6c) ------------------------------------------------------------
+
+    /** The switch and today's list: undecided matches scoring {@link #SHOW_SCORE}+, best first. Pro. */
+    @Transactional(readOnly = true)
+    public ListView myMatches() {
+        User user = currentUser();
+        entitlement.requirePro(user.getLogin());
+        SettingView setting = settings.findById(user.getId()).map(JobMatchService::view).orElse(new SettingView(false, null, null, null, null));
+        List<MatchView> list = matches.findShown(user.getId(), JobMatch.NEW, SHOW_SCORE).stream().map(JobMatchService::matchView).toList();
+        return new ListView(setting, list);
+    }
+
+    /** Hide a match. It stays scored, so it never comes back. */
+    @Transactional
+    public void dismiss(Long matchId) {
+        ownedMatch(matchId).setStatus(JobMatch.DISMISSED);
+    }
+
+    /**
+     * Put a match on the board as a SAVED application — with its description, so resume fit, job
+     * fit, tailoring and the ATS score all work on it — and take it off the list. Built from the
+     * stored posting, never from what the browser sends; the board's usual dedup (the ATS's own job
+     * id, then the link) means saving a job already tracked updates that entry instead of adding one.
+     *
+     * @return the application's id
+     */
+    @Transactional
+    public Long save(Long matchId) {
+        JobMatch m = ownedMatch(matchId);
+        JobPosting p = m.getPosting();
+        ApplicationDTO dto = new ApplicationDTO();
+        dto.setCompany(p.getCompany());
+        // Postings allow longer titles and location lists than the board keeps (200 each).
+        dto.setRoleTitle(AiInputs.cap(p.getTitle(), 200));
+        dto.setJobUrl(p.getUrl());
+        dto.setLocation(p.getLocation() == null ? null : AiInputs.cap(p.getLocation(), 200));
+        dto.setJobMode(jobMode(p.getWorkplaceType()));
+        dto.setJobType(jobType(p.getEmploymentType()));
+        dto.setJobDescription(p.getDescriptionText());
+        dto.setExternalJobId(p.getExternalId());
+        dto.setAtsPlatform(p.getSource().getAts());
+        dto.setSource("match");
+        dto.setStatus(ApplicationStatus.SAVED);
+        Long appId = applicationSync.upsertApplication(dto).getId();
+        m.setStatus(JobMatch.SAVED);
+        return appId;
+    }
+
+    private JobMatch ownedMatch(Long matchId) {
+        User user = currentUser();
+        return matches
+            .findOneByIdAndUserId(matchId, user.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such match"));
+    }
+
+    private static MatchView matchView(JobMatch m) {
+        JobPosting p = m.getPosting();
+        return new MatchView(
+            m.getId(),
+            m.getScore(),
+            m.getReason(),
+            p.getTitle(),
+            p.getCompany(),
+            p.getLocation(),
+            p.getWorkplaceType(),
+            p.getEmploymentType(),
+            p.getUrl(),
+            p.getApplyUrl(),
+            p.getPublishedAt(),
+            p.getSource().getAts()
+        );
+    }
+
+    static JobMode jobMode(String workplaceType) {
+        if (workplaceType == null) return null;
+        return switch (workplaceType) {
+            case "REMOTE" -> JobMode.REMOTE;
+            case "HYBRID" -> JobMode.HYBRID;
+            case "ONSITE" -> JobMode.ON_SITE;
+            default -> null;
+        };
+    }
+
+    /** "Full-time", "FullTime", "Contract", "Intern"… → the board's job type, or null when unclear. */
+    static JobType jobType(String employmentType) {
+        String e = employmentType == null ? "" : employmentType.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
+        if (e.startsWith("fulltime") || e.equals("permanent")) return JobType.FULL_TIME;
+        if (e.startsWith("parttime")) return JobType.PART_TIME;
+        if (e.startsWith("contract") || e.startsWith("freelance")) return JobType.CONTRACT;
+        if (e.startsWith("intern")) return JobType.INTERNSHIP;
+        if (e.startsWith("temp") || e.startsWith("seasonal")) return JobType.TEMPORARY;
+        return null;
     }
 
     // ---- matching ----------------------------------------------------------------------------
