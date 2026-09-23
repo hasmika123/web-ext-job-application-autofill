@@ -910,6 +910,8 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   - **14.4a as built (2026-09-23):** rules (`MailClassifier`) settle most mail; Flash-Lite only for the
     unsure, batched and metered; unsure-and-unasked changes nothing. Threads, then company + role
     (`MailMatcher`); ambiguity → unmatched, never guessed. Forward-only status; `StatusChanged` event.
+  - **14.4b as built (2026-09-23):** "From your inbox" suggestions above the board (add at the mail's
+    stage, or dismiss the company); an Emails section per application.
 - **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
   = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
   ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard

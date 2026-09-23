@@ -76,8 +76,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **14.1 is DONE** — the
 > connect flow at `/settings/inbox`. **14.3 is DONE** — the poller reads Inbox + Sent every 15 min.
 > **14.5 is DONE** — one application per job across boards. **14.4 is split**: **14.4a is DONE** — mail
-> read into status changes (rules first, Flash-Lite only when unsure). **Next: 14.4b** — the board side:
-> suggested applications and each application's emails. **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> read into status changes (rules first, Flash-Lite only when unsure). **14.4b is DONE** — "From your
+> inbox" suggestions on the board + each application's Emails. **14.4 is complete.** **Next: 14.6** —
+> notifications (in-app + email for interview/offer). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1075,7 +1076,7 @@ focused Claude Code session.
   **no attachments**; rate-limited; per-user error state surfaced in settings. UIDVALIDITY per
   folder, `\Sent` by special-use flag, one connection per sync, backoff, GreenMail tests; every
   15 min; backfill 60 days / ≤ 500 per folder; body kept only for job mail.
-- [ ] **14.4 Parser → status.** *(split: 14.4a engine ✅, 14.4b board UI)* Deterministic ATS sender/subject templates → applied / interview /
+- [x] **14.4 Parser → status.** *(split: 14.4a engine ✅, 14.4b board UI ✅)* Deterministic ATS sender/subject templates → applied / interview /
   rejected / offer; Flash-Lite only on ambiguous mail; match by company + role + sending address;
   unmatched → *suggested* application.
 - [x] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
@@ -1197,6 +1198,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **14.4b inbox on the board** · "From your inbox" above the board (Pro): jobs the mail
+  shows that aren't tracked — company · role · what the mail was (confirmation / interview invite /
+  assessment / offer) · date · subject; **Add to board** lands it at the stage the mail showed, dated
+  by it, through the board's own upsert (dedup applies), folding in that company's other suggestions;
+  when the mail didn't name the role it's asked for first; **Dismiss** hides the company's
+  suggestions. Each application's panel gets **Emails**: the matched mail newest first — sender (or
+  "You"), date, what it was read as, "→ moved to Interview" when it moved the status, "not sure what
+  this means" for UNSURE mail, and a short snippet on click (job mail only has text). Hidden when
+  there's none. API: `GET /api/profile/inbox/suggestions`, `POST …/{id}/accept|dismiss` (409 once
+  handled, 400 without a role), `GET /api/profile/applications/{id}/mail` (404 for others'). Checked
+  in the browser. No ext change.
 - 2026-09-23 · **14.4a inbox parser** · After each read, new mail oldest-first. `MailClassifier` (rules,
   from the wording ATS templates use): APPLIED / INTERVIEW / ASSESSMENT / REJECTED / OFFER / ALERT /
   OTHER, plus the company and role the mail names. **Only mail the rules can't settle** (nothing
