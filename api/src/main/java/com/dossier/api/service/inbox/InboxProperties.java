@@ -15,6 +15,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *       (default 1). Rotating = new key, version + 1, old key moved to {@code retired-keys}.</li>
  *   <li><b>{@code retired-keys}</b> — version → old key, for reading what older keys wrote until
  *       it's re-encrypted. Decrypt only.</li>
+ *   <li><b>{@code imap-host} / {@code imap-port} / {@code imap-ssl}</b> — where mailboxes are read
+ *       (14.1): Gmail, {@code imap.gmail.com:993} over TLS. Tests point these at GreenMail.</li>
+ *   <li><b>{@code timeout-ms}</b> — connect and read timeout for one IMAP session.</li>
  * </ul>
  */
 @ConfigurationProperties(prefix = "dossier.inbox")
@@ -23,6 +26,10 @@ public class InboxProperties {
     private String key = "";
     private int keyVersion = 1;
     private Map<Integer, String> retiredKeys = new LinkedHashMap<>();
+    private String imapHost = "imap.gmail.com";
+    private int imapPort = 993;
+    private boolean imapSsl = true;
+    private int timeoutMs = 15000;
 
     public String getKey() {
         return key;
@@ -46,5 +53,37 @@ public class InboxProperties {
 
     public void setRetiredKeys(Map<Integer, String> retiredKeys) {
         this.retiredKeys = retiredKeys;
+    }
+
+    public String getImapHost() {
+        return imapHost;
+    }
+
+    public void setImapHost(String imapHost) {
+        this.imapHost = imapHost;
+    }
+
+    public int getImapPort() {
+        return imapPort;
+    }
+
+    public void setImapPort(int imapPort) {
+        this.imapPort = imapPort;
+    }
+
+    public boolean isImapSsl() {
+        return imapSsl;
+    }
+
+    public void setImapSsl(boolean imapSsl) {
+        this.imapSsl = imapSsl;
+    }
+
+    public int getTimeoutMs() {
+        return timeoutMs;
+    }
+
+    public void setTimeoutMs(int timeoutMs) {
+        this.timeoutMs = timeoutMs;
     }
 }

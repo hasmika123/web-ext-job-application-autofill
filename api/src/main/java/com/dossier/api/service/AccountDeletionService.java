@@ -11,6 +11,7 @@ import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.service.billing.StripeGateway;
+import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import java.util.List;
@@ -54,6 +55,7 @@ public class AccountDeletionService {
     private final JobFitService jobFitService;
     private final ResumeTailorService resumeTailorService;
     private final JobMatchService jobMatchService;
+    private final InboxService inboxService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -73,7 +75,8 @@ public class AccountDeletionService {
         ResumeMatchService resumeMatchService,
         JobFitService jobFitService,
         ResumeTailorService resumeTailorService,
-        JobMatchService jobMatchService
+        JobMatchService jobMatchService,
+        InboxService inboxService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -93,6 +96,7 @@ public class AccountDeletionService {
         this.jobFitService = jobFitService;
         this.resumeTailorService = resumeTailorService;
         this.jobMatchService = jobMatchService;
+        this.inboxService = inboxService;
     }
 
     /**
@@ -167,6 +171,7 @@ public class AccountDeletionService {
                 jobFitService.deleteAllForUser(id);
                 resumeTailorService.deleteAllForUser(id);
                 jobMatchService.deleteAllForUser(id);
+                inboxService.deleteAllForUser(id);
                 forgetAiUsage(login);
                 endBilling(id);
             });
@@ -205,6 +210,7 @@ public class AccountDeletionService {
         jobFitService.deleteAllForUser(userId);
         resumeTailorService.deleteAllForUser(userId);
         jobMatchService.deleteAllForUser(userId);
+        inboxService.deleteAllForUser(userId);
         forgetAiUsage(login);
         endBilling(userId);
         userService.deleteUser(login);

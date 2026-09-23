@@ -19,6 +19,7 @@ const NAV = [
   { id: "account", label: "Account" },
   { id: "ai", label: "AI & drafting" },
   { id: "autofill", label: "Autofill behavior" },
+  { id: "inbox", label: "Inbox" },
   { id: "privacy", label: "Privacy & data" },
   { id: "billing", label: "Billing" },
 ];
@@ -36,7 +37,10 @@ export default async function SettingsPage() {
     redirect("/login");
   }
   const account: Account | null = res.ok ? await res.json() : null;
-  const [plan, aiUsage] = await Promise.all([getPlan(), getAiUsage()]);
+  const [plan, aiUsage, inboxRes] = await Promise.all([getPlan(), getAiUsage(), serverApiFetch("/api/profile/inbox")]);
+  const inbox = inboxRes.ok
+    ? ((await inboxRes.json().catch(() => null)) as { connected?: boolean; address?: string | null; status?: string | null } | null)
+    : null;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
@@ -104,6 +108,18 @@ export default async function SettingsPage() {
               <span className="font-medium text-ink-soft"> Options</span>. Kiwiply never auto-submits —
               you review every field.
             </p>
+          </Card>
+
+          {/* Inbox (14.1) */}
+          <Card id="inbox" title="Inbox">
+            <p className="text-[13.5px] text-ink-soft">
+              {inbox?.connected
+                ? `Connected: ${inbox.address}${inbox.status === "NEEDS_RECONNECT" ? " — needs reconnecting" : ""}.`
+                : "Connect the Gmail you apply from and your board updates itself when employers reply. Kiwiply only reads."}
+            </p>
+            <Link href="/settings/inbox" className="mt-3 inline-block text-[13px] font-semibold text-accent-deep hover:underline">
+              {inbox?.connected ? "Manage inbox →" : plan.plan === "PRO" ? "Connect an inbox →" : "See how it works →"}
+            </Link>
           </Card>
 
           {/* Privacy & data */}

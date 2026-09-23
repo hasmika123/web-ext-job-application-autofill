@@ -171,6 +171,16 @@ export default function PrivacyPage() {
           one-line reason (not your resume text) for as long as the posting is listed with us, at most 7
           days, and delete them with your account. Switch matching off at any time.
         </p>
+        <p>
+          <strong>Inbox (Pro).</strong> If you connect a Gmail, we store its address and the app password you
+          create for Kiwiply — encrypted, never as you typed it, and never shown back. We use them only to sign
+          in and read that mailbox&apos;s inbox and sent mail, every 15 minutes. From each message we keep the
+          sender, recipients, subject and date; we keep the text only of mail about your job search (from a
+          hiring system, or about an application you track), and never attachments. We never send, move or
+          delete mail. Disconnecting deletes the app password and everything we read; deleting the app password
+          in your Google account cuts us off as well. We ask you to connect a Gmail made just for job hunting, so
+          your personal mail stays out of it.
+        </p>
       </Section>
 
       <Section title="Storage and sharing">
