@@ -627,3 +627,29 @@ page, then open its options. Pro should appear **within one version check** — 
 
 Record the run under **Log** in `PROGRESS.md`, then move the same four secrets into the box's
 `.env` (and the password manager) when you switch to live keys.
+
+## 12. Inbox encryption key (Phase 14.2)
+
+The inbox (Phase 14) stores each user's Gmail **app password** — the key to their mailbox — so it
+is encrypted at rest with AES-256-GCM. The key is one 32-byte value in the box's `.env`:
+
+```bash
+openssl rand -base64 32
+```
+
+1. Run that **once**, on your own machine. Put the output in the **password manager** first, then
+   in the box's `.env` as `DOSSIER_INBOX_KEY=…`. Not in the repo, not in GitHub secrets (they're
+   write-only — that's how the `.env` was lost on 2026-09-17), not in a chat message.
+2. Redeploy. The API log says `Inbox key ready (fingerprint xxxxxxxx)` on the first boot and
+   `Inbox key OK (fingerprint xxxxxxxx)` after that. Note the fingerprint next to the key in the
+   password manager — it identifies the key without revealing it.
+3. **If the log says the key doesn't match** (`is not the key that encrypted the stored inbox
+   passwords`), the `.env` has the wrong value — restore it from the password manager. Don't
+   generate a new one: the inbox refuses to run with a mismatched key precisely so nothing is
+   overwritten, and a new key means every connected user has to reconnect.
+
+**Rotating** (e.g. if the key may have leaked): generate a new key, set it as `DOSSIER_INBOX_KEY`,
+bump `DOSSIER_INBOX_KEY_VERSION` by one, and keep the old one readable by adding it to
+`application-prod.yml` under `dossier.inbox.retired-keys` (`<old version>: ${DOSSIER_INBOX_KEY_V1}`)
+with that env var set. Each stored password moves to the new key the next time its inbox is
+checked (every 15 minutes once the poller, 14.3, is live), so keep the retired key for a day, then drop it.

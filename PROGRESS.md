@@ -73,7 +73,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > today's list, save to board / dismiss. **13.6 IS COMPLETE — so is Phase 13.** **Phase 14 is planned**
 > (user decisions 2026-09-22, ROADMAP "Phase 14 plan"): env AES-256-GCM key; bodies kept only for job
 > mail; poll every 15 min; email only for interview/offer; order 14.2 → 14.1 → 14.3 → 14.5 → 14.4 →
-> 14.6 → 14.7. **Next: 14.2** — app-password encryption + key canary. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **Next: 14.1** — the
+> connect flow (`/settings/inbox`). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1065,7 +1066,7 @@ focused Claude Code session.
 > every 15 min; email the user only for interview/offer. Pro only.
 - [ ] **14.1 Connect flow** `/settings/inbox`: guided steps (2-Step Verification → App Password),
   test connection, disconnect. Consumer Gmail only.
-- [ ] **14.2 Credentials encrypted at rest** (server-side key; the 8.4 secrets slice, now required).
+- [x] **14.2 Credentials encrypted at rest** (server-side key; the 8.4 secrets slice, now required).
   AES-256-GCM, `DOSSIER_INBOX_KEY`, key version on each ciphertext, startup canary. *First.*
 - [ ] **14.3 IMAP poller.** UID-incremental sync + backfill on connect; headers + body text only,
   **no attachments**; rate-limited; per-user error state surfaced in settings. UIDVALIDITY per
@@ -1193,6 +1194,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **14.2 inbox credential encryption** · `SecretBox`: AES-256-GCM, a fresh 12-byte IV per
+  value, 128-bit tag, and **associated data binding each value to its row** (`inbox:<userId>` — a
+  ciphertext copied into another user's row won't decrypt). Stored as `v<version>:<base64>` so the key
+  can rotate (`retired-keys` read old values; `reencrypt` moves them forward). Key only from
+  `DOSSIER_INBOX_KEY` (base64 or hex, 32 bytes); none/bad = inbox **off**, never a weaker fallback.
+  `InboxKeyCheck` (startup, every profile): a canary row in `secret_canary`, written on first boot,
+  read back every boot — a different key marks the box MISMATCH (inbox refuses to run, nothing
+  overwritten) and logs both fingerprints; it never stops the API. DEPLOY.md §12 says how to make,
+  store and rotate the key. Tests generate keys at runtime — none committed. No ext change.
 - 2026-09-22 · **Phase 14 planned** · Read Sales-App's IMAP integration (Node/imapflow — a model, not
   a port): keep its env AES-256-GCM key, `\Sent` special-use lookup, Message-ID dedup and
   per-connection error listener; fix its date-based sync (→ UID + UIDVALIDITY), connection per
