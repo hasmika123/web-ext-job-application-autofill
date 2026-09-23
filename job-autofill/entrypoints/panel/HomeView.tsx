@@ -26,7 +26,17 @@ import {
 import { BrandLogo } from "../../lib/Brand";
 import { closePanel } from "../../lib/panel-frame";
 import { extensionAlive } from "../../lib/ext-context";
-import { loadData, refreshMirror, fillPage, capturePage, readAccount, type HomeData, type Account } from "./home-actions";
+import {
+  loadData,
+  refreshMirror,
+  fillPage,
+  capturePage,
+  readAccount,
+  matchResumesForPage,
+  type HomeData,
+  type Account,
+  type ResumeFitResult,
+} from "./home-actions";
 import { SaveJobDialog } from "./SaveJobDialog";
 import type { Handoff } from "./services";
 
@@ -54,6 +64,8 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   const [saveModal, setSaveModal] = useState<{ capture: any; signal: boolean } | null>(null);
   // Soft warning shown before filling a page that doesn't look like a job page.
   const [fillWarn, setFillWarn] = useState(false);
+  // 13.2 (Pro): which resume fits the job on this page — null until known, or when there's nothing to say.
+  const [fit, setFit] = useState<ResumeFitResult>(null);
 
   const toast = useToast();
   const activeTab = useRef<number | null>(null);
@@ -95,6 +107,9 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
         const preferred = pickable.find((r) => r.defaultResume) ?? pickable[0];
         if (preferred) setSelectedId(preferred.id);
       }
+      // After the picker is ready, so a slow score never delays filling. Never auto-selects:
+      // it suggests, and the user decides.
+      matchResumesForPage(pickable).then(setFit);
     })();
     return () => {
       chrome.storage.onChanged.removeListener(onChange);
@@ -251,6 +266,39 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
               ))
             )}
           </Select>
+          {fit && "best" in fit && (
+            <div className="flex items-center gap-2 rounded-[var(--radius)] bg-accent-soft px-3 py-2 text-[12.5px]" title={fit.best.why}>
+              <span className="min-w-0 flex-1 truncate text-ink">
+                {fit.best.localId === selectedId ? (
+                  <>
+                    <b>Best match for this job</b> · {fit.best.score}%
+                  </>
+                ) : (
+                  <>
+                    Best match: <b>{truncateLabel(fit.best.label, 28)}</b> · {fit.best.score}%
+                  </>
+                )}
+              </span>
+              {fit.best.localId !== selectedId && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(fit.best.localId)}
+                  className="flex-none rounded-full px-2 py-0.5 text-[12px] font-bold text-accent-deep hover:underline focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  Use
+                </button>
+              )}
+            </div>
+          )}
+          {fit && "optIn" in fit && (
+            <p className="text-[12px] leading-snug text-muted">
+              Turn on Kiwiply AI in{" "}
+              <button type="button" onClick={() => chrome.runtime.openOptionsPage()} className="font-semibold text-accent-deep hover:underline">
+                Options
+              </button>{" "}
+              to see which resume fits this job.
+            </p>
+          )}
           <div className="flex min-h-[30px] items-center gap-2">
             {selectedResume ? (
               <>

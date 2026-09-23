@@ -24,6 +24,7 @@ import { ResumeUpload } from "@kiwiply/ui";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 import { formatDate as formatDateIn, type DateDisplay } from "@/lib/dates";
 import { useDateDisplay } from "@/lib/use-date-display";
+import ResumeFit from "@/components/board/ResumeFit";
 
 export interface Application {
   id: number;
@@ -362,10 +363,13 @@ export default function ApplicationBoard({
   applications,
   resumes,
   baseProfile = {},
+  isPro = false,
 }: {
   applications: Application[];
   resumes: ResumeOption[];
   baseProfile?: Record<string, unknown>;
+  /** Pro unlocks "Resume fit" in the detail panel (13.2). */
+  isPro?: boolean;
 }) {
   const router = useRouter();
   const [apps, setApps] = useState(applications);
@@ -913,6 +917,7 @@ export default function ApplicationBoard({
       <DetailPanel
         app={selected}
         resumes={resumeOpts}
+        isPro={isPro}
         onClose={() => setSelectedId(null)}
         onChangeStatus={(s) => selected && changeStatus(selected.id, s)}
         onSaveDetails={(changes) => {
@@ -1652,6 +1657,7 @@ function BoardRow({
 function DetailPanel({
   app,
   resumes,
+  isPro,
   onClose,
   onChangeStatus,
   onSaveDetails,
@@ -1662,6 +1668,7 @@ function DetailPanel({
 }: {
   app: Application | null;
   resumes: ResumeOption[];
+  isPro: boolean;
   onClose: () => void;
   onChangeStatus: (status: string) => void;
   onSaveDetails: (changes: Record<string, unknown>) => void;
@@ -1978,6 +1985,16 @@ function DetailPanel({
                         <p className="mt-2 text-[13px] text-muted">No description was captured for this job.</p>
                       ))}
                   </div>
+
+                  {/* 13.2 — which of my resumes fits this job? (Pro; runs only when asked.) */}
+                  <ResumeFit
+                    key={app.id}
+                    appId={app.id}
+                    jobDescription={app.jobDescription}
+                    isPro={isPro}
+                    linkedResumeId={app.resume?.id ?? null}
+                    onLink={(resumeId) => onSaveDetails({ resumeId })}
+                  />
 
                   {/* Resume preview — collapsed by default; the file is only requested from the
                       backend once the user expands this section (the iframe mounts on open). */}

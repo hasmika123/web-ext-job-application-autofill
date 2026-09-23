@@ -54,6 +54,8 @@
     async profileVersion() { throw new NotSupportedError("profileVersion"); }
     // Phase 13.1c — this month's AI meter. Implemented by createKiwiplyProvider.
     async aiUsage() { throw new NotSupportedError("aiUsage"); }
+    // Phase 13.2 — score the user's resumes against a job description (Pro).
+    async resumeMatch(/* { jobDescription, role, company, consent } */) { throw new NotSupportedError("resumeMatch"); }
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
@@ -354,6 +356,16 @@
       // { metered: "count", used: <parses>, limit: <quota>, resetsAt } for Free.
       async aiUsage() {
         return request("GET", "/api/ai/usage");
+      },
+
+      // ---- Phase 13.2: which resume fits this job? (Pro) -----------------------
+      // { best:{resumeId,label,score,why}, scores:[…], cached } | { disabled } | { consentRequired }
+      // | { quotaExceeded, resetsAt } | { noResumes } | { noJobDescription }; 402 PRO_REQUIRED on Free.
+      // `resumeId` is the SERVER id — map it back through a local resume's `serverId`.
+      async resumeMatch({ jobDescription, role, company, consent } = {}) {
+        return request("POST", "/api/ai/resume-match", {
+          body: { jobDescription: String(jobDescription || "").slice(0, 20000), role: role || "", company: company || "", consent: consent !== false },
+        });
       },
 
       async profileVersion() {

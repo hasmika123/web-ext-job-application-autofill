@@ -1,5 +1,6 @@
 import { serverApiFetch } from "@/lib/api";
 import ApplicationBoard, { type Application } from "@/components/ApplicationBoard";
+import { getPlan } from "@/lib/billing";
 
 /**
  * Application board. The self-populating tracker: the extension logs a DRAFT as you
@@ -8,10 +9,11 @@ import ApplicationBoard, { type Application } from "@/components/ApplicationBoar
  * `router.refresh()` re-runs this fetch. Session gate + nav live in the `(app)` shell.
  */
 export default async function BoardPage() {
-  const [appsRes, resumesRes, profileRes] = await Promise.all([
+  const [appsRes, resumesRes, profileRes, plan] = await Promise.all([
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile"),
+    getPlan(), // 13.2: Pro unlocks "Resume fit"; getPlan never throws
   ]);
 
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
@@ -70,7 +72,7 @@ export default async function BoardPage() {
         )}
       </header>
 
-      <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} />
+      <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} isPro={plan.plan === "PRO"} />
     </div>
   );
 }

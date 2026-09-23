@@ -266,6 +266,14 @@ function mockFetch(handler) {
   ok("aiUsage GETs /api/ai/usage, authenticated", fetchMeter.calls[0].method === "GET" && fetchMeter.calls[0].path === "/api/ai/usage" && fetchMeter.calls[0].headers.Authorization === "Bearer A");
   ok("aiUsage returns the meter as-is", meter && meter.metered === "budget" && meter.used === 32);
 
+  /* ---- resume fit (Phase 13.2) — POST /api/ai/resume-match ---- */
+  const fetchFit = mockFetch(() => ({ status: 200, json: { best: { resumeId: 11, label: "Backend v3", score: 84, why: "Java" }, scores: [], cached: false } }));
+  const pFit = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchFit, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const fit = await pFit.resumeMatch({ jobDescription: "x".repeat(25000), role: "Backend Engineer", company: "Acme", consent: true });
+  ok("resumeMatch POSTs /api/ai/resume-match, authenticated", fetchFit.calls[0].method === "POST" && fetchFit.calls[0].path === "/api/ai/resume-match" && fetchFit.calls[0].headers.Authorization === "Bearer A");
+  ok("resumeMatch caps the job description it sends", fetchFit.calls[0].body.jobDescription.length === 20000 && fetchFit.calls[0].body.role === "Backend Engineer" && fetchFit.calls[0].body.consent === true);
+  ok("resumeMatch returns the server's best match", fit && fit.best && fit.best.resumeId === 11);
+
   /* ---- aiParseResume — POSTs /api/ai/parse-resume (text or file mode) ---- */
   const fetchParse = mockFetch(() => ({ status: 200, json: { parsed: { summary: "s", skills: ["Java"] }, used: 2, quota: 50 } }));
   const pParse = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchParse, tokenStore: T.memoryTokenStore({ access: "A" }) });

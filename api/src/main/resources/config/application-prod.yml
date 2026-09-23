@@ -195,7 +195,7 @@ dossier:
       pro-monthly-budget-usd: ${DOSSIER_AI_PRO_MONTHLY_BUDGET_USD:5.0}
       soft-cap-percent: ${DOSSIER_AI_SOFT_CAP_PERCENT:80}
       economy-model: ${DOSSIER_AI_ECONOMY_MODEL:}
-      # Per-feature kill switch, comma-separated: draft, pick, map, enrich, parse.
+      # Per-feature kill switch, comma-separated: draft, pick, map, enrich, parse, match.
       disabled-tasks: ${DOSSIER_AI_DISABLED_TASKS:}
       # Model per task; blank = dossier.ai.model.
       models:
@@ -204,6 +204,7 @@ dossier:
         map: ${DOSSIER_AI_MODEL_MAP:}
         enrich: ${DOSSIER_AI_MODEL_ENRICH:}
         parse: ${DOSSIER_AI_MODEL_PARSE:}
+        match: ${DOSSIER_AI_MODEL_MATCH:}
     max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}
     # Structured resume parsing (POST /api/ai/parse-resume) — full-resume JSON output,
     # so a much roomier cap than a 2-4 sentence draft. Same provider/model/key/quota.

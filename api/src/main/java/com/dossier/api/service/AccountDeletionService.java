@@ -50,6 +50,7 @@ public class AccountDeletionService {
     private final ProfileSuggestionService profileSuggestionService;
     private final AiUsageRepository aiUsageRepository;
     private final AiCallRepository aiCallRepository;
+    private final ResumeMatchService resumeMatchService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -65,7 +66,8 @@ public class AccountDeletionService {
         StripeGateway stripeGateway,
         ProfileSuggestionService profileSuggestionService,
         AiUsageRepository aiUsageRepository,
-        AiCallRepository aiCallRepository
+        AiCallRepository aiCallRepository,
+        ResumeMatchService resumeMatchService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -81,6 +83,7 @@ public class AccountDeletionService {
         this.profileSuggestionService = profileSuggestionService;
         this.aiUsageRepository = aiUsageRepository;
         this.aiCallRepository = aiCallRepository;
+        this.resumeMatchService = resumeMatchService;
     }
 
     /**
@@ -151,6 +154,7 @@ public class AccountDeletionService {
             .ifPresent(id -> {
                 refreshTokenService.deleteAllForUser(id);
                 profileSuggestionService.deleteAllForUser(id);
+                resumeMatchService.deleteAllForUser(id);
                 forgetAiUsage(login);
                 endBilling(id);
             });
@@ -185,6 +189,7 @@ public class AccountDeletionService {
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
         refreshTokenService.deleteAllForUser(userId);
         profileSuggestionService.deleteAllForUser(userId);
+        resumeMatchService.deleteAllForUser(userId);
         forgetAiUsage(login);
         endBilling(userId);
         userService.deleteUser(login);

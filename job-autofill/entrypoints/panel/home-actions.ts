@@ -235,6 +235,43 @@ export async function capturePage(): Promise<PageCapture> {
   return { ok: true, capture: capResp.capture, signal: !!capResp.signal, hasForm };
 }
 
+/**
+ * Phase 13.2 — which of my resumes fits the job on this page? Pro only, and only once the user has
+ * turned on Kiwiply AI with consent in Options (the scores come from the same server AI). Runs on
+ * a real job description: the generic page-summary fallback is too thin to score, so it's skipped.
+ * The server caches per (posting × resumes), so reopening the drawer on the same job is free.
+ * Resolves to null whenever there is nothing worth showing; never throws.
+ */
+export type ResumeFit = { localId: string; label: string; score: number; why: string };
+export type ResumeFitResult = { best: ResumeFit } | { optIn: true } | null;
+
+export async function matchResumesForPage(resumes: any[]): Promise<ResumeFitResult> {
+  try {
+    const settings = await JAF().storage.getSettings();
+    if (!settings.apiBaseUrl || settings.plan !== "PRO") return null;
+    if (!resumes.some((r) => r.serverId != null)) return null;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || tab.id == null || /^chrome:|^edge:|^about:/.test(tab.url || "")) return null;
+    await ensureInjected(tab.id);
+    const resp: any = await sendTo(tab.id, { type: "JAF_CAPTURE_JOB" }, 0).catch(() => null);
+    const cap = resp && resp.capture;
+    const jd = String((cap && cap.jobDescription) || "");
+    if (!cap || (cap.sources && cap.sources.jobDescription === "generic") || jd.length < 200) return null;
+    if (!(settings.serverAiEnabled && settings.serverAiConsent)) return { optIn: true };
+
+    const provider = JAF().sync.providerFromSettings(settings, JAF().tracking.chromeTokenStore());
+    if (!(await provider.isAuthenticated())) return null;
+    const r: any = await provider.resumeMatch({ jobDescription: jd, role: cap.role, company: cap.company, consent: true });
+    const best = r && r.best;
+    if (!best) return null;
+    const local = resumes.find((x) => x.serverId != null && String(x.serverId) === String(best.resumeId));
+    if (!local) return null;
+    return { best: { localId: local.id, label: local.label || best.label, score: Number(best.score) || 0, why: String(best.why || "") } };
+  } catch {
+    return null; // offline, Free after all (402), provider down — the picker just works as before
+  }
+}
+
 /** Push the (possibly user-edited) capture to the board as a SAVED entry. */
 export async function commitSaveJob(capture: any): Promise<SaveJobResult> {
   const res: any = await chrome.runtime.sendMessage({ type: "JAF_SAVE_JOB", capture });

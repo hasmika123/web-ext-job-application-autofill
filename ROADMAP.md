@@ -802,6 +802,10 @@ pull only on change:**
 - **13.2 Resume recommendation per job.** Score every stored resume against the captured JD
   (Flash-Lite or embeddings); "best match: *Backend v3* — 82 %" in the drawer + on the board.
   Later learns from inbox outcomes (Phase 14 + 16).
+  - **As built (2026-09-22):** one JSON-mode Flash-Lite call per (JD × resume set), cached in
+    `resume_match` by a content hash — the "(resume × JD) cache" 13.1 moved here. Drawer: a
+    suggestion under the picker (Pro + Kiwiply AI on), never an auto-switch. Board: "Resume fit" in
+    the detail panel, run on click, with "Link this resume". Inbox-outcome learning waits for 14/16.
 - **13.3 Job-fit panel.** On the posting: match %, missing keywords, red flags. Cached per
   (resume × JD).
 - **13.4 Resume tailoring to JD.** Bullet rewrites with a diff, truthfulness guardrails (no

@@ -131,8 +131,36 @@ public class GeminiAiProvider implements AiProvider {
         contents.add(textPart(userText));
         ObjectNode genCfg = body.putObject("generationConfig");
         genCfg.put("maxOutputTokens", maxOutputTokens);
+        if (task == AiTask.MATCH) {
+            // 13.2: resume scores come back as schema-checked JSON, and need room for up to ten
+            // entries with a one-line reason each.
+            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, 1200));
+            genCfg.put("responseMimeType", "application/json");
+            try {
+                genCfg.set("responseSchema", om.readTree(MATCH_SCHEMA_JSON));
+            } catch (Exception e) {
+                throw new AiProviderException("Bad match schema", e); // unreachable: static constant
+            }
+        }
         return body;
     }
+
+    /** Structured output for {@link AiTask#MATCH}: one score per resume id, with a short reason. */
+    // spotless:off
+    private static final String MATCH_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "scores": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {
+              "id": { "type": "STRING" },
+              "score": { "type": "INTEGER" },
+              "why": { "type": "STRING" } }, "required": ["id", "score"] } }
+          },
+          "required": ["scores"]
+        }
+        """;
+    // spotless:on
 
     @Override
     public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) throws AiProviderException {

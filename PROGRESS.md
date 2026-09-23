@@ -59,7 +59,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > budget. **13.1c is DONE** (ext v0.62.0) — users see "% of this month's Kiwiply AI used" (web
 > Settings + extension Options); the admin AI page shows real cost per user and per feature.
 > **13.1 IS COMPLETE.** Model stays **gemini-2.5-flash-lite** (user decision 2026-09-22, until the
-> Gemini API announces a shutdown). **Next: 13.2** — resume recommendation per job. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> Gemini API announces a shutdown). **13.2 is DONE** (ext v0.63.0) — "Best match: Backend v3 · 84%"
+> in the drawer and a "Resume fit" section on the board. **Next: 13.3** — the job-fit panel. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1023,7 +1024,7 @@ focused Claude Code session.
     extension; admin AI page shows cost per user and total.
   - *Moved by decision:* top-up → Phase 16; resume-prefix context cache + (resume × JD) cache →
     13.2/13.3; overnight batch → 13.6.
-- [ ] **13.2 Resume recommendation per job.** Score stored resumes vs captured JD; "best match:
+- [x] **13.2 Resume recommendation per job.** Score stored resumes vs captured JD; "best match:
   X — NN %" in drawer + board.
 - [ ] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
 - [ ] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
@@ -1166,6 +1167,22 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.2 resume recommendation per job** · Ext **v0.63.0**. `ResumeMatchService`: one
+  Flash-Lite call (task `match`, JSON-schema output) scores every live resume (≤ 10, default first)
+  against a job description, best first with a ≤ 12-word reason. Inputs bounded per 13.1: each
+  resume as a digest (summary ≤ 500 chars, ≤ 40 skills, ≤ 6 roles with one bullet, ≤ 3 degrees), JD
+  ≤ 8000 chars; under 200 chars it isn't scored (a page summary). **Cached per (JD × resumes'
+  content)** in `resume_match` (scores + reasons only, never the text), so asking again is free
+  and any edit misses cleanly; deleted with the account. Pro-gated + metered through
+  `AiBudgetService`; an unusable reply is an error but still metered (the provider billed us).
+  `POST /api/ai/resume-match` (drawer) and `POST /api/profile/applications/{id}/resume-match`
+  (board, owner-only). **Drawer:** after the picker loads, a Pro user with Kiwiply AI on sees
+  "Best match: Backend v3 · 84%" with **Use** — it suggests, never auto-selects; without AI on, a
+  hint to turn it on; nothing on non-job pages. **Board:** a "Resume fit" section in the detail
+  panel — one click (the caption discloses Gemini) scores all resumes with bars and reasons, and
+  **Link this resume** links one; Free sees the Pro line. `Meter` gained `neutral` (a full fit
+  isn't a warning). Privacy page + PRIVACY.md updated. Tests: `ResumeMatchServiceTest` (12),
+  `ResumeMatchResourceIT` (4), provider +3. Browser-checked the board section's three states.
 - 2026-09-22 · **13.1c AI usage meter** · Ext **v0.62.0**. `GET /api/ai/usage` (from `AiBudgetService.usage`):
   Pro/override → `{metered:"budget", used:<percent>, limit:100, resetsAt, economy}`, Free →
   `{metered:"count", used:<parses>, limit}` — never dollars, and not blanked by a kill switch. Web

@@ -41,6 +41,12 @@ default** and only runs after you explicitly enable it. There are two modes, and
 - **Bring-your-own key:** if you supply your own AI key, requests go **directly** from your browser
   to that provider (e.g. Anthropic) under your own account — they don't pass through Kiwiply.
 
+- **Resume fit (Pro, same opt-in):** with Kiwiply AI on, opening the drawer on a job page sends that
+  page's **job description** (plus the job title and company) to your Kiwiply account, which scores
+  your saved resumes against it with the same provider and shows the best match. Only the scores
+  and a one-line reason are kept (never the job text); asking again about the same job is free.
+  Nothing is sent on pages without a real job description, or when Kiwiply AI is off.
+
 Leave AI drafting off and every other feature works without sending anything to an AI provider.
 
 ## Anonymous usage analytics
