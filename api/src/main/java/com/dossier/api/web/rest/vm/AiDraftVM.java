@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest.vm;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * Request body for {@code POST /api/ai/draft}: an open-ended application question plus
@@ -16,6 +17,19 @@ public class AiDraftVM {
 
     /** Must be true — the user opted into server-side AI drafting. */
     private boolean consent;
+
+    /** What the call is for: draft | pick | map | enrich (13.1a). Absent or unknown = draft,
+     *  which is what extension builds before 0.60.0 send. */
+    @Size(max = 20)
+    private String task;
+
+    public String getTask() {
+        return task;
+    }
+
+    public void setTask(String task) {
+        this.task = task;
+    }
 
     public String getQuestion() {
         return question;

@@ -1,12 +1,11 @@
 package com.dossier.api.service;
 
-import com.dossier.api.domain.AiUsage;
 import com.dossier.api.repository.AiQuotaOverrideRepository;
-import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
-import java.time.YearMonth;
+import com.dossier.api.service.ai.AiResult;
+import com.dossier.api.service.ai.AiTask;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +34,10 @@ import org.springframework.web.server.ResponseStatusException;
  * granted a quota by hand, that grant is the entitlement. Resume parsing is deliberately
  * NOT gated — see {@link AiResumeParseService}; it is how a profile builds itself, and it
  * is the one free server-AI exception.
+ *
+ * <p><b>Tasks (13.1a).</b> Each request names its {@link AiTask} — draft, pick, map or enrich — so
+ * it gets instructions written for it, is cached under its own key, and is recorded as that kind
+ * in the {@code ai_call} ledger ({@link AiMeteringService}) with the tokens it cost.
  */
 @Service
 @Transactional
@@ -55,7 +58,7 @@ public class AiDraftService {
     public record Result(Status status, String answer, int used, int quota, boolean cached) {}
 
     private final AiProvider provider;
-    private final AiUsageRepository usageRepository;
+    private final AiMeteringService metering;
     private final AiQuotaOverrideRepository quotaOverrideRepository;
     private final AiAnswerCacheService answerCache;
     private final EntitlementService entitlementService;
@@ -66,7 +69,7 @@ public class AiDraftService {
 
     public AiDraftService(
         AiProvider provider,
-        AiUsageRepository usageRepository,
+        AiMeteringService metering,
         AiQuotaOverrideRepository quotaOverrideRepository,
         AiAnswerCacheService answerCache,
         EntitlementService entitlementService,
@@ -76,7 +79,7 @@ public class AiDraftService {
         @Value("${dossier.ai.model:}") String model
     ) {
         this.provider = provider;
-        this.usageRepository = usageRepository;
+        this.metering = metering;
         this.quotaOverrideRepository = quotaOverrideRepository;
         this.answerCache = answerCache;
         this.entitlementService = entitlementService;
@@ -86,7 +89,12 @@ public class AiDraftService {
         this.model = model;
     }
 
+    /** A draft — what every caller before 13.1a meant. */
     public Result draft(String question, String context, boolean consent) {
+        return run(AiTask.DRAFT, question, context, consent);
+    }
+
+    public Result run(AiTask task, String question, String context, boolean consent) {
         if (!enabled || !provider.isConfigured()) {
             return new Result(Status.DISABLED, null, 0, 0, false);
         }
@@ -115,40 +123,33 @@ public class AiDraftService {
             return new Result(Status.CONSENT_REQUIRED, null, 0, quota, false);
         }
 
-        String period = YearMonth.now().toString(); // YYYY-MM, server clock
-
-        AiUsage usage = usageRepository.findByLoginAndPeriod(login, period).orElseGet(() -> {
-            AiUsage u = new AiUsage();
-            u.setLogin(login);
-            u.setPeriod(period);
-            u.setDraftCount(0);
-            return u;
-        });
+        int used = metering.usedThisMonth(login);
 
         // Cache hit (Phase 5.3): identical question already answered for this user → return it
         // for free. Checked BEFORE the quota gate, so a repeat never costs quota or gets blocked.
-        String hash = AiAnswerCacheService.questionHash(question);
+        // Non-draft tasks are keyed apart from drafts (13.1a): the same text asked as a pick and
+        // as a draft wants two different kinds of answer.
+        String hash = AiAnswerCacheService.questionHash(task == AiTask.DRAFT ? question : task.wire() + ":" + question);
         var cached = answerCache.lookup(login, hash);
         if (cached.isPresent()) {
-            return new Result(Status.OK, cached.get(), usage.getDraftCount(), quota, true);
+            return new Result(Status.OK, cached.get(), used, quota, true);
         }
 
-        if (usage.getDraftCount() >= quota) {
-            return new Result(Status.QUOTA_EXCEEDED, null, usage.getDraftCount(), quota, false);
+        if (used >= quota) {
+            return new Result(Status.QUOTA_EXCEEDED, null, used, quota, false);
         }
 
-        String answer;
+        AiResult result;
         try {
-            answer = provider.draft(question, context);
+            result = provider.generate(task, question, context);
         } catch (AiProviderException e) {
             // Provider/transport failure — don't charge quota; report a generic error.
-            LOG.warn("AI draft failed for user: {}", e.getMessage());
-            return new Result(Status.ERROR, null, usage.getDraftCount(), quota, false);
+            LOG.warn("AI {} failed for user: {}", task.wire(), e.getMessage());
+            return new Result(Status.ERROR, null, used, quota, false);
         }
 
-        usage.setDraftCount(usage.getDraftCount() + 1); // only a real draft costs quota
-        usageRepository.save(usage);
-        answerCache.store(login, hash, answer, model); // reuse next time (own tx; race-safe)
-        return new Result(Status.OK, answer, usage.getDraftCount(), quota, false);
+        used = metering.record(login, task, result); // only a real call costs quota
+        answerCache.store(login, hash, result.text(), result.model() != null ? result.model() : model); // reuse next time (own tx; race-safe)
+        return new Result(Status.OK, result.text(), used, quota, false);
     }
 }

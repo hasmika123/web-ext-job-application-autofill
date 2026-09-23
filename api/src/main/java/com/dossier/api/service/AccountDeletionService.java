@@ -3,6 +3,8 @@ package com.dossier.api.service;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.AiAnswerRepository;
+import com.dossier.api.repository.AiCallRepository;
+import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.FieldCacheRepository;
@@ -46,6 +48,8 @@ public class AccountDeletionService {
     private final SubscriptionRepository subscriptionRepository;
     private final StripeGateway stripeGateway;
     private final ProfileSuggestionService profileSuggestionService;
+    private final AiUsageRepository aiUsageRepository;
+    private final AiCallRepository aiCallRepository;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -59,7 +63,9 @@ public class AccountDeletionService {
         RefreshTokenService refreshTokenService,
         SubscriptionRepository subscriptionRepository,
         StripeGateway stripeGateway,
-        ProfileSuggestionService profileSuggestionService
+        ProfileSuggestionService profileSuggestionService,
+        AiUsageRepository aiUsageRepository,
+        AiCallRepository aiCallRepository
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -73,6 +79,8 @@ public class AccountDeletionService {
         this.subscriptionRepository = subscriptionRepository;
         this.stripeGateway = stripeGateway;
         this.profileSuggestionService = profileSuggestionService;
+        this.aiUsageRepository = aiUsageRepository;
+        this.aiCallRepository = aiCallRepository;
     }
 
     /**
@@ -100,6 +108,15 @@ public class AccountDeletionService {
                 }
                 subscriptionRepository.delete(sub);
             });
+    }
+
+    /**
+     * AI usage is keyed by login, not user id (13.1a). The monthly counts go — a new account on the
+     * same login must not inherit them — and the call ledger keeps its spend but loses the login.
+     */
+    private void forgetAiUsage(String login) {
+        aiUsageRepository.deleteByLoginValue(login);
+        aiCallRepository.anonymize(login);
     }
 
     /** Erase the current user's data and account. Idempotent per session: a second call
@@ -134,6 +151,7 @@ public class AccountDeletionService {
             .ifPresent(id -> {
                 refreshTokenService.deleteAllForUser(id);
                 profileSuggestionService.deleteAllForUser(id);
+                forgetAiUsage(login);
                 endBilling(id);
             });
         userService.deleteUser(login);
@@ -167,6 +185,7 @@ public class AccountDeletionService {
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
         refreshTokenService.deleteAllForUser(userId);
         profileSuggestionService.deleteAllForUser(userId);
+        forgetAiUsage(login);
         endBilling(userId);
         userService.deleteUser(login);
 

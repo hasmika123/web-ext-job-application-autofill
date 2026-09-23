@@ -100,7 +100,7 @@ async function draftAnswer(question, context) {
     try {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (await provider.isAuthenticated()) {
-        const r = (await provider.aiDraft({ question, context, consent: true })) || {};
+        const r = (await provider.aiDraft({ question, context, consent: true, task: "draft" })) || {};
         if (r.answer) { await putCached(question, r.answer); return { answer: r.answer }; }
         if (r.quotaExceeded) return { error: `Monthly AI limit reached (${r.used}/${r.quota}). Add your own key for unlimited drafting.` };
         // disabled / consentRequired / empty → fall through to "off".
@@ -158,7 +158,7 @@ async function pickAnswer(question, options, context) {
     try {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (!(await provider.isAuthenticated())) return { disabled: true };
-      const r = (await provider.aiDraft({ question: instruction, context: "", consent: true })) || {};
+      const r = (await provider.aiDraft({ question: instruction, context: "", consent: true, task: "pick" })) || {};
       if (r.quotaExceeded) return { error: "quota" };
       raw = r.answer || null;
     } catch (e) { return aiFailure(e); }
@@ -197,13 +197,14 @@ async function mapFields(labels) {
     return mappings ? { mappings } : { error: "unparseable" };
   }
 
-  // 2. Server AI rides the drafting endpoint (its system prompt is drafting-shaped,
-  //    so the parse must stay tolerant — parseMapResponse digs the JSON out of prose).
+  // 2. Server AI rides the drafting endpoint as task "map" (13.1a), which gets an answer-in-the-
+  //    requested-format prompt instead of the drafting one. The parse stays tolerant anyway —
+  //    parseMapResponse digs the JSON out of prose, e.g. from a server older than 13.1a.
   if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF && self.JAF.sync) {
     try {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (await provider.isAuthenticated()) {
-        const r = (await provider.aiDraft({ question: prompt, context: "", consent: true })) || {};
+        const r = (await provider.aiDraft({ question: prompt, context: "", consent: true, task: "map" })) || {};
         if (r.answer) {
           const mappings = F.parseMapResponse(r.answer, list.length);
           return mappings ? { mappings } : { error: "unparseable" };
@@ -513,7 +514,7 @@ async function enrichCapture(capture) {
     } else if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF.sync) {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (!(await provider.isAuthenticated())) return capture;
-      const r = (await provider.aiDraft({ question: prompt, context: "", consent: true })) || {};
+      const r = (await provider.aiDraft({ question: prompt, context: "", consent: true, task: "enrich" })) || {};
       if (!r.answer) { track("job_enrich", { outcome: r.quotaExceeded ? "quota" : "disabled" }); return capture; }
       raw = r.answer;
     } else {

@@ -87,34 +87,45 @@ public class GeminiAiProvider implements AiProvider {
     }
 
     @Override
-    public String draft(String question, String context) throws AiProviderException {
+    public AiResult generate(AiTask task, String question, String context) throws AiProviderException {
         if (!isConfigured()) {
             throw new AiProviderException("AI provider is not configured");
         }
+        AiResult r = toResult(send(generateBody(task, question, context), Duration.ofSeconds(30)));
+        if (r.text() == null || r.text().isBlank()) {
+            throw new AiProviderException("Gemini returned an empty answer");
+        }
+        return r;
+    }
+
+    /**
+     * The request body for a short task. A draft keeps its original framing (question, then the
+     * candidate background); every other task's {@code question} IS the instruction, so it goes
+     * as-is, with any context after it.
+     */
+    ObjectNode generateBody(AiTask task, String question, String context) {
         String ctx = context == null ? "" : context;
         if (ctx.length() > MAX_CONTEXT_CHARS) {
             ctx = ctx.substring(0, MAX_CONTEXT_CHARS);
         }
-        String userText = "Question:\n" + (question == null ? "" : question) + "\n\nCandidate background:\n" + ctx + "\n\nWrite the answer:";
+        String q = question == null ? "" : question;
+        String userText = task == AiTask.DRAFT
+            ? "Question:\n" + q + "\n\nCandidate background:\n" + ctx + "\n\nWrite the answer:"
+            : ctx.isBlank() ? q : q + "\n\n" + ctx;
 
         // { systemInstruction:{parts:[{text}]}, contents:[{parts:[{text}]}],
         //   generationConfig:{ maxOutputTokens } }
         ObjectNode body = om.createObjectNode();
-        body.set("systemInstruction", textPart(SYSTEM_PROMPT));
+        body.set("systemInstruction", textPart(AiProvider.systemPromptFor(task)));
         ArrayNode contents = body.putArray("contents");
         contents.add(textPart(userText));
         ObjectNode genCfg = body.putObject("generationConfig");
         genCfg.put("maxOutputTokens", maxOutputTokens);
-
-        String answer = extractText(send(body, Duration.ofSeconds(30)));
-        if (answer == null || answer.isBlank()) {
-            throw new AiProviderException("Gemini returned an empty answer");
-        }
-        return answer.trim();
+        return body;
     }
 
     @Override
-    public String parseResume(String text, String fileBase64, String fileMimeType) throws AiProviderException {
+    public AiResult parseResume(String text, String fileBase64, String fileMimeType) throws AiProviderException {
         if (!isConfigured()) {
             throw new AiProviderException("AI provider is not configured");
         }
@@ -150,7 +161,8 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         // Files take longer than short drafts — allow a roomier timeout.
-        String json = extractText(send(body, Duration.ofSeconds(60)));
+        AiResult r = toResult(send(body, Duration.ofSeconds(60)));
+        String json = r.text();
         if (json == null || json.isBlank()) {
             throw new AiProviderException("Gemini returned an empty parse");
         }
@@ -161,7 +173,7 @@ public class GeminiAiProvider implements AiProvider {
         } catch (Exception e) {
             throw new AiProviderException("Gemini returned unparseable JSON", e);
         }
-        return json.trim();
+        return r;
     }
 
     /** POST the request body to generateContent and return the raw response body. */
@@ -194,18 +206,32 @@ public class GeminiAiProvider implements AiProvider {
         return node;
     }
 
-    /** candidates[0].content.parts[*].text, concatenated. */
-    private String extractText(String json) {
+    /**
+     * The answer text ({@code candidates[0].content.parts[*].text}, concatenated) plus what the
+     * call consumed, from {@code usageMetadata} (13.1a — never read before, so nothing could be
+     * metered by cost). Gemini bills "thinking" tokens as output, and reports context-cache hits
+     * inside {@code promptTokenCount}, so those are split out to be priced at the cache rate.
+     * {@code modelVersion} is the model that actually answered; the configured name is the fallback.
+     */
+    AiResult toResult(String json) {
         try {
             JsonNode root = om.readTree(json);
             JsonNode parts = root.path("candidates").path(0).path("content").path("parts");
-            if (!parts.isArray()) return null;
             StringBuilder sb = new StringBuilder();
-            for (JsonNode p : parts) {
-                String t = p.path("text").asText("");
-                if (!t.isEmpty()) sb.append(t);
+            if (parts.isArray()) {
+                for (JsonNode p : parts) {
+                    // Thought summaries (thought:true) are reasoning, not the answer.
+                    if (p.path("thought").asBoolean(false)) continue;
+                    String t = p.path("text").asText("");
+                    if (!t.isEmpty()) sb.append(t);
+                }
             }
-            return sb.toString();
+            JsonNode usage = root.path("usageMetadata");
+            int prompt = usage.path("promptTokenCount").asInt(0);
+            int cached = usage.path("cachedContentTokenCount").asInt(0);
+            int output = usage.path("candidatesTokenCount").asInt(0) + usage.path("thoughtsTokenCount").asInt(0);
+            String served = root.path("modelVersion").asText("");
+            return new AiResult(sb.toString().trim(), served.isBlank() ? model : served, prompt - cached, cached, output);
         } catch (Exception e) {
             throw new AiProviderException("Could not parse Gemini response", e);
         }

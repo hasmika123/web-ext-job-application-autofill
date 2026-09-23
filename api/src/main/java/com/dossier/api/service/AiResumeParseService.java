@@ -1,14 +1,13 @@
 package com.dossier.api.service;
 
-import com.dossier.api.domain.AiUsage;
 import com.dossier.api.repository.AiQuotaOverrideRepository;
-import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
+import com.dossier.api.service.ai.AiResult;
+import com.dossier.api.service.ai.AiTask;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.YearMonth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +23,11 @@ import org.springframework.web.server.ResponseStatusException;
  * inputs), and the per-user monthly AI quota — one successful parse consumes one AI
  * credit from the same counter as drafts (no schema change; parses are infrequent).
  * No answer cache: resume files/text are effectively unique per upload.
+ *
+ * <p><b>The quota is the plan's (fixed 13.1a).</b> It used to be the Free quota for everyone, on
+ * the counter drafts share — so a Pro user who had drafted 50 answers that month could no longer
+ * parse a resume. Parsing stays ungated (it is the free exception), but a Pro user now gets the
+ * Pro quota here, and an admin override still outranks both.
  */
 @Service
 @Transactional
@@ -42,24 +46,30 @@ public class AiResumeParseService {
     public record Result(Status status, JsonNode parsed, int used, int quota) {}
 
     private final AiProvider provider;
-    private final AiUsageRepository usageRepository;
+    private final AiMeteringService metering;
     private final AiQuotaOverrideRepository quotaOverrideRepository;
+    private final EntitlementService entitlementService;
     private final ObjectMapper om = new ObjectMapper();
     private final boolean enabled;
     private final int freeMonthlyQuota;
+    private final int proMonthlyQuota;
 
     public AiResumeParseService(
         AiProvider provider,
-        AiUsageRepository usageRepository,
+        AiMeteringService metering,
         AiQuotaOverrideRepository quotaOverrideRepository,
+        EntitlementService entitlementService,
         @Value("${dossier.ai.enabled:false}") boolean enabled,
-        @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota
+        @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota,
+        @Value("${dossier.ai.pro-monthly-quota:2000}") int proMonthlyQuota
     ) {
         this.provider = provider;
-        this.usageRepository = usageRepository;
+        this.metering = metering;
         this.quotaOverrideRepository = quotaOverrideRepository;
+        this.entitlementService = entitlementService;
         this.enabled = enabled;
         this.freeMonthlyQuota = freeMonthlyQuota;
+        this.proMonthlyQuota = proMonthlyQuota;
     }
 
     public Result parse(String text, String fileBase64, String fileMimeType, boolean consent) {
@@ -73,38 +83,31 @@ public class AiResumeParseService {
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
-        String period = YearMonth.now().toString(); // YYYY-MM, server clock
         int quota = quotaOverrideRepository
             .findById(login)
             .map(com.dossier.api.domain.AiQuotaOverride::getMonthlyQuota)
-            .orElse(freeMonthlyQuota);
+            .orElseGet(() -> entitlementService.isPro(login) ? proMonthlyQuota : freeMonthlyQuota);
 
-        AiUsage usage = usageRepository.findByLoginAndPeriod(login, period).orElseGet(() -> {
-            AiUsage u = new AiUsage();
-            u.setLogin(login);
-            u.setPeriod(period);
-            u.setDraftCount(0);
-            return u;
-        });
-
-        if (usage.getDraftCount() >= quota) {
-            return new Result(Status.QUOTA_EXCEEDED, null, usage.getDraftCount(), quota);
+        int used = metering.usedThisMonth(login);
+        if (used >= quota) {
+            return new Result(Status.QUOTA_EXCEEDED, null, used, quota);
         }
 
+        AiResult result;
         JsonNode parsed;
         try {
-            parsed = om.readTree(provider.parseResume(text, fileBase64, fileMimeType));
+            result = provider.parseResume(text, fileBase64, fileMimeType);
+            parsed = om.readTree(result.text());
         } catch (AiProviderException e) {
             // Provider/transport failure — don't charge quota; report a generic error.
             LOG.warn("AI resume parse failed for user: {}", e.getMessage());
-            return new Result(Status.ERROR, null, usage.getDraftCount(), quota);
+            return new Result(Status.ERROR, null, used, quota);
         } catch (Exception e) {
             LOG.warn("AI resume parse returned unusable JSON: {}", e.getMessage());
-            return new Result(Status.ERROR, null, usage.getDraftCount(), quota);
+            return new Result(Status.ERROR, null, used, quota);
         }
 
-        usage.setDraftCount(usage.getDraftCount() + 1); // one parse = one AI credit
-        usageRepository.save(usage);
-        return new Result(Status.OK, parsed, usage.getDraftCount(), quota);
+        used = metering.record(login, AiTask.PARSE, result); // one parse = one AI credit
+        return new Result(Status.OK, parsed, used, quota);
     }
 }

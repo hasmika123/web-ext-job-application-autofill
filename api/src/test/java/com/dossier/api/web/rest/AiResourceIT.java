@@ -1,7 +1,10 @@
 package com.dossier.api.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,13 +12,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dossier.api.IntegrationTest;
 import com.dossier.api.ProSubscriptions;
+import com.dossier.api.domain.AiCall;
 import com.dossier.api.domain.AiQuotaOverride;
 import com.dossier.api.repository.AiAnswerRepository;
+import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.ai.AiProvider;
+import com.dossier.api.service.ai.AiResult;
+import com.dossier.api.service.ai.AiTask;
+import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -71,6 +79,9 @@ class AiResourceIT {
     @Autowired
     private AiUsageRepository aiUsageRepository;
 
+    @Autowired
+    private AiCallRepository aiCallRepository;
+
     /** Stubbed: these tests are about our gating, not about anyone's model. */
     @MockitoBean
     private AiProvider aiProvider;
@@ -79,7 +90,8 @@ class AiResourceIT {
     void stubProvider() {
         reset();
         when(aiProvider.isConfigured()).thenReturn(true);
-        when(aiProvider.draft(anyString(), anyString())).thenReturn("A grounded answer.");
+        // 120 input + 30 output tokens on Flash-Lite ($0.10 / $0.40 per M) = 12 + 12 = 24 micro-dollars.
+        when(aiProvider.generate(any(), anyString(), anyString())).thenReturn(new AiResult("A grounded answer.", "gemini-2.5-flash-lite", 120, 0, 30));
     }
 
     @AfterEach
@@ -91,12 +103,17 @@ class AiResourceIT {
     private void reset() {
         aiAnswerRepository.deleteAll();
         aiUsageRepository.deleteAll();
+        aiCallRepository.deleteAll();
         quotaOverrideRepository.deleteAll();
         subscriptionRepository.deleteAll();
     }
 
     private String draftBody() throws Exception {
         return om.writeValueAsString(Map.of("question", "Why do you want this role?", "context", "Backend engineer.", "consent", true));
+    }
+
+    private String bodyFor(String question, String task) throws Exception {
+        return om.writeValueAsString(Map.of("question", question, "context", "", "consent", true, "task", task));
     }
 
     @Test
@@ -151,11 +168,67 @@ class AiResourceIT {
     @Test
     @WithMockUser(username = "user")
     void parseResumeIsNotGated() throws Exception {
-        when(aiProvider.parseResume(anyString(), any(), any())).thenReturn("{}");
+        when(aiProvider.parseResume(anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
         String body = om.writeValueAsString(Map.of("text", "Jane Doe, backend engineer, 6 years Java.", "consent", true));
         mockMvc
             .perform(post("/api/ai/parse-resume").contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.code").doesNotExist());
+            .andExpect(jsonPath("$.code").doesNotExist())
+            .andExpect(jsonPath("$.quota").value(50)); // Free: the free quota
+    }
+
+    // ---- 13.1a: cost tracking --------------------------------------------------------------
+
+    /** Every successful call lands in the ledger as its kind, with the tokens and what they cost. */
+    @Test
+    @WithMockUser(username = "user")
+    void aCallIsRecordedAtWhatItCost() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody())).andExpect(status().isOk());
+
+        List<AiCall> calls = aiCallRepository.findByLoginOrderByCreatedAtDesc("user");
+        assertThat(calls).hasSize(1);
+        AiCall c = calls.get(0);
+        assertThat(c.getTask()).isEqualTo("draft");
+        assertThat(c.getModel()).isEqualTo("gemini-2.5-flash-lite");
+        assertThat(c.getInputTokens()).isEqualTo(120);
+        assertThat(c.getOutputTokens()).isEqualTo(30);
+        assertThat(c.getCostMicros()).isEqualTo(24);
+    }
+
+    /** The request's task reaches the provider and the ledger; an unknown one is a draft. */
+    @Test
+    @WithMockUser(username = "user")
+    void theTaskIsHonoured() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Map: 1. First name", "map"))).andExpect(status().isOk());
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Anything", "bogus"))).andExpect(status().isOk());
+
+        verify(aiProvider).generate(eq(AiTask.MAP), eq("Map: 1. First name"), anyString());
+        verify(aiProvider).generate(eq(AiTask.DRAFT), eq("Anything"), anyString());
+        assertThat(aiCallRepository.findByLoginOrderByCreatedAtDesc("user")).extracting(AiCall::getTask).containsExactlyInAnyOrder("map", "draft");
+    }
+
+    /** The month's count is kept in the database: the first call creates it, the next adds to it. */
+    @Test
+    @WithMockUser(username = "user")
+    void theMonthlyCountAccumulates() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("First question?", "draft"))).andExpect(jsonPath("$.used").value(1));
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Second question?", "draft"))).andExpect(jsonPath("$.used").value(2));
+    }
+
+    /** The bug 13.1a fixes: parsing used the Free quota for everyone, Pro included. */
+    @Test
+    @WithMockUser(username = "user")
+    void aProUserParsesOnTheProQuota() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        when(aiProvider.parseResume(anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
+        String body = om.writeValueAsString(Map.of("text", "Jane Doe, backend engineer, 6 years Java.", "consent", true));
+        mockMvc
+            .perform(post("/api/ai/parse-resume").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.quota").value(2000));
+        assertThat(aiCallRepository.findByLoginOrderByCreatedAtDesc("user")).extracting(AiCall::getTask).containsExactly("parse");
     }
 }
