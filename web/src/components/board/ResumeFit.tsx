@@ -7,6 +7,7 @@ import { JobFitReport, type JobFitData } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/dates";
+import TailorDialog from "@/components/board/TailorDialog";
 
 /**
  * "Resume fit" in the board's detail panel (Phase 13.2, Pro): score every resume against this
@@ -18,6 +19,8 @@ import { formatDate } from "@/lib/dates";
  *
  * 13.3: each scored resume can open its job-fit report — what it covers, what it's missing, and
  * red flags — fetched on request and cached server-side the same way.
+ *
+ * 13.4: and can be tailored for this job — reworded, reviewed, saved as a new resume.
  */
 
 type Score = { resumeId: number; label: string; score: number; why: string };
@@ -40,12 +43,14 @@ const MIN_JD_CHARS = 200;
 export default function ResumeFit({
   appId,
   jobDescription,
+  company,
   isPro,
   linkedResumeId,
   onLink,
 }: {
   appId: number;
   jobDescription: string | null | undefined;
+  company?: string | null;
   isPro: boolean;
   linkedResumeId: number | null;
   onLink: (resumeId: number) => void;
@@ -54,6 +59,8 @@ export default function ResumeFit({
   const [scores, setScores] = useState<Score[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [upsell, setUpsell] = useState(false);
+  // 13.4 — the resume being tailored for this job, if the dialog is open.
+  const [tailoring, setTailoring] = useState<Score | null>(null);
   // 13.3 — the job-fit report per resume id: loading, the report, or a message.
   const [reports, setReports] = useState<Record<number, JobFitData | "loading" | { message: string }>>({});
 
@@ -163,6 +170,13 @@ export default function ResumeFit({
                   )}
                   <button
                     type="button"
+                    onClick={() => setTailoring(s)}
+                    className="text-[12px] font-semibold text-ink-soft hover:text-ink hover:underline"
+                  >
+                    Tailor for this job
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void openReport(s.resumeId)}
                     disabled={reports[s.resumeId] === "loading"}
                     aria-expanded={!!reports[s.resumeId] && reports[s.resumeId] !== "loading"}
@@ -200,6 +214,17 @@ export default function ResumeFit({
         <p role="status" className="mt-2 text-[12.5px] font-medium text-ink-soft">
           {note}
         </p>
+      )}
+
+      {tailoring && (
+        <TailorDialog
+          open
+          onClose={() => setTailoring(null)}
+          appId={appId}
+          resumeId={tailoring.resumeId}
+          resumeLabel={tailoring.label}
+          company={company ?? ""}
+        />
       )}
     </div>
   );

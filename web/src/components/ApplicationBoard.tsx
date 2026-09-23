@@ -1991,6 +1991,7 @@ function DetailPanel({
                     key={app.id}
                     appId={app.id}
                     jobDescription={app.jobDescription}
+                    company={app.company}
                     isPro={isPro}
                     linkedResumeId={app.resume?.id ?? null}
                     onLink={(resumeId) => onSaveDetails({ resumeId })}

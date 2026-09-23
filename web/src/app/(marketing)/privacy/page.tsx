@@ -148,6 +148,13 @@ export default function PrivacyPage() {
           Never your name, contact details or self-identification answers. We keep only the report
           (score, a one-line summary, short lists of skills), deleted with your account.
         </p>
+        <p>
+          <strong>Resume tailoring (Pro).</strong> When you ask Kiwiply to tailor a resume for a job, that
+          job&apos;s description and that resume are sent to the same provider, which suggests rewordings
+          of what the resume already says. We keep the suggested rewordings (your own content, reworded)
+          so you can review them and save the ones you keep as a new resume. Your original is never
+          changed. All of it is deleted with your account.
+        </p>
       </Section>
 
       <Section title="Storage and sharing">
