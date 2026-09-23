@@ -898,6 +898,9 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   - **14.2 as built (2026-09-22):** `SecretBox` (AES-256-GCM, per-row associated data, versioned
     ciphertexts for rotation) + `InboxKeyCheck` (a startup canary: a changed key turns the inbox off
     and says so, instead of failing every poll). DEPLOY.md §12.
+  - **14.1 as built (2026-09-23):** `/settings/inbox` — guided steps (links, not screenshots), then a
+    live Gmail check before anything is stored; non-Gmail addresses and non-app-passwords refused
+    before Gmail is asked; each Gmail refusal gets its own fix; 5 tries / 15 min; disconnect deletes.
 - **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
   = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
   ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard

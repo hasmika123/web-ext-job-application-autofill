@@ -73,8 +73,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > today's list, save to board / dismiss. **13.6 IS COMPLETE — so is Phase 13.** **Phase 14 is planned**
 > (user decisions 2026-09-22, ROADMAP "Phase 14 plan"): env AES-256-GCM key; bodies kept only for job
 > mail; poll every 15 min; email only for interview/offer; order 14.2 → 14.1 → 14.3 → 14.5 → 14.4 →
-> 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **Next: 14.1** — the
-> connect flow (`/settings/inbox`). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **14.1 is DONE** — the
+> connect flow at `/settings/inbox`. **Next: 14.3** — the IMAP poller. **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1064,7 +1064,7 @@ focused Claude Code session.
 > **Build order (user-approved 2026-09-22): 14.2 → 14.1 → 14.3 → 14.5 → 14.4 → 14.6 → 14.7.**
 > Decisions: env AES-256-GCM key (`DOSSIER_INBOX_KEY`); headers of all mail, body only for job mail;
 > every 15 min; email the user only for interview/offer. Pro only.
-- [ ] **14.1 Connect flow** `/settings/inbox`: guided steps (2-Step Verification → App Password),
+- [x] **14.1 Connect flow** `/settings/inbox`: guided steps (2-Step Verification → App Password),
   test connection, disconnect. Consumer Gmail only.
 - [x] **14.2 Credentials encrypted at rest** (server-side key; the 8.4 secrets slice, now required).
   AES-256-GCM, `DOSSIER_INBOX_KEY`, key version on each ciphertext, startup canary. *First.*
@@ -1194,6 +1194,20 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **14.1 inbox connect flow** · Pro. `/settings/inbox` (+ an Inbox card on Settings):
+  three guided steps with direct Google links (a Gmail just for job hunting — set it on the profile;
+  2-Step Verification; an App password named "Kiwiply") — **links, not screenshots**: Google's pages
+  change and we'd need a real account to capture them. Then address + app password → the API
+  **checks them against Gmail before storing anything** (sign in, open INBOX read-only, find Sent by
+  its `\Sent` flag, sign out) and keeps the password only as `SecretBox` ciphertext bound to the
+  user. Refused before Gmail is asked: a non-`@gmail.com` address (Workspace blocks password sign-in)
+  and anything that isn't 16 letters — so a real Google password pasted by mistake is never sent
+  anywhere. Gmail's refusals are told apart (wrong password / needs an app password / sign in via
+  browser / IMAP off / unreachable), each with its own fix. 5 tries per 15 min per user. Disconnect
+  deletes it (and says to delete the app password in Google too). `ImapGateway` over Jakarta Mail
+  (already on the classpath); **GreenMail** tests sign in to a real in-memory IMAP server. Account
+  deletion + privacy page covered. Integration tests share one runtime-generated key (`TestInboxKey`)
+  — separate random keys per context would trip the startup canary on the shared test DB.
 - 2026-09-22 · **14.2 inbox credential encryption** · `SecretBox`: AES-256-GCM, a fresh 12-byte IV per
   value, 128-bit tag, and **associated data binding each value to its row** (`inbox:<userId>` — a
   ciphertext copied into another user's row won't decrypt). Stored as `v<version>:<base64>` so the key

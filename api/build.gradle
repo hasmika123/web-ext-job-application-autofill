@@ -149,6 +149,8 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-web"
     testImplementation "org.springframework.boot:spring-boot-test"
     testImplementation "org.springframework.security:spring-security-test"
+    // Phase 14: a real in-memory IMAP server for the inbox tests (Gmail itself is never called in CI).
+    testImplementation "com.icegreen:greenmail-junit5:2.1.14"
     implementation libs.jhipster.framework
     implementation libs.springdoc.openapi.starter.webmvc.api
     // Stripe SDK (Phase 12). Isolated behind service/billing/StripeGateway — StripeGatewayImpl
