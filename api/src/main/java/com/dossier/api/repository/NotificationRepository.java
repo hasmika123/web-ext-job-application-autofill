@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findTop30ByUserIdOrderByCreatedAtDesc(Long userId);
 
+    /** All of a user's notifications, for their data export (14.7). */
+    List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
+
     long countByUserIdAndReadAtIsNull(Long userId);
 
     boolean existsByUserIdAndApplicationIdAndStatus(Long userId, Long applicationId, String status);

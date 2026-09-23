@@ -146,6 +146,22 @@ export default function TermsPage() {
         </p>
       </Section>
 
+      <Section title="Connected inbox">
+        <p>
+          If you connect a Gmail account (a Pro feature), you confirm that it is <strong>your own account</strong>,
+          that you are allowed to give Kiwiply access to it, and that you created it for your job search. Kiwiply
+          signs in with the app password you create and <strong>only reads</strong>: it never sends, moves, flags or
+          deletes mail. Because a Gmail app password can&apos;t be limited to reading, we ask you to use a Gmail made
+          just for job hunting and keep your personal mail out of it.
+        </p>
+        <p>
+          Kiwiply updates your board automatically from what that mail says. It can misread an email — check any
+          change that matters to you against the email itself. You can disconnect at any time, from the Inbox
+          settings page or by deleting the app password in your Google account; disconnecting deletes the mail
+          we&apos;ve read. What we keep, for how long, and who processes it is in the Privacy Policy.
+        </p>
+      </Section>
+
       <Section title="Our intellectual property">
         <p>
           The Kiwiply name, logo, website, and software are owned by us and protected by law. These terms

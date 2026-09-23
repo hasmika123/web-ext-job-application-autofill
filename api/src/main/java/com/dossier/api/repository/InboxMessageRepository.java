@@ -1,6 +1,7 @@
 package com.dossier.api.repository;
 
 import com.dossier.api.domain.InboxMessage;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -35,4 +36,13 @@ public interface InboxMessageRepository extends JpaRepository<InboxMessage, Long
     @Modifying
     @Query("delete from InboxMessage m where m.userId = :userId")
     int deleteByUser(@Param("userId") Long userId);
+
+    /** 14.7: mail past its retention — by when it was sent, or read if it carried no date. */
+    @Transactional
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from InboxMessage m where coalesce(m.sentAt, m.createdAt) < :before")
+    int deleteOlderThan(@Param("before") Instant before);
+
+    /** Everything read from one user's inbox, for their data export (14.7). */
+    List<InboxMessage> findByUserIdOrderBySentAtDesc(Long userId);
 }

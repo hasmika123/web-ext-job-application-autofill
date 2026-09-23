@@ -21,6 +21,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   <li><b>{@code poll-cron}</b> — when connected inboxes are read (14.3): every 15 minutes.</li>
  *   <li><b>{@code backfill-days}</b> / <b>{@code max-per-folder}</b> — the first read of a folder goes
  *       back this many days (60), and no read takes more than this many messages per folder (500).</li>
+ *   <li><b>{@code retention-days}</b> — stored mail is deleted this long after it was sent (365,
+ *       14.7).</li>
  * </ul>
  */
 @ConfigurationProperties(prefix = "dossier.inbox")
@@ -36,6 +38,7 @@ public class InboxProperties {
     private String pollCron = "0 */15 * * * *";
     private int backfillDays = 60;
     private int maxPerFolder = 500;
+    private int retentionDays = 365;
 
     public String getKey() {
         return key;
@@ -115,5 +118,13 @@ public class InboxProperties {
 
     public void setMaxPerFolder(int maxPerFolder) {
         this.maxPerFolder = maxPerFolder;
+    }
+
+    public int getRetentionDays() {
+        return retentionDays;
+    }
+
+    public void setRetentionDays(int retentionDays) {
+        this.retentionDays = retentionDays;
     }
 }

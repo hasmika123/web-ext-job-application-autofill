@@ -125,7 +125,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
   const readOnly = (
     <p className="text-[12.5px] leading-relaxed text-muted">
       Kiwiply only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
-      password in your Google account. See the{" "}
+      password in your Google account. Mail we read is kept for 12 months after it was sent, then deleted. See the{" "}
       <Link href="/privacy" className="underline">
         Privacy Policy
       </Link>

@@ -78,8 +78,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **14.5 is DONE** — one application per job across boards. **14.4 is split**: **14.4a is DONE** — mail
 > read into status changes (rules first, Flash-Lite only when unsure). **14.4b is DONE** — "From your
 > inbox" suggestions on the board + each application's Emails. **14.4 is complete.** **14.6 is DONE** —
-> in-app notifications + emails for interviews and offers. **Next: 14.7** — retention, export, the
-> read-only line. **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> in-app notifications + emails for interviews and offers. **14.7 is DONE** — 12-month mail expiry,
+> inbox in the data export, the read-only promise in Terms. **PHASE 14 IS COMPLETE.** **Next: Phase 15**
+> (Launch 1) — 15.1 ops: nightly off-box backup, monitoring, a real restore drill. Before the inbox
+> goes live: `DOSSIER_INBOX_KEY` on the box (DEPLOY.md §12). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1083,7 +1085,7 @@ focused Claude Code session.
 - [x] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
   count).* Normalized company + title (+ fuzzy location) at upsert.
 - [x] **14.6 Notifications.** In-app + email to the user's real address on status change.
-- [ ] **14.7 Retention & deletion** *(the 8.4 slice).* Mail rows expire (12 months default); purge
+- [x] **14.7 Retention & deletion** *(the 8.4 slice).* Mail rows expire (12 months default); purge
   on disconnect + account delete; DSAR export includes mail; read-only guarantee in product copy.
 
 ## Phase 15 — Launch 1
@@ -1199,6 +1201,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **14.7 inbox retention & data rights** · `InboxRetention` deletes stored mail 365 days
+  after it was sent (`DOSSIER_INBOX_RETENTION_DAYS`), nightly at 03:30 UTC — what the mail did (status,
+  notifications) stays, it's the user's board. Purge on disconnect and account deletion were built
+  with 14.1/14.3. **Data export** now has `inbox` (the connection — address, status, dates, email
+  switch; never the password, not even encrypted — and every message as stored: headers, kept text,
+  what it was read as, the application and status it touched) and `notifications`. **Read-only
+  guarantee** in the Terms (new "Connected inbox" section: your own account, dedicated to job hunting;
+  Kiwiply only reads, never sends/moves/flags/deletes; it can misread — check what matters; how to cut
+  it off) and on the Inbox page; privacy page states the 12 months. The bulk delete clears the
+  persistence context (else a same-transaction read still sees deleted rows). Terms' "AI features"
+  section predates Phase 13 — left for the 15.2 lawyer review. No ext change. **Phase 14 complete.**
 - 2026-09-23 · **14.6 notifications** · Every status change from mail (`StatusChanged`) → an in-app
   `notification` ("Acme · Backend Engineer — Moved to Interview"), linking to `/board?app=ID` (the
   board now opens that application's panel). **Email only for Interview and Offer** (user decision) to

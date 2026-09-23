@@ -134,6 +134,17 @@ public class NotificationService {
         if (n.getReadAt() == null) n.setReadAt(Instant.now());
     }
 
+    /** Every notification, for the user's data export (14.7). */
+    @Transactional(readOnly = true)
+    public List<View> exportCurrentUser() {
+        User u = currentUser();
+        return notifications
+            .findByUserIdOrderByCreatedAtDesc(u.getId())
+            .stream()
+            .map(n -> new View(n.getId(), n.getTitle(), n.getBody(), n.getLink(), n.getCreatedAt(), n.getReadAt() != null))
+            .toList();
+    }
+
     public void deleteAllForUser(Long userId) {
         notifications.deleteByUser(userId);
     }
