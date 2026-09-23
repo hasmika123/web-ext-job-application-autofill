@@ -63,7 +63,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > in the drawer and a "Resume fit" section on the board. **13.3 is DONE** (ext v0.64.0) — the job-fit
 > report (match, missing keywords, red flags) in the drawer and per resume on the board.
 > **13.4 is DONE** — "Tailor for this job" on the board: reviewed rewordings saved as a new resume,
-> with the truthfulness checks on the server. **Next: 13.5** — the ATS resume score. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> with the truthfulness checks on the server. **13.5 is DONE** — an ATS score out of 100 with
+> "fix first" advice on the Resumes page, and with the job's keyword coverage in the board's job-fit
+> panel. **Next: 13.6** — daily job matches (light). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1032,7 +1034,7 @@ focused Claude Code session.
 - [x] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
 - [x] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
   NEW resume version via the `TrackingProvider` seam.
-- [ ] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
+- [x] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
   structure/dates/contact/measurable-results checks + one Flash-Lite keyword read vs the captured
   JD; cached per (resume × JD); shown on the resumes page + inside the job-fit panel.
 - [ ] **13.6 Daily job matches — LIGHT** *(Launch 1, user decision; strong version = 16.1).*
@@ -1170,6 +1172,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.5 ATS resume score** · Pro. `AtsChecks`: **15 deterministic checks, weights summing
+  to 100** — summary present/length, skills listed/not stuffed, roles present/labelled/dated/dates
+  consistent, bullets on the 3 latest roles, bullet length, **measurable results** (≥ ⅓ of bullets
+  carry a number, % or amount), **action verbs** (≥ ½ open with one, no "Responsible for…"), no
+  first person, education, a file on record. Each failed check says what to aim for. No AI, no
+  storage — recomputed on request. Against a tracked job the score is **70 % structure + 30 %
+  keyword coverage**, and coverage (covered ÷ covered + missing) comes from **13.3's cached job-fit
+  report**, so the ROADMAP's "one Flash-Lite read, cached per (resume × JD)" is that same call — no
+  second one. `GET /api/profile/resumes/{id}/ats-score`, `POST /api/profile/applications/{id}/ats-score`;
+  402 on Free. Shared `AtsReport` in `@kiwiply/ui`. Web: **"ATS score"** in each resume's ⋯ menu
+  (dialog; Free sees the upsell) and under the job-fit report on the board. "Contact" check swapped
+  for "has a file": stored resumes keep no contact block (contact lives on the profile). No ext change.
 - 2026-09-22 · **13.4 resume tailoring** · `ResumeTailorService` (task `tailor`, JSON-schema output):
   rewrites of a resume's **existing** bullets (by ref, `e0b1`) and summary, plus a reorder of its
   **own** skills, for one application's job. **Truthfulness is enforced by the server, not asked

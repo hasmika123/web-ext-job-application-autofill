@@ -73,6 +73,9 @@ export { cn } from "./primitives/cn";
 export { default as JobFitReport } from "./JobFitReport";
 export type { JobFitData, JobFitReportProps } from "./JobFitReport";
 
+export { default as AtsReport } from "./AtsReport";
+export type { AtsCheck, AtsKeywords, AtsReportData, AtsReportProps } from "./AtsReport";
+
 export { default as ResumeUpload } from "./ResumeUpload";
 export type {
   EditTarget,

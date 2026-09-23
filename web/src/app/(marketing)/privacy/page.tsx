@@ -155,6 +155,12 @@ export default function PrivacyPage() {
           so you can review them and save the ones you keep as a new resume. Your original is never
           changed. All of it is deleted with your account.
         </p>
+        <p>
+          <strong>ATS score (Pro).</strong> A resume&apos;s score is worked out on our servers from the
+          resume you already stored, with no AI and nothing sent anywhere. Against a job, its keyword
+          coverage comes from that job&apos;s job-fit report above, so nothing more is sent. We don&apos;t
+          store the score; it&apos;s recalculated each time you look.
+        </p>
       </Section>
 
       <Section title="Storage and sharing">

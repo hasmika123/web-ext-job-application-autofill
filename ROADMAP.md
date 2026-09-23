@@ -825,6 +825,9 @@ pull only on change:**
   coverage against the captured JD when one is present. Deterministic checks first (free to
   run), one Flash-Lite call only for the keyword/impact read; cached per (resume × JD). Shown on
   the resumes page and inside the job-fit panel. Teal's most-used hook — we match it at Launch 1.
+  *Built 2026-09-22:* 15 weighted checks; with a job, 70 % structure + 30 % keyword coverage, where
+  coverage reuses 13.3's cached job-fit report (that is the one Flash-Lite read — no second call).
+  The contact check became "has a file" — stored resumes carry no contact block.
 - **13.6 Daily job matches — LIGHT** *(Launch 1 — user decision 2026-09-21; the strong version
   is 16.1).* Sources: the Greenhouse, Lever and Ashby **public job-board APIs** only. Preference
   profile = Tier A answers + role/seniority/location inferred from the resume. Gates: posted

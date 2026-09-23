@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import {
   ArchiveIcon as SharedArchiveIcon,
   ArrowsUpDownIcon,
+  ChartIcon,
   CheckIcon,
   ChevronDownIcon,
   Menu,
@@ -72,6 +73,7 @@ function Row({
   onEdit,
   onStar,
   onSetDefault,
+  onAtsScore,
   guard,
 }: {
   resume: Resume;
@@ -86,6 +88,8 @@ function Row({
   onEdit?: () => void;
   onStar: () => void;
   onSetDefault: () => void;
+  /** 13.5 — open this resume's ATS score. */
+  onAtsScore?: () => void;
   guard: string | null;
 }) {
   const display = useDateDisplay();
@@ -103,6 +107,9 @@ function Row({
     },
     ...(onEdit
       ? [{ label: "Edit", icon: <SharedPencilIcon className="h-4 w-4" />, onSelect: onEdit, disabled: busy }]
+      : []),
+    ...(onAtsScore && !archived
+      ? [{ label: "ATS score", icon: <ChartIcon className="h-4 w-4" />, onSelect: onAtsScore, disabled: busy }]
       : []),
     // Kept for the default resume too, just disabled (so the option doesn't vanish).
     ...(!archived
@@ -258,10 +265,12 @@ export default function ResumeList({
   resumes,
   usage = {},
   onEdit,
+  onAtsScore,
 }: {
   resumes: Resume[];
   usage?: Record<number, number>;
   onEdit?: (r: Resume) => void;
+  onAtsScore?: (r: Resume) => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -448,6 +457,7 @@ export default function ResumeList({
       onEdit={onEdit ? () => onEdit(r) : undefined}
       onStar={() => rowStar(r)}
       onSetDefault={() => rowSetDefault(r)}
+      onAtsScore={onAtsScore ? () => onAtsScore(r) : undefined}
       guard={guards[r.id] || null}
     />
   );

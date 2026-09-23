@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Meter } from "@/components/ui";
-import { JobFitReport, type JobFitData } from "@kiwiply/ui";
+import { AtsReport, JobFitReport, type AtsReportData, type JobFitData } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/dates";
@@ -21,6 +21,10 @@ import TailorDialog from "@/components/board/TailorDialog";
  * red flags — fetched on request and cached server-side the same way.
  *
  * 13.4: and can be tailored for this job — reworded, reviewed, saved as a new resume.
+ *
+ * 13.5: the same expansion shows the resume's ATS score against this job — structure checks plus
+ * keyword coverage. It's asked for once the job-fit report is in, so the server reads the keywords
+ * from that cached report and makes no second AI call.
  */
 
 type Score = { resumeId: number; label: string; score: number; why: string };
@@ -63,6 +67,22 @@ export default function ResumeFit({
   const [tailoring, setTailoring] = useState<Score | null>(null);
   // 13.3 — the job-fit report per resume id: loading, the report, or a message.
   const [reports, setReports] = useState<Record<number, JobFitData | "loading" | { message: string }>>({});
+  // 13.5 — the ATS score per resume id, fetched after its job-fit report.
+  const [ats, setAts] = useState<Record<number, AtsReportData>>({});
+
+  async function loadAts(resumeId: number) {
+    try {
+      const res = await fetch(`/api/applications/${appId}/ats-score`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resumeId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as AtsReportData;
+      if (res.ok && Array.isArray(data.checks)) setAts((a) => ({ ...a, [resumeId]: data }));
+    } catch {
+      // The fit report still stands on its own; the score is a bonus.
+    }
+  }
 
   async function openReport(resumeId: number) {
     if (reports[resumeId] && reports[resumeId] !== "loading" && !("message" in (reports[resumeId] as object))) {
@@ -83,6 +103,7 @@ export default function ResumeFit({
       const data = (await res.json().catch(() => ({}))) as { fit?: JobFitData; quotaExceeded?: boolean; resetsAt?: string; error?: string };
       if (res.ok && data.fit) {
         setReports((r) => ({ ...r, [resumeId]: data.fit as JobFitData }));
+        void loadAts(resumeId);
       } else if (data.quotaExceeded) {
         const when = formatDate(data.resetsAt, { month: "long", day: "numeric" });
         setReports((r) => ({ ...r, [resumeId]: { message: `You've used this month's Kiwiply AI — it resets${when ? ` on ${when}` : " next month"}.` } }));
@@ -189,7 +210,13 @@ export default function ResumeFit({
                   const rep = reports[s.resumeId];
                   if (!rep || rep === "loading") return null;
                   if ("message" in rep) return <p role="status" className="mt-2 text-[12.5px] font-medium text-ink-soft">{rep.message}</p>;
-                  return <JobFitReport fit={rep} hideScore className="mt-3 border-t border-line pt-3" />;
+                  const score = ats[s.resumeId];
+                  return (
+                    <>
+                      <JobFitReport fit={rep} hideScore className="mt-3 border-t border-line pt-3" />
+                      {score && <AtsReport report={score} hideMissingTerms className="mt-3 border-t border-line pt-3" />}
+                    </>
+                  );
                 })()}
               </li>
             );
