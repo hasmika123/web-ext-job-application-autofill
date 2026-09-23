@@ -6,41 +6,47 @@ import { useToast } from "@/components/ui";
 
 interface Props {
   login: string;
-  defaultQuota: number;
-  /** Current override, or null when the user is on the global default. */
-  override: number | null;
+  /** The Pro plan's monthly AI budget, in US cents. */
+  defaultBudgetCents: number;
+  /** This user's override in cents, or null when their plan decides. */
+  overrideCents: number | null;
 }
 
+const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
 /**
- * Per-user AI monthly-quota override (Phase 9.A2.2b). Empty = use the global default; setting a
- * number overrides it; Clear reverts. Calls the BFF (which proxies Spring; the server clamps,
- * validates the user, and audits). The effective quota is `override ?? defaultQuota`.
+ * Per-user AI override (Phase 9.A2.2b). Since 13.1b server AI is metered by what it costs, so the
+ * override is a monthly AI budget in dollars. It outranks the plan: set one to give a Free user
+ * server AI, or to give anyone a different budget; $0 means no server AI. Clear hands the decision
+ * back to their plan (Pro gets the default budget, Free gets none). Calls the BFF, which proxies
+ * Spring; the server validates the user, clamps the amount, and audits.
  */
-export default function AiQuotaControl({ login, defaultQuota, override }: Props) {
+export default function AiQuotaControl({ login, defaultBudgetCents, overrideCents }: Props) {
   const router = useRouter();
   const toast = useToast();
-  const [value, setValue] = useState(override === null ? "" : String(override));
+  const [value, setValue] = useState(overrideCents === null ? "" : (overrideCents / 100).toFixed(2));
   const [busy, setBusy] = useState(false);
 
   async function save() {
-    const n = Number(value);
-    if (value.trim() === "" || !Number.isInteger(n) || n < 0) {
-      toast({ variant: "error", title: "Enter a whole number ≥ 0 (or use Clear)." });
+    const amount = Number(value);
+    if (value.trim() === "" || !Number.isFinite(amount) || amount < 0) {
+      toast({ variant: "error", title: "Enter a dollar amount of 0 or more (or use Clear)." });
       return;
     }
+    const cents = Math.round(amount * 100);
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/users/${encodeURIComponent(login)}/ai-quota`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ quota: n }),
+        body: JSON.stringify({ budgetCents: cents }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast({ variant: "error", title: data.error ?? "Couldn't set the quota." });
+        toast({ variant: "error", title: data.error ?? "Couldn't set the budget." });
         return;
       }
-      toast({ variant: "success", title: `AI quota set to ${n}/mo` });
+      toast({ variant: "success", title: `AI budget set to ${dollars(cents)}/mo` });
       router.refresh();
     } catch {
       toast({ variant: "error", title: "Something went wrong." });
@@ -59,7 +65,7 @@ export default function AiQuotaControl({ login, defaultQuota, override }: Props)
         return;
       }
       setValue("");
-      toast({ variant: "success", title: "Reverted to the default quota" });
+      toast({ variant: "success", title: "Back to their plan's AI budget" });
       router.refresh();
     } catch {
       toast({ variant: "error", title: "Something went wrong." });
@@ -68,25 +74,39 @@ export default function AiQuotaControl({ login, defaultQuota, override }: Props)
     }
   }
 
-  const effective = override ?? defaultQuota;
-
   return (
     <section className="rounded-[var(--radius)] border border-line bg-paper p-5">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">AI monthly quota</h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">AI monthly budget</h2>
       <p className="mt-1 text-sm text-ink-soft">
-        Effective: <span className="font-semibold text-ink">{effective}/mo</span>
-        {override === null ? " (global default)" : ` (override; default is ${defaultQuota})`}
+        {overrideCents === null ? (
+          <>
+            Set by their plan: Pro gets <span className="font-semibold text-ink">{dollars(defaultBudgetCents)}/mo</span> of
+            model cost; Free gets no server AI beyond resume parsing.
+          </>
+        ) : (
+          <>
+            Override: <span className="font-semibold text-ink">{dollars(overrideCents)}/mo</span>, whatever their plan
+            (Pro default is {dollars(defaultBudgetCents)}).
+          </>
+        )}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input
-          type="number"
-          min={0}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={`${defaultQuota}`}
-          aria-label="Monthly AI quota override"
-          className="w-28 rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink"
-        />
+        <div className="flex items-center rounded-[var(--radius)] border border-line bg-paper focus-within:border-ink">
+          <span className="pl-3 text-sm text-muted" aria-hidden>
+            $
+          </span>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={(defaultBudgetCents / 100).toFixed(2)}
+            aria-label="Monthly AI budget override, in dollars"
+            className="w-24 bg-transparent px-2 py-2 text-sm text-ink outline-none"
+          />
+        </div>
         <button
           type="button"
           onClick={save}
@@ -98,7 +118,7 @@ export default function AiQuotaControl({ login, defaultQuota, override }: Props)
         <button
           type="button"
           onClick={clear}
-          disabled={busy || override === null}
+          disabled={busy || overrideCents === null}
           className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-paper-2 disabled:opacity-50"
         >
           Clear

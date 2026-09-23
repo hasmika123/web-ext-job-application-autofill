@@ -19,8 +19,9 @@ public class AiQuotaOverride implements Serializable {
     @Column(name = "login", length = 50)
     private String login;
 
-    @Column(name = "monthly_quota", nullable = false)
-    private int monthlyQuota;
+    /** A monthly AI budget in US cents (13.1b; it was a call count before). 0 = no server AI. */
+    @Column(name = "monthly_budget_cents", nullable = false)
+    private int monthlyBudgetCents;
 
     public String getLogin() {
         return login;
@@ -30,11 +31,11 @@ public class AiQuotaOverride implements Serializable {
         this.login = login;
     }
 
-    public int getMonthlyQuota() {
-        return monthlyQuota;
+    public int getMonthlyBudgetCents() {
+        return monthlyBudgetCents;
     }
 
-    public void setMonthlyQuota(int monthlyQuota) {
-        this.monthlyQuota = monthlyQuota;
+    public void setMonthlyBudgetCents(int monthlyBudgetCents) {
+        this.monthlyBudgetCents = monthlyBudgetCents;
     }
 }

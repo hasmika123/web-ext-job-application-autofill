@@ -73,6 +73,8 @@ function boot(opts) {
     recordFillCorrection: (id) => { calls.corrections.push(id); return Promise.resolve(null); },
     // Phase 10.3d — learned answers.
     recordLearnedAnswers: (a) => { calls.learned.push(a); return Promise.resolve(null); },
+    // Phase 13.1b — server AI drafting, to check what the user is told when the month's AI is used up.
+    aiDraft: (b) => { (calls.aiDrafts = calls.aiDrafts || []).push(b); return Promise.resolve(opts.aiDraft || {}); },
     profileVersion: () => { calls.versionCalls++; return Promise.resolve(opts.version === undefined ? "v-new" : opts.version); },
   };
 
@@ -349,6 +351,27 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
       store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
       const r = await sendRelayed(internal, {}, { type: "JAF_LEARNED_ANSWERS", answers, page: "p/1" });
       ok("learn: only accepted from a page's content script", calls.learned.length === 0 && r === null);
+    }
+  }
+
+  /* ---- Phase 13.1b: a used-up month says when it resets — never dollars ---- */
+  {
+    const draftMsg = { type: "JAF_DRAFT", question: "Why us?", context: "Engineer." };
+    const aiSettings = { apiBaseUrl: "https://api.kiwiply.com", serverAiEnabled: true, serverAiConsent: true };
+    {
+      const { internal, calls, store } = boot({ aiDraft: { quotaExceeded: true, used: 100, quota: 100, resetsAt: "2026-10-01T00:00:00Z" } });
+      store.settings = aiSettings;
+      const r = await sendRelayed(internal, { tab: { id: 3 } }, draftMsg);
+      ok("ai limit: the draft is sent as a draft", calls.aiDrafts && calls.aiDrafts[0].task === "draft", JSON.stringify(calls.aiDrafts));
+      ok("ai limit: says when it resets", r && /resets on October 1/.test(r.error || ""), JSON.stringify(r));
+      ok("ai limit: no dollar figures and no raw 100/100", r && !/\$|100\/100/.test(r.error || ""), JSON.stringify(r));
+    }
+    {
+      // An older server (or a Free parse count) still reads as used/quota.
+      const { internal, store } = boot({ aiDraft: { quotaExceeded: true, used: 3, quota: 3 } });
+      store.settings = aiSettings;
+      const r = await sendRelayed(internal, { tab: { id: 3 } }, draftMsg);
+      ok("ai limit: without a reset date it falls back to used/quota", r && /\(3\/3\)/.test(r.error || ""), JSON.stringify(r));
     }
   }
 

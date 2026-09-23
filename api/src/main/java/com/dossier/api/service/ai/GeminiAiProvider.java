@@ -87,11 +87,21 @@ public class GeminiAiProvider implements AiProvider {
     }
 
     @Override
-    public AiResult generate(AiTask task, String question, String context) throws AiProviderException {
+    public String defaultModel() {
+        return model;
+    }
+
+    private String modelOr(String requested) {
+        return requested == null || requested.isBlank() ? model : requested.trim();
+    }
+
+    @Override
+    public AiResult generate(AiTask task, String model, String question, String context) throws AiProviderException {
         if (!isConfigured()) {
             throw new AiProviderException("AI provider is not configured");
         }
-        AiResult r = toResult(send(generateBody(task, question, context), Duration.ofSeconds(30)));
+        String m = modelOr(model);
+        AiResult r = toResult(send(generateBody(task, question, context), Duration.ofSeconds(30), m), m);
         if (r.text() == null || r.text().isBlank()) {
             throw new AiProviderException("Gemini returned an empty answer");
         }
@@ -125,7 +135,7 @@ public class GeminiAiProvider implements AiProvider {
     }
 
     @Override
-    public AiResult parseResume(String text, String fileBase64, String fileMimeType) throws AiProviderException {
+    public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) throws AiProviderException {
         if (!isConfigured()) {
             throw new AiProviderException("AI provider is not configured");
         }
@@ -161,7 +171,8 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         // Files take longer than short drafts — allow a roomier timeout.
-        AiResult r = toResult(send(body, Duration.ofSeconds(60)));
+        String m = modelOr(model);
+        AiResult r = toResult(send(body, Duration.ofSeconds(60), m), m);
         String json = r.text();
         if (json == null || json.isBlank()) {
             throw new AiProviderException("Gemini returned an empty parse");
@@ -177,7 +188,7 @@ public class GeminiAiProvider implements AiProvider {
     }
 
     /** POST the request body to generateContent and return the raw response body. */
-    private String send(ObjectNode body, Duration timeout) throws AiProviderException {
+    private String send(ObjectNode body, Duration timeout, String model) throws AiProviderException {
         String url = baseUrl.replaceAll("/+$", "") + "/models/" + model + ":generateContent?key=" + apiKey;
 
         HttpResponse<String> res;
@@ -211,9 +222,13 @@ public class GeminiAiProvider implements AiProvider {
      * call consumed, from {@code usageMetadata} (13.1a — never read before, so nothing could be
      * metered by cost). Gemini bills "thinking" tokens as output, and reports context-cache hits
      * inside {@code promptTokenCount}, so those are split out to be priced at the cache rate.
-     * {@code modelVersion} is the model that actually answered; the configured name is the fallback.
+     * {@code modelVersion} is the model that actually answered; the requested name is the fallback.
      */
     AiResult toResult(String json) {
+        return toResult(json, model);
+    }
+
+    AiResult toResult(String json, String requestedModel) {
         try {
             JsonNode root = om.readTree(json);
             JsonNode parts = root.path("candidates").path(0).path("content").path("parts");
@@ -231,7 +246,7 @@ public class GeminiAiProvider implements AiProvider {
             int cached = usage.path("cachedContentTokenCount").asInt(0);
             int output = usage.path("candidatesTokenCount").asInt(0) + usage.path("thoughtsTokenCount").asInt(0);
             String served = root.path("modelVersion").asText("");
-            return new AiResult(sb.toString().trim(), served.isBlank() ? model : served, prompt - cached, cached, output);
+            return new AiResult(sb.toString().trim(), served.isBlank() ? requestedModel : served, prompt - cached, cached, output);
         } catch (Exception e) {
             throw new AiProviderException("Could not parse Gemini response", e);
         }

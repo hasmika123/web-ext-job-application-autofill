@@ -8,6 +8,7 @@ import com.dossier.api.service.ai.AiPricing;
 import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
 import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -73,7 +74,7 @@ public class AiMeteringService {
     }
 
     static String period() {
-        return YearMonth.now().toString(); // YYYY-MM, server clock
+        return YearMonth.now(ZoneOffset.UTC).toString(); // YYYY-MM, UTC — the same month the budget uses
     }
 
     private static String truncate(String s, int max) {

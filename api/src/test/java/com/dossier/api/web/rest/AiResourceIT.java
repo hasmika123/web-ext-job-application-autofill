@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -91,7 +92,8 @@ class AiResourceIT {
         reset();
         when(aiProvider.isConfigured()).thenReturn(true);
         // 120 input + 30 output tokens on Flash-Lite ($0.10 / $0.40 per M) = 12 + 12 = 24 micro-dollars.
-        when(aiProvider.generate(any(), anyString(), anyString())).thenReturn(new AiResult("A grounded answer.", "gemini-2.5-flash-lite", 120, 0, 30));
+        when(aiProvider.defaultModel()).thenReturn("gemini-2.5-flash-lite");
+        when(aiProvider.generate(any(), any(), anyString(), anyString())).thenReturn(new AiResult("A grounded answer.", "gemini-2.5-flash-lite", 120, 0, 30));
     }
 
     @AfterEach
@@ -145,19 +147,21 @@ class AiResourceIT {
             .andExpect(jsonPath("$.answer").value("A grounded answer."));
     }
 
-    /** A hand-granted admin quota outranks the plan gate (a locked decision). */
+    /** A hand-granted admin override outranks the plan gate (a locked decision) — a budget since 13.1b. */
     @Test
     @WithMockUser(username = "user")
     void freeUserWithAnAdminOverrideDrafts() throws Exception {
         AiQuotaOverride override = new AiQuotaOverride();
         override.setLogin("user");
-        override.setMonthlyQuota(5);
+        override.setMonthlyBudgetCents(500);
         quotaOverrideRepository.save(override);
 
         mockMvc
             .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.quota").value(5));
+            .andExpect(jsonPath("$.quota").value(100)) // a budget is reported as a percentage
+            .andExpect(jsonPath("$.used").value(0))
+            .andExpect(jsonPath("$.resetsAt").exists());
     }
 
     /**
@@ -168,7 +172,7 @@ class AiResourceIT {
     @Test
     @WithMockUser(username = "user")
     void parseResumeIsNotGated() throws Exception {
-        when(aiProvider.parseResume(anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
+        when(aiProvider.parseResume(any(), anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
         String body = om.writeValueAsString(Map.of("text", "Jane Doe, backend engineer, 6 years Java.", "consent", true));
         mockMvc
             .perform(post("/api/ai/parse-resume").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -204,31 +208,76 @@ class AiResourceIT {
         mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Map: 1. First name", "map"))).andExpect(status().isOk());
         mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Anything", "bogus"))).andExpect(status().isOk());
 
-        verify(aiProvider).generate(eq(AiTask.MAP), eq("Map: 1. First name"), anyString());
-        verify(aiProvider).generate(eq(AiTask.DRAFT), eq("Anything"), anyString());
+        verify(aiProvider).generate(eq(AiTask.MAP), any(), eq("Map: 1. First name"), anyString());
+        verify(aiProvider).generate(eq(AiTask.DRAFT), any(), eq("Anything"), anyString());
         assertThat(aiCallRepository.findByLoginOrderByCreatedAtDesc("user")).extracting(AiCall::getTask).containsExactlyInAnyOrder("map", "draft");
     }
 
-    /** The month's count is kept in the database: the first call creates it, the next adds to it. */
+    /** The month's call count is kept in the database: the first call creates it, the next adds to it. */
     @Test
     @WithMockUser(username = "user")
     void theMonthlyCountAccumulates() throws Exception {
         ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
-        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("First question?", "draft"))).andExpect(jsonPath("$.used").value(1));
-        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Second question?", "draft"))).andExpect(jsonPath("$.used").value(2));
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("First question?", "draft"))).andExpect(status().isOk());
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Second question?", "draft"))).andExpect(status().isOk());
+        String period = java.time.YearMonth.now(java.time.ZoneOffset.UTC).toString();
+        assertThat(aiUsageRepository.findByLoginAndPeriod("user", period)).get().extracting(u -> u.getDraftCount()).isEqualTo(2);
     }
 
-    /** The bug 13.1a fixes: parsing used the Free quota for everyone, Pro included. */
+    /** 13.1a fixed Pro parses being held to the Free count; since 13.1b they come out of the budget. */
     @Test
     @WithMockUser(username = "user")
-    void aProUserParsesOnTheProQuota() throws Exception {
+    void aProUserParsesOnTheBudget() throws Exception {
         ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
-        when(aiProvider.parseResume(anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
+        when(aiProvider.parseResume(any(), anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
         String body = om.writeValueAsString(Map.of("text", "Jane Doe, backend engineer, 6 years Java.", "consent", true));
         mockMvc
             .perform(post("/api/ai/parse-resume").contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.quota").value(2000));
+            .andExpect(jsonPath("$.quota").value(100));
         assertThat(aiCallRepository.findByLoginOrderByCreatedAtDesc("user")).extracting(AiCall::getTask).containsExactly("parse");
+    }
+
+    // ---- 13.1b: the monthly budget ---------------------------------------------------------
+
+    /** A Pro user who has spent the month's budget (from the ledger) is refused until it resets. */
+    @Test
+    @WithMockUser(username = "user")
+    void aSpentBudgetStopsAiUntilTheMonthResets() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        AiCall spent = new AiCall();
+        spent.setLogin("user");
+        spent.setTask("draft");
+        spent.setModel("gemini-2.5-flash-lite");
+        spent.setCostMicros(5_000_000L); // $5.00 — the whole default budget
+        aiCallRepository.save(spent);
+
+        mockMvc
+            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.quotaExceeded").value(true))
+            .andExpect(jsonPath("$.used").value(100))
+            .andExpect(jsonPath("$.quota").value(100))
+            .andExpect(jsonPath("$.resetsAt").value(org.hamcrest.Matchers.endsWith("-01T00:00:00Z")));
+        verify(aiProvider, never()).generate(any(), any(), anyString(), anyString());
+    }
+
+    /** Spend from a PREVIOUS month doesn't count against this one. */
+    @Test
+    @WithMockUser(username = "user")
+    void lastMonthsSpendDoesNotCount() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        AiCall old = new AiCall();
+        old.setLogin("user");
+        old.setTask("draft");
+        old.setModel("gemini-2.5-flash-lite");
+        old.setCostMicros(5_000_000L);
+        old.setCreatedAt(java.time.YearMonth.now(java.time.ZoneOffset.UTC).atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusSeconds(1));
+        aiCallRepository.save(old);
+
+        mockMvc
+            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.answer").value("A grounded answer."));
     }
 }

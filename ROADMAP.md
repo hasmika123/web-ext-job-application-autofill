@@ -553,6 +553,9 @@ interview: AI that picks and tailors your resume, and an inbox that updates your
 ambiguous mail); p95 ≈ $2–3. At $19.99 that is 1–3 % of revenue, Stripe ≈ $0.88 → **gross
 margin ≈ 90 %+**. Gemini 2.5 Flash-Lite retires **2026-10-16** (successor ~5× the price);
 median still < $1. Model names are **config-driven** so the swap is an env change.
+*(Checked 2026-09-22: the 2026-10-16 date is **Vertex AI's** — the Gemini API we call lists no
+shutdown date for 2.5 Flash-Lite yet. Google's named successor is `gemini-3.1-flash-lite` at
+$0.25 / $1.50 per M tokens, 2.5× input and 3.75× output.)*
 
 ### Phase 11 — Sync: signal + version check  *(Launch 1)*
 **Today:** the extension pulls only when the drawer opens, throttled to 90 s
@@ -781,6 +784,16 @@ pull only on change:**
   fixed on the way: Pro parse capped at the Free quota, the prod model default, the lost-update
   counter. **Check the box's `.env`:** if it sets `DOSSIER_AI_MODEL=gemini-2.0-flash` explicitly,
   the compose fix doesn't reach it.
+- **13.1b as built (2026-09-22):** `AiBudgetService` decides every call before the provider is
+  touched: the per-task **kill switch** (`dossier.ai.policy.disabled-tasks`), the Pro gate, a Free
+  user's resume-parse **count** (the one free exception), and otherwise a **cost budget** summed
+  from the `ai_call` ledger for the calendar month (UTC) — $5 for Pro, or the admin override, now a
+  **budget in cents** that still outranks the plan (existing grants carried over as $5; $0 = none).
+  Past `soft-cap-percent` (80) every task moves to `economy-model` (blank = no switch); at 100 %
+  AI stops until the 1st. Each task runs on `dossier.ai.policy.models.<task>` (blank = the default
+  model). Responses carry `resetsAt`; for a budget `used`/`quota` are a percentage and 100, so a
+  user is told "resets on October 1" — never dollars. `AiPricing` gained the 3.x models, with the
+  2.5 cache rates corrected to Google's current list.
 - **13.2 Resume recommendation per job.** Score every stored resume against the captured JD
   (Flash-Lite or embeddings); "best match: *Backend v3* — 82 %" in the drawer + on the board.
   Later learns from inbox outcomes (Phase 14 + 16).
