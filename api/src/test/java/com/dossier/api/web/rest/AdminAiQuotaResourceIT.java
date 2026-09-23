@@ -16,7 +16,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Per-user AI quota override endpoint (Phase 9.A2.2): ADMIN-gated set/clear against seeded {@code user}. */
+/** Per-user AI override endpoint (Phase 9.A2.2; a monthly budget in cents since 13.1b): ADMIN-gated set/clear against seeded {@code user}. */
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
@@ -34,24 +34,24 @@ class AdminAiQuotaResourceIT {
     @Test
     @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
     void setThenGetThenClear() throws Exception {
-        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.override").isEmpty());
+        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.overrideCents").isEmpty()).andExpect(jsonPath("$.defaultBudgetCents").value(500));
 
         mockMvc
-            .perform(put("/api/admin/users/user/ai-quota").contentType(MediaType.APPLICATION_JSON).content("{\"quota\":7}"))
+            .perform(put("/api/admin/users/user/ai-quota").contentType(MediaType.APPLICATION_JSON).content("{\"budgetCents\":700}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.override").value(7));
+            .andExpect(jsonPath("$.overrideCents").value(700));
 
-        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.override").value(7));
+        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.overrideCents").value(700));
 
         mockMvc.perform(delete("/api/admin/users/user/ai-quota")).andExpect(status().isNoContent());
-        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.override").isEmpty());
+        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.overrideCents").isEmpty());
     }
 
     @Test
     @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
     void negativeQuotaIsRejected() throws Exception {
         mockMvc
-            .perform(put("/api/admin/users/user/ai-quota").contentType(MediaType.APPLICATION_JSON).content("{\"quota\":-3}"))
+            .perform(put("/api/admin/users/user/ai-quota").contentType(MediaType.APPLICATION_JSON).content("{\"budgetCents\":-3}"))
             .andExpect(status().isBadRequest());
     }
 
@@ -59,7 +59,7 @@ class AdminAiQuotaResourceIT {
     @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
     void unknownUserIs404() throws Exception {
         mockMvc
-            .perform(put("/api/admin/users/ghost/ai-quota").contentType(MediaType.APPLICATION_JSON).content("{\"quota\":5}"))
+            .perform(put("/api/admin/users/ghost/ai-quota").contentType(MediaType.APPLICATION_JSON).content("{\"budgetCents\":500}"))
             .andExpect(status().isNotFound());
     }
 }

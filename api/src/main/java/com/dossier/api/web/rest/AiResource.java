@@ -62,6 +62,7 @@ public class AiResource {
                 body.put("used", r.used());
                 body.put("quota", r.quota());
                 body.put("cached", r.cached()); // served from the server-side answer cache (Phase 5.3)
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             case DISABLED -> {
@@ -85,6 +86,7 @@ public class AiResource {
                 body.put("quotaExceeded", true);
                 body.put("used", r.used());
                 body.put("quota", r.quota());
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             default -> {
@@ -102,6 +104,11 @@ public class AiResource {
      * {@code {disabled:true}}, {@code {consentRequired:true}}, {@code {quotaExceeded:true,...}},
      * or HTTP 502 {@code {error}}.
      */
+    /** When this month's AI resets (13.1b) — the extension says "resets on {date}" when it's used up. */
+    private static void putReset(Map<String, Object> body, java.time.Instant resetsAt) {
+        if (resetsAt != null) body.put("resetsAt", resetsAt.toString());
+    }
+
     @Operation(summary = "Parse a resume", description = "Metered, opt-in server-side AI resume parsing for the current user.")
     @PostMapping("/parse-resume")
     public ResponseEntity<Map<String, Object>> parseResume(@Valid @RequestBody AiParseResumeVM vm) {
@@ -130,6 +137,7 @@ public class AiResource {
                 body.put("parsed", r.parsed());
                 body.put("used", r.used());
                 body.put("quota", r.quota());
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             case DISABLED -> {
@@ -144,6 +152,7 @@ public class AiResource {
                 body.put("quotaExceeded", true);
                 body.put("used", r.used());
                 body.put("quota", r.quota());
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             default -> {

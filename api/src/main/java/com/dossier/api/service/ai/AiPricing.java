@@ -14,17 +14,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * {@code gemini-2.5-flash-lite}). Model names contain dots, so they are written in brackets:
  * {@code dossier.ai.pricing.models[gemini-2.5-flash].output=2.50}.
  *
- * <p>The defaults are Google's published paid-tier list prices for text input/output; check them
- * against the pricing page whenever the model changes.
+ * <p>The defaults are Google's published paid-tier list prices for text (checked 2026-09-22 against
+ * ai.google.dev/gemini-api/docs/pricing); check again whenever the model changes. The 3.6–3.8 Flash
+ * rates are introductory and double on 2027-01-01 — update them then.
  */
 @ConfigurationProperties(prefix = "dossier.ai.pricing")
 public class AiPricing {
 
     private Map<String, Rate> models = defaults();
 
-    /** Used for a model with no entry — Flash's rates, the dearer of the two we use, so an unpriced
-     *  model is over-counted rather than treated as free. */
-    private Rate fallback = new Rate(0.30, 0.075, 2.50);
+    /** Used for a model with no entry — the dearest Flash's rates, so an unpriced model is
+     *  over-counted rather than treated as free. */
+    private Rate fallback = new Rate(1.50, 0.15, 9.00);
 
     /** USD per million tokens. {@code cachedInput} is the rate for prompt tokens served from the
      *  provider's context cache. */
@@ -69,8 +70,14 @@ public class AiPricing {
 
     private static Map<String, Rate> defaults() {
         Map<String, Rate> m = new LinkedHashMap<>();
-        m.put("gemini-2.5-flash-lite", new Rate(0.10, 0.025, 0.40));
-        m.put("gemini-2.5-flash", new Rate(0.30, 0.075, 2.50));
+        m.put("gemini-2.5-flash-lite", new Rate(0.10, 0.01, 0.40));
+        m.put("gemini-2.5-flash", new Rate(0.30, 0.03, 2.50));
+        m.put("gemini-3.1-flash-lite", new Rate(0.25, 0.025, 1.50));
+        m.put("gemini-3.5-flash-lite", new Rate(0.30, 0.03, 2.50));
+        m.put("gemini-3.5-flash", new Rate(1.50, 0.15, 9.00));
+        m.put("gemini-3.6-flash", new Rate(0.75, 0.075, 3.75));
+        m.put("gemini-3.7-flash", new Rate(0.75, 0.075, 3.75));
+        m.put("gemini-3.8-flash", new Rate(0.75, 0.075, 3.75));
         return m;
     }
 

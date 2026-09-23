@@ -1,6 +1,5 @@
 package com.dossier.api.service;
 
-import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
@@ -8,6 +7,7 @@ import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,17 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Server-side LLM resume parsing on the shared {@link AiProvider} seam (same Gemini
- * model + key as answer drafting). Gating mirrors {@link AiDraftService}: feature
- * enabled + provider configured, explicit user consent (the free-tier provider may use
- * inputs), and the per-user monthly AI quota — one successful parse consumes one AI
- * credit from the same counter as drafts (no schema change; parses are infrequent).
+ * Server-side LLM resume parsing on the shared {@link AiProvider} seam. Gating mirrors
+ * {@link AiDraftService} — feature enabled + provider configured, explicit user consent (the
+ * free-tier provider may use inputs), then the {@link AiBudgetService} decision — except that
+ * parsing is <b>never Pro-gated</b>: it is how a profile builds itself, the one free server-AI
+ * exception. A Free user gets {@code dossier.ai.free-monthly-quota} parses a month; a Pro user's
+ * parses come out of the same monthly budget as everything else (13.1b), which also fixes the old
+ * bug where Pro users were held to the Free count here (13.1a).
  * No answer cache: resume files/text are effectively unique per upload.
- *
- * <p><b>The quota is the plan's (fixed 13.1a).</b> It used to be the Free quota for everyone, on
- * the counter drafts share — so a Pro user who had drafted 50 answers that month could no longer
- * parse a resume. Parsing stays ungated (it is the free exception), but a Pro user now gets the
- * Pro quota here, and an admin override still outranks both.
  */
 @Service
 @Transactional
@@ -43,71 +40,61 @@ public class AiResumeParseService {
         ERROR,
     }
 
-    public record Result(Status status, JsonNode parsed, int used, int quota) {}
+    public record Result(Status status, JsonNode parsed, int used, int quota, Instant resetsAt) {}
 
     private final AiProvider provider;
     private final AiMeteringService metering;
-    private final AiQuotaOverrideRepository quotaOverrideRepository;
-    private final EntitlementService entitlementService;
+    private final AiBudgetService budget;
     private final ObjectMapper om = new ObjectMapper();
     private final boolean enabled;
-    private final int freeMonthlyQuota;
-    private final int proMonthlyQuota;
 
     public AiResumeParseService(
         AiProvider provider,
         AiMeteringService metering,
-        AiQuotaOverrideRepository quotaOverrideRepository,
-        EntitlementService entitlementService,
-        @Value("${dossier.ai.enabled:false}") boolean enabled,
-        @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota,
-        @Value("${dossier.ai.pro-monthly-quota:2000}") int proMonthlyQuota
+        AiBudgetService budget,
+        @Value("${dossier.ai.enabled:false}") boolean enabled
     ) {
         this.provider = provider;
         this.metering = metering;
-        this.quotaOverrideRepository = quotaOverrideRepository;
-        this.entitlementService = entitlementService;
+        this.budget = budget;
         this.enabled = enabled;
-        this.freeMonthlyQuota = freeMonthlyQuota;
-        this.proMonthlyQuota = proMonthlyQuota;
     }
 
     public Result parse(String text, String fileBase64, String fileMimeType, boolean consent) {
         if (!enabled || !provider.isConfigured()) {
-            return new Result(Status.DISABLED, null, 0, 0);
-        }
-        if (!consent) {
-            return new Result(Status.CONSENT_REQUIRED, null, 0, freeMonthlyQuota);
+            return new Result(Status.DISABLED, null, 0, 0, null);
         }
 
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
-        int quota = quotaOverrideRepository
-            .findById(login)
-            .map(com.dossier.api.domain.AiQuotaOverride::getMonthlyQuota)
-            .orElseGet(() -> entitlementService.isPro(login) ? proMonthlyQuota : freeMonthlyQuota);
-
-        int used = metering.usedThisMonth(login);
-        if (used >= quota) {
-            return new Result(Status.QUOTA_EXCEEDED, null, used, quota);
+        AiBudgetService.Decision d = budget.decide(login, AiTask.PARSE);
+        if (d.verdict() == AiBudgetService.Verdict.TASK_DISABLED) {
+            return new Result(Status.DISABLED, null, 0, 0, null);
+        }
+        if (!consent) {
+            return new Result(Status.CONSENT_REQUIRED, null, 0, d.limit(), d.resetsAt());
+        }
+        if (d.verdict() == AiBudgetService.Verdict.EXHAUSTED) {
+            return new Result(Status.QUOTA_EXCEEDED, null, d.used(), d.limit(), d.resetsAt());
         }
 
         AiResult result;
         JsonNode parsed;
         try {
-            result = provider.parseResume(text, fileBase64, fileMimeType);
+            result = provider.parseResume(d.model(), text, fileBase64, fileMimeType);
             parsed = om.readTree(result.text());
         } catch (AiProviderException e) {
-            // Provider/transport failure — don't charge quota; report a generic error.
+            // Provider/transport failure — nothing is charged; report a generic error.
             LOG.warn("AI resume parse failed for user: {}", e.getMessage());
-            return new Result(Status.ERROR, null, used, quota);
+            return new Result(Status.ERROR, null, d.used(), d.limit(), d.resetsAt());
         } catch (Exception e) {
             LOG.warn("AI resume parse returned unusable JSON: {}", e.getMessage());
-            return new Result(Status.ERROR, null, used, quota);
+            return new Result(Status.ERROR, null, d.used(), d.limit(), d.resetsAt());
         }
 
-        used = metering.record(login, AiTask.PARSE, result); // one parse = one AI credit
-        return new Result(Status.OK, parsed, used, quota);
+        metering.record(login, AiTask.PARSE, result);
+        AiBudgetService.Decision after = budget.decide(login, AiTask.PARSE);
+        return new Result(Status.OK, parsed, after.used(), after.limit(), after.resetsAt());
     }
 }

@@ -54,8 +54,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > profile questions there. **10.3e is DONE** — the dashboard's "We learned N things about you — keep
 > these?" card. **10.3 IS COMPLETE.** **13.1 is planned** as 13.1a–c (user-approved defaults
 > 2026-09-22, see ROADMAP 13.1). **13.1a is DONE** (ext v0.60.0) — every AI call names its kind and
-> is recorded with its tokens and cost; three bugs fixed. **Next: 13.1b** — the monthly cost budget
-> and model routing (and a replacement for Flash-Lite, which retires 2026-10-16). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> is recorded with its tokens and cost; three bugs fixed. **13.1b is DONE** (ext v0.61.0) — Pro AI is a
+> $5/month cost budget with a soft cap, per-task models and kill switches; the admin override is a
+> budget. **Next: 13.1c** — the usage meter (user "% used" + admin cost per user). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1012,7 +1013,7 @@ focused Claude Code session.
   - [x] **13.1a Track real cost.** Each call names its task; tokens + cost into the `ai_call`
     ledger; task-specific instructions; three bugs fixed (Pro parse cap, prod model default,
     lost-update counter).
-  - [ ] **13.1b Budget + routing.** Model per task and prices in config; Pro monthly cost budget
+  - [x] **13.1b Budget + routing.** Model per task and prices in config; Pro monthly cost budget
     ($5 default) — 80 % → cheapest model, 100 % → stop until reset; per-feature kill switch; admin
     override becomes a budget override; pick Flash-Lite's successor (user confirms).
   - [ ] **13.1c Usage meter.** "% of this month's AI used" + reset date in Settings › Billing and the
@@ -1162,6 +1163,20 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.1b AI budget + routing** · Ext **v0.61.0**. New `AiBudgetService` makes one decision
+  per call, before the provider: **kill switch** per task → **Pro gate** → Free resume-parse
+  **count** → otherwise a **cost budget** from the `ai_call` ledger for the UTC calendar month ($5
+  Pro default; `AiPolicy`, `dossier.ai.policy.*`). Past 80 % every task moves to the economy model
+  (if one is set); at 100 % AI stops until the 1st, and the reply says when (`resetsAt`). Each task
+  can run on its own model (`models.<task>`). The **admin override is now a monthly budget in
+  cents** (column renamed; existing grants carried over as $5, $0 stays "none"); the admin control
+  edits it in dollars. The extension says "You've used this month's Kiwiply AI — it resets on
+  October 1" instead of "(100/100)". Pricing: 3.x Flash/Flash-Lite added, 2.5 cache rates
+  corrected. **Model check:** the 2026-10-16 retirement is Vertex AI's — the Gemini API we call has
+  no date for 2.5 Flash-Lite yet; successor `gemini-3.1-flash-lite` costs 2.5×/3.75×. Default
+  unchanged pending the user's call. Tests: `AiBudgetServiceTest` (13), draft/parse tests reworked
+  (12/9), `AiResourceIT` +2 (spent budget stops AI; last month's spend doesn't count), admin tests
+  moved to cents, SW +4.
 - 2026-09-22 · **13.1a AI cost tracking** · Ext **v0.60.0**. Every AI request now says what it's for
   (`task`: draft / pick / map / enrich; parse on its own endpoint; absent = draft, so old builds
   still work) and gets instructions written for it — picks, mapping and enrichment no longer get

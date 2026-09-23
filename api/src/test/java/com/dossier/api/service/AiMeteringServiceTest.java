@@ -12,9 +12,9 @@ class AiMeteringServiceTest {
 
     @Test
     void costIsTokensTimesRate() {
-        // Flash-Lite: $0.10 / $0.025 cached / $0.40 per million tokens = micro-dollars per token.
+        // Flash-Lite: $0.10 / $0.01 cached / $0.40 per million tokens = micro-dollars per token.
         assertThat(pricing.costMicros("gemini-2.5-flash-lite", 1000, 0, 100)).isEqualTo(140); // 100 + 40
-        assertThat(pricing.costMicros("gemini-2.5-flash-lite", 400, 600, 50)).isEqualTo(75); // 40 + 15 + 20
+        assertThat(pricing.costMicros("gemini-2.5-flash-lite", 400, 600, 50)).isEqualTo(66); // 40 + 6 + 20
         assertThat(pricing.costMicros("gemini-2.5-flash-lite", 0, 0, 0)).isZero();
     }
 
@@ -25,6 +25,10 @@ class AiMeteringServiceTest {
         assertThat(pricing.rateFor("gemini-2.5-flash-lite").getOutput()).isEqualTo(0.40);
         assertThat(pricing.rateFor("gemini-2.5-flash").getOutput()).isEqualTo(2.50);
         assertThat(pricing.isPriced("gemini-2.5-flash-preview-09-2025")).isTrue();
+        // Google's named successor is priced, and 3.5 Flash isn't mistaken for 3.5 Flash-Lite.
+        assertThat(pricing.rateFor("gemini-3.1-flash-lite").getOutput()).isEqualTo(1.50);
+        assertThat(pricing.rateFor("gemini-3.5-flash").getOutput()).isEqualTo(9.00);
+        assertThat(pricing.rateFor("gemini-3.5-flash-lite").getOutput()).isEqualTo(2.50);
     }
 
     @Test

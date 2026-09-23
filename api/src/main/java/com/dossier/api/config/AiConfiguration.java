@@ -48,12 +48,17 @@ public class AiConfiguration {
         }
 
         @Override
-        public AiResult generate(AiTask task, String question, String context) {
+        public String defaultModel() {
+            return "";
+        }
+
+        @Override
+        public AiResult generate(AiTask task, String model, String question, String context) {
             throw new AiProviderException("No AI provider configured");
         }
 
         @Override
-        public AiResult parseResume(String text, String fileBase64, String fileMimeType) {
+        public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) {
             throw new AiProviderException("No AI provider configured");
         }
     }

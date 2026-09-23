@@ -1,12 +1,11 @@
 package com.dossier.api.service;
 
-import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
 import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
-import java.util.Optional;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,28 +15,26 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * The metered server-side AI drafting proxy (Phase 5.1). Gates each request on:
- * (1) the feature being enabled + a provider configured, (2) <b>Pro</b> (Phase 12.4),
- * (3) the user's explicit consent (the free-tier inputs may be used by the provider —
- * opt-in only), and (4) the monthly quota. Only a successful draft consumes quota.
+ * The metered server-side AI proxy for short tasks (Phase 5.1): drafting, option picks, field
+ * mapping and job enrichment. Gates each request on (1) the feature being enabled + a provider
+ * configured, (2) the {@link AiBudgetService} decision — kill switch, <b>Pro</b> (Phase 12.4), the
+ * monthly budget — and (3) the user's explicit consent (the free-tier inputs may be used by the
+ * provider — opt-in only). Only a successful provider call costs anything.
  *
  * <p>The provider key never reaches the client — this server holds it and proxies.
  * Server-side answer caching by question_hash (Phase 5.3) is delegated to
  * {@link AiAnswerCacheService}: a cache hit returns instantly without touching the
- * provider or the monthly quota.
+ * provider or the budget.
  *
  * <p><b>Pro gate (12.4).</b> Server AI is a Pro feature: Free users bring their own key,
  * which the extension already prefers when present, so a {@code PRO_REQUIRED} here is a
- * nudge rather than a dead end. Two things ride this endpoint besides drafting — field
- * mapping and constrained option picks — so gating here gates all three. <b>An admin
- * quota override outranks the plan gate</b> (a locked decision): if someone has been
- * granted a quota by hand, that grant is the entitlement. Resume parsing is deliberately
- * NOT gated — see {@link AiResumeParseService}; it is how a profile builds itself, and it
- * is the one free server-AI exception.
+ * nudge rather than a dead end. <b>An admin override outranks the plan gate</b> (a locked
+ * decision). Resume parsing is deliberately NOT gated — see {@link AiResumeParseService}.
  *
- * <p><b>Tasks (13.1a).</b> Each request names its {@link AiTask} — draft, pick, map or enrich — so
- * it gets instructions written for it, is cached under its own key, and is recorded as that kind
- * in the {@code ai_call} ledger ({@link AiMeteringService}) with the tokens it cost.
+ * <p><b>Tasks (13.1a) and budget (13.1b).</b> Each request names its {@link AiTask}, so it gets
+ * instructions written for it, is cached under its own key, runs on the model the policy routes it
+ * to (or the economy model past the soft cap), and is recorded as itself in the {@code ai_call}
+ * ledger ({@link AiMeteringService}) — which is what the budget is measured against.
  */
 @Service
 @Transactional
@@ -47,46 +44,41 @@ public class AiDraftService {
 
     public enum Status {
         OK,
+        /** Server AI is off, or this task's kill switch is on. */
         DISABLED,
         CONSENT_REQUIRED,
         /** Free plan and no admin override — server AI is Pro (Phase 12.4). */
         PRO_REQUIRED,
+        /** This month's AI is used up (13.1b: the budget; resets at {@code resetsAt}). */
         QUOTA_EXCEEDED,
         ERROR,
     }
 
-    public record Result(Status status, String answer, int used, int quota, boolean cached) {}
+    /**
+     * @param used     percent of the month's budget spent (or calls made, for a count-metered user)
+     * @param quota    100 for a budget, else the monthly call quota
+     * @param resetsAt when {@code used} goes back to 0
+     */
+    public record Result(Status status, String answer, int used, int quota, boolean cached, Instant resetsAt) {}
 
     private final AiProvider provider;
     private final AiMeteringService metering;
-    private final AiQuotaOverrideRepository quotaOverrideRepository;
+    private final AiBudgetService budget;
     private final AiAnswerCacheService answerCache;
-    private final EntitlementService entitlementService;
     private final boolean enabled;
-    private final int freeMonthlyQuota;
-    private final int proMonthlyQuota;
-    private final String model;
 
     public AiDraftService(
         AiProvider provider,
         AiMeteringService metering,
-        AiQuotaOverrideRepository quotaOverrideRepository,
+        AiBudgetService budget,
         AiAnswerCacheService answerCache,
-        EntitlementService entitlementService,
-        @Value("${dossier.ai.enabled:false}") boolean enabled,
-        @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota,
-        @Value("${dossier.ai.pro-monthly-quota:2000}") int proMonthlyQuota,
-        @Value("${dossier.ai.model:}") String model
+        @Value("${dossier.ai.enabled:false}") boolean enabled
     ) {
         this.provider = provider;
         this.metering = metering;
-        this.quotaOverrideRepository = quotaOverrideRepository;
+        this.budget = budget;
         this.answerCache = answerCache;
-        this.entitlementService = entitlementService;
         this.enabled = enabled;
-        this.freeMonthlyQuota = freeMonthlyQuota;
-        this.proMonthlyQuota = proMonthlyQuota;
-        this.model = model;
     }
 
     /** A draft — what every caller before 13.1a meant. */
@@ -96,60 +88,58 @@ public class AiDraftService {
 
     public Result run(AiTask task, String question, String context, boolean consent) {
         if (!enabled || !provider.isConfigured()) {
-            return new Result(Status.DISABLED, null, 0, 0, false);
+            return new Result(Status.DISABLED, null, 0, 0, false, null);
         }
 
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
 
-        // Per-user override (Phase 9.A2.2) wins over both the plan gate and the default quota.
-        Optional<Integer> override = quotaOverrideRepository
-            .findById(login)
-            .map(com.dossier.api.domain.AiQuotaOverride::getMonthlyQuota);
-        boolean pro = entitlementService.isPro(login);
-
-        // Checked BEFORE consent: telling a Free user "we need your consent" and then "…and
-        // also this is Pro" is two refusals for one request. Lead with the real one.
-        if (!pro && override.isEmpty()) {
-            return new Result(Status.PRO_REQUIRED, null, 0, 0, false);
+        AiBudgetService.Decision d = budget.decide(login, task);
+        // PRO_REQUIRED is decided BEFORE consent: telling a Free user "we need your consent" and then
+        // "…and also this is Pro" is two refusals for one request. Lead with the real one.
+        switch (d.verdict()) {
+            case TASK_DISABLED -> {
+                return new Result(Status.DISABLED, null, 0, 0, false, null);
+            }
+            case PRO_REQUIRED -> {
+                return new Result(Status.PRO_REQUIRED, null, 0, 0, false, null);
+            }
+            default -> {}
         }
-
-        int quota = override.orElse(pro ? proMonthlyQuota : freeMonthlyQuota);
 
         // Opt-in: the free-tier provider may use inputs to improve its services, so we
         // only proxy when the user has explicitly consented (enforced again here).
         if (!consent) {
-            return new Result(Status.CONSENT_REQUIRED, null, 0, quota, false);
+            return new Result(Status.CONSENT_REQUIRED, null, 0, d.limit(), false, d.resetsAt());
         }
 
-        int used = metering.usedThisMonth(login);
-
         // Cache hit (Phase 5.3): identical question already answered for this user → return it
-        // for free. Checked BEFORE the quota gate, so a repeat never costs quota or gets blocked.
+        // for free. Checked BEFORE the budget, so a repeat never costs anything or gets blocked.
         // Non-draft tasks are keyed apart from drafts (13.1a): the same text asked as a pick and
         // as a draft wants two different kinds of answer.
         String hash = AiAnswerCacheService.questionHash(task == AiTask.DRAFT ? question : task.wire() + ":" + question);
         var cached = answerCache.lookup(login, hash);
         if (cached.isPresent()) {
-            return new Result(Status.OK, cached.get(), used, quota, true);
+            return new Result(Status.OK, cached.get(), d.used(), d.limit(), true, d.resetsAt());
         }
 
-        if (used >= quota) {
-            return new Result(Status.QUOTA_EXCEEDED, null, used, quota, false);
+        if (d.verdict() == AiBudgetService.Verdict.EXHAUSTED) {
+            return new Result(Status.QUOTA_EXCEEDED, null, d.used(), d.limit(), false, d.resetsAt());
         }
 
         AiResult result;
         try {
-            result = provider.generate(task, question, context);
+            result = provider.generate(task, d.model(), question, context);
         } catch (AiProviderException e) {
-            // Provider/transport failure — don't charge quota; report a generic error.
+            // Provider/transport failure — nothing is charged; report a generic error.
             LOG.warn("AI {} failed for user: {}", task.wire(), e.getMessage());
-            return new Result(Status.ERROR, null, used, quota, false);
+            return new Result(Status.ERROR, null, d.used(), d.limit(), false, d.resetsAt());
         }
 
-        used = metering.record(login, task, result); // only a real call costs quota
-        answerCache.store(login, hash, result.text(), result.model() != null ? result.model() : model); // reuse next time (own tx; race-safe)
-        return new Result(Status.OK, result.text(), used, quota, false);
+        metering.record(login, task, result); // only a real call costs anything
+        answerCache.store(login, hash, result.text(), result.model()); // reuse next time (own tx; race-safe)
+        AiBudgetService.Decision after = budget.decide(login, task); // the meter, including this call
+        return new Result(Status.OK, result.text(), after.used(), after.limit(), false, after.resetsAt());
     }
 }

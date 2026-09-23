@@ -102,7 +102,7 @@ async function draftAnswer(question, context) {
       if (await provider.isAuthenticated()) {
         const r = (await provider.aiDraft({ question, context, consent: true, task: "draft" })) || {};
         if (r.answer) { await putCached(question, r.answer); return { answer: r.answer }; }
-        if (r.quotaExceeded) return { error: `Monthly AI limit reached (${r.used}/${r.quota}). Add your own key for unlimited drafting.` };
+        if (r.quotaExceeded) return { error: aiLimitMessage(r) + " Add your own key for unlimited drafting." };
         // disabled / consentRequired / empty → fall through to "off".
       }
     } catch (e) { return aiFailure(e); }
@@ -636,6 +636,18 @@ async function recordLearnedAnswers(answers, page) {
   if (!body.length) return { ok: false, reason: "empty" };
   try { await provider.recordLearnedAnswers(body); return { ok: true, sent: body.length }; }
   catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+}
+
+// 13.1b: Pro AI is a monthly budget now, reported as a percentage with a reset date — never
+// dollars. "used/quota" is still what a Free user's resume-parse count looks like, and what a server
+// older than 13.1b sends.
+function aiLimitMessage(r) {
+  const when = r && r.resetsAt ? new Date(r.resetsAt) : null;
+  if (when && !isNaN(when.getTime())) {
+    const day = when.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" });
+    return `You've used this month's Kiwiply AI — it resets on ${day}.`;
+  }
+  return `Monthly AI limit reached (${r.used}/${r.quota}).`;
 }
 
 async function logFill(capture, resume, tabId) {

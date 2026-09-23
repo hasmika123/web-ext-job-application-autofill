@@ -463,7 +463,8 @@
 
       // ---- server-side AI drafting (Phase 5) ------------------------------
       // Opt-in + metered on the server's key. Returns the raw server result:
-      // { answer, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
+      // { answer, used, quota, resetsAt } | { disabled } | { consentRequired } | { quotaExceeded, used, quota, resetsAt }.
+      // For a Pro budget (13.1b) `used` is a percentage and `quota` is 100.
       // `task` (13.1a) tells the server what the call is for — draft | pick | map | enrich — so each
       // kind gets instructions written for it and is metered as itself. Omitted = draft.
       async aiDraft({ question, context, consent, task } = {}) {

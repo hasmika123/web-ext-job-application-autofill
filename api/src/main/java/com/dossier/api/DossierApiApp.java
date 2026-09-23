@@ -3,6 +3,7 @@ package com.dossier.api;
 import com.dossier.api.config.AdminBootstrapProperties;
 import com.dossier.api.config.ApplicationProperties;
 import com.dossier.api.config.CRLFLogConverter;
+import com.dossier.api.service.ai.AiPolicy;
 import com.dossier.api.service.ai.AiPricing;
 import com.dossier.api.service.billing.StripeProperties;
 import jakarta.annotation.PostConstruct;
@@ -24,7 +25,7 @@ import tech.jhipster.config.JHipsterConstants;
 
 @SpringBootApplication
 @EnableConfigurationProperties(
-    { LiquibaseProperties.class, ApplicationProperties.class, AdminBootstrapProperties.class, StripeProperties.class, AiPricing.class }
+    { LiquibaseProperties.class, ApplicationProperties.class, AdminBootstrapProperties.class, StripeProperties.class, AiPricing.class, AiPolicy.class }
 )
 public class DossierApiApp {
 

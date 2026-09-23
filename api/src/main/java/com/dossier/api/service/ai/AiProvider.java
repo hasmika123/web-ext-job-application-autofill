@@ -32,15 +32,19 @@ public interface AiProvider {
     /** True when a key/model are configured and the provider can actually be called. */
     boolean isConfigured();
 
+    /** The model used when a call doesn't name one ({@code dossier.ai.model}). */
+    String defaultModel();
+
     /**
-     * Run one short task. For {@link AiTask#DRAFT} {@code question} is the application question and
+     * Run one short task on {@code model} (blank = {@link #defaultModel()}; 13.1b routes each task to
+     * its own). For {@link AiTask#DRAFT} {@code question} is the application question and
      * {@code context} the candidate background; for the others {@code question} is the full
      * instruction and {@code context} is usually blank.
      *
      * @return the result (text never null/blank on success)
      * @throws AiProviderException on any provider/transport failure
      */
-    AiResult generate(AiTask task, String question, String context) throws AiProviderException;
+    AiResult generate(AiTask task, String model, String question, String context) throws AiProviderException;
 
     /** The shared resume-parsing system prompt. The output shape itself is enforced by the
      *  provider's structured-output mechanism (a JSON schema), so this focuses on the
@@ -57,12 +61,13 @@ public interface AiProvider {
         "Use empty strings/arrays when unknown. Do not invent facts not present in the resume.";
 
     /**
-     * Parse a resume into the canonical structured-resume JSON. Exactly one of
+     * Parse a resume into the canonical structured-resume JSON, on {@code model} (blank = default).
+     * Exactly one of
      * {@code text} (extracted resume text) or {@code fileBase64}+{@code fileMimeType}
      * (the original file, e.g. a PDF whose text extraction failed) is provided.
      *
      * @return the result, whose text is the structured resume as a JSON string (never blank)
      * @throws AiProviderException on any provider/transport failure or unusable output
      */
-    AiResult parseResume(String text, String fileBase64, String fileMimeType) throws AiProviderException;
+    AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) throws AiProviderException;
 }
