@@ -21,6 +21,7 @@ type Section = { title: string; desc: string; status: "Live" | "Soon"; href?: st
 const SECTIONS: Section[] = [
   { title: "Users", desc: "Browse accounts; activate, reset, roles, force-logout, delete.", status: "Live", href: "/admin/users" },
   { title: "AI usage", desc: "Per-user drafting usage by month. Quota overrides next.", status: "Live", href: "/admin/ai" },
+  { title: "Job sources", desc: "Job boards daily job matches read; last read, add, switch off.", status: "Live", href: "/admin/job-sources" },
   { title: "Security & sessions", desc: "Active refresh-token families; revoke / force logout.", status: "Soon" },
   { title: "Analytics", desc: "Signups, activation rate, active users, funnel.", status: "Live", href: "/admin/analytics" },
   { title: "Email", desc: "Newsletter subscribers, consent, CSV export.", status: "Live", href: "/admin/subscribers" },

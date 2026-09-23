@@ -57,4 +57,15 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
         "select application from Application application left join fetch application.user left join fetch application.resume where application.id =:id"
     )
     Optional<Application> findOneWithToOneRelationships(@Param("id") Long id);
+
+    /**
+     * Job links and company names from applications on Greenhouse, Lever or Ashby, across all users:
+     * rows of {@code [jobUrl, company]}. 13.6a reads the board name out of each link to add that
+     * company to the job-match pool. Only the link and company leave this query, never who applied.
+     */
+    @Query(
+        "select distinct a.jobUrl, a.company from Application a where a.jobUrl like '%greenhouse.io%' " +
+        "or a.jobUrl like '%lever.co%' or a.jobUrl like '%ashbyhq.com%'"
+    )
+    List<Object[]> findJobBoardLinks();
 }

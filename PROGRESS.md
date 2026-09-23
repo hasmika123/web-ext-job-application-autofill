@@ -65,7 +65,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > **13.4 is DONE** — "Tailor for this job" on the board: reviewed rewordings saved as a new resume,
 > with the truthfulness checks on the server. **13.5 is DONE** — an ATS score out of 100 with
 > "fix first" advice on the Resumes page, and with the job's keyword coverage in the board's job-fit
-> panel. **Next: 13.6** — daily job matches (light). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> panel. **13.6 is planned** as 13.6a–c (user decisions 2026-09-22: seed list + users' companies;
+> ordinary overnight calls, Batch API waits for 16.1). **13.6a is DONE** — 217 verified job boards,
+> a nightly read keeping 48-hour-fresh postings, and an admin Job sources page. **Next: 13.6b** —
+> matching: preferences, a deterministic pre-filter, one Flash-Lite scoring call per Pro user per night. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1041,6 +1044,13 @@ focused Claude Code session.
   Greenhouse + Lever + Ashby public job-board APIs only; prefs = Tier A + resume-inferred
   role/seniority/location; ≤ 48 h + dedup; Flash-Lite scoring in an overnight batch, ≤ 50
   candidates/user/day; match %; **in-app list only**, dismiss hides; empty list allowed.
+  - [x] **13.6a Sources + nightly read.** `job_source` pool (217-board verified seed list + boards
+    users applied on + admin adds), nightly read of the public APIs, ≤ 48 h + dedup, 7-day keep,
+    admin Job sources page.
+  - [ ] **13.6b Matching.** Preferences (Tier A + resume role/seniority/location) → deterministic
+    pre-filter to ≤ 50 → one Flash-Lite call per Pro user per night (metered) → `job_match` rows.
+  - [ ] **13.6c Matches page** `/matches` (Pro): match %, reason, open / save to board / dismiss;
+    empty list allowed; Free sees the upsell.
 
 ## Phase 14 — Inbox over IMAP (Launch 1 — needs 12)
 > Spec: `ROADMAP.md` → Phase 14. Mirrors Sales-App `integrations/email/imap`. **No Kiwiply address,
@@ -1172,6 +1182,23 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.6a job sources + nightly read** · Decisions (user): the pool = a **verified seed list
+  + companies users apply to**; scoring (13.6b) uses ordinary overnight calls, not the Batch API. The
+  public APIs are per company (no global feed), so the pool is the design: `job_source` (ats, board
+  token, company, origin SEED/DISCOVERED/ADMIN, last read, failures) and `job_posting` (public fields,
+  plain-text description ≤ 8000 chars, `dedup_key` = SHA-256 of company|title|location). **Seed:**
+  375 candidate slugs probed live on all three ATSs → 223 answered with open jobs → **6 dropped after
+  checking the real company** (Greenhouse "archer" is a vet clinic, "palmetto" an animal hospital,
+  "wise" a field-sales board…) → **217** in `config/job-sources.csv` (128 Greenhouse, 75 Ashby, 14
+  Lever), names from Greenhouse's own board name where it has one. **Discovery:** Greenhouse / Lever /
+  Ashby links on any application add that board (company only, never who). **Read** (02:00 UTC,
+  `DOSSIER_JOBS_ENABLED`, on in prod, off in dev/CI): one request at a time with a pause and a named
+  User-Agent; Greenhouse's list has no descriptions so only fresh postings get a detail call; keeps
+  `first_published`/`createdAt`/`publishedAt` ≤ 48 h (Greenhouse's `updated_at` is ignored — it moves
+  on every edit); skips known ids and duplicates; 5 failed nights in a row switch a board off.
+  Parsers written against captured responses and checked live (Stripe 682 open / 33 fresh, Ramp 151 /
+  5, OpenAI 817 / 35). Admin **Job sources** page: counts, last run, add (live-checked), switch off,
+  read now. Privacy page says how users' companies join the pool. No ext change.
 - 2026-09-22 · **13.5 ATS resume score** · Pro. `AtsChecks`: **15 deterministic checks, weights summing
   to 100** — summary present/length, skills listed/not stuffed, roles present/labelled/dated/dates
   consistent, bullets on the 3 latest roles, bullet length, **measurable results** (≥ ⅓ of bullets
