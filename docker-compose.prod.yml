@@ -87,11 +87,13 @@ services:
       - DOSSIER_AI_MODEL_MATCH=${DOSSIER_AI_MODEL_MATCH:-}
       - DOSSIER_AI_MODEL_FIT=${DOSSIER_AI_MODEL_FIT:-}
       - DOSSIER_AI_MODEL_TAILOR=${DOSSIER_AI_MODEL_TAILOR:-}
+      - DOSSIER_AI_MODEL_JOBS=${DOSSIER_AI_MODEL_JOBS:-}
       - DOSSIER_AI_MAX_OUTPUT_TOKENS=${DOSSIER_AI_MAX_OUTPUT_TOKENS:-400}
       - DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS=${DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS:-4000}
       # Nightly job-board read for daily job matches (13.6a). On unless set to false.
       - DOSSIER_JOBS_ENABLED=${DOSSIER_JOBS_ENABLED:-true}
       - DOSSIER_JOBS_FETCH_CRON=${DOSSIER_JOBS_FETCH_CRON:-0 0 2 * * *}
+      - DOSSIER_JOBS_MATCH_CRON=${DOSSIER_JOBS_MATCH_CRON:-0 0 4 * * *}
       # Billing (Phase 12). Blank STRIPE_SECRET_KEY = billing disabled, which is a valid
       # running state — the API starts and serves everything else normally.
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}

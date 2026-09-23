@@ -49,5 +49,6 @@
     <include file="config/liquibase/changelog/20260922050000_job_fit.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922060000_resume_tailor.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922070000_job_sources.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922080000_job_matches.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

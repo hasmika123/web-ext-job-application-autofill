@@ -195,7 +195,7 @@ dossier:
       pro-monthly-budget-usd: ${DOSSIER_AI_PRO_MONTHLY_BUDGET_USD:5.0}
       soft-cap-percent: ${DOSSIER_AI_SOFT_CAP_PERCENT:80}
       economy-model: ${DOSSIER_AI_ECONOMY_MODEL:}
-      # Per-feature kill switch, comma-separated: draft, pick, map, enrich, parse, match, fit, tailor.
+      # Per-feature kill switch, comma-separated: draft, pick, map, enrich, parse, match, fit, tailor, jobs.
       disabled-tasks: ${DOSSIER_AI_DISABLED_TASKS:}
       # Model per task; blank = dossier.ai.model.
       models:
@@ -209,6 +209,8 @@ dossier:
         fit: ${DOSSIER_AI_MODEL_FIT:}
         # Resume tailoring (13.4) — also routed to Flash by the ROADMAP; unset = the default model.
         tailor: ${DOSSIER_AI_MODEL_TAILOR:}
+        # Nightly job-match scoring (13.6b) — Flash-Lite by the ROADMAP; unset = the default model.
+        jobs: ${DOSSIER_AI_MODEL_JOBS:}
     max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}
     # Structured resume parsing (POST /api/ai/parse-resume) — full-resume JSON output,
     # so a much roomier cap than a 2-4 sentence draft. Same provider/model/key/quota.
@@ -219,6 +221,8 @@ dossier:
   jobs:
     enabled: ${DOSSIER_JOBS_ENABLED:true}
     fetch-cron: ${DOSSIER_JOBS_FETCH_CRON:0 0 2 * * *}
+    # Daily matching for users who switched it on (13.6b), after the read.
+    match-cron: ${DOSSIER_JOBS_MATCH_CRON:0 0 4 * * *}
   stripe:
     # Billing (Phase 12). A BLANK secret key disables billing entirely: /api/billing/me still
     # answers (Free, billingEnabled=false) and checkout/portal return 503 BILLING_DISABLED, so

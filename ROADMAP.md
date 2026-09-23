@@ -841,6 +841,11 @@ pull only on change:**
 - **13.6a as built (2026-09-22):** 217 verified boards (`config/job-sources.csv`); nightly read at
   02:00 UTC keeps postings first published ≤ 48 h, deduped by company + title + location, for 7 days;
   failing boards switch off after 5 nights; admin Job sources page.
+- **13.6b as built (2026-09-22):** opt-in per user (off by default — it sends the resume summary to
+  the model nightly without a click). Preferences come from the profile + default resume, no form. A
+  no-AI pre-filter (location segment, title words, level, skills) picks ≤ 50; one Flash-Lite call
+  scores them (match % + ≤ 15-word reason), metered against the user's budget; ≥ 60 is shown. Ashby's
+  `isRemote` is set on hybrid jobs, so a stated workplace type always wins.
 
 ### Phase 14 — Inbox: IMAP  *(Launch 1 — needs 12)*
 **Design — mirrors Sales-App `integrations/email/imap`: no Kiwiply address of any kind.** The

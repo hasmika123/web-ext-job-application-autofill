@@ -2,9 +2,11 @@ package com.dossier.api.web.rest;
 
 import com.dossier.api.repository.JobPostingRepository;
 import com.dossier.api.security.AuthoritiesConstants;
+import com.dossier.api.service.JobMatchService;
 import com.dossier.api.service.jobs.JobBoardProperties;
 import com.dossier.api.service.jobs.JobIngestScheduler;
 import com.dossier.api.service.jobs.JobIngestService;
+import com.dossier.api.service.jobs.JobMatchScheduler;
 import com.dossier.api.service.jobs.JobSourceService;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +35,8 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>{@code PUT /api/admin/job-sources/{id}} {@code {enabled}} — switch a board on or off.</li>
  *   <li>{@code POST /api/admin/job-sources/run} — read every board now (async; 202, or 409 if a
  *       read is already going).</li>
+ *   <li>{@code POST /api/admin/job-sources/match} — run daily matching for everyone who has it on
+ *       (13.6b; async; users matched in the last 20 hours are skipped, so it never pays twice).</li>
  * </ul>
  */
 @RestController
@@ -49,19 +53,25 @@ public class AdminJobSourceResource {
     private final JobIngestScheduler scheduler;
     private final JobPostingRepository postings;
     private final JobBoardProperties props;
+    private final JobMatchService matches;
+    private final JobMatchScheduler matchScheduler;
 
     public AdminJobSourceResource(
         JobSourceService sources,
         JobIngestService ingest,
         JobIngestScheduler scheduler,
         JobPostingRepository postings,
-        JobBoardProperties props
+        JobBoardProperties props,
+        JobMatchService matches,
+        JobMatchScheduler matchScheduler
     ) {
         this.sources = sources;
         this.ingest = ingest;
         this.scheduler = scheduler;
         this.postings = postings;
         this.props = props;
+        this.matches = matches;
+        this.matchScheduler = matchScheduler;
     }
 
     @GetMapping
@@ -72,6 +82,8 @@ public class AdminJobSourceResource {
         body.put("running", ingest.isRunning());
         body.put("lastRun", ingest.lastRun());
         body.put("freshPostings", postings.countByPublishedAtAfter(Instant.now().minus(Duration.ofHours(props.getFreshHours()))));
+        body.put("matching", matches.isRunning());
+        body.put("lastMatchRun", matches.lastRun());
         body.put("sources", all);
         return body;
     }
@@ -90,6 +102,13 @@ public class AdminJobSourceResource {
     public ResponseEntity<Map<String, Object>> run() {
         if (ingest.isRunning()) return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("running", true));
         scheduler.runNow();
+        return ResponseEntity.accepted().body(Map.of("running", true));
+    }
+
+    @PostMapping("/match")
+    public ResponseEntity<Map<String, Object>> match() {
+        if (matches.isRunning()) return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("running", true));
+        matchScheduler.runNow();
         return ResponseEntity.accepted().body(Map.of("running", true));
     }
 }

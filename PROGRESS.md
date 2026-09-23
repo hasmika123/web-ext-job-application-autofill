@@ -67,8 +67,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > "fix first" advice on the Resumes page, and with the job's keyword coverage in the board's job-fit
 > panel. **13.6 is planned** as 13.6a–c (user decisions 2026-09-22: seed list + users' companies;
 > ordinary overnight calls, Batch API waits for 16.1). **13.6a is DONE** — 217 verified job boards,
-> a nightly read keeping 48-hour-fresh postings, and an admin Job sources page. **Next: 13.6b** —
-> matching: preferences, a deterministic pre-filter, one Flash-Lite scoring call per Pro user per night. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> a nightly read keeping 48-hour-fresh postings, and an admin Job sources page. **13.6b is DONE** —
+> opt-in nightly matching: preferences from the profile + resume, a pre-filter to ≤ 50, one metered
+> Flash-Lite call per user. **Next: 13.6c** — the `/matches` page (and its on/off switch). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1047,7 +1048,7 @@ focused Claude Code session.
   - [x] **13.6a Sources + nightly read.** `job_source` pool (217-board verified seed list + boards
     users applied on + admin adds), nightly read of the public APIs, ≤ 48 h + dedup, 7-day keep,
     admin Job sources page.
-  - [ ] **13.6b Matching.** Preferences (Tier A + resume role/seniority/location) → deterministic
+  - [x] **13.6b Matching.** Preferences (Tier A + resume role/seniority/location) → deterministic
     pre-filter to ≤ 50 → one Flash-Lite call per Pro user per night (metered) → `job_match` rows.
   - [ ] **13.6c Matches page** `/matches` (Pro): match %, reason, open / save to board / dismiss;
     empty list allowed; Free sees the upsell.
@@ -1182,6 +1183,22 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.6b job matching** · Pro, **opt-in** (`job_match_setting`, off by default: it sends
+  the resume summary + preferences to Gemini nightly without a click, so the user says yes once — the
+  switch is `PUT /api/profile/job-matches/settings`, its UI is 13.6c; switching on matches at once).
+  `MatchPreferences` from what users already gave: city/state/country, work preference, relocation,
+  sponsorship, the latest two titles, seniority (title words, else years), years (overlaps merged),
+  skills. `JobPrefilter` (no AI) → ≤ 50: not seen or tracked; a location segment they can work in
+  (remote in their country or naming none, their city/state, anywhere in their country if they'll
+  relocate); a telling title word in common, or a generic one ("engineer") plus 3 of their skills; ≤ 1
+  level away. **Checked on 154 real fresh postings**: first pass leaked SF hybrid jobs to a Brooklyn
+  remote user — **Ashby sets `isRemote: true` on hybrid jobs** (OpenAI, Sentry, Notion), so a stated
+  workplace type now wins (parser + filter) — and "Technical Support Engineer"-type titles; after the
+  fixes 3 right-fit jobs for Brooklyn, 1 for London. One call (`AiTask.JOBS`, MATCH-shaped schema,
+  3000 output tokens) scores them with a ≤ 15-word reason; metered; every posting sent gets a
+  `job_match` row (0 if the model skipped it) so nothing is paid twice; ≥ 60 is shown. 04:00 UTC
+  (`DOSSIER_JOBS_MATCH_CRON`), skipped if matched OK in the last 20 h; admin "Match now". Deleted with
+  the account; privacy page says what's sent. No ext change.
 - 2026-09-22 · **13.6a job sources + nightly read** · Decisions (user): the pool = a **verified seed list
   + companies users apply to**; scoring (13.6b) uses ordinary overnight calls, not the Batch API. The
   public APIs are per company (no global feed), so the pool is the design: `job_source` (ats, board

@@ -27,7 +27,9 @@ public enum AiTask {
     /** One resume against one job: match %, missing keywords, red flags (13.3; its own endpoints). */
     FIT("fit"),
     /** Rewrite a resume's existing bullets and summary for one job (13.4; its own endpoints). */
-    TAILOR("tailor");
+    TAILOR("tailor"),
+    /** Score a night's fresh job postings for one user (13.6b; the nightly job, no endpoint). */
+    JOBS("jobs");
 
     private final String wire;
 
@@ -39,13 +41,13 @@ public enum AiTask {
         return wire;
     }
 
-    /** The task a request names; {@link #DRAFT} for anything absent or unknown. PARSE, MATCH, FIT
-     *  and TAILOR are not reachable this way — they have their own endpoints. */
+    /** The task a request names; {@link #DRAFT} for anything absent or unknown. PARSE, MATCH, FIT,
+     *  TAILOR and JOBS are not reachable this way — they have their own endpoints or none. */
     public static AiTask fromWire(String value) {
         if (value == null) return DRAFT;
         String v = value.trim().toLowerCase(Locale.ROOT);
         for (AiTask t : values()) {
-            if (t != PARSE && t != MATCH && t != FIT && t != TAILOR && t.wire.equals(v)) return t;
+            if (t != PARSE && t != MATCH && t != FIT && t != TAILOR && t != JOBS && t.wire.equals(v)) return t;
         }
         return DRAFT;
     }

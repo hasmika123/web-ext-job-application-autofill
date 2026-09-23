@@ -131,15 +131,18 @@ public class GeminiAiProvider implements AiProvider {
         contents.add(textPart(userText));
         ObjectNode genCfg = body.putObject("generationConfig");
         genCfg.put("maxOutputTokens", maxOutputTokens);
-        if (task == AiTask.MATCH || task == AiTask.FIT || task == AiTask.TAILOR) {
+        if (task == AiTask.MATCH || task == AiTask.FIT || task == AiTask.TAILOR || task == AiTask.JOBS) {
             // 13.2 / 13.3: scores and fit reports come back as schema-checked JSON, with room for a
-            // list of entries (ten resumes, or keyword lists) rather than a short draft.
-            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, task == AiTask.TAILOR ? 3000 : 1200));
+            // list of entries (ten resumes, or keyword lists) rather than a short draft. 13.6b scores up
+            // to fifty postings at once, each with a reason — the same shape as MATCH, more of it.
+            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, task == AiTask.TAILOR || task == AiTask.JOBS ? 3000 : 1200));
             genCfg.put("responseMimeType", "application/json");
             try {
                 genCfg.set(
                     "responseSchema",
-                    om.readTree(task == AiTask.MATCH ? MATCH_SCHEMA_JSON : task == AiTask.FIT ? FIT_SCHEMA_JSON : TAILOR_SCHEMA_JSON)
+                    om.readTree(
+                        task == AiTask.MATCH || task == AiTask.JOBS ? MATCH_SCHEMA_JSON : task == AiTask.FIT ? FIT_SCHEMA_JSON : TAILOR_SCHEMA_JSON
+                    )
                 );
             } catch (Exception e) {
                 throw new AiProviderException("Bad response schema", e); // unreachable: static constants

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 13.6b - daily job matches, the matching half.
+
+        `job_match_setting` is one row per user who has touched the feature: `enabled` is their
+        standing opt-in (off until they turn it on - matching sends their resume summary and job
+        preferences to the AI provider every night without a click, so it needs a yes first), plus
+        what the last nightly match did for them.
+
+        `job_match` is one posting scored for one user: the match % and a one-line reason from the
+        model, and the user's verdict (NEW, DISMISSED, SAVED). Every posting sent for scoring gets a
+        row, so nothing is paid for twice. Rows go with the posting (7 days) or the account.
+        Additive; no data migration.
+    -->
+    <changeSet id="20260922080000-1" author="dossier">
+        <createTable tableName="job_match_setting">
+            <column name="user_id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="enabled" type="boolean" valueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_run_at" type="timestamp"/>
+            <column name="last_status" type="varchar(30)"/>
+            <column name="last_candidates" type="integer"/>
+            <column name="last_matched" type="integer"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="job_match_setting"
+            baseColumnNames="user_id"
+            constraintName="fk_job_match_setting_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <createTable tableName="job_match">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="posting_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="score" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="varchar(300)"/>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model" type="varchar(80)"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="job_match" columnNames="user_id, posting_id" constraintName="ux_job_match_user_posting"/>
+        <createIndex tableName="job_match" indexName="ix_job_match_user_score">
+            <column name="user_id"/>
+            <column name="score"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="job_match"
+            baseColumnNames="user_id"
+            constraintName="fk_job_match_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="job_match"
+            baseColumnNames="posting_id"
+            constraintName="fk_job_match_posting_id"
+            referencedTableName="job_posting"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>
