@@ -205,7 +205,7 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
 docker (upload names, the sha256, the monthly copy, the pings, refusing a cut-short dump), and a
 real `mysqldump` of a real MySQL of the production version restored by `verify-restore.sh`.
 
-### 5.2 Alarms — UptimeRobot + Healthchecks.io (once)
+### 5.2 Alarms — UptimeRobot + Healthchecks.io (once), and the error digest
 
 Both are free; you create the accounts. Alerts go to your email.
 
@@ -219,6 +219,16 @@ Both are free; you create the accounts. Alerts go to your email.
   - `https://kiwiply.com/` — expects 200.
   - `https://api.kiwiply.com/management/health` — keyword monitor, expects `"status":"UP"`.
     (This probe is only UP when the API and the database are both up.)
+
+- **Server errors — email digest (15.1b, built into the API, nothing to sign up for).** Every
+  ERROR the API logs is collected; within a minute of the first one, and then at most every
+  15 minutes, the admin gets one email listing each kind of error once, with how often it happened,
+  a sample message and the top of the stack trace. It goes to `DOSSIER_ERROR_DIGEST_TO`, else
+  `ADMIN_EMAIL`; with neither set it's off. It sends through the same Brevo SMTP as verification
+  mail, so it needs `MAIL_*` working. Subject: `[Kiwiply prod] N server errors (K kinds) since
+  HH:MM UTC`. A noisy logger can be left out with `DOSSIER_OPS_ERROR_DIGEST_IGNORE_LOGGERS`
+  (comma-separated prefixes). To see it work: a real error is the only trigger. The API logs
+  `Server errors will be emailed at most every 15 minutes` at startup when it's on.
 
 ### 5.3 Restoring production from a backup (disaster)
 

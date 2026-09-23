@@ -83,8 +83,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > as 15.1a–c (user decisions 2026-09-23: a separate backup bucket with an upload-only key;
 > UptimeRobot + Healthchecks.io; an in-house error email digest; a weekly automated restore drill plus
 > one by hand). **15.1a is DONE** — `scripts/ops/backup-db.sh` + `verify-restore.sh` + the cron file,
-> tested in CI against a real MySQL; the runbook is DEPLOY.md §5.1–§5.3. **Next: 15.1b** — the API
-> emails the admin a digest of new server errors. Before the inbox
+> tested in CI against a real MySQL; the runbook is DEPLOY.md §5.1–§5.3. **15.1b is DONE** — the API
+> emails the admin a digest of server errors (each kind once, counted), at most every 15 minutes.
+> **Next: 15.1c** — go live on the box + the restore drill by hand; it needs the bucket, the IAM user,
+> Healthchecks.io + UptimeRobot (the user's to create) and `develop` promoted to `main`. Before the inbox
 > goes live: `DOSSIER_INBOX_KEY` on the box (DEPLOY.md §12). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
@@ -1099,7 +1101,7 @@ focused Claude Code session.
   - [x] **15.1a Backup + restore-drill scripts.** Nightly dump → separate bucket (upload + read,
     no delete; 30 daily + 12 monthly by lifecycle), the weekly restore into a throwaway container,
     Healthchecks.io pings, the cron file, DEPLOY.md §5.1–§5.3; CI job "Ops scripts".
-  - [ ] **15.1b Error digest.** The API emails the admin new ERROR logs, grouped and counted, at most
+  - [x] **15.1b Error digest.** The API emails the admin new ERROR logs, grouped and counted, at most
     every 15 minutes, through the Brevo mail it already has.
   - [ ] **15.1c Go live + the drill by hand.** *(Needs you: the bucket + IAM user, Healthchecks.io +
     UptimeRobot accounts, `develop` promoted to `main`.)* Install the cron file, the first backup,
@@ -1213,6 +1215,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **15.1b server-error email digest** · `service/ops/`: an `ErrorDigestAppender` on the
+  root logger feeds every ERROR into an `ErrorDigest` — one line per kind (logger + message template
+  + root exception) with a count, first/last time, a sample (clipped at 500 chars) and the top of the
+  stack plus the root cause; 50 kinds per email, the rest counted (and that count capped, so a flood
+  can't leak memory). `ErrorDigestService` checks every minute and emails at most every 15 min, so a
+  quiet day's first error arrives within a minute and an outage is 4 emails an hour. Subject
+  `[Kiwiply prod] N server errors (K kinds) since HH:MM UTC`. Recipient `DOSSIER_ERROR_DIGEST_TO`,
+  else `ADMIN_EMAIL` (a property of its own — Compose passes the empty var, which defeats a nested
+  placeholder); neither = off, nothing collected (dev, tests). Its own errors never feed the next
+  digest; a broken digest can't break logging. In-house by decision: no new processor for 15.2.
 - 2026-09-23 · **15.1a backup + restore-drill scripts** · Planned 15.1 as a–c (user decisions:
   separate bucket + upload-only key, UptimeRobot + Healthchecks.io, in-house error digest, weekly
   automated drill + one by hand). `scripts/ops/backup-db.sh` — one consistent `mysqldump` (the app
