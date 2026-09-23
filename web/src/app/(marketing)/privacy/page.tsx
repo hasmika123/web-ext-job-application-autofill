@@ -161,6 +161,11 @@ export default function PrivacyPage() {
           coverage comes from that job&apos;s job-fit report above, so nothing more is sent. We don&apos;t
           store the score; it&apos;s recalculated each time you look.
         </p>
+        <p>
+          <strong>Job matches (Pro).</strong> To find fresh jobs we read public job boards on Greenhouse,
+          Lever and Ashby. When you track an application on one of those boards, that company&apos;s public
+          board may be added to the list we read — only the company and its board, never who applied.
+        </p>
       </Section>
 
       <Section title="Storage and sharing">

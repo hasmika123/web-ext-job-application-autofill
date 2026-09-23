@@ -42,6 +42,9 @@ public class AdminAuditService {
     public static final String TARGET_BUG_REPORT = "BUG_REPORT";
     public static final String BUG_TRIAGE_UPDATE = "BUG_TRIAGE_UPDATE";
     public static final String SESSION_REVOKE = "SESSION_REVOKE";
+    public static final String TARGET_JOB_SOURCE = "JOB_SOURCE";
+    public static final String JOB_SOURCE_ADD = "JOB_SOURCE_ADD";
+    public static final String JOB_SOURCE_TOGGLE = "JOB_SOURCE_TOGGLE";
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 

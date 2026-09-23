@@ -213,6 +213,12 @@ dossier:
     # Structured resume parsing (POST /api/ai/parse-resume) — full-resume JSON output,
     # so a much roomier cap than a 2-4 sentence draft. Same provider/model/key/quota.
     parse-max-output-tokens: ${DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS:4000}
+  # Daily job matches, the source half (13.6a): read the public Greenhouse / Lever / Ashby job boards
+  # in the pool every night (UTC) and keep postings from the last 48 h for 7 days. On in prod; off in
+  # dev/test so nothing there calls the job boards. Admins can also run it from the admin page.
+  jobs:
+    enabled: ${DOSSIER_JOBS_ENABLED:true}
+    fetch-cron: ${DOSSIER_JOBS_FETCH_CRON:0 0 2 * * *}
   stripe:
     # Billing (Phase 12). A BLANK secret key disables billing entirely: /api/billing/me still
     # answers (Free, billingEnabled=false) and checkout/portal return 503 BILLING_DISABLED, so

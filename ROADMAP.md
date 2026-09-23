@@ -833,6 +833,14 @@ pull only on change:**
   profile = Tier A answers + role/seniority/location inferred from the resume. Gates: posted
   ≤ 48 h, dedup. Scoring: Flash-Lite, batch overnight, ≤ 50 candidates per user per day; show
   match %. Delivery: **in-app list only** (no email yet); dismiss hides a job. Empty list allowed.
+- **13.6 plan (2026-09-22, user decisions):** the public APIs are keyed by company — there is no
+  global feed — so the source is a **pool of boards: a verified seed list + every Greenhouse / Lever /
+  Ashby board a user has applied on** (company only, never who) + admin adds. Scoring uses **ordinary
+  calls overnight**; the Batch API (50 % off) waits for 16.1's volume. **13.6a** sources + nightly
+  read → **13.6b** matching → **13.6c** the `/matches` page.
+- **13.6a as built (2026-09-22):** 217 verified boards (`config/job-sources.csv`); nightly read at
+  02:00 UTC keeps postings first published ≤ 48 h, deduped by company + title + location, for 7 days;
+  failing boards switch off after 5 nights; admin Job sources page.
 
 ### Phase 14 — Inbox: IMAP  *(Launch 1 — needs 12)*
 **Design — mirrors Sales-App `integrations/email/imap`: no Kiwiply address of any kind.** The

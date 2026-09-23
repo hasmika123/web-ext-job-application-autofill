@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { notifyExtension } from "@/lib/extension-signal";
 import {
   AiIcon,
+  BoardIcon,
   BugIcon,
   ChartIcon,
   ChevronLeftIcon,
@@ -35,6 +36,7 @@ const I = {
   overview: <DashboardIcon className={ICON} />,
   users: <UsersIcon className={ICON} />,
   ai: <AiIcon className={ICON} />,
+  jobs: <BoardIcon className={ICON} />,
   security: <ShieldIcon className={ICON} />,
   analytics: <ChartIcon className={ICON} />,
   email: <MailIcon className={ICON} />,
@@ -48,6 +50,7 @@ const NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: I.overview },
   { href: "/admin/users", label: "Users", icon: I.users },
   { href: "/admin/ai", label: "AI usage", icon: I.ai },
+  { href: "/admin/job-sources", label: "Job sources", icon: I.jobs },
   { href: "/admin/security", label: "Security", icon: I.security, soon: true },
   { href: "/admin/analytics", label: "Analytics", icon: I.analytics },
   { href: "/admin/subscribers", label: "Email", icon: I.email },
