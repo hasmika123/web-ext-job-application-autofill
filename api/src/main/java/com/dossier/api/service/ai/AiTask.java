@@ -21,7 +21,9 @@ public enum AiTask {
     /** Fill gaps in a captured job posting (job type, workplace, salary). */
     ENRICH("enrich"),
     /** Parse a resume into structured JSON (its own endpoint). */
-    PARSE("parse");
+    PARSE("parse"),
+    /** Score the user's resumes against a job description (13.2; its own endpoints). */
+    MATCH("match");
 
     private final String wire;
 
@@ -33,13 +35,13 @@ public enum AiTask {
         return wire;
     }
 
-    /** The task a request names; {@link #DRAFT} for anything absent or unknown. PARSE is not
-     *  reachable this way — it has its own endpoint. */
+    /** The task a request names; {@link #DRAFT} for anything absent or unknown. PARSE and MATCH
+     *  are not reachable this way — they have their own endpoints. */
     public static AiTask fromWire(String value) {
         if (value == null) return DRAFT;
         String v = value.trim().toLowerCase(Locale.ROOT);
         for (AiTask t : values()) {
-            if (t != PARSE && t.wire.equals(v)) return t;
+            if (t != PARSE && t != MATCH && t.wire.equals(v)) return t;
         }
         return DRAFT;
     }

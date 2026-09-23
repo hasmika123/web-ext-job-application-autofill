@@ -132,6 +132,14 @@ export default function PrivacyPage() {
           also bring your own AI key in the extension, in which case requests go directly from
           your browser to that provider under your own account, not through us.
         </p>
+        <p>
+          <strong>Resume fit (Pro).</strong> When you ask which of your resumes fits a job — on the
+          board, or automatically in the extension once you&apos;ve turned Kiwiply AI on — that job&apos;s
+          description and a short summary of each of your saved resumes (summary, skills, recent roles,
+          education) are sent to the same provider to score them. We keep only the scores and a
+          one-line reason, never the job text or your resumes, so asking again about the same job is
+          instant. They&apos;re deleted with your account.
+        </p>
       </Section>
 
       <Section title="Storage and sharing">
