@@ -51,6 +51,7 @@ public class AccountDeletionService {
     private final AiUsageRepository aiUsageRepository;
     private final AiCallRepository aiCallRepository;
     private final ResumeMatchService resumeMatchService;
+    private final JobFitService jobFitService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -67,7 +68,8 @@ public class AccountDeletionService {
         ProfileSuggestionService profileSuggestionService,
         AiUsageRepository aiUsageRepository,
         AiCallRepository aiCallRepository,
-        ResumeMatchService resumeMatchService
+        ResumeMatchService resumeMatchService,
+        JobFitService jobFitService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -84,6 +86,7 @@ public class AccountDeletionService {
         this.aiUsageRepository = aiUsageRepository;
         this.aiCallRepository = aiCallRepository;
         this.resumeMatchService = resumeMatchService;
+        this.jobFitService = jobFitService;
     }
 
     /**
@@ -155,6 +158,7 @@ public class AccountDeletionService {
                 refreshTokenService.deleteAllForUser(id);
                 profileSuggestionService.deleteAllForUser(id);
                 resumeMatchService.deleteAllForUser(id);
+                jobFitService.deleteAllForUser(id);
                 forgetAiUsage(login);
                 endBilling(id);
             });
@@ -190,6 +194,7 @@ public class AccountDeletionService {
         refreshTokenService.deleteAllForUser(userId);
         profileSuggestionService.deleteAllForUser(userId);
         resumeMatchService.deleteAllForUser(userId);
+        jobFitService.deleteAllForUser(userId);
         forgetAiUsage(login);
         endBilling(userId);
         userService.deleteUser(login);

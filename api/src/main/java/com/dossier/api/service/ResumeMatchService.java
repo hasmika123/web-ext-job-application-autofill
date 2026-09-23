@@ -17,13 +17,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -57,8 +53,8 @@ public class ResumeMatchService {
     private static final Logger LOG = LoggerFactory.getLogger(ResumeMatchService.class);
 
     /** Shorter than this and it's a page summary, not a job description — scoring it would be noise. */
-    static final int MIN_JD_CHARS = 200;
-    static final int MAX_JD_CHARS = 8000;
+    static final int MIN_JD_CHARS = AiInputs.MIN_JD_CHARS;
+    static final int MAX_JD_CHARS = AiInputs.MAX_JD_CHARS;
     static final int MAX_RESUMES = 10;
 
     public enum Status {
@@ -224,8 +220,7 @@ public class ResumeMatchService {
     }
 
     static String cleanJobDescription(String jd) {
-        String t = jd == null ? "" : jd.replaceAll("\\s+", " ").trim();
-        return t.length() > MAX_JD_CHARS ? t.substring(0, MAX_JD_CHARS) : t;
+        return AiInputs.cleanJobDescription(jd);
     }
 
     /** Changes whenever the posting, or any scored resume's label or content, changes. */
@@ -240,37 +235,7 @@ public class ResumeMatchService {
 
     /** A resume as the model sees it: what decides fit, bounded so ten resumes stay cheap. */
     String digest(Resume r) {
-        StringBuilder sb = new StringBuilder();
-        JsonNode p;
-        try {
-            p = r.getParsedJson() == null || r.getParsedJson().isBlank() ? om.createObjectNode() : om.readTree(r.getParsedJson());
-        } catch (Exception e) {
-            p = om.createObjectNode();
-        }
-        String summary = p.path("summary").asText("");
-        if (!summary.isBlank()) sb.append("Summary: ").append(cap(summary, 500)).append('\n');
-        List<String> skills = new ArrayList<>();
-        p.path("skills").forEach(s -> {
-            if (skills.size() < 40 && !s.asText("").isBlank()) skills.add(s.asText().trim());
-        });
-        if (!skills.isEmpty()) sb.append("Skills: ").append(String.join(", ", skills)).append('\n');
-        int n = 0;
-        for (JsonNode e : p.path("experience")) {
-            if (n++ >= 6) break;
-            String title = e.path("title").asText(""), company = e.path("company").asText("");
-            String dates = (e.path("startDate").asText("") + "–" + (e.path("current").asBoolean(false) ? "present" : e.path("endDate").asText(""))).replaceAll("^–$", "");
-            sb.append("Role: ").append(title).append(company.isBlank() ? "" : " at " + company).append(dates.isBlank() ? "" : " (" + dates + ")");
-            JsonNode b = e.path("bullets").path(0);
-            if (!b.isMissingNode() && !b.asText("").isBlank()) sb.append(" — ").append(cap(b.asText(), 160));
-            sb.append('\n');
-        }
-        n = 0;
-        for (JsonNode e : p.path("education")) {
-            if (n++ >= 3) break;
-            String line = String.join(" ", e.path("degree").asText(""), e.path("field").asText(""), e.path("school").asText("").isBlank() ? "" : "— " + e.path("school").asText("")).trim();
-            if (!line.isBlank()) sb.append("Education: ").append(line.replaceAll("\\s+", " ")).append('\n');
-        }
-        return sb.length() == 0 ? "(no details parsed)\n" : sb.toString();
+        return AiInputs.resumeDigest(r.getParsedJson(), AiInputs.BRIEF);
     }
 
     String buildPrompt(String job, String role, String company, Map<String, Resume> byRef) {
@@ -337,16 +302,11 @@ public class ResumeMatchService {
     // ---- helpers -----------------------------------------------------------------------------
 
     private static String cap(String s, int max) {
-        String t = s == null ? "" : s.replaceAll("\\s+", " ").trim();
-        return t.length() > max ? t.substring(0, max - 1) + "…" : t;
+        return AiInputs.cap(s, max);
     }
 
     private static String sha256(String s) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is mandatory in every JVM", e);
-        }
+        return AiInputs.sha256(s);
     }
 
     private User currentUser() {

@@ -140,6 +140,14 @@ export default function PrivacyPage() {
           one-line reason, never the job text or your resumes, so asking again about the same job is
           instant. They&apos;re deleted with your account.
         </p>
+        <p>
+          <strong>Job fit (Pro).</strong> When you ask what one resume is missing for a job, that
+          job&apos;s description, a fuller summary of that resume, and a few of your profile answers that
+          can make a job a non-starter — work authorization, sponsorship, city/state/country,
+          relocation, work preference, start date and notice period — are sent to the same provider.
+          Never your name, contact details or self-identification answers. We keep only the report
+          (score, a one-line summary, short lists of skills), deleted with your account.
+        </p>
       </Section>
 
       <Section title="Storage and sharing">

@@ -69,6 +69,10 @@ export * from "./primitives/icons";
 export { cn } from "./primitives/cn";
 
 /* ── The portable ResumeUpload form + its types ───────────────────────────────────── */
+/* ── The job-fit report (13.3): shared by the extension drawer and the web board ─────── */
+export { default as JobFitReport } from "./JobFitReport";
+export type { JobFitData, JobFitReportProps } from "./JobFitReport";
+
 export { default as ResumeUpload } from "./ResumeUpload";
 export type {
   EditTarget,

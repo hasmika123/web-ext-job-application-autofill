@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 13.3 - the job-fit panel: one resume against one job - match %, the job's key
+        requirements the resume shows and the ones it doesn't, and red flags worth knowing before
+        applying.
+
+        Cached like 13.2's resume_match: `cache_key` is a SHA-256 of the job description, the resume's
+        id and content, and the handful of profile facts the red flags read (work authorization,
+        sponsorship, location, relocation, work preference) - so any change to one of them is a new
+        key and nothing needs invalidating. `result_json` holds only the report (score, one-line
+        summary, short keyword lists) - never the job description or resume text. Deleted with the
+        account. Additive; no data migration.
+    -->
+    <changeSet id="20260922050000-1" author="dossier">
+        <createTable tableName="job_fit">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cache_key" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="result_json" type="${clobType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model" type="varchar(80)"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="job_fit" indexName="ix_job_fit_user_key">
+            <column name="user_id"/>
+            <column name="cache_key"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="job_fit"
+            baseColumnNames="user_id"
+            constraintName="fk_job_fit_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

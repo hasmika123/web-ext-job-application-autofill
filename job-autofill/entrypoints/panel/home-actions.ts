@@ -243,7 +243,10 @@ export async function capturePage(): Promise<PageCapture> {
  * Resolves to null whenever there is nothing worth showing; never throws.
  */
 export type ResumeFit = { localId: string; label: string; score: number; why: string };
-export type ResumeFitResult = { best: ResumeFit } | { optIn: true } | null;
+/** The job on this page, as the fit checks need it (13.3 reuses 13.2's capture — no second read). */
+export type PageJob = { jobDescription: string; role: string; company: string };
+/** `scores` = 13.2's match % per LOCAL resume id — the one number the drawer shows for a resume. */
+export type ResumeFitResult = { best: ResumeFit | null; job: PageJob; scores: Record<string, number> } | { optIn: true } | null;
 
 export async function matchResumesForPage(resumes: any[]): Promise<ResumeFitResult> {
   try {
@@ -261,14 +264,57 @@ export async function matchResumesForPage(resumes: any[]): Promise<ResumeFitResu
 
     const provider = JAF().sync.providerFromSettings(settings, JAF().tracking.chromeTokenStore());
     if (!(await provider.isAuthenticated())) return null;
-    const r: any = await provider.resumeMatch({ jobDescription: jd, role: cap.role, company: cap.company, consent: true });
-    const best = r && r.best;
-    if (!best) return null;
-    const local = resumes.find((x) => x.serverId != null && String(x.serverId) === String(best.resumeId));
-    if (!local) return null;
-    return { best: { localId: local.id, label: local.label || best.label, score: Number(best.score) || 0, why: String(best.why || "") } };
+    const job: PageJob = { jobDescription: jd, role: String(cap.role || ""), company: String(cap.company || "") };
+    let best: ResumeFit | null = null;
+    const scores: Record<string, number> = {};
+    try {
+      const r: any = await provider.resumeMatch({ ...job, consent: true });
+      const localOf = (serverId: any) => resumes.find((x) => x.serverId != null && String(x.serverId) === String(serverId));
+      for (const s of (r && r.scores) || []) {
+        const l = localOf(s.resumeId);
+        if (l) scores[l.id] = Number(s.score) || 0;
+      }
+      const b = r && r.best;
+      const local = b && localOf(b.resumeId);
+      if (local) best = { localId: local.id, label: local.label || b.label, score: Number(b.score) || 0, why: String(b.why || "") };
+    } catch {
+      /* no best-match line — the job-fit check can still run */
+    }
+    return { best, job, scores };
   } catch {
     return null; // offline, Free after all (402), provider down — the picker just works as before
+  }
+}
+
+/**
+ * Phase 13.3 — the job-fit report for one resume against the job on this page: match %, what it
+ * covers, what it's missing, and red flags. Run on request (it's the heavier call); cached by the
+ * server per (posting × resume × the profile answers red flags read), so asking again is free.
+ */
+export type JobFitData = { score: number; summary: string; matched: string[]; missing: string[]; redFlags: string[] };
+export type JobFitOutcome = { fit: JobFitData } | { message: string };
+
+export async function checkJobFit(resume: any, job: PageJob): Promise<JobFitOutcome> {
+  if (!resume || resume.serverId == null) return { message: "Save this resume to your account first — then Kiwiply can check it." };
+  try {
+    const settings = await JAF().storage.getSettings();
+    const provider = JAF().sync.providerFromSettings(settings, JAF().tracking.chromeTokenStore());
+    const r: any = await provider.jobFit({ resumeId: resume.serverId, ...job, consent: true });
+    if (r && r.fit) {
+      const f = r.fit;
+      const list = (v: any) => (Array.isArray(v) ? v.map(String) : []);
+      return { fit: { score: Number(f.score) || 0, summary: String(f.summary || ""), matched: list(f.matched), missing: list(f.missing), redFlags: list(f.redFlags) } };
+    }
+    if (r && r.quotaExceeded) {
+      const d = r.resetsAt ? new Date(r.resetsAt) : null;
+      const when = d && !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" }) : "";
+      return { message: `You've used this month's Kiwiply AI${when ? ` — it resets on ${when}` : ""}.` };
+    }
+    if (r && r.disabled) return { message: "The job-fit check is switched off right now." };
+    return { message: "Couldn't check the fit right now. Please try again." };
+  } catch (e: any) {
+    if (e && e.code === "PRO_REQUIRED") return { message: "The job-fit check is part of Pro." };
+    return { message: "Couldn't check the fit right now. Please try again." };
   }
 }
 

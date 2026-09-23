@@ -808,6 +808,10 @@ pull only on change:**
     the detail panel, run on click, with "Link this resume". Inbox-outcome learning waits for 14/16.
 - **13.3 Job-fit panel.** On the posting: match %, missing keywords, red flags. Cached per
   (resume × JD).
+  - **As built (2026-09-22):** `JobFitService` + `job_fit` cache (the "(resume × JD) cache"),
+    red flags reading nine profile answers and nothing else, a shared `JobFitReport` component in
+    the drawer (on click) and per resume on the board. One score per resume everywhere — the
+    report defers to 13.2's ranking. Default model Flash-Lite; Flash is `DOSSIER_AI_MODEL_FIT`.
 - **13.4 Resume tailoring to JD.** Bullet rewrites with a diff, truthfulness guardrails (no
   invented employers/dates/degrees), saved as a **new** resume version — fits "resume creates
   push back".
