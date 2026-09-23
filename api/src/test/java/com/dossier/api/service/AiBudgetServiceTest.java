@@ -205,6 +205,41 @@ class AiBudgetServiceTest {
         assertThat(service.decide("u", AiTask.PARSE).verdict()).isEqualTo(Verdict.EXHAUSTED);
     }
 
+    // ---- the meter (13.1c) -------------------------------------------------------------------
+
+    @Test
+    void aFreeUsersMeterIsTheirParseCount() {
+        when(metering.usedThisMonth("u")).thenReturn(2);
+        AiBudgetService.Usage u = service.usage("u");
+        assertThat(u.metered()).isEqualTo("count");
+        assertThat(u.used()).isEqualTo(2);
+        assertThat(u.limit()).isEqualTo(FREE_PARSES);
+        assertThat(u.resetsAt()).isEqualTo(AiBudgetService.resetsAt());
+    }
+
+    @Test
+    void aProUsersMeterIsAPercentNeverDollars() {
+        pro();
+        policy.setEconomyModel("gemini-2.5-flash-lite");
+        spent(FIVE_DOLLARS * 85 / 100);
+        AiBudgetService.Usage u = service.usage("u");
+        assertThat(u.metered()).isEqualTo("budget");
+        assertThat(u.used()).isEqualTo(85);
+        assertThat(u.limit()).isEqualTo(100);
+        assertThat(u.economy()).isTrue();
+        spent(FIVE_DOLLARS);
+        assertThat(service.usage("u").economy()).as("used up is not 'economy'").isFalse();
+    }
+
+    /** The meter doesn't depend on any one feature: a kill switch doesn't blank it. */
+    @Test
+    void theMeterIgnoresKillSwitches() {
+        pro();
+        policy.setDisabledTasks(Set.of("draft", "pick", "map", "enrich", "parse"));
+        spent(FIVE_DOLLARS / 2);
+        assertThat(service.usage("u").used()).isEqualTo(50);
+    }
+
     @Test
     void percentIsClampedAndSafe() {
         assertThat(AiBudgetService.percent(0, FIVE_DOLLARS)).isZero();

@@ -259,6 +259,13 @@ function mockFetch(handler) {
   ok("recordLearnedAnswers is authenticated", fetchLearn.calls[0].headers.Authorization === "Bearer A");
   ok("recordLearnedAnswers never touches the profile itself", fetchLearn.calls.every((c) => c.path !== "/api/profile"));
 
+  /* ---- AI meter (Phase 13.1c) — GET /api/ai/usage ---- */
+  const fetchMeter = mockFetch(() => ({ status: 200, json: { metered: "budget", used: 32, limit: 100, resetsAt: "2026-10-01T00:00:00Z", economy: false } }));
+  const pMeter = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchMeter, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const meter = await pMeter.aiUsage();
+  ok("aiUsage GETs /api/ai/usage, authenticated", fetchMeter.calls[0].method === "GET" && fetchMeter.calls[0].path === "/api/ai/usage" && fetchMeter.calls[0].headers.Authorization === "Bearer A");
+  ok("aiUsage returns the meter as-is", meter && meter.metered === "budget" && meter.used === 32);
+
   /* ---- aiParseResume — POSTs /api/ai/parse-resume (text or file mode) ---- */
   const fetchParse = mockFetch(() => ({ status: 200, json: { parsed: { summary: "s", skills: ["Java"] }, used: 2, quota: 50 } }));
   const pParse = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchParse, tokenStore: T.memoryTokenStore({ access: "A" }) });

@@ -1,6 +1,8 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
+import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.AiBudgetService;
 import com.dossier.api.service.AiDraftService;
 import com.dossier.api.service.AiResumeParseService;
 import com.dossier.api.service.ProRequiredException;
@@ -39,10 +41,27 @@ public class AiResource {
 
     private final AiDraftService aiDraftService;
     private final AiResumeParseService aiResumeParseService;
+    private final AiBudgetService aiBudgetService;
 
-    public AiResource(AiDraftService aiDraftService, AiResumeParseService aiResumeParseService) {
+    public AiResource(AiDraftService aiDraftService, AiResumeParseService aiResumeParseService, AiBudgetService aiBudgetService) {
         this.aiDraftService = aiDraftService;
         this.aiResumeParseService = aiResumeParseService;
+        this.aiBudgetService = aiBudgetService;
+    }
+
+    /**
+     * {@code GET /api/ai/usage} : this month's AI meter for the current user (Phase 13.1c) — what
+     * Settings and the extension show. {@code {metered:"budget", used:<percent>, limit:100, resetsAt}}
+     * for Pro (or an admin override), {@code {metered:"count", used:<parses>, limit:<quota>, resetsAt}}
+     * for Free. Never a dollar figure.
+     */
+    @Operation(summary = "My AI usage", description = "This month's AI meter: a percent of the budget (Pro) or a parse count (Free).")
+    @GetMapping("/usage")
+    public AiBudgetService.Usage usage() {
+        String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
+            new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
+        );
+        return aiBudgetService.usage(login);
     }
 
     /**

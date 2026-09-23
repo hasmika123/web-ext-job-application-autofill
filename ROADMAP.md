@@ -794,6 +794,11 @@ pull only on change:**
   model). Responses carry `resetsAt`; for a budget `used`/`quota` are a percentage and 100, so a
   user is told "resets on October 1" — never dollars. `AiPricing` gained the 3.x models, with the
   2.5 cache rates corrected to Google's current list.
+- **13.1c as built (2026-09-22):** `GET /api/ai/usage` + a `Meter` primitive; web Settings and
+  extension Options show a percentage and a reset date (Free: the parse count). The admin AI page
+  reads the ledger: total cost, per feature, per user with share of the Pro budget. **13.1 is
+  complete.** Model: **stay on gemini-2.5-flash-lite** (user decision 2026-09-22) until the Gemini
+  API — not Vertex — announces a shutdown; the successor is priced and one env var away.
 - **13.2 Resume recommendation per job.** Score every stored resume against the captured JD
   (Flash-Lite or embeddings); "best match: *Backend v3* — 82 %" in the drawer + on the board.
   Later learns from inbox outcomes (Phase 14 + 16).

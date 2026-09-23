@@ -54,6 +54,14 @@ public class AiBudgetService {
      */
     public record Decision(Verdict verdict, String model, boolean budgeted, int used, int limit, Instant resetsAt, boolean economy) {}
 
+    /**
+     * What a user's meter shows (13.1c). {@code metered} is {@code "budget"} (Pro or an override:
+     * {@code used} is a percent of the month's budget, {@code limit} is 100) or {@code "count"} (a
+     * Free user: resume parses this month out of {@code limit}). Never dollars — the budget's size
+     * and what AI costs us stay out of the product.
+     */
+    public record Usage(String metered, int used, int limit, Instant resetsAt, boolean economy) {}
+
     private final AiPolicy policy;
     private final AiProvider provider;
     private final AiQuotaOverrideRepository overrideRepository;
@@ -80,17 +88,35 @@ public class AiBudgetService {
         this.freeMonthlyQuota = freeMonthlyQuota;
     }
 
+    /** The meter for Settings and the extension: this month's use, and when it resets. */
+    public Usage usage(String login) {
+        Optional<Long> budget = budgetMicros(login);
+        if (budget.isEmpty()) {
+            return new Usage("count", metering.usedThisMonth(login), freeMonthlyQuota, resetsAt(), false);
+        }
+        int pct = percent(callRepository.costSince(login, monthStart()), budget.get());
+        boolean economy = policy.hasEconomyModel() && pct >= policy.getSoftCapPercent() && pct < 100;
+        return new Usage("budget", pct, 100, resetsAt(), economy);
+    }
+
+    /** This user's monthly budget — an admin override, else Pro's — or empty for a Free user. */
+    private Optional<Long> budgetMicros(String login) {
+        // An admin override outranks the plan (a locked decision): it opens the gate AND sets the budget.
+        Optional<Long> override = overrideRepository.findById(login).map(o -> centsToMicros(o.getMonthlyBudgetCents()));
+        if (override.isPresent()) return override;
+        return entitlementService.isPro(login) ? Optional.of(policy.proBudgetMicros()) : Optional.empty();
+    }
+
     public Decision decide(String login, AiTask task) {
         Instant resets = resetsAt();
         if (policy.isDisabled(task)) {
             return new Decision(Verdict.TASK_DISABLED, null, false, 0, 0, resets, false);
         }
 
-        // An admin override outranks the plan (a locked decision): it opens the gate AND sets the budget.
-        Optional<Long> overrideMicros = overrideRepository.findById(login).map(o -> centsToMicros(o.getMonthlyBudgetCents()));
+        Optional<Long> budgetMicros = budgetMicros(login);
         String routed = policy.modelFor(task, provider.defaultModel());
 
-        if (overrideMicros.isEmpty() && !entitlementService.isPro(login)) {
+        if (budgetMicros.isEmpty()) {
             if (task != AiTask.PARSE) {
                 return new Decision(Verdict.PRO_REQUIRED, null, false, 0, 0, resets, false);
             }
@@ -98,7 +124,7 @@ public class AiBudgetService {
             return new Decision(used >= freeMonthlyQuota ? Verdict.EXHAUSTED : Verdict.OK, routed, false, used, freeMonthlyQuota, resets, false);
         }
 
-        long budget = overrideMicros.orElse(policy.proBudgetMicros());
+        long budget = budgetMicros.get();
         long spent = callRepository.costSince(login, monthStart());
         int pct = percent(spent, budget);
         if (spent >= budget) {

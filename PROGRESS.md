@@ -56,7 +56,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 2026-09-22, see ROADMAP 13.1). **13.1a is DONE** (ext v0.60.0) — every AI call names its kind and
 > is recorded with its tokens and cost; three bugs fixed. **13.1b is DONE** (ext v0.61.0) — Pro AI is a
 > $5/month cost budget with a soft cap, per-task models and kill switches; the admin override is a
-> budget. **Next: 13.1c** — the usage meter (user "% used" + admin cost per user). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> budget. **13.1c is DONE** (ext v0.62.0) — users see "% of this month's Kiwiply AI used" (web
+> Settings + extension Options); the admin AI page shows real cost per user and per feature.
+> **13.1 IS COMPLETE.** Model stays **gemini-2.5-flash-lite** (user decision 2026-09-22, until the
+> Gemini API announces a shutdown). **Next: 13.2** — resume recommendation per job. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1016,7 +1019,7 @@ focused Claude Code session.
   - [x] **13.1b Budget + routing.** Model per task and prices in config; Pro monthly cost budget
     ($5 default) — 80 % → cheapest model, 100 % → stop until reset; per-feature kill switch; admin
     override becomes a budget override; pick Flash-Lite's successor (user confirms).
-  - [ ] **13.1c Usage meter.** "% of this month's AI used" + reset date in Settings › Billing and the
+  - [x] **13.1c Usage meter.** "% of this month's AI used" + reset date in Settings › Billing and the
     extension; admin AI page shows cost per user and total.
   - *Moved by decision:* top-up → Phase 16; resume-prefix context cache + (resume × JD) cache →
     13.2/13.3; overnight batch → 13.6.
@@ -1163,6 +1166,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.1c AI usage meter** · Ext **v0.62.0**. `GET /api/ai/usage` (from `AiBudgetService.usage`):
+  Pro/override → `{metered:"budget", used:<percent>, limit:100, resetsAt, economy}`, Free →
+  `{metered:"count", used:<parses>, limit}` — never dollars, and not blanked by a kill switch. Web
+  Settings › AI & drafting and the extension's Options › AI show it: "32% of this month's Kiwiply AI
+  used · Resets October 1" (reset shown in UTC, it's a UTC month boundary), amber past 80 % with a
+  "lighter model" note when the economy model is on, red when used up. New `Meter` primitive in
+  `@kiwiply/ui` (role="meter"). The admin AI page is now **cost**-based from the `ai_call` ledger:
+  total, calls, users, average, per feature and per user (dearest first, with % of the Pro budget;
+  deleted accounts' kept spend shown as one row). Tests: budget +3 (meter), `AiResourceIT` +3,
+  `AdminAiUsageResourceIT` rewritten for cost, provider +2. Browser-checked the meter's four states
+  at desktop + phone width. **13.1 complete.** Model decision: stay on 2.5 Flash-Lite.
 - 2026-09-22 · **13.1b AI budget + routing** · Ext **v0.61.0**. New `AiBudgetService` makes one decision
   per call, before the provider: **kill switch** per task → **Pro gate** → Free resume-parse
   **count** → otherwise a **cost budget** from the `ai_call` ledger for the UTC calendar month ($5

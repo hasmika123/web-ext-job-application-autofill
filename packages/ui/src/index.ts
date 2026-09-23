@@ -33,6 +33,9 @@ export type { SwitchProps } from "./primitives/Switch";
 export { default as ChoiceGroup } from "./primitives/ChoiceGroup";
 export type { ChoiceGroupProps } from "./primitives/ChoiceGroup";
 
+export { default as Meter } from "./primitives/Meter";
+export type { MeterProps } from "./primitives/Meter";
+
 export { default as Tabs, TabList, Tab, TabPanel } from "./primitives/Tabs";
 export type { TabsProps } from "./primitives/Tabs";
 

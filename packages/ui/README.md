@@ -21,7 +21,7 @@ Concretely:
   `<svg>`** outside this package (the one exception: `web/src/app/opengraph-image.tsx`,
   which `next/og` requires to be self-contained).
 - **Primitives** → `src/primitives/`. Button, IconButton, Input, Select, Field, Card, Badge
-  (+ Pill/Tag), Switch, ChoiceGroup, Tabs, Toast (`ToastProvider`/`useToast`), Skeleton, Spinner,
+  (+ Pill/Tag), Switch, ChoiceGroup, Meter, Tabs, Toast (`ToastProvider`/`useToast`), Skeleton, Spinner,
   EmptyState, Dialog, SidePanel, Tooltip, Menu, Brand marks. Export new ones from
   `src/index.ts`.
 - **Tokens** → `styles/tokens.css` (Tailwind v4 `@theme`; light defaults + `.dark`

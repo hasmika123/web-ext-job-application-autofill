@@ -27,6 +27,9 @@ export type { SwitchProps } from "./Switch";
 export { default as ChoiceGroup } from "./ChoiceGroup";
 export type { ChoiceGroupProps } from "./ChoiceGroup";
 
+export { default as Meter } from "./Meter";
+export type { MeterProps } from "./Meter";
+
 export { ToastProvider, useToast } from "@kiwiply/ui";
 export type { ToastOptions, ToastVariant } from "@kiwiply/ui";
 
