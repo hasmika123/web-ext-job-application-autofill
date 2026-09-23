@@ -79,8 +79,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > read into status changes (rules first, Flash-Lite only when unsure). **14.4b is DONE** — "From your
 > inbox" suggestions on the board + each application's Emails. **14.4 is complete.** **14.6 is DONE** —
 > in-app notifications + emails for interviews and offers. **14.7 is DONE** — 12-month mail expiry,
-> inbox in the data export, the read-only promise in Terms. **PHASE 14 IS COMPLETE.** **Next: Phase 15**
-> (Launch 1) — 15.1 ops: nightly off-box backup, monitoring, a real restore drill. Before the inbox
+> inbox in the data export, the read-only promise in Terms. **PHASE 14 IS COMPLETE.** **15.1 is planned**
+> as 15.1a–c (user decisions 2026-09-23: a separate backup bucket with an upload-only key;
+> UptimeRobot + Healthchecks.io; an in-house error email digest; a weekly automated restore drill plus
+> one by hand). **15.1a is DONE** — `scripts/ops/backup-db.sh` + `verify-restore.sh` + the cron file,
+> tested in CI against a real MySQL; the runbook is DEPLOY.md §5.1–§5.3. **Next: 15.1b** — the API
+> emails the admin a digest of new server errors. Before the inbox
 > goes live: `DOSSIER_INBOX_KEY` on the box (DEPLOY.md §12). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
@@ -1092,6 +1096,14 @@ focused Claude Code session.
 - [ ] **15.1 Ops hardening** *(scheduled here by decision — not earlier).* Nightly off-box
   `mysqldump` → S3 with retention · uptime + error monitoring with alerting · **restore drill
   performed and logged**.
+  - [x] **15.1a Backup + restore-drill scripts.** Nightly dump → separate bucket (upload + read,
+    no delete; 30 daily + 12 monthly by lifecycle), the weekly restore into a throwaway container,
+    Healthchecks.io pings, the cron file, DEPLOY.md §5.1–§5.3; CI job "Ops scripts".
+  - [ ] **15.1b Error digest.** The API emails the admin new ERROR logs, grouped and counted, at most
+    every 15 minutes, through the Brevo mail it already has.
+  - [ ] **15.1c Go live + the drill by hand.** *(Needs you: the bucket + IAM user, Healthchecks.io +
+    UptimeRobot accounts, `develop` promoted to `main`.)* Install the cron file, the first backup,
+    the first restore drill — logged in DEPLOY.md.
 - [ ] **15.2 Legal — PL.1 completion.** Lawyer review of privacy + terms covering billing
   (auto-renew, click-to-cancel, refunds), IMAP mail processing, AI data use, governing law + entity.
   DPAs with Brevo + AWS S3.
@@ -1201,6 +1213,18 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-23 · **15.1a backup + restore-drill scripts** · Planned 15.1 as a–c (user decisions:
+  separate bucket + upload-only key, UptimeRobot + Healthchecks.io, in-house error digest, weekly
+  automated drill + one by hand). `scripts/ops/backup-db.sh` — one consistent `mysqldump` (the app
+  keeps serving), refused if cut short (no trailer / no tables), uploaded as
+  `daily/dossier-<date>.sql.gz` with its sha256 (plus `monthly/` on the 1st), last 3 kept on the box,
+  Healthchecks start/success/fail pings. `verify-restore.sh` — newest backup, sha256 check, fails if
+  older than 2 days, restores into a throwaway `mysql:9.2.0` with no network, checks users +
+  changelog + every live table older than the backup, logs each table's row count. The AWS CLI runs
+  in a container (nothing installed on the shared box); `.env` is read, never sourced; keys pass by
+  name, never on a command line. `kiwiply-ops.cron` → `/etc/cron.d` (BeeCompete's crontabs
+  untouched); `scripts/ops/aws/` has the IAM policy + lifecycle JSON. CI job **Ops scripts**:
+  shellcheck, 31 checks against a fake docker, and a real MySQL dump → restore round trip.
 - 2026-09-23 · **14.7 inbox retention & data rights** · `InboxRetention` deletes stored mail 365 days
   after it was sent (`DOSSIER_INBOX_RETENTION_DAYS`), nightly at 03:30 UTC — what the mail did (status,
   notifications) stays, it's the user's board. Purge on disconnect and account deletion were built

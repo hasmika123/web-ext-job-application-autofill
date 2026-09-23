@@ -113,6 +113,18 @@ jobs:
             exit 1
           fi
 
+  ops:
+    # Phase 15.1: the backup + restore-drill scripts that run on the production box. shellcheck,
+    # the helpers and backup-db.sh against a fake docker, then a real dump of a real MySQL (the
+    # production version) restored by verify-restore.sh — ubuntu-latest ships Docker.
+    name: Ops scripts (backup + restore drill)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: shellcheck -x scripts/ops/*.sh scripts/ops/test/*.sh
+      - run: REAL_DOCKER=1 scripts/ops/test/ops.test.sh
+
   api:
     name: API tests (unit + integration)
     runs-on: ubuntu-latest
