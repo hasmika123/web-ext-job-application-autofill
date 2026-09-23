@@ -9,7 +9,10 @@ import InboxSuggestions, { type InboxSuggestion } from "@/components/board/Inbox
  * a job. Fetched server-side; mutations call the `/api/applications/:id` proxy and
  * `router.refresh()` re-runs this fetch. Session gate + nav live in the `(app)` shell.
  */
-export default async function BoardPage() {
+export default async function BoardPage({ searchParams }: { searchParams: Promise<{ app?: string }> }) {
+  // 14.6 — a notification link opens its application: /board?app=42.
+  const { app: appParam } = await searchParams;
+  const initialSelectedId = appParam && /^\d+$/.test(appParam) ? Number(appParam) : null;
   const [appsRes, resumesRes, profileRes, plan] = await Promise.all([
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile/resumes"),
@@ -82,7 +85,7 @@ export default async function BoardPage() {
 
       <div>
         <InboxSuggestions items={suggestions} />
-        <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} isPro={plan.plan === "PRO"} />
+        <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} isPro={plan.plan === "PRO"} initialSelectedId={initialSelectedId} />
       </div>
     </div>
   );

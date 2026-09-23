@@ -47,6 +47,10 @@ public class InboxConnection implements Serializable {
     @Column(name = "consecutive_failures", nullable = false)
     private int consecutiveFailures;
 
+    /** Email the user about interviews and offers (14.6). */
+    @Column(name = "notify_email", nullable = false)
+    private boolean notifyEmail = true;
+
     @Column(name = "connected_at", nullable = false)
     private Instant connectedAt = Instant.now();
 
@@ -118,6 +122,14 @@ public class InboxConnection implements Serializable {
 
     public void setConsecutiveFailures(int consecutiveFailures) {
         this.consecutiveFailures = consecutiveFailures;
+    }
+
+    public boolean isNotifyEmail() {
+        return notifyEmail;
+    }
+
+    public void setNotifyEmail(boolean notifyEmail) {
+        this.notifyEmail = notifyEmail;
     }
 
     public Instant getConnectedAt() {

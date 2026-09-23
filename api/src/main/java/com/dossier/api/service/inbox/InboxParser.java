@@ -67,8 +67,20 @@ public class InboxParser {
         MailClassifier.Category.OFFER
     );
 
-    /** An application's status moved because of an email. */
-    public record StatusChanged(Long userId, Long applicationId, String company, String role, ApplicationStatus from, ApplicationStatus to, Long messageId) {}
+    /**
+     * An application's status moved because of an email. {@code mailSentAt} is when that email was
+     * sent — 14.6 stays quiet about old mail read on a first backfill.
+     */
+    public record StatusChanged(
+        Long userId,
+        Long applicationId,
+        String company,
+        String role,
+        ApplicationStatus from,
+        ApplicationStatus to,
+        Long messageId,
+        Instant mailSentAt
+    ) {}
 
     public record Result(int read, int changed, int suggested, int askedModel) {}
 
@@ -214,7 +226,9 @@ public class InboxParser {
             a.setUpdatedAt(Instant.now());
             applications.save(a);
         }
-        if (to != null) events.publishEvent(new StatusChanged(userId, a.getId(), a.getCompany(), a.getRoleTitle(), from, to, m.getId()));
+        if (to != null) events.publishEvent(
+            new StatusChanged(userId, a.getId(), a.getCompany(), a.getRoleTitle(), from, to, m.getId(), m.getSentAt())
+        );
         return to != null;
     }
 

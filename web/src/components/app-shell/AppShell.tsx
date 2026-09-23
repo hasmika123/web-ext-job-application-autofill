@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { Logo, BetaBadge } from "@/components/ui";
 import { BoardIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, GearIcon, SearchIcon, UserIcon } from "@kiwiply/ui";
 import SignOutButton from "@/components/SignOutButton";
+import NotificationBell from "@/components/app-shell/NotificationBell";
 
 export interface AppAccount {
   login?: string;
@@ -200,6 +201,9 @@ export default function AppShell({
         </button>
 
         <div className="flex-1" />
+
+        {/* 14.6 — news from the inbox. */}
+        <NotificationBell collapsed={collapsed} onNavigate={() => setOpen(false)} />
 
         {/* User chip — opens Settings. Sign out stays a separate control below. */}
         <Link

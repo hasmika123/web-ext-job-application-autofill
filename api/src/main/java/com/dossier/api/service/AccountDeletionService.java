@@ -56,6 +56,7 @@ public class AccountDeletionService {
     private final ResumeTailorService resumeTailorService;
     private final JobMatchService jobMatchService;
     private final InboxService inboxService;
+    private final NotificationService notificationService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -76,7 +77,8 @@ public class AccountDeletionService {
         JobFitService jobFitService,
         ResumeTailorService resumeTailorService,
         JobMatchService jobMatchService,
-        InboxService inboxService
+        InboxService inboxService,
+        NotificationService notificationService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -97,6 +99,7 @@ public class AccountDeletionService {
         this.resumeTailorService = resumeTailorService;
         this.jobMatchService = jobMatchService;
         this.inboxService = inboxService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -172,6 +175,7 @@ public class AccountDeletionService {
                 resumeTailorService.deleteAllForUser(id);
                 jobMatchService.deleteAllForUser(id);
                 inboxService.deleteAllForUser(id);
+                notificationService.deleteAllForUser(id);
                 forgetAiUsage(login);
                 endBilling(id);
             });
@@ -211,6 +215,7 @@ public class AccountDeletionService {
         resumeTailorService.deleteAllForUser(userId);
         jobMatchService.deleteAllForUser(userId);
         inboxService.deleteAllForUser(userId);
+        notificationService.deleteAllForUser(userId);
         forgetAiUsage(login);
         endBilling(userId);
         userService.deleteUser(login);

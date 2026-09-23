@@ -178,8 +178,10 @@ export default function PrivacyPage() {
           sender, recipients, subject and date; we keep the text only of mail about your job search (from a
           hiring system, or about an application you track), and never attachments. We read that job mail to
           update your board — confirmations, interviews, rejections, offers — by fixed rules first; only an email
-          the rules can&apos;t settle is sent to Google Gemini (sender, subject and the start of its text). We never
-          send, move or delete mail. Disconnecting deletes the app password and everything we read; deleting the app password
+          the rules can&apos;t settle is sent to Google Gemini (sender, subject and the start of its text). When an
+          email moves an application to an interview or an offer, we email your Kiwiply account&apos;s address to
+          say so (you can turn that off); every update also shows under Notifications. We never send, move or
+          delete mail in the connected inbox. Disconnecting deletes the app password and everything we read; deleting the app password
           in your Google account cuts us off as well. We ask you to connect a Gmail made just for job hunting, so
           your personal mail stays out of it.
         </p>

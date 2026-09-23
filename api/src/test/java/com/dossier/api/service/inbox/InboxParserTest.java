@@ -127,7 +127,9 @@ class InboxParserTest {
         assertThat(m.getApplicationId()).isEqualTo(1L);
         assertThat(m.getStatusChange()).isEqualTo("APPLIED");
         assertThat(m.getClassifiedBy()).isEqualTo("RULE");
-        assertThat(events).containsExactly(new InboxParser.StatusChanged(USER, 1L, "Acme, Inc.", "Backend Engineer", ApplicationStatus.DRAFT, ApplicationStatus.APPLIED, m.getId()));
+        assertThat(events).containsExactly(
+            new InboxParser.StatusChanged(USER, 1L, "Acme, Inc.", "Backend Engineer", ApplicationStatus.DRAFT, ApplicationStatus.APPLIED, m.getId(), m.getSentAt())
+        );
         verify(provider, never()).generate(any(), any(), anyString(), anyString());
     }
 

@@ -912,6 +912,9 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
     (`MailMatcher`); ambiguity → unmatched, never guessed. Forward-only status; `StatusChanged` event.
   - **14.4b as built (2026-09-23):** "From your inbox" suggestions above the board (add at the mail's
     stage, or dismiss the company); an Emails section per application.
+  - **14.6 as built (2026-09-23):** in-app notices for every change (sidebar bell), email for
+    interview/offer only (off switch on the Inbox page); nothing for mail older than 7 days, email only
+    within 48 h — so connecting an inbox never floods anyone.
 - **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
   = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
   ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard

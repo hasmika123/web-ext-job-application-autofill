@@ -56,7 +56,8 @@ public class InboxService {
         Instant connectedAt,
         Instant lastCheckedAt,
         String lastError,
-        long messages
+        long messages,
+        boolean notifyEmail
     ) {}
 
     /** Published after a successful connect, so the first read starts now rather than at the next quarter hour. */
@@ -101,7 +102,7 @@ public class InboxService {
     @Transactional(readOnly = true)
     public View mine() {
         User user = currentUser();
-        return connections.findById(user.getId()).map(c -> view(c)).orElse(new View(box.usable(), false, null, null, null, null, null, 0));
+        return connections.findById(user.getId()).map(c -> view(c)).orElse(new View(box.usable(), false, null, null, null, null, null, 0, true));
     }
 
     /**
@@ -160,6 +161,17 @@ public class InboxService {
         InboxConnection saved = connections.save(c);
         events.publishEvent(new Connected(user.getId()));
         return new ConnectResult(view(saved), null);
+    }
+
+    /** The user's switch for emails about interviews and offers (14.6). */
+    @Transactional
+    public View setNotifyEmail(boolean on) {
+        User user = currentUser();
+        InboxConnection c = connections
+            .findById(user.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No inbox connected"));
+        c.setNotifyEmail(on);
+        return view(connections.save(c));
     }
 
     /** Forget the inbox: the connection, its password, and every message read from it. */
@@ -227,7 +239,8 @@ public class InboxService {
             c.getConnectedAt(),
             c.getLastCheckedAt(),
             c.getLastError(),
-            messages.countByUserId(c.getUserId())
+            messages.countByUserId(c.getUserId()),
+            c.isNotifyEmail()
         );
     }
 
