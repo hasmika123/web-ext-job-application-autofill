@@ -70,8 +70,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > a nightly read keeping 48-hour-fresh postings, and an admin Job sources page. **13.6b is DONE** —
 > opt-in nightly matching: preferences from the profile + resume, a pre-filter to ≤ 50, one metered
 > Flash-Lite call per user. **13.6c is DONE** — the `/matches` page: the switch (with what it sends),
-> today's list, save to board / dismiss. **13.6 IS COMPLETE — so is Phase 13.** **Next: Phase 14** —
-> the inbox over IMAP (14.1 connect flow). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> today's list, save to board / dismiss. **13.6 IS COMPLETE — so is Phase 13.** **Phase 14 is planned**
+> (user decisions 2026-09-22, ROADMAP "Phase 14 plan"): env AES-256-GCM key; bodies kept only for job
+> mail; poll every 15 min; email only for interview/offer; order 14.2 → 14.1 → 14.3 → 14.5 → 14.4 →
+> 14.6 → 14.7. **Next: 14.2** — app-password encryption + key canary. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1058,11 +1060,17 @@ focused Claude Code session.
 ## Phase 14 — Inbox over IMAP (Launch 1 — needs 12)
 > Spec: `ROADMAP.md` → Phase 14. Mirrors Sales-App `integrations/email/imap`. **No Kiwiply address,
 > no forwarding, no OAuth.** Dedicated consumer Gmail + App Password; poll INBOX + Sent.
+> **Build order (user-approved 2026-09-22): 14.2 → 14.1 → 14.3 → 14.5 → 14.4 → 14.6 → 14.7.**
+> Decisions: env AES-256-GCM key (`DOSSIER_INBOX_KEY`); headers of all mail, body only for job mail;
+> every 15 min; email the user only for interview/offer. Pro only.
 - [ ] **14.1 Connect flow** `/settings/inbox`: guided steps (2-Step Verification → App Password),
   test connection, disconnect. Consumer Gmail only.
 - [ ] **14.2 Credentials encrypted at rest** (server-side key; the 8.4 secrets slice, now required).
+  AES-256-GCM, `DOSSIER_INBOX_KEY`, key version on each ciphertext, startup canary. *First.*
 - [ ] **14.3 IMAP poller.** UID-incremental sync + backfill on connect; headers + body text only,
-  **no attachments**; rate-limited; per-user error state surfaced in settings.
+  **no attachments**; rate-limited; per-user error state surfaced in settings. UIDVALIDITY per
+  folder, `\Sent` by special-use flag, one connection per sync, backoff, GreenMail tests; every
+  15 min; backfill 60 days / ≤ 500 per folder; body kept only for job mail.
 - [ ] **14.4 Parser → status.** Deterministic ATS sender/subject templates → applied / interview /
   rejected / offer; Flash-Lite only on ambiguous mail; match by company + role + sending address;
   unmatched → *suggested* application.
@@ -1185,6 +1193,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **Phase 14 planned** · Read Sales-App's IMAP integration (Node/imapflow — a model, not
+  a port): keep its env AES-256-GCM key, `\Sent` special-use lookup, Message-ID dedup and
+  per-connection error listener; fix its date-based sync (→ UID + UIDVALIDITY), connection per
+  message (→ one per sync), endless retries (→ backoff + stop on a rejected password) and missing
+  tests (→ GreenMail). User decisions: env key; bodies only for job mail; 15-minute polling; email
+  only for interview/offer; 14.5 dedup moves ahead of 14.4. Docs only.
 - 2026-09-22 · **13.6c matches page** · `/matches` (nav "Job matches"), Pro. The switch comes first
   because it is the consent: its caption says what's sent nightly and to whom. Today's list = undecided
   matches scoring ≥ 60, best first — title (links to the posting), company · location · workplace,
