@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ResumeUpload, type EditTarget } from "@kiwiply/ui";
 import ResumeList, { type Resume } from "@/components/ResumeList";
+import AtsScoreDialog from "@/components/AtsScoreDialog";
 import type { StructuredResume } from "@/lib/parser-core";
 import { useResumeUploadServices } from "@/lib/use-resume-upload-services";
 import { useAiParseConsent, AI_PARSE_LABEL } from "@/lib/ai-parse-consent";
@@ -72,15 +73,19 @@ export default function ResumesWorkspace({
   baseProfile,
   resumes,
   usage,
+  isPro,
 }: {
   baseProfile: BaseProfile;
   resumes: Resume[];
   usage: Record<number, number>;
+  isPro: boolean;
 }) {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editSeq, setEditSeq] = useState(0);
   const services = useResumeUploadServices();
   const [aiConsent, setAiConsent] = useAiParseConsent();
+  // 13.5 — the resume whose ATS score is open, if any.
+  const [scoring, setScoring] = useState<Resume | null>(null);
 
   const onEdit = (r: Resume) => {
     setEditTarget({ id: r.id, label: r.label, structured: coerceStruct(r.parsedJson) });
@@ -98,7 +103,10 @@ export default function ResumesWorkspace({
         aiParse={{ checked: aiConsent, onChange: setAiConsent, label: AI_PARSE_LABEL }}
         {...services}
       />
-      <ResumeList resumes={resumes} usage={usage} onEdit={onEdit} />
+      <ResumeList resumes={resumes} usage={usage} onEdit={onEdit} onAtsScore={setScoring} />
+      {scoring && (
+        <AtsScoreDialog resumeId={scoring.id} resumeLabel={scoring.label} isPro={isPro} onClose={() => setScoring(null)} />
+      )}
     </div>
   );
 }
