@@ -100,6 +100,7 @@ class ResumeMatchResourceIT {
     private Resume resume(User user, String label, String json, boolean isDefault) {
         Resume r = new Resume()
             .label(label)
+            .r2ObjectKey("") // no stored file — scoring reads parsedJson only
             .parsedJson(json)
             .status(ResumeStatus.CONFIRMED)
             .archived(false)
