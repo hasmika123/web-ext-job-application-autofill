@@ -815,6 +815,11 @@ pull only on change:**
 - **13.4 Resume tailoring to JD.** Bullet rewrites with a diff, truthfulness guardrails (no
   invented employers/dates/degrees), saved as a **new** resume version — fits "resume creates
   push back".
+  - **As built (2026-09-22):** proposals are checked server-side (existing refs only, no new
+    numbers, no hiring company, skills reorder-only, suggestions never applied) and applied from the
+    stored proposal by ref — the client never sends text; a changed source resume refuses an old
+    proposal. Web board only, as a before/after dialog. The saved version is structured (no PDF of
+    its own until the 16.x resume builder), so "Copy kept changes" covers sending a file today.
 - **13.5 ATS resume score** *(Launch 1 — user decision 2026-09-21).* 0–100 score per stored
   resume: structure checks (sections, dates, contact), measurable-results density, keyword
   coverage against the captured JD when one is present. Deterministic checks first (free to

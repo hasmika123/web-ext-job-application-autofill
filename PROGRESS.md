@@ -62,7 +62,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > Gemini API announces a shutdown). **13.2 is DONE** (ext v0.63.0) — "Best match: Backend v3 · 84%"
 > in the drawer and a "Resume fit" section on the board. **13.3 is DONE** (ext v0.64.0) — the job-fit
 > report (match, missing keywords, red flags) in the drawer and per resume on the board.
-> **Next: 13.4** — resume tailoring to a job description. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> **13.4 is DONE** — "Tailor for this job" on the board: reviewed rewordings saved as a new resume,
+> with the truthfulness checks on the server. **Next: 13.5** — the ATS resume score. 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
 > The plan to a sellable Pro tier is
 > fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
 > Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
@@ -1029,7 +1030,7 @@ focused Claude Code session.
 - [x] **13.2 Resume recommendation per job.** Score stored resumes vs captured JD; "best match:
   X — NN %" in drawer + board.
 - [x] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
-- [ ] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
+- [x] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
   NEW resume version via the `TrackingProvider` seam.
 - [ ] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
   structure/dates/contact/measurable-results checks + one Flash-Lite keyword read vs the captured
@@ -1169,6 +1170,20 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-09-22 · **13.4 resume tailoring** · `ResumeTailorService` (task `tailor`, JSON-schema output):
+  rewrites of a resume's **existing** bullets (by ref, `e0b1`) and summary, plus a reorder of its
+  **own** skills, for one application's job. **Truthfulness is enforced by the server, not asked
+  for:** unknown refs dropped; a rewrite with a **number its original doesn't have** dropped (commas
+  normalized — "1,200" = "1200"); one naming the hiring company dropped; summary numbers must
+  appear somewhere on the resume; skills rebuilt from the resume's own list; missing job keywords
+  come back only as "add if true" suggestions, never applied. Checked proposals stored in
+  `resume_tailor`, pinned to the source resume by id + content hash and cached per (JD × resume).
+  **Saving** (`POST /api/profile/tailor/{id}/apply`) takes refs only — never text — rebuilds the
+  resume from the stored proposal, creates a **new** resume (the original untouched), optionally
+  links it to the application, and **refuses (409) if the source changed since**. Board: "Tailor for
+  this job" per scored resume opens a before/after dialog — untick, rename, save or copy. The new
+  resume has no PDF yet (the resume builder, 16.x, will). Privacy page updated. Tests:
+  `ResumeTailorServiceTest` (14), `ResumeTailorResourceIT` (3). Browser-checked the dialog flow.
 - 2026-09-22 · **13.3 job-fit panel** · Ext **v0.64.0**. `JobFitService`: one resume against one job
   (task `fit`, JSON-schema output) → score, a one-line summary, ≤ 12 requirements the resume shows,
   ≤ 10 it's **missing**, ≤ 5 **red flags**. Red flags may read exactly nine profile answers

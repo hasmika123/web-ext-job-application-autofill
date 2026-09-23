@@ -28,6 +28,8 @@ export { default as ChoiceGroup } from "./ChoiceGroup";
 export type { ChoiceGroupProps } from "./ChoiceGroup";
 
 export { default as Meter } from "./Meter";
+export { default as Dialog } from "./Dialog";
+export type { DialogProps } from "./Dialog";
 export type { MeterProps } from "./Meter";
 
 export { ToastProvider, useToast } from "@kiwiply/ui";

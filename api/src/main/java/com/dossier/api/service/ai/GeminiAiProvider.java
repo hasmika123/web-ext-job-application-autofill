@@ -131,19 +131,40 @@ public class GeminiAiProvider implements AiProvider {
         contents.add(textPart(userText));
         ObjectNode genCfg = body.putObject("generationConfig");
         genCfg.put("maxOutputTokens", maxOutputTokens);
-        if (task == AiTask.MATCH || task == AiTask.FIT) {
+        if (task == AiTask.MATCH || task == AiTask.FIT || task == AiTask.TAILOR) {
             // 13.2 / 13.3: scores and fit reports come back as schema-checked JSON, with room for a
             // list of entries (ten resumes, or keyword lists) rather than a short draft.
-            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, 1200));
+            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, task == AiTask.TAILOR ? 3000 : 1200));
             genCfg.put("responseMimeType", "application/json");
             try {
-                genCfg.set("responseSchema", om.readTree(task == AiTask.MATCH ? MATCH_SCHEMA_JSON : FIT_SCHEMA_JSON));
+                genCfg.set(
+                    "responseSchema",
+                    om.readTree(task == AiTask.MATCH ? MATCH_SCHEMA_JSON : task == AiTask.FIT ? FIT_SCHEMA_JSON : TAILOR_SCHEMA_JSON)
+                );
             } catch (Exception e) {
                 throw new AiProviderException("Bad response schema", e); // unreachable: static constants
             }
         }
         return body;
     }
+
+    /** Structured output for {@link AiTask#TAILOR}: rewrites keyed by the prompt's refs, never new entries. */
+    // spotless:off
+    private static final String TAILOR_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "summary": { "type": "STRING" },
+            "bullets": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {
+              "ref": { "type": "STRING" }, "text": { "type": "STRING" } }, "required": ["ref", "text"] } },
+            "skillsOrder": { "type": "ARRAY", "items": { "type": "STRING" } },
+            "suggestions": { "type": "ARRAY", "items": { "type": "STRING" } }
+          },
+          "required": ["bullets"]
+        }
+        """;
+    // spotless:on
 
     /** Structured output for {@link AiTask#FIT}: one resume against one job. */
     // spotless:off

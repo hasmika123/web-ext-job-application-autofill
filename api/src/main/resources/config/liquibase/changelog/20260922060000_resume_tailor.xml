@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 13.4 - resume tailoring: the checked proposals.
+
+        One row per proposal: rewrites of a resume's EXISTING bullets and summary for one job, plus a
+        reordering of its existing skills - already through the server's truthfulness checks. The
+        user reviews it and saves the parts they keep as a NEW resume; that save is rebuilt here, on
+        the server, from this row - never from text the browser sends - so nothing that skipped the
+        checks can land in a resume.
+
+        `resume_id` + `resume_hash` pin the proposal to the exact resume content it was made from: if
+        the resume changes afterwards, applying is refused rather than grafting rewrites onto bullets
+        that have moved. `cache_key` also makes asking again for the same job free.
+
+        `result_json` holds the rewritten text (the user's own content, reworded) and the refs it
+        replaces - never the job description. No FK on resume_id: deleting a resume must not be
+        blocked by an old proposal; a proposal for a resume that is gone simply can't be applied.
+        Deleted with the account. Additive; no data migration.
+    -->
+    <changeSet id="20260922060000-1" author="dossier">
+        <createTable tableName="resume_tailor">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="resume_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="resume_hash" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cache_key" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="result_json" type="${clobType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model" type="varchar(80)"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="resume_tailor" indexName="ix_resume_tailor_user_key">
+            <column name="user_id"/>
+            <column name="cache_key"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="resume_tailor"
+            baseColumnNames="user_id"
+            constraintName="fk_resume_tailor_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>
