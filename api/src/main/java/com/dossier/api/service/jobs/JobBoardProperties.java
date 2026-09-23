@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   <li><b>{@code enabled}</b> — run the nightly read at all. Off by default so dev and CI never
  *       call the job boards; prod turns it on.</li>
  *   <li><b>{@code fetch-cron}</b> — when (UTC). 02:00, so matching can run after it.</li>
+ *   <li><b>{@code match-cron}</b> — when daily matching runs (UTC, 13.6b). 04:00, after the read.</li>
  *   <li><b>{@code fresh-hours}</b> — keep postings first published within this many hours (48).</li>
  *   <li><b>{@code keep-days}</b> — delete stored postings older than this (7).</li>
  *   <li><b>{@code request-delay-ms}</b> — pause between requests: one at a time, politely.</li>
@@ -21,6 +22,7 @@ public class JobBoardProperties {
 
     private boolean enabled = false;
     private String fetchCron = "0 0 2 * * *";
+    private String matchCron = "0 0 4 * * *";
     private int freshHours = 48;
     private int keepDays = 7;
     private long requestDelayMs = 400;
@@ -40,6 +42,14 @@ public class JobBoardProperties {
 
     public void setFetchCron(String fetchCron) {
         this.fetchCron = fetchCron;
+    }
+
+    public String getMatchCron() {
+        return matchCron;
+    }
+
+    public void setMatchCron(String matchCron) {
+        this.matchCron = matchCron;
     }
 
     public int getFreshHours() {

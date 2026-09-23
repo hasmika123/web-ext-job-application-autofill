@@ -9,7 +9,7 @@ export async function passthrough(res: Response): Promise<Response> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const d = data as { detail?: string; title?: string; message?: string; running?: boolean };
-    const error = res.status === 409 && d.running ? "A read is already running." : (d.detail ?? d.title ?? d.message ?? "The action failed.");
+    const error = res.status === 409 && d.running ? "That is already running." : (d.detail ?? d.title ?? d.message ?? "The action failed.");
     return Response.json({ error }, { status: res.status });
   }
   return Response.json(data, { status: res.status });

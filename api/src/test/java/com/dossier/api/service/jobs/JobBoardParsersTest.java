@@ -98,7 +98,7 @@ class JobBoardParsersTest {
         assertThat(p.title()).isEqualTo("Security Engineer, Cloud");
         assertThat(p.location()).isEqualTo("New York, NY (HQ); Remote (US); Miami, FL");
         assertThat(p.workplaceType()).isEqualTo("HYBRID");
-        assertThat(p.remote()).isTrue();
+        assertThat(p.remote()).isTrue(); // from "Remote (US)" among its locations, not from isRemote
         assertThat(p.employmentType()).isEqualTo("FullTime");
         assertThat(p.publishedAt()).isEqualTo(Instant.parse("2026-09-21T17:12:35.753Z"));
         assertThat(p.description()).isEqualTo("About us\n\nWe secure things.");

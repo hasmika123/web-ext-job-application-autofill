@@ -35,10 +35,24 @@ export interface RunSummary {
   postingsDeleted: number;
 }
 
+/** What the last daily-matching run did (13.6b). */
+export interface MatchRunSummary {
+  startedAt: string;
+  durationMs: number;
+  users: number;
+  matched: number;
+  noCandidates: number;
+  skipped: number;
+  errors: number;
+  shown: number;
+}
+
 export interface JobSourcesView {
   nightlyEnabled: boolean;
   running: boolean;
   lastRun: RunSummary | null;
+  matching: boolean;
+  lastMatchRun: MatchRunSummary | null;
   freshPostings: number;
   sources: JobSource[];
 }
@@ -49,7 +63,8 @@ const TIME = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit
 
 /**
  * The job-source table and its actions (Phase 13.6a): read all boards now (then refresh every few
- * seconds until the read finishes), add a board, switch one on or off. Every action goes through the
+ * seconds until the read finishes), add a board, switch one on or off. 13.6b adds "Match now":
+ * daily matching for everyone who has it on. Every action goes through the
  * BFF to Spring, which enforces ADMIN and audits adds and switches.
  */
 export default function JobSourcesPanel({ initial }: { initial: JobSourcesView }) {
@@ -57,17 +72,18 @@ export default function JobSourcesPanel({ initial }: { initial: JobSourcesView }
   const toast = useToast();
   const data = initial;
   const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState<number | "run" | "add" | null>(null);
+  const [busy, setBusy] = useState<number | "run" | "match" | "add" | null>(null);
   const [ats, setAts] = useState<JobSource["ats"]>("greenhouse");
   const [token, setToken] = useState("");
   const [company, setCompany] = useState("");
 
-  // While a read is going, refresh the page's data every 5 s so the counts move.
+  // While a read or a match is going, refresh the page's data every 5 s so the counts move.
+  const working = data.running || data.matching;
   useEffect(() => {
-    if (!data.running) return;
+    if (!working) return;
     const t = setInterval(() => router.refresh(), 5000);
     return () => clearInterval(t);
-  }, [data.running, router]);
+  }, [working, router]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,6 +112,12 @@ export default function JobSourcesPanel({ initial }: { initial: JobSourcesView }
   async function runNow() {
     setBusy("run");
     await call("/api/admin/job-sources/run", { method: "POST" }, "Reading every board — this takes a few minutes.");
+    setBusy(null);
+  }
+
+  async function matchNow() {
+    setBusy("match");
+    await call("/api/admin/job-sources/match", { method: "POST" }, "Matching everyone who has daily matches on.");
     setBusy(null);
   }
 
@@ -133,7 +155,7 @@ export default function JobSourcesPanel({ initial }: { initial: JobSourcesView }
         <Stat label="Failing" value={String(failing)} />
         <Stat label="Postings, last 48 h" value={data.freshPostings.toLocaleString()} />
         <div className="flex flex-col justify-between gap-2 rounded-[var(--radius)] border border-line bg-paper p-5">
-          <div className="text-[11px] uppercase tracking-wide text-ink-soft">Read now</div>
+          <div className="text-[11px] uppercase tracking-wide text-ink-soft">Run now</div>
           <button
             type="button"
             onClick={() => void runNow()}
@@ -141,6 +163,14 @@ export default function JobSourcesPanel({ initial }: { initial: JobSourcesView }
             className={cn(buttonVariants("primary", "sm"), "disabled:opacity-60")}
           >
             {data.running ? "Reading…" : "Read all boards"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void matchNow()}
+            disabled={data.matching || busy === "match"}
+            className={cn(buttonVariants("ghost", "sm"), "disabled:opacity-60")}
+          >
+            {data.matching ? "Matching…" : "Match now"}
           </button>
         </div>
       </div>
@@ -152,6 +182,15 @@ export default function JobSourcesPanel({ initial }: { initial: JobSourcesView }
           {run.boardsSwitchedOff > 0 && `, ${run.boardsSwitchedOff} switched off`} · {run.postingsAdded} postings added,{" "}
           {run.duplicatesSkipped} duplicates skipped, {run.postingsDeleted} expired · {run.discovered} new from users
           {run.seedsAdded > 0 && `, ${run.seedsAdded} from the seed list`}.
+        </p>
+      )}
+
+      {data.lastMatchRun && (
+        <p className="-mt-4 text-[13px] text-ink-soft">
+          Last matching <LocalDate iso={data.lastMatchRun.startedAt} options={TIME} /> ·{" "}
+          {Math.round(data.lastMatchRun.durationMs / 1000)} s · {data.lastMatchRun.users} users with matches on:{" "}
+          {data.lastMatchRun.matched} matched ({data.lastMatchRun.shown} jobs shown), {data.lastMatchRun.noCandidates} had nothing
+          new, {data.lastMatchRun.skipped} skipped, {data.lastMatchRun.errors} failed.
         </p>
       )}
 

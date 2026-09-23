@@ -165,6 +165,11 @@ export default function PrivacyPage() {
           <strong>Job matches (Pro).</strong> To find fresh jobs we read public job boards on Greenhouse,
           Lever and Ashby. When you track an application on one of those boards, that company&apos;s public
           board may be added to the list we read — only the company and its board, never who applied.
+          Matching is off until you switch it on. While it&apos;s on, each night a summary of your default
+          resume, your location, work preference, relocation and sponsorship answers, and up to 50 new
+          postings are sent to Google Gemini to score how well each fits you. We keep each score and its
+          one-line reason (not your resume text) for as long as the posting is listed with us, at most 7
+          days, and delete them with your account. Switch matching off at any time.
         </p>
       </Section>
 

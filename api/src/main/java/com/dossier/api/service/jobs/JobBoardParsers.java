@@ -25,7 +25,7 @@ import java.util.Set;
  *   <li><b>Ashby</b> {@code GET api.ashbyhq.com/posting-api/job-board/{token}} — {@code jobs[]} with
  *       {@code id, title, location, secondaryLocations[{location}], isRemote, workplaceType
  *       (OnSite|Remote|Hybrid), employmentType, department, publishedAt, isListed, jobUrl, applyUrl,
- *       descriptionPlain}.</li>
+ *       descriptionPlain}. {@code isRemote} is also set on hybrid jobs, so {@code workplaceType} wins.</li>
  * </ul>
  *
  * A posting without a usable publish time is skipped: freshness is the one gate we can't guess.
@@ -140,7 +140,9 @@ final class JobBoardParsers {
             });
             String location = String.join("; ", places);
             String workplace = workplace(j.path("workplaceType").asText(""));
-            boolean remote = j.path("isRemote").asBoolean(false) || "REMOTE".equals(workplace) || mentionsRemote(location);
+            // Ashby sets isRemote on hybrid jobs too ("San Francisco", Hybrid, isRemote: true — seen on
+            // OpenAI, Sentry, Notion), so a stated workplace type wins; isRemote only counts without one.
+            boolean remote = "REMOTE".equals(workplace) || (workplace == null && j.path("isRemote").asBoolean(false)) || mentionsRemote(location);
             String description = j.path("descriptionPlain").asText("");
             if (description.isBlank()) description = HtmlText.toText(j.path("descriptionHtml").asText(""), MAX_DESCRIPTION);
             out.add(

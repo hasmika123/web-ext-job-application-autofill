@@ -22,6 +22,9 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
 
     long countByPublishedAtAfter(Instant since);
 
+    /** Postings first published after {@code since} — the pool a night's matching draws from. */
+    List<JobPosting> findByPublishedAtAfter(Instant since);
+
     /** Stored postings per board: rows of {@code [sourceId, count]}. */
     @Query("select p.source.id, count(p) from JobPosting p group by p.source.id")
     List<Object[]> countBySource();

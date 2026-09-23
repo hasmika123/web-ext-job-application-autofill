@@ -36,6 +36,10 @@ const TASK_LABELS: Record<string, string> = {
   map: "Field mapping",
   enrich: "Job enrichment",
   parse: "Resume parsing",
+  match: "Resume match",
+  fit: "Job fit",
+  tailor: "Resume tailoring",
+  jobs: "Daily job matches",
 };
 
 /** Dollars from millionths of a dollar. Small amounts keep 4 decimals so a $0.0024 call isn't "$0.00". */
