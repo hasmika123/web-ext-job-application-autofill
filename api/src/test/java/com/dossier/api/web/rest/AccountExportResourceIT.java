@@ -36,6 +36,9 @@ class AccountExportResourceIT {
             .andExpect(jsonPath("$.account.login").value("user"))
             .andExpect(jsonPath("$.resumes").isArray())
             .andExpect(jsonPath("$.applications").isArray())
-            .andExpect(jsonPath("$.profileSuggestions").isArray());
+            .andExpect(jsonPath("$.profileSuggestions").isArray())
+            // 14.7 — the inbox section is always there (empty without a connection), and notifications.
+            .andExpect(jsonPath("$.inbox.messages").isArray())
+            .andExpect(jsonPath("$.notifications").isArray());
     }
 }

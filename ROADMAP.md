@@ -915,6 +915,9 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   - **14.6 as built (2026-09-23):** in-app notices for every change (sidebar bell), email for
     interview/offer only (off switch on the Inbox page); nothing for mail older than 7 days, email only
     within 48 h — so connecting an inbox never floods anyone.
+  - **14.7 as built (2026-09-23):** 12-month expiry of stored mail (by sent date); the inbox and
+    notifications in the data export (never the password); the read-only promise in a new Terms
+    section. **Phase 14 is complete.**
 - **Legal shape for PL.1** (not legal advice): user-directed connection of their own account
   = consent; recruiter PII under legitimate interest with deletion; ToS warranty of account
   ownership; automated-processing disclosure; the dedicated-account rule is the real safeguard

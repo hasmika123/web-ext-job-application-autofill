@@ -234,6 +234,8 @@ dossier:
     # How often connected inboxes are read (14.3), and how far back a first read goes.
     poll-cron: ${DOSSIER_INBOX_POLL_CRON:0 */15 * * * *}
     backfill-days: ${DOSSIER_INBOX_BACKFILL_DAYS:60}
+    # Stored mail is deleted this long after it was sent (14.7).
+    retention-days: ${DOSSIER_INBOX_RETENTION_DAYS:365}
   stripe:
     # Billing (Phase 12). A BLANK secret key disables billing entirely: /api/billing/me still
     # answers (Free, billingEnabled=false) and checkout/portal return 503 BILLING_DISABLED, so

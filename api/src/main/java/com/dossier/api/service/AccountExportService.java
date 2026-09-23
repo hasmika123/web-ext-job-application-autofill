@@ -2,6 +2,7 @@ package com.dossier.api.service;
 
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.AiAnswerRepository;
+import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.mapper.AiAnswerMapper;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -28,6 +29,8 @@ public class AccountExportService {
     private final AiAnswerRepository aiAnswerRepository;
     private final AiAnswerMapper aiAnswerMapper;
     private final ProfileSuggestionService profileSuggestionService;
+    private final InboxService inboxService;
+    private final NotificationService notificationService;
 
     public AccountExportService(
         UserService userService,
@@ -36,7 +39,9 @@ public class AccountExportService {
         FieldCacheSyncService fieldCacheSyncService,
         AiAnswerRepository aiAnswerRepository,
         AiAnswerMapper aiAnswerMapper,
-        ProfileSuggestionService profileSuggestionService
+        ProfileSuggestionService profileSuggestionService,
+        InboxService inboxService,
+        NotificationService notificationService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -45,6 +50,8 @@ public class AccountExportService {
         this.aiAnswerRepository = aiAnswerRepository;
         this.aiAnswerMapper = aiAnswerMapper;
         this.profileSuggestionService = profileSuggestionService;
+        this.inboxService = inboxService;
+        this.notificationService = notificationService;
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -68,6 +75,9 @@ public class AccountExportService {
         out.put("applications", applicationSyncService.listApplications());
         out.put("fieldCache", fieldCacheSyncService.list());
         out.put("profileSuggestions", profileSuggestionService.exportCurrentUser());
+        // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
+        out.put("inbox", inboxService.exportCurrentUser());
+        out.put("notifications", notificationService.exportCurrentUser());
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());
         return out;
     }

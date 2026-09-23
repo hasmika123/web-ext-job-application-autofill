@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -161,6 +162,56 @@ public class InboxService {
         InboxConnection saved = connections.save(c);
         events.publishEvent(new Connected(user.getId()));
         return new ConnectResult(view(saved), null);
+    }
+
+    /**
+     * Everything Kiwiply holds from the user's inbox, for their data export (14.7): the connection
+     * without its password (not even encrypted), and every message read, as stored.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> exportCurrentUser() {
+        User user = currentUser();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put(
+            "connection",
+            connections
+                .findById(user.getId())
+                .map(c -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("address", c.getAddress());
+                    m.put("status", c.getStatus());
+                    m.put("connectedAt", c.getConnectedAt());
+                    m.put("lastCheckedAt", c.getLastCheckedAt());
+                    m.put("emailAboutInterviewsAndOffers", c.isNotifyEmail());
+                    return m;
+                })
+                .orElse(null)
+        );
+        out.put(
+            "messages",
+            messages
+                .findByUserIdOrderBySentAtDesc(user.getId())
+                .stream()
+                .map(m -> {
+                    Map<String, Object> r = new LinkedHashMap<>();
+                    r.put("folder", m.getFolder());
+                    r.put("direction", m.getDirection());
+                    r.put("sentAt", m.getSentAt());
+                    r.put("from", m.getFromAddress());
+                    r.put("fromName", m.getFromName());
+                    r.put("to", m.getToAddresses());
+                    r.put("subject", m.getSubject());
+                    r.put("messageId", m.getMessageId());
+                    r.put("bodyText", m.getBodyText());
+                    r.put("readAs", m.getCategory());
+                    r.put("readBy", m.getClassifiedBy());
+                    r.put("applicationId", m.getApplicationId());
+                    r.put("statusChange", m.getStatusChange());
+                    return r;
+                })
+                .toList()
+        );
+        return out;
     }
 
     /** The user's switch for emails about interviews and offers (14.6). */

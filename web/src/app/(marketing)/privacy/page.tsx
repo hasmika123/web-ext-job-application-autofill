@@ -181,7 +181,8 @@ export default function PrivacyPage() {
           the rules can&apos;t settle is sent to Google Gemini (sender, subject and the start of its text). When an
           email moves an application to an interview or an offer, we email your Kiwiply account&apos;s address to
           say so (you can turn that off); every update also shows under Notifications. We never send, move or
-          delete mail in the connected inbox. Disconnecting deletes the app password and everything we read; deleting the app password
+          delete mail in the connected inbox. Mail we&apos;ve read is kept for 12 months after it was sent, then
+          deleted; your data export includes it. Disconnecting deletes the app password and everything we read; deleting the app password
           in your Google account cuts us off as well. We ask you to connect a Gmail made just for job hunting, so
           your personal mail stays out of it.
         </p>
