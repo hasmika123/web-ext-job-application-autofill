@@ -50,7 +50,7 @@ class AdminAiUsageResourceIT {
     @Test
     @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
     void adminSeesCostByUserAndByTask() throws Exception {
-        call("heavy", "draft", 2_000_000L); // $2.00 — 40 % of the $5 Pro budget
+        call("heavy", "draft", 2_000_000L); // $2.00 of the $3 monthly Pro budget (15.5)
         call("heavy", "map", 500_000L);
         call("light", "pick", 1_000L);
         call(null, "parse", 10_000L); // a deleted account: in the totals, not a user
@@ -58,7 +58,7 @@ class AdminAiUsageResourceIT {
             .perform(get("/api/admin/ai-usage"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.period").value(YearMonth.now(ZoneOffset.UTC).toString()))
-            .andExpect(jsonPath("$.proBudgetMicros").value(5_000_000))
+            .andExpect(jsonPath("$.proBudgetMicros").value(3_000_000))
             .andExpect(jsonPath("$.totalCostMicros").value(2_511_000))
             .andExpect(jsonPath("$.totalCalls").value(4))
             .andExpect(jsonPath("$.userCount").value(2))
@@ -66,7 +66,7 @@ class AdminAiUsageResourceIT {
             .andExpect(jsonPath("$.users[0].login").value("heavy"))
             .andExpect(jsonPath("$.users[0].calls").value(2))
             .andExpect(jsonPath("$.users[0].costMicros").value(2_500_000))
-            .andExpect(jsonPath("$.users[0].percentOfProBudget").value(50))
+            .andExpect(jsonPath("$.users[0].percentOfProBudget").value(83)) // $2.50 of $3
             .andExpect(jsonPath("$.tasks[0].task").value("draft"))
             .andExpect(jsonPath("$.tasks[0].costMicros").value(2_000_000));
     }

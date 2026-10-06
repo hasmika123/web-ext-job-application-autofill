@@ -66,7 +66,7 @@ export default async function PricingPage() {
             <Feature>Job-fit panel and ATS resume score</Feature>
             <Feature>Resume tailoring to the job description</Feature>
             <Feature>Inbox tracking — your board updates itself as replies arrive</Feature>
-            <Feature>Unlimited resumes and cross-device answer sync</Feature>
+            <Feature>Up to 25 resumes and cross-device answer sync</Feature>
           </ul>
 
           <div className="mt-6 flex flex-col gap-3">

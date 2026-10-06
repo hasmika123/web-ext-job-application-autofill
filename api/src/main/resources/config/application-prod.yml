@@ -192,7 +192,9 @@ dossier:
     # task switches to economy-model (blank = no switch); at 100 % it stops until the month resets
     # (UTC). An admin override is a budget too, and outranks the plan.
     policy:
-      pro-monthly-budget-usd: ${DOSSIER_AI_PRO_MONTHLY_BUDGET_USD:5.0}
+      # Per billing period (15.5): $3 on the monthly plan, $8 on the 3-month plan.
+      pro-monthly-budget-usd: ${DOSSIER_AI_PRO_MONTHLY_BUDGET_USD:3.0}
+      pro3mo-budget-usd: ${DOSSIER_AI_PRO_3MO_BUDGET_USD:8.0}
       soft-cap-percent: ${DOSSIER_AI_SOFT_CAP_PERCENT:80}
       economy-model: ${DOSSIER_AI_ECONOMY_MODEL:}
       # Per-feature kill switch, comma-separated: draft, pick, map, enrich, parse, match, fit, tailor, jobs, inbox.
@@ -260,7 +262,7 @@ dossier:
     # real price and nobody is charged from here. Bump these together with the Stripe prices at
     # the Launch-2 rise (24.99 / 54.99); if they drift, the only thing that lies is that card.
     amount-monthly: ${STRIPE_AMOUNT_MONTHLY:19.99}
-    amount3mo: ${STRIPE_AMOUNT_3MO:44.99}
+    amount3mo: ${STRIPE_AMOUNT_3MO:49.99}
     success-url: ${STRIPE_SUCCESS_URL:https://kiwiply.com/billing/success?session_id={CHECKOUT_SESSION_ID}}
     cancel-url: ${STRIPE_CANCEL_URL:https://kiwiply.com/pricing}
     portal-return-url: ${STRIPE_PORTAL_RETURN_URL:https://kiwiply.com/settings#billing}

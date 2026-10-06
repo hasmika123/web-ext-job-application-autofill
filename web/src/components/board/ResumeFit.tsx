@@ -106,7 +106,7 @@ export default function ResumeFit({
         void loadAts(resumeId);
       } else if (data.quotaExceeded) {
         const when = formatDate(data.resetsAt, { month: "long", day: "numeric" });
-        setReports((r) => ({ ...r, [resumeId]: { message: `You've used this month's Kiwiply AI — it resets${when ? ` on ${when}` : " next month"}.` } }));
+        setReports((r) => ({ ...r, [resumeId]: { message: `You've used your Kiwiply AI for now — it resets${when ? ` on ${when}` : " when your plan renews"}.` } }));
       } else {
         setReports((r) => ({ ...r, [resumeId]: { message: data.error ?? "Couldn't check the fit right now. Please try again." } }));
       }
@@ -134,7 +134,7 @@ export default function ResumeFit({
         setScores(data.scores);
       } else if (data.quotaExceeded) {
         const when = formatDate(data.resetsAt, { month: "long", day: "numeric" });
-        setNote(`You've used this month's Kiwiply AI — it resets${when ? ` on ${when}` : " next month"}.`);
+        setNote(`You've used your Kiwiply AI for now — it resets${when ? ` on ${when}` : " when your plan renews"}.`);
       } else if (data.noResumes) {
         setNote("Add a resume first — there's nothing to score yet.");
       } else if (data.noJobDescription) {

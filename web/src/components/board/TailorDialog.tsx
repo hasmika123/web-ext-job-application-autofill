@@ -74,7 +74,7 @@ export default function TailorDialog({
           setLoad({ state: "message", text: "This resume already reads well for this job — nothing worth rewording." });
         } else if (data.quotaExceeded) {
           const when = formatDate(data.resetsAt, { month: "long", day: "numeric" });
-          setLoad({ state: "message", text: `You've used this month's Kiwiply AI — it resets${when ? ` on ${when}` : " next month"}.` });
+          setLoad({ state: "message", text: `You've used your Kiwiply AI for now — it resets${when ? ` on ${when}` : " when your plan renews"}.` });
         } else if (data.noJobDescription) {
           setLoad({ state: "message", text: "This job's description is too short to tailor to. Paste the full description via Edit." });
         } else {

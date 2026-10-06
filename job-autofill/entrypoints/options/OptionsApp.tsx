@@ -324,7 +324,7 @@ export function OptionsApp() {
                     <Meter
                       value={aiUsage.metered === "budget" ? Math.round(aiUsage.used) : aiUsage.used}
                       max={aiUsage.limit || 100}
-                      label={aiUsage.metered === "budget" ? "Kiwiply AI used this month" : "AI resume parses used this month"}
+                      label={aiUsage.metered === "budget" ? "Kiwiply AI used" : "AI resume parses used this month"}
                       valueText={aiUsage.metered === "budget" ? `${Math.round(aiUsage.used)} percent` : `${aiUsage.used} of ${aiUsage.limit}`}
                     />
                     <p className="mt-1.5 text-[12px] text-muted">{describeAiUsage(aiUsage).detail}</p>

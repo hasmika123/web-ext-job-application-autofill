@@ -57,7 +57,7 @@ function statusNote(s: MatchSetting): string | null {
     case "NO_CANDIDATES":
       return "Nothing new fit you this time. We look again every morning.";
     case "BUDGET_EXHAUSTED":
-      return "You've used this month's Kiwiply AI, so matching is paused until the 1st.";
+      return "You've used your Kiwiply AI for now, so matching is paused until your plan renews.";
     case "DISABLED":
       return "Matching is paused right now. We'll pick it up again as soon as it's back.";
     case "NOT_PRO":

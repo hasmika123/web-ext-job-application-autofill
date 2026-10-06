@@ -238,18 +238,22 @@ class AiResourceIT {
         assertThat(aiCallRepository.findByLoginOrderByCreatedAtDesc("user")).extracting(AiCall::getTask).containsExactly("parse");
     }
 
-    // ---- 13.1b: the monthly budget ---------------------------------------------------------
+    // ---- 13.1b / 15.5: the budget, per billing period ----------------------------------------
 
-    /** A Pro user who has spent the month's budget (from the ledger) is refused until it resets. */
+    /** A Pro user who has spent the period's budget (from the ledger) is refused until it renews. */
     @Test
     @WithMockUser(username = "user")
-    void aSpentBudgetStopsAiUntilTheMonthResets() throws Exception {
-        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+    void aSpentBudgetStopsAiUntilThePeriodRenews() throws Exception {
+        com.dossier.api.domain.Subscription sub = ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        // Whole seconds, so the value read back from the database prints the same.
+        java.time.Instant renews = sub.getCurrentPeriodEnd().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        sub.setCurrentPeriodEnd(renews);
+        subscriptionRepository.saveAndFlush(sub);
         AiCall spent = new AiCall();
         spent.setLogin("user");
         spent.setTask("draft");
         spent.setModel("gemini-2.5-flash-lite");
-        spent.setCostMicros(5_000_000L); // $5.00 — the whole default budget
+        spent.setCostMicros(3_000_000L); // $3.00 — the monthly plan's whole budget
         aiCallRepository.save(spent);
 
         mockMvc
@@ -258,7 +262,8 @@ class AiResourceIT {
             .andExpect(jsonPath("$.quotaExceeded").value(true))
             .andExpect(jsonPath("$.used").value(100))
             .andExpect(jsonPath("$.quota").value(100))
-            .andExpect(jsonPath("$.resetsAt").value(org.hamcrest.Matchers.endsWith("-01T00:00:00Z")));
+            // Resets when the subscription renews, not on the 1st.
+            .andExpect(jsonPath("$.resetsAt").value(renews.toString()));
         verify(aiProvider, never()).generate(any(), any(), anyString(), anyString());
     }
 
@@ -272,13 +277,13 @@ class AiResourceIT {
         spent.setLogin("user");
         spent.setTask("draft");
         spent.setModel("gemini-2.5-flash-lite");
-        spent.setCostMicros(1_600_000L); // $1.60 of $5
+        spent.setCostMicros(1_600_000L); // $1.60 of $3
         aiCallRepository.save(spent);
         mockMvc
             .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/ai/usage"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.metered").value("budget"))
-            .andExpect(jsonPath("$.used").value(32))
+            .andExpect(jsonPath("$.used").value(53))
             .andExpect(jsonPath("$.limit").value(100))
             .andExpect(jsonPath("$.resetsAt").exists());
     }
