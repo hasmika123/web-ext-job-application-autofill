@@ -76,7 +76,7 @@ export default function BillingCard({ plan }: { plan: Plan }) {
         <p className="text-[12.5px] text-muted">
           Pro is {PRICE_MONTHLY}/month, or {PRICE_3MO} every 3 months. Renews until you cancel; cancel any time from here
           and it takes effect at the end of the period. No refunds for partial periods. See{" "}
-          <Link href="/pricing" className="font-medium text-accent-deep hover:underline">
+          <Link href="/#pricing" className="font-medium text-accent-deep hover:underline">
             what&apos;s included
           </Link>{" "}
           or the{" "}

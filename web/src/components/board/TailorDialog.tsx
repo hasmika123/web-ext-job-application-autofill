@@ -179,7 +179,7 @@ export default function TailorDialog({
         <p className="py-6 text-sm text-ink-soft">
           {load.text}{" "}
           {load.upsell && (
-            <Link href="/pricing" className="font-semibold text-accent-deep hover:underline">
+            <Link href="/#pricing" className="font-semibold text-accent-deep hover:underline">
               See Pro →
             </Link>
           )}

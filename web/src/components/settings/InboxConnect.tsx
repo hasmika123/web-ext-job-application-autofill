@@ -79,7 +79,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
           Connect the Gmail you apply from and Kiwiply reads replies from employers — confirmations, interview invites,
           rejections, offers — and moves each application along for you. It only ever reads.
         </p>
-        <Link href="/pricing" className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
+        <Link href="/#pricing" className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
           Part of Pro →
         </Link>
       </div>

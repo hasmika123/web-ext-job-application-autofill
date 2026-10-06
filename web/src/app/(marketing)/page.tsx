@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { Tag } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
+import { PricingSection, ServicesSection } from "@/components/pricing/PricingSections";
+import { hasSession } from "@/lib/auth";
+import { getPlan } from "@/lib/billing";
 
 /**
- * Marketing landing (R2.1). Full rebuild on the kiwi system: charcoal hero + product-
- * peek, how-it-works, features, and a pricing teaser (Free live / Pro "coming soon" per
- * the locked decision). Header + footer come from the `(marketing)` layout. Presentation
- * only — the CTAs route to the existing /signup + /login.
+ * Marketing landing (R2.1). Charcoal hero + product-peek, how-it-works, features, then the full
+ * Pricing and Services sections (every plan and service, each with a details pop-up — there is no
+ * separate pricing page). Header + footer come from the `(marketing)` layout. The visitor's plan is
+ * read only to label Pro's button (already on Pro / payments not open yet / checkout).
  */
 
 const STEPS = [
@@ -34,10 +37,6 @@ const FEATURES = [
   { icon: "📊", title: "Self-populating tracker", body: "A board that logs applications automatically and nudges you to confirm what you actually submitted." },
 ];
 
-const FREE_FEATURES = ["Unlimited autofill", "Resume variants, parsed", "Self-populating tracker", "Bring-your-own AI key"];
-// Must match /pricing's Pro list — every line here is a promise to paying users.
-const PRO_FEATURES = ["Everything in Free", "Kiwiply AI drafts included", "Resume fit, job fit and tailoring", "Inbox that updates your board", "Daily job matches", "Answers synced across devices"];
-
 // ATS marquee logos — real brand logos (dark-surface variants), rasterized to compact
 // PNGs in /public/ats (from the *-dark-mode.svg sources at the repo root).
 const ATS = [
@@ -54,7 +53,13 @@ function Check() {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const signedIn = await hasSession();
+  // Only meaningful when signed in; a signed-out visitor gets the defaults (Free, no billing).
+  const plan = signedIn ? await getPlan() : null;
+  const alreadyPro = plan?.plan === "PRO";
+  const billingLive = plan?.billingEnabled ?? false;
+
   return (
     <>
       {/* Hero */}
@@ -194,62 +199,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing teaser — Free live / Pro coming soon (locked decision) */}
-      <section id="pricing" className="mx-auto max-w-6xl px-6 pb-[84px]">
-        <h2 className="text-center text-[27px] font-semibold text-ink sm:text-[34px]">
-          Start free. Pro is on the way.
-        </h2>
-        <p className="mx-auto mb-10 mt-2 max-w-[560px] text-center text-base text-muted">
-          Bring your own AI key on any plan for unlimited drafting at no cost.
-        </p>
-        <div className="mx-auto grid max-w-3xl gap-[18px] sm:grid-cols-2">
-          {/* Free */}
-          <div className="flex flex-col rounded-[var(--radius-lg)] border-2 border-accent bg-paper p-7 shadow-[var(--shadow)]">
-            <h3 className="text-xl font-semibold text-ink">Free</h3>
-            <div className="my-2.5 font-display text-[40px] font-bold text-ink">
-              $0<span className="text-[15px] font-medium text-muted">/forever</span>
-            </div>
-            <ul className="my-4 flex flex-col gap-2.5">
-              {FREE_FEATURES.map((f) => (
-                <li key={f} className="flex gap-2.5 text-[13.5px] text-ink-soft">
-                  <span className="font-extrabold text-accent-deep">✓</span> {f}
-                </li>
-              ))}
-            </ul>
-            <Link href="/signup" className={buttonVariants("accent") + " mt-auto"}>
-              Get started
-            </Link>
-          </div>
-
-          {/* Pro — coming soon */}
-          <div className="flex flex-col rounded-[var(--radius-lg)] border border-line bg-paper p-7 shadow-[var(--shadow)]">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xl font-semibold text-ink">Pro</h3>
-              <span className="rounded-full bg-brown-soft px-2.5 py-1 text-[11px] font-bold text-brown-deep">
-                Coming soon
-              </span>
-            </div>
-            <div className="my-2.5 font-display text-[40px] font-bold text-muted">—</div>
-            <ul className="my-4 flex flex-col gap-2.5">
-              {PRO_FEATURES.map((f) => (
-                <li key={f} className="flex gap-2.5 text-[13.5px] text-muted">
-                  <span className="font-extrabold text-brown">✓</span> {f}
-                </li>
-              ))}
-            </ul>
-            <Link href="#newsletter" className={buttonVariants("ghost") + " mt-auto"}>
-              Notify me at launch
-            </Link>
-          </div>
-        </div>
-        <p className="mt-8 text-center text-sm text-muted">
-          Autopilot, team and consultancy plans, and expert resume and interview help —{" "}
-          <Link href="/pricing" className="font-medium text-accent-deep hover:underline">
-            see every plan and service
-          </Link>
-          .
-        </p>
-      </section>
+      {/* Pricing (Free · Pro · Autopilot · Consultancy) and Services — each card opens a pop-up with
+          the full breakdown. This replaced the separate /pricing page, which now redirects here. */}
+      <PricingSection signedIn={signedIn} alreadyPro={alreadyPro} billingLive={billingLive} />
+      <ServicesSection />
     </>
   );
 }

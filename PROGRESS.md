@@ -1386,6 +1386,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **Pricing + Services on the landing page; /pricing retired** · User request. Landing
+  `#pricing`: Free · Pro · Autopilot · **Consultancy** (was "Organization": $499 setup, then per person);
+  each card shows 4 short highlights and opens a pop-up with the full breakdown (grouped short lines,
+  limits, Pro's renewal terms, Consultancy's per-person table); "Compare plans side by side" opens a
+  Free/Pro/Autopilot table. New `#services`: Expert help (review, rewrite, mock interview, coaching) and
+  **For consultancies** add-ons (Marketer seats, Consultancy Ops) in the same cards. Cards are CSS-subgrid
+  items, so eyebrow/name/tagline/price/note/list/buttons share rows across a row of cards (checked: equal
+  offsets, 1366 px and 375 px). `/pricing` is a 308 to `/#pricing` (Stripe's cancel URL, the extension and
+  emails still link it); site links, header (+ Services) and sitemap point at the sections. Contact-form
+  topic keys unchanged (API allowlist); labels now "Consultancy plan" / "Marketer seats". Pro's prices moved
+  to `lib/prices.ts` so client code can import them. `OfferCard.tsx` removed.
 - 2026-10-06 · **Stripe live-mode launch checklist** · The user set Kiwiply's Stripe account up in **live**
   mode ahead of launch and will do the rest right before it. DEPLOY.md §11.4 records it: **A** a short sandbox
   block (the pre-launch Pro check and the test-clock run can't be done in live mode), **B** verify the live

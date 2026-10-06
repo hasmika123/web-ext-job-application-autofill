@@ -194,7 +194,7 @@ export default function TermsPage() {
           <strong>Pro</strong> is an optional paid subscription that adds Kiwiply&apos;s AI, resume
           matching and tailoring, inbox tracking, up to 25 saved resumes, and cross-device answer sync. What
           each plan includes is listed on our{" "}
-          <Link href="/pricing" className="font-medium text-accent-deep hover:underline">
+          <Link href="/#pricing" className="font-medium text-accent-deep hover:underline">
             pricing page
           </Link>
           .

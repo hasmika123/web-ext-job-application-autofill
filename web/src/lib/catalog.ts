@@ -1,13 +1,16 @@
+import { PRICE_3MO, PRICE_MONTHLY } from "@/lib/prices";
+
 /**
- * What Kiwiply sells, as shown on /pricing (Phase 15.6).
+ * What Kiwiply sells, as shown in the landing page's Pricing and Services sections.
  *
- * Free and Pro are sold by checkout and live in the pricing page itself, because their buttons
- * depend on the visitor's plan. Everything here is real and fully described — scope, limits and
- * price — but sold through "Contact us" until its checkout is switched on. The numbers come from
- * ROADMAP → Expansion build (Phases 18–23); Phase 18 moves them into the database catalog, and
- * this file goes away then.
+ * Free and Pro are sold by checkout. Everything else is real and fully described — scope, limits
+ * and price — but sold through "Contact us" until its checkout is switched on. Cards show a few
+ * short highlights; the full breakdown lives in each offer's pop-up, so the cards never crowd.
+ * Numbers come from ROADMAP → Expansion build (Phases 18–23); Phase 18 moves them into the
+ * database catalog, and this file goes away then.
  *
- * `topic` keys must match `SalesInquiryService.TOPICS` in the API.
+ * `topic` keys must match `SalesInquiryService.TOPICS` in the API — which is why the Consultancy
+ * plan still travels as `organization` and Marketer seats as `consultancy`. Only the labels changed.
  */
 
 export type InquiryTopic =
@@ -21,31 +24,15 @@ export type InquiryTopic =
   | "coaching"
   | "other";
 
-export type Offer = {
-  topic: InquiryTopic;
-  name: string;
-  /** Who it's for, in a few words. */
-  audience: string;
-  price: string;
-  /** Unit after the price, e.g. "/month". */
-  unit?: string;
-  /** One line under the price: alternative billing, or what the price covers. */
-  priceNote?: string;
-  summary: string;
-  features: string[];
-  /** The caps that keep a plan honest — shown so nobody is surprised. */
-  limits?: string[];
-};
-
 /** Labels for the contact form's topic picker, in display order. */
 export const TOPIC_LABELS: Record<InquiryTopic, string> = {
   autopilot: "Autopilot",
-  organization: "Organization plan",
-  consultancy: "Consultancy — Marketer seats",
-  "consultancy-ops": "Consultancy Ops add-on",
-  "resume-review": "Human resume review",
+  organization: "Consultancy plan",
+  consultancy: "Marketer seats (consultancy add-on)",
+  "consultancy-ops": "Consultancy Ops (add-on)",
+  "resume-review": "Expert resume review",
   "resume-rewrite": "Professional resume rewrite",
-  "mock-interview": "Human mock interview",
+  "mock-interview": "Live mock interview",
   coaching: "Career coaching",
   other: "Something else",
 };
@@ -61,131 +48,223 @@ export function contactHref(topic: InquiryTopic): string {
   return `/contact?topic=${topic}`;
 }
 
+/** One group of lines in an offer's pop-up. Lines stay short: a phrase, not a sentence. */
+export type DetailGroup = { heading: string; items: string[] };
+
+export type Offer = {
+  /** Stable id, for keys and dialogs. */
+  id: string;
+  /** Who it's for, in a few words — the card's top line. */
+  eyebrow: string;
+  name: string;
+  /** One line under the name. */
+  tagline: string;
+  price: string;
+  /** Unit after the price, e.g. "/month". */
+  unit?: string;
+  /** One line under the price: the other billing option, or what the price covers. */
+  priceNote?: string;
+  /** What the card shows — 3 or 4 short lines. Everything else is in `details`. */
+  highlights: string[];
+  /** The pop-up's breakdown. */
+  details: DetailGroup[];
+  /** The caps that keep a plan honest — shown so nobody is surprised. */
+  limits?: string[];
+  badge?: string;
+  /** Set for offers sold through "Contact us". */
+  topic?: InquiryTopic;
+};
+
+// ---- Plans ------------------------------------------------------------------------------------
+
+export const FREE: Offer = {
+  id: "free",
+  eyebrow: "To get started",
+  name: "Free",
+  tagline: "Everything you need to apply.",
+  price: "$0",
+  priceNote: "Free forever",
+  highlights: ["Autofill on top job sites", "Applications tracked for you", "AI resume parsing", "3 saved resumes"],
+  details: [
+    {
+      heading: "Apply",
+      items: ["Autofill on Workday, Greenhouse, Lever, Ashby and more", "Review every field before it fills", "Nothing is ever submitted for you"],
+    },
+    { heading: "Track", items: ["Every application logged as you apply", "One board for your whole search"] },
+    { heading: "Resumes", items: ["AI reads your resume into your profile", "Up to 3 saved resumes"] },
+    { heading: "AI", items: ["Use your own AI key for drafting"] },
+  ],
+};
+
+export const PRO: Offer = {
+  id: "pro",
+  eyebrow: "For your search",
+  name: "Pro",
+  tagline: "Kiwiply AI does the heavy lifting.",
+  price: PRICE_MONTHLY,
+  unit: "/month",
+  priceNote: `or ${PRICE_3MO} every 3 months`,
+  badge: "Most popular",
+  highlights: ["Everything in Free", "Kiwiply AI — no key needed", "Best resume for each job", "Inbox updates your board"],
+  details: [
+    {
+      heading: "Kiwiply AI",
+      items: ["Drafts answers to open questions", "Picks your best resume for each job", "Job-fit report: match, gaps, red flags", "ATS score with what to fix first", "Tailors a resume to the job"],
+    },
+    { heading: "Tracking", items: ["Connect a Gmail — replies update your board", "Daily job matches"] },
+    { heading: "Resumes and sync", items: ["Up to 25 saved resumes", "Answers synced across your devices"] },
+  ],
+  limits: ["A fair-use AI allowance each billing period"],
+};
+
 export const AUTOPILOT: Offer = {
+  id: "autopilot",
   topic: "autopilot",
+  eyebrow: "For an active search",
   name: "Autopilot",
-  audience: "For an active job search",
+  tagline: "Pick jobs. Kiwiply prepares them. You submit.",
   price: "$39.99",
   unit: "/month",
   priceNote: "or $99.99 every 3 months",
-  summary: "Pick the jobs. Kiwiply prepares every application. You review and press Submit.",
-  features: [
-    "Everything in Pro",
-    "Prepare applications in bulk — choose jobs from your matches, saved jobs or board",
-    "Kiwiply fills each one in a separate window while you do something else",
-    "Stops at the final review page — you check it, tick the declaration and submit it yourself",
-    "A ready-to-submit queue to go through prepared applications in one place",
-    "Anything it can't finish — a sign-in, a CAPTCHA, an unusual question — is flagged “Needs you”",
-    "AI interview practice: mock interviews with feedback on every answer",
-    "50 saved resumes and a larger AI allowance",
+  highlights: ["Everything in Pro", "Prepares applications in bulk", "You review and submit", "AI interview practice"],
+  details: [
+    {
+      heading: "Bulk prepare",
+      items: ["Choose jobs from matches, saved jobs or your board", "Each one filled in its own window", "Stops at the final review page", "One ready-to-submit queue"],
+    },
+    { heading: "When it needs you", items: ["Sign-ins, CAPTCHAs and unusual questions are flagged"] },
+    { heading: "Also included", items: ["AI interview practice with feedback", "Up to 50 saved resumes", "A larger AI allowance"] },
   ],
-  limits: ["Up to 300 prepared applications a month, 30 a day", "Nothing is ever submitted for you"],
+  limits: ["300 prepared applications a month, 30 a day", "You submit every application yourself"],
 };
-
-export const ORGANIZATION: Offer = {
-  topic: "organization",
-  name: "Organization",
-  audience: "Companies, schools and outplacement firms",
-  price: "$499",
-  unit: " one-time setup",
-  priceNote: "then per person, per month — only for what each person gets",
-  summary: "Give your people Kiwiply, and choose exactly what each person gets.",
-  features: [
-    "Mix and match per person — Pro for one, Autopilot for another, a service for a third",
-    "Admin console: invite people by CSV, assign and reassign, see invoices",
-    "Summary reports — who has started, applications prepared and submitted (with each person's consent)",
-    "One monthly invoice, by card or bank transfer",
-    "Add someone mid-month and pay only for the days left; removing someone takes effect at the end of the month",
-    "Everyone keeps their own account and data if they leave",
-    "Setup covers your workspace, admin accounts, bulk invite and an onboarding call",
-  ],
-};
-
-/** The per-person menu for organizations. */
-export const ORG_PER_PERSON: { item: string; price: string; note: string }[] = [
-  { item: "Pro", price: "$24.99", note: "per person / month" },
-  { item: "Autopilot", price: "$49.99", note: "per person / month" },
-  { item: "AI interview practice", price: "$9.99", note: "per person / month" },
-  { item: "Human services", price: "Standard prices", note: "per order — see Services below" },
-];
 
 export const CONSULTANCY: Offer = {
-  topic: "consultancy",
+  id: "consultancy",
+  topic: "organization",
+  eyebrow: "For staffing & IT consultancies",
   name: "Consultancy",
-  audience: "Staffing and IT consultancies",
-  price: "$29.99",
-  unit: "/marketer/month",
-  priceNote: "on top of the Organization plan",
-  summary: "Your marketers do the legwork for their consultants. Consultants just review and submit.",
-  features: [
-    "Everything in Organization",
-    "Marketer seats: each marketer looks after their own group of consultants",
-    "See each consultant's dashboard, board and applications — with their consent",
-    "Build and tailor resumes for consultants; each consultant approves a resume once before it's used",
-    "Job bank: assign a batch of jobs to a consultant, each with the right resume",
-    "Consultants run Autopilot on their assigned jobs, or open each one on Pro",
-    "Recruiter emails to the marketer's inbox update the right consultant's board",
-    "Consultants always review and submit every application themselves",
-  ],
-  limits: [
-    "Up to 10 consultants per marketer",
-    "Up to 100 open assigned jobs per consultant",
-    "Each consultant a marketer manages needs at least a Pro seat",
+  tagline: "Kiwiply for your whole bench.",
+  price: "$499",
+  unit: " setup",
+  priceNote: "then from $24.99 per person / month",
+  highlights: ["A plan per consultant", "Admin console and reports", "One monthly invoice", "Marketer and Ops add-ons"],
+  details: [
+    { heading: "Admin", items: ["Invite people by CSV", "Assign and reassign plans any time", "Progress reports, with each person's consent"] },
+    { heading: "Billing", items: ["One monthly invoice — card or bank transfer", "Add someone mid-month, pay only for the days left", "Removals take effect at month end"] },
+    { heading: "Setup includes", items: ["Your workspace and admin accounts", "Bulk invite", "An onboarding call"] },
+    { heading: "Their data", items: ["Everyone keeps their own account if they leave"] },
   ],
 };
 
-export const CONSULTANCY_OPS: Offer = {
-  topic: "consultancy-ops",
-  name: "Consultancy Ops",
-  audience: "Optional add-on for consultancies",
-  price: "Custom",
-  priceNote: "priced to your team — talk to us",
-  summary: "Timesheets and the money around every placement, in the same place as the job search.",
-  features: [
-    "Weekly timesheets, submitted by consultants and approved by your team",
-    "Placements with bill rate (what the client pays) and pay rate (what the consultant gets)",
-    "Client invoices built from approved hours",
-    "Payments received, payments made and expenses, all recorded",
-    "Profit by consultant, by client and by month",
-    "Export everything to CSV or PDF",
-  ],
-  limits: [
-    "Record-keeping only — we never move money or run payroll",
-    "We never store bank account numbers, SSNs or tax IDs",
-  ],
-};
+/** Consultancy: what each person costs, chosen per person. */
+export const PER_PERSON: { item: string; price: string; note: string }[] = [
+  { item: "Pro", price: "$24.99", note: "/ person / month" },
+  { item: "Autopilot", price: "$49.99", note: "/ person / month" },
+  { item: "AI interview practice", price: "$9.99", note: "/ person / month" },
+  { item: "Expert services", price: "Standard prices", note: "per order" },
+];
 
-export const SERVICES: Offer[] = [
+export const PLANS: Offer[] = [FREE, PRO, AUTOPILOT, CONSULTANCY];
+
+/** The "Compare plans" table. A string is shown as-is; true is a check, false a dash. */
+export const COMPARE: { feature: string; free: string | boolean; pro: string | boolean; autopilot: string | boolean }[] = [
+  { feature: "Price", free: "$0", pro: `${PRICE_MONTHLY}/mo`, autopilot: "$39.99/mo" },
+  { feature: "Autofill on job sites", free: true, pro: true, autopilot: true },
+  { feature: "You review every field", free: true, pro: true, autopilot: true },
+  { feature: "Application tracker", free: true, pro: true, autopilot: true },
+  { feature: "AI resume parsing", free: true, pro: true, autopilot: true },
+  { feature: "Saved resumes", free: "3", pro: "25", autopilot: "50" },
+  { feature: "AI drafting", free: "Your own key", pro: "Kiwiply AI", autopilot: "Kiwiply AI" },
+  { feature: "Best resume per job + job fit", free: false, pro: true, autopilot: true },
+  { feature: "ATS score + tailoring", free: false, pro: true, autopilot: true },
+  { feature: "Inbox updates your board", free: false, pro: true, autopilot: true },
+  { feature: "Daily job matches", free: false, pro: true, autopilot: true },
+  { feature: "Answers synced across devices", free: false, pro: true, autopilot: true },
+  { feature: "Bulk-prepared applications", free: false, pro: false, autopilot: "300 / month" },
+  { feature: "AI interview practice", free: false, pro: false, autopilot: true },
+];
+
+// ---- Services -----------------------------------------------------------------------------------
+
+export const EXPERT_SERVICES: Offer[] = [
   {
+    id: "resume-review",
     topic: "resume-review",
-    name: "Human resume review",
-    audience: "Written feedback",
+    eyebrow: "Written feedback",
+    name: "Resume review",
+    tagline: "An expert reads it against your target jobs.",
     price: "$79",
-    summary: "An experienced reviewer reads your resume against the jobs you want.",
-    features: ["Written feedback within 48 hours", "Checked against the roles you're targeting", "A clear list of what to fix first"],
+    priceNote: "one-time",
+    highlights: ["Feedback within 48 hours", "Checked against your target roles", "A fix-first list"],
+    details: [{ heading: "You get", items: ["Written feedback within 48 hours", "Checked against the roles you want", "A clear list of what to fix first"] }],
   },
   {
+    id: "resume-rewrite",
     topic: "resume-rewrite",
-    name: "Professional resume rewrite",
-    audience: "Done for you",
+    eyebrow: "Done for you",
+    name: "Resume rewrite",
+    tagline: "A pro writer rewrites it for your target role.",
     price: "$199",
-    summary: "A professional writer rewrites your resume for the role you're going after.",
-    features: ["A full rewrite, tailored to your target role", "One round of revisions included", "Saved straight into your Kiwiply resumes"],
+    priceNote: "one-time",
+    highlights: ["A full rewrite", "One round of revisions", "Saved to your resumes"],
+    details: [{ heading: "You get", items: ["A full rewrite, tailored to your target role", "One round of revisions included", "Saved straight into your Kiwiply resumes"] }],
   },
   {
+    id: "mock-interview",
     topic: "mock-interview",
-    name: "Human mock interview",
-    audience: "45 minutes, live",
+    eyebrow: "45 minutes, live",
+    name: "Mock interview",
+    tagline: "Practice with a real interviewer.",
     price: "$129",
-    summary: "A live practice interview with an experienced interviewer.",
-    features: ["Shaped around a real job description", "Honest feedback on every answer", "A written summary afterwards"],
+    priceNote: "per session",
+    highlights: ["Built on a real job post", "Feedback on every answer", "A written summary"],
+    details: [{ heading: "You get", items: ["Shaped around a real job description", "Honest feedback on every answer", "A written summary afterwards"] }],
   },
   {
+    id: "coaching",
     topic: "coaching",
+    eyebrow: "60 minutes, live",
     name: "Career coaching",
-    audience: "60 minutes, live",
+    tagline: "One-on-one time with a career coach.",
     price: "$119",
-    summary: "One-to-one time with a career coach.",
-    features: ["Search strategy and positioning", "Offers and negotiation", "Notes and next steps afterwards"],
+    priceNote: "per session",
+    highlights: ["Search strategy", "Offers and negotiation", "Notes and next steps"],
+    details: [{ heading: "You get", items: ["Search strategy and positioning", "Help with offers and negotiation", "Notes and next steps afterwards"] }],
+  },
+];
+
+export const CONSULTANCY_ADDONS: Offer[] = [
+  {
+    id: "marketer-seats",
+    topic: "consultancy",
+    eyebrow: "Add-on · subscription",
+    name: "Marketer seats",
+    tagline: "Marketers prepare. Consultants submit.",
+    price: "$29.99",
+    unit: "/marketer/month",
+    priceNote: "on top of the Consultancy plan",
+    highlights: ["Up to 10 consultants each", "Build and tailor their resumes", "A job bank per consultant"],
+    details: [
+      { heading: "For the marketer", items: ["See each consultant's board, with consent", "Build and tailor resumes for them", "Assign jobs, each with the right resume"] },
+      { heading: "For the consultant", items: ["Approves each new resume once", "Runs Autopilot on assigned jobs, or opens them on Pro", "Reviews and submits every application"] },
+      { heading: "Inbox", items: ["Recruiter mail updates the right consultant's board"] },
+    ],
+    limits: ["Up to 10 consultants per marketer", "Up to 100 open assigned jobs per consultant", "Each consultant needs at least a Pro seat"],
+  },
+  {
+    id: "consultancy-ops",
+    topic: "consultancy-ops",
+    eyebrow: "Add-on · custom",
+    name: "Consultancy Ops",
+    tagline: "Timesheets and placement money, in one place.",
+    price: "Custom",
+    priceNote: "priced to your team",
+    highlights: ["Timesheets and approvals", "Invoices from approved hours", "Profit by client and consultant"],
+    details: [
+      { heading: "Timesheets", items: ["Submitted weekly by consultants", "Approved by your team"] },
+      { heading: "Money", items: ["Bill rate and pay rate per placement", "Client invoices from approved hours", "Payments, expenses and profit by month"] },
+      { heading: "Export", items: ["Everything to CSV or PDF"] },
+    ],
+    limits: ["Record-keeping only — we never move money or run payroll", "We never store bank numbers, SSNs or tax IDs"],
   },
 ];
