@@ -63,8 +63,16 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler
     public ResponseEntity<Object> handleAnyException(Throwable ex, NativeWebRequest request) {
-        LOG.debug("Converting Exception to Problem Details:", ex);
         ProblemDetailWithCause pdCause = wrapAndCustomizeProblem(ex, request);
+        if (pdCause.getStatus() >= 500) {
+            // A failure on our side (storage, a bug, a lost connection): ERROR, so it reaches the
+            // production log and the error-email digest (15.1b). This used to be DEBUG for
+            // everything, which hid a dead S3 key behind a generic "couldn't upload" (2026-10-06).
+            // Expected 4xx (validation, not found, Pro required) stay at DEBUG.
+            LOG.error("Request failed with {} on {}: {}", pdCause.getStatus(), request.getDescription(false), ex.toString(), ex);
+        } else {
+            LOG.debug("Converting Exception to Problem Details:", ex);
+        }
         return handleExceptionInternal((Exception) ex, pdCause, buildHeaders(ex), HttpStatusCode.valueOf(pdCause.getStatus()), request);
     }
 

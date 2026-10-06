@@ -1386,6 +1386,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **Fix: resume upload failing in production** · Reported right after the promotion: "Couldn't
+  upload the file". Cause: the box's **S3 key is invalid** (AWS `InvalidClientTokenId`) — every resume file
+  upload fails at storage; the user replaces it in IAM + `.env` (DEPLOY.md §1 policy). Two code gaps found on
+  the way, fixed here: (1) `ExceptionTranslator` logged every unexpected 5xx at DEBUG, so production logs and
+  the error digest never saw this — 5xx now log at ERROR, 4xx stay DEBUG; (2) Spring's multipart default is
+  **1MB per file** while the web promises 10MB, so most PDFs would still fail with a working key —
+  `spring.servlet.multipart` is now 10MB / 11MB. Tests: the 500 and 403 cases in `ExceptionTranslatorIT`
+  (run locally on Docker, 10/10), `UploadLimitsTest` reads the main `application.yml` (the test classpath
+  shadows it). A separate Gemini 503 ("high demand") at 18:17 was Google's side and temporary.
 - 2026-10-06 · **15.3 store listing copy (Free/Pro)** · `job-autofill/STORE-LISTING.md` rewritten for
   both stores. Chrome description: what's free, what Pro adds in the extension (Kiwiply AI drafting, best
   resume per posting, gap check, 25 resumes, answer sync) and on the web, the two prices, "cancel any
