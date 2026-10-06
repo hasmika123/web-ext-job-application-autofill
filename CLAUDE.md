@@ -143,7 +143,7 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   hardening (backup/monitoring/restore drill) is Phase 15, right before Launch 1 — not earlier.
   Daily job matches source jobs from the ATS' public job-board APIs.
 
-- **Expansion (locked 2026-10-05, ROADMAP *Expansion build*, Phases 18–21).**
+- **Expansion (locked 2026-10-05, ROADMAP *Expansion build*, Phases 18–23).**
   - **Floors:** **nothing is unlimited**. Every subscription keeps **≥ 80 % gross margin in the
     worst case** (AI budget fully spent + Stripe); every service keeps ≥ 20 %. The admin
     catalog's margin guard enforces both.
@@ -156,6 +156,12 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
     freely** (Pro, Autopilot, AI Interview Practice, services), priced **above** individual prices.
   - **No packages yet:** prices, limits and future bundles live in the catalog and change from
     admin, not code.
+  - **Consultancy Marketer (Phase 22):** prepares everything for 4–5 consultants (resumes, job
+    banks with a resume per job, recruiter mail matched to each consultant's board) but **never
+    submits and never signs in as a consultant**. The consultant consents, approves
+    marketer-made resumes, runs the fill and submits.
+  - **Consultancy Ops add-on (Phase 23):** optional timesheets + finances. **Record money, never
+    move it**; no bank numbers, SSNs or tax IDs. The scope waits on the 23.0 brainstorm.
   - **No Coach tier.** The org model keeps a hook for it; don't build it unless asked.
 
 ## Definition of done (every task)
