@@ -1179,6 +1179,11 @@ focused Claude Code session.
   ATS sources (+ Workable, SmartRecruiters, Recruitee) with aggregator fallback; full quality
   gates (ATS-verified tenant, agency/spam filter); like / dismiss / applied **feedback loop** that
   re-ranks; **daily email** at the user's chosen time; explicit preference editing.
+  - **Pulled forward (user, 2026-10-05): first build after Launch 1, before Phase 18.** 10–20 jobs
+    a day; 👍/👎 re-ranking (not model fine-tuning); a preference form (titles, location/remote,
+    salary floor, seniority, must/never keywords, excluded companies); ATS APIs + one licensed
+    aggregator API, no scraping; marketers see each consultant's matches (22.3). Open
+    decisions (Free tier, consultancy fee, aggregator) are in ROADMAP 16.1.
 - [ ] **16.2 Analytics.** Response / interview rate by resume, ATS, role.
 - [ ] **16.3 Reminders + stale nudges.** "No reply in N days" → nudge; follow-up dates on cards.
 - [ ] **16.4 Weekly digest** email.
@@ -1344,6 +1349,11 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **Job search pulled forward (planning only)** · 16.1 (strong daily matches) becomes
+  the first build after Launch 1: 10–20 jobs a day, 👍/👎 re-ranking, a preference form, ATS APIs +
+  one licensed aggregator (no scraping), daily email, and consultancy marketers see each
+  consultant's matches. The 13.6 light version (Greenhouse/Lever/Ashby, in-app) is already live
+  code. Open decisions are recorded in ROADMAP 16.1.
 - 2026-10-05 · **Admin expansion brainstorm (planning only)** · ADMIN-PLAN gains **9.B**: an
   `app_setting` table (typed, bounded, audited, env = default) replaces the restarts needed for
   every AI, job-matching, inbox and rate-limit change. Also feature flags + banner + extension
