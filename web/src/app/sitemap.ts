@@ -18,6 +18,8 @@ import { SITE_URL } from "@/lib/site";
  */
 const PAGES: Array<{ path: string; lastModified: string; priority: number }> = [
   { path: "/", lastModified: "2026-07-01", priority: 1 },
+  { path: "/pricing", lastModified: "2026-10-05", priority: 0.8 },
+  { path: "/contact", lastModified: "2026-10-05", priority: 0.4 },
   { path: "/privacy", lastModified: "2026-09-18", priority: 0.3 },
   { path: "/terms", lastModified: "2026-09-17", priority: 0.3 },
 ];

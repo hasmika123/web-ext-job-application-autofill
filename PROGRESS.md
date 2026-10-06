@@ -1147,6 +1147,12 @@ focused Claude Code session.
     summing over the subscription's billing period instead of the calendar month.
   - Pro resume cap unlimited → **25** non-archived (402 `RESUME_LIMIT`).
   - Update `/pricing`, the ToS Billing section and the MRR math to match.
+- [x] **15.6 Full catalog on `/pricing` + "Contact us"** *(user decision 2026-10-05).*
+  - Free/Pro keep checkout. Autopilot, Organization (+ the per-person menu), Consultancy, the
+    Consultancy Ops add-on and the 4 human services are shown in full with Contact us.
+  - `/contact` → `POST /api/inquiries` → a `sales_inquiry` row + an email to support@ → admin
+    `/admin/inquiries` (status + note, audited).
+  - Content lives in `web/src/lib/catalog.ts` until Phase 18.
 - [ ] **15.4 Launch checklist.** Pricing live, Stripe live keys + webhook verified, billing support
   path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
   - **MUST PASS before live Stripe keys go in — every Pro promise, checked on production (user
@@ -1351,6 +1357,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **15.6 full catalog on /pricing + Contact us** · `/pricing` now lists every plan and
+  service, each with its scope, limits and price: Free + Pro (checkout, unchanged) + Autopilot,
+  then for organizations Organization ($499 setup + per-person menu), Consultancy (Marketer seats)
+  and Consultancy Ops (Custom), then the 4 human services. Everything but Free/Pro says **Contact
+  us** → `/contact?topic=…`. API: `sales_inquiry` (Liquibase `20261005010000`), public `POST
+  /api/inquiries` (permitAll, topic allowlist → "other", email check, best-effort email to
+  support@), admin `GET /api/admin/inquiries`(+`/counts`) + `PUT /{id}` (audited `INQUIRY_UPDATE`).
+  Web: `lib/catalog.ts`, `OfferCard`, `ContactForm`, a rate-limited BFF (5/h/IP), admin Inquiries
+  page + nav (new `MessageIcon` in `@kiwiply/ui`); header/footer Pricing → `/pricing`, + Contact;
+  sitemap gains /pricing + /contact. Tests: `SalesInquiryServiceTest` (11, green on JDK 17) +
+  `SalesInquiryResourceIT` / `AdminSalesInquiryResourceIT` (CI). No extension change.
 - 2026-10-05 · **Job search pulled forward (planning only)** · 16.1 (strong daily matches) becomes
   the first build after Launch 1: 10–20 jobs a day, 👍/👎 re-ranking, a preference form, ATS APIs +
   one licensed aggregator (no scraping), daily email, and consultancy marketers see each

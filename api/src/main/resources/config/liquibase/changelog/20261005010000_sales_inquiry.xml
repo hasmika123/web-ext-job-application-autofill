@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 15.6 — "Contact us" requests from /pricing and /contact for the plans and services
+        that are not sold by checkout yet (Autopilot, organizations, consultancies, services).
+        Worked in the admin console. Indexed by status (the queue) and created_date.
+    -->
+    <changeSet id="20261005010000-1" author="dossier">
+        <createTable tableName="sales_inquiry">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="topic" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="varchar(254)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="company" type="varchar(200)"/>
+            <column name="team_size" type="varchar(40)"/>
+            <column name="message" type="varchar(4000)"/>
+            <column name="user_login" type="varchar(50)"/>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="admin_notes" type="varchar(4000)"/>
+            <column name="created_date" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="sales_inquiry" indexName="idx_sales_inquiry_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="sales_inquiry" indexName="idx_sales_inquiry_created">
+            <column name="created_date"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>
