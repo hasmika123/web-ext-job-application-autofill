@@ -20,7 +20,7 @@ export const metadata: Metadata = {
  * name, email and card details to Stripe. The point worth being unambiguous about is what we
  * DON'T get back — we never see a full card number, only a customer reference and a status.
  */
-const UPDATED = "September 2026";
+const UPDATED = "October 2026";
 const CONTACT = "support@kiwiply.com";
 const ENTITY = "AutomoraLab LLC";
 
@@ -102,9 +102,13 @@ export default function PrivacyPage() {
 
       <Section title="How resume parsing works">
         <p>
-          When you add a resume, the file is read and parsed <strong>in your browser</strong>.
-          Its contents are only sent to our servers if and when you choose to save the resume
-          to your account.
+          When you add a resume, the file is opened and its text read <strong>in your browser</strong>.
+          To fill your profile accurately, that text is then sent to our AI provider (currently{" "}
+          <strong>Google Gemini</strong>; see <strong>AI features</strong> below), which turns it into
+          structured fields such as experience, education and skills. This happens once per resume, on
+          every plan, and it is <strong>on by default</strong>: untick &quot;Parse with AI for best
+          accuracy&quot; before you add a resume to keep it in your browser, with a simpler reading. The
+          resume and its fields are stored in your account only when you save it.
         </p>
       </Section>
 
@@ -116,21 +120,24 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="AI answer drafting (optional)">
+      <Section title="AI features">
         <p>
-          Kiwiply offers an <strong>optional</strong> AI feature that drafts answers to
-          open-ended application questions (for example, &quot;Why do you want this role?&quot;).
-          It is <strong>off by default</strong> and only runs after you explicitly turn it on.
+          Our AI provider is currently <strong>Google Gemini</strong>. Because we currently use
+          Gemini&apos;s free tier, <strong>Google may use what we send it to improve its services, and
+          human reviewers may see it</strong>. Below is exactly what each feature sends. Apart from
+          resume reading (above), every AI feature is off until you use it or switch it on, and every
+          other part of Kiwiply works without AI. You can also bring your own AI key in the extension,
+          in which case its requests go directly from your browser to that provider under your own
+          account, not through us.
         </p>
         <p>
-          When enabled, the question and a short summary of your profile/resume background are
-          sent to a third-party AI provider (currently <strong>Google Gemini</strong>) to
-          generate a draft you review before using. Because we currently use Gemini&apos;s
-          free tier, <strong>Google may use this input to improve its services, and human
-          reviewers may see it</strong>. If you don&apos;t want your information used this way,
-          simply leave AI drafting off — every other Kiwiply feature works without it. You can
-          also bring your own AI key in the extension, in which case requests go directly from
-          your browser to that provider under your own account, not through us.
+          <strong>Kiwiply AI in the extension (Pro).</strong> Off until you turn it on in the
+          extension&apos;s options. Once on, while you fill an application it can: draft an answer to an
+          open-ended question (it sends the question and a short summary of your profile and resume
+          background); choose one option for a multiple-choice screening question (the question, its
+          options and that summary); match unusual form-field labels to your profile fields (the labels
+          only); and complete the details of a job you save (that posting&apos;s text). You review every
+          answer before anything is submitted, and we never submit for you.
         </p>
         <p>
           <strong>Resume fit (Pro).</strong> When you ask which of your resumes fits a job — on the
