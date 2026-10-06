@@ -23,6 +23,9 @@ import java.util.Optional;
  * @param clientReferenceId our user id, set at checkout — how a customer binds to a user
  * @param amountCents    for an invoice: the amount paid ({@code invoice.paid}) or due (a failure)
  * @param currency       for an invoice: its ISO currency, lower-case as Stripe sends it
+ * @param app            the {@code app} metadata on the session or subscription — {@link #KIWIPLY} on
+ *                       everything we create; another value means another business on the same
+ *                       Stripe account, and the event is none of ours
  */
 public record StripeWebhookEvent(
     String id,
@@ -37,8 +40,17 @@ public record StripeWebhookEvent(
     Boolean cancelAtPeriodEnd,
     String clientReferenceId,
     Long amountCents,
-    String currency
+    String currency,
+    String app
 ) {
+    /** The {@code app} metadata value Kiwiply puts on every customer, checkout and subscription. */
+    public static final String KIWIPLY = "kiwiply";
+
+    /** True when the event is tagged as another app's — absent counts as not foreign. */
+    public boolean taggedForAnotherApp() {
+        return app != null && !app.isBlank() && !KIWIPLY.equalsIgnoreCase(app.trim());
+    }
+
     public Optional<String> customer() {
         return Optional.ofNullable(customerId);
     }

@@ -236,6 +236,15 @@ public class BillingWebhookService {
      * skipping it would orphan the subscription from its account.
      */
     private void bindCustomer(StripeWebhookEvent event) {
+        // One Stripe account can serve several businesses, and every one of their checkouts arrives
+        // here. Another app's checkout can carry a client_reference_id that happens to be one of our
+        // user ids — binding it would hand that user Pro for someone else's purchase. Two gates:
+        // the session must not be tagged for another app, and (below) its customer must be the one
+        // WE created for this user before sending them to checkout.
+        if (event.taggedForAnotherApp()) {
+            LOG.info("Ignoring checkout {}: it belongs to app '{}', not Kiwiply", event.id(), event.app());
+            return;
+        }
         Optional<Long> userId = event.userIdFromClientReference();
         if (userId.isEmpty() || event.customerId() == null) {
             LOG.warn("checkout.session.completed {} without a client_reference_id or customer — cannot bind", event.id());
@@ -246,13 +255,19 @@ public class BillingWebhookService {
             LOG.warn("checkout.session.completed {} references unknown user {}", event.id(), userId.get());
             return;
         }
-        Subscription sub = subscriptionRepository.findOneByUserId(user.getId()).orElseGet(() -> {
-            Subscription fresh = new Subscription();
-            fresh.setUser(user);
-            fresh.setCreatedAt(Instant.now());
-            return fresh;
-        });
-        sub.setStripeCustomerId(event.customerId());
+        // startCheckout always creates (or reuses) this user's Stripe customer and saves it BEFORE
+        // opening checkout, so a genuine Kiwiply checkout's customer is already on the row. Any
+        // other customer is a checkout we didn't start — from another app, or a forgery of the id.
+        Subscription sub = subscriptionRepository.findOneByUserId(user.getId()).orElse(null);
+        if (sub == null || sub.getStripeCustomerId() == null || !sub.getStripeCustomerId().equals(event.customerId())) {
+            LOG.warn(
+                "Ignoring checkout {}: customer {} isn't the one Kiwiply created for user {}",
+                event.id(),
+                event.customerId(),
+                user.getLogin()
+            );
+            return;
+        }
         if (event.subscriptionId() != null) sub.setStripeSubscriptionId(event.subscriptionId());
         touch(sub);
         subscriptionRepository.save(sub);
@@ -261,6 +276,10 @@ public class BillingWebhookService {
 
     /** {@code customer.subscription.*} — the event carries the whole state, so mirror it. */
     private void upsertFromSubscription(StripeWebhookEvent event) {
+        if (event.taggedForAnotherApp()) {
+            LOG.info("Ignoring {} {}: it belongs to app '{}', not Kiwiply", event.type(), event.id(), event.app());
+            return;
+        }
         Subscription sub = findSubscription(event).orElse(null);
         if (sub == null) {
             // No row this event belongs to: either the binding hasn't arrived (the

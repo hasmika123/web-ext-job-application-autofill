@@ -1178,6 +1178,9 @@ focused Claude Code session.
   - Content lives in `web/src/lib/catalog.ts` until Phase 18.
 - [ ] **15.4 Launch checklist.** Pricing live, Stripe live keys + webhook verified, billing support
   path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
+  - **The user's live-mode launch checklist is DEPLOY.md §11.4** (user decision 2026-10-06: the Kiwiply
+    Stripe account was set up directly in live mode; a short sandbox block still comes first for the Pro check
+    and the test-clock run). Tick it off right before launch; the items below are what it points at.
   - **MUST PASS before live Stripe keys go in — every Pro promise, checked on production (user
     decision 2026-10-05).** Payments stay off until the extension is approved on the Chrome Web
     Store, because three of the six Pro promises run through it. Pro comes only from a subscription
@@ -1383,6 +1386,22 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **Stripe live-mode launch checklist** · The user set Kiwiply's Stripe account up in **live**
+  mode ahead of launch and will do the rest right before it. DEPLOY.md §11.4 records it: **A** a short sandbox
+  block (the pre-launch Pro check and the test-clock run can't be done in live mode), **B** verify the live
+  setup, then the keys in order: secret key (or a restricted key with only Customers / Checkout Sessions /
+  Customer portal / Subscriptions write), the two live price IDs, the live webhook (only after the deploy), all in
+  the password manager before the box's `.env`. Nothing from Stripe is on the box, so billing stays off.
+- 2026-10-06 · **Kiwiply-only billing + its own Stripe account** · User decision: Kiwiply moves to
+  **its own Stripe account** under AutomoraLab LLC (the LLC's account serves other businesses);
+  setup in DEPLOY.md §11.2 (account, branding + `KIWIPLY` statement descriptor, product with
+  $19.99 / $49.99 prices, portal, webhook, keys, tidy-up). Code safety check (§11.3): customers,
+  Checkout Sessions and subscriptions are tagged `metadata.app=kiwiply`; a completed checkout binds
+  only when its customer is the one Kiwiply created for that user (saved before checkout), never when
+  tagged for another app; subscription events tagged for another app are ignored. Found while
+  checking the shared account: another app's checkout carrying one of our user ids as
+  `client_reference_id` would have given that user Pro. 3 new `BillingWebhookIT` cases; the existing
+  ones now seed the customer the way `startCheckout` does.
 - 2026-10-06 · **9.C1 Customers page + billing timeline** · `/admin/customers` lists everyone who has
   ever subscribed:
   - **Columns:** status group (Active / Payment failed / Cancelling / Lapsed), billing (Monthly /
