@@ -880,7 +880,7 @@ focused Claude Code session.
   flags. *(With 19.)*
 
 ### Phase 9.C — Customers, support & retention (planned 2026-10-05; full table in `ADMIN-PLAN.md` → 9.C)
-- [ ] **9.C1 Customers page + billing timeline** *(must ship before 15.4's live keys).*
+- [x] **9.C1 Customers page + billing timeline** *(must ship before 15.4's live keys; done 2026-10-06).*
   `/admin/customers` (plan, status, renewal, total paid, Stripe link; filters for failed,
   cancelling and new). A billing timeline + admin notes on each user page. Additive
   `stripe_event.customer_id` + `customer_note`.
@@ -1383,6 +1383,29 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **9.C1 Customers page + billing timeline** · `/admin/customers` lists everyone who has
+  ever subscribed:
+  - **Columns:** status group (Active / Payment failed / Cancelling / Lapsed), billing (Monthly /
+    Every 3 months), renews / ends date, total paid, an "Open ↗" link to the Stripe dashboard
+    (test or live, chosen by the key).
+  - **Tabs:** with counts, plus New this month.
+  - **Each user page** gains a **Billing** section: summary + a timeline of Stripe events
+    ("Payment received $19.99", "Subscription updated: active, set to cancel at period end",
+    failed applies flagged) merged with **admin notes** (append-only, audited
+    `CUSTOMER_NOTE_ADD`).
+  - **API:** Liquibase `20261006010000` (additive). `stripe_event` gains `customer_id`, `user_id`,
+    `amount_cents`, `currency`, `detail`, `occurred_at`, written by the webhook (who/what at
+    record; the user is resolved after apply, so a just-bound checkout counts), with
+    `StripeWebhookEvent` carrying the invoice amount and currency. New `customer_note` table
+    (FK user). `CustomerAdminService` + `/api/admin/customers` (list/filter, counts,
+    `/{login}` detail, `POST /{login}/notes`).
+  - **Account deletion:** removes notes and detaches the user's Stripe events (amounts kept, the
+    person dropped).
+  - **Web:** Customers page, `CustomerBilling` + `CustomerNoteForm` on the user page, notes
+    BFF, nav entry, new `CreditCardIcon` in `@kiwiply/ui`.
+  - **Tests:** `CustomerAdminServiceTest` (9, green on JDK 17); `AdminCustomerResourceIT`, a new
+    `BillingWebhookIT` case and an `AccountDeletionResourceIT` case run in CI.
+  - **Note:** total paid counts from this change on. Nothing is lost: live payments aren't on yet.
 - 2026-10-05 · **15.5 Re-price Pro** · Ext **v0.65.0**. **Price:** 3 months $44.99 → **$49.99**
   (`/pricing`, Settings › Billing, ToS, the MRR figure via `dossier.stripe.amount3mo`; the Stripe Price
   itself is the user's step). **AI budget per billing period:** `AiBudgetService` now measures Pro from

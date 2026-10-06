@@ -316,6 +316,16 @@ export const MessageIcon = makeIcon("MessageIcon", {
   node: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z" />,
 });
 
+/** A payment card — paying customers (9.C1). */
+export const CreditCardIcon = makeIcon("CreditCardIcon", {
+  node: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M7 15h3" />
+    </>
+  ),
+});
+
 /** Notifications (14.6). */
 export const BellIcon = makeIcon("BellIcon", {
   node: (

@@ -5,6 +5,8 @@ import { serverApiFetch } from "@/lib/api";
 import UserActions from "@/components/admin/UserActions";
 import AiQuotaControl from "@/components/admin/AiQuotaControl";
 import SessionsList, { type SessionFamily } from "@/components/admin/SessionsList";
+import CustomerBilling from "@/components/admin/CustomerBilling";
+import type { CustomerDetail } from "@/lib/customers";
 
 export const metadata: Metadata = {
   title: "User · Admin · Kiwiply",
@@ -71,6 +73,13 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
     sessions = ((await s.json().catch(() => [])) as SessionFamily[]) ?? [];
   }
 
+  // Billing (9.C1): where they stand as a customer + the billing timeline and notes.
+  let billing: CustomerDetail | null = null;
+  const b = await serverApiFetch(`/api/admin/customers/${encodeURIComponent(user.login)}`);
+  if (b.ok) {
+    billing = (await b.json().catch(() => null)) as CustomerDetail | null;
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <BackLink />
@@ -96,6 +105,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </dl>
 
       <div className="flex flex-col gap-5">
+        <CustomerBilling login={user.login} detail={billing} />
         <UserActions login={user.login} activated={user.activated} isAdmin={isAdmin} isSelf={isSelf} />
         <SessionsList login={user.login} families={sessions} />
         <AiQuotaControl login={user.login} defaultBudgetCents={defaultBudgetCents} overrideCents={overrideCents} />

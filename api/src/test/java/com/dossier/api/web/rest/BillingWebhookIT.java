@@ -177,7 +177,7 @@ class BillingWebhookIT {
             type +
             "\",\"data\":{\"object\":{\"id\":\"in_test_1\",\"object\":\"invoice\",\"customer\":\"" +
             CUSTOMER +
-            "\"}}}"
+            "\",\"amount_paid\":1999,\"amount_due\":1999,\"currency\":\"usd\"}}}"
         );
     }
 
@@ -325,6 +325,31 @@ class BillingWebhookIT {
         // The point of the whole grace rule: they are still Pro while Stripe retries.
         assertThat(entitlementService.isPro("user")).isTrue();
         verify(mailService, times(1)).sendEmail(eq(user.getEmail()), any(), any(), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Each event records who it was about and what it was worth, for the admin timeline")
+    void eventsRecordWhoAndWhatForTheTimeline() throws Exception {
+        Instant t = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        deliver(checkoutCompleted("evt_tl_checkout", user.getId(), t), SECRET);
+        deliver(subscriptionEvent("evt_tl_sub", "customer.subscription.updated", "active", t, t.plus(30, ChronoUnit.DAYS), true), SECRET);
+        deliver(invoiceEvent("evt_tl_paid", "invoice.paid", t), SECRET);
+
+        StripeEvent checkout = stripeEventRepository.findById("evt_tl_checkout").orElseThrow();
+        assertThat(checkout.getUserId()).isEqualTo(user.getId());
+        assertThat(checkout.getCustomerId()).isEqualTo(CUSTOMER);
+        assertThat(checkout.getDetail()).isEqualTo("Checkout completed");
+
+        StripeEvent sub = stripeEventRepository.findById("evt_tl_sub").orElseThrow();
+        assertThat(sub.getUserId()).isEqualTo(user.getId()); // resolved through the bound customer
+        assertThat(sub.getDetail()).isEqualTo("Subscription updated: active, set to cancel at period end");
+        assertThat(sub.getOccurredAt()).isEqualTo(t);
+
+        StripeEvent paid = stripeEventRepository.findById("evt_tl_paid").orElseThrow();
+        assertThat(paid.getAmountCents()).isEqualTo(1999L);
+        assertThat(paid.getCurrency()).isEqualTo("usd");
+        assertThat(paid.getDetail()).isEqualTo("Payment received");
+        assertThat(paid.getUserId()).isEqualTo(user.getId());
     }
 
     @Test
