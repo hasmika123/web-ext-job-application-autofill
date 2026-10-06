@@ -1182,8 +1182,10 @@ focused Claude Code session.
   - **Pulled forward (user, 2026-10-05): first build after Launch 1, before Phase 18.** 10–20 jobs
     a day; 👍/👎 re-ranking (not model fine-tuning); a preference form (titles, location/remote,
     salary floor, seniority, must/never keywords, excluded companies); ATS APIs + one licensed
-    aggregator API, no scraping; marketers see each consultant's matches (22.3). Open
-    decisions (Free tier, consultancy fee, aggregator) are in ROADMAP 16.1.
+    aggregator API, no scraping; marketers see each consultant's matches (22.3).
+    **Locked 2026-10-05:** Free = 3 rule-ranked matches a day, in-app only, no AI · Pro/Autopilot
+    = 10–20 AI-scored + email + 👍/👎 · consultancies included in the Pro seat · one licensed
+    aggregator after a cost check · a paid Brevo plan before about 250 emails a day.
 - [ ] **16.2 Analytics.** Response / interview rate by resume, ATS, role.
 - [ ] **16.3 Reminders + stale nudges.** "No reply in N days" → nudge; follow-up dates on cards.
 - [ ] **16.4 Weekly digest** email.
@@ -1353,7 +1355,7 @@ focused Claude Code session.
   the first build after Launch 1: 10–20 jobs a day, 👍/👎 re-ranking, a preference form, ATS APIs +
   one licensed aggregator (no scraping), daily email, and consultancy marketers see each
   consultant's matches. The 13.6 light version (Greenhouse/Lever/Ashby, in-app) is already live
-  code. Open decisions are recorded in ROADMAP 16.1.
+  code. Decisions locked with the user's recommended defaults (ROADMAP 16.1).
 - 2026-10-05 · **Admin expansion brainstorm (planning only)** · ADMIN-PLAN gains **9.B**: an
   `app_setting` table (typed, bounded, audited, env = default) replaces the restarts needed for
   every AI, job-matching, inbox and rate-limit change. Also feature flags + banner + extension

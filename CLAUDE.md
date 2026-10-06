@@ -141,7 +141,10 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   Poll `INBOX` + `[Gmail]/Sent Mail`; store headers + body text only, **never attachments**;
   credentials encrypted at rest; we **never send, move or delete** mail. Two launches: ops
   hardening (backup/monitoring/restore drill) is Phase 15, right before Launch 1 — not earlier.
-  Daily job matches source jobs from the ATS' public job-board APIs.
+  Daily job matches source jobs from the ATS' public job-board APIs, plus one licensed
+  aggregator API. **Never scraping.** Strong matches (16.1) are the first build after Launch 1.
+  Free = 3 rule-ranked matches a day (no AI); Pro/Autopilot = 10–20 AI-scored + email + 👍/👎;
+  consultancies included in the Pro seat.
 
 - **Expansion (locked 2026-10-05, ROADMAP *Expansion build*, Phases 18–23).**
   - **Floors:** **nothing is unlimited**. Every subscription keeps **≥ 80 % gross margin in the

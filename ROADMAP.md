@@ -999,12 +999,17 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
     bank in one click (22.3).
   - **Email cost:** Brevo's free plan caps at 300 emails a day. Move to a paid plan before daily
     match emails pass about 250 a day.
-  - **Open decisions, with the recommended choice in bold:**
-    1. Free tier: **3 matches a day, ranked by rules, in-app only, no AI** (keeps "no server AI on
-       Free"), *or* none.
-    2. Consultancies: **included in each consultant's Pro seat**, *or* an extra fee.
-    3. Coverage: **add one licensed aggregator API after a cost check**, *or* ATS boards only.
-    4. Pro and Autopilot: 10–20 AI-scored matches a day + daily email + 👍/👎. Decided.
+  - **Decisions (locked by the user, 2026-10-05):**
+    1. **Free tier:** 3 matches a day, ranked by the no-AI pre-filter only, in-app only. No match
+       % or reason line, no email. This keeps "no server AI on Free".
+    2. **Pro and Autopilot:** 10–20 AI-scored matches a day, daily email at the user's chosen
+       time, and 👍/👎 feedback.
+    3. **Consultancies:** included in each consultant's Pro seat, with no extra fee for now.
+       Revisit with usage data.
+    4. **Coverage:** add **one licensed aggregator API**, chosen after a cost check (price per
+       call or per month, terms that allow showing results to users, overlap with the ATS
+       boards). Record the pick and its cost here before building it.
+    5. **Email:** move to a paid Brevo plan before daily match emails pass about 250 a day.
 - **16.2 Analytics.** Response / interview rate by resume, ATS, role, company size — the chart
   only the inbox can power.
 - **16.3 Reminders + stale nudges.** "No reply in 10 days" → nudge; follow-up date on cards.
