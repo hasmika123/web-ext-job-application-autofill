@@ -308,7 +308,7 @@ export async function checkJobFit(resume: any, job: PageJob): Promise<JobFitOutc
     if (r && r.quotaExceeded) {
       const d = r.resetsAt ? new Date(r.resetsAt) : null;
       const when = d && !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" }) : "";
-      return { message: `You've used this month's Kiwiply AI${when ? ` — it resets on ${when}` : ""}.` };
+      return { message: `You've used your Kiwiply AI for now${when ? ` — it resets on ${when}` : ""}.` };
     }
     if (r && r.disabled) return { message: "The job-fit check is switched off right now." };
     return { message: "Couldn't check the fit right now. Please try again." };

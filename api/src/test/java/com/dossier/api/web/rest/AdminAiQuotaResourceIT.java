@@ -34,7 +34,7 @@ class AdminAiQuotaResourceIT {
     @Test
     @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
     void setThenGetThenClear() throws Exception {
-        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.overrideCents").isEmpty()).andExpect(jsonPath("$.defaultBudgetCents").value(500));
+        mockMvc.perform(get("/api/admin/users/user/ai-quota")).andExpect(status().isOk()).andExpect(jsonPath("$.overrideCents").isEmpty()).andExpect(jsonPath("$.defaultBudgetCents").value(300));
 
         mockMvc
             .perform(put("/api/admin/users/user/ai-quota").contentType(MediaType.APPLICATION_JSON).content("{\"budgetCents\":700}"))

@@ -104,7 +104,7 @@ class AdminAnalyticsResourceIT {
             .andExpect(jsonPath("$.billing.mrr").value(0.00));
     }
 
-    /** One of each plan: 19.99 + 44.99/3 = 19.99 + 14.9966… → 34.99 at 2dp. */
+    /** One of each plan: 19.99 + 49.99/3 = 19.99 + 16.6633… → 36.65 at 2dp (15.5's 3-month price). */
     @Test
     @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
     void mrrNormalisesTheThreeMonthPlan() throws Exception {
@@ -118,7 +118,7 @@ class AdminAnalyticsResourceIT {
             .andExpect(jsonPath("$.billing.activePro").value(2))
             .andExpect(jsonPath("$.billing.monthlyCount").value(1))
             .andExpect(jsonPath("$.billing.threeMonthCount").value(1))
-            .andExpect(jsonPath("$.billing.mrr").value(34.99))
+            .andExpect(jsonPath("$.billing.mrr").value(36.65))
             // Both rows were created by this test, so both are new this month.
             .andExpect(jsonPath("$.billing.newThisMonth").value(2))
             .andExpect(jsonPath("$.billing.churnedThisMonth").value(0));

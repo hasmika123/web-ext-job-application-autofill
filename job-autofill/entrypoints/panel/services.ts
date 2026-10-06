@@ -185,6 +185,11 @@ export function makeServices(handoff: Handoff): ResumeUploadServices {
       } catch (e) {
         const capped = e as { code?: string; message?: string };
         if (capped && (capped.code === "RESUME_LIMIT" || capped.code === "PRO_REQUIRED")) {
+          // 15.5: Pro is capped too (25). Someone already on Pro gets the message, not an upgrade link.
+          const body = (capped as { body?: { plan?: string } }).body;
+          if (body && body.plan === "PRO") {
+            return { ok: false, error: capped.message || "Pro accounts keep up to 25 resumes — archive one to add another." };
+          }
           return {
             ok: false,
             error: capped.message || "Free accounts keep up to 3 resumes — archive one, or upgrade to Pro.",

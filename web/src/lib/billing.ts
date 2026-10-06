@@ -50,4 +50,4 @@ export async function getPlan(): Promise<Plan> {
 // viewer's time zone. The formatter that used to live here ran on the server, in the box's.
 
 export const PRICE_MONTHLY = "$19.99";
-export const PRICE_3MO = "$44.99";
+export const PRICE_3MO = "$49.99";

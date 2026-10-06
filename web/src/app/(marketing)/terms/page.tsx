@@ -192,7 +192,7 @@ export default function TermsPage() {
           <strong>Kiwiply is free to use.</strong> Autofill, the application tracker, resume upload with
           AI parsing, and up to three saved resumes cost nothing and are the same on both plans.{" "}
           <strong>Pro</strong> is an optional paid subscription that adds Kiwiply&apos;s AI, resume
-          matching and tailoring, inbox tracking, unlimited resumes, and cross-device answer sync. What
+          matching and tailoring, inbox tracking, up to 25 saved resumes, and cross-device answer sync. What
           each plan includes is listed on our{" "}
           <Link href="/pricing" className="font-medium text-accent-deep hover:underline">
             pricing page
@@ -201,7 +201,7 @@ export default function TermsPage() {
         </p>
         <p>
           <strong>Price and renewal.</strong> Pro is <strong>$19.99 per month</strong> or{" "}
-          <strong>$44.99 every 3 months</strong>, in US dollars, charged at the start of each period.{" "}
+          <strong>$49.99 every 3 months</strong>, in US dollars, charged at the start of each period.{" "}
           <strong>Your subscription renews automatically</strong> — monthly, or every three months,
           matching the plan you chose — and keeps renewing until you cancel. We do not offer a free
           trial, so the first charge happens when you subscribe, not later.

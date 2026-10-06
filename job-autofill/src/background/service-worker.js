@@ -638,14 +638,14 @@ async function recordLearnedAnswers(answers, page) {
   catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
 }
 
-// 13.1b: Pro AI is a monthly budget now, reported as a percentage with a reset date — never
-// dollars. "used/quota" is still what a Free user's resume-parse count looks like, and what a server
+// 13.1b: Pro AI is a budget, reported as a percentage with a reset date — never dollars. Since 15.5
+// it's per billing period, so the reset is the renewal date, not the 1st. "used/quota" is still what a Free user's resume-parse count looks like, and what a server
 // older than 13.1b sends.
 function aiLimitMessage(r) {
   const when = r && r.resetsAt ? new Date(r.resetsAt) : null;
   if (when && !isNaN(when.getTime())) {
     const day = when.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" });
-    return `You've used this month's Kiwiply AI — it resets on ${day}.`;
+    return `You've used your Kiwiply AI for now — it resets on ${day}.`;
   }
   return `Monthly AI limit reached (${r.used}/${r.quota}).`;
 }
