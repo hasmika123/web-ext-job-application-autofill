@@ -1386,6 +1386,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **15.3 store listing copy (Free/Pro)** · `job-autofill/STORE-LISTING.md` rewritten for
+  both stores. Chrome description: what's free, what Pro adds in the extension (Kiwiply AI drafting, best
+  resume per posting, gap check, 25 resumes, answer sync) and on the web, the two prices, "cancel any
+  time"; drafting through Kiwiply is now described as Pro. Still no ATS vendor names (the 0.52.2
+  rejection); highest word repetition 5 with plurals merged. New **Firefox (AMO)** section: name, summary,
+  tags, support, payment disclosure, and the source-code upload (whole-repo `git archive`, since the
+  extension imports `packages/ui`; Node 22 build steps). Screenshots 4–5 become the two Pro features;
+  reviewer note states the test account's plan. Shooting the screenshots and submitting stay the user's.
 - 2026-10-06 · **Landing polish** · The hero's review-autofill preview uses a made-up person (Jordan,
   jordan.lee@example.com) instead of the founder's name; "Everything you need to apply faster" uses
   `@kiwiply/ui` icons (User, FileText, Ai, Board) in accent tiles instead of emoji.
