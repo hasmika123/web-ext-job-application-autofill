@@ -6,19 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { notifyExtension } from "@/lib/extension-signal";
-import {
-  AiIcon,
-  BoardIcon,
-  BugIcon,
-  ChartIcon,
-  ChevronLeftIcon,
-  DashboardIcon,
-  FileTextIcon,
-  MailIcon,
-  MonitorIcon,
-  ShieldIcon,
-  UsersIcon,
-} from "@kiwiply/ui";
+import { AiIcon, BoardIcon, BugIcon, ChartIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, MailIcon, MonitorIcon, ShieldIcon, UsersIcon, MessageIcon } from "@kiwiply/ui";
 
 export interface AdminAccount {
   login?: string;
@@ -41,6 +29,7 @@ const I = {
   analytics: <ChartIcon className={ICON} />,
   email: <MailIcon className={ICON} />,
   bug: <BugIcon className={ICON} />,
+  inquiries: <MessageIcon className={ICON} />,
   system: <MonitorIcon className={ICON} />,
   audit: <FileTextIcon className={ICON} />,
   back: <ChevronLeftIcon className={ICON} />,
@@ -55,6 +44,7 @@ const NAV: NavItem[] = [
   { href: "/admin/analytics", label: "Analytics", icon: I.analytics },
   { href: "/admin/subscribers", label: "Email", icon: I.email },
   { href: "/admin/bug-reports", label: "Bug reports", icon: I.bug },
+  { href: "/admin/inquiries", label: "Inquiries", icon: I.inquiries },
   { href: "/admin/system", label: "System", icon: I.system },
   { href: "/admin/audit", label: "Audit log", icon: I.audit },
 ];
