@@ -25,7 +25,7 @@ export const metadata: Metadata = {
  * a plain-language agreement, not a lawyer's draft, and the statutory-rights carve-out below is
  * exactly the sort of line that review has to confirm.
  */
-const UPDATED = "September 2026";
+const UPDATED = "October 2026";
 const CONTACT = "support@kiwiply.com";
 const ENTITY = "AutomoraLab LLC";
 
@@ -209,6 +209,18 @@ export default function TermsPage() {
           our obligations under applicable consumer-protection law.
         </p>
         <p>
+          <strong>If a Pro feature is down.</strong> If a Pro feature you are paying for is
+          unavailable for <strong>more than 7 days in a row</strong> because of a problem on our side,
+          tell us at{" "}
+          <a href="mailto:support@kiwiply.com" className="font-medium text-accent-deep hover:underline">
+            support@kiwiply.com
+          </a>{" "}
+          and we will, at our choice, either extend your subscription by the time the feature was down
+          or refund that part of what you paid. Short interruptions, maintenance, and problems caused by
+          the outside services described under &quot;Services we rely on&quot; are not covered. This is
+          our whole commitment for a feature being unavailable, alongside any rights you have by law.
+        </p>
+        <p>
           <strong>Failed payments.</strong> If a charge fails, your card issuer and our payment
           processor will retry it for a short period. You keep Pro while that happens and we&apos;ll
           tell you, so you can update your card. If it still can&apos;t be collected by the end of the
@@ -243,6 +255,20 @@ export default function TermsPage() {
         </p>
       </Section>
 
+      <Section title="Services we rely on">
+        <p>
+          Parts of Kiwiply depend on services run by other companies, which we don&apos;t control.
+          These include the browser extension stores (Chrome Web Store, Firefox Add-ons), which review
+          and approve our extension and its updates; Google (Gmail, for a connected inbox, and the AI
+          models we use); the job sites and application systems Kiwiply fills in, which can change their
+          pages at any time; and our providers for payments (Stripe), storage and hosting (Amazon Web
+          Services) and email (Brevo). When one of them has an outage, changes how it works, or delays
+          an approval, some Kiwiply features may stop working or be limited until we can adapt. We
+          work to restore them as quickly as we can, but we aren&apos;t responsible for those
+          services or for delays they cause.
+        </p>
+      </Section>
+
       <Section title="Disclaimers and limitation of liability">
         <p>
           The Service is provided &quot;as is&quot; without warranties of any kind, whether express or
@@ -250,6 +276,14 @@ export default function TermsPage() {
           will result in any job, interview, or outcome. To the fullest extent permitted by law, Kiwiply
           is not liable for any indirect, incidental, or consequential damages, or for any loss of data,
           profits, or opportunities arising from your use of the Service.
+        </p>
+        <p>
+          To the fullest extent permitted by law, <strong>our total liability</strong> to you for all
+          claims arising from or related to the Service is limited to the greater of{" "}
+          <strong>the amount you paid us in the 12 months before the claim</strong>, or US$50. Some
+          places don&apos;t allow some of these limits; where that&apos;s the case, they apply only as
+          far as the law allows, and nothing in these terms limits liability that can&apos;t be limited
+          by law.
         </p>
       </Section>
 
