@@ -158,7 +158,7 @@ export default function ResumeFit({
       {!isPro || upsell ? (
         <p className="mt-2 text-[13px] text-muted">
           See which of your resumes fits this job best, with a score and the reason.{" "}
-          <Link href="/pricing" className="font-semibold text-accent-deep hover:underline">
+          <Link href="/#pricing" className="font-semibold text-accent-deep hover:underline">
             Part of Pro →
           </Link>
         </p>

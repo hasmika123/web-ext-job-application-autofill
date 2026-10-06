@@ -51,7 +51,7 @@ export function useResumeUploadServices(): ResumeUploadServices {
           // The resume cap. On Free it's the one save failure with a next step, so it gets a link to
           // Pro; on Pro (capped at 25 since 15.5) the next step is archiving one, which the message says.
           if (data.plan === "PRO") return { ok: false, error: data.error ?? "You've reached the Pro resume limit — archive one to add another." };
-          return { ok: false, error: data.error ?? "You've reached the Free resume limit.", cta: { href: "/pricing", label: "See Pro" } };
+          return { ok: false, error: data.error ?? "You've reached the Free resume limit.", cta: { href: "/#pricing", label: "See Pro" } };
         }
         if (!res.ok) return { ok: false, error: data.error ?? "Couldn't save the resume." };
         notifyExtension("changed");

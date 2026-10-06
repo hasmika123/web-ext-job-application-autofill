@@ -55,7 +55,7 @@ export default function AtsScoreDialog({
         <p className="text-[13.5px] text-ink-soft">
           See how applicant-tracking systems will read this resume — a score out of 100, and what to fix
           first. Against a saved job it also checks the job&rsquo;s key terms.{" "}
-          <Link href="/pricing" className="font-semibold text-accent-deep hover:underline">
+          <Link href="/#pricing" className="font-semibold text-accent-deep hover:underline">
             Part of Pro →
           </Link>
         </p>

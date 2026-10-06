@@ -70,7 +70,7 @@ export default function ContactForm({ initialTopic }: { initialTopic: InquiryTop
       <Card className="text-center">
         <h2 className="font-display text-xl font-semibold text-ink">Thanks — we&apos;ve got it</h2>
         <p className="mt-2 text-sm text-ink-soft">We&apos;ll reply to {email.trim()} soon.</p>
-        <Link href="/pricing" className={buttonVariants("ghost", "md", "mt-5")}>
+        <Link href="/#pricing" className={buttonVariants("ghost", "md", "mt-5")}>
           Back to pricing
         </Link>
       </Card>

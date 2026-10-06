@@ -99,7 +99,7 @@ export default function JobMatches({ isPro, data }: { isPro: boolean; data: Matc
           the ones posted in the last two days, and scores them against your resume and preferences — with the reason.
           Save one to your board in a click, with its description ready for resume fit and tailoring.
         </p>
-        <Link href="/pricing" className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
+        <Link href="/#pricing" className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
           Part of Pro →
         </Link>
       </div>

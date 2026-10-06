@@ -49,5 +49,6 @@ export async function getPlan(): Promise<Plan> {
 // Renewal and cancellation dates are rendered by <LocalDate> (components/LocalDate.tsx), in the
 // viewer's time zone. The formatter that used to live here ran on the server, in the box's.
 
-export const PRICE_MONTHLY = "$19.99";
-export const PRICE_3MO = "$49.99";
+// The two prices live in lib/prices so client components can import them without this file's
+// server-only fetch; re-exported here so existing imports keep working.
+export { PRICE_MONTHLY, PRICE_3MO } from "@/lib/prices";
