@@ -723,7 +723,11 @@ Record the run under **Log** in `PROGRESS.md`, then move the same four secrets i
 AutomoraLab LLC's Stripe account serves more than one business. Kiwiply gets **its own Stripe
 account**, so its checkouts, customer portal, branding, receipts, card-statement name and payout
 report are its own. (The code also refuses any purchase that isn't Kiwiply's, in case it's ever
-shared again: §11.3.) Everything here is **sandbox (test mode)**; live mode repeats Part 3 at 15.4.
+shared again: §11.3.) Two kinds of setting: **account-level** (the business's public details, branding, statement name, tax
+address, Managed Payments, security: set **once, outside the sandbox**, and they apply to test and live) and
+**sandbox** (the product, prices, portal, keys, webhook: separate in test and live, so built in the sandbox
+now and rebuilt in live mode at 15.4). A page that looks missing or locked inside the sandbox is
+account-level: set it from the account's own settings.
 
 **Shape:** an **Organization** (AutomoraLab LLC) holds **accounts**: the existing one for the other
 businesses, and a new one named **Kiwiply**. An organization takes no payments itself. **Use only the
@@ -738,7 +742,7 @@ Kiwiply.
    below happens inside it; check the **Sandbox** badge at the top of every page.
 3. Account **Settings → Personal details / Security:** two-step verification on, a backup email.
 
-**Part 2: set up the account (sandbox)**
+**Part 2: set up the account** (steps 4–7 are account-level, outside the sandbox; 8–11 are in the sandbox)
 4. **Settings → Business → Public details:** business name **Kiwiply**; support email
    **support@kiwiply.com**; website **https://kiwiply.com**; statement descriptor **KIWIPLY** (the name on
    customers' card statements). Branding: icon, logo, colour (`brand/`).
@@ -787,7 +791,8 @@ Checked 2026-10-06: no webhook endpoints; 5 test customers; 3 test subscriptions
 19. **Live mode of that account:** leave alone — it belongs to your other businesses.
 
 **Live mode (at 15.4):** activate the Kiwiply account (business details, bank account, identity check),
-then repeat Parts 2–3 in live mode. Live has its own price IDs, webhook secret and keys.
+then redo steps 8–11 and the webhook in live mode (the account-level steps carry over). Live has its own
+price IDs, webhook secret and keys.
 
 ### 11.3 The webhook only acts on Kiwiply's purchases
 
