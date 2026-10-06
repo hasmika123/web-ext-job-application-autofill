@@ -1235,6 +1235,14 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **Pre-launch review of the develop → main promotion** · DEPLOY.md §13. `main` is at
+  `4de5b60` (PR #56); ~130 commits ahead. 16 changesets, all additive except the 0-row
+  `ai_quota_override` rename; every new setting defaults safely and the box's `.env` has every required
+  one (checked by name); no startup check can stop the API; 106 GB disk, clean fast-forward, UTC.
+  Two things to know: **take a manual backup first** (15.1's automation only arrives with this
+  deploy), and **rollback = old images + that dump**, because old code can't read the renamed
+  column. Memory is tight on the shared box (3.7 GB, ~1.1 GB free + swap): watch the first nights.
+  Runbook, smoke check and what starts running on its own are in §13.
 - 2026-10-05 · **Terms protections + the live Pro check** · Terms: a liability cap (greater of 12
   months' fees or US$50), a "Services we rely on" section (extension stores, Google, job sites,
   Stripe, AWS, Brevo), and the remedy when a Pro feature is down more than 7 days in a row (extend
