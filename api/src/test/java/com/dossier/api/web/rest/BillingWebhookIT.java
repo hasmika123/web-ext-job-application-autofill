@@ -150,7 +150,29 @@ class BillingWebhookIT {
         );
     }
 
+    /**
+     * A Kiwiply checkout completing. Like the real flow, the customer already exists: startCheckout
+     * creates it and saves it on the user's row BEFORE sending them to Stripe, and the webhook only
+     * binds a checkout whose customer is that one.
+     */
     private String checkoutCompleted(String eventId, Long userId, Instant created) {
+        customerCreatedAtCheckout();
+        return checkoutPayload(eventId, userId, created, CUSTOMER, "kiwiply");
+    }
+
+    /** What BillingService.startCheckout saves before opening checkout: the user's Stripe customer. */
+    private void customerCreatedAtCheckout() {
+        if (subscriptionRepository.findOneByUserId(user.getId()).isPresent()) return;
+        Subscription sub = new Subscription();
+        sub.setUser(user);
+        sub.setStripeCustomerId(CUSTOMER);
+        sub.setCreatedAt(Instant.now());
+        sub.setUpdatedAt(Instant.now());
+        subscriptionRepository.saveAndFlush(sub);
+    }
+
+    /** The raw checkout.session.completed payload; {@code app} null leaves the metadata out. */
+    private static String checkoutPayload(String eventId, Long userId, Instant created, String customer, String app) {
         return (
             "{\"id\":\"" +
             eventId +
@@ -158,12 +180,14 @@ class BillingWebhookIT {
             created.getEpochSecond() +
             ",\"type\":\"checkout.session.completed\",\"data\":{\"object\":{\"id\":\"cs_test_1\"," +
             "\"object\":\"checkout.session\",\"customer\":\"" +
-            CUSTOMER +
+            customer +
             "\",\"subscription\":\"" +
             SUBSCRIPTION +
             "\",\"client_reference_id\":\"" +
             userId +
-            "\"}}}"
+            "\"" +
+            (app == null ? "" : ",\"metadata\":{\"app\":\"" + app + "\"}") +
+            "}}}"
         );
     }
 
@@ -190,7 +214,7 @@ class BillingWebhookIT {
     @Test
     @DisplayName("A forged delivery is rejected and leaves no trace")
     void wrongSecretIsRejectedAndRecordsNothing() throws Exception {
-        String payload = checkoutCompleted("evt_forged_1", user.getId(), Instant.now());
+        String payload = checkoutPayload("evt_forged_1", user.getId(), Instant.now(), CUSTOMER, "kiwiply");
         assertThat(deliver(payload, "whsec_the_wrong_secret")).isEqualTo(400);
         // Nothing recorded: an unverified payload must not be able to fill our tables either.
         assertThat(stripeEventRepository.count()).isZero();
@@ -514,5 +538,60 @@ class BillingWebhookIT {
         assertThat(reload().getStatus()).isEqualTo("past_due");
         assertThat(entitlementService.isPro("user")).isTrue();
         verify(mailService, times(1)).sendEmail(eq(user.getEmail()), any(), any(), anyBoolean(), anyBoolean());
+    }
+
+    // ---- one Stripe account, several businesses (2026-10-06) -------------------------------------
+
+    /**
+     * Another app on the same Stripe account completes a checkout whose client_reference_id happens
+     * to be one of our user ids. Binding it would give that Kiwiply user Pro for someone else's
+     * purchase.
+     */
+    @Test
+    @DisplayName("Another app's checkout never binds to a Kiwiply user")
+    void anotherAppsCheckoutIsIgnored() throws Exception {
+        String theirs = checkoutPayload("evt_other_app", user.getId(), Instant.now(), "cus_other_app", "someotherapp");
+        assertThat(deliver(theirs, SECRET)).isEqualTo(200);
+        assertThat(subscriptionRepository.findOneByUserLogin("user")).isEmpty();
+        assertThat(entitlementService.isPro("user")).isFalse();
+    }
+
+    /** Untagged (an app that sets no metadata): still refused, because we didn't create that customer. */
+    @Test
+    @DisplayName("A checkout whose customer Kiwiply didn't create is ignored")
+    void aCheckoutWithACustomerWeDidntCreateIsIgnored() throws Exception {
+        customerCreatedAtCheckout(); // this user's real customer is CUSTOMER
+        String stray = checkoutPayload("evt_stray", user.getId(), Instant.now(), "cus_not_ours", null);
+        assertThat(deliver(stray, SECRET)).isEqualTo(200);
+        Subscription row = subscriptionRepository.findOneByUserLogin("user").orElseThrow();
+        assertThat(row.getStripeCustomerId()).isEqualTo(CUSTOMER);
+        assertThat(row.getStripeSubscriptionId()).isNull();
+        // ...and that customer's subscription events then have nothing to land on.
+        String theirSub = subscriptionEvent(
+            "evt_stray_sub",
+            "customer.subscription.created",
+            "active",
+            Instant.now(),
+            Instant.now().plus(30, ChronoUnit.DAYS),
+            false
+        ).replace(CUSTOMER, "cus_not_ours").replace(SUBSCRIPTION, "sub_not_ours");
+        assertThat(deliver(theirSub, SECRET)).isEqualTo(200);
+        assertThat(entitlementService.isPro("user")).isFalse();
+    }
+
+    @Test
+    @DisplayName("A subscription event tagged for another app is never applied")
+    void anotherAppsSubscriptionEventIsIgnored() throws Exception {
+        deliver(checkoutCompleted("evt_bind_tagged", user.getId(), Instant.now()), SECRET);
+        String tagged = subscriptionEvent(
+            "evt_tagged_sub",
+            "customer.subscription.created",
+            "active",
+            Instant.now(),
+            Instant.now().plus(30, ChronoUnit.DAYS),
+            false
+        ).replace("\"object\":\"subscription\",", "\"object\":\"subscription\",\"metadata\":{\"app\":\"someotherapp\"},");
+        assertThat(deliver(tagged, SECRET)).isEqualTo(200);
+        assertThat(entitlementService.isPro("user")).isFalse();
     }
 }

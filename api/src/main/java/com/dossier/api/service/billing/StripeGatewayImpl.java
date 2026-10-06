@@ -75,6 +75,8 @@ public class StripeGatewayImpl implements StripeGateway {
                 // trace a payment back to an account without a lookup table.
                 .putMetadata("userId", String.valueOf(userId))
                 .putMetadata("login", login)
+                // Which business this is, on a Stripe account that may serve more than one.
+                .putMetadata("app", StripeWebhookEvent.KIWIPLY)
                 .build();
             return require().customers().create(params).getId();
         } catch (StripeException e) {
@@ -94,7 +96,15 @@ public class StripeGatewayImpl implements StripeGateway {
                 .setSuccessUrl(successUrl)
                 .setCancelUrl(cancelUrl)
                 .setAllowPromotionCodes(true)
-                .addLineItem(LineItem.builder().setPrice(priceId).setQuantity(1L).build());
+                .addLineItem(LineItem.builder().setPrice(priceId).setQuantity(1L).build())
+                // Tagged so the webhook can tell our purchases from another app's on the same Stripe
+                // account (the session), and so the subscription it creates carries the tag too.
+                .putMetadata("app", StripeWebhookEvent.KIWIPLY)
+                .setSubscriptionData(
+                    com.stripe.param.checkout.SessionCreateParams.SubscriptionData.builder()
+                        .putMetadata("app", StripeWebhookEvent.KIWIPLY)
+                        .build()
+                );
 
             Boolean managedPayments = props.getManagedPayments();
 
@@ -245,6 +255,7 @@ public class StripeGatewayImpl implements StripeGateway {
         Instant periodEnd = null;
         Boolean cancelAtPeriodEnd = null;
         String clientReferenceId = null;
+        String app = null;
 
         if (deserialized.isPresent()) {
             var obj = deserialized.get();
@@ -256,11 +267,13 @@ public class StripeGatewayImpl implements StripeGateway {
                 cancelAtPeriodEnd = sub.getCancelAtPeriodEnd();
                 priceId = firstPriceId(sub);
                 periodEnd = periodEndOf(sub);
+                app = sub.getMetadata() == null ? null : sub.getMetadata().get("app");
             } else if (obj instanceof Session session) {
                 objectType = "checkout.session";
                 customerId = session.getCustomer();
                 subscriptionId = session.getSubscription();
                 clientReferenceId = session.getClientReferenceId();
+                app = session.getMetadata() == null ? null : session.getMetadata().get("app");
             } else if (obj instanceof com.stripe.model.Invoice invoice) {
                 objectType = "invoice";
                 customerId = invoice.getCustomer();
@@ -278,7 +291,8 @@ public class StripeGatewayImpl implements StripeGateway {
             priceId,
             periodEnd,
             cancelAtPeriodEnd,
-            clientReferenceId
+            clientReferenceId,
+            app
         );
     }
 

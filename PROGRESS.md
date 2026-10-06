@@ -1378,6 +1378,16 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **Kiwiply-only billing + its own Stripe account** · User decision: Kiwiply moves to
+  **its own Stripe account** under AutomoraLab LLC (the LLC's account serves other businesses);
+  setup in DEPLOY.md §11.2 (account, branding + `KIWIPLY` statement descriptor, product with
+  $19.99 / $49.99 prices, portal, webhook, keys, tidy-up). Code safety check (§11.3): customers,
+  Checkout Sessions and subscriptions are tagged `metadata.app=kiwiply`; a completed checkout binds
+  only when its customer is the one Kiwiply created for that user (saved before checkout), never when
+  tagged for another app; subscription events tagged for another app are ignored. Found while
+  checking the shared account: another app's checkout carrying one of our user ids as
+  `client_reference_id` would have given that user Pro. 3 new `BillingWebhookIT` cases; the existing
+  ones now seed the customer the way `startCheckout` does.
 - 2026-10-05 · **15.6 full catalog on /pricing + Contact us** · `/pricing` now lists every plan and
   service, each with its scope, limits and price: Free + Pro (checkout, unchanged) + Autopilot,
   then for organizations Organization ($499 setup + per-person menu), Consultancy (Marketer seats)
