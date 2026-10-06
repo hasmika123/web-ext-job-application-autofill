@@ -25,8 +25,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> 🧭 **Expansion plan locked 2026-10-05** (ROADMAP → *Expansion build, Phases 18–21*). It adds
-> Autopilot, services and organizations; there is no Coach tier. **New Launch-1 task 15.5 (re-price
+> 🧭 **Expansion plan locked 2026-10-05** (ROADMAP → *Expansion build, Phases 18–23*). It adds
+> Autopilot, services, organizations, the consultancy Marketer role and an optional Ops add-on
+> (timesheets + finances); there is no Coach tier. **New Launch-1 task 15.5 (re-price
 > Pro: $49.99 / 3 mo, AI budget $3 / mo · $8 / quarter per billing period, 25-resume cap) must land
 > before 15.4's live keys.** The current focus below is unchanged.
 >
@@ -1222,6 +1223,32 @@ focused Claude Code session.
 - [ ] **21.4 Member side.** The account stays the person's. Leaving ends org grants at the end
   of the period, and nothing is deleted.
 - [ ] **21.5 Selling it.** A sales page and order form; SSO only when a school deal needs it.
+## Phase 22 — Consultancy: the Marketer role (after 21; needs 19 + 14)
+- [ ] **22.1 Roles + pairing.** The `MARKETER` role and `marketer_assignment` (≤ 10 consultants
+  per marketer), plus the consultant's consent screen (`data_share` FULL). Isolation tests.
+- [ ] **22.2 Marketer workspace.** Consultant switcher; read view of each consultant's dashboard
+  and board; build and edit their resumes. The consultant approves each one once before use.
+- [ ] **22.3 Job bank + assignment.** The marketer gathers jobs (pasted links, matches, the
+  extension's "Save for consultant…"), sets a resume per job and assigns the batch.
+  `job_assignment` rows; at most 100 open per consultant; one notification per batch.
+- [ ] **22.4 Consultant side.** Autopilot consultants: assigned jobs feed the queue with their
+  resume. Pro consultants: an "Assigned jobs" list, and the extension pre-selects the resume. The
+  consultant submits, and submit-detect marks the assignment APPLIED.
+- [ ] **22.5 Marketer inbox.** The marketer's own dedicated Gmail (Phase 14 model). Each message
+  is matched to a consultant and updates that consultant's board; unmatched mail goes to "Needs
+  review" for one-click assignment.
+- [ ] **22.6 Selling it.** Marketer seat $29.99/mo (org-only, $4 AI budget); managed consultants
+  need at least Pro.
+
+## Phase 23 — Consultancy Ops add-on: timesheets + finances (optional; after 22)
+- [ ] **23.0 Brainstorm → locked spec** *(must come first).* Timesheets, placements (bill/pay
+  rates), invoices, payments, expenses, the profit view, the `FINANCE` role, retention, the legal
+  check, the final price (proposed $99 per org + $4 per active consultant per month).
+  **Locked already:** we record money and never move it; no bank numbers, SSNs or tax IDs; CSV/PDF
+  export; 2 GB per org.
+- [ ] **23.1–23.n** — written after 23.0 (expected order: timesheets → placements → invoices +
+  payments → profit dashboard).
+
 - *Coach tier: **not built** (user decision 2026-10-05). The hook is org type `COACH` + role
   `COACH` + `data_share` FULL; see ROADMAP.*
 
@@ -1298,6 +1325,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **Consultancy additions (planning only)** · ROADMAP *Expansion build* gains
+  **Phase 22, the Marketer role.** A marketer oversees 4–5 (at most 10) consultants, builds their
+  resumes (each approved once by the consultant), assigns job banks with a resume per job, and
+  receives recruiter mail that updates the consultants' boards. The consultant always runs the
+  fill and submits. Seat price $29.99. It also gains **Phase 23, the optional Consultancy Ops
+  add-on** (timesheets, bill/pay rates, invoices, profit; we record money and never move it). Its
+  draft scope and proposed price ($99 per org + $4 per consultant) wait on a 23.0 brainstorm.
 - 2026-10-05 · **Expansion plan (planning only, no code)** · ROADMAP gains *Expansion build
   (Phases 18–21)*: Autopilot ($39.99 / $99.99), services (human + AI Interview Practice; no voice),
   and organizations (a $499 setup fee + per-person items at +25 % over individual prices; no

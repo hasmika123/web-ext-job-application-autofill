@@ -548,7 +548,7 @@ then the cheap visible win, then the schema/profile spine, then the grind.
 | Edge + Firefox, dark mode, bug reporter | ✅ | ✅ |
 
 > **2026-10-05:** a third tier (**Autopilot**), organizations and services are added. See
-> **Expansion build (Phases 18–21)**. It also locks an **80 % worst-case margin floor**, a Pro AI
+> **Expansion build (Phases 18–23)**. It also locks an **80 % worst-case margin floor**, a Pro AI
 > budget of **$3/month · $8 per 3-month period** (was $5/month), and AI budgets that run **per
 > billing period**.
 
@@ -1045,10 +1045,12 @@ profile** — nobody in the table has either.
 | 19 | **Autopilot** — batch-prepare applications in the user's browser, stop before submit, review queue | 18 | Yes |
 | 20 | **Services** — AI Interview Practice (text) + human services marketplace | 18 | Yes |
 | 21 | **Organizations** — setup fee + per-person items, org admin console, Coach hook | 18, hosting move | Yes |
+| 22 | **Consultancy Marketer** — oversees consultants, builds resumes, assigns jobs + resumes, recruiter inbox; consultant submits | 21, 19, 14 | Yes |
+| 23 | **Consultancy Ops add-on** — timesheets, placements, bill/pay rates, invoices, profit (record only, never move money) | 22, brainstorm 23.0 | Yes |
 
 ---
 
-## Expansion build (Phases 18–21) — locked 2026-10-05
+## Expansion build (Phases 18–23) — locked 2026-10-05
 
 > Planned with the user on 2026-10-05. Adds a second paid tier (**Autopilot**), **services**
 > (human services plus AI interview practice), and an **Organization** plan sold item by item, per
@@ -1057,6 +1059,11 @@ profile** — nobody in the table has either.
 > being built.** The org model keeps a hook for it (see "Coach later"), so adding it later is not
 > a rework. Nothing here starts before Launch 1. The one exception is **15.5 (re-price Pro)**,
 > which must land before 15.4 switches on live Stripe keys.
+> **Added later on 2026-10-05:** consultancies get a **Marketer** role (Phase 22). The marketer
+> oversees 4–5 consultants, builds their resumes, assigns them jobs with chosen resumes, and
+> receives recruiter mail that updates the consultants' boards. **The consultant always
+> submits.** Consultancies can also buy an optional **Consultancy Ops add-on** for timesheets
+> and finances (Phase 23).
 
 ### What we sell (final structure)
 
@@ -1068,6 +1075,8 @@ profile** — nobody in the table has either.
 | **AI Interview Practice** (text) | organizations, per person, as its own item. Individuals get it **inside** Pro and Autopilot | monthly, per person |
 | **Human services:** resume review · resume rewrite · mock interview · career coaching | anyone | one-time |
 | **Organization** | companies, schools, outplacement firms, consultancies | one-time setup fee + per-person items, invoiced monthly |
+| **Marketer seat** | consultancy orgs, per marketer | monthly |
+| **Consultancy Ops add-on** (timesheets + finances) | consultancy orgs, optional | monthly |
 | ~~Coach~~ | — | **Not built.** Revisit only once organizations are in use and show the need |
 | ~~AI voice mock interview~~ | — | **Dropped for now** |
 
@@ -1094,6 +1103,8 @@ Still no annual plan, no free trial, and "no refunds, cancel anytime" (Phase 12,
   | Pro | **$24.99** | +25 %. Becomes $29.99 when individual Pro goes to $24.99 at Launch 2 |
   | Autopilot | **$49.99** | +25 % |
   | AI Interview Practice | **$9.99** | sold standalone to orgs only |
+  | Marketer seat (consultancies) | **$29.99** | org-only. Manages up to 10 consultants; each managed consultant needs at least a Pro seat |
+  | Consultancy Ops add-on | **$99 per org + $4 per active consultant** *(proposed, confirm in 23.0)* | optional, org-only |
   | Human services | same list price as individuals | no subscriber discount |
 
 - **Buying for specific people:** an org admin assigns any item to any member, for example Pro
@@ -1150,6 +1161,11 @@ Still no annual plan, no free trial, and "no refunds, cancel anytime" (Phase 12,
   - Job matching scores at most 50 jobs per user per night.
   - Every AI feature has its own kill switch.
   - Resume uploads have a size cap.
+- **Consultancy limits (Phases 22–23):**
+  - **Marketer seat:** a $4/month AI budget (inbox classification + resume tailoring), at most
+    10 consultants, and at most 100 open job assignments per consultant. The marketer's inbox
+    follows the same text-only, 12-month rules.
+  - **Ops add-on:** no AI. Attachments up to 5 MB each and 2 GB per org.
 - **Watch:** the $3 Pro budget is close to the p95 estimate ($2–3 a month, as of Sep 2026). If
   more than 5 % of Pro users hit 100 % in a month, decide with data between raising the price
   and accepting a lower floor. Don't quietly raise the cap.
@@ -1168,6 +1184,8 @@ Still no annual plan, no free trial, and "no refunds, cancel anytime" (Phase 12,
 | Org Pro seat | $24.99 | $3.00 + $0.72 | 85 % worst |
 | Org Autopilot seat | $49.99 | $6.00 + $1.45 | 85 % worst |
 | Org AI Interview Practice | $9.99 | $1.50 + $0.29 | 82 % worst |
+| Org Marketer seat | $29.99 | $4.00 + $0.87 | 84 % worst |
+| Consultancy Ops add-on | $99 + $4 per consultant | Stripe only, no AI | ~95 %+ (proposed) |
 | Org setup fee | $499 | ~$15 Stripe + ~2–3 h of onboarding time | — |
 
 ### Architecture decisions
@@ -1178,8 +1196,10 @@ Still no annual plan, no free trial, and "no refunds, cancel anytime" (Phase 12,
   the user's own browser.
 - **Still no auto-submit.** Autopilot stops at the final review page and **never ticks
   certification, attestation or consent boxes**. The user clicks Submit.
-- **Prepare, never submit as someone else.** Org staff never submit on a member's behalf.
-  Members submit from their own account.
+- **Prepare, never submit as someone else.** Org staff, **including consultancy marketers**,
+  never submit on a member's behalf and never sign in as them. A marketer may *prepare* almost
+  everything: resumes, a job bank, a resume per job. The member still runs the fill, ticks the
+  attestation box and submits from their own account.
 - **Hosting:** move off the shared BeeCompete box onto our own server, with the Phase 15
   backups proven, **before Phase 21 ships**.
 - **The `tabs` permission** (needed for Autopilot) triggers a Chrome Web Store re-review and a
@@ -1266,10 +1286,12 @@ asks "does this person have feature X, and what is their limit Y", never "is thi
 - **21.1 Schema.**
   - `organization`: name, type `COMPANY|SCHOOL|OUTPLACEMENT|CONSULTANCY`, `stripe_customer_id`,
     `setup_fee_paid_at`, status.
-  - `org_member`: org, user, role `OWNER|ADMIN|MEMBER`, invite email, status.
+  - `org_member`: org, user, role `OWNER|ADMIN|MEMBER`, invite email, status. Phase 22 adds
+    `MARKETER` and Phase 23 adds `FINANCE`.
   - `org_assignment`: org, member, product, price, start/end dates. It writes an
     `entitlement_grant` with source `ORG_ASSIGNMENT`.
-  - `data_share`: member, org, scope `NONE|SUMMARY|FULL`. Launch uses SUMMARY only.
+  - `data_share`: member, org, scope `NONE|SUMMARY|FULL`. Org admins get SUMMARY. FULL is used
+    only by a consultant's assigned marketer, with the consultant's consent (Phase 22).
 - **21.2 Org billing.**
   - The setup fee is a one-time invoice item, and the org activates once it is paid.
   - One Stripe subscription per org, with one line per org price and quantity = the number of assignments.
@@ -1288,6 +1310,123 @@ asks "does this person have feature X, and what is their limit Y", never "is thi
   - Someone who already pays personally is told so and can cancel in the portal. We never cancel for them.
 - **21.5 Selling it.** A sales page and order form. Phase 8.1 SSO is built only when a school deal needs it.
 
+### Phase 22 — Consultancy: the Marketer role  *(after 21; needs 19 for Autopilot and 14 for the inbox)*
+**Why:** in a staffing consultancy, each **marketer** looks after 4–5 consultants (the
+employees looking for placements) and traditionally applies to jobs *for* them. We don't do
+that part. It isn't legal for anyone but the candidate to attest an application, and it breaks
+our no-submit rule. Instead, the marketer does **everything up to the click**: they oversee the
+consultant's dashboard, build resumes, and assign jobs, each with its own chosen resume. The
+consultant runs Autopilot, or opens each link if they are on Pro, then reviews, ticks the
+attestation box and submits.
+
+**Decisions locked for this phase:**
+- **Who is who.** The marketer is an org member with role `MARKETER`. A consultant is an org
+  member (`MEMBER`) whom an org admin assigns to one marketer. A marketer typically has 4–5
+  consultants, **capped at 10**.
+- **Never as the consultant.** A marketer never signs in as the consultant, never starts
+  Autopilot on the consultant's machine, and never submits. The consultant always does the
+  final review and the click.
+- **Consent.** On joining, the consultant gives explicit, revocable consent for their marketer
+  to see everything (`data_share` scope `FULL`). Revoking it cuts the marketer's access at once
+  and notifies the org admin.
+- **Resumes the marketer builds belong to the consultant.** They live in the consultant's
+  account, carry a "made by your marketer" label, and count toward the consultant's resume cap.
+  **The consultant approves each such resume once, with one click, before it can be used.**
+  They are the person attesting it is true.
+- **Seats.** Each **marketer needs a Marketer seat**, and each **consultant managed by a
+  marketer needs at least a Pro seat**. Assigned jobs then flow through sync, and Autopilot
+  needs an Autopilot seat.
+- **Caps.** At most **100 open job assignments per consultant**. When the consultant runs
+  Autopilot, assigned jobs count toward their own 300/month and 30/day limits.
+
+**Tasks:**
+- **22.1 Roles + pairing.**
+  - Add the `MARKETER` role and a `marketer_assignment` table (marketer member → consultant member).
+  - Org admins pair marketers with consultants.
+  - The consultant's consent screen writes `data_share` `FULL`.
+  - Tests: a marketer sees only their own consultants, never another marketer's or another org's.
+- **22.2 Marketer workspace (web).**
+  - A consultant switcher, and a read view of each consultant's dashboard, board and applications.
+  - Create and edit resumes on the consultant's behalf, with AI tailoring counted against the
+    marketer seat's budget.
+  - The approval flow for marketer-made resumes.
+- **22.3 Job bank + assignment.**
+  - The marketer builds a bank of jobs for a consultant (for example 40) from pasted links, job
+    matches, or the extension's **"Save for consultant…"** on any job page.
+  - They pick a default resume, override it per job, and assign the batch.
+  - Each job becomes a `job_assignment` row (consultant, job, resume, assigned_by, status
+    `ASSIGNED|IN_QUEUE|APPLIED|SKIPPED`) and appears on the consultant's board as **Assigned**,
+    with its resume.
+  - The consultant gets one notification per batch, not one per job.
+- **22.4 Consultant side.**
+  - **Autopilot consultants:** assigned jobs are a source for the Phase 19 queue
+    (`autopilot_item` gains `assignment_id` + `resume_id`), and Autopilot fills each one with
+    the assigned resume.
+  - **Pro consultants:** an "Assigned jobs" list where each item opens the link, and the
+    extension pre-selects the assigned resume.
+  - Either way, the consultant reviews, ticks the attestation box and submits. Submit-detect
+    marks the assignment `APPLIED`, and the marketer sees it right away.
+- **22.5 Marketer inbox.**
+  - Recruiters often email the **marketer** about a consultant. The marketer connects **their
+    own dedicated Gmail**, using the same IMAP + App Password model as Phase 14: text only, no
+    attachments, 12-month retention, and we never send, move or delete mail.
+  - The parser attributes each message to a consultant using:
+    - the consultant's name or email in the message
+    - a company or job already on that consultant's board
+    - a thread already linked to that consultant
+  - When matched, it updates that consultant's application status and notifies both people.
+  - Unmatched or ambiguous mail lands in a **"Needs review"** list, where the marketer assigns
+    it to a consultant in one click.
+  - Classification is rule-based first, using AI only for ambiguous messages, charged to the
+    marketer seat's AI budget.
+- **22.6 Selling it.** A catalog row for the Marketer seat ($29.99/mo, org-only, consultancy
+  orgs) with its entitlements: `org.marketer`, `consultants.max = 10`,
+  `assignments.open_max = 100`, `inbox`, and `ai.budget_cents_per_period = 400`. Plus copy on
+  the sales page.
+
+### Phase 23 — Consultancy Ops add-on: timesheets + finances  *(optional add-on; after 22; starts with a brainstorm)*
+**What it is:** a **separate, optional** product a consultancy can add to its subscription. It
+gives them one place to track consultants' hours and the money flowing around them: what each
+end client pays, what each consultant is paid, and the profit in between. It is **not**
+required for any other feature. **The scope below is a first draft. Task 23.0 must turn it into
+a locked spec before any code is written.**
+
+**Boundaries (locked now, whatever the brainstorm decides):**
+- **We record money, we never move it.** No payroll processing, no payments to people, no tax
+  filing. Paying people stays in the consultancy's bank or payroll provider. Integrations such
+  as QuickBooks or Gusto may come later.
+- **We never store bank account numbers, SSNs or tax IDs.** Amounts, rates and dates only.
+- **Only some people see finances.** Finance data is visible to org `OWNER` / `ADMIN` and a new
+  `FINANCE` role. A consultant sees only their own hours (and their own pay, if the org turns
+  that on). Marketers see no finances unless also given `FINANCE`.
+- **Not tax or legal advice.** Records come with a clear disclaimer, and everything exports
+  (CSV / PDF), so the org is never locked in.
+
+**Draft scope:**
+- **Timesheets.**
+  - Consultants log hours each week against a placement; reminders go out when a week isn't submitted.
+  - Submit → approve or reject (admin or finance), with a comment.
+  - An optional upload of the client-approved timesheet.
+  - CSV / PDF export.
+- **Placements.** Consultant × end client × (optional vendor chain) × start and end dates ×
+  **bill rate** (what the client pays per hour) × **pay rate** (what the consultant gets) ×
+  pay-type label (W-2 / 1099 / C2C, a label only).
+- **Money tracking.**
+  - Client invoices generated from approved hours, kept as records and PDFs; sending them comes later.
+  - Payments received from clients, payments made to consultants, and expenses, all recorded by hand.
+- **Profit view.** Billed − paid − expenses, by consultant, by client and by month, plus
+  outstanding invoices and unapproved hours.
+
+**Tasks:**
+- **23.0 Brainstorm → locked spec.** The scope above, roles, the `FINANCE` role, retention
+  (financial records often need about 7 years: confirm), the legal check, and the final price
+  (must clear the 80 % floor; there's no AI, so it will).
+- **23.1–23.n** are written after 23.0. The expected order is timesheets → placements + rates →
+  invoices + payments → profit dashboard.
+- **Pricing (proposed, confirm in 23.0):** **$99 per org per month + $4 per active consultant
+  per month**, optional, org-only. No AI cost, so the margin is about 95 %+.
+- **Caps:** timesheet attachments 5 MB each and **2 GB per org** in total.
+
 ### Coach later — the hook (not built)
 A coach is just:
 - an `organization` of type `COACH`
@@ -1296,10 +1435,13 @@ A coach is just:
 - catalog rows for coach and client prices
 
 No new tables and no billing rework. Build it only if Phase 21 usage shows the demand.
+**Phase 22 makes this even smaller:** a marketer is already a staff member with consented,
+delegated access to a few members. A coach would mostly be the same mechanism, outside a
+consultancy.
 
 ### Order
 Launch 1 (including 15.5) → **18** → **19** alongside Phase 16 → **Launch 2** (Autopilot ships
-with it) → **20** → **21**.
+with it) → **20** → **21** → **22** (Marketer) → **23** (Ops add-on, after its brainstorm).
 
 ### Market position (research 2026-10-05; mostly 2026 third-party reviews, Huntr + Simplify first-party)
 
