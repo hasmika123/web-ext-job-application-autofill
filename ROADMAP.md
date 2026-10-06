@@ -1032,7 +1032,7 @@ profile** — nobody in the table has either.
 | 6 | Google Analytics (full) | 1 | Yes |
 | 7 | Other browsers (Edge/Firefox; Safari later) | 2 | No |
 | 8 | Enterprise & Compliance (SSO, multi-tenancy, audit) | 1, 2 | Yes |
-| 9 | Admin console, ops & comms — **see `ADMIN-PLAN.md`** (A0 default-admin fix → admin/users/audit → AI/sessions/ops → analytics → email subscription → bug reports) | 1, 2 | Yes |
+| 9 | Admin console, ops & comms — **see `ADMIN-PLAN.md`** (A0 default-admin fix → admin/users/audit → AI/sessions/ops → analytics → email subscription → bug reports; **9.B admin expansion**: runtime settings, flags, support toolkit, unit economics) | 1, 2 | Yes |
 | 10 | **Fill quality & the self-building profile** (telemetry → post-fill audit → 3-tier profile + schema → ATS coverage → regression suite) — ships free | 1, 4, 5 | Yes |
 | 11 | **Sync** — web→ext signal + `/api/profile/version` + alarms; drop the 90 s throttle | 1 | Yes |
 | 12 | **Billing & entitlements** — Stripe, `subscription`, `isPro()`, pricing page, free = BYO only | 1, 2 | Yes |
