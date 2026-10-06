@@ -986,6 +986,30 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   - **Delivery:** in-app list + daily email at the user's chosen time (Brevo).
   - **Cost:** batch scoring overnight; candidate set pre-filtered deterministically so the
     model sees ≤ 50 jobs per user per day.
+- **16.1 update (user, 2026-10-05): pulled forward. This is the first build after Launch 1,
+  before Phase 18.**
+  - **Target 10–20 jobs a day.**
+  - **Feedback:** 👍 / 👎 (plus "applied"). It re-ranks future matches and tunes the
+    preferences. This is *not* AI model fine-tuning, which would cost more for no gain at this size.
+  - **Explicit preference form** on top of what's inferred from the resume: titles, locations /
+    remote, salary floor, seniority, must-have and never keywords, companies to exclude.
+  - **Sources:** ATS public job-board APIs first (direct from the employer), plus **one licensed
+    aggregator API** for coverage. **No scraping:** our ToS bans it and job sites' terms forbid it.
+  - **Consultancies:** a marketer sees each consultant's daily matches and adds them to the job
+    bank in one click (22.3).
+  - **Email cost:** Brevo's free plan caps at 300 emails a day. Move to a paid plan before daily
+    match emails pass about 250 a day.
+  - **Decisions (locked by the user, 2026-10-05):**
+    1. **Free tier:** 3 matches a day, ranked by the no-AI pre-filter only, in-app only. No match
+       % or reason line, no email. This keeps "no server AI on Free".
+    2. **Pro and Autopilot:** 10–20 AI-scored matches a day, daily email at the user's chosen
+       time, and 👍/👎 feedback.
+    3. **Consultancies:** included in each consultant's Pro seat, with no extra fee for now.
+       Revisit with usage data.
+    4. **Coverage:** add **one licensed aggregator API**, chosen after a cost check (price per
+       call or per month, terms that allow showing results to users, overlap with the ATS
+       boards). Record the pick and its cost here before building it.
+    5. **Email:** move to a paid Brevo plan before daily match emails pass about 250 a day.
 - **16.2 Analytics.** Response / interview rate by resume, ATS, role, company size — the chart
   only the inbox can power.
 - **16.3 Reminders + stale nudges.** "No reply in 10 days" → nudge; follow-up date on cards.
@@ -1032,7 +1056,7 @@ profile** — nobody in the table has either.
 | 6 | Google Analytics (full) | 1 | Yes |
 | 7 | Other browsers (Edge/Firefox; Safari later) | 2 | No |
 | 8 | Enterprise & Compliance (SSO, multi-tenancy, audit) | 1, 2 | Yes |
-| 9 | Admin console, ops & comms — **see `ADMIN-PLAN.md`** (A0 default-admin fix → admin/users/audit → AI/sessions/ops → analytics → email subscription → bug reports) | 1, 2 | Yes |
+| 9 | Admin console, ops & comms — **see `ADMIN-PLAN.md`** (A0 default-admin fix → admin/users/audit → AI/sessions/ops → analytics → email subscription → bug reports; **9.B admin expansion**: runtime settings, flags, support toolkit, unit economics) | 1, 2 | Yes |
 | 10 | **Fill quality & the self-building profile** (telemetry → post-fill audit → 3-tier profile + schema → ATS coverage → regression suite) — ships free | 1, 4, 5 | Yes |
 | 11 | **Sync** — web→ext signal + `/api/profile/version` + alarms; drop the 90 s throttle | 1 | Yes |
 | 12 | **Billing & entitlements** — Stripe, `subscription`, `isPro()`, pricing page, free = BYO only | 1, 2 | Yes |
@@ -1440,7 +1464,7 @@ delegated access to a few members. A coach would mostly be the same mechanism, o
 consultancy.
 
 ### Order
-Launch 1 (including 15.5) → **18** → **19** alongside Phase 16 → **Launch 2** (Autopilot ships
+Launch 1 (including 15.5) → **16.1 job matches (strong)** → **18** → **19** alongside Phase 16 → **Launch 2** (Autopilot ships
 with it) → **20** → **21** → **22** (Marketer) → **23** (Ops add-on, after its brainstorm).
 
 ### Market position (research 2026-10-05; mostly 2026 third-party reviews, Huntr + Simplify first-party)
