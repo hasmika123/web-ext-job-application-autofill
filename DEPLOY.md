@@ -721,62 +721,73 @@ Record the run under **Log** in `PROGRESS.md`, then move the same four secrets i
 ### 11.2 Kiwiply's own Stripe account (user decision 2026-10-06)
 
 AutomoraLab LLC's Stripe account serves more than one business. Kiwiply gets **its own Stripe
-account** under the same login and the same LLC, so its checkouts, webhooks, customer portal,
-branding, receipts, card-statement name and payouts report are its own. (The code also refuses
-any purchase that isn't Kiwiply's, in case it's ever shared again: §11.3.) Do this in **test mode**
-now; repeat sections C–E in live mode at 15.4.
+account**, so its checkouts, customer portal, branding, receipts, card-statement name and payout
+report are its own. (The code also refuses any purchase that isn't Kiwiply's, in case it's ever
+shared again: §11.3.) Everything here is **sandbox (test mode)**; live mode repeats Part 3 at 15.4.
 
-**A. Create the account**
-1. In the Stripe dashboard, open the account menu (top-left, your account's name) → **New account**.
-   Name it **Kiwiply**. It belongs to the same business (AutomoraLab LLC) and can pay out to the
-   same bank account.
-2. Switch into the new account and turn on **Test mode / Sandbox** (top of the dashboard).
+**Shape:** an **Organization** (AutomoraLab LLC) holds **accounts**: the existing one for the other
+businesses, and a new one named **Kiwiply**. An organization takes no payments itself. **Use only the
+Kiwiply account's own secret key** for Kiwiply — never an organization-wide key, so a leak stays inside
+Kiwiply.
 
-**B. Make it look like Kiwiply** (Settings; most of these apply to test and live)
-3. **Business → Public details:** public name **Kiwiply**, support email **support@kiwiply.com**,
-   website **https://kiwiply.com**, statement descriptor **KIWIPLY** (shortened: **KIWIPLY**).
-   That's the name on customers' card statements; a name they don't recognise is a top cause of
-   disputed charges.
-4. **Branding:** the Kiwiply icon and logo (`brand/`), brand colour.
-5. **Managed Payments:** confirm it's on (it is by default). Stripe is then the merchant of record
-   and handles sales tax.
-6. **Customer emails:** receipts for successful payments on.
+**Part 1: create the account**
+1. Stripe dashboard → account menu (top-left) → **Create an organization** (if offered) named
+   **AutomoraLab LLC**, with the existing account inside it. Then **New account** → name **Kiwiply**.
+   Same LLC and the same bank account can be used.
+2. Open the Kiwiply account, then **Sandboxes** (account menu) → create or open a sandbox. Everything
+   below happens inside it; check the **Sandbox** badge at the top of every page.
+3. Account **Settings → Personal details / Security:** two-step verification on, a backup email.
 
-**C. Product and prices**
-7. **Product catalog → + Add product:** name **Kiwiply Pro**, tax code **Software as a service
-   (SaaS) – personal use** (`txcd_10103000`).
-8. Price 1: **Recurring · 19.99 USD · Monthly · tax behaviour Exclusive**.
-9. **+ Add another price:** **Recurring · 49.99 USD · Custom: every 3 months · Exclusive**.
-10. Open each price and copy its ID (`price_…`): monthly → `STRIPE_PRICE_MONTHLY`, 3 months →
-    `STRIPE_PRICE_3MO`.
+**Part 2: set up the account (sandbox)**
+4. **Settings → Business → Public details:** business name **Kiwiply**; support email
+   **support@kiwiply.com**; website **https://kiwiply.com**; statement descriptor **KIWIPLY** (the name on
+   customers' card statements). Branding: icon, logo, colour (`brand/`).
+5. **Settings → Tax:** set your head-office address (the LLC's) and turn **Stripe Tax** on.
+   **Settings → Managed Payments:** leave it on (default; Stripe is the merchant of record).
+6. **Settings → Customer emails:** successful-payment receipts on.
+7. **Product catalog → + Add product:** name **Kiwiply Pro**; description *"AI resume matching, tailoring and
+   scoring, job fit, inbox tracking and cross-device sync for job seekers."*; product tax code **Software
+   as a service (SaaS) – personal use** (`txcd_10103000`).
+8. Price 1: **Recurring · $19.99 USD · Monthly · tax behaviour Exclusive.**
+   **+ Add another price:** **Recurring · $49.99 USD · Custom → every 3 months · Exclusive.**
+   Copy both price IDs (`price_…`).
+9. **Settings → Billing → Customer portal:** **On:** cancel subscriptions *at the end of the billing period*,
+   update payment method, invoice history. **Off:** switching plans. Privacy policy
+   `https://kiwiply.com/privacy`, terms `https://kiwiply.com/terms`, redirect
+   `https://kiwiply.com/settings#billing`. Save.
+10. **Developers → API keys:** copy the **secret key** (`sk_test_…`) of THIS account.
 
-**D. Customer portal** (Settings → Billing → Customer portal)
-11. On: **cancel subscriptions — at the end of the billing period**, **update payment method**,
-    **invoice history**. Off: **switch plans**. Business information: privacy policy
-    `https://kiwiply.com/privacy`, terms `https://kiwiply.com/terms`; default redirect
-    `https://kiwiply.com/settings#billing`. Save.
-
-**E. Webhook and keys** (Developers)
-12. **Webhooks → Add endpoint:** `https://api.kiwiply.com/api/billing/webhook`, events
+**Part 3: the webhook, only when you're ready to test on production**
+11. **Don't add it yet.** Production doesn't have the billing endpoint until `develop` is promoted, and
+    Stripe would just retry against a 404. Add it for 15.4's pre-launch Pro check: **Developers →
+    Webhooks → Add endpoint:** `https://api.kiwiply.com/api/billing/webhook`, events
     `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
-    `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Copy its signing
-    secret (`whsec_…`) → `STRIPE_WEBHOOK_SECRET`. (Local testing still uses `stripe listen`, §11.1.)
-13. **API keys:** the secret key (`sk_test_…`) → `STRIPE_SECRET_KEY`.
+    `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`; copy the signing secret
+    (`whsec_…`). For local testing, `stripe listen` (§11.1) prints its own.
 
-**F. Where the four values go**
-14. **Password manager first**, as "Kiwiply Stripe — test". Never in chat, the repo or GitHub
-    secrets. They go into the box's `.env` only for 15.4's live Pro check, and are replaced by the
-    live set after it.
-15. **Stripe CLI:** run `stripe login` again and pick the **Kiwiply** account. It's still signed in to
-    AutomoraLab LLC's sandbox.
+**Part 4: where the values go**
+12. **Password manager first**, as "Kiwiply Stripe — test": the secret key, the two price IDs, later the
+    webhook secret. Never in chat, the repo or GitHub secrets. They reach the box's `.env`
+    (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_3MO`) only for
+    15.4's pre-launch Pro check; production's are blank today, which is a valid running state.
+13. **Stripe CLI:** `stripe login`, pick the **Kiwiply** account (it's still signed in to the LLC's
+    sandbox). Ask Claude to verify the setup read-only.
 
-**G. Tidy the AutomoraLab account**
-16. In AutomoraLab LLC's sandbox: archive **Kiwiply Pro** (and its two prices) and the three
-    **myproduct** test products, delete any webhook endpoint pointing at `api.kiwiply.com`, and stop
-    using its test keys for Kiwiply.
+**Part 5: clean up AutomoraLab LLC's account (sandbox only; never touch its live mode)**
+Checked 2026-10-06: no webhook endpoints; 5 test customers; 3 test subscriptions (1 active).
+14. Switch to **AutomoraLab LLC → sandbox.**
+15. **Customers:** open each of the 5 → **⋯ → Delete customer.** (Deleting cancels the active test
+    subscription too.)
+16. **Product catalog:** **Kiwiply Pro** and the three **myproduct** entries → **⋯ → Archive.** (Products
+    with prices can't be deleted; archiving stops them being sold.) Archive the two Kiwiply Pro prices too.
+17. **Settings → Billing → Customer portal:** if your other products use the portal, replace the Kiwiply
+    privacy/terms links and redirect with theirs.
+18. **Optional:** Developers → API keys → **roll the secret key** (the Kiwiply testing used it; nothing on
+    the box does).
+19. **Live mode of that account:** leave alone — it belongs to your other businesses.
 
-**Live mode (at 15.4):** activate the Kiwiply account (business details, bank account, identity
-check), then repeat C–E in live mode. Live has its own price IDs, webhook secret and keys.
+**Live mode (at 15.4):** activate the Kiwiply account (business details, bank account, identity check),
+then repeat Parts 2–3 in live mode. Live has its own price IDs, webhook secret and keys.
 
 ### 11.3 The webhook only acts on Kiwiply's purchases
 
