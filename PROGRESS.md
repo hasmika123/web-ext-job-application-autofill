@@ -890,8 +890,9 @@ focused Claude Code session.
   consented "support session" fill capture (labels only, never answers).
 - [ ] **9.C5 Offers & retention.** Comps, Stripe promo codes (margin shown vs the floor),
   win-back to consented users, cancellation reasons.
-- [ ] **9.C6 CRM sync.** One-way push to the user's existing CRM *(once it's confirmed which
-  one)*; admin stays the source of truth.
+- [ ] **9.C6 CRM sync (custom CRM, confirmed 2026-10-06).** Signed webhooks (HMAC, replay-safe,
+  retried, failures resendable from admin) + a key-protected read-only export for reconcile;
+  contract in `docs/crm-sync.md`. No product data (resumes, answers, mail) leaves Kiwiply.
 - [ ] **9.C7 Account fixes.** Resend verification, verified email change, clear rate-limit
   lock, revoke extension connections.
 
