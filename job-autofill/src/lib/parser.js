@@ -126,7 +126,7 @@
         // 13.1b: a Pro budget comes back as a percentage + reset date; a Free parse count as used/quota.
         const when = r.resetsAt ? new Date(r.resetsAt) : null;
         throw new Error(when && !isNaN(when.getTime())
-          ? "this month's AI is used up — it resets on " + when.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" })
+          ? "your Kiwiply AI is used up for now — it resets on " + when.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" })
           : "monthly AI limit reached (" + r.used + "/" + r.quota + ")");
       }
       throw new Error("AI parsing unavailable");

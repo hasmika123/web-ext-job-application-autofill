@@ -29,7 +29,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > Autopilot, services, organizations, the consultancy Marketer role and an optional Ops add-on
 > (timesheets + finances); there is no Coach tier. **New Launch-1 task 15.5 (re-price
 > Pro: $49.99 / 3 mo, AI budget $3 / mo · $8 / quarter per billing period, 25-resume cap) must land
-> before 15.4's live keys.** The current focus below is unchanged.
+> before 15.4's live keys.** **15.5 is DONE in code (2026-10-05, ext v0.65.0)** — one human step left:
+> create the $49.99 3-month Price in Stripe test mode and point `STRIPE_PRICE_3MO` at it (DEPLOY.md
+> §11). The current focus below is unchanged.
 >
 > ▶️ **Go-to-market build — next: Phase 12, Stripe billing (2026-09-21).** **Phase 11 is COMPLETE**
 > (ext v0.52.9): the web signals the extension on every change/sign-in/sign-out, `GET
@@ -1159,7 +1161,9 @@ focused Claude Code session.
     our choice). The lawyer confirms the wording, especially against EU and California consumer law.
 - [ ] **15.3 Store.** CWS resubmit with the Pro build · AMO first submission · listing copy for
   the Free/Pro split · `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
-- [ ] **15.5 Re-price Pro** *(expansion decision 2026-10-05; land before 15.4's live keys).*
+- [x] **15.5 Re-price Pro** *(expansion decision 2026-10-05; land before 15.4's live keys).* ✅ Code done
+  2026-10-05 (ext v0.65.0). **Human step:** a new $49.99 3-month Price in Stripe (test now, live at
+  15.4); archive the $44.99 one; `STRIPE_PRICE_3MO` → the new id.
   - 3-month price $44.99 → **$49.99**: a new Stripe Price in test and live, plus
     `dossier.stripe.amount3mo`.
   - Pro AI budget $5/month → **$3/month · $8 per 3-month period**, with `AiBudgetService`
@@ -1379,6 +1383,17 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **15.5 Re-price Pro** · Ext **v0.65.0**. **Price:** 3 months $44.99 → **$49.99**
+  (`/pricing`, Settings › Billing, ToS, the MRR figure via `dossier.stripe.amount3mo`; the Stripe Price
+  itself is the user's step). **AI budget per billing period:** `AiBudgetService` now measures Pro from
+  the period's start to its renewal — `current_period_end` minus 1 month, or 3 on the 3-month Price —
+  at **$3** (monthly) / **$8** (3-month) (`DOSSIER_AI_PRO_MONTHLY_BUDGET_USD` / `…_3MO_…`); it resets
+  at renewal, not the 1st. An admin override and Free parsing stay calendar-month. An unknown Price
+  counts as monthly (the smaller window); no usable period end falls back to the month. **Resume cap:**
+  Pro **25** live resumes (402 `RESUME_LIMIT`, now with `plan`); resumes over a cap stay readable and
+  fillable. Web + extension show an upgrade link only to Free; Pro is told to archive one. Every
+  "this month's Kiwiply AI" became "your Kiwiply AI … resets on {renewal}". Tests: 6 new budget-window
+  tests, the Pro-cap IT, and the MRR / budget ITs moved to the new numbers.
 - 2026-10-05 · **15.6 full catalog on /pricing + Contact us** · `/pricing` now lists every plan and
   service, each with its scope, limits and price: Free + Pro (checkout, unchanged) + Autopilot,
   then for organizations Organization ($499 setup + per-person menu), Consultancy (Marketer seats)

@@ -6,13 +6,16 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.dossier.api.domain.AiQuotaOverride;
+import com.dossier.api.domain.Subscription;
 import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiQuotaOverrideRepository;
+import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.service.AiBudgetService.Decision;
 import com.dossier.api.service.AiBudgetService.Verdict;
 import com.dossier.api.service.ai.AiPolicy;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiTask;
+import com.dossier.api.service.billing.StripeProperties;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -39,18 +42,25 @@ class AiBudgetServiceTest {
     private EntitlementService entitlement;
     private AiCallRepository calls;
     private AiMeteringService metering;
+    private SubscriptionRepository subscriptions;
+    private StripeProperties stripe;
     private AiBudgetService service;
 
     @BeforeEach
     void setUp() {
-        policy = new AiPolicy(); // $5, soft cap 80 %, no economy model, nothing disabled
+        policy = new AiPolicy(); // soft cap 80 %, no economy model, nothing disabled
+        policy.setProMonthlyBudgetUsd(5.0); // round numbers for the percentage tests below
         provider = Mockito.mock(AiProvider.class);
         when(provider.defaultModel()).thenReturn(DEFAULT_MODEL);
         overrides = Mockito.mock(AiQuotaOverrideRepository.class); // no override by default
         entitlement = Mockito.mock(EntitlementService.class);
         calls = Mockito.mock(AiCallRepository.class);
         metering = Mockito.mock(AiMeteringService.class);
-        service = new AiBudgetService(policy, provider, overrides, entitlement, calls, metering, FREE_PARSES);
+        subscriptions = Mockito.mock(SubscriptionRepository.class); // no row: the calendar-month fallback
+        stripe = new StripeProperties();
+        stripe.setPriceMonthly("price_month");
+        stripe.setPrice3mo("price_3mo");
+        service = new AiBudgetService(policy, provider, overrides, entitlement, calls, metering, subscriptions, stripe, FREE_PARSES);
     }
 
     private void pro() {
@@ -174,6 +184,77 @@ class AiBudgetServiceTest {
         policy.setProMonthlyBudgetUsd(10.0);
         spent(FIVE_DOLLARS);
         assertThat(service.decide("u", AiTask.DRAFT).used()).isEqualTo(50);
+    }
+
+    // ---- 15.5: the budget covers one billing period -----------------------------------------
+
+    private Subscription sub(String priceId, Instant periodEnd) {
+        Subscription s = new Subscription();
+        s.setPlan(Subscription.PLAN_PRO);
+        s.setStatus("active");
+        s.setPriceId(priceId);
+        s.setCurrentPeriodEnd(periodEnd);
+        return s;
+    }
+
+    @Test
+    void theDefaultsAreThreeDollarsAMonthAndEightPerThreeMonths() {
+        AiPolicy defaults = new AiPolicy();
+        assertThat(defaults.proBudgetMicros()).isEqualTo(3_000_000L);
+        assertThat(defaults.pro3moBudgetMicros()).isEqualTo(8_000_000L);
+    }
+
+    @Test
+    void theMonthlyPlansWindowIsItsBillingPeriod() {
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        Instant renews = Instant.parse("2026-10-20T08:30:00Z");
+        AiBudgetService.Window w = service.proWindow(sub("price_month", renews), now);
+        assertThat(w.budgetMicros()).isEqualTo(FIVE_DOLLARS);
+        assertThat(w.start()).isEqualTo(Instant.parse("2026-09-20T08:30:00Z"));
+        assertThat(w.resetsAt()).isEqualTo(renews);
+    }
+
+    @Test
+    void theThreeMonthPlanGetsItsOwnBudgetOverThreeMonths() {
+        policy.setPro3moBudgetUsd(8.0);
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        Instant renews = Instant.parse("2026-12-01T00:00:00Z");
+        AiBudgetService.Window w = service.proWindow(sub("price_3mo", renews), now);
+        assertThat(w.budgetMicros()).isEqualTo(8_000_000L);
+        assertThat(w.start()).isEqualTo(Instant.parse("2026-09-01T00:00:00Z"));
+        assertThat(w.resetsAt()).isEqualTo(renews);
+    }
+
+    @Test
+    void anUnknownPriceIsTreatedAsMonthly() {
+        // e.g. a subscription still on a retired Price id: the smaller, monthly window is the safe one.
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        AiBudgetService.Window w = service.proWindow(sub("price_retired", Instant.parse("2026-10-20T00:00:00Z")), now);
+        assertThat(w.budgetMicros()).isEqualTo(FIVE_DOLLARS);
+        assertThat(w.start()).isEqualTo(Instant.parse("2026-09-20T00:00:00Z"));
+    }
+
+    @Test
+    void withNoUsablePeriodEndTheCalendarMonthIsTheFallback() {
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        AiBudgetService.Window none = service.proWindow(sub("price_month", null), now);
+        assertThat(none.start()).isEqualTo(Instant.parse("2026-10-01T00:00:00Z"));
+        assertThat(none.resetsAt()).isEqualTo(Instant.parse("2026-11-01T00:00:00Z"));
+        AiBudgetService.Window past = service.proWindow(sub("price_month", Instant.parse("2026-10-01T00:00:00Z")), now);
+        assertThat(past.start()).isEqualTo(Instant.parse("2026-10-01T00:00:00Z"));
+    }
+
+    @Test
+    void spendingIsSummedFromThePeriodStartAndResetsAtRenewal() {
+        pro();
+        Instant renews = Instant.now().plus(java.time.Duration.ofDays(10)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        when(subscriptions.findOneByUserLogin("u")).thenReturn(Optional.of(sub("price_month", renews)));
+        Instant periodStart = renews.atZone(ZoneOffset.UTC).minusMonths(1).toInstant();
+        when(calls.costSince("u", periodStart)).thenReturn(FIVE_DOLLARS); // the whole budget, this period
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.EXHAUSTED);
+        assertThat(d.resetsAt()).isEqualTo(renews);
+        assertThat(service.usage("u").resetsAt()).isEqualTo(renews);
     }
 
     // ---- the admin override (a budget, outranking the plan) --------------------------------

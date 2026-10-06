@@ -16,10 +16,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * <ul>
  *   <li><b>{@code models}</b> — task → model ({@code draft}, {@code pick}, {@code map},
  *       {@code enrich}, {@code parse}). A task with no entry uses {@code dossier.ai.model}.</li>
- *   <li><b>{@code pro-monthly-budget-usd}</b> — what one Pro user's AI may cost us in a calendar
- *       month (UTC). ≈ $5, deliberately far above real use: an abuse ceiling, not a product limit.</li>
+ *   <li><b>{@code pro-monthly-budget-usd}</b> / <b>{@code pro3mo-budget-usd}</b> — what one Pro
+ *       user's AI may cost us in one billing period: $3 on the monthly plan, $8 on the 3-month plan
+ *       (15.5, re-priced 2026-10-05 for the 80 % margin floor). Far above typical use: a ceiling,
+ *       not a product limit.</li>
  *   <li><b>{@code soft-cap-percent}</b> — past this share of the budget every task switches to
- *       {@code economy-model} (blank = no switch). At 100 % server AI stops until the month resets.</li>
+ *       {@code economy-model} (blank = no switch). At 100 % server AI stops until the period resets.</li>
  *   <li><b>{@code disabled-tasks}</b> — the per-feature kill switch: a listed task is answered
  *       "disabled" without calling anyone, e.g. {@code DOSSIER_AI_DISABLED_TASKS=enrich,pick}.</li>
  * </ul>
@@ -29,7 +31,8 @@ public class AiPolicy {
 
     private Map<String, String> models = new LinkedHashMap<>();
     private String economyModel = "";
-    private double proMonthlyBudgetUsd = 5.0;
+    private double proMonthlyBudgetUsd = 3.0;
+    private double pro3moBudgetUsd = 8.0;
     private int softCapPercent = 80;
     private Set<String> disabledTasks = new LinkedHashSet<>();
 
@@ -46,9 +49,14 @@ public class AiPolicy {
         return false;
     }
 
-    /** The Pro budget in millionths of a dollar — the unit {@code ai_call.cost_micros} is kept in. */
+    /** The monthly plan's budget in millionths of a dollar — the unit {@code ai_call.cost_micros} is kept in. */
     public long proBudgetMicros() {
         return Math.round(proMonthlyBudgetUsd * 1_000_000);
+    }
+
+    /** The 3-month plan's budget for its whole period, in millionths of a dollar. */
+    public long pro3moBudgetMicros() {
+        return Math.round(pro3moBudgetUsd * 1_000_000);
     }
 
     public boolean hasEconomyModel() {
@@ -77,6 +85,14 @@ public class AiPolicy {
 
     public void setProMonthlyBudgetUsd(double proMonthlyBudgetUsd) {
         this.proMonthlyBudgetUsd = proMonthlyBudgetUsd;
+    }
+
+    public double getPro3moBudgetUsd() {
+        return pro3moBudgetUsd;
+    }
+
+    public void setPro3moBudgetUsd(double pro3moBudgetUsd) {
+        this.pro3moBudgetUsd = pro3moBudgetUsd;
     }
 
     public int getSoftCapPercent() {

@@ -71,7 +71,7 @@ export async function readAccount(): Promise<Account> {
   return { connected: !!(tok && tok.access), who: tok.username || "your account", pro };
 }
 
-/** This month's AI meter (13.1c): a percent for Pro, a resume-parse count for Free. Never dollars. */
+/** The AI meter (13.1c): a percent of Pro's budget for the billing period (15.5), a resume-parse count for Free. Never dollars. */
 export type AiUsage = { metered: "budget" | "count"; used: number; limit: number; resetsAt: string; economy: boolean };
 
 /** null when not connected or the server can't say — the meter simply isn't shown. */
@@ -93,12 +93,13 @@ export async function readAiUsage(): Promise<AiUsage | null> {
 export function describeAiUsage(u: AiUsage): { headline: string; detail: string } {
   const d = u.resetsAt ? new Date(u.resetsAt) : null;
   const resets = d && !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" }) : "";
-  const when = resets ? `Resets ${resets}.` : "Resets at the start of next month.";
   if (u.metered === "budget") {
+    const when = resets ? `Resets ${resets}.` : "Resets when your plan renews.";
     const used = Math.min(100, Math.max(0, Math.round(u.used)));
-    if (used >= 100) return { headline: "You've used this month's Kiwiply AI", detail: `${when} Your own API key above still works until then.` };
-    return { headline: `${used}% of this month's Kiwiply AI used`, detail: u.economy ? `${when} Until then Kiwiply AI uses a lighter, faster model.` : when };
+    if (used >= 100) return { headline: "You've used your Kiwiply AI for now", detail: `${when} Your own API key above still works until then.` };
+    return { headline: `${used}% of your Kiwiply AI used`, detail: u.economy ? `${when} Until then Kiwiply AI uses a lighter, faster model.` : when };
   }
+  const when = resets ? `Resets ${resets}.` : "Resets at the start of next month.";
   return { headline: `${u.used} of ${u.limit} AI resume parses used this month`, detail: `${when} Drafting and the other Kiwiply AI features come with Pro.` };
 }
 
