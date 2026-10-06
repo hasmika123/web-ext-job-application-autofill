@@ -9,7 +9,8 @@ import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.MinIOContainer;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -22,7 +23,7 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 /**
  * Verifies the resume blob store round-trips against a real S3-compatible server
- * (MinIO via Testcontainers) — the same surface Cloudflare R2 exposes in prod.
+ * (Adobe S3Mock via Testcontainers) — the same API AWS S3 exposes in prod.
  * Talks to the storage service directly, so it needs no Spring context or DB.
  */
 @Testcontainers
@@ -30,14 +31,15 @@ class S3ResumeStorageServiceIT {
 
     private static final String BUCKET = "dossier-resumes";
 
-    // quay.io, NOT Docker Hub: MinIO deleted the minio/minio repo from Docker Hub, so the
-    // old coordinate now fails with "pull access denied ... repository does not exist".
-    // Same RELEASE tag, different registry — but MinIOContainer asserts the name is
-    // 'minio/minio', so the substitution has to be declared explicitly.
+    // Adobe S3Mock, not MinIO: MinIO stopped publishing public images — Docker Hub dropped
+    // minio/minio, and quay.io/minio now requires a login, which failed every CI run from
+    // 2026-10-05. S3Mock is maintained, public on Docker Hub, and accepts any credentials.
+    private static final int S3_PORT = 9090;
+
     @Container
-    private static final MinIOContainer MINIO = new MinIOContainer(
-        DockerImageName.parse("quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z").asCompatibleSubstituteFor("minio/minio")
-    );
+    private static final GenericContainer<?> S3 = new GenericContainer<>(DockerImageName.parse("adobe/s3mock:5.2.3"))
+        .withExposedPorts(S3_PORT)
+        .waitingFor(Wait.forListeningPort());
 
     private static S3Client s3Client;
     private static ResumeStorageService storageService;
@@ -45,10 +47,10 @@ class S3ResumeStorageServiceIT {
     @BeforeAll
     static void setUp() {
         s3Client = S3Client.builder()
-            .endpointOverride(URI.create(MINIO.getS3URL()))
+            .endpointOverride(URI.create("http://" + S3.getHost() + ":" + S3.getMappedPort(S3_PORT)))
             .region(Region.of("auto"))
             .credentialsProvider(
-                StaticCredentialsProvider.create(AwsBasicCredentials.create(MINIO.getUserName(), MINIO.getPassword()))
+                StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
             )
             .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
             .build();
