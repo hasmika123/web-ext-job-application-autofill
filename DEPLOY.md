@@ -808,6 +808,63 @@ webhook then:
 So another app's checkout that happens to carry one of our user ids as its `client_reference_id`
 can't hand that user Pro. Tests: `BillingWebhookIT` → "one Stripe account, several businesses".
 
+### 11.4 Live-mode launch checklist: the user's, right before launch (2026-10-06)
+
+**Where things stand.** The Kiwiply Stripe account was set up directly in **live mode** ahead of launch
+(product, prices, portal, branding). **No live or test key is on the box**, so billing is off and nobody
+can pay; that's a valid running state. The sandbox (test mode) was skipped, but 15.4 still needs one,
+for two things live mode can't do: the pre-launch Pro check with Stripe's fake test card, and the
+**test-clock run** (a real failed renewal and lapse). A live purchase costs real fees and can't simulate
+a failed renewal. So the checklist has a short sandbox block (A) and the live block (B).
+
+**A. Sandbox, before the live keys go in** (about 15 minutes; DEPLOY.md §11.2 steps 8–11)
+- [ ] In the Kiwiply account's **sandbox**: product **Kiwiply Pro** (tax code `txcd_10103000`), prices
+      **$19.99 monthly** and **$49.99 every 3 months** (both Exclusive), customer portal as in §11.2.
+- [ ] Its **test secret key** (`sk_test_…`), both **test price IDs** → password manager ("Kiwiply Stripe: test").
+- [ ] After `develop` is promoted and the extension is approved: add the **test webhook**
+      (`https://api.kiwiply.com/api/billing/webhook`, the 6 events in §11.2), copy its `whsec_…`.
+- [ ] Put the four test values in the box's `.env`, `$COMPOSE up -d api`, run 15.4's **Pro check** (every
+      Pro promise, with the test card `4242 4242 4242 4242`) and the **test-clock run** (`DEPLOY.md` §11.1 §G).
+- [ ] When it passes: **remove the four test values from `.env`** before step B. Never both at once.
+
+**B. Live mode, launch day**
+*Check what you set up (read-only; nothing here changes anything):*
+- [ ] **Activation** complete: business details, bank account, identity; **payouts enabled**.
+- [ ] **Public details:** name Kiwiply, support@kiwiply.com, https://kiwiply.com, statement descriptor
+      **KIWIPLY**. **Branding:** logo, icon, brand `#FBFAF6`, accent `#94BD37`.
+- [ ] **Tax:** head-office address set; **Managed Payments** on; Stripe Tax on.
+- [ ] **Product** Kiwiply Pro: tax code `txcd_10103000`; exactly two **active** prices, **$19.99 / month** and
+      **$49.99 / 3 months**, both tax behaviour **Exclusive**; no leftover test products or prices.
+- [ ] **Customer portal:** cancel at the *end of the billing period* on; update card and invoice history
+      on; **plan switching off**; privacy `/privacy`, terms `/terms`, return `/settings#billing`.
+- [ ] **Customer emails:** successful-payment receipts on. **Two-step verification** on.
+
+*The keys (do these in order; each value goes in the password manager FIRST):*
+- [ ] **1. Secret key**, Developers → API keys → `sk_live_…`. A standard secret key is fine. For a tighter
+      one, a **restricted key** with only what the API calls: *Customers* write, *Checkout Sessions* write,
+      *Customer portal* write, *Subscriptions* write (it lists and cancels). Nothing else.
+- [ ] **2. Price IDs**, the two live `price_…` codes: monthly → `STRIPE_PRICE_MONTHLY`, 3-month →
+      `STRIPE_PRICE_3MO`. They differ from the test ones; a test price on a live key (or the reverse) fails
+      every checkout.
+- [ ] **3. Live webhook**, add it only **after** the promote and deploy: Developers → Webhooks → Add
+      endpoint, `https://api.kiwiply.com/api/billing/webhook`, events `checkout.session.completed`,
+      `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`,
+      `invoice.paid`, `invoice.payment_failed`. Copy its signing secret `whsec_…` → `STRIPE_WEBHOOK_SECRET`.
+      Each endpoint has its own secret, per mode: the wrong one makes every event fail with a 400.
+- [ ] **4. Put all four in the box's `.env`** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+      `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_3MO`) with **no trailing space or newline**, then
+      `$COMPOSE up -d api`. Never in chat, the repo or GitHub secrets.
+- [ ] **5. Check it's on:** `/pricing` shows the Go Pro buttons, and Settings › Billing no longer says
+      payments aren't switched on.
+- [ ] **6. One real purchase with your own card.** Pro unlocks; the webhook shows **200** in Stripe's
+      delivery log; cancel from Settings › Billing and confirm "ends on [date]"; refund yourself in Stripe
+      if you want the money back.
+- [ ] **7. Watch the first week:** the error digest email (§5.2), Stripe's webhook log (any failed delivery),
+      and `/admin/analytics` → Revenue.
+
+Claude can verify the **sandbox** read-only through the Stripe CLI after `stripe login` to the Kiwiply
+account. It can't check live mode without a live key, which it should never be given, so block B is yours.
+
 ---
 
 ## 12. Inbox encryption key (Phase 14.2)

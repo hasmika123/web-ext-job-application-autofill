@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { notifyExtension } from "@/lib/extension-signal";
-import { AiIcon, BoardIcon, BugIcon, ChartIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, MailIcon, MonitorIcon, ShieldIcon, UsersIcon, MessageIcon } from "@kiwiply/ui";
+import { AiIcon, BoardIcon, BugIcon, ChartIcon, ChevronLeftIcon, CreditCardIcon, DashboardIcon, FileTextIcon, MailIcon, MessageIcon, MonitorIcon, ShieldIcon, UsersIcon } from "@kiwiply/ui";
 
 export interface AdminAccount {
   login?: string;
@@ -23,6 +23,7 @@ const ICON = "h-[18px] w-[18px] flex-none";
 const I = {
   overview: <DashboardIcon className={ICON} />,
   users: <UsersIcon className={ICON} />,
+  customers: <CreditCardIcon className={ICON} />,
   ai: <AiIcon className={ICON} />,
   jobs: <BoardIcon className={ICON} />,
   security: <ShieldIcon className={ICON} />,
@@ -38,6 +39,7 @@ const I = {
 const NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: I.overview },
   { href: "/admin/users", label: "Users", icon: I.users },
+  { href: "/admin/customers", label: "Customers", icon: I.customers },
   { href: "/admin/ai", label: "AI usage", icon: I.ai },
   { href: "/admin/job-sources", label: "Job sources", icon: I.jobs },
   { href: "/admin/security", label: "Security", icon: I.security, soon: true },

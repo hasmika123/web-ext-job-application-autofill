@@ -161,7 +161,8 @@ because a bad edit silently breaks output quality), security rules, DB schema, a
 > failed, or what we've told them. The Revenue card only has totals. The user page has account
 > actions (activate, password-reset email, admin role, force logout, delete) but nothing about
 > billing. Bug reports and inquiries aren't tied to a person, and fill telemetry is anonymous.
-> 9.C fixes that. **9.C1 must ship before 15.4 switches on live keys.**
+> 9.C fixes that. **9.C1 must ship before 15.4 switches on live keys.** *(9.C1 built
+> 2026-10-06: `/admin/customers` + the Billing section on each user page.)*
 
 **Decisions (recommended 2026-10-05):**
 - **No "log in as the user."** Signing in as someone else would let an admin act, and possibly

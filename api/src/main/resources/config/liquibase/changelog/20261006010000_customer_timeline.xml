@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 9.C1 — the admin Customers page and each customer's billing timeline.
+
+        stripe_event was an idempotency log only (id + type). It now also records who an event is
+        about and what it was worth, so admin can show one person's billing history and what they
+        have paid. Additive: old rows keep nulls, which only means "no detail recorded".
+        user_id is deliberately not a foreign key — the row is the webhook's record, and account
+        deletion clears it rather than being blocked by it.
+    -->
+    <changeSet id="20261006010000-1" author="dossier">
+        <addColumn tableName="stripe_event">
+            <column name="customer_id" type="varchar(255)"/>
+            <column name="user_id" type="bigint"/>
+            <column name="amount_cents" type="bigint"/>
+            <column name="currency" type="varchar(3)"/>
+            <column name="detail" type="varchar(255)"/>
+            <column name="occurred_at" type="${datetimeType}"/>
+        </addColumn>
+        <createIndex tableName="stripe_event" indexName="idx_stripe_event_user">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="stripe_event" indexName="idx_stripe_event_customer">
+            <column name="customer_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Admin notes on a customer: written once, never edited, removed with the account. -->
+    <changeSet id="20261006010000-2" author="dossier">
+        <createTable tableName="customer_note">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="author_login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body" type="varchar(4000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="customer_note"
+            baseColumnNames="user_id"
+            constraintName="fk_customer_note_user"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+        <createIndex tableName="customer_note" indexName="idx_customer_note_user">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

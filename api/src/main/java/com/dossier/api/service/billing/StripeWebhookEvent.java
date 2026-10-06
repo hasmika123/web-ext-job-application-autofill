@@ -21,6 +21,8 @@ import java.util.Optional;
  * @param currentPeriodEnd end of the paid-for period, when the event has one
  * @param cancelAtPeriodEnd whether the subscription is set to end at the period boundary
  * @param clientReferenceId our user id, set at checkout — how a customer binds to a user
+ * @param amountCents    for an invoice: the amount paid ({@code invoice.paid}) or due (a failure)
+ * @param currency       for an invoice: its ISO currency, lower-case as Stripe sends it
  * @param app            the {@code app} metadata on the session or subscription — {@link #KIWIPLY} on
  *                       everything we create; another value means another business on the same
  *                       Stripe account, and the event is none of ours
@@ -37,6 +39,8 @@ public record StripeWebhookEvent(
     Instant currentPeriodEnd,
     Boolean cancelAtPeriodEnd,
     String clientReferenceId,
+    Long amountCents,
+    String currency,
     String app
 ) {
     /** The {@code app} metadata value Kiwiply puts on every customer, checkout and subscription. */

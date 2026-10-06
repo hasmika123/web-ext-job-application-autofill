@@ -98,11 +98,11 @@ public class BillingWebhookService {
         }
         try {
             apply(event);
-            mark(event.id(), StripeEvent.STATUS_OK, null);
+            mark(event, StripeEvent.STATUS_OK, null);
             return Outcome.PROCESSED;
         } catch (RuntimeException e) {
             LOG.error("Failed to apply Stripe event {} ({})", event.id(), event.type(), e);
-            mark(event.id(), StripeEvent.STATUS_FAILED, e.toString());
+            mark(event, StripeEvent.STATUS_FAILED, e.toString());
             throw e;
         }
     }
@@ -141,6 +141,7 @@ public class BillingWebhookService {
                     row.setType(event.type());
                     row.setReceivedAt(Instant.now());
                     row.setStatus(StripeEvent.STATUS_OK);
+                    describeOnto(row, event);
                     stripeEventRepository.saveAndFlush(row);
                     return true;
                 })
@@ -153,18 +154,61 @@ public class BillingWebhookService {
         }
     }
 
-    private void mark(String eventId, String status, String error) {
+    private void mark(StripeWebhookEvent event, String status, String error) {
         newTx.executeWithoutResult(s ->
             stripeEventRepository
-                .findById(eventId)
+                .findById(event.id())
                 .ifPresent(row -> {
                     row.setStatus(status);
                     row.setProcessedAt(Instant.now());
+                    // Resolved after the apply, so a checkout that just bound the customer counts.
+                    if (row.getUserId() == null) row.setUserId(resolveUserId(event));
                     // Truncated: a stack trace is for triage, not for filling the column.
                     row.setError(error == null ? null : error.substring(0, Math.min(error.length(), 2000)));
                     stripeEventRepository.save(row);
                 })
         );
+    }
+
+    /**
+     * Who and what an event is about, for the admin customer timeline (9.C1). Written on the
+     * first record only; a retried failure keeps what the first delivery wrote.
+     */
+    static void describeOnto(StripeEvent row, StripeWebhookEvent event) {
+        row.setCustomerId(event.customerId());
+        row.setAmountCents(event.amountCents());
+        row.setCurrency(event.currency());
+        row.setOccurredAt(event.created());
+        row.setDetail(describe(event));
+    }
+
+    /** A one-line description of an event, as an admin would want to read it. */
+    static String describe(StripeWebhookEvent event) {
+        String status = event.status() == null ? null : event.status().replace('_', ' ');
+        String d =
+            switch (event.type()) {
+                case "checkout.session.completed" -> "Checkout completed";
+                case "customer.subscription.created" -> "Subscription started" + (status == null ? "" : ": " + status);
+                case "customer.subscription.updated" -> "Subscription updated" +
+                (status == null ? "" : ": " + status) +
+                (Boolean.TRUE.equals(event.cancelAtPeriodEnd()) ? ", set to cancel at period end" : "");
+                case "customer.subscription.deleted" -> "Subscription ended";
+                case "invoice.paid" -> "Payment received";
+                case "invoice.payment_failed" -> "Payment failed";
+                default -> event.type();
+            };
+        return d.length() > 255 ? d.substring(0, 255) : d;
+    }
+
+    /** Our user for an event: the checkout's client reference, else whoever owns the customer. */
+    private Long resolveUserId(StripeWebhookEvent event) {
+        Optional<Long> fromCheckout = event.userIdFromClientReference();
+        if (fromCheckout.isPresent()) return fromCheckout.get();
+        if (event.customerId() == null) return null;
+        return subscriptionRepository
+            .findOneByStripeCustomerId(event.customerId())
+            .map(sub -> sub.getUser() == null ? null : sub.getUser().getId())
+            .orElse(null);
     }
 
     private void apply(StripeWebhookEvent event) {
