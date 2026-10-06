@@ -112,6 +112,26 @@ public class MailService {
         sendEmailFromTemplateSync(user, "mail/creationEmail", "email.activation.title");
     }
 
+    /**
+     * Phase 14.6: an email said an application reached Interview or Offer. Sent to the account's own
+     * address (the user's real one — never the connected job-hunting Gmail).
+     */
+    @Async
+    public void sendStatusChangeEmail(User user, String company, String role, String stage, String link) {
+        if (user.getEmail() == null) return;
+        Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
+        Context context = new Context(locale);
+        context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
+        context.setVariable("company", company);
+        context.setVariable("role", role);
+        context.setVariable("stage", stage);
+        context.setVariable("link", link);
+        String subject = messageSource.getMessage("OFFER".equals(stage) ? "email.status.offer.title" : "email.status.interview.title", new Object[] { company }, locale);
+        context.setVariable("subject", subject);
+        String content = templateEngine.process("mail/statusChangeEmail", context);
+        sendEmailSync(user.getEmail(), subject, content, false, true);
+    }
+
     @Async
     public void sendPasswordResetMail(User user) {
         LOG.debug("Sending password reset email to '{}'", user.getEmail());

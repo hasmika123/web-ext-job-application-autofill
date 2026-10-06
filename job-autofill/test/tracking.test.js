@@ -180,12 +180,107 @@ function mockFetch(handler) {
   ok("syncFieldCache sends an array of DTOs with ISO updatedAt", Array.isArray(fetchFC.calls[0].body) && typeof fetchFC.calls[0].body[0].updatedAt === "string");
   ok("syncFieldCache maps merged DTOs back to local (epoch ms)", mergedFC.length === 1 && mergedFC[0].hitCount === 7 && typeof mergedFC[0].updatedAt === "number");
 
+  /* ---- profileVersion (Phase 11.2) — GET /api/profile/version → string | null ---- */
+  const fetchVer = mockFetch(() => ({ status: 200, json: { version: "9f2c4a1b7e3d0c55", plan: "PRO" } }));
+  const pVer = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchVer, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const ver = await pVer.profileVersion();
+  ok("profileVersion GETs /api/profile/version", fetchVer.calls[0].method === "GET" && fetchVer.calls[0].path === "/api/profile/version");
+  ok("profileVersion returns the server's version", ver.version === "9f2c4a1b7e3d0c55");
+  ok("profileVersion carries the plan (12.3 — no extra round-trip for an upgrade)", ver.plan === "PRO");
+  const fetchNoVer = mockFetch(() => ({ status: 200, json: {} }));
+  const pNoVer = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchNoVer, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const noVer = await pNoVer.profileVersion();
+  ok("profileVersion: null version when the server sends none (caller pulls to be safe)", noVer.version === null);
+  ok("profileVersion: null plan leaves the last known plan alone", noVer.plan === null);
+
+  /* ---- 402 surfacing (Phase 12.3) — clients branch on `code`, never the message ---- */
+  const fetch402 = mockFetch(() => ({ status: 402, json: { status: 402, code: "PRO_REQUIRED", detail: "This feature is part of Kiwiply Pro" } }));
+  const p402 = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetch402, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let err402 = null;
+  try { await p402.profileVersion(); } catch (e) { err402 = e; }
+  ok("402 raises an ApiError carrying the status", err402 && err402.status === 402, String(err402));
+  ok("402 lifts `code` out of the ProblemDetail", err402 && err402.code === "PRO_REQUIRED", err402 && err402.code);
+
+  /* ---- the gates (Phase 12.4) — the two shapes the upload surfaces read off the error ---- */
+  const fetchCap = mockFetch(() => ({
+    status: 402,
+    json: { status: 402, code: "RESUME_LIMIT", detail: "Free accounts keep up to 3 resumes", limit: 3, count: 3 },
+  }));
+  const pCap = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchCap, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errCap = null;
+  try { await pCap.createResume({ label: "Fourth" }); } catch (e) { errCap = e; }
+  ok("createResume surfaces RESUME_LIMIT as a code", errCap && errCap.code === "RESUME_LIMIT", errCap && errCap.code);
+  // services.ts shows `message`, so `detail` has to be what lands there — the ProblemDetail's
+  // `title` is overwritten with the HTTP reason phrase by the server's exception translator.
+  ok("createResume's message is the server's detail", errCap && errCap.message === "Free accounts keep up to 3 resumes", errCap && errCap.message);
+  ok("the cap's counts ride along on the body", errCap && errCap.body && errCap.body.limit === 3 && errCap.body.count === 3);
+
+  const fetchProAi = mockFetch(() => ({ status: 402, json: { status: 402, code: "PRO_REQUIRED", detail: "Kiwiply AI is part of Pro" } }));
+  const pProAi = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchProAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errAiPro = null;
+  try { await pProAi.aiDraft({ question: "Why us?", context: "", consent: true }); } catch (e) { errAiPro = e; }
+  ok("aiDraft raises PRO_REQUIRED rather than returning a flag", errAiPro && errAiPro.code === "PRO_REQUIRED", errAiPro && errAiPro.code);
+
+  const fetchPlain = mockFetch(() => ({ status: 500, json: { detail: "boom" } }));
+  const pPlain = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchPlain, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errPlain = null;
+  try { await pPlain.profileVersion(); } catch (e) { errPlain = e; }
+  ok("an error without a code leaves .code null rather than undefined", errPlain && errPlain.code === null);
+  let verThrew = false; try { await base.profileVersion(); } catch (e) { verThrew = e.name === "NotSupportedError"; }
+  ok("base TrackingProvider.profileVersion throws NotSupported", verThrew);
+
   /* ---- aiDraft (Phase 5) — POSTs /api/ai/draft with consent, returns the server result ---- */
   const fetchAi = mockFetch(() => ({ status: 200, json: { answer: "Because I'd thrive here.", used: 1, quota: 50 } }));
   const pAi = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchAi, tokenStore: T.memoryTokenStore({ access: "A" }) });
   const ai = await pAi.aiDraft({ question: "Why us?", context: "ctx", consent: true });
   ok("aiDraft POSTs /api/ai/draft with consent", fetchAi.calls[0].method === "POST" && fetchAi.calls[0].path === "/api/ai/draft" && fetchAi.calls[0].body.consent === true);
+  ok("aiDraft says it's a draft when no task is given (13.1a)", fetchAi.calls[0].body.task === "draft");
+  await pAi.aiDraft({ question: "Map: 1. First name", consent: true, task: "map" });
+  ok("aiDraft passes the task through", fetchAi.calls[1].body.task === "map");
   ok("aiDraft returns the server result", ai.answer === "Because I'd thrive here." && ai.quota === 50);
+
+  /* ---- fill telemetry (Phase 10.1) — counts to /api/telemetry, 204 back ---- */
+  const fetchTel = mockFetch(() => ({ status: 204, json: null }));
+  const pTel = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchTel, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const ev = { id: "0f8fad5b-d9cb-469f-a165-70867728950e", ats: "workday", adapter: "workday", fieldsFound: 5, fieldsFilled: 5, fieldsFailed: 0, requiredLeftEmpty: 0, extVersion: "0.56.0" };
+  await pTel.recordFill(ev);
+  ok("recordFill POSTs /api/telemetry/fills with the event", fetchTel.calls[0].method === "POST" && fetchTel.calls[0].path === "/api/telemetry/fills" && fetchTel.calls[0].body.ats === "workday");
+  ok("recordFill is authenticated", fetchTel.calls[0].headers.Authorization === "Bearer A");
+  await pTel.recordFillCorrection(ev.id);
+  ok("recordFillCorrection POSTs to the fill's correction path", fetchTel.calls[1].method === "POST" && fetchTel.calls[1].path === "/api/telemetry/fills/" + ev.id + "/correction");
+  await pTel.recordFillCorrection("../../admin");
+  ok("recordFillCorrection can't be steered to another path", fetchTel.calls[2].path.indexOf("/api/telemetry/fills/") === 0 && fetchTel.calls[2].path.indexOf("/admin") === -1, fetchTel.calls[2].path);
+
+  /* ---- learned answers (Phase 10.3d) — POSTed as suggestions, never to the profile ---- */
+  const fetchLearn = mockFetch(() => ({ status: 204, json: null }));
+  const pLearn = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchLearn, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  await pLearn.recordLearnedAnswers([{ fieldKey: "desiredSalary", value: "$120,000", context: "abc" }]);
+  ok("recordLearnedAnswers POSTs /api/profile/suggestions", fetchLearn.calls[0].method === "POST" && fetchLearn.calls[0].path === "/api/profile/suggestions" && fetchLearn.calls[0].body[0].fieldKey === "desiredSalary");
+  ok("recordLearnedAnswers is authenticated", fetchLearn.calls[0].headers.Authorization === "Bearer A");
+  ok("recordLearnedAnswers never touches the profile itself", fetchLearn.calls.every((c) => c.path !== "/api/profile"));
+
+  /* ---- AI meter (Phase 13.1c) — GET /api/ai/usage ---- */
+  const fetchMeter = mockFetch(() => ({ status: 200, json: { metered: "budget", used: 32, limit: 100, resetsAt: "2026-10-01T00:00:00Z", economy: false } }));
+  const pMeter = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchMeter, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const meter = await pMeter.aiUsage();
+  ok("aiUsage GETs /api/ai/usage, authenticated", fetchMeter.calls[0].method === "GET" && fetchMeter.calls[0].path === "/api/ai/usage" && fetchMeter.calls[0].headers.Authorization === "Bearer A");
+  ok("aiUsage returns the meter as-is", meter && meter.metered === "budget" && meter.used === 32);
+
+  /* ---- resume fit (Phase 13.2) — POST /api/ai/resume-match ---- */
+  const fetchFit = mockFetch(() => ({ status: 200, json: { best: { resumeId: 11, label: "Backend v3", score: 84, why: "Java" }, scores: [], cached: false } }));
+  const pFit = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchFit, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const fit = await pFit.resumeMatch({ jobDescription: "x".repeat(25000), role: "Backend Engineer", company: "Acme", consent: true });
+  ok("resumeMatch POSTs /api/ai/resume-match, authenticated", fetchFit.calls[0].method === "POST" && fetchFit.calls[0].path === "/api/ai/resume-match" && fetchFit.calls[0].headers.Authorization === "Bearer A");
+  ok("resumeMatch caps the job description it sends", fetchFit.calls[0].body.jobDescription.length === 20000 && fetchFit.calls[0].body.role === "Backend Engineer" && fetchFit.calls[0].body.consent === true);
+  ok("resumeMatch returns the server's best match", fit && fit.best && fit.best.resumeId === 11);
+
+  /* ---- job fit (Phase 13.3) — POST /api/ai/job-fit ---- */
+  const fetchJobFit = mockFetch(() => ({ status: 200, json: { fit: { resumeId: 11, score: 71, matched: ["Java"], missing: ["Terraform"], redFlags: [] }, cached: false } }));
+  const pJobFit = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchJobFit, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  const jf = await pJobFit.jobFit({ resumeId: "11", jobDescription: "y".repeat(21000), role: "Backend Engineer", company: "Acme", consent: true });
+  ok("jobFit POSTs /api/ai/job-fit with the server resume id", fetchJobFit.calls[0].method === "POST" && fetchJobFit.calls[0].path === "/api/ai/job-fit" && fetchJobFit.calls[0].body.resumeId === 11);
+  ok("jobFit caps the job description", fetchJobFit.calls[0].body.jobDescription.length === 20000 && fetchJobFit.calls[0].headers.Authorization === "Bearer A");
+  ok("jobFit returns the report", jf && jf.fit && jf.fit.missing[0] === "Terraform");
 
   /* ---- aiParseResume — POSTs /api/ai/parse-resume (text or file mode) ---- */
   const fetchParse = mockFetch(() => ({ status: 200, json: { parsed: { summary: "s", skills: ["Java"] }, used: 2, quota: 50 } }));

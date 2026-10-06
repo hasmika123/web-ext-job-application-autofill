@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 14.1 - a user's connected inbox: their dedicated Gmail address and its app password,
+        encrypted with the inbox key (14.2, AES-256-GCM, bound to this user's id - never stored as
+        typed). One per user. `sent_folder` is the account's Sent folder as found by its \Sent flag
+        at connect time. `status`/`last_error`/`consecutive_failures` are the poller's (14.3) per-user
+        error state. Deleted on disconnect and with the account; revoking the app password in Google
+        also cuts us off. Additive.
+    -->
+    <changeSet id="20260922100000-1" author="dossier">
+        <createTable tableName="inbox_connection">
+            <column name="user_id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="address" type="varchar(254)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="password_enc" type="varchar(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sent_folder" type="varchar(200)"/>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_checked_at" type="timestamp"/>
+            <column name="last_error" type="varchar(255)"/>
+            <column name="consecutive_failures" type="integer" valueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="connected_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="inbox_connection"
+            baseColumnNames="user_id"
+            constraintName="fk_inbox_connection_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>

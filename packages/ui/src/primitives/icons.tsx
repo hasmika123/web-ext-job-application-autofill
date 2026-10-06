@@ -274,6 +274,17 @@ export const GripIcon = makeIcon("GripIcon", {
 
 /* ── Admin / status ──────────────────────────────────────────────────────────────── */
 
+/** A warning triangle — red flags in the job-fit report (13.3). */
+export const AlertIcon = makeIcon("AlertIcon", {
+  node: (
+    <>
+      <path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </>
+  ),
+});
+
 export const ShieldIcon = makeIcon("ShieldIcon", {
   node: <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" />,
 });
@@ -296,6 +307,31 @@ export const MailIcon = makeIcon("MailIcon", {
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="M4 7l8 6 8-6" />
+    </>
+  ),
+});
+
+/** A conversation — "Contact us" requests (15.6). */
+export const MessageIcon = makeIcon("MessageIcon", {
+  node: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z" />,
+});
+
+/** A payment card — paying customers (9.C1). */
+export const CreditCardIcon = makeIcon("CreditCardIcon", {
+  node: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M7 15h3" />
+    </>
+  ),
+});
+
+/** Notifications (14.6). */
+export const BellIcon = makeIcon("BellIcon", {
+  node: (
+    <>
+      <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </>
   ),
 });

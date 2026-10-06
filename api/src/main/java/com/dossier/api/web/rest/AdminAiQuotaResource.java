@@ -3,12 +3,12 @@ package com.dossier.api.web.rest;
 import com.dossier.api.config.Constants;
 import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.AdminAiQuotaService;
+import com.dossier.api.service.ai.AiPolicy;
 import jakarta.validation.constraints.Pattern;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,8 +22,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Per-user AI quota override management (Phase 9.A2.2). ADMIN-gated; set/clear are audited in the
- * service. GET returns the global default plus this user's override (null = uses the default).
+ * Per-user AI override management (Phase 9.A2.2). ADMIN-gated; set/clear are audited in the
+ * service. Since 13.1b the override is a monthly budget in US cents: GET returns the Pro default
+ * ({@code defaultBudgetCents}) plus this user's override (null = uses their plan). The path keeps
+ * its old name so bookmarks and the audit trail still line up.
  */
 @RestController
 @RequestMapping("/api/admin/users/{login}/ai-quota")
@@ -33,36 +35,40 @@ public class AdminAiQuotaResource {
     private static final Logger LOG = LoggerFactory.getLogger(AdminAiQuotaResource.class);
 
     private final AdminAiQuotaService service;
-    private final int defaultQuota;
+    private final AiPolicy policy;
 
-    public AdminAiQuotaResource(AdminAiQuotaService service, @Value("${dossier.ai.free-monthly-quota:50}") int defaultQuota) {
+    public AdminAiQuotaResource(AdminAiQuotaService service, AiPolicy policy) {
         this.service = service;
-        this.defaultQuota = defaultQuota;
+        this.policy = policy;
     }
 
-    public record QuotaRequest(Integer quota) {}
+    public record BudgetRequest(Integer budgetCents) {}
+
+    private int defaultBudgetCents() {
+        return (int) Math.round(policy.getProMonthlyBudgetUsd() * 100);
+    }
 
     @GetMapping
     public Map<String, Object> get(@PathVariable("login") @Pattern(regexp = Constants.LOGIN_REGEX) String login) {
         Map<String, Object> body = new HashMap<>();
-        body.put("defaultQuota", defaultQuota);
-        body.put("override", service.getOverride(login).orElse(null));
+        body.put("defaultBudgetCents", defaultBudgetCents());
+        body.put("overrideCents", service.getOverride(login).orElse(null));
         return body;
     }
 
     @PutMapping
     public Map<String, Object> set(
         @PathVariable("login") @Pattern(regexp = Constants.LOGIN_REGEX) String login,
-        @RequestBody QuotaRequest req
+        @RequestBody BudgetRequest req
     ) {
-        if (req == null || req.quota() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing 'quota'.");
+        if (req == null || req.budgetCents() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing 'budgetCents'.");
         }
-        LOG.debug("REST request to set AI quota override for {} = {}", login, req.quota());
-        int set = service.setOverride(login, req.quota());
+        LOG.debug("REST request to set AI budget override for {} = {}c", login, req.budgetCents());
+        int set = service.setOverride(login, req.budgetCents());
         Map<String, Object> body = new HashMap<>();
-        body.put("defaultQuota", defaultQuota);
-        body.put("override", set);
+        body.put("defaultBudgetCents", defaultBudgetCents());
+        body.put("overrideCents", set);
         return body;
     }
 

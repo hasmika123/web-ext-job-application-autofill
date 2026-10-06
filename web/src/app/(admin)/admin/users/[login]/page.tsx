@@ -5,6 +5,8 @@ import { serverApiFetch } from "@/lib/api";
 import UserActions from "@/components/admin/UserActions";
 import AiQuotaControl from "@/components/admin/AiQuotaControl";
 import SessionsList, { type SessionFamily } from "@/components/admin/SessionsList";
+import CustomerBilling from "@/components/admin/CustomerBilling";
+import type { CustomerDetail } from "@/lib/customers";
 
 export const metadata: Metadata = {
   title: "User · Admin · Kiwiply",
@@ -54,14 +56,14 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   const isSelf = currentLogin.toLowerCase() === user.login.toLowerCase();
   const name = [user.firstName, user.lastName].filter(Boolean).join(" ");
 
-  // AI quota override (A2.2): { defaultQuota, override: number|null }
-  let defaultQuota = 0;
-  let quotaOverride: number | null = null;
+  // AI budget override (A2.2; a monthly budget in cents since 13.1b): { defaultBudgetCents, overrideCents }
+  let defaultBudgetCents = 0;
+  let overrideCents: number | null = null;
   const q = await serverApiFetch(`/api/admin/users/${encodeURIComponent(user.login)}/ai-quota`);
   if (q.ok) {
-    const qd = (await q.json().catch(() => null)) as { defaultQuota?: number; override?: number | null } | null;
-    defaultQuota = qd?.defaultQuota ?? 0;
-    quotaOverride = qd?.override ?? null;
+    const qd = (await q.json().catch(() => null)) as { defaultBudgetCents?: number; overrideCents?: number | null } | null;
+    defaultBudgetCents = qd?.defaultBudgetCents ?? 0;
+    overrideCents = qd?.overrideCents ?? null;
   }
 
   // Sessions (A2.3): the user's refresh-token families.
@@ -69,6 +71,13 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   const s = await serverApiFetch(`/api/admin/users/${encodeURIComponent(user.login)}/sessions`);
   if (s.ok) {
     sessions = ((await s.json().catch(() => [])) as SessionFamily[]) ?? [];
+  }
+
+  // Billing (9.C1): where they stand as a customer + the billing timeline and notes.
+  let billing: CustomerDetail | null = null;
+  const b = await serverApiFetch(`/api/admin/customers/${encodeURIComponent(user.login)}`);
+  if (b.ok) {
+    billing = (await b.json().catch(() => null)) as CustomerDetail | null;
   }
 
   return (
@@ -96,9 +105,10 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </dl>
 
       <div className="flex flex-col gap-5">
+        <CustomerBilling login={user.login} detail={billing} />
         <UserActions login={user.login} activated={user.activated} isAdmin={isAdmin} isSelf={isSelf} />
         <SessionsList login={user.login} families={sessions} />
-        <AiQuotaControl login={user.login} defaultQuota={defaultQuota} override={quotaOverride} />
+        <AiQuotaControl login={user.login} defaultBudgetCents={defaultBudgetCents} overrideCents={overrideCents} />
       </div>
     </div>
   );

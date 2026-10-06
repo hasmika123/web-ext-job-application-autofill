@@ -41,6 +41,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
             <Link href="/#how" className="hover:text-ink">How it works</Link>
             <Link href="/#features" className="hover:text-ink">Features</Link>
             <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
+            <Link href="/#services" className="hover:text-ink">Services</Link>
           </nav>
           <div className="flex items-center gap-3">
             {authed ? (
@@ -85,6 +86,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
                 <Link href="/privacy" className="hover:text-ink">Privacy</Link>
                 <Link href="/terms" className="hover:text-ink">Terms</Link>
                 <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
+                <Link href="/contact" className="hover:text-ink">Contact</Link>
               </nav>
               <p className="text-[12.5px] leading-relaxed">
                 © {new Date().getFullYear()} Kiwiply · In{" "}

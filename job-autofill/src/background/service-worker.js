@@ -64,6 +64,18 @@ async function callAnthropic(apiKey, system, user, maxTokens) {
   return { answer };
 }
 
+// Phase 12.4 — server AI is Pro. The API answers 402 PRO_REQUIRED, which `tracking.js` lifts
+// onto `ApiError.code`. Everything that rides /api/ai/draft (drafting, field mapping, option
+// picks) funnels its failures through here so one refusal reads the same everywhere. The message
+// names the escape hatch, because there genuinely is one: a BYO key takes priority over the
+// server path in every one of these functions.
+const PRO_AI_MESSAGE = "Kiwiply AI is a Pro feature — upgrade, or add your own key.";
+
+function aiFailure(e) {
+  if (e && e.code === "PRO_REQUIRED") return { proRequired: true, error: PRO_AI_MESSAGE };
+  return { error: String((e && e.message) || e) };
+}
+
 async function draftAnswer(question, context) {
   const settings = (await sGet("settings")) || {};
   const cached = await getCached(question);             // reuse identical question
@@ -88,12 +100,12 @@ async function draftAnswer(question, context) {
     try {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (await provider.isAuthenticated()) {
-        const r = (await provider.aiDraft({ question, context, consent: true })) || {};
+        const r = (await provider.aiDraft({ question, context, consent: true, task: "draft" })) || {};
         if (r.answer) { await putCached(question, r.answer); return { answer: r.answer }; }
-        if (r.quotaExceeded) return { error: `Monthly AI limit reached (${r.used}/${r.quota}). Add your own key for unlimited drafting.` };
+        if (r.quotaExceeded) return { error: aiLimitMessage(r) + " Add your own key for unlimited drafting." };
         // disabled / consentRequired / empty → fall through to "off".
       }
-    } catch (e) { return { error: String((e && e.message) || e) }; }
+    } catch (e) { return aiFailure(e); }
   }
 
   return { disabled: true };
@@ -104,6 +116,7 @@ function draftOutcome(r) {
   if (r.cached) return "cached";
   if (r.answer) return "drafted";
   if (r.disabled) return "disabled";
+  if (r.proRequired) return "pro_required"; // checked before `error`: it carries a message too
   if (r.error) return "error";
   return "other";
 }
@@ -145,10 +158,10 @@ async function pickAnswer(question, options, context) {
     try {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (!(await provider.isAuthenticated())) return { disabled: true };
-      const r = (await provider.aiDraft({ question: instruction, context: "", consent: true })) || {};
+      const r = (await provider.aiDraft({ question: instruction, context: "", consent: true, task: "pick" })) || {};
       if (r.quotaExceeded) return { error: "quota" };
       raw = r.answer || null;
-    } catch (e) { return { error: String((e && e.message) || e) }; }
+    } catch (e) { return aiFailure(e); }
   } else {
     return { disabled: true };
   }
@@ -184,20 +197,21 @@ async function mapFields(labels) {
     return mappings ? { mappings } : { error: "unparseable" };
   }
 
-  // 2. Server AI rides the drafting endpoint (its system prompt is drafting-shaped,
-  //    so the parse must stay tolerant — parseMapResponse digs the JSON out of prose).
+  // 2. Server AI rides the drafting endpoint as task "map" (13.1a), which gets an answer-in-the-
+  //    requested-format prompt instead of the drafting one. The parse stays tolerant anyway —
+  //    parseMapResponse digs the JSON out of prose, e.g. from a server older than 13.1a.
   if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF && self.JAF.sync) {
     try {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (await provider.isAuthenticated()) {
-        const r = (await provider.aiDraft({ question: prompt, context: "", consent: true })) || {};
+        const r = (await provider.aiDraft({ question: prompt, context: "", consent: true, task: "map" })) || {};
         if (r.answer) {
           const mappings = F.parseMapResponse(r.answer, list.length);
           return mappings ? { mappings } : { error: "unparseable" };
         }
         if (r.quotaExceeded) return { error: "quota" };
       }
-    } catch (e) { return { error: String((e && e.message) || e) }; }
+    } catch (e) { return aiFailure(e); }
   }
 
   return { disabled: true };
@@ -268,7 +282,19 @@ async function acceptConnectSession(tokens) {
     // Ensure the API base is set, then store the session via the shared token store.
     const settings = (await sGet("settings")) || {};
     if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api.kiwiply.com"; await sSet("settings", settings); }
-    await self.JAF.tracking.chromeTokenStore().set({ access: t.access, refresh: t.refresh, username: t.username || "" });
+    // A DIFFERENT account connecting over one that never signed out (the sign-out signal can be
+    // missed — browser closed, extension updated) must not inherit its data. Only when both
+    // names are known: an unknown name can't prove a switch, and wiping on a guess would cost a
+    // Free user their device-only learned answers.
+    // After a web sign-out the session is gone, so the owner of any kept learned answers is read
+    // from the marker that sign-out leaves behind.
+    const store = self.JAF.tracking.chromeTokenStore();
+    let previous = "";
+    try { previous = ((store.get ? await store.get() : {}) || {}).username || ""; } catch (e) {}
+    if (!previous) previous = (await sGet(LEARNED_OWNER_KEY)) || "";
+    if (previous && t.username && previous !== t.username) await forgetAccount();
+    await store.set({ access: t.access, refresh: t.refresh, username: t.username || "" });
+    if (t.username) await sSet(LEARNED_OWNER_KEY, t.username);
     track("extension_connected", {});
     return { ok: true };
   } catch (e) {
@@ -276,26 +302,181 @@ async function acceptConnectSession(tokens) {
   }
 }
 
+// --- Web → extension change signal (Phase 11.1) --------------------------------
+// The web app tells us the moment the profile/resumes changed or the user signed out,
+// over the SAME origin-gated channel as the connect handoff (web/src/lib/extension-signal.ts).
+// Before this, the mirror only refreshed when the drawer opened, throttled to 90 s, and a
+// web sign-out never reached the extension at all.
+//
+//   { type: "KIWIPLY_SYNC", event: "changed" }   → pull the mirror now
+//   { type: "KIWIPLY_SYNC", event: "signedOut" } → revoke (best-effort) + drop the session
+const SYNC = "KIWIPLY_SYNC";
+
+// Tell an open drawer to repaint from the fresh mirror. With no drawer there is no receiver,
+// which Chrome reports through lastError rather than throwing — read it or the console fills
+// with "Unchecked runtime.lastError" on every sync.
+function broadcastMirrorUpdated() {
+  try {
+    chrome.runtime.sendMessage({ type: "KIWIPLY_MIRROR_UPDATED" }, () => { void chrome.runtime.lastError; });
+  } catch (e) { /* no receiver, or messaging unavailable */ }
+}
+
+// Sign-out means this browser forgets the account: profile, resumes, learned answers, AI
+// drafts and the plan badge (JAF.storage.clearAccountData owns the list). Best-effort — the
+// token clear is the part that must not fail — and followed by a repaint so an open drawer
+// doesn't keep showing what was just removed.
+const LEARNED_OWNER_KEY = "learnedAnswersOwner"; // mirrors JAF.storage.OWNER_KEY
+
+async function forgetAccount(opts) {
+  const J = self.JAF || {};
+  try {
+    if (J.storage && J.storage.clearAccountData) await J.storage.clearAccountData(opts);
+  } catch (e) { /* the session is already gone; the next connect starts from the server */ }
+  broadcastMirrorUpdated();
+}
+
+async function handleSyncSignal(event) {
+  const J = self.JAF || {};
+  if (event === "signedOut") {
+    // Mirrors options/actions.ts signOut(): revoke server-side if we can, then clear locally
+    // regardless — the local clear is the part that must not fail.
+    // First note whose learned answers these are: they survive a web sign-out, and once the
+    // session is cleared below its username is gone.
+    try {
+      const who = ((await J.tracking.chromeTokenStore().get()) || {}).username;
+      if (who) await sSet(LEARNED_OWNER_KEY, who);
+    } catch (e) { /* the marker is also written on every connect */ }
+    try {
+      const settings = (await sGet("settings")) || {};
+      const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
+      if (provider && provider.logout) await provider.logout();
+    } catch (e) { /* best-effort revoke */ }
+    try { await J.tracking.chromeTokenStore().clear(); } catch (e) { return { ok: false, reason: "clear-failed" }; }
+    // Web sign-out keeps learned answers (user decision 2026-09-22) — see clearAccountData.
+    await forgetAccount({ keepLearnedAnswers: true });
+    track("extension_disconnected", { source: "web" });
+    return { ok: true };
+  }
+  if (event === "changed") {
+    try {
+      const settings = (await sGet("settings")) || {};
+      const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
+      if (!(await provider.isAuthenticated())) return { ok: false, reason: "not-connected" };
+      // Pull unconditionally: the web just told us it changed something, so asking for the
+      // version first would be a round-trip to learn what we already know.
+      await J.sync.pullAll(provider, J.storage);
+      // But DO record the version we just pulled under, or the next scheduled check (11.3)
+      // would see a stale marker and pull the very same data again.
+      let version = null;
+      let plan = null;
+      try {
+        const answer = await provider.profileVersion();
+        if (typeof answer === "string") version = answer;
+        else if (answer) { version = answer.version || null; plan = answer.plan || null; }
+      } catch (e) { /* older server / offline */ }
+      const s2 = (await sGet("settings")) || {};
+      s2.__profileVersion = version || null;
+      s2.__lastPull = Date.now();
+      if (plan) s2.plan = plan;              // 12.3 — display-only; gating stays server-side
+      await sSet("settings", s2);
+      broadcastMirrorUpdated();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: String((e && e.message) || e) };
+    }
+  }
+  return { ok: false, reason: "unknown-event" };
+}
+
+// Everything the web app may send us, once the origin gate has passed. Returns a promise
+// for a response, or null when the message isn't one of ours (so the listener stays quiet).
+function routeWebMessage(msg) {
+  if (!msg) return null;
+  if (msg.type === "KIWIPLY_CONNECT") return acceptConnectSession(msg.tokens);
+  if (msg.type === SYNC) return handleSyncSignal(msg.event);
+  return null;
+}
+
 // Path 1 — Chrome: the web page messages the extension directly (externally_connectable).
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   if (!connectOriginAllowed(senderOrigin(sender))) return;
-  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
-  acceptConnectSession(msg.tokens).then(sendResponse);
+  const p = routeWebMessage(msg);
+  if (!p) return;
+  p.then(sendResponse);
   return true; // async
 });
 
 // Path 2 — Firefox: there is no externally_connectable (https://bugzil.la/1319168), so the page
-// posts the session to itself and the connect-relay content script forwards it here as an
-// ordinary internal message. The sender is then one of OUR content scripts, and the origin gate
-// is the same one — a content script on an ATS page cannot hand over a session, only one running
-// on an origin the accept-list allows.
+// posts to itself and the connect-relay content script forwards it here as an ordinary internal
+// message. The sender is then one of OUR content scripts, and the origin gate is the same one —
+// a content script on an ATS page cannot hand over a session or fake a sync signal, only one
+// running on an origin the accept-list allows.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.type !== "KIWIPLY_CONNECT") return;
+  if (!msg || (msg.type !== "KIWIPLY_CONNECT" && msg.type !== SYNC)) return;
   if (!sender || !sender.tab) return;           // must come from a page, not another extension page
   if (!connectOriginAllowed(senderOrigin(sender))) return;
-  acceptConnectSession(msg.tokens).then(sendResponse);
+  const p = routeWebMessage(msg);
+  if (!p) return;
+  p.then(sendResponse);
   return true; // async
 });
+
+// --- Scheduled + focus-driven version checks (Phase 11.3) ----------------------
+// The 11.1 signal only fires while a kiwiply.com tab is open. These two cover everything
+// else: a change made on another device, or on the web with the extension's browser closed.
+// Both run the same cheap check — GET the profile version (11.2) and pull only if it moved.
+const SYNC_ALARM = "kiwiply-sync";
+const SYNC_ALARM_MINUTES = 15;
+// A guard, NOT the old throttle: it bounds how often we spend a round-trip asking, while the
+// pull itself is already gated on the answer. Refocusing the browser repeatedly is common.
+const FOCUS_CHECK_MS = 60 * 1000;
+let lastFocusCheck = 0;
+
+function ensureSyncAlarm() {
+  try { chrome.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_ALARM_MINUTES }); } catch (e) {}
+}
+
+// Ask the server whether anything changed; pull and tell the drawer only if it did.
+// Every exit is a reason rather than a throw — this runs unattended on a timer.
+async function runVersionCheck(source) {
+  const J = self.JAF || {};
+  try {
+    const settings = (await sGet("settings")) || {};
+    if (!settings.apiBaseUrl) return { ok: false, reason: "not-configured" };
+    const provider = J.sync.providerFromSettings(settings, J.tracking.chromeTokenStore());
+    if (!(await provider.isAuthenticated())) return { ok: false, reason: "not-connected" };
+    const r = (await J.sync.checkAndPull(provider, J.storage, settings)) || {};
+    if (r.pulled) {
+      broadcastMirrorUpdated();
+      track("mirror_pulled", { source });
+    }
+    return { ok: true, pulled: !!r.pulled, reason: r.reason, source };
+  } catch (e) {
+    return { ok: false, reason: String((e && e.message) || e) };
+  }
+}
+
+// MV3 tears the worker down when idle, so the alarm is what wakes it; re-create it on both
+// install/update and browser start, since alarms don't survive an extension update.
+chrome.runtime.onInstalled.addListener(ensureSyncAlarm);
+if (chrome.runtime.onStartup) chrome.runtime.onStartup.addListener(ensureSyncAlarm);
+if (chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm && alarm.name === SYNC_ALARM) runVersionCheck("alarm");
+  });
+}
+
+// Coming back to the browser is the moment a stale mirror is about to be used. Guarded so
+// alt-tabbing doesn't spray requests. (chrome.windows is absent in some contexts.)
+if (chrome.windows && chrome.windows.onFocusChanged) {
+  chrome.windows.onFocusChanged.addListener((windowId) => {
+    if (windowId === chrome.windows.WINDOW_ID_NONE) return; // focus left the browser entirely
+    const now = Date.now();
+    if (now - lastFocusCheck < FOCUS_CHECK_MS) return;
+    lastFocusCheck = now;
+    runVersionCheck("focus");
+  });
+}
 
 // --- AI job-detail enrichment (Phase 3.6) --------------------------------------
 // Opt-in via its OWN toggle (settings.jobAiEnabled, default OFF). Fills only the gaps
@@ -333,7 +514,7 @@ async function enrichCapture(capture) {
     } else if (settings.serverAiEnabled && settings.serverAiConsent && settings.apiBaseUrl && self.JAF.sync) {
       const provider = self.JAF.sync.providerFromSettings(settings, self.JAF.tracking.chromeTokenStore());
       if (!(await provider.isAuthenticated())) return capture;
-      const r = (await provider.aiDraft({ question: prompt, context: "", consent: true })) || {};
+      const r = (await provider.aiDraft({ question: prompt, context: "", consent: true, task: "enrich" })) || {};
       if (!r.answer) { track("job_enrich", { outcome: r.quotaExceeded ? "quota" : "disabled" }); return capture; }
       raw = r.answer;
     } else {
@@ -373,6 +554,101 @@ async function trackingProvider() {
 }
 
 async function pendGet() { return (await sGet(PENDING_KEY)) || {}; }
+
+// --- Fill telemetry (Phase 10.1) -----------------------------------------------
+// Counts per fill, so adapter work (10.4) is directed by data. The content script has already
+// reduced the page to an ATS family; this adds the extension version and forwards. The same
+// opt-out as the rest of the extension's analytics applies, and nothing is sent when signed out.
+async function telemetryAllowed() {
+  const s = (await sGet("settings")) || {};
+  return !s.analyticsOptOut;
+}
+
+async function recordFillStats(stats) {
+  if (!stats || !stats.id) return { ok: false, reason: "no-stats" };
+  if (!(await telemetryAllowed())) return { ok: false, reason: "opted-out" };
+  const provider = await trackingProvider();
+  if (!provider || !provider.recordFill) return { ok: false, reason: "not-connected" };
+  let version = null;
+  try { version = (chrome.runtime.getManifest() || {}).version || null; } catch (e) {}
+  const event = {
+    id: String(stats.id),
+    ats: stats.ats,
+    adapter: stats.adapter,
+    fieldsFound: stats.fieldsFound,
+    fieldsFilled: stats.fieldsFilled,
+    fieldsFailed: stats.fieldsFailed,
+    requiredLeftEmpty: stats.requiredLeftEmpty,
+    extVersion: version,
+  };
+  try { await provider.recordFill(event); return { ok: true }; }
+  catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+}
+
+async function recordFillCorrection(id) {
+  if (!id || !(await telemetryAllowed())) return { ok: false, reason: "skipped" };
+  const provider = await trackingProvider();
+  if (!provider || !provider.recordFillCorrection) return { ok: false, reason: "not-connected" };
+  try { await provider.recordFillCorrection(String(id)); return { ok: true }; }
+  catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+}
+
+// --- Learned answers → suggested profile values (Phase 10.3d) ---------------------
+// The content script reports what the user answered to PROFILE questions after a fill. The server
+// keeps them as suggestions the user reviews on the web; nothing here touches the profile. The
+// page address never leaves the device: it is reduced to a salted hash that can only say "same
+// application or a different one" (the server's rule for offering a change needs 2 different
+// ones). The salt is random per install, so the hash can't be looked up against known job URLs.
+const LEARN_SALT_KEY = "learnSalt";
+const LEARN_MAX_BATCH = 25;
+
+async function learnAllowed() {
+  const s = (await sGet("settings")) || {};
+  return s.learnFromApplications !== false; // on by default (user decision 2026-09-22)
+}
+
+async function applicationContext(page) {
+  let salt = await sGet(LEARN_SALT_KEY);
+  if (!salt) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    salt = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    await sSet(LEARN_SALT_KEY, salt);
+  }
+  const data = new TextEncoder().encode(salt + "|" + String(page || "").toLowerCase());
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+  // base64url, 22 chars (~128 bits) — fits the server's [A-Za-z0-9_-]{1,64}.
+  let bin = "";
+  digest.slice(0, 16).forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function recordLearnedAnswers(answers, page) {
+  if (!Array.isArray(answers) || !answers.length) return { ok: false, reason: "empty" };
+  if (!(await learnAllowed())) return { ok: false, reason: "off" };
+  const provider = await trackingProvider();
+  if (!provider || !provider.recordLearnedAnswers) return { ok: false, reason: "not-connected" };
+  const context = await applicationContext(page);
+  const body = answers
+    .filter((a) => a && typeof a.fieldKey === "string" && typeof a.value === "string" && a.value.trim())
+    .slice(0, LEARN_MAX_BATCH)
+    .map((a) => ({ fieldKey: a.fieldKey, value: a.value.slice(0, 500), context }));
+  if (!body.length) return { ok: false, reason: "empty" };
+  try { await provider.recordLearnedAnswers(body); return { ok: true, sent: body.length }; }
+  catch (e) { return { ok: false, reason: String((e && e.message) || e) }; }
+}
+
+// 13.1b: Pro AI is a budget, reported as a percentage with a reset date — never dollars. Since 15.5
+// it's per billing period, so the reset is the renewal date, not the 1st. "used/quota" is still what a Free user's resume-parse count looks like, and what a server
+// older than 13.1b sends.
+function aiLimitMessage(r) {
+  const when = r && r.resetsAt ? new Date(r.resetsAt) : null;
+  if (when && !isNaN(when.getTime())) {
+    const day = when.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" });
+    return `You've used your Kiwiply AI for now — it resets on ${day}.`;
+  }
+  return `Monthly AI limit reached (${r.used}/${r.quota}).`;
+}
 
 async function logFill(capture, resume, tabId) {
   const provider = await trackingProvider();
@@ -423,6 +699,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === "JAF_SUBMIT_DETECTED") {
     confirmForTab(tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  // Phase 10.1 — fill telemetry, from our own content scripts only.
+  if (msg.type === "JAF_FILL_STATS" || msg.type === "JAF_FILL_CORRECTED") {
+    if (!sender || !sender.tab) return;
+    const p = msg.type === "JAF_FILL_STATS" ? recordFillStats(msg.stats) : recordFillCorrection(msg.id);
+    p.then(sendResponse).catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  // Phase 10.3d — learned answers, from our own content scripts only.
+  if (msg.type === "JAF_LEARNED_ANSWERS") {
+    if (!sender || !sender.tab) return;
+    recordLearnedAnswers(msg.answers, msg.page).then(sendResponse).catch(() => sendResponse({ ok: false }));
     return true; // async
   }
   if (msg.type === "JAF_SAVE_JOB") {

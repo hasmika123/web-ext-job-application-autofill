@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 13.1b — the admin AI override becomes a monthly BUDGET, in US cents.
+
+        Server AI is now metered by what it costs (the ai_call ledger), not by how many calls were
+        made, so an override that says "2000 calls" no longer means anything. The column is renamed
+        to say what it holds now, and any existing grant is carried over as the standard Pro budget
+        ($5 = 500 cents) — the closest equivalent of "this person may use AI". A grant of 0 stays 0:
+        that was, and still is, "this person may not".
+    -->
+    <changeSet id="20260922030000-1" author="dossier">
+        <renameColumn tableName="ai_quota_override" oldColumnName="monthly_quota" newColumnName="monthly_budget_cents" columnDataType="int"/>
+        <update tableName="ai_quota_override">
+            <column name="monthly_budget_cents" valueNumeric="500"/>
+            <where>monthly_budget_cents &gt; 0</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

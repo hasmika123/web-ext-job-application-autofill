@@ -14,8 +14,13 @@ export const metadata: Metadata = {
  * to Gmail — see the email-architecture memory / DEPLOY §9.1). The operator is named here
  * (AutomoraLab LLC) because the Chrome Web Store listing points its Privacy Policy URL at
  * this page. PL.1's remaining piece — a lawyer's review — still stands before a wider launch.
+ *
+ * <p>Phase 12.6 added the <b>Payments</b> section. It is here, not only in the Terms, because a
+ * privacy policy has to name the processors that receive personal data: paying for Pro sends a
+ * name, email and card details to Stripe. The point worth being unambiguous about is what we
+ * DON'T get back — we never see a full card number, only a customer reference and a status.
  */
-const UPDATED = "June 2026";
+const UPDATED = "October 2026";
 const CONTACT = "support@kiwiply.com";
 const ENTITY = "AutomoraLab LLC";
 
@@ -75,6 +80,20 @@ export default function PrivacyPage() {
             when you use those features.
           </li>
           <li>
+            <strong>Profile suggestions:</strong> after you autofill an application with the
+            extension, the answers you give there to questions your profile could hold (for example
+            desired salary or notice period), so we can suggest them for your profile. Nothing
+            changes in your profile unless you keep a suggestion. We never take self-identification
+            (EEO) answers this way, and we never store the address of the page — only a salted code
+            that tells two applications apart. You can turn this off in the extension&apos;s
+            settings.
+          </li>
+          <li>
+            <strong>Billing (Pro subscribers only):</strong> a reference to your customer record
+            at our payment processor, the plan you chose, and your subscription status and renewal
+            date. <strong>We never receive or store your card number.</strong>
+          </li>
+          <li>
             <strong>Technical:</strong> authentication tokens (stored in secure, http-only
             cookies on the web) and basic server logs needed to operate the service.
           </li>
@@ -83,9 +102,13 @@ export default function PrivacyPage() {
 
       <Section title="How resume parsing works">
         <p>
-          When you add a resume, the file is read and parsed <strong>in your browser</strong>.
-          Its contents are only sent to our servers if and when you choose to save the resume
-          to your account.
+          When you add a resume, the file is opened and its text read <strong>in your browser</strong>.
+          To fill your profile accurately, that text is then sent to our AI provider (currently{" "}
+          <strong>Google Gemini</strong>; see <strong>AI features</strong> below), which turns it into
+          structured fields such as experience, education and skills. This happens once per resume, on
+          every plan, and it is <strong>on by default</strong>: untick &quot;Parse with AI for best
+          accuracy&quot; before you add a resume to keep it in your browser, with a simpler reading. The
+          resume and its fields are stored in your account only when you save it.
         </p>
       </Section>
 
@@ -97,21 +120,78 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="AI answer drafting (optional)">
+      <Section title="AI features">
         <p>
-          Kiwiply offers an <strong>optional</strong> AI feature that drafts answers to
-          open-ended application questions (for example, &quot;Why do you want this role?&quot;).
-          It is <strong>off by default</strong> and only runs after you explicitly turn it on.
+          Our AI provider is currently <strong>Google Gemini</strong>. Because we currently use
+          Gemini&apos;s free tier, <strong>Google may use what we send it to improve its services, and
+          human reviewers may see it</strong>. Below is exactly what each feature sends. Apart from
+          resume reading (above), every AI feature is off until you use it or switch it on, and every
+          other part of Kiwiply works without AI. You can also bring your own AI key in the extension,
+          in which case its requests go directly from your browser to that provider under your own
+          account, not through us.
         </p>
         <p>
-          When enabled, the question and a short summary of your profile/resume background are
-          sent to a third-party AI provider (currently <strong>Google Gemini</strong>) to
-          generate a draft you review before using. Because we currently use Gemini&apos;s
-          free tier, <strong>Google may use this input to improve its services, and human
-          reviewers may see it</strong>. If you don&apos;t want your information used this way,
-          simply leave AI drafting off — every other Kiwiply feature works without it. You can
-          also bring your own AI key in the extension, in which case requests go directly from
-          your browser to that provider under your own account, not through us.
+          <strong>Kiwiply AI in the extension (Pro).</strong> Off until you turn it on in the
+          extension&apos;s options. Once on, while you fill an application it can: draft an answer to an
+          open-ended question (it sends the question and a short summary of your profile and resume
+          background); choose one option for a multiple-choice screening question (the question, its
+          options and that summary); match unusual form-field labels to your profile fields (the labels
+          only); and complete the details of a job you save (that posting&apos;s text). You review every
+          answer before anything is submitted, and we never submit for you.
+        </p>
+        <p>
+          <strong>Resume fit (Pro).</strong> When you ask which of your resumes fits a job — on the
+          board, or automatically in the extension once you&apos;ve turned Kiwiply AI on — that job&apos;s
+          description and a short summary of each of your saved resumes (summary, skills, recent roles,
+          education) are sent to the same provider to score them. We keep only the scores and a
+          one-line reason, never the job text or your resumes, so asking again about the same job is
+          instant. They&apos;re deleted with your account.
+        </p>
+        <p>
+          <strong>Job fit (Pro).</strong> When you ask what one resume is missing for a job, that
+          job&apos;s description, a fuller summary of that resume, and a few of your profile answers that
+          can make a job a non-starter — work authorization, sponsorship, city/state/country,
+          relocation, work preference, start date and notice period — are sent to the same provider.
+          Never your name, contact details or self-identification answers. We keep only the report
+          (score, a one-line summary, short lists of skills), deleted with your account.
+        </p>
+        <p>
+          <strong>Resume tailoring (Pro).</strong> When you ask Kiwiply to tailor a resume for a job, that
+          job&apos;s description and that resume are sent to the same provider, which suggests rewordings
+          of what the resume already says. We keep the suggested rewordings (your own content, reworded)
+          so you can review them and save the ones you keep as a new resume. Your original is never
+          changed. All of it is deleted with your account.
+        </p>
+        <p>
+          <strong>ATS score (Pro).</strong> A resume&apos;s score is worked out on our servers from the
+          resume you already stored, with no AI and nothing sent anywhere. Against a job, its keyword
+          coverage comes from that job&apos;s job-fit report above, so nothing more is sent. We don&apos;t
+          store the score; it&apos;s recalculated each time you look.
+        </p>
+        <p>
+          <strong>Job matches (Pro).</strong> To find fresh jobs we read public job boards on Greenhouse,
+          Lever and Ashby. When you track an application on one of those boards, that company&apos;s public
+          board may be added to the list we read — only the company and its board, never who applied.
+          Matching is off until you switch it on. While it&apos;s on, each night a summary of your default
+          resume, your location, work preference, relocation and sponsorship answers, and up to 50 new
+          postings are sent to Google Gemini to score how well each fits you. We keep each score and its
+          one-line reason (not your resume text) for as long as the posting is listed with us, at most 7
+          days, and delete them with your account. Switch matching off at any time.
+        </p>
+        <p>
+          <strong>Inbox (Pro).</strong> If you connect a Gmail, we store its address and the app password you
+          create for Kiwiply — encrypted, never as you typed it, and never shown back. We use them only to sign
+          in and read that mailbox&apos;s inbox and sent mail, every 15 minutes. From each message we keep the
+          sender, recipients, subject and date; we keep the text only of mail about your job search (from a
+          hiring system, or about an application you track), and never attachments. We read that job mail to
+          update your board — confirmations, interviews, rejections, offers — by fixed rules first; only an email
+          the rules can&apos;t settle is sent to Google Gemini (sender, subject and the start of its text). When an
+          email moves an application to an interview or an offer, we email your Kiwiply account&apos;s address to
+          say so (you can turn that off); every update also shows under Notifications. We never send, move or
+          delete mail in the connected inbox. Mail we&apos;ve read is kept for 12 months after it was sent, then
+          deleted; your data export includes it. Disconnecting deletes the app password and everything we read; deleting the app password
+          in your Google account cuts us off as well. We ask you to connect a Gmail made just for job hunting, so
+          your personal mail stays out of it.
         </p>
       </Section>
 
@@ -120,8 +200,37 @@ export default function PrivacyPage() {
           Your data is stored in our database; resume files are kept in object storage. Data
           is transmitted over encrypted connections (HTTPS). We don&apos;t sell your personal
           information or share it with third parties for their own purposes. We rely on
-          infrastructure providers (such as database and file-storage hosting) to run the
-          service; they process data only on our behalf.
+          infrastructure providers (such as database and file-storage hosting), an email
+          delivery provider, and — for Pro subscriptions only — a payment processor to run the
+          service; they process data only on our behalf, or, in the payment processor&apos;s case,
+          as an independent processor of the payment itself (see <strong>Payments</strong> below).
+        </p>
+      </Section>
+
+      <Section title="Payments">
+        <p>
+          If you subscribe to <strong>Pro</strong>, payments are processed by{" "}
+          <strong>Stripe</strong>. You enter your card details on Stripe&apos;s own checkout page,
+          not ours: <strong>we never see or store your full card number</strong>. Stripe receives
+          the information it needs to take the payment — typically your email address, card
+          details and billing country — and handles it as a payment processor under its own{" "}
+          <a
+            href="https://stripe.com/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-accent-deep hover:underline"
+          >
+            privacy policy
+          </a>
+          .
+        </p>
+        <p>
+          What we keep on our side is only what we need to know whether your subscription is
+          active: a customer reference, the plan, the status, and the renewal date. We keep those
+          records while your account exists and for as long as tax and accounting rules require us
+          to retain proof of a transaction — which can outlast an account deletion, because
+          deleting an account does not undo a payment that happened. Nothing about your payments is
+          used for advertising, and we never sell it.
         </p>
       </Section>
 
@@ -164,7 +273,11 @@ export default function PrivacyPage() {
           <Link href="/settings" className="font-medium text-accent-deep hover:underline">
             your account settings
           </Link>
-          . Deletion is immediate and cannot be undone.
+          . Deletion is immediate and cannot be undone. The one exception is billing: if you have
+          ever paid for Pro, we are required to keep basic records of the transaction (amount, date,
+          plan) for tax and accounting purposes, and our payment processor keeps its own records
+          under its own policy. Those records contain no profile, resume or application data — see{" "}
+          <strong>Payments</strong> above.
         </p>
       </Section>
 
@@ -197,6 +310,14 @@ export default function PrivacyPage() {
           resumes, or the specific jobs you apply to. In the browser extension this is opt-out in
           Settings; on the website it is <strong>opt-in</strong> — it loads only after you accept the
           cookie banner, and never if you decline.
+        </p>
+        <p>
+          Separately, when you&apos;re signed in, the extension reports <strong>fill-quality
+          counts</strong> to our own server after each autofill: which job-application system the page
+          uses (a fixed name like &quot;Workday&quot;, or &quot;other&quot;), and how many fields were
+          found, filled, left empty, or changed by you afterwards. It never sends a field&apos;s value or
+          label, or the address of the page, and we store these counts <strong>without any link to
+          your account</strong>. The same extension setting turns it off.
         </p>
       </Section>
 

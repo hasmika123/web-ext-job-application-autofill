@@ -8,29 +8,11 @@ import { CheckIcon as SharedCheckIcon, Spinner as SharedSpinner } from "@kiwiply
 import { cn } from "@/lib/cn";
 import { isEmail, isUrl, isPhone, LIMITS } from "@/lib/validate";
 import { parseResume } from "@/lib/resume-parse";
+import { notifyExtension } from "@/lib/extension-signal";
+import { YESNO, NOTICE, WORK_PREFERENCE, GENDERS, HISPANIC, RACES, VETERAN, DISABILITY } from "@/lib/profile-options";
 
 /** The bio object stored as the server's opaque `payload` JSON (extension-canonical). */
 export type Bio = Record<string, unknown>;
-
-// Option lists mirror the extension's options.js exactly so both surfaces write
-// identical values (the dossier "no guessing" rule — these are the real keys/values).
-const YESNO = ["Yes", "No"];
-const GENDERS = ["Male", "Female", "Non-binary", "Prefer not to say"];
-const RACES = [
-  "American Indian or Alaska Native", "Asian", "Black or African American",
-  "Hispanic or Latino", "Native Hawaiian or Other Pacific Islander", "White",
-  "Two or More Races", "Prefer not to say",
-];
-const VETERAN = [
-  "I am not a protected veteran",
-  "I identify as one or more classifications of a protected veteran",
-  "Prefer not to say",
-];
-const DISABILITY = [
-  "Yes, I have a disability (or previously had one)",
-  "No, I do not have a disability",
-  "Prefer not to answer",
-];
 
 type FieldDef = {
   key: string;
@@ -41,6 +23,8 @@ type FieldDef = {
   required?: boolean;
   /** Max characters (input maxLength). Defaults by kind via fieldMax(). */
   max?: number;
+  placeholder?: string;
+  hint?: string;
 };
 
 const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
@@ -84,11 +68,33 @@ const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
       { key: "requireSponsorship", label: "Need sponsorship?", kind: "select", options: YESNO },
     ],
   },
+  {
+    id: "preferences",
+    title: "Job preferences",
+    fields: [
+      { key: "desiredSalary", label: "Desired salary", placeholder: "e.g. $120,000", hint: "A number-only box gets just the number." },
+      { key: "noticePeriod", label: "Notice period", kind: "select", options: NOTICE },
+      {
+        key: "earliestStartDate",
+        label: "Earliest start date",
+        placeholder: "e.g. 2026-11-02, or Immediately",
+        hint: "Date pickers only take a real date.",
+      },
+      { key: "workPreference", label: "Work preference", kind: "select", options: WORK_PREFERENCE },
+      { key: "willingToRelocate", label: "Willing to relocate?", kind: "select", options: YESNO },
+      {
+        key: "referralSource",
+        label: "How you usually hear about jobs",
+        placeholder: "e.g. LinkedIn",
+        hint: "Your answer to “How did you hear about us?”",
+      },
+    ],
+  },
 ];
 
 const EEO_FIELDS: FieldDef[] = [
   { key: "gender", label: "Gender", kind: "select", options: GENDERS },
-  { key: "ethnicity", label: "Hispanic / Latino?", kind: "select", options: ["Yes", "No", "Prefer not to say"] },
+  { key: "ethnicity", label: "Hispanic / Latino?", kind: "select", options: HISPANIC },
   { key: "race", label: "Race", kind: "select", options: RACES },
   { key: "veteranStatus", label: "Veteran status", kind: "select", options: VETERAN },
   { key: "disabilityStatus", label: "Disability status", kind: "select", options: DISABILITY },
@@ -106,6 +112,7 @@ const NAV = [
   { id: "location", label: "Location" },
   { id: "links", label: "Links" },
   { id: "work", label: "Work authorization" },
+  { id: "preferences", label: "Job preferences" },
   { id: "eeo", label: "EEO / demographics" },
   { id: "skills", label: "Base skills" },
 ];
@@ -240,6 +247,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
         }
         setDirty(false);
         setSavedOnce(true);
+        notifyExtension("changed");
         router.refresh();
       } catch {
         setError("Something went wrong while saving.");
@@ -297,7 +305,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
       f.label
     );
     return (
-      <Field key={f.key} label={label} htmlFor={id} error={err} className={cn("mb-0", f.wide && "sm:col-span-2")}>
+      <Field key={f.key} label={label} htmlFor={id} error={err} hint={f.hint} className={cn("mb-0", f.wide && "sm:col-span-2")}>
         {f.kind === "select" ? (
           <Select
             id={id}
@@ -315,6 +323,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
             id={id}
             type={inputType(f.kind)}
             maxLength={fieldMax(f)}
+            placeholder={f.placeholder}
             value={val}
             onChange={(e) => setField(f.key, e.target.value)}
             onBlur={() => touch(f.key)}

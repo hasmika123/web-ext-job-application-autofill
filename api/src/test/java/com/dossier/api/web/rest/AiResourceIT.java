@@ -1,27 +1,62 @@
 package com.dossier.api.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.ProSubscriptions;
+import com.dossier.api.domain.AiCall;
+import com.dossier.api.domain.AiQuotaOverride;
+import com.dossier.api.repository.AiAnswerRepository;
+import com.dossier.api.repository.AiCallRepository;
+import com.dossier.api.repository.AiQuotaOverrideRepository;
+import com.dossier.api.repository.AiUsageRepository;
+import com.dossier.api.repository.SubscriptionRepository;
+import com.dossier.api.repository.UserRepository;
+import com.dossier.api.service.ai.AiProvider;
+import com.dossier.api.service.ai.AiResult;
+import com.dossier.api.service.ai.AiTask;
+import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Integration test for {@link AiResource}. The test profile leaves the AI feature off
- * (no key), so a valid request returns {@code {disabled:true}} — this verifies the
- * endpoint is wired and auth-gated. The quota/consent/success branches are unit-tested
- * in {@code AiDraftServiceTest}.
+ * Integration test for {@link AiResource} — that the endpoint is wired, auth-gated, and that the
+ * Pro gate (Phase 12.4) surfaces as a 402 the clients can branch on.
+ *
+ * <p>The AI feature is turned ON here with a stubbed provider, because the interesting branches
+ * only exist when there is something to gate. The quota/consent/cache branches stay unit-tested
+ * in {@code AiDraftServiceTest}; what is worth an integration test is the HTTP shape of the
+ * refusal and the fact that resume parsing did <b>not</b> get gated along with everything else.
+ *
+ * <p>Two testing-only concessions, both forced by the same thing: a successful draft caches its
+ * answer in a {@code REQUIRES_NEW} transaction, which needs a <b>second</b> connection while the
+ * request's own transaction holds the first. The shared test config pins Hikari to one connection,
+ * so this context asks for a few and the tests are not {@code @Transactional}; either alone would
+ * hang instead of failing. Production pools are far larger, so this is a test-harness limit, not a
+ * property of the code. Nothing rolls back, so state is swept around each test.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = { "dossier.ai.enabled=true", "spring.datasource.hikari.maximum-pool-size=4" })
 class AiResourceIT {
 
     @Autowired
@@ -30,14 +65,57 @@ class AiResourceIT {
     @Autowired
     private ObjectMapper om;
 
-    @Test
-    @WithMockUser(username = "user")
-    void draftIsDisabledWhenNoProviderConfigured() throws Exception {
-        String body = om.writeValueAsString(Map.of("question", "Why do you want this role?", "context", "Backend engineer.", "consent", true));
-        mockMvc
-            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(body))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.disabled").value(true));
+    @Autowired
+    private SubscriptionRepository subscriptionRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private AiQuotaOverrideRepository quotaOverrideRepository;
+
+    @Autowired
+    private AiAnswerRepository aiAnswerRepository;
+
+    @Autowired
+    private AiUsageRepository aiUsageRepository;
+
+    @Autowired
+    private AiCallRepository aiCallRepository;
+
+    /** Stubbed: these tests are about our gating, not about anyone's model. */
+    @MockitoBean
+    private AiProvider aiProvider;
+
+    @BeforeEach
+    void stubProvider() {
+        reset();
+        when(aiProvider.isConfigured()).thenReturn(true);
+        // 120 input + 30 output tokens on Flash-Lite ($0.10 / $0.40 per M) = 12 + 12 = 24 micro-dollars.
+        when(aiProvider.defaultModel()).thenReturn("gemini-2.5-flash-lite");
+        when(aiProvider.generate(any(), any(), anyString(), anyString())).thenReturn(new AiResult("A grounded answer.", "gemini-2.5-flash-lite", 120, 0, 30));
+    }
+
+    @AfterEach
+    void cleanUp() {
+        reset();
+    }
+
+    /** Nothing here rolls back, so anything a draft wrote has to be swept up explicitly. */
+    private void reset() {
+        aiAnswerRepository.deleteAll();
+        aiUsageRepository.deleteAll();
+        aiCallRepository.deleteAll();
+        quotaOverrideRepository.deleteAll();
+        subscriptionRepository.deleteAll();
+    }
+
+    private String draftBody() throws Exception {
+        return om.writeValueAsString(Map.of("question", "Why do you want this role?", "context", "Backend engineer.", "consent", true));
+    }
+
+    private String bodyFor(String question, String task) throws Exception {
+        return om.writeValueAsString(Map.of("question", question, "context", "", "consent", true, "task", task));
     }
 
     @Test
@@ -46,5 +124,204 @@ class AiResourceIT {
         mockMvc
             .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void freeUserGetsPaymentRequired() throws Exception {
+        mockMvc
+            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
+            .andExpect(status().isPaymentRequired())
+            .andExpect(jsonPath("$.code").value("PRO_REQUIRED"))
+            // `detail` is what the extension shows; `title` is overwritten with the reason phrase.
+            .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Pro")));
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void proUserDrafts() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        mockMvc
+            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.answer").value("A grounded answer."));
+    }
+
+    /** A hand-granted admin override outranks the plan gate (a locked decision) — a budget since 13.1b. */
+    @Test
+    @WithMockUser(username = "user")
+    void freeUserWithAnAdminOverrideDrafts() throws Exception {
+        AiQuotaOverride override = new AiQuotaOverride();
+        override.setLogin("user");
+        override.setMonthlyBudgetCents(500);
+        quotaOverrideRepository.save(override);
+
+        mockMvc
+            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.quota").value(100)) // a budget is reported as a percentage
+            .andExpect(jsonPath("$.used").value(0))
+            .andExpect(jsonPath("$.resetsAt").exists());
+    }
+
+    /**
+     * Resume parsing is the one free server-AI exception: it is how a profile builds itself, so
+     * gating it would defeat the whole "don't make people fill forms" premise. A Free user who
+     * can't draft must still be able to parse.
+     */
+    @Test
+    @WithMockUser(username = "user")
+    void parseResumeIsNotGated() throws Exception {
+        when(aiProvider.parseResume(any(), anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
+        String body = om.writeValueAsString(Map.of("text", "Jane Doe, backend engineer, 6 years Java.", "consent", true));
+        mockMvc
+            .perform(post("/api/ai/parse-resume").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").doesNotExist())
+            .andExpect(jsonPath("$.quota").value(50)); // Free: the free quota
+    }
+
+    // ---- 13.1a: cost tracking --------------------------------------------------------------
+
+    /** Every successful call lands in the ledger as its kind, with the tokens and what they cost. */
+    @Test
+    @WithMockUser(username = "user")
+    void aCallIsRecordedAtWhatItCost() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody())).andExpect(status().isOk());
+
+        List<AiCall> calls = aiCallRepository.findByLoginOrderByCreatedAtDesc("user");
+        assertThat(calls).hasSize(1);
+        AiCall c = calls.get(0);
+        assertThat(c.getTask()).isEqualTo("draft");
+        assertThat(c.getModel()).isEqualTo("gemini-2.5-flash-lite");
+        assertThat(c.getInputTokens()).isEqualTo(120);
+        assertThat(c.getOutputTokens()).isEqualTo(30);
+        assertThat(c.getCostMicros()).isEqualTo(24);
+    }
+
+    /** The request's task reaches the provider and the ledger; an unknown one is a draft. */
+    @Test
+    @WithMockUser(username = "user")
+    void theTaskIsHonoured() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Map: 1. First name", "map"))).andExpect(status().isOk());
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Anything", "bogus"))).andExpect(status().isOk());
+
+        verify(aiProvider).generate(eq(AiTask.MAP), any(), eq("Map: 1. First name"), anyString());
+        verify(aiProvider).generate(eq(AiTask.DRAFT), any(), eq("Anything"), anyString());
+        assertThat(aiCallRepository.findByLoginOrderByCreatedAtDesc("user")).extracting(AiCall::getTask).containsExactlyInAnyOrder("map", "draft");
+    }
+
+    /** The month's call count is kept in the database: the first call creates it, the next adds to it. */
+    @Test
+    @WithMockUser(username = "user")
+    void theMonthlyCountAccumulates() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("First question?", "draft"))).andExpect(status().isOk());
+        mockMvc.perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(bodyFor("Second question?", "draft"))).andExpect(status().isOk());
+        String period = java.time.YearMonth.now(java.time.ZoneOffset.UTC).toString();
+        assertThat(aiUsageRepository.findByLoginAndPeriod("user", period)).get().extracting(u -> u.getDraftCount()).isEqualTo(2);
+    }
+
+    /** 13.1a fixed Pro parses being held to the Free count; since 13.1b they come out of the budget. */
+    @Test
+    @WithMockUser(username = "user")
+    void aProUserParsesOnTheBudget() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        when(aiProvider.parseResume(any(), anyString(), any(), any())).thenReturn(new AiResult("{}", "gemini-2.5-flash-lite", 2000, 0, 500));
+        String body = om.writeValueAsString(Map.of("text", "Jane Doe, backend engineer, 6 years Java.", "consent", true));
+        mockMvc
+            .perform(post("/api/ai/parse-resume").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.quota").value(100));
+        assertThat(aiCallRepository.findByLoginOrderByCreatedAtDesc("user")).extracting(AiCall::getTask).containsExactly("parse");
+    }
+
+    // ---- 13.1b / 15.5: the budget, per billing period ----------------------------------------
+
+    /** A Pro user who has spent the period's budget (from the ledger) is refused until it renews. */
+    @Test
+    @WithMockUser(username = "user")
+    void aSpentBudgetStopsAiUntilThePeriodRenews() throws Exception {
+        com.dossier.api.domain.Subscription sub = ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        // Whole seconds, so the value read back from the database prints the same.
+        java.time.Instant renews = sub.getCurrentPeriodEnd().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        sub.setCurrentPeriodEnd(renews);
+        subscriptionRepository.saveAndFlush(sub);
+        AiCall spent = new AiCall();
+        spent.setLogin("user");
+        spent.setTask("draft");
+        spent.setModel("gemini-2.5-flash-lite");
+        spent.setCostMicros(3_000_000L); // $3.00 — the monthly plan's whole budget
+        aiCallRepository.save(spent);
+
+        mockMvc
+            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.quotaExceeded").value(true))
+            .andExpect(jsonPath("$.used").value(100))
+            .andExpect(jsonPath("$.quota").value(100))
+            // Resets when the subscription renews, not on the 1st.
+            .andExpect(jsonPath("$.resetsAt").value(renews.toString()));
+        verify(aiProvider, never()).generate(any(), any(), anyString(), anyString());
+    }
+
+    // ---- 13.1c: the meter ----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = "user")
+    void theMeterShowsAProUsersPercent() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        AiCall spent = new AiCall();
+        spent.setLogin("user");
+        spent.setTask("draft");
+        spent.setModel("gemini-2.5-flash-lite");
+        spent.setCostMicros(1_600_000L); // $1.60 of $3
+        aiCallRepository.save(spent);
+        mockMvc
+            .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/ai/usage"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.metered").value("budget"))
+            .andExpect(jsonPath("$.used").value(53))
+            .andExpect(jsonPath("$.limit").value(100))
+            .andExpect(jsonPath("$.resetsAt").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void theMeterShowsAFreeUsersParses() throws Exception {
+        mockMvc
+            .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/ai/usage"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.metered").value("count"))
+            .andExpect(jsonPath("$.used").value(0))
+            .andExpect(jsonPath("$.limit").value(50));
+    }
+
+    @Test
+    void theMeterRequiresAuthentication() throws Exception {
+        mockMvc
+            .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/ai/usage"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    /** Spend from a PREVIOUS month doesn't count against this one. */
+    @Test
+    @WithMockUser(username = "user")
+    void lastMonthsSpendDoesNotCount() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        AiCall old = new AiCall();
+        old.setLogin("user");
+        old.setTask("draft");
+        old.setModel("gemini-2.5-flash-lite");
+        old.setCostMicros(5_000_000L);
+        old.setCreatedAt(java.time.YearMonth.now(java.time.ZoneOffset.UTC).atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusSeconds(1));
+        aiCallRepository.save(old);
+
+        mockMvc
+            .perform(post("/api/ai/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.answer").value("A grounded answer."));
     }
 }

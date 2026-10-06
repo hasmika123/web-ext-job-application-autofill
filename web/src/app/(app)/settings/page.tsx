@@ -3,6 +3,10 @@ import Link from "next/link";
 import { serverApiFetch } from "@/lib/api";
 import DeleteAccountButton from "@/components/DeleteAccountButton";
 import SettingsNav from "@/components/settings/SettingsNav";
+import BillingCard from "@/components/billing/BillingCard";
+import { getPlan } from "@/lib/billing";
+import { getAiUsage } from "@/lib/ai-usage";
+import AiUsageMeter from "@/components/settings/AiUsageMeter";
 
 type Account = {
   login?: string;
@@ -15,6 +19,7 @@ const NAV = [
   { id: "account", label: "Account" },
   { id: "ai", label: "AI & drafting" },
   { id: "autofill", label: "Autofill behavior" },
+  { id: "inbox", label: "Inbox" },
   { id: "privacy", label: "Privacy & data" },
   { id: "billing", label: "Billing" },
 ];
@@ -32,6 +37,10 @@ export default async function SettingsPage() {
     redirect("/login");
   }
   const account: Account | null = res.ok ? await res.json() : null;
+  const [plan, aiUsage, inboxRes] = await Promise.all([getPlan(), getAiUsage(), serverApiFetch("/api/profile/inbox")]);
+  const inbox = inboxRes.ok
+    ? ((await inboxRes.json().catch(() => null)) as { connected?: boolean; address?: string | null; status?: string | null } | null)
+    : null;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
@@ -74,9 +83,10 @@ export default async function SettingsPage() {
 
           {/* AI & drafting */}
           <Card id="ai" title="AI & drafting">
+            {aiUsage && <AiUsageMeter usage={aiUsage} />}
             <SettingRow
               title="Kiwiply AI"
-              desc="Draft answers to open-ended application questions (e.g. “Why this role?”). Opt-in with explicit consent; free-tier quota."
+              desc="Draft answers to open-ended application questions (e.g. “Why this role?”), pick options and map fields. Part of Pro, opt-in with explicit consent. Resume parsing is free."
             />
             <SettingRow
               title="Bring your own key"
@@ -98,6 +108,18 @@ export default async function SettingsPage() {
               <span className="font-medium text-ink-soft"> Options</span>. Kiwiply never auto-submits —
               you review every field.
             </p>
+          </Card>
+
+          {/* Inbox (14.1) */}
+          <Card id="inbox" title="Inbox">
+            <p className="text-[13.5px] text-ink-soft">
+              {inbox?.connected
+                ? `Connected: ${inbox.address}${inbox.status === "NEEDS_RECONNECT" ? " — needs reconnecting" : ""}.`
+                : "Connect the Gmail you apply from and your board updates itself when employers reply. Kiwiply only reads."}
+            </p>
+            <Link href="/settings/inbox" className="mt-3 inline-block text-[13px] font-semibold text-accent-deep hover:underline">
+              {inbox?.connected ? "Manage inbox →" : plan.plan === "PRO" ? "Connect an inbox →" : "See how it works →"}
+            </Link>
           </Card>
 
           {/* Privacy & data */}
@@ -122,13 +144,7 @@ export default async function SettingsPage() {
 
           {/* Billing */}
           <Card id="billing" title="Billing">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-bold text-accent-deep">Free plan</span>
-                <span className="text-sm text-muted">Unlimited autofill, resume parsing & tracker. Pro is coming soon.</span>
-              </div>
-              <Link href="/#pricing" className="text-sm font-semibold text-accent-deep hover:underline">See plans →</Link>
-            </div>
+            <BillingCard plan={plan} />
           </Card>
         </div>
       </div>

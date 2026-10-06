@@ -1,5 +1,7 @@
 import { serverApiFetch } from "@/lib/api";
 import ApplicationBoard, { type Application } from "@/components/ApplicationBoard";
+import { getPlan } from "@/lib/billing";
+import InboxSuggestions, { type InboxSuggestion } from "@/components/board/InboxSuggestions";
 
 /**
  * Application board. The self-populating tracker: the extension logs a DRAFT as you
@@ -7,14 +9,25 @@ import ApplicationBoard, { type Application } from "@/components/ApplicationBoar
  * a job. Fetched server-side; mutations call the `/api/applications/:id` proxy and
  * `router.refresh()` re-runs this fetch. Session gate + nav live in the `(app)` shell.
  */
-export default async function BoardPage() {
-  const [appsRes, resumesRes, profileRes] = await Promise.all([
+export default async function BoardPage({ searchParams }: { searchParams: Promise<{ app?: string }> }) {
+  // 14.6 — a notification link opens its application: /board?app=42.
+  const { app: appParam } = await searchParams;
+  const initialSelectedId = appParam && /^\d+$/.test(appParam) ? Number(appParam) : null;
+  const [appsRes, resumesRes, profileRes, plan] = await Promise.all([
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile"),
+    getPlan(), // 13.2: Pro unlocks "Resume fit"; getPlan never throws
   ]);
 
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
+
+  // 14.4b — jobs the connected inbox found that the board doesn't track (Pro; empty otherwise).
+  let suggestions: InboxSuggestion[] = [];
+  if (plan.plan === "PRO") {
+    const sugRes = await serverApiFetch("/api/profile/inbox/suggestions");
+    if (sugRes.ok) suggestions = ((await sugRes.json().catch(() => [])) as InboxSuggestion[]) ?? [];
+  }
 
   // Resume options for the board's "which resume did I send?" pickers (id + label + default flag).
   const rawResumes = resumesRes.ok
@@ -70,7 +83,10 @@ export default async function BoardPage() {
         )}
       </header>
 
-      <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} />
+      <div>
+        <InboxSuggestions items={suggestions} />
+        <ApplicationBoard applications={applications} resumes={resumes} baseProfile={baseProfile} isPro={plan.plan === "PRO"} initialSelectedId={initialSelectedId} />
+      </div>
     </div>
   );
 }

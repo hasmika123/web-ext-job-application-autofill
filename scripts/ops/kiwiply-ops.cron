@@ -1,0 +1,14 @@
+# Kiwiply ops schedule (Phase 15.1) — installed as /etc/cron.d/kiwiply-ops (DEPLOY.md §5.1):
+#   sudo install -m 644 scripts/ops/kiwiply-ops.cron /etc/cron.d/kiwiply-ops
+# A file of its own in cron.d, so it never touches BeeCompete's crontabs on this shared box.
+# Times are the box's clock, which is UTC (check: timedatectl). They sit clear of the API's
+# own nightly jobs (job boards 02:00, mail expiry 03:30, job matches 04:00).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+REPO=/root/web-ext-job-application-autofill
+
+# Nightly: dump the database and ship it off the box.
+15 3 * * * root "$REPO/scripts/ops/backup-db.sh" >> /var/log/kiwiply-backup.log 2>&1
+
+# Weekly, Sunday: restore the newest backup into a throwaway container and check it.
+45 4 * * 0 root "$REPO/scripts/ops/verify-restore.sh" >> /var/log/kiwiply-restore-drill.log 2>&1

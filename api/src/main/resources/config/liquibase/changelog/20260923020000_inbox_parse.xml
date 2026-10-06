@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 14.4a - what each message said, and what it did.
+
+        `category` is the reading (APPLIED, INTERVIEW, ASSESSMENT, REJECTED, OFFER, ALERT, OTHER),
+        `classified_by` how (RULE, AI or NONE). `application_id` is the tracked application it's about
+        (set to null if that application is deleted); `status_change` the status it moved that
+        application to, if it moved it. `company_guess`/`role_guess` are what the mail itself says the
+        job is - for matching, and for suggesting an application when nothing matches. `suggestion` is
+        NEW / ACCEPTED / DISMISSED for that suggestion. `parsed_at` null = not read yet. Additive.
+    -->
+    <changeSet id="20260923020000-1" author="dossier">
+        <addColumn tableName="inbox_message">
+            <column name="category" type="varchar(20)"/>
+            <column name="classified_by" type="varchar(10)"/>
+            <column name="application_id" type="bigint"/>
+            <column name="status_change" type="varchar(20)"/>
+            <column name="company_guess" type="varchar(200)"/>
+            <column name="role_guess" type="varchar(300)"/>
+            <column name="suggestion" type="varchar(20)"/>
+            <column name="parsed_at" type="timestamp"/>
+        </addColumn>
+        <createIndex tableName="inbox_message" indexName="ix_inbox_message_application">
+            <column name="application_id"/>
+        </createIndex>
+        <createIndex tableName="inbox_message" indexName="ix_inbox_message_unparsed">
+            <column name="user_id"/>
+            <column name="parsed_at"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="inbox_message"
+            baseColumnNames="application_id"
+            constraintName="fk_inbox_message_application_id"
+            referencedTableName="application"
+            referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+</databaseChangeLog>

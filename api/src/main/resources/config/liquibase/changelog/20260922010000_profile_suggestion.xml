@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 10.3c — profile suggestions (Tier C of the self-building profile).
+
+        One row per (user, profile field, learned value): an answer the extension saw the user give
+        while applying, offered back as a SUGGESTED profile value. Nothing here is written to the
+        profile until the user accepts it on the web; a dismissed value is kept (status DISMISSED)
+        precisely so it is never suggested again.
+
+        `seen_count` counts distinct applications the value was seen on, and `last_context` is an
+        opaque hash of the last one (never a URL) — that pair is how "change an existing value only
+        after it shows up on 2 applications" is decided without storing where the user applied.
+
+        Canonical, non-sensitive profile keys only (enforced in ProfileSuggestionService); EEO is
+        never learned. Covered by account export and deletion. Additive; no data migration.
+    -->
+    <changeSet id="20260922010000-1" author="dossier">
+        <createTable tableName="profile_suggestion">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="field_key" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="jhi_value" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- PENDING | ACCEPTED | DISMISSED -->
+            <column name="status" type="varchar(12)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="seen_count" type="integer" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_context" type="varchar(64)"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="profile_suggestion" indexName="ix_profile_suggestion_user_field">
+            <column name="user_id"/>
+            <column name="field_key"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="profile_suggestion"
+            baseColumnNames="user_id"
+            constraintName="fk_profile_suggestion_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

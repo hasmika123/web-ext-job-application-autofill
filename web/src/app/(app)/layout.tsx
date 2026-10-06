@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import AppShell, { type AppAccount } from "@/components/app-shell/AppShell";
+import { getPlan } from "@/lib/billing";
 
 /**
  * Shell for all authed app routes (dashboard/profile/resumes/board/settings).
@@ -31,5 +32,13 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
     account = (await res.json().catch(() => null)) as AppAccount | null;
   }
 
-  return <AppShell account={account}>{children}</AppShell>;
+  // Fetched ONCE here rather than per component: every gated surface would otherwise add a
+  // round-trip on each page load. getPlan() never throws — a billing outage must not blank the app.
+  const plan = await getPlan();
+
+  return (
+    <AppShell account={account} isPro={plan.plan === "PRO"}>
+      {children}
+    </AppShell>
+  );
 }

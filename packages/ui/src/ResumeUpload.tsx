@@ -541,7 +541,12 @@ export type SaveInput =
   | { mode: "edit"; id: number; label: string; parsedJson: string };
 export type SaveResult =
   | { ok: true; id: number; label: string; warning?: string }
-  | { ok: false; error: string };
+  /**
+   * `cta` turns a refusal into a next step. It exists for the Free resume cap (Phase 12.4):
+   * "you've hit 3" is only half an answer without a way to act on it, and the host decides
+   * where that link goes because the web and the extension don't share a URL space.
+   */
+  | { ok: false; error: string; cta?: { href: string; label: string } };
 export type ResumeToast = { variant?: "success" | "error"; title: string; description?: string };
 
 export type ResumeUploadServices = {
@@ -629,6 +634,7 @@ export default function ResumeUpload({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveCta, setSaveCta] = useState<{ href: string; label: string } | null>(null);
   const [setAsDefault, setSetAsDefault] = useState(false); // "Set as my default resume" (create only)
   // Duplicate-name confirmation (create only): first Save on a name that already exists arms this
   // warning; a second Save proceeds. Reset whenever the label changes.
@@ -669,6 +675,7 @@ export default function ResumeUpload({
     setParsing(true);
     setError(null);
     setSaveError(null);
+    setSaveCta(null);
     try {
       const parsed = await parseFile(picked);
       setBio(parsed.bio);
@@ -698,6 +705,7 @@ export default function ResumeUpload({
     setFile(null);
     setEditId(null);
     setSaveError(null);
+    setSaveCta(null);
     setDupConfirm(false);
   }
 
@@ -751,6 +759,7 @@ export default function ResumeUpload({
     }
     setSaving(true);
     setSaveError(null);
+    setSaveCta(null);
     try {
       // Drop blank bullet lines (the one-per-line boxes keep them while editing).
       const clean: StructuredResume = {
@@ -766,6 +775,7 @@ export default function ResumeUpload({
         const result = await onSave({ mode: "edit", id: editId, label: label.trim() || "Resume", parsedJson });
         if (!result.ok) {
           setSaveError(result.error);
+          setSaveCta(result.cta ?? null);
           return;
         }
         track?.("resume_edited");
@@ -779,6 +789,7 @@ export default function ResumeUpload({
       const result = await onSave({ mode: "create", file, label: label.trim() || labelFromName(file.name), parsedJson });
       if (!result.ok) {
         setSaveError(result.error);
+        setSaveCta(result.cta ?? null);
         return;
       }
       track?.("resume_saved");
@@ -807,6 +818,7 @@ export default function ResumeUpload({
       }
     } catch {
       setSaveError("Something went wrong while saving.");
+      setSaveCta(null);
     } finally {
       setSaving(false);
     }
@@ -1158,6 +1170,19 @@ export default function ResumeUpload({
               {saveError && (
                 <p role="alert" className="min-w-0 flex-1 basis-full text-[13px] font-medium leading-snug text-danger sm:basis-0">
                   {saveError}
+                  {saveCta && (
+                    <>
+                      {" "}
+                      <a
+                        href={saveCta.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-accent-deep underline underline-offset-2"
+                      >
+                        {saveCta.label}
+                      </a>
+                    </>
+                  )}
                 </p>
               )}
               <button onClick={handleClose} className={cn(footerBtn, "border-line text-ink-soft hover:bg-paper-2")}>Cancel</button>

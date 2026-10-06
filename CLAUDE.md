@@ -22,6 +22,18 @@ Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
    Never batch multiple tasks into a commit. Message: `phase<P>.<N>: <subject>`
    (e.g. `phase0.1: local field-choice cache`). Then `git push`.
 
+## Branching (set 2026-09-21 — `develop` is the integration branch)
+`main` is the **deploy** branch: a merge there auto-deploys to production (`deploy.yml`).
+`develop` branches off `main` and is where work accumulates until the user decides to
+promote a batch.
+
+- **Branch off `develop`**, never off `main`: `git checkout -b <topic> develop`.
+- **PR into `develop`**, never into `main`. CI runs on every PR and on pushes to
+  `develop`, so each merge there still gets its own verdict.
+- **Only the user promotes `develop` → `main`.** Don't open or merge that PR unless
+  they ask for it by name — that merge is a production deploy.
+- Delete a topic branch once it's merged; don't leave stale branches around.
+
 ## Hard rules
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
 - **One design system: `@kiwiply/ui` (`packages/ui`).** All shared visuals — icons,
@@ -77,6 +89,12 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   **on the fly** — parse + review + save a NEW resume (or store the raw file), pushing it
   back via the `TrackingProvider` seam. This is resume *creation*, consistent with
   "only resume creates push back"; editing existing resumes/bio still lives on the web.
+  **Exception 2 (user decision 2026-09-21, Phase 10.3):** the extension MAY promote an
+  answer it *learned while the user applied* into a **suggested** profile value, when that
+  answer's label resolves to a canonical field. Same reasoning — it's creation, the server
+  still owns the record, and the user confirms the suggestion on the web. The point is that
+  a user should never have to sit and fill a long profile form: ask the bare minimum, derive
+  the rest from the resume, and learn the remainder from real applications.
 - **Hosting = long-running containers, no serverless.** Web = Next `next start`
   (`output: 'standalone'`), **no Express**. API = Spring embedded Tomcat container.
   Resume upload = **Option A (Next-proxied), permanent**; Option B (presigned) is a
@@ -102,6 +120,52 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Email verification is LIVE** (Brevo SMTP, sends from **no-reply@kiwiply.com**; domain
   authenticated). Signups self-activate via the emailed link → web `/account/activate`.
   **Still no auto-activate** — verification is the gate, kept that way by decision.
+- **Go-to-market (locked 2026-09-21, ROADMAP Phases 11–17; extended 2026-10-05).** Tiers
+  **Free + Pro + Autopilot**. Pro = **$19.99/mo · $49.99 / 3 months** at Launch 1 → **$24.99 /
+  $54.99** at Launch 2. Autopilot = **$39.99/mo · $99.99 / 3 months**.
+  **No annual plan.** Stripe Checkout + Portal; `EntitlementService` in the API is the only
+  entitlement source of truth (`isPro()` wraps it; Phase 18 moves plans onto a DB catalog). **Core autofill stays free and identical in both tiers.** Free has **no
+  server AI** (BYO key only) with exactly one exception: **AI resume parsing** (one call per
+  resume, it's how the profile builds itself). Resume caps: Free 3 · Pro 25 · Autopilot 50;
+  downgrade never deletes data.
+  **Billing mechanics (Phase 12, locked):** Stripe is the truth and **only webhooks write** the
+  `subscription` mirror; `past_due` stays Pro until `current_period_end`; gated calls fail
+  **402 `PRO_REQUIRED`**; **no free trial**; **refunds: "no refunds, cancel anytime"** (stated
+  plainly, not buried — cancelling keeps Pro to the end of the paid period, so no one loses time
+  they paid for); the resume cap counts non-archived resumes; an
+  admin AI-quota override outranks the plan gate; the plan travels on `GET /api/profile/version`
+  (no JWT claim); `stripe-java` lives behind one `StripeGateway`; billing is **disabled when the
+  Stripe key is blank** so dev/CI run without secrets.
+- **Inbox = the user's own dedicated consumer Gmail over IMAP + App Password** (mirrors
+  Sales-App). **No Kiwiply email address of any kind, no forwarding, no OAuth, no Google API.**
+  Poll `INBOX` + `[Gmail]/Sent Mail`; store headers + body text only, **never attachments**;
+  credentials encrypted at rest; we **never send, move or delete** mail. Two launches: ops
+  hardening (backup/monitoring/restore drill) is Phase 15, right before Launch 1 — not earlier.
+  Daily job matches source jobs from the ATS' public job-board APIs, plus one licensed
+  aggregator API. **Never scraping.** Strong matches (16.1) are the first build after Launch 1.
+  Free = 3 rule-ranked matches a day (no AI); Pro/Autopilot = 10–20 AI-scored + email + 👍/👎;
+  consultancies included in the Pro seat.
+
+- **Expansion (locked 2026-10-05, ROADMAP *Expansion build*, Phases 18–23).**
+  - **Floors:** **nothing is unlimited**. Every subscription keeps **≥ 80 % gross margin in the
+    worst case** (AI budget fully spent + Stripe); every service keeps ≥ 20 %. The admin
+    catalog's margin guard enforces both.
+  - **AI budgets per billing period:** Pro $3/mo · $8 per quarter; Autopilot $6/mo · $16 per quarter.
+  - **Autopilot** batch-*prepares* applications in the user's own browser (300 a month, 30 a day)
+    and stops before submit. **No cloud auto-apply**, and it never ticks attestation boxes.
+  - **Services:** human resume review, resume rewrite, mock interview and coaching, delivered by
+    paid freelance experts; plus AI Interview Practice (text). **AI voice interviews dropped for now.**
+  - **Organizations:** a **one-time setup fee** (always charged) + **per-person items, mixed
+    freely** (Pro, Autopilot, AI Interview Practice, services), priced **above** individual prices.
+  - **No packages yet:** prices, limits and future bundles live in the catalog and change from
+    admin, not code.
+  - **Consultancy Marketer (Phase 22):** prepares everything for 4–5 consultants (resumes, job
+    banks with a resume per job, recruiter mail matched to each consultant's board) but **never
+    submits and never signs in as a consultant**. The consultant consents, approves
+    marketer-made resumes, runs the fill and submits.
+  - **Consultancy Ops add-on (Phase 23):** optional timesheets + finances. **Record money, never
+    move it**; no bank numbers, SSNs or tax IDs. The scope waits on the 23.0 brainstorm.
+  - **No Coach tier.** The org model keeps a hook for it; don't build it unless asked.
 
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions

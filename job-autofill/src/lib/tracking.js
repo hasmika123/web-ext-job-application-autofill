@@ -22,6 +22,10 @@
       this.name = "ApiError";
       this.status = status;
       this.body = body;
+      // The server's machine-readable reason, lifted out of the ProblemDetail so callers can
+      // branch without digging through the body: PRO_REQUIRED / RESUME_LIMIT (402),
+      // BILLING_DISABLED (503), ALREADY_SUBSCRIBED (409). Null when the error carries none.
+      this.code = (body && typeof body === "object" && typeof body.code === "string") ? body.code : null;
     }
   }
   class NotSupportedError extends Error {
@@ -45,6 +49,15 @@
     async pullProfile() { throw new NotSupportedError("pullProfile"); }
     async pushProfile(/* bio */) { throw new NotSupportedError("pushProfile"); }
     async listResumes() { throw new NotSupportedError("listResumes"); }
+    // Phase 11.2 — the server's fingerprint of bio + resumes; the extension re-pulls only when it
+    // changes. Since 12.3 it also carries the plan: { version, plan }.
+    async profileVersion() { throw new NotSupportedError("profileVersion"); }
+    // Phase 13.1c — this month's AI meter. Implemented by createKiwiplyProvider.
+    async aiUsage() { throw new NotSupportedError("aiUsage"); }
+    // Phase 13.2 — score the user's resumes against a job description (Pro).
+    async resumeMatch(/* { jobDescription, role, company, consent } */) { throw new NotSupportedError("resumeMatch"); }
+    // Phase 13.3 — one resume against one job: match %, missing keywords, red flags (Pro).
+    async jobFit(/* { resumeId, jobDescription, role, company, consent } */) { throw new NotSupportedError("jobFit"); }
     async pushResume(/* resume */) { throw new NotSupportedError("pushResume"); }
     async deleteResume(/* serverId */) { throw new NotSupportedError("deleteResume"); }
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
@@ -59,9 +72,14 @@
     // Phase 4 (field-cache sync) — declared so the seam is complete; implemented later.
     async syncFieldCache(/* entries */) { throw new NotSupportedError("syncFieldCache (Phase 4)"); }
     // Phase 5 — server-side metered AI drafting (opt-in). Implemented by createKiwiplyProvider.
-    async aiDraft(/* { question, context, consent } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
+    async aiDraft(/* { question, context, consent, task } */) { throw new NotSupportedError("aiDraft (Phase 5)"); }
     // Server-side metered AI resume parsing (opt-in). Implemented by createKiwiplyProvider.
     async aiParseResume(/* { text, fileBase64, fileMimeType, consent } */) { throw new NotSupportedError("aiParseResume"); }
+    // Phase 10.1 — count-only fill telemetry. Implemented by createKiwiplyProvider.
+    async recordFill(/* event */) { throw new NotSupportedError("recordFill"); }
+    async recordFillCorrection(/* fillId */) { throw new NotSupportedError("recordFillCorrection"); }
+    // Phase 10.3d — answers learned while applying, kept server-side as SUGGESTED profile values.
+    async recordLearnedAnswers(/* [{fieldKey, value, context}] */) { throw new NotSupportedError("recordLearnedAnswers"); }
     // Phase 9.A5 — user bug report (auth optional). Implemented by createKiwiplyProvider.
     async submitBugReport(/* { message, category, url, appVersion, userAgent } */) { throw new NotSupportedError("submitBugReport (Phase 9)"); }
   }
@@ -329,6 +347,53 @@
         return dto ? payloadToBio(dto.payload) : null;
       },
 
+      // ---- profile version + plan (Phase 11.2, extended in 12.3) ----------------
+      // GET /api/profile/version → { version, plan }. `version` is a short hash of what
+      // pullProfile + listResumes would return; `plan` is FREE|PRO, carried here so the
+      // extension learns about an upgrade inside a check it already makes.
+      // Either field is null when the server doesn't send it — a null version makes the
+      // caller pull to be safe, a null plan leaves the last known plan alone.
+      // ---- Phase 13.1c: this month's AI meter --------------------------------
+      // { metered: "budget", used: <percent>, limit: 100, resetsAt } for Pro (never dollars), or
+      // { metered: "count", used: <parses>, limit: <quota>, resetsAt } for Free.
+      async aiUsage() {
+        return request("GET", "/api/ai/usage");
+      },
+
+      // ---- Phase 13.2: which resume fits this job? (Pro) -----------------------
+      // { best:{resumeId,label,score,why}, scores:[…], cached } | { disabled } | { consentRequired }
+      // | { quotaExceeded, resetsAt } | { noResumes } | { noJobDescription }; 402 PRO_REQUIRED on Free.
+      // `resumeId` is the SERVER id — map it back through a local resume's `serverId`.
+      async resumeMatch({ jobDescription, role, company, consent } = {}) {
+        return request("POST", "/api/ai/resume-match", {
+          body: { jobDescription: String(jobDescription || "").slice(0, 20000), role: role || "", company: company || "", consent: consent !== false },
+        });
+      },
+
+      // ---- Phase 13.3: the job-fit panel (Pro) ----------------------------------
+      // { fit:{resumeId,label,score,summary,matched[],missing[],redFlags[]}, cached } | { disabled }
+      // | { consentRequired } | { quotaExceeded, resetsAt } | { noResume } | { noJobDescription };
+      // 402 PRO_REQUIRED on Free; 404 for a resume that isn't the user's. `resumeId` = SERVER id.
+      async jobFit({ resumeId, jobDescription, role, company, consent } = {}) {
+        return request("POST", "/api/ai/job-fit", {
+          body: {
+            resumeId: resumeId == null ? null : Number(resumeId),
+            jobDescription: String(jobDescription || "").slice(0, 20000),
+            role: role || "",
+            company: company || "",
+            consent: consent !== false,
+          },
+        });
+      },
+
+      async profileVersion() {
+        const r = (await request("GET", "/api/profile/version")) || {};
+        return {
+          version: typeof r.version === "string" && r.version ? r.version : null,
+          plan: typeof r.plan === "string" && r.plan ? r.plan : null,
+        };
+      },
+
       async listResumes() {
         const dtos = (await request("GET", "/api/profile/resumes")) || [];
         return dtos.map(dtoToResume);
@@ -437,9 +502,29 @@
 
       // ---- server-side AI drafting (Phase 5) ------------------------------
       // Opt-in + metered on the server's key. Returns the raw server result:
-      // { answer, used, quota } | { disabled } | { consentRequired } | { quotaExceeded }.
-      async aiDraft({ question, context, consent } = {}) {
-        return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false } });
+      // { answer, used, quota, resetsAt } | { disabled } | { consentRequired } | { quotaExceeded, used, quota, resetsAt }.
+      // For a Pro budget (13.1b) `used` is a percentage and `quota` is 100.
+      // `task` (13.1a) tells the server what the call is for — draft | pick | map | enrich — so each
+      // kind gets instructions written for it and is metered as itself. Omitted = draft.
+      async aiDraft({ question, context, consent, task } = {}) {
+        return request("POST", "/api/ai/draft", { body: { question, context: context || "", consent: consent !== false, task: task || "draft" } });
+      },
+
+      // ---- fill telemetry (Phase 10.1) ------------------------------------
+      // Counts only: an ATS family, an adapter id and small integers (see fill-telemetry.js).
+      // The server answers 204 either way and re-enforces the vocabulary.
+      async recordFill(event) {
+        return request("POST", "/api/telemetry/fills", { body: event });
+      },
+      async recordFillCorrection(fillId) {
+        return request("POST", "/api/telemetry/fills/" + encodeURIComponent(String(fillId || "")) + "/correction");
+      },
+
+      // ---- Phase 10.3d: learned answers → suggested profile values ------------
+      // Never written to the profile: the server keeps them as suggestions the user reviews on
+      // the web. `context` is a salted hash of the application page, never its address.
+      async recordLearnedAnswers(answers) {
+        return request("POST", "/api/profile/suggestions", { body: Array.isArray(answers) ? answers : [] });
       },
 
       // ---- server-side AI resume parsing ----------------------------------

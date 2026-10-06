@@ -25,7 +25,90 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> ▶️ **Extension → Chrome Web Store prep (2026-09-17). Everything that can be done from here is
+> 🧭 **Expansion plan locked 2026-10-05** (ROADMAP → *Expansion build, Phases 18–23*). It adds
+> Autopilot, services, organizations, the consultancy Marketer role and an optional Ops add-on
+> (timesheets + finances); there is no Coach tier. **New Launch-1 task 15.5 (re-price
+> Pro: $49.99 / 3 mo, AI budget $3 / mo · $8 / quarter per billing period, 25-resume cap) must land
+> before 15.4's live keys.** **15.5 is DONE in code (2026-10-05, ext v0.65.0)** — one human step left:
+> create the $49.99 3-month Price in Stripe test mode and point `STRIPE_PRICE_3MO` at it (DEPLOY.md
+> §11). The current focus below is unchanged.
+>
+> ▶️ **Go-to-market build — next: Phase 12, Stripe billing (2026-09-21).** **Phase 11 is COMPLETE**
+> (ext v0.52.9): the web signals the extension on every change/sign-in/sign-out, `GET
+> /api/profile/version` gives a cheap fingerprint, the extension checks it on a 15-minute alarm, on
+> window focus and on drawer open — pulling only when it moved — and `ARCHITECTURE.md` → **Sync
+> model** documents the whole shape. **Phase 12 is planned to build depth** (ROADMAP Phase 12: locked
+> decisions + 12.0–12.7 with contracts, file placement, edge cases and named tests). **12.1–12.4 are DONE**
+> — schema, `EntitlementService`, the gateway seam,
+> `GET /api/billing/me`, the webhook, checkout + portal, `/pricing`, `/billing/success`,
+> Settings › Billing, the sidebar Pro pill and the extension's plan badge. Everything still runs
+> keyless (blank `STRIPE_SECRET_KEY` ⇒ `billingEnabled:false`, checkout/portal → 503).
+> The gates are live too (ext v0.54.0): server AI, cross-device answer sync and the 4th resume are
+> all Pro, each refused with a 402 the clients turn into an upgrade prompt. **12.5 is DONE** —
+> `/admin/analytics` has a Revenue card (MRR, active Pro, new/churned this month, past due).
+> **12.6 is DONE** — the ToS has a Billing section and the Privacy Policy names Stripe.
+> **PHASE 12 IS COMPLETE.** 12.7's run happened on 2026-09-21 and found **eight bugs**, all fixed
+> with tests — including double billing and a webhook that could revoke Pro from a paying
+> customer. One piece is deliberately carried to **15.4**: a real failed renewal and lapse, which
+> need a Stripe test clock. **10.1 is DONE** (ext v0.56.0) — count-only fill telemetry per ATS
+> and an `/admin/analytics` panel ranking ATS worst-first. **10.2 is DONE** (ext v0.57.0) — after
+> a fill, "N required fields still need you" with jump-to links, and auto-advance waits for them.
+> **10.3 is planned** as five steps, 10.3a–e (user-approved defaults 2026-09-22, see ROADMAP 10.3).
+> **10.3a is DONE** (ext v0.58.0) — six job-preference fields (salary, notice, start date, work
+> preference, relocate, "how did you hear") are canonical, matched by rules and editable on the web.
+> **10.3b is DONE** — `/welcome`: six one-tap questions a new user sees once after first sign-in.
+> **10.3c is DONE** — `/api/profile/suggestions`: learned answers become suggestions, only an accept
+> writes the profile. **10.3d is DONE** (ext v0.59.0) — after a fill, the extension reports answers to
+> profile questions there. **10.3e is DONE** — the dashboard's "We learned N things about you — keep
+> these?" card. **10.3 IS COMPLETE.** **13.1 is planned** as 13.1a–c (user-approved defaults
+> 2026-09-22, see ROADMAP 13.1). **13.1a is DONE** (ext v0.60.0) — every AI call names its kind and
+> is recorded with its tokens and cost; three bugs fixed. **13.1b is DONE** (ext v0.61.0) — Pro AI is a
+> $5/month cost budget with a soft cap, per-task models and kill switches; the admin override is a
+> budget. **13.1c is DONE** (ext v0.62.0) — users see "% of this month's Kiwiply AI used" (web
+> Settings + extension Options); the admin AI page shows real cost per user and per feature.
+> **13.1 IS COMPLETE.** Model stays **gemini-2.5-flash-lite** (user decision 2026-09-22, until the
+> Gemini API announces a shutdown). **13.2 is DONE** (ext v0.63.0) — "Best match: Backend v3 · 84%"
+> in the drawer and a "Resume fit" section on the board. **13.3 is DONE** (ext v0.64.0) — the job-fit
+> report (match, missing keywords, red flags) in the drawer and per resume on the board.
+> **13.4 is DONE** — "Tailor for this job" on the board: reviewed rewordings saved as a new resume,
+> with the truthfulness checks on the server. **13.5 is DONE** — an ATS score out of 100 with
+> "fix first" advice on the Resumes page, and with the job's keyword coverage in the board's job-fit
+> panel. **13.6 is planned** as 13.6a–c (user decisions 2026-09-22: seed list + users' companies;
+> ordinary overnight calls, Batch API waits for 16.1). **13.6a is DONE** — 217 verified job boards,
+> a nightly read keeping 48-hour-fresh postings, and an admin Job sources page. **13.6b is DONE** —
+> opt-in nightly matching: preferences from the profile + resume, a pre-filter to ≤ 50, one metered
+> Flash-Lite call per user. **13.6c is DONE** — the `/matches` page: the switch (with what it sends),
+> today's list, save to board / dismiss. **13.6 IS COMPLETE — so is Phase 13.** **Phase 14 is planned**
+> (user decisions 2026-09-22, ROADMAP "Phase 14 plan"): env AES-256-GCM key; bodies kept only for job
+> mail; poll every 15 min; email only for interview/offer; order 14.2 → 14.1 → 14.3 → 14.5 → 14.4 →
+> 14.6 → 14.7. **14.2 is DONE** — AES-256-GCM `SecretBox` + a startup key canary. **14.1 is DONE** — the
+> connect flow at `/settings/inbox`. **14.3 is DONE** — the poller reads Inbox + Sent every 15 min.
+> **14.5 is DONE** — one application per job across boards. **14.4 is split**: **14.4a is DONE** — mail
+> read into status changes (rules first, Flash-Lite only when unsure). **14.4b is DONE** — "From your
+> inbox" suggestions on the board + each application's Emails. **14.4 is complete.** **14.6 is DONE** —
+> in-app notifications + emails for interviews and offers. **14.7 is DONE** — 12-month mail expiry,
+> inbox in the data export, the read-only promise in Terms. **PHASE 14 IS COMPLETE.** **15.1 is planned**
+> as 15.1a–c (user decisions 2026-09-23: a separate backup bucket with an upload-only key;
+> UptimeRobot + Healthchecks.io; an in-house error email digest; a weekly automated restore drill plus
+> one by hand). **15.1a is DONE** — `scripts/ops/backup-db.sh` + `verify-restore.sh` + the cron file,
+> tested in CI against a real MySQL; the runbook is DEPLOY.md §5.1–§5.3. **15.1b is DONE** — the API
+> emails the admin a digest of server errors (each kind once, counted), at most every 15 minutes.
+> **Next: 15.1c** — go live on the box + the restore drill by hand; it needs the bucket, the IAM user,
+> Healthchecks.io + UptimeRobot (the user's to create) and `develop` promoted to `main`. Before the inbox
+> goes live: `DOSSIER_INBOX_KEY` on the box (DEPLOY.md §12). **Before 14.1 ships to prod: generate `DOSSIER_INBOX_KEY`** (DEPLOY.md §12). 12.0's Stripe sandbox exists; a real end-to-end run against it is **12.7**.
+> The plan to a sellable Pro tier is
+> fully written: `ROADMAP.md` **Phases 10–17** (decisions, pricing, margin, legal shape,
+> Free-vs-Pro table, competitor cross-check) and the task lists below (**Phase 11–17**). Build
+> order: **11 Sync → 12 Billing → 10.1–10.3 → 13 Pro AI → 14 Inbox → 15 Launch 1 → 16 → 17
+> Launch 2**; 10.4–10.6 run continuously, ordered by 10.1 telemetry. Work on branches off
+> **`develop`**, PR into `develop`; only the user promotes to `main`.
+> **Store status:** the extension's **v1 is published on the Chrome Web Store and under review**
+> (uploaded 2026-09-21 — the `main` build at the time, believed **0.52.2**; confirm the number in
+> the CWS dashboard). It gets resubmitted in **15.3** with the Pro build. Ext on `develop`:
+> **v0.52.6**. Ops gaps (backup / monitoring / restore drill) are scheduled in **15.1** by
+> decision — don't pull them earlier.
+>
+> ✅ *(Superseded 2026-09-21 — kept for the human-gated items it lists.)* **Extension → Chrome Web Store prep (2026-09-17). Everything that can be done from here is
 > done; the remaining gates need a real Chrome and the user.** Ext **v0.51.1**. Landed: **W6.0**
 > manifest hygiene (env-aware manifest — no dev-only or unused permissions in the store zip;
 > session-handoff gate derived from the manifest; `test/connect_handoff.test.js`), **W6.2** (the
@@ -515,10 +598,10 @@ focused Claude Code session.
 - [ ] **3.6.4 Server structured salary (later).** Additive Liquibase migration:
   `salary_min/salary_max/salary_currency/salary_period` columns on `application`,
   DTO + mappers, extension sends `salaryParsed`, board gains salary filter/sort.
-- [ ] **3.6.5 Cross-board dedup (later).** Same posting saved from LinkedIn + the ATS
+- [ ] **3.6.5 Cross-board dedup (later → re-homed to 14.5, required by the inbox).** Same posting saved from LinkedIn + the ATS
   currently makes 2 entries; dedup on normalized company+title(+fuzzy location) at
   upsert time (plain string match — no embeddings; cheap and good enough).
-- [ ] **3.6.6 Adapter-rot telemetry (later).** Anonymous per-tier extraction-miss counts
+- [ ] **3.6.6 Adapter-rot telemetry (later → folded into 10.1).** Anonymous per-tier extraction-miss counts
   (which extractor/field came up empty — no page content, no PII) so Workday-style
   markup changes surface in analytics before user reports.
 - [ ] **3.6.7 Provenance in the UI (later).** Review overlay / save-a-job editor show a
@@ -714,7 +797,8 @@ focused Claude Code session.
 - [ ] **8.3 Session control.** Revocable sessions, refresh-token rotation at scale,
   forced logout / device list (extends the basic rotation shipped in 1.11; covers both
   auth surfaces — extension Bearer + web httpOnly cookie).
-- [ ] **8.4 Audit & compliance.** Audit logging; PII retention/deletion tooling;
+- [ ] **8.4 Audit & compliance.** *(Two slices pulled forward by the inbox: secrets-at-rest → 14.2,
+  retention/deletion → 14.7. The rest stays here.)* Audit logging; PII retention/deletion tooling;
   GDPR/CCPA + SOC 2 groundwork; secrets in a vault/KMS; deeper RBAC.
 
 ## Phase 9 — Admin, ops & comms
@@ -775,6 +859,459 @@ focused Claude Code session.
   merged/deployed, PR #14); ✅ admin email → admin@kiwiply.com routed to admin.kiwiply@gmail.com.
   **Remaining (need the user):** backfill confirmed subscribers into Brevo (CSV import); lawyer review of
   privacy/terms (PL.1); DPAs with Brevo + AWS S3; bug-report screenshots; manual CWS upload of ext v0.25.0.
+
+### Phase 9.B — Admin expansion (brainstorm 2026-10-05; full table in `ADMIN-PLAN.md` → 9.B)
+- [ ] **9.B1 Runtime settings.** An `app_setting` table (typed, bounded, audited, env = default).
+  It covers AI models, caps and kill switches; job-matching knobs; inbox knobs; rate limits; the
+  error digest. *(After Launch 1, with 18.)*
+- [ ] **9.B2 Feature flags + banner + extension remote config.** Flags (global, % of users, per
+  user), a site and drawer banner, extension minimum version, per-ATS kill switch (data only).
+  *(Before 19.)*
+- [ ] **9.B3 Support toolkit.** Entitlement explainer, comps (`ADMIN_COMP`), AI budget
+  reset/extend, Stripe promo codes, subscription view. *(With 18.)*
+- [ ] **9.B4 Unit economics + cost alerts.** Margin per product vs the 80 % floor, % of users at
+  their AI cap, churn and conversion, alert emails. *(With 18.)*
+- [ ] **9.B5 Scheduled jobs + health.** Run now / pause, last run; backup and drill status;
+  Brevo quota, bounces and complaints. *(Soon after Launch 1.)*
+- [ ] **9.B6 Legal versions + acceptance.** Publish a new version; record who accepted which
+  version and when. *(Before 20.)*
+- [ ] **9.B7 Admin roles.** Super-admin / support / finance / expert manager. *(Before 20.)*
+- [ ] **9.B8 Abuse controls.** Block or flag users, disposable-email blocklist, Autopilot misuse
+  flags. *(With 19.)*
+
+### Phase 9.C — Customers, support & retention (planned 2026-10-05; full table in `ADMIN-PLAN.md` → 9.C)
+- [x] **9.C1 Customers page + billing timeline** *(must ship before 15.4's live keys; done 2026-10-06).*
+  `/admin/customers` (plan, status, renewal, total paid, Stripe link; filters for failed,
+  cancelling and new). A billing timeline + admin notes on each user page. Additive
+  `stripe_event.customer_id` + `customer_note`.
+- [ ] **9.C2 Full timeline.** Sent-email log (`mail_log`), bug reports, inquiries and admin plan
+  changes on the user's timeline.
+- [ ] **9.C3 Support access ("view as").** The user grants 24 h; read-only, bannered, audited,
+  auto-expiring. **No log-in-as.**
+- [ ] **9.C4 Debug panel.** Extension version, sync, inbox health, AI usage, recent errors; a
+  consented "support session" fill capture (labels only, never answers).
+- [ ] **9.C5 Offers & retention.** Comps, Stripe promo codes (margin shown vs the floor),
+  win-back to consented users, cancellation reasons.
+- [ ] **9.C6 CRM sync (custom CRM, confirmed 2026-10-06).** Signed webhooks (HMAC, replay-safe,
+  retried, failures resendable from admin) + a key-protected read-only export for reconcile;
+  contract in `docs/crm-sync.md`. No product data (resumes, answers, mail) leaves Kiwiply.
+- [ ] **9.C7 Account fixes.** Resend verification, verified email change, clear rate-limit
+  lock, revoke extension connections.
+
+## Phase 10 — Fill quality & the self-building profile (the Pro-plan gate)
+> Spec: `ROADMAP.md` → **Phase 10**. Makes the autofill itself good enough to charge for.
+> Sequencing is deliberate: measure → cheap visible win → profile spine → the adapter grind.
+> Do NOT start 10.4 before 10.1 ships — adapter effort without telemetry is guesswork.
+
+- [x] **10.1 Fill telemetry per ATS.** One event per fill: `{ats, fieldsFound, fieldsFilled,
+  userCorrected, requiredLeftEmpty}`. Counts only — no field values ever leave the page (same
+  line the field mapper holds: labels may leave, values never). Surface as an `/admin/analytics`
+  panel ranking ATS by failure rate. **This is what directs 10.4.**
+- [x] **10.2 Post-fill audit.** After a fill, scan for required-but-empty controls and report
+  "N required fields still need you" with jump-to links. Converts the silent-miss failure mode
+  into a handled one; cheapest large win in the phase.
+- **10.3 Self-building profile (3 tiers).** Tier A = ≤6 onboarding questions (work auth +
+  sponsorship, desired comp, start/notice, remote-or-relocate; EEO offered but skippable).
+  Tier B = derived from the resume parser. Tier C = **learned while applying** — a *suggested*
+  profile value, reviewed on the web, never silently overwritten. Extends the pull-only locked
+  decision (see CLAUDE.md, user decision 2026-09-21). Split into five steps (plan 2026-09-22):
+  - [x] **10.3a Job-preference fields.** `desiredSalary`, `noticePeriod`, `earliestStartDate`,
+    `workPreference`, `willingToRelocate`, `referralSource` in `schema.js` + rules + `MAPPABLE` +
+    the web profile. **`experience[]`/`education[]` stay on each resume** (user decision
+    2026-09-22) — they already exist there and a profile copy would drift. **No Tier-C long-tail
+    fields** — they're unbounded and the field cache handles them better.
+  - [x] **10.3b Onboarding (Tier A).** `/welcome`, shown once after the first sign-in, "Skip for
+    now" always visible: optional resume upload, then ≤6 questions (work auth, sponsorship,
+    salary, start/notice, remote/relocate, EEO optional). The dashboard checklist links to it.
+  - [x] **10.3c Suggestions API.** `profile_suggestion` table + send/list/accept/dismiss. Free
+    and Pro alike (the Pro-only answer sync is untouched). Canonical keys only, never EEO,
+    capped pending count, in export + deletion. Accepting writes the bio (so the version moves).
+  - [x] **10.3d Extension capture (Tier C).** Watch canonical-field inputs even when the bio has
+    no value, plus user corrections of filled ones; send a suggestion on commit. A blank bio
+    field is suggested at once; a *change* only after the same new value on 2 applications.
+    "Learn from my applications" device setting, on by default.
+  - [x] **10.3e Web review.** Dashboard card "We learned N things about you — keep these?" with
+    Keep / Edit / Dismiss; a dismissed value isn't suggested again.
+- [ ] **10.4 ATS coverage.** Adapters for the 5 uncovered manifest hosts (iCIMS, Taleo,
+  SmartRecruiters, BambooHR, Jobvite); depth for Greenhouse (61 lines / 6 selectors), Lever
+  (46), Ashby (49). Capture real tenant DOM first. Generalize multi-step orchestration beyond
+  Workday/Indeed.
+- [ ] **10.5 AI posture for Pro.** Server AI on by default for paying users (metered, Phase 5
+  proxy); BYO key stays the free unlimited path. Today both the mapper and drafter are off by
+  default, so most users never see the layer that closes the long tail.
+- [ ] **10.6 Defend it.** Real-DOM regression fixtures per ATS in CI (Workday/Workable/Indeed
+  have the shape; Greenhouse/Lever/Ashby have none) + an answer library on the web
+  (view/edit/delete learned answers — also the GDPR "see and correct" duty).
+
+## Phase 11 — Sync: signal + version check (Launch 1)
+> Spec: `ROADMAP.md` → Phase 11. Signal when you can, version-check when you can't, pull only on change.
+- [x] **11.1 Web→extension change signal.** ✅ DONE (ext **v0.52.7**). `web/src/lib/extension-signal.ts`
+  `notifyExtension("changed"|"signedOut")` — fire-and-forget, Chrome direct / Firefox via the connect-relay —
+  called after profile save (BioEditor, upload-services), every resume mutation (ResumeList: archive, delete,
+  star, default; upload-services: save, set-default), sign-in (password + MFA) and sign-out (SignOutButton,
+  AdminShell). SW: `KIWIPLY_SYNC` routed through the same origin gate as the handoff; `changed` pulls the
+  mirror in the background (storage.js now loaded there), stamps `__lastPull`, broadcasts
+  `KIWIPLY_MIRROR_UPDATED` → open drawer repaints; `signedOut` revokes best-effort then always clears.
+  32 assertions in `test/sync_signal.test.js` (both transports, the gate, offline revoke, unknown event).
+  *Web side is covered by tsc + eslint only — the web workspace has no unit runner; adding one is a separate
+  decision.*
+- [x] **11.2 `GET /api/profile/version`.** ✅ DONE (ext **v0.52.8**) — exactly as specified below;
+  `ProfileVersionResourceIT` 4/4 green locally against Testcontainers MySQL, `tracking.test.js` 62/62.
+  `200 {"version":"<16 hex>"}`, Bearer, **never 404**.
+  A **hash** of exactly what a pull returns (bio `updatedAt`+`payload`, resumes sorted by id with
+  `id|label|status|archived|starred|defaultResume|createdAt|r2ObjectKey|parsedJson`), SHA-256 → 16
+  hex — because `Resume` has no `updatedAt` and a counter would need a migration and could still
+  miss a path. API: `service/ProfileVersion.java` (pure hasher) + `ProfileService.profileVersion()`
+  + `ProfileResource` `GET /version` + `vm/ProfileVersionVM`. Ext: `TrackingProvider.profileVersion()`
+  (base NotSupported; Kiwiply provider GETs it → string|null). Tests: `ProfileVersionResourceIT`
+  (empty → 200/16 hex; stable; moves on PUT profile, resume create, archive toggle, delete; another
+  user's change doesn't move mine) · `tracking.test.js` (path + mapping). Ext version bump.
+- [x] **11.3 Extension version checks.** ✅ DONE (ext **v0.52.9**) — built as specified below.
+  `checkAndPull` in `src/lib/sync.js`; alarm + `windows.onFocusChanged` + `runVersionCheck` in the
+  SW (both guarded, so the mock-`chrome` suites and any context without those APIs still load);
+  drawer `refreshMirror` now calls `checkAndPull`. `alarms` added to the manifest **and** to the
+  permission-justification tables in `PRIVACY.md` + `STORE-LISTING.md` (the listing requires a row
+  per shipped permission). 37 assertions in `sync.test.js`, 48 in `sync_signal.test.js`.
+  **Behaviour note:** removing the 90 s throttle also un-throttles `syncLearnedAnswers`, so the
+  field-cache push+merge now runs on every drawer open (user-initiated, best-effort) instead of at
+  most once per 90 s. Original spec below:
+  `JAF.sync.checkAndPull(provider, storage, settings)` —
+  GET version, compare `settings.__profileVersion`, pull only on mismatch/first run, store version +
+  `__lastPull`; provider error → no pull, keep old version. Callers: `chrome.alarms` `"kiwiply-sync"`
+  / 15 min (created on `onInstalled` + `onStartup`; **add `"alarms"` permission** in `wxt.config.ts`) ·
+  `chrome.windows.onFocusChanged` in the SW, ≤ 1 check / 60 s · drawer `refreshMirror` replaces the
+  90 s throttle + `pullAll` with `checkAndPull` (keep the one-time resume-migration push). Pulls that
+  changed the mirror broadcast `KIWIPLY_MIRROR_UPDATED`. 11.1 `changed` keeps pulling unconditionally
+  but then fetches + stores the version. Tests: `sync.test.js` (first run / hit / miss / error) ·
+  SW test for alarm registration + `onAlarm` · `tracking.test.js`. Ext version bump.
+- [x] **11.4 Docs.** ✅ DONE — `ARCHITECTURE.md` gained a **Sync model (Phase 11)** section (the three
+  mechanisms, the offline rule, the revoke backstop, the no-WebSockets reason) and two stale lines were
+  corrected: the `background.ts` entry no longer duplicates 11.1 and the mirror note no longer says
+  "the popup pulls … (throttled)" — there is no popup and no throttle. `HANDOFF.md` points at it.
+  Original spec: `ARCHITECTURE.md` "Sync model" section (signal → version → alarm; revoke path:
+  1.11 rotation kills a stale token at its next refresh, `signedOut` clears at once; no WebSockets —
+  MV3 SW idles out after 30 s). `HANDOFF.md` one line. Docs-only commit.
+
+## Phase 12 — Billing & entitlements: Stripe (Launch 1 — the gate comes before the gated features)
+> Spec: `ROADMAP.md` → Phase 12 + the Free/Pro table. `isPro()` in the API is the ONLY source of truth.
+> **Planned to build depth 2026-09-21 — read the Phase 12 block in `ROADMAP.md` first**; it holds
+> the locked decisions (Stripe is the truth and only webhooks write the mirror · `past_due` stays
+> Pro until period end · 402 `PRO_REQUIRED` · no trial · resume cap counts non-archived · admin
+> quota override outranks the gate · plan rides on `/api/profile/version` · `stripe-java` behind
+> one `StripeGateway`). Build in order; each task is its own commit.
+- [ ] **12.0 Stripe account setup (human).** Test mode first: Product "Kiwiply Pro" with Prices
+  $19.99/month + $44.99/3 months; Stripe Tax on; Customer Portal configured (cancel at period end,
+  update card, invoices; no plan switching); webhook endpoint `https://api.kiwiply.com/api/billing/
+  webhook` on `checkout.session.completed`, `customer.subscription.{created,updated,deleted}`,
+  `invoice.{paid,payment_failed}`. `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`,
+  `STRIPE_PRICE_3MO` → password manager + box `.env`; `docker-compose.prod.yml` passthrough. Local:
+  `stripe listen --forward-to localhost:8080/api/billing/webhook`.
+- [x] **12.1 Schema + entitlement + gateway (API, no UI).** ✅ DONE — built as specified, plus two
+  things the spec didn't anticipate: `StripeProperties` lives in `service/billing/`, not `config/`
+  (ArchUnit's `TechnicalStructureTest` forbids services reaching into `..config..`), and
+  `ProRequiredException` is a **pair** — a service-layer `RuntimeException` plus the
+  `web.rest.errors` ProblemDetail, mapped in `ExceptionTranslator`, exactly like
+  `EmailAlreadyUsedException` (same layering rule). Also: no raw-JSON fallback for
+  `current_period_end` — Gson isn't on the compile classpath, and stripe-java 29 exposes it on the
+  subscription item, so it's read there and `null` (⇒ lapsed) when absent, which can only cost Pro,
+  never grant it. `DEPLOY.md` §11 documents the four secrets. 14 unit assertions +
+  `BillingResourceIT` 5/5; full API suite green. Original spec:
+  Liquibase `20260921000000_subscription.
+  xml`: `subscription` (one row per user — `user_id` unique; `stripe_customer_id`/`stripe_subscription_id`
+  unique nullable; `plan`, `status` verbatim from Stripe, `price_id`, `current_period_end`,
+  `cancel_at_period_end`, `last_event_at`, timestamps) + `stripe_event` (`id` = `evt_…` **PK** as the
+  idempotency key, `type`, `received_at`, `processed_at`, `status ok|failed|duplicate`, `error`).
+  `EntitlementService.isPro/plan/requirePro(→ 402 PRO_REQUIRED)`; `StripeGateway` interface +
+  `StripeGatewayImpl` (only importer of `com.stripe.*`); `StripeProperties` with **billing disabled when
+  the key is blank** (`/me` says so, checkout/portal → 503 `BILLING_DISABLED`); `GET /api/billing/me` →
+  `PlanDTO`. Tests: `EntitlementServiceTest` status × period matrix · `BillingResourceIT` `/me`.
+- [x] **12.2 Webhook — the only writer.** ✅ DONE — built as specified, with three deviations worth
+  knowing. (1) `StripeEvent` implements `Persistable<String>`: without it Spring Data treats an
+  assigned String id as "existing", turns `save()` into a merge, and a **replay would silently
+  update its own row instead of colliding** — the PK-as-idempotency-key claim was decorative until
+  this. (2) Transactions are driven by explicit `TransactionTemplate`s, not `@Transactional`: the
+  three steps are self-invoked from `handle()`, where Spring's proxy skips the annotation entirely.
+  (3) `checkout.session.completed` is **exempt from the ordering drop** — it writes identity
+  (customer↔user), not mutable state, so applying it late is harmless while skipping it would
+  orphan the subscription from its account. Also hardened `dataObject()` against Stripe
+  API-version drift (`getObject()` returns empty — or NPEs on an event with no `api_version` —
+  whenever the dashboard's version differs from the SDK's, which would silently strip state from
+  every webhook). `StripeGatewaySignatureTest` 4/4 + `BillingWebhookIT` 9/9; full API suites green.
+  Original spec: `POST /api/billing/webhook` permitAll, raw `String` body,
+  signature verified (bad → 400, nothing recorded). One transaction: insert `stripe_event` (duplicate →
+  200 `duplicate`, stop) · drop events older than `last_event_at` · apply by type (bind customer↔user on
+  `checkout.session.completed` via `client_reference_id`; upsert from the `subscription` object on
+  `customer.subscription.*`; `invoice.paid` → active; `invoice.payment_failed` → `past_due` + Brevo
+  "update your card" email) · handler exception → `failed` + **500 so Stripe retries**. Tests
+  (`BillingWebhookIT`): signed fixture → upsert · wrong secret → 400 · replay → duplicate, row unchanged
+  · older `created` ignored · `deleted` → canceled, Free after period end · `payment_failed` → past_due,
+  still Pro, one email on a `MailService` spy.
+- [x] **12.3 Checkout + portal + web.** ✅ DONE (ext **v0.53.0**) — see the Log entry for the three
+  course corrections. Original spec: API `POST /api/billing/checkout {price}` (creates/reuses
+  customer; hosted session with `client_reference_id=userId`, promo codes, automatic tax, success/cancel
+  URLs; Pro → 409) + `POST /api/billing/portal` (no customer → 404). Web BFF `api/billing/{checkout,
+  portal,me}`; public **`/pricing`** (Free/Pro table + prices; Upgrade → checkout or `/signup?next=`;
+  disabled → "coming soon"); **`/billing/success`** polls `/me` ≤ 20 s until PRO, never errors;
+  **Settings › Billing** replaces the placeholder (pill, renewal/"cancels on", Manage billing, Upgrade);
+  `AppShell` Pro pill; plan fetched once in the `(app)` layout. Extension: `ProfileVersionVM.plan`;
+  `checkAndPull` + the `changed` path store `settings.plan` on every answer; `tracking.js` surfaces 402
+  with `.status/.code`; options badge + upgrade link. Tests: `BillingResourceIT` (URL + stored customer,
+  reuse, 409, 404, 503) · `tracking.test.js` 402 · `sync.test.js` plan stored on unchanged check · web gate.
+- [x] **12.4 The gates.** `requirePro()` at: `AiDraftService` + field-map/pick routes (**unless** an
+  admin quota override exists; new `Status.PRO_REQUIRED` → SW message "Pro feature — upgrade, or add
+  your own key"; `AiResumeParseService` untouched; `dossier.ai.pro-monthly-quota` default 2000) ·
+  `POST /api/profile/field-caches/sync` (extension already best-effort → silent) ·
+  `ProfileService.createResume` when Free and non-archived count ≥ 3 → 402 `RESUME_LIMIT {limit,
+  count}`, with the upgrade CTA inline in web `ResumeUpload` and the extension upload flow. Tests:
+  `AiDraftResourceIT` (Free → PRO_REQUIRED · Free+override drafts · Pro drafts · parse-resume Free ok) ·
+  `FieldCacheSyncResourceIT` (Free 402 / Pro 200) · `ProfileResourceIT` (4th create Free 402 · archived
+  don't count · Pro 201).
+- [x] **12.5 Admin revenue panel.** `overview().billing {activePro, monthlyCount, threeMonthCount, mrr,
+  newThisMonth, churnedThisMonth, pastDue}` from `subscription` (MRR = monthly×19.99 + 3-mo×44.99÷3);
+  one card on `/admin/analytics`. Test: `AdminAnalyticsResourceIT` with two seeded rows.
+- [x] **12.6 Copy + legal hooks (→ 15.2).** Auto-renew disclosure on `/pricing` + checkout CTA; portal =
+  click-to-cancel (FTC + CA ARL); ToS Billing section (prices, renewal, no trial, **refund policy =
+  "no refunds, cancel anytime"** — decided 2026-09-21, stated plainly rather than buried; statutory
+  withdrawal rights and chargebacks still override it, for 15.2's lawyer to confirm), price-change
+  notice. Docs-only commit.
+- [x] **12.7 End-to-end in Stripe test mode — RUN 2026-09-21.** Walked end to end against the
+  sandbox. Everything in the checklist verified except a **real failed renewal and a real lapse**,
+  which need a test clock and are deferred to **15.4** by decision — a clock can only be attached
+  when the customer is created, and the run's customer already existed. The run found **eight
+  bugs**; see the Log.
+
+## Phase 13 — Pro AI (Launch 1 — needs 12 + 10.3)
+> Spec: `ROADMAP.md` → Phase 13. Build 13.1 first; every feature inherits it.
+- **13.1 Credit metering, routing, caching, batch.** Cost-based credits into a monthly Pro
+  budget (~$5 model cost) with a visible meter; soft cap → cheaper model, hard cap → top-up.
+  Routing: mapping/picks/classification → Flash-Lite, job-fit/tailoring → Flash. Cache per
+  (resume × JD); context-cache the resume prefix; batch overnight jobs; bounded inputs; per-feature
+  kill switch; model names config-driven (Flash-Lite retires 2026-10-16). Split (plan 2026-09-22):
+  - [x] **13.1a Track real cost.** Each call names its task; tokens + cost into the `ai_call`
+    ledger; task-specific instructions; three bugs fixed (Pro parse cap, prod model default,
+    lost-update counter).
+  - [x] **13.1b Budget + routing.** Model per task and prices in config; Pro monthly cost budget
+    ($5 default) — 80 % → cheapest model, 100 % → stop until reset; per-feature kill switch; admin
+    override becomes a budget override; pick Flash-Lite's successor (user confirms).
+  - [x] **13.1c Usage meter.** "% of this month's AI used" + reset date in Settings › Billing and the
+    extension; admin AI page shows cost per user and total.
+  - *Moved by decision:* top-up → Phase 16; resume-prefix context cache + (resume × JD) cache →
+    13.2/13.3; overnight batch → 13.6.
+- [x] **13.2 Resume recommendation per job.** Score stored resumes vs captured JD; "best match:
+  X — NN %" in drawer + board.
+- [x] **13.3 Job-fit panel** on the posting: match %, missing keywords, red flags. Cached.
+- [x] **13.4 Resume tailoring to JD.** Diffed bullet rewrites, truthfulness guardrails, saved as a
+  NEW resume version via the `TrackingProvider` seam.
+- [x] **13.5 ATS resume score** *(Launch 1, user decision).* 0–100 per resume: deterministic
+  structure/dates/contact/measurable-results checks + one Flash-Lite keyword read vs the captured
+  JD; cached per (resume × JD); shown on the resumes page + inside the job-fit panel.
+- [x] **13.6 Daily job matches — LIGHT** *(Launch 1, user decision; strong version = 16.1).*
+  Greenhouse + Lever + Ashby public job-board APIs only; prefs = Tier A + resume-inferred
+  role/seniority/location; ≤ 48 h + dedup; Flash-Lite scoring in an overnight batch, ≤ 50
+  candidates/user/day; match %; **in-app list only**, dismiss hides; empty list allowed.
+  - [x] **13.6a Sources + nightly read.** `job_source` pool (217-board verified seed list + boards
+    users applied on + admin adds), nightly read of the public APIs, ≤ 48 h + dedup, 7-day keep,
+    admin Job sources page.
+  - [x] **13.6b Matching.** Preferences (Tier A + resume role/seniority/location) → deterministic
+    pre-filter to ≤ 50 → one Flash-Lite call per Pro user per night (metered) → `job_match` rows.
+  - [x] **13.6c Matches page** `/matches` (Pro): match %, reason, open / save to board / dismiss;
+    empty list allowed; Free sees the upsell.
+
+## Phase 14 — Inbox over IMAP (Launch 1 — needs 12)
+> Spec: `ROADMAP.md` → Phase 14. Mirrors Sales-App `integrations/email/imap`. **No Kiwiply address,
+> no forwarding, no OAuth.** Dedicated consumer Gmail + App Password; poll INBOX + Sent.
+> **Build order (user-approved 2026-09-22): 14.2 → 14.1 → 14.3 → 14.5 → 14.4 → 14.6 → 14.7.**
+> Decisions: env AES-256-GCM key (`DOSSIER_INBOX_KEY`); headers of all mail, body only for job mail;
+> every 15 min; email the user only for interview/offer. Pro only.
+- [x] **14.1 Connect flow** `/settings/inbox`: guided steps (2-Step Verification → App Password),
+  test connection, disconnect. Consumer Gmail only.
+- [x] **14.2 Credentials encrypted at rest** (server-side key; the 8.4 secrets slice, now required).
+  AES-256-GCM, `DOSSIER_INBOX_KEY`, key version on each ciphertext, startup canary. *First.*
+- [x] **14.3 IMAP poller.** UID-incremental sync + backfill on connect; headers + body text only,
+  **no attachments**; rate-limited; per-user error state surfaced in settings. UIDVALIDITY per
+  folder, `\Sent` by special-use flag, one connection per sync, backoff, GreenMail tests; every
+  15 min; backfill 60 days / ≤ 500 per folder; body kept only for job mail.
+- [x] **14.4 Parser → status.** *(split: 14.4a engine ✅, 14.4b board UI ✅)* Deterministic ATS sender/subject templates → applied / interview /
+  rejected / offer; Flash-Lite only on ambiguous mail; match by company + role + sending address;
+  unmatched → *suggested* application.
+- [x] **14.5 Cross-board dedup** *(re-homed from 3.6.5 — required so auto-updates don't double
+  count).* Normalized company + title (+ fuzzy location) at upsert.
+- [x] **14.6 Notifications.** In-app + email to the user's real address on status change.
+- [x] **14.7 Retention & deletion** *(the 8.4 slice).* Mail rows expire (12 months default); purge
+  on disconnect + account delete; DSAR export includes mail; read-only guarantee in product copy.
+
+## Phase 15 — Launch 1
+- [ ] **15.1 Ops hardening** *(scheduled here by decision — not earlier).* Nightly off-box
+  `mysqldump` → S3 with retention · uptime + error monitoring with alerting · **restore drill
+  performed and logged**.
+  - [x] **15.1a Backup + restore-drill scripts.** Nightly dump → separate bucket (upload + read,
+    no delete; 30 daily + 12 monthly by lifecycle), the weekly restore into a throwaway container,
+    Healthchecks.io pings, the cron file, DEPLOY.md §5.1–§5.3; CI job "Ops scripts".
+  - [x] **15.1b Error digest.** The API emails the admin new ERROR logs, grouped and counted, at most
+    every 15 minutes, through the Brevo mail it already has.
+  - [ ] **15.1c Go live + the drill by hand.** *(Needs you: the bucket + IAM user, Healthchecks.io +
+    UptimeRobot accounts, `develop` promoted to `main`.)* Install the cron file, the first backup,
+    the first restore drill — logged in DEPLOY.md.
+- [ ] **15.2 Legal — PL.1 completion.** Lawyer review of privacy + terms covering billing
+  (auto-renew, click-to-cancel, refunds), IMAP mail processing, AI data use, governing law + entity.
+  DPAs with Brevo + AWS S3.
+  - **Drafted for the lawyer (2026-10-05, in `/terms`):** a liability cap (the greater of 12 months'
+    fees or US$50); "Services we rely on" (extension stores, Google, job sites, Stripe, AWS, Brevo);
+    and the remedy when a Pro feature is down more than 7 days in a row (extend or partial refund,
+    our choice). The lawyer confirms the wording, especially against EU and California consumer law.
+- [ ] **15.3 Store.** CWS resubmit with the Pro build · AMO first submission · listing copy for
+  the Free/Pro split · `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
+- [x] **15.5 Re-price Pro** *(expansion decision 2026-10-05; land before 15.4's live keys).* ✅ Code done
+  2026-10-05 (ext v0.65.0). **Human step:** a new $49.99 3-month Price in Stripe (test now, live at
+  15.4); archive the $44.99 one; `STRIPE_PRICE_3MO` → the new id.
+  - 3-month price $44.99 → **$49.99**: a new Stripe Price in test and live, plus
+    `dossier.stripe.amount3mo`.
+  - Pro AI budget $5/month → **$3/month · $8 per 3-month period**, with `AiBudgetService`
+    summing over the subscription's billing period instead of the calendar month.
+  - Pro resume cap unlimited → **25** non-archived (402 `RESUME_LIMIT`).
+  - Update `/pricing`, the ToS Billing section and the MRR math to match.
+- [x] **15.6 Full catalog on `/pricing` + "Contact us"** *(user decision 2026-10-05).*
+  - Free/Pro keep checkout. Autopilot, Organization (+ the per-person menu), Consultancy, the
+    Consultancy Ops add-on and the 4 human services are shown in full with Contact us.
+  - `/contact` → `POST /api/inquiries` → a `sales_inquiry` row + an email to support@ → admin
+    `/admin/inquiries` (status + note, audited).
+  - Content lives in `web/src/lib/catalog.ts` until Phase 18.
+- [ ] **15.4 Launch checklist.** Pricing live, Stripe live keys + webhook verified, billing support
+  path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
+  - **The user's live-mode launch checklist is DEPLOY.md §11.4** (user decision 2026-10-06: the Kiwiply
+    Stripe account was set up directly in live mode; a short sandbox block still comes first for the Pro check
+    and the test-clock run). Tick it off right before launch; the items below are what it points at.
+  - **MUST PASS before live Stripe keys go in — every Pro promise, checked on production (user
+    decision 2026-10-05).** Payments stay off until the extension is approved on the Chrome Web
+    Store, because three of the six Pro promises run through it. Pro comes only from a subscription
+    (the admin AI override unlocks AI alone), so: put Stripe's **test-mode** keys on production, buy
+    Pro on a test account with Stripe's test card, then on **kiwiply.com and the store-installed
+    extension** walk every line of the pricing page's Pro list and record pass/fail:
+    1. Kiwiply AI for autofill, with no API key (extension).
+    2. Resume recommendation: the best match in the drawer and Resume fit on the board.
+    3. Job-fit panel (drawer + board) and the ATS score (Resumes page + board).
+    4. Resume tailoring: a tailored resume saved as a new resume.
+    5. Inbox tracking: connect a test Gmail; a reply moves a card (needs `DOSSIER_INBOX_KEY`).
+    6. Unlimited resumes (a 4th saves) and cross-device answer sync (two browsers).
+    Plus the bonus Pro feature, daily job matches (opt in; matches the next morning). Then the
+    **Free side**: a Free account is refused each of the above with an upgrade prompt, and keeps
+    autofill, tracking, AI resume parsing and 3 resumes. Any failure blocks launch until fixed.
+    Only after a clean pass: swap in the live keys and make the one real purchase.
+  - **When Gemini moves to the paid tier** (user: before go-live), update `/privacy` → *AI features*:
+    drop "Because we currently use Gemini's free tier, Google may use…" and say paid-tier inputs aren't
+    used to train Google's models. Same for the extension's AI consent text and `PRIVACY.md`.
+  - **Test-clock run (carried over from 12.7, user decision 2026-09-21: "A now, B before live
+    keys").** The one thing the 12.7 run could not do: a **real failed renewal and a real lapse**.
+    A Stripe test clock can only be attached when the customer is created, so seed a fresh user's
+    `subscription` row with a clock customer id *before* their first checkout — `startCheckout`
+    reuses an existing `stripe_customer_id` forever, which is what makes that work (SQL in
+    `DEPLOY.md` §11.1 §G). Then attach a failing card (`4000 0000 0000 0341`) and advance past the
+    renewal: expect `past_due` → **still Pro** → email → lapse to Free at period end, with every
+    resume intact.
+
+## Phase 16 — Between launches (after Launch 1, before Launch 2)
+- [ ] **16.1 Daily job matches — STRONG** *(builds on 13.6; refine before build).* Adds: all six
+  ATS sources (+ Workable, SmartRecruiters, Recruitee) with aggregator fallback; full quality
+  gates (ATS-verified tenant, agency/spam filter); like / dismiss / applied **feedback loop** that
+  re-ranks; **daily email** at the user's chosen time; explicit preference editing.
+  - **Pulled forward (user, 2026-10-05): first build after Launch 1, before Phase 18.** 10–20 jobs
+    a day; 👍/👎 re-ranking (not model fine-tuning); a preference form (titles, location/remote,
+    salary floor, seniority, must/never keywords, excluded companies); ATS APIs + one licensed
+    aggregator API, no scraping; marketers see each consultant's matches (22.3).
+    **Locked 2026-10-05:** Free = 3 rule-ranked matches a day, in-app only, no AI · Pro/Autopilot
+    = 10–20 AI-scored + email + 👍/👎 · consultancies included in the Pro seat · one licensed
+    aggregator after a cost check · a paid Brevo plan before about 250 emails a day.
+- [ ] **16.2 Analytics.** Response / interview rate by resume, ATS, role.
+- [ ] **16.3 Reminders + stale nudges.** "No reply in N days" → nudge; follow-up dates on cards.
+- [ ] **16.4 Weekly digest** email.
+- [ ] **16.5 Calendar export** (`.ics` / Google Calendar link) for interviews.
+- [ ] **16.6 Cover-letter generator** *(Launch 2, user decision).* Profile + resume + captured JD
+  → Flash, cached per (resume × JD), saved with the application; 13.4 truthfulness guardrails.
+- [ ] **16.7 Resume builder + templates** *(Launch 2, user decision — on top of upload-first).*
+  Build from the structured profile (10.3 schema) into ATS-friendly templates, PDF export, save
+  as a new resume.
+
+## Phase 17 — Launch 2
+- [ ] **17.1 Price → $24.99 / $54.99**; grandfather existing subscribers one cycle.
+- [ ] **17.2 Adapter depth milestone** from 10.4 (telemetry-chosen ATS at target fill rate).
+- [ ] **17.3 Listing refresh** with matches + analytics; 13.5 candidates if confirmed.
+
+## Phase 18 — Catalog & entitlements engine (after Launch 1; before 19–21)
+- [ ] **18.1 Schema.** Tables `product`, `product_price` (immutable rows), `product_entitlement`,
+  `bundle_item` (built, unused at launch) and `entitlement_grant`.
+- [ ] **18.2 `EntitlementService` on grants.** Features + limits, highest value wins.
+  `isPro()`/`requirePro()` become wrappers, and `PLAN_REQUIRED {feature}` is added. A migration
+  test proves Free and Pro behave exactly as before.
+- [ ] **18.3 Features on the version endpoint.** `{version, plan, features[]}`; the extension
+  gates on features.
+- [ ] **18.4 Admin catalog page.** Publish prices to Stripe. The **margin guard** refuses
+  anything below 80 % (subscriptions) or 20 % (services) worst case without a logged override.
+- [ ] **18.5 Re-home hard-coded config** (AI budget, resume caps, Stripe price ids, MRR) onto the catalog.
+
+## Phase 19 — Autopilot (ships with Launch 2)
+- [ ] **19.1 Queue.** `autopilot_run` / `autopilot_item`, plus "Prepare N" on the web. The
+  server enforces 300 per month and 30 per day.
+- [ ] **19.2 Extension orchestrator.** A dedicated window, at most 3 tabs at a time, throttled.
+  Fills, then stops at the final page. **Never submits and never ticks attestation or consent boxes.**
+- [ ] **19.3 "Needs you" handling.** Sign-in walls, CAPTCHAs, unknown required questions, failed
+  uploads and an exhausted AI budget park the item with a reason.
+- [ ] **19.4 Review queue.** In the drawer and on the web; submit-detect logs each submission.
+- [ ] **19.5 Store release.** The `tabs` permission in its own release (CWS re-review, listing
+  copy, privacy note) + QA on all adapters.
+- [ ] **19.6 Selling it.** Catalog rows, pricing page, Stripe prices ($39.99 / $99.99).
+
+## Phase 20 — Services
+- [ ] **20.1 AI Interview Practice (text).** Included in Pro and Autopilot; an org-only
+  standalone item with a $1.50/month budget.
+- [ ] **20.2 Service orders.** `service_order` + Stripe one-time Checkout + a 10 % subscriber
+  discount. Items: human resume review $79 · resume rewrite $199 · mock interview $129 ·
+  coaching $119.
+- [ ] **20.3 Expert side.** Vetted experts, admin assignment, a consented client view,
+  deliverable upload, booking link.
+- [ ] **20.4 Payouts.** A payout ledger (manual first, Stripe Connect later) + an admin services page.
+- [ ] **20.5 Service terms** go to lawyer review.
+
+## Phase 21 — Organizations (after moving to our own server)
+- [ ] **21.0 Prerequisites.** Own server + restore drill passing; org-scoped access with
+  cross-org isolation tests.
+- [ ] **21.1 Schema.** `organization`, `org_member`, `org_assignment` (writes grants) and
+  `data_share` (SUMMARY at launch).
+- [ ] **21.2 Org billing.** A $499 setup fee (nothing activates until it's paid), plus per-person
+  items: Pro $24.99 · Autopilot $49.99 · AI Interview Practice $9.99 · services at list price.
+  Monthly invoice, prorated adds, removals at period end.
+- [ ] **21.3 Org admin console.** Members, CSV invite, assign any item to any person, invoices,
+  a consented summary report.
+- [ ] **21.4 Member side.** The account stays the person's. Leaving ends org grants at the end
+  of the period, and nothing is deleted.
+- [ ] **21.5 Selling it.** A sales page and order form; SSO only when a school deal needs it.
+## Phase 22 — Consultancy: the Marketer role (after 21; needs 19 + 14)
+- [ ] **22.1 Roles + pairing.** The `MARKETER` role and `marketer_assignment` (≤ 10 consultants
+  per marketer), plus the consultant's consent screen (`data_share` FULL). Isolation tests.
+- [ ] **22.2 Marketer workspace.** Consultant switcher; read view of each consultant's dashboard
+  and board; build and edit their resumes. The consultant approves each one once before use.
+- [ ] **22.3 Job bank + assignment.** The marketer gathers jobs (pasted links, matches, the
+  extension's "Save for consultant…"), sets a resume per job and assigns the batch.
+  `job_assignment` rows; at most 100 open per consultant; one notification per batch.
+- [ ] **22.4 Consultant side.** Autopilot consultants: assigned jobs feed the queue with their
+  resume. Pro consultants: an "Assigned jobs" list, and the extension pre-selects the resume. The
+  consultant submits, and submit-detect marks the assignment APPLIED.
+- [ ] **22.5 Marketer inbox.** The marketer's own dedicated Gmail (Phase 14 model). Each message
+  is matched to a consultant and updates that consultant's board; unmatched mail goes to "Needs
+  review" for one-click assignment.
+- [ ] **22.6 Selling it.** Marketer seat $29.99/mo (org-only, $4 AI budget); managed consultants
+  need at least Pro.
+
+## Phase 23 — Consultancy Ops add-on: timesheets + finances (optional; after 22)
+- [ ] **23.0 Brainstorm → locked spec** *(must come first).* Timesheets, placements (bill/pay
+  rates), invoices, payments, expenses, the profit view, the `FINANCE` role, retention, the legal
+  check, the final price (proposed $99 per org + $4 per active consultant per month).
+  **Locked already:** we record money and never move it; no bank numbers, SSNs or tax IDs; CSV/PDF
+  export; 2 GB per org.
+- [ ] **23.1–23.n** — written after 23.0 (expected order: timesheets → placements → invoices +
+  payments → profit dashboard).
+
+- *Coach tier: **not built** (user decision 2026-10-05). The hook is org type `COACH` + role
+  `COACH` + `data_share` FULL; see ROADMAP.*
 
 ## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
 > Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
@@ -849,6 +1386,856 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **15.3 store listing copy (Free/Pro)** · `job-autofill/STORE-LISTING.md` rewritten for
+  both stores. Chrome description: what's free, what Pro adds in the extension (Kiwiply AI drafting, best
+  resume per posting, gap check, 25 resumes, answer sync) and on the web, the two prices, "cancel any
+  time"; drafting through Kiwiply is now described as Pro. Still no ATS vendor names (the 0.52.2
+  rejection); highest word repetition 5 with plurals merged. New **Firefox (AMO)** section: name, summary,
+  tags, support, payment disclosure, and the source-code upload (whole-repo `git archive`, since the
+  extension imports `packages/ui`; Node 22 build steps). Screenshots 4–5 become the two Pro features;
+  reviewer note states the test account's plan. Shooting the screenshots and submitting stay the user's.
+- 2026-10-06 · **Landing polish** · The hero's review-autofill preview uses a made-up person (Jordan,
+  jordan.lee@example.com) instead of the founder's name; "Everything you need to apply faster" uses
+  `@kiwiply/ui` icons (User, FileText, Ai, Board) in accent tiles instead of emoji.
+- 2026-10-06 · **Pricing + Services on the landing page; /pricing retired** · User request. Landing
+  `#pricing`: Free · Pro · Autopilot · **Consultancy** (was "Organization": $499 setup, then per person);
+  each card shows 4 short highlights and opens a pop-up with the full breakdown (grouped short lines,
+  limits, Pro's renewal terms, Consultancy's per-person table); "Compare plans side by side" opens a
+  Free/Pro/Autopilot table. New `#services`: Expert help (review, rewrite, mock interview, coaching) and
+  **For consultancies** add-ons (Marketer seats, Consultancy Ops) in the same cards. Cards are CSS-subgrid
+  items, so eyebrow/name/tagline/price/note/list/buttons share rows across a row of cards (checked: equal
+  offsets, 1366 px and 375 px). `/pricing` is a 308 to `/#pricing` (Stripe's cancel URL, the extension and
+  emails still link it); site links, header (+ Services) and sitemap point at the sections. Contact-form
+  topic keys unchanged (API allowlist); labels now "Consultancy plan" / "Marketer seats". Pro's prices moved
+  to `lib/prices.ts` so client code can import them. `OfferCard.tsx` removed.
+  Follow-up (same day): the consultancy add-ons (Marketer seats, Consultancy Ops) moved **into the
+  Consultancy pop-up** instead of separate cards; Services is the 4 expert services. The Consultancy pop-up
+  is its own, wider layout (896 px): cost in three tiles, how it works in 3 steps, a per-person table that
+  says what each plan gives, what's included by who benefits, then the two add-ons side by side with an
+  "Ask about…" link each.
+- 2026-10-06 · **Stripe live-mode launch checklist** · The user set Kiwiply's Stripe account up in **live**
+  mode ahead of launch and will do the rest right before it. DEPLOY.md §11.4 records it: **A** a short sandbox
+  block (the pre-launch Pro check and the test-clock run can't be done in live mode), **B** verify the live
+  setup, then the keys in order: secret key (or a restricted key with only Customers / Checkout Sessions /
+  Customer portal / Subscriptions write), the two live price IDs, the live webhook (only after the deploy), all in
+  the password manager before the box's `.env`. Nothing from Stripe is on the box, so billing stays off.
+- 2026-10-06 · **Kiwiply-only billing + its own Stripe account** · User decision: Kiwiply moves to
+  **its own Stripe account** under AutomoraLab LLC (the LLC's account serves other businesses);
+  setup in DEPLOY.md §11.2 (account, branding + `KIWIPLY` statement descriptor, product with
+  $19.99 / $49.99 prices, portal, webhook, keys, tidy-up). Code safety check (§11.3): customers,
+  Checkout Sessions and subscriptions are tagged `metadata.app=kiwiply`; a completed checkout binds
+  only when its customer is the one Kiwiply created for that user (saved before checkout), never when
+  tagged for another app; subscription events tagged for another app are ignored. Found while
+  checking the shared account: another app's checkout carrying one of our user ids as
+  `client_reference_id` would have given that user Pro. 3 new `BillingWebhookIT` cases; the existing
+  ones now seed the customer the way `startCheckout` does.
+- 2026-10-06 · **9.C1 Customers page + billing timeline** · `/admin/customers` lists everyone who has
+  ever subscribed:
+  - **Columns:** status group (Active / Payment failed / Cancelling / Lapsed), billing (Monthly /
+    Every 3 months), renews / ends date, total paid, an "Open ↗" link to the Stripe dashboard
+    (test or live, chosen by the key).
+  - **Tabs:** with counts, plus New this month.
+  - **Each user page** gains a **Billing** section: summary + a timeline of Stripe events
+    ("Payment received $19.99", "Subscription updated: active, set to cancel at period end",
+    failed applies flagged) merged with **admin notes** (append-only, audited
+    `CUSTOMER_NOTE_ADD`).
+  - **API:** Liquibase `20261006010000` (additive). `stripe_event` gains `customer_id`, `user_id`,
+    `amount_cents`, `currency`, `detail`, `occurred_at`, written by the webhook (who/what at
+    record; the user is resolved after apply, so a just-bound checkout counts), with
+    `StripeWebhookEvent` carrying the invoice amount and currency. New `customer_note` table
+    (FK user). `CustomerAdminService` + `/api/admin/customers` (list/filter, counts,
+    `/{login}` detail, `POST /{login}/notes`).
+  - **Account deletion:** removes notes and detaches the user's Stripe events (amounts kept, the
+    person dropped).
+  - **Web:** Customers page, `CustomerBilling` + `CustomerNoteForm` on the user page, notes
+    BFF, nav entry, new `CreditCardIcon` in `@kiwiply/ui`.
+  - **Tests:** `CustomerAdminServiceTest` (9, green on JDK 17); `AdminCustomerResourceIT`, a new
+    `BillingWebhookIT` case and an `AccountDeletionResourceIT` case run in CI.
+  - **Note:** total paid counts from this change on. Nothing is lost: live payments aren't on yet.
+- 2026-10-05 · **15.5 Re-price Pro** · Ext **v0.65.0**. **Price:** 3 months $44.99 → **$49.99**
+  (`/pricing`, Settings › Billing, ToS, the MRR figure via `dossier.stripe.amount3mo`; the Stripe Price
+  itself is the user's step). **AI budget per billing period:** `AiBudgetService` now measures Pro from
+  the period's start to its renewal — `current_period_end` minus 1 month, or 3 on the 3-month Price —
+  at **$3** (monthly) / **$8** (3-month) (`DOSSIER_AI_PRO_MONTHLY_BUDGET_USD` / `…_3MO_…`); it resets
+  at renewal, not the 1st. An admin override and Free parsing stay calendar-month. An unknown Price
+  counts as monthly (the smaller window); no usable period end falls back to the month. **Resume cap:**
+  Pro **25** live resumes (402 `RESUME_LIMIT`, now with `plan`); resumes over a cap stay readable and
+  fillable. Web + extension show an upgrade link only to Free; Pro is told to archive one. Every
+  "this month's Kiwiply AI" became "your Kiwiply AI … resets on {renewal}". Tests: 6 new budget-window
+  tests, the Pro-cap IT, and the MRR / budget ITs moved to the new numbers.
+- 2026-10-05 · **15.6 full catalog on /pricing + Contact us** · `/pricing` now lists every plan and
+  service, each with its scope, limits and price: Free + Pro (checkout, unchanged) + Autopilot,
+  then for organizations Organization ($499 setup + per-person menu), Consultancy (Marketer seats)
+  and Consultancy Ops (Custom), then the 4 human services. Everything but Free/Pro says **Contact
+  us** → `/contact?topic=…`. API: `sales_inquiry` (Liquibase `20261005010000`), public `POST
+  /api/inquiries` (permitAll, topic allowlist → "other", email check, best-effort email to
+  support@), admin `GET /api/admin/inquiries`(+`/counts`) + `PUT /{id}` (audited `INQUIRY_UPDATE`).
+  Web: `lib/catalog.ts`, `OfferCard`, `ContactForm`, a rate-limited BFF (5/h/IP), admin Inquiries
+  page + nav (new `MessageIcon` in `@kiwiply/ui`); header/footer Pricing → `/pricing`, + Contact;
+  sitemap gains /pricing + /contact. Tests: `SalesInquiryServiceTest` (11, green on JDK 17) +
+  `SalesInquiryResourceIT` / `AdminSalesInquiryResourceIT` (CI). No extension change.
+- 2026-10-05 · **Customers & support admin plan (planning only)** · ADMIN-PLAN gains **9.C**:
+  - 9.C1 Customers page + billing timeline + notes (before 15.4).
+  - Sent-email log, support access as a user-granted read-only "view as" (no log-in-as).
+  - A debug panel with a consented support-session fill capture.
+  - Offers (comps, promo codes, win-back to consented users, cancellation reasons).
+  - Account fixes.
+  - A one-way sync to the user's existing CRM, with admin staying the source of truth.
+- 2026-10-05 · **Terms + privacy: every AI feature disclosed** · Terms *AI features* now names them all
+  (resume reading on every plan; Pro: Kiwiply AI in the extension, resume fit, job fit, tailoring,
+  job matches, inbox), says AI can be wrong and the user is responsible for what they submit, that
+  scores are estimates, and a fair-use AI allowance per billing period (fits 15.5's budget).
+  **Privacy fix:** *How resume parsing works* said resumes stay in the browser until saved — untrue
+  since AI parsing went default-on (2026-07-02); it now says the text goes to Gemini, once per resume,
+  and how to untick it. *AI features* opens with the provider + free-tier caveat for all of them and
+  adds what Kiwiply AI in the extension sends (draft, pick, map, enrich). Closes the PL.1 note in
+  the `ai-parse-default-on` memory. For the 15.2 lawyer review.
+- 2026-10-05 · **Job search pulled forward (planning only)** · 16.1 (strong daily matches) becomes
+  the first build after Launch 1: 10–20 jobs a day, 👍/👎 re-ranking, a preference form, ATS APIs +
+  one licensed aggregator (no scraping), daily email, and consultancy marketers see each
+  consultant's matches. The 13.6 light version (Greenhouse/Lever/Ashby, in-app) is already live
+  code. Decisions locked with the user's recommended defaults (ROADMAP 16.1).
+- 2026-10-05 · **Admin expansion brainstorm (planning only)** · ADMIN-PLAN gains **9.B**: an
+  `app_setting` table (typed, bounded, audited, env = default) replaces the restarts needed for
+  every AI, job-matching, inbox and rate-limit change. Also feature flags + banner + extension
+  remote config (min version, per-ATS kill switch), a support toolkit (comps, promo codes,
+  entitlement explainer), unit economics vs the 80 % floor with alerts, a scheduled-jobs page,
+  legal version acceptance, admin roles, and abuse controls. Prompts, secrets and security rules
+  stay out of admin.
+- 2026-10-05 · **Consultancy additions (planning only)** · ROADMAP *Expansion build* gains
+  **Phase 22, the Marketer role.** A marketer oversees 4–5 (at most 10) consultants, builds their
+  resumes (each approved once by the consultant), assigns job banks with a resume per job, and
+  receives recruiter mail that updates the consultants' boards. The consultant always runs the
+  fill and submits. Seat price $29.99. It also gains **Phase 23, the optional Consultancy Ops
+  add-on** (timesheets, bill/pay rates, invoices, profit; we record money and never move it). Its
+  draft scope and proposed price ($99 per org + $4 per consultant) wait on a 23.0 brainstorm.
+- 2026-10-05 · **Pre-launch review of the develop → main promotion** · DEPLOY.md §13. `main` is at
+  `4de5b60` (PR #56); ~130 commits ahead. 16 changesets, all additive except the 0-row
+  `ai_quota_override` rename; every new setting defaults safely and the box's `.env` has every required
+  one (checked by name); no startup check can stop the API; 106 GB disk, clean fast-forward, UTC.
+  Two things to know: **take a manual backup first** (15.1's automation only arrives with this
+  deploy), and **rollback = old images + that dump**, because old code can't read the renamed
+  column. Memory is tight on the shared box (3.7 GB, ~1.1 GB free + swap): watch the first nights.
+  Runbook, smoke check and what starts running on its own are in §13.
+- 2026-10-05 · **Expansion plan (planning only, no code)** · ROADMAP gains *Expansion build
+  (Phases 18–21)*: Autopilot ($39.99 / $99.99), services (human + AI Interview Practice; no voice),
+  and organizations (a $499 setup fee + per-person items at +25 % over individual prices; no
+  packages yet). One catalog + entitlements engine sits under all of it, with an 80 % worst-case
+  margin floor and caps on everything. There is no Coach tier, but the org model keeps a hook for
+  it. New 15.5 re-prices Pro before live keys. CLAUDE.md go-to-market decision updated.
+- 2026-10-05 · **Terms protections + the live Pro check** · Terms: a liability cap (greater of 12
+  months' fees or US$50), a "Services we rely on" section (extension stores, Google, job sites,
+  Stripe, AWS, Brevo), and the remedy when a Pro feature is down more than 7 days in a row (extend
+  or partial refund, our choice), all marked for the 15.2 lawyer review. 15.4 gains a must-pass
+  step: every Pro promise checked on production, with the store-installed extension, before live
+  keys. Payments stay off until the Chrome Web Store approves the extension (user decision).
+- 2026-09-23 · **15.1b server-error email digest** · `service/ops/`: an `ErrorDigestAppender` on the
+  root logger feeds every ERROR into an `ErrorDigest` — one line per kind (logger + message template
+  + root exception) with a count, first/last time, a sample (clipped at 500 chars) and the top of the
+  stack plus the root cause; 50 kinds per email, the rest counted (and that count capped, so a flood
+  can't leak memory). `ErrorDigestService` checks every minute and emails at most every 15 min, so a
+  quiet day's first error arrives within a minute and an outage is 4 emails an hour. Subject
+  `[Kiwiply prod] N server errors (K kinds) since HH:MM UTC`. Recipient `DOSSIER_ERROR_DIGEST_TO`,
+  else `ADMIN_EMAIL` (a property of its own — Compose passes the empty var, which defeats a nested
+  placeholder); neither = off, nothing collected (dev, tests). Its own errors never feed the next
+  digest; a broken digest can't break logging. In-house by decision: no new processor for 15.2.
+- 2026-09-23 · **15.1a backup + restore-drill scripts** · Planned 15.1 as a–c (user decisions:
+  separate bucket + upload-only key, UptimeRobot + Healthchecks.io, in-house error digest, weekly
+  automated drill + one by hand). `scripts/ops/backup-db.sh` — one consistent `mysqldump` (the app
+  keeps serving), refused if cut short (no trailer / no tables), uploaded as
+  `daily/dossier-<date>.sql.gz` with its sha256 (plus `monthly/` on the 1st), last 3 kept on the box,
+  Healthchecks start/success/fail pings. `verify-restore.sh` — newest backup, sha256 check, fails if
+  older than 2 days, restores into a throwaway `mysql:9.2.0` with no network, checks users +
+  changelog + every live table older than the backup, logs each table's row count. The AWS CLI runs
+  in a container (nothing installed on the shared box); `.env` is read, never sourced; keys pass by
+  name, never on a command line. `kiwiply-ops.cron` → `/etc/cron.d` (BeeCompete's crontabs
+  untouched); `scripts/ops/aws/` has the IAM policy + lifecycle JSON. CI job **Ops scripts**:
+  shellcheck, 31 checks against a fake docker, and a real MySQL dump → restore round trip.
+- 2026-09-23 · **14.7 inbox retention & data rights** · `InboxRetention` deletes stored mail 365 days
+  after it was sent (`DOSSIER_INBOX_RETENTION_DAYS`), nightly at 03:30 UTC — what the mail did (status,
+  notifications) stays, it's the user's board. Purge on disconnect and account deletion were built
+  with 14.1/14.3. **Data export** now has `inbox` (the connection — address, status, dates, email
+  switch; never the password, not even encrypted — and every message as stored: headers, kept text,
+  what it was read as, the application and status it touched) and `notifications`. **Read-only
+  guarantee** in the Terms (new "Connected inbox" section: your own account, dedicated to job hunting;
+  Kiwiply only reads, never sends/moves/flags/deletes; it can misread — check what matters; how to cut
+  it off) and on the Inbox page; privacy page states the 12 months. The bulk delete clears the
+  persistence context (else a same-transaction read still sees deleted rows). Terms' "AI features"
+  section predates Phase 13 — left for the 15.2 lawyer review. No ext change. **Phase 14 complete.**
+- 2026-09-23 · **14.6 notifications** · Every status change from mail (`StatusChanged`) → an in-app
+  `notification` ("Acme · Backend Engineer — Moved to Interview"), linking to `/board?app=ID` (the
+  board now opens that application's panel). **Email only for Interview and Offer** (user decision) to
+  the account's own address via Brevo (`mail/statusChangeEmail`), with an off switch on the Inbox
+  page (`inbox_connection.notify_email`, on by default). **No backfill flood:** mail older than 7 days
+  notifies no one (the board still updates); only mail from the last 48 h is emailed; one notice per
+  application + status, ever. Sidebar bell with an unread badge; opening the list marks all read —
+  and reloads only after the server has, so a focus refresh can't bring the count back (found in the
+  browser check). New shared `BellIcon` in `@kiwiply/ui`. Deleted with the account. Privacy page
+  updated. No ext change.
+- 2026-09-23 · **14.4b inbox on the board** · "From your inbox" above the board (Pro): jobs the mail
+  shows that aren't tracked — company · role · what the mail was (confirmation / interview invite /
+  assessment / offer) · date · subject; **Add to board** lands it at the stage the mail showed, dated
+  by it, through the board's own upsert (dedup applies), folding in that company's other suggestions;
+  when the mail didn't name the role it's asked for first; **Dismiss** hides the company's
+  suggestions. Each application's panel gets **Emails**: the matched mail newest first — sender (or
+  "You"), date, what it was read as, "→ moved to Interview" when it moved the status, "not sure what
+  this means" for UNSURE mail, and a short snippet on click (job mail only has text). Hidden when
+  there's none. API: `GET /api/profile/inbox/suggestions`, `POST …/{id}/accept|dismiss` (409 once
+  handled, 400 without a role), `GET /api/profile/applications/{id}/mail` (404 for others'). Checked
+  in the browser. No ext change.
+- 2026-09-23 · **14.4a inbox parser** · After each read, new mail oldest-first. `MailClassifier` (rules,
+  from the wording ATS templates use): APPLIED / INTERVIEW / ASSESSMENT / REJECTED / OFFER / ALERT /
+  OTHER, plus the company and role the mail names. **Only mail the rules can't settle** (nothing
+  matched, or a contradiction like "unfortunately I need to move our interview") goes to Flash-Lite
+  (`AiTask.INBOX`, enum-constrained JSON, ≤ 20 per metered call, ≤ 3 calls a read); if the model can't
+  be asked it's marked UNSURE and **changes nothing** — a wrong "rejected" is worse than none.
+  Matching (`MailMatcher`): a reply follows its thread (sent mail is linked for this), else the
+  company (as `ApplicationKeys` compares it) in what the mail names / the sender's own domain / their
+  display name / the subject; two roles at one company need the role to decide, else it's left
+  unmatched rather than guessed. Status moves forward only; rejections and offers win; a confirmation
+  also confirms the submission and dates the application. Each change publishes `StatusChanged`
+  (for 14.6). A confirmation / invite / test / offer from an untracked company is marked a suggestion
+  (for 14.4b). ALERTs (job-board digests) change nothing. Privacy page updated. No ext change.
+- 2026-09-23 · **14.5 cross-board dedup** · The board's upsert (every path: extension fills, manual add,
+  save-from-matches) now finds the existing entry by ATS job id, then by **link without tracking noise**
+  (`gh_src`, `utm_*`, `www.`, trailing slash), then — new — by **company + title + a compatible
+  location** among entries that aren't archived and are < 180 days old (a re-try a year later is a new
+  application). `ApplicationKeys` is the one "same job" definition (14.4 will reuse it for mail):
+  "Acme, Inc." = "ACME" = "Acme.com"; "Sr. Backend Engineer II (Remote)" = "Senior Backend Engineer 2";
+  locations clash only when both name places with no place word in common ("New York" vs "New Delhi"
+  clash — shared words like "new"/"san" don't count), so one title in two cities stays two
+  applications. On a company+title match the first board's job id and link are kept, so fills from
+  either board keep landing on the same entry; status never goes back to DRAFT. Existing duplicates
+  aren't merged retroactively (prod data restarted 2026-09-17 — little to merge). No ext change.
+- 2026-09-23 · **14.3 inbox poller** · Every 15 min (`DOSSIER_INBOX_POLL_CRON`), one inbox at a time,
+  one IMAP session each, read-only; and once straight after connecting (after commit, async). Per
+  folder (Inbox + Sent): **UID-incremental with UIDVALIDITY** (`inbox_folder_state`) — first read /
+  renumbered folder = backfill of 60 days, newest 500, then the position jumps to the folder's end;
+  ordinary reads take ≤ 500 new, oldest first. `inbox_message`: headers for every message; **body
+  text only for job mail** (`JobMailRules`: an ATS / job-board sending domain, a tracked company in
+  the other party's domain/name/subject, or a hiring subject) — `MailText` prefers text/plain, else
+  HTML→text, cuts quoted history, caps 20k, and **never opens attachment parts** (so IMAP never
+  downloads them). Same message in Inbox and Sent kept once (Message-ID hash). A rejected password →
+  NEEDS_RECONNECT, no more reads; other failures back off (30 min → 6 h), ERROR after 3. Non-Pro
+  users' inboxes are skipped, not deleted. Rotated keys re-encrypt on use. A disconnect racing a read
+  leaves nothing behind (checked before saving). Connecting a different Gmail drops the old mail.
+  Settings shows messages read. Tests: 8 against GreenMail (backfill window, attachment never stored,
+  quoted history cut, increments, UIDVALIDITY, rejected password, backoff, the race) + poller timing.
+- 2026-09-23 · **14.1 inbox connect flow** · Pro. `/settings/inbox` (+ an Inbox card on Settings):
+  three guided steps with direct Google links (a Gmail just for job hunting — set it on the profile;
+  2-Step Verification; an App password named "Kiwiply") — **links, not screenshots**: Google's pages
+  change and we'd need a real account to capture them. Then address + app password → the API
+  **checks them against Gmail before storing anything** (sign in, open INBOX read-only, find Sent by
+  its `\Sent` flag, sign out) and keeps the password only as `SecretBox` ciphertext bound to the
+  user. Refused before Gmail is asked: a non-`@gmail.com` address (Workspace blocks password sign-in)
+  and anything that isn't 16 letters — so a real Google password pasted by mistake is never sent
+  anywhere. Gmail's refusals are told apart (wrong password / needs an app password / sign in via
+  browser / IMAP off / unreachable), each with its own fix. 5 tries per 15 min per user. Disconnect
+  deletes it (and says to delete the app password in Google too). `ImapGateway` over Jakarta Mail
+  (already on the classpath); **GreenMail** tests sign in to a real in-memory IMAP server. Account
+  deletion + privacy page covered. Integration tests share one runtime-generated key (`TestInboxKey`)
+  — separate random keys per context would trip the startup canary on the shared test DB.
+- 2026-09-22 · **14.2 inbox credential encryption** · `SecretBox`: AES-256-GCM, a fresh 12-byte IV per
+  value, 128-bit tag, and **associated data binding each value to its row** (`inbox:<userId>` — a
+  ciphertext copied into another user's row won't decrypt). Stored as `v<version>:<base64>` so the key
+  can rotate (`retired-keys` read old values; `reencrypt` moves them forward). Key only from
+  `DOSSIER_INBOX_KEY` (base64 or hex, 32 bytes); none/bad = inbox **off**, never a weaker fallback.
+  `InboxKeyCheck` (startup, every profile): a canary row in `secret_canary`, written on first boot,
+  read back every boot — a different key marks the box MISMATCH (inbox refuses to run, nothing
+  overwritten) and logs both fingerprints; it never stops the API. DEPLOY.md §12 says how to make,
+  store and rotate the key. Tests generate keys at runtime — none committed. No ext change.
+- 2026-09-22 · **Phase 14 planned** · Read Sales-App's IMAP integration (Node/imapflow — a model, not
+  a port): keep its env AES-256-GCM key, `\Sent` special-use lookup, Message-ID dedup and
+  per-connection error listener; fix its date-based sync (→ UID + UIDVALIDITY), connection per
+  message (→ one per sync), endless retries (→ backoff + stop on a rejected password) and missing
+  tests (→ GreenMail). User decisions: env key; bodies only for job mail; 15-minute polling; email
+  only for interview/offer; 14.5 dedup moves ahead of 14.4. Docs only.
+- 2026-09-22 · **13.6c matches page** · `/matches` (nav "Job matches"), Pro. The switch comes first
+  because it is the consent: its caption says what's sent nightly and to whom. Today's list = undecided
+  matches scoring ≥ 60, best first — title (links to the posting), company · location · workplace,
+  match % with a meter, the model's reason, posted date; **Save to board** (the server builds a SAVED
+  application from the stored posting — description included, so resume fit / job fit / tailoring /
+  ATS score work on it; the board's usual dedup on the ATS job id then link; the browser sends only
+  the match id) · **View posting** · **Not for me** (dismissed for good). Switching on refreshes the
+  page for a minute while the first match runs; empty list and each last-run status (no resume,
+  nothing new, budget spent, paused, failed) get a plain sentence; Free sees what it is + "Part of
+  Pro". API: `GET /api/profile/job-matches`, `POST /{id}/save|dismiss` (404 for others'). Titles and
+  locations capped to the board's 200 chars. Checked in the browser (list, save, off, empty, Free,
+  375 px). No ext change.
+- 2026-09-22 · **13.6b job matching** · Pro, **opt-in** (`job_match_setting`, off by default: it sends
+  the resume summary + preferences to Gemini nightly without a click, so the user says yes once — the
+  switch is `PUT /api/profile/job-matches/settings`, its UI is 13.6c; switching on matches at once).
+  `MatchPreferences` from what users already gave: city/state/country, work preference, relocation,
+  sponsorship, the latest two titles, seniority (title words, else years), years (overlaps merged),
+  skills. `JobPrefilter` (no AI) → ≤ 50: not seen or tracked; a location segment they can work in
+  (remote in their country or naming none, their city/state, anywhere in their country if they'll
+  relocate); a telling title word in common, or a generic one ("engineer") plus 3 of their skills; ≤ 1
+  level away. **Checked on 154 real fresh postings**: first pass leaked SF hybrid jobs to a Brooklyn
+  remote user — **Ashby sets `isRemote: true` on hybrid jobs** (OpenAI, Sentry, Notion), so a stated
+  workplace type now wins (parser + filter) — and "Technical Support Engineer"-type titles; after the
+  fixes 3 right-fit jobs for Brooklyn, 1 for London. One call (`AiTask.JOBS`, MATCH-shaped schema,
+  3000 output tokens) scores them with a ≤ 15-word reason; metered; every posting sent gets a
+  `job_match` row (0 if the model skipped it) so nothing is paid twice; ≥ 60 is shown. 04:00 UTC
+  (`DOSSIER_JOBS_MATCH_CRON`), skipped if matched OK in the last 20 h; admin "Match now". Deleted with
+  the account; privacy page says what's sent. No ext change.
+- 2026-09-22 · **13.6a job sources + nightly read** · Decisions (user): the pool = a **verified seed list
+  + companies users apply to**; scoring (13.6b) uses ordinary overnight calls, not the Batch API. The
+  public APIs are per company (no global feed), so the pool is the design: `job_source` (ats, board
+  token, company, origin SEED/DISCOVERED/ADMIN, last read, failures) and `job_posting` (public fields,
+  plain-text description ≤ 8000 chars, `dedup_key` = SHA-256 of company|title|location). **Seed:**
+  375 candidate slugs probed live on all three ATSs → 223 answered with open jobs → **6 dropped after
+  checking the real company** (Greenhouse "archer" is a vet clinic, "palmetto" an animal hospital,
+  "wise" a field-sales board…) → **217** in `config/job-sources.csv` (128 Greenhouse, 75 Ashby, 14
+  Lever), names from Greenhouse's own board name where it has one. **Discovery:** Greenhouse / Lever /
+  Ashby links on any application add that board (company only, never who). **Read** (02:00 UTC,
+  `DOSSIER_JOBS_ENABLED`, on in prod, off in dev/CI): one request at a time with a pause and a named
+  User-Agent; Greenhouse's list has no descriptions so only fresh postings get a detail call; keeps
+  `first_published`/`createdAt`/`publishedAt` ≤ 48 h (Greenhouse's `updated_at` is ignored — it moves
+  on every edit); skips known ids and duplicates; 5 failed nights in a row switch a board off.
+  Parsers written against captured responses and checked live (Stripe 682 open / 33 fresh, Ramp 151 /
+  5, OpenAI 817 / 35). Admin **Job sources** page: counts, last run, add (live-checked), switch off,
+  read now. Privacy page says how users' companies join the pool. No ext change.
+- 2026-09-22 · **13.5 ATS resume score** · Pro. `AtsChecks`: **15 deterministic checks, weights summing
+  to 100** — summary present/length, skills listed/not stuffed, roles present/labelled/dated/dates
+  consistent, bullets on the 3 latest roles, bullet length, **measurable results** (≥ ⅓ of bullets
+  carry a number, % or amount), **action verbs** (≥ ½ open with one, no "Responsible for…"), no
+  first person, education, a file on record. Each failed check says what to aim for. No AI, no
+  storage — recomputed on request. Against a tracked job the score is **70 % structure + 30 %
+  keyword coverage**, and coverage (covered ÷ covered + missing) comes from **13.3's cached job-fit
+  report**, so the ROADMAP's "one Flash-Lite read, cached per (resume × JD)" is that same call — no
+  second one. `GET /api/profile/resumes/{id}/ats-score`, `POST /api/profile/applications/{id}/ats-score`;
+  402 on Free. Shared `AtsReport` in `@kiwiply/ui`. Web: **"ATS score"** in each resume's ⋯ menu
+  (dialog; Free sees the upsell) and under the job-fit report on the board. "Contact" check swapped
+  for "has a file": stored resumes keep no contact block (contact lives on the profile). No ext change.
+- 2026-09-22 · **13.4 resume tailoring** · `ResumeTailorService` (task `tailor`, JSON-schema output):
+  rewrites of a resume's **existing** bullets (by ref, `e0b1`) and summary, plus a reorder of its
+  **own** skills, for one application's job. **Truthfulness is enforced by the server, not asked
+  for:** unknown refs dropped; a rewrite with a **number its original doesn't have** dropped (commas
+  normalized — "1,200" = "1200"); one naming the hiring company dropped; summary numbers must
+  appear somewhere on the resume; skills rebuilt from the resume's own list; missing job keywords
+  come back only as "add if true" suggestions, never applied. Checked proposals stored in
+  `resume_tailor`, pinned to the source resume by id + content hash and cached per (JD × resume).
+  **Saving** (`POST /api/profile/tailor/{id}/apply`) takes refs only — never text — rebuilds the
+  resume from the stored proposal, creates a **new** resume (the original untouched), optionally
+  links it to the application, and **refuses (409) if the source changed since**. Board: "Tailor for
+  this job" per scored resume opens a before/after dialog — untick, rename, save or copy. The new
+  resume has no PDF yet (the resume builder, 16.x, will). Privacy page updated. Tests:
+  `ResumeTailorServiceTest` (14), `ResumeTailorResourceIT` (3). Browser-checked the dialog flow.
+- 2026-09-22 · **13.3 job-fit panel** · Ext **v0.64.0**. `JobFitService`: one resume against one job
+  (task `fit`, JSON-schema output) → score, a one-line summary, ≤ 12 requirements the resume shows,
+  ≤ 10 it's **missing**, ≤ 5 **red flags**. Red flags may read exactly nine profile answers
+  (work auth, sponsorship, city/state/country, relocate, work preference, start date, notice) —
+  never name, contact or EEO — so "no sponsorship" is flagged only for someone who needs it.
+  Cached in `job_fit` per (JD × resume content × those answers), report only; deleted with the
+  account. Pro-gated + metered; the ROADMAP's Flash routing is `DOSSIER_AI_MODEL_FIT` (unset →
+  Flash-Lite). `POST /api/ai/job-fit` + `POST /api/profile/applications/{id}/job-fit` (linked
+  resume by default). Shared input bounding moved to `AiInputs` (13.2 uses it too). New
+  **`JobFitReport`** in `@kiwiply/ui` (+ `AlertIcon`) — red flags first, then missing, then covered
+  — used by both surfaces. **Drawer:** a "Check fit" card for the selected resume under the best
+  match (on click; resets when the resume changes). **Board:** "See gaps & red flags" per scored
+  resume. **One number per resume:** the report shows 13.2's ranking score (drawer) or none (board),
+  after the browser check showed the same resume at 84 % and 71 %. Privacy page + PRIVACY.md say
+  what's sent. Tests: `JobFitServiceTest` (11), `JobFitResourceIT` (4), provider +3.
+- 2026-09-22 · **13.2 resume recommendation per job** · Ext **v0.63.0**. `ResumeMatchService`: one
+  Flash-Lite call (task `match`, JSON-schema output) scores every live resume (≤ 10, default first)
+  against a job description, best first with a ≤ 12-word reason. Inputs bounded per 13.1: each
+  resume as a digest (summary ≤ 500 chars, ≤ 40 skills, ≤ 6 roles with one bullet, ≤ 3 degrees), JD
+  ≤ 8000 chars; under 200 chars it isn't scored (a page summary). **Cached per (JD × resumes'
+  content)** in `resume_match` (scores + reasons only, never the text), so asking again is free
+  and any edit misses cleanly; deleted with the account. Pro-gated + metered through
+  `AiBudgetService`; an unusable reply is an error but still metered (the provider billed us).
+  `POST /api/ai/resume-match` (drawer) and `POST /api/profile/applications/{id}/resume-match`
+  (board, owner-only). **Drawer:** after the picker loads, a Pro user with Kiwiply AI on sees
+  "Best match: Backend v3 · 84%" with **Use** — it suggests, never auto-selects; without AI on, a
+  hint to turn it on; nothing on non-job pages. **Board:** a "Resume fit" section in the detail
+  panel — one click (the caption discloses Gemini) scores all resumes with bars and reasons, and
+  **Link this resume** links one; Free sees the Pro line. `Meter` gained `neutral` (a full fit
+  isn't a warning). Privacy page + PRIVACY.md updated. Tests: `ResumeMatchServiceTest` (12),
+  `ResumeMatchResourceIT` (4), provider +3. Browser-checked the board section's three states.
+- 2026-09-22 · **13.1c AI usage meter** · Ext **v0.62.0**. `GET /api/ai/usage` (from `AiBudgetService.usage`):
+  Pro/override → `{metered:"budget", used:<percent>, limit:100, resetsAt, economy}`, Free →
+  `{metered:"count", used:<parses>, limit}` — never dollars, and not blanked by a kill switch. Web
+  Settings › AI & drafting and the extension's Options › AI show it: "32% of this month's Kiwiply AI
+  used · Resets October 1" (reset shown in UTC, it's a UTC month boundary), amber past 80 % with a
+  "lighter model" note when the economy model is on, red when used up. New `Meter` primitive in
+  `@kiwiply/ui` (role="meter"). The admin AI page is now **cost**-based from the `ai_call` ledger:
+  total, calls, users, average, per feature and per user (dearest first, with % of the Pro budget;
+  deleted accounts' kept spend shown as one row). Tests: budget +3 (meter), `AiResourceIT` +3,
+  `AdminAiUsageResourceIT` rewritten for cost, provider +2. Browser-checked the meter's four states
+  at desktop + phone width. **13.1 complete.** Model decision: stay on 2.5 Flash-Lite.
+- 2026-09-22 · **13.1b AI budget + routing** · Ext **v0.61.0**. New `AiBudgetService` makes one decision
+  per call, before the provider: **kill switch** per task → **Pro gate** → Free resume-parse
+  **count** → otherwise a **cost budget** from the `ai_call` ledger for the UTC calendar month ($5
+  Pro default; `AiPolicy`, `dossier.ai.policy.*`). Past 80 % every task moves to the economy model
+  (if one is set); at 100 % AI stops until the 1st, and the reply says when (`resetsAt`). Each task
+  can run on its own model (`models.<task>`). The **admin override is now a monthly budget in
+  cents** (column renamed; existing grants carried over as $5, $0 stays "none"); the admin control
+  edits it in dollars. The extension says "You've used this month's Kiwiply AI — it resets on
+  October 1" instead of "(100/100)". Pricing: 3.x Flash/Flash-Lite added, 2.5 cache rates
+  corrected. **Model check:** the 2026-10-16 retirement is Vertex AI's — the Gemini API we call has
+  no date for 2.5 Flash-Lite yet; successor `gemini-3.1-flash-lite` costs 2.5×/3.75×. Default
+  unchanged pending the user's call. Tests: `AiBudgetServiceTest` (13), draft/parse tests reworked
+  (12/9), `AiResourceIT` +2 (spent budget stops AI; last month's spend doesn't count), admin tests
+  moved to cents, SW +4.
+- 2026-09-22 · **13.1a AI cost tracking** · Ext **v0.60.0**. Every AI request now says what it's for
+  (`task`: draft / pick / map / enrich; parse on its own endpoint; absent = draft, so old builds
+  still work) and gets instructions written for it — picks, mapping and enrichment no longer get
+  the drafting prompt's "2-4 sentences". The Gemini response's `usageMetadata` is read (thinking
+  billed as output, cache hits split out) and every successful call lands in a new **`ai_call`
+  ledger** with its model, tokens and cost in micro-dollars (`AiPricing`, `dossier.ai.pricing.*`,
+  Flash-Lite + Flash built in; an unpriced model is costed high and logged). Bugs fixed: **Pro users
+  were capped at the Free 50 for resume parsing**; the **prod compose defaulted to
+  `gemini-2.0-flash`** (limit:0) and never passed the Pro quota / output cap / base URL through; the
+  **monthly counter lost updates** under concurrency (now one MySQL upsert). Account deletion drops
+  the month's count and strips the login from the ledger (spend kept, person gone). Tests:
+  `GeminiAiProviderTest` (6), `AiMeteringServiceTest` (3), draft/parse service tests reworked
+  (14/10), `AiResourceIT` +4, deletion IT extended, extension provider +2.
+- 2026-09-22 · **10.3e suggestions review** · The dashboard shows **"We learned N things about you —
+  keep these?"** above the setup checklist, only when there's something to review. Each row names
+  the field and shows the value, or *old → new* for a change. **Keep** writes it to the profile;
+  **Edit** adjusts it first (a dropdown for list fields like notice period, so the value stays one
+  forms offer); **Dismiss** means never again. Keeping signals the extension to pull and refreshes
+  the checklist; a row already decided in another tab just disappears. Proxy route
+  `POST /api/suggestions/:id/(accept|dismiss)` validates the id, the action and the edit. The
+  suggestions fetch is best-effort — a failure means no card, never a broken dashboard.
+  Browser-checked at desktop and phone width against a stubbed API (a phone-width overlap of
+  buttons over the value was found and fixed). **10.3 complete.**
+- 2026-09-22 · **10.3d extension capture** · Ext **v0.59.0**. `profile-learn.js`: after a fill, the
+  extension watches the page's **profile questions** — the fill's canonical items (a later change is
+  a candidate change) plus high-confidence ones the profile is blank for (the answer fills it) —
+  and reports committed answers, debounced and de-duplicated, as `JAF_LEARNED_ANSWERS`. The SW
+  reduces the page to a **per-install salted SHA-256** (so the server can count distinct
+  applications without ever seeing, or being able to look up, the address) and POSTs
+  `/api/profile/suggestions` via the tracking seam. Never EEO, checkboxes or placeholder-only
+  guesses; Yes/No questions report "Yes"/"No" however worded. **"Learn from my applications"**
+  in Settings (on by default; separate from the analytics opt-out); signed-out sends nothing;
+  only our content scripts are heard. PRIVACY.md + the web privacy page disclose it.
+  `profile_learn` (26) + SW (13) + provider (3) tests.
+- 2026-09-22 · **10.3c suggestions API** · `profile_suggestion` table + `ProfileSuggestionService` +
+  `/api/profile/suggestions` (`POST` learned answers, `GET` the ones worth showing, `POST
+  {id}/accept` with an optional edit, `POST {id}/dismiss`). Free and Pro alike. Only the 22
+  canonical non-sensitive profile keys — **EEO and resume text are never stored**. A blank field
+  is suggested at once; a change needs the same value on **2 different applications** (an opaque
+  per-application hash, never a URL; seen twice on one application counts once). One suggestion
+  per field, newest wins; what the profile already says is never suggested; decided is decided
+  (a dismissed value never returns). Accept writes the bio over its other keys (so the extension's
+  version moves) and drops the field's other undecided values; it refuses (409) to write over an
+  unreadable profile rather than wipe it. Pending capped at 50. In account export and deletion
+  (FK, no cascade — the deletion test now covers it). `ProfileSuggestionServiceTest` (6, unit) +
+  `ProfileSuggestionResourceIT` (11).
+- 2026-09-22 · **10.3b onboarding** · `/welcome`: one question per screen — work authorization,
+  sponsorship, salary, notice, work preference + relocation, and EEO self-ID (optional, says so).
+  Every question skippable, **"Skip for now"** always on screen, each step saves as you go. The
+  dashboard (the post-login landing page) sends a user there **once** — until they finish or
+  skip (`onboardedAt` in the bio) — and never if they'd already answered work authorization or if
+  the profile fetch failed (an API hiccup must not bounce a full profile into onboarding);
+  `?next=` flows like `/connect` are untouched. The last screen points to **Upload your resume**
+  when there isn't one (Tier B). New `ChoiceGroup` primitive in `@kiwiply/ui` (radio-group
+  semantics, arrow keys, one tab stop); answer lists moved to `lib/profile-options.ts`, shared
+  with the profile editor. Browser-checked at desktop and phone width against a stubbed save.
+- 2026-09-22 · **10.3a job-preference fields** · Ext **v0.58.0**, rules **v6**. Desired salary, notice
+  period, earliest start date, work preference, willing to relocate and "how did you hear about
+  us" are canonical fields: matched by phrase rules (not bare words — "Current salary", a
+  work-history "Start date" and "relocation assistance" stay unmatched), in the AI mapper's
+  vocabulary, and editable under **Job preferences** on the web profile. Filling got three
+  guards: a number box takes the number out of "$120,000"/"120k", a date picker only takes a
+  real date ("Immediately" is left for the user), and a radio group of choices picks the named
+  option — a non-Yes/No value is **never coerced into "No"** any more (the old path would have
+  answered a Yes/No question with "No" for "Hybrid", or unticked a checkbox). `profile_fields`
+  tests (43). Experience/education stay per resume (user decision).
+- 2026-09-22 · **10.2 post-fill audit** · Ext **v0.57.0**. When a fill leaves required fields empty, the
+  modal panel becomes a small non-modal card — *"2 required fields still need you"* — naming each
+  field by its label (a radio group by its question); **Go →** scrolls to it, focuses it and
+  outlines it; items tick off as the user fills them, and the card closes itself once all are
+  done. **Auto-advance now waits** while any are missing (the page would refuse the step and the
+  user would be left guessing why). Reuses 10.1's scan, so the admin count and the user's list
+  can't disagree; the scan now also treats a label ending in `*` as required. Nothing here leaves
+  the page. Tests: `required_gaps.test.js` (30: asterisk rules, naming, the card, jump-to,
+  tick-off, auto-advance paused *and* unchanged when nothing is missing). **Verified in a
+  browser** on a mock application form running the real extension scripts: card, jump-to below
+  the fold, tick-off, and auto-advance held.
+- 2026-09-22 · **10.1 fill telemetry per ATS** · Ext **v0.56.0**. One count-only event per autofill run —
+  ATS family, adapter, fields found / filled / failed, required left empty — plus a later
+  signal the first time the user changes a field we filled. First-party into a new `fill_event`
+  table (**no user id**: it measures the engine, not people), feeding a **Fill quality by ATS**
+  panel on `/admin/analytics` ranked worst-first by gap rate (fills that left a required field
+  empty), then fill rate, then volume — the list 10.4 takes its adapter work from. **The privacy
+  line is enforced twice:** the content script reduces the hostname to a fixed family before
+  anything leaves the page (so the five uncovered hosts are distinguishable without a company's
+  careers domain ever being sent), and the server maps anything outside the vocabulary to
+  `other` and clamps every count. Honours the existing analytics opt-out; disclosed in
+  `PRIVACY.md` and the web privacy policy. New: `fill-telemetry.js`, `required-audit.js` (10.2
+  reuses it), a correction hook on `fieldCache.watch`, `FillTelemetryResource`
+  (`POST /api/telemetry/fills`, `…/{id}/correction`, both always 204). Tests:
+  `fill_telemetry.test.js` (47, incl. an end-to-end run of the real overlay),
+  `sync_signal` +6, `tracking` +4, `FillTelemetryServiceTest` (9), `FillTelemetryResourceIT` (11),
+  `AdminAnalyticsResourceIT` +2. **Not verified locally:** the integration tests and the admin
+  panel in a browser — Docker Desktop was off, so neither MySQL nor the API could run; CI runs
+  the ITs. `api/openapi.json` will pick up the new endpoints on the next local IT run.
+- 2026-09-22 · **Pre-launch review follow-ups — the two open decisions, plus two more bugs** · Ext
+  **v0.55.0**. User decisions: *clear the extension on sign-out* and *fix the timezone*.
+  **(1) Sign-out means this browser forgets the account.** Before, sign-out dropped only the
+  tokens: the drawer kept the previous user's profile and resumes (and would autofill with
+  them), and a shared computer's next user inherited everything, learned answers included.
+  `JAF.storage.clearAccountData()` is now the one definition of account-vs-device data — bio,
+  resumes + files, learned answers, AI drafts/picks, the plan badge, and `trackingPending`
+  (whose application ids would otherwise be attributed to the next account). Device settings
+  stay (BYO key, auto-advance, theme, label/job caches). Both paths use it; the options page now
+  confirms first and says plainly that on Free, learned answers exist only in this browser.
+  Connecting a *different* account over one that never signed out also clears first (only when
+  both names are known — a guess would cost a Free user their only copy). **Web sign-out keeps
+  learned answers** (user decision, option B): on Free they're the only copy and web sign-out is
+  routine, so they stay — with an owner marker, since the session holding the username is gone —
+  and are wiped the moment a different account connects. The options-page sign-out confirms
+  and clears everything. **(2) A pull prunes
+  resumes deleted on the web** — they used to linger in the picker until reinstall; local-only
+  (unpushed) resumes are never touched, and a failed list prunes nothing. **(3) Dates render in
+  the viewer's zone and hydrate cleanly.** All web dates were formatted on the UTC/en-US box —
+  a 02:53 UTC renewal read "October 22" while Stripe said the 21st — and the board and resume
+  list mismatched on hydration for anyone off UTC or en-US. Now a fixed form on the server and
+  during hydration, the viewer's own afterwards (`lib/dates.ts` pure, the hook in its own
+  client-only module so Server Components can import the formatter — the Next build caught that,
+  typecheck and lint don't). **(4) A cancelled subscription said "Renews on".** An immediate
+  cancel leaves `canceled` + `cancelAtPeriodEnd:false`, and the card fell through to "Renews on"
+  for a subscription that will never renew; now "Cancelled — you keep Pro until …". Tests:
+  `account_clear.test.js` (21, new), `sync.test.js` +3 prune cases, `sync_signal` +4. The web
+  has no unit runner, so the formatter was exercised directly under two machine time zones.
+  **Not done:** a live-browser check of the board and resume dates — Docker Desktop wasn't
+  running, so the API couldn't boot.
+- 2026-09-22 · **Pre-launch review of Phases 11–12 — five more bugs, all fixed** · Ext **v0.54.1**.
+  A read-through of everything the 12.7 run could not reach, risk-ordered: money path, gates, web
+  and extension surfaces, sync. **(1) Account deletion was broken for every user who had ever
+  started a checkout** — `subscription.user_id` is a foreign key with no cascade and
+  `AccountDeletionService` never touched the row, so `DELETE /api/account` (and the admin path)
+  threw for exactly the users who pay. Worse, had the row been deleted, the Stripe subscription
+  would have kept renewing an account with no login left to cancel from. Deletion now cancels the
+  subscription in Stripe first (immediately — there will be no account to enjoy the remainder,
+  and the refund policy already covers it), then drops the row, then the user; a Stripe refusal
+  aborts the deletion rather than orphaning a billing subscription. **(2) A failed webhook apply
+  was never retried:** the event was recorded as `ok` before applying, so our own 500 asked
+  Stripe to retry and the retry was waved through as a duplicate — one transient DB error and the
+  event that would have made someone Pro was gone. `record()` now re-admits a row marked
+  `failed`. **(3) The payment-failed email could be dropped** when the matching
+  `subscription.updated` (past_due) arrived first and made the `invoice.payment_failed` stale:
+  the write was correctly skipped, and the email went with it. The email is now decided by the
+  row's state, not by which event wrote it. **(4) Every failed checkout leaked a Stripe customer:**
+  `startCheckout` is transactional, so a session failure rolled back the customer id we had just
+  saved. `noRollbackFor = BillingException` — the 502 still propagates, the binding stays.
+  **(5) Extension sign-out left the plan badge and version marker behind**, so on a shared
+  machine the next person saw the previous user's "Pro" pill until their first check; both now
+  leave with the session. **Two product decisions deliberately left open** (see the review
+  message of 2026-09-22): the extension mirror is never cleared on sign-out and a pull never
+  prunes resumes deleted on the web — a shared-machine leak and a stale picker, but clearing
+  would also drop a Free user's device-local learned answers; and renewal dates render in the
+  server's timezone, so the production box will show "October 22" where the portal says the 21st.
+  **Checked and clean:** signature over the raw body, webhook `permitAll` with CSRF off, the
+  entitlement rule, all three gates, token refresh on every pull path, archived resumes filtered
+  from the picker, the fingerprint covering every field a web edit can change, web routes passing
+  error codes through, the success page never erroring. Tests: `AccountDeletionResourceIT` +2
+  (subscribed user deletes and stops being billed · keyless server still deletes),
+  `BillingWebhookIT` +2 (failed apply re-applied on retry · stale payment_failed still emails),
+  `BillingResourceIT` +1 (failed session keeps the customer), `sync_signal.test.js` +4.
+- 2026-09-21 · **12.7 the end-to-end Stripe run — eight bugs, all fixed** · The point of this task
+  was to find what reading the code could not, and it did. **Verified live:** checkout → 402-free
+  session → payment → webhook → Pro within seconds; `checkout.session.completed` arriving **after**
+  `customer.subscription.created` and still binding correctly (the out-of-order case 12.2 was
+  designed for, seen against real Stripe delivery rather than a fixture); renewal date in Settings;
+  portal cancel → "cancels on"; **cancelling does NOT revoke access** — Stripe keeps
+  `current_period_end` at the paid-through date, so the ToS promise ("you keep Pro until then")
+  holds; lapse → Free with **all four resumes intact** and a 5th refused **402 `RESUME_LIMIT`
+  {limit:3,count:4}**; `POST /field-caches/sync` → **402 `PRO_REQUIRED`** while `GET` stays 200.
+  **The eight bugs:** (1) Stripe config values were not trimmed — one trailing character in a
+  pasted key produced a 502 whose only real explanation lived inside a Stripe exception, and .NET
+  trims headers so probing the key from PowerShell *succeeded*, pointing the diagnosis the wrong
+  way. (2) `automatic_tax[enabled]=false` was sent unconditionally, which **Managed Payments
+  rejects** — and Stripe enables Managed Payments by default on new accounts, so our default
+  config was invalid against a default Stripe account. Now sent as `true` or omitted, never
+  `false`. (3) `managedPayments` was a boolean that could only turn MoR *on*, the state it was
+  already in, with no way to turn it *off* — despite its own comment promising otherwise. Now
+  tri-state, unset by default. (4) The API started happily with billing on and **no webhook
+  secret**: checkout works, the customer is charged, nothing ever activates. Now an ERROR at
+  startup — the last moment to say so before money moves. (5) A **racing duplicate delivery
+  returned 500**: the constraint violation was caught inside the transaction, which was already
+  rollback-only, so the commit threw. Self-healing via Stripe's retry, which is why nobody noticed.
+  (6) **Double billing.** `startCheckout` guarded on our mirror, which is only as current as the
+  last webhook — one lost delivery and a second checkout sails through. It produced **one customer,
+  two active subscriptions, two invoices, two charges**, live. It now asks Stripe. (7) Worse: a
+  webhook for **any** subscription on a customer was applied to the single row we mirror, so
+  cancelling a stray subscription **revoked Pro from a customer still paying** for a different one.
+  Only a live subscription may take a row over now. (8) A log line that said "no subscription row
+  … yet" immediately after correctly logging that the customer *was* bound. **Docs the run
+  fixed:** the product needs a `tax_code` (mandatory under Managed Payments — undocumented, and it
+  surfaces as a 502 pointing nowhere); `stripe listen` needs `--events` from CLI v1.51; the webhook
+  secret is ~70 chars and must not be hand-copied; `stripe events resend` cannot reach the CLI
+  listener; `stripe trigger` cannot fake a failed payment (by design, since fix 7); and the runbook
+  now carries PowerShell as well as bash. **Six of the eight would have behaved identically in
+  production, and three of them take money without delivering Pro.**
+- 2026-09-21 · **12.7 runbook written (the run itself is still owed)** · Docs only. `DEPLOY.md`
+  **§11.1** is the step-by-step for the end-to-end sandbox run: local stack, `stripe listen`
+  first (its `whsec_` is per-session), API with sandbox keys, sign in as the seeded `user`/`user`
+  so no verification email is needed, then the run itself. Three things the plan didn't
+  anticipate, found while writing it and worth knowing before you start: **(1)** MinIO has to be
+  up even for a billing test, because the resume-cap step uploads three real files and the web
+  upload route rolls the row back if the file upload fails; **(2)** `stripe trigger
+  invoice.payment_failed` creates a *brand-new* customer, so it never touches your row — use
+  `--override invoice:customer=cus_…`, and locally expect the payment-failed email to fail to
+  send, which is correct (a mail failure must not fail a webhook); **(3)** a **test clock can only
+  be attached when the customer is created**, and checkout creates its own customer — so seed the
+  `subscription` row with a clock customer id *before* the first checkout, which works because
+  `startCheckout` reuses an existing `stripe_customer_id` forever. The SQL is in the runbook.
+- 2026-09-21 · **12.6 billing copy + legal hooks** · Docs/copy only, no extension change. The ToS
+  **Fees** placeholder ("free to start during beta") became a real **Billing and subscriptions**
+  section at `/terms#billing`: prices, auto-renew, **no free trial**, self-service cancellation
+  that takes effect at period end, **"no refunds, cancel any time"** with an explicit
+  statutory-rights carve-out, failed-payment retries, advance notice of price changes (new price
+  applies from the next renewal only), and Stripe as processor with "we never see your card
+  number". The Privacy Policy gained a matching **Payments** section plus a `Billing` line in
+  *What we collect*. Two contradictions the new copy exposed were fixed rather than left for the
+  lawyer: **Termination** and **Retention and deletion** both promised deletion of *everything*,
+  which is not true of transaction records we must keep for tax — both now carve that out and say
+  it contains no profile/resume/application data. `/pricing` and Settings › Billing now link to
+  `/terms#billing` (the point-of-sale copy stays inline — the FTC negative-option rule wants the
+  terms next to the button, and a link is not a substitute). Both pages dated **September 2026**.
+  Verified by rendering `/terms`, `/terms#billing` (anchor lands 96px down, clear of the header)
+  and `/privacy` in the browser; web typecheck, lint and build clean. The wording still goes to a
+  lawyer in **15.2** — the statutory-rights line and a governing-law clause are the open items.
+- 2026-09-21 · **12.5 admin revenue panel** · No extension change. `AdminAnalyticsService.overview()`
+  gained `billing {activePro, monthlyCount, threeMonthCount, mrr, newThisMonth, churnedThisMonth,
+  pastDue}`, folded in memory from `subscription` — one row per paying user, and the Pro rule is
+  `EntitlementService.isProFor`, a Java predicate that must not be duplicated in SQL. Three
+  decisions worth remembering: **revenue follows the entitlement rule, not the `plan` column**, so
+  the card can never bill us for someone being served Free; **`past_due` still counts as revenue**
+  (they are still Pro while Stripe retries) but is surfaced separately as risk; and **churn is
+  "the paid period ended this month"**, not "cancelled this month" — cancelling in March for a
+  period ending in May is a May loss. MRR normalises the 3-month plan to a third of its price. The
+  plan amounts are new config (`dossier.stripe.amount-monthly` 19.99 / `amount3mo` 44.99) rather
+  than constants, because Stripe owns the real price and we don't mirror the amount on the row —
+  so the Launch-2 rise is a deploy, not a code change, and the only thing that lies if they drift
+  is this one card. A Pro row on an unrecognised price counts as a user but contributes no
+  revenue, and the web card shows the gap rather than hiding it. Tests: `AdminAnalyticsResourceIT`
+  +5 (empty → 0 not an error · one of each plan → 34.99 · lapsed → no revenue + churn · past_due →
+  revenue + flagged · unknown price → no revenue). `api/openapi.json` re-published.
+- 2026-09-21 · **12.4 the gates — Free tier redefined** · Ext **v0.54.0**. Three `requirePro()`
+  calls, all at the service boundary rather than in a controller, so both upload paths and all
+  three AI callers are covered by one check each. (1) `AiDraftService` — new
+  `Status.PRO_REQUIRED`, mapped by `AiResource` to **402 `PRO_REQUIRED`**; drafting, field mapping
+  and option picks all ride `/api/ai/draft`, so gating it gates all three. An **admin quota
+  override outranks the plan gate** and supplies the quota; Pro gets the new
+  `dossier.ai.pro-monthly-quota` (2000). `AiResumeParseService` is deliberately untouched — it is
+  how a profile builds itself. The gate is checked **before consent**, so a Free user is told the
+  useful thing instead of being sent to tick a box that still wouldn't let them through.
+  (2) `POST /api/profile/field-caches/sync` — Pro; `GET` is not, because a downgrade must never
+  hide data you already own. The extension already treats this call as best-effort, so a 402 is a
+  silent no-op. (3) `ProfileService.createResume` — 402 `RESUME_LIMIT {limit,count}` at 3
+  **non-archived** resumes, so archiving is how you make room and a lapsed Pro user loses nothing.
+  Clients: the SW turns a `PRO_REQUIRED` into "Kiwiply AI is a Pro feature — upgrade, or add your
+  own key" (true: a BYO key still takes priority); `SaveResult` gained an optional `cta`, so the
+  cap shows an inline upgrade link in web `ResumeUpload` (→ `/pricing`) and the extension's
+  on-the-fly upload (→ kiwiply.com/pricing). Clients branch on `code` and display `detail` —
+  `title` is overwritten with the HTTP reason phrase by `ExceptionTranslator`. Tests:
+  `AiDraftServiceTest` (+4: PRO_REQUIRED, outranks consent, override drafts, Pro quota) ·
+  `AiResourceIT` (Free 402 · Pro drafts · override drafts · parse-resume still free — not
+  `@Transactional`, and asks for a bigger pool, because a successful draft's `REQUIRES_NEW` answer
+  cache needs a second connection and the shared test config pins Hikari to one) ·
+  `FieldCacheSyncResourceIT` (Free 402 / Pro 200 / list still works on Free) · `ProfileResourceIT`
+  (4th create 402 with counts · archived don't count · Pro uncapped) · `tracking.test.js` 71.
+- 2026-09-21 · **12.3 checkout, portal and every surface that shows a plan** · Ext **v0.53.0**.
+  API: `POST /api/billing/checkout` (creates the Stripe customer once then reuses it forever, so
+  invoices stay on one customer) and `POST /api/billing/portal` — the portal is the click-to-cancel
+  path rather than a screen we build. Neither ever marks anyone Pro; only the webhook does, because
+  a return URL can be skipped, replayed or forged. Web: public `/pricing`, `/billing/success` that
+  polls until the webhook lands and **has no error state** (the payment already succeeded — telling
+  someone who just paid that something failed would be alarming and untrue), Settings › Billing
+  with renewal/"cancels on" dates and the auto-renew + no-refund terms stated inline, and a Pro
+  pill in the sidebar fed by ONE plan fetch in the `(app)` layout. Extension: the plan now rides on
+  `GET /api/profile/version`, so an upgrade is noticed inside the 11.3 check the extension already
+  runs — no new round-trip and no stale JWT claim — and `ApiError` lifts `code` out of the
+  ProblemDetail so callers branch on `PRO_REQUIRED` rather than a message.
+  Three course corrections: **one source of truth for "is billing on"** — `EntitlementService` now
+  asks `StripeGateway`, not `StripeProperties`, because `/me` and the endpoints it gates were
+  reading different things and could have disagreed; **Managed Payments and Stripe Tax are config
+  flags, both default off** (MoR was hardcoded on, which would have forced tax setup before
+  anything worked, and the economics change with volume); and `checkAndPull` **records the plan on
+  every answered check, not just on a pull** — an upgrade changes no bio and no resume, so a
+  plan-only change would otherwise never be seen. Tests: `BillingResourceIT` 10/10 against a
+  stubbed gateway (customer created once and reused, unknown plan refused, already-Pro → 409,
+  portal 404 without a customer, billing-disabled → 503 while `/me` still answers),
+  `tracking.test.js` 67 (version+plan shape, 402 `code` surfacing, null-code stays null),
+  `sync.test.js` 41 (plan recorded on an unchanged check, a missing plan doesn't wipe the known
+  one, and the pre-12.3 bare-string shape still works). Full API, extension and web gates green.
+- 2026-09-21 · **12.2 the Stripe webhook — the only writer of subscription state** · API only.
+  `POST /api/billing/webhook`, unauthenticated by necessity (Stripe has no session with us) but
+  **not unprotected**: the raw body is verified against the webhook secret before anything is
+  read, and the body is taken as a `String` because the signature covers the exact bytes sent.
+  Status codes are chosen for Stripe's retry logic, not a browser — 400 unverified (nothing
+  recorded), 200 applied-or-duplicate, **500 to ask for a retry**, with the event marked `failed`.
+  Three things the plan didn't foresee: **`StripeEvent` had to implement `Persistable`** or Spring
+  Data would treat the assigned id as "existing", make `save()` a merge, and let a replay quietly
+  *update* its own row — the PK-as-idempotency-key claim was decorative until this; **transactions
+  are explicit `TransactionTemplate`s**, because the three steps are self-invoked from `handle()`
+  where `@Transactional` is silently skipped by the proxy; and **`checkout.session.completed` is
+  exempt from the out-of-order drop**, since it writes identity (customer↔user) rather than
+  mutable state — applying it late is harmless, skipping it would orphan the subscription from its
+  account. Separately hardened `dataObject()` against Stripe API-version drift: `getObject()`
+  returns empty (or NPEs, for an event with no `api_version`) whenever the dashboard's version
+  differs from the SDK's, which would have silently stripped the state out of every webhook after
+  a routine upgrade on either side. Tests: `StripeGatewaySignatureTest` 4/4 — valid, wrong secret,
+  tampered-after-signing, no secret configured — and `BillingWebhookIT` 9/9, which signs its
+  fixtures exactly as Stripe does (HMAC-SHA256 over `t.payload`) so the real verification runs:
+  forged delivery leaves no trace, binding, state mirroring, replay changes nothing, a stale event
+  can't resurrect a cancelled subscription, cancellation stays Pro until the period ends, a failed
+  charge emails and keeps Pro, `invoice.paid` restores active silently, and an event for an unknown
+  customer is a quiet 200. Full API unit + integration suites green.
+- 2026-09-21 · **12.1 billing schema, entitlement service and the Stripe seam** · API only, no UI,
+  no extension change. `subscription` (one row per user, Stripe's `status` stored verbatim) +
+  `stripe_event` (**the `evt_…` id is the PK — that IS the idempotency**, so a Stripe retry
+  collides on insert instead of re-applying). `EntitlementService.isProFor(status, periodEnd, now)`
+  is a pure static so the rule is testable as a matrix: `active`/`trialing` → Pro even if our
+  mirrored period end looks stale (a delayed renewal webhook must never downgrade someone who is
+  paying); `past_due`/`canceled` → Pro **until** the period ends (Smart Retries are still running;
+  cancelling means "don't renew", not "cut me off"); everything else, including any status Stripe
+  adds later, → Free. `StripeGateway` isolates the SDK — `StripeGatewayImpl` is the only class
+  importing `com.stripe.*`. **Blank `STRIPE_SECRET_KEY` disables billing** and that is a valid
+  running state, which is how develop, CI and prod run today. Two course corrections the plan
+  didn't foresee, both forced by `TechnicalStructureTest`'s layering rule: `StripeProperties` moved
+  `config/` → `service/billing/`, and `ProRequiredException` became a service/web pair mapped in
+  `ExceptionTranslator`, mirroring `EmailAlreadyUsedException`. Dropped the raw-JSON fallback for
+  `current_period_end` (Gson isn't on the compile classpath); it reads from the subscription item
+  and `null` means lapsed, so a missing value can only cost Pro, never grant it. `DEPLOY.md` §11
+  documents the four secrets and that a keyless server is fine. 14 unit assertions,
+  `BillingResourceIT` 5/5, full API unit + integration suites green.
+- 2026-09-21 · **Phase 12 planned to build depth (Stripe billing & entitlements)** · Docs only.
+  Same treatment Phase 11 got before Opus built it: ROADMAP Phase 12 now opens with the locked
+  decisions — **Stripe is the truth and only webhooks write our `subscription` mirror** (the
+  checkout return page can be skipped, replayed or faked); **`past_due` stays Pro until
+  `current_period_end`** (Smart Retries run in that window; downgrade at period end); gated calls
+  fail **402 `PRO_REQUIRED`** not 403; **no free trial**; the resume cap counts **non-archived**
+  and never deletes; the **admin quota override outranks the gate** (support escape hatch);
+  **the plan rides on `/api/profile/version`** so the extension learns it inside the 11.3 check
+  with no new round-trip and no stale JWT claim; **`stripe-java` behind one `StripeGateway`** so
+  tests stub it and nothing else imports Stripe. Then 12.0 (human Stripe setup, test mode first,
+  exact events list) → 12.1 schema (`subscription` one-row-per-user + `stripe_event` with the
+  event id as PK = idempotency) + `EntitlementService` + gateway + **billing-disabled-when-key-
+  blank** so develop/CI run keyless → 12.2 the webhook as the only writer (raw body, signature,
+  duplicate short-circuit, out-of-order drop by `last_event_at`, 500-so-Stripe-retries) → 12.3
+  checkout/portal/pricing/success/settings + extension plan badge → 12.4 the gates (AI drafting
+  + mapping/picks unless overridden; field-cache sync; resume cap at `createResume`) → 12.5
+  admin MRR panel → 12.6 auto-renew / click-to-cancel / refund copy → 12.7 the Stripe-test-mode
+  end-to-end run with a test clock. Every task names its tests.
+- 2026-09-21 · **11.4 sync-model docs — Phase 11 complete** · Docs only, no version bump.
+  `ARCHITECTURE.md` gained a **Sync model (Phase 11)** section: the three refresh mechanisms
+  (instant web signal → version check → what triggers a check), the offline rule that a failed
+  check keeps the stored marker, the revoke backstop (1.11 rotation kills a stale token at its
+  next use if the `signedOut` signal never arrives), and why there are no WebSockets — MV3 tears
+  the worker down after ~30 s idle, so a persistent connection would reconnect constantly and
+  still miss events while dead. Two stale lines fixed while in there: the `background.ts` entry
+  duplicated the 11.1 detail and now points at the new section, and the read-only-mirror note
+  still said "the popup pulls `JAF.sync.pullAll` on open (throttled)" — there has been no popup
+  since W4 and no throttle since 11.3. `HANDOFF.md` points at the section.
+- 2026-09-21 · **11.3 extension version checks — the 90 s throttle is gone** · Ext **v0.52.9**.
+  The drawer used to guess at staleness with a 90 s timer, which both skipped refreshes that were
+  needed and allowed ones that weren't. `JAF.sync.checkAndPull` now GETs the 11.2 fingerprint and
+  pulls only on a mismatch or first run; a failed check pulls nothing **and keeps the stored
+  marker**, so going offline neither thrashes the mirror nor makes the next check look like a
+  first run. Three callers: a `chrome.alarms` `kiwiply-sync` every 15 min (re-created on
+  `onInstalled` *and* `onStartup`, since alarms don't survive an update — new **`alarms`**
+  permission), `windows.onFocusChanged` guarded to one check per 60 s, and the drawer's
+  `refreshMirror`. Both SW listeners are feature-guarded, so contexts without `chrome.alarms` /
+  `chrome.windows` still load. The 11.1 `changed` signal keeps pulling unconditionally but now
+  records the version it pulled under, or the next alarm would re-fetch the same data. `alarms`
+  also added to the `PRIVACY.md` + `STORE-LISTING.md` justification tables. Side effect worth
+  knowing: `syncLearnedAnswers` sat behind the same throttle, so the field-cache push+merge now
+  runs on every drawer open. 37 assertions in `sync.test.js`, 48 in `sync_signal.test.js`; full
+  suite, typecheck and build green, and the built manifest carries the permission.
+- 2026-09-21 · **11.2 `GET /api/profile/version`** · Ext **v0.52.8**. The fingerprint the extension
+  will poll (11.3) to re-pull only on change. It's a **hash of exactly what a pull returns**, not a
+  counter: `Resume` has no `updatedAt` (only `createdAt`), so a counter would need a migration plus
+  a touch on every write path and could still miss one — the IT's archive-toggle case is precisely
+  the change a `createdAt` scheme would have missed. `service/ProfileVersion.java` (pure SHA-256 →
+  16 hex over bio `updatedAt`+`payload` and every resume DTO sorted by id) + `ProfileService.
+  profileVersion()` + `ProfileResource GET /version` + `vm/ProfileVersionVM`; **never 404** so an
+  empty profile still compares. Ext: `TrackingProvider.profileVersion()` (base NotSupported; Kiwiply
+  GETs → string|null). `ProfileVersionResourceIT` 4/4 (empty → stable 16 hex; moves on bio PUT,
+  resume create/archive/unarchive/delete; another user's row doesn't move mine) — first local run
+  failed only because Docker couldn't pull Testcontainers' `ryuk` image; passed on retry.
+  Same day, the rest of Phase 11 (11.3 alarms + focus + drawer `checkAndPull`, 11.4 docs) was
+  specified to build depth in ROADMAP/PROGRESS so it can be implemented without re-deriving.
+- 2026-09-21 · **11.1 web → extension change signal** · Ext **v0.52.7**. The extension's mirror only
+  refreshed when the drawer opened (90 s throttle), and a web sign-out never reached it. Now the web
+  fires `notifyExtension("changed"|"signedOut")` after every profile/resume mutation, sign-in and
+  sign-out — Chrome direct via `externally_connectable`, Firefox via the existing connect-relay —
+  and the background handles `KIWIPLY_SYNC` through the **same origin gate** as the connect handoff
+  (an ATS content script or a foreign origin is ignored). `changed` pulls the mirror in the SW
+  (which now loads `storage.js`), stamps `__lastPull`, and broadcasts so an open drawer repaints;
+  `signedOut` revokes best-effort and always clears the session. `connect/page.tsx` now imports the
+  shared `EXT_ID`. 32 new assertions; full suite, typecheck, build and the web gate green.
+- 2026-09-21 · **Go-to-market plan written — Phases 11–17** · Docs only. Everything decided in the
+  planning session is now build-ready: **Free + Pro** ($19.99 / $44.99-per-3-months at Launch 1 →
+  $24.99 / $54.99 at Launch 2, no annual), Free = no server AI except resume parsing, 3 resumes;
+  **sync** = web→ext signal + `/api/profile/version` + alarms; **billing** = Stripe with `isPro()`
+  in the API as the only truth; **Pro AI** = credit metering/routing/caching first, then resume
+  recommendation, job-fit panel, tailoring (~90 % gross margin at Gemini rates); **inbox** = the
+  user's dedicated consumer Gmail over IMAP + App Password, mirroring Sales-App — **no Kiwiply
+  address, no forwarding, no OAuth**, poll inbox + sent, no attachments, encrypted creds,
+  read-only. Two launches: ops hardening + PL.1 legal + store resubmit sit in **Phase 15** right
+  before Launch 1 (by decision, not earlier); **daily job matches** (public ATS job-board APIs,
+  ≤ 48 h, match %, feedback loop), analytics, reminders, digest and calendar
+  sit in **Phase 16** before Launch 2. 3.6.5 and the 8.4 secrets/retention slices re-homed into
+  14; 3.6.6 folded into 10.1. Competitor cross-check (Simplify, Teal, Jobright, Huntr,
+  Careerflow) recorded with verdicts — job matches → build, ATS score + cover letter →
+  candidates. CWS v1 published and under review.
+  **Follow-up decisions the same day:** job matches split into a **light 13.6 (Launch 1)** and a
+  **strong 16.1 (Launch 2)**; **ATS resume score → 13.5, Launch 1**; **cover-letter generator →
+  16.6** and **resume builder + templates → 16.7**, both Launch 2 (the builder reverses the
+  earlier "no", layered on upload-first).
+- 2026-09-21 · **Phase 10 planned — fill quality & the self-building profile** · Docs only.
+  Review of the engine found the gap behind "it's not filling enough": a **23-field**
+  vocabulary, 6 adapters (5 manifest hosts — iCIMS, Taleo, SmartRecruiters, BambooHR, Jobvite
+  — on the generic scanner with none), Greenhouse at 61 lines / 6 selectors vs Workday's 479,
+  AI **off by default**, and no measurement or post-fill check anywhere. Logged as ROADMAP
+  Phase 10 + PROGRESS tasks 10.1–10.6, ordered measure → post-fill audit → profile spine →
+  adapter grind, so coverage work is directed by telemetry rather than guessed. Core user
+  decision recorded: **the profile builds itself** — ≤6 onboarding questions for what a resume
+  can't supply, resume parsing for the bulk, and the rest learned from real applications via
+  the field cache promoting answers to suggested profile values. That adds a second write-back
+  path, so CLAUDE.md's pull-only locked decision gained an explicit Exception 2.
+- 2026-09-21 · **overlay row layout: badges grouped, label column widened** · Ext **v0.52.6**.
+  Cosmetic follow-up to the cross-site work, caught by rendering the real overlay and looking
+  at it. A row carrying both a `?` and a `reused` badge broke *between* them and stranded one
+  on its own line. Badges now render inside a single nowrap `.badges` group (also replacing
+  the four-deep inline ternary chain in `rowHtml` with a readable builder). The label column
+  then went **110px → 152px** (manual rows 128 → 170, keeping the two row types aligned),
+  which fits `Notice period ? reused` on one line and drops a row of height off most long
+  questions. That space comes straight out of the value column, which ellipsises — so `.val`
+  now carries a `title` with the FULL value (the truncated text was previously unrecoverable,
+  even before this change). Width chosen by rendering 110/132/152 side by side. No behaviour
+  change: checked state and every badge condition are untouched.
+- 2026-09-21 · **learned answers now reuse across ATS sites** · Ext **v0.52.4**. The cache
+  keyed every answer by `hash(host|label)`, so the same question on a different ATS was a
+  clean miss — reuse only ever worked within one host, which is not what "remember my
+  answers" means to a user filling ten applications across five sites. Each answer is now
+  written twice: the host-scoped row, plus a host-agnostic twin `contextHash("", label)`.
+  Reads try the host row FIRST (`lookup()` returns `{value, scope}`), so a deliberate
+  site-specific answer is never overridden by the general one; only a miss falls through to
+  the twin. A carried-over hit sets `item.cachedCrossSite` → a "reused" badge in the review
+  overlay, and deliberately does NOT promote a low-confidence DOM match to checked, since
+  two soft signals don't make a hard one. Not retroactive: a hash is one-way, so answers
+  learned before this build have no twin until the user confirms them once more.
+- 2026-09-21 · **learned-answer cache: shared store + the sync that was never called** ·
+  Ext **v0.52.3**. Phase 4.1 built `JAF.sync.syncFieldCache` and the server endpoint, but
+  **nothing in the shipped extension ever called it** — the only sync call sites use
+  `pullAll`, so learned answers never left the device. Two defects behind that: (1) the
+  cache stored to **IndexedDB from a content script**, which is the *page's* origin — so
+  answers learned on greenhouse.io were invisible to every other ATS host *and* to the
+  drawer (an extension-origin iframe) that has to push them; (2) the drawer's engine
+  didn't load `field-cache.js` at all, so the documented `syncNow(…, cache)` path would
+  have silently no-opped on its `typeof cache.exportAll` guard. Fixed by moving the store
+  to a single **`chrome.storage.local`** key shared by every context (serialized
+  read-modify-write so concurrent fills don't clobber), draining the old per-origin IDB
+  rows once per host (`migrateLegacy`), loading the module in `panel/engine.ts`, and
+  calling `syncFieldCache` from `refreshMirror` on the existing 90s throttle — not
+  `syncNow`, which would re-push every resume on each drawer open. Learned answers now
+  survive a site-data clear, reach the server, and come back on the user's other devices.
 - 2026-09-21 · **ops — document the rebuilt production accurately (no backup, no monitoring)** ·
   Doc-only pass after the 2026-09-17 rebuild. `DEPLOY.md` §5 had claimed a "cron nightly"
   database backup; verified on the box that **no backup exists** (both crontabs empty, no timer,
@@ -861,7 +2248,8 @@ focused Claude Code session.
   failed deploy (`DEPLOY_ENABLED` is snapshotted at run *creation* so flipping it cannot rescue a
   queued run; never delete a branch the production checkout sits on; fail2ban bans your whole
   public IP on failed root password attempts, recover via the KVM console). Windows specifics
-  captured too (no `ssh-copy-id` in PowerShell, its pipe appends `` and corrupts
+  captured too (no `ssh-copy-id` in PowerShell, its pipe appends `
+` and corrupts
   `authorized_keys`, and Git Bash MSYS rewrites `/root/...` into `C:/Program Files/Git/root/...`).
   `MIGRATION.md` §7 marked as history with a pointer to DEPLOY.md §7.1 / §10.4, and its
   aftermath checklist corrected. No code, no version bump.

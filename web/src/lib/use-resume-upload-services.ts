@@ -5,6 +5,7 @@ import { track } from "@/lib/analytics";
 import { parseResume, parseResumeWithAi } from "@/lib/resume-parse";
 import { getAiParseConsent } from "@/lib/ai-parse-consent";
 import type { ResumeUploadServices, SaveInput, SaveResult } from "@kiwiply/ui";
+import { notifyExtension } from "@/lib/extension-signal";
 
 /**
  * Web wiring for the (now portable) ResumeUpload form — the exact persistence + side effects
@@ -37,6 +38,7 @@ export function useResumeUploadServices(): ResumeUploadServices {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) return { ok: false, error: data.error ?? "Couldn't save your changes." };
+          notifyExtension("changed");
           return { ok: true, id: input.id, label: input.label };
         }
         const form = new FormData();
@@ -45,16 +47,24 @@ export function useResumeUploadServices(): ResumeUploadServices {
         form.append("parsedJson", input.parsedJson);
         const res = await fetch("/api/resumes/upload", { method: "POST", body: form });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 402) {
+          // The resume cap. On Free it's the one save failure with a next step, so it gets a link to
+          // Pro; on Pro (capped at 25 since 15.5) the next step is archiving one, which the message says.
+          if (data.plan === "PRO") return { ok: false, error: data.error ?? "You've reached the Pro resume limit — archive one to add another." };
+          return { ok: false, error: data.error ?? "You've reached the Free resume limit.", cta: { href: "/#pricing", label: "See Pro" } };
+        }
         if (!res.ok) return { ok: false, error: data.error ?? "Couldn't save the resume." };
+        notifyExtension("changed");
         return { ok: true, id: data.id, label: data.label ?? input.label };
       },
       onSetDefault: async (id: number) => {
         // Promote the newly-created resume to the user's default (unsets the others server-side).
-        await fetch(`/api/resumes/${id}`, {
+        const res = await fetch(`/api/resumes/${id}`, {
           method: "PUT",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ defaultResume: true }),
         });
+        if (res.ok) notifyExtension("changed");
       },
       onUpdateProfile: async (merged) => {
         const res = await fetch("/api/profile", {
@@ -62,7 +72,10 @@ export function useResumeUploadServices(): ResumeUploadServices {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ payload: JSON.stringify(merged) }),
         });
-        if (res.ok) return { ok: true };
+        if (res.ok) {
+          notifyExtension("changed");
+          return { ok: true };
+        }
         const d = await res.json().catch(() => ({}));
         return { ok: false, error: d.error };
       },

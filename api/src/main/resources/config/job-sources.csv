@@ -1,0 +1,219 @@
+# Phase 13.6a seed list: public job boards on Greenhouse, Lever and Ashby, each checked live
+# (answers, has open jobs, company name confirmed) on 2026-09-22. ats,board_token,company_name
+ashby,1password,1Password
+ashby,acorns,Acorns
+ashby,airbyte,Airbyte
+ashby,airwallex,Airwallex
+ashby,alchemy,Alchemy
+ashby,angi,Angi
+ashby,anyscale,Anyscale
+ashby,applied,Applied Intuition
+ashby,away,Away
+ashby,baseten,Baseten
+ashby,benchling,Benchling
+ashby,brainly,Brainly
+ashby,character,Character.AI
+ashby,circle,Circle
+ashby,clerk,Clerk
+ashby,clickhouse,ClickHouse
+ashby,clickup,ClickUp
+ashby,cognition,Cognition
+ashby,cohere,Cohere
+ashby,confluent,Confluent
+ashby,cursor,Cursor
+ashby,dave,Dave
+ashby,decagon,Decagon
+ashby,docker,Docker
+ashby,duffel,Duffel
+ashby,elevenlabs,ElevenLabs
+ashby,expensify,Expensify
+ashby,formenergy,Form Energy
+ashby,gorgias,Gorgias
+ashby,harvey,Harvey
+ashby,helion,Helion
+ashby,hex,Hex
+ashby,hopper,Hopper
+ashby,insitro,insitro
+ashby,kayak,KAYAK
+ashby,linear,Linear
+ashby,miro,Miro
+ashby,modal,Modal
+ashby,nerdwallet,NerdWallet
+ashby,notion,Notion
+ashby,openai,OpenAI
+ashby,patreon,Patreon
+ashby,perplexity,Perplexity
+ashby,persona,Persona
+ashby,pinecone,Pinecone
+ashby,plaid,Plaid
+ashby,poolside,poolside
+ashby,poshmark,Poshmark
+ashby,posthog,PostHog
+ashby,quora,Quora
+ashby,railway,Railway
+ashby,ramp,Ramp
+ashby,render,Render
+ashby,replit,Replit
+ashby,resend,Resend
+ashby,saronic,Saronic
+ashby,sentry,Sentry
+ashby,sierra,Sierra
+ashby,skydio,Skydio
+ashby,sonder,Sonder
+ashby,strava,Strava
+ashby,substack,Substack
+ashby,supabase,Supabase
+ashby,supercell,Supercell
+ashby,temporal,Temporal
+ashby,thumbtack,Thumbtack
+ashby,tldraw,tldraw
+ashby,vanta,Vanta
+ashby,warp,Warp
+ashby,watershed,Watershed
+ashby,wealthsimple,Wealthsimple
+ashby,weaviate,Weaviate
+ashby,whoop,WHOOP
+ashby,zapier,Zapier
+ashby,zed,Zed
+greenhouse,abnormalsecurity,Abnormal
+greenhouse,adyen,Adyen
+greenhouse,affirm,Affirm
+greenhouse,airbnb,Airbnb
+greenhouse,airtable,Airtable
+greenhouse,amplitude,Amplitude
+greenhouse,andurilindustries,Anduril Industries
+greenhouse,anthropic,Anthropic
+greenhouse,asana,Asana
+greenhouse,astranis,Astranis
+greenhouse,attentive,Attentive
+greenhouse,betterment,Betterment
+greenhouse,billcom,BILL
+greenhouse,bird,Bird
+greenhouse,blend,Blend
+greenhouse,braze,Braze
+greenhouse,brex,Brex
+greenhouse,buildkite,Buildkite
+greenhouse,bungie,Bungie
+greenhouse,calendly,Calendly
+greenhouse,calm,Calm.com
+greenhouse,cameo,Cameo
+greenhouse,carta,Carta
+greenhouse,chime,Chime Financial
+greenhouse,circleci,CircleCI
+greenhouse,cloudflare,Cloudflare
+greenhouse,cloverhealth,Clover Health
+greenhouse,cockroachlabs,Cockroach Labs
+greenhouse,coinbase,Coinbase
+greenhouse,consensys,Consensys
+greenhouse,coursera,Coursera
+greenhouse,current,Current
+greenhouse,databricks,Databricks
+greenhouse,datadog,Datadog
+greenhouse,descript,Descript
+greenhouse,discord,Discord
+greenhouse,doordashusa,DoorDash USA
+greenhouse,doximity,Doximity
+greenhouse,dropbox,Dropbox
+greenhouse,duolingo,Duolingo
+greenhouse,elastic,Elastic
+greenhouse,epicgames,Epic Games
+greenhouse,everlane,Everlane
+greenhouse,faire,Faire
+greenhouse,figma,Figma
+greenhouse,figure,Figure Lending
+greenhouse,intercom,Fin
+greenhouse,fireblocks,Fireblocks
+greenhouse,fivetran,Fivetran
+greenhouse,flatironhealth,Flatiron Health
+greenhouse,flexport,Flexport
+greenhouse,gemini,Gemini
+greenhouse,ginkgobioworks,Ginkgo Bioworks
+greenhouse,gitlab,GitLab
+greenhouse,glossier,Glossier
+greenhouse,grafanalabs,Grafana Labs
+greenhouse,gusto,Gusto
+greenhouse,honeycomb,Honeycomb.io
+greenhouse,instacart,Instacart
+greenhouse,iterable,Iterable
+greenhouse,khanacademy,Khan Academy
+greenhouse,klaviyo,Klaviyo
+greenhouse,labelbox,Labelbox
+greenhouse,lattice,Lattice
+greenhouse,launchdarkly,LaunchDarkly
+greenhouse,lucidmotors,Lucid Motors
+greenhouse,lyft,Lyft
+greenhouse,masterclass,MasterClass
+greenhouse,medium,Medium
+greenhouse,mercury,Mercury
+greenhouse,mixpanel,Mixpanel
+greenhouse,modernhealth,Modern Health
+greenhouse,mongodb,MongoDB
+greenhouse,monzo,Monzo
+greenhouse,motional,Motional
+greenhouse,n26,N26
+greenhouse,tripactions,Navan
+greenhouse,netlify,Netlify
+greenhouse,newrelic,New Relic
+greenhouse,nextdoor,Nextdoor
+greenhouse,nuro,Nuro
+greenhouse,okta,Okta
+greenhouse,omadahealth,Omada Health
+greenhouse,oscar,Oscar Health
+greenhouse,outschool,Outschool
+greenhouse,pagerduty,PagerDuty
+greenhouse,peloton,Peloton
+greenhouse,pinterest,Pinterest
+greenhouse,planetscale,PlanetScale
+greenhouse,reddit,Reddit
+greenhouse,redwoodmaterials,Redwood Materials
+greenhouse,relativity,Relativity Space
+greenhouse,riotgames,Riot Games
+greenhouse,ripple,Ripple
+greenhouse,robinhood,Robinhood
+greenhouse,roblox,Roblox
+greenhouse,rocketlab,Rocket Lab Corporation
+greenhouse,samsara,Samsara
+greenhouse,scaleai,Scale AI
+greenhouse,scopely,Scopely
+greenhouse,smartsheet,Smartsheet
+greenhouse,snorkelai,Snorkel AI
+greenhouse,sofi,SoFi
+greenhouse,spacex,SpaceX
+greenhouse,xai,SpaceXAI
+greenhouse,squarespace,Squarespace
+greenhouse,starburst,Starburst
+greenhouse,stitchfix,Stitch Fix
+greenhouse,stockx,StockX
+greenhouse,stripe,Stripe
+greenhouse,sweetgreen,sweetgreen
+greenhouse,tailscale,Tailscale
+greenhouse,talkspace,Talkspace
+greenhouse,taskrabbit,Taskrabbit
+greenhouse,toast,Toast
+greenhouse,togetherai,Together AI
+greenhouse,tripadvisor,Tripadvisor
+greenhouse,twilio,Twilio
+greenhouse,twistbioscience,Twist Bioscience
+greenhouse,twitch,Twitch
+greenhouse,udemy,Udemy
+greenhouse,upstart,Upstart
+greenhouse,vercel,Vercel
+greenhouse,waymo,Waymo
+greenhouse,webflow,Webflow
+greenhouse,wizinc,Wiz
+greenhouse,zocdoc,Zocdoc
+greenhouse,oura,Ōura
+lever,fly,Fly.io
+lever,gopuff,Gopuff
+lever,kabam,Kabam
+lever,lyrahealth,Lyra Health
+lever,matchgroup,Match Group
+lever,neon,Neon
+lever,outreach,Outreach
+lever,palantir,Palantir
+lever,ro,Ro
+lever,rover,Rover
+lever,shieldai,Shield AI
+lever,spotify,Spotify
+lever,veeva,Veeva
+lever,wealthfront,Wealthfront

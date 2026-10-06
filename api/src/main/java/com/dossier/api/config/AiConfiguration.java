@@ -2,6 +2,8 @@ package com.dossier.api.config;
 
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
+import com.dossier.api.service.ai.AiResult;
+import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.service.ai.GeminiAiProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,12 +48,17 @@ public class AiConfiguration {
         }
 
         @Override
-        public String draft(String question, String context) {
+        public String defaultModel() {
+            return "";
+        }
+
+        @Override
+        public AiResult generate(AiTask task, String model, String question, String context) {
             throw new AiProviderException("No AI provider configured");
         }
 
         @Override
-        public String parseResume(String text, String fileBase64, String fileMimeType) {
+        public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) {
             throw new AiProviderException("No AI provider configured");
         }
     }

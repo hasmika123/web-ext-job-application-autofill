@@ -110,6 +110,27 @@ function makeAssistWindow(html) {
   const none = await w2.JAF.assist.run([], {});
   ok("run: disabled AI → silent (no info note for picks alone)", none.length === 0);
 
+  /* --------------------------- Pro gate (12.4): a different nudge -------- */
+  // Server AI is Pro. A refusal must not read as "AI is off" — the user's next step is an
+  // upgrade or their own key, not a settings toggle they've already flipped.
+  const w3 = makeAssistWindow(`<body><form>
+      <label for="t1">Why do you want to work here?</label>
+      <textarea id="t1"></textarea>
+    </form></body>`);
+  w3.chrome.runtime.sendMessage = (msg, cb) => cb({ proRequired: true, error: "Kiwiply AI is a Pro feature — upgrade, or add your own key." });
+  const gated = await w3.JAF.assist.run([], {});
+  ok("run: PRO_REQUIRED → one info note, no drafted items", gated.length === 1 && gated[0].kind === "info");
+  ok("run: the note names the upgrade AND the BYO-key escape hatch", /Pro feature/.test(gated[0].value) && /own API key/.test(gated[0].value));
+  ok("run: the note does NOT tell them to turn AI on", !/Turn on AI drafting/.test(gated[0].value));
+
+  const w4 = makeAssistWindow(`<body><form>
+      <label for="t1">Why do you want to work here?</label>
+      <textarea id="t1"></textarea>
+    </form></body>`);
+  w4.chrome.runtime.sendMessage = (msg, cb) => cb({ disabled: true });
+  const off = await w4.JAF.assist.run([], {});
+  ok("run: AI merely off still gets the settings nudge", off.length === 1 && /Turn on AI drafting/.test(off[0].value));
+
   report();
 })().catch((e) => { fail++; fails.push("async run threw -> " + (e && e.message)); report(); });
 

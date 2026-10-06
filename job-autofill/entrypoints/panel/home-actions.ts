@@ -98,6 +98,28 @@ export async function readAccount(): Promise<Account> {
   return { connected: !!(tok && tok.access), who: tok.username || "your account" };
 }
 
+/**
+ * Push the answers the filler learned from the user's corrections up to the server and merge
+ * the server's set back down, so they follow the user to their other devices and to ATS hosts
+ * they haven't filled on yet. Deliberately NOT part of `syncNow` here: this call site gates
+ * `pushAll` behind the one-time resume migration, and syncNow would re-push every resume on
+ * every drawer open. Best-effort — a field-cache failure must not break the mirror refresh.
+ *
+ * The profile id must match the one the filler writes under (`values.email`, see
+ * content/filler.js), or `exportAll` returns nothing.
+ */
+async function syncLearnedAnswers(provider: any): Promise<void> {
+  const cache = JAF().fieldCache;
+  if (!cache) return;
+  try {
+    const bio = await JAF().storage.getBio();
+    cache.setProfile((bio && bio.email) || "default");
+    await JAF().sync.syncFieldCache(provider, cache);
+  } catch {
+    /* offline / server without the endpoint → keep the local answers */
+  }
+}
+
 /** Read-only mirror: pull the latest profile + resumes (best-effort, throttled). */
 export async function refreshMirror(): Promise<void> {
   const S = JAF().storage;
@@ -118,12 +140,16 @@ export async function refreshMirror(): Promise<void> {
       settings.__migratedResumes = true;
       await S.saveSettings(settings);
     }
-    const now = Date.now();
-    if (settings.__lastPull && now - settings.__lastPull < 90 * 1000) return; // throttle
-    await JAF().sync.pullAll(provider, S);
-    const s2 = await S.getSettings();
-    s2.__lastPull = now;
-    await S.saveSettings(s2);
+    // 11.3: ask instead of guessing. The old 90 s throttle skipped refreshes that were
+    // needed and allowed ones that weren't; `checkAndPull` GETs the server's profile version
+    // and pulls only when it differs from the one we hold. It stamps __profileVersion +
+    // __lastPull itself, so there is nothing to save here.
+    await JAF().sync.checkAndPull(provider, S, settings);
+    // Learned answers are a separate, local-first store — a push+merge, not part of the
+    // profile version — so it runs whether or not the mirror moved. It used to sit behind
+    // the same throttle, so it now runs on every drawer open rather than at most once per
+    // 90 s: a user-initiated, best-effort round-trip, and the answers land sooner.
+    await syncLearnedAnswers(provider);
   } catch {
     /* offline / not connected → use the cached mirror */
   }
@@ -207,6 +233,89 @@ export async function capturePage(): Promise<PageCapture> {
   if (!capResp || !capResp.capture) return { ok: false, error: "Couldn't read job details on this page." };
   const hasForm = framesHaveForm(await scanFrames(tab.id));
   return { ok: true, capture: capResp.capture, signal: !!capResp.signal, hasForm };
+}
+
+/**
+ * Phase 13.2 — which of my resumes fits the job on this page? Pro only, and only once the user has
+ * turned on Kiwiply AI with consent in Options (the scores come from the same server AI). Runs on
+ * a real job description: the generic page-summary fallback is too thin to score, so it's skipped.
+ * The server caches per (posting × resumes), so reopening the drawer on the same job is free.
+ * Resolves to null whenever there is nothing worth showing; never throws.
+ */
+export type ResumeFit = { localId: string; label: string; score: number; why: string };
+/** The job on this page, as the fit checks need it (13.3 reuses 13.2's capture — no second read). */
+export type PageJob = { jobDescription: string; role: string; company: string };
+/** `scores` = 13.2's match % per LOCAL resume id — the one number the drawer shows for a resume. */
+export type ResumeFitResult = { best: ResumeFit | null; job: PageJob; scores: Record<string, number> } | { optIn: true } | null;
+
+export async function matchResumesForPage(resumes: any[]): Promise<ResumeFitResult> {
+  try {
+    const settings = await JAF().storage.getSettings();
+    if (!settings.apiBaseUrl || settings.plan !== "PRO") return null;
+    if (!resumes.some((r) => r.serverId != null)) return null;
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || tab.id == null || /^chrome:|^edge:|^about:/.test(tab.url || "")) return null;
+    await ensureInjected(tab.id);
+    const resp: any = await sendTo(tab.id, { type: "JAF_CAPTURE_JOB" }, 0).catch(() => null);
+    const cap = resp && resp.capture;
+    const jd = String((cap && cap.jobDescription) || "");
+    if (!cap || (cap.sources && cap.sources.jobDescription === "generic") || jd.length < 200) return null;
+    if (!(settings.serverAiEnabled && settings.serverAiConsent)) return { optIn: true };
+
+    const provider = JAF().sync.providerFromSettings(settings, JAF().tracking.chromeTokenStore());
+    if (!(await provider.isAuthenticated())) return null;
+    const job: PageJob = { jobDescription: jd, role: String(cap.role || ""), company: String(cap.company || "") };
+    let best: ResumeFit | null = null;
+    const scores: Record<string, number> = {};
+    try {
+      const r: any = await provider.resumeMatch({ ...job, consent: true });
+      const localOf = (serverId: any) => resumes.find((x) => x.serverId != null && String(x.serverId) === String(serverId));
+      for (const s of (r && r.scores) || []) {
+        const l = localOf(s.resumeId);
+        if (l) scores[l.id] = Number(s.score) || 0;
+      }
+      const b = r && r.best;
+      const local = b && localOf(b.resumeId);
+      if (local) best = { localId: local.id, label: local.label || b.label, score: Number(b.score) || 0, why: String(b.why || "") };
+    } catch {
+      /* no best-match line — the job-fit check can still run */
+    }
+    return { best, job, scores };
+  } catch {
+    return null; // offline, Free after all (402), provider down — the picker just works as before
+  }
+}
+
+/**
+ * Phase 13.3 — the job-fit report for one resume against the job on this page: match %, what it
+ * covers, what it's missing, and red flags. Run on request (it's the heavier call); cached by the
+ * server per (posting × resume × the profile answers red flags read), so asking again is free.
+ */
+export type JobFitData = { score: number; summary: string; matched: string[]; missing: string[]; redFlags: string[] };
+export type JobFitOutcome = { fit: JobFitData } | { message: string };
+
+export async function checkJobFit(resume: any, job: PageJob): Promise<JobFitOutcome> {
+  if (!resume || resume.serverId == null) return { message: "Save this resume to your account first — then Kiwiply can check it." };
+  try {
+    const settings = await JAF().storage.getSettings();
+    const provider = JAF().sync.providerFromSettings(settings, JAF().tracking.chromeTokenStore());
+    const r: any = await provider.jobFit({ resumeId: resume.serverId, ...job, consent: true });
+    if (r && r.fit) {
+      const f = r.fit;
+      const list = (v: any) => (Array.isArray(v) ? v.map(String) : []);
+      return { fit: { score: Number(f.score) || 0, summary: String(f.summary || ""), matched: list(f.matched), missing: list(f.missing), redFlags: list(f.redFlags) } };
+    }
+    if (r && r.quotaExceeded) {
+      const d = r.resetsAt ? new Date(r.resetsAt) : null;
+      const when = d && !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" }) : "";
+      return { message: `You've used your Kiwiply AI for now${when ? ` — it resets on ${when}` : ""}.` };
+    }
+    if (r && r.disabled) return { message: "The job-fit check is switched off right now." };
+    return { message: "Couldn't check the fit right now. Please try again." };
+  } catch (e: any) {
+    if (e && e.code === "PRO_REQUIRED") return { message: "The job-fit check is part of Pro." };
+    return { message: "Couldn't check the fit right now. Please try again." };
+  }
 }
 
 /** Push the (possibly user-edited) capture to the board as a SAVED entry. */

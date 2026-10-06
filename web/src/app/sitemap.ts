@@ -17,9 +17,10 @@ import { SITE_URL } from "@/lib/site";
  * actually changes.
  */
 const PAGES: Array<{ path: string; lastModified: string; priority: number }> = [
-  { path: "/", lastModified: "2026-07-01", priority: 1 },
-  { path: "/privacy", lastModified: "2026-09-18", priority: 0.3 },
-  { path: "/terms", lastModified: "2026-09-17", priority: 0.3 },
+  { path: "/", lastModified: "2026-10-06", priority: 1 },
+  { path: "/contact", lastModified: "2026-10-05", priority: 0.4 },
+  { path: "/privacy", lastModified: "2026-10-05", priority: 0.3 },
+  { path: "/terms", lastModified: "2026-10-05", priority: 0.3 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

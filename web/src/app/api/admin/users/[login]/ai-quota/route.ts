@@ -1,23 +1,24 @@
 import { serverApiFetch } from "@/lib/api";
 
 /**
- * Per-user AI quota override proxy (Phase 9.A2.2b): browser → Next → Spring
+ * Per-user AI override proxy (Phase 9.A2.2b): browser → Next → Spring
  * `/api/admin/users/{login}/ai-quota`. Spring enforces ROLE_ADMIN, clamps the value, and audits.
- * GET is done server-side in the detail page; this handles the client-side PUT/DELETE.
+ * Since 13.1b the override is a monthly AI budget in US cents. GET is done server-side in the
+ * detail page; this handles the client-side PUT/DELETE.
  */
 export async function PUT(request: Request, ctx: { params: Promise<{ login: string }> }) {
   const { login } = await ctx.params;
-  const body = (await request.json().catch(() => null)) as { quota?: unknown } | null;
-  const quota = body?.quota;
-  if (typeof quota !== "number" || !Number.isInteger(quota) || quota < 0) {
-    return Response.json({ error: "Quota must be a whole number ≥ 0." }, { status: 400 });
+  const body = (await request.json().catch(() => null)) as { budgetCents?: unknown } | null;
+  const budgetCents = body?.budgetCents;
+  if (typeof budgetCents !== "number" || !Number.isInteger(budgetCents) || budgetCents < 0) {
+    return Response.json({ error: "The budget must be a dollar amount of $0 or more." }, { status: 400 });
   }
 
   let res: Response;
   try {
     res = await serverApiFetch(`/api/admin/users/${encodeURIComponent(login)}/ai-quota`, {
       method: "PUT",
-      body: JSON.stringify({ quota }),
+      body: JSON.stringify({ budgetCents }),
     });
   } catch {
     return Response.json({ error: "Couldn't reach the server." }, { status: 502 });

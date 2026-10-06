@@ -40,5 +40,22 @@
     <include file="config/liquibase/changelog/20260702000000_add_application_job_meta.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260703000000_favorites_archive_default.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260703000100_add_application_salary.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260921000000_subscription.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922000000_fill_event.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922010000_profile_suggestion.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922020000_ai_call.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922030000_ai_budget_override.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922040000_resume_match.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922050000_job_fit.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922060000_resume_tailor.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922070000_job_sources.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922080000_job_matches.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922090000_secret_canary.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260922100000_inbox_connection.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260923010000_inbox_messages.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260923020000_inbox_parse.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260923030000_notifications.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261005010000_sales_inquiry.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261006010000_customer_timeline.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

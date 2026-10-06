@@ -24,8 +24,14 @@
     "name" : "ai",
     "description" : "Server-side metered AI answer drafting (opt-in)."
   }, {
+    "name" : "billing-webhook",
+    "description" : "Stripe webhook receiver. Authenticated by signature, not by session."
+  }, {
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
+  }, {
+    "name" : "billing",
+    "description" : "The current user's plan. Stripe is the source of truth; this reads our mirror of it."
   }, {
     "name" : "field-cache-sync",
     "description" : "User-scoped field-cache sync: the authenticated user's learned field answers."
@@ -1899,6 +1905,106 @@
         }
       }
     },
+    "/api/billing/webhook" : {
+      "post" : {
+        "tags" : [ "billing-webhook" ],
+        "summary" : "Stripe webhook",
+        "description" : "Receives Stripe events. Verified by signature; 400 when it doesn't match, 500 to ask Stripe to retry.",
+        "operationId" : "receive",
+        "parameters" : [ {
+          "name" : "Stripe-Signature",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/portal" : {
+      "post" : {
+        "tags" : [ "billing" ],
+        "summary" : "Open the billing portal",
+        "description" : "Creates a Stripe Billing Portal session and returns its URL.",
+        "operationId" : "portal",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/billing/checkout" : {
+      "post" : {
+        "tags" : [ "billing" ],
+        "summary" : "Start checkout",
+        "description" : "Creates a Stripe Checkout Session for the chosen plan and returns its URL.",
+        "operationId" : "checkout",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckoutRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/authorities" : {
       "get" : {
         "tags" : [ "authority-resource" ],
@@ -3413,6 +3519,29 @@
         }
       }
     },
+    "/api/profile/version" : {
+      "get" : {
+        "tags" : [ "profile-sync" ],
+        "summary" : "Get my profile version",
+        "description" : "A short fingerprint of the current user's bio + resumes. Changes whenever a pull of either would change. Never 404.",
+        "operationId" : "getProfileVersion",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProfileVersionVM"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/field-caches" : {
       "get" : {
         "tags" : [ "field-cache-sync" ],
@@ -3537,6 +3666,29 @@
             "description" : "OK"
           }
         }
+      }
+    },
+    "/api/billing/me" : {
+      "get" : {
+        "tags" : [ "billing" ],
+        "summary" : "Get my plan",
+        "description" : "Plan, status, renewal date and whether billing is configured. Free when there's no subscription.",
+        "operationId" : "myPlan",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
       }
     },
     "/api/authorities/{id}" : {
@@ -5311,6 +5463,14 @@
           }
         }
       },
+      "CheckoutRequest" : {
+        "type" : "object",
+        "properties" : {
+          "plan" : {
+            "type" : "string"
+          }
+        }
+      },
       "Authority" : {
         "type" : "object",
         "properties" : {
@@ -5489,6 +5649,44 @@
           }
         }
       },
+      "ProfileVersionVM" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "string"
+          },
+          "plan" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PlanDTO" : {
+        "type" : "object",
+        "properties" : {
+          "plan" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "currentPeriodEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cancelAtPeriodEnd" : {
+            "type" : "boolean"
+          },
+          "billingEnabled" : {
+            "type" : "boolean"
+          },
+          "hasCustomer" : {
+            "type" : "boolean"
+          },
+          "pro" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "SessionFamily" : {
         "type" : "object",
         "properties" : {
@@ -5626,6 +5824,41 @@
               "type" : "integer",
               "format" : "int64"
             }
+          },
+          "billing" : {
+            "$ref" : "#/components/schemas/Billing"
+          }
+        }
+      },
+      "Billing" : {
+        "type" : "object",
+        "properties" : {
+          "activePro" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "monthlyCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "threeMonthCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "mrr" : {
+            "type" : "number"
+          },
+          "newThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "churnedThisMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pastDue" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

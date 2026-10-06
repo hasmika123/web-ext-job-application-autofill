@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { serverApiFetch } from "@/lib/api";
+import { needsOnboarding, parseBioPayload } from "@/lib/profile-options";
+import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
 import { buttonVariants } from "@/components/ui/Button";
 import type { Application } from "@/components/ApplicationBoard";
 
@@ -69,29 +72,32 @@ function PanelCard({ children, className }: { children: React.ReactNode; classNa
 }
 
 export default async function DashboardPage() {
-  const [accountRes, appsRes, resumesRes, profileRes] = await Promise.all([
+  const [accountRes, appsRes, resumesRes, profileRes, suggestionsRes] = await Promise.all([
     serverApiFetch("/api/account"),
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile"),
+    // Phase 10.3e — answers learned while applying, awaiting the user's decision. Best-effort: a
+    // failure here just means no card, never a broken dashboard.
+    serverApiFetch("/api/profile/suggestions").catch(() => null),
   ]);
 
   const account: Account | null = accountRes.ok ? await accountRes.json().catch(() => null) : null;
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
   const resumes: unknown[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as unknown[]) : [];
+  const suggestions: Suggestion[] = suggestionsRes?.ok
+    ? ((await suggestionsRes.json().catch(() => [])) as Suggestion[])
+    : [];
 
-  let bio: Bio = {};
-  if (profileRes.ok) {
-    const dto = (await profileRes.json().catch(() => null)) as { payload?: string } | null;
-    if (dto?.payload) {
-      try {
-        const parsed = JSON.parse(dto.payload);
-        if (parsed && typeof parsed === "object") bio = parsed as Bio;
-      } catch {
-        /* empty/corrupt bio — treat as not-set */
-      }
-    }
-  }
+  // 404 = no bio yet (a brand-new account). Any other failure is NOT "no profile" — it must not
+  // bounce someone with a full profile into onboarding because the API hiccuped.
+  const bio: Bio = profileRes.ok ? parseBioPayload(await profileRes.json().catch(() => null)) : {};
+  const bioKnown = profileRes.ok || profileRes.status === 404;
+
+  // Phase 10.3b: a new user answers the few questions a resume can't, once. The dashboard is the
+  // post-login landing page, so this catches first sign-in without touching `?next=` flows
+  // (e.g. /connect) — those land where they asked to.
+  if (bioKnown && needsOnboarding(bio)) redirect("/welcome");
 
   // KPIs
   const appliedCount = applications.filter((a) => APPLIED_STATUSES.has(a.status)).length;
@@ -105,7 +111,7 @@ export default async function DashboardPage() {
   const checklist = [
     { label: "Add your contact details", hint: "Name, email, phone — the basics every form asks for", done: isTruthy(bio.firstName) && isTruthy(bio.email), href: "/profile", cta: "Add" },
     { label: "Upload a resume", hint: "Kiwiply parses it so the right details autofill", done: resumes.length > 0, href: "/resumes", cta: "Upload" },
-    { label: "Answer work-authorization questions", hint: "Speeds up Workday & Greenhouse forms", done: isTruthy(bio.authorizedToWork), href: "/profile", cta: "Add" },
+    { label: "Answer the quick questions", hint: "Work authorization, salary, notice — asked on almost every form", done: isTruthy(bio.authorizedToWork), href: "/welcome", cta: "Answer" },
   ];
   const doneCount = checklist.filter((i) => i.done).length;
   const pct = Math.round((doneCount / checklist.length) * 100);
@@ -141,6 +147,9 @@ export default async function DashboardPage() {
         <Kpi label="Response rate" value={`${responseRate}%`} note="interviews ÷ applied" />
         <Kpi label="Drafts to confirm" value={String(draftCount)} note={draftCount > 0 ? "Needs review" : "All clear"} warn={draftCount > 0} />
       </div>
+
+      {/* Learned while applying — keep or dismiss (renders nothing when there's nothing to review) */}
+      <SuggestionsCard initial={suggestions} />
 
       {/* Checklist + quick actions */}
       <div className="grid gap-[18px] lg:grid-cols-[1.4fr_1fr]">

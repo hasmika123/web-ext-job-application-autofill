@@ -87,34 +87,145 @@ public class GeminiAiProvider implements AiProvider {
     }
 
     @Override
-    public String draft(String question, String context) throws AiProviderException {
+    public String defaultModel() {
+        return model;
+    }
+
+    private String modelOr(String requested) {
+        return requested == null || requested.isBlank() ? model : requested.trim();
+    }
+
+    @Override
+    public AiResult generate(AiTask task, String model, String question, String context) throws AiProviderException {
         if (!isConfigured()) {
             throw new AiProviderException("AI provider is not configured");
         }
+        String m = modelOr(model);
+        AiResult r = toResult(send(generateBody(task, question, context), Duration.ofSeconds(30), m), m);
+        if (r.text() == null || r.text().isBlank()) {
+            throw new AiProviderException("Gemini returned an empty answer");
+        }
+        return r;
+    }
+
+    /**
+     * The request body for a short task. A draft keeps its original framing (question, then the
+     * candidate background); every other task's {@code question} IS the instruction, so it goes
+     * as-is, with any context after it.
+     */
+    ObjectNode generateBody(AiTask task, String question, String context) {
         String ctx = context == null ? "" : context;
         if (ctx.length() > MAX_CONTEXT_CHARS) {
             ctx = ctx.substring(0, MAX_CONTEXT_CHARS);
         }
-        String userText = "Question:\n" + (question == null ? "" : question) + "\n\nCandidate background:\n" + ctx + "\n\nWrite the answer:";
+        String q = question == null ? "" : question;
+        String userText = task == AiTask.DRAFT
+            ? "Question:\n" + q + "\n\nCandidate background:\n" + ctx + "\n\nWrite the answer:"
+            : ctx.isBlank() ? q : q + "\n\n" + ctx;
 
         // { systemInstruction:{parts:[{text}]}, contents:[{parts:[{text}]}],
         //   generationConfig:{ maxOutputTokens } }
         ObjectNode body = om.createObjectNode();
-        body.set("systemInstruction", textPart(SYSTEM_PROMPT));
+        body.set("systemInstruction", textPart(AiProvider.systemPromptFor(task)));
         ArrayNode contents = body.putArray("contents");
         contents.add(textPart(userText));
         ObjectNode genCfg = body.putObject("generationConfig");
         genCfg.put("maxOutputTokens", maxOutputTokens);
-
-        String answer = extractText(send(body, Duration.ofSeconds(30)));
-        if (answer == null || answer.isBlank()) {
-            throw new AiProviderException("Gemini returned an empty answer");
+        if (task == AiTask.MATCH || task == AiTask.FIT || task == AiTask.TAILOR || task == AiTask.JOBS || task == AiTask.INBOX) {
+            // 13.2 / 13.3: scores and fit reports come back as schema-checked JSON, with room for a
+            // list of entries (ten resumes, or keyword lists) rather than a short draft. 13.6b scores up
+            // to fifty postings at once, each with a reason — the same shape as MATCH, more of it.
+            genCfg.put("maxOutputTokens", Math.max(maxOutputTokens, task == AiTask.TAILOR || task == AiTask.JOBS || task == AiTask.INBOX ? 3000 : 1200));
+            genCfg.put("responseMimeType", "application/json");
+            try {
+                genCfg.set(
+                    "responseSchema",
+                    om.readTree(
+                        task == AiTask.MATCH || task == AiTask.JOBS
+                            ? MATCH_SCHEMA_JSON
+                            : task == AiTask.FIT ? FIT_SCHEMA_JSON : task == AiTask.INBOX ? INBOX_SCHEMA_JSON : TAILOR_SCHEMA_JSON
+                    )
+                );
+            } catch (Exception e) {
+                throw new AiProviderException("Bad response schema", e); // unreachable: static constants
+            }
         }
-        return answer.trim();
+        return body;
     }
 
+    /** Structured output for {@link AiTask#TAILOR}: rewrites keyed by the prompt's refs, never new entries. */
+    // spotless:off
+    private static final String TAILOR_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "summary": { "type": "STRING" },
+            "bullets": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {
+              "ref": { "type": "STRING" }, "text": { "type": "STRING" } }, "required": ["ref", "text"] } },
+            "skillsOrder": { "type": "ARRAY", "items": { "type": "STRING" } },
+            "suggestions": { "type": "ARRAY", "items": { "type": "STRING" } }
+          },
+          "required": ["bullets"]
+        }
+        """;
+    // spotless:on
+
+    /** Structured output for {@link AiTask#INBOX}: one reading per email, from a fixed list. */
+    // spotless:off
+    private static final String INBOX_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "results": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {
+              "id": { "type": "STRING" },
+              "category": { "type": "STRING", "enum": ["APPLIED", "INTERVIEW", "ASSESSMENT", "REJECTED", "OFFER", "ALERT", "OTHER"] },
+              "company": { "type": "STRING" },
+              "role": { "type": "STRING" } }, "required": ["id", "category"] } }
+          },
+          "required": ["results"]
+        }
+        """;
+    // spotless:on
+
+    /** Structured output for {@link AiTask#FIT}: one resume against one job. */
+    // spotless:off
+    private static final String FIT_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "score": { "type": "INTEGER" },
+            "summary": { "type": "STRING" },
+            "matched": { "type": "ARRAY", "items": { "type": "STRING" } },
+            "missing": { "type": "ARRAY", "items": { "type": "STRING" } },
+            "redFlags": { "type": "ARRAY", "items": { "type": "STRING" } }
+          },
+          "required": ["score", "matched", "missing", "redFlags"]
+        }
+        """;
+    // spotless:on
+
+    /** Structured output for {@link AiTask#MATCH}: one score per resume id, with a short reason. */
+    // spotless:off
+    private static final String MATCH_SCHEMA_JSON =
+        """
+        {
+          "type": "OBJECT",
+          "properties": {
+            "scores": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {
+              "id": { "type": "STRING" },
+              "score": { "type": "INTEGER" },
+              "why": { "type": "STRING" } }, "required": ["id", "score"] } }
+          },
+          "required": ["scores"]
+        }
+        """;
+    // spotless:on
+
     @Override
-    public String parseResume(String text, String fileBase64, String fileMimeType) throws AiProviderException {
+    public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) throws AiProviderException {
         if (!isConfigured()) {
             throw new AiProviderException("AI provider is not configured");
         }
@@ -150,7 +261,9 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         // Files take longer than short drafts — allow a roomier timeout.
-        String json = extractText(send(body, Duration.ofSeconds(60)));
+        String m = modelOr(model);
+        AiResult r = toResult(send(body, Duration.ofSeconds(60), m), m);
+        String json = r.text();
         if (json == null || json.isBlank()) {
             throw new AiProviderException("Gemini returned an empty parse");
         }
@@ -161,11 +274,11 @@ public class GeminiAiProvider implements AiProvider {
         } catch (Exception e) {
             throw new AiProviderException("Gemini returned unparseable JSON", e);
         }
-        return json.trim();
+        return r;
     }
 
     /** POST the request body to generateContent and return the raw response body. */
-    private String send(ObjectNode body, Duration timeout) throws AiProviderException {
+    private String send(ObjectNode body, Duration timeout, String model) throws AiProviderException {
         String url = baseUrl.replaceAll("/+$", "") + "/models/" + model + ":generateContent?key=" + apiKey;
 
         HttpResponse<String> res;
@@ -194,18 +307,36 @@ public class GeminiAiProvider implements AiProvider {
         return node;
     }
 
-    /** candidates[0].content.parts[*].text, concatenated. */
-    private String extractText(String json) {
+    /**
+     * The answer text ({@code candidates[0].content.parts[*].text}, concatenated) plus what the
+     * call consumed, from {@code usageMetadata} (13.1a — never read before, so nothing could be
+     * metered by cost). Gemini bills "thinking" tokens as output, and reports context-cache hits
+     * inside {@code promptTokenCount}, so those are split out to be priced at the cache rate.
+     * {@code modelVersion} is the model that actually answered; the requested name is the fallback.
+     */
+    AiResult toResult(String json) {
+        return toResult(json, model);
+    }
+
+    AiResult toResult(String json, String requestedModel) {
         try {
             JsonNode root = om.readTree(json);
             JsonNode parts = root.path("candidates").path(0).path("content").path("parts");
-            if (!parts.isArray()) return null;
             StringBuilder sb = new StringBuilder();
-            for (JsonNode p : parts) {
-                String t = p.path("text").asText("");
-                if (!t.isEmpty()) sb.append(t);
+            if (parts.isArray()) {
+                for (JsonNode p : parts) {
+                    // Thought summaries (thought:true) are reasoning, not the answer.
+                    if (p.path("thought").asBoolean(false)) continue;
+                    String t = p.path("text").asText("");
+                    if (!t.isEmpty()) sb.append(t);
+                }
             }
-            return sb.toString();
+            JsonNode usage = root.path("usageMetadata");
+            int prompt = usage.path("promptTokenCount").asInt(0);
+            int cached = usage.path("cachedContentTokenCount").asInt(0);
+            int output = usage.path("candidatesTokenCount").asInt(0) + usage.path("thoughtsTokenCount").asInt(0);
+            String served = root.path("modelVersion").asText("");
+            return new AiResult(sb.toString().trim(), served.isBlank() ? requestedModel : served, prompt - cached, cached, output);
         } catch (Exception e) {
             throw new AiProviderException("Could not parse Gemini response", e);
         }

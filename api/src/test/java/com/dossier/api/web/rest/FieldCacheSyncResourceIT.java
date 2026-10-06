@@ -7,14 +7,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.ProSubscriptions;
 import com.dossier.api.domain.FieldCache;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.FieldCacheRepository;
+import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -27,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Integration tests for {@link FieldCacheSyncResource} — the user-scoped field-cache
  * sync. Runs as the seeded "user"; verifies upsert, last-write-wins on the value,
  * max hitCount, and that another user's cache never leaks in.
+ *
+ * <p>Cross-device sync is Pro (Phase 12.4), so every merge test seeds a Pro subscription first;
+ * {@link #syncIsProOnly} is the test that keeps that gate honest.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -44,6 +50,14 @@ class FieldCacheSyncResourceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private SubscriptionRepository subscriptionRepository;
+
+    @BeforeEach
+    void makeUserPro() {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+    }
 
     private static Map<String, Object> entry(String key, String ctx, String value, int hits, String updatedAt) {
         return Map.of("fieldKey", key, "contextHash", ctx, "value", value, "hitCount", hits, "updatedAt", updatedAt);
@@ -138,5 +152,35 @@ class FieldCacheSyncResourceIT {
 
         // admin's row is untouched.
         assertThat(fieldCacheRepository.findById(adminEntry.getId()).orElseThrow().getValue()).isEqualTo("admin only");
+    }
+
+    // ---- the Pro gate (12.4) ------------------------------------------------
+
+    /**
+     * A Free user is refused with 402 {@code PRO_REQUIRED}. The extension treats any failure here
+     * as best-effort, so this is silent on the client — the answers it learned stay usable on the
+     * device that learned them, they just stop travelling.
+     */
+    @Test
+    @Transactional
+    void syncIsProOnly() throws Exception {
+        subscriptionRepository.deleteAll();
+        mockMvc
+            .perform(
+                post("/api/profile/field-caches/sync")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(List.of(entry("country", "abc123", "United States", 1, "2026-06-01T00:00:00Z"))))
+            )
+            .andExpect(status().isPaymentRequired())
+            .andExpect(jsonPath("$.code").value("PRO_REQUIRED"));
+    }
+
+    /** Reading back what you already own is NOT gated — a downgrade must never hide your data. */
+    @Test
+    @Transactional
+    void listStillWorksOnFree() throws Exception {
+        sync(List.of(entry("country", "abc123", "United States", 1, "2026-06-01T00:00:00Z")));
+        subscriptionRepository.deleteAll();
+        mockMvc.perform(get("/api/profile/field-caches")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
     }
 }

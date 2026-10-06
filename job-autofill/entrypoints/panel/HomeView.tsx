@@ -16,6 +16,7 @@ import {
   Skeleton,
   Check,
   IconButton,
+  JobFitReport,
   useToast,
   GearIcon as SharedGearIcon,
   LinkIcon as SharedLinkIcon,
@@ -26,7 +27,19 @@ import {
 import { BrandLogo } from "../../lib/Brand";
 import { closePanel } from "../../lib/panel-frame";
 import { extensionAlive } from "../../lib/ext-context";
-import { loadData, refreshMirror, fillPage, capturePage, readAccount, type HomeData, type Account } from "./home-actions";
+import {
+  loadData,
+  refreshMirror,
+  fillPage,
+  capturePage,
+  readAccount,
+  matchResumesForPage,
+  checkJobFit,
+  type HomeData,
+  type Account,
+  type ResumeFitResult,
+  type JobFitOutcome,
+} from "./home-actions";
 import { SaveJobDialog } from "./SaveJobDialog";
 import type { Handoff } from "./services";
 
@@ -54,6 +67,14 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   const [saveModal, setSaveModal] = useState<{ capture: any; signal: boolean } | null>(null);
   // Soft warning shown before filling a page that doesn't look like a job page.
   const [fillWarn, setFillWarn] = useState(false);
+  // 13.2 (Pro): which resume fits the job on this page — null until known, or when there's nothing to say.
+  const [fit, setFit] = useState<ResumeFitResult>(null);
+  // 13.3 (Pro): the job-fit report for the selected resume — run on request, reset when it changes.
+  const [jobFit, setJobFit] = useState<JobFitOutcome | null>(null);
+  const [jobFitBusy, setJobFitBusy] = useState(false);
+  useEffect(() => {
+    setJobFit(null);
+  }, [selectedId]);
 
   const toast = useToast();
   const activeTab = useRef<number | null>(null);
@@ -75,6 +96,12 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
       if (area === "local" && changes.trackingAuth) readAccount().then(setAccount);
     };
     chrome.storage.onChanged.addListener(onChange);
+    // The background re-pulled the mirror because the web app signalled a change (11.1) —
+    // repaint from the fresh store so a resume saved on kiwiply.com appears here at once.
+    const onMirror = (msg: { type?: string }) => {
+      if (msg && msg.type === "KIWIPLY_MIRROR_UPDATED") loadData().then(setData);
+    };
+    chrome.runtime.onMessage.addListener(onMirror);
     (async () => {
       await refreshMirror();
       const d = await loadData();
@@ -89,12 +116,19 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
         const preferred = pickable.find((r) => r.defaultResume) ?? pickable[0];
         if (preferred) setSelectedId(preferred.id);
       }
+      // After the picker is ready, so a slow score never delays filling. Never auto-selects:
+      // it suggests, and the user decides.
+      matchResumesForPage(pickable).then(setFit);
     })();
-    return () => chrome.storage.onChanged.removeListener(onChange);
+    return () => {
+      chrome.storage.onChanged.removeListener(onChange);
+      chrome.runtime.onMessage.removeListener(onMirror);
+    };
   }, []);
 
   const pickable = data?.resumes ?? [];
   const selectedResume = pickable.find((r) => r.id === selectedId) ?? null;
+  const bestFit = fit && "best" in fit ? fit.best : null;
   const loaded = data !== null;
   const firstName = (data?.bio?.firstName as string) || "";
 
@@ -242,6 +276,66 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
               ))
             )}
           </Select>
+          {bestFit && (
+            <div className="flex items-center gap-2 rounded-[var(--radius)] bg-accent-soft px-3 py-2 text-[12.5px]" title={bestFit.why}>
+              <span className="min-w-0 flex-1 truncate text-ink">
+                {bestFit.localId === selectedId ? (
+                  <>
+                    <b>Best match for this job</b> · {bestFit.score}%
+                  </>
+                ) : (
+                  <>
+                    Best match: <b>{truncateLabel(bestFit.label, 28)}</b> · {bestFit.score}%
+                  </>
+                )}
+              </span>
+              {bestFit.localId !== selectedId && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(bestFit.localId)}
+                  className="flex-none rounded-full px-2 py-0.5 text-[12px] font-bold text-accent-deep hover:underline focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  Use
+                </button>
+              )}
+            </div>
+          )}
+          {fit && "job" in fit && selectedResume && (
+            <div className="rounded-[var(--radius)] border border-line bg-paper p-3">
+              {jobFit && "fit" in jobFit ? (
+                // One number per resume: the ranking's score when there is one (see JobFitReport).
+                <JobFitReport fit={{ ...jobFit.fit, score: fit.scores[selectedResume.id] ?? jobFit.fit.score }} />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink-soft">
+                    {jobFit && "message" in jobFit ? jobFit.message : "Missing keywords and red flags for this job, for the resume above."}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={jobFitBusy}
+                    onClick={async () => {
+                      if (!("job" in fit)) return;
+                      setJobFitBusy(true);
+                      setJobFit(await checkJobFit(selectedResume, fit.job));
+                      setJobFitBusy(false);
+                    }}
+                  >
+                    {jobFitBusy ? <Spinner className="h-3.5 w-3.5" /> : "Check fit"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+          {fit && "optIn" in fit && (
+            <p className="text-[12px] leading-snug text-muted">
+              Turn on Kiwiply AI in{" "}
+              <button type="button" onClick={() => chrome.runtime.openOptionsPage()} className="font-semibold text-accent-deep hover:underline">
+                Options
+              </button>{" "}
+              to see which resume fits this job.
+            </p>
+          )}
           <div className="flex min-h-[30px] items-center gap-2">
             {selectedResume ? (
               <>

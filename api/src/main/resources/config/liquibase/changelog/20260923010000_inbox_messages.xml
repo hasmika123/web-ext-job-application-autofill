@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 14.3 - what the inbox poller reads.
+
+        `inbox_folder_state` is where each folder's sync stands: the folder's UIDVALIDITY and the
+        highest UID already read. A changed UIDVALIDITY means the server renumbered the folder, so
+        it is read again from the backfill window (dedup keeps that from doubling anything).
+
+        `inbox_message` is one message: headers for every message (sender, recipients, subject,
+        date, Message-ID, In-Reply-To) and body text ONLY for job mail - from a hiring system, about
+        a tracked application, or with a hiring subject (user decision 2026-09-22). Never
+        attachments. `dedup_key` = SHA-256 of the Message-ID (or folder + UIDVALIDITY + UID when it
+        has none), so the same message in Inbox and Sent is kept once. Deleted on disconnect and
+        with the account; 12-month expiry arrives in 14.7. Additive.
+    -->
+    <changeSet id="20260923010000-1" author="dossier">
+        <createTable tableName="inbox_folder_state">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="folder" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uid_validity" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_uid" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="inbox_folder_state" columnNames="user_id, folder" constraintName="ux_inbox_folder_state"/>
+        <addForeignKeyConstraint
+            baseTableName="inbox_folder_state"
+            baseColumnNames="user_id"
+            constraintName="fk_inbox_folder_state_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <createTable tableName="inbox_message">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="folder" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="direction" type="varchar(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uid" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="dedup_key" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message_id" type="varchar(500)"/>
+            <column name="in_reply_to" type="varchar(500)"/>
+            <column name="from_address" type="varchar(254)"/>
+            <column name="from_name" type="varchar(200)"/>
+            <column name="to_addresses" type="varchar(2000)"/>
+            <column name="subject" type="varchar(500)"/>
+            <column name="sent_at" type="timestamp"/>
+            <column name="job_mail" type="boolean" valueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body_text" type="${clobType}"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="inbox_message" columnNames="user_id, dedup_key" constraintName="ux_inbox_message_dedup"/>
+        <createIndex tableName="inbox_message" indexName="ix_inbox_message_user_sent">
+            <column name="user_id"/>
+            <column name="sent_at"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="inbox_message"
+            baseColumnNames="user_id"
+            constraintName="fk_inbox_message_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,332 @@
+package com.dossier.api.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
+import com.dossier.api.domain.AiQuotaOverride;
+import com.dossier.api.domain.Subscription;
+import com.dossier.api.repository.AiCallRepository;
+import com.dossier.api.repository.AiQuotaOverrideRepository;
+import com.dossier.api.repository.SubscriptionRepository;
+import com.dossier.api.service.AiBudgetService.Decision;
+import com.dossier.api.service.AiBudgetService.Verdict;
+import com.dossier.api.service.ai.AiPolicy;
+import com.dossier.api.service.ai.AiProvider;
+import com.dossier.api.service.ai.AiTask;
+import com.dossier.api.service.billing.StripeProperties;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+/**
+ * The spending rules (Phase 13.1b), one decision per call: the kill switch, the Pro gate, the Free
+ * parse count, the cost budget with its soft cap and economy model, and the admin override that
+ * outranks the plan. Mocks only — no DB, no provider.
+ */
+class AiBudgetServiceTest {
+
+    private static final String DEFAULT_MODEL = "gemini-2.5-flash-lite";
+    private static final long FIVE_DOLLARS = 5_000_000L;
+    private static final int FREE_PARSES = 3;
+
+    private AiPolicy policy;
+    private AiProvider provider;
+    private AiQuotaOverrideRepository overrides;
+    private EntitlementService entitlement;
+    private AiCallRepository calls;
+    private AiMeteringService metering;
+    private SubscriptionRepository subscriptions;
+    private StripeProperties stripe;
+    private AiBudgetService service;
+
+    @BeforeEach
+    void setUp() {
+        policy = new AiPolicy(); // soft cap 80 %, no economy model, nothing disabled
+        policy.setProMonthlyBudgetUsd(5.0); // round numbers for the percentage tests below
+        provider = Mockito.mock(AiProvider.class);
+        when(provider.defaultModel()).thenReturn(DEFAULT_MODEL);
+        overrides = Mockito.mock(AiQuotaOverrideRepository.class); // no override by default
+        entitlement = Mockito.mock(EntitlementService.class);
+        calls = Mockito.mock(AiCallRepository.class);
+        metering = Mockito.mock(AiMeteringService.class);
+        subscriptions = Mockito.mock(SubscriptionRepository.class); // no row: the calendar-month fallback
+        stripe = new StripeProperties();
+        stripe.setPriceMonthly("price_month");
+        stripe.setPrice3mo("price_3mo");
+        service = new AiBudgetService(policy, provider, overrides, entitlement, calls, metering, subscriptions, stripe, FREE_PARSES);
+    }
+
+    private void pro() {
+        when(entitlement.isPro("u")).thenReturn(true);
+    }
+
+    private void spent(long micros) {
+        when(calls.costSince(eq("u"), any(Instant.class))).thenReturn(micros);
+    }
+
+    private void override(int cents) {
+        AiQuotaOverride o = new AiQuotaOverride();
+        o.setLogin("u");
+        o.setMonthlyBudgetCents(cents);
+        when(overrides.findById("u")).thenReturn(Optional.of(o));
+    }
+
+    // ---- who may use it at all ----------------------------------------------------------------
+
+    @Test
+    void aFreeUserNeedsProForEverythingButParsing() {
+        for (AiTask t : new AiTask[] { AiTask.DRAFT, AiTask.PICK, AiTask.MAP, AiTask.ENRICH }) {
+            assertThat(service.decide("u", t).verdict()).isEqualTo(Verdict.PRO_REQUIRED);
+        }
+        assertThat(service.decide("u", AiTask.PARSE).verdict()).isEqualTo(Verdict.OK);
+    }
+
+    @Test
+    void freeParsesAreCountedNotBudgeted() {
+        when(metering.usedThisMonth("u")).thenReturn(FREE_PARSES - 1);
+        Decision ok = service.decide("u", AiTask.PARSE);
+        assertThat(ok.verdict()).isEqualTo(Verdict.OK);
+        assertThat(ok.budgeted()).isFalse();
+        assertThat(ok.used()).isEqualTo(FREE_PARSES - 1);
+        assertThat(ok.limit()).isEqualTo(FREE_PARSES);
+
+        when(metering.usedThisMonth("u")).thenReturn(FREE_PARSES);
+        assertThat(service.decide("u", AiTask.PARSE).verdict()).isEqualTo(Verdict.EXHAUSTED);
+    }
+
+    @Test
+    void theKillSwitchStopsATaskForEveryone() {
+        pro();
+        policy.setDisabledTasks(Set.of(" Enrich ", "pick"));
+        assertThat(service.decide("u", AiTask.ENRICH).verdict()).isEqualTo(Verdict.TASK_DISABLED);
+        assertThat(service.decide("u", AiTask.PICK).verdict()).isEqualTo(Verdict.TASK_DISABLED);
+        assertThat(service.decide("u", AiTask.DRAFT).verdict()).isEqualTo(Verdict.OK);
+        // …including the free exception, and a Free user doesn't get "upgrade" for a switched-off feature.
+        policy.setDisabledTasks(Set.of("parse", "draft"));
+        when(entitlement.isPro("u")).thenReturn(false);
+        assertThat(service.decide("u", AiTask.PARSE).verdict()).isEqualTo(Verdict.TASK_DISABLED);
+        assertThat(service.decide("u", AiTask.DRAFT).verdict()).isEqualTo(Verdict.TASK_DISABLED);
+    }
+
+    // ---- the Pro budget ---------------------------------------------------------------------
+
+    @Test
+    void proIsMeteredAsAPercentOfTheBudget() {
+        pro();
+        spent(FIVE_DOLLARS / 4);
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.OK);
+        assertThat(d.budgeted()).isTrue();
+        assertThat(d.used()).isEqualTo(25);
+        assertThat(d.limit()).isEqualTo(100);
+        assertThat(d.model()).isEqualTo(DEFAULT_MODEL);
+        assertThat(d.economy()).isFalse();
+    }
+
+    @Test
+    void eachTaskRunsOnItsRoutedModel() {
+        pro();
+        policy.getModels().put("draft", "gemini-2.5-flash");
+        policy.getModels().put("map", "  ");
+        assertThat(service.decide("u", AiTask.DRAFT).model()).isEqualTo("gemini-2.5-flash");
+        assertThat(service.decide("u", AiTask.MAP).model()).as("blank = the default model").isEqualTo(DEFAULT_MODEL);
+        assertThat(service.decide("u", AiTask.PICK).model()).isEqualTo(DEFAULT_MODEL);
+    }
+
+    @Test
+    void pastTheSoftCapEverythingMovesToTheEconomyModel() {
+        pro();
+        policy.getModels().put("draft", "gemini-2.5-flash");
+        policy.setEconomyModel("gemini-2.5-flash-lite");
+        spent(FIVE_DOLLARS * 79 / 100);
+        assertThat(service.decide("u", AiTask.DRAFT).model()).isEqualTo("gemini-2.5-flash");
+        spent(FIVE_DOLLARS * 80 / 100);
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.model()).isEqualTo("gemini-2.5-flash-lite");
+        assertThat(d.economy()).isTrue();
+    }
+
+    @Test
+    void withNoEconomyModelTheSoftCapChangesNothing() {
+        pro();
+        spent(FIVE_DOLLARS * 95 / 100);
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.OK);
+        assertThat(d.model()).isEqualTo(DEFAULT_MODEL);
+        assertThat(d.economy()).isFalse();
+    }
+
+    @Test
+    void atTheBudgetAiStopsUntilTheMonthResets() {
+        pro();
+        spent(FIVE_DOLLARS);
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.EXHAUSTED);
+        assertThat(d.used()).isEqualTo(100);
+        ZonedDateTime reset = d.resetsAt().atZone(ZoneOffset.UTC);
+        assertThat(reset.getDayOfMonth()).isEqualTo(1);
+        assertThat(reset.getHour()).isZero();
+        assertThat(d.resetsAt()).isAfter(Instant.now());
+        spent(FIVE_DOLLARS * 3); // over, e.g. one expensive last call — still just 100 %
+        assertThat(service.decide("u", AiTask.PARSE).used()).isEqualTo(100);
+    }
+
+    @Test
+    void theBudgetIsConfigurable() {
+        pro();
+        policy.setProMonthlyBudgetUsd(10.0);
+        spent(FIVE_DOLLARS);
+        assertThat(service.decide("u", AiTask.DRAFT).used()).isEqualTo(50);
+    }
+
+    // ---- 15.5: the budget covers one billing period -----------------------------------------
+
+    private Subscription sub(String priceId, Instant periodEnd) {
+        Subscription s = new Subscription();
+        s.setPlan(Subscription.PLAN_PRO);
+        s.setStatus("active");
+        s.setPriceId(priceId);
+        s.setCurrentPeriodEnd(periodEnd);
+        return s;
+    }
+
+    @Test
+    void theDefaultsAreThreeDollarsAMonthAndEightPerThreeMonths() {
+        AiPolicy defaults = new AiPolicy();
+        assertThat(defaults.proBudgetMicros()).isEqualTo(3_000_000L);
+        assertThat(defaults.pro3moBudgetMicros()).isEqualTo(8_000_000L);
+    }
+
+    @Test
+    void theMonthlyPlansWindowIsItsBillingPeriod() {
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        Instant renews = Instant.parse("2026-10-20T08:30:00Z");
+        AiBudgetService.Window w = service.proWindow(sub("price_month", renews), now);
+        assertThat(w.budgetMicros()).isEqualTo(FIVE_DOLLARS);
+        assertThat(w.start()).isEqualTo(Instant.parse("2026-09-20T08:30:00Z"));
+        assertThat(w.resetsAt()).isEqualTo(renews);
+    }
+
+    @Test
+    void theThreeMonthPlanGetsItsOwnBudgetOverThreeMonths() {
+        policy.setPro3moBudgetUsd(8.0);
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        Instant renews = Instant.parse("2026-12-01T00:00:00Z");
+        AiBudgetService.Window w = service.proWindow(sub("price_3mo", renews), now);
+        assertThat(w.budgetMicros()).isEqualTo(8_000_000L);
+        assertThat(w.start()).isEqualTo(Instant.parse("2026-09-01T00:00:00Z"));
+        assertThat(w.resetsAt()).isEqualTo(renews);
+    }
+
+    @Test
+    void anUnknownPriceIsTreatedAsMonthly() {
+        // e.g. a subscription still on a retired Price id: the smaller, monthly window is the safe one.
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        AiBudgetService.Window w = service.proWindow(sub("price_retired", Instant.parse("2026-10-20T00:00:00Z")), now);
+        assertThat(w.budgetMicros()).isEqualTo(FIVE_DOLLARS);
+        assertThat(w.start()).isEqualTo(Instant.parse("2026-09-20T00:00:00Z"));
+    }
+
+    @Test
+    void withNoUsablePeriodEndTheCalendarMonthIsTheFallback() {
+        Instant now = Instant.parse("2026-10-05T12:00:00Z");
+        AiBudgetService.Window none = service.proWindow(sub("price_month", null), now);
+        assertThat(none.start()).isEqualTo(Instant.parse("2026-10-01T00:00:00Z"));
+        assertThat(none.resetsAt()).isEqualTo(Instant.parse("2026-11-01T00:00:00Z"));
+        AiBudgetService.Window past = service.proWindow(sub("price_month", Instant.parse("2026-10-01T00:00:00Z")), now);
+        assertThat(past.start()).isEqualTo(Instant.parse("2026-10-01T00:00:00Z"));
+    }
+
+    @Test
+    void spendingIsSummedFromThePeriodStartAndResetsAtRenewal() {
+        pro();
+        Instant renews = Instant.now().plus(java.time.Duration.ofDays(10)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        when(subscriptions.findOneByUserLogin("u")).thenReturn(Optional.of(sub("price_month", renews)));
+        Instant periodStart = renews.atZone(ZoneOffset.UTC).minusMonths(1).toInstant();
+        when(calls.costSince("u", periodStart)).thenReturn(FIVE_DOLLARS); // the whole budget, this period
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.EXHAUSTED);
+        assertThat(d.resetsAt()).isEqualTo(renews);
+        assertThat(service.usage("u").resetsAt()).isEqualTo(renews);
+    }
+
+    // ---- the admin override (a budget, outranking the plan) --------------------------------
+
+    @Test
+    void anOverrideGivesAFreeUserABudget() {
+        override(100); // $1.00
+        spent(500_000L); // $0.50
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.OK);
+        assertThat(d.budgeted()).isTrue();
+        assertThat(d.used()).isEqualTo(50);
+    }
+
+    @Test
+    void anOverrideReplacesTheProBudget() {
+        pro();
+        override(1000); // $10
+        spent(FIVE_DOLLARS);
+        assertThat(service.decide("u", AiTask.DRAFT).used()).isEqualTo(50);
+    }
+
+    @Test
+    void aZeroOverrideMeansNoServerAi() {
+        pro();
+        override(0);
+        spent(0);
+        assertThat(service.decide("u", AiTask.DRAFT).verdict()).isEqualTo(Verdict.EXHAUSTED);
+        assertThat(service.decide("u", AiTask.PARSE).verdict()).isEqualTo(Verdict.EXHAUSTED);
+    }
+
+    // ---- the meter (13.1c) -------------------------------------------------------------------
+
+    @Test
+    void aFreeUsersMeterIsTheirParseCount() {
+        when(metering.usedThisMonth("u")).thenReturn(2);
+        AiBudgetService.Usage u = service.usage("u");
+        assertThat(u.metered()).isEqualTo("count");
+        assertThat(u.used()).isEqualTo(2);
+        assertThat(u.limit()).isEqualTo(FREE_PARSES);
+        assertThat(u.resetsAt()).isEqualTo(AiBudgetService.resetsAt());
+    }
+
+    @Test
+    void aProUsersMeterIsAPercentNeverDollars() {
+        pro();
+        policy.setEconomyModel("gemini-2.5-flash-lite");
+        spent(FIVE_DOLLARS * 85 / 100);
+        AiBudgetService.Usage u = service.usage("u");
+        assertThat(u.metered()).isEqualTo("budget");
+        assertThat(u.used()).isEqualTo(85);
+        assertThat(u.limit()).isEqualTo(100);
+        assertThat(u.economy()).isTrue();
+        spent(FIVE_DOLLARS);
+        assertThat(service.usage("u").economy()).as("used up is not 'economy'").isFalse();
+    }
+
+    /** The meter doesn't depend on any one feature: a kill switch doesn't blank it. */
+    @Test
+    void theMeterIgnoresKillSwitches() {
+        pro();
+        policy.setDisabledTasks(Set.of("draft", "pick", "map", "enrich", "parse"));
+        spent(FIVE_DOLLARS / 2);
+        assertThat(service.usage("u").used()).isEqualTo(50);
+    }
+
+    @Test
+    void percentIsClampedAndSafe() {
+        assertThat(AiBudgetService.percent(0, FIVE_DOLLARS)).isZero();
+        assertThat(AiBudgetService.percent(FIVE_DOLLARS * 2, FIVE_DOLLARS)).isEqualTo(100);
+        assertThat(AiBudgetService.percent(1, 0)).isEqualTo(100);
+        assertThat(AiBudgetService.centsToMicros(500)).isEqualTo(FIVE_DOLLARS);
+        assertThat(AiBudgetService.monthStart()).isBefore(AiBudgetService.resetsAt());
+    }
+}

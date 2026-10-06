@@ -59,7 +59,7 @@ class AdminAiQuotaServiceTest {
 
     @Test
     void setOverrideRejectsAboveMax() {
-        assertThatThrownBy(() -> service.setOverride("alice", AdminAiQuotaService.MAX_QUOTA + 1)).isInstanceOf(
+        assertThatThrownBy(() -> service.setOverride("alice", AdminAiQuotaService.MAX_BUDGET_CENTS + 1)).isInstanceOf(
             ResponseStatusException.class
         );
         verify(overrideRepository, never()).save(any());
@@ -94,7 +94,7 @@ class AdminAiQuotaServiceTest {
     void getOverrideReturnsValue() {
         AiQuotaOverride o = new AiQuotaOverride();
         o.setLogin("alice");
-        o.setMonthlyQuota(7);
+        o.setMonthlyBudgetCents(7);
         when(overrideRepository.findById("alice")).thenReturn(Optional.of(o));
         assertThat(service.getOverride("alice")).contains(7);
     }

@@ -1,8 +1,12 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
+import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.AiBudgetService;
 import com.dossier.api.service.AiDraftService;
 import com.dossier.api.service.AiResumeParseService;
+import com.dossier.api.service.ProRequiredException;
+import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.web.rest.vm.AiDraftVM;
 import com.dossier.api.web.rest.vm.AiParseResumeVM;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,22 +41,39 @@ public class AiResource {
 
     private final AiDraftService aiDraftService;
     private final AiResumeParseService aiResumeParseService;
+    private final AiBudgetService aiBudgetService;
 
-    public AiResource(AiDraftService aiDraftService, AiResumeParseService aiResumeParseService) {
+    public AiResource(AiDraftService aiDraftService, AiResumeParseService aiResumeParseService, AiBudgetService aiBudgetService) {
         this.aiDraftService = aiDraftService;
         this.aiResumeParseService = aiResumeParseService;
+        this.aiBudgetService = aiBudgetService;
+    }
+
+    /**
+     * {@code GET /api/ai/usage} : this month's AI meter for the current user (Phase 13.1c) — what
+     * Settings and the extension show. {@code {metered:"budget", used:<percent>, limit:100, resetsAt}}
+     * for Pro (or an admin override), {@code {metered:"count", used:<parses>, limit:<quota>, resetsAt}}
+     * for Free. Never a dollar figure.
+     */
+    @Operation(summary = "My AI usage", description = "This month's AI meter: a percent of the budget (Pro) or a parse count (Free).")
+    @GetMapping("/usage")
+    public AiBudgetService.Usage usage() {
+        String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
+            new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
+        );
+        return aiBudgetService.usage(login);
     }
 
     /**
      * {@code POST /api/ai/draft} : draft an answer to an open-ended question, grounded
      * in the supplied background. Returns one of: {@code {answer,used,quota}},
      * {@code {disabled:true}}, {@code {consentRequired:true}}, {@code {quotaExceeded:true,...}},
-     * or HTTP 502 {@code {error}}.
+     * HTTP 402 {@code PRO_REQUIRED} (Phase 12.4), or HTTP 502 {@code {error}}.
      */
     @Operation(summary = "Draft an answer", description = "Metered, opt-in server-side AI drafting for the current user.")
     @PostMapping("/draft")
     public ResponseEntity<Map<String, Object>> draft(@Valid @RequestBody AiDraftVM vm) {
-        AiDraftService.Result r = aiDraftService.draft(vm.getQuestion(), vm.getContext(), vm.isConsent());
+        AiDraftService.Result r = aiDraftService.run(AiTask.fromWire(vm.getTask()), vm.getQuestion(), vm.getContext(), vm.isConsent());
         Map<String, Object> body = new HashMap<>();
         switch (r.status()) {
             case OK -> {
@@ -60,6 +81,7 @@ public class AiResource {
                 body.put("used", r.used());
                 body.put("quota", r.quota());
                 body.put("cached", r.cached()); // served from the server-side answer cache (Phase 5.3)
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             case DISABLED -> {
@@ -70,10 +92,20 @@ public class AiResource {
                 body.put("consentRequired", true);
                 return ResponseEntity.ok(body);
             }
+            // The one status that is an HTTP error rather than a 200 flag: every Pro gate in the
+            // product answers 402 with the same machine-readable `code`, so a client branches on
+            // one thing whether it hit AI, answer sync or the resume cap (Phase 12.4). Thrown as
+            // the SERVICE exception, like the other two gates, so ExceptionTranslator builds the
+            // body the same way and the message reliably lands in `detail`.
+            case PRO_REQUIRED -> throw new ProRequiredException(
+                ProRequiredException.CODE_PRO_REQUIRED,
+                "Kiwiply AI is part of Pro — upgrade, or add your own API key in the extension's settings"
+            );
             case QUOTA_EXCEEDED -> {
                 body.put("quotaExceeded", true);
                 body.put("used", r.used());
                 body.put("quota", r.quota());
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             default -> {
@@ -91,6 +123,11 @@ public class AiResource {
      * {@code {disabled:true}}, {@code {consentRequired:true}}, {@code {quotaExceeded:true,...}},
      * or HTTP 502 {@code {error}}.
      */
+    /** When this month's AI resets (13.1b) — the extension says "resets on {date}" when it's used up. */
+    private static void putReset(Map<String, Object> body, java.time.Instant resetsAt) {
+        if (resetsAt != null) body.put("resetsAt", resetsAt.toString());
+    }
+
     @Operation(summary = "Parse a resume", description = "Metered, opt-in server-side AI resume parsing for the current user.")
     @PostMapping("/parse-resume")
     public ResponseEntity<Map<String, Object>> parseResume(@Valid @RequestBody AiParseResumeVM vm) {
@@ -119,6 +156,7 @@ public class AiResource {
                 body.put("parsed", r.parsed());
                 body.put("used", r.used());
                 body.put("quota", r.quota());
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             case DISABLED -> {
@@ -133,6 +171,7 @@ public class AiResource {
                 body.put("quotaExceeded", true);
                 body.put("used", r.used());
                 body.put("quota", r.quota());
+                putReset(body, r.resetsAt());
                 return ResponseEntity.ok(body);
             }
             default -> {

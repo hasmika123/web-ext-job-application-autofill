@@ -177,7 +177,27 @@ export function makeServices(handoff: Handoff): ResumeUploadServices {
         return { ok: false, error: "Couldn't open the fill panel on the job page." };
       }
       // save: create the library resume (reviewed = CONFIRMED), upload the file, refresh mirror.
-      const saved = await provider.createResume({ label: input.label, parsedJson: input.parsedJson, status: "CONFIRMED" });
+      // The create is the one call here that can be refused for a reason the user can act on —
+      // the Free 3-resume cap (Phase 12.4) — so it gets its own catch and an upgrade link.
+      let saved;
+      try {
+        saved = await provider.createResume({ label: input.label, parsedJson: input.parsedJson, status: "CONFIRMED" });
+      } catch (e) {
+        const capped = e as { code?: string; message?: string };
+        if (capped && (capped.code === "RESUME_LIMIT" || capped.code === "PRO_REQUIRED")) {
+          // 15.5: Pro is capped too (25). Someone already on Pro gets the message, not an upgrade link.
+          const body = (capped as { body?: { plan?: string } }).body;
+          if (body && body.plan === "PRO") {
+            return { ok: false, error: capped.message || "Pro accounts keep up to 25 resumes — archive one to add another." };
+          }
+          return {
+            ok: false,
+            error: capped.message || "Free accounts keep up to 3 resumes — archive one, or upgrade to Pro.",
+            cta: { href: "https://kiwiply.com/pricing", label: "See Pro" },
+          };
+        }
+        throw e;
+      }
       const serverId = saved?.serverId ?? saved?.id ?? null;
       if (serverId == null) return { ok: false, error: "Couldn't save the resume (no id returned)." };
       // Store the PDF server-side. If this fails the resume row still exists, so don't fail the

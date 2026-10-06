@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 13.2 - resume recommendation per job: the scores cache.
+
+        Scoring a user's resumes against a job description is one AI call; asking again for the same
+        job and the same resumes must cost nothing. `cache_key` is a SHA-256 of the job description
+        plus every scored resume's id and content, so editing, adding or archiving a resume - or a
+        different posting - is simply a different key; nothing ever needs invalidating.
+
+        `result_json` holds only the scores and one-line reasons, keyed by resume id - never the job
+        description or resume text. Deleted with the account. Additive; no data migration.
+    -->
+    <changeSet id="20260922040000-1" author="dossier">
+        <createTable tableName="resume_match">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cache_key" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="result_json" type="${clobType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model" type="varchar(80)"/>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="resume_match" indexName="ix_resume_match_user_key">
+            <column name="user_id"/>
+            <column name="cache_key"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="resume_match"
+            baseColumnNames="user_id"
+            constraintName="fk_resume_match_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

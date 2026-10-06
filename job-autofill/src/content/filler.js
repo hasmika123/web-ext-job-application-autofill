@@ -57,13 +57,27 @@
 
     // A low-confidence match (weak signal like placeholder/name only) renders
     // UNCHECKED — the user opts in rather than un-noticing a wrong fill. A value
-    // the user already confirmed once (field cache) is trusted again.
-    const uncertain = (i) => i.confidence === "low" && !i.cached;
+    // the user already confirmed once ON THIS SITE (field cache) is trusted again.
+    // An answer carried over from another ATS is NOT enough to override a weak DOM
+    // match: two soft signals don't make a hard one, and the cost of being wrong is
+    // a wrong value the user didn't notice.
+    const uncertain = (i) => i.confidence === "low" && !(i.cached && !i.cachedCrossSite);
+    // Badges go in ONE nowrap group rather than as loose inline siblings. The label
+    // column is fixed-width, so a row carrying two of them (a "?" and a "reused")
+    // used to break between the badges and strand one on its own line.
+    const badges = (i) => {
+      const b = [];
+      if (i.assisted) b.push('<span class="aibadge">AI</span>');
+      if (i.aiMapped) b.push('<span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>');
+      if (uncertain(i)) b.push('<span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>');
+      if (i.cachedCrossSite) b.push('<span class="reusebadge" title="Your answer to this same question on another job site">reused</span>');
+      return b.length ? `<span class="badges">${b.join("")}</span>` : "";
+    };
     const rowHtml = (i, idx) =>
       `<label class="row${i.assisted ? " assisted" : ""}${uncertain(i) ? " low" : ""}">
          <input type="checkbox" data-i="${idx}" ${uncertain(i) ? "" : "checked"} />
-         <span class="field">${esc(i.label || L[i.field] || i.field)}${i.assisted ? ' <span class="aibadge">AI</span>' : ""}${i.aiMapped ? ' <span class="aibadge" title="Field matched by AI — uncheck if wrong">AI</span>' : ""}${uncertain(i) ? ' <span class="lowbadge" title="Uncertain match — left unchecked; tick it to fill">?</span>' : ""}</span>
-         <span class="val">${esc(truncate(String(i.value), 60))}</span>
+         <span class="field">${esc(i.label || L[i.field] || i.field)}${badges(i)}</span>
+         <span class="val" title="${esc(String(i.value))}">${esc(truncate(String(i.value), 60))}</span>
          ${i.assisted ? `<button type="button" class="regen" data-regen="${idx}" title="Regenerate this draft">↻</button>` : ""}
        </label>`;
 
@@ -82,9 +96,9 @@
         <div class="body">
           ${fillable.length ? `<div class="group-title">Review &amp; uncheck anything you don't want</div>` : (manual.length || info.length ? "" : `<div class="empty">No matching fields found on this step. Try the next step, or this site may need a custom selector.</div>`)}
           <div class="rows">${fillable.map(rowHtml).join("")}</div>
-          ${file ? `<label class="row file"><input type="checkbox" id="filechk" checked /><span class="field">Attach résumé file</span><span class="val">${esc(file.name)}</span></label>` : ""}
+          ${file ? `<label class="row file"><input type="checkbox" id="filechk" checked /><span class="field">Attach résumé file</span><span class="val" title="${esc(file.name)}">${esc(file.name)}</span></label>` : ""}
           ${manual.length ? `<div class="group-title warn">Enter these yourself (custom dropdowns / typeaheads)</div>
-            <div class="rows">${manual.map((i) => `<div class="row manual"><span class="field">${esc(L[i.field] || i.field)}</span><span class="val">${esc(String(i.value))}</span>${i.note ? `<span class="mnote">${esc(i.note)}</span>` : ""}</div>`).join("")}</div>` : ""}
+            <div class="rows">${manual.map((i) => `<div class="row manual"><span class="field">${esc(L[i.field] || i.field)}</span><span class="val" title="${esc(String(i.value))}">${esc(String(i.value))}</span>${i.note ? `<span class="mnote">${esc(i.note)}</span>` : ""}</div>`).join("")}</div>` : ""}
           ${info.length ? `<div class="rows">${info.map((i) => `<div class="infonote">${esc(String(i.value))}</div>`).join("")}</div>` : ""}
         </div>
         <footer>
@@ -106,16 +120,32 @@
       fillBtn.disabled = true;
       fillBtn.textContent = "Filling…";
       const checks = Array.from(root.querySelectorAll('.rows input[type="checkbox"][data-i]'));
+      // Phase 10.1: one count-only telemetry event per fill, plus a signal the first time the
+      // user changes each field we filled. The id is random and names this fill, not the user.
+      const T = JAF.fillTelemetry;
+      const fillId = T ? T.newFillId() : null;
+      const send = (msg) => { try { if (fillId && chrome.runtime && chrome.runtime.sendMessage) chrome.runtime.sendMessage(msg); } catch (e) {} };
+      const onCorrected = () => send({ type: "JAF_FILL_CORRECTED", id: fillId });
       let filled = 0;
+      let failedCount = 0;
       const failed = [];
       for (const c of checks) {
         if (!c.checked) continue;
         const item = fillable[Number(c.dataset.i)];
         const ok = await B.applyItemAsync(item);
-        // Learn from any later user correction to this field (local cache).
-        try { JAF.fieldCache && JAF.fieldCache.watch(item); } catch (e) {}
+        // Learn from any later user correction to this field (local cache) — and, for a field we
+        // actually filled, count that correction against this fill.
+        try {
+          if (JAF.fieldCache) {
+            const baseline = ok ? JAF.fieldCache.committedValueOf(item.el) : null;
+            JAF.fieldCache.watch(item, ok ? { baseline, onCorrected } : undefined);
+          }
+        } catch (e) {}
         if (ok) filled++;
-        else if (item.kind === "combo" || item.kind === "combo-multi") failed.push(L[item.field] || item.field);
+        else {
+          failedCount++;
+          if (item.kind === "combo" || item.kind === "combo-multi") failed.push(L[item.field] || item.field);
+        }
       }
       let fileMsg = "";
       const fchk = root.querySelector("#filechk");
@@ -126,6 +156,20 @@
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
         } else fileMsg = " · no file field found";
       }
+      // Phase 10.3d: from here on, answers the user gives to PROFILE questions on this page are
+      // reported as suggested profile values (the server keeps them as suggestions; the user
+      // decides on the web). The page address goes to the service worker only, which reduces it to
+      // a salted hash before anything leaves the device.
+      try {
+        if (JAF.profileLearn && typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+          JAF.profileLearn.start({
+            planned: fillable,
+            send: (answers) => {
+              try { chrome.runtime.sendMessage({ type: "JAF_LEARNED_ANSWERS", answers, page: location.hostname + location.pathname }); } catch (e) {}
+            },
+          });
+        }
+      } catch (e) {}
       // Auto-log this fill as a DRAFT application (best-effort; never blocks the fill)
       // and arm submission detection so a confirmation flips the entry to APPLIED. The
       // service worker owns the network and survives the post-submit navigation.
@@ -137,7 +181,41 @@
         }
       } catch (e) {}
 
+      // What did the fill leave undone? (10.1 counts it; 10.2 shows it.) A beat first so the page's
+      // own framework has reflected the values we set, and BEFORE any auto-advance moves on.
+      let gaps = [];
+      if (JAF.requiredAudit) {
+        try {
+          await new Promise((r) => setTimeout(r, 250));
+          gaps = JAF.requiredAudit.findRequiredEmpty(document);
+        } catch (e) { gaps = []; }
+      }
+      if (T && fillId) {
+        try {
+          send({
+            type: "JAF_FILL_STATS",
+            stats: T.buildEvent({
+              id: fillId,
+              hostname: location.hostname, // reduced to an ATS family inside buildEvent
+              adapter: adapter && adapter.id,
+              found: fillable.length + manual.length,
+              filled,
+              failed: failedCount,
+              requiredLeftEmpty: gaps.length,
+            }),
+          });
+        } catch (e) {}
+      }
+
       const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
+      // Phase 10.2: required fields are still empty. Don't auto-advance — the page would refuse
+      // the step anyway, and the user would be left guessing why — and hand them a short list that
+      // takes them to each one, instead of a toast that vanishes in two seconds.
+      if (gaps.length) {
+        const summary = `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${failMsg}.`;
+        showGaps(host, root, gaps, autoAdvance ? summary + " Auto-advance paused until these are done." : summary, close);
+        return;
+      }
       let advanceMsg = "";
       if (autoAdvance) {
         const nextBtn = (adapter.nextButton && adapter.nextButton()) || B.findNextButton();
@@ -189,6 +267,71 @@
         }
       };
     });
+  }
+
+  // Phase 10.2 — "N required fields still need you".
+  //
+  // The modal panel is swapped for a small card that does NOT cover the page, because the user's
+  // next move is to fill the page. Each item jumps to its field (scroll, focus, a brief outline);
+  // items tick off as the user fills them; once the last one is done the card says so and goes.
+  // Labels come from the page and stay on it — nothing here is sent anywhere.
+  function showGaps(host, root, els, lead, closeOverlay) {
+    const A = JAF.requiredAudit;
+    host.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:2147483647;";
+    root.querySelectorAll(".backdrop, .panel").forEach((n) => n.remove());
+    const items = els.map((el) => ({ el, name: A.describe(el), done: false }));
+
+    const card = document.createElement("section");
+    card.className = "gaps";
+    card.setAttribute("role", "region");
+    card.setAttribute("aria-label", "Required fields still to fill");
+    card.innerHTML = `
+      <header><strong class="gtitle" aria-live="polite"></strong><button class="gx" aria-label="Close">×</button></header>
+      <p class="glead">${esc(lead)}</p>
+      <ul class="glist">${items.map((it, i) => `<li><button class="gjump" data-g="${i}"><span class="gdot"></span><span class="gname">${esc(it.name)}</span><span class="ggo">Go →</span></button></li>`).join("")}</ul>
+      <p class="gnote">Kiwiply never submits for you.</p>`;
+    root.appendChild(card);
+
+    let closing = false;
+    const close = () => {
+      document.removeEventListener("input", recheck, true);
+      document.removeEventListener("change", recheck, true);
+      closeOverlay();
+    };
+    const render = () => {
+      const left = items.filter((it) => !it.done).length;
+      card.querySelector(".gtitle").textContent = left
+        ? `${left} required field${left === 1 ? "" : "s"} still need${left === 1 ? "s" : ""} you`
+        : "All required fields are filled";
+      items.forEach((it, i) => card.querySelector(`[data-g="${i}"]`).parentElement.classList.toggle("done", it.done));
+      if (!left && !closing) {
+        closing = true;
+        card.querySelector(".glead").textContent = "Review the page, then submit it yourself.";
+        setTimeout(close, 4000);
+      }
+    };
+    function recheck() {
+      let changed = false;
+      for (const it of items) {
+        if (!it.done && !A.isStillEmpty(it.el)) { it.done = true; changed = true; }
+      }
+      if (changed) render();
+    }
+    document.addEventListener("input", recheck, true);
+    document.addEventListener("change", recheck, true);
+    card.querySelector(".gx").onclick = close;
+    card.querySelectorAll(".gjump").forEach((b) => { b.onclick = () => jumpTo(items[Number(b.dataset.g)].el); });
+    render();
+  }
+
+  function jumpTo(el) {
+    try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+    try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) {} }
+    // A brief outline so the eye lands on it; the page's own styling comes back afterwards.
+    const prev = el.style.outline, prevOffset = el.style.outlineOffset;
+    el.style.outline = "3px solid #94BD37";
+    el.style.outlineOffset = "2px";
+    setTimeout(() => { el.style.outline = prev; el.style.outlineOffset = prevOffset; }, 2200);
   }
 
   function flash(root, msg) {
@@ -266,15 +409,15 @@
     .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 8px 2px 6px; }
     .group-title.warn { color: var(--warn); }
     .rows { display: flex; flex-direction: column; gap: 2px; }
-    .row { display: grid; grid-template-columns: 18px 110px 1fr; align-items: center; gap: 8px;
+    .row { display: grid; grid-template-columns: 18px 152px 1fr; align-items: center; gap: 8px;
       padding: 8px 8px; border-radius: 10px; cursor: pointer; }
     .row:hover { background: var(--paper-2); }
-    .row.assisted { grid-template-columns: 18px 110px 1fr auto; }
+    .row.assisted { grid-template-columns: 18px 152px 1fr auto; }
     .regen { border: 1px solid var(--line); background: var(--paper); color: var(--accent-deep);
       border-radius: 999px; font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 9px; }
     .regen:hover:not(:disabled) { border-color: var(--accent); }
     .regen:disabled { opacity: .5; cursor: default; }
-    .row.manual { grid-template-columns: 128px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
+    .row.manual { grid-template-columns: 170px 1fr; cursor: default; background: var(--brown-soft); gap: 3px 8px; }
     .row.manual .mnote { grid-column: 1 / -1; font-size: 11px; color: var(--warn); line-height: 1.35; }
     .infonote { font-size: 12px; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
       border-radius: 10px; padding: 9px 11px; margin-top: 8px; line-height: 1.45; }
@@ -284,6 +427,13 @@
     /* Uncertain-match marker: warn-tinted "?" on rows left unchecked for review. */
     .lowbadge { display: inline-block; font-size: 10px; font-weight: 800; line-height: 1;
       color: var(--warn); background: var(--brown-soft); border-radius: 999px; padding: 2px 6px; vertical-align: middle; }
+    /* One nowrap group so a row's badges wrap together, never split across lines. */
+    .badges { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle;
+      white-space: nowrap; }
+    /* Carried-over answer: the user's own reply to this question on a different ATS. */
+    .reusebadge { display: inline-block; font-size: 8.5px; font-weight: 700; letter-spacing: .02em;
+      color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line);
+      border-radius: 4px; padding: 1px 3px; vertical-align: middle; }
     .row.low .val { color: var(--muted); }
     .row.file { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
     .field { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
@@ -301,6 +451,24 @@
     .note { font-size: 11px; color: var(--muted); padding: 0 16px 14px; line-height: 1.4; }
     .flash { position: absolute; left: 16px; right: 16px; bottom: 16px; background: var(--ink); color: var(--paper);
       padding: 12px 14px; border-radius: 12px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+    /* 10.2 — the post-fill checklist card (non-modal; the host shrinks to fit it). */
+    .gaps { width: 320px; max-width: calc(100vw - 32px); background: var(--paper); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgba(45,49,51,.22); padding: 14px 14px 10px; }
+    .gaps header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .gtitle { font-size: 14px; }
+    .gx { border: 0; background: transparent; font-size: 18px; line-height: 1; cursor: pointer; color: var(--muted); padding: 0 2px; }
+    .glead { margin: 4px 0 8px; font-size: 12.5px; color: var(--ink-soft); }
+    .glist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow: auto; }
+    .gjump { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid var(--line);
+      border-radius: 9px; background: #fff; cursor: pointer; text-align: left; font-size: 13px; color: var(--ink); }
+    .gjump:hover, .gjump:focus-visible { border-color: var(--accent); outline: none; }
+    .gdot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+    .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ggo { font-size: 12px; color: var(--accent-deep); flex: none; }
+    .glist li.done .gdot { background: var(--accent); }
+    .glist li.done .gname { text-decoration: line-through; color: var(--muted); }
+    .glist li.done .ggo { visibility: hidden; }
+    .gnote { margin: 8px 0 0; font-size: 11px; color: var(--muted); }
   `;
 
   JAF.filler = { start, buildPlan };

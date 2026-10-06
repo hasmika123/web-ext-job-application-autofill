@@ -142,30 +142,114 @@ Reload the unpacked extension. (At Chrome Web Store launch, also pin
   ```
   Liquibase applies new DB migrations automatically on API start.
 - **Logs:** `$COMPOSE logs -f <service>`
-- **Database backup — ⚠️ NOT SET UP. There is no automated backup of production.**
-  Verified 2026-09-21: both the `root` and `deploy` crontabs are empty, there is no systemd
-  timer, and no Dossier dump exists on the box. This is the exact gap that turned the loss of
-  the old VPS into a permanent **loss of all user data** — the previous version of this file
-  described a nightly cron that had never actually been installed, and everyone read the
-  intention as a fact. Do not treat the command below as a backup strategy; it is a manual
-  dump you have to remember to run:
-  ```bash
-  $COMPOSE exec -T mysql \
-    sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --databases dossierApi' > dossier-$(date +%F).sql
-  ```
-  A real fix needs three things, and **is still owed**: a schedule (cron/systemd timer), a copy
-  that lands **off the box** (S3), and a restore that has actually been tested. Until a dump is
-  sitting somewhere other than this server, production is one server failure from zero.
-- **Restore:** `… exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' < backup.sql`
+- **Database backup — nightly, off the box (Phase 15.1).** `scripts/ops/backup-db.sh` dumps
+  MySQL at 03:15 UTC into the separate **`kiwiply-db-backups`** bucket, and
+  `scripts/ops/verify-restore.sh` restores the newest one into a throwaway container every Sunday
+  to prove it works. Setup, alarms and the restore procedure: **§5.1–§5.3**. History, so nobody
+  repeats it: until 15.1 there was **no** backup. The earlier version of this file described a
+  nightly cron that had never been installed, and the loss of the old VPS became a permanent
+  loss of all user data. **A backup exists only if Healthchecks.io says it ran.**
 - **Resume files** live in S3 — durability/backup is handled by AWS. Note this saves the
   *blobs* only: without the DB rows that point at them they are orphaned objects, which is
   exactly what happened to the pre-2026-09 resumes.
-- **Monitoring — ⚠️ NONE.** There is no uptime check, no health polling, and no alerting on
-  either hostname. Nothing will tell you production is down; you find out by visiting it. The
-  old VPS's death was noticed only because someone happened to `curl` it during unrelated work.
-  If you add one, the obvious probes are `https://kiwiply.com/` and
-  `https://api.kiwiply.com/management/health` (returns `{"status":"UP"}`), and
-  `scripts/migrate/04-verify.sh kiwiply.com` covers the fuller surface by hand.
+- **Monitoring:** UptimeRobot watches both hostnames and Healthchecks.io watches the backup and
+  the drill (§5.2). `scripts/migrate/04-verify.sh kiwiply.com` still covers the fuller surface by
+  hand.
+
+### 5.1 Backups — setup (once)
+
+The backup key can **upload and read, never delete**: a compromised box can't wipe its own
+backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 daily** and
+**12 monthly** copies (the 1st of each month).
+
+1. **Bucket** (AWS console → S3 → Create bucket): name `kiwiply-db-backups` (if you pick another
+   name, change it in the policy below too), same region as the resume bucket. Keep **Block all
+   public access ON**, turn **Bucket Versioning ON** (an overwrite keeps the old copy for 30 days),
+   default encryption SSE-S3.
+2. **Lifecycle** (bucket → Management → Lifecycle rules), or in one command:
+   `aws s3api put-bucket-lifecycle-configuration --bucket kiwiply-db-backups --lifecycle-configuration file://scripts/ops/aws/lifecycle.json`.
+   It expires `daily/` after 30 days, `monthly/` after 365 days, and old versions 30 days after
+   they're replaced.
+3. **IAM user** `kiwiply-backup` with programmatic access only and exactly the inline policy in
+   `scripts/ops/aws/backup-user-policy.json` (List + Put + Get; **no** Delete). Create an access key.
+   Put it in the **password manager** first, then in the box's `.env`. Never in chat, the repo or
+   GitHub secrets.
+4. **`.env` on the box** (`/root/web-ext-job-application-autofill/.env`):
+   ```bash
+   BACKUP_S3_BUCKET=kiwiply-db-backups
+   BACKUP_S3_REGION=us-east-1
+   BACKUP_AWS_ACCESS_KEY_ID=...
+   BACKUP_AWS_SECRET_ACCESS_KEY=...
+   HC_BACKUP_URL=https://hc-ping.com/<uuid>     # §5.2
+   HC_RESTORE_URL=https://hc-ping.com/<uuid>    # §5.2
+   ```
+   These are read by the ops scripts only; the API never sees them.
+5. **Schedule** — a cron.d file of its own, so BeeCompete's crontabs are never touched:
+   ```bash
+   cd /root/web-ext-job-application-autofill
+   timedatectl | grep 'Time zone'      # the schedule assumes UTC
+   install -m 644 scripts/ops/kiwiply-ops.cron /etc/cron.d/kiwiply-ops
+   ```
+   Nightly backup at 03:15 UTC → `/var/log/kiwiply-backup.log`; Sunday 04:45 UTC restore drill →
+   `/var/log/kiwiply-restore-drill.log` (and one line per drill in
+   `/root/kiwiply-backups/restore-drills.log`). The last 3 dumps also stay in `/root/kiwiply-backups/`.
+6. **First run, by hand** — once the scripts are on the box, i.e. after `develop` is promoted to
+   `main` (the deploy's `git pull` brings them) — and check it landed:
+   ```bash
+   scripts/ops/backup-db.sh
+   scripts/ops/verify-restore.sh
+   ```
+   `verify-restore.sh` should end with `restore drill OK — dossier-<date>.sql.gz: N tables, …`.
+
+**Tested in CI** (the "Ops scripts" job): shellcheck, the helpers, `backup-db.sh` against a fake
+docker (upload names, the sha256, the monthly copy, the pings, refusing a cut-short dump), and a
+real `mysqldump` of a real MySQL of the production version restored by `verify-restore.sh`.
+
+### 5.2 Alarms — UptimeRobot + Healthchecks.io (once), and the error digest
+
+Both are free; you create the accounts. Alerts go to your email.
+
+- **Healthchecks.io** — two checks. Each one expects a ping and emails you when it doesn't arrive:
+  - `kiwiply-backup`: period **1 day**, grace **2 hours**. Its ping URL → `HC_BACKUP_URL`.
+  - `kiwiply-restore-drill`: period **7 days**, grace **6 hours**. Its URL → `HC_RESTORE_URL`.
+  The scripts ping `/start` when they begin, the plain URL on success, and `/fail` on any failure,
+  so a crash, a cut-short dump, a missing bucket key or a restore that doesn't check out all
+  alert, and so does a night when cron didn't run at all.
+- **UptimeRobot** — two HTTP(S) monitors, 5-minute interval:
+  - `https://kiwiply.com/` — expects 200.
+  - `https://api.kiwiply.com/management/health` — keyword monitor, expects `"status":"UP"`.
+    (This probe is only UP when the API and the database are both up.)
+
+- **Server errors — email digest (15.1b, built into the API, nothing to sign up for).** Every
+  ERROR the API logs is collected; within a minute of the first one, and then at most every
+  15 minutes, the admin gets one email listing each kind of error once, with how often it happened,
+  a sample message and the top of the stack trace. It goes to `DOSSIER_ERROR_DIGEST_TO`, else
+  `ADMIN_EMAIL`; with neither set it's off. It sends through the same Brevo SMTP as verification
+  mail, so it needs `MAIL_*` working. Subject: `[Kiwiply prod] N server errors (K kinds) since
+  HH:MM UTC`. A noisy logger can be left out with `DOSSIER_OPS_ERROR_DIGEST_IGNORE_LOGGERS`
+  (comma-separated prefixes). To see it work: a real error is the only trigger. The API logs
+  `Server errors will be emailed at most every 15 minutes` at startup when it's on.
+
+### 5.3 Restoring production from a backup (disaster)
+
+The weekly drill proves the dumps restore. This is the real thing, and it **replaces the live
+database**, so only do it when production data is lost or corrupt.
+
+1. Get the dump: the newest in `/root/kiwiply-backups/`, or download one from S3 (`daily/` or
+   `monthly/`) in the AWS console. The box has no AWS CLI installed; `verify-restore.sh` runs it
+   in a container. Check the file before you use it:
+   `scripts/ops/verify-restore.sh --file dossier-<date>.sql.gz --no-live`.
+   On a **new** box, follow `MIGRATION.md` and restore the `.env` from the password manager first.
+   The inbox passwords in the dump only decrypt with the **same `DOSSIER_INBOX_KEY`**; without it,
+   connected inboxes just have to reconnect.
+2. Restore (the API is stopped so Liquibase doesn't race the import):
+   ```bash
+   $COMPOSE stop api
+   gunzip -c dossier-<date>.sql.gz | $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot'
+   $COMPOSE up -d api          # Liquibase applies any migration newer than the dump
+   ```
+3. Check: `scripts/migrate/04-verify.sh kiwiply.com`, and sign in.
+Everything written after the dump was taken (up to a day) is gone. Tell affected users.
 
 ## 6. When you get a real domain
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
@@ -423,3 +507,465 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
 > server-side cache (`ai_answer`, keyed by a normalized-question hash) — a cache hit costs **no
 > quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
 > common questions. Nothing to configure; it's automatic.
+
+## 11. Billing (Phase 12, Stripe) — ⚠️ sandbox ready, NOT live yet
+
+> **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API
+> starts normally, `GET /api/billing/me` answers `FREE` with `billingEnabled:false`, and the
+> checkout/portal endpoints return **503 `BILLING_DISABLED`** so clients show "coming soon"
+> rather than an error. Production runs this way today, and so do CI and every fresh clone —
+> nothing below is needed until you actually want to take payments.
+
+Four secrets, all env-only (they never reach a client bundle):
+
+| Variable | What |
+|---|---|
+| `STRIPE_SECRET_KEY` | `sk_test_…` / `sk_live_…`. **Blank ⇒ billing off.** |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_…` — verifies deliveries really came from Stripe. Without it the webhook rejects everything. |
+| `STRIPE_PRICE_MONTHLY` | Price id for $19.99/month |
+| `STRIPE_PRICE_3MO` | Price id for $49.99/3 months (15.5; the old $44.99 Price is archived in Stripe, not reused) |
+
+Add them to the box's `.env` (same file as the `DOSSIER_AI_*` block), then `$COMPOSE up -d api`.
+**Paste them with no trailing space or newline.** The app trims them now, but Stripe rejects a
+key that carries whitespace with *"Your API key is invalid, as it contains whitespace"* — and it
+only says so at call time, so the server starts happily, reports billing as enabled, and then
+fails every checkout with a message that points nowhere near the cause.
+**Also put them in the password manager** — GitHub secrets are write-only and have never held
+our `.env`, which is exactly how the 2026-09-17 data loss happened.
+
+**15.5 re-price (2026-10-05):** the 3-month plan is now **$49.99**. Stripe Prices can't be edited, so
+create a new $49.99 / 3-month Price on the same product (test mode now, live mode at 15.4), point
+`STRIPE_PRICE_3MO` at it, and archive the $44.99 one. The API also reads the price for the admin MRR
+figure from `STRIPE_AMOUNT_3MO` (default 49.99). Pro's AI budget is per billing period: $3 monthly,
+$8 for 3 months (`DOSSIER_AI_PRO_MONTHLY_BUDGET_USD`, `DOSSIER_AI_PRO_3MO_BUDGET_USD`).
+
+Set-up order lives in `ROADMAP.md` → **Phase 12 → 12.0**: create the product and both prices in
+**test mode first**, **give the product a `tax_code`**, turn on Stripe Tax, configure the
+Customer Portal, and add the webhook endpoint `https://api.kiwiply.com/api/billing/webhook` subscribed to
+`checkout.session.completed`, `customer.subscription.{created,updated,deleted}` and
+`invoice.{paid,payment_failed}`. Locally, the equivalent is the `stripe listen --events …`
+command in §11.1, which prints a per-session webhook secret.
+
+Optional overrides, only if the domain changes: `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`,
+`STRIPE_PORTAL_RETURN_URL`.
+
+**Managed Payments** (merchant of record, +3.5%) is **on by default on new Stripe accounts**, so
+`STRIPE_MANAGED_PAYMENTS` is deliberately **unset** by default — unset means "leave the account's
+own setting alone". Set it to `false` to force the plain Stripe flow, or `true` to force MoR on an
+account that has it off. Two things it demands when on, both of which fail the checkout call
+rather than startup: **automatic tax** (handled — we never send `automatic_tax[enabled]=false`)
+and a **product tax code** (you set that in Stripe, see 12.0).
+
+---
+
+### 11.1 End-to-end test run (Phase 12.7) — do this before taking real money
+
+Run the whole billing flow **locally against the Stripe sandbox**, never against production:
+production holds real users, and pointing it at test keys would write test subscriptions into
+the live database. Everything below uses test keys, test cards and a local API.
+
+**You need:** Docker Desktop running, JDK 17, the Stripe CLI, and your sandbox's `sk_test_…`
+key plus both `price_…` ids.
+
+#### A. Bring the local stack up
+
+```bash
+cd api
+docker compose -f src/main/docker/mysql.yml up -d
+docker compose -f src/main/docker/minio.yml up -d
+```
+
+MinIO is needed even though this is a billing test: the resume-cap step has to upload three real
+files first, and the web upload route deletes the resume row if the file upload fails.
+
+#### B. Start the webhook forwarder FIRST
+
+```bash
+stripe login
+stripe listen --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.paid,invoice.payment_failed --forward-to http://localhost:8080/api/billing/webhook
+```
+
+`--events` is **required** from CLI v1.51 (`must specify events to forward using --events,
+--all-snapshot, or --all-thin`). That list is exactly the `switch` in `BillingWebhookService`,
+and exactly what the real endpoint is subscribed to — keep the three in step.
+
+It prints `whsec_…`. Start it before the API and leave it running: nothing marks anyone Pro
+without it, because the webhook is the only writer of subscription state.
+
+**Do not copy that secret by hand.** It is ~70 characters, consoles wrap it, and a clipped
+selection produces the least helpful failure in the whole flow — deliveries arrive and are
+rejected with `Invalid Stripe signature`, so checkout succeeds, the customer is charged, and
+the subscription never activates. Let the CLI hand it over instead (PowerShell):
+
+```powershell
+$s = (stripe listen --print-secret | Out-String); $env:STRIPE_WEBHOOK_SECRET = [regex]::Match($s, 'whsec_[A-Za-z0-9]+').Value; "len=$($env:STRIPE_WEBHOOK_SECRET.Length)"
+```
+
+If billing is enabled and this is blank, the API logs an **ERROR at startup** saying so — that
+is the one misconfiguration that takes money and does nothing.
+
+> **No Stripe CLI?** There is no official `winget`/`choco` package. Download
+> `stripe_<version>_windows_x86_64.zip` from
+> <https://github.com/stripe/stripe-cli/releases/latest>, check it against the release's
+> `stripe-windows-checksums.txt`, unzip it somewhere on your PATH, and `stripe version`.
+
+#### C. Start the API with the sandbox keys
+
+In a new terminal (not the one running `stripe listen`), with the `whsec_…` from step B.
+
+macOS/Linux/Git Bash:
+
+```bash
+cd api
+export JAVA_HOME="/c/Program Files/Java/jdk-17"
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+export STRIPE_PRICE_MONTHLY=price_...
+export STRIPE_PRICE_3MO=price_...
+./gradlew bootRun
+```
+
+Windows PowerShell — note the **Windows** `JAVA_HOME` path (the `/c/…` form is Git Bash only)
+and `.\gradlew.bat` (the extensionless `gradlew` is the shell script):
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-17"; $env:STRIPE_SECRET_KEY = "sk_test_..."; $env:STRIPE_WEBHOOK_SECRET = "whsec_..."; $env:STRIPE_PRICE_MONTHLY = "price_..."; $env:STRIPE_PRICE_3MO = "price_..."; .\gradlew.bat bootRun
+```
+
+Either way the values live in that shell only — nothing is written to disk. Wait for
+`Started DossierApiApp` before moving on.
+
+#### D. Start the web app and sign in
+
+```bash
+cd web && npm run dev
+```
+
+Sign in at <http://localhost:3000> as **`user` / `user`** — the seeded dev account, already
+activated, so no verification email is needed.
+
+#### E. The run
+
+| # | Do | Expect |
+|---|---|---|
+| 1 | Open `/pricing` | Both prices, the auto-renew disclosure, and live buttons (not "coming soon") |
+| 2 | Subscribe with card `4242 4242 4242 4242`, any future expiry, any CVC | `/billing/success` flips to **You're on Pro** within a second or two |
+| 3 | `/settings#billing` | Pro pill + **Renews on …** |
+| 4 | Upload a 4th resume | Blocked with a **402** and an inline upgrade link — *after* downgrading; on Pro it should succeed |
+| 5 | Portal → **Cancel** | Settings shows **Cancels on …**, and you still have Pro |
+| 6 | Watch the `stripe listen` window throughout | Every event **200**, never 4xx/5xx |
+
+> **`stripe events resend` does not reach the CLI listener** — it redelivers to endpoints
+> registered in the Dashboard. If an event was missed because the forwarder was down or its
+> secret was wrong, fix the cause and run the flow again; there is no replay into `stripe listen`.
+
+#### F. The failed-payment path
+
+**`stripe trigger` cannot exercise this, and that is by design.** The fixture builds its own
+customer *and its own subscription*, so the event is about a subscription we do not mirror — and
+since the double-billing fix, the webhook deliberately ignores those (a stray subscription's
+cancellation must never downgrade a paying customer). Overriding the customer does not help,
+because the subscription is still a stranger.
+
+A genuine failed renewal therefore needs a **test clock** (§G): attach a failing card such as
+`4000 0000 0000 0341`, then advance past the renewal.
+
+What to expect when it fires: status `past_due`, **still Pro** (Stripe's Smart Retries are
+running — dropping someone on the first failed charge punishes an expired card, not a
+non-payer), and a payment-failed email attempted. Locally there is usually no SMTP configured,
+so the API logs `Could not send the payment-failed email` — correct behaviour, not a bug: a mail
+failure must never fail a webhook, or Stripe would retry it forever.
+
+Without a clock, this path is covered by `BillingWebhookIT` (*"A failed charge marks past_due,
+emails the user, and does NOT cut them off"*) — a real HMAC-signed delivery against a real
+database. Worth doing for real once before live keys; not worth blocking a sandbox run on.
+
+#### G. Watching Pro actually lapse (test clock)
+
+A Stripe test clock can only be attached **when the customer is created**, and our checkout
+creates its own customer — so seed the row with a clock customer *before* the first checkout.
+`startCheckout` reuses an existing `stripe_customer_id` forever, which is what makes this work.
+
+1. Sandbox Dashboard → **Test clocks** → new clock → create a customer on it (`cus_…`).
+2. With no subscription row yet for `user`:
+
+```sql
+INSERT INTO subscription (user_id, plan, status, stripe_customer_id, cancel_at_period_end, created_at, updated_at)
+VALUES ((SELECT id FROM jhi_user WHERE login = 'user'), 'FREE', 'none', 'cus_...', false, NOW(), NOW());
+```
+
+3. Run the checkout in step E again — it will use that customer, so the subscription lands on
+   the clock.
+4. Advance the clock past `current_period_end`.
+
+Expect: the mirror follows Stripe, `/settings` shows **Free**, **every resume is still there**,
+and a 4th upload is refused with `RESUME_LIMIT`.
+
+**Cancelling is not a shortcut to this.** Stripe keeps `current_period_end` at the paid-through
+date even on an immediate cancel, and `EntitlementService` honours it — so a cancelled user stays
+Pro until that date, which is exactly the promise the ToS makes. Verified in the 12.7 run. Only
+time passing produces a lapse, so only a clock can show you one; to check the Free side without
+waiting, move `current_period_end` into the past in your LOCAL database and leave Stripe alone.
+
+#### H. The extension (optional)
+
+Point the extension's API base at `http://localhost:8080`, connect from the local `/connect`
+page, then open its options. Pro should appear **within one version check** — that is a
+15-minute alarm, or immediately on window focus or opening the drawer.
+
+#### Afterwards
+
+Record the run under **Log** in `PROGRESS.md`, then move the same four secrets into the box's
+`.env` (and the password manager) when you switch to live keys.
+
+### 11.2 Kiwiply's own Stripe account (user decision 2026-10-06)
+
+AutomoraLab LLC's Stripe account serves more than one business. Kiwiply gets **its own Stripe
+account**, so its checkouts, customer portal, branding, receipts, card-statement name and payout
+report are its own. (The code also refuses any purchase that isn't Kiwiply's, in case it's ever
+shared again: §11.3.) Two kinds of setting: **account-level** (the business's public details, branding, statement name, tax
+address, Managed Payments, security: set **once, outside the sandbox**, and they apply to test and live) and
+**sandbox** (the product, prices, portal, keys, webhook: separate in test and live, so built in the sandbox
+now and rebuilt in live mode at 15.4). A page that looks missing or locked inside the sandbox is
+account-level: set it from the account's own settings.
+
+**Shape:** an **Organization** (AutomoraLab LLC) holds **accounts**: the existing one for the other
+businesses, and a new one named **Kiwiply**. An organization takes no payments itself. **Use only the
+Kiwiply account's own secret key** for Kiwiply — never an organization-wide key, so a leak stays inside
+Kiwiply.
+
+**Part 1: create the account**
+1. Stripe dashboard → account menu (top-left) → **Create an organization** (if offered) named
+   **AutomoraLab LLC**, with the existing account inside it. Then **New account** → name **Kiwiply**.
+   Same LLC and the same bank account can be used.
+2. Open the Kiwiply account, then **Sandboxes** (account menu) → create or open a sandbox. Everything
+   below happens inside it; check the **Sandbox** badge at the top of every page.
+3. Account **Settings → Personal details / Security:** two-step verification on, a backup email.
+
+**Part 2: set up the account** (steps 4–7 are account-level, outside the sandbox; 8–11 are in the sandbox)
+4. **Settings → Business → Public details:** business name **Kiwiply**; support email
+   **support@kiwiply.com**; website **https://kiwiply.com**; statement descriptor **KIWIPLY** (the name on
+   customers' card statements). Branding: icon, logo, colour (`brand/`).
+5. **Settings → Tax:** set your head-office address (the LLC's) and turn **Stripe Tax** on.
+   **Settings → Managed Payments:** leave it on (default; Stripe is the merchant of record).
+6. **Settings → Customer emails:** successful-payment receipts on.
+7. **Product catalog → + Add product:** name **Kiwiply Pro**; description *"AI resume matching, tailoring and
+   scoring, job fit, inbox tracking and cross-device sync for job seekers."*; product tax code **Software
+   as a service (SaaS) – personal use** (`txcd_10103000`).
+8. Price 1: **Recurring · $19.99 USD · Monthly · tax behaviour Exclusive.**
+   **+ Add another price:** **Recurring · $49.99 USD · Custom → every 3 months · Exclusive.**
+   Copy both price IDs (`price_…`).
+9. **Settings → Billing → Customer portal:** **On:** cancel subscriptions *at the end of the billing period*,
+   update payment method, invoice history. **Off:** switching plans. Privacy policy
+   `https://kiwiply.com/privacy`, terms `https://kiwiply.com/terms`, redirect
+   `https://kiwiply.com/settings#billing`. Save.
+10. **Developers → API keys:** copy the **secret key** (`sk_test_…`) of THIS account.
+
+**Part 3: the webhook, only when you're ready to test on production**
+11. **Don't add it yet.** Production doesn't have the billing endpoint until `develop` is promoted, and
+    Stripe would just retry against a 404. Add it for 15.4's pre-launch Pro check: **Developers →
+    Webhooks → Add endpoint:** `https://api.kiwiply.com/api/billing/webhook`, events
+    `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
+    `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`; copy the signing secret
+    (`whsec_…`). For local testing, `stripe listen` (§11.1) prints its own.
+
+**Part 4: where the values go**
+12. **Password manager first**, as "Kiwiply Stripe — test": the secret key, the two price IDs, later the
+    webhook secret. Never in chat, the repo or GitHub secrets. They reach the box's `.env`
+    (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_3MO`) only for
+    15.4's pre-launch Pro check; production's are blank today, which is a valid running state.
+13. **Stripe CLI:** `stripe login`, pick the **Kiwiply** account (it's still signed in to the LLC's
+    sandbox). Ask Claude to verify the setup read-only.
+
+**Part 5: clean up AutomoraLab LLC's account (sandbox only; never touch its live mode)**
+Checked 2026-10-06: no webhook endpoints; 5 test customers; 3 test subscriptions (1 active).
+14. Switch to **AutomoraLab LLC → sandbox.**
+15. **Customers:** open each of the 5 → **⋯ → Delete customer.** (Deleting cancels the active test
+    subscription too.)
+16. **Product catalog:** **Kiwiply Pro** and the three **myproduct** entries → **⋯ → Archive.** (Products
+    with prices can't be deleted; archiving stops them being sold.) Archive the two Kiwiply Pro prices too.
+17. **Settings → Billing → Customer portal:** if your other products use the portal, replace the Kiwiply
+    privacy/terms links and redirect with theirs.
+18. **Optional:** Developers → API keys → **roll the secret key** (the Kiwiply testing used it; nothing on
+    the box does).
+19. **Live mode of that account:** leave alone — it belongs to your other businesses.
+
+**Live mode (at 15.4):** activate the Kiwiply account (business details, bank account, identity check),
+then redo steps 8–11 and the webhook in live mode (the account-level steps carry over). Live has its own
+price IDs, webhook secret and keys.
+
+### 11.3 The webhook only acts on Kiwiply's purchases
+
+Defence in depth for a shared account. Everything Kiwiply creates in Stripe is tagged
+`metadata.app = kiwiply` (the customer, the Checkout Session and the subscription it starts). The
+webhook then:
+- binds a completed checkout to a user **only when its customer is the one Kiwiply created and saved
+  for that user** before sending them to checkout (`BillingService.startCheckout`), and never when
+  the session is tagged for another app;
+- ignores any subscription event tagged for another app;
+- applies every other event only to a subscription or customer it has already bound.
+
+So another app's checkout that happens to carry one of our user ids as its `client_reference_id`
+can't hand that user Pro. Tests: `BillingWebhookIT` → "one Stripe account, several businesses".
+
+### 11.4 Live-mode launch checklist: the user's, right before launch (2026-10-06)
+
+**Where things stand.** The Kiwiply Stripe account was set up directly in **live mode** ahead of launch
+(product, prices, portal, branding). **No live or test key is on the box**, so billing is off and nobody
+can pay; that's a valid running state. The sandbox (test mode) was skipped, but 15.4 still needs one,
+for two things live mode can't do: the pre-launch Pro check with Stripe's fake test card, and the
+**test-clock run** (a real failed renewal and lapse). A live purchase costs real fees and can't simulate
+a failed renewal. So the checklist has a short sandbox block (A) and the live block (B).
+
+**A. Sandbox, before the live keys go in** (about 15 minutes; DEPLOY.md §11.2 steps 8–11)
+- [ ] In the Kiwiply account's **sandbox**: product **Kiwiply Pro** (tax code `txcd_10103000`), prices
+      **$19.99 monthly** and **$49.99 every 3 months** (both Exclusive), customer portal as in §11.2.
+- [ ] Its **test secret key** (`sk_test_…`), both **test price IDs** → password manager ("Kiwiply Stripe: test").
+- [ ] After `develop` is promoted and the extension is approved: add the **test webhook**
+      (`https://api.kiwiply.com/api/billing/webhook`, the 6 events in §11.2), copy its `whsec_…`.
+- [ ] Put the four test values in the box's `.env`, `$COMPOSE up -d api`, run 15.4's **Pro check** (every
+      Pro promise, with the test card `4242 4242 4242 4242`) and the **test-clock run** (`DEPLOY.md` §11.1 §G).
+- [ ] When it passes: **remove the four test values from `.env`** before step B. Never both at once.
+
+**B. Live mode, launch day**
+*Check what you set up (read-only; nothing here changes anything):*
+- [ ] **Activation** complete: business details, bank account, identity; **payouts enabled**.
+- [ ] **Public details:** name Kiwiply, support@kiwiply.com, https://kiwiply.com, statement descriptor
+      **KIWIPLY**. **Branding:** logo, icon, brand `#FBFAF6`, accent `#94BD37`.
+- [ ] **Tax:** head-office address set; **Managed Payments** on; Stripe Tax on.
+- [ ] **Product** Kiwiply Pro: tax code `txcd_10103000`; exactly two **active** prices, **$19.99 / month** and
+      **$49.99 / 3 months**, both tax behaviour **Exclusive**; no leftover test products or prices.
+- [ ] **Customer portal:** cancel at the *end of the billing period* on; update card and invoice history
+      on; **plan switching off**; privacy `/privacy`, terms `/terms`, return `/settings#billing`.
+- [ ] **Customer emails:** successful-payment receipts on. **Two-step verification** on.
+
+*The keys (do these in order; each value goes in the password manager FIRST):*
+- [ ] **1. Secret key**, Developers → API keys → `sk_live_…`. A standard secret key is fine. For a tighter
+      one, a **restricted key** with only what the API calls: *Customers* write, *Checkout Sessions* write,
+      *Customer portal* write, *Subscriptions* write (it lists and cancels). Nothing else.
+- [ ] **2. Price IDs**, the two live `price_…` codes: monthly → `STRIPE_PRICE_MONTHLY`, 3-month →
+      `STRIPE_PRICE_3MO`. They differ from the test ones; a test price on a live key (or the reverse) fails
+      every checkout.
+- [ ] **3. Live webhook**, add it only **after** the promote and deploy: Developers → Webhooks → Add
+      endpoint, `https://api.kiwiply.com/api/billing/webhook`, events `checkout.session.completed`,
+      `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`,
+      `invoice.paid`, `invoice.payment_failed`. Copy its signing secret `whsec_…` → `STRIPE_WEBHOOK_SECRET`.
+      Each endpoint has its own secret, per mode: the wrong one makes every event fail with a 400.
+- [ ] **4. Put all four in the box's `.env`** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+      `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_3MO`) with **no trailing space or newline**, then
+      `$COMPOSE up -d api`. Never in chat, the repo or GitHub secrets.
+- [ ] **5. Check it's on:** `/pricing` shows the Go Pro buttons, and Settings › Billing no longer says
+      payments aren't switched on.
+- [ ] **6. One real purchase with your own card.** Pro unlocks; the webhook shows **200** in Stripe's
+      delivery log; cancel from Settings › Billing and confirm "ends on [date]"; refund yourself in Stripe
+      if you want the money back.
+- [ ] **7. Watch the first week:** the error digest email (§5.2), Stripe's webhook log (any failed delivery),
+      and `/admin/analytics` → Revenue.
+
+Claude can verify the **sandbox** read-only through the Stripe CLI after `stripe login` to the Kiwiply
+account. It can't check live mode without a live key, which it should never be given, so block B is yours.
+
+---
+
+## 12. Inbox encryption key (Phase 14.2)
+
+The inbox (Phase 14) stores each user's Gmail **app password** — the key to their mailbox — so it
+is encrypted at rest with AES-256-GCM. The key is one 32-byte value in the box's `.env`:
+
+```bash
+openssl rand -base64 32
+```
+
+1. Run that **once**, on your own machine. Put the output in the **password manager** first, then
+   in the box's `.env` as `DOSSIER_INBOX_KEY=…`. Not in the repo, not in GitHub secrets (they're
+   write-only — that's how the `.env` was lost on 2026-09-17), not in a chat message.
+2. Redeploy. The API log says `Inbox key ready (fingerprint xxxxxxxx)` on the first boot and
+   `Inbox key OK (fingerprint xxxxxxxx)` after that. Note the fingerprint next to the key in the
+   password manager — it identifies the key without revealing it.
+3. **If the log says the key doesn't match** (`is not the key that encrypted the stored inbox
+   passwords`), the `.env` has the wrong value — restore it from the password manager. Don't
+   generate a new one: the inbox refuses to run with a mismatched key precisely so nothing is
+   overwritten, and a new key means every connected user has to reconnect.
+
+**Rotating** (e.g. if the key may have leaked): generate a new key, set it as `DOSSIER_INBOX_KEY`,
+bump `DOSSIER_INBOX_KEY_VERSION` by one, and keep the old one readable by adding it to
+`application-prod.yml` under `dossier.inbox.retired-keys` (`<old version>: ${DOSSIER_INBOX_KEY_V1}`)
+with that env var set. Each stored password moves to the new key the next time its inbox is
+checked (every 15 minutes once the poller, 14.3, is live), so keep the retired key for a day, then drop it.
+
+## 13. Promoting `develop` → `main` — the first big release (reviewed 2026-10-05)
+
+Production last deployed `main` at **`4de5b60`** (PR #56, images built 2026-09-21). `develop` is
+**~130 commits / ~50 PRs ahead**: billing (12), Pro AI (13), the inbox (14), ops (15.1). This section is
+the pre-launch review of that jump, and the runbook for it.
+
+### 13.1 What the review found
+
+| Area | Finding | Verdict |
+|---|---|---|
+| **Database** | 15 new migration files, 16 changesets. All **additive** (new tables, indexes, two new columns on new tables) except one: `ai_quota_override.monthly_quota` is renamed to `monthly_budget_cents` (13.1b). Production has **0** rows there. | Safe |
+| **Settings** | Every new variable in `docker-compose.prod.yml` has a safe default; the box's `.env` already has every required one (checked by name, not value). Blank Stripe = billing off; blank `DOSSIER_INBOX_KEY` = inbox off. `DOSSIER_AI_MODEL` is already `gemini-2.5-flash-lite`. | Nothing to add to boot |
+| **Startup** | The new startup checks (inbox key, mail) log; none can stop the API. | Safe |
+| **Web** | No new build-time variables needed; the extension id has a built-in default. | Safe |
+| **Box** | 106 GB disk free; `git pull` will fast-forward cleanly; clock is UTC. Memory is tight: 3.7 GB shared with BeeCompete (~1.1 GB free, 4 GB swap). Our API is capped at a 512 MB heap. | Watch the first nights |
+| **Data** | 5 users. **No backup exists yet**: the automated one (15.1) only arrives *with* this deploy. | **Take a manual backup first** |
+
+**Rollback is not a simple image swap.** Old code can't read the renamed AI-override column, so going
+back means the old images **and** the pre-promotion dump (losing anything written in between). The
+better path for a small bug is to fix forward on `develop` and promote again.
+
+### 13.2 What starts running on its own after the deploy
+
+- **02:00 UTC:** the job-board read (217 public boards, ~400 ms apart: a couple of minutes of outbound
+  requests). Postings are kept 7 days.
+- **03:30 UTC:** mail expiry (nothing to delete yet). **04:00 UTC:** daily matches, which only run for
+  Pro users who opted in, so none until billing is live.
+- **Every 15 min:** the inbox check. It does nothing until `DOSSIER_INBOX_KEY` is set and a Pro user
+  connects.
+- **Error digest:** server errors are emailed to `ADMIN_EMAIL` (set on the box), at most every 15 min.
+- **What users see:** the pricing page says payments aren't switched on yet; Pro features show an
+  upgrade prompt; Settings › Inbox says connecting isn't available yet.
+
+### 13.3 The runbook
+
+1. **Manual backup, copied off the box** (5 min). On the box:
+   ```bash
+   cd /root/web-ext-job-application-autofill
+   COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml"
+   mkdir -p /root/kiwiply-backups && chmod 700 /root/kiwiply-backups
+   $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --single-transaction --routines --triggers --events --set-gtid-purged=OFF --databases dossierApi' \
+     | gzip -9 > /root/kiwiply-backups/pre-promotion-$(date -u +%F).sql.gz
+   gunzip -c /root/kiwiply-backups/pre-promotion-*.sql.gz | tail -1    # must say "-- Dump completed"
+   ```
+   Then copy it to your own computer: `scp root@74.208.212.158:/root/kiwiply-backups/pre-promotion-*.sql.gz .`
+2. **Open the PR `develop` → `main`**, wait for CI to pass, merge. The Deploy workflow builds both
+   images, pushes them to GHCR and restarts the box (about 10 minutes). Liquibase applies the 16
+   changesets when the API starts.
+3. **Watch the API start:** `$COMPOSE logs -f api` until `Started DossierApiApp`. A Liquibase error
+   here means stop and read it, not retry.
+4. **Smoke check** (5 min):
+   - `https://api.kiwiply.com/management/health` → `{"status":"UP"}`; `https://kiwiply.com` loads.
+   - Sign in → the board, Resumes and Settings load; upload a resume and it parses.
+   - `/pricing` says payments aren't switched on; Settings › Billing shows **Free**.
+   - As a Free user, the ATS score or job matches shows the upgrade prompt.
+   - Admin: `/admin/system` healthy. `/admin/job-sources` stays empty until the first read loads the
+     217 boards, at 02:00 UTC or on **Run now** there.
+   - `scripts/migrate/04-verify.sh kiwiply.com` from your laptop.
+5. **Then 15.1c:** install the backup cron (§5.1), run the first backup and the first restore drill.
+6. **The next morning:** `/admin/job-sources` lists 217 boards with fresh postings from the 02:00 read;
+   no error digest arrived (or read what did).
+
+**Rollback** (only for a failure the smoke check can't live with). Both old images are still in GHCR
+(checked 2026-10-05):
+```bash
+docker pull ghcr.io/hasmika123/dossier-api:4de5b60984b230e9a145ba7237b3629574837751
+docker pull ghcr.io/hasmika123/dossier-web:4de5b60984b230e9a145ba7237b3629574837751
+docker tag ghcr.io/hasmika123/dossier-api:4de5b60984b230e9a145ba7237b3629574837751 ghcr.io/hasmika123/dossier-api:latest
+docker tag ghcr.io/hasmika123/dossier-web:4de5b60984b230e9a145ba7237b3629574837751 ghcr.io/hasmika123/dossier-web:latest
+$COMPOSE stop api
+gunzip -c /root/kiwiply-backups/pre-promotion-<date>.sql.gz | $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot'
+$COMPOSE up -d api web
+```
+The dump re-creates the database exactly as it was, which removes the new tables' changelog rows,
+so Liquibase stays consistent with the old code. Then `git reset --hard 4de5b60` on the box's checkout
+so the next deploy starts from a known place, and revert the promotion on `main`.

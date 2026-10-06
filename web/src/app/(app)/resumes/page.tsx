@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/api";
+import { getPlan } from "@/lib/billing";
 import ResumesWorkspace from "@/components/ResumesWorkspace";
 import { type Resume } from "@/components/ResumeList";
 import type { Application } from "@/components/ApplicationBoard";
@@ -10,10 +11,11 @@ import type { Application } from "@/components/ApplicationBoard";
  * resume. Session gate + nav live in the `(app)` shell.
  */
 export default async function ResumesPage() {
-  const [resumesRes, appsRes, profileRes] = await Promise.all([
+  const [resumesRes, appsRes, profileRes, plan] = await Promise.all([
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile"),
+    getPlan(),
   ]);
 
   const resumes: Resume[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as Resume[]) : [];
@@ -57,7 +59,7 @@ export default async function ResumesPage() {
         </p>
       </header>
 
-      <ResumesWorkspace baseProfile={baseProfile} resumes={resumes} usage={usage} />
+      <ResumesWorkspace baseProfile={baseProfile} resumes={resumes} usage={usage} isPro={plan.plan === "PRO"} />
     </div>
   );
 }

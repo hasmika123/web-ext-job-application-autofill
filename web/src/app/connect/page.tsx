@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/Button";
-
-// Pinned extension id (derived from the manifest "key"). Stable for the unpacked/dev build
-// and for the published item after its first Web Store upload. Override per-build with
-// NEXT_PUBLIC_KIWIPLY_EXTENSION_ID if the Web Store ever assigns a different id.
-// Only the DIRECT transport below needs it; Firefox's relay addresses its own extension.
-const EXT_ID = process.env.NEXT_PUBLIC_KIWIPLY_EXTENSION_ID || "ejlamilajchikpbeipdkjljjgankbfii";
+// The pinned extension id lives with the sync signal now (11.1) — one definition for both
+// direct-transport callers. Only the DIRECT transport below needs it; Firefox's relay
+// addresses its own extension.
+import { EXT_ID } from "@/lib/extension-signal";
 
 // Firefox relay protocol. Firefox implements neither `externally_connectable` nor web-page
 // `runtime.sendMessage` (https://bugzil.la/1319168), so there the extension injects a content

@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import {
   ArchiveIcon as SharedArchiveIcon,
   ArrowsUpDownIcon,
+  ChartIcon,
   CheckIcon,
   ChevronDownIcon,
   Menu,
@@ -18,6 +19,9 @@ import {
   type MenuItem,
 } from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
+import { notifyExtension } from "@/lib/extension-signal";
+import { formatDate as formatDateIn, type DateDisplay } from "@/lib/dates";
+import { useDateDisplay } from "@/lib/use-date-display";
 
 export interface Resume {
   id: number;
@@ -38,12 +42,9 @@ function statusBadge(status?: string | null) {
   return null;
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+// Server-rendered props: formatted identically on both passes, then in the viewer's own zone.
+function formatDate(iso: string | null | undefined, display: DateDisplay): string {
+  return formatDateIn(iso, { year: "numeric", month: "short", day: "numeric" }, display);
 }
 
 function FileIcon() {
@@ -72,6 +73,7 @@ function Row({
   onEdit,
   onStar,
   onSetDefault,
+  onAtsScore,
   guard,
 }: {
   resume: Resume;
@@ -86,8 +88,11 @@ function Row({
   onEdit?: () => void;
   onStar: () => void;
   onSetDefault: () => void;
+  /** 13.5 — open this resume's ATS score. */
+  onAtsScore?: () => void;
   guard: string | null;
 }) {
+  const display = useDateDisplay();
   const archived = !!resume.archived;
   const isDefault = !!resume.defaultResume;
   const badge = statusBadge(resume.status);
@@ -102,6 +107,9 @@ function Row({
     },
     ...(onEdit
       ? [{ label: "Edit", icon: <SharedPencilIcon className="h-4 w-4" />, onSelect: onEdit, disabled: busy }]
+      : []),
+    ...(onAtsScore && !archived
+      ? [{ label: "ATS score", icon: <ChartIcon className="h-4 w-4" />, onSelect: onAtsScore, disabled: busy }]
       : []),
     // Kept for the default resume too, just disabled (so the option doesn't vanish).
     ...(!archived
@@ -173,7 +181,7 @@ function Row({
           {!archived && badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted">
-          {formatDate(resume.createdAt) && <span>Added {formatDate(resume.createdAt)}</span>}
+          {formatDate(resume.createdAt, display) && <span>Added {formatDate(resume.createdAt, display)}</span>}
           {/* Usage as a distinct pill so it isn't missed (it also gates deletion). */}
           <span
             className={cn(
@@ -257,10 +265,12 @@ export default function ResumeList({
   resumes,
   usage = {},
   onEdit,
+  onAtsScore,
 }: {
   resumes: Resume[];
   usage?: Record<number, number>;
   onEdit?: (r: Resume) => void;
+  onAtsScore?: (r: Resume) => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -293,13 +303,17 @@ export default function ResumeList({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ archived: next }),
     });
+    if (res.ok) notifyExtension("changed"); // archived resumes leave the drawer's picker
     return res.ok;
   }
 
   // One delete call. Returns "ok" | "guard" | "error" so callers can message precisely.
   async function deleteOne(id: number): Promise<"ok" | "guard" | "error"> {
     const res = await fetch(`/api/resumes/${id}`, { method: "DELETE" });
-    if (res.ok) return "ok";
+    if (res.ok) {
+      notifyExtension("changed");
+      return "ok";
+    }
     if (res.status === 409) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       setGuards((g) => ({ ...g, [id]: data.error ?? "This resume is used by an application. Archive it instead of deleting." }));
@@ -316,8 +330,10 @@ export default function ResumeList({
       body: JSON.stringify({ starred: !r.starred }),
     });
     setRowBusy([r.id], false);
-    if (res.ok) router.refresh();
-    else toast({ variant: "error", title: "Couldn't update the resume." });
+    if (res.ok) {
+      notifyExtension("changed");
+      router.refresh();
+    } else toast({ variant: "error", title: "Couldn't update the resume." });
   }
 
   async function rowSetDefault(r: Resume) {
@@ -329,6 +345,7 @@ export default function ResumeList({
     });
     setRowBusy([r.id], false);
     if (res.ok) {
+      notifyExtension("changed"); // the drawer preselects the default resume
       toast({ variant: "success", title: `“${r.label}” is now your default resume` });
       router.refresh();
     } else {
@@ -440,6 +457,7 @@ export default function ResumeList({
       onEdit={onEdit ? () => onEdit(r) : undefined}
       onStar={() => rowStar(r)}
       onSetDefault={() => rowSetDefault(r)}
+      onAtsScore={onAtsScore ? () => onAtsScore(r) : undefined}
       guard={guards[r.id] || null}
     />
   );

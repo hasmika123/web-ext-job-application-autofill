@@ -30,6 +30,12 @@ export type { BadgeProps, BadgeVariant } from "./primitives/Badge";
 export { default as Switch } from "./primitives/Switch";
 export type { SwitchProps } from "./primitives/Switch";
 
+export { default as ChoiceGroup } from "./primitives/ChoiceGroup";
+export type { ChoiceGroupProps } from "./primitives/ChoiceGroup";
+
+export { default as Meter } from "./primitives/Meter";
+export type { MeterProps } from "./primitives/Meter";
+
 export { default as Tabs, TabList, Tab, TabPanel } from "./primitives/Tabs";
 export type { TabsProps } from "./primitives/Tabs";
 
@@ -63,6 +69,13 @@ export * from "./primitives/icons";
 export { cn } from "./primitives/cn";
 
 /* ── The portable ResumeUpload form + its types ───────────────────────────────────── */
+/* ── The job-fit report (13.3): shared by the extension drawer and the web board ─────── */
+export { default as JobFitReport } from "./JobFitReport";
+export type { JobFitData, JobFitReportProps } from "./JobFitReport";
+
+export { default as AtsReport } from "./AtsReport";
+export type { AtsCheck, AtsKeywords, AtsReportData, AtsReportProps } from "./AtsReport";
+
 export { default as ResumeUpload } from "./ResumeUpload";
 export type {
   EditTarget,

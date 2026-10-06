@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 13.6a - daily job matches, the source half: which company job boards we read, and the
+        fresh postings read from them.
+
+        `job_source` is one public job board on Greenhouse, Lever or Ashby (`ats` + `board_token`,
+        the name in the board's URL). `origin` says how it got here: SEED (the verified starter list
+        shipped with the API), DISCOVERED (a company a Kiwiply user applied to on one of those ATSs -
+        only the company, never who applied) or ADMIN (added by hand). A board that keeps failing is
+        switched off, never deleted, so a re-seed can't bring it back.
+
+        `job_posting` holds postings first published in the last 48 hours when read, kept for 7 days.
+        Public data only: title, company, location, links and the description as plain text (capped).
+        `dedup_key` hashes company + title + location so the same job on two boards is kept once.
+        No user data. Additive; no data migration.
+    -->
+    <changeSet id="20260922070000-1" author="dossier">
+        <createTable tableName="job_source">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="ats" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="board_token" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="company_name" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="origin" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="enabled" type="boolean" valueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_fetched_at" type="timestamp"/>
+            <column name="last_status" type="varchar(20)"/>
+            <column name="last_error" type="varchar(255)"/>
+            <column name="last_job_count" type="integer"/>
+            <column name="consecutive_failures" type="integer" valueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="job_source" columnNames="ats, board_token" constraintName="ux_job_source_board"/>
+
+        <createTable tableName="job_posting">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="source_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="external_id" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="varchar(300)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="company" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="location" type="varchar(300)"/>
+            <column name="workplace_type" type="varchar(20)"/>
+            <column name="remote" type="boolean"/>
+            <column name="employment_type" type="varchar(40)"/>
+            <column name="department" type="varchar(200)"/>
+            <column name="url" type="varchar(1000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="apply_url" type="varchar(1000)"/>
+            <column name="description_text" type="${clobType}"/>
+            <column name="published_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="dedup_key" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="first_seen_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="job_posting" columnNames="source_id, external_id" constraintName="ux_job_posting_source_ext"/>
+        <createIndex tableName="job_posting" indexName="ix_job_posting_dedup">
+            <column name="dedup_key"/>
+        </createIndex>
+        <createIndex tableName="job_posting" indexName="ix_job_posting_published">
+            <column name="published_at"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="job_posting"
+            baseColumnNames="source_id"
+            constraintName="fk_job_posting_source_id"
+            referencedTableName="job_source"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+</databaseChangeLog>

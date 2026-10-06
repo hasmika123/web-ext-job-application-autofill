@@ -6,8 +6,9 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Logo, BetaBadge } from "@/components/ui";
-import { BoardIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, GearIcon, UserIcon } from "@kiwiply/ui";
+import { BoardIcon, ChevronLeftIcon, DashboardIcon, FileTextIcon, GearIcon, SearchIcon, UserIcon } from "@kiwiply/ui";
 import SignOutButton from "@/components/SignOutButton";
+import NotificationBell from "@/components/app-shell/NotificationBell";
 
 export interface AppAccount {
   login?: string;
@@ -57,6 +58,7 @@ const I = {
   profile: <UserIcon className={ICON} />,
   resumes: <FileTextIcon className={ICON} />,
   board: <BoardIcon className={ICON} />,
+  matches: <SearchIcon className={ICON} />,
   settings: <GearIcon className={ICON} />,
 };
 
@@ -65,6 +67,7 @@ const NAV: NavItem[] = [
   { href: "/profile", label: "Profile", icon: I.profile },
   { href: "/resumes", label: "Resumes", icon: I.resumes },
   { href: "/board", label: "Application board", icon: I.board },
+  { href: "/matches", label: "Job matches", icon: I.matches },
   { href: "/settings", label: "Settings", icon: I.settings },
 ];
 
@@ -80,9 +83,12 @@ function displayName(account?: AppAccount): string {
 
 export default function AppShell({
   account,
+  isPro = false,
   children,
 }: {
   account?: AppAccount | null;
+  /** Shows a Pro pill by the account chip. Display only — entitlement is enforced server-side. */
+  isPro?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -196,6 +202,9 @@ export default function AppShell({
 
         <div className="flex-1" />
 
+        {/* 14.6 — news from the inbox. */}
+        <NotificationBell collapsed={collapsed} onNavigate={() => setOpen(false)} />
+
         {/* User chip — opens Settings. Sign out stays a separate control below. */}
         <Link
           href="/settings"
@@ -216,6 +225,16 @@ export default function AppShell({
           >
             {displayName(account ?? undefined)}
           </span>
+          {isPro && (
+            <span
+              className={cn(
+                "flex-none rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold text-accent-deep",
+                collapsed && "lg:hidden",
+              )}
+            >
+              PRO
+            </span>
+          )}
         </Link>
         <SignOutButton collapsed={collapsed} />
       </aside>

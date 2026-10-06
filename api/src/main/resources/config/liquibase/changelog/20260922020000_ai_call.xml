@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 13.1a — the AI call ledger.
+
+        One row per SUCCESSFUL provider call: which kind of request (draft / pick / map / enrich /
+        parse), which model actually answered, the tokens it billed (full-rate input, cached input,
+        output) and what that cost, in millionths of a US dollar. This is what 13.1b's monthly
+        budget is metered against, and what the admin side needs to see real cost per user.
+
+        Never the prompt or the answer: the ledger is about spend, and nothing here says what anyone
+        asked. `login` is set to NULL when an account is deleted — the spend stays in the totals,
+        the link to a person does not. Cache hits aren't calls and aren't recorded.
+
+        Additive; no data migration.
+    -->
+    <changeSet id="20260922020000-1" author="dossier">
+        <createTable tableName="ai_call">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="login" type="varchar(50)"/>
+            <column name="task" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model" type="varchar(80)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="input_tokens" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cached_tokens" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="output_tokens" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cost_micros" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="ai_call" indexName="ix_ai_call_login_created">
+            <column name="login"/>
+            <column name="created_at"/>
+        </createIndex>
+        <createIndex tableName="ai_call" indexName="ix_ai_call_created">
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

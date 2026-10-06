@@ -66,10 +66,50 @@ services:
       # use inputs to improve Google's services (the extension keeps this opt-in + disclosed).
       - DOSSIER_AI_ENABLED=${DOSSIER_AI_ENABLED:-false}
       - DOSSIER_AI_PROVIDER=${DOSSIER_AI_PROVIDER:-gemini}
-      - DOSSIER_AI_MODEL=${DOSSIER_AI_MODEL:-gemini-2.0-flash}
+      # 13.1a: the fallback was gemini-2.0-flash, which returned limit:0 — the app's own default
+      # is Flash-Lite, and this now agrees with it. The three lines after the key were never
+      # passed through before, so .env values for them were silently ignored.
+      - DOSSIER_AI_MODEL=${DOSSIER_AI_MODEL:-gemini-2.5-flash-lite}
       - DOSSIER_AI_API_KEY=${DOSSIER_AI_API_KEY:-}
+      - DOSSIER_AI_BASE_URL=${DOSSIER_AI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
       - DOSSIER_AI_FREE_MONTHLY_QUOTA=${DOSSIER_AI_FREE_MONTHLY_QUOTA:-50}
+      # 13.1b — Pro is metered by cost, not call count (AiPolicy). Unset = the defaults in
+      # application-prod.yml; per-task models are optional (blank = DOSSIER_AI_MODEL).
+      - DOSSIER_AI_PRO_MONTHLY_BUDGET_USD=${DOSSIER_AI_PRO_MONTHLY_BUDGET_USD:-3.0}
+      - DOSSIER_AI_PRO_3MO_BUDGET_USD=${DOSSIER_AI_PRO_3MO_BUDGET_USD:-8.0}
+      - DOSSIER_AI_SOFT_CAP_PERCENT=${DOSSIER_AI_SOFT_CAP_PERCENT:-80}
+      - DOSSIER_AI_ECONOMY_MODEL=${DOSSIER_AI_ECONOMY_MODEL:-}
+      - DOSSIER_AI_DISABLED_TASKS=${DOSSIER_AI_DISABLED_TASKS:-}
+      - DOSSIER_AI_MODEL_DRAFT=${DOSSIER_AI_MODEL_DRAFT:-}
+      - DOSSIER_AI_MODEL_PICK=${DOSSIER_AI_MODEL_PICK:-}
+      - DOSSIER_AI_MODEL_MAP=${DOSSIER_AI_MODEL_MAP:-}
+      - DOSSIER_AI_MODEL_ENRICH=${DOSSIER_AI_MODEL_ENRICH:-}
+      - DOSSIER_AI_MODEL_PARSE=${DOSSIER_AI_MODEL_PARSE:-}
+      - DOSSIER_AI_MODEL_MATCH=${DOSSIER_AI_MODEL_MATCH:-}
+      - DOSSIER_AI_MODEL_FIT=${DOSSIER_AI_MODEL_FIT:-}
+      - DOSSIER_AI_MODEL_TAILOR=${DOSSIER_AI_MODEL_TAILOR:-}
+      - DOSSIER_AI_MODEL_JOBS=${DOSSIER_AI_MODEL_JOBS:-}
+      - DOSSIER_AI_MODEL_INBOX=${DOSSIER_AI_MODEL_INBOX:-}
+      - DOSSIER_AI_MAX_OUTPUT_TOKENS=${DOSSIER_AI_MAX_OUTPUT_TOKENS:-400}
       - DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS=${DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS:-4000}
+      # Nightly job-board read for daily job matches (13.6a). On unless set to false.
+      - DOSSIER_JOBS_ENABLED=${DOSSIER_JOBS_ENABLED:-true}
+      - DOSSIER_JOBS_FETCH_CRON=${DOSSIER_JOBS_FETCH_CRON:-0 0 2 * * *}
+      - DOSSIER_JOBS_MATCH_CRON=${DOSSIER_JOBS_MATCH_CRON:-0 0 4 * * *}
+      # Inbox encryption key (14.2). Lives only in the box's .env and the password manager.
+      - DOSSIER_INBOX_KEY=${DOSSIER_INBOX_KEY:-}
+      - DOSSIER_INBOX_KEY_VERSION=${DOSSIER_INBOX_KEY_VERSION:-1}
+      - DOSSIER_INBOX_POLL_CRON=${DOSSIER_INBOX_POLL_CRON:-0 */15 * * * *}
+      - DOSSIER_INBOX_BACKFILL_DAYS=${DOSSIER_INBOX_BACKFILL_DAYS:-60}
+      # Server-error email digest (15.1b). Blank = ADMIN_EMAIL gets it; no ADMIN_EMAIL = off.
+      - DOSSIER_ERROR_DIGEST_TO=${DOSSIER_ERROR_DIGEST_TO:-}
+      - DOSSIER_OPS_ERROR_DIGEST_IGNORE_LOGGERS=${DOSSIER_OPS_ERROR_DIGEST_IGNORE_LOGGERS:-}
+      # Billing (Phase 12). Blank STRIPE_SECRET_KEY = billing disabled, which is a valid
+      # running state — the API starts and serves everything else normally.
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRICE_MONTHLY=${STRIPE_PRICE_MONTHLY:-}
+      - STRIPE_PRICE_3MO=${STRIPE_PRICE_3MO:-}
       # Real admin, created/promoted from env at startup (Phase 9.A0). ADMIN_PASSWORD_HASH is a
       # BCRYPT hash, not a plaintext password — nothing is committed. Blank ⇒ no admin bootstrap.
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
