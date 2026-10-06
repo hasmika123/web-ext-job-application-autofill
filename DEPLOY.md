@@ -737,3 +737,80 @@ bump `DOSSIER_INBOX_KEY_VERSION` by one, and keep the old one readable by adding
 `application-prod.yml` under `dossier.inbox.retired-keys` (`<old version>: ${DOSSIER_INBOX_KEY_V1}`)
 with that env var set. Each stored password moves to the new key the next time its inbox is
 checked (every 15 minutes once the poller, 14.3, is live), so keep the retired key for a day, then drop it.
+
+## 13. Promoting `develop` → `main` — the first big release (reviewed 2026-10-05)
+
+Production last deployed `main` at **`4de5b60`** (PR #56, images built 2026-09-21). `develop` is
+**~130 commits / ~50 PRs ahead**: billing (12), Pro AI (13), the inbox (14), ops (15.1). This section is
+the pre-launch review of that jump, and the runbook for it.
+
+### 13.1 What the review found
+
+| Area | Finding | Verdict |
+|---|---|---|
+| **Database** | 15 new migration files, 16 changesets. All **additive** (new tables, indexes, two new columns on new tables) except one: `ai_quota_override.monthly_quota` is renamed to `monthly_budget_cents` (13.1b). Production has **0** rows there. | Safe |
+| **Settings** | Every new variable in `docker-compose.prod.yml` has a safe default; the box's `.env` already has every required one (checked by name, not value). Blank Stripe = billing off; blank `DOSSIER_INBOX_KEY` = inbox off. `DOSSIER_AI_MODEL` is already `gemini-2.5-flash-lite`. | Nothing to add to boot |
+| **Startup** | The new startup checks (inbox key, mail) log; none can stop the API. | Safe |
+| **Web** | No new build-time variables needed; the extension id has a built-in default. | Safe |
+| **Box** | 106 GB disk free; `git pull` will fast-forward cleanly; clock is UTC. Memory is tight: 3.7 GB shared with BeeCompete (~1.1 GB free, 4 GB swap). Our API is capped at a 512 MB heap. | Watch the first nights |
+| **Data** | 5 users. **No backup exists yet**: the automated one (15.1) only arrives *with* this deploy. | **Take a manual backup first** |
+
+**Rollback is not a simple image swap.** Old code can't read the renamed AI-override column, so going
+back means the old images **and** the pre-promotion dump (losing anything written in between). The
+better path for a small bug is to fix forward on `develop` and promote again.
+
+### 13.2 What starts running on its own after the deploy
+
+- **02:00 UTC:** the job-board read (217 public boards, ~400 ms apart: a couple of minutes of outbound
+  requests). Postings are kept 7 days.
+- **03:30 UTC:** mail expiry (nothing to delete yet). **04:00 UTC:** daily matches, which only run for
+  Pro users who opted in, so none until billing is live.
+- **Every 15 min:** the inbox check. It does nothing until `DOSSIER_INBOX_KEY` is set and a Pro user
+  connects.
+- **Error digest:** server errors are emailed to `ADMIN_EMAIL` (set on the box), at most every 15 min.
+- **What users see:** the pricing page says payments aren't switched on yet; Pro features show an
+  upgrade prompt; Settings › Inbox says connecting isn't available yet.
+
+### 13.3 The runbook
+
+1. **Manual backup, copied off the box** (5 min). On the box:
+   ```bash
+   cd /root/web-ext-job-application-autofill
+   COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml"
+   mkdir -p /root/kiwiply-backups && chmod 700 /root/kiwiply-backups
+   $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --single-transaction --routines --triggers --events --set-gtid-purged=OFF --databases dossierApi' \
+     | gzip -9 > /root/kiwiply-backups/pre-promotion-$(date -u +%F).sql.gz
+   gunzip -c /root/kiwiply-backups/pre-promotion-*.sql.gz | tail -1    # must say "-- Dump completed"
+   ```
+   Then copy it to your own computer: `scp root@74.208.212.158:/root/kiwiply-backups/pre-promotion-*.sql.gz .`
+2. **Open the PR `develop` → `main`**, wait for CI to pass, merge. The Deploy workflow builds both
+   images, pushes them to GHCR and restarts the box (about 10 minutes). Liquibase applies the 16
+   changesets when the API starts.
+3. **Watch the API start:** `$COMPOSE logs -f api` until `Started DossierApiApp`. A Liquibase error
+   here means stop and read it, not retry.
+4. **Smoke check** (5 min):
+   - `https://api.kiwiply.com/management/health` → `{"status":"UP"}`; `https://kiwiply.com` loads.
+   - Sign in → the board, Resumes and Settings load; upload a resume and it parses.
+   - `/pricing` says payments aren't switched on; Settings › Billing shows **Free**.
+   - As a Free user, the ATS score or job matches shows the upgrade prompt.
+   - Admin: `/admin/system` healthy. `/admin/job-sources` stays empty until the first read loads the
+     217 boards, at 02:00 UTC or on **Run now** there.
+   - `scripts/migrate/04-verify.sh kiwiply.com` from your laptop.
+5. **Then 15.1c:** install the backup cron (§5.1), run the first backup and the first restore drill.
+6. **The next morning:** `/admin/job-sources` lists 217 boards with fresh postings from the 02:00 read;
+   no error digest arrived (or read what did).
+
+**Rollback** (only for a failure the smoke check can't live with). Both old images are still in GHCR
+(checked 2026-10-05):
+```bash
+docker pull ghcr.io/hasmika123/dossier-api:4de5b60984b230e9a145ba7237b3629574837751
+docker pull ghcr.io/hasmika123/dossier-web:4de5b60984b230e9a145ba7237b3629574837751
+docker tag ghcr.io/hasmika123/dossier-api:4de5b60984b230e9a145ba7237b3629574837751 ghcr.io/hasmika123/dossier-api:latest
+docker tag ghcr.io/hasmika123/dossier-web:4de5b60984b230e9a145ba7237b3629574837751 ghcr.io/hasmika123/dossier-web:latest
+$COMPOSE stop api
+gunzip -c /root/kiwiply-backups/pre-promotion-<date>.sql.gz | $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot'
+$COMPOSE up -d api web
+```
+The dump re-creates the database exactly as it was, which removes the new tables' changelog rows,
+so Liquibase stays consistent with the old code. Then `git reset --hard 4de5b60` on the box's checkout
+so the next deploy starts from a known place, and revert the promotion on `main`.
