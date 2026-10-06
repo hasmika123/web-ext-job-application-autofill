@@ -123,6 +123,37 @@ bcrypt hash) exists in **production**. An admin console on top of this is wide o
 - **A5** — Bug reports (capture + triage).
 - **Cross-cutting** — MFA for admins, privacy/terms updates, DSAR export.
 
+## Phase 9.B — Admin expansion (brainstorm 2026-10-05)
+
+> **Rule of thumb:** if it's a number, a switch or some wording we may want to change without a
+> deploy, it belongs in admin. If it's a secret, security logic, a prompt or code, it stays in
+> code or env. Phase 9 (A0–A5) built users, AI usage, analytics, audit, bug reports, subscribers,
+> system and job sources. Phase 18.4 adds the product catalog with its margin guard. This section
+> covers what is still hard-coded or missing.
+
+**The mechanism (built once in 9.B1, reused by everything below):**
+- An `app_setting` table holds: key, typed value, default, **min/max bounds**, description, and
+  who changed it and when. Values are cached in memory for about a minute.
+- **Env values stay as the defaults.** An admin value overrides its env default, and every change
+  is written to the audit log.
+- Bounds stop a typo from becoming an outage or a cost spike. For example, the soft cap must stay
+  between 50 and 95 %, and the poll interval can't go below 5 minutes.
+
+| # | Area | What goes in admin | Why | When |
+|---|---|---|---|---|
+| **9.B1** | **Runtime settings** | AI: model per task, economy model, soft-cap %, per-feature kill switches, free parse quota, output-token caps. Job matching: score threshold (60), candidates per user (50), posting age (48 h), daily target. Inbox: poll interval, retention, backfill. Rate limits. Error-digest recipient and interval | Today these are env vars: each change means editing `.env` and restarting the API. The next Gemini model retirement then becomes a 30-second admin change | After Launch 1, alongside 18 |
+| **9.B2** | **Feature flags + announcements + extension remote config** | Flags (on/off, per % of users, or per user for beta testers), so Autopilot can launch as a beta. A site-wide **banner** on the web and in the extension drawer (e.g. "Workday filling is degraded"). Extension **minimum version** with an update prompt. **Per-ATS kill switch**: switch off one adapter remotely when an ATS changes its markup (data only, no remote code: CWS rule) | Turn things off and tell users without a release or a store review | After Launch 1, before 19 |
+| **9.B3** | **Support toolkit** | On a user's page: resolved entitlements with "why does this user have X" (which grant from which source), and subscription status with a Stripe link. Actions: **comp** a plan for N days (`ADMIN_COMP` grant), reset or extend an AI budget, resend emails. **Promo codes** (Stripe coupons) created from admin | Most support tickets are "fix my access" or "give them a month" | With 18 |
+| **9.B4** | **Unit economics + cost alerts** | Live revenue, AI cost and margin per product **against the 80 % floor**. **% of users hitting their AI cap** (the expansion plan's watch metric). Conversion, churn. Email alerts when a product's actual margin falls below the floor, a user's daily spend spikes, or total daily AI cost passes a threshold | Turns "costs can't run away" into something we watch, not hope for | With 18 |
+| **9.B5** | **Scheduled jobs + health** | Every scheduled job (job fetch, matching, inbox poll, error digest, backups) with last run, result, **run now** and **pause**. Last backup and last restore-drill result. Brevo daily send count vs quota, bounces and complaints | One screen answers "is everything running?" | Soon after Launch 1 |
+| **9.B6** | **Legal versions + acceptance** | Publish a new Terms / Privacy version from admin. Record **which version each user accepted, and when**; material changes prompt re-acceptance | Evidence for billing disputes and org contracts; standard practice | Before 20 |
+| **9.B7** | **Admin roles** | Split `ROLE_ADMIN` into super-admin / support / finance / expert manager, each seeing only its own pages | Needed once experts (20) and orgs (21) exist; least privilege | Before 20 |
+| **9.B8** | **Abuse controls** | Block or flag a user; disposable-email blocklist at signup; Autopilot misuse flags (e.g. hitting the daily cap every day) | Protects ATS reputation and our cost floor | With 19 |
+| later | Email template editor (subject/body with preview) · help/FAQ + video-tutorial CMS | Nice to have; Brevo templates cover it for now | Later |
+
+**Keep out of admin (decided):** secrets and API keys (env only), AI **prompts** (code + tests,
+because a bad edit silently breaks output quality), security rules, DB schema, and adapter code.
+
 ## Open questions (revisit before A1)
 - MFA mechanism for admins (TOTP vs email OTP) — and now vs A2.
 - Audit storage: new entity vs JHipster `PersistentAuditEvent`.

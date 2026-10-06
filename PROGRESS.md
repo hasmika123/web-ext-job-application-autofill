@@ -858,6 +858,25 @@ focused Claude Code session.
   **Remaining (need the user):** backfill confirmed subscribers into Brevo (CSV import); lawyer review of
   privacy/terms (PL.1); DPAs with Brevo + AWS S3; bug-report screenshots; manual CWS upload of ext v0.25.0.
 
+### Phase 9.B — Admin expansion (brainstorm 2026-10-05; full table in `ADMIN-PLAN.md` → 9.B)
+- [ ] **9.B1 Runtime settings.** An `app_setting` table (typed, bounded, audited, env = default).
+  It covers AI models, caps and kill switches; job-matching knobs; inbox knobs; rate limits; the
+  error digest. *(After Launch 1, with 18.)*
+- [ ] **9.B2 Feature flags + banner + extension remote config.** Flags (global, % of users, per
+  user), a site and drawer banner, extension minimum version, per-ATS kill switch (data only).
+  *(Before 19.)*
+- [ ] **9.B3 Support toolkit.** Entitlement explainer, comps (`ADMIN_COMP`), AI budget
+  reset/extend, Stripe promo codes, subscription view. *(With 18.)*
+- [ ] **9.B4 Unit economics + cost alerts.** Margin per product vs the 80 % floor, % of users at
+  their AI cap, churn and conversion, alert emails. *(With 18.)*
+- [ ] **9.B5 Scheduled jobs + health.** Run now / pause, last run; backup and drill status;
+  Brevo quota, bounces and complaints. *(Soon after Launch 1.)*
+- [ ] **9.B6 Legal versions + acceptance.** Publish a new version; record who accepted which
+  version and when. *(Before 20.)*
+- [ ] **9.B7 Admin roles.** Super-admin / support / finance / expert manager. *(Before 20.)*
+- [ ] **9.B8 Abuse controls.** Block or flag users, disposable-email blocklist, Autopilot misuse
+  flags. *(With 19.)*
+
 ## Phase 10 — Fill quality & the self-building profile (the Pro-plan gate)
 > Spec: `ROADMAP.md` → **Phase 10**. Makes the autofill itself good enough to charge for.
 > Sequencing is deliberate: measure → cheap visible win → profile spine → the adapter grind.
@@ -1163,6 +1182,13 @@ focused Claude Code session.
   ATS sources (+ Workable, SmartRecruiters, Recruitee) with aggregator fallback; full quality
   gates (ATS-verified tenant, agency/spam filter); like / dismiss / applied **feedback loop** that
   re-ranks; **daily email** at the user's chosen time; explicit preference editing.
+  - **Pulled forward (user, 2026-10-05): first build after Launch 1, before Phase 18.** 10–20 jobs
+    a day; 👍/👎 re-ranking (not model fine-tuning); a preference form (titles, location/remote,
+    salary floor, seniority, must/never keywords, excluded companies); ATS APIs + one licensed
+    aggregator API, no scraping; marketers see each consultant's matches (22.3).
+    **Locked 2026-10-05:** Free = 3 rule-ranked matches a day, in-app only, no AI · Pro/Autopilot
+    = 10–20 AI-scored + email + 👍/👎 · consultancies included in the Pro seat · one licensed
+    aggregator after a cost check · a paid Brevo plan before about 250 emails a day.
 - [ ] **16.2 Analytics.** Response / interview rate by resume, ATS, role.
 - [ ] **16.3 Reminders + stale nudges.** "No reply in N days" → nudge; follow-up dates on cards.
 - [ ] **16.4 Weekly digest** email.
@@ -1337,6 +1363,18 @@ focused Claude Code session.
   and how to untick it. *AI features* opens with the provider + free-tier caveat for all of them and
   adds what Kiwiply AI in the extension sends (draft, pick, map, enrich). Closes the PL.1 note in
   the `ai-parse-default-on` memory. For the 15.2 lawyer review.
+- 2026-10-05 · **Job search pulled forward (planning only)** · 16.1 (strong daily matches) becomes
+  the first build after Launch 1: 10–20 jobs a day, 👍/👎 re-ranking, a preference form, ATS APIs +
+  one licensed aggregator (no scraping), daily email, and consultancy marketers see each
+  consultant's matches. The 13.6 light version (Greenhouse/Lever/Ashby, in-app) is already live
+  code. Decisions locked with the user's recommended defaults (ROADMAP 16.1).
+- 2026-10-05 · **Admin expansion brainstorm (planning only)** · ADMIN-PLAN gains **9.B**: an
+  `app_setting` table (typed, bounded, audited, env = default) replaces the restarts needed for
+  every AI, job-matching, inbox and rate-limit change. Also feature flags + banner + extension
+  remote config (min version, per-ATS kill switch), a support toolkit (comps, promo codes,
+  entitlement explainer), unit economics vs the 80 % floor with alerts, a scheduled-jobs page,
+  legal version acceptance, admin roles, and abuse controls. Prompts, secrets and security rules
+  stay out of admin.
 - 2026-10-05 · **Consultancy additions (planning only)** · ROADMAP *Expansion build* gains
   **Phase 22, the Marketer role.** A marketer oversees 4–5 (at most 10) consultants, builds their
   resumes (each approved once by the consultant), assigns job banks with a resume per job, and
