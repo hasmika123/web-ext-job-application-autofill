@@ -1386,6 +1386,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **`develop` promoted to `main` — production deploy (PR #123, `49f1690`)** · 176 commits:
+  Phases 12–15 as built. Pre-flight per DEPLOY.md §13: 17 additive migration files (51 changelog rows now),
+  no new required setting; **manual dump first** (`pre-promotion-2026-10-06-1754.sql.gz`, on the box in
+  `/root/kiwiply-backups/` and on the user's computer, sha256 matched). Deploy run 37508669159 green; API
+  up in 17 s, no errors; inbox off (no `DOSSIER_INBOX_KEY`), billing off (no Stripe keys), error digest on.
+  Public smoke check 12/12 (`04-verify.sh`) plus `/pricing` 308 → `/#pricing` and the new landing live.
+  The backup scripts are now on the box, so **15.1c can start** once the bucket and accounts exist.
 - 2026-10-06 · **15.3 store listing copy (Free/Pro)** · `job-autofill/STORE-LISTING.md` rewritten for
   both stores. Chrome description: what's free, what Pro adds in the extension (Kiwiply AI drafting, best
   resume per posting, gap check, 25 resumes, answer sync) and on the web, the two prices, "cancel any
