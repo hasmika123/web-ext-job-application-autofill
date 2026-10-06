@@ -1114,6 +1114,10 @@ focused Claude Code session.
 - [ ] **15.2 Legal — PL.1 completion.** Lawyer review of privacy + terms covering billing
   (auto-renew, click-to-cancel, refunds), IMAP mail processing, AI data use, governing law + entity.
   DPAs with Brevo + AWS S3.
+  - **Drafted for the lawyer (2026-10-05, in `/terms`):** a liability cap (the greater of 12 months'
+    fees or US$50); "Services we rely on" (extension stores, Google, job sites, Stripe, AWS, Brevo);
+    and the remedy when a Pro feature is down more than 7 days in a row (extend or partial refund,
+    our choice). The lawyer confirms the wording, especially against EU and California consumer law.
 - [ ] **15.3 Store.** CWS resubmit with the Pro build · AMO first submission · listing copy for
   the Free/Pro split · `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
 - [ ] **15.5 Re-price Pro** *(expansion decision 2026-10-05; land before 15.4's live keys).*
@@ -1125,6 +1129,22 @@ focused Claude Code session.
   - Update `/pricing`, the ToS Billing section and the MRR math to match.
 - [ ] **15.4 Launch checklist.** Pricing live, Stripe live keys + webhook verified, billing support
   path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
+  - **MUST PASS before live Stripe keys go in — every Pro promise, checked on production (user
+    decision 2026-10-05).** Payments stay off until the extension is approved on the Chrome Web
+    Store, because three of the six Pro promises run through it. Pro comes only from a subscription
+    (the admin AI override unlocks AI alone), so: put Stripe's **test-mode** keys on production, buy
+    Pro on a test account with Stripe's test card, then on **kiwiply.com and the store-installed
+    extension** walk every line of the pricing page's Pro list and record pass/fail:
+    1. Kiwiply AI for autofill, with no API key (extension).
+    2. Resume recommendation: the best match in the drawer and Resume fit on the board.
+    3. Job-fit panel (drawer + board) and the ATS score (Resumes page + board).
+    4. Resume tailoring: a tailored resume saved as a new resume.
+    5. Inbox tracking: connect a test Gmail; a reply moves a card (needs `DOSSIER_INBOX_KEY`).
+    6. Unlimited resumes (a 4th saves) and cross-device answer sync (two browsers).
+    Plus the bonus Pro feature, daily job matches (opt in; matches the next morning). Then the
+    **Free side**: a Free account is refused each of the above with an upgrade prompt, and keeps
+    autofill, tracking, AI resume parsing and 3 resumes. Any failure blocks launch until fixed.
+    Only after a clean pass: swap in the live keys and make the one real purchase.
   - **Test-clock run (carried over from 12.7, user decision 2026-09-21: "A now, B before live
     keys").** The one thing the 12.7 run could not do: a **real failed renewal and a real lapse**.
     A Stripe test clock can only be attached when the customer is created, so seed a fresh user's
@@ -1284,6 +1304,12 @@ focused Claude Code session.
   packages yet). One catalog + entitlements engine sits under all of it, with an 80 % worst-case
   margin floor and caps on everything. There is no Coach tier, but the org model keeps a hook for
   it. New 15.5 re-prices Pro before live keys. CLAUDE.md go-to-market decision updated.
+- 2026-10-05 · **Terms protections + the live Pro check** · Terms: a liability cap (greater of 12
+  months' fees or US$50), a "Services we rely on" section (extension stores, Google, job sites,
+  Stripe, AWS, Brevo), and the remedy when a Pro feature is down more than 7 days in a row (extend
+  or partial refund, our choice), all marked for the 15.2 lawyer review. 15.4 gains a must-pass
+  step: every Pro promise checked on production, with the store-installed extension, before live
+  keys. Payments stay off until the Chrome Web Store approves the extension (user decision).
 - 2026-09-23 · **15.1b server-error email digest** · `service/ops/`: an `ErrorDigestAppender` on the
   root logger feeds every ERROR into an `ErrorDigest` — one line per kind (logger + message template
   + root exception) with a count, first/last time, a sample (clipped at 500 chars) and the top of the
