@@ -72,13 +72,14 @@ export async function POST(request: Request) {
   if (createRes.status === 402) {
     // `detail` carries our message; `title` is overwritten with the HTTP reason phrase by
     // ExceptionTranslator, so don't read it.
-    const problem = (await createRes.json().catch(() => ({}))) as { code?: string; detail?: string; limit?: number; count?: number };
+    const problem = (await createRes.json().catch(() => ({}))) as { code?: string; detail?: string; limit?: number; count?: number; plan?: string };
     return Response.json(
       {
         error: problem.detail ?? "Free accounts keep up to 3 resumes — archive one, or upgrade to Pro.",
         code: problem.code ?? "RESUME_LIMIT",
         limit: problem.limit,
         count: problem.count,
+        plan: problem.plan,
       },
       { status: 402 },
     );

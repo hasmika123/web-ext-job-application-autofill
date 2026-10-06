@@ -33,7 +33,7 @@ public class StripeProperties {
     /** Price id for the $19.99/month plan. */
     private String priceMonthly = "";
 
-    /** Price id for the $44.99/3-months plan. */
+    /** Price id for the $49.99/3-months plan (was $44.99 until 15.5). */
     private String price3mo = "";
 
     /**
@@ -47,7 +47,7 @@ public class StripeProperties {
     private BigDecimal amountMonthly = new BigDecimal("19.99");
 
     /** What the 3-month plan charges, for the admin MRR figure only. See {@link #amountMonthly}. */
-    private BigDecimal amount3mo = new BigDecimal("44.99");
+    private BigDecimal amount3mo = new BigDecimal("49.99");
 
     /** Where Stripe returns after a completed checkout. */
     private String successUrl = "https://kiwiply.com/billing/success?session_id={CHECKOUT_SESSION_ID}";

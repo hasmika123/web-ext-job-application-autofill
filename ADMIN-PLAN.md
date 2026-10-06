@@ -185,7 +185,9 @@ because a bad edit silently breaks output quality), security rules, DB schema, a
   - A **one-way sync** pushes contacts and key facts to the CRM the user already runs for their
     other businesses (9.C6): plan, MRR, status, lifecycle stage, and inquiries as leads. Admin
     stays the source of truth for product and billing data.
-  - Which CRM is still to confirm. No two-way sync until there's a clear need.
+  - **The CRM is the user's own custom-built one (confirmed 2026-10-06),** so Kiwiply defines the
+    contract (9.C6) rather than adapting to a vendor API. Still no two-way sync until there's a
+    clear need.
 
 | # | What | Details | When |
 |---|---|---|---|
@@ -194,7 +196,7 @@ because a bad edit silently breaks output quality), security rules, DB schema, a
 | **9.C3** | **Support access ("view as")** | The user grants access for 24 h from Settings. The admin gets a read-only view-as session (banner, every page view audited with a reason, auto-expiry, revocable). The privacy policy says so. | After Launch 1 |
 | **9.C4** | **Debug panel** | On the user page: extension version and browser, last sync and last version check, connected inbox health (last poll, last error), job-match switch, AI usage, recent server errors for this user. **"Capture a support session":** with the user's consent, their next few fills send *non-anonymous* fill telemetry (ATS, fields found / filled / failed, the failing field labels — never the answers). Support sees exactly where the fill broke. | After Launch 1 |
 | **9.C5** | **Offers & retention** | **Comps:** give a plan for N days (an `ADMIN_COMP` grant; 9.B3). **Promo codes:** Stripe coupons created from admin with an expiry, a redemption cap and the plans they apply to. Each one's margin is shown against the floor (18.4). **Win-back:** pick a segment (e.g. cancelled in the last 60 days), attach a code and send through Brevo, **only to people with marketing consent** (A4). **Cancellation reasons:** turn on Stripe portal's cancellation survey, and show reasons in admin and on the customer's timeline. | With 18 |
-| **9.C6** | **CRM sync** | One-way push to the user's existing CRM over its API, on events (new customer, plan change, cancel, payment failed, new inquiry) plus a nightly reconcile. Mapping: contact = user, company = organization (Phase 21), deal / lead = inquiry. A secret key in env; failures retried and listed in admin. | After the CRM is confirmed |
+| **9.C6** | **CRM sync (to the user's custom CRM)** | **Push:** Kiwiply sends **signed webhooks** (HMAC-SHA256 over the body, with a timestamp header so replays are rejected) to one CRM endpoint set in env, on: `customer.created`, `subscription.changed`, `subscription.canceled`, `payment.failed`, `inquiry.created` and, once Phase 21 exists, `organization.*`. Each event carries an id (the CRM dedupes), a type and a small canonical payload: contact (name, email, account id), plan, status, MRR, lifecycle stage, and for inquiries topic, company, team size and message. **No resumes, answers or inbox mail ever leave Kiwiply.** Failed deliveries are retried with backoff for 24 h, then listed in admin with a "resend" button. **Pull (reconcile):** a key-protected, read-only `GET /api/crm/export?since=` returns the same records, so the CRM can catch up after an outage or backfill on day one. Mapping: contact = user, company = organization, lead = inquiry. A short contract doc (`docs/crm-sync.md`) is written alongside, for building the CRM side. | After 9.C1 + 9.C2 |
 | **9.C7** | **Account fixes** | Resend the verification email; change email (verified); clear a rate-limit lock; list and revoke the user's extension connections. | After Launch 1 |
 
 **Already exists (don't rebuild):** activate / deactivate, password-reset email, grant / revoke

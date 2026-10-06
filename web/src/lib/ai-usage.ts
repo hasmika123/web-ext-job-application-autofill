@@ -32,27 +32,29 @@ export async function getAiUsage(): Promise<AiUsage | null> {
 }
 
 /**
- * The words for a meter. The reset is a month boundary in UTC ("October 1"), so it is formatted in
- * UTC on purpose — in a viewer's own zone it could read "September 30".
+ * The words for a meter. Pro's budget resets when the subscription renews (15.5) — an admin
+ * override's and Free parsing's on the 1st (UTC) — so it says "your Kiwiply AI", never "this
+ * month's". Formatted in UTC on purpose: a 1st-of-the-month reset could read "September 30" locally.
  */
 export function describeAiUsage(u: AiUsage): { headline: string; detail: string; label: string } {
   const resets = formatDate(u.resetsAt, { month: "long", day: "numeric" });
-  const when = resets ? `Resets ${resets}.` : "Resets at the start of next month.";
   if (u.metered === "budget") {
+    const when = resets ? `Resets ${resets}.` : "Resets when your plan renews.";
     const used = Math.min(100, Math.max(0, Math.round(u.used)));
     if (used >= 100) {
       return {
-        headline: "You've used this month's Kiwiply AI",
+        headline: "You've used your Kiwiply AI for now",
         detail: `${when} Your own API key in the extension still works until then.`,
-        label: "Kiwiply AI used this month",
+        label: "Kiwiply AI used",
       };
     }
     return {
-      headline: `${used}% of this month's Kiwiply AI used`,
+      headline: `${used}% of your Kiwiply AI used`,
       detail: u.economy ? `${when} Until then Kiwiply AI uses a lighter, faster model.` : when,
-      label: "Kiwiply AI used this month",
+      label: "Kiwiply AI used",
     };
   }
+  const when = resets ? `Resets ${resets}.` : "Resets at the start of next month.";
   return {
     headline: `${u.used} of ${u.limit} AI resume parses used this month`,
     detail: `${when} Drafting and the other Kiwiply AI features come with Pro.`,

@@ -274,6 +274,7 @@ class ProfileResourceIT {
             .andExpect(jsonPath("$.code").value("RESUME_LIMIT"))
             .andExpect(jsonPath("$.limit").value(ProfileService.FREE_RESUME_LIMIT))
             .andExpect(jsonPath("$.count").value(ProfileService.FREE_RESUME_LIMIT))
+            .andExpect(jsonPath("$.plan").value("FREE"))
             // `detail` is the copy both upload surfaces show; `title` gets the reason phrase.
             .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("archive one")));
     }
@@ -294,7 +295,7 @@ class ProfileResourceIT {
         createResume("Resume 4"); // asserts 201 internally
     }
 
-    /** Pro is uncapped — the same fourth create succeeds. */
+    /** Pro goes past the Free cap — the same fourth create succeeds. */
     @Test
     @Transactional
     void proCanCreateBeyondTheCap() throws Exception {
@@ -306,5 +307,32 @@ class ProfileResourceIT {
             .perform(get("/api/profile/resumes"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(ProfileService.FREE_RESUME_LIMIT + 1));
+    }
+
+    /**
+     * 15.5: Pro is capped at 25 live resumes. The 26th is refused with {@code plan: PRO}, so the
+     * clients don't offer an upgrade to someone already on Pro.
+     */
+    @Test
+    @Transactional
+    void proIsCappedAtTwentyFive() throws Exception {
+        ProSubscriptions.makePro(subscriptionRepository, userRepository, "user");
+        for (int i = 1; i <= ProfileService.PRO_RESUME_LIMIT; i++) {
+            createResume("Resume " + i);
+        }
+        mockMvc
+            .perform(
+                post("/api/profile/resumes")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsString(Map.of("label", "One too many", "status", "NEEDS_REVIEW")))
+            )
+            .andExpect(status().isPaymentRequired())
+            .andExpect(jsonPath("$.code").value("RESUME_LIMIT"))
+            .andExpect(jsonPath("$.limit").value(ProfileService.PRO_RESUME_LIMIT))
+            .andExpect(jsonPath("$.count").value(ProfileService.PRO_RESUME_LIMIT))
+            .andExpect(jsonPath("$.plan").value("PRO"))
+            .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Pro accounts keep up to 25")));
+        // Every one of the 25 stays readable.
+        mockMvc.perform(get("/api/profile/resumes")).andExpect(jsonPath("$.length()").value(ProfileService.PRO_RESUME_LIMIT));
     }
 }

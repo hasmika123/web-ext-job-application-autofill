@@ -523,7 +523,7 @@ Four secrets, all env-only (they never reach a client bundle):
 | `STRIPE_SECRET_KEY` | `sk_test_…` / `sk_live_…`. **Blank ⇒ billing off.** |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` — verifies deliveries really came from Stripe. Without it the webhook rejects everything. |
 | `STRIPE_PRICE_MONTHLY` | Price id for $19.99/month |
-| `STRIPE_PRICE_3MO` | Price id for $44.99/3 months |
+| `STRIPE_PRICE_3MO` | Price id for $49.99/3 months (15.5; the old $44.99 Price is archived in Stripe, not reused) |
 
 Add them to the box's `.env` (same file as the `DOSSIER_AI_*` block), then `$COMPOSE up -d api`.
 **Paste them with no trailing space or newline.** The app trims them now, but Stripe rejects a
@@ -532,6 +532,12 @@ only says so at call time, so the server starts happily, reports billing as enab
 fails every checkout with a message that points nowhere near the cause.
 **Also put them in the password manager** — GitHub secrets are write-only and have never held
 our `.env`, which is exactly how the 2026-09-17 data loss happened.
+
+**15.5 re-price (2026-10-05):** the 3-month plan is now **$49.99**. Stripe Prices can't be edited, so
+create a new $49.99 / 3-month Price on the same product (test mode now, live mode at 15.4), point
+`STRIPE_PRICE_3MO` at it, and archive the $44.99 one. The API also reads the price for the admin MRR
+figure from `STRIPE_AMOUNT_3MO` (default 49.99). Pro's AI budget is per billing period: $3 monthly,
+$8 for 3 months (`DOSSIER_AI_PRO_MONTHLY_BUDGET_USD`, `DOSSIER_AI_PRO_3MO_BUDGET_USD`).
 
 Set-up order lives in `ROADMAP.md` → **Phase 12 → 12.0**: create the product and both prices in
 **test mode first**, **give the product a `tax_code`**, turn on Stripe Tax, configure the
