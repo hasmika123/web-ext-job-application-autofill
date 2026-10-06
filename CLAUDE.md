@@ -120,12 +120,14 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Email verification is LIVE** (Brevo SMTP, sends from **no-reply@kiwiply.com**; domain
   authenticated). Signups self-activate via the emailed link → web `/account/activate`.
   **Still no auto-activate** — verification is the gate, kept that way by decision.
-- **Go-to-market (locked 2026-09-21, ROADMAP Phases 11–17).** Two tiers, **Free + Pro**.
-  Pro = **$19.99/mo · $44.99 / 3 months** at Launch 1 → **$24.99 / $54.99** at Launch 2.
-  **No annual plan.** Stripe Checkout + Portal; `isPro()` in the API is the only entitlement
-  source of truth. **Core autofill stays free and identical in both tiers.** Free has **no
+- **Go-to-market (locked 2026-09-21, ROADMAP Phases 11–17; extended 2026-10-05).** Tiers
+  **Free + Pro + Autopilot**. Pro = **$19.99/mo · $49.99 / 3 months** at Launch 1 → **$24.99 /
+  $54.99** at Launch 2. Autopilot = **$39.99/mo · $99.99 / 3 months**.
+  **No annual plan.** Stripe Checkout + Portal; `EntitlementService` in the API is the only
+  entitlement source of truth (`isPro()` wraps it; Phase 18 moves plans onto a DB catalog). **Core autofill stays free and identical in both tiers.** Free has **no
   server AI** (BYO key only) with exactly one exception: **AI resume parsing** (one call per
-  resume, it's how the profile builds itself). Free = 3 resumes; downgrade never deletes data.
+  resume, it's how the profile builds itself). Resume caps: Free 3 · Pro 25 · Autopilot 50;
+  downgrade never deletes data.
   **Billing mechanics (Phase 12, locked):** Stripe is the truth and **only webhooks write** the
   `subscription` mirror; `past_due` stays Pro until `current_period_end`; gated calls fail
   **402 `PRO_REQUIRED`**; **no free trial**; **refunds: "no refunds, cancel anytime"** (stated
@@ -140,6 +142,21 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   credentials encrypted at rest; we **never send, move or delete** mail. Two launches: ops
   hardening (backup/monitoring/restore drill) is Phase 15, right before Launch 1 — not earlier.
   Daily job matches source jobs from the ATS' public job-board APIs.
+
+- **Expansion (locked 2026-10-05, ROADMAP *Expansion build*, Phases 18–21).**
+  - **Floors:** **nothing is unlimited**. Every subscription keeps **≥ 80 % gross margin in the
+    worst case** (AI budget fully spent + Stripe); every service keeps ≥ 20 %. The admin
+    catalog's margin guard enforces both.
+  - **AI budgets per billing period:** Pro $3/mo · $8 per quarter; Autopilot $6/mo · $16 per quarter.
+  - **Autopilot** batch-*prepares* applications in the user's own browser (300 a month, 30 a day)
+    and stops before submit. **No cloud auto-apply**, and it never ticks attestation boxes.
+  - **Services:** human resume review, resume rewrite, mock interview and coaching, delivered by
+    paid freelance experts; plus AI Interview Practice (text). **AI voice interviews dropped for now.**
+  - **Organizations:** a **one-time setup fee** (always charged) + **per-person items, mixed
+    freely** (Pro, Autopilot, AI Interview Practice, services), priced **above** individual prices.
+  - **No packages yet:** prices, limits and future bundles live in the catalog and change from
+    admin, not code.
+  - **No Coach tier.** The org model keeps a hook for it; don't build it unless asked.
 
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions
