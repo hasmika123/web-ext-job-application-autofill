@@ -87,7 +87,8 @@ bcrypt hash) exists in **production**. An admin console on top of this is wide o
 - **Purpose limitation + disclosure**: admin processing limited to operating/supporting the
   service; **update `/privacy` and `/terms`** ("who can access your data and why").
 - **DSAR**: add export-a-user's-data (delete already exists) within statutory windows.
-- **Impersonation/"view as"**: defer, or read-only + heavily audited.
+- **Impersonation/"view as"**: decided 2026-10-05: no log-in-as. Read-only "view as" that the
+  user grants, time-limited and audited (9.C3).
 - **Processors**: ensure DPAs for Brevo + AWS S3.
 
 ## A4 — Email Subscription
@@ -153,6 +154,52 @@ bcrypt hash) exists in **production**. An admin console on top of this is wide o
 
 **Keep out of admin (decided):** secrets and API keys (env only), AI **prompts** (code + tests,
 because a bad edit silently breaks output quality), security rules, DB schema, and adapter code.
+
+## Phase 9.C — Customers, support & retention (planned 2026-10-05)
+
+> **Why:** payments go live in 15.4, and today admin can't show *who* is paying, whose card
+> failed, or what we've told them. The Revenue card only has totals. The user page has account
+> actions (activate, password-reset email, admin role, force logout, delete) but nothing about
+> billing. Bug reports and inquiries aren't tied to a person, and fill telemetry is anonymous.
+> 9.C fixes that. **9.C1 must ship before 15.4 switches on live keys.**
+
+**Decisions (recommended 2026-10-05):**
+- **No "log in as the user."** Signing in as someone else would let an admin act, and possibly
+  apply, in their name, which conflicts with our no-submit stance. It is also a common source
+  of security and privacy-policy problems. Instead, **support access** works like this:
+  - The *user* grants it from Settings ("let support see my account for 24 hours").
+  - The admin then gets a **read-only "view as" mode**: the user's dashboard, board, resumes,
+    matches and settings, exactly as they see them, under a banner. Nothing can be changed or
+    submitted from it.
+  - Every view is audited, with a reason. Access ends automatically, or when the user revokes it.
+- **Admins never see or set passwords.** "Reset password" sends the user the normal reset
+  email (already built). An admin can also resend the verification email, or change the
+  account's email; the change only takes effect once the new address is verified.
+- **Money moves in Stripe, not in admin.** Refunds and charge disputes happen in the Stripe
+  dashboard (one click away). Admin records *why*, in a note on the customer's timeline.
+- **Offers are admin-only.** Comps and promo codes are tools for support and campaigns. They
+  are not a public free trial: the "no free trial" rule stands.
+- **CRM: keep the operational part here, sync the relationship part out.**
+  - Admin keeps everything that needs live product data or actions: the customer list, the
+    timeline, support access, comps, debugging.
+  - A **one-way sync** pushes contacts and key facts to the CRM the user already runs for their
+    other businesses (9.C6): plan, MRR, status, lifecycle stage, and inquiries as leads. Admin
+    stays the source of truth for product and billing data.
+  - Which CRM is still to confirm. No two-way sync until there's a clear need.
+
+| # | What | Details | When |
+|---|---|---|---|
+| **9.C1** | **Customers page + billing timeline** *(before 15.4)* | `/admin/customers`: everyone who has ever paid, with plan, status (active / past due / cancelling / lapsed), renewal date, total paid and a Stripe link. Filters: payment failed · cancelling · new this month. On each user page, a **timeline**: billing events (signed up, renewed, failed, cancelled, plan change) and **admin notes**. Needs an additive `stripe_event.customer_id` (+ the user it maps to), so events can be shown per person; `customer_note` table for notes. Audited. | **Before 15.4** |
+| **9.C2** | **Full timeline** | Add every email Kiwiply sends a user (a `mail_log`: template, subject, sent time, delivery status from Brevo, never the body of anything sensitive), their bug reports and Contact us requests (matched by account or email), and plan/AI-allowance changes made by admins. | After Launch 1 |
+| **9.C3** | **Support access ("view as")** | The user grants access for 24 h from Settings. The admin gets a read-only view-as session (banner, every page view audited with a reason, auto-expiry, revocable). The privacy policy says so. | After Launch 1 |
+| **9.C4** | **Debug panel** | On the user page: extension version and browser, last sync and last version check, connected inbox health (last poll, last error), job-match switch, AI usage, recent server errors for this user. **"Capture a support session":** with the user's consent, their next few fills send *non-anonymous* fill telemetry (ATS, fields found / filled / failed, the failing field labels — never the answers). Support sees exactly where the fill broke. | After Launch 1 |
+| **9.C5** | **Offers & retention** | **Comps:** give a plan for N days (an `ADMIN_COMP` grant; 9.B3). **Promo codes:** Stripe coupons created from admin with an expiry, a redemption cap and the plans they apply to. Each one's margin is shown against the floor (18.4). **Win-back:** pick a segment (e.g. cancelled in the last 60 days), attach a code and send through Brevo, **only to people with marketing consent** (A4). **Cancellation reasons:** turn on Stripe portal's cancellation survey, and show reasons in admin and on the customer's timeline. | With 18 |
+| **9.C6** | **CRM sync** | One-way push to the user's existing CRM over its API, on events (new customer, plan change, cancel, payment failed, new inquiry) plus a nightly reconcile. Mapping: contact = user, company = organization (Phase 21), deal / lead = inquiry. A secret key in env; failures retried and listed in admin. | After the CRM is confirmed |
+| **9.C7** | **Account fixes** | Resend the verification email; change email (verified); clear a rate-limit lock; list and revoke the user's extension connections. | After Launch 1 |
+
+**Already exists (don't rebuild):** activate / deactivate, password-reset email, grant / revoke
+admin, force logout (refresh-token revoke), GDPR delete, self-serve data export, per-user AI
+override, the Revenue card, bug-report triage, the Inquiries queue (15.6).
 
 ## Open questions (revisit before A1)
 - MFA mechanism for admins (TOTP vs email OTP) — and now vs A2.

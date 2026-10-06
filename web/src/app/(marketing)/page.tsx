@@ -30,12 +30,13 @@ const STEPS = [
 const FEATURES = [
   { icon: "🗂️", title: "One profile, every form", body: "Map your details once to a canonical field model that adapts to Workday, Greenhouse, Lever, Ashby, Workable and more." },
   { icon: "📄", title: "Resume variants, parsed", body: "Keep multiple tailored resumes. Kiwiply remembers which one you sent to each job." },
-  { icon: "🤖", title: "AI answer drafting", body: "Open-ended questions get a draft you can edit — free with Kiwiply AI, or bring your own key for unlimited." },
+  { icon: "🤖", title: "AI answer drafting", body: "Open-ended questions get a draft you can edit — with Kiwiply AI on Pro, or with your own AI key on Free." },
   { icon: "📊", title: "Self-populating tracker", body: "A board that logs applications automatically and nudges you to confirm what you actually submitted." },
 ];
 
 const FREE_FEATURES = ["Unlimited autofill", "Resume variants, parsed", "Self-populating tracker", "Bring-your-own AI key"];
-const PRO_FEATURES = ["Everything in Free", "Kiwiply AI drafts included", "Custom job recommendations", "Field-answer memory, synced", "Priority ATS support"];
+// Must match /pricing's Pro list — every line here is a promise to paying users.
+const PRO_FEATURES = ["Everything in Free", "Kiwiply AI drafts included", "Resume fit, job fit and tailoring", "Inbox that updates your board", "Daily job matches", "Answers synced across devices"];
 
 // ATS marquee logos — real brand logos (dark-surface variants), rasterized to compact
 // PNGs in /public/ats (from the *-dark-mode.svg sources at the repo root).

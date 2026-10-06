@@ -975,7 +975,9 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   - **Ops-add-on price:** shown as "Custom" until 23.0 sets it.
   - **When answering an inquiry,** say plainly what's available today and when the rest will be.
     These products are listed ahead of their build, so a reply must never imply instant access.
-- **15.4 Launch checklist.** Pricing page live, Stripe live keys, webhook signing verified,
+- **15.4 Launch checklist.** *(Needs **9.C1**, the admin Customers page + billing timeline,
+  first. Don't take real money without being able to see who paid and whose card failed.)*
+  Pricing page live, Stripe live keys, webhook signing verified,
   support path for billing, W5-QA walked in Chrome (light + dark), SmartRecruiters live check.
 
 ### Phase 16 — Between launches  *(after Launch 1, before Launch 2)*

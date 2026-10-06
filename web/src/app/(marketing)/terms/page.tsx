@@ -139,10 +139,27 @@ export default function TermsPage() {
 
       <Section title="AI features">
         <p>
-          Kiwiply offers an <strong>optional</strong> AI feature that drafts answers to open-ended
-          application questions. It&apos;s off by default. AI-generated drafts can be inaccurate — review
-          and edit every draft before you use it. When enabled, your input is sent to a third-party AI
-          provider as described in the Privacy Policy.
+          Some Kiwiply features use AI. On every plan, a resume you add is read by AI into your profile
+          (on by default; you can untick it when you add the resume). On Pro, AI also powers Kiwiply AI
+          in the extension (drafting answers, choosing an option, matching form fields, completing a
+          job you save), resume fit, job fit, resume tailoring, daily job matches and reading your
+          connected inbox. What each one sends, and to whom, is in the{" "}
+          <Link href="/privacy" className="font-medium text-accent-deep hover:underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+        <p>
+          <strong>AI can be wrong.</strong> Review every draft, suggestion, score and status change
+          before you rely on it. You are responsible for what you submit to an employer. Scores and
+          match percentages are estimates, not a promise of any interview or outcome. Tailoring only
+          rewords what your resume already says, but check that every line is still true before you use
+          it.
+        </p>
+        <p>
+          <strong>Fair use.</strong> Pro includes an AI allowance for each billing period. If you reach
+          it, AI features may slow down or pause until the next period, while everything else keeps
+          working.
         </p>
       </Section>
 

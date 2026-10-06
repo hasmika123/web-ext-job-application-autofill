@@ -877,6 +877,24 @@ focused Claude Code session.
 - [ ] **9.B8 Abuse controls.** Block or flag users, disposable-email blocklist, Autopilot misuse
   flags. *(With 19.)*
 
+### Phase 9.C — Customers, support & retention (planned 2026-10-05; full table in `ADMIN-PLAN.md` → 9.C)
+- [ ] **9.C1 Customers page + billing timeline** *(must ship before 15.4's live keys).*
+  `/admin/customers` (plan, status, renewal, total paid, Stripe link; filters for failed,
+  cancelling and new). A billing timeline + admin notes on each user page. Additive
+  `stripe_event.customer_id` + `customer_note`.
+- [ ] **9.C2 Full timeline.** Sent-email log (`mail_log`), bug reports, inquiries and admin plan
+  changes on the user's timeline.
+- [ ] **9.C3 Support access ("view as").** The user grants 24 h; read-only, bannered, audited,
+  auto-expiring. **No log-in-as.**
+- [ ] **9.C4 Debug panel.** Extension version, sync, inbox health, AI usage, recent errors; a
+  consented "support session" fill capture (labels only, never answers).
+- [ ] **9.C5 Offers & retention.** Comps, Stripe promo codes (margin shown vs the floor),
+  win-back to consented users, cancellation reasons.
+- [ ] **9.C6 CRM sync.** One-way push to the user's existing CRM *(once it's confirmed which
+  one)*; admin stays the source of truth.
+- [ ] **9.C7 Account fixes.** Resend verification, verified email change, clear rate-limit
+  lock, revoke extension connections.
+
 ## Phase 10 — Fill quality & the self-building profile (the Pro-plan gate)
 > Spec: `ROADMAP.md` → **Phase 10**. Makes the autofill itself good enough to charge for.
 > Sequencing is deliberate: measure → cheap visible win → profile spine → the adapter grind.
@@ -1171,6 +1189,9 @@ focused Claude Code session.
     **Free side**: a Free account is refused each of the above with an upgrade prompt, and keeps
     autofill, tracking, AI resume parsing and 3 resumes. Any failure blocks launch until fixed.
     Only after a clean pass: swap in the live keys and make the one real purchase.
+  - **When Gemini moves to the paid tier** (user: before go-live), update `/privacy` → *AI features*:
+    drop "Because we currently use Gemini's free tier, Google may use…" and say paid-tier inputs aren't
+    used to train Google's models. Same for the extension's AI consent text and `PRIVACY.md`.
   - **Test-clock run (carried over from 12.7, user decision 2026-09-21: "A now, B before live
     keys").** The one thing the 12.7 run could not do: a **real failed renewal and a real lapse**.
     A Stripe test clock can only be attached when the customer is created, so seed a fresh user's
@@ -1368,6 +1389,22 @@ focused Claude Code session.
   page + nav (new `MessageIcon` in `@kiwiply/ui`); header/footer Pricing → `/pricing`, + Contact;
   sitemap gains /pricing + /contact. Tests: `SalesInquiryServiceTest` (11, green on JDK 17) +
   `SalesInquiryResourceIT` / `AdminSalesInquiryResourceIT` (CI). No extension change.
+- 2026-10-05 · **Customers & support admin plan (planning only)** · ADMIN-PLAN gains **9.C**:
+  - 9.C1 Customers page + billing timeline + notes (before 15.4).
+  - Sent-email log, support access as a user-granted read-only "view as" (no log-in-as).
+  - A debug panel with a consented support-session fill capture.
+  - Offers (comps, promo codes, win-back to consented users, cancellation reasons).
+  - Account fixes.
+  - A one-way sync to the user's existing CRM, with admin staying the source of truth.
+- 2026-10-05 · **Terms + privacy: every AI feature disclosed** · Terms *AI features* now names them all
+  (resume reading on every plan; Pro: Kiwiply AI in the extension, resume fit, job fit, tailoring,
+  job matches, inbox), says AI can be wrong and the user is responsible for what they submit, that
+  scores are estimates, and a fair-use AI allowance per billing period (fits 15.5's budget).
+  **Privacy fix:** *How resume parsing works* said resumes stay in the browser until saved — untrue
+  since AI parsing went default-on (2026-07-02); it now says the text goes to Gemini, once per resume,
+  and how to untick it. *AI features* opens with the provider + free-tier caveat for all of them and
+  adds what Kiwiply AI in the extension sends (draft, pick, map, enrich). Closes the PL.1 note in
+  the `ai-parse-default-on` memory. For the 15.2 lawyer review.
 - 2026-10-05 · **Job search pulled forward (planning only)** · 16.1 (strong daily matches) becomes
   the first build after Launch 1: 10–20 jobs a day, 👍/👎 re-ranking, a preference form, ATS APIs +
   one licensed aggregator (no scraping), daily email, and consultancy marketers see each
