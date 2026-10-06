@@ -1386,6 +1386,9 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-06 · **Landing polish** · The hero's review-autofill preview uses a made-up person (Jordan,
+  jordan.lee@example.com) instead of the founder's name; "Everything you need to apply faster" uses
+  `@kiwiply/ui` icons (User, FileText, Ai, Board) in accent tiles instead of emoji.
 - 2026-10-06 · **Pricing + Services on the landing page; /pricing retired** · User request. Landing
   `#pricing`: Free · Pro · Autopilot · **Consultancy** (was "Organization": $499 setup, then per person);
   each card shows 4 short highlights and opens a pop-up with the full breakdown (grouped short lines,
