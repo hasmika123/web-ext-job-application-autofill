@@ -25,6 +25,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> 🧭 **Expansion plan locked 2026-10-05** (ROADMAP → *Expansion build, Phases 18–21*). It adds
+> Autopilot, services and organizations; there is no Coach tier. **New Launch-1 task 15.5 (re-price
+> Pro: $49.99 / 3 mo, AI budget $3 / mo · $8 / quarter per billing period, 25-resume cap) must land
+> before 15.4's live keys.** The current focus below is unchanged.
+>
 > ▶️ **Go-to-market build — next: Phase 12, Stripe billing (2026-09-21).** **Phase 11 is COMPLETE**
 > (ext v0.52.9): the web signals the extension on every change/sign-in/sign-out, `GET
 > /api/profile/version` gives a cheap fingerprint, the extension checks it on a 15-minute alarm, on
@@ -1115,6 +1120,13 @@ focused Claude Code session.
     our choice). The lawyer confirms the wording, especially against EU and California consumer law.
 - [ ] **15.3 Store.** CWS resubmit with the Pro build · AMO first submission · listing copy for
   the Free/Pro split · `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
+- [ ] **15.5 Re-price Pro** *(expansion decision 2026-10-05; land before 15.4's live keys).*
+  - 3-month price $44.99 → **$49.99**: a new Stripe Price in test and live, plus
+    `dossier.stripe.amount3mo`.
+  - Pro AI budget $5/month → **$3/month · $8 per 3-month period**, with `AiBudgetService`
+    summing over the subscription's billing period instead of the calendar month.
+  - Pro resume cap unlimited → **25** non-archived (402 `RESUME_LIMIT`).
+  - Update `/pricing`, the ToS Billing section and the MRR math to match.
 - [ ] **15.4 Launch checklist.** Pricing live, Stripe live keys + webhook verified, billing support
   path, W5-QA walked (light + dark), SmartRecruiters live check, Firefox smoke.
   - **MUST PASS before live Stripe keys go in — every Pro promise, checked on production (user
@@ -1161,6 +1173,57 @@ focused Claude Code session.
 - [ ] **17.1 Price → $24.99 / $54.99**; grandfather existing subscribers one cycle.
 - [ ] **17.2 Adapter depth milestone** from 10.4 (telemetry-chosen ATS at target fill rate).
 - [ ] **17.3 Listing refresh** with matches + analytics; 13.5 candidates if confirmed.
+
+## Phase 18 — Catalog & entitlements engine (after Launch 1; before 19–21)
+- [ ] **18.1 Schema.** Tables `product`, `product_price` (immutable rows), `product_entitlement`,
+  `bundle_item` (built, unused at launch) and `entitlement_grant`.
+- [ ] **18.2 `EntitlementService` on grants.** Features + limits, highest value wins.
+  `isPro()`/`requirePro()` become wrappers, and `PLAN_REQUIRED {feature}` is added. A migration
+  test proves Free and Pro behave exactly as before.
+- [ ] **18.3 Features on the version endpoint.** `{version, plan, features[]}`; the extension
+  gates on features.
+- [ ] **18.4 Admin catalog page.** Publish prices to Stripe. The **margin guard** refuses
+  anything below 80 % (subscriptions) or 20 % (services) worst case without a logged override.
+- [ ] **18.5 Re-home hard-coded config** (AI budget, resume caps, Stripe price ids, MRR) onto the catalog.
+
+## Phase 19 — Autopilot (ships with Launch 2)
+- [ ] **19.1 Queue.** `autopilot_run` / `autopilot_item`, plus "Prepare N" on the web. The
+  server enforces 300 per month and 30 per day.
+- [ ] **19.2 Extension orchestrator.** A dedicated window, at most 3 tabs at a time, throttled.
+  Fills, then stops at the final page. **Never submits and never ticks attestation or consent boxes.**
+- [ ] **19.3 "Needs you" handling.** Sign-in walls, CAPTCHAs, unknown required questions, failed
+  uploads and an exhausted AI budget park the item with a reason.
+- [ ] **19.4 Review queue.** In the drawer and on the web; submit-detect logs each submission.
+- [ ] **19.5 Store release.** The `tabs` permission in its own release (CWS re-review, listing
+  copy, privacy note) + QA on all adapters.
+- [ ] **19.6 Selling it.** Catalog rows, pricing page, Stripe prices ($39.99 / $99.99).
+
+## Phase 20 — Services
+- [ ] **20.1 AI Interview Practice (text).** Included in Pro and Autopilot; an org-only
+  standalone item with a $1.50/month budget.
+- [ ] **20.2 Service orders.** `service_order` + Stripe one-time Checkout + a 10 % subscriber
+  discount. Items: human resume review $79 · resume rewrite $199 · mock interview $129 ·
+  coaching $119.
+- [ ] **20.3 Expert side.** Vetted experts, admin assignment, a consented client view,
+  deliverable upload, booking link.
+- [ ] **20.4 Payouts.** A payout ledger (manual first, Stripe Connect later) + an admin services page.
+- [ ] **20.5 Service terms** go to lawyer review.
+
+## Phase 21 — Organizations (after moving to our own server)
+- [ ] **21.0 Prerequisites.** Own server + restore drill passing; org-scoped access with
+  cross-org isolation tests.
+- [ ] **21.1 Schema.** `organization`, `org_member`, `org_assignment` (writes grants) and
+  `data_share` (SUMMARY at launch).
+- [ ] **21.2 Org billing.** A $499 setup fee (nothing activates until it's paid), plus per-person
+  items: Pro $24.99 · Autopilot $49.99 · AI Interview Practice $9.99 · services at list price.
+  Monthly invoice, prorated adds, removals at period end.
+- [ ] **21.3 Org admin console.** Members, CSV invite, assign any item to any person, invoices,
+  a consented summary report.
+- [ ] **21.4 Member side.** The account stays the person's. Leaving ends org grants at the end
+  of the period, and nothing is deleted.
+- [ ] **21.5 Selling it.** A sales page and order form; SSO only when a school deal needs it.
+- *Coach tier: **not built** (user decision 2026-10-05). The hook is org type `COACH` + role
+  `COACH` + `data_share` FULL; see ROADMAP.*
 
 ## Redesign (Phase R) — Kiwiply UI/UX (parallel track, branch `ui-redesign-phase-0`)
 > Presentation-only rebrand + visual system + app shell — **no backend/API changes**. Spec:
@@ -1235,6 +1298,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **Expansion plan (planning only, no code)** · ROADMAP gains *Expansion build
+  (Phases 18–21)*: Autopilot ($39.99 / $99.99), services (human + AI Interview Practice; no voice),
+  and organizations (a $499 setup fee + per-person items at +25 % over individual prices; no
+  packages yet). One catalog + entitlements engine sits under all of it, with an 80 % worst-case
+  margin floor and caps on everything. There is no Coach tier, but the org model keeps a hook for
+  it. New 15.5 re-prices Pro before live keys. CLAUDE.md go-to-market decision updated.
 - 2026-10-05 · **Terms protections + the live Pro check** · Terms: a liability cap (greater of 12
   months' fees or US$50), a "Services we rely on" section (extension stores, Google, job sites,
   Stripe, AWS, Brevo), and the remedy when a Pro feature is down more than 7 days in a row (extend

@@ -359,6 +359,8 @@ abstraction), **8.3 session control** (revocable sessions, rotation at scale, fo
 logout across both the extension Bearer and web cookie surfaces), **8.4 audit &
 compliance** (audit logging, PII retention tooling, GDPR/CCPA + SOC 2 groundwork,
 secrets in vault/KMS, deeper RBAC). Easy to reorder earlier if a B2B deal demands it.
+*(2026-10-05: the org/tenant model is now planned as **Phase 21 — Organizations**. SSO waits
+until a school deal needs it.)*
 
 ### Phase 10 — Fill Quality & the Self-Building Profile  *(the Pro-plan gate)*
 
@@ -528,11 +530,11 @@ then the cheap visible win, then the schema/profile spine, then the grind.
 
 | | **Free** | **Pro** |
 |---|---|---|
-| Price | $0 | **Launch 1: $19.99/mo · $44.99 / 3 months** → **Launch 2: $24.99/mo · $54.99 / 3 months.** No annual plan (job searches run 3–6 months; Teal sells weekly/monthly/quarterly and no annual; Simplify's annual is a margin giveaway). |
+| Price | $0 | **Launch 1: $19.99/mo · $49.99 / 3 months** *(was $44.99 — raised 2026-10-05 for the 80 % margin floor, task 15.5)* → **Launch 2: $24.99/mo · $54.99 / 3 months.** No annual plan (job searches run 3–6 months; Teal sells weekly/monthly/quarterly and no annual; Simplify's annual is a margin giveaway). |
 | Autofill on every supported ATS, review overlay, multi-step | ✅ | ✅ |
 | Job capture, board/tracker, auto-log on submit, save-a-job | ✅ | ✅ |
 | Self-building profile + post-fill audit (Phase 10) | ✅ | ✅ |
-| Resume upload + **AI parsing** (the one free server-AI exception — one call per resume, and the Tier-B moment the profile depends on) | ✅ **3 resumes** | ✅ unlimited |
+| Resume upload + **AI parsing** (the one free server-AI exception — one call per resume, and the Tier-B moment the profile depends on) | ✅ **3 resumes** | ✅ **25** *(was unlimited — capped 2026-10-05, task 15.5)* |
 | Learned answers on this device | ✅ | ✅ |
 | Learned answers **synced across devices** | — | ✅ |
 | Bring-your-own Anthropic key (mapping, picks, drafting) | ✅ | ✅ |
@@ -544,6 +546,11 @@ then the cheap visible win, then the schema/profile spine, then the grind.
 | Cover-letter generator · resume builder + templates | — | ✅ (Launch 2) |
 | Analytics (response rate by resume / ATS / role) | — | ✅ (Launch 2) |
 | Edge + Firefox, dark mode, bug reporter | ✅ | ✅ |
+
+> **2026-10-05:** a third tier (**Autopilot**), organizations and services are added. See
+> **Expansion build (Phases 18–21)**. It also locks an **80 % worst-case margin floor**, a Pro AI
+> budget of **$3/month · $8 per 3-month period** (was $5/month), and AI budgets that run **per
+> billing period**.
 
 **Advertising line:** *Free — everything you need to apply. Pro — everything that gets you the
 interview: AI that picks and tailors your resume, and an inbox that updates your board for you.*
@@ -947,6 +954,15 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
   entity (AutomoraLab LLC). DPAs with Brevo + AWS S3.
 - **15.3 Store.** CWS resubmit with the Pro build + AMO first submission; listing copy for the
   Free/Pro split; the `NEXT_PUBLIC_KIWIPLY_EXTENSION_ID` redeploy.
+- **15.5 Re-price Pro (expansion decision 2026-10-05, must land before 15.4 goes live).**
+  - 3-month price $44.99 → **$49.99**: a new Stripe Price in test and live, plus
+    `dossier.stripe.amount3mo`.
+  - Pro AI budget $5/month → **$3/month · $8 per 3-month period**, with `AiBudgetService`
+    summing over the subscription's **billing period** instead of the calendar month.
+  - Pro resume cap unlimited → **25** non-archived (402 `RESUME_LIMIT`; over-cap resumes stay
+    readable and fillable).
+  - Update `/pricing`, the ToS Billing section and the MRR math to match.
+  - See Expansion build → Cost controls.
 - **15.4 Launch checklist.** Pricing page live, Stripe live keys, webhook signing verified,
   support path for billing, W5-QA walked in Chrome (light + dark), SmartRecruiters live check.
 
@@ -1024,7 +1040,275 @@ profile** — nobody in the table has either.
 | 14 | **Inbox (IMAP)** — dedicated Gmail + app password, poll inbox + sent, parser → status, notifications, dedup, retention | 12 | Yes |
 | 15 | **Launch 1** — ops (backup/monitoring/restore drill), PL.1 legal, CWS + AMO resubmit, checklist | 10–14 | — |
 | 16 | **Between launches** — strong job matches, analytics, reminders, digest, calendar, cover letter, resume builder | 14, 15 | Yes |
-| 17 | **Launch 2** — price rise to $24.99 / $54.99, adapter milestone, listing refresh | 16 | — |
+| 17 | **Launch 2** — price rise to $24.99 / $54.99, adapter milestone, listing refresh (+ Autopilot, Phase 19) | 16, 19 | — |
+| 18 | **Catalog & entitlements engine** — DB products/prices/limits, grants, admin catalog with margin guard | 15 | Yes |
+| 19 | **Autopilot** — batch-prepare applications in the user's browser, stop before submit, review queue | 18 | Yes |
+| 20 | **Services** — AI Interview Practice (text) + human services marketplace | 18 | Yes |
+| 21 | **Organizations** — setup fee + per-person items, org admin console, Coach hook | 18, hosting move | Yes |
+
+---
+
+## Expansion build (Phases 18–21) — locked 2026-10-05
+
+> Planned with the user on 2026-10-05. Adds a second paid tier (**Autopilot**), **services**
+> (human services plus AI interview practice), and an **Organization** plan sold item by item, per
+> person. All of it sits on one **catalog + entitlements** engine, so prices, limits and future
+> packages change from the admin console, not in a release. **The Coach tier is deliberately not
+> being built.** The org model keeps a hook for it (see "Coach later"), so adding it later is not
+> a rework. Nothing here starts before Launch 1. The one exception is **15.5 (re-price Pro)**,
+> which must land before 15.4 switches on live Stripe keys.
+
+### What we sell (final structure)
+
+| Product | Sold to | Billing |
+|---|---|---|
+| Free | everyone | — |
+| Pro | individuals | monthly · 3 months |
+| **Autopilot** | individuals | monthly · 3 months |
+| **AI Interview Practice** (text) | organizations, per person, as its own item. Individuals get it **inside** Pro and Autopilot | monthly, per person |
+| **Human services:** resume review · resume rewrite · mock interview · career coaching | anyone | one-time |
+| **Organization** | companies, schools, outplacement firms, consultancies | one-time setup fee + per-person items, invoiced monthly |
+| ~~Coach~~ | — | **Not built.** Revisit only once organizations are in use and show the need |
+| ~~AI voice mock interview~~ | — | **Dropped for now** |
+
+**No packages or bundles at launch.** The catalog supports them (18.1 `bundle_item`), so a
+package later is an admin-console action, not a release.
+
+### Prices — individuals
+
+| | Monthly | 3 months | Launch 2 (Phase 17) |
+|---|---|---|---|
+| Free | $0 | — | — |
+| Pro | $19.99 | **$49.99** (was $44.99, raised for the 80 % floor) | $24.99 · $54.99 |
+| Autopilot | **$39.99** | **$99.99** | revisit at Launch 2 |
+
+Still no annual plan, no free trial, and "no refunds, cancel anytime" (Phase 12, unchanged).
+
+### Prices — organizations
+- **Setup fee: $499, one-time, per organization.** Always charged, and nothing activates until it
+  is paid. It covers the workspace, admin accounts, bulk CSV invite and one onboarding call.
+- **Per person, per month, item by item.** The org mixes freely, person by person:
+
+  | Item | Org price | vs individual |
+  |---|---|---|
+  | Pro | **$24.99** | +25 %. Becomes $29.99 when individual Pro goes to $24.99 at Launch 2 |
+  | Autopilot | **$49.99** | +25 % |
+  | AI Interview Practice | **$9.99** | sold standalone to orgs only |
+  | Human services | same list price as individuals | no subscriber discount |
+
+- **Buying for specific people:** an org admin assigns any item to any member, for example Pro
+  for one person, Autopilot for another and a resume rewrite for a third. Nothing forces
+  "everyone gets the same thing".
+- **Orgs pay more per person than individuals (decided). Why:**
+  - Business seats conventionally cost more than personal plans (ChatGPT Team vs Plus, Claude Team vs Pro).
+  - Orgs get admin, assignment, invoices and reports that individuals don't.
+  - Orgs compare us to outplacement at $499–2,499 per person, not to consumer apps.
+  - Org seats are used harder and need more support.
+
+  Volume discounts come later as catalog prices, not code.
+- **Billing:** a monthly invoice to the org, paid by card or bank transfer (Stripe Invoicing).
+  Adding a person mid-month is prorated. Removing someone takes effect at the end of the period
+  (no refunds, the same as for individuals).
+
+### Prices — human services
+
+| Service | Price | Expert payout | Our worst-case margin (after Stripe + 10 % subscriber discount) |
+|---|---|---|---|
+| Human resume review (written, 48 h) | $79 | ~$50 | ~26 % (33 % at list) |
+| Professional resume rewrite (one revision round) | $199 | ~$130 | ~24 % |
+| Human mock interview (45 min) | $129 | ~$85 | ~24 % |
+| Career coaching (60 min) | $119 | ~$80 | ~22 % |
+
+- **Delivery:** vetted freelance experts paid per order, with no staff. Booking runs through
+  Cal.com or Calendly at first, payment through Stripe one-time Checkout. Payouts are manual at
+  first, moving to Stripe Connect once volume justifies it.
+- **Discount:** Pro and Autopilot subscribers get 10 % off, taken from our share. Orgs pay list price.
+- **Service terms (proposed, lawyer to confirm in 20.5):** reschedule up to 24 h before. If the
+  expert doesn't show up, the client gets a refund or a rebooking.
+
+### Cost controls — nothing is unlimited
+**Margin floors (locked):**
+- Every **subscription** price must keep **≥ 80 % gross margin in the worst case**. Worst case
+  means the AI budget is fully spent and the Stripe fee is paid.
+- Every **service** must keep **≥ 20 %** after the expert payout, Stripe and the discount.
+- The admin catalog enforces both (18.4).
+
+| Limit | Free | Pro | Autopilot | Org AI Interview Practice |
+|---|---|---|---|---|
+| AI budget (model cost, per **billing period**) | resume parsing only, count-capped as today | **$3 / month · $8 per 3-month period** (was $5/month) | **$6 / month · $16 per 3-month period** | $1.50 / month |
+| Resumes (non-archived) | 3 | **25** (was unlimited) | **50** | — |
+| Prepared applications | — | — | **300 / month, 30 / day** | — |
+
+- **Budget period:** the AI budget now runs **per billing period**, replacing today's calendar
+  month. A 3-month plan gets one pooled budget for the quarter. The mechanics are unchanged: at
+  80 % it switches to the economy model, and at 100 % AI stops until the period renews. Users
+  see a percentage, never dollars, and the admin override still outranks everything.
+- **Stacking:** a person with several grants (say personal Pro + org Autopilot) gets the
+  **highest** value of each limit, never the sum.
+- **Already bounded, keep as is:**
+  - The inbox stores text only, never attachments, and deletes mail after 12 months.
+  - Job matching scores at most 50 jobs per user per night.
+  - Every AI feature has its own kill switch.
+  - Resume uploads have a size cap.
+- **Watch:** the $3 Pro budget is close to the p95 estimate ($2–3 a month, as of Sep 2026). If
+  more than 5 % of Pro users hit 100 % in a month, decide with data between raising the price
+  and accepting a lower floor. Don't quietly raise the cap.
+- **Model prices:** Flash-Lite's successor costs 2.5–3.75× more. Budgets are in dollars, so the
+  worst case stays bounded, but the typical margin shrinks.
+
+**Margins at these prices.** These cover variable costs only; hosting is a fixed cost and is not included.
+
+| Plan | Price | Worst-case cost (AI + Stripe) | Margin, worst / typical |
+|---|---|---|---|
+| Pro monthly | $19.99 | $3.00 + $0.88 | 81 % / 93 % |
+| Pro 3 months | $49.99 | $8.00 + $1.75 | 80 % / 93 % |
+| Pro at Launch 2 | $24.99 · $54.99 | $4.02 · $9.89 | 84 % · 82 % worst |
+| Autopilot monthly | $39.99 | $6.00 + $1.46 | 81 % / 91 % |
+| Autopilot 3 months | $99.99 | $16.00 + $3.20 | 81 % / 91 % |
+| Org Pro seat | $24.99 | $3.00 + $0.72 | 85 % worst |
+| Org Autopilot seat | $49.99 | $6.00 + $1.45 | 85 % worst |
+| Org AI Interview Practice | $9.99 | $1.50 + $0.29 | 82 % worst |
+| Org setup fee | $499 | ~$15 Stripe + ~2–3 h of onboarding time | — |
+
+### Architecture decisions
+- **No rewrite.** The extension, web app, API, MySQL, Stripe and Gemini all stay.
+- **No cloud auto-apply** (headless browsers on our servers filling forms). Each application
+  would cost us money, all traffic would come from our server's address (which Workday's and
+  Greenhouse's fraud tools flag), and it would hit CAPTCHAs we won't bypass. Autopilot runs in
+  the user's own browser.
+- **Still no auto-submit.** Autopilot stops at the final review page and **never ticks
+  certification, attestation or consent boxes**. The user clicks Submit.
+- **Prepare, never submit as someone else.** Org staff never submit on a member's behalf.
+  Members submit from their own account.
+- **Hosting:** move off the shared BeeCompete box onto our own server, with the Phase 15
+  backups proven, **before Phase 21 ships**.
+- **The `tabs` permission** (needed for Autopilot) triggers a Chrome Web Store re-review and a
+  one-time permission prompt for existing users. Ship it in its own release, with listing copy
+  that explains why.
+
+### Phase 18 — Catalog & entitlements engine  *(after Launch 1; before 19–21)*
+Goal: prices, limits and (later) packages live in the database and are edited from admin. Code
+asks "does this person have feature X, and what is their limit Y", never "is this person Pro".
+- **18.1 Schema (additive Liquibase):**
+  - `product`: code, name, kind `SUBSCRIPTION|SEAT|SERVICE|FEE|BUNDLE`, sold-to flags (individual / org), active.
+  - `product_price`: product, audience `INDIVIDUAL|ORG`, interval `MONTH|QUARTER|ONE_TIME`,
+    amount, currency, `stripe_price_id`, active. **Rows are immutable:** a price change is a
+    new row, and existing subscribers stay on theirs (grandfathering comes for free).
+  - `product_entitlement`: product, feature key, limit value. Examples: `ai.server`,
+    `ai.budget_cents_per_period`, `resumes.max`, `answers.sync`, `inbox`,
+    `autopilot.apps_per_month`, `autopilot.apps_per_day`, `interview.ai_practice`.
+  - `bundle_item`: links a bundle product to its component products. **Built, but unused at
+    launch.** It is what makes packages an admin action later.
+  - `entitlement_grant`: user, product, source `STRIPE_SUBSCRIPTION|ORG_ASSIGNMENT|ADMIN_COMP|SERVICE_ORDER`,
+    `source_ref`, nullable `org_id`, `starts_at`, `ends_at`.
+- **18.2 `EntitlementService` on grants.**
+  - It resolves a user's active grants into features + limits; for any limit, the highest value wins.
+  - `isPro()` / `requirePro()` become thin wrappers over `has(feature)`. `PRO_REQUIRED` stays,
+    and `PLAN_REQUIRED {feature}` is added.
+  - The webhook stays the only writer of subscription-sourced grants.
+  - Free and Pro are seeded from today's config, and a migration test proves behaviour is identical.
+- **18.3 Features on the version endpoint.** `GET /api/profile/version` → `{version, plan,
+  features[]}`. The extension gates on features, not plan names.
+- **18.4 Admin catalog page.**
+  - Create and edit products, prices and limits, and publish prices to Stripe through `StripeGateway`.
+  - **Margin guard:** shows each price's worst-case margin (AI budget + payout + Stripe fee).
+    It refuses to publish below the floor (80 % for subscriptions, 20 % for services) unless the
+    admin types an override reason, which is written to the audit log.
+- **18.5 Re-home hard-coded config onto the catalog:** `pro-monthly-budget-usd`, the resume
+  caps, the Stripe price ids, and the MRR math in the revenue card.
+
+### Phase 19 — Autopilot  *(ships with Launch 2)*
+- **19.1 Queue (API + web).** New tables `autopilot_run` and `autopilot_item`. Each item has a
+  job, a status (`QUEUED|FILLING|READY|NEEDS_YOU|SUBMITTED|SKIPPED`) and a reason. On the web,
+  the user picks jobs from matches, saved jobs or the board and clicks "Prepare N". The server
+  enforces 300 per month and 30 per day.
+- **19.2 Extension orchestrator.**
+  - Opens items in a dedicated Autopilot window, at most 3 at a time, with throttling and jitter.
+  - Fills each one with the existing engine plus auto-advance and **stops at the final page**.
+  - **Never clicks Submit and never ticks attestation, consent or certification boxes.** Each
+    adapter gets a detector for those boxes and a test list.
+- **19.3 "Needs you" handling.** These cases park the item with a reason:
+  - sign-in walls (Workday tenant accounts)
+  - CAPTCHAs
+  - an unknown required question
+  - a failed upload
+  - an exhausted AI budget
+
+  Nothing retries in a way that looks like a bot.
+- **19.4 Review queue.** A list of READY items in the drawer and on the web. One click focuses
+  the tab. The existing submit-detect flips the item to SUBMITTED and logs the application.
+- **19.5 Store release.** The `tabs` permission in its own release, with listing copy and a
+  privacy note. QA on the 6 adapters + generic.
+- **19.6 Selling it.** Catalog rows, the pricing page, and Stripe prices ($39.99 / $99.99).
+
+### Phase 20 — Services
+- **20.1 AI Interview Practice (text).**
+  - Input: role + JD + resume. Output: an interviewer chat, feedback on each answer, and a session summary.
+  - Runs on Flash-Lite / Flash and counts against the AI budget.
+  - Included in Pro and Autopilot. An org-only standalone product row carries its own $1.50 budget.
+- **20.2 Service orders.**
+  - New `service_order` table: user, product, status `PAID|SCHEDULED|IN_PROGRESS|DELIVERED|REFUNDED`,
+    expert, `payout_cents`, deliverable.
+  - Stripe one-time Checkout, with the 10 % subscriber discount read from the catalog.
+- **20.3 Expert side.**
+  - Admin-created, vetted `expert` profiles, with orders assigned by admin.
+  - A limited expert view showing only the ordering client's resume and target job; the client
+    consents at checkout.
+  - Deliverable upload, plus a booking link (Cal.com or Calendly) for live sessions.
+- **20.4 Payouts.** A payout ledger (manual payouts first, Stripe Connect later) and an admin services page.
+- **20.5 Terms.** Service terms (rescheduling, no-shows, the revision round) go to lawyer review.
+
+### Phase 21 — Organizations  *(after the hosting move)*
+- **21.0 Prerequisites.**
+  - Our own server, with the restore drill passing.
+  - Every org endpoint scoped by membership, with tests proving one org can't read another's
+    data. This extends the 1.11 leak fix and the deferred Phase 8.2.
+- **21.1 Schema.**
+  - `organization`: name, type `COMPANY|SCHOOL|OUTPLACEMENT|CONSULTANCY`, `stripe_customer_id`,
+    `setup_fee_paid_at`, status.
+  - `org_member`: org, user, role `OWNER|ADMIN|MEMBER`, invite email, status.
+  - `org_assignment`: org, member, product, price, start/end dates. It writes an
+    `entitlement_grant` with source `ORG_ASSIGNMENT`.
+  - `data_share`: member, org, scope `NONE|SUMMARY|FULL`. Launch uses SUMMARY only.
+- **21.2 Org billing.**
+  - The setup fee is a one-time invoice item, and the org activates once it is paid.
+  - One Stripe subscription per org, with one line per org price and quantity = the number of assignments.
+  - Services are added as invoice items.
+  - Adding a person is prorated; removing one takes effect at the end of the period.
+  - An unpaid invoice goes through Stripe dunning, then the grants end.
+- **21.3 Org admin console (web).**
+  - Members, CSV invite, and assigning or unassigning any item per person.
+  - Invoices.
+  - A summary report: who has activated, and how many applications were prepared and
+    submitted. Counts only, and only with the member's consent.
+- **21.4 Member side.**
+  - The person accepts the invitation, and the account stays theirs.
+  - Leaving the org ends the org's grants at the end of the period; the person keeps whatever
+    they pay for themselves, otherwise Free. Nothing is deleted.
+  - Someone who already pays personally is told so and can cancel in the portal. We never cancel for them.
+- **21.5 Selling it.** A sales page and order form. Phase 8.1 SSO is built only when a school deal needs it.
+
+### Coach later — the hook (not built)
+A coach is just:
+- an `organization` of type `COACH`
+- a `COACH` role in `org_member`
+- `data_share` scope `FULL`, consented to by the member
+- catalog rows for coach and client prices
+
+No new tables and no billing rework. Build it only if Phase 21 usage shows the demand.
+
+### Order
+Launch 1 (including 15.5) → **18** → **19** alongside Phase 16 → **Launch 2** (Autopilot ships
+with it) → **20** → **21**.
+
+### Market position (research 2026-10-05; mostly 2026 third-party reviews, Huntr + Simplify first-party)
+
+| Ours | Our price | Market | Verdict |
+|---|---|---|---|
+| Pro | $19.99 · $49.99 / 3 mo | Simplify+, Jobright, Huntr, Jobscan ≈ $40 · $90 / 3 mo; Teal+ $29 · $79; Careerflow $23.99 · $54.99 | **Low** (deliberate; Launch 2 raise is safe) |
+| Autopilot | $39.99 · $99.99 / 3 mo | JobCopilot ≈ $38–56; AIApply $49–99; Jobhire $49; Massive $59–99; LazyApply $99–999 / yr | **Middle.** We keep the last click: "safe autopilot" |
+| Org seats + setup | $24.99 / $49.99 / $9.99 + $499 | Huntr ≈ $40 / user; Jobscan Coach $199 / mo; outplacement $499–2,499 / person | **Low** vs outplacement |
+| Services | $79 · $199 · $129 · $119 | resume writing $139–349 (Fiverr ≈ $50); human mock $150–340; coaching $75–200 / h | **Low–middle** |
 
 ---
 
@@ -1048,6 +1332,8 @@ infra. Consider folding both into Phase 3.
 **One thing to be cautious about:** several "auto-apply" tools blur into bulk
 auto-submission, which trips ATS anti-bot systems and draws CWS scrutiny. Your
 no-auto-submit stance is a *trust asset* — keep it even as you add accounts.
+*(2026-10-05: **Autopilot** (Phase 19) batch-**prepares** applications and stops at the final
+review page. It never submits and never ticks attestation boxes, so this stance holds.)*
 
 ---
 
