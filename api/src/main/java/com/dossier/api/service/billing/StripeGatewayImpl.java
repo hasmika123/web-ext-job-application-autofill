@@ -245,6 +245,8 @@ public class StripeGatewayImpl implements StripeGateway {
         Instant periodEnd = null;
         Boolean cancelAtPeriodEnd = null;
         String clientReferenceId = null;
+        Long amountCents = null;
+        String currency = null;
 
         if (deserialized.isPresent()) {
             var obj = deserialized.get();
@@ -264,6 +266,9 @@ public class StripeGatewayImpl implements StripeGateway {
             } else if (obj instanceof com.stripe.model.Invoice invoice) {
                 objectType = "invoice";
                 customerId = invoice.getCustomer();
+                // What it was worth, for the admin timeline and "total paid" (9.C1).
+                amountCents = "invoice.paid".equals(event.getType()) ? invoice.getAmountPaid() : invoice.getAmountDue();
+                currency = invoice.getCurrency();
             }
         }
 
@@ -278,7 +283,9 @@ public class StripeGatewayImpl implements StripeGateway {
             priceId,
             periodEnd,
             cancelAtPeriodEnd,
-            clientReferenceId
+            clientReferenceId,
+            amountCents,
+            currency
         );
     }
 

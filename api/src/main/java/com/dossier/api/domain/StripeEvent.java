@@ -46,6 +46,29 @@ public class StripeEvent implements Serializable, Persistable<String> {
     @Column(name = "error")
     private String error;
 
+    /** Who and what the event was about (9.C1) — what turns this log into a customer timeline. */
+    @Column(name = "customer_id")
+    private String customerId;
+
+    /** Our user, when the event could be tied to one. Not a foreign key; cleared on account deletion. */
+    @Column(name = "user_id")
+    private Long userId;
+
+    /** Invoice amount in the smallest currency unit: paid for {@code invoice.paid}, due for a failure. */
+    @Column(name = "amount_cents")
+    private Long amountCents;
+
+    @Column(name = "currency", length = 3)
+    private String currency;
+
+    /** A one-line, human description for the timeline, e.g. "Subscription updated: active". */
+    @Column(name = "detail")
+    private String detail;
+
+    /** Stripe's own timestamp for the event — the timeline's order, not our receive time. */
+    @Column(name = "occurred_at")
+    private Instant occurredAt;
+
     /**
      * Not a column — it makes the id actually behave as an idempotency key.
      *
@@ -116,6 +139,54 @@ public class StripeEvent implements Serializable, Persistable<String> {
 
     public void setError(String error) {
         this.error = error;
+    }
+
+    public String getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(String customerId) {
+        this.customerId = customerId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public Long getAmountCents() {
+        return amountCents;
+    }
+
+    public void setAmountCents(Long amountCents) {
+        this.amountCents = amountCents;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getDetail() {
+        return detail;
+    }
+
+    public void setDetail(String detail) {
+        this.detail = detail;
+    }
+
+    public Instant getOccurredAt() {
+        return occurredAt;
+    }
+
+    public void setOccurredAt(Instant occurredAt) {
+        this.occurredAt = occurredAt;
     }
 
     @Override

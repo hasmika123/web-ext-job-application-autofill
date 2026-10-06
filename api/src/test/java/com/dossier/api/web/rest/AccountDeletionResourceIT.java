@@ -31,6 +31,10 @@ import com.dossier.api.repository.ProfileSuggestionRepository;
 import com.dossier.api.repository.RefreshTokenRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.SubscriptionRepository;
+import com.dossier.api.repository.CustomerNoteRepository;
+import com.dossier.api.repository.StripeEventRepository;
+import com.dossier.api.domain.CustomerNote;
+import com.dossier.api.domain.StripeEvent;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.domain.Subscription;
 import com.dossier.api.service.billing.StripeGateway;
@@ -88,6 +92,12 @@ class AccountDeletionResourceIT {
 
     @Autowired
     private SubscriptionRepository subscriptionRepository;
+
+    @Autowired
+    private CustomerNoteRepository customerNoteRepository;
+
+    @Autowired
+    private StripeEventRepository stripeEventRepository;
 
     /** Stubbed: the test is about OUR ordering and cleanup, not Stripe's API. */
     @MockitoBean
@@ -200,6 +210,46 @@ class AccountDeletionResourceIT {
         verify(stripeGateway).cancelSubscription("sub_del_1");
         assertThat(subscriptionRepository.findOneByUserLogin("user")).isEmpty();
         assertThat(userRepository.findOneByLogin("user")).isEmpty();
+    }
+
+    /**
+     * 9.C1: admin notes (a foreign key to the user) would block the delete if left behind, and the
+     * billing timeline must stop pointing at the person while Stripe's record of events stays.
+     */
+    @Test
+    @Transactional
+    @WithMockUser(username = "user")
+    void notesGoAndTheBillingTimelineIsDetached() throws Exception {
+        User user = userRepository.findOneByLogin("user").orElseThrow();
+        Subscription sub = new Subscription();
+        sub.setUser(user);
+        sub.setStripeCustomerId("cus_del_3");
+        subscriptionRepository.saveAndFlush(sub);
+
+        CustomerNote note = new CustomerNote();
+        note.setUserId(user.getId());
+        note.setAuthorLogin("boss");
+        note.setBody("Refunded as goodwill");
+        note.setCreatedAt(Instant.now());
+        customerNoteRepository.saveAndFlush(note);
+
+        StripeEvent paid = new StripeEvent();
+        paid.setId("evt_del_3");
+        paid.setType("invoice.paid");
+        paid.setCustomerId("cus_del_3");
+        paid.setUserId(user.getId());
+        paid.setAmountCents(1999L);
+        stripeEventRepository.saveAndFlush(paid);
+        when(stripeGateway.isEnabled()).thenReturn(false);
+
+        mockMvc.perform(delete("/api/account")).andExpect(status().isNoContent());
+
+        assertThat(userRepository.findOneByLogin("user")).isEmpty();
+        assertThat(customerNoteRepository.findById(note.getId())).isEmpty();
+        StripeEvent kept = stripeEventRepository.findById("evt_del_3").orElseThrow();
+        assertThat(kept.getUserId()).isNull();
+        assertThat(kept.getCustomerId()).isNull();
+        assertThat(kept.getAmountCents()).as("Stripe's record stays, the person goes").isEqualTo(1999L);
     }
 
     /** A keyless server (develop, CI) must still be able to delete an account that has a row. */

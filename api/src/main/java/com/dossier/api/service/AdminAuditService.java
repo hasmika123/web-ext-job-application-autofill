@@ -41,6 +41,7 @@ public class AdminAuditService {
     public static final String AI_QUOTA_CLEAR = "AI_QUOTA_CLEAR";
     public static final String TARGET_BUG_REPORT = "BUG_REPORT";
     public static final String BUG_TRIAGE_UPDATE = "BUG_TRIAGE_UPDATE";
+    public static final String CUSTOMER_NOTE_ADD = "CUSTOMER_NOTE_ADD";
     public static final String TARGET_SALES_INQUIRY = "SALES_INQUIRY";
     public static final String INQUIRY_UPDATE = "INQUIRY_UPDATE";
     public static final String SESSION_REVOKE = "SESSION_REVOKE";

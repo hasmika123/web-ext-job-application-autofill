@@ -1,19 +1,22 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.Resume;
+import com.dossier.api.domain.Subscription;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
+import com.dossier.api.repository.CustomerNoteRepository;
 import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.ResumeRepository;
+import com.dossier.api.repository.StripeEventRepository;
 import com.dossier.api.repository.SubscriptionRepository;
-import com.dossier.api.service.billing.StripeGateway;
-import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.billing.StripeGateway;
+import com.dossier.api.service.inbox.InboxService;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +60,8 @@ public class AccountDeletionService {
     private final JobMatchService jobMatchService;
     private final InboxService inboxService;
     private final NotificationService notificationService;
+    private final StripeEventRepository stripeEventRepository;
+    private final CustomerNoteRepository customerNoteRepository;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -78,7 +83,9 @@ public class AccountDeletionService {
         ResumeTailorService resumeTailorService,
         JobMatchService jobMatchService,
         InboxService inboxService,
-        NotificationService notificationService
+        NotificationService notificationService,
+        StripeEventRepository stripeEventRepository,
+        CustomerNoteRepository customerNoteRepository
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -100,6 +107,8 @@ public class AccountDeletionService {
         this.jobMatchService = jobMatchService;
         this.inboxService = inboxService;
         this.notificationService = notificationService;
+        this.stripeEventRepository = stripeEventRepository;
+        this.customerNoteRepository = customerNoteRepository;
     }
 
     /**
@@ -117,6 +126,11 @@ public class AccountDeletionService {
      * says survives a deletion; nothing about the payment history needs to live here.
      */
     private void endBilling(Long userId) {
+        // Admin notes and the billing timeline (9.C1): notes go with the account; webhook events
+        // stay as a record of what Stripe sent but stop pointing at the person.
+        customerNoteRepository.deleteAllByUserId(userId);
+        String customerId = subscriptionRepository.findOneByUserId(userId).map(Subscription::getStripeCustomerId).orElse(null);
+        stripeEventRepository.forget(userId, customerId);
         subscriptionRepository
             .findOneByUserId(userId)
             .ifPresent(sub -> {

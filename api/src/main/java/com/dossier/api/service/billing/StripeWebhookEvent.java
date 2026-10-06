@@ -21,6 +21,8 @@ import java.util.Optional;
  * @param currentPeriodEnd end of the paid-for period, when the event has one
  * @param cancelAtPeriodEnd whether the subscription is set to end at the period boundary
  * @param clientReferenceId our user id, set at checkout — how a customer binds to a user
+ * @param amountCents    for an invoice: the amount paid ({@code invoice.paid}) or due (a failure)
+ * @param currency       for an invoice: its ISO currency, lower-case as Stripe sends it
  */
 public record StripeWebhookEvent(
     String id,
@@ -33,7 +35,9 @@ public record StripeWebhookEvent(
     String priceId,
     Instant currentPeriodEnd,
     Boolean cancelAtPeriodEnd,
-    String clientReferenceId
+    String clientReferenceId,
+    Long amountCents,
+    String currency
 ) {
     public Optional<String> customer() {
         return Optional.ofNullable(customerId);
