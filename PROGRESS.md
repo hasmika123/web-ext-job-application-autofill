@@ -1633,6 +1633,13 @@ focused Claude Code session.
 - 2026-10-10 · **v2.2 Landing v2: hero carousel + trust strip** · Four-slide `HeroCarousel` (client; autoplay 7s with hover/focus/hidden-tab/reduced-motion pause, dots, arrows, keys, touch swipe, inert inactive slides, live announcer) fed by `hero-slides.tsx` data + server `HeroArt` (photo/mascot slots, fictional-sample `FloatingCard`s, doodles, handwriting); `Eyebrow`, `Handwritten`, `FloatingCard`, `family.ts`, ATS `TrustStrip` replace the old charcoal hero + marquee on `/`.
 - 2026-10-10 · **v2.1 Landing v2: theme + shell** · `theme-v2.css` (scoped `.theme-v2`), Button `--radius-button` + `lg`, 25 new icons + `doodles.tsx`, Jakarta/Caveat fonts, new `MarketingHeader` (click dropdowns, mobile sheet) + `MarketingFooter` + `nav.ts`, `Mascot`/`Photo` slots with fallbacks (`public/v2/README.md`), `DEMO_VIDEO_URL`. Old landing body untouched; `npm test -w web` + build green.
 - 2026-10-10 · **v2.0 Landing v2 design (branch `version2`)** · User-supplied mockups (hero carousel, landing, About, Organizations, mobile) saved to `design/landing-v2/`; design locked in `web/LANDING-V2-SPEC.md` (scoped "Kiwiply Bright" theme, honest-copy rules, components, carousel behaviour, phases V2.1–V2.6). Stays on `version2` until the user asks to promote.
+- 2026-10-06 · **`develop` promoted to `main` — production deploy (PR #123, `49f1690`)** · 176 commits:
+  Phases 12–15 as built. Pre-flight per DEPLOY.md §13: 17 additive migration files (51 changelog rows now),
+  no new required setting; **manual dump first** (`pre-promotion-2026-10-06-1754.sql.gz`, on the box in
+  `/root/kiwiply-backups/` and on the user's computer, sha256 matched). Deploy run 37508669159 green; API
+  up in 17 s, no errors; inbox off (no `DOSSIER_INBOX_KEY`), billing off (no Stripe keys), error digest on.
+  Public smoke check 12/12 (`04-verify.sh`) plus `/pricing` 308 → `/#pricing` and the new landing live.
+  The backup scripts are now on the box, so **15.1c can start** once the bucket and accounts exist.
 - 2026-10-06 · **Fix: resume upload failing in production** · Reported right after the promotion: "Couldn't
   upload the file". Cause: the box's **S3 key is invalid** (AWS `InvalidClientTokenId`) — every resume file
   upload fails at storage; the user replaces it in IAM + `.env` (DEPLOY.md §1 policy). Two code gaps found on
