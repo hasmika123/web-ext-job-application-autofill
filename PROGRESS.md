@@ -877,6 +877,24 @@ focused Claude Code session.
 - [ ] **9.B8 Abuse controls.** Block or flag users, disposable-email blocklist, Autopilot misuse
   flags. *(With 19.)*
 
+### Phase 9.C — Customers, support & retention (planned 2026-10-05; full table in `ADMIN-PLAN.md` → 9.C)
+- [ ] **9.C1 Customers page + billing timeline** *(must ship before 15.4's live keys).*
+  `/admin/customers` (plan, status, renewal, total paid, Stripe link; filters for failed,
+  cancelling and new). A billing timeline + admin notes on each user page. Additive
+  `stripe_event.customer_id` + `customer_note`.
+- [ ] **9.C2 Full timeline.** Sent-email log (`mail_log`), bug reports, inquiries and admin plan
+  changes on the user's timeline.
+- [ ] **9.C3 Support access ("view as").** The user grants 24 h; read-only, bannered, audited,
+  auto-expiring. **No log-in-as.**
+- [ ] **9.C4 Debug panel.** Extension version, sync, inbox health, AI usage, recent errors; a
+  consented "support session" fill capture (labels only, never answers).
+- [ ] **9.C5 Offers & retention.** Comps, Stripe promo codes (margin shown vs the floor),
+  win-back to consented users, cancellation reasons.
+- [ ] **9.C6 CRM sync.** One-way push to the user's existing CRM *(once it's confirmed which
+  one)*; admin stays the source of truth.
+- [ ] **9.C7 Account fixes.** Resend verification, verified email change, clear rate-limit
+  lock, revoke extension connections.
+
 ## Phase 10 — Fill quality & the self-building profile (the Pro-plan gate)
 > Spec: `ROADMAP.md` → **Phase 10**. Makes the autofill itself good enough to charge for.
 > Sequencing is deliberate: measure → cheap visible win → profile spine → the adapter grind.
@@ -1354,6 +1372,13 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **Customers & support admin plan (planning only)** · ADMIN-PLAN gains **9.C**:
+  - 9.C1 Customers page + billing timeline + notes (before 15.4).
+  - Sent-email log, support access as a user-granted read-only "view as" (no log-in-as).
+  - A debug panel with a consented support-session fill capture.
+  - Offers (comps, promo codes, win-back to consented users, cancellation reasons).
+  - Account fixes.
+  - A one-way sync to the user's existing CRM, with admin staying the source of truth.
 - 2026-10-05 · **Terms + privacy: every AI feature disclosed** · Terms *AI features* now names them all
   (resume reading on every plan; Pro: Kiwiply AI in the extension, resume fit, job fit, tailoring,
   job matches, inbox), says AI can be wrong and the user is responsible for what they submit, that
