@@ -10,6 +10,7 @@ import {
   COMPARE,
   CONSULTANCY,
   CONSULTANCY_ADDONS,
+  CONSULTANCY_STEPS,
   EXPERT_SERVICES,
   PER_PERSON,
   PLANS,
@@ -216,36 +217,7 @@ export function PricingSection({ signedIn, alreadyPro, billingLive }: Viewer) {
   }
 
   function extra(offer: Offer): ReactNode {
-    if (offer.id === "pro") return <RenewalNote />;
-    if (offer.id !== CONSULTANCY.id) return null;
-    return (
-      <div className="flex flex-col gap-4">
-        <div>
-          <p className="text-[11.5px] font-bold uppercase tracking-[.08em] text-muted">Per person, per month</p>
-          <table className="mt-1 w-full border-collapse text-[13.5px]">
-            <tbody>
-              {PER_PERSON.map((row) => (
-                <tr key={row.item} className="border-b border-line last:border-0">
-                  <td className="py-2.5 pr-3 font-medium text-ink">{row.item}</td>
-                  <td className="py-2.5 pr-2 text-right font-bold text-ink">{row.price}</td>
-                  <td className="py-2.5 text-right text-[12.5px] text-muted">{row.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-2 text-[12.5px] text-muted">
-            Plus the {CONSULTANCY.price} one-time setup. You pay nothing for a person until you assign them something.
-          </p>
-        </div>
-        <p className="text-[13px] text-ink-soft">
-          <span className="font-semibold text-ink">Add-ons:</span> Marketer seats and Consultancy Ops —{" "}
-          <a href="#consultancy-addons" onClick={close} className="font-medium text-accent-deep hover:underline">
-            see them under Services
-          </a>
-          .
-        </p>
-      </div>
-    );
+    return offer.id === "pro" ? <RenewalNote /> : null;
   }
 
   const current = PLANS.find((p) => p.id === open);
@@ -270,8 +242,10 @@ export function PricingSection({ signedIn, alreadyPro, billingLive }: Viewer) {
         <RenewalNote className="max-w-2xl" />
       </div>
 
-      {current && (
-        <OfferDialog offer={current} open onClose={close} footer={action(current, true)} extra={extra(current)} />
+      {current?.id === CONSULTANCY.id ? (
+        <ConsultancyDialog onClose={close} />
+      ) : (
+        current && <OfferDialog offer={current} open onClose={close} footer={action(current, true)} extra={extra(current)} />
       )}
       <CompareDialog open={open === "compare"} onClose={close} />
     </section>
@@ -325,52 +299,154 @@ function CompareDialog({ open, onClose }: { open: boolean; onClose: () => void }
   );
 }
 
+/** A small uppercase label for a block inside a pop-up. */
+function Label({ children }: { children: ReactNode }) {
+  return <p className="text-[11.5px] font-bold uppercase tracking-[.08em] text-muted">{children}</p>;
+}
+
+function CheckList({ items, className = "" }: { items: string[]; className?: string }) {
+  return (
+    <ul className={"flex flex-col gap-1.5 text-[13.5px] text-ink-soft " + className}>
+      {items.map((i) => (
+        <li key={i} className="flex items-start gap-2">
+          <CheckIcon className="mt-[3px] h-3.5 w-3.5 shrink-0 text-accent-deep" />
+          <span>{i}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The Consultancy pop-up: wider than the others and laid out in the order a buyer asks —
+ * what does it cost, how does it work, what does each person get, what's included, what can we add.
+ */
+function ConsultancyDialog({ onClose }: { onClose: () => void }) {
+  const tiles = [
+    { value: CONSULTANCY.price, label: "One-time setup" },
+    { value: `From ${PER_PERSON[0].price}`, label: "Per person, per month" },
+    { value: "Optional", label: "Marketer and Ops add-ons" },
+  ];
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={CONSULTANCY.name}
+      description={CONSULTANCY.tagline}
+      className="sm:max-w-4xl"
+      footer={<ContactButton offer={CONSULTANCY} full={false} />}
+    >
+      <div className="flex flex-col gap-7 py-1">
+        {/* What it costs */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {tiles.map((t) => (
+            <div key={t.label} className="rounded-[var(--radius)] bg-paper-2 px-2.5 py-2 sm:px-4 sm:py-3">
+              <p className="font-display text-[15px] font-bold leading-tight text-ink sm:text-2xl">{t.value}</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-muted sm:text-[12.5px]">{t.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* How it works */}
+        <div>
+          <Label>How it works</Label>
+          <ol className="mt-3 grid gap-4 sm:grid-cols-3">
+            {CONSULTANCY_STEPS.map((step, i) => (
+              <li key={step.title} className="flex gap-3">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-soft font-display text-sm font-bold text-accent-deep">
+                  {i + 1}
+                </span>
+                <div>
+                  <p className="text-[14px] font-semibold text-ink">{step.title}</p>
+                  <p className="mt-0.5 text-[13px] leading-snug text-muted">{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* Per person */}
+        <div>
+          <Label>Choose for each person</Label>
+          <table className="mt-1 w-full border-collapse text-[13.5px]">
+            <tbody>
+              {PER_PERSON.map((row) => (
+                <tr key={row.item} className="border-b border-line last:border-0">
+                  <td className="py-2.5 pr-4">
+                    <p className="font-semibold text-ink">{row.item}</p>
+                    <p className="text-[12.5px] text-muted">{row.what}</p>
+                  </td>
+                  <td className="whitespace-nowrap py-2.5 text-right align-top">
+                    <span className="font-bold text-ink">{row.price}</span>{" "}
+                    <span className="block text-[12px] text-muted sm:inline">{row.note}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-[12.5px] text-muted">You pay nothing for a person until you assign them something.</p>
+        </div>
+
+        {/* What's included */}
+        <div>
+          <Label>What&apos;s included</Label>
+          <div className="mt-3 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+            {CONSULTANCY.details.map((g) => (
+              <div key={g.heading}>
+                <p className="text-[13.5px] font-semibold text-ink">{g.heading}</p>
+                <CheckList items={g.items} className="mt-2" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Add-ons */}
+        <div>
+          <Label>Add-ons</Label>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            {CONSULTANCY_ADDONS.map((a) => (
+              <div key={a.id} className="flex flex-col rounded-[var(--radius-lg)] border border-line p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  <p className="font-display text-lg font-semibold text-ink">{a.name}</p>
+                  <p>
+                    <span className="font-bold text-ink">{a.price}</span>
+                    <span className="text-[12px] text-muted">{a.unit}</span>
+                  </p>
+                </div>
+                <p className="mt-0.5 text-[13px] text-muted">{a.tagline}</p>
+                <CheckList items={a.highlights} className="mt-3" />
+                {a.limits && <p className="mt-3 text-[12px] leading-relaxed text-muted">{a.limits.join(" · ")}</p>}
+                <Link
+                  href={contactHref(a.topic ?? "organization")}
+                  className="mt-auto pt-3 text-[13px] font-semibold text-accent-deep hover:underline"
+                >
+                  Ask about {a.name} →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 export function ServicesSection() {
   const [open, setOpen] = useState<string | null>(null);
-  const all = [...EXPERT_SERVICES, ...CONSULTANCY_ADDONS];
-  const current = all.find((s) => s.id === open);
+  const current = EXPERT_SERVICES.find((s) => s.id === open);
 
   return (
     <section id="services" className="mx-auto max-w-6xl scroll-mt-20 px-6 pb-[84px]">
       <h2 className="text-center text-[27px] font-semibold text-ink sm:text-[34px]">Services</h2>
-      <p className="mx-auto mb-10 mt-2 max-w-[560px] text-center text-base text-muted">
-        Expert help when you want a person, and add-ons for consultancies.
+      <p className="mx-auto mb-10 mt-2 max-w-[600px] text-center text-base text-muted">
+        One-off help from vetted resume writers, interviewers and coaches. Pro and Autopilot members get 10% off.
       </p>
-
-      <GroupHeading title="Expert help" note="Vetted writers, interviewers and coaches. Pro and Autopilot members get 10% off." />
       <Grid>
         {EXPERT_SERVICES.map((s) => (
           <OfferCard key={s.id} offer={s} onOpen={() => setOpen(s.id)} action={<ContactButton offer={s} />} />
         ))}
       </Grid>
-
-      <div id="consultancy-addons" className="scroll-mt-20">
-        <GroupHeading title="For consultancies" note="Add-ons to the Consultancy plan." className="mt-14" />
-        {/* The same 4-column grid, starting at column 2, so these cards are exactly as wide as the rest. */}
-        <Grid>
-          {CONSULTANCY_ADDONS.map((s, i) => (
-            <OfferCard
-              key={s.id}
-              offer={s}
-              onOpen={() => setOpen(s.id)}
-              action={<ContactButton offer={s} />}
-              className={i === 0 ? "lg:col-start-2" : ""}
-            />
-          ))}
-        </Grid>
-      </div>
-
       {current && <OfferDialog offer={current} open onClose={() => setOpen(null)} footer={<ContactButton offer={current} full={false} />} />}
     </section>
   );
 }
-
-function GroupHeading({ title, note, className = "" }: { title: string; note: string; className?: string }) {
-  return (
-    <div className={"mb-5 text-center " + className}>
-      <h3 className="font-display text-xl font-semibold text-ink">{title}</h3>
-      <p className="mt-1 text-[13.5px] text-muted">{note}</p>
-    </div>
-  );
-}
-

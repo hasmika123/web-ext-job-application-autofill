@@ -148,20 +148,28 @@ export const CONSULTANCY: Offer = {
   unit: " setup",
   priceNote: "then from $24.99 per person / month",
   highlights: ["A plan per consultant", "Admin console and reports", "One monthly invoice", "Marketer and Ops add-ons"],
+  // Grouped by who gets what, so a buyer can see what each side of their team can do.
   details: [
-    { heading: "Admin", items: ["Invite people by CSV", "Assign and reassign plans any time", "Progress reports, with each person's consent"] },
-    { heading: "Billing", items: ["One monthly invoice — card or bank transfer", "Add someone mid-month, pay only for the days left", "Removals take effect at month end"] },
-    { heading: "Setup includes", items: ["Your workspace and admin accounts", "Bulk invite", "An onboarding call"] },
-    { heading: "Their data", items: ["Everyone keeps their own account if they leave"] },
+    { heading: "Your consultants", items: ["Their own Pro or Autopilot plan", "Autofill, tracking and AI on every job", "Keep their account if they leave"] },
+    { heading: "Your admins", items: ["Invite the team by CSV", "Assign or change plans any time", "Progress reports, with consent"] },
+    { heading: "Billing", items: ["One monthly invoice", "Card or bank transfer", "Pay by the day when adding mid-month"] },
+    { heading: "Setup ($499, once)", items: ["Workspace and admin accounts", "Bulk invite", "An onboarding call"] },
   ],
 };
 
-/** Consultancy: what each person costs, chosen per person. */
-export const PER_PERSON: { item: string; price: string; note: string }[] = [
-  { item: "Pro", price: "$24.99", note: "/ person / month" },
-  { item: "Autopilot", price: "$49.99", note: "/ person / month" },
-  { item: "AI interview practice", price: "$9.99", note: "/ person / month" },
-  { item: "Expert services", price: "Standard prices", note: "per order" },
+/** How the Consultancy plan works, in three steps — the pop-up's first read. */
+export const CONSULTANCY_STEPS: { title: string; body: string }[] = [
+  { title: "We set you up", body: "Workspace, admins and invites — one $499 fee." },
+  { title: "Pick a plan per person", body: "Pay monthly only for who you assign." },
+  { title: "Add help if you need it", body: "Marketers to prep, Ops to track hours and money." },
+];
+
+/** Consultancy: what each person costs and gets, chosen per person. */
+export const PER_PERSON: { item: string; what: string; price: string; note: string }[] = [
+  { item: "Pro", what: "AI resume fit, tailoring, inbox tracking", price: "$24.99", note: "/ person / month" },
+  { item: "Autopilot", what: "Pro + bulk-prepared applications", price: "$49.99", note: "/ person / month" },
+  { item: "AI interview practice", what: "Practice interviews with feedback", price: "$9.99", note: "/ person / month" },
+  { item: "Expert services", what: "Resume review, rewrite, mock interviews, coaching", price: "Standard prices", note: "per order" },
 ];
 
 export const PLANS: Offer[] = [FREE, PRO, AUTOPILOT, CONSULTANCY];
@@ -233,23 +241,24 @@ export const EXPERT_SERVICES: Offer[] = [
   },
 ];
 
+/** Optional add-ons to the Consultancy plan, shown inside its pop-up. */
 export const CONSULTANCY_ADDONS: Offer[] = [
   {
     id: "marketer-seats",
     topic: "consultancy",
     eyebrow: "Add-on · subscription",
     name: "Marketer seats",
-    tagline: "Marketers prepare. Consultants submit.",
+    tagline: "Marketers do the prep. Consultants approve and submit.",
     price: "$29.99",
     unit: "/marketer/month",
-    priceNote: "on top of the Consultancy plan",
-    highlights: ["Up to 10 consultants each", "Build and tailor their resumes", "A job bank per consultant"],
-    details: [
-      { heading: "For the marketer", items: ["See each consultant's board, with consent", "Build and tailor resumes for them", "Assign jobs, each with the right resume"] },
-      { heading: "For the consultant", items: ["Approves each new resume once", "Runs Autopilot on assigned jobs, or opens them on Pro", "Reviews and submits every application"] },
-      { heading: "Inbox", items: ["Recruiter mail updates the right consultant's board"] },
+    highlights: [
+      "Builds and tailors resumes for each consultant",
+      "Assigns jobs, each with the right resume",
+      "Sees each consultant's board, with consent",
+      "Recruiter mail lands on the right board",
     ],
-    limits: ["Up to 10 consultants per marketer", "Up to 100 open assigned jobs per consultant", "Each consultant needs at least a Pro seat"],
+    details: [],
+    limits: ["Up to 10 consultants per marketer and 100 open jobs each", "Each consultant needs a Pro or Autopilot seat"],
   },
   {
     id: "consultancy-ops",
@@ -258,13 +267,9 @@ export const CONSULTANCY_ADDONS: Offer[] = [
     name: "Consultancy Ops",
     tagline: "Timesheets and placement money, in one place.",
     price: "Custom",
-    priceNote: "priced to your team",
-    highlights: ["Timesheets and approvals", "Invoices from approved hours", "Profit by client and consultant"],
-    details: [
-      { heading: "Timesheets", items: ["Submitted weekly by consultants", "Approved by your team"] },
-      { heading: "Money", items: ["Bill rate and pay rate per placement", "Client invoices from approved hours", "Payments, expenses and profit by month"] },
-      { heading: "Export", items: ["Everything to CSV or PDF"] },
-    ],
+    unit: " pricing",
+    highlights: ["Weekly timesheets and approvals", "Client invoices from approved hours", "Bill rate, pay rate and expenses", "Profit by client, consultant and month"],
+    details: [],
     limits: ["Record-keeping only — we never move money or run payroll", "We never store bank numbers, SSNs or tax IDs"],
   },
 ];

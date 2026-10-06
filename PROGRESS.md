@@ -1397,6 +1397,11 @@ focused Claude Code session.
   emails still link it); site links, header (+ Services) and sitemap point at the sections. Contact-form
   topic keys unchanged (API allowlist); labels now "Consultancy plan" / "Marketer seats". Pro's prices moved
   to `lib/prices.ts` so client code can import them. `OfferCard.tsx` removed.
+  Follow-up (same day): the consultancy add-ons (Marketer seats, Consultancy Ops) moved **into the
+  Consultancy pop-up** instead of separate cards; Services is the 4 expert services. The Consultancy pop-up
+  is its own, wider layout (896 px): cost in three tiles, how it works in 3 steps, a per-person table that
+  says what each plan gives, what's included by who benefits, then the two add-ons side by side with an
+  "Ask about…" link each.
 - 2026-10-06 · **Stripe live-mode launch checklist** · The user set Kiwiply's Stripe account up in **live**
   mode ahead of launch and will do the rest right before it. DEPLOY.md §11.4 records it: **A** a short sandbox
   block (the pre-launch Pro check and the test-clock run can't be done in live mode), **B** verify the live
