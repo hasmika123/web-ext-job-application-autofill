@@ -242,6 +242,13 @@ export default function Home() {
             </Link>
           </div>
         </div>
+        <p className="mt-8 text-center text-sm text-muted">
+          Autopilot, team and consultancy plans, and expert resume and interview help —{" "}
+          <Link href="/pricing" className="font-medium text-accent-deep hover:underline">
+            see every plan and service
+          </Link>
+          .
+        </p>
       </section>
     </>
   );

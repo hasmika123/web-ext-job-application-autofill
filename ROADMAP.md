@@ -963,7 +963,21 @@ no OAuth, no Google API → no restricted-scope verification, no CASA.
     readable and fillable).
   - Update `/pricing`, the ToS Billing section and the MRR math to match.
   - See Expansion build → Cost controls.
-- **15.4 Launch checklist.** Pricing page live, Stripe live keys, webhook signing verified,
+- **15.6 Full catalog on `/pricing`, "Contact us" for what isn't sold by checkout yet (user
+  decision 2026-10-05).**
+  - **What's on the page:** Free and Pro keep their checkout. Autopilot, Organization (the $499
+    setup fee + the per-person menu), Consultancy (Marketer seats), the Consultancy Ops add-on
+    and the four human services are listed in full (scope, limits, price) with **Contact us**.
+  - **Where Contact us goes:** a `/contact` form (topic preselected) → a `sales_inquiry` row +
+    an email to support@ → the admin **Inquiries** queue (New / Contacted / Won / Lost, audited).
+  - **Catalog content:** lives in `web/src/lib/catalog.ts` until Phase 18 moves it into the
+    database catalog.
+  - **Ops-add-on price:** shown as "Custom" until 23.0 sets it.
+  - **When answering an inquiry,** say plainly what's available today and when the rest will be.
+    These products are listed ahead of their build, so a reply must never imply instant access.
+- **15.4 Launch checklist.** *(Needs **9.C1**, the admin Customers page + billing timeline,
+  first. Don't take real money without being able to see who paid and whose card failed.)*
+  Pricing page live, Stripe live keys, webhook signing verified,
   support path for billing, W5-QA walked in Chrome (light + dark), SmartRecruiters live check.
 
 ### Phase 16 — Between launches  *(after Launch 1, before Launch 2)*

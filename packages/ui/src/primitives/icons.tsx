@@ -311,6 +311,11 @@ export const MailIcon = makeIcon("MailIcon", {
   ),
 });
 
+/** A conversation — "Contact us" requests (15.6). */
+export const MessageIcon = makeIcon("MessageIcon", {
+  node: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z" />,
+});
+
 /** Notifications (14.6). */
 export const BellIcon = makeIcon("BellIcon", {
   node: (
