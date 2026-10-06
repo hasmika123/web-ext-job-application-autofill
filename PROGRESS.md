@@ -1165,6 +1165,9 @@ focused Claude Code session.
     **Free side**: a Free account is refused each of the above with an upgrade prompt, and keeps
     autofill, tracking, AI resume parsing and 3 resumes. Any failure blocks launch until fixed.
     Only after a clean pass: swap in the live keys and make the one real purchase.
+  - **When Gemini moves to the paid tier** (user: before go-live), update `/privacy` → *AI features*:
+    drop "Because we currently use Gemini's free tier, Google may use…" and say paid-tier inputs aren't
+    used to train Google's models. Same for the extension's AI consent text and `PRIVACY.md`.
   - **Test-clock run (carried over from 12.7, user decision 2026-09-21: "A now, B before live
     keys").** The one thing the 12.7 run could not do: a **real failed renewal and a real lapse**.
     A Stripe test clock can only be attached when the customer is created, so seed a fresh user's
@@ -1351,6 +1354,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-05 · **Terms + privacy: every AI feature disclosed** · Terms *AI features* now names them all
+  (resume reading on every plan; Pro: Kiwiply AI in the extension, resume fit, job fit, tailoring,
+  job matches, inbox), says AI can be wrong and the user is responsible for what they submit, that
+  scores are estimates, and a fair-use AI allowance per billing period (fits 15.5's budget).
+  **Privacy fix:** *How resume parsing works* said resumes stay in the browser until saved — untrue
+  since AI parsing went default-on (2026-07-02); it now says the text goes to Gemini, once per resume,
+  and how to untick it. *AI features* opens with the provider + free-tier caveat for all of them and
+  adds what Kiwiply AI in the extension sends (draft, pick, map, enrich). Closes the PL.1 note in
+  the `ai-parse-default-on` memory. For the 15.2 lawyer review.
 - 2026-10-05 · **Job search pulled forward (planning only)** · 16.1 (strong daily matches) becomes
   the first build after Launch 1: 10–20 jobs a day, 👍/👎 re-ranking, a preference form, ATS APIs +
   one licensed aggregator (no scraping), daily email, and consultancy marketers see each
