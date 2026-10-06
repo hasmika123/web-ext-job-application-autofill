@@ -166,6 +166,12 @@ spring:
   output:
     ansi:
       console-available: true
+  # Resume uploads: the web caps a file at 10MB, but Spring's default is 1MB per file, which
+  # refused most PDFs at the API with nothing in the logs (found in production, 2026-10-06).
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
 server:
   servlet:
