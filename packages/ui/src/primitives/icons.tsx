@@ -841,6 +841,11 @@ export const MicIcon = makeIcon("MicIcon", {
   ),
 });
 
+/** Outline bookmark (unsaved state; `BookmarkIcon` is the solid saved state). */
+export const BookmarkOutlineIcon = makeIcon("BookmarkOutlineIcon", {
+  node: <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.2L5 21V4a1 1 0 0 1 1-1z" />,
+});
+
 /* ── Theme ───────────────────────────────────────────────────────────────────────── */
 
 export const SunIcon = makeIcon("SunIcon", {

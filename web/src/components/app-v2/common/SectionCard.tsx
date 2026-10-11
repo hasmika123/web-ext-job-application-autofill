@@ -6,12 +6,15 @@ import { ArrowRightIcon, cn } from "@kiwiply/ui";
 export default function SectionCard({
   title,
   action,
+  headerExtra,
   children,
   className,
   bodyClassName,
 }: {
   title: ReactNode;
   action?: { label: string; href: string };
+  /** Anything else for the header's right side (a period select, a toggle). */
+  headerExtra?: ReactNode;
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
@@ -19,7 +22,8 @@ export default function SectionCard({
   return (
     <section className={cn("rounded-2xl border border-v2-line/70 bg-paper p-5 shadow-v2-soft", className)}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-display text-[16px] font-bold leading-tight tracking-normal text-ink">{title}</h2>
+        <h2 className="font-display text-[16px] font-bold! leading-tight! tracking-normal! text-ink">{title}</h2>
+        {headerExtra}
         {action && (
           <Link
             href={action.href}

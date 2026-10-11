@@ -36,7 +36,7 @@ export default function MascotCard({
         className,
       )}
     >
-      <Image src={mascot} alt="" width={mascotSize} height={mascotSize} className="h-auto w-auto max-w-full object-contain" style={{ maxHeight: mascotSize }} />
+      <Image src={mascot} alt="" unoptimized width={mascotSize} height={mascotSize} className="h-auto w-auto max-w-full object-contain" style={{ maxHeight: mascotSize }} />
       <div className="mt-1.5 font-display text-[17px] font-extrabold leading-[1.1] text-ink">{title}</div>
       {Array.isArray(body) ? (
         <ul className="mt-2 space-y-1">

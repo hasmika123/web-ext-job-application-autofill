@@ -1,253 +1,207 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { serverApiFetch } from "@/lib/api";
 import { needsOnboarding, parseBioPayload } from "@/lib/profile-options";
 import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
-import { buttonVariants } from "@/components/ui/Button";
 import type { Application } from "@/components/ApplicationBoard";
+import {
+  HOME_KPIS,
+  HOME_PROGRESS,
+  HOME_RECENT_APPLICATIONS,
+  HOME_RECOMMENDED_IDS,
+  HOME_TOP_COMPANIES,
+} from "@/components/app-v2/sample-data";
+import { loadJobs } from "@/components/app-v2/jobs/data";
+import { findJob } from "@/components/app-v2/jobs/job-utils";
+import {
+  ApplicationProgress,
+  CareerInsights,
+  HomeHero,
+  KpiRow,
+  LearningStrip,
+  RecentApplications,
+  SkillMatch,
+  TopCompanies,
+  UpcomingInterviews,
+  type Kpi,
+  type ProgressStep,
+  type RecentRow,
+  type TopCompany,
+} from "@/components/app-v2/home/HomeSections";
+import { AiPanel, RecommendedJobs, SavedJobsMini, TodaysTasks } from "@/components/app-v2/home/HomeInteractive";
+
+export const metadata: Metadata = { title: "Home" };
 
 /**
- * Dashboard — the authed home (post-login redirect target). KPI row, a "finish setting
- * up" activation checklist, quick actions, and a recent-activity feed that surfaces the
- * "Draft — confirm?" nudge. All read-only/server-rendered from the existing APIs; the
- * board owns the mutations. Session gate + nav live in the `(app)` shell.
+ * Home — the authed landing page (post-login redirect target), per design/app-v2/app-home-dashboard.webp.
+ * Real where an API exists (name, applications, Pro matches); the rest renders the board's sample
+ * data (components/app-v2/sample-data.ts). When the applications list is empty the sample rows render
+ * so the page looks like the board (APP-V2-SPEC 1.3). Session gate + shell live in the `(app)` layout.
  */
 
 type Account = { login?: string; email?: string; firstName?: string };
 type Bio = Record<string, unknown>;
 
-const APPLIED_STATUSES = new Set(["APPLIED", "INTERVIEW", "OFFER", "REJECTED"]);
+const SUBMITTED = new Set(["APPLIED", "INTERVIEW", "OFFER", "REJECTED"]);
 
-function isTruthy(v: unknown): boolean {
-  return v !== undefined && v !== null && String(v).trim() !== "";
-}
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: "Draft",
+  SAVED: "Saved",
+  APPLIED: "Applied",
+  INTERVIEW: "Interview",
+  OFFER: "Offer",
+  REJECTED: "Rejected",
+};
 
-function relTime(iso?: string | null): string {
-  if (!iso) return "";
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "";
-  const days = Math.floor((Date.now() - t) / 86_400_000);
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
-function statusPill(status: string): { label: string; cls: string } {
-  switch (status) {
-    case "DRAFT":
-      return { label: "Draft — confirm?", cls: "bg-brown-soft text-brown-deep" };
-    case "SAVED":
-      return { label: "Saved", cls: "bg-paper-2 text-ink-soft" };
-    case "APPLIED":
-      return { label: "Applied", cls: "bg-accent-soft text-accent-deep" };
-    case "INTERVIEW":
-      return { label: "Interview", cls: "bg-[#dbeafe] text-[#1d4ed8]" };
-    case "OFFER":
-      return { label: "Offer", cls: "bg-accent text-on-accent" };
-    case "REJECTED":
-      return { label: "Rejected", cls: "bg-paper-2 text-muted" };
-    default:
-      return { label: status, cls: "bg-paper-2 text-ink-soft" };
-  }
-}
-
-function Kpi({ label, value, note, warn }: { label: string; value: string; note: string; warn?: boolean }) {
-  return (
-    <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-[18px] shadow-[var(--shadow)]">
-      <div className="text-[12.5px] font-semibold text-muted">{label}</div>
-      <div className="mt-1.5 font-display text-[30px] font-bold text-ink">{value}</div>
-      <div className={`mt-1 text-xs font-semibold ${warn ? "text-warn" : "text-accent-deep"}`}>{note}</div>
-    </div>
-  );
-}
-
-function PanelCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-[var(--radius-lg)] border border-line bg-paper p-[22px] shadow-[var(--shadow)] ${className ?? ""}`}>
-      {children}
-    </div>
-  );
-}
-
-export default async function DashboardPage() {
-  const [accountRes, appsRes, resumesRes, profileRes, suggestionsRes] = await Promise.all([
+export default async function HomePage() {
+  const [accountRes, appsRes, profileRes, suggestionsRes, jobsData] = await Promise.all([
     serverApiFetch("/api/account"),
     serverApiFetch("/api/profile/applications"),
-    serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile"),
-    // Phase 10.3e — answers learned while applying, awaiting the user's decision. Best-effort: a
-    // failure here just means no card, never a broken dashboard.
+    // Phase 10.3e: answers learned while applying, awaiting the user's decision. Best-effort: a
+    // failure here just means no card, never a broken page.
     serverApiFetch("/api/profile/suggestions").catch(() => null),
+    loadJobs(),
   ]);
 
   const account: Account | null = accountRes.ok ? await accountRes.json().catch(() => null) : null;
   const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
-  const resumes: unknown[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as unknown[]) : [];
   const suggestions: Suggestion[] = suggestionsRes?.ok
     ? ((await suggestionsRes.json().catch(() => [])) as Suggestion[])
     : [];
 
-  // 404 = no bio yet (a brand-new account). Any other failure is NOT "no profile" — it must not
+  // 404 = no bio yet (a brand-new account). Any other failure is NOT "no profile": it must not
   // bounce someone with a full profile into onboarding because the API hiccuped.
   const bio: Bio = profileRes.ok ? parseBioPayload(await profileRes.json().catch(() => null)) : {};
   const bioKnown = profileRes.ok || profileRes.status === 404;
 
-  // Phase 10.3b: a new user answers the few questions a resume can't, once. The dashboard is the
-  // post-login landing page, so this catches first sign-in without touching `?next=` flows
-  // (e.g. /connect) — those land where they asked to.
+  // Phase 10.3b: a new user answers the few questions a resume can't, once. Home is the post-login
+  // landing page, so this catches first sign-in without touching `?next=` flows.
   if (bioKnown && needsOnboarding(bio)) redirect("/welcome");
 
-  // KPIs
-  const appliedCount = applications.filter((a) => APPLIED_STATUSES.has(a.status)).length;
-  const interviewCount = applications.filter((a) => a.status === "INTERVIEW" || a.status === "OFFER").length;
-  const offerCount = applications.filter((a) => a.status === "OFFER").length;
-  const savedCount = applications.filter((a) => a.status === "SAVED").length;
-  const draftCount = applications.filter((a) => a.status === "DRAFT").length;
-  const responseRate = appliedCount > 0 ? Math.round((interviewCount / appliedCount) * 100) : 0;
+  const active = applications.filter((a) => !a.archived);
+  const hasReal = active.length > 0;
 
-  // Setup checklist (verifiable items drive the %; extension install is a tip).
-  const checklist = [
-    { label: "Add your contact details", hint: "Name, email, phone — the basics every form asks for", done: isTruthy(bio.firstName) && isTruthy(bio.email), href: "/profile", cta: "Add" },
-    { label: "Upload a resume", hint: "Kiwiply parses it so the right details autofill", done: resumes.length > 0, href: "/resumes", cta: "Upload" },
-    { label: "Answer the quick questions", hint: "Work authorization, salary, notice — asked on almost every form", done: isTruthy(bio.authorizedToWork), href: "/welcome", cta: "Answer" },
-  ];
-  const doneCount = checklist.filter((i) => i.done).length;
-  const pct = Math.round((doneCount / checklist.length) * 100);
+  /* KPI tiles */
+  let kpis: Kpi[] = HOME_KPIS.map((k) => ({ ...k }));
+  if (hasReal) {
+    const applied = active.filter((a) => SUBMITTED.has(a.status)).length;
+    const interviews = active.filter((a) => a.status === "INTERVIEW" || a.status === "OFFER").length;
+    const offers = active.filter((a) => a.status === "OFFER").length;
+    const saved = active.filter((a) => a.status === "SAVED").length;
+    const rate = applied > 0 ? Math.round((interviews / applied) * 100) : 0;
+    kpis = [
+      { icon: "file", value: String(applied), label: "Applications", note: `${saved} saved`, tone: "violet" },
+      { icon: "calendar", value: String(interviews), label: "Interviews", note: "interviews + offers", tone: "amber" },
+      { icon: "offer", value: String(offers), label: "Offers", note: offers > 0 ? "decision pending" : "keep going", tone: "blue" },
+      { icon: "chart", value: `${rate}%`, label: "Response Rate", note: "interviews ÷ applied", tone: "pink" },
+    ];
+  }
 
-  // Recent activity — newest first by appliedAt/createdAt.
-  const recent = [...applications]
-    .sort((a, b) => {
-      const ta = new Date(a.appliedAt || a.createdAt || 0).getTime();
-      const tb = new Date(b.appliedAt || b.createdAt || 0).getTime();
-      return tb - ta;
-    })
-    .slice(0, 6);
+  /* Recent applications: newest first by appliedAt/createdAt. */
+  let recent: RecentRow[] = HOME_RECENT_APPLICATIONS.map((r, i) => ({ ...r, id: `s${i}` }));
+  if (hasReal) {
+    recent = [...active]
+      .sort(
+        (a, b) =>
+          new Date(b.appliedAt || b.createdAt || 0).getTime() - new Date(a.appliedAt || a.createdAt || 0).getTime(),
+      )
+      .slice(0, 5)
+      .map((a) => ({
+        id: a.id,
+        title: a.roleTitle || "Untitled role",
+        company: a.company,
+        status: STATUS_LABEL[a.status] ?? a.status,
+        date: "",
+        iso: a.appliedAt || a.createdAt || undefined,
+      }));
+  }
+
+  /* Application progress funnel */
+  let steps: ProgressStep[] = HOME_PROGRESS.map((s) => ({ ...s }));
+  if (hasReal) {
+    const applied = active.filter((a) => SUBMITTED.has(a.status)).length;
+    const counts = [
+      applied,
+      active.filter((a) => a.status === "APPLIED").length,
+      active.filter((a) => a.status === "INTERVIEW").length,
+      active.filter((a) => a.status === "OFFER").length,
+    ];
+    const labels = ["Applied", "In Review", "Interview", "Offer"];
+    const tones = ["blue", "amber", "violet", "green"] as const;
+    steps = counts.map((v, i) => ({
+      label: labels[i],
+      value: v,
+      pct: `${applied > 0 ? Math.round((v / applied) * 100) : 0}%`,
+      tone: tones[i],
+    }));
+  }
+
+  /* Top companies */
+  let companies: TopCompany[] = HOME_TOP_COMPANIES.map((c) => ({ ...c }));
+  if (hasReal) {
+    const by = new Map<string, { apps: number; interviews: number }>();
+    for (const a of active) {
+      if (!a.company) continue;
+      const e = by.get(a.company) ?? { apps: 0, interviews: 0 };
+      e.apps += 1;
+      if (a.status === "INTERVIEW" || a.status === "OFFER") e.interviews += 1;
+      by.set(a.company, e);
+    }
+    const top = [...by.entries()].sort((a, b) => b[1].apps - a[1].apps).slice(0, 5);
+    const max = top[0]?.[1].apps ?? 1;
+    const tones = ["blue", "amber", "violet", "coral", "green"] as const;
+    if (top.length > 0) {
+      companies = top.map(([name, e], i) => ({
+        name,
+        applications: `${e.apps} application${e.apps === 1 ? "" : "s"}`,
+        interviews: `${e.interviews} interview${e.interviews === 1 ? "" : "s"}`,
+        pct: Math.round((e.apps / max) * 100),
+        tone: tones[i % tones.length],
+      }));
+    }
+  }
+
+  /* Recommended jobs: real matches (Pro) else the board's three. */
+  const recommended = jobsData.real
+    ? jobsData.jobs.slice(0, 3)
+    : HOME_RECOMMENDED_IDS.map((id) => findJob(jobsData.jobs, id)).filter((j): j is NonNullable<typeof j> => !!j);
+
+  const firstName = account?.firstName || account?.login || account?.email?.split("@")[0] || "there";
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      {/* Topbar */}
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[.08em] text-muted">Home</div>
-          <h1 className="mt-1 text-[26px] font-bold tracking-tight text-ink">
-            Welcome back{account?.firstName ? `, ${account.firstName}` : ""}
-          </h1>
+    <div className="mx-auto w-full max-w-[1400px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Main column */}
+        <div className="flex min-w-0 flex-col gap-5">
+          <HomeHero name={firstName} />
+          <KpiRow kpis={kpis} />
+          {/* Learned while applying: keep or dismiss (renders nothing when there's nothing to review). */}
+          <SuggestionsCard initial={suggestions} />
+          <RecentApplications rows={recent} />
+          <RecommendedJobs jobs={recommended} real={jobsData.real} />
+          <ApplicationProgress steps={steps} />
+          <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+            <TopCompanies rows={companies} />
+            <SkillMatch />
+          </div>
         </div>
-        <Link href="/board" className={buttonVariants("accent")}>
-          Go to board
-        </Link>
-      </header>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-[15px] lg:grid-cols-4">
-        <Kpi label="Applications" value={String(appliedCount)} note={`${savedCount} saved`} />
-        <Kpi label="Interviews" value={String(interviewCount)} note={offerCount > 0 ? `${offerCount} offer${offerCount === 1 ? "" : "s"}` : "keep going"} />
-        <Kpi label="Response rate" value={`${responseRate}%`} note="interviews ÷ applied" />
-        <Kpi label="Drafts to confirm" value={String(draftCount)} note={draftCount > 0 ? "Needs review" : "All clear"} warn={draftCount > 0} />
+        {/* Right rail */}
+        <aside aria-label="Assistant and tasks" className="grid min-w-0 content-start gap-5 md:grid-cols-2 xl:grid-cols-1">
+          <AiPanel />
+          <TodaysTasks />
+          <UpcomingInterviews />
+          <SavedJobsMini />
+          <div className="md:col-span-2 xl:col-span-1">
+            <CareerInsights />
+          </div>
+        </aside>
       </div>
 
-      {/* Learned while applying — keep or dismiss (renders nothing when there's nothing to review) */}
-      <SuggestionsCard initial={suggestions} />
-
-      {/* Checklist + quick actions */}
-      <div className="grid gap-[18px] lg:grid-cols-[1.4fr_1fr]">
-        <PanelCard>
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="font-display text-lg font-semibold text-ink">Finish setting up</h2>
-              <span className="text-[13px] text-muted">A complete profile fills more fields automatically.</span>
-            </div>
-            <span className="inline-block flex-none rounded-full bg-accent-soft px-[9px] py-[3px] text-[11px] font-bold text-accent-deep">
-              {pct}% complete
-            </span>
-          </div>
-          <ul className="flex flex-col gap-2.5">
-            {checklist.map((item) => (
-              <li key={item.label} className="flex items-center gap-3 rounded-[var(--radius)] border border-line p-3">
-                <span
-                  className={`grid h-[22px] w-[22px] flex-none place-items-center rounded-full border-2 text-[11px] ${
-                    item.done ? "border-ok bg-ok text-white" : "border-line text-transparent"
-                  }`}
-                >
-                  ✓
-                </span>
-                <div className="flex-1">
-                  <div className={`text-sm font-semibold ${item.done ? "text-muted line-through" : "text-ink"}`}>{item.label}</div>
-                  {!item.done && <div className="text-[12.5px] text-muted">{item.hint}</div>}
-                </div>
-                {!item.done && (
-                  <Link href={item.href} className="flex-none text-[12.5px] font-bold text-accent-deep hover:underline">
-                    {item.cta} →
-                  </Link>
-                )}
-              </li>
-            ))}
-            {/* Extension install — can't be detected server-side, shown as a tip. */}
-            <li className="flex items-center gap-3 rounded-[var(--radius)] border border-line p-3">
-              <span className="grid h-[22px] w-[22px] flex-none place-items-center rounded-full border-2 border-line text-transparent">✓</span>
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-ink">Install the browser extension</div>
-                <div className="text-[12.5px] text-muted">The on-page agent that does the filling</div>
-              </div>
-              <Link href="/#features" className="flex-none text-[12.5px] font-bold text-accent-deep hover:underline">
-                Install →
-              </Link>
-            </li>
-          </ul>
-        </PanelCard>
-
-        <PanelCard>
-          <h2 className="mb-4 font-display text-lg font-semibold text-ink">Quick actions</h2>
-          <div className="flex flex-col gap-3">
-            {[
-              { icon: "📄", t: "Upload a resume", s: "Parse a new variant", href: "/resumes" },
-              { icon: "✏️", t: "Edit your profile", s: "Update details & answers", href: "/profile" },
-              { icon: "📊", t: "View your board", s: "Every application you've tracked", href: "/board" },
-            ].map((a) => (
-              <Link key={a.t} href={a.href} className="flex items-center gap-3 rounded-[var(--radius)] bg-paper-2 p-[13px] transition-colors hover:bg-[var(--color-brown-soft)]">
-                <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-accent-soft text-[17px]">{a.icon}</span>
-                <div>
-                  <div className="text-[13.5px] font-semibold text-ink">{a.t}</div>
-                  <div className="text-xs text-muted">{a.s}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </PanelCard>
+      <div className="mt-5">
+        <LearningStrip />
       </div>
-
-      {/* Recent activity */}
-      <PanelCard>
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold text-ink">Recent activity</h2>
-          <Link href="/board" className="text-[12.5px] font-bold text-accent-deep hover:underline">
-            View board →
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">
-            No applications yet — fill or save a job with the extension and it shows up here.
-          </p>
-        ) : (
-          <ul className="flex flex-col">
-            {recent.map((app) => {
-              const pill = statusPill(app.status);
-              return (
-                <li key={app.id} className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-b-0">
-                  <span className="w-[74px] flex-none text-xs text-muted">{relTime(app.appliedAt || app.createdAt)}</span>
-                  <span className="min-w-0 flex-1 truncate">
-                    <b className="text-ink">{app.company}</b>
-                    {app.roleTitle ? <span className="text-ink-soft"> · {app.roleTitle}</span> : null}
-                  </span>
-                  <span className={`flex-none rounded-full px-[9px] py-[3px] text-[11px] font-bold ${pill.cls}`}>{pill.label}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </PanelCard>
     </div>
   );
 }

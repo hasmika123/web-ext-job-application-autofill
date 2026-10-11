@@ -28,7 +28,7 @@ export default function UnderlineTabs({
   "aria-label"?: string;
 }) {
   return (
-    <div role="tablist" aria-label={ariaLabel} className={cn("flex gap-5 overflow-x-auto border-b border-v2-line/70 [scrollbar-width:none]", className)}>
+    <div role="tablist" aria-label={ariaLabel} className={cn("flex gap-4 overflow-x-auto xl:gap-5 border-b border-v2-line/70 [scrollbar-width:none]", className)}>
       {tabs.map((t) => {
         const active = t.id === value;
         return (

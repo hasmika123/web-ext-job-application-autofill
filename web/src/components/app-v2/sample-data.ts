@@ -17,7 +17,8 @@ export interface SampleJob {
   title: string;
   company: string;
   location: string;
-  mode: WorkMode;
+  /** null for real matches that don't say. */
+  mode: WorkMode | null;
   tags: string[];
   /** Match score shown on the list board (and the detail board). */
   score: number;
@@ -324,7 +325,7 @@ export const HOME_KPIS = [
 export interface RecentApplication {
   title: string;
   company: string;
-  status: "Interview" | "In Review" | "Applied";
+  status: string;
   date: string;
 }
 

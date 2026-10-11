@@ -1,29 +1,26 @@
 import Skeleton from "@/components/ui/Skeleton";
 
-/** Loading fallback for the dashboard while applications/resumes/profile stream in. */
+/** Loading fallback for Home while applications / matches / profile stream in (mirrors the v2 layout). */
 export default function DashboardLoading() {
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-7 w-56" />
+    <div className="mx-auto w-full max-w-[1400px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-5">
+          <Skeleton className="h-[260px] rounded-[20px]" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[92px] rounded-2xl" />
+            ))}
+          </div>
+          <Skeleton className="h-64 rounded-2xl" />
+          <Skeleton className="h-64 rounded-2xl" />
         </div>
-        <Skeleton className="h-10 w-28 rounded-full" />
+        <div className="flex min-w-0 flex-col gap-5">
+          <Skeleton className="h-72 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl" />
+        </div>
       </div>
-
-      <div className="grid grid-cols-2 gap-[15px] lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-[92px] rounded-[var(--radius-lg)]" />
-        ))}
-      </div>
-
-      <div className="grid gap-[18px] lg:grid-cols-[1.4fr_1fr]">
-        <Skeleton className="h-64 rounded-[var(--radius-lg)]" />
-        <Skeleton className="h-64 rounded-[var(--radius-lg)]" />
-      </div>
-
-      <Skeleton className="h-48 rounded-[var(--radius-lg)]" />
     </div>
   );
 }
