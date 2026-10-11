@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import AiApplyPage from "@/components/app-v2/ai-apply/AiApplyPage";
+
+export const metadata: Metadata = { title: "AI Apply" };
 
 type ResumeLite = { label?: string | null; defaultResume?: boolean | null; archived?: boolean | null };
 

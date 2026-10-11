@@ -153,7 +153,7 @@ function OrganizationProfile() {
                 maxLength={ABOUT_MAX}
                 value={about}
                 onChange={(e) => setAbout(e.target.value)}
-                className="w-full resize-y rounded-[10px] border border-[#DCE2EE] bg-white px-3.5 py-3 pb-7 text-[16px] leading-relaxed text-v2-navy outline-none placeholder:text-v2-muted focus:border-v2-blue/50 focus:shadow-[0_0_0_3px_var(--color-v2-blue-soft)] sm:text-[13.5px]"
+                className="min-h-[12.5rem] w-full resize-y rounded-[10px] border border-[#DCE2EE] bg-white px-3.5 py-3 pb-7 text-[16px] sm:min-h-0 leading-relaxed text-v2-navy outline-none placeholder:text-v2-muted focus:border-v2-blue/50 focus:shadow-[0_0_0_3px_var(--color-v2-blue-soft)] sm:text-[13.5px]"
               />
               <span className="pointer-events-none absolute bottom-2.5 right-3.5 text-[12px] text-v2-muted">
                 {about.length}/{ABOUT_MAX}

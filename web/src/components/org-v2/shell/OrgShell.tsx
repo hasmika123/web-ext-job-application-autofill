@@ -123,6 +123,11 @@ export default function OrgShell({
           </button>
         </div>
 
+        {/* The top bar has no room for the workspace chip below `lg`, so the drawer carries it. */}
+        <div className="mb-4 px-2 lg:hidden">
+          <OrgChip />
+        </div>
+
         <nav className="flex flex-col gap-1" aria-label="Organization">
           {NAV.map((item) => {
             const active = item.href === "/org" ? pathname === "/org" : pathname.startsWith(item.href);
@@ -181,7 +186,10 @@ export default function OrgShell({
             <BrandLogo height={28} />
           </Link>
 
-          <OrgChip className="hidden flex-none lg:inline-flex" />
+          {/* A wrapper, not a class on the chip: the chip's own `inline-flex` would beat `hidden`. */}
+          <div className="hidden flex-none lg:block">
+            <OrgChip />
+          </div>
           <div className="hidden min-w-0 flex-1 md:block">
             <SearchInput
               placeholder="Search jobs, employees, applications..."

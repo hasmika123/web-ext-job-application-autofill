@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
 import type { Resume } from "@/components/ResumeList";
 import type { Application } from "@/components/ApplicationBoard";
 import ResumePage from "@/components/app-v2/resume/ResumePage";
+
+export const metadata: Metadata = { title: "Resume Builder" };
 
 /**
  * Resume Builder (board app-resume-builder). Fetches what the existing /resumes page does

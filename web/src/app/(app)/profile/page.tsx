@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import BioEditor, { type Bio } from "@/components/BioEditor";
+
+export const metadata: Metadata = { title: "Profile" };
 
 /**
  * Profile / bio editor. The bio is one JSON `payload` stored server-side and shared

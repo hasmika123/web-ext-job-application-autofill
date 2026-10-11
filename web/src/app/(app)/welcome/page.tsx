@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import Onboarding from "@/components/onboarding/Onboarding";
 import { parseBioPayload } from "@/lib/profile-options";
+
+export const metadata: Metadata = { title: "Welcome" };
 
 /**
  * /welcome — the short onboarding step (Phase 10.3b, Tier A of the self-building profile).

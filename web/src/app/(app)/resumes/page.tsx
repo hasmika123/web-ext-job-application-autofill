@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
 import ResumesWorkspace from "@/components/ResumesWorkspace";
 import { type Resume } from "@/components/ResumeList";
 import type { Application } from "@/components/ApplicationBoard";
+
+export const metadata: Metadata = { title: "Resumes" };
 
 /**
  * Resumes page. Upload + in-browser parse + review, plus the variant cards with

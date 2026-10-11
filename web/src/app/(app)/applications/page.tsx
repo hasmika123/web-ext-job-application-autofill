@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import type { Application } from "@/components/ApplicationBoard";
 import ApplicationsPage from "@/components/app-v2/applications/ApplicationsPage";
 import { activityFrom, mapApplications } from "@/components/app-v2/applications/mapping";
+
+export const metadata: Metadata = { title: "My Applications" };
 
 /**
  * My Applications (board app-my-applications). The real `/api/profile/applications` list is

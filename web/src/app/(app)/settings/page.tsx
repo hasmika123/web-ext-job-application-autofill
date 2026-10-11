@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { serverApiFetch } from "@/lib/api";
@@ -7,6 +8,8 @@ import BillingCard from "@/components/billing/BillingCard";
 import { getPlan } from "@/lib/billing";
 import { getAiUsage } from "@/lib/ai-usage";
 import AiUsageMeter from "@/components/settings/AiUsageMeter";
+
+export const metadata: Metadata = { title: "Settings" };
 
 type Account = {
   login?: string;
