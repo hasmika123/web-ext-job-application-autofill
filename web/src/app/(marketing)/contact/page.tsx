@@ -67,6 +67,12 @@ export default async function ContactPage({
         <div className="absolute -left-[8%] top-[150px] h-[300px] w-[40%] rounded-full bg-v2-lime-soft/70 blur-2xl md:top-[200px]" />
         <div className="absolute -right-[6%] top-[60px] h-[260px] w-[34%] rounded-full bg-v2-lime-soft/80 blur-2xl" />
         <div className="absolute right-[2%] top-[330px] hidden h-[300px] w-[200px] rounded-full bg-v2-lime-soft/70 blur-2xl lg:block" />
+        {/* Phone only: a soft blob and leaves framing the mascot, as on the mobile board. */}
+        <div className="absolute -right-[12%] top-[110px] h-[230px] w-[75%] rounded-full bg-v2-lime-soft blur-xl sm:hidden" />
+        <Leaf className="right-[4%] top-[130px] h-[96px] w-[52px] rotate-[22deg] sm:hidden !bg-[linear-gradient(135deg,#d4f3b0,#86d84a)] opacity-90" />
+        <Leaf className="right-[34%] top-[190px] h-[64px] w-[36px] -rotate-[18deg] sm:hidden !bg-[linear-gradient(135deg,#d4f3b0,#86d84a)] opacity-90" />
+        <Leaf className="right-[0%] top-[240px] h-[60px] w-[34px] rotate-[40deg] sm:hidden !bg-[linear-gradient(135deg,#d4f3b0,#86d84a)] opacity-90" />
+        <Leaf className="left-[3%] top-[330px] h-[30px] w-[48px] rotate-[10deg] sm:hidden" />
         <Leaf className="left-[10%] top-[200px] hidden h-[56px] w-[34px] rotate-[20deg] lg:block" />
         <Leaf className="left-[16%] top-[170px] hidden h-[34px] w-[22px] rotate-[35deg] lg:block" />
         <Leaf className="right-[6%] top-[400px] hidden h-[34px] w-[56px] -rotate-[20deg] lg:block" />
