@@ -322,7 +322,7 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
         </header>
 
         {demo && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
-        <main className="min-w-0 flex-1 px-3.5 pb-14 pt-4 sm:px-5 lg:px-6 lg:pb-16 lg:pt-5">{children}</main>
+        <main className="min-w-0 flex-1 px-3.5 pb-24 pt-4 sm:px-5 lg:px-6 lg:pb-16 lg:pt-5">{children}</main>
       </div>
     </div>
   );

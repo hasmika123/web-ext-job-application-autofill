@@ -227,7 +227,7 @@ export default function JobSourcesBoard({ initial }: { initial: JobSourcesView }
 
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
-          <AdminPanel
+          <AdminPanel fit
             title="Job sources"
             description="Manage your job sources, sync status, and imported jobs."
             right={

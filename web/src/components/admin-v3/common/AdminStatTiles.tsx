@@ -20,21 +20,21 @@ export interface AdminStat {
  */
 export default function AdminStatTiles({ stats, className }: { stats: AdminStat[]; className?: string }) {
   return (
-    <div className={cn("grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4", className)}>
+    <div className={cn("grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4", className)}>
       {stats.map((s) => {
         const t = TONE[s.tone];
         const good = s.delta ? (s.delta.good ?? s.delta.dir === "up") : true;
         return (
           <div
             key={s.label}
-            className={cn("flex min-w-0 items-center gap-3.5 rounded-2xl border border-white/70 p-4 shadow-v2-soft", t.soft)}
+            className={cn("flex min-w-0 flex-col items-start gap-2 rounded-2xl border border-white/70 p-3 shadow-v2-soft sm:flex-row sm:items-center sm:gap-3.5 sm:p-4", t.soft)}
           >
-            <span className={cn("grid h-[52px] w-[52px] flex-none place-items-center rounded-2xl bg-paper/80", t.ink)}>{s.icon}</span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[11.5px] font-semibold uppercase tracking-wide text-ink-soft">{s.label}</div>
+            <span className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl sm:h-[52px] sm:w-[52px] sm:rounded-2xl bg-paper/80", t.ink)}>{s.icon}</span>
+            <div className="w-full min-w-0 flex-1">
+              <div className="text-[11px] leading-tight sm:truncate sm:text-[11.5px] font-semibold uppercase tracking-wide text-ink-soft">{s.label}</div>
               <div className="mt-0.5 flex items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="font-display text-[28px] font-extrabold leading-none tracking-tight text-ink">{s.value}</div>
+                  <div className="font-display text-[24px] font-extrabold leading-none sm:text-[28px] tracking-tight text-ink">{s.value}</div>
                   {s.delta && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span

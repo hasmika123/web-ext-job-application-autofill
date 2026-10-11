@@ -33,7 +33,7 @@ export default function AdminTabs({
             aria-selected={on}
             onClick={() => onChange(t.id)}
             className={cn(
-              "flex min-w-fit flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-[14px] font-semibold transition-colors",
+              "flex min-w-fit flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-[13.5px] sm:px-4 sm:text-[14px] font-semibold transition-colors",
               on ? "bg-v2-blue-soft text-v2-blue" : "text-ink-soft hover:bg-paper-2",
             )}
           >

@@ -19,12 +19,12 @@ const ICON: Record<string, ReactNode> = {
 export default function AnalyticsFilters({ className }: { className?: string }) {
   const toast = useToast();
   return (
-    <div className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-4", className)}>
+    <div className={cn("grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4", className)}>
       {FILTERS.map((f) => (
-        <div key={f.label} className="flex min-w-0 items-center gap-3 rounded-2xl border border-v2-line/60 bg-paper p-3 shadow-v2-soft">
-          <IconTile tone={f.tone} className="h-11 w-11 flex-none rounded-xl">
+        <div key={f.label} className="flex min-w-0 items-center gap-3 rounded-2xl border border-v2-line/60 bg-paper p-2.5 shadow-v2-soft sm:p-3">
+          <span className="hidden sm:block"><IconTile tone={f.tone} className="h-11 w-11 flex-none rounded-xl">
             {ICON[f.label] ?? <BarChartIcon size={20} />}
-          </IconTile>
+          </IconTile></span>
           <div className="min-w-0 flex-1">
             <div className="mb-1 text-[12px] text-ink-soft">
               {f.label}

@@ -121,9 +121,9 @@ export default function EmailPage({
         ]}
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <AdminTabs tabs={TABS} value={tab} onChange={setTab} ariaLabel="Email sections" className="min-w-0 flex-1" />
-        <Button onClick={() => soon("Send campaign")} className="flex-none gap-2" title="Coming soon">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <AdminTabs tabs={TABS} value={tab} onChange={setTab} ariaLabel="Email sections" className="min-w-0 sm:flex-1" />
+        <Button onClick={() => soon("Send campaign")} className="w-full flex-none gap-2 sm:w-auto" title="Coming soon">
           <SendIcon size={18} />
           Send Campaign
         </Button>

@@ -174,7 +174,7 @@ export default function SystemPage({ data }: { data: SystemData }) {
             </AdminPanel>
           </div>
 
-          <AdminPanel title="Resource usage" description="Infrastructure resource usage over time." right={<SampleTag />}>
+          <AdminPanel fit title="Resource usage" description="Infrastructure resource usage over time." right={<SampleTag />}>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Resource icon={<BarChartIcon size={18} />} label="CPU usage" value={RESOURCES.cpu.value} sub={`${data.cpuCount} CPUs (real)`} spark={RESOURCES.cpu.spark} tone={RESOURCES.cpu.tone} />
               <Resource

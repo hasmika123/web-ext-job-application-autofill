@@ -16,6 +16,7 @@ export default function AdminPanel({
   children,
   className,
   bodyClassName,
+  fit,
 }: {
   title: ReactNode;
   description?: ReactNode;
@@ -25,6 +26,8 @@ export default function AdminPanel({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** Natural height: use when the panel is a direct child of a stacked column (h-full would stretch it over its siblings). */
+  fit?: boolean;
 }) {
   const extra =
     right ??
@@ -35,7 +38,7 @@ export default function AdminPanel({
       </Link>
     ) : undefined);
   return (
-    <SectionCard title={title} subtitle={description} icon={icon} headerExtra={extra} className={cn("h-full", className)} bodyClassName={bodyClassName}>
+    <SectionCard title={title} subtitle={description} icon={icon} headerExtra={extra} className={cn(!fit && "h-full", className)} bodyClassName={bodyClassName}>
       {children}
     </SectionCard>
   );
