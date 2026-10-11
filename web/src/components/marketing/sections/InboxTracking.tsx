@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { CalendarIcon, SparkBurst, StarDoodle, TargetIcon } from "@kiwiply/ui";
 import Eyebrow from "../Eyebrow";
 import Handwritten from "../Handwritten";
@@ -40,10 +41,42 @@ function YahooTile({ className }: { className?: string }) {
   );
 }
 
+/**
+ * The board's soft watercolour greenery with the envelope mascot on top. `track-foliage.png`
+ * (372x402) was cut from the board and itself contains the mascot, so `mascot-envelope.png`
+ * (213x250) is laid over it at the same spot (left 64px, top 121px in the 372x402 frame) and
+ * everything scales with the box width. The cut still carries a few board leftovers (the board's
+ * own handwriting at the top, a dark page-edge strip on the right), which the mask hides.
+ */
+const FOLIAGE_MASK =
+  "linear-gradient(to bottom, transparent 20%, #000 28%), linear-gradient(to right, #000 95.5%, transparent 95.5%), linear-gradient(to right, transparent 3%, #000 15%)";
+
+function FoliageMascot({ className }: { className?: string }) {
+  return (
+    <div aria-hidden className={`aspect-[372/402] ${className ?? ""}`}>
+      <Image
+        src="/v2/track-foliage.png"
+        alt=""
+        width={372}
+        height={402}
+        sizes="372px"
+        className="absolute inset-0 h-full w-full"
+        style={{
+          maskImage: FOLIAGE_MASK,
+          WebkitMaskImage: FOLIAGE_MASK,
+          maskComposite: "intersect",
+          WebkitMaskComposite: "source-in",
+        }}
+      />
+      <Mascot pose="envelope" className="absolute left-[17.2%] top-[30.1%] z-10 aspect-[213/250] w-[57.3%]" />
+    </div>
+  );
+}
+
 export default function InboxTracking() {
   return (
     <Section id="inbox" labelledBy="inbox-title" tone="wash">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,0.95fr)_80px_minmax(0,1.05fr)_200px] xl:items-center xl:gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,0.95fr)_80px_minmax(0,1.05fr)_236px] xl:items-center xl:gap-5">
         {/* Copy */}
         <div className="flex flex-col items-start gap-5">
           <Eyebrow family="green" className="px-3 py-1.5 text-[11.5px] font-bold uppercase tracking-wide">
@@ -99,17 +132,14 @@ export default function InboxTracking() {
       <StarDoodle aria-hidden className="absolute right-[250px] top-[34%] z-20 hidden h-7 w-7 text-v2-amber xl:block" />
       <StarDoodle aria-hidden className="absolute right-6 top-[44%] z-20 hidden h-6 w-6 text-v2-amber xl:block" />
       <SparkBurst aria-hidden className="absolute right-[160px] top-[40%] z-20 hidden h-8 w-8 text-v2-green xl:block" />
-      <Mascot
-        pose="envelope"
-        className="absolute bottom-0 right-6 z-30 hidden h-[270px] w-[230px] xl:block"
-      />
+      <FoliageMascot className="absolute bottom-0 right-0 z-30 hidden w-[372px] xl:block" />
 
       {/* Mobile: note over the mascot, bottom flush with the band */}
-      <div className="-mb-10 mt-6 flex flex-col items-center gap-1 xl:hidden">
-        <Handwritten ink="navy" className="-rotate-3 text-center text-[26px]">
+      <div className="-mb-10 mt-6 flex flex-col items-start gap-1 xl:hidden">
+        <Handwritten ink="navy" className="w-full -rotate-3 text-center text-[26px]">
           We&apos;ll keep an eye on your inbox!
         </Handwritten>
-        <Mascot pose="envelope" className="h-[250px] w-[213px]" />
+        <FoliageMascot className="relative left-1/2 -ml-[170px] -mt-20 w-[372px] flex-none" />
       </div>
     </Section>
   );
