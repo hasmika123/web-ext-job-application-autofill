@@ -284,7 +284,52 @@ const server = http.createServer((req, res) => {
       if (path === "/api/admin/inquiries/counts") return tally(INQS);
     }
     // --- END admin3b mock ---
-    if (path === "/management/health") return json(res, 200, { status: "UP", components: {} });
+    // --- admin3b (System page): actuator sample ---
+    // --- admin3b (ai / job-sources) mock endpoints: begin ---
+    if (path === "/api/admin/ai-usage")
+      return json(res, 200, {
+        period: new Date().toISOString().slice(0, 7), proBudgetMicros: 3_000_000, freeParsesPerMonth: 3,
+        totalCostMicros: 287_420_000, totalCalls: 48329, userCount: 214,
+        users: [
+          { login: "sophie.lee", calls: 1428, costMicros: 2_800_000, percentOfProBudget: 93 },
+          { login: "daniel.kim", calls: 972, costMicros: 2_100_000, percentOfProBudget: 70 },
+          { login: "ava.patel", calls: 864, costMicros: 1_200_000, percentOfProBudget: 40 },
+          { login: null, calls: 120, costMicros: 300_000, percentOfProBudget: 10 },
+        ],
+        tasks: [
+          { task: "draft", calls: 18623, costMicros: 120_000_000 }, { task: "match", calls: 11572, costMicros: 70_000_000 },
+          { task: "fit", calls: 7421, costMicros: 45_000_000 }, { task: "tailor", calls: 5684, costMicros: 34_000_000 },
+          { task: "parse", calls: 5029, costMicros: 18_000_000 },
+        ],
+      });
+    if (path === "/api/admin/job-sources") {
+      const mk = (id, ats, token, name, origin, enabled, status, n, stored, err, fails) => ({
+        id, ats, boardToken: token, companyName: name, origin, enabled, lastFetchedAt: ago(id % 3), lastStatus: status,
+        lastError: err ?? null, lastJobCount: n, consecutiveFailures: fails ?? 0, storedPostings: stored,
+      });
+      return json(res, 200, {
+        nightlyEnabled: true, running: false, matching: false, freshPostings: 842,
+        lastRun: { startedAt: ago(0), durationMs: 184000, boardsRead: 12, boardsFailed: 2, boardsSwitchedOff: 0, seedsAdded: 0, discovered: 3, postingsAdded: 310, duplicatesSkipped: 44, postingsDeleted: 20 },
+        lastMatchRun: { startedAt: ago(0), durationMs: 41000, users: 90, matched: 70, noCandidates: 15, skipped: 4, errors: 1, shown: 410 },
+        sources: [
+          mk(1, "greenhouse", "stripe", "Stripe", "SEED", true, "OK", 342, 120), mk(2, "lever", "netflix", "Netflix", "SEED", true, "OK", 287, 98),
+          mk(3, "greenhouse", "acme", "Acme Careers", "ADMIN", true, "FAILED", 0, 0, "Authentication failed. Token expired.", 3),
+          mk(4, "ashby", "notion", "Notion", "DISCOVERED", true, "OK", 98, 40), mk(5, "lever", "globex", "Globex", "ADMIN", false, "OK", 93, 22),
+          mk(6, "greenhouse", "airbnb", "Airbnb", "SEED", true, "OK", 201, 77), mk(7, "ashby", "linear", "Linear", "SEED", true, "FAILED", 0, 3, "Rate limit exceeded.", 1),
+          mk(8, "lever", "spotify", "Spotify", "SEED", true, "OK", 64, 30), mk(9, "greenhouse", "databricks", "Databricks", "SEED", true, "OK", 156, 61),
+          mk(10, "lever", "figma", "Figma", "DISCOVERED", true, "OK", 41, 15),
+        ],
+      });
+    }
+    // --- admin3b: end ---
+    if (path === "/management/health")
+      return json(res, 200, { status: "UP", components: { db: { status: "UP" }, diskSpace: { status: "UP" }, mail: { status: "UP" }, ping: { status: "UP" } } });
+    if (path === "/management/info") return json(res, 200, { build: { version: "0.9.0-demo", name: "dossier-api" }, activeProfiles: ["dev", "demo"] });
+    if (path === "/management/jhimetrics")
+      return json(res, 200, { processMetrics: { "process.uptime": 1234567, "system.cpu.count": 4 }, jvm: { heap: { used: 412 * 1048576, max: 1024 * 1048576, committed: 600 * 1048576 } } });
+    if (path === "/management/loggers")
+      return json(res, 200, { loggers: { ROOT: { effectiveLevel: "INFO" }, "com.dossier.api": { effectiveLevel: "DEBUG" }, "org.springframework": { effectiveLevel: "WARN" } } });
+    // --- end admin3b ---
     return json(res, 404, { error: `mock-api: no admin handler for ${path}` });
   }
 

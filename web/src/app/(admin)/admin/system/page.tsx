@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
-import DemoAccountsCard from "@/components/admin/DemoAccountsCard";
+import SystemPage from "@/components/admin-v3/system/SystemPage";
 import type { DemoAdminState } from "@/lib/demo";
 
 export const metadata: Metadata = {
@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Server half of the System page: fetches the actuator + demo setting; SystemPage renders it.
 // Read-only ops view (Phase 9.A2.4) over the already-exposed, ADMIN-gated actuator endpoints
 // (health / info / jhimetrics / loggers). Everything is rendered defensively — a missing or
 // shape-shifted field shows "—" rather than breaking the page.
@@ -104,96 +105,31 @@ export default async function AdminSystemPage() {
     return (typeof l?.effectiveLevel === "string" && (l.effectiveLevel as string)) || "—";
   };
 
+  const loggerList = loggerMap
+    ? ["ROOT", "com.dossier.api", "org.springframework"].map((name) => ({ name, level: pickLogger(name) }))
+    : null;
+  const comps = components
+    ? Object.entries(components).map(([name, c]) => ({
+        name,
+        status: typeof asRecord(c)?.status === "string" ? (asRecord(c)!.status as string) : "UNKNOWN",
+      }))
+    : null;
+
   return (
-    <div className="mx-auto max-w-5xl">
-      <header className="mb-6">
-        <h1 className="font-display text-[26px] font-bold tracking-tight text-ink">System</h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          Demo switch, plus read-only health, build, runtime, and log levels from the live API.
-        </p>
-      </header>
-
-      {/* Demo accounts: the one control on this page. */}
-      <DemoAccountsCard initial={demo} />
-
-      {/* Health */}
-      <section className="mb-5 rounded-[var(--radius)] border border-line bg-paper p-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Health</h2>
-          <StatusBadge status={status} />
-        </div>
-        {components ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {Object.entries(components).map(([name, c]) => {
-              const cs = typeof asRecord(c)?.status === "string" ? (asRecord(c)!.status as string) : "UNKNOWN";
-              return (
-                <div key={name} className="flex items-center justify-between rounded-[var(--radius)] border border-line px-3 py-2 text-sm">
-                  <span className="text-ink">{name}</span>
-                  <StatusBadge status={cs} small />
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-ink-soft">Component details unavailable.</p>
-        )}
-      </section>
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Build / info */}
-        <section className="rounded-[var(--radius)] border border-line bg-paper p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Build</h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Version" value={version} mono />
-            <Row label="App" value={appName} mono />
-            <Row label="Profiles" value={profiles} mono />
-          </dl>
-        </section>
-
-        {/* Runtime */}
-        <section className="rounded-[var(--radius)] border border-line bg-paper p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Runtime</h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Uptime" value={duration(uptime)} />
-            <Row label="CPUs" value={cpuCount !== undefined ? String(cpuCount) : "—"} />
-            <Row label="JVM memory" value={haveMem ? `${bytes(memUsed)}${memMax ? ` / ${bytes(memMax)}` : ""}` : "—"} />
-          </dl>
-        </section>
-      </div>
-
-      {/* Loggers */}
-      <section className="mt-5 rounded-[var(--radius)] border border-line bg-paper p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Log levels</h2>
-        {loggerMap ? (
-          <dl className="mt-3 space-y-2 text-sm">
-            <Row label="ROOT" value={pickLogger("ROOT")} mono />
-            <Row label="com.dossier.api" value={pickLogger("com.dossier.api")} mono />
-            <Row label="org.springframework" value={pickLogger("org.springframework")} mono />
-          </dl>
-        ) : (
-          <p className="mt-2 text-sm text-ink-soft">Logger levels unavailable.</p>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-ink-soft">{label}</dt>
-      <dd className={mono ? "font-mono text-[13px] text-ink" : "text-ink"}>{value}</dd>
-    </div>
-  );
-}
-
-function StatusBadge({ status, small }: { status: string; small?: boolean }) {
-  const up = status === "UP";
-  const cls = up ? "bg-accent/15 text-ink" : status === "UNKNOWN" ? "bg-paper-2 text-ink-soft ring-1 ring-line" : "bg-danger/15 text-danger";
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 ${small ? "text-[11px]" : "text-xs"} font-semibold ${cls}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${up ? "bg-accent" : status === "UNKNOWN" ? "bg-ink-soft/50" : "bg-danger"}`} />
-      {status}
-    </span>
+    <SystemPage
+      data={{
+        status,
+        components: comps && comps.length ? comps : null,
+        version,
+        appName,
+        profiles,
+        uptime: duration(uptime),
+        cpuCount: cpuCount !== undefined ? String(cpuCount) : "—",
+        memory: haveMem ? `${bytes(memUsed)}${memMax ? ` / ${bytes(memMax)}` : ""}` : "—",
+        memoryPct: haveMem && memMax ? Math.min(100, Math.round((memUsed / memMax) * 100)) : undefined,
+        loggers: loggerList,
+        demo,
+      }}
+    />
   );
 }

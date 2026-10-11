@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Dialog, Switch, useToast } from "@/components/ui";
 import LocalDate from "@/components/LocalDate";
 import type { DemoAdminState } from "@/lib/demo";
+import { AdminPanel } from "@/components/admin-v3/common";
 
 /**
  * Demo accounts control (phase demo, APP-V2-SPEC section 9.2): the on/off switch for the public
@@ -23,10 +24,9 @@ export default function DemoAccountsCard({ initial }: { initial: DemoAdminState 
 
   if (!state) {
     return (
-      <section className="mb-5 rounded-[var(--radius)] border border-line bg-paper p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Demo accounts</h2>
+      <AdminPanel title="Demo accounts" description="Public demo logins and their data.">
         <p className="mt-2 text-sm text-ink-soft">Demo controls unavailable: couldn&apos;t read the setting from the API.</p>
-      </section>
+      </AdminPanel>
     );
   }
 
@@ -82,10 +82,8 @@ export default function DemoAccountsCard({ initial }: { initial: DemoAdminState 
   }
 
   return (
-    <section className="mb-5 rounded-[var(--radius)] border border-line bg-paper p-5">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">Demo accounts</h2>
-
-      <div className="mt-3">
+    <AdminPanel title="Demo accounts" description="Public demo logins and their data.">
+      <div>
         <Switch
           checked={state.enabled}
           onCheckedChange={(v) => void toggle(v)}
@@ -95,7 +93,7 @@ export default function DemoAccountsCard({ initial }: { initial: DemoAdminState 
         />
       </div>
 
-      <ul className="mt-4 divide-y divide-line rounded-[var(--radius)] border border-line text-sm">
+      <ul className="mt-4 divide-y divide-v2-line/70 rounded-xl border border-v2-line/70 text-sm">
         {state.accounts.map((a) => (
           <li key={a.login} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2">
             <span className="font-mono text-[13px] text-ink">{a.login}</span>
@@ -137,6 +135,6 @@ export default function DemoAccountsCard({ initial }: { initial: DemoAdminState 
           </>
         }
       />
-    </section>
+    </AdminPanel>
   );
 }
