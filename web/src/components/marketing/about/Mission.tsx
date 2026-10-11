@@ -11,20 +11,25 @@ function ExampleBadge() {
   );
 }
 
-/** §8.3 — "Why we built Kiwiply" (#mission): photo + two small floating cards, copy, quote. */
+/**
+ * §8.3 — "Why we built Kiwiply" (#mission): team cutout + two small floating cards, copy, quote.
+ * The cutout rests on the section's bottom edge on desktop (negative margin) and on the cards on
+ * mobile; the cards float above the heads from sm up.
+ */
 export default function Mission() {
   return (
     <section id="mission" aria-labelledby="mission-title" className="scroll-mt-20 px-5 py-16 lg:px-8 lg:py-24">
       <div className="mx-auto grid max-w-[1200px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
         {/* Visual: below the copy on mobile (spec 10: copy, then visual) */}
-        <div className="relative order-2 pb-4 lg:order-1">
+        <div className="relative order-2 flex flex-col sm:pt-[212px] lg:order-1 lg:-mb-24 lg:self-end">
           <Photo
             id="about-team"
-            alt="Two people reviewing a job search together on a laptop"
-            className="aspect-[4/3] w-full rounded-[28px] shadow-v2-float"
+            alt="Three colleagues smiling at their laptops together"
+            className="order-1 mx-auto w-full max-w-[560px]"
             sizes="(min-width: 1024px) 560px, 100vw"
+            edgeFade={[8, 4]}
           />
-          <div aria-hidden className="absolute left-4 top-4 hidden items-start gap-1 sm:flex">
+          <div aria-hidden className="absolute left-4 top-6 hidden items-start gap-1 sm:flex">
             <span className="-rotate-6 font-[family-name:var(--font-hand)] text-2xl leading-6 text-ink">
               From searching
               <br />
@@ -34,7 +39,7 @@ export default function Mission() {
           </div>
 
           <div
-            className="mt-4 grid gap-3 sm:absolute sm:-bottom-4 sm:right-4 sm:mt-0 sm:w-[270px] lg:right-[-18px]"
+            className="order-2 mt-0 grid gap-3 rounded-b-[var(--radius-v2-card)] sm:absolute sm:right-4 sm:top-0 sm:mt-0 sm:w-[270px] lg:right-0"
             aria-label="Example application cards"
           >
             <div className="rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-float">

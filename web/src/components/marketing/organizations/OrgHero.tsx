@@ -3,7 +3,10 @@ import { Mascot, Photo } from "../media";
 import OrgStatsMock from "./OrgStatsMock";
 import { Container, Eyebrow, Handwritten, OrgCtas } from "./parts";
 
-/** Block 1: hero. Copy left; stats card, team photo, mascot and a handwritten note right. */
+/**
+ * Block 1: hero. Copy left; stats card, team cutout, mascot and a handwritten note right. The team
+ * cutout sits under the stats card, flush with the section's bottom edge.
+ */
 export default function OrgHero() {
   return (
     <section aria-labelledby="org-hero-title" className="relative overflow-hidden pb-12 pt-10 md:pb-20 md:pt-14">
@@ -27,7 +30,7 @@ export default function OrgHero() {
           <OrgCtas className="w-full" />
         </div>
 
-        <div className="relative">
+        <div className="relative -mb-12 md:-mb-20">
           <Handwritten className="mb-3 block text-center lg:absolute lg:-top-6 lg:right-2 lg:z-10 lg:mb-0 lg:w-36 lg:rotate-6 lg:text-left">
             Brighter futures for your team.
           </Handwritten>
@@ -43,15 +46,16 @@ export default function OrgHero() {
 
           <OrgStatsMock className="relative z-10 lg:absolute lg:left-4 lg:right-12 lg:top-6" />
 
-          <div className="relative mt-4 lg:mt-0 lg:pt-64">
+          <div className="relative mt-4 lg:mt-0 lg:pt-72">
             <Photo
               id="org-team"
-              alt="A small team of colleagues looking at a laptop together"
-              className="aspect-[4/3] w-full rounded-[28px] shadow-v2-card"
+              alt="Three colleagues smiling at their laptops together"
+              className="mx-auto w-full max-w-[600px]"
               sizes="(min-width: 1024px) 600px, 100vw"
+              edgeFade={[8, 4]}
               priority
             />
-            <Mascot pose="plane" className="absolute -bottom-5 right-0 h-28 w-28 md:h-36 md:w-36" />
+            <Mascot pose="headphones" className="absolute bottom-0 right-0 z-10 h-28 w-28 md:h-36 md:w-36 lg:h-40 lg:w-40" />
           </div>
         </div>
       </Container>

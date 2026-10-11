@@ -72,12 +72,24 @@ export interface HeroSlide {
   cta: HeroCta;
   photo: PhotoId;
   photoAlt: string;
-  mascot: MascotPose;
-  handwritten: { text: string; className: string };
+  /** Person cutout width below md (the person is centred; the mascot overlaps its lower right). */
+  photoMobile: string;
+  /** md+ placement of the person inside the 600px stage (`md:left-[24%] md:w-[56%]`; bottom-anchored by HeroArt). */
+  photoMd: string;
+  /** Fade the cutout's left / right edges (percent of width) to hide hard crop edges from the extraction. */
+  photoFade?: [number, number];
+  /** Mascot next to the person, or null when the cutout already contains it (students). */
+  mascot: MascotPose | null;
+  /** md+ placement + size of the mascot (`md:right-[1%] md:h-[168px] md:w-[160px]`; bottom-anchored). */
+  mascotMd: string;
+  /** `mobile`: also show the note, small, at the top-left of the person below md (off where it would cover a face). */
+  handwritten: { text: string; className: string; mobile?: boolean };
   doodles: HeroDoodleSpec[];
   /** First two show in the stacked mobile art; all show on md+. */
   cards: HeroCardSpec[];
 }
+
+const MASCOT_MD = "md:right-[1%] md:h-[168px] md:w-[160px]";
 
 const SIGN_UP: HeroCta = { href: "/signup", label: "Get Started Free" };
 
@@ -93,8 +105,11 @@ export const HERO_SLIDES: HeroSlide[] = [
     cta: SIGN_UP,
     photo: "hero-copilot",
     photoAlt: "A job seeker smiling at her laptop",
+    photoMobile: "w-[66%]",
+    photoMd: "md:left-[22%] md:w-[56%]",
     mascot: "headphones",
-    handwritten: { text: "Same me. More opportunities.", className: "left-[1%] top-[250px] w-[26%] -rotate-6" },
+    mascotMd: MASCOT_MD,
+    handwritten: { text: "Same me. More opportunities.", className: "left-[1%] top-[250px] w-[26%] -rotate-6", mobile: true },
     doodles: [
       { kind: "spark", className: "-left-1 -top-3 h-10 w-10 text-v2-green" },
       { kind: "arrow-dr", className: "left-[53%] top-[10px] h-9 w-9 text-v2-green" },
@@ -144,7 +159,7 @@ export const HERO_SLIDES: HeroSlide[] = [
         family: "coral",
         title: "Get hired",
         tilt: "left",
-        pos: "md:right-[8%] md:top-[246px] md:w-[28%]",
+        pos: "md:right-[4%] md:top-[246px] md:w-[28%]",
       },
     ],
   },
@@ -158,9 +173,13 @@ export const HERO_SLIDES: HeroSlide[] = [
     ticks: ["Prepares up to 30 a day", "You submit", "Never ticks attestations for you"],
     cta: SIGN_UP,
     photo: "hero-individual",
-    photoAlt: "A job seeker working on a laptop",
+    photoAlt: "A job seeker in a green hoodie working on a laptop",
+    photoMobile: "w-[72%]",
+    photoMd: "md:left-[8%] md:w-[62%]",
+    photoFade: [5, 3],
     mascot: "laptop",
-    handwritten: { text: "Step by step to your next chapter.", className: "right-[3%] top-[352px] w-[28%] rotate-6" },
+    mascotMd: "md:right-[8%] md:h-[176px] md:w-[168px]",
+    handwritten: { text: "Step by step to your next chapter.", className: "right-[3%] top-[338px] w-[28%] rotate-6", mobile: true },
     doodles: [
       { kind: "spark", className: "left-[24%] -top-3 h-10 w-10 text-v2-green" },
       { kind: "arrow-dr", className: "left-[47%] top-[52px] h-9 w-9 text-v2-green" },
@@ -216,15 +235,19 @@ export const HERO_SLIDES: HeroSlide[] = [
     ticks: ["No credit card", "Free plan", "Built for first jobs"],
     cta: SIGN_UP,
     photo: "hero-student",
-    photoAlt: "A student exploring career options at a desk",
-    mascot: "wave",
+    photoAlt: "A student thinking about her next role at a laptop, with the Kiwiply mascot peeking in",
+    photoMobile: "w-[84%]",
+    photoMd: "md:left-[16%] md:w-[72%]",
+    photoFade: [10, 3],
+    mascot: null,
+    mascotMd: "",
     handwritten: { text: "Explore. Learn. Grow. Get hired.", className: "left-0 top-[236px] w-[24%] -rotate-6" },
     doodles: [
       { kind: "spark", className: "-left-1 top-0 h-10 w-10 text-v2-green" },
       { kind: "arrow-dr", className: "left-[55%] top-[4px] h-9 w-9 text-v2-green" },
       { kind: "plane", className: "right-[26%] bottom-[190px] h-9 w-[68px] text-v2-blue" },
-      { kind: "star", className: "left-[34%] top-[272px] h-6 w-6 text-v2-amber" },
-      { kind: "squiggle", className: "right-[30%] bottom-[120px] h-5 w-14 text-v2-violet" },
+      { kind: "star", className: "left-[12%] top-[318px] h-6 w-6 text-v2-amber" },
+      { kind: "squiggle", className: "right-[6%] bottom-[200px] h-5 w-14 text-v2-violet" },
     ],
     cards: [
       {
@@ -274,13 +297,17 @@ export const HERO_SLIDES: HeroSlide[] = [
     ticks: ["One account per consultant", "Marketers never submit", "Setup fee + per person"],
     cta: { href: "/organizations", label: "Explore for Organizations" },
     photo: "hero-team",
-    photoAlt: "Colleagues reviewing applications together at a table",
+    photoAlt: "Three colleagues smiling at their laptops together",
+    photoMobile: "w-[92%]",
+    photoMd: "md:left-0 md:w-[84%]",
+    photoFade: [8, 4],
     mascot: "plane",
+    mascotMd: MASCOT_MD,
     handwritten: { text: "Build great careers together.", className: "right-[2%] top-[318px] w-[26%] -rotate-6" },
     doodles: [
       { kind: "spark", className: "-left-1 -top-3 h-10 w-10 text-v2-green" },
       { kind: "arrow-ur", className: "right-[34%] top-[196px] h-9 w-9 text-v2-violet" },
-      { kind: "star", className: "left-[14%] top-[400px] h-6 w-6 text-v2-amber" },
+      { kind: "star", className: "left-[2%] top-[372px] h-6 w-6 text-v2-amber" },
       { kind: "confetti", className: "right-[6%] bottom-[140px] h-9 w-9 text-v2-green" },
     ],
     cards: [

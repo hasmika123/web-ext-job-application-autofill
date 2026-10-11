@@ -161,44 +161,51 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
                 inert={!active}
                 className="w-full flex-none lg:min-h-[640px]"
               >
-                <div className="mx-auto grid max-w-6xl gap-8 px-5 pt-8 md:px-6 md:pt-10 lg:grid-cols-[1fr_1.1fr] lg:gap-6 lg:pt-12">
-                  <div className="min-w-0 lg:self-center lg:pb-10">
-                    <Eyebrow family={s.family}>{s.eyebrow}</Eyebrow>
-                    <Heading className="mt-5 text-[36px] text-v2-navy md:text-[44px] lg:text-[56px] xl:text-[60px]">
-                      <span className="block">{s.headline[0]}</span>
-                      <span className="block">{s.headline[1]}</span>
-                      <span className={cn("block", f.headline)}>{s.headline[2]}</span>
-                    </Heading>
-                    <p className="mt-5 max-w-[520px] text-[16px] leading-relaxed text-v2-ink-soft md:text-[17px]">
-                      {s.lede}
-                    </p>
-                    <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                      <Link href={s.cta.href} className={buttonVariants("accent", "lg", "w-full sm:w-auto")}>
-                        {s.cta.label}
-                        <ArrowRightIcon className="h-4 w-4" />
-                      </Link>
-                      {DEMO_VIDEO_URL && (
-                        <a
-                          href={DEMO_VIDEO_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={buttonVariants("ghost", "lg", "w-full bg-white sm:w-auto")}
-                        >
-                          <PlayIcon className="h-4 w-4" />
-                          Watch demo
-                        </a>
-                      )}
+                <div className="mx-auto grid max-w-6xl px-5 pb-4 pt-8 md:px-6 md:pt-10 lg:grid-cols-[1fr_1.1fr] lg:gap-6 lg:pb-0 lg:pt-12">
+                  {/* Below lg this wrapper is `display: contents`, so the copy and the actions are
+                      separate grid items and the art's pieces can sit between them on mobile
+                      (text, person + mascot, buttons + ticks, cards) - see HeroArt. */}
+                  <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:self-center lg:pb-10">
+                    <div className="order-1 min-w-0">
+                      <Eyebrow family={s.family}>{s.eyebrow}</Eyebrow>
+                      <Heading className="mt-5 text-[36px] text-v2-navy md:text-[44px] lg:text-[56px] xl:text-[60px]">
+                        <span className="block">{s.headline[0]}</span>
+                        <span className="block">{s.headline[1]}</span>
+                        <span className={cn("block", f.headline)}>{s.headline[2]}</span>
+                      </Heading>
+                      <p className="mt-5 max-w-[520px] text-[16px] leading-relaxed text-v2-ink-soft md:text-[17px]">
+                        {s.lede}
+                      </p>
                     </div>
-                    <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2.5">
-                      {s.ticks.map((t) => (
-                        <li key={t} className="flex items-center gap-2 text-[13.5px] font-medium text-v2-ink-soft">
-                          <CheckCircleIcon className={cn("h-[18px] w-[18px] flex-none", f.icon)} />
-                          {t}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="order-3 min-w-0 md:order-2">
+                      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:mt-7">
+                        <Link href={s.cta.href} className={buttonVariants("accent", "lg", "w-full sm:w-auto")}>
+                          {s.cta.label}
+                          <ArrowRightIcon className="h-4 w-4" />
+                        </Link>
+                        {DEMO_VIDEO_URL && (
+                          <a
+                            href={DEMO_VIDEO_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={buttonVariants("ghost", "lg", "w-full bg-white sm:w-auto")}
+                          >
+                            <PlayIcon className="h-4 w-4" />
+                            Watch demo
+                          </a>
+                        )}
+                      </div>
+                      <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2.5 md:mt-6">
+                        {s.ticks.map((t) => (
+                          <li key={t} className="flex items-center gap-2 text-[13.5px] font-medium text-v2-ink-soft">
+                            <CheckCircleIcon className={cn("h-[18px] w-[18px] flex-none", f.icon)} />
+                            {t}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <div className="min-w-0">{s.art}</div>
+                  {s.art}
                 </div>
               </div>
             );
@@ -206,43 +213,47 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
         </div>
       </div>
 
-      {/* Controls: prev / dots / next. Arrows from md; dots are 44px hit areas with 8px discs. */}
-      <div className="relative flex items-center justify-center gap-2 pb-5 pt-3">
-        <button
-          type="button"
-          aria-label="Previous slide"
-          onClick={() => go(index - 1)}
-          className="hidden h-11 w-11 place-items-center rounded-full border border-v2-line bg-white text-v2-navy shadow-v2-card transition hover:bg-v2-canvas md:grid"
-        >
-          <ChevronLeftIcon className="h-5 w-5" />
-        </button>
-        <div className="flex items-center">
-          {slides.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              aria-label={`Slide ${i + 1} of ${count}: ${s.title}`}
-              aria-current={i === index ? "true" : undefined}
-              onClick={() => go(i)}
-              className="group grid h-11 w-11 place-items-center rounded-full"
-            >
-              <span
-                className={cn(
-                  "h-2 rounded-full transition-all duration-300 group-hover:bg-v2-navy/60",
-                  i === index ? "w-6 bg-v2-navy" : "w-2 bg-v2-navy/25",
-                )}
-              />
-            </button>
-          ))}
+      {/* Controls: prev / dots / next. Arrows from md; dots are 44px hit areas with 8px discs.
+          From lg they float over the hero's bottom edge (in a frosted pill) so the person cutouts
+          can sit flush with the section bottom; below lg they stay in flow under the slide. */}
+      <div className="pointer-events-none relative z-30 flex items-center justify-center pb-4 pt-1 lg:absolute lg:inset-x-0 lg:bottom-2 lg:p-0">
+        <div className="pointer-events-auto flex items-center gap-2 lg:rounded-full lg:bg-white/80 lg:px-2 lg:shadow-v2-card lg:backdrop-blur">
+          <button
+            type="button"
+            aria-label="Previous slide"
+            onClick={() => go(index - 1)}
+            className="hidden h-11 w-11 place-items-center rounded-full border border-v2-line bg-white text-v2-navy shadow-v2-card transition hover:bg-v2-canvas md:grid"
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+          <div className="flex items-center">
+            {slides.map((s, i) => (
+              <button
+                key={s.id}
+                type="button"
+                aria-label={`Slide ${i + 1} of ${count}: ${s.title}`}
+                aria-current={i === index ? "true" : undefined}
+                onClick={() => go(i)}
+                className="group grid h-11 w-11 place-items-center rounded-full"
+              >
+                <span
+                  className={cn(
+                    "h-2 rounded-full transition-all duration-300 group-hover:bg-v2-navy/60",
+                    i === index ? "w-6 bg-v2-navy" : "w-2 bg-v2-navy/25",
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-label="Next slide"
+            onClick={() => go(index + 1)}
+            className="hidden h-11 w-11 place-items-center rounded-full border border-v2-line bg-white text-v2-navy shadow-v2-card transition hover:bg-v2-canvas md:grid"
+          >
+            <ChevronRightIcon className="h-5 w-5" />
+          </button>
         </div>
-        <button
-          type="button"
-          aria-label="Next slide"
-          onClick={() => go(index + 1)}
-          className="hidden h-11 w-11 place-items-center rounded-full border border-v2-line bg-white text-v2-navy shadow-v2-card transition hover:bg-v2-canvas md:grid"
-        >
-          <ChevronRightIcon className="h-5 w-5" />
-        </button>
       </div>
 
       <div aria-live="polite" aria-atomic="true" className="sr-only">

@@ -1,12 +1,4 @@
-import {
-  Confetti,
-  CurvedArrow,
-  PaperPlane,
-  SparkBurst,
-  Squiggle,
-  StarDoodle,
-  cn,
-} from "@kiwiply/ui";
+import { Confetti, CurvedArrow, PaperPlane, SparkBurst, Squiggle, StarDoodle, cn } from "@kiwiply/ui";
 import FloatingCard from "./FloatingCard";
 import Handwritten from "./Handwritten";
 import { FAMILY } from "./family";
@@ -15,12 +7,15 @@ import type { CardBody, DoodleKind, HeroCardSpec, HeroSlide } from "./hero-slide
 
 /**
  * Art side of one hero slide (server component: `Photo` / `Mascot` read the filesystem).
- * One DOM tree, two layouts:
- *  - below md: photo (4:3) with the mascot overlapping its bottom-right corner, then the first
- *    two floating cards stacked underneath - nothing absolutely positioned except the mascot
- *    corner overlap;
- *  - md and up: a 600px-tall stage - photo anchored bottom-centre, mascot bottom-right,
- *    three to five tilted cards, doodles and one handwritten note placed around them.
+ * One DOM tree, two layouts. The root is `display: contents` below md, so its two children - the
+ * person block and the stacked cards - become grid items of the carousel's slide grid and are
+ * ordered there (mobile: text, person + mascot, buttons + ticks, cards):
+ *  - below md: the transparent person cutout (~70% wide, centred) with the mascot overlapping its
+ *    lower right (none for the student slide - that cutout already contains it), the handwritten
+ *    note small at the top-left, then the first two floating cards stacked;
+ *  - md and up: a 600px-tall stage - person bottom-anchored (flush with the hero's bottom edge on
+ *    lg, so the body reads as cut by the section like a sticker), mascot bottom-right overlapping
+ *    it, three to five tilted cards, doodles and one handwritten note around them.
  * `HeroCarousel` (client) receives the rendered node as a prop, so it never imports media.tsx.
  */
 
@@ -95,7 +90,11 @@ function CardBodyView({ body }: { body: CardBody }) {
       return (
         <div aria-hidden className="mt-3 flex h-16 items-end gap-1.5">
           {body.bars.map((h, i) => (
-            <span key={i} className="w-full rounded-t bg-v2-green" style={{ height: `${h}%`, opacity: 0.45 + h / 180 }} />
+            <span
+              key={i}
+              className="w-full rounded-t bg-v2-green"
+              style={{ height: `${h}%`, opacity: 0.45 + h / 180 }}
+            />
           ))}
         </div>
       );
@@ -147,32 +146,48 @@ function Card({ card, index }: { card: HeroCardSpec; index: number }) {
 
 export default function HeroArt({ slide, priority = false }: { slide: HeroSlide; priority?: boolean }) {
   return (
-    <div className="relative md:mx-auto md:h-[600px] md:max-w-[620px] lg:max-w-none">
-      {/* Photo + mascot. `md:contents` drops this wrapper's box on md+, so the absolutely
-          positioned children below anchor to the stage instead of the mobile photo frame. */}
-      <div className="relative md:contents">
-        <div className="aspect-[4/3] w-full overflow-hidden rounded-3xl shadow-v2-card md:absolute md:bottom-2 md:left-1/2 md:aspect-auto md:h-[66%] md:w-[56%] md:-translate-x-1/2 md:rounded-[32px]">
-          <Photo
-            id={slide.photo}
-            alt={slide.photoAlt}
-            priority={priority}
-            className="h-full w-full"
-            sizes="(min-width: 1024px) 340px, (min-width: 768px) 340px, 100vw"
+    <div className="contents md:relative md:order-3 md:mx-auto md:mt-8 md:block md:h-[600px] md:w-full md:max-w-[620px] lg:col-start-2 lg:row-start-1 lg:mt-0 lg:max-w-none lg:self-end">
+      {/* Person + mascot. `md:contents` drops this wrapper's box on md+, so the absolutely
+          positioned children anchor to the stage instead of the mobile frame. */}
+      <div className="relative order-2 mt-7 flex justify-center md:contents">
+        <Photo
+          id={slide.photo}
+          alt={slide.photoAlt}
+          priority={priority}
+          eager
+          edgeFade={slide.photoFade}
+          className={cn(slide.photoMobile, "md:absolute md:bottom-0", slide.photoMd)}
+          sizes="(min-width: 1024px) 340px, (min-width: 768px) 340px, 300px"
+        />
+        {slide.mascot && (
+          <Mascot
+            pose={slide.mascot}
+            eager
+            className={cn("absolute bottom-0 right-[4%] z-20 h-[88px] w-[84px]", slide.mascotMd)}
           />
-        </div>
-        <div className="absolute -bottom-7 right-2 z-20 h-28 w-28 md:bottom-0 md:right-0 md:h-40 md:w-40">
-          <Mascot pose={slide.mascot} className="h-full w-full" />
-        </div>
+        )}
+        {slide.handwritten.mobile && (
+          <Handwritten
+            family={slide.family}
+            className="pointer-events-none absolute left-[2%] top-0 z-10 w-[34%] -rotate-6 text-[19px] md:hidden"
+          >
+            {slide.handwritten.text}
+          </Handwritten>
+        )}
       </div>
 
-      <div className="mt-10 grid gap-4 md:mt-0 md:block">
+      <div className="order-4 mt-8 grid gap-4 md:order-none md:mt-0 md:block">
         {slide.cards.map((card, i) => (
           <Card key={card.id} card={card} index={i} />
         ))}
       </div>
 
       {slide.doodles.map((d, i) => (
-        <DoodleGlyph key={i} kind={d.kind} className={cn("pointer-events-none absolute z-10 hidden md:block", d.className)} />
+        <DoodleGlyph
+          key={i}
+          kind={d.kind}
+          className={cn("pointer-events-none absolute z-10 hidden md:block", d.className)}
+        />
       ))}
 
       <Handwritten

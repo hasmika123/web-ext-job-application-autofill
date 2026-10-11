@@ -48,9 +48,10 @@ export default function InboxTracking() {
             className="absolute right-2 top-12 z-20 hidden h-10 w-10 text-v2-green lg:block"
           />
           <InboxMock className="relative z-10" />
-          <div className="absolute bottom-0 right-0 z-20 sm:-right-2">
-            <Mascot pose="envelope" className="h-28 w-28 sm:h-36 sm:w-36" />
-          </div>
+          <Mascot
+            pose="envelope"
+            className="absolute bottom-0 right-0 z-20 h-28 w-28 sm:-right-3 sm:h-40 sm:w-40 lg:h-44 lg:w-44"
+          />
         </div>
       </div>
     </Section>

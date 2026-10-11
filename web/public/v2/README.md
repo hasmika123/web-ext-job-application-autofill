@@ -1,10 +1,15 @@
-# Landing v2 artwork slots
+# Landing v2 artwork
 
-Drop files here with **exactly** these names. Until a file exists, the page renders a built-in
-fallback of the same size (lime mascot disc / soft gradient panel), so nothing breaks and
-layout never shifts. Rendered by `src/components/marketing/media.tsx`.
+Everything here is rendered by `src/components/marketing/media.tsx` (`Mascot`, `Photo`) and
+`BrandLogo.tsx`. Static pages read this folder at **build time**, so redeploy after adding or
+replacing a file. If a file is missing, its slot falls back to a built-in placeholder (lime mascot
+disc / soft gradient panel) of the same size, so nothing breaks.
 
-Static pages read this folder at **build time**, so redeploy after adding or replacing files.
+**Status (V2.3b): every file below is a board extraction.** They were cut out of the design boards
+in `design/landing-v2/` at modest resolution (see the sizes). That is fine for the page as built
+(people render at most ~520 CSS px wide, the mascot at most ~220 px, and `Photo` caps a cutout at its
+native width so nothing is upscaled), but it will look soft on high-DPI screens. Replace each file in
+place with a high-res transparent render of the same subject, same name.
 
 ## Logo lockup (header + footer)
 
@@ -13,39 +18,44 @@ Static pages read this folder at **build time**, so redeploy after adding or rep
 | `logo-v2.png` | mascot bird + black "kiwiply" wordmark, transparent, 764x234, for light surfaces (header) |
 | `logo-v2-dark.png` | same lockup with a white wordmark, for the navy footer |
 
-Rendered by `src/components/marketing/BrandLogo.tsx`. **Interim:** both were extracted from the
-design mockups at roughly 4x and are only crisp up to ~36px tall. Replace them with a vector
-(SVG) or high-res transparent source when one is available, keeping the 764:234 ratio (or update
-the constants in `BrandLogo.tsx`). The old `logo.svg` / `Logo` component still serves the
-signed-in app.
+Board extractions at roughly 4x, crisp only up to ~36px tall. **Wanted:** a vector (SVG) or high-res
+transparent lockup, keeping the 764:234 ratio (or update the constants in `BrandLogo.tsx`).
 
-## Mascot (transparent PNG, ~800x800, subject centred)
+## Mascot (transparent PNG)
 
-| File | Pose |
-|---|---|
-| `mascot-wave.png` | waving hello |
-| `mascot-laptop.png` | at a laptop |
-| `mascot-headphones.png` | wearing headphones |
-| `mascot-envelope.png` | holding an envelope |
-| `mascot-plane.png` | riding a paper plane |
+| File | Size | Pose / used on |
+|---|---|---|
+| `mascot-wave.png` | 210x221 | winking, one paw raised. About CTA, organisations CTA band |
+| `mascot-laptop.png` | 210x221 | same image. Landing final CTA, hero slide 2, About "Different" |
+| `mascot-headphones.png` | 210x221 | same image. Hero slide 1, About hero, organisations hero |
+| `mascot-envelope.png` | 210x221 | same image. Landing inbox section |
+| `mascot-plane.png` | 210x221 | same image. Hero slide 4, landing organisations + how-it-works |
+| `mascot-clap.png` | 221x246 | eyes closed, clapping. **Left edge slightly clipped**: only use where a card or photo hides it. Not placed yet |
+| `mascot-peek.png` | 172x214 | peeking, paws on a ledge. **Top-left clipped**: only use peeking from behind something. Landing dashboard (behind the mock's lower-right corner) |
 
-**Interim:** all five files are currently the same low-res (400x360) image of the bird, so every
-slot shows an identical pose. They await real transparent renders per pose; replace them in place.
+The five named poses are currently **one image** (the winking full-body bird), so wave / laptop /
+headphones / envelope / plane all look identical. **Wanted:** a real transparent render per pose, at
+least 600x600 with the subject centred, plus unclipped `clap` and `peek`. Mascot boxes in the code are
+sized by class (`h-* w-*`), so a bigger or differently proportioned file just drops in.
 
-## Photos (JPG, ~1600px wide; `.webp` is also accepted)
+## People cutouts (transparent PNG)
 
-Subjects should look **toward the headline** (the text sits on the left of the hero, so people
-face left / camera-left). Keep faces out of the bottom-right corner, where the mascot overlaps.
+Rendered by `Photo` as a cutout: no rounded panel, no background, `object-contain`, bottom-anchored,
+never wider than the file. The flat bottom edge is meant to sit on something (the hero's bottom edge,
+a section edge, a card), so the person looks cut off like a sticker.
 
-| File | Used on |
-|---|---|
-| `hero-copilot.jpg` | hero slide 1 (individual job seeker) |
-| `hero-individual.jpg` | hero slide 2 (autopilot) and landing "For individuals" |
-| `hero-student.jpg` | hero slide 3 (students and early career) |
-| `hero-team.jpg` | hero slide 4 (organisations) |
-| `about-portrait.jpg` | /about hero |
-| `about-team.jpg` | /about "Why we built Kiwiply" |
-| `org-team.jpg` | /organizations hero |
+| File | Size | Subject / used on |
+|---|---|---|
+| `hero-copilot.png` | 435x499 | woman, lime hoodie, laptop. Hero slide 1 |
+| `hero-individual.png` | 580x554 | man, green hoodie, laptop (a sliver of the mascot's headphones remains at the right edge, hidden behind the mascot). Hero slide 2, landing job matches |
+| `hero-student.png` | 611x516 | woman, purple hoodie, thinking at a laptop, **with the mascot already peeking in at her right**, so no separate mascot is rendered next to her. Hero slide 3, landing "for individuals". Faint ghost shape above the mascot; left and right edges are hard crops, so the code fades them (`edgeFade`) |
+| `hero-team.png` | 683x347 | three people at laptops. Hero slide 4, landing "for organisations" |
+| `about-portrait.png` | 435x499 | same image as `hero-copilot.png`. /about hero |
+| `about-team.png` | 683x347 | same image as `hero-team.png`. /about "Why we built Kiwiply" |
+| `org-team.png` | 683x347 | same image as `hero-team.png`. /organizations hero |
 
-Use real, licensed or commissioned images. Do not crop artwork out of the design mockups in
-`design/landing-v2/` (baked-in text, no transparency).
+**Wanted:** at least 1200px wide transparent cutouts (people looking toward the headline, i.e. to the
+left on hero slides), cleanly cut at the bottom with no leftover fragments from the source board, and
+distinct images for the about / organisations pages instead of reusing the hero ones. Real, licensed
+or commissioned imagery only. `.webp` / `.jpg` are still accepted by `Photo` (checked in the order
+png, webp, jpg); those render as a cropped, rounded photo rather than a cutout.

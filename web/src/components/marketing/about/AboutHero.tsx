@@ -21,7 +21,11 @@ const CHECKS: Array<{ label: string; family: Family; icon: typeof SearchIcon }> 
   { label: "Prepare for interviews", family: "teal", icon: CalendarIcon },
 ];
 
-/** §8.1 — hero: copy left; portrait + checklist card + mascot + sticky note right. */
+/**
+ * §8.1 — hero: copy left; portrait cutout + checklist card + mascot + sticky note right. The
+ * cutout's flat bottom edge sits flush on the section's bottom edge (negative margin eats the
+ * padding), so she reads as cut by the section like a sticker.
+ */
 export default function AboutHero() {
   return (
     <section
@@ -57,7 +61,7 @@ export default function AboutHero() {
           </div>
         </div>
 
-        <div className="relative pb-8">
+        <div className="relative -mb-16 flex flex-col lg:-mb-24 lg:pt-8">
           {/* Handwritten note + arrow (desktop only, decorative) */}
           <div aria-hidden className="absolute -top-10 left-0 z-10 hidden items-end gap-1 lg:flex">
             <span className="-rotate-6 font-[family-name:var(--font-hand)] text-2xl leading-6 text-ink">
@@ -72,8 +76,9 @@ export default function AboutHero() {
           <Photo
             id="about-portrait"
             alt="A smiling job seeker working on a laptop"
-            className="aspect-[4/3] w-full rounded-[28px] shadow-v2-float lg:aspect-[5/4]"
-            sizes="(min-width: 1024px) 560px, 100vw"
+            className="order-2 mx-auto w-[72%] max-w-[400px] lg:w-[78%]"
+            sizes="(min-width: 1024px) 400px, 72vw"
+            edgeFade={[0, 9]}
             priority
           />
           <SparkBurst className="absolute -right-1 -top-4 h-10 w-10 text-v2-green" />
@@ -82,8 +87,8 @@ export default function AboutHero() {
           <ul
             aria-label="What Kiwiply helps with"
             className={cn(
-              "mt-4 grid gap-2.5 rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-float",
-              "lg:absolute lg:left-0 lg:top-14 lg:mt-0 lg:w-[250px] lg:-translate-x-8",
+              "order-1 mb-4 grid gap-2.5 rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-float",
+              "lg:absolute lg:left-0 lg:top-14 lg:z-10 lg:mb-0 lg:w-[250px] lg:-translate-x-8",
             )}
           >
             {CHECKS.map(({ label, family, icon: Icon }) => (
@@ -109,10 +114,10 @@ export default function AboutHero() {
             </p>
           </div>
 
-          {/* Mascot overlaps the photo's bottom-right corner */}
+          {/* Mascot sits beside her, overlapping the cutout's lower right */}
           <Mascot
             pose="headphones"
-            className="absolute bottom-0 right-0 h-28 w-28 md:h-36 md:w-36 lg:-right-4 lg:h-40 lg:w-40"
+            className="absolute bottom-0 right-[4%] z-10 h-28 w-28 md:h-36 md:w-36 lg:right-2 lg:h-40 lg:w-40"
           />
         </div>
       </div>
