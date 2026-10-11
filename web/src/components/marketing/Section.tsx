@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { cn } from "@kiwiply/ui";
 
 /** Soft panel tints for banded landing sections (the board's rounded containers). */
-export type SectionTone = "lime" | "blue" | "sky" | "lavender" | "white";
+export type SectionTone = "wash" | "lime" | "blue" | "sky" | "lavender" | "white";
 
 const TONE: Record<SectionTone, string> = {
+  wash: "bg-gradient-to-br from-[#E6F7DF] via-[#EEF8F6] to-[#E4EEFF]",
   lime: "bg-gradient-to-br from-v2-lime-soft via-[#F4FCEA] to-white",
   blue: "bg-gradient-to-br from-[#EEF4FF] via-white to-[#F3F8FF]",
   sky: "bg-gradient-to-br from-v2-blue-soft via-[#F1F6FF] to-v2-violet-soft/60",
