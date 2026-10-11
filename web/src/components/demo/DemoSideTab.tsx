@@ -141,9 +141,9 @@ export default function DemoSideTab({ demo: demoProp, current }: { demo?: DemoIn
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
-          "fixed left-0 top-1/2 z-50 -translate-y-1/2 rounded-r-xl bg-v2-green text-white shadow-lg",
+          "fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-0 z-50 rounded-r-xl opacity-80 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:opacity-100 bg-v2-green text-white shadow-lg",
           "flex items-center justify-center gap-2 transition-opacity hover:opacity-90",
-          "h-11 w-11 md:h-auto md:w-11 md:flex-col md:py-4",
+          "h-11 w-7 md:h-auto md:w-11 md:flex-col md:py-4",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
           open && "pointer-events-none opacity-0",
         )}

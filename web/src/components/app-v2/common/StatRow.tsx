@@ -21,7 +21,7 @@ export default function StatRow({
   cols?: 4 | 5;
 }) {
   return (
-    <div className={cn("grid grid-cols-1 gap-3.5 sm:grid-cols-2", cols === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4")}>
+    <div className={cn("grid grid-cols-2 gap-2.5 sm:gap-3.5", cols === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4")}>
       {stats.map((s) => (
         <StatTile
           key={s.id}

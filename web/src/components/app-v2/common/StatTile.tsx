@@ -43,13 +43,13 @@ export default function StatTile({
 }) {
   const t = TONE[tone];
   const spark = sparkline && sparkline.length > 1 ? sparkline : undefined;
-  const valueSize = compact ? "text-[24px]" : "text-[26px]";
+  const valueSize = compact ? "text-[24px]" : "text-[22px] sm:text-[26px]";
   return (
-    <div className={cn("flex min-w-0 items-center rounded-2xl", compact ? "gap-3 p-3.5" : "gap-3 p-4", t.soft, className)}>
+    <div className={cn("flex min-w-0 items-center rounded-2xl", compact ? "gap-3 p-3.5" : "gap-2.5 p-3 sm:gap-3 sm:p-4", t.soft, className)}>
       <span
         className={cn(
           "grid flex-none place-items-center rounded-xl bg-paper shadow-v2-soft",
-          compact ? "h-10 w-10" : "h-11 w-11",
+          compact ? "h-10 w-10" : "h-9 w-9 sm:h-11 sm:w-11",
           t.ink,
         )}
       >

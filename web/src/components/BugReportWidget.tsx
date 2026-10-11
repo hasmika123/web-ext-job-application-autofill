@@ -151,7 +151,7 @@ export default function BugReportWidget() {
       >
         {!open &&
           (nudge ? (
-            <div className="flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3.5 pr-2 text-[13px] font-medium text-ink shadow-[0_6px_20px_rgba(0,0,0,.18)]">
+            <div className="hidden items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3.5 pr-2 text-[13px] font-medium text-ink shadow-[0_6px_20px_rgba(0,0,0,.18)] sm:flex">
               <span>{NUDGE_LABEL}</span>
               <button
                 type="button"
@@ -163,7 +163,7 @@ export default function BugReportWidget() {
               </button>
             </div>
           ) : (
-            <span className="pointer-events-none whitespace-nowrap rounded-full border border-line bg-paper px-3.5 py-2 text-[13px] font-medium text-ink opacity-0 shadow-[0_6px_20px_rgba(0,0,0,.18)] transition-opacity group-hover:opacity-100">
+            <span className="pointer-events-none hidden whitespace-nowrap sm:inline rounded-full border border-line bg-paper px-3.5 py-2 text-[13px] font-medium text-ink opacity-0 shadow-[0_6px_20px_rgba(0,0,0,.18)] transition-opacity group-hover:opacity-100">
               {NUDGE_LABEL}
             </span>
           ))}

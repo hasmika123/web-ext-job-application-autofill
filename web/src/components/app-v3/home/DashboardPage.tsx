@@ -96,7 +96,7 @@ export default function DashboardPage(p: DashboardProps) {
 
       {p.children}
 
-      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
         {p.stats.map((s) => (
           <StatTile
             key={s.id}
