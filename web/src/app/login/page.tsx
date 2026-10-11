@@ -1,6 +1,11 @@
 import AuthScreen from "@/components/auth/AuthScreen";
+import AuthTheme from "@/components/auth/AuthTheme";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  return <AuthScreen mode="login" next={next} />;
+  return (
+    <AuthTheme>
+      <AuthScreen mode="login" next={next} />
+    </AuthTheme>
+  );
 }
