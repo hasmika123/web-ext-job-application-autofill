@@ -49,6 +49,8 @@ export interface ProfileView {
   percent: number;
   versions: { id: number; label: string; date: string; isDefault: boolean }[];
   links: { linkedin: string; github: string; website: string };
+  /** Real job-preference answers from the bio (empty strings when unset). */
+  prefs: { workPreference: string; desiredSalary: string; relocate: string };
 }
 
 type Obj = Record<string, unknown>;
@@ -175,5 +177,6 @@ export function deriveProfile(
       .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))
       .map((r) => ({ id: r.id, label: r.label, date: fmtDate(r.createdAt), isDefault: def ? r.id === def.id : false })),
     links: { linkedin: asStr(bio.linkedin), github: asStr(bio.github), website: asStr(bio.website) },
+    prefs: { workPreference: asStr(bio.workPreference), desiredSalary: asStr(bio.desiredSalary), relocate: asStr(bio.willingToRelocate) },
   };
 }

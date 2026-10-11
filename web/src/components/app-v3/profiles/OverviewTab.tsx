@@ -69,7 +69,7 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
         {/* Identity card */}
         <section className="rounded-2xl border border-v2-line/70 bg-paper p-5 shadow-v2-soft">
           <div className="flex items-center gap-4">
@@ -138,7 +138,7 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         </SectionCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* Public profile preview */}
         <SectionCard title="Public Profile Preview">
           <div className="rounded-xl border border-v2-line/70 p-4">
@@ -170,6 +170,20 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         </SectionCard>
 
         <div className="flex min-w-0 flex-col gap-4">
+          {/* Job preferences (board 1): real bio answers, the board's text while unset */}
+          <SectionCard title="Job Preferences">
+            <ul className="space-y-2 text-[13.5px] text-v2-ink-soft">
+              <li><span className="text-v2-muted">Work: </span>{profile.prefs.workPreference || "Full-time, Remote, Hybrid"}</li>
+              <li><span className="text-v2-muted">Salary: </span>{profile.prefs.desiredSalary || "$120K - $180K"}</li>
+              <li><span className="text-v2-muted">Relocation: </span>{profile.prefs.relocate || "Open to relocate"}</li>
+            </ul>
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-[#F1F6FF] px-3 py-2.5">
+              <span className="text-[13px] font-semibold text-v2-navy">Profile visibility: Visible to employers</span>
+              <button type="button" onClick={() => comingSoon("Profile visibility")} className="text-[12.5px] font-semibold text-v2-blue hover:underline">Change</button>
+            </div>
+            <button type="button" onClick={() => onTab("preferences")} className="mt-3 text-[13px] font-semibold text-v2-blue hover:underline">Edit preferences</button>
+          </SectionCard>
+
           {/* Multiple profiles */}
           <SectionCard title="Multiple Profiles">
             <ul className="flex flex-wrap items-center gap-2">
@@ -218,7 +232,7 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* Resume versions */}
         <SectionCard title="Resume Versions" action={{ label: "Manage", href: "/resume-builder" }}>
           <ul className="divide-y divide-v2-line/60">
