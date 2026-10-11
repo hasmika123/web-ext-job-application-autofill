@@ -630,7 +630,7 @@ function SignupPanel() {
             width={701}
             height={440}
             sizes="(min-width: 1024px) 45vw, 0px"
-            className="h-auto w-full"
+            className="h-auto w-full [mask-image:linear-gradient(to_right,transparent,black_7%,black_84%,transparent)]"
           />
           <div aria-hidden className="absolute left-[44%] top-[-26%] -rotate-[9deg]">
             <Hand className="text-[clamp(20px,1.9vw,30px)]">
