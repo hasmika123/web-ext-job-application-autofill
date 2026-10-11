@@ -21,7 +21,7 @@ export default function AboutCta() {
 
           <div className="flex flex-col items-start gap-5">
             <p className="max-w-sm text-base leading-relaxed text-v2-ink-soft">
-              Join thousands of job seekers who are finding brighter careers with Kiwiply.
+              Build one profile, apply with less busywork, and keep every application in sight.
             </p>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
               <Link href="/signup" className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>

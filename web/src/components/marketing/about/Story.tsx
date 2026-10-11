@@ -25,8 +25,8 @@ export default function Story() {
             find meaningful opportunities and reach their potential.
           </p>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
-            Today, Kiwiply supports thousands of job seekers and organizations who believe in a brighter, more
-            inclusive future of work.
+            Today, Kiwiply is in beta and improving every week, built for job seekers and the organizations that
+            believe in a brighter, more inclusive future of work.
           </p>
         </div>
 

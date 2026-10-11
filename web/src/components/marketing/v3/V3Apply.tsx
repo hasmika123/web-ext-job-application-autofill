@@ -1,10 +1,10 @@
 import Image from "next/image";
-import { ClipboardIcon, GoogleIcon, SparkBurst, StarDoodle } from "@kiwiply/ui";
+import { ClipboardIcon, SparkBurst, StarDoodle } from "@kiwiply/ui";
 import Handwritten from "../Handwritten";
 import { V3CheckRow, V3Cta, V3Pill } from "./parts";
 
 /**
- * "Apply with AI on 1,000+ job sites" (phone board, column 2): the heading, a cluster of site
+ * "Apply with AI on LinkedIn + major ATS" (phone board, column 2): the heading, a cluster of site
  * tiles around the laptop mascot with the "One click. Multiple sites." note, the four-step
  * checklist card and "See How It Works". md+: copy and checklist left, art right.
  */
@@ -22,7 +22,7 @@ function SiteTiles() {
         </span>
       </span>
       <span aria-hidden className="absolute left-[4%] top-[42%] z-10 grid h-[68px] w-[68px] -rotate-6 place-items-center rounded-[18px] bg-white shadow-v2-float">
-        <GoogleIcon size={36} />
+        <span className="text-[34px] font-extrabold leading-none text-[#24A47F]">g</span>
       </span>
       <span aria-hidden className="absolute left-[38%] top-[44%] z-10 grid h-[52px] w-[52px] rotate-6 place-items-center rounded-2xl bg-white text-[#F5A623] shadow-v2-float">
         <ClipboardIcon className="h-7 w-7" />
@@ -60,7 +60,7 @@ export default function V3Apply() {
           <h2 id="v3-apply-title" className="mt-4 text-[32px] text-v2-navy md:text-[38px]">
             Apply with AI
             <br />
-            on <span className="text-v2-green">1,000+</span> job sites
+            on <span className="text-v2-green">LinkedIn + major ATS</span>
           </h2>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-v2-ink-soft md:text-[16px]">
             Kiwiply fills forms, generates tailored answers, and selects the best resume — so you can focus on what

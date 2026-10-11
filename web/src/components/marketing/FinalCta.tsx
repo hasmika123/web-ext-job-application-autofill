@@ -31,7 +31,7 @@ export default function FinalCta() {
             Your next opportunity is waiting.
           </h2>
           <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
-            Join thousands of students and professionals who are building brighter futures with Kiwiply.
+            Build one profile, apply with less busywork, and keep every application in sight.
           </p>
           <div className="mt-2 flex flex-row flex-wrap items-center gap-3">
             <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg", "min-h-11")}>

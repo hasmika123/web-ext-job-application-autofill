@@ -81,7 +81,7 @@ export default function MarketingFooter() {
             </div>
             <div>
               <p className="text-[14px] font-bold text-white">Get the Kiwiply Extension</p>
-              <p className="mb-3 mt-1 text-[13px] text-white/70">Works on all major job sites</p>
+              <p className="mb-3 mt-1 text-[13px] text-white/70">Works on LinkedIn + major ATS</p>
               <ul className="flex flex-wrap gap-2">
                 {BROWSER_TILES.map((b) => (
                   <li key={b.label} className={`${TILE} rounded-lg`} title={b.label} style={{ color: b.color }}>

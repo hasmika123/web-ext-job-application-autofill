@@ -9,6 +9,7 @@ import HowItWorks from "@/components/marketing/sections/HowItWorks";
 import InboxTracking from "@/components/marketing/sections/InboxTracking";
 import JobMatches from "@/components/marketing/sections/JobMatches";
 import Pillars from "@/components/marketing/sections/Pillars";
+import Roadmap from "@/components/marketing/sections/Roadmap";
 import Resumes from "@/components/marketing/sections/Resumes";
 import Stats from "@/components/marketing/sections/Stats";
 import SuccessStories from "@/components/marketing/sections/SuccessStories";
@@ -41,6 +42,7 @@ export default function Home() {
         }))}
       />
       <TrustStrip />
+      <Roadmap />
 
       <Pillars />
       <InboxTracking />

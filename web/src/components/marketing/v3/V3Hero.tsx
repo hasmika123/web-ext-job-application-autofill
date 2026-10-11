@@ -131,7 +131,7 @@ export default function V3Hero() {
         <ul className="mt-2 grid grid-cols-3 gap-2 text-center text-[11.5px] leading-snug text-v2-ink-soft">
           <li className="flex flex-col items-center gap-2">
             <CheckCircleIcon aria-hidden className="h-7 w-7 text-v2-navy" />
-            Works on all major job sites
+            Works on LinkedIn + major ATS
           </li>
           <li className="flex flex-col items-center gap-2">
             <ZapIcon aria-hidden className="h-7 w-7 text-v2-amber" />

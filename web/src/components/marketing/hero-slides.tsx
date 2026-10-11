@@ -55,7 +55,7 @@ export const HERO_SLIDE_COPILOT: HeroSlide = {
   lede: "Kiwiply helps you find the right jobs, auto-fill applications with AI, track every application, and get smarter updates — so you can spend less time on paperwork and more time on your future.",
   // Desktop board shows no ticks row under slide 1 (the feature strip takes that place); the phone
   // layout does show them, so the carousel hides this row from xl up for this slide only.
-  ticks: ["Works on all major job sites", "No credit card required", "Free plan available"],
+  ticks: ["Works on LinkedIn + major ATS", "No credit card required", "Free plan available"],
   cta: SIGN_UP,
   mobile: {
     photo: "hero-headphones",
@@ -73,7 +73,7 @@ export const HERO_SLIDE_COPILOT_ALT: HeroSlide = {
   ...HERO_SLIDE_COPILOT,
   id: "copilot-alt",
   lede: "Kiwiply helps you find the right jobs, autofill applications with AI, track every application, and get smart updates — so you can spend less time on paperwork and more time on your future.",
-  ticks: ["Works on all major job sites", "You review before submitting", "Free plan available"],
+  ticks: ["Works on LinkedIn + major ATS", "You review before submitting", "Free plan available"],
   mobile: {
     photo: "hero-copilot",
     photoAlt: "A smiling job seeker at her laptop",
@@ -93,7 +93,7 @@ export const HERO_SLIDES: HeroSlide[] = [
     family: "violet",
     headline: ["Your", "job search", "on autopilot."],
     lede: "Kiwiply finds the right opportunities, customizes your applications, tracks every update, and keeps you ready for interviews — automatically.",
-    ticks: ["Works at major job sites", "No credit card required", "Free plan available"],
+    ticks: ["Works on LinkedIn + major ATS", "No credit card required", "Free plan available"],
     cta: SIGN_UP,
     mobile: {
       photo: "hero-individual",

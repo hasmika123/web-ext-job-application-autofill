@@ -1,20 +1,23 @@
-// PLACEHOLDER — board copy, not verified; replace with real values before version2 is promoted
+// PLACEHOLDER (testimonials only) — board copy, not verified; replace with real quotes before version2 is promoted.
+// The value band and footer trust row below are real, honest copy (no invented numbers).
 import type { Family } from "./family";
 
-/** Stats row under "For Organizations" (board: landing-desktop-full). Markup renders whatever is here. */
+/**
+ * Value band under "For Organizations" (board: landing-desktop-full). Four plain statements, no
+ * numbers: we do not publish counts or percentages we cannot back up. Also used by `/v3`.
+ */
 export interface Stat {
-  value: string;
-  label: string;
+  title: string;
   /** Which glyph the tile shows (mapped to an `@kiwiply/ui` icon in `sections/Stats.tsx`). */
-  icon: "zap" | "rocket" | "chart" | "file";
+  icon: "file" | "check" | "mail" | "shield";
   family: Family;
 }
 
 export const STATS: Stat[] = [
-  { value: "100K+", label: "Applications submitted", icon: "zap", family: "amber" },
-  { value: "5x", label: "Faster applications", icon: "rocket", family: "coral" },
-  { value: "3x", label: "More responses on average", icon: "chart", family: "pink" },
-  { value: "90%", label: "Save 10+ hours every week", icon: "file", family: "amber" },
+  { title: "One profile, every form", icon: "file", family: "amber" },
+  { title: "You review, you submit", icon: "check", family: "coral" },
+  { title: "Replies tracked from Gmail", icon: "mail", family: "pink" },
+  { title: "Your data, deletable any time", icon: "shield", family: "amber" },
 ];
 
 /** "Real People. Real Opportunities." carousel (board: landing-desktop-full). */
@@ -51,7 +54,7 @@ export interface FooterTrust {
 
 export const FOOTER_TRUST: FooterTrust[] = [
   { title: "Your data is safe", body: "Security & privacy first", icon: "shield" },
-  { title: "Trusted by 100K+", body: "Job seekers worldwide", icon: "users" },
-  { title: "Works on 1,000+ sites", body: "Including Workday, Greenhouse, Lever, Ashby and more", icon: "globe" },
+  { title: "Built in the open", body: "In beta, improving weekly", icon: "users" },
+  { title: "Works on LinkedIn + major ATS", body: "Workday, Greenhouse, Lever, Ashby, Workable", icon: "globe" },
   { title: "Built for your future", body: "More opportunities. More possibilities.", icon: "heart" },
 ];

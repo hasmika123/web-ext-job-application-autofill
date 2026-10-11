@@ -1,56 +1,5 @@
-// PLACEHOLDER — board copy, not verified; replace with real values before version2 is promoted
-import type { Family } from "../family";
-
-/** Desktop "Our users get hired at amazing companies" strip (board: landing-v3-desktop). Text wordmarks only. */
-export const V3_COMPANIES_LINE = "Our users get hired at amazing companies";
-export const V3_COMPANIES_MORE = "and many more…";
-
-export interface V3Company {
-  name: string;
-  /** Wordmark text as drawn. */
-  text: string;
-  color: string;
-  /** Which hand-styled wordmark `V3Companies` draws. */
-  style: "google" | "microsoft" | "amazon" | "stripe" | "meta" | "apple" | "netflix";
-}
-
-export const V3_COMPANIES: V3Company[] = [
-  { name: "Google", text: "Google", color: "#4285F4", style: "google" },
-  { name: "Microsoft", text: "Microsoft", color: "#737373", style: "microsoft" },
-  { name: "Amazon", text: "amazon", color: "#161D27", style: "amazon" },
-  { name: "Stripe", text: "stripe", color: "#635BFF", style: "stripe" },
-  { name: "Meta", text: "Meta", color: "#0A66F2", style: "meta" },
-  { name: "Apple", text: "Apple", color: "#111111", style: "apple" },
-  { name: "Netflix", text: "NETFLIX", color: "#E50914", style: "netflix" },
-];
-
-/** Desktop stats band under the six pillars. */
-export interface V3Stat {
-  value: string;
-  label: string;
-}
-
-export const V3_BAND_STATS: V3Stat[] = [
-  { value: "1M+", label: "Jobs Aggregated" },
-  { value: "200K+", label: "Applications Sent" },
-  { value: "75K+", label: "Interviews Scheduled" },
-  { value: "68%", label: "Get More Interviews with Kiwiply" },
-];
-
-/** "Results that speak for themselves." (mobile board; shown at every width). */
-export interface V3Result {
-  value: string;
-  label: string;
-  family: Family;
-  icon: "zap" | "rocket" | "chart" | "clock";
-}
-
-export const V3_RESULTS: V3Result[] = [
-  { value: "100K+", label: "Applications submitted", family: "amber", icon: "zap" },
-  { value: "5x", label: "Faster applications", family: "amber", icon: "rocket" },
-  { value: "3x", label: "More responses on average", family: "pink", icon: "chart" },
-  { value: "90%", label: "Save 10+ hours every week", family: "amber", icon: "clock" },
-];
+// PLACEHOLDER (stories, phone-mock rows) — board copy, not verified; replace with real values before version2 is promoted.
+// The support strip and value tiles are real: they come from `../partners-data.ts` and `../placeholder-data.ts`.
 
 /** "Real stories, real progress." carousel (the board shows the first card and four dots). */
 export interface V3Story {
@@ -82,7 +31,10 @@ export const V3_STORIES: V3Story[] = [
   },
 ];
 
-/** Phone hero: the row of job-site tiles under the three ticks (lettered tiles, no logo files). */
+/**
+ * Phone hero: the row of job-site tiles under the three ticks (lettered tiles, no logo files).
+ * Supported today only: LinkedIn plus the ATS set (see `../partners-data.ts`).
+ */
 export interface V3AppTile {
   name: string;
   letter: string;
@@ -95,12 +47,12 @@ export interface V3AppTile {
 }
 
 export const V3_APP_TILES: V3AppTile[] = [
-  { name: "Google", letter: "G", color: "#4285F4", bg: "#FFFFFF" },
   { name: "LinkedIn", letter: "in", icon: "linkedin", color: "#0A66C2", bg: "#FFFFFF" },
-  { name: "Indeed", letter: "i", color: "#2557A7", bg: "#FFFFFF" },
-  { name: "Glassdoor", letter: "g", color: "#0CAA41", bg: "#FFFFFF" },
   { name: "Workday", letter: "W", color: "#0875E1", bg: "#FFFFFF" },
-  { name: "Monster", letter: "M", color: "#FFFFFF", bg: "#6E46AE" },
+  { name: "Greenhouse", letter: "g", color: "#24A47F", bg: "#FFFFFF" },
+  { name: "Lever", letter: "L", color: "#1F2A5A", bg: "#FFFFFF" },
+  { name: "Ashby", letter: "A", color: "#1A1A1A", bg: "#FFFFFF" },
+  { name: "Workable", letter: "W", color: "#1E6FF5", bg: "#FFFFFF" },
 ];
 
 /** Phone mock rows in "One platform for your entire job search". */

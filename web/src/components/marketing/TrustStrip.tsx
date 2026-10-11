@@ -1,10 +1,14 @@
-import { ZapIcon, cn } from "@kiwiply/ui";
-import { PARTNERS, PARTNERS_MORE, PARTNERS_TRUST_LINE, type Partner } from "./partners-data";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { CheckIcon, ZapIcon, cn } from "@kiwiply/ui";
+import { ON_THE_ROADMAP, PARTNERS_TRUST_LINE, ROADMAP_HREF, WORKS_TODAY, type Partner } from "./partners-data";
 
 /**
- * Trust line + partner wordmarks directly under the hero (spec 13.2 item 1, board
- * landing-desktop-full). Pure text on the page colour: no logo files, no tiles or cards. Desktop is
- * one centred row (~44px gaps); phones get a 3-column grid. Data lives in `partners-data.ts`.
+ * Trust line + support rows directly under the hero (spec 13.2 item 1). Two labelled rows of
+ * styled TEXT wordmarks (no logo files): "Works today" (each with a green check) and "On the
+ * roadmap" (muted, each with a "Soon" chip, then a link to `#roadmap`). `TrustRows` is exported so
+ * `/v3` shows the same rows. Both rows wrap on phones. Data lives in `partners-data.ts` and states
+ * real support only - edit it when support changes.
  */
 
 function Wordmark({ p }: { p: Partner }) {
@@ -65,25 +69,63 @@ function Wordmark({ p }: { p: Partner }) {
   }
 }
 
-export default function TrustStrip() {
+const ITEM =
+  "inline-flex flex-none items-center gap-1.5 whitespace-nowrap text-[18px] font-extrabold leading-none tracking-[-0.03em] md:text-[22px]";
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section aria-label="Trusted by" className="px-5 pb-1 pt-7 md:pb-2 md:pt-8">
-      <p className="text-center text-[14px] font-medium text-v2-ink-soft md:text-[15px]">{PARTNERS_TRUST_LINE}</p>
-      <ul
-        className={cn(
-          "mx-auto mt-5 flex max-w-[1400px] flex-wrap items-center justify-center gap-x-6 gap-y-5",
-          "text-[18px] font-extrabold leading-none tracking-[-0.03em] md:mt-6 md:gap-x-10 md:gap-y-4 md:text-[22px]",
-        )}
-      >
-        {PARTNERS.map((p) => (
-          <li key={p.name} aria-label={p.name} className="flex-none whitespace-nowrap">
-            <Wordmark p={p} />
+    <div className="flex flex-col items-center gap-3 md:grid md:grid-cols-[120px_minmax(0,1fr)] md:items-center md:gap-6">
+      <p className="text-center text-[11.5px] font-bold uppercase tracking-[0.08em] text-v2-muted md:text-right">{label}</p>
+      <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 md:justify-start md:gap-x-9">{children}</ul>
+    </div>
+  );
+}
+
+/** The "Works today" + "On the roadmap" rows (no section wrapper, so any surface can host them). */
+export function TrustRows({ className }: { className?: string }) {
+  return (
+    <div className={cn("mx-auto flex w-full max-w-[1100px] flex-col gap-6 md:gap-5", className)}>
+      <Row label="Works today">
+        {WORKS_TODAY.map((p) => (
+          <li key={p.name} className={ITEM}>
+            <span className="sr-only">{p.name}, works today</span>
+            <span aria-hidden>
+              <Wordmark p={p} />
+            </span>
+            <CheckIcon aria-hidden className="h-3.5 w-3.5 flex-none text-v2-green" />
           </li>
         ))}
-        <li className="w-full flex-none text-center text-[13px] font-medium tracking-normal text-v2-muted md:w-auto">
-          {PARTNERS_MORE}
+      </Row>
+      <Row label="On the roadmap">
+        {ON_THE_ROADMAP.map((p) => (
+          <li key={p.name} className={ITEM}>
+            <span className="sr-only">{p.name}, coming soon</span>
+            <span aria-hidden className="opacity-60 grayscale">
+              <Wordmark p={p} />
+            </span>
+            <span
+              aria-hidden
+              className="rounded-full bg-v2-line/60 px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-wide text-v2-muted"
+            >
+              Soon
+            </span>
+          </li>
+        ))}
+        <li className="flex-none text-[13.5px] font-semibold tracking-normal">
+          <Link href={ROADMAP_HREF} className="text-v2-blue hover:underline">
+            See what&rsquo;s next &rarr;
+          </Link>
         </li>
-      </ul>
+      </Row>
+    </div>
+  );
+}
+
+export default function TrustStrip() {
+  return (
+    <section aria-label="Where Kiwiply works" className="px-5 pb-1 pt-7 md:pb-2 md:pt-8">
+      <p className="text-center text-[14px] font-medium text-v2-ink-soft md:text-[15px]">{PARTNERS_TRUST_LINE}</p>
+      <TrustRows className="mt-5 md:mt-6" />
     </section>
   );
 }
