@@ -19,9 +19,9 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const TITLE = "Kiwiply — one profile, every application";
+const TITLE = "Kiwiply — find jobs, autofill applications, track every reply";
 const DESCRIPTION =
-  "Build one job-application profile, manage your resumes, and track every application in one place. The Kiwiply browser extension fills applications for you on the page.";
+  "Kiwiply matches you with roles, fills job applications for you to review, and tracks replies in your Gmail — one profile, one board, no auto-submit.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
