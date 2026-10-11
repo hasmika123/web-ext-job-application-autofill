@@ -197,6 +197,12 @@ const server = http.createServer((req, res) => {
     req.resume();
     return json(res, 200, { ok: true });
   }
+  // Public "Contact us" submit (anonymous, like the real API): accepted and dropped; nothing is stored.
+  if (path === "/api/inquiries" && method === "POST") {
+    return withBody(req, (b) =>
+      b.name && b.email ? json(res, 201, { ok: true }) : json(res, 400, { detail: "Please add your name and email." }),
+    );
+  }
 
   req.resume(); // other bodies are ignored
   const sub = subOf(req);
