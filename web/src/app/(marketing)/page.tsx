@@ -10,28 +10,19 @@ import InboxTracking from "@/components/marketing/sections/InboxTracking";
 import JobMatches from "@/components/marketing/sections/JobMatches";
 import Pillars from "@/components/marketing/sections/Pillars";
 import Resumes from "@/components/marketing/sections/Resumes";
+import Stats from "@/components/marketing/sections/Stats";
+import SuccessStories from "@/components/marketing/sections/SuccessStories";
 import TrustStrip from "@/components/marketing/TrustStrip";
-import { PricingSection, ServicesSection } from "@/components/pricing/PricingSections";
-import { hasSession } from "@/lib/auth";
-import { getPlan } from "@/lib/billing";
 
 /**
- * Marketing landing (v2, spec web/LANDING-V2-SPEC.md section 7). Order: hero carousel (V2.2) and
- * ATS trust strip, then the page body (V2.3): pillars, inbox tracking, job matches, resumes,
- * dashboard, how it works, for individuals, for organisations; then the full Pricing and
- * Services sections (every plan and service, each with a details pop-up - there is no separate
- * pricing page) and the final call to action. Header + footer come from the `(marketing)`
- * layout. The visitor's plan is read only to label Pro's button (already on Pro / payments not
- * open yet / checkout). There is deliberately no stats or testimonials section (spec section 1).
+ * Marketing landing (v2, exact-board mode, spec web/LANDING-V2-SPEC.md section 13). Order: hero
+ * carousel and trust strip, then pillars, track applications, find opportunities, AI resume builder,
+ * dashboard, how it works, for individuals, for organizations, stats, success stories and the final
+ * call to action. Pricing and Services live on /pricing. Header + footer come from the
+ * `(marketing)` layout.
  */
 
-export default async function Home() {
-  const signedIn = await hasSession();
-  // Only meaningful when signed in; a signed-out visitor gets the defaults (Free, no billing).
-  const plan = signedIn ? await getPlan() : null;
-  const alreadyPro = plan?.plan === "PRO";
-  const billingLive = plan?.billingEnabled ?? false;
-
+export default function Home() {
   return (
     <>
       {/* Hero carousel (V2.2) + trust strip. Slide art is rendered here on the server (Photo and
@@ -59,11 +50,8 @@ export default async function Home() {
       <HowItWorks />
       <ForIndividuals />
       <ForOrganizations />
-
-      {/* Pricing (Free · Pro · Autopilot · Consultancy) and Services — each card opens a pop-up with
-          the full breakdown. This replaced the separate /pricing page, which now redirects here. */}
-      <PricingSection signedIn={signedIn} alreadyPro={alreadyPro} billingLive={billingLive} />
-      <ServicesSection />
+      <Stats />
+      <SuccessStories />
       <FinalCta />
     </>
   );

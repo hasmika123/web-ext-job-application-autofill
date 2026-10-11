@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowRightIcon, ChevronDownIcon, MenuIcon, XIcon, cn } from "@kiwiply/ui";
-import { BetaBadge } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import BrandLogo from "./BrandLogo";
 import { LOGIN_HREF, NAV, SIGNUP_HREF, type NavGroup } from "./nav";
@@ -17,8 +17,13 @@ export interface MarketingHeaderProps {
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
+/** `/#pricing` anchors became the real `/pricing` page (spec 13): map them here whatever nav.ts says. */
+const fixHref = (href: string) => (href === "/#pricing" ? "/pricing" : href);
+
 /**
- * Landing-v2 marketing header. Sticky + translucent. Desktop (>= lg): nav with click-to-open
+ * Landing-v2 marketing header. Sticky, transparent over the hero (no border, no Beta pill); it picks up
+ * a translucent white blur only after the page scrolls. On `/` it overlays the hero (negative
+ * bottom margin = its own height) so the hero's wash shows behind the nav. Desktop (>= lg): nav with click-to-open
  * dropdown panels (Enter/Space/ArrowDown open, Escape / outside click / focus-out close, arrow
  * keys move within). Below lg: a hamburger button opens a full-width sheet with accordion
  * groups and both CTAs; Escape closes, body scroll is locked while open, focus returns to the
@@ -33,6 +38,16 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accordion, setAccordion] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const overlay = usePathname() === "/";
+
+  // Transparent until the page has scrolled a few px (then translucent white + blur, no border).
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   /* ── desktop dropdowns ─────────────────────────────────────────────────────────── */
 
@@ -135,23 +150,28 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
   /* ── render ────────────────────────────────────────────────────────────────────── */
 
   const topLinkClass =
-    "inline-flex min-h-11 items-center gap-1 rounded-[var(--radius)] px-3 text-[15px] font-semibold text-ink " +
-    "transition-colors hover:bg-paper-2";
+    "inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius)] px-3.5 text-[15px] font-medium text-ink " +
+    "transition-colors hover:bg-white/70";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-white/85 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-5 lg:h-[72px] lg:px-8">
-        <Link href="/" aria-label="Kiwiply home" className="flex flex-none items-center gap-2">
-          <BrandLogo priority className="h-[30px] md:h-9" />
-          <BetaBadge />
+    <header
+      className={cn(
+        "sticky top-0 z-40 transition-[background-color,backdrop-filter] duration-200",
+        overlay && "-mb-16 lg:-mb-[84px]",
+        scrolled || mobileOpen ? "bg-white/85 backdrop-blur" : "bg-transparent",
+      )}
+    >
+      <div className="mx-auto flex h-16 max-w-[1320px] items-center gap-4 px-5 lg:h-[84px] lg:px-8">
+        <Link href="/" aria-label="Kiwiply home" className="flex flex-none items-center">
+          <BrandLogo priority className="h-[34px] md:h-10 lg:h-11" />
         </Link>
 
         {/* Desktop nav */}
-        <nav ref={navRef} aria-label="Main" className="ml-4 hidden items-center gap-0.5 lg:flex">
+        <nav ref={navRef} aria-label="Main" className="ml-6 hidden items-center gap-1 lg:ml-10 lg:flex">
           {NAV.map((entry) => {
             if (entry.kind === "link") {
               return (
-                <Link key={entry.label} href={entry.href} data-nav-top className={topLinkClass}>
+                <Link key={entry.label} href={fixHref(entry.href)} data-nav-top className={topLinkClass}>
                   {entry.label}
                 </Link>
               );
@@ -188,7 +208,7 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
                     {entry.items.map((item) => (
                       <Link
                         key={item.label}
-                        href={item.href}
+                        href={fixHref(item.href)}
                         onClick={() => setOpenGroup(null)}
                         className="flex min-h-10 items-center rounded-[var(--radius)] px-3 text-[14.5px] font-medium text-ink-soft transition-colors hover:bg-v2-lime-soft hover:text-ink focus-visible:bg-v2-lime-soft focus-visible:text-ink"
                       >
@@ -213,10 +233,13 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
               </>
             ) : (
               <>
-                <Link href={LOGIN_HREF} className={buttonVariants("ghost", "lg", "bg-white")}>
+                <Link
+                  href={LOGIN_HREF}
+                  className="inline-flex items-center justify-center rounded-[12px] bg-white px-6 py-3 text-[15px] font-semibold leading-none text-ink shadow-v2-card transition-shadow hover:shadow-v2-float"
+                >
                   Log in
                 </Link>
-                <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg")}>
+                <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg", "shadow-[0_6px_16px_rgba(95,191,31,.28)]")}>
                   Get Started Free
                   <ArrowRightIcon size={16} />
                 </Link>
@@ -231,7 +254,7 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
             aria-expanded={mobileOpen}
             aria-controls={`${uid}-mobile`}
             onClick={() => (mobileOpen ? closeMobile(true) : setMobileOpen(true))}
-            className="grid h-11 w-11 flex-none cursor-pointer place-items-center rounded-[var(--radius)] border border-line bg-white text-ink transition-colors hover:bg-paper-2 lg:hidden"
+            className="grid h-11 w-11 flex-none cursor-pointer place-items-center rounded-[var(--radius)] bg-transparent text-ink transition-colors hover:bg-white/70 lg:hidden"
           >
             {mobileOpen ? <XIcon size={20} /> : <MenuIcon size={22} />}
           </button>
@@ -243,7 +266,7 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
       {mobileOpen && (
         <div
           id={`${uid}-mobile`}
-          className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-line bg-white shadow-v2-float lg:hidden"
+          className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto bg-white shadow-v2-float lg:hidden"
         >
           <nav aria-label="Mobile" className="mx-auto max-w-7xl px-5 py-3">
             <ul className="flex flex-col">
@@ -251,7 +274,7 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
                 entry.kind === "link" ? (
                   <li key={entry.label} className="border-b border-line">
                     <Link
-                      href={entry.href}
+                      href={fixHref(entry.href)}
                       onClick={() => closeMobile(false)}
                       className="flex min-h-12 items-center text-base font-semibold text-ink"
                     >
@@ -344,7 +367,7 @@ function MobileGroup({
           {group.items.map((item) => (
             <li key={item.label}>
               <Link
-                href={item.href}
+                href={fixHref(item.href)}
                 onClick={onNavigate}
                 className="flex min-h-11 items-center rounded-[var(--radius)] px-3 text-[15px] font-medium text-ink-soft hover:bg-v2-lime-soft hover:text-ink"
               >

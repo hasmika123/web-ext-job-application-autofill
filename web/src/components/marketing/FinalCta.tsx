@@ -1,50 +1,63 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRightIcon, Confetti, SparkBurst } from "@kiwiply/ui";
+import { ArrowRightIcon, CurvedArrow, StarDoodle } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui";
 import Handwritten from "./Handwritten";
 import { Mascot } from "./media";
 import { SIGNUP_HREF } from "./nav";
 
 /**
- * Closing call-to-action band (spec 7.2 item 12): lime-soft panel, two buttons. V2.3b: the laptop
- * mascot sits on the band's bottom edge (the band clips it flush) beside the handwritten note.
+ * Closing call-to-action (spec 13.2 item 12): full-bleed, standing on the board's illustrated campus
+ * band (`/v2/cta-backdrop.jpg`). The board crop had its own copy baked in, so the file is a cleaned
+ * composite (trees and buildings only, on the canvas colour, fading in from the top); it hangs on
+ * the section's bottom edge. Copy left, the laptop mascot in the middle, the handwritten note
+ * right. Mobile: copy, buttons, then the mascot beside the note (the mobile board's wording).
  */
 export default function FinalCta() {
   return (
-    <section aria-labelledby="final-cta-title" className="overflow-x-clip px-5 pb-16 pt-4 lg:px-8 lg:pb-24">
-      <div className="relative mx-auto max-w-[1200px] overflow-hidden rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft px-6 py-12 shadow-v2-card sm:px-10 lg:px-16 lg:py-16">
-        <SparkBurst aria-hidden className="absolute left-6 top-6 hidden h-9 w-9 text-v2-lime-deep sm:block" />
-        <Confetti aria-hidden className="absolute bottom-8 left-[46%] hidden h-8 w-8 text-v2-violet lg:block" />
-        <div className="relative grid items-center gap-8 md:grid-cols-[1fr_260px] lg:grid-cols-[1fr_300px]">
-          <div className="flex flex-col items-start gap-4">
-            <h2 id="final-cta-title" className="max-w-xl text-[28px] text-v2-navy md:text-4xl lg:text-[40px]">
-              Your next opportunity is waiting.
-            </h2>
-            <p className="max-w-lg text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
-              Build one profile, apply with less busywork, and keep every application in sight.
-            </p>
-            <div className="mt-2 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>
-                Get Started Free <ArrowRightIcon size={16} />
-              </Link>
-              <Link href="/#pricing" className={buttonVariants("ghost", "lg", "min-h-11 w-full bg-white sm:w-auto")}>
-                View pricing
-              </Link>
-            </div>
-          </div>
-          {/* Mobile: the mascot closes the band, flush with its bottom edge (the band's bottom
-              padding is eaten by the negative margin). md+: it is positioned on the band itself. */}
-          <Mascot pose="laptop" className="-mb-12 mt-2 h-36 w-36 justify-self-center md:hidden" />
-          <div aria-hidden className="relative hidden h-40 md:block">
-            <Handwritten family="green" className="absolute left-2 top-0 w-56 rotate-3 text-left">
-              Same goals. Bigger possibilities.
-            </Handwritten>
+    <section aria-labelledby="final-cta-title" className="relative overflow-hidden">
+      <Image
+        src="/v2/cta-backdrop.jpg"
+        alt=""
+        width={1920}
+        height={198}
+        sizes="100vw"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-24 w-full select-none object-cover object-center sm:h-auto"
+      />
+
+      <div className="relative mx-auto grid max-w-[1200px] items-center gap-6 px-5 pb-12 pt-14 lg:grid-cols-[minmax(0,520px)_230px_1fr] lg:gap-6 lg:px-8 lg:pb-16 lg:pt-20">
+        <div className="flex flex-col items-start gap-4">
+          <h2 id="final-cta-title" className="max-w-md text-[30px] text-v2-navy md:text-4xl lg:text-[40px]">
+            Your next opportunity is waiting.
+          </h2>
+          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+            Join thousands of students and professionals who are building brighter futures with Kiwiply.
+          </p>
+          <div className="mt-2 flex flex-row flex-wrap items-center gap-3">
+            <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg", "min-h-11")}>
+              Get Started for Free <ArrowRightIcon size={16} />
+            </Link>
+            <Link href="/pricing" className={buttonVariants("ghost", "lg", "min-h-11 border-transparent bg-transparent shadow-none")}>
+              View Pricing
+            </Link>
           </div>
         </div>
-        <Mascot
-          pose="laptop"
-          className="absolute bottom-0 right-10 hidden h-[200px] w-[190px] md:block lg:right-16 lg:h-[220px] lg:w-[208px]"
-        />
+
+        <Mascot pose="laptop" className="hidden h-[210px] w-[200px] justify-self-center lg:block" />
+        <div aria-hidden className="relative hidden h-40 lg:block">
+          <Handwritten family="green" className="absolute left-0 top-6 w-52 -rotate-3 text-[26px]">
+            Same goals. Bigger possibilities.
+          </Handwritten>
+          <CurvedArrow direction="down-left" className="absolute left-1 top-[104px] h-9 w-9 text-v2-green" />
+          <StarDoodle className="absolute left-0 top-0 h-5 w-5 text-v2-lime-deep" />
+        </div>
+
+        <div className="flex items-end gap-2 lg:hidden">
+          <Mascot pose="laptop" className="h-32 w-32" />
+          <Handwritten family="blue" className="mb-6 w-40 -rotate-3">
+            More opportunities for a brighter you.
+          </Handwritten>
+        </div>
       </div>
     </section>
   );

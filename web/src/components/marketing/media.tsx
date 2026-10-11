@@ -96,7 +96,14 @@ export function Mascot({ pose, className, eager }: MascotProps) {
 /* ── Photo ────────────────────────────────────────────────────────────────────────── */
 
 export type PhotoId =
-  "hero-individual" | "hero-student" | "hero-team" | "hero-copilot" | "about-portrait" | "about-team" | "org-team";
+  | "hero-individual"
+  | "hero-student"
+  | "hero-team"
+  | "hero-copilot"
+  | "hero-headphones"
+  | "about-portrait"
+  | "about-team"
+  | "org-team";
 
 export interface PhotoProps {
   id: PhotoId;

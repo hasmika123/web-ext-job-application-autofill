@@ -1,14 +1,19 @@
 /**
  * Marketing navigation data (landing v2) — single source for the header (desktop dropdowns +
- * mobile sheet) and the footer columns. Spec: web/LANDING-V2-SPEC.md §4.1.
+ * mobile sheet) and the footer columns. Spec: web/LANDING-V2-SPEC.md §4.1, §13.3 and the link map
+ * in §13.6.
  *
- * Every `/#anchor` here must resolve to a section id on the landing page once V2.3 lands.
- * Only link to pages that exist: no Blog / Careers / Press / Help Center.
+ * Every `/#anchor` here resolves to a section id on the landing page (`#pillars`, `#autofill`,
+ * `#inbox`, `#matches`, `#resumes`, `#dashboard`, `#how`, `#individuals`, `#organizations`).
+ * Pricing lives on `/pricing` (plans: `#pricing`, services: `#services`). Board items with no page
+ * carry `soon: true`: the footer renders them as plain text with a "Soon" chip, never a dead link.
  */
 
 export interface NavLink {
   label: string;
   href: string;
+  /** No destination yet: render text + a "Soon" chip instead of a link. */
+  soon?: boolean;
 }
 
 export interface NavGroup {
@@ -25,20 +30,20 @@ const INDIVIDUALS: NavLink[] = [
   { label: "Track your inbox", href: "/#inbox" },
   { label: "Resumes", href: "/#resumes" },
   { label: "Who it's for", href: "/#individuals" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Pricing", href: "/pricing" },
 ];
 
 const ORGANIZATIONS: NavLink[] = [
   { label: "Overview", href: "/organizations" },
   { label: "How it works", href: "/organizations#how" },
-  { label: "Consultancy plan", href: "/#pricing" },
+  { label: "Consultancy plan", href: "/pricing" },
   { label: "Talk to us", href: "/contact?topic=organization" },
 ];
 
 const RESOURCES: NavLink[] = [
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
-  { label: "Expert services", href: "/#services" },
+  { label: "Expert services", href: "/pricing#services" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
 ];
@@ -46,43 +51,104 @@ const RESOURCES: NavLink[] = [
 export const NAV: NavEntry[] = [
   { kind: "group", label: "For Individuals", items: INDIVIDUALS },
   { kind: "group", label: "For Organizations", items: ORGANIZATIONS },
-  { kind: "link", label: "Pricing", href: "/#pricing" },
+  { kind: "link", label: "Pricing", href: "/pricing" },
   { kind: "group", label: "Resources", items: RESOURCES },
 ];
 
-/** Footer link columns, in display order. */
+/** Footer link columns, exactly as on the board (spec §13.3), destinations per §13.6. */
 export const FOOTER_COLUMNS: NavGroup[] = [
-  { label: "For Individuals", items: INDIVIDUALS },
-  { label: "For Organizations", items: ORGANIZATIONS },
+  {
+    label: "For Individuals",
+    items: [
+      { label: "How It Works", href: "/#how" },
+      { label: "Find Jobs", href: "/#matches" },
+      { label: "AI Application Copilot", href: "/#pillars" },
+      { label: "Resume Builder", href: "/#resumes" },
+      { label: "Interview Prep", href: "/#how" },
+      { label: "Application Tracker", href: "/dashboard" },
+      { label: "Browser Extension", href: "/signup" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Sign Up", href: "/signup" },
+    ],
+  },
+  {
+    label: "For Organizations",
+    items: [
+      { label: "Overview", href: "/organizations" },
+      { label: "Team Management", href: "/organizations#features" },
+      { label: "Scheduled Applications", href: "/organizations#features" },
+      { label: "Reports & Analytics", href: "/organizations#features" },
+      { label: "Recruiter Manager Tools", href: "/organizations#features" },
+      { label: "Roles & Permissions", href: "/organizations#features" },
+      { label: "Enterprise Security", href: "/organizations#features" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Request a Demo", href: "/contact?topic=organization" },
+    ],
+  },
   {
     label: "Resources",
     items: [
-      { label: "Pricing", href: "/#pricing" },
-      { label: "Expert services", href: "/#services" },
-      { label: "Product updates", href: "#newsletter" },
+      { label: "Blog", href: "#", soon: true },
+      { label: "Career Guides", href: "#", soon: true },
+      { label: "Resume Examples", href: "#", soon: true },
+      { label: "Interview Questions", href: "#", soon: true },
+      { label: "Company Reviews", href: "#", soon: true },
+      { label: "Job Search Tips", href: "#", soon: true },
+      { label: "Browser Extension Help", href: "/signup" },
+      { label: "API", href: "#", soon: true },
     ],
   },
   {
     label: "Company",
     items: [
-      { label: "About", href: "/about" },
-      { label: "Contact", href: "/contact" },
+      { label: "About Us", href: "/about" },
+      { label: "Our Mission", href: "/about#mission" },
+      { label: "Careers", href: "/contact" },
+      { label: "Press", href: "/contact" },
+      { label: "Contact Us", href: "/contact" },
+      { label: "Security", href: "/privacy" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
+      { label: "Status", href: "/contact" },
     ],
   },
 ];
 
 export interface SocialLink {
   label: string;
+  /** Short lettering shown in the round tile. */
+  short: string;
   href: string;
 }
 
-/**
- * Social profiles. Empty on purpose: the footer renders nothing for an empty list, and we
- * don't link accounts that don't exist. Add real ones here when they do.
- */
-export const SOCIAL_LINKS: SocialLink[] = [];
+/** Social profiles shown as lettered round tiles. `#` until the real accounts exist. */
+export const SOCIAL_LINKS: SocialLink[] = [
+  { label: "X", short: "X", href: "#" },
+  { label: "LinkedIn", short: "in", href: "#" },
+  { label: "Instagram", short: "Ig", href: "#" },
+  { label: "YouTube", short: "Yt", href: "#" },
+  { label: "TikTok", short: "Tk", href: "#" },
+];
+
+/** Browsers the extension runs in, shown as lettered square tiles (not links). */
+export const BROWSER_TILES: { label: string; short: string; color: string }[] = [
+  { label: "Chrome", short: "C", color: "#4285F4" },
+  { label: "Edge", short: "E", color: "#0F9D8A" },
+  { label: "Firefox", short: "F", color: "#FF7139" },
+  { label: "Brave", short: "B", color: "#FB542B" },
+  { label: "Opera", short: "O", color: "#FF1B2D" },
+  { label: "Safari", short: "S", color: "#1E90FF" },
+];
+
+/** Bottom-row legal links, in board order (spec §13.3 / §13.6). */
+export const FOOTER_LEGAL: NavLink[] = [
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Cookies", href: "/privacy#cookies" },
+  { label: "Accessibility", href: "/contact" },
+  { label: "Sitemap", href: "/sitemap.xml" },
+  { label: "Do Not Sell or Share My Personal Information", href: "/privacy" },
+];
 
 /** Header CTA targets. */
 export const LOGIN_HREF = "/login";

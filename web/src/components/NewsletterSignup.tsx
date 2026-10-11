@@ -7,7 +7,8 @@ import { isEmail } from "@/lib/validate";
  * Footer newsletter opt-in (Phase 9.A4.2). Double opt-in: this just records intent and triggers
  * a confirmation email — we always show the same "check your email" message (no enumeration).
  */
-export default function NewsletterSignup() {
+export default function NewsletterSignup({ tone = "light" }: { tone?: "light" | "dark" }) {
+  const dark = tone === "dark";
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -46,7 +47,7 @@ export default function NewsletterSignup() {
 
   if (done) {
     return (
-      <p className="text-[12.5px] leading-relaxed text-ink-soft">
+      <p className={dark ? "text-[13px] leading-relaxed text-white/80" : "text-[12.5px] leading-relaxed text-ink-soft"}>
         Thanks! Check your inbox for a confirmation link to finish subscribing.
       </p>
     );
@@ -54,7 +55,7 @@ export default function NewsletterSignup() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-2">
-      <label htmlFor="nl-email" className="text-[12.5px] font-medium text-ink-soft">
+      <label htmlFor="nl-email" className={dark ? "sr-only" : "text-[12.5px] font-medium text-ink-soft"}>
         Product updates &amp; tips
       </label>
       <div className="flex gap-2">
@@ -67,22 +68,30 @@ export default function NewsletterSignup() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           aria-label="Email for newsletter"
-          className="min-w-0 flex-1 rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink"
+          className={
+            dark
+              ? "min-w-0 flex-1 rounded-[var(--radius)] border border-white/20 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-v2-lime"
+              : "min-w-0 flex-1 rounded-[var(--radius)] border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-ink"
+          }
         />
         <button
           type="submit"
           disabled={busy}
-          className="shrink-0 rounded-[var(--radius)] bg-ink px-3.5 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+          className={
+            dark
+              ? "shrink-0 rounded-[var(--radius)] bg-v2-lime px-3.5 py-2 text-sm font-bold text-v2-navy transition-opacity hover:opacity-90 disabled:opacity-50"
+              : "shrink-0 rounded-[var(--radius)] bg-ink px-3.5 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+          }
         >
           {busy ? "…" : "Subscribe"}
         </button>
       </div>
       {error ? (
-        <p role="alert" className="text-[12px] text-danger">
+        <p role="alert" className={dark ? "text-[12px] text-[#FF9C9C]" : "text-[12px] text-danger"}>
           {error}
         </p>
       ) : (
-        <p className="text-[12px] text-muted">Double opt-in. Unsubscribe anytime. No spam.</p>
+        <p className={dark ? "text-[12px] text-white/60" : "text-[12px] text-muted"}>Double opt-in. Unsubscribe anytime. No spam.</p>
       )}
     </form>
   );

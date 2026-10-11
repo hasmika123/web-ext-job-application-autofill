@@ -3,15 +3,15 @@ import { cn, type IconProps } from "@kiwiply/ui";
 import { FAMILY, type Family } from "./family";
 
 /**
- * Icon tile + title + body card. Used by the pillars strip (and later the tool / value grids).
- * `chip` renders a small plan tag ("Pro") beside the title. Spec section 4.
+ * Icon tile + title + body card. Used by the pillars strip. Spec section 4.
+ * `layout`: `stack` = icon above text; `row` = icon beside text; `responsive` = a row below lg and
+ * a centred stack from lg up (the pillars strip, as on the board's desktop and mobile frames).
  */
 export default function FeatureTile({
   icon: Icon,
   family,
   title,
   body,
-  chip,
   align = "left",
   layout = "stack",
   className,
@@ -20,10 +20,8 @@ export default function FeatureTile({
   family: Family;
   title: string;
   body: string;
-  chip?: string;
   align?: "left" | "center";
-  /** `stack` = icon above text; `row` = icon beside text. */
-  layout?: "stack" | "row";
+  layout?: "stack" | "row" | "responsive";
   className?: string;
 }) {
   const f = FAMILY[family];
@@ -32,7 +30,9 @@ export default function FeatureTile({
     <div
       className={cn(
         "h-full rounded-[var(--radius-v2-card)] border border-v2-line/60 bg-white p-5 shadow-v2-card",
-        layout === "row" ? "flex items-start gap-4" : "flex flex-col gap-3",
+        layout === "row" && "flex items-start gap-4",
+        layout === "stack" && "flex flex-col gap-3",
+        layout === "responsive" && "flex items-start gap-4 lg:flex-col lg:items-center lg:gap-3 lg:text-center",
         centered && "items-center text-center",
         className,
       )}
@@ -41,14 +41,7 @@ export default function FeatureTile({
         <Icon className="h-6 w-6" />
       </span>
       <div>
-        <div className={cn("flex flex-wrap items-center gap-2", centered && "justify-center")}>
-          <h3 className="text-[16px] font-bold leading-snug tracking-normal text-v2-navy">{title}</h3>
-          {chip ? (
-            <span className="rounded-full bg-v2-violet-soft px-2 py-0.5 text-[11px] font-bold leading-none text-[#5B3FE0]">
-              {chip}
-            </span>
-          ) : null}
-        </div>
+        <h3 className="text-[16px] font-bold leading-snug tracking-normal text-v2-navy">{title}</h3>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-v2-ink-soft">{body}</p>
       </div>
     </div>

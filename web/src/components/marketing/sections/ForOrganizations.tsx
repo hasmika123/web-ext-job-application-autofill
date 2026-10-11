@@ -1,70 +1,65 @@
-import Link from "next/link";
-import { ArrowRightIcon, CheckCircleIcon } from "@kiwiply/ui";
-import { buttonVariants } from "@/components/ui";
+import { CheckCircleIcon } from "@kiwiply/ui";
 import Handwritten from "../Handwritten";
 import { Mascot, Photo } from "../media";
 import OrgTableMock from "../mocks/OrgTableMock";
 import Section from "../Section";
 import SectionHeading from "../SectionHeading";
+import { CtaLink } from "./shared";
 
 /**
- * For organisations teaser (spec 7.2 item 10): checklist and the team cutout left (flush with the
- * section's bottom edge), OrgTableMock on the right with the note and the plane mascot beside it.
+ * For Organizations (spec 13.2 item 9): copy | white checklist card | "Organization Dashboard"
+ * mock, with the note and the headphones mascot in a right-hand gutter. The team cutout sits under
+ * the CTA. Mobile order: heading, CTA, team cutout, checklist, dashboard, note + mascot.
  */
 const CHECKLIST = [
-  "Multiple consultants",
-  "Marketer-prepared applications",
+  "Manage multiple employees",
+  "Track team applications",
   "Role-based access",
-  "Progress across the bench",
-  "Expert services per person",
+  "Analytics and reports",
+  "Custom workflows & alerts",
 ];
 
 export default function ForOrganizations() {
   return (
-    <Section id="organizations" labelledBy="orgs-title">
-      <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+    <Section id="organizations" labelledBy="orgs-title" className="py-10 lg:py-14">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[0.85fr_0.8fr_1.25fr_120px] lg:items-center lg:gap-6">
         <div className="flex flex-col items-start gap-6">
           <SectionHeading
             id="orgs-title"
-            eyebrow="For organisations"
+            eyebrow="For Organizations"
             family="blue"
-            title="Support your"
-            accent="people's search."
+            title="Empower your team."
+            lede="Help your team find opportunities, track applications and grow together."
           />
-          <ul className="space-y-3">
-            {CHECKLIST.map((item) => (
-              <li key={item} className="flex items-center gap-3 text-[15px] font-medium text-v2-navy">
-                <CheckCircleIcon aria-hidden className="h-5 w-5 flex-none text-v2-green" />
-                {item}
-              </li>
-            ))}
-          </ul>
-          <Link href="/organizations" className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>
-            Explore for Organizations <ArrowRightIcon size={16} />
-          </Link>
-          {/* The negative bottom margin eats the section's bottom padding (desktop only: on mobile
-              the visual column follows), so the cutout rests on the section edge. */}
+          <CtaLink href="/organizations">Explore for Organizations</CtaLink>
           <Photo
             id="hero-team"
             alt="Three colleagues smiling at their laptops together"
-            className="mx-auto mt-2 w-full max-w-[520px] lg:-mb-24 lg:mt-4"
-            sizes="(min-width: 1024px) 520px, 100vw"
+            className="mx-auto mt-2 w-full max-w-[360px] lg:mx-0 lg:mt-4 lg:w-[88%]"
+            sizes="(min-width: 1024px) 300px, 360px"
             edgeFade={[8, 4]}
           />
         </div>
 
-        <div className="relative pb-24 sm:pt-16 lg:pb-0">
+        <ul className="space-y-4 rounded-[var(--radius-v2-card)] border border-v2-line/60 bg-white p-5 shadow-v2-card lg:p-6">
+          {CHECKLIST.map((item) => (
+            <li key={item} className="flex items-center gap-3 text-[14px] font-medium text-v2-ink-soft">
+              <CheckCircleIcon aria-hidden className="h-5 w-5 flex-none text-v2-green" />
+              {item}
+            </li>
+          ))}
+        </ul>
+
+        <OrgTableMock />
+
+        <div className="relative flex items-end gap-2 lg:block lg:h-[260px]">
+          <Mascot pose="headphones" className="-mb-2 h-28 w-28 lg:absolute lg:bottom-0 lg:left-4 lg:mb-0 lg:h-[120px] lg:w-[116px]" />
           <Handwritten
             family="blue"
-            className="mb-4 text-center sm:absolute sm:right-0 sm:top-0 sm:z-20 sm:mb-0 sm:w-56 sm:rotate-3 sm:text-left"
+            className="mb-6 w-44 -rotate-3 text-[24px] lg:absolute lg:left-2 lg:top-8 lg:mb-0 lg:w-28 lg:rotate-[-8deg]"
           >
-            Build great careers together.
+            Build greater opportunities together.
           </Handwritten>
-          <OrgTableMock className="relative z-10 lg:w-[78%]" />
-          <Mascot
-            pose="plane"
-            className="absolute bottom-0 right-0 z-20 h-28 w-28 sm:-right-2 sm:h-32 sm:w-32 lg:right-0 lg:h-40 lg:w-40"
-          />
         </div>
       </div>
     </Section>

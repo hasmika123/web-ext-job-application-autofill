@@ -1,57 +1,85 @@
-import Link from "next/link";
-import { ArrowRightIcon, CurvedArrow, SparkBurst } from "@kiwiply/ui";
-import { buttonVariants } from "@/components/ui";
+import { CurvedArrow, SparkBurst, StarDoodle } from "@kiwiply/ui";
 import Handwritten from "../Handwritten";
 import { Mascot } from "../media";
 import InboxMock from "../mocks/InboxMock";
 import { SIGNUP_HREF } from "../nav";
 import Section from "../Section";
 import SectionHeading from "../SectionHeading";
+import { CtaLink } from "./shared";
 
-/** Inbox tracking (spec 7.2 item 4): lime-soft band, copy left, InboxMock + mascot right. */
+/**
+ * Track applications (spec 13.2 item 3): a lime-soft rounded band. Desktop: copy | a column of
+ * Gmail / Outlook / Yahoo lettered tiles (with the "No more checking manually!" note) | the inbox
+ * mock, with the second note and the envelope mascot in its right gutter. Mobile: copy, CTA, tiles
+ * in a row, inbox, then the mascot beside its note.
+ */
+const PROVIDERS = [
+  { name: "Gmail", letter: "M", color: "#EA4335" },
+  { name: "Outlook", letter: "O", color: "#0F6CBD" },
+  { name: "Yahoo", letter: "Y", color: "#6001D2" },
+];
+
 export default function InboxTracking() {
   return (
-    <Section
-      id="inbox"
-      labelledBy="inbox-title"
-      className="bg-gradient-to-b from-v2-lime-soft/70 via-v2-lime-soft/40 to-transparent"
-    >
-      <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+    <Section id="inbox" labelledBy="inbox-title" tone="lime">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[0.85fr_92px_1.4fr] lg:items-center lg:gap-6">
         <div className="flex flex-col items-start gap-6">
           <SectionHeading
             id="inbox-title"
-            eyebrow="Track applications"
-            family="lime"
-            title="We track your job-application emails"
-            accent="automatically."
-            lede="Connect your Gmail and Kiwiply reads recruiter replies, interview invites and rejections, then updates your board — we never send, move or delete mail."
+            eyebrow="Track Applications"
+            family="green"
+            caps
+            title="We track your job application emails automatically."
+            lede="Connect your Gmail or Outlook and Kiwiply monitors recruiter responses, interview invites, rejections and more — then alerts you instantly."
           />
-          <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>
-            See how Inbox works <ArrowRightIcon size={16} />
-          </Link>
-          <p className="max-w-md text-[13px] leading-relaxed text-v2-muted">
-            Gmail only, with an App Password. We keep message headers and text, never attachments.
-          </p>
+          <CtaLink href={SIGNUP_HREF}>Connect Your Email</CtaLink>
         </div>
 
-        <div className="relative pb-24 sm:pb-28 sm:pt-16">
+        <div className="flex flex-row items-center justify-start gap-3 lg:flex-col lg:items-stretch lg:gap-4">
+          <ul className="flex gap-3 lg:flex-col lg:gap-4">
+            {PROVIDERS.map((p) => (
+              <li
+                key={p.name}
+                className="grid h-[68px] w-[68px] place-items-center rounded-2xl border border-white bg-white shadow-v2-card lg:h-[76px] lg:w-[76px]"
+              >
+                <span className="sr-only">{p.name}</span>
+                <span aria-hidden className="text-[32px] font-extrabold leading-none" style={{ color: p.color }}>
+                  {p.letter}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Handwritten family="amber" className="hidden w-28 -rotate-6 text-[22px] lg:block">
+            No more checking manually!
+          </Handwritten>
+        </div>
+
+        <div className="relative lg:pb-4 lg:pt-6">
+          <SparkBurst aria-hidden className="absolute -left-3 top-2 hidden h-7 w-7 text-v2-lime-deep lg:block" />
+          <InboxMock className="relative z-10 lg:w-[76%]" />
+          {/* Desktop: the note sits in the gutter right of the mock, the mascot hugs the band's edge. */}
           <Handwritten
-            family="green"
-            className="mb-4 text-center sm:absolute sm:right-6 sm:top-0 sm:z-20 sm:mb-0 sm:w-64 sm:rotate-3 sm:text-left"
+            family="blue"
+            className="absolute right-0 top-2 hidden w-[19%] rotate-6 text-[24px] lg:block"
           >
             We&apos;ll keep an eye on your inbox!
           </Handwritten>
-          <SparkBurst aria-hidden className="absolute -left-3 top-6 hidden h-9 w-9 text-v2-lime-deep sm:block" />
+          <StarDoodle aria-hidden className="absolute right-[1%] top-[44%] hidden h-5 w-5 text-v2-amber lg:block" />
           <CurvedArrow
             direction="down-left"
             aria-hidden
-            className="absolute right-2 top-12 z-20 hidden h-10 w-10 text-v2-green lg:block"
+            className="absolute right-[8%] top-[34%] hidden h-9 w-9 text-v2-green lg:block"
           />
-          <InboxMock className="relative z-10" />
           <Mascot
             pose="envelope"
-            className="absolute bottom-0 right-0 z-20 h-28 w-28 sm:-right-3 sm:h-40 sm:w-40 lg:h-44 lg:w-44"
+            className="absolute bottom-[-6px] right-[-14px] z-20 hidden h-40 w-40 lg:block xl:h-44 xl:w-44"
           />
+          <div className="mt-4 flex items-end gap-2 lg:hidden">
+            <Mascot pose="envelope" className="-mb-4 h-32 w-32" />
+            <Handwritten family="blue" className="mb-6 w-40 -rotate-3 text-[24px]">
+              We&apos;ll keep an eye on your inbox!
+            </Handwritten>
+          </div>
         </div>
       </div>
     </Section>

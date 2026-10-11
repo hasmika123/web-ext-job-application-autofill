@@ -36,3 +36,36 @@ h3 {
   letter-spacing: -.01em;
   font-weight: 600;
 }
+
+/* Landing v2 hero art stage (V2.2x). The art is composed on a fixed 820x700 canvas (px) and scaled
+   with `--hs`: 0.88 on tablets (stacked under the copy), then from 1280px it pins to the hero's
+   bottom-right and grows 0.86 -> 1.0 so the cards never run into the copy column. The scaled box is
+   what takes up layout space; the inner 820x700 canvas is scaled from its top-left corner. */
+.hero-art-stage {
+  --hs: 1;
+  width: calc(820px * var(--hs));
+  height: calc(700px * var(--hs));
+}
+.hero-art-stage > .hero-art-canvas {
+  width: 820px;
+  height: 700px;
+  transform: scale(var(--hs));
+  transform-origin: top left;
+}
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .hero-art-stage { --hs: 0.88; }
+}
+@media (min-width: 1280px) {
+  .hero-art-stage {
+    --hs: 0.86;
+    position: absolute;
+    bottom: 0;
+    right: calc(-1 * min(72px, (100vw - 100%) / 2));
+  }
+}
+@media (min-width: 1360px) {
+  .hero-art-stage { --hs: 0.93; }
+}
+@media (min-width: 1440px) {
+  .hero-art-stage { --hs: 1; }
+}

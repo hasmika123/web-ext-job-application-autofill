@@ -5,12 +5,14 @@ import { FAMILY, type Family } from "./family";
 /**
  * Eyebrow + h2 (with an optional coloured trailing phrase) + lede. Spec section 4.
  * The accent phrase uses the family's AA-safe `headline` colour; the h2 size follows spec
- * section 2.3 (28px mobile, 36 / 40px desktop).
+ * section 2.3 (28px mobile, 36 / 40px desktop). `caps` renders the eyebrow as the board's small
+ * uppercase pill ("TRACK APPLICATIONS").
  */
 export default function SectionHeading({
   id,
   eyebrow,
   family = "lime",
+  caps,
   title,
   accent,
   accentFamily,
@@ -22,6 +24,8 @@ export default function SectionHeading({
   id?: string;
   eyebrow: string;
   family?: Family;
+  /** Uppercase, letter-spaced eyebrow. */
+  caps?: boolean;
   title: string;
   /** Coloured trailing words of the heading. */
   accent?: string;
@@ -40,8 +44,10 @@ export default function SectionHeading({
         className,
       )}
     >
-      <Eyebrow family={family}>{eyebrow}</Eyebrow>
-      <h2 id={id} className="max-w-3xl text-[28px] text-v2-navy md:text-4xl lg:text-[40px]">
+      <Eyebrow family={family} className={caps ? "px-3 py-1.5 text-[11.5px] font-bold uppercase tracking-wide" : undefined}>
+        {eyebrow}
+      </Eyebrow>
+      <h2 id={id} className="max-w-3xl text-[30px] text-v2-navy md:text-4xl lg:text-[40px]">
         {title}
         {accent ? (
           <>

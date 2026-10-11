@@ -1,14 +1,13 @@
-import { ChartIcon, FileTextIcon, SearchIcon, SparklesIcon, ZapIcon, type IconProps } from "@kiwiply/ui";
+import { ChartIcon, FileTextIcon, SearchIcon, TargetIcon, ZapIcon, type IconProps } from "@kiwiply/ui";
 import type { ComponentType } from "react";
 import FeatureTile from "../FeatureTile";
 import type { Family } from "../family";
 import Section from "../Section";
 
 /**
- * Pillars strip (spec 7.2 item 3): five tiles under the trust strip. Each body is one honest
- * sentence. The "Pro" chip sits only on the tile that is actually gated: Kiwiply AI drafting.
- * Core autofill is free and identical in both tiers, so the autofill tile carries no chip.
- * `#autofill` is the alias anchor for nav's "Autofill applications" (it lands on that tile).
+ * Pillars strip (spec 13.2 item 2): five tiles under the trust strip; a vertical list on mobile
+ * with its own heading (desktop keeps the heading for screen readers only). `#autofill` is the
+ * alias anchor for nav's "Autofill applications" (it lands on that tile).
  */
 const PILLARS: {
   id?: string;
@@ -16,56 +15,55 @@ const PILLARS: {
   family: Family;
   title: string;
   body: string;
-  chip?: string;
 }[] = [
   {
     icon: SearchIcon,
     family: "blue",
     title: "Find the right jobs",
-    body: "Fresh roles from company job boards, scored against your resume and preferences.",
+    body: "Discover opportunities that match your skills, goals and vibe.",
   },
   {
     id: "autofill",
     icon: ZapIcon,
     family: "amber",
-    title: "AI autofill",
-    body: "Fills the application form from your profile. You review every field and press submit.",
+    title: "AI autofill applications",
+    body: "Accurate, fast and tailored to each job.",
   },
   {
     icon: FileTextIcon,
     family: "pink",
-    title: "Best resume per job",
-    body: "Keep tailored variants and let Kiwiply suggest the best one for each posting.",
+    title: "Smart resume selection",
+    body: "Use the best resume automatically.",
   },
   {
-    icon: SparklesIcon,
-    family: "violet",
-    title: "AI-drafted answers",
-    body: "Open-ended questions get a draft you edit. Kiwiply AI on Pro, or bring your own key on Free.",
-    chip: "Pro",
+    icon: TargetIcon,
+    family: "coral",
+    title: "AI-generated answers",
+    body: "Get good answers for tough questions.",
   },
   {
     icon: ChartIcon,
     family: "green",
     title: "Track everything",
-    body: "Every application lands on one board, updated from your inbox as replies arrive.",
+    body: "Keep all your applications, responses and interviews in one place.",
   },
 ];
 
 export default function Pillars() {
   return (
-    <Section id="pillars" labelledBy="pillars-title" className="py-12 lg:py-16">
-      <h2 id="pillars-title" className="sr-only">
-        What Kiwiply does
-      </h2>
-      <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+    <Section id="pillars" labelledBy="pillars-title" className="py-10 lg:py-12">
+      <div className="mb-8 text-center lg:sr-only lg:mb-0">
+        <h2 id="pillars-title" className="mx-auto max-w-sm text-[28px] text-v2-navy">
+          Everything you need to get hired faster.
+        </h2>
+        <p className="mx-auto mt-3 max-w-xs text-[15px] leading-relaxed text-v2-ink-soft">
+          Powerful AI tools to simplify your job search from start to finish.
+        </p>
+      </div>
+      <ul className="grid gap-3 lg:grid-cols-5 lg:gap-4">
         {PILLARS.map((p) => (
-          <li
-            key={p.title}
-            id={p.id}
-            className="scroll-mt-24 last:col-span-2 lg:last:col-span-1"
-          >
-            <FeatureTile icon={p.icon} family={p.family} title={p.title} body={p.body} chip={p.chip} />
+          <li key={p.title} id={p.id} className="scroll-mt-24">
+            <FeatureTile icon={p.icon} family={p.family} title={p.title} body={p.body} layout="responsive" />
           </li>
         ))}
       </ul>

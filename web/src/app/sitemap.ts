@@ -17,7 +17,8 @@ import { SITE_URL } from "@/lib/site";
  * actually changes.
  */
 const PAGES: Array<{ path: string; lastModified: string; priority: number }> = [
-  { path: "/", lastModified: "2026-10-06", priority: 1 },
+  { path: "/", lastModified: "2026-10-10", priority: 1 },
+  { path: "/pricing", lastModified: "2026-10-10", priority: 0.7 },
   { path: "/about", lastModified: "2026-10-10", priority: 0.5 },
   { path: "/organizations", lastModified: "2026-10-10", priority: 0.6 },
   { path: "/contact", lastModified: "2026-10-05", priority: 0.4 },

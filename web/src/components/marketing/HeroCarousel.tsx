@@ -2,22 +2,27 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ArrowRightIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, PlayIcon, cn } from "@kiwiply/ui";
-import { buttonVariants } from "@/components/ui/Button";
+import { ArrowRightIcon, CheckCircleIcon, PlayIcon, SparklesIcon, cn } from "@kiwiply/ui";
 import { DEMO_VIDEO_URL } from "@/lib/site";
 import Eyebrow from "./Eyebrow";
 import { FAMILY, type Family } from "./family";
+import HeroFeatureStrip from "./hero/HeroFeatureStrip";
 
 /**
- * Hero carousel (spec section 6). Four audience slides on a translateX track.
+ * Hero carousel (spec section 6, rebuilt to the boards in V2.2x). Four audience slides on a
+ * translateX track; the section paints its own wash + bokeh and the (transparent) site header
+ * overlays its top edge.
  *
  * Client component, but it never imports `media.tsx` (that reads the filesystem): the server page
  * renders each slide's art (`HeroArt`) and passes it in as the `art` node, alongside the plain,
  * serialisable copy. Behaviour: 7s autoplay that pauses on hover / keyboard focus-within / hidden
- * tab and is off under prefers-reduced-motion; dots, arrows (md+), Left/Right keys when the region
- * has focus, touch/pen swipe (40px); inactive slides are `aria-hidden` + `inert`; a polite live
- * region announces the slide on change. All slides sit in one flex row, so the row is as tall as
- * the tallest slide and nothing shifts when the slide changes.
+ * tab and is off under prefers-reduced-motion; dots (no arrows - Left/Right keys when the region has
+ * focus and touch/pen swipe, 40px, do the rest); inactive slides are `aria-hidden` + `inert`; a
+ * polite live region announces the slide on change. All slides sit in one flex row, so the row is as
+ * tall as the tallest slide and nothing shifts when the slide changes.
+ *
+ * Slide 1 only: from xl a white four-tile feature strip overlaps the hero's bottom edge (faded in
+ * while that slide is active) and the ticks row is not shown (the board has none there).
  */
 
 export interface HeroSlideView {
@@ -30,12 +35,15 @@ export interface HeroSlideView {
   lede: string;
   ticks: string[];
   cta: { href: string; label: string };
-  /** Server-rendered art side (photo, mascot, floating cards, doodles). */
+  /** Server-rendered art side (person, mascot, floating cards, doodles). */
   art: ReactNode;
 }
 
 const AUTOPLAY_MS = 7000;
 const SWIPE_PX = 40;
+
+/** Slides whose board shows the feature strip instead of a desktop ticks row. */
+const STRIP_SLIDES = new Set(["copilot", "copilot-alt"]);
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -51,6 +59,15 @@ function subscribeVisibility(cb: () => void) {
   return () => document.removeEventListener("visibilitychange", cb);
 }
 const getHidden = () => document.hidden;
+
+const CTA_PRIMARY =
+  "inline-flex w-full items-center justify-center gap-2.5 rounded-[12px] bg-accent px-8 py-[17px] text-[16px] font-bold leading-none " +
+  "text-on-accent no-underline shadow-[0_10px_24px_rgba(95,191,31,.30)] transition hover:brightness-95 active:translate-y-px " +
+  "sm:w-auto md:py-[19px] md:text-[17px]";
+
+const CTA_DEMO =
+  "group inline-flex w-full items-center justify-center gap-3 rounded-[14px] border border-v2-line bg-white px-5 py-2.5 no-underline " +
+  "shadow-v2-card transition hover:shadow-v2-float sm:w-auto sm:justify-start sm:border-white/80 sm:pr-8";
 
 export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
   const count = slides.length;
@@ -103,6 +120,10 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
     }
   }
 
+  const demoHref = DEMO_VIDEO_URL ?? "#how";
+  const demoExternal = DEMO_VIDEO_URL !== null;
+  const stripOn = STRIP_SLIDES.has(slides[index].id);
+
   return (
     <section
       aria-roledescription="carousel"
@@ -118,17 +139,16 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
       }}
-      className="relative isolate overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-v2-navy/40"
+      className="relative isolate outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-v2-navy/40"
     >
-      {/* Two soft radial blobs behind the hero (spec 2.4): lime top-left, sky-blue top-right. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-40 -top-40 -z-10 h-[520px] w-[520px] rounded-full opacity-40 [background:radial-gradient(closest-side,#84E33D,transparent)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-40 -top-32 -z-10 h-[560px] w-[560px] rounded-full opacity-40 [background:radial-gradient(closest-side,#9CD2FF,transparent)]"
-      />
+      {/* The hero paints its own background: a white -> pale-blue wash, bokeh (lime upper-left behind
+          the headline, sky-blue upper-right) and soft foliage tints in the bottom corners. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-gradient-to-b from-white via-[#F1F7FF] to-v2-canvas">
+        <div className="absolute -left-[14%] -top-[6%] h-[640px] w-[820px] [background:radial-gradient(closest-side,rgba(186,238,132,.55),rgba(186,238,132,0))]" />
+        <div className="absolute -right-[10%] -top-[10%] h-[680px] w-[900px] [background:radial-gradient(closest-side,rgba(166,208,255,.62),rgba(166,208,255,0))]" />
+        <div className="absolute -bottom-24 -left-24 h-[300px] w-[520px] [background:radial-gradient(closest-side,rgba(150,214,118,.42),rgba(150,214,118,0))]" />
+        <div className="absolute -bottom-28 -right-24 h-[300px] w-[560px] [background:radial-gradient(closest-side,rgba(150,214,118,.34),rgba(150,214,118,0))]" />
+      </div>
 
       <div
         className="touch-pan-y overflow-hidden"
@@ -151,6 +171,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
             const active = i === index;
             const f = FAMILY[s.family];
             const Heading = i === 0 ? "h1" : "h2";
+            const noTicksXl = STRIP_SLIDES.has(s.id);
             return (
               <div
                 key={s.id}
@@ -159,46 +180,58 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
                 aria-label={`${i + 1} of ${count}: ${s.title}`}
                 aria-hidden={!active}
                 inert={!active}
-                className="w-full flex-none lg:min-h-[640px]"
+                className="w-full flex-none"
               >
-                <div className="mx-auto grid max-w-6xl px-5 pb-4 pt-8 md:px-6 md:pt-10 lg:grid-cols-[1fr_1.1fr] lg:gap-6 lg:pb-0 lg:pt-12">
-                  {/* Below lg this wrapper is `display: contents`, so the copy and the actions are
-                      separate grid items and the art's pieces can sit between them on mobile
-                      (text, person + mascot, buttons + ticks, cards) - see HeroArt. */}
-                  <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:self-center lg:pb-10">
+                {/* Below xl the slide is one column (copy, art, buttons on phones; copy, buttons, art
+                    on tablets). From xl the copy is a 46% column and the art stage is pinned to the
+                    bottom-right of this box (see HeroArt / .hero-art-stage in globals.css). */}
+                <div className="relative mx-auto flex h-full max-w-[1320px] flex-col px-5 pb-4 pt-[88px] md:px-8 md:pt-[108px] xl:min-h-[700px] xl:pb-0 xl:pt-[104px]">
+                  <div className="contents xl:relative xl:z-20 xl:block xl:w-[46%] xl:max-w-[640px]">
                     <div className="order-1 min-w-0">
-                      <Eyebrow family={s.family}>{s.eyebrow}</Eyebrow>
-                      <Heading className="mt-5 text-[36px] text-v2-navy md:text-[44px] lg:text-[56px] xl:text-[60px]">
+                      <Eyebrow family={s.family} icon={SparklesIcon} bordered className="text-[14px]">
+                        {s.eyebrow}
+                      </Eyebrow>
+                      <Heading className="mt-5 text-[36px] text-v2-navy md:text-[48px] xl:text-[58px] min-[1400px]:text-[64px]">
                         <span className="block">{s.headline[0]}</span>
                         <span className="block">{s.headline[1]}</span>
                         <span className={cn("block", f.headline)}>{s.headline[2]}</span>
                       </Heading>
-                      <p className="mt-5 max-w-[520px] text-[16px] leading-relaxed text-v2-ink-soft md:text-[17px]">
+                      <p className="mt-4 max-w-[560px] text-[15.5px] leading-[1.6] text-v2-ink-soft md:mt-4 md:text-[18px] md:leading-[1.55] xl:max-w-[500px] xl:text-[17.5px]">
                         {s.lede}
                       </p>
                     </div>
                     <div className="order-3 min-w-0 md:order-2">
-                      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:mt-7">
-                        <Link href={s.cta.href} className={buttonVariants("accent", "lg", "w-full sm:w-auto")}>
+                      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 md:mt-6">
+                        <Link href={s.cta.href} className={CTA_PRIMARY}>
                           {s.cta.label}
-                          <ArrowRightIcon className="h-4 w-4" />
+                          <ArrowRightIcon className="h-[18px] w-[18px]" />
                         </Link>
-                        {DEMO_VIDEO_URL && (
-                          <a
-                            href={DEMO_VIDEO_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={buttonVariants("ghost", "lg", "w-full bg-white sm:w-auto")}
-                          >
-                            <PlayIcon className="h-4 w-4" />
-                            Watch demo
-                          </a>
-                        )}
+                        <a
+                          href={demoHref}
+                          {...(demoExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                          className={CTA_DEMO}
+                        >
+                          <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-white text-v2-navy shadow-[0_2px_8px_rgba(27,31,94,.12)] transition group-hover:scale-105">
+                            <PlayIcon className="h-[18px] w-[18px]" />
+                          </span>
+                          <span className="text-left leading-tight">
+                            <span className="block text-[15.5px] font-bold text-v2-navy">Watch Demo</span>
+                            <span className="block text-[13.5px] text-v2-ink-soft">2 min</span>
+                          </span>
+                        </a>
                       </div>
-                      <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2.5 md:mt-6">
+                      <ul
+                        className={cn(
+                          "mt-6 grid grid-cols-3 gap-2 md:mt-7 md:flex md:flex-wrap md:gap-x-6 md:gap-y-2.5 xl:flex-nowrap xl:gap-x-5",
+                          noTicksXl && "xl:hidden",
+                        )}
+                      >
                         {s.ticks.map((t) => (
-                          <li key={t} className="flex items-center gap-2 text-[13.5px] font-medium text-v2-ink-soft">
-                            <CheckCircleIcon className={cn("h-[18px] w-[18px] flex-none", f.icon)} />
+                          <li
+                            key={t}
+                            className="flex flex-col items-center gap-1.5 text-center text-[11.5px] font-medium leading-tight text-v2-ink-soft md:flex-row md:gap-2 md:text-left md:text-[13.5px] xl:whitespace-nowrap xl:text-[13px]"
+                          >
+                            <CheckCircleIcon className="h-[22px] w-[22px] flex-none text-[#4B49D6] md:h-[24px] md:w-[24px]" />
                             {t}
                           </li>
                         ))}
@@ -213,46 +246,43 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
         </div>
       </div>
 
-      {/* Controls: prev / dots / next. Arrows from md; dots are 44px hit areas with 8px discs.
-          From lg they float over the hero's bottom edge (in a frosted pill) so the person cutouts
-          can sit flush with the section bottom; below lg they stay in flow under the slide. */}
-      <div className="pointer-events-none relative z-30 flex items-center justify-center pb-4 pt-1 lg:absolute lg:inset-x-0 lg:bottom-2 lg:p-0">
-        <div className="pointer-events-auto flex items-center gap-2 lg:rounded-full lg:bg-white/80 lg:px-2 lg:shadow-v2-card lg:backdrop-blur">
-          <button
-            type="button"
-            aria-label="Previous slide"
-            onClick={() => go(index - 1)}
-            className="hidden h-11 w-11 place-items-center rounded-full border border-v2-line bg-white text-v2-navy shadow-v2-card transition hover:bg-v2-canvas md:grid"
-          >
-            <ChevronLeftIcon className="h-5 w-5" />
-          </button>
-          <div className="flex items-center">
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                aria-label={`Slide ${i + 1} of ${count}: ${s.title}`}
-                aria-current={i === index ? "true" : undefined}
-                onClick={() => go(i)}
-                className="group grid h-11 w-11 place-items-center rounded-full"
-              >
-                <span
-                  className={cn(
-                    "h-2 rounded-full transition-all duration-300 group-hover:bg-v2-navy/60",
-                    i === index ? "w-6 bg-v2-navy" : "w-2 bg-v2-navy/25",
-                  )}
-                />
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            aria-label="Next slide"
-            onClick={() => go(index + 1)}
-            className="hidden h-11 w-11 place-items-center rounded-full border border-v2-line bg-white text-v2-navy shadow-v2-card transition hover:bg-v2-canvas md:grid"
-          >
-            <ChevronRightIcon className="h-5 w-5" />
-          </button>
+      {/* From xl a soft fade dissolves the cut-off person into the page colour at the hero's edge. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 hidden h-14 bg-gradient-to-t from-v2-canvas to-transparent xl:block" />
+
+      {/* Slide 1 only: the four-tile strip overlaps the hero's bottom edge (xl+). */}
+      <div
+        aria-hidden={!stripOn}
+        inert={!stripOn}
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-[22px] z-20 hidden px-5 transition-opacity duration-300 motion-reduce:transition-none xl:block",
+          stripOn ? "opacity-100" : "opacity-0",
+        )}
+      >
+        <div className="pointer-events-auto mx-auto max-w-[1400px]">
+          <HeroFeatureStrip />
+        </div>
+      </div>
+
+      {/* Dots: small and subtle, centred at the hero's bottom (24px hit areas, 8px discs). */}
+      <div className="relative z-30 flex items-center justify-center pb-3 xl:absolute xl:inset-x-0 xl:bottom-0 xl:pb-0.5">
+        <div className="flex items-center">
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              aria-label={`Slide ${i + 1} of ${count}: ${s.title}`}
+              aria-current={i === index ? "true" : undefined}
+              onClick={() => go(i)}
+              className="group grid h-6 w-6 cursor-pointer place-items-center rounded-full"
+            >
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full transition-all duration-300 group-hover:bg-v2-navy/60",
+                  i === index ? "bg-v2-navy" : "bg-v2-navy/30",
+                )}
+              />
+            </button>
+          ))}
         </div>
       </div>
 

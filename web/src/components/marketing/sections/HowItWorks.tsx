@@ -1,104 +1,67 @@
 import type { ComponentType } from "react";
-import {
-  ArrowRightIcon,
-  InboxIcon,
-  PaperPlane,
-  SearchIcon,
-  Squiggle,
-  TrophyIcon,
-  ZapIcon,
-  cn,
-  type IconProps,
-} from "@kiwiply/ui";
+import { ArrowRightIcon, FileTextIcon, HeartIcon, PaperPlane, SearchIcon, Squiggle, ZapIcon, cn, type IconProps } from "@kiwiply/ui";
 import { FAMILY, type Family } from "../family";
+import Handwritten from "../Handwritten";
 import { Mascot } from "../media";
 import Section from "../Section";
 import SectionHeading from "../SectionHeading";
 
 /**
- * How it works (spec 7.2 item 8): four steps in cards with connector arrows. Every step ends
- * with "you stay in control" wording, because that is the product: Kiwiply prepares, you decide.
+ * How it works (spec 13.2 item 7): heading left, four round-icon step cards right joined by
+ * arrows; vertical on mobile (arrows point down), closed by the mascot on a paper plane with the
+ * "Same goals. Bigger possibilities." note.
  */
 const STEPS: { icon: ComponentType<IconProps>; family: Family; title: string; body: string }[] = [
-  {
-    icon: SearchIcon,
-    family: "amber",
-    title: "Find jobs",
-    body: "Roles from company job boards, matched to your resume. You choose which ones are worth your time.",
-  },
-  {
-    icon: ZapIcon,
-    family: "blue",
-    title: "Autofill with AI",
-    body: "Open an application and Kiwiply fills the fields. You check each one and press submit yourself.",
-  },
-  {
-    icon: InboxIcon,
-    family: "teal",
-    title: "Track replies",
-    body: "Connect your Gmail and replies update your board. We never send, move or delete your mail.",
-  },
-  {
-    icon: TrophyIcon,
-    family: "coral",
-    title: "Get hired",
-    body: "Offers, notes and next steps stay in one place. Every call along the way is yours.",
-  },
+  { icon: SearchIcon, family: "amber", title: "Find jobs", body: "We find jobs that match your profile." },
+  { icon: ZapIcon, family: "blue", title: "Apply with AI", body: "We autofill and tailor your application." },
+  { icon: FileTextIcon, family: "teal", title: "Track progress", body: "We monitor responses and keep you updated." },
+  { icon: HeartIcon, family: "coral", title: "Get hired", body: "You focus on what's next." },
 ];
 
 export default function HowItWorks() {
   return (
-    <Section id="how" labelledBy="how-title">
-      <SectionHeading
-        id="how-title"
-        eyebrow="How it works"
-        family="blue"
-        title="Get from search to interview,"
-        accent="faster."
-        lede="Kiwiply handles the busy work so you can focus on what really matters — and you stay in control the whole way."
-        align="center"
-        className="mx-auto"
-      />
-      {/* lg+: the plane mascot sits on the top edge of the last step with its paper-plane doodle and
-          trail; the wrapper is only the positioning context. */}
-      <div className="relative mt-12">
-        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] lg:items-stretch lg:gap-3">
+    <Section id="how" labelledBy="how-title" tone="white">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[0.8fr_1.9fr] lg:items-center lg:gap-10">
+        <SectionHeading
+          id="how-title"
+          eyebrow="How It Works"
+          family="green"
+          caps
+          title="Get from search to interview, faster."
+          lede="Kiwiply handles the busy work — so you can focus on what really matters."
+        />
+        <ol className="flex flex-col items-stretch gap-1 lg:flex-row lg:items-stretch lg:gap-2">
           {STEPS.map((s, i) => {
             const f = FAMILY[s.family];
             return (
               <li key={s.title} className="contents">
-                <div className="flex flex-col items-start gap-3 rounded-[var(--radius-v2-card)] border border-v2-line/60 bg-white p-6 shadow-v2-card">
-                  <div className="flex w-full items-center justify-between">
-                    <span aria-hidden className={cn("grid h-12 w-12 place-items-center rounded-2xl", f.soft, f.icon)}>
-                      <s.icon className="h-6 w-6" />
-                    </span>
-                    <span aria-hidden className="text-[13px] font-bold text-v2-muted">
-                      Step {i + 1}
-                    </span>
+                <div className="flex flex-1 items-center gap-4 rounded-[var(--radius-v2-card)] border border-v2-line/60 bg-white p-4 shadow-v2-card lg:flex-col lg:gap-3 lg:px-4 lg:py-6 lg:text-center">
+                  <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-full", f.soft, f.icon)}>
+                    <s.icon className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <h3 className="text-[16px] font-bold tracking-normal text-v2-navy">{s.title}</h3>
+                    <p className="mt-1 text-[13px] leading-relaxed text-v2-ink-soft">{s.body}</p>
                   </div>
-                  <h3 className="text-[18px] font-bold tracking-normal text-v2-navy">{s.title}</h3>
-                  <p className="text-[14px] leading-relaxed text-v2-ink-soft">{s.body}</p>
                 </div>
                 {i < STEPS.length - 1 ? (
-                  <span aria-hidden className="hidden items-center text-v2-lime-deep lg:flex">
-                    <ArrowRightIcon size={20} />
+                  <span aria-hidden className="flex justify-start py-0.5 pl-9 text-v2-teal lg:items-center lg:justify-center lg:p-0">
+                    <ArrowRightIcon size={18} className="rotate-90 lg:rotate-0" />
                   </span>
                 ) : null}
               </li>
             );
           })}
         </ol>
-        <div aria-hidden className="pointer-events-none absolute -top-[100px] right-6 hidden items-end gap-2 lg:flex">
-          <Squiggle className="mb-8 h-5 w-14 text-v2-violet" />
-          <PaperPlane className="mb-14 h-9 w-[68px] text-v2-blue" />
-          <Mascot pose="plane" className="h-[110px] w-[104px]" />
-        </div>
       </div>
-      {/* Below lg the steps stack, so the mascot closes them instead. */}
-      <div aria-hidden className="mt-8 flex items-end justify-center gap-3 lg:hidden">
-        <Squiggle className="mb-8 hidden h-5 w-14 text-v2-violet sm:block" />
-        <PaperPlane className="mb-12 h-9 w-[68px] text-v2-blue" />
-        <Mascot pose="plane" className="h-28 w-28" />
+      {/* Mobile only: the paper-plane mascot closes the steps. */}
+      <div aria-hidden className="mt-6 flex items-end justify-center gap-2 lg:hidden">
+        <Handwritten family="green" className="mb-10 w-36 -rotate-3 text-[24px]">
+          Same goals. Bigger possibilities.
+        </Handwritten>
+        <Squiggle className="mb-14 hidden h-5 w-12 text-v2-violet sm:block" />
+        <PaperPlane className="mb-12 h-8 w-14 text-v2-blue" />
+        <Mascot pose="plane" className="-mb-4 h-28 w-28" />
       </div>
     </Section>
   );
