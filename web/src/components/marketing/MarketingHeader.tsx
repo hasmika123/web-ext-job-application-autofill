@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowRightIcon, ChevronDownIcon, MenuIcon, XIcon, cn } from "@kiwiply/ui";
-import { BetaBadge, Logo } from "@/components/ui";
+import { BetaBadge } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
+import BrandLogo from "./BrandLogo";
 import { LOGIN_HREF, NAV, SIGNUP_HREF, type NavGroup } from "./nav";
 
 export interface MarketingHeaderProps {
@@ -141,7 +142,7 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
     <header className="sticky top-0 z-40 border-b border-line bg-white/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-5 lg:h-[72px] lg:px-8">
         <Link href="/" aria-label="Kiwiply home" className="flex flex-none items-center gap-2">
-          <Logo height={30} priority />
+          <BrandLogo priority className="h-[30px] md:h-9" />
           <BetaBadge />
         </Link>
 

@@ -6,6 +6,19 @@ layout never shifts. Rendered by `src/components/marketing/media.tsx`.
 
 Static pages read this folder at **build time**, so redeploy after adding or replacing files.
 
+## Logo lockup (header + footer)
+
+| File | Use |
+|---|---|
+| `logo-v2.png` | mascot bird + black "kiwiply" wordmark, transparent, 764x234, for light surfaces (header) |
+| `logo-v2-dark.png` | same lockup with a white wordmark, for the navy footer |
+
+Rendered by `src/components/marketing/BrandLogo.tsx`. **Interim:** both were extracted from the
+design mockups at roughly 4x and are only crisp up to ~36px tall. Replace them with a vector
+(SVG) or high-res transparent source when one is available, keeping the 764:234 ratio (or update
+the constants in `BrandLogo.tsx`). The old `logo.svg` / `Logo` component still serves the
+signed-in app.
+
 ## Mascot (transparent PNG, ~800x800, subject centred)
 
 | File | Pose |
@@ -15,6 +28,9 @@ Static pages read this folder at **build time**, so redeploy after adding or rep
 | `mascot-headphones.png` | wearing headphones |
 | `mascot-envelope.png` | holding an envelope |
 | `mascot-plane.png` | riding a paper plane |
+
+**Interim:** all five files are currently the same low-res (400x360) image of the bird, so every
+slot shows an identical pose. They await real transparent renders per pose; replace them in place.
 
 ## Photos (JPG, ~1600px wide; `.webp` is also accepted)
 

@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import BrandLogo from "./BrandLogo";
 import { FOOTER_COLUMNS, SOCIAL_LINKS } from "./nav";
 
 const LINK_CLASS =
@@ -19,13 +19,7 @@ export default function MarketingFooter() {
           {/* Brand */}
           <div className="flex max-w-xs flex-col gap-4">
             <Link href="/" aria-label="Kiwiply home" className="inline-flex w-fit items-center">
-              <Image
-                src="/logo-dark-mode.png"
-                alt="Kiwiply"
-                width={105}
-                height={30}
-                className="h-[30px] w-auto"
-              />
+              <BrandLogo tone="dark" height={32} />
             </Link>
             <p className="text-[15px] leading-relaxed text-white/70">
               One profile, one board, no auto-submit. Kiwiply fills your applications for you to
