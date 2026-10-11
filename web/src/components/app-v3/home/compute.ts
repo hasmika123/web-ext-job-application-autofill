@@ -7,7 +7,7 @@ import {
   DASH_PROFILE_PCT,
   type DashRecent,
   type DashStat,
-} from "@/components/app-v3/sample-data.a";
+} from "@/components/app-v3/sample-data";
 
 /**
  * Pure helpers that turn the real `/api/profile/applications` list into the Dashboard's numbers

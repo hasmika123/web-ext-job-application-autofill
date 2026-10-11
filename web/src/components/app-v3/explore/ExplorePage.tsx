@@ -5,7 +5,7 @@ import { ArrowRightIcon, ChevronRightIcon, FileTextIcon, cn, useToast } from "@k
 import { CompanyTile, IconTile, SectionCard, UnderlineTabs } from "@/components/app-v2/common";
 import { TONE } from "@/components/app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import { EX_COMPANIES, EX_PATHS, EX_RESOURCES, EX_ROLES, EX_TABS } from "../sample-data.v3d";
+import { EX_COMPANIES, EX_PATHS, EX_RESOURCES, EX_ROLES, EX_TABS } from "../sample-data";
 
 /**
  * Explore (APP-V3-SPEC 2.11). All four sections sit on one page; the tabs scroll to their section

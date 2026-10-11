@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookmarkIcon, CheckCircleIcon, LayoutGridIcon, MenuIcon, cn, useToast } from "@kiwiply/ui";
 import { CompanyTile, KebabMenu, SearchInput, UnderlineTabs } from "../../app-v2/common";
-import { V3_SAVED_JOBS, type V3SavedJob, type V3SavedState } from "../sample-data.b";
+import { V3_SAVED_JOBS, type V3SavedJob, type V3SavedState } from "../sample-data";
 import { HeroBand } from "@/components/app-v2/common";
 
 type TabKey = "all" | "recent" | "to-apply" | "applied" | "not-interested";

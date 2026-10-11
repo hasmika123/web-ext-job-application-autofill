@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, SearchIcon, SlidersIcon, SparklesIcon, cn } from "@kiwiply/ui";
 import { FilterSelect, HeroBand, Pagination, PromptChip } from "@/components/app-v2/common";
-import { JOBS_PAGE_SIZE, JOBS_SAMPLE_TOTAL, V3_JOBS, type JobType, type V3Job } from "@/components/app-v3/sample-data.a";
+import { JOBS_PAGE_SIZE, JOBS_SAMPLE_TOTAL, V3_JOBS, type JobType, type V3Job } from "@/components/app-v3/sample-data";
 import type { SampleJob } from "@/components/app-v2/sample-data";
 import FilterRail from "./FilterRail";
 import JobRow from "./JobRow";

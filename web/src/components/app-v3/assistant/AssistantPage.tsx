@@ -10,7 +10,7 @@ import {
   ASSISTANT_CAPABILITIES,
   ASSISTANT_PROMPTS,
   ASSISTANT_RECENT_CHATS,
-} from "../sample-data.c";
+} from "../sample-data";
 
 interface Msg {
   id: number;

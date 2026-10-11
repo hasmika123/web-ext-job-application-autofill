@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftIcon, SendIcon, cn } from "@kiwiply/ui";
 import { CompanyTile, InitialsAvatar, SearchInput } from "../../app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import { CONVERSATIONS, MESSAGES_NOTE, type ChatMessage, type Conversation } from "../sample-data.c";
+import { CONVERSATIONS, MESSAGES_NOTE, type ChatMessage, type Conversation } from "../sample-data";
 
 /**
  * Messages (APP-V3-SPEC 2.9). Two panes from `md` up: the conversation list and the open thread.

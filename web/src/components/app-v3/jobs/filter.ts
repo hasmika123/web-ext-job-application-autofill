@@ -6,7 +6,7 @@ import {
   type JobType,
   type V3Detail,
   type V3Job,
-} from "@/components/app-v3/sample-data.a";
+} from "@/components/app-v3/sample-data";
 
 /** Filter state of the Job Search rail. Empty sets / "" mean "no filter on that facet". */
 export interface Filters {

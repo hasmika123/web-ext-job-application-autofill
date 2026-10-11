@@ -13,14 +13,14 @@ import {
   DASH_RECOMMENDED,
   DASH_STATS,
   DASH_STATUS,
-} from "@/components/app-v3/sample-data.a";
+} from "@/components/app-v3/sample-data";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 /**
  * Dashboard (app v3, spec 2.1): the authed landing page (post-login redirect target). Real where an API
  * exists (first name, applications, Pro matches, profile), otherwise the board's SAMPLE data from
- * `app-v3/sample-data.a.ts`. Session gate + shell live in the `(app)` layout.
+ * `app-v3/sample-data.ts`. Session gate + shell live in the `(app)` layout.
  */
 export default async function Page() {
   const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData] = await Promise.all([

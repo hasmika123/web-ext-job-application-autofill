@@ -14,7 +14,7 @@ import {
 } from "@kiwiply/ui";
 import { CompanyTile, UnderlineTabs } from "@/components/app-v2/common";
 import { JobTag, SaveButton } from "@/components/app-v2/jobs/JobBits";
-import type { V3Job } from "@/components/app-v3/sample-data.a";
+import type { V3Job } from "@/components/app-v3/sample-data";
 import { detailV3 } from "./filter";
 
 const TABS = [

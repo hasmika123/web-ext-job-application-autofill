@@ -26,7 +26,7 @@ import {
   type AlertChannel,
   type AlertFrequency,
   type AlertSample,
-} from "../sample-data.c";
+} from "../sample-data";
 import type { Tone } from "../../app-v2/common";
 
 type TabKey = "active" | "paused" | "settings";

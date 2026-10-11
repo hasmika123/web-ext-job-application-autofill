@@ -29,7 +29,7 @@ import {
   IP_RECENT_SESSIONS,
   IP_ROLES,
   IP_TABS,
-} from "../sample-data.v3d";
+} from "../sample-data";
 
 const MODE_ICON: Record<string, React.ReactNode> = {
   quick: <ClockIcon className="h-5 w-5" />,

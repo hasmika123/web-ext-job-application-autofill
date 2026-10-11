@@ -1,6 +1,6 @@
 import type { Application } from "@/components/ApplicationBoard";
 import { statusKeyOf } from "@/components/app-v2/applications/mapping";
-import { AN_SAMPLE, type AnalyticsData } from "../sample-data.v3d";
+import { AN_SAMPLE, type AnalyticsData } from "../sample-data";
 
 const DAY = 86_400_000;
 const SUBMITTED = new Set(["APPLIED", "INTERVIEW", "OFFER", "REJECTED"]);

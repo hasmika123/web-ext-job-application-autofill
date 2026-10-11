@@ -21,7 +21,7 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import { BrandTile, InitialsAvatar, Progress, SectionCard, StatusChip, TONE, type Tone } from "../../app-v2/common";
-import { V3_PROFILE_FALLBACK, V3_PROFILE_VARIANTS, V3_RESUME_VERSION_SAMPLES } from "../sample-data.b";
+import { V3_PROFILE_FALLBACK, V3_PROFILE_VARIANTS, V3_RESUME_VERSION_SAMPLES } from "../sample-data";
 import type { CompletenessTile, ProfileView } from "./derive";
 
 export type ProfileTabKey = "overview" | "personal" | "work" | "education" | "skills" | "projects" | "preferences";

@@ -17,7 +17,7 @@ import {
   type DataColumn,
   type Tone,
 } from "../../app-v2/common";
-import { V3_APPLICATION_ROWS, V3_APPLICATION_SAMPLE_COUNTS, type V3ApplicationSample } from "../sample-data.b";
+import { V3_APPLICATION_ROWS, V3_APPLICATION_SAMPLE_COUNTS, type V3ApplicationSample } from "../sample-data";
 import { HeroBand } from "@/components/app-v2/common";
 
 type TabKey = "all" | "applied" | "in-review" | "interview" | "offer" | "rejected";

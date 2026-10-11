@@ -36,7 +36,7 @@ import {
   DASH_INTERVIEWS,
   type DashRecent,
   type DashStat,
-} from "@/components/app-v3/sample-data.a";
+} from "@/components/app-v3/sample-data";
 import Greeting from "./Greeting";
 import ActivityCard from "./ActivityCard";
 

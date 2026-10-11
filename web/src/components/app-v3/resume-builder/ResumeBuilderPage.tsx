@@ -17,7 +17,7 @@ import {
   RB_SECTION_TEXT,
   RB_TABS,
   RB_TEMPLATES,
-} from "../sample-data.v3d";
+} from "../sample-data";
 import SectionEditor from "./SectionEditor";
 
 interface VersionRow {

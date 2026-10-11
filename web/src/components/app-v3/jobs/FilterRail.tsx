@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { SearchIcon, cn } from "@kiwiply/ui";
 import { CompanyTile } from "@/components/app-v2/common";
-import { JOB_LEVELS, JOB_SALARY_MAX_K, JOB_TYPES, type JobLevel, type JobType } from "@/components/app-v3/sample-data.a";
+import { JOB_LEVELS, JOB_SALARY_MAX_K, JOB_TYPES, type JobLevel, type JobType } from "@/components/app-v3/sample-data";
 import type { Filters } from "./filter";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {

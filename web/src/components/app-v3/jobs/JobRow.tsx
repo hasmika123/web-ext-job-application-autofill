@@ -3,7 +3,7 @@
 import { ClockIcon, cn } from "@kiwiply/ui";
 import { CompanyTile } from "@/components/app-v2/common";
 import { JobTag, MatchBadge, SaveButton } from "@/components/app-v2/jobs/JobBits";
-import type { V3Job } from "@/components/app-v3/sample-data.a";
+import type { V3Job } from "@/components/app-v3/sample-data";
 
 /**
  * One Job Search result: company tile, title, "Company · Location · Type", tags, "Posted N days ago",
