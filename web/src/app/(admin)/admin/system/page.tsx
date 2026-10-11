@@ -4,7 +4,7 @@ import SystemPage from "@/components/admin-v3/system/SystemPage";
 import type { DemoAdminState } from "@/lib/demo";
 
 export const metadata: Metadata = {
-  title: "System · Admin · Kiwiply",
+  title: "System · Admin",
   robots: { index: false, follow: false },
 };
 

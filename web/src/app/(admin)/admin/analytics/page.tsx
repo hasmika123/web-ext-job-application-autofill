@@ -3,7 +3,7 @@ import { serverApiFetch } from "@/lib/api";
 import AnalyticsPage, { type Analytics } from "@/components/admin-v3/analytics/AnalyticsPage";
 
 export const metadata: Metadata = {
-  title: "Analytics · Admin · Kiwiply",
+  title: "Analytics · Admin",
   robots: { index: false, follow: false },
 };
 

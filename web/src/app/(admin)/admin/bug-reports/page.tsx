@@ -4,7 +4,7 @@ import BugReportsPage, { type BugReport } from "@/components/admin-v3/bug-report
 import { BUG_STATUS_TABS } from "@/components/admin-v3/bug-reports/constants";
 
 export const metadata: Metadata = {
-  title: "Bug reports · Admin · Kiwiply",
+  title: "Bug reports · Admin",
   robots: { index: false, follow: false },
 };
 

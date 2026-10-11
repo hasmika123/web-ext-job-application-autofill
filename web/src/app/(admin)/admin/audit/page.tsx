@@ -3,7 +3,7 @@ import { serverApiFetch } from "@/lib/api";
 import AuditPage, { type AuditEvent } from "@/components/admin-v3/audit/AuditPage";
 
 export const metadata: Metadata = {
-  title: "Audit log · Admin · Kiwiply",
+  title: "Audit log · Admin",
   robots: { index: false, follow: false },
 };
 

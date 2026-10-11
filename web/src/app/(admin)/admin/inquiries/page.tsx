@@ -4,7 +4,7 @@ import InquiriesPage, { type Inquiry } from "@/components/admin-v3/inquiries/Inq
 import { INQUIRY_STATUS_TABS } from "@/components/admin-v3/inquiries/constants";
 
 export const metadata: Metadata = {
-  title: "Inquiries · Admin · Kiwiply",
+  title: "Inquiries · Admin",
   robots: { index: false, follow: false },
 };
 

@@ -5,7 +5,7 @@ import JobSourcesBoard from "@/components/admin-v3/job-sources/JobSourcesBoard";
 import { AdminHero } from "@/components/admin-v3/common";
 
 export const metadata: Metadata = {
-  title: "Job sources · Admin · Kiwiply",
+  title: "Job sources · Admin",
   robots: { index: false, follow: false },
 };
 

@@ -9,7 +9,7 @@ import CustomerBilling from "@/components/admin/CustomerBilling";
 import type { CustomerDetail } from "@/lib/customers";
 
 export const metadata: Metadata = {
-  title: "User · Admin · Kiwiply",
+  title: "User · Admin",
   robots: { index: false, follow: false },
 };
 

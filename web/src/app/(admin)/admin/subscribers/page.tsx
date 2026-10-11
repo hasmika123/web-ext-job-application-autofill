@@ -4,7 +4,7 @@ import EmailPage, { type Subscriber } from "@/components/admin-v3/email/EmailPag
 import { SUBSCRIBER_STATUS_TABS } from "@/components/admin-v3/email/constants";
 
 export const metadata: Metadata = {
-  title: "Email · Admin · Kiwiply",
+  title: "Email · Admin",
   robots: { index: false, follow: false },
 };
 

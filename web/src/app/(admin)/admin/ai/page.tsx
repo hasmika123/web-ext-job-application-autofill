@@ -3,7 +3,7 @@ import { serverApiFetch } from "@/lib/api";
 import AiUsagePage, { type AiUsageView } from "@/components/admin-v3/ai/AiUsagePage";
 
 export const metadata: Metadata = {
-  title: "AI usage · Admin · Kiwiply",
+  title: "AI usage · Admin",
   robots: { index: false, follow: false },
 };
 

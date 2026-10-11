@@ -3,7 +3,7 @@ import { serverApiFetch } from "@/lib/api";
 import OverviewPage, { type OverviewKpis } from "@/components/admin-v3/overview/OverviewPage";
 
 export const metadata: Metadata = {
-  title: "Admin · Kiwiply",
+  title: "Admin",
   robots: { index: false, follow: false },
 };
 

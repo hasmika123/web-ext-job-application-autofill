@@ -4,7 +4,7 @@ import type { AdminUser } from "@/components/admin/UsersTable";
 import UsersPage from "@/components/admin-v3/users/UsersPage";
 
 export const metadata: Metadata = {
-  title: "Users · Admin · Kiwiply",
+  title: "Users · Admin",
   robots: { index: false, follow: false },
 };
 

@@ -4,7 +4,7 @@ import type { Customer } from "@/lib/customers";
 import CustomersPage from "@/components/admin-v3/customers/CustomersPage";
 
 export const metadata: Metadata = {
-  title: "Customers · Admin · Kiwiply",
+  title: "Customers · Admin",
   robots: { index: false, follow: false },
 };
 

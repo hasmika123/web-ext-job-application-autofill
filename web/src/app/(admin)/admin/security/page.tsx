@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import SecurityPage from "@/components/admin-v3/security/SecurityPage";
 
 export const metadata: Metadata = {
-  title: "Security · Admin · Kiwiply",
+  title: "Security · Admin",
   robots: { index: false, follow: false },
 };
 
