@@ -1,19 +1,31 @@
-import type { ReactNode } from "react";
-import { CheckCircleIcon, Mark, cn } from "@kiwiply/ui";
-import { Mascot } from "../media";
-import { AboutHeading, AboutSection, FAMILY, type Family } from "./shared";
+import type { ComponentType, ReactNode } from "react";
+import {
+  BellIcon,
+  BriefcaseIcon,
+  CheckIcon,
+  ChatIcon,
+  ClipboardIcon,
+  EyeIcon,
+  FileTextIcon,
+  LayoutGridIcon,
+  LayersIcon,
+  MailIcon,
+  TargetIcon,
+  TrendingUpIcon,
+  UserIcon,
+  cn,
+  type IconProps,
+} from "@kiwiply/ui";
+import Handwritten from "../Handwritten";
+import { Mascot, Photo } from "../media";
+import Section from "../Section";
+import { IconTile, RowHeading, type Family } from "./shared";
 
-/* ── Tiny pure-HTML product mocks (fictional sample data, each tagged "Example") ───── */
+/* ── Tiny pure-HTML product mocks (fictional sample data, as on the board) ───────────── */
 
-function MockFrame({ children }: { children: ReactNode }) {
+function MockFrame({ children, tint }: { children: ReactNode; tint: string }) {
   return (
-    <div
-      aria-hidden
-      className="relative h-32 overflow-hidden rounded-xl bg-gradient-to-br from-v2-blue-soft/70 via-white to-v2-lime-soft/60 p-3"
-    >
-      <span className="absolute right-2 top-2 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-v2-muted">
-        Example
-      </span>
+    <div aria-hidden className={cn("relative hidden h-44 overflow-hidden rounded-2xl p-3 md:block", tint)}>
       {children}
     </div>
   );
@@ -25,47 +37,61 @@ function Bar({ w, className }: { w: string; className?: string }) {
 
 function MockAutofill() {
   return (
-    <MockFrame>
-      <div className="grid gap-1.5 pt-4">
-        <Bar w="w-3/4" />
-        <Bar w="w-1/2" />
-        <Bar w="w-2/3" />
-        <span className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-lg bg-v2-lime px-3 py-1.5 text-[11px] font-bold text-ink">
-          <Mark size={12} /> Review &amp; fill
-        </span>
+    <MockFrame tint="bg-gradient-to-br from-v2-green-soft via-white to-v2-lime-soft">
+      <div className="mx-auto mt-1 grid w-[88%] gap-1.5 rounded-xl bg-white p-3 shadow-v2-card">
+        <Bar w="w-2/5" className="bg-v2-blue" />
+        <Bar w="w-full" />
+        <Bar w="w-4/5" />
+        <Bar w="w-3/5" />
       </div>
+      <span className="absolute inset-x-6 bottom-4 grid h-9 place-items-center rounded-lg bg-v2-green text-[12px] font-bold text-white shadow-v2-card">
+        Auto Apply
+      </span>
     </MockFrame>
   );
 }
 
 function MockResume() {
   return (
-    <MockFrame>
-      <div className="mx-auto grid w-[70%] gap-1.5 rounded-md bg-white p-2.5 shadow-v2-card">
-        <Bar w="w-1/2" className="bg-v2-navy/30" />
+    <MockFrame tint="bg-gradient-to-br from-v2-blue-soft via-white to-v2-violet-soft">
+      <div className="mx-auto mt-1 grid w-[84%] gap-1.5 rounded-lg bg-white p-3 shadow-v2-card">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-v2-navy">Design</span>
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-v2-amber-soft text-v2-amber">
+            <UserIcon size={14} />
+          </span>
+        </div>
         <Bar w="w-full" />
         <Bar w="w-5/6" />
-        <span className="w-fit rounded bg-v2-lime-soft px-1.5 py-0.5 text-[9px] font-semibold text-ink">
-          Tailored for this job
-        </span>
+        <Bar w="w-2/3" />
+        <Bar w="w-3/4" />
       </div>
+      <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-lg bg-v2-green-soft px-2 py-1.5 text-[10px] font-semibold text-v2-navy shadow-v2-card">
+        <CheckIcon size={11} className="text-v2-green" />
+        Tailored for this job
+      </span>
     </MockFrame>
   );
 }
 
 function MockInbox() {
-  const rows = [
-    ["Interview invitation", "bg-v2-lime-soft"],
-    ["Application received", "bg-v2-blue-soft"],
-    ["Update from Northwind", "bg-v2-amber-soft"],
-  ] as const;
+  const rows: Array<[string, string, Family, ComponentType<IconProps>]> = [
+    ["Interview invitation", "Acme Corp • 2h ago", "coral", MailIcon],
+    ["Application viewed", "3h ago", "blue", EyeIcon],
+    ["New job match", "1d ago", "violet", BriefcaseIcon],
+  ];
   return (
-    <MockFrame>
-      <ul className="grid gap-1.5 pt-4">
-        {rows.map(([t, bg]) => (
-          <li key={t} className="flex items-center gap-2 rounded-md bg-white px-2 py-1.5 text-[10px] font-semibold text-ink shadow-v2-card">
-            <span className={cn("h-3 w-3 rounded-full", bg)} />
-            {t}
+    <MockFrame tint="bg-gradient-to-br from-v2-teal-soft via-white to-v2-green-soft">
+      <ul className="grid gap-1.5">
+        {rows.map(([t, meta, family, Icon]) => (
+          <li key={t} className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 shadow-v2-card">
+            <IconTile family={family} className="h-7 w-7 rounded-full">
+              <Icon size={13} />
+            </IconTile>
+            <span className="min-w-0">
+              <span className="block truncate text-[10px] font-bold leading-tight text-v2-navy">{t}</span>
+              <span className="block text-[9px] text-v2-muted">{meta}</span>
+            </span>
           </li>
         ))}
       </ul>
@@ -74,18 +100,23 @@ function MockInbox() {
 }
 
 function MockMatches() {
-  const rows = [
-    ["Product Designer", "92%"],
-    ["Operations Coordinator", "88%"],
-    ["Data Analyst", "84%"],
-  ] as const;
+  const rows: Array<[string, string, Family, ComponentType<IconProps>]> = [
+    ["Product Designer", "96% match", "green", ClipboardIcon],
+    ["Marketing Associate", "92% match", "violet", TargetIcon],
+    ["Operations Coordinator", "88% match", "amber", BriefcaseIcon],
+  ];
   return (
-    <MockFrame>
-      <ul className="grid gap-1.5 pt-4">
-        {rows.map(([t, pct]) => (
-          <li key={t} className="flex items-center justify-between rounded-md bg-white px-2 py-1.5 text-[10px] font-semibold text-ink shadow-v2-card">
-            {t}
-            <span className="rounded bg-v2-green-soft px-1.5 text-[9px] text-ink">{pct} match</span>
+    <MockFrame tint="bg-gradient-to-br from-v2-lime-soft via-white to-v2-green-soft">
+      <ul className="grid gap-1.5">
+        {rows.map(([t, pct, family, Icon]) => (
+          <li key={t} className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 shadow-v2-card">
+            <IconTile family={family} className="h-7 w-7 rounded-lg">
+              <Icon size={13} />
+            </IconTile>
+            <span className="min-w-0">
+              <span className="block truncate text-[10px] font-bold leading-tight text-v2-navy">{t}</span>
+              <span className="block text-[9px] font-semibold text-v2-green">{pct}</span>
+            </span>
           </li>
         ))}
       </ul>
@@ -94,13 +125,16 @@ function MockMatches() {
 }
 
 function MockInterview() {
-  const rows = ["Practice questions", "Expert feedback", "Build confidence"];
+  const rows = ["Practice questions", "AI feedback", "Build confidence"];
   return (
-    <MockFrame>
-      <ul className="mx-auto grid w-[80%] gap-1.5 pt-4">
+    <MockFrame tint="bg-gradient-to-br from-v2-teal-soft via-white to-v2-blue-soft">
+      <div className="absolute inset-x-0 bottom-0 left-0 w-[70%]">
+        <Photo id="hero-copilot" alt="" className="w-full" sizes="140px" />
+      </div>
+      <ul className="absolute bottom-3 right-3 grid w-[72%] gap-1.5 rounded-lg bg-white p-2 shadow-v2-card">
         {rows.map((t) => (
-          <li key={t} className="flex items-center gap-1.5 rounded-md bg-white px-2 py-1.5 text-[10px] font-semibold text-ink shadow-v2-card">
-            <CheckCircleIcon size={12} className="text-v2-green" />
+          <li key={t} className="flex items-center gap-1.5 text-[10px] font-semibold text-v2-navy">
+            <CheckIcon size={11} className="flex-none text-v2-green" />
             {t}
           </li>
         ))}
@@ -110,102 +144,132 @@ function MockInterview() {
 }
 
 function MockDashboard() {
+  const rows: Array<[string, string, string]> = [
+    ["Interview", "3", "bg-v2-amber"],
+    ["In Review", "5", "bg-v2-blue"],
+    ["Applied", "16", "bg-v2-violet"],
+  ];
   return (
-    <MockFrame>
-      <div className="grid gap-2 pt-4">
-        <div className="flex items-end gap-1.5">
-          {[28, 40, 34, 52, 46, 62].map((h) => (
-            <span key={h} className="w-4 rounded-t bg-v2-blue/70" style={{ height: h * 0.6 }} />
-          ))}
+    <MockFrame tint="bg-gradient-to-br from-v2-green-soft via-white to-v2-blue-soft">
+      <div className="mx-auto grid w-[90%] gap-1.5 rounded-xl bg-white p-3 shadow-v2-card">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="block text-[10px] font-semibold text-v2-navy">Applications</span>
+            <span className="block text-[22px] font-extrabold leading-none text-v2-navy">24</span>
+          </div>
+          <TrendingUpIcon size={36} className="text-v2-blue" />
         </div>
-        <div className="flex gap-1.5 text-[9px] font-semibold text-ink">
-          <span className="rounded bg-v2-blue-soft px-1.5 py-0.5">Applied</span>
-          <span className="rounded bg-v2-amber-soft px-1.5 py-0.5">In review</span>
-          <span className="rounded bg-v2-green-soft px-1.5 py-0.5">Interview</span>
-        </div>
+        {rows.map(([label, n, dot]) => (
+          <div key={label} className="flex items-center gap-1.5 text-[9.5px] font-semibold text-v2-ink-soft">
+            <span className={cn("h-2.5 w-2.5 rounded-full", dot)} />
+            <span className="flex-1">{label}</span>
+            <span className="text-v2-navy">{n}</span>
+          </div>
+        ))}
       </div>
     </MockFrame>
   );
 }
 
-const TILES: Array<{ title: string; body: string; family: Family; mock: ReactNode }> = [
+const TOOLS: Array<{
+  title: string;
+  body: string;
+  family: Family;
+  icon: ComponentType<IconProps>;
+  mock: ReactNode;
+}> = [
   {
-    title: "AI autofill",
-    body: "Skip the repeat typing. Kiwiply fills the form from your profile and you review every answer.",
-    family: "violet",
+    title: "AI Autofill Applications",
+    body: "Save hours with AI that fills out applications for you.",
+    family: "blue",
+    icon: FileTextIcon,
     mock: <MockAutofill />,
   },
   {
-    title: "Best resume per job",
-    body: "Keep several resumes and pick the one that fits each role.",
+    title: "Smart Resume Tailoring",
+    body: "Create polished, targeted resumes in seconds.",
     family: "green",
+    icon: LayersIcon,
     mock: <MockResume />,
   },
   {
-    title: "Email tracking",
-    body: "Connect your Gmail and see replies next to the application they belong to.",
-    family: "amber",
+    title: "Email Tracking & Alerts",
+    body: "Never miss an update with real-time notifications.",
+    family: "pink",
+    icon: BellIcon,
     mock: <MockInbox />,
   },
   {
-    title: "Job match discovery",
-    body: "Find openings that fit your skills and goals, ranked for you.",
-    family: "teal",
+    title: "Job Match Discovery",
+    body: "Find opportunities that fit your skills, goals, and interests.",
+    family: "violet",
+    icon: TargetIcon,
     mock: <MockMatches />,
   },
   {
-    title: "Interview readiness",
-    body: "Expert mock interviews and coaching, available as services when you want a human in your corner.",
-    family: "pink",
+    title: "Interview Readiness",
+    body: "Prepare with personalized tips and practice tools.",
+    family: "teal",
+    icon: ChatIcon,
     mock: <MockInterview />,
   },
   {
-    title: "All-in-one dashboard",
-    body: "Every application and its status in one board, so nothing slips.",
-    family: "blue",
+    title: "All-in-One Dashboard",
+    body: "Stay organized and track your entire journey in one place.",
+    family: "amber",
+    icon: LayoutGridIcon,
     mock: <MockDashboard />,
   },
 ];
 
-/** §8.5 — six feature tiles, each with a tiny fictional mock. */
+/** "Powerful tools for a simpler, smarter job search." Six cards with mini mocks (icon rows on mobile). */
 export default function Different() {
   return (
-    <AboutSection labelledBy="different-title">
+    <Section labelledBy="different-title" className="py-10 lg:py-14">
       <div className="relative">
-        <AboutHeading
+        <RowHeading
           id="different-title"
-          eyebrow="What makes Kiwiply different"
-          family="violet"
+          eyebrow="What Makes Kiwiply Different"
           title="Powerful tools for a"
           accent="simpler, smarter job search."
-        />
-        <div aria-hidden className="absolute -top-4 right-0 hidden items-center gap-2 lg:flex">
-          <span className="-rotate-3 text-right font-[family-name:var(--font-hand)] text-2xl leading-6 text-ink">
-            Less effort.
-            <br />
-            More opportunity.
-          </span>
-          <Mascot pose="laptop" className="h-24 w-24" />
-        </div>
+          className="pr-24 md:pr-32 xl:pr-0"
+        >
+          <div aria-hidden className="relative hidden items-center gap-1 xl:flex">
+            <Handwritten family="violet" className="w-36 -rotate-3 text-[24px]">
+              Less effort. More opportunity.
+            </Handwritten>
+            <Mascot pose="headphones" className="-my-6 h-20 w-20" />
+          </div>
+        </RowHeading>
+        {/* Below xl: handwriting top-right, mascot beside the heading (mobile board). */}
+        <Handwritten
+          family="violet"
+          className="absolute right-0 top-0 hidden w-36 -rotate-3 text-right text-[20px] sm:block lg:hidden"
+        >
+          Less effort, more opportunity!
+        </Handwritten>
+        <Mascot pose="headphones" className="absolute right-0 top-8 h-20 w-20 md:h-24 md:w-24 xl:hidden" />
       </div>
 
-      <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {TILES.map((t) => (
-          <li
-            key={t.title}
-            className="flex flex-col gap-4 rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-card"
-          >
-            {t.mock}
-            <div className="px-1 pb-1">
-              <h3 className="flex items-center gap-2 text-[17px] font-bold tracking-normal text-ink">
-                <span aria-hidden className={cn("h-2.5 w-2.5 rounded-full", FAMILY[t.family].dot)} />
-                {t.title}
-              </h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{t.body}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </AboutSection>
+      <div className="mt-8 rounded-[28px] bg-white/70 p-3 shadow-v2-card lg:mt-10 lg:p-4">
+        <ul className="grid gap-3 md:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+          {TOOLS.map((t) => (
+            <li
+              key={t.title}
+              className="flex flex-row items-start gap-4 rounded-[var(--radius-v2-card)] bg-white p-4 md:flex-col md:gap-3 md:bg-transparent md:p-2"
+            >
+              {t.mock}
+              <IconTile family={t.family} className="md:hidden">
+                <t.icon size={24} />
+              </IconTile>
+              <div>
+                <h3 className="text-[16px] font-bold leading-snug tracking-normal text-v2-navy">{t.title}</h3>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed text-v2-ink-soft">{t.body}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Section>
   );
 }

@@ -1,54 +1,58 @@
-import { BellIcon, LayoutGridIcon, TargetIcon, ZapIcon } from "@kiwiply/ui";
-import { AboutFeatureTile, AboutHeading, AboutSection } from "./shared";
+import type { ComponentType } from "react";
+import { BellIcon, LayoutGridIcon, TargetIcon, ZapIcon, type IconProps } from "@kiwiply/ui";
+import Section from "../Section";
+import { IconTile, RowHeading, type Family } from "./shared";
 
-/** §8.7 — "Our promise": four commitments. */
+const PROMISES: Array<{ title: string; body: string; family: Family; icon: ComponentType<IconProps> }> = [
+  {
+    title: "Less busywork",
+    body: "Automate the repetitive stuff so you can focus on what matters.",
+    family: "blue",
+    icon: ZapIcon,
+  },
+  {
+    title: "Better job matches",
+    body: "Find opportunities that align with your skills, interests, and goals.",
+    family: "green",
+    icon: TargetIcon,
+  },
+  {
+    title: "Never miss an update",
+    body: "Stay informed with real-time tracking and alerts.",
+    family: "amber",
+    icon: BellIcon,
+  },
+  {
+    title: "Everything in one place",
+    body: "From search to offer, manage your entire journey in a single, easy-to-use platform.",
+    family: "blue",
+    icon: LayoutGridIcon,
+  },
+];
+
+/** "A simpler job search, brighter tomorrows." Four promise tiles. */
 export default function OurPromise() {
   return (
-    <AboutSection labelledBy="promise-title" className="pt-0 lg:pt-0">
-      <AboutHeading
-        id="promise-title"
-        eyebrow="Our promise"
-        title="A simpler job search,"
-        accent="brighter tomorrows."
-      />
-      <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <li>
-          <AboutFeatureTile
-            family="blue"
-            icon={<ZapIcon size={24} />}
-            title="Less busywork"
-            body="Let AI handle the repetitive parts so you can focus on what matters."
-            className="h-full"
-          />
-        </li>
-        <li>
-          <AboutFeatureTile
-            family="green"
-            icon={<TargetIcon size={24} />}
-            title="Better job matches"
-            body="Find opportunities that line up with your skills, interests and goals."
-            className="h-full"
-          />
-        </li>
-        <li>
-          <AboutFeatureTile
-            family="amber"
-            icon={<BellIcon size={24} />}
-            title="Never miss an update"
-            body="Replies from employers show up next to the application they belong to."
-            className="h-full"
-          />
-        </li>
-        <li>
-          <AboutFeatureTile
-            family="violet"
-            icon={<LayoutGridIcon size={24} />}
-            title="Everything in one place"
-            body="From first search to offer, manage your whole journey on one board."
-            className="h-full"
-          />
-        </li>
+    <Section labelledBy="promise-title" className="py-10 lg:py-14">
+      <RowHeading id="promise-title" eyebrow="Our Promise" title="A simpler job search," accent="brighter tomorrows." />
+      <ul className="mt-8 grid grid-cols-2 gap-3 lg:mt-10 lg:grid-cols-4 lg:gap-4">
+        {PROMISES.map(({ title, body, family, icon: Icon }) => (
+          <li
+            key={title}
+            className="flex flex-col items-center gap-3 rounded-[var(--radius-v2-card)] bg-white p-4 text-center shadow-v2-card lg:flex-row lg:items-center lg:gap-4 lg:p-5 lg:text-left"
+          >
+            <IconTile family={family} className="h-14 w-14 rounded-full lg:h-16 lg:w-16">
+              <Icon size={26} />
+            </IconTile>
+            <div>
+              <h3 className="text-[15px] font-bold leading-snug tracking-normal text-v2-navy lg:text-[16px]">
+                {title}
+              </h3>
+              <p className="mt-1 text-[13.5px] leading-snug text-v2-ink-soft">{body}</p>
+            </div>
+          </li>
+        ))}
       </ul>
-    </AboutSection>
+    </Section>
   );
 }

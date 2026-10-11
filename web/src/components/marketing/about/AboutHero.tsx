@@ -1,98 +1,95 @@
-import Link from "next/link";
 import {
-  ArrowRightIcon,
   CalendarIcon,
   CheckCircleIcon,
   CurvedArrow,
+  HeartIcon,
   MailIcon,
   SearchIcon,
   SparkBurst,
   SparklesIcon,
-  buttonVariants,
   cn,
 } from "@kiwiply/ui";
+import Eyebrow from "../Eyebrow";
+import { FAMILY } from "../family";
+import Handwritten from "../Handwritten";
 import { Mascot, Photo } from "../media";
-import { AboutEyebrow, IconTile, type Family } from "./shared";
+import { IconTile, MissionButton, WatchStory, type Family } from "./shared";
 
 const CHECKS: Array<{ label: string; family: Family; icon: typeof SearchIcon }> = [
   { label: "Find the right jobs", family: "blue", icon: SearchIcon },
-  { label: "Autofill with AI", family: "violet", icon: SparklesIcon },
-  { label: "Track every reply", family: "amber", icon: MailIcon },
-  { label: "Prepare for interviews", family: "teal", icon: CalendarIcon },
+  { label: "Auto apply with AI", family: "violet", icon: SparklesIcon },
+  { label: "Track every update", family: "amber", icon: MailIcon },
+  { label: "Prepare for interviews", family: "blue", icon: CalendarIcon },
 ];
 
-/** §8.1 — hero: copy left; portrait + checklist card + mascot + sticky note right. */
+/**
+ * Hero (board: about-desktop-b). Copy left; portrait + checklist card + mascot + sticky note
+ * right. Mobile order follows the mobile board: eyebrow, h1, lede, art, buttons.
+ */
 export default function AboutHero() {
   return (
     <section
       aria-labelledby="about-hero-title"
-      className="relative overflow-hidden px-5 pb-16 pt-10 lg:px-8 lg:pb-24 lg:pt-16"
+      className="relative overflow-x-clip px-5 pb-10 pt-10 lg:px-8 lg:pb-14 lg:pt-16"
     >
       {/* soft lime / sky blobs behind the hero */}
       <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-v2-lime/30 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -right-24 top-0 h-96 w-96 rounded-full bg-v2-blue/20 blur-3xl" />
 
-      <div className="relative mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-10">
-        <div>
-          <AboutEyebrow family="green">About Kiwiply</AboutEyebrow>
+      <div className="relative mx-auto grid max-w-[1200px] gap-x-8 gap-y-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        {/* copy */}
+        <div className="lg:col-start-1 lg:row-start-1">
+          <Eyebrow family="green">About Kiwiply</Eyebrow>
           <h1
             id="about-hero-title"
-            className="mt-5 text-4xl text-ink md:text-[44px] lg:text-[56px] lg:leading-[1.04]"
+            className="mt-5 text-4xl text-v2-navy md:text-[44px] lg:text-[56px] lg:leading-[1.04]"
           >
-            We&rsquo;re building a <span className="text-accent-deep">smarter way</span> to get people hired.
+            We&rsquo;re building
+            <span className={cn("block", FAMILY.green.headline)}>a smarter way</span>
+            <span className="block">to get people hired.</span>
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-ink-soft md:text-lg">
-            Kiwiply exists to make job searching simpler and more human: one profile, AI that does the
-            repetitive parts, and a board that keeps every application in sight &mdash; with you making
-            every decision.
+          <p className="mt-5 max-w-[520px] text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+            Kiwiply was created to make job searching simpler, faster, and more personal &mdash; using AI to
+            match you with the right opportunities and help you every step of the way.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link href="#mission" className={buttonVariants("ghost", "lg", "min-h-11 w-full sm:w-auto")}>
-              Our mission
-            </Link>
-            <Link href="/signup" className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>
-              Get Started Free
-              <ArrowRightIcon size={16} aria-hidden />
-            </Link>
-          </div>
         </div>
 
-        <div className="relative pb-8">
+        {/* art */}
+        <div className="relative mx-auto w-full max-w-[560px] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-w-none">
           {/* Handwritten note + arrow (desktop only, decorative) */}
-          <div aria-hidden className="absolute -top-10 left-0 z-10 hidden items-end gap-1 lg:flex">
-            <span className="-rotate-6 font-[family-name:var(--font-hand)] text-2xl leading-6 text-ink">
-              More than
-              <br />a job search.
-              <br />A brighter
-              <br />next chapter.
-            </span>
-            <CurvedArrow direction="down-right" className="h-10 w-10 text-v2-green" />
+          <div aria-hidden className="absolute -left-20 top-2 z-10 hidden items-end gap-1 xl:flex">
+            <Handwritten family="violet" className="w-40 -rotate-6 text-[26px]">
+              More than job search. A brighter next chapter.
+            </Handwritten>
+            <CurvedArrow direction="down-right" className="mb-1 h-9 w-9 text-v2-green" />
           </div>
 
-          <Photo
-            id="about-portrait"
-            alt="A smiling job seeker working on a laptop"
-            className="aspect-[4/3] w-full rounded-[28px] shadow-v2-float lg:aspect-[5/4]"
-            sizes="(min-width: 1024px) 560px, 100vw"
-            priority
-          />
-          <SparkBurst className="absolute -right-1 -top-4 h-10 w-10 text-v2-green" />
+          <div className="relative h-[300px] overflow-hidden rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft sm:h-[380px] lg:h-[460px] lg:rounded-[40px]">
+            <div className="absolute bottom-0 left-1/2 w-[62%] -translate-x-1/2 lg:left-[44%] lg:w-[58%]">
+              <Photo
+                id="about-portrait"
+                alt="A smiling job seeker working at a laptop"
+                className="w-full"
+                sizes="(min-width: 1024px) 400px, 70vw"
+                priority
+              />
+            </div>
+          </div>
+
+          <SparkBurst className="absolute -top-4 left-[38%] hidden h-9 w-9 text-v2-green lg:block" />
 
           {/* Floating checklist card */}
           <ul
             aria-label="What Kiwiply helps with"
-            className={cn(
-              "mt-4 grid gap-2.5 rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-float",
-              "lg:absolute lg:left-0 lg:top-14 lg:mt-0 lg:w-[250px] lg:-translate-x-8",
-            )}
+            className="absolute right-[6%] top-5 z-10 hidden w-[250px] gap-2.5 rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-float lg:grid"
           >
             {CHECKS.map(({ label, family, icon: Icon }) => (
-              <li key={label} className="flex items-center gap-3 text-sm font-semibold text-ink">
+              <li key={label} className="flex items-center gap-3 text-[13px] font-semibold text-v2-navy">
                 <IconTile family={family} className="h-9 w-9 rounded-xl">
                   <Icon size={18} />
                 </IconTile>
                 <span className="flex-1">{label}</span>
-                <CheckCircleIcon size={18} aria-hidden className="text-v2-green" />
+                <CheckCircleIcon size={18} aria-hidden className="flex-none text-v2-green" />
               </li>
             ))}
           </ul>
@@ -100,19 +97,27 @@ export default function AboutHero() {
           {/* Sticky note */}
           <div
             aria-hidden
-            className="absolute -top-3 right-3 z-10 w-[150px] rotate-[5deg] rounded-md bg-v2-sticky px-3.5 py-3 shadow-v2-card md:right-6"
+            className="absolute -top-3 right-1 z-10 w-[132px] rotate-[5deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card lg:-right-3 lg:-top-6 lg:w-[150px]"
           >
-            <p className="font-[family-name:var(--font-hand)] text-xl leading-6 text-v2-sticky-ink">
-              Same me.
-              <br />
-              Bigger opportunities.
+            <p className="font-[family-name:var(--font-hand)] text-[19px] leading-[1.1] text-v2-sticky-ink lg:text-[22px]">
+              Same me. Bigger opportunities.
+              <HeartIcon size={14} className="ml-1 inline text-v2-amber" fill="currentColor" />
             </p>
           </div>
 
-          {/* Mascot overlaps the photo's bottom-right corner */}
+          {/* Mascot overlaps the panel's bottom-right corner */}
           <Mascot
             pose="headphones"
-            className="absolute bottom-0 right-0 h-28 w-28 md:h-36 md:w-36 lg:-right-4 lg:h-40 lg:w-40"
+            className="absolute -bottom-3 right-2 z-10 h-24 w-24 md:h-28 md:w-28 lg:-bottom-2 lg:right-6 lg:h-36 lg:w-36"
+          />
+        </div>
+
+        {/* buttons */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 lg:col-start-1 lg:row-start-2 lg:self-start">
+          <MissionButton />
+          <WatchStory
+            withDuration
+            className="w-full justify-center rounded-[var(--radius-button)] border border-v2-line bg-white px-4 sm:w-auto sm:justify-start sm:border-0 sm:bg-transparent sm:px-0"
           />
         </div>
       </div>

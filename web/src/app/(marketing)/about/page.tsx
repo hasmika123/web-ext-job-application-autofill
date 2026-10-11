@@ -7,16 +7,17 @@ import Different from "@/components/marketing/about/Different";
 import Guides from "@/components/marketing/about/Guides";
 import OurPromise from "@/components/marketing/about/OurPromise";
 import Story from "@/components/marketing/about/Story";
+import Testimonials from "@/components/marketing/about/Testimonials";
 import AboutCta from "@/components/marketing/about/AboutCta";
 
 export const metadata: Metadata = {
   title: "About Kiwiply",
   description:
-    "Kiwiply makes job searching simpler and more human: one profile, AI that does the repetitive parts, and a board that keeps every application in sight, with you making every decision.",
+    "Kiwiply was created to make job searching simpler, faster, and more personal, using AI to match you with the right opportunities and help you every step of the way.",
   alternates: { canonical: "/about" },
 };
 
-/** /about (landing v2, spec §8). Static server components; shell + theme come from the (marketing) layout. */
+/** /about (landing v2, exact-board mode: spec section 13.5). Static server components. */
 export default function AboutPage() {
   return (
     <main>
@@ -28,6 +29,7 @@ export default function AboutPage() {
       <Guides />
       <OurPromise />
       <Story />
+      <Testimonials />
       <AboutCta />
     </main>
   );
