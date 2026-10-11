@@ -49,29 +49,31 @@ const ACCOUNTS = {
   },
 };
 
-const DEMO_INFO = {
-  enabled: true,
-  accounts: [
-    {
-      login: "demo",
-      label: "Job seeker (Priya Sharma)",
-      description: "A ready-made job search: a profile, resumes and an application board.",
-      landing: "/dashboard",
-    },
-    {
-      login: "demo-org",
-      label: "Organization admin",
-      description: "The organization admin: people, boards and reports.",
-      landing: "/org",
-    },
-    {
-      login: "demo-admin",
-      label: "App admin",
-      description: "The platform admin console: users, analytics, system settings and the audit log.",
-      landing: "/admin",
-    },
-  ],
-};
+// Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
+const DEMO_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ENABLED ?? "true");
+
+const DEMO_ACCOUNTS = [
+  {
+    login: "demo",
+    label: "Job seeker (Priya Sharma)",
+    description: "A ready-made job search: a profile, resumes and an application board.",
+    landing: "/dashboard",
+  },
+  {
+    login: "demo-org",
+    label: "Organization admin",
+    description: "The organization admin: people, boards and reports.",
+    landing: "/org",
+  },
+  {
+    login: "demo-admin",
+    label: "App admin",
+    description: "The platform admin console: users, analytics, system settings and the audit log.",
+    landing: "/admin",
+  },
+];
+
+const DEMO_INFO = { enabled: DEMO_ENABLED, accounts: DEMO_ENABLED ? DEMO_ACCOUNTS : [] };
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 /** Unsigned JWT-shaped token: the web app only decodes `exp` (proxy.ts) and forwards it back to us. */
@@ -176,6 +178,10 @@ const server = http.createServer((req, res) => {
   if (path === "/api/public/demo") return json(res, 200, DEMO_INFO);
 
   if (path === "/api/authenticate/demo" && method === "POST") {
+    if (!DEMO_ENABLED) {
+      req.resume();
+      return json(res, 403, { code: "DEMO_DISABLED", message: "Demo accounts are currently disabled" });
+    }
     return withBody(req, (b) => {
       const login = String(b.login ?? "");
       return ACCOUNTS[login] ? json(res, 200, pair(login)) : json(res, 400, { error: "Unknown demo account." });
@@ -195,6 +201,11 @@ const server = http.createServer((req, res) => {
   req.resume(); // other bodies are ignored
   const sub = subOf(req);
   if (!sub) return json(res, 401, { error: "Unauthorized" });
+
+  // The demo switch is server config only: no endpoint flips it (reset is a POST below, refused like any write).
+  if (path === "/api/admin/settings/demo" && method !== "GET" && method !== "HEAD") {
+    return json(res, 405, { error: "Method not allowed: the demo switch is controlled by server config (DEMO_ENABLED)." });
+  }
 
   // The real API refuses writes from a demo session. (Reads below.)
   if (method !== "GET" && method !== "HEAD") {
@@ -222,10 +233,10 @@ const server = http.createServer((req, res) => {
       return res.end(JSON.stringify(users));
     }
     if (path === "/api/admin/settings/demo")
-      return json(res, 200, { ...DEMO_INFO, updatedBy: "admin", updatedDate: ago(2) });
+      return json(res, 200, { enabled: DEMO_ENABLED, accounts: DEMO_ACCOUNTS });
     if (path === "/api/admin/audit") {
       const events = [
-        ["admin", "DEMO_SETTING_CHANGED", "app_setting", "demo.enabled", 2],
+        ["admin", "DEMO_RESET", "DEMO", "demo.data", 2],
         ["admin", "USER_ACTIVATED", "user", "priya.s", 4],
         ["admin", "AI_QUOTA_OVERRIDE", "user", "ravi.k", 6],
       ].map(([actor, action, targetType, targetId, d], i) => ({

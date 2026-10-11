@@ -39,7 +39,4 @@ export interface DemoInfo {
 }
 
 /** `GET /api/admin/settings/demo`. */
-export interface DemoAdminState extends DemoInfo {
-  updatedBy: string | null;
-  updatedDate: string | null;
-}
+export type DemoAdminState = DemoInfo;

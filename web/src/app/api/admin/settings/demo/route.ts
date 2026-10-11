@@ -1,31 +1,14 @@
 import { serverApiFetch } from "@/lib/api";
 
 /**
- * Admin demo switch proxy (phase demo): browser -> Next -> Spring `/api/admin/settings/demo`.
- * Spring enforces ROLE_ADMIN and writes the audit entry; this only forwards. GET is also read
- * server-side by the System page; the client card uses PUT (flip the switch).
+ * Admin demo status proxy (phase demo): browser -> Next -> Spring `/api/admin/settings/demo`.
+ * Spring enforces ROLE_ADMIN; this only forwards. Read-only: the on/off switch is server config
+ * (`DEMO_ENABLED` on the API), so there is no PUT. GET is read server-side by the System page.
  */
 export async function GET() {
   let res: Response;
   try {
     res = await serverApiFetch("/api/admin/settings/demo");
-  } catch {
-    return Response.json({ error: "Couldn't reach the server." }, { status: 502 });
-  }
-  return passthrough(res);
-}
-
-export async function PUT(request: Request) {
-  const body = (await request.json().catch(() => null)) as { enabled?: unknown } | null;
-  if (typeof body?.enabled !== "boolean") {
-    return Response.json({ error: "Expected 'enabled' to be true or false." }, { status: 400 });
-  }
-  let res: Response;
-  try {
-    res = await serverApiFetch("/api/admin/settings/demo", {
-      method: "PUT",
-      body: JSON.stringify({ enabled: body.enabled }),
-    });
   } catch {
     return Response.json({ error: "Couldn't reach the server." }, { status: 502 });
   }

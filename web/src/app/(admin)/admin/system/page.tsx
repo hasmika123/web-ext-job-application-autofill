@@ -45,15 +45,13 @@ function duration(seconds?: number): string {
   return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-/** The demo switch + accounts (null when the API can't be read; the card then says so). */
+/** The demo status (read-only; config-controlled) + accounts (null when the API can't be read; the card then says so). */
 async function fetchDemoState(): Promise<DemoAdminState | null> {
   const data = await fetchJson("/api/admin/settings/demo");
   if (!data || typeof data.enabled !== "boolean" || !Array.isArray(data.accounts)) return null;
   return {
     enabled: data.enabled,
     accounts: data.accounts as DemoAdminState["accounts"],
-    updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : null,
-    updatedDate: typeof data.updatedDate === "string" ? data.updatedDate : null,
   };
 }
 
