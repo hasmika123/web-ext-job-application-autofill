@@ -1,63 +1,75 @@
-import Link from "next/link";
-import { ArrowRightIcon, CheckCircleIcon, ClockIcon, buttonVariants } from "@kiwiply/ui";
-import { Mascot } from "../media";
-import { AboutHeading, AboutSection } from "./shared";
+import { HeartIcon } from "@kiwiply/ui";
+import Eyebrow from "../Eyebrow";
+import { FAMILY } from "../family";
+import Handwritten from "../Handwritten";
+import { Mascot, Photo } from "../media";
+import Section from "../Section";
+import { MissionButton } from "./shared";
 
-const LIVE_TODAY = [
-  "One profile, built from your resume",
-  "Autofill on Workday, Greenhouse, Lever, Ashby and Workable that you review before you submit",
-  "A board for every application, with Gmail replies tracked alongside",
-];
-
-const COMING = [
-  "Autopilot: batches of applications prepared in your own browser, which you review and submit",
-  "Interview practice, to rehearse before the real thing",
-];
-
-/** §8.8 — "Our story": short, true; built in 2026, in beta, small team; live today vs coming. */
+/**
+ * "Built for brighter careers." Copy left, team photo + handwriting + sticky + mascot right.
+ * Mobile order: copy, photo, button (as on the mobile board).
+ */
 export default function Story() {
   return (
-    <AboutSection labelledBy="story-title" className="pt-0 lg:pt-0">
-      <div className="grid items-center gap-10 rounded-[28px] bg-gradient-to-br from-v2-blue-soft via-white to-v2-lime-soft p-6 shadow-v2-card md:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:p-14">
-        <div>
-          <AboutHeading id="story-title" eyebrow="Our story" title="Built for" accent="brighter careers." />
-          <p className="mt-5 text-base leading-relaxed text-ink-soft md:text-lg">
-            Kiwiply started in 2026 with a simple idea: job searching should be more human and less
-            hectic. A small team is building it, and it&rsquo;s in beta today, so it&rsquo;s improving
-            all the time. Here&rsquo;s where it stands.
+    <Section labelledBy="story-title" className="py-10 lg:py-14">
+      <div className="grid gap-x-12 gap-y-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div className="lg:col-start-1 lg:row-start-1">
+          <Eyebrow family="green">Our Story</Eyebrow>
+          <h2 id="story-title" className="mt-4 text-[28px] text-v2-navy md:text-4xl lg:text-[40px]">
+            Built for <span className={FAMILY.green.headline}>brighter careers.</span>
+          </h2>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+            Kiwiply started with a simple idea: job searching should be more human, less hectic. Our team of
+            builders, designers, and career advocates came together to create a platform that helps people
+            find meaningful opportunities and reach their potential.
           </p>
-          <Link href="#mission" className={buttonVariants("accent", "lg", "mt-7 min-h-11 w-full sm:w-auto")}>
-            Our mission
-            <ArrowRightIcon size={16} aria-hidden />
-          </Link>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+            Today, Kiwiply supports thousands of job seekers and organizations who believe in a brighter, more
+            inclusive future of work.
+          </p>
         </div>
 
-        <div className="relative grid gap-4">
-          <div className="rounded-[var(--radius-v2-card)] bg-white p-5 shadow-v2-card">
-            <h3 className="text-base font-bold tracking-normal text-ink">Live today (beta)</h3>
-            <ul className="mt-3 grid gap-2.5">
-              {LIVE_TODAY.map((t) => (
-                <li key={t} className="flex items-start gap-2.5 text-sm text-ink-soft">
-                  <CheckCircleIcon size={18} aria-hidden className="mt-0.5 flex-none text-v2-green" />
-                  {t}
-                </li>
-              ))}
-            </ul>
+        <div className="relative lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          <div className="relative flex min-h-[260px] items-end justify-center overflow-hidden rounded-[32px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft pt-16 lg:min-h-[360px] lg:rounded-[48px]">
+            <div className="w-[92%] lg:w-[84%]">
+              <Photo
+                id="about-team"
+                alt="A small team gathered around a laptop, smiling"
+                className="w-full"
+                sizes="(min-width: 1024px) 560px, 92vw"
+              />
+            </div>
           </div>
-          <div className="rounded-[var(--radius-v2-card)] bg-white p-5 shadow-v2-card">
-            <h3 className="text-base font-bold tracking-normal text-ink">Coming next</h3>
-            <ul className="mt-3 grid gap-2.5">
-              {COMING.map((t) => (
-                <li key={t} className="flex items-start gap-2.5 text-sm text-ink-soft">
-                  <ClockIcon size={18} aria-hidden className="mt-0.5 flex-none text-v2-violet" />
-                  {t}
-                </li>
-              ))}
-            </ul>
+
+          <Handwritten
+            family="violet"
+            className="absolute left-4 top-4 w-44 -rotate-6 text-[24px] lg:left-6 lg:top-6 lg:w-52 lg:text-[26px]"
+          >
+            A brighter future of work. Together.
+            <HeartIcon size={16} className="ml-1 inline text-v2-blue" />
+          </Handwritten>
+
+          <div
+            aria-hidden
+            className="absolute -right-1 top-6 z-10 w-[112px] rotate-[4deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card lg:-right-3 lg:top-10 lg:w-[128px]"
+          >
+            <p className="font-[family-name:var(--font-hand)] text-[18px] leading-[1.1] text-v2-sticky-ink">
+              People Opportunity Progress Always.
+              <HeartIcon size={13} className="ml-1 inline text-v2-amber" fill="currentColor" />
+            </p>
           </div>
-          <Mascot pose="laptop" className="absolute -right-3 -top-14 hidden h-24 w-24 md:block lg:-right-8" />
+
+          <Mascot
+            pose="headphones"
+            className="absolute -bottom-3 right-2 z-10 h-24 w-24 lg:bottom-0 lg:right-4 lg:h-32 lg:w-32"
+          />
+        </div>
+
+        <div className="lg:col-start-1 lg:row-start-2 lg:self-start">
+          <MissionButton />
         </div>
       </div>
-    </AboutSection>
+    </Section>
   );
 }
