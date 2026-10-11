@@ -46,7 +46,7 @@ function Track({ checked, disabled, id, labelledBy, ariaLabel, onToggle, classNa
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        "relative h-[26px] w-[44px] flex-none rounded-full transition-colors duration-150 cursor-pointer",
+        "relative h-[26px] w-[44px] flex-none before:absolute before:inset-x-0 before:-inset-y-[9px] sm:before:hidden rounded-full transition-colors duration-150 cursor-pointer",
         "after:absolute after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white",
         "after:shadow-[0_1px_3px_rgba(0,0,0,.2)] after:transition-[left] after:duration-150",
         checked ? "bg-accent after:left-[21px]" : "bg-line after:left-[3px]",

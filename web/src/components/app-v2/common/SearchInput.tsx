@@ -8,7 +8,7 @@ export interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElem
   wrapperClassName?: string;
 }
 
-const SIZES = { sm: "h-9 text-[13px]", md: "h-11 text-[14px]", lg: "h-12 text-[15px]" } as const;
+const SIZES = { sm: "h-11 text-[13px] sm:h-9", md: "h-11 text-[14px]", lg: "h-12 text-[15px]" } as const;
 
 /** Rounded 12px search field with a leading search icon. Pass `value`/`onChange` to control it. */
 export default function SearchInput({

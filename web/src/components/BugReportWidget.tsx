@@ -146,7 +146,7 @@ export default function BugReportWidget() {
   return (
     <>
       <div
-        className={`group fixed z-[200] flex items-center gap-2 ${corner.endsWith("left") ? "flex-row-reverse" : ""}`}
+        className={`group fixed z-[200] flex items-center gap-2 ${corner.endsWith("left") ? "flex-row-reverse" : ""} ${!drag && corner.startsWith("bottom") ? "max-sm:bottom-24!" : ""}`}
         style={drag ? { left: drag.x, top: drag.y, transform: "translate(-50%, -50%)" } : cornerStyle(corner)}
       >
         {!open &&

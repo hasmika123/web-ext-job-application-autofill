@@ -46,7 +46,7 @@ export interface SelectProps {
 export const selectClass = cn(inputClass, "flex items-center gap-2 pr-9 text-left font-medium cursor-pointer");
 
 const PILL_TRIGGER =
-  "flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3 pr-2.5 text-[13px] " +
+  "flex min-h-11 items-center gap-1.5 rounded-full border border-line bg-paper py-2 sm:min-h-0 pl-3 pr-2.5 text-[13px] " +
   "font-medium text-ink-soft transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-60";
 
 function optionsFromChildren(children: ReactNode): SelectOption[] {

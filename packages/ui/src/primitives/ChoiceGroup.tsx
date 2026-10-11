@@ -70,7 +70,7 @@ export default function ChoiceGroup({
             onClick={() => onChange(on && allowClear ? "" : o.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-150 cursor-pointer",
+              "min-h-11 rounded-full border px-4 py-2 text-sm font-semibold sm:min-h-0 transition-colors duration-150 cursor-pointer",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               on ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink hover:bg-paper-2",
