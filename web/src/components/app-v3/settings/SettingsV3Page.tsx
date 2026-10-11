@@ -58,7 +58,7 @@ export default function SettingsV3Page({ panels }: { panels: Record<SettingsTabK
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex flex-none items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors",
-                  active ? "bg-v2-green-soft text-v2-green-ink" : "text-ink-soft hover:bg-paper-2",
+                  active ? "bg-v2-blue-soft text-v2-blue" : "text-ink-soft hover:bg-paper-2",
                 )}
               >
                 {n.icon}
