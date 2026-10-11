@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Resume Builder design walkthrough</title>
+<meta name="description" content="Visual walkthrough of the Resume Builder + Common Profile design: onboarding, editor, templates, architecture, data model, AI, decisions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+:root{
+  --bg:#F3F8FD; --bg2:#E8F1FB; --card:#FFFFFF; --ink:#0C2340; --ink2:#2B4262; --muted:#5A6D86; --line:#DCE7F3;
+  --accent:#84E63C; --accent-d:#5DB81F; --accent-ink:#173B05; --accent-soft:#EAF9DA;
+  --blue:#2F6BFF; --blue-soft:#E4EEFF; --amber:#B7791F; --amber-soft:#FFF3D6; --red:#C73A3A; --red-soft:#FDE8E8;
+  --violet:#6B4FD8; --violet-soft:#EEEAFE; --gray-soft:#EDF1F6; --shadow:0 1px 2px rgba(12,35,64,.05),0 8px 24px rgba(12,35,64,.06);
+  --bezel:#0C2340; --focus:#2F6BFF; --diag-fill:#FFFFFF;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0A1424; --bg2:#0F1D33; --card:#112039; --ink:#E9F0FA; --ink2:#C3D2E6; --muted:#8FA3BF; --line:#22375A;
+    --accent-d:#9BEF5E; --accent-ink:#0B2503; --accent-soft:#1A3114;
+    --blue:#7CA4FF; --blue-soft:#172A52; --amber:#F2C066; --amber-soft:#3A2D12; --red:#FF8A8A; --red-soft:#3D1A1F;
+    --violet:#B3A2FF; --violet-soft:#2A2352; --gray-soft:#1A2B47; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+    --bezel:#050B16; --focus:#9BB9FF; --diag-fill:#112039;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Plus Jakarta Sans",Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:hidden}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px 80px}
+a{color:var(--blue)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;background:var(--gray-soft);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere}
+h1,h2,h3,h4{line-height:1.2;margin:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.muted{color:var(--muted)}
+.cap{font-size:12.5px;color:var(--muted);margin:10px 2px 0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--bg2);color:var(--ink2);font-size:12.5px;font-weight:600}
+.btn{font:inherit;font-weight:700;font-size:13.5px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:8px 14px;min-height:40px}
+.btn:hover{background:var(--bg2)}
+.btn.on,.btn[aria-pressed="true"],.btn[aria-selected="true"]{background:var(--accent);border-color:var(--accent-d);color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);margin:0 -16px;padding:8px 16px}
+.nav ul{list-style:none;display:flex;gap:6px;margin:0;padding:0;overflow-x:auto;scrollbar-width:thin}
+.nav a{display:block;white-space:nowrap;text-decoration:none;color:var(--ink2);font-weight:700;font-size:13px;padding:6px 12px;border-radius:999px}
+.nav a:hover{background:var(--bg2)}
+.nav a.cur{background:var(--accent);color:var(--accent-ink)}
+
+.hero{padding:34px 16px 10px}
+.hero h1{font-size:clamp(28px,5vw,46px);font-weight:800;letter-spacing:-.03em;max-width:18ch}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--accent) 62%)}
+.hero p{max-width:62ch;color:var(--ink2);font-size:16.5px}
+.hero .meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+section.sec{padding-top:56px;scroll-margin-top:50px}
+.sec>header{margin-bottom:18px}
+.sec>header .k{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-d)}
+.sec>header h2{font-size:clamp(22px,3.4vw,30px);font-weight:800;letter-spacing:-.02em;margin:4px 0 6px}
+.sec>header p{margin:0;color:var(--ink2);max-width:72ch}
+
+/* exec cards */
+.grid{display:grid;gap:14px}
+.g3{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.exec{padding:18px;display:flex;flex-direction:column;gap:6px}
+.exec .n{width:30px;height:30px;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:800;display:grid;place-items:center;font-size:14px}
+.exec h3{font-size:16px}
+.exec p{margin:0;color:var(--ink2);font-size:14px}
+
+/* phone */
+.phone{width:290px;max-width:100%;flex:0 0 auto;background:var(--bezel);border-radius:38px;padding:10px;box-shadow:var(--shadow)}
+.screen{background:var(--bg);border-radius:30px;height:580px;overflow:hidden;position:relative;display:flex;flex-direction:column;color:var(--ink)}
+.screen .notch{height:22px;flex:0 0 22px;display:flex;justify-content:center;align-items:center}
+.screen .notch i{width:70px;height:6px;background:var(--line);border-radius:6px}
+.sbar{display:flex;align-items:center;gap:8px;padding:2px 14px 8px;font-weight:700;font-size:13px}
+.sbar .back{font-size:16px;color:var(--muted)}
+.sbody{flex:1;overflow:auto;padding:4px 14px 14px;font-size:13px;scroll-behavior:smooth}
+.sfoot{padding:10px 14px 14px;display:flex;gap:8px}
+.pbtn{flex:1;font:inherit;font-weight:700;font-size:13px;border-radius:14px;padding:11px 8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;min-height:44px}
+.pbtn.go{background:var(--accent);border-color:var(--accent-d);color:var(--accent-ink)}
+.opt{display:block;width:100%;text-align:left;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin:8px 0;color:var(--ink);cursor:pointer}
+.opt:hover{border-color:var(--accent-d)}
+.opt b{display:block;font-size:14px}.opt small{color:var(--muted);font-size:12px}
+.opt .ic{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:10px;background:var(--accent-soft);margin-bottom:6px;font-weight:800;color:var(--accent-ink)}
+.dots{display:flex;gap:5px;margin:2px 14px 6px}
+.dots i{height:5px;flex:1;border-radius:5px;background:var(--line)}
+.dots i.on{background:var(--accent-d)}
+.icard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:var(--shadow);transition:transform .25s,opacity .25s}
+.icard.out-l{transform:translateX(-120%) rotate(-8deg);opacity:0}
+.icard.out-r{transform:translateX(120%) rotate(8deg);opacity:0}
+.icard h4{font-size:15px}.icard .sub{color:var(--muted);font-size:12px;margin:2px 0 8px}
+.icard ul{margin:0 0 8px;padding-left:16px}.icard li{margin:2px 0}
+.prov{display:inline-block;font-size:11px;font-weight:700;background:var(--blue-soft);color:var(--blue);padding:1px 8px;border-radius:999px}
+.hint{text-align:center;color:var(--muted);font-size:11.5px;margin:10px 0 0}
+.chipx{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);color:var(--accent-ink);border-radius:999px;padding:5px 10px;margin:3px 2px;font-weight:600;font-size:12px;border:0;cursor:pointer;font-family:inherit}
+@media (prefers-color-scheme:dark){.chipx{color:var(--accent-d)}}
+.chipx.sug{background:var(--bg2);color:var(--ink2);border:1px dashed var(--line)}
+.meter{height:14px;background:var(--gray-soft);border-radius:999px;overflow:hidden}
+.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-d),var(--accent));transition:width .5s}
+.big{font-size:44px;font-weight:800;line-height:1}
+.kiwi{width:44px;height:44px}
+.flow{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+.flow .side{flex:1 1 300px;max-width:440px}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:0;list-style:none}
+.flow .side h3{font-size:20px;margin-bottom:6px}
+.flow .side ul{padding-left:18px;color:var(--ink2)}
+.flow .side li{margin:5px 0}
+
+/* editor desktop */
+.dwin{overflow:hidden}
+.dtop{display:flex;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;flex-wrap:wrap}
+.dtop b{font-weight:800}
+.dtop .sp{flex:1}
+.dcols{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1.1fr);min-height:420px}
+.dcols>div{padding:12px;border-right:1px solid var(--line);min-width:0}
+.dcols>div:last-child{border-right:0;background:var(--bg2)}
+.rail .it{display:flex;gap:6px;align-items:center;padding:6px 8px;border-radius:10px;font-size:13px;font-weight:600;margin:2px 0}
+.rail .it.act{background:var(--accent-soft)}
+.rail .it .g{color:var(--muted);letter-spacing:-2px}
+.rail .it.off{color:var(--muted)}
+.rail small{display:block;margin-top:12px;color:var(--muted);font-size:11.5px}
+.ecard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;font-size:13px}
+.ecard .h{display:flex;gap:6px;font-weight:700;align-items:center}
+.ecard .b{display:flex;gap:8px;align-items:flex-start;margin:6px 0 0;padding:6px 8px;background:var(--bg);border-radius:10px}
+.ecard .b span{flex:1}
+.ai{font-size:12px;border:0;background:var(--violet-soft);color:var(--violet);border-radius:8px;padding:2px 7px;cursor:pointer;font-weight:800}
+.tbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px}
+.sw{width:16px;height:16px;border-radius:50%;display:inline-block;border:2px solid var(--card)}
+.pagewrap{background:#fff;color:#111;border-radius:6px;padding:16px 18px;box-shadow:var(--shadow);font-size:10.5px;line-height:1.45;font-family:Inter,system-ui,sans-serif}
+.pagewrap h5{margin:0;font-size:15px;letter-spacing:.04em}
+.pagewrap .sec-t{margin:9px 0 3px;font-weight:800;font-size:9.5px;letter-spacing:.1em;color:#2a6b0a;border-bottom:1px solid #84E63C;padding-bottom:1px}
+.pagewrap ul{margin:3px 0;padding-left:14px}
+.panel{padding:16px}
+.panel h3{font-size:16px;margin-bottom:8px}
+.diffrow{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px;background:var(--bg)}
+.diffrow label{display:flex;gap:8px;font-weight:700;align-items:center}
+.del{background:var(--red-soft);color:var(--red);text-decoration:line-through;padding:0 2px;border-radius:3px}
+.ins{background:var(--accent-soft);color:var(--accent-ink);padding:0 2px;border-radius:3px}
+@media (prefers-color-scheme:dark){.ins{color:var(--accent-d)}}
+.warn{background:var(--amber-soft);color:var(--amber);padding:6px 10px;border-radius:10px;font-size:12.5px;margin-top:6px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.kv{display:flex;gap:6px;flex-wrap:wrap}
+.tag{padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;background:var(--gray-soft);color:var(--ink2)}
+.tag.ok{background:var(--accent-soft);color:var(--accent-ink)}.tag.bad{background:var(--red-soft);color:var(--red)}
+.tag.warn2{background:var(--amber-soft);color:var(--amber)}
+@media (prefers-color-scheme:dark){.tag.ok{color:var(--accent-d)}}
+.phones{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:22px}
+.tabbar{display:flex;border-top:1px solid var(--line);background:var(--card)}
+.tabbar button{flex:1;font:inherit;font-size:12px;font-weight:700;border:0;background:transparent;color:var(--muted);padding:12px 2px;min-height:44px;cursor:pointer}
+.tabbar button[aria-selected="true"]{color:var(--accent-ink);background:var(--accent);}
+
+/* template switch */
+.tsw{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;padding:18px;align-items:start}
+.tpick{display:grid;gap:10px}
+.tbtn{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center;padding:10px;border:2px solid var(--line);border-radius:16px;background:var(--bg)}
+.tbtn[aria-pressed="true"]{border-color:var(--accent-d);background:var(--accent-soft)}
+.tbtn:focus-visible{outline:3px solid var(--focus)}
+.tbtn b{display:block}.tbtn small{color:var(--muted);font-size:12px;line-height:1.3;display:block}
+.thumb{width:54px;height:70px;border-radius:5px;background:#fff;border:1px solid var(--line);position:relative;overflow:hidden}
+.thumb i{display:block;height:3px;background:#cfd8e3;margin:5px 5px 0;border-radius:2px}
+.thumb i.h{background:#84E63C;height:4px;width:50%}
+.thumb.compact::after{content:"";position:absolute;right:0;top:0;bottom:0;width:30%;background:#eef3f8}
+.thumb.classic i.h{margin-left:auto;margin-right:auto;background:#555;width:60%}
+.stage{background:var(--bg2);border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;min-width:0}
+.pf{width:100%;max-width:560px;position:relative;overflow:hidden;background:#fff;border-radius:4px;box-shadow:var(--shadow)}
+.pf .page{width:816px;height:1056px;transform-origin:0 0;position:absolute;left:0;top:0;background:#fff;color:#16202e;padding:56px 60px;font-size:14px;line-height:1.5;font-family:Inter,"Plus Jakarta Sans",system-ui,sans-serif}
+.rz-name{margin:0;font-size:32px;line-height:1.1;font-weight:800}
+.rz-head{margin:2px 0 0;font-size:15px}
+.rz-contact{font-size:12.5px;color:#4a5a70}
+.rz-sec{margin-top:16px}
+.rz-st{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:0 0 6px}
+.rz-row{display:flex;justify-content:space-between;gap:12px;font-weight:700}
+.rz-row span+span{font-weight:500;color:#4a5a70;font-size:12.5px;white-space:nowrap}
+.rz-org{color:#4a5a70;font-size:13px}
+.rz-ul{margin:4px 0 8px;padding-left:18px}.rz-ul li{margin:1px 0}
+.rz-sk b{font-weight:700}
+/* modern */
+.t-modern .rz-st{color:#2a6b0a;border-bottom:2px solid #84E63C;padding-bottom:2px}
+.t-modern .rz-name{color:#0C2340}
+/* classic */
+.t-classic{font-family:"Source Serif 4",Georgia,"Times New Roman",serif!important}
+.t-classic .rz-top{text-align:center}
+.t-classic .rz-st{text-align:center;border-top:1px solid #888;border-bottom:1px solid #888;padding:3px 0;letter-spacing:.2em;font-weight:700}
+.t-classic .rz-name{font-weight:700;letter-spacing:.02em}
+/* compact */
+.t-compact{font-size:12.5px!important;padding:44px 48px!important;line-height:1.42!important}
+.t-compact .rz-name{font-size:28px}
+.t-compact .rz-cols{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:26px;margin-top:6px}
+.t-compact .rz-side{background:#EEF3F8;border-radius:8px;padding:12px 14px;align-self:start}
+.t-compact .rz-st{color:#0C2340;font-size:11px}
+.t-compact .rz-row{font-size:12.5px}
+.t-compact .rz-side .rz-sec:first-child{margin-top:0}
+.chk{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.jsonbox{margin-top:14px;padding:14px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;overflow:auto;max-height:230px;background:var(--bg);border:1px solid var(--line);border-radius:14px;white-space:pre}
+.jsonbox .hi{background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:0 3px}
+
+/* diagrams */
+.diag{padding:12px;overflow-x:auto}
+.diag svg{display:block;width:100%;min-width:760px;height:auto}
+.diag text{font-family:inherit;fill:var(--ink)}
+.diag .nb{fill:var(--diag-fill);stroke:var(--line);stroke-width:1.5}
+.diag .nb.new{stroke:var(--accent-d);stroke-width:2.5}
+.diag .nt{font-weight:800;font-size:14px}
+.diag .nl{font-size:11.5px;fill:var(--ink2)}
+.diag .ed{stroke:var(--ink2);stroke-width:2;fill:none}
+.diag .el{font-size:11px;fill:var(--muted);font-weight:700}
+.diag .hd{fill:var(--accent)}.diag .hd.old{fill:var(--bg2)}
+.diag .hdt{font-weight:800;font-size:13px;fill:var(--accent-ink)}
+.diag .hdt.old{fill:var(--ink)}
+.diag .col{font-size:11.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.diag .colk{font-weight:800;fill:var(--violet)}
+.diag .grp{fill:none;stroke:var(--line);stroke-dasharray:5 5;stroke-width:1.5}
+.diag .gl{font-size:11px;font-weight:800;fill:var(--muted);letter-spacing:.08em}
+
+/* tables */
+.tw{overflow-x:auto;padding:4px}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.c,th.c{text-align:center}
+.yes{color:var(--accent-d);font-weight:800}.no{color:var(--muted)}
+.ladder{padding:18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:center}
+.lsteps{display:flex;gap:6px;align-items:flex-end;height:120px}
+.lsteps button{flex:1;border:0;border-radius:8px 8px 0 0;background:var(--bg2);cursor:pointer;color:var(--ink2);font:inherit;font-size:11px;font-weight:700;padding:0;position:relative}
+.lsteps button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.lmini{background:#fff;border-radius:6px;padding:14px;height:200px;overflow:hidden;box-shadow:var(--shadow)}
+.lmini div{background:#cfd8e3;height:4px;border-radius:2px;margin:0 0 5px}
+.lmini div.h{background:#84E63C;width:40%}
+.ltxt{font-size:13px;color:var(--ink2)}
+.ltxt table{min-width:0}
+.dcard{padding:16px;display:flex;flex-direction:column;gap:6px}
+.dcard .top{display:flex;gap:8px;align-items:center}
+.dcard h3{font-size:15px}.dcard p{margin:0;font-size:13.5px;color:var(--ink2)}
+.dcard .alt{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:6px}
+.num{width:28px;height:28px;border-radius:9px;background:var(--ink);color:var(--card);display:grid;place-items:center;font-weight:800;font-size:12px}
+.qcard{padding:18px;border-color:var(--accent-d)}
+.foot{margin-top:60px;font-size:12.5px;color:var(--muted)}
+
+@media (prefers-color-scheme:dark){.opt .ic{color:var(--accent-d)}}
+@media (max-width:860px){
+  .dcols{grid-template-columns:1fr}
+  .dcols>div{border-right:0;border-bottom:1px solid var(--line)}
+  .tsw{grid-template-columns:1fr;padding:14px}
+  .tpick{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .ladder{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="nav" aria-label="Sections"><ul id="nav">
+  <li><a href="#summary">Summary</a></li><li><a href="#onboarding">Onboarding</a></li><li><a href="#editor">Editor</a></li>
+  <li><a href="#templates">Templates</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#data">Data model</a></li>
+  <li><a href="#ai">AI + page fit</a></li><li><a href="#decisions">Decisions</a></li>
+</ul></nav>
+
+<header class="hero">
+  <div class="meta"><span class="pill">branch resume-builder</span><span class="pill">design written 2026-10-11</span><a class="pill" href="roadmap.html">Roadmap and progress</a></div>
+  <h1>Resume Builder and <em>Common Profile</em></h1>
+  <p>One profile as the source of truth, one document JSON per built resume, templates as code, and a PDF that is exactly the preview. This page shows the design from <code>docs/RESUME-BUILDER-DESIGN.md</code> with mockups you can click. Mockups are simplified sketches of the wireframes in section 9 of that doc, not final UI.</p>
+</header>
+
+<!-- (a) -->
+<section class="sec" id="summary">
+  <header><span class="k">A &middot; Executive summary</span><h2>Ten ideas that hold the design together</h2><p>The first card is the principle; the rest follow from it.</p></header>
+  <div class="grid g3" id="execGrid"></div>
+</section>
+
+<!-- (b) -->
+<section class="sec" id="onboarding">
+  <header><span class="k">B &middot; Common Profile onboarding</span><h2>From nothing to a complete profile by confirming, not typing</h2><p>Three paths (Upload, Paste, Start fresh) lead into the same card-by-card review, then a completeness meter. Nothing is saved until the user keeps it; the whole batch is one import call.</p></header>
+  <div class="flow card" style="padding:24px">
+    <div class="phone"><div class="screen" id="ob"></div></div>
+    <div class="side">
+      <h3>Try it</h3>
+      <ul id="obSteps" class="steps"></ul>
+      <ul>
+        <li><b>Pick a path:</b> Upload (existing AI parse, with consent), Paste (LinkedIn "Save to PDF" text), or Start fresh (six questions, chips first).</li>
+        <li><b>Review:</b> one card per experience, education or project. Keep (swipe right), Edit, Skip (swipe left). Buttons always exist.</li>
+        <li><b>Skills:</b> a chip cloud: tap to remove, type to add, suggestions from the parsed text.</li>
+        <li><b>Finish:</b> the meter names the one next action. Weights sum to 100: identity+contact 15, location 5, headline 5, summary 10, experience 25, education 10, skills 15, links 5, preferences 10.</li>
+      </ul>
+      <p class="cap">Simplified: the meter here only counts the sample cards you keep, with the doc's weights as a rough guide; the real score is computed on the server (<code>GET /api/profile/completeness</code>).</p>
+    </div>
+  </div>
+</section>
+
+<!-- (c) -->
+<section class="sec" id="editor">
+  <header><span class="k">C &middot; Resume Builder editor</span><h2>Sections, editor, live preview, and the AI and ATS panels</h2><p>Desktop is three panes. Phone is one section at a time with an Edit / Preview / Style / AI bottom bar. Autosave runs 800 ms after the last change with an <code>If-Match</code> ETag.</p></header>
+  <div class="card dwin" aria-label="Desktop editor wireframe">
+    <div class="dtop"><span>&larr; My resumes</span><b>Backend SWE &mdash; 2026</b><span class="muted">&#9998;</span><span class="tag ok">Saved &middot; just now</span><span class="muted">&#8630; &#8631;</span><span class="sp"></span><button class="btn" type="button" tabindex="-1">Export &#9662;</button><button class="btn on" type="button" tabindex="-1">&#10022; AI</button></div>
+    <div class="dcols">
+      <div class="rail" aria-label="Sections rail">
+        <small style="margin:0 0 6px;font-weight:800;letter-spacing:.08em">SECTIONS</small>
+        <div class="it"><span class="g">&#8942;&#8942;</span>Summary</div>
+        <div class="it act"><span class="g">&#8942;&#8942;</span>Experience</div>
+        <div class="it"><span class="g">&#8942;&#8942;</span>Education</div>
+        <div class="it"><span class="g">&#8942;&#8942;</span>Skills</div>
+        <div class="it"><span class="g">&#8942;&#8942;</span>Projects</div>
+        <div class="it off">&#9675; Certs</div><div class="it off">&#9675; Languages</div>
+        <div class="it" style="color:var(--blue)">+ Add</div>
+        <small>&#10003; Profile synced</small>
+      </div>
+      <div aria-label="Section editor">
+        <h3 style="font-size:16px;margin-bottom:8px">Experience</h3>
+        <div class="ecard"><div class="h"><span class="muted">&#8942;&#8942;</span> Software Engineer <span class="muted" style="font-weight:500">Google</span></div>
+          <div class="muted" style="font-size:12px">Mountain View &middot; 06/2022 &ndash; now &#9745; current</div>
+          <div class="b"><span>Led migration of 40 services to k8s, cutting cost 30%</span><button class="ai" type="button" tabindex="-1">&#10022;</button></div>
+          <div class="b"><span>Mentored 3 interns</span><button class="ai" type="button" tabindex="-1">&#10022;</button></div>
+          <div class="muted" style="font-size:12px;margin-top:6px">+ bullet &nbsp;&middot;&nbsp; lint: 2/3 <span class="yes">&#9679;&#9679;</span><span class="no">&#9675;</span></div></div>
+        <div class="ecard"><div class="h"><span class="muted">&#8942;&#8942;</span> SDE II <span class="muted" style="font-weight:500">Amazon &middot; 2020&ndash;2022</span></div></div>
+        <div class="kv"><span class="tag">+ Add experience</span><span class="tag">Pull from profile</span></div>
+      </div>
+      <div aria-label="Live preview">
+        <div class="tbar"><span class="tag ok">Modern &#9662;</span><span class="sw" style="background:#84E63C"></span><span class="sw" style="background:#2F6BFF"></span><span class="sw" style="background:#0C2340"></span><span class="sw" style="background:#C73A3A"></span><span class="tag">Aa Inter</span><span class="tag">1 page</span></div>
+        <div class="pagewrap">
+          <h5>PRIYA SHARMA</h5><div>Software Engineer &middot; San Francisco &middot; priya@example.com</div>
+          <div class="sec-t">SUMMARY</div><div>Results-driven engineer with a record of shipping infrastructure that costs less and breaks less.</div>
+          <div class="sec-t">EXPERIENCE</div><div><b>Software Engineer &mdash; Google</b> <span style="float:right">2022&ndash;now</span></div>
+          <ul><li>Led migration of 40 services to k8s, cutting cost 30%</li><li>Mentored 3 interns</li></ul>
+          <div><b>SDE II &mdash; Amazon</b> <span style="float:right">2020&ndash;2022</span></div>
+        </div>
+        <p class="cap" style="text-align:center">page 1 of 1 &middot; fit: auto</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card panel" aria-label="AI suggestion diff panel">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>&#10022; Stronger bullets &middot; Google (3 changes)</h3><span class="tag">62% of AI used this period</span></div>
+      <div class="diffrow"><label><input type="checkbox" checked aria-label="Apply bullet 1"> Bullet 1 <span class="muted" style="margin-left:auto;font-weight:500">why &#9432;</span></label>
+        <div><span class="del">Led migration of 40 services to k8s, cutting cost 30%</span></div>
+        <div><span class="ins">Led the migration of 40 services to Kubernetes, cutting infrastructure cost by 30%</span></div>
+        <div class="muted" style="font-size:12px;margin-top:4px">Alternatives: ( ) Drove&hellip; &nbsp; ( ) Migrated 40 services&hellip;</div></div>
+      <div class="diffrow"><label><input type="checkbox" aria-label="Apply bullet 2"> Bullet 2</label>
+        <div><span class="del">Mentored 3 interns</span></div>
+        <div><span class="ins">Mentored 3 interns through onboarding and first launches, [add a number] shipped</span></div>
+        <div class="warn">Needs a real number: fill the placeholder before applying.</div></div>
+      <p class="cap">Numbers and employers are checked on the server before anyone sees the suggestion.</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" type="button" tabindex="-1">Dismiss</button><button class="btn on" type="button" tabindex="-1">Apply 1 selected</button></div>
+    </div>
+    <div class="card panel" aria-label="ATS keyword match panel">
+      <h3>Match to this job</h3>
+      <div class="muted" style="font-size:13px">Paste the job description&hellip; or pick a tracked application</div>
+      <div style="display:flex;align-items:center;gap:12px;margin:10px 0"><span class="big" style="font-size:34px">78%</span><div style="flex:1"><div class="meter"><i style="width:78%"></i></div><small class="muted">Structure 14/15 &#10003;</small></div></div>
+      <div class="kv" style="margin-bottom:8px"><span class="muted" style="font-weight:700;font-size:12px">COVERED</span><span class="tag ok">Kubernetes</span><span class="tag ok">Go</span><span class="tag ok">AWS</span><span class="tag ok">gRPC</span><span class="tag ok">CI</span></div>
+      <div style="font-size:13px"><span class="muted" style="font-weight:700;font-size:12px">MISSING</span>
+        <div class="kv" style="margin-top:4px"><span class="tag bad">Terraform</span> &rarr; in Project 2 <span class="tag" style="background:var(--blue-soft);color:var(--blue)">Add &#8599;</span></div>
+        <div class="kv" style="margin-top:4px"><span class="tag bad">On-call</span> &rarr; not found</div>
+        <div class="kv" style="margin-top:4px"><span class="tag bad">Postgres</span> &rarr; in a bullet <span class="tag" style="background:var(--blue-soft);color:var(--blue)">Add &#8599;</span></div></div>
+      <div class="warn" style="margin-top:10px">Fix first: one bullet has no result</div>
+    </div>
+  </div>
+
+  <h3 style="margin:34px 0 4px;font-size:18px">Phone editor <span class="muted" style="font-weight:500;font-size:14px">&middot; tap the bottom tabs</span></h3>
+  <div class="phones" id="phones"></div>
+  <p class="cap" style="text-align:center">Simplified sketches. The real Style sheet draws each template with the user's own resume at thumbnail size.</p>
+</section>
+
+<!-- (d) -->
+<section class="sec" id="templates">
+  <header><span class="k">D &middot; Templates</span><h2>Switching a template changes one string, never the content</h2><p>A template is a render of <code>(ResumeDocument, Theme)</code>. Pick one below: the same sample document is re-rendered by a tiny renderer. The check underneath confirms every text fragment of the document is still on the page and the document hash has not changed.</p></header>
+  <div class="card tsw">
+    <div>
+      <div class="tpick" role="group" aria-label="Choose a template" id="tpick"></div>
+      <p class="cap">Compact is two-column: the renderer, not the template, decides what goes in the sidebar, so unsupported sections stay in the main column. It is flagged "caution" for ATS because two columns can be read out of order by some systems. Minimal and Creative arrive in R7.</p>
+    </div>
+    <div class="stage">
+      <div class="pf" id="pf" aria-live="polite"><div class="page" id="page"></div></div>
+      <div class="chk" id="chk"></div>
+      <div class="jsonbox" id="json" tabindex="0" aria-label="Sample ResumeDocument JSON (excerpt)"></div>
+      <p class="cap">Simplified: layouts are re-drawn with plain CSS here; the real templates are React components in <code>@kiwiply/ui</code> that use only <code>.rz-*</code> classes, so preview and PDF share one stylesheet. Printed resumes are always light, even in dark mode.</p>
+    </div>
+  </div>
+</section>
+
+<!-- (e) -->
+<section class="sec" id="architecture">
+  <header><span class="k">E &middot; Architecture</span><h2>One document, one render, two outputs</h2><p>Every save re-derives <code>parsed_json</code> so the extension, matcher and tailor keep reading what they read today. The PDF is Chromium printing the same HTML as the preview.</p></header>
+  <div class="card diag"><svg id="arch" viewBox="0 0 1200 560" role="img" aria-labelledby="archT archD"><title id="archT">Data flow architecture</title><desc id="archD">Database tables feed the Spring API with ETag autosave and a projection to parsed_json; the BFF connects the web editor, which renders the template; the same HTML goes to the PDF service and the PDF is stored in S3 through the existing file endpoint; the extension mirrors parsed_json and attaches the PDF.</desc></svg></div>
+  <p class="cap">Simplified: the AI proposal service, version rows and the BFF rate limits are left out of the picture.</p>
+</section>
+
+<!-- (f) -->
+<section class="sec" id="data">
+  <header><span class="k">F &middot; Data model</span><h2>Additive tables, nothing the extension reads changes shape</h2><p>Green headers are new. <code>bio.payload</code> is untouched; <code>resume</code> gains two columns. <code>resume_doc</code> is 1:1 with <code>resume</code> so a 100 KB document never rides along in the extension's mirror.</p></header>
+  <div class="card diag"><svg id="er" viewBox="0 0 1200 640" role="img" aria-labelledby="erT"><title id="erT">Entity relationship diagram of the new tables</title></svg></div>
+  <p class="cap">Key columns only. <code>resume_doc_version</code> and <code>resume_ai_proposal</code> have no foreign key to <code>resume</code> by design (restores of archived resumes stay possible). <code>cover_letter</code> (R5) and <code>resume_share</code> (R7) are reserved and not drawn.</p>
+</section>
+
+<!-- (g) -->
+<section class="sec" id="ai">
+  <header><span class="k">G &middot; AI and page fit</span><h2>Free gets the whole builder; AI is Pro and Autopilot</h2><p>Every AI feature is suggest, diff, accept, with server-side truth checks. No streaming, because unchecked text must never be shown.</p></header>
+  <div class="card tw"><table>
+    <caption class="sr">AI features by plan</caption>
+    <thead><tr><th>Feature</th><th>Task</th><th class="c">Free</th><th class="c">Pro</th><th class="c">Autopilot</th></tr></thead>
+    <tbody id="aiRows"></tbody></table></div>
+  <p class="cap">Simplified: Autopilot is gated exactly like Pro for the builder until Phase 18 (the doc's R0.3 note). Free sees every AI button with a lock and the meter copy; nothing is hidden. "Partial" means a deterministic subset is free.</p>
+
+  <h3 style="margin:34px 0 10px;font-size:18px">The page-fit ladder</h3>
+  <div class="card ladder">
+    <div>
+      <div class="lsteps" id="lsteps" role="group" aria-label="Fit ladder step"></div>
+      <p class="ltxt" id="ltxt" style="margin:12px 0 0"></p>
+    </div>
+    <div><div class="lmini" id="lmini" aria-hidden="true"></div></div>
+  </div>
+  <p class="cap">Seven deterministic steps (density, then font size, then margins) are measured in the preview and re-checked in Chromium at export, so output equals preview. If the ladder ends above the page target, the UI offers "Still 2 pages" with the longest items highlighted, and (Pro) an AI "trim the 4 longest bullets". The mini page is an illustration of tightening, not a real layout.</p>
+</section>
+
+<!-- (h) -->
+<section class="sec" id="decisions">
+  <header><span class="k">H &middot; Decisions and open questions</span><h2>Defaults stand unless you veto them</h2><p>The four open questions come from section 11 of the design; the fifteen defaults come from the decisions page.</p></header>
+  <h3 style="margin:0 0 10px;font-size:18px">Open questions</h3>
+  <div class="grid g3" id="qGrid"></div>
+  <h3 style="margin:34px 0 10px;font-size:18px">Vetoable defaults</h3>
+  <div class="grid g3" id="dGrid"></div>
+</section>
+
+<p class="foot">Facts come from <code>docs/RESUME-BUILDER-DESIGN.md</code>, <code>RESUME-BUILDER-DECISIONS.md</code> and <code>RESUME-BUILDER-STORIES.md</code>. Sample resume content is invented. See <a href="roadmap.html">the roadmap</a> for status.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+var KIWI='<svg class="kiwi" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="25" r="20" fill="#84E63C"/><circle cx="24" cy="25" r="14" fill="#C9F29A"/><circle cx="24" cy="25" r="3" fill="#F5FBE8"/><circle cx="17" cy="20" r="2.3" fill="#0C2340"/><circle cx="31" cy="20" r="2.3" fill="#0C2340"/><path d="M19 31q5 4 10 0" stroke="#0C2340" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
+
+/* ---------- (a) exec summary ---------- */
+var EXEC=[
+['One Common Profile','One profile per user is the source of truth. The flat bio keys the extension autofills from stay as they are; career lists move into a new profile_item table with provenance (parsed, user, learned, ai). Wrapped, not migrated.'],
+['Built resume = JSON document','A ResumeDocument (schema v1) lives 1:1 beside the resume row, with template id, theme, and a version number used as the ETag.'],
+['Compatibility by projection','Every save re-derives parsed_json, the shape the extension, matcher, tailor and ATS score already read. Zero changes to their read paths.'],
+['Templates are code','A registry in @kiwiply/ui. Switching changes one string (template_id) and never touches the document, so it is lossless by construction.'],
+['Preview = PDF','Chromium prints the identical static HTML. The PDF is stored via the existing file endpoint, so the extension attaches it like an uploaded one.'],
+['Deterministic page fit','A 7-step ladder (density, font size, margins) measured in the preview and re-verified at export. The step is stored in the theme.'],
+['Honest AI','Suggest, diff, accept. Proposals are checked on the server (no invented numbers or employers) and metered by the existing budget. All Pro and Autopilot.'],
+['Three onboarding paths','Upload, Paste, or Start fresh, all into a card-by-card Keep / Edit / Skip review and a completeness meter. Nothing is written until kept.'],
+['No profile variants','A target (SWE vs PM) is just a resume with a target label. One profile keeps the extension\'s single-mirror model intact.'],
+['Shared resume caps','Built and uploaded resumes together count toward 3 / 25 / 50 (Free / Pro / Autopilot). Exports, versions and template switches never create a resume.']
+];
+$('execGrid').innerHTML=EXEC.map(function(e,i){return '<article class="card exec"><div class="n">'+(i+1)+'</div><h3>'+esc(e[0])+'</h3><p>'+esc(e[1])+'</p></article>';}).join('');
+
+/* ---------- (b) onboarding mock ---------- */
+var CARDS=[
+ {t:'Software Engineer',s:'Google · 2022 – now · Mountain View, CA',b:['Led migration of 40 services to k8s','Cut p95 latency 40%','Mentored 3 interns']},
+ {t:'SDE II',s:'Amazon · 2020 – 2022 · Seattle, WA',b:['Owned the order-routing service','Reduced on-call pages by half']},
+ {t:'B.S. Computer Science',s:'State University · 2016 – 2020',b:['GPA 3.8']},
+ {t:'Open-source: kiwi-cli',s:'Project · github.com/example',b:['Command-line tool with 1.2k stars']}
+];
+var OB={step:0,idx:0,kept:0,skipped:0,skills:['React','TypeScript','Node.js','AWS','Go'],sugg:['Kubernetes','gRPC','Terraform'],path:''};
+var STEPNAMES=['Pick a path','Review cards','Skills','Complete'];
+function dots(n,on){var h='<div class="dots" aria-hidden="true">';for(var i=0;i<n;i++)h+='<i class="'+(i<on?'on':'')+'"></i>';return h+'</div>';}
+function obRender(){
+  var s=OB.step,h='';
+  if(s===0){
+    h='<div class="notch"><i></i></div><div class="sbar"><span class="back">&larr;</span>Build your profile</div><div class="sbody"><div style="display:flex;gap:10px;align-items:center;margin:4px 0 8px">'+KIWI+'<div><b style="font-size:15px">Let\'s set you up.</b><div class="muted">Pick the fastest way:</div></div></div>'+
+    '<button class="opt" data-path="upload"><span class="ic">&uarr;</span><b>Upload a resume</b><small>PDF, DOCX &middot; about a minute</small></button>'+
+    '<button class="opt" data-path="paste"><span class="ic">&#9776;</span><b>Paste text</b><small>LinkedIn, notes, anything</small></button>'+
+    '<button class="opt" data-path="fresh"><span class="ic">&#10022;</span><b>Start fresh</b><small>We\'ll ask 6 things, one at a time</small></button></div>';
+  } else if(s===1){
+    var c=CARDS[OB.idx];
+    if(!c){obGo(2);return;}
+    h='<div class="notch"><i></i></div>'+dots(CARDS.length,OB.idx)+'<div class="sbar"><span class="back">&larr;</span>Review '+(OB.idx+1)+' of '+CARDS.length+'</div><div class="sbody"><div class="icard" id="icard"><h4>'+esc(c.t)+'</h4><div class="sub">'+esc(c.s)+'</div><ul>'+c.b.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><button class="pbtn" style="flex:none;width:100%" data-act="edit">Edit</button><div style="margin-top:8px"><span class="prov">From your resume</span></div></div><p class="hint">&larr; swipe to skip &middot; swipe to keep &rarr;</p></div><div class="sfoot"><button class="pbtn" data-act="skip">Skip</button><button class="pbtn go" data-act="keep">Keep &#10003;</button></div>';
+  } else if(s===2){
+    h='<div class="notch"><i></i></div>'+dots(5,4)+'<div class="sbar"><span class="back">&larr;</span>Skills</div><div class="sbody"><div>'+OB.skills.map(function(k,i){return '<button class="chipx" data-rm="'+i+'" aria-label="Remove '+esc(k)+'">'+esc(k)+' &times;</button>';}).join('')+'</div><p class="muted" style="margin:10px 0 2px;font-size:12px">+ Add a skill&hellip;</p><p style="margin:10px 0 2px;font-weight:700;font-size:12px">Suggested from your resume:</p><div>'+OB.sugg.map(function(k,i){return '<button class="chipx sug" data-add="'+i+'">+ '+esc(k)+'</button>';}).join('')+'</div></div><div class="sfoot"><button class="pbtn go" data-act="cont">Continue</button></div>';
+  } else {
+    var score=Math.min(100,15+5+(OB.kept>0?25:0)+(OB.kept>1?10:0)+(OB.skills.length>=5?15:OB.skills.length*3)+10);
+    var next=OB.kept<1?'Add your first experience':(OB.skills.length<5?'Add skills (5 or more)':'Add a summary (worth 10)');
+    h='<div class="notch"><i></i></div><div class="sbar"><span class="back">&larr;</span>All set</div><div class="sbody" style="text-align:center">'+KIWI+'<div class="big" style="margin-top:6px">'+score+'%</div><div class="muted" style="margin:2px 0 10px">profile completeness</div><div class="meter"><i style="width:'+score+'%"></i></div><div class="card" style="margin:14px 0;padding:10px;text-align:left;font-size:12.5px"><b>Next:</b> '+next+'</div><p class="muted" style="font-size:12px">Kept '+OB.kept+' &middot; skipped '+OB.skipped+' &middot; '+OB.skills.length+' skills</p></div><div class="sfoot"><button class="pbtn" data-act="restart">Start over</button></div>';
+  }
+  $('ob').innerHTML=h;
+  $('obSteps').innerHTML=STEPNAMES.map(function(n,i){return '<li><button class="btn" type="button" data-step="'+i+'" aria-pressed="'+(i===OB.step)+'">'+(i+1)+'. '+n+'</button></li>';}).join('');
+}
+function obGo(n){OB.step=n;obRender();}
+$('ob').addEventListener('click',function(e){
+  var t=e.target.closest('button');if(!t)return;
+  if(t.dataset.path){OB.path=t.dataset.path;OB.idx=0;obGo(1);return;}
+  var a=t.dataset.act;
+  if(a==='keep'||a==='skip'){var card=$('icard');card.classList.add(a==='keep'?'out-r':'out-l');if(a==='keep')OB.kept++;else OB.skipped++;setTimeout(function(){OB.idx++;obRender();},220);return;}
+  if(a==='edit'){t.textContent='Editing inline (sketch)';return;}
+  if(a==='cont'){obGo(3);return;}
+  if(a==='restart'){OB={step:0,idx:0,kept:0,skipped:0,skills:['React','TypeScript','Node.js','AWS','Go'],sugg:['Kubernetes','gRPC','Terraform'],path:''};obRender();return;}
+  if(t.dataset.rm!==undefined){OB.skills.splice(+t.dataset.rm,1);obRender();return;}
+  if(t.dataset.add!==undefined){OB.skills.push(OB.sugg.splice(+t.dataset.add,1)[0]);obRender();return;}
+});
+$('obSteps').addEventListener('click',function(e){var t=e.target.closest('[data-step]');if(!t)return;var n=+t.dataset.step;if(n===1)OB.idx=Math.min(OB.idx,CARDS.length-1);obGo(n);});
+obRender();
+
+/* ---------- (c) phones ---------- */
+var PH=[
+ {id:'edit',tab:'Edit',name:'Edit'},{id:'prev',tab:'Preview',name:'Preview'},{id:'style',tab:'Style',name:'Style'},{id:'ai',tab:'AI',name:'AI'}
+];
+function phoneBody(id){
+  if(id==='edit')return '<div class="sbar"><span class="back">&larr;</span>Backend SWE <span class="muted">&#9998; &#8630; &#8631;</span></div><div class="sbody"><div class="tag ok" style="margin-bottom:8px">Saved &middot; just now</div><div class="kv" style="margin-bottom:8px"><span class="tag ok">Summary</span><span class="tag">Experience</span><span class="tag">Education</span><span class="tag">Skills</span></div><div class="ecard"><div class="h">Software Engineer</div><div class="muted" style="font-size:12px">Google &middot; 2022 &ndash; now</div><div class="b"><span>Led migration of 40 services to k8s</span><button class="ai" tabindex="-1">&#10022;</button></div><div class="b"><span>Cut p95 latency 40%</span><button class="ai" tabindex="-1">&#10022;</button></div><div class="muted" style="font-size:12px;margin-top:6px">+ bullet</div></div><div class="ecard"><div class="h">SDE II</div><div class="muted" style="font-size:12px">Amazon &middot; 2020 &ndash; 2022</div></div></div>';
+  if(id==='prev')return '<div class="sbar"><span class="back">&larr;</span>Preview <span class="tag" style="margin-left:auto">1 page</span></div><div class="sbody"><div class="pagewrap" style="font-size:9px"><h5 style="font-size:13px">PRIYA SHARMA</h5><div>Software Engineer</div><div class="sec-t">SUMMARY</div><div>Results-driven engineer with a record of shipping.</div><div class="sec-t">EXPERIENCE</div><div><b>Software Engineer &mdash; Google</b></div><ul><li>Led migration of 40 services to k8s</li><li>Cut p95 latency 40%</li></ul><div class="sec-t">SKILLS</div><div>Go, Java, AWS, Kubernetes</div></div><p class="hint">pinch to zoom</p></div>';
+  if(id==='style')return '<div class="sbar"><span class="back">&larr;</span>Style</div><div class="sbody"><b>Template</b><div style="display:flex;gap:6px;margin:6px 0 10px"><div class="thumb" style="border:2px solid var(--accent-d)"><i class="h"></i><i></i><i></i></div><div class="thumb classic"><i class="h"></i><i></i><i></i></div><div class="thumb compact"><i class="h"></i><i></i></div></div><p class="muted" style="margin:0 0 8px;font-size:11.5px">Each drawn with your resume, live.</p><b>Accent</b><div style="margin:6px 0 10px"><span class="sw" style="background:#84E63C"></span> <span class="sw" style="background:#2F6BFF"></span> <span class="sw" style="background:#0C2340"></span> <span class="sw" style="background:#C73A3A"></span> +</div><b>Font</b> <span class="tag">Inter &#9662;</span><div style="margin:10px 0 4px"><b>Size</b> <span class="muted">10.5</span></div><div class="meter" style="height:8px"><i style="width:55%"></i></div><div style="margin-top:10px"><b>Fit</b> <span class="tag ok">1 page</span> <span class="tag">2</span></div><div class="warn">Compact uses 2 columns &mdash; some ATS read them out of order.</div></div>';
+  return '<div class="sbar"><span class="back">&larr;</span>AI proposals</div><div class="sbody"><div class="diffrow"><b>Stronger bullets &middot; Google</b><div style="margin-top:4px"><span class="del">Cut p95 latency 40%</span></div><div><span class="ins">Cut p95 latency by 40% across checkout APIs</span></div></div><div class="diffrow"><b>Summary</b><div class="muted" style="margin-top:2px">3 variants ready</div></div><button class="pbtn go" style="width:100%;flex:none;margin-top:6px" tabindex="-1">Apply 2 selected</button><p class="hint">AI is Pro and Autopilot. Free sees a lock.</p></div>';
+}
+function phoneHtml(startId,idx){
+  return '<div class="phone"><div class="screen" data-phone="'+idx+'"><div class="notch"><i></i></div><div class="pb" style="flex:1;display:flex;flex-direction:column;min-height:0">'+phoneBody(startId)+'</div><div class="tabbar" role="tablist" aria-label="Editor tabs">'+PH.map(function(p){return '<button role="tab" aria-selected="'+(p.id===startId)+'" data-tab="'+p.id+'">'+p.tab+'</button>';}).join('')+'</div></div></div>';
+}
+$('phones').innerHTML=phoneHtml('edit',0)+phoneHtml('style',1);
+$('phones').addEventListener('click',function(e){
+  var t=e.target.closest('[data-tab]');if(!t)return;
+  var scr=t.closest('.screen');
+  scr.querySelector('.pb').innerHTML=phoneBody(t.dataset.tab);
+  scr.querySelectorAll('[data-tab]').forEach(function(b){b.setAttribute('aria-selected',String(b===t));});
+});
+document.querySelectorAll('.pb').forEach(function(n){n.firstElementChild&&0;});
+
+/* ---------- (d) template renderer ---------- */
+var DOC={schema:1,meta:{title:'Backend SWE - 2026',target:'Backend SWE'},
+ basics:{name:'Priya Sharma',headline:'Software Engineer',email:'priya@example.com',phone:'+1 555 0100',location:'San Francisco, CA',links:[{label:'LinkedIn',url:'linkedin.com/in/priya'},{label:'GitHub',url:'github.com/priya'}]},
+ sections:[
+  {id:'s_sum',kind:'SUMMARY',title:'Summary',items:[{id:'i_1',text:'Results-driven engineer who ships infrastructure that costs less and breaks less.'}]},
+  {id:'s_exp',kind:'EXPERIENCE',title:'Experience',items:[
+    {id:'i_e1',title:'Software Engineer',org:'Google',location:'Mountain View, CA',start:'2022-06',current:true,bullets:[{id:'b_1',text:'Led migration of 40 services to Kubernetes, cutting cost 30%'},{id:'b_2',text:'Cut p95 latency 40% across checkout APIs'},{id:'b_3',text:'Mentored 3 interns through onboarding'}]},
+    {id:'i_e2',title:'SDE II',org:'Amazon',location:'Seattle, WA',start:'2020-07',end:'2022-05',bullets:[{id:'b_4',text:'Owned the order-routing service'},{id:'b_5',text:'Reduced on-call pages by half'}]}]},
+  {id:'s_edu',kind:'EDUCATION',title:'Education',items:[{id:'i_ed1',school:'State University',degree:'B.S.',field:'Computer Science',start:'2016',end:'2020'}]},
+  {id:'s_skl',kind:'SKILLS',title:'Skills',items:[{id:'i_s1',group:'Languages',skills:['Go','Java','TypeScript']},{id:'i_s2',group:'Cloud',skills:['AWS','Kubernetes','Terraform']}]},
+  {id:'s_prj',kind:'PROJECTS',title:'Projects',items:[{id:'i_p1',title:'kiwi-cli',bullets:[{id:'b_6',text:'Command-line tool with 1.2k GitHub stars'}]}]},
+  {id:'s_crt',kind:'CERTIFICATIONS',title:'Certifications',items:[{id:'i_c1',title:'AWS Solutions Architect Associate',org:'Amazon',date:'2024-03'}]},
+  {id:'s_lng',kind:'LANGUAGES',title:'Languages',items:[{id:'i_l1',name:'English',level:'Native'},{id:'i_l2',name:'Spanish',level:'Professional'}]}
+ ]};
+var TPL={
+ modern:{name:'Modern',note:'Single column, accent rule under headings, sans.',ats:'ok',atsLabel:'ATS-safe',sidebar:[]},
+ classic:{name:'Classic',note:'Serif, centred header, hairline rules.',ats:'ok',atsLabel:'ATS-safe',sidebar:[]},
+ compact:{name:'Compact',note:'Two columns: a 30% sidebar for skills, languages, certifications and links.',ats:'warn2',atsLabel:'ATS caution',sidebar:['SKILLS','LANGUAGES','CERTIFICATIONS']}
+};
+function fmtD(s){if(!s)return '';var p=s.split('-');return p.length>1?p[1]+'/'+p[0]:p[0];}
+function range(it){return fmtD(it.start)+(it.start?' – ':'')+(it.current?'Present':fmtD(it.end));}
+function bullets(b){return b&&b.length?'<ul class="rz-ul">'+b.map(function(x){return '<li>'+esc(x.text)+'</li>';}).join('')+'</ul>':'';}
+function secHtml(sec){
+  var h='<div class="rz-sec"><h3 class="rz-st">'+esc(sec.title)+'</h3>';
+  sec.items.forEach(function(it){
+    if(sec.kind==='SUMMARY')h+='<div>'+esc(it.text)+'</div>';
+    else if(sec.kind==='EXPERIENCE')h+='<div class="rz-row"><span>'+esc(it.title)+', '+esc(it.org)+'</span><span>'+esc(range(it))+'</span></div><div class="rz-org">'+esc(it.location)+'</div>'+bullets(it.bullets);
+    else if(sec.kind==='EDUCATION')h+='<div class="rz-row"><span>'+esc(it.school)+'</span><span>'+esc(range(it))+'</span></div><div class="rz-org">'+esc(it.degree+' '+it.field)+'</div>';
+    else if(sec.kind==='SKILLS')h+='<div class="rz-sk"><b>'+esc(it.group)+':</b> '+esc(it.skills.join(', '))+'</div>';
+    else if(sec.kind==='PROJECTS')h+='<div class="rz-row"><span>'+esc(it.title)+'</span></div>'+bullets(it.bullets);
+    else if(sec.kind==='CERTIFICATIONS')h+='<div class="rz-row"><span>'+esc(it.title)+'</span><span>'+esc(fmtD(it.date))+'</span></div><div class="rz-org">'+esc(it.org)+'</div>';
+    else if(sec.kind==='LANGUAGES')h+='<div>'+esc(it.name)+' <span class="rz-org">('+esc(it.level)+')</span></div>';
+  });
+  return h+'</div>';
+}
+function render(id){
+  var t=TPL[id],b=DOC.basics;
+  var contact=[b.email,b.phone,b.location].concat(b.links.map(function(l){return l.label+': '+l.url;}));
+  var top='<div class="rz-top"><h1 class="rz-name">'+esc(b.name)+'</h1><div class="rz-head">'+esc(b.headline)+'</div><div class="rz-contact">'+esc(contact.join(' · '))+'</div></div>';
+  var main=DOC.sections.filter(function(s){return t.sidebar.indexOf(s.kind)<0;});
+  var side=DOC.sections.filter(function(s){return t.sidebar.indexOf(s.kind)>=0;});
+  var body=t.sidebar.length?'<div class="rz-cols"><div class="rz-main">'+main.map(secHtml).join('')+'</div><aside class="rz-side">'+side.map(secHtml).join('')+'</aside></div>':main.map(secHtml).join('');
+  return top+body;
+}
+function frags(){var out=[];var b=DOC.basics;out.push(b.name,b.headline,b.email,b.phone,b.location);b.links.forEach(function(l){out.push(l.label,l.url);});
+  DOC.sections.forEach(function(s){out.push(s.title);s.items.forEach(function(it){['text','title','org','location','school','degree','field','group','name','level'].forEach(function(k){if(it[k])out.push(it[k]);});(it.skills||[]).forEach(function(x){out.push(x);});(it.bullets||[]).forEach(function(x){out.push(x.text);});});});return out;}
+function djb(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(16).padStart(8,'0');}
+var DOCHASH=djb(JSON.stringify(DOC));
+var cur='modern';
+function scalePage(){var pf=$('pf');var w=pf.clientWidth;var sc=w/816;$('page').style.transform='scale('+sc+')';pf.style.height=(1056*sc)+'px';}
+function showT(id){
+  cur=id;var p=$('page');p.className='page t-'+id;p.innerHTML=render(id);
+  document.querySelectorAll('#tpick .tbtn').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.t===id));});
+  var txt=p.textContent,all=frags(),miss=all.filter(function(f){return txt.indexOf(f)<0;});
+  $('chk').innerHTML='<span class="tag '+(miss.length?'bad':'ok')+'">'+(miss.length?'Missing '+miss.length:'&#10003; '+all.length+' of '+all.length+' text fragments on the page')+'</span><span class="tag ok">document hash '+DOCHASH+' unchanged</span><span class="tag '+TPL[id].ats+'">'+TPL[id].atsLabel+'</span>';
+  var js=JSON.stringify({schema:1,template_id:'__T__',theme:{accent:'#84E63C',fontPair:'inter'},doc:'{ ... unchanged ... }'},null,2).replace('"__T__"','<span class="hi">"'+id+'"</span>');
+  $('json').innerHTML='PATCH /api/profile/resumes/{id}/doc/template\n'+js.replace(/&/g,'&amp;')+'\n\n// doc_json hash: '+DOCHASH+'  (not read, not written)';
+  scalePage();
+}
+$('tpick').innerHTML=Object.keys(TPL).map(function(k){var t=TPL[k];return '<button class="tbtn" type="button" data-t="'+k+'" aria-pressed="false"><span class="thumb '+k+'"><i class="h"></i><i></i><i></i><i></i></span><span><b>'+t.name+' <span class="tag '+t.ats+'" style="font-size:11px">'+t.atsLabel+'</span></b><small>'+t.note+'</small></span></button>';}).join('');
+$('tpick').addEventListener('click',function(e){var t=e.target.closest('[data-t]');if(t)showT(t.dataset.t);});
+window.addEventListener('resize',scalePage);
+if(window.ResizeObserver)new ResizeObserver(scalePage).observe($('pf'));
+showT('modern');
+
+/* ---------- (e) architecture svg ---------- */
+function svgEl(svg,h){svg.insertAdjacentHTML('beforeend',h);}
+function wrapText(s,n){var w=s.split(' '),l=[],c='';w.forEach(function(x){if((c+' '+x).trim().length>n){l.push(c);c=x;}else c=(c+' '+x).trim();});if(c)l.push(c);return l;}
+(function(){
+  var svg=$('arch');
+  svg.innerHTML='<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink2)"/></marker></defs>';
+  var N={
+   db:{x:20,y:30,w:260,h:150,t:'MySQL (additive)',l:['profile_item','resume_doc (doc_json, template_id,','theme_json, doc_version, content_hash)','resume_doc_version','resume_ai_proposal','resume.parsed_json (projection)'],nw:true},
+   api:{x:340,y:30,w:280,h:150,t:'Spring API  /api/profile/**',l:['ResumeDocResource','GET -> ETag "docVersion"','PUT + If-Match -> validate, canonicalise,','hash, write doc + parsed_json + label','409 conflict / 413 / 422 / 428'],nw:true},
+   bff:{x:680,y:30,w:230,h:150,t:'Next BFF route handlers',l:['/api/resumes/[id]/doc','forwards ETag / If-Match','JWT stays in httpOnly cookie','rate limits per user']},
+   ed:{x:960,y:30,w:220,h:150,t:'Web editor (client island)',l:['reducer + history (cap 100)','autosave: debounce 800 ms,','one save in flight,','409 -> keep mine / take theirs'],nw:true},
+   tpl:{x:960,y:250,w:220,h:130,t:'@kiwiply/ui ResumePreview',l:['template Render(doc, theme)','only .rz-* classes + CSS vars','no hooks: same string for','preview and print'],nw:true},
+   pdf:{x:680,y:250,w:230,h:130,t:'web/src/lib/pdf.ts',l:['renderToStaticMarkup','+ resume.css + base64 fonts','re-measure pages (ladder','down <= 3 steps)'],nw:true},
+   chr:{x:340,y:250,w:280,h:130,t:'chromium sidecar',l:['playwright-core over CDP','page.pdf (preferCSSPageSize)','1 concurrent + queue of 10,','20 s timeout'],nw:true},
+   spr:{x:20,y:250,w:260,h:130,t:'Spring  POST /resumes/{id}/file',l:['existing endpoint, reused','then POST export-recorded {hash}','sets exported_at / exported_hash']},
+   s3:{x:20,y:440,w:260,h:90,t:'AWS S3',l:['PDF under the user\'s key','resume.r2_object_key set']},
+   ext:{x:340,y:440,w:420,h:90,t:'Extension (no change for R0-R5)',l:['pulls resume.parsedJson via GET /api/profile/resumes','attaches the stored PDF to ATS file inputs']}
+  };
+  Object.keys(N).forEach(function(k){var n=N[k];
+    var h='<rect class="nb'+(n.nw?' new':'')+'" x="'+n.x+'" y="'+n.y+'" width="'+n.w+'" height="'+n.h+'" rx="16"/><text class="nt" x="'+(n.x+14)+'" y="'+(n.y+26)+'">'+esc(n.t)+'</text>';
+    n.l.forEach(function(s,i){h+='<text class="nl" x="'+(n.x+14)+'" y="'+(n.y+50+i*17)+'">'+esc(s)+'</text>';});
+    svgEl(svg,h);});
+  function E(d,lab,lx,ly,dash){svgEl(svg,'<path class="ed" d="'+d+'" marker-end="url(#ar)"'+(dash?' stroke-dasharray="6 5"':'')+'/>'+(lab?'<text class="el" x="'+lx+'" y="'+ly+'" text-anchor="middle">'+esc(lab)+'</text>':''));}
+  E('M280 105 H340','',0,0);E('M620 105 H680','',0,0);E('M910 105 H960','',0,0);
+  svgEl(svg,'<text class="el" x="310" y="95" text-anchor="middle">rows</text><text class="el" x="650" y="95" text-anchor="middle">JSON</text><text class="el" x="935" y="95" text-anchor="middle">doc</text>');
+  E('M1070 180 V250','props: doc + theme',1070,218);
+  E('M960 315 H910','HTML',935,305);
+  E('M680 315 H620','page.setContent',650,305);
+  E('M340 315 H280','PDF bytes',310,305);
+  E('M150 380 V440','upload',150,415);
+  E('M280 485 H340','',0,0);
+  E('M240 180 V196 H300 V500 H340','parsed_json mirror',320,520,true);
+  svgEl(svg,'<text class="el" x="1070" y="238" text-anchor="middle" style="display:none"></text>');
+  svgEl(svg,'<text class="el" x="620" y="215" text-anchor="middle">Every content save re-derives parsed_json in the same transaction</text>');
+})();
+
+/* ---------- (f) ER svg ---------- */
+(function(){
+  var svg=$('er');
+  svg.innerHTML='<defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink2)"/></marker></defs>';
+  var T={
+   user:{x:470,y:20,w:240,t:'jhi_user',old:1,c:['id  PK']},
+   bio:{x:60,y:20,w:290,t:'bio (existing)',old:1,c:['payload  json   -- flat keys, unchanged','meta_json  json NULL  NEW','  provenance, completeness,','  onboarding, seededFromResumeId']},
+   pi:{x:20,y:210,w:360,t:'profile_item',c:['id  PK','user_id  FK -> jhi_user','section  EXPERIENCE|EDUCATION|SKILL|...','position  int','data_json  json','provenance  PARSED|USER|LEARNED|AI','source_resume_id  (no FK)','hidden, deleted_at (soft delete)']},
+   res:{x:470,y:210,w:300,t:'resume (existing)',old:1,c:['id  PK','user_id  FK','parsed_json  -- projection','r2_object_key  -- PDF/file','kind  UPLOADED|BUILT  NEW','updated_at  NEW']},
+   rd:{x:850,y:210,w:330,t:'resume_doc  (1:1 with resume)',c:['resume_id  PK = FK -> resume','user_id  FK','doc_json  json','template_id  default modern','theme_json  json','doc_version  int  -- ETag, @Version','content_hash  sha256','exported_at, exported_hash']},
+   rv:{x:640,y:470,w:340,t:'resume_doc_version',c:['id  PK','resume_id  (no FK)','version_no  UNIQUE with resume_id','reason  AUTOSAVE|TEMPLATE_SWITCH|...','name  NULL','doc_json, template_id, theme_json']},
+   rp:{x:1000,y:470,w:190,t:'resume_ai_proposal',c:['id  PK','resume_id  (no FK)','content_hash','task  tailor|rewrite|...','cache_key','result_json','status  OPEN|APPLIED|..']}
+  };
+  function box(k){var t=T[k];var h=26+t.c.length*17+10;t.h=h;
+    var s='<rect class="nb'+(t.old?'':' new')+'" x="'+t.x+'" y="'+t.y+'" width="'+t.w+'" height="'+h+'" rx="14"/><path class="hd'+(t.old?' old':'')+'" d="M'+t.x+' '+(t.y+26)+' V'+(t.y+14)+' a14 14 0 0 1 14 -14 H'+(t.x+t.w-14)+' a14 14 0 0 1 14 14 V'+(t.y+26)+' Z"/><text class="hdt'+(t.old?' old':'')+'" x="'+(t.x+12)+'" y="'+(t.y+18)+'">'+esc(t.t)+'</text>';
+    t.c.forEach(function(c,i){var key=/PK|FK/.test(c);s+='<text class="col'+(key?' colk':'')+'" x="'+(t.x+12)+'" y="'+(t.y+44+i*17)+'" style="'+(key?'':'fill:var(--ink2)')+'">'+esc(c)+'</text>';});
+    svg.insertAdjacentHTML('beforeend',s);}
+  Object.keys(T).forEach(box);
+  function E(d,l,x,y){svg.insertAdjacentHTML('beforeend','<path class="ed" d="'+d+'" marker-end="url(#ar2)"/>'+(l?'<text class="el" x="'+x+'" y="'+y+'" text-anchor="middle">'+esc(l)+'</text>':''));}
+  E('M470 50 H350','1 : 1',410,42);
+  E('M520 '+(T.user.y+T.user.h)+' L200 210','1 : N',330,150);
+  E('M620 '+(T.user.y+T.user.h)+' V210','1 : N',645,140);
+  E('M770 330 H850','1 : 1 (PK=FK)',810,322);
+  svg.insertAdjacentHTML('beforeend','<path class="ed" d="M650 '+(210+T.res.h)+' V470" marker-end="url(#ar2)" stroke-dasharray="6 5"/><text class="el" x="700" y="440" text-anchor="middle">logical, no FK</text>');
+  svg.insertAdjacentHTML('beforeend','<path class="ed" d="M1010 '+(210+T.rd.h)+' V470" marker-end="url(#ar2)" stroke-dasharray="6 5"/><text class="el" x="1060" y="452" text-anchor="middle">same resume</text>');
+  svg.insertAdjacentHTML('beforeend','<path class="ed" d="M380 330 H470 " marker-end="url(#ar2)" stroke-dasharray="6 5"/><text class="el" x="425" y="322" text-anchor="middle">source_resume_id</text>');
+  svg.insertAdjacentHTML('beforeend','<text class="gl" x="20" y="625">NEW = green header. Existing tables have a plain header. A dashed line is a logical link without a database foreign key.</text>');
+})();
+
+/* ---------- (g) AI table + ladder ---------- */
+var AI=[
+['Tailor to a job description (pasted or tracked application)','TAILOR','lock','yes','yes'],
+['Rewrite bullets (verb, impact, metric; 3 alternatives)','REWRITE','lock','yes','yes'],
+['Keyword / ATS match with gaps and where to add them','FIT + AtsChecks','partial','yes','yes'],
+['Summary generation (concise / confident / plain)','SUMMARY','lock','yes','yes'],
+['Tone / length fix','REWRITE mode','lock','yes','yes'],
+['Fit to one page (deterministic ladder)','none','yes','yes','yes'],
+['AI trim of the longest bullets when the ladder ends','REWRITE shorten','lock','yes','yes'],
+['Grammar and consistency','REWRITE grammar','partial','yes','yes'],
+['Cover letter (R5)','COVER','lock','yes','yes'],
+['Translate to another language (new resume)','TRANSLATE','lock','yes','yes'],
+['Explain this suggestion','none','yes','yes','yes'],
+['Writing lint, templates, PDF and TXT export, versions','none','yes','yes','yes']
+];
+function cell(v){return '<td class="c">'+(v==='yes'?'<span class="yes" aria-label="included">&#10003;</span>':v==='partial'?'<span class="tag warn2">partial</span>':'<span class="no" aria-label="locked">&#128274; locked</span>')+'</td>';}
+$('aiRows').innerHTML=AI.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td><code>'+esc(r[1])+'</code></td>'+cell(r[2])+cell(r[3])+cell(r[4])+'</tr>';}).join('');
+var LAD=[{d:1,s:11,m:.75},{d:1,s:10.5,m:.7},{d:.92,s:10.5,m:.65},{d:.88,s:10,m:.6},{d:.82,s:10,m:.55},{d:.78,s:9.5,m:.5},{d:.72,s:9.5,m:.45}];
+var lstep=0;
+function ladder(){
+  $('lsteps').innerHTML=LAD.map(function(l,i){return '<button type="button" aria-pressed="'+(i===lstep)+'" data-l="'+i+'" style="height:'+(52+i*10)+'px" aria-label="Step '+i+'">'+i+'</button>';}).join('');
+  var l=LAD[lstep];
+  $('ltxt').innerHTML='<b>Step '+lstep+'</b>: density '+l.d+' &middot; font '+l.s+' pt &middot; margin '+l.m+' in<br><span class="muted">Order: density first, then font size, then margins. Step 0 is the default; step 6 is the tightest.</span>';
+  var rows=Math.round(26+lstep*3.2),h='<div class="h"></div>',pad=Math.round(14-lstep*1.3)+'px';
+  for(var i=0;i<rows;i++)h+='<div style="width:'+(60+((i*37)%40))+'%;height:'+Math.max(2,Math.round(4*l.d))+'px;margin-bottom:'+Math.max(2,Math.round(5*l.d))+'px"></div>';
+  $('lmini').style.padding=pad;$('lmini').innerHTML=h;
+}
+$('lsteps').addEventListener('click',function(e){var t=e.target.closest('[data-l]');if(t){lstep=+t.dataset.l;ladder();}});
+ladder();
+
+/* ---------- (h) decisions ---------- */
+var Q=[
+['PDF engine placement','A chromium sidecar in Compose on the shared box (recommended) vs Chromium inside the web image (simpler ops, +400 MB image, memory inside the web container).'],
+['Free tier and builder AI','The locked rule keeps all builder AI on Pro. Alternative: one free "Stronger bullets" taste per month, counted like parse.'],
+['Templates at launch','3 (Modern, Classic, Compact) recommended. 5 adds Minimal + Creative; Creative has a photo slot (an EEO risk in the US), would ship atsSafe:false and default-off for US locations.'],
+['Share links','Public read-only /r/<token>, revocable: R7 optional. In or out?']
+];
+$('qGrid').innerHTML=Q.map(function(q,i){return '<article class="card qcard"><div class="top" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="num">Q'+(i+1)+'</span><h3 style="font-size:15px">'+esc(q[0])+'</h3></div><p style="margin:0;font-size:13.5px;color:var(--ink2)">'+esc(q[1])+'</p></article>';}).join('');
+var DEC=[
+['Profile: wrap, not migrate','Keep bio.payload; new profile_item table; lazy seed from the default resume.','A new profile table would force an extension release and re-key the 10.3 suggestions.'],
+['No profile variants','One profile; a target is a built resume with a target label.','Variants double the extension\'s sync surface and duplicate identity data.'],
+['Document = JSON beside resume','resume_doc 1:1; parsed_json re-derived on every save.','Columns on resume would push a 100 KB doc through every extension pull.'],
+['Templates are code','Registry in @kiwiply/ui; switching changes one string.','A template table would only mirror the registry.'],
+['PDF = Chromium printing the same HTML','chromium Compose sidecar + playwright-core; stored via the existing file endpoint.','react-pdf is a second render tree that drifts; Java PDF libs cannot render the React template. Open: sidecar vs in-image.'],
+['Deterministic 7-step page-fit ladder','Stored in the theme; AI shorten only when the ladder ends.','Pure AI fitting is unpredictable and costs budget.'],
+['All builder AI is Pro/Autopilot','Free gets the full builder, 3 templates, PDF/TXT, deterministic lint.','A free monthly taste of Stronger bullets (open question 2).'],
+['Suggest, diff, accept; no streaming','Proposals are checked on the server before anyone sees them.','Streaming would show unchecked text.'],
+['No rich text in bullets','Writing lint replaces the board\'s B/I/U toolbar.','ATS parsers strip formatting; keeping the toolbar would promise what never survives.'],
+['Three templates at launch','Modern, Classic, Compact (flagged caution).','Five at launch (open question 3).'],
+['Built + uploaded share the cap','3 / 25 / 50; exports and versions never count.','Separate caps complicate the 402 copy.'],
+['New dependencies','@dnd-kit (web), playwright-core (web, server), vitest + Testing Library (dev), chromium sidecar (ops).','zustand, zod and a rich-text editor were rejected.'],
+['Versions','Auto every 10+ minutes of change and on every switch/apply/import; keep 30 + named.','Per-keystroke versions.'],
+['DOCX, share links, photos are R7','Keeps the skeleton small; PDF + TXT cover ATS and recruiters.','(share links: open question 4)'],
+['Onboarding has three paths','Upload / Paste / Start fresh into one card-by-card review; no LinkedIn API.','A single upload path leaves phone-first users stuck.']
+];
+$('dGrid').innerHTML=DEC.map(function(d,i){return '<article class="card dcard"><div class="top"><span class="num">'+(i+1)+'</span><h3>'+esc(d[0])+'</h3></div><p>'+esc(d[1])+'</p><p class="alt"><b>Alternative / why it lost:</b> '+esc(d[2])+'</p></article>';}).join('');
+
+/* ---------- nav highlight ---------- */
+var links=[].slice.call(document.querySelectorAll('#nav a'));
+function onScroll(){var y=window.scrollY+120,cur=null;links.forEach(function(a){var s=document.querySelector(a.getAttribute('href'));if(s&&s.offsetTop<=y)cur=a;});links.forEach(function(a){a.classList.toggle('cur',a===cur);});}
+window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+})();
+</script>
+</body>
+</html>
