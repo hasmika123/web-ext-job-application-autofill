@@ -363,7 +363,7 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
       store.settings = aiSettings;
       const r = await sendRelayed(internal, { tab: { id: 3 } }, draftMsg);
       ok("ai limit: the draft is sent as a draft", calls.aiDrafts && calls.aiDrafts[0].task === "draft", JSON.stringify(calls.aiDrafts));
-      ok("ai limit: says when it resets", r && /resets on October 1/.test(r.error || ""), JSON.stringify(r));
+      ok("ai limit: says when it resets", r && /resets on (October 1|1 October)\b/.test(r.error || ""), JSON.stringify(r));
       ok("ai limit: no dollar figures and no raw 100/100", r && !/\$|100\/100/.test(r.error || ""), JSON.stringify(r));
     }
     {
