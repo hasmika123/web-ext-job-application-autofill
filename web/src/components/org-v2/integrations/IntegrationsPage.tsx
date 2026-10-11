@@ -174,7 +174,7 @@ export default function IntegrationsPage() {
         note="Connect your tools. Create more opportunities together."
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
         {INTEGRATION_STATS.map((s, i) => (
           <StatTile key={s.label} icon={STAT_ICONS[i]} value={s.value} label={s.label} delta={s.delta} sparkline={s.spark} tone={s.tone} />
         ))}

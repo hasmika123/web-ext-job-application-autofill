@@ -124,9 +124,9 @@ export default function ApplicationsTable() {
           onChange={(e) => setQ(e.target.value)}
           wrapperClassName="min-w-[220px] flex-[1_1_320px]"
         />
-        <FilterSelect label="Status" options={["All Statuses", "Applied", "In Review", "Interviewing", "Offer", "Rejected"]} className="flex-1 sm:flex-none sm:w-[140px]" />
-        <FilterSelect label="Job role" options={["All Job Roles", "Product Designer", "Software Engineer", "Data Analyst", "Product Manager"]} className="flex-1 sm:flex-none sm:w-[140px]" />
-        <FilterSelect label="Date range" options={["Last 30 days", "Last 7 days", "Last 90 days"]} className="flex-1 sm:flex-none sm:w-[130px]" />
+        <FilterSelect label="Status" options={["All Statuses", "Applied", "In Review", "Interviewing", "Offer", "Rejected"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none sm:w-[140px]" />
+        <FilterSelect label="Job role" options={["All Job Roles", "Product Designer", "Software Engineer", "Data Analyst", "Product Manager"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none sm:w-[140px]" />
+        <FilterSelect label="Date range" options={["Last 30 days", "Last 7 days", "Last 90 days"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none sm:w-[130px]" />
         <button
           type="button"
           aria-label="More filters"

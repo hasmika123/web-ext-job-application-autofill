@@ -69,7 +69,7 @@ export default function BillingPage() {
       />
 
       {/* stat tiles */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
         <StatTile icon={<CrownIcon />} value="Enterprise" label="Current Plan" tone="blue" chip={<StatusChip tone="green">Active</StatusChip>} />
         <StatTile icon={<UsersIcon />} value="72 / 100" label="Active Seats" delta={{ value: "72% used", up: true }} tone="green" />
         <StatTile icon={<CalendarIcon />} value="2,486" label="Monthly Usage" sublabel="Total actions" delta={{ value: "18%", up: true }} tone="violet" />

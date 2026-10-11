@@ -94,11 +94,11 @@ export default function OpportunitiesTable() {
       </header>
 
       <div className="flex flex-wrap gap-2">
-        <FilterSelect label="Department" options={["All Departments", "Product", "Engineering", "Design", "Data", "Marketing"]} className="flex-1 sm:flex-none" />
-        <FilterSelect label="Location" options={["All Locations", "San Francisco, CA", "Seattle, WA", "New York, NY", "Austin, TX"]} className="flex-1 sm:flex-none" />
-        <FilterSelect label="Work mode" options={["Remote / Hybrid", "Remote", "Hybrid"]} className="flex-1 sm:flex-none" />
-        <FilterSelect label="Match score" options={["Match Score", "80% and above", "60% and above"]} className="flex-1 sm:flex-none" />
-        <FilterSelect label="Stage" options={["All Stages", "Open", "In Progress", "Reviewing"]} className="flex-1 sm:flex-none" />
+        <FilterSelect label="Department" options={["All Departments", "Product", "Engineering", "Design", "Data", "Marketing"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none" />
+        <FilterSelect label="Location" options={["All Locations", "San Francisco, CA", "Seattle, WA", "New York, NY", "Austin, TX"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none" />
+        <FilterSelect label="Work mode" options={["Remote / Hybrid", "Remote", "Hybrid"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none" />
+        <FilterSelect label="Match score" options={["Match Score", "80% and above", "60% and above"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none" />
+        <FilterSelect label="Stage" options={["All Stages", "Open", "In Progress", "Reviewing"]} className="min-w-[calc(50%-4px)] flex-1 sm:min-w-0 sm:flex-none" />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2.5">

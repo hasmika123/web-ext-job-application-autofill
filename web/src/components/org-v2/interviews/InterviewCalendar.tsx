@@ -135,11 +135,11 @@ export default function InterviewCalendar() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 text-[13px] font-semibold text-v2-navy">
-            <button type="button" aria-label="Previous week" className="grid h-7 w-7 place-items-center rounded-lg text-v2-muted hover:bg-[#F1F4FA]">
+            <button type="button" aria-label="Previous week" className="grid h-10 w-10 place-items-center rounded-lg text-v2-muted sm:h-7 sm:w-7 hover:bg-[#F1F4FA]">
               <ChevronLeftIcon size={15} />
             </button>
             <span className="whitespace-nowrap px-1">{WEEK.label}</span>
-            <button type="button" aria-label="Next week" className="grid h-7 w-7 place-items-center rounded-lg text-v2-muted hover:bg-[#F1F4FA]">
+            <button type="button" aria-label="Next week" className="grid h-10 w-10 place-items-center rounded-lg text-v2-muted sm:h-7 sm:w-7 hover:bg-[#F1F4FA]">
               <ChevronRightIcon size={15} />
             </button>
           </div>
@@ -151,7 +151,7 @@ export default function InterviewCalendar() {
                 aria-pressed={view === v}
                 onClick={() => setView(v)}
                 className={cn(
-                  "rounded-lg px-3 py-1 capitalize transition-colors",
+                  "rounded-lg px-3.5 py-2 capitalize sm:px-3 sm:py-1 transition-colors",
                   view === v ? "bg-v2-blue text-white" : "text-v2-ink-soft hover:bg-[#F1F4FA]",
                 )}
               >
@@ -161,7 +161,7 @@ export default function InterviewCalendar() {
           </div>
           <button
             type="button"
-            className="rounded-[10px] border border-v2-line bg-white px-3 py-1.5 text-[12.5px] font-semibold text-v2-blue hover:bg-[#F3F7FF]"
+            className="rounded-[10px] border border-v2-line bg-white px-3.5 py-2.5 text-[12.5px] font-semibold text-v2-blue sm:px-3 sm:py-1.5 hover:bg-[#F3F7FF]"
           >
             Today
           </button>

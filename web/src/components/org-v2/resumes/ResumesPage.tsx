@@ -193,7 +193,7 @@ export default function ResumesPage() {
         note="Stronger resumes. Brighter opportunities together."
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
         {RESUME_STATS.map((s, i) => (
           <StatTile key={s.label} icon={STAT_ICONS[i]} value={s.value} label={s.label} delta={s.delta} sparkline={s.spark} tone={s.tone} />
         ))}
@@ -249,7 +249,7 @@ export default function ResumesPage() {
         <SuggestionsRail />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         {RESUME_TOOLS.map((t, i) => (
           <ToolCard key={t.title} title={t.title} body={t.body} tone={t.tone} icon={TOOL_ICONS[i]} />
         ))}

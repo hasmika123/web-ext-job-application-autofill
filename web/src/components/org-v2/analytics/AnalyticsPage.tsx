@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
       />
 
       {/* five stat tiles */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 lg:grid-cols-3 xl:grid-cols-5 max-lg:[&>*:last-child]:col-span-2 max-sm:[&_[role=img]]:hidden">
         {ANALYTICS_STATS.map((s, i) => (
           <StatTile key={s.label} compact icon={STAT_ICONS[i]} value={s.value} label={s.label} delta={s.delta} sparkline={s.spark} tone={s.tone} />
         ))}
@@ -135,7 +135,7 @@ export default function AnalyticsPage() {
       {/* filter bar */}
       <section className="rounded-2xl bg-white p-4 shadow-v2-card">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid min-w-0 flex-[1_1_100%] grid-cols-2 gap-3 sm:flex-1 lg:grid-cols-4">
             <FilterField label="Date Range">
               <FilterSelect label="Date Range" value={dateRange} onChange={setDateRange} options={ANALYTICS_FILTERS.dateRange} leadingIcon={<CalendarIcon className="h-4 w-4" />} />
             </FilterField>
@@ -149,7 +149,7 @@ export default function AnalyticsPage() {
               <FilterSelect label="Support Owner" value={owner} onChange={setOwner} options={ANALYTICS_FILTERS.supportOwner} />
             </FilterField>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
             <ToolbarButton size="md" variant="outline" icon={<DownloadIcon />}>
               Export Report
             </ToolbarButton>
@@ -206,7 +206,7 @@ export default function AnalyticsPage() {
         </SectionCard>
 
         <SectionCard title="Kiwiply Impact & ROI" headerExtra={<PeriodSelect />} className="lg:col-span-2 xl:col-span-1">
-          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {ROI_TILES.map((t, i) => (
               <ImpactTile key={t.label} icon={ROI_ICONS[i]} value={t.value} label={t.label} delta={t.delta} tone={t.tone} />
             ))}
