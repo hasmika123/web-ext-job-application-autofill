@@ -93,9 +93,46 @@ export default function ResumeBuilderPage({
   const templatePicker = (cols: string) => (
     <div className={cn("grid gap-3", cols)}>
       {RB_TEMPLATES.map((t) => (
-        <TemplateThumb key={t} name={t} selected={t === template} onSelect={() => setTemplate(t)} />
+        // A definite width per cell keeps every thumbnail the same size (the thumb is content-sized otherwise).
+        <div key={t} className="w-full max-w-[84px] [&>button]:w-full">
+          <TemplateThumb name={t} selected={t === template} onSelect={() => setTemplate(t)} />
+        </div>
       ))}
     </div>
+  );
+
+  /** A CSS-typeset resume page built from the section texts (board 2/3 "Templates" view). */
+  const resumePreview = (
+    <article
+      aria-label={`${template} resume preview`}
+      className={cn(
+        "mx-auto w-full max-w-[560px] overflow-hidden rounded-xl border border-v2-line bg-white text-[12px] leading-snug text-v2-ink-soft shadow-v2-soft",
+        template === "Classic" && "font-serif",
+      )}
+    >
+      <header
+        className={cn(
+          "px-6 pb-3 pt-5",
+          template === "Professional" && "bg-v2-navy text-white",
+          template === "Creative" && "bg-[linear-gradient(135deg,#D9F5EE_0%,#E6DEFB_50%,#FFE3EE_100%)]",
+          template === "Classic" && "text-center",
+        )}
+      >
+        <h3 className={cn("font-display text-[22px] font-extrabold", template === "Professional" ? "text-white" : "text-v2-navy")}>Priya Sharma</h3>
+        <p className={cn("text-[12px]", template === "Professional" && "text-white/80")}>Software Engineer</p>
+        <p className={cn("mt-0.5 text-[11px]", template === "Professional" && "text-white/70")}>San Francisco, CA {"·"} priya@email.com {"·"} linkedin.com/in/priya</p>
+      </header>
+      <div className="space-y-3 px-6 pb-6 pt-3">
+        {sections
+          .filter((s) => s !== "Personal Info" && (texts[s] ?? "").trim() !== "")
+          .map((s) => (
+            <section key={s}>
+              <h4 className="border-b border-v2-line pb-0.5 text-[10.5px] font-extrabold uppercase tracking-wider text-v2-navy">{s}</h4>
+              <p className="mt-1 whitespace-pre-wrap">{texts[s]}</p>
+            </section>
+          ))}
+      </div>
+    </article>
   );
 
   const suggestions = (
@@ -130,11 +167,13 @@ export default function ResumeBuilderPage({
       />
 
       {/* REAL: default resume + recent versions; the side panel is the existing resume workspace. */}
-      <section className="flex flex-col gap-3 rounded-2xl border border-v2-line bg-white p-3.5 shadow-v2-soft lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <IconTile tone="blue">
-            <FileTextIcon className="h-5 w-5" />
-          </IconTile>
+      <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-v2-line bg-white p-3.5 shadow-v2-soft">
+        <div className="flex min-w-[240px] flex-1 items-center gap-3">
+          <span className="flex-none">
+            <IconTile tone="blue">
+              <FileTextIcon className="h-5 w-5" />
+            </IconTile>
+          </span>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold text-v2-navy">{current.label}</p>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-v2-ink-soft">
@@ -268,12 +307,32 @@ export default function ResumeBuilderPage({
       )}
 
       {tab === "templates" && (
-        <SectionCard title="Choose a template" subtitle="Professional, ATS-friendly layouts. Your choice applies to the preview.">
-          {templatePicker("grid-cols-3 justify-items-center sm:grid-cols-5")}
-          <p className="mt-4 text-[13px] text-v2-ink-soft">
-            Selected: <span className="font-bold text-v2-navy">{template}</span>
-          </p>
-        </SectionCard>
+        <div className="grid items-start gap-5 md:grid-cols-[112px_minmax(0,1fr)] lg:grid-cols-[112px_minmax(0,1fr)_280px]">
+          <SectionCard title="Templates" className="md:sticky md:top-24">
+            {templatePicker("grid-cols-5 justify-items-center md:grid-cols-1")}
+          </SectionCard>
+          <section className="min-w-0 rounded-2xl border border-v2-line bg-white p-4 shadow-v2-soft sm:p-5" aria-label="Preview">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[13px] text-v2-ink-soft">
+                Selected: <span className="font-bold text-v2-navy">{template}</span>
+              </p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setTab("builder")} className={cn(GHOST_BTN, "h-9 text-[13px]")}>
+                  Edit
+                </button>
+                <button type="button" onClick={soon} className={cn(LIME_BTN, "h-9 text-[13px]")}>
+                  Download PDF
+                </button>
+              </div>
+            </div>
+            {resumePreview}
+          </section>
+          <aside className="min-w-0 md:col-span-2 lg:col-span-1">
+            <SectionCard title="AI Suggestions" icon={<SparklesIcon className="h-4 w-4 text-v2-violet" />}>
+              {suggestions}
+            </SectionCard>
+          </aside>
+        </div>
       )}
 
       {tab === "ai-suggestions" && (
