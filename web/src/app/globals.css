@@ -36,15 +36,3 @@ h3 {
   letter-spacing: -.01em;
   font-weight: 600;
 }
-
-/* ATS logo marquee — two identical tracks; -50% advances exactly one track for a seamless loop */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-.animate-marquee {
-  animation: marquee 24s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee { animation: none; }
-}
