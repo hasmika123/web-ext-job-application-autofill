@@ -234,6 +234,56 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { "content-type": "application/json", "x-total-count": String(events.length) });
       return res.end(JSON.stringify(events));
     }
+    // --- admin3b: customers (Customers board) ---
+    if (path === "/api/admin/customers/counts") return json(res, 200, { ALL: 5, ACTIVE: 3, PAST_DUE: 1, CANCELLING: 1, LAPSED: 0, NEW: 2 });
+    if (path === "/api/admin/customers") {
+      const mk = (login, name, g, b, endIn, paid, since) => ({ login, name, email: login + "@example.com", statusGroup: g, stripeStatus: g.toLowerCase(), billing: b,
+        currentPeriodEnd: ago(-endIn), cancelAtPeriodEnd: g === "CANCELLING", totalPaidCents: paid, currency: "usd", since: ago(since), stripeUrl: "https://dashboard.stripe.com/customers/cus_" + login });
+      const cs = [mk("priya.s", "Priya S", "ACTIVE", "MONTHLY", 3, 5997, 5), mk("ravi.k", "Ravi K", "ACTIVE", "QUARTERLY", 40, 4999, 60),
+        mk("mei.l", "Mei L", "ACTIVE", "MONTHLY", 1, 1999, 12), mk("tom.b", "Tom B", "PAST_DUE", "MONTHLY", 2, 3998, 90), mk("ana.c", "Ana C", "CANCELLING", "MONTHLY", 5, 7996, 150)];
+      res.writeHead(200, { "content-type": "application/json", "x-total-count": String(cs.length) });
+      return res.end(JSON.stringify(cs));
+    }
+    // --- end admin3b: customers ---
+    // --- BEGIN admin3b mock (Email / Bug reports / Inquiries) ---
+    {
+      const q = new URL(req.url ?? "/", "http://localhost").searchParams;
+      const paged = (all, statusKey = "status") => {
+        const st = q.get("status");
+        const list = st ? all.filter((r) => r[statusKey] === st) : all;
+        const size = Number(q.get("size") ?? 30), pg = Number(q.get("page") ?? 0);
+        res.writeHead(200, { "content-type": "application/json", "x-total-count": String(list.length) });
+        return res.end(JSON.stringify(list.slice(pg * size, pg * size + size)));
+      };
+      const tally = (all) => json(res, 200, all.reduce((m, r) => ((m[r.status] = (m[r.status] ?? 0) + 1), m), {}));
+      const SUBS = Array.from({ length: 41 }, (_, i) => ({
+        id: i + 1, email: `subscriber${i + 1}@example.com`, status: ["CONFIRMED", "CONFIRMED", "PENDING", "UNSUBSCRIBED"][i % 4],
+        consentSource: ["footer", "blog", "pricing"][i % 3], consentAt: ago(i), confirmedAt: ago(i), createdDate: ago(i),
+      }));
+      const MSGS = ["Job application fails with 500 error", "Resume parsing missing skills", "Email notifications not sent", "Filters not working on job search", "UI overlap on smaller screens", "CSV export missing columns"];
+      const BUGS = MSGS.map((m, i) => ({
+        id: 1000 + i, source: i % 2 ? "extension" : "web", userLogin: i % 3 ? `user${i}` : null, email: `u${i}@example.com`,
+        message: m, category: ["BUG", "FEEDBACK", "BUG"][i % 3], severity: [null, "HIGH", "MEDIUM", "LOW"][i % 4],
+        status: ["NEW", "TRIAGED", "IN_PROGRESS", "RESOLVED", "WONTFIX", "NEW"][i], createdDate: ago(i),
+      }));
+      const INQS = ["autopilot", "organization", "resume-review", "coaching", "other"].map((t, i) => ({
+        id: 2000 + i, topic: t, name: ["Jason Diaz", "Sarah Lee", "Michael Kim", "Emma Park", "David Tan"][i],
+        email: `person${i}@example.com`, company: i % 2 ? "Acme Staffing" : null, teamSize: i % 2 ? "10-50" : null,
+        message: "Hi, we would like to learn more about your offering.", userLogin: null,
+        status: ["NEW", "CONTACTED", "NEW", "WON", "LOST"][i], adminNotes: i === 1 ? "Call booked Tue" : null, createdDate: ago(i),
+      }));
+      if (path === "/api/admin/subscribers") return paged(SUBS);
+      if (path === "/api/admin/subscribers/counts") return tally(SUBS);
+      if (path === "/api/admin/bug-reports") return paged(BUGS);
+      if (path === "/api/admin/bug-reports/counts") return tally(BUGS);
+      if (path.startsWith("/api/admin/bug-reports/")) {
+        const b = BUGS.find((r) => String(r.id) === path.split("/").pop());
+        return b ? json(res, 200, { ...b, url: "https://kiwiply.com/jobs", appVersion: "1.0.0", userAgent: "Mozilla/5.0", adminNotes: null }) : json(res, 404, {});
+      }
+      if (path === "/api/admin/inquiries") return paged(INQS);
+      if (path === "/api/admin/inquiries/counts") return tally(INQS);
+    }
+    // --- END admin3b mock ---
     if (path === "/management/health") return json(res, 200, { status: "UP", components: {} });
     return json(res, 404, { error: `mock-api: no admin handler for ${path}` });
   }
