@@ -174,7 +174,7 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > S3** (accept/sign in their dashboards); the first manual Chrome Web Store upload (now at ext
 > **v0.51.1** — follow `DEPLOY.md` §8 in order and use `job-autofill/STORE-LISTING.md` for the
 > listing copy); screenshots for bug reports if wanted.
-> Everything below is prior context (live + complete unless noted). New chat → read `HANDOFF.md`.
+> Everything below is prior context (live + complete unless noted). New chat → read `docs/HANDOFF.md`.
 >
 > ✅ **Phase 5 server-side AI is OFF HOLD — now live-capable on `gemini-2.5-flash-lite` (free tier).**
 > The `gemini-2.0-flash` `limit: 0` was per-model; `gemini-2.5-flash-lite` has free-tier quota
@@ -998,10 +998,10 @@ focused Claude Code session.
 - [x] **11.4 Docs.** ✅ DONE — `ARCHITECTURE.md` gained a **Sync model (Phase 11)** section (the three
   mechanisms, the offline rule, the revoke backstop, the no-WebSockets reason) and two stale lines were
   corrected: the `background.ts` entry no longer duplicates 11.1 and the mirror note no longer says
-  "the popup pulls … (throttled)" — there is no popup and no throttle. `HANDOFF.md` points at it.
+  "the popup pulls … (throttled)" — there is no popup and no throttle. `docs/HANDOFF.md` points at it.
   Original spec: `ARCHITECTURE.md` "Sync model" section (signal → version → alarm; revoke path:
   1.11 rotation kills a stale token at its next refresh, `signedOut` clears at once; no WebSockets —
-  MV3 SW idles out after 30 s). `HANDOFF.md` one line. Docs-only commit.
+  MV3 SW idles out after 30 s). `docs/HANDOFF.md` one line. Docs-only commit.
 
 ## Phase 12 — Billing & entitlements: Stripe (Launch 1 — the gate comes before the gated features)
 > Spec: `ROADMAP.md` → Phase 12 + the Free/Pro table. `isPro()` in the API is the ONLY source of truth.
@@ -2173,7 +2173,7 @@ focused Claude Code session.
   still miss events while dead. Two stale lines fixed while in there: the `background.ts` entry
   duplicated the 11.1 detail and now points at the new section, and the read-only-mirror note
   still said "the popup pulls `JAF.sync.pullAll` on open (throttled)" — there has been no popup
-  since W4 and no throttle since 11.3. `HANDOFF.md` points at the section.
+  since W4 and no throttle since 11.3. `docs/HANDOFF.md` points at the section.
 - 2026-09-21 · **11.3 extension version checks — the 90 s throttle is gone** · Ext **v0.52.9**.
   The drawer used to guess at staleness with a 90 s timer, which both skipped refreshes that were
   needed and allowed ones that weren't. `JAF.sync.checkAndPull` now GETs the 11.2 fingerprint and
@@ -2327,7 +2327,7 @@ focused Claude Code session.
   entries and "work was done on branch X" notes left intact — those are history, not status.
 - 2026-09-17 · **w6.3 — docs sweep** · `job-autofill/README.md` rewritten (it branded the product
   Dossier, documented an in-extension bio/resume manager removed by locked decision, a hosted-
-  ruleset setting deleted in W6.2, and "All data stays on your device. No server."); `HANDOFF.md`
+  ruleset setting deleted in W6.2, and "All data stays on your device. No server."); `docs/HANDOFF.md`
   current-state + kickstart replaced (it said "no build step" and pointed at a merged branch);
   `CLAUDE.md`, `ARCHITECTURE.md`, `DEPLOY.md` §4, `brand/README.md`, `BROWSERS.md` and a
   `wxt.config.ts` comment corrected for the post-WXT layout. Every file path named in

@@ -602,7 +602,7 @@ pull only on change:**
   `tracking.test.js` for the provider method. Version bump.
 - **11.4 Docs.** `ARCHITECTURE.md` gets a "Sync model" section: signal → version check → alarm,
   the revoke path (1.11 rotation: a stale token dies at its next refresh; `signedOut` clears at
-  once), and why there are no WebSockets — MV3 kills the SW after 30 s idle. `HANDOFF.md` one
+  once), and why there are no WebSockets — MV3 kills the SW after 30 s idle. `docs/HANDOFF.md` one
   line. Docs-only commit.
 
 ### Phase 12 — Billing & entitlements (Stripe)  *(Launch 1 — build the gate before the gated features)*

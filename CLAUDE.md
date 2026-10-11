@@ -10,7 +10,7 @@ drawer, `options/`, and the Firefox-only `connect-relay`), importing the engine 
 There is **no popup and no native side panel**: the toolbar icon injects the drawer over the page. Being productized into extension + Spring Boot API +
 Next.js web app. Spec: `ROADMAP.md`. Task trackers: `PROGRESS.md` (product phases) +
 `EXT-UI-PLATFORM-PLAN.md` (the active extension UI-platform build-out, phases W0–W6).
-Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
+Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `docs/HANDOFF.md` first.
 
 ## The loop (do this every session)
 1. Read `PROGRESS.md` → find **Current focus**.
@@ -35,6 +35,11 @@ promote a batch.
 - Delete a topic branch once it's merged; don't leave stale branches around.
 
 ## Hard rules
+- **Handoff documents live in the root `docs/` folder** (shared by every sub-project: web,
+  api, extension, mobile). `docs/HANDOFF.md` is the general orientation; branch/initiative
+  handoffs are `docs/HANDOFF-<name>.md` with a **START HERE** section giving the exact
+  continuation point (last commit, first commands, first task). Never leave a handoff in a
+  sub-project folder.
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
 - **One design system: `@kiwiply/ui` (`packages/ui`).** All shared visuals — icons,
   primitives (Button/Badge/Card/…), tokens — live there; web + extension import them
@@ -69,7 +74,7 @@ the ROOT — `job-autofill` joined in W3 and the publish workflow's `npm ci` dep
 source by web + extension) · `/job-autofill` extension (workspace member) ·
 `/api` Spring Boot · `/web` Next.js (workspace member) · `/brand` source logo/ATS
 art (originals only — served copies live in `web/public` + `job-autofill/icons`; see
-`brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/HANDOFF/CLAUDE.
+`brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/CLAUDE (handoffs live in `docs/`).
 When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the file map.
 
 ## Locked decisions (persist across sessions — don't re-litigate)
