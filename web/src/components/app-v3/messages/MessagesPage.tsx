@@ -61,7 +61,7 @@ export default function MessagesPage() {
         note="Say hello!"
       />
 
-      <div className="grid h-[min(660px,calc(100dvh-13rem))] min-h-[460px] overflow-hidden rounded-2xl border border-v2-line/70 bg-paper shadow-v2-soft md:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="grid h-[min(660px,calc(100dvh-13rem))] min-h-[460px] overflow-hidden rounded-2xl border border-v2-line/70 bg-paper shadow-v2-soft grid-cols-[minmax(0,1fr)] md:grid-cols-[340px_minmax(0,1fr)]">
         {/* Conversation list */}
         <section
           aria-label="Conversations"
