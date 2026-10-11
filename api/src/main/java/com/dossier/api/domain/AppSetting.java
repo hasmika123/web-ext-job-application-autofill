@@ -7,7 +7,8 @@ import java.time.Instant;
 /**
  * One runtime switch an admin can flip without a deploy (phase demo). A plain key/value row: the
  * key is the primary key, the value is always text (booleans are {@code "true"}/{@code "false"}).
- * See {@link com.dossier.api.service.AppSettingService} for the cached accessor.
+ * No longer read by the demo accounts (that switch is the {@code dossier.demo.enabled} property);
+ * the table is kept because migrations are additive-only.
  */
 @Entity
 @Table(name = "app_setting")

@@ -49,6 +49,7 @@ public class AdminAuditService {
     public static final String JOB_SOURCE_ADD = "JOB_SOURCE_ADD";
     public static final String JOB_SOURCE_TOGGLE = "JOB_SOURCE_TOGGLE";
     public static final String TARGET_DEMO = "DEMO";
+    /** Legacy: written while the demo switch lived in the database. Kept so old audit rows still render. */
     public static final String DEMO_ENABLE = "DEMO_ENABLE";
     public static final String DEMO_DISABLE = "DEMO_DISABLE";
     public static final String DEMO_RESET = "DEMO_RESET";

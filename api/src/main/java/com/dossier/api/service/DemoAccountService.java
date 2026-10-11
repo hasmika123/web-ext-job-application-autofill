@@ -1,6 +1,5 @@
 package com.dossier.api.service;
 
-import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.Bio;
@@ -43,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The public demo accounts (phase demo, {@code web/APP-V2-SPEC.md} section 9).
  *
  * <p>Two fixed accounts, {@code demo} (a job seeker) and {@code demo-org} (an organization admin),
- * that anyone can open from the login page while the {@code demo.enabled} switch is on. They are
+ * that anyone can open from the login page while {@code dossier.demo.enabled} (env {@code DEMO_ENABLED}) is true. They are
  * ordinary {@code ROLE_USER} accounts on the <b>Free</b> plan: nothing here grants Pro, and the rest
  * of the app treats them like any other user. What makes them different is that
  *
@@ -60,9 +59,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class DemoAccountService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DemoAccountService.class);
-
-    /** The {@code app_setting} key for the on/off switch. Absent or anything but "true" means off. */
-    public static final String SETTING_ENABLED = "demo.enabled";
 
     public static final String LOGIN_JOB_SEEKER = "demo";
     public static final String LOGIN_ORG = "demo-org";
@@ -99,7 +95,6 @@ public class DemoAccountService {
     private final UserRepository userRepository;
     private final AuthorityRepository authorityRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AppSettingService settings;
     private final ApplicationRepository applicationRepository;
     private final ResumeRepository resumeRepository;
     private final BioRepository bioRepository;
@@ -120,11 +115,13 @@ public class DemoAccountService {
 
     private final String demoPassword;
 
+    /** {@code dossier.demo.enabled}: fixed at startup from server config; there is no runtime switch. */
+    private volatile boolean enabled;
+
     public DemoAccountService(
         UserRepository userRepository,
         AuthorityRepository authorityRepository,
         PasswordEncoder passwordEncoder,
-        AppSettingService settings,
         ApplicationRepository applicationRepository,
         ResumeRepository resumeRepository,
         BioRepository bioRepository,
@@ -142,12 +139,13 @@ public class DemoAccountService {
         AiUsageRepository aiUsageRepository,
         AiCallRepository aiCallRepository,
         ObjectMapper objectMapper,
-        @Value("${dossier.demo.password:kiwiply-demo}") String demoPassword
+        @Value("${dossier.demo.password:kiwiply-demo}") String demoPassword,
+        @Value("${dossier.demo.enabled:false}") boolean enabled
     ) {
+        this.enabled = enabled;
         this.userRepository = userRepository;
         this.authorityRepository = authorityRepository;
         this.passwordEncoder = passwordEncoder;
-        this.settings = settings;
         this.applicationRepository = applicationRepository;
         this.resumeRepository = resumeRepository;
         this.bioRepository = bioRepository;
@@ -198,37 +196,23 @@ public class DemoAccountService {
         return isDemo(lower) || ACCOUNTS.stream().anyMatch(a -> emailFor(a.login()).equals(lower));
     }
 
-    /** Whether the demo switch is on. Off unless the {@code demo.enabled} setting is literally "true". */
+    /** Whether the demo is on: the {@code dossier.demo.enabled} property (env {@code DEMO_ENABLED}), nothing else. */
     public boolean isEnabled() {
-        return settings.getBoolean(SETTING_ENABLED, false);
+        return enabled;
     }
 
-    /** The setting row (who flipped it last, and when), for the admin card. */
-    public Optional<AppSetting> settingRow() {
-        return settings.find(SETTING_ENABLED);
-    }
-
-    /**
-     * Flip the switch. Turning it ON when the job-seeker account has no applications yet also seeds
-     * the demo data, so the switch alone is enough to get a working demo. Turning it OFF signs the
-     * demo accounts out everywhere by revoking their refresh tokens.
-     */
+    /** Sign the demo accounts out everywhere by revoking their refresh tokens. */
     @Transactional
-    public void setEnabled(boolean enabled, String by) {
-        settings.set(SETTING_ENABLED, Boolean.toString(enabled), by);
-        if (enabled) {
-            ensureSeeded();
-        } else {
-            for (DemoAccount account : ACCOUNTS) {
-                userRepository.findOneByLogin(account.login()).ifPresent(u -> refreshTokenService.deleteAllForUser(u.getId()));
-            }
+    public void revokeSessions() {
+        for (DemoAccount account : ACCOUNTS) {
+            userRepository.findOneByLogin(account.login()).ifPresent(u -> refreshTokenService.deleteAllForUser(u.getId()));
         }
     }
 
     /**
      * Make sure the demo job seeker has something to show: when it has no applications at all, run
-     * {@link #resetData()}. Called when the switch goes on and on every demo job-seeker login, so a
-     * switch flipped with plain SQL (which seeds nothing) still ends up with a populated demo.
+     * {@link #resetData()}. Called at startup when the demo is enabled and on every demo job-seeker login,
+     * so a freshly enabled demo ends up populated.
      */
     @Transactional
     public synchronized void ensureSeeded() {

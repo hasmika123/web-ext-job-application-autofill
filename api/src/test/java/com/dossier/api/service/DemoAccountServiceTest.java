@@ -51,7 +51,6 @@ class DemoAccountServiceTest {
 
     private UserRepository userRepository;
     private AuthorityRepository authorityRepository;
-    private AppSettingService settings;
     private ApplicationRepository applicationRepository;
     private ResumeRepository resumeRepository;
     private BioRepository bioRepository;
@@ -60,11 +59,14 @@ class DemoAccountServiceTest {
     private NotificationService notificationService;
 
     private DemoAccountService service(String password) {
+        return service(password, false);
+    }
+
+    private DemoAccountService service(String password, boolean enabled) {
         return new DemoAccountService(
             userRepository,
             authorityRepository,
             encoder,
-            settings,
             applicationRepository,
             resumeRepository,
             bioRepository,
@@ -82,7 +84,8 @@ class DemoAccountServiceTest {
             mock(AiUsageRepository.class),
             mock(AiCallRepository.class),
             mapper,
-            password
+            password,
+            enabled
         );
     }
 
@@ -90,7 +93,6 @@ class DemoAccountServiceTest {
     void setUp() {
         userRepository = mock(UserRepository.class);
         authorityRepository = mock(AuthorityRepository.class);
-        settings = mock(AppSettingService.class);
         applicationRepository = mock(ApplicationRepository.class);
         resumeRepository = mock(ResumeRepository.class);
         bioRepository = mock(BioRepository.class);
@@ -209,49 +211,40 @@ class DemoAccountServiceTest {
     }
 
     @Test
-    void isEnabledDefaultsToOffAndFollowsTheSetting() {
-        DemoAccountService service = service("pw");
-        when(settings.getBoolean("demo.enabled", false)).thenReturn(false);
-        assertThat(service.isEnabled()).isFalse();
-
-        when(settings.getBoolean("demo.enabled", false)).thenReturn(true);
-        assertThat(service.isEnabled()).isTrue();
+    void isEnabledFollowsTheConfigPropertyOnly() {
+        assertThat(service("pw", false).isEnabled()).isFalse();
+        assertThat(service("pw", true).isEnabled()).isTrue();
     }
 
-    // ---- the switch ---------------------------------------------------------------------------
+    // ---- sessions and seeding -----------------------------------------------------------------
 
     @Test
-    void turningOnSeedsTheDemoWhenTheJobSeekerHasNoApplications() {
-        when(settings.set(anyString(), anyString(), anyString())).thenReturn(new AppSetting());
+    void ensureSeededSeedsTheDemoWhenTheJobSeekerHasNoApplications() {
+        service("pw", true).ensureSeeded();
 
-        service("pw").setEnabled(true, "boss");
-
-        verify(settings).set("demo.enabled", "true", "boss");
-        ArgumentCaptor<Application> apps = ArgumentCaptor.forClass(Application.class);
-        verify(applicationRepository, times(8)).save(apps.capture());
+        verify(applicationRepository, times(8)).save(any(Application.class));
         verify(refreshTokenService, never()).deleteAllForUser(any());
     }
 
     @Test
-    void turningOnDoesNotReseedWhenTheJobSeekerAlreadyHasApplications() {
-        DemoAccountService service = service("pw");
+    void ensureSeededDoesNotReseedWhenTheJobSeekerAlreadyHasApplications() {
+        DemoAccountService service = service("pw", true);
         service.ensureAccounts();
         when(applicationRepository.findByUserId(users.get("demo").getId())).thenReturn(List.of(new Application()));
 
-        service.setEnabled(true, "boss");
+        service.ensureSeeded();
 
         verify(applicationRepository, never()).save(any(Application.class));
         verify(bioRepository, never()).save(any(Bio.class));
     }
 
     @Test
-    void turningOffSignsTheDemoAccountsOutEverywhere() {
+    void revokeSessionsSignsTheDemoAccountsOutEverywhere() {
         DemoAccountService service = service("pw");
         service.ensureAccounts();
 
-        service.setEnabled(false, "boss");
+        service.revokeSessions();
 
-        verify(settings).set("demo.enabled", "false", "boss");
         verify(refreshTokenService).deleteAllForUser(users.get("demo").getId());
         verify(refreshTokenService).deleteAllForUser(users.get("demo-org").getId());
         verify(applicationRepository, never()).save(any(Application.class));

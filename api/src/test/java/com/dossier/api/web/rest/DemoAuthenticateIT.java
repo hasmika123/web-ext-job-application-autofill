@@ -15,7 +15,6 @@ import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.AuthoritiesConstants;
-import com.dossier.api.service.AppSettingService;
 import com.dossier.api.service.DemoAccountService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,6 +26,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,8 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  * and off, the password back door, the read-only guard, and the admin switch. Runs against a real
  * MySQL container like the other ITs.
  *
- * <p>{@code @Transactional} so users and seed rows roll back. The setting cache survives a rollback,
- * so every test sets the switch itself and {@link #tearDown()} turns it off again.
+ * <p>{@code @Transactional} so users and seed rows roll back. The switch is a plain field fed by
+ * {@code dossier.demo.enabled}, so every test sets it itself and {@link #tearDown()} turns it off again.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -51,9 +51,6 @@ class DemoAuthenticateIT {
 
     @Autowired
     private DemoAccountService demoAccountService;
-
-    @Autowired
-    private AppSettingService settings;
 
     @Autowired
     private UserRepository userRepository;
@@ -76,11 +73,12 @@ class DemoAuthenticateIT {
 
     @AfterEach
     void tearDown() {
-        settings.set(DemoAccountService.SETTING_ENABLED, "false", "test");
+        setEnabled(false);
     }
 
     private void setEnabled(boolean enabled) {
-        settings.set(DemoAccountService.SETTING_ENABLED, Boolean.toString(enabled), "test");
+        // The switch is server config at runtime; the suite pokes the field the property fills.
+        ReflectionTestUtils.setField(demoAccountService, "enabled", enabled);
     }
 
     private String demoLoginBody(String login) throws Exception {
@@ -171,8 +169,8 @@ class DemoAuthenticateIT {
     }
 
     @Test
-    void theFirstJobSeekerLoginSeedsAnEmptyDemoEvenWhenTheSwitchWasFlippedWithSql() throws Exception {
-        setEnabled(true); // what an UPDATE app_setting does: the switch is on, nothing was seeded
+    void theFirstJobSeekerLoginSeedsAnEmptyDemo() throws Exception {
+        setEnabled(true); // the switch is on from config, nothing was seeded yet
         Long demoId = userRepository.findOneByLogin("demo").orElseThrow().getId();
         org.junit.jupiter.api.Assertions.assertEquals(0, applicationRepository.findByUserId(demoId).size());
 
@@ -328,32 +326,13 @@ class DemoAuthenticateIT {
 
     @Test
     @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
-    void anAdminCanSwitchTheDemoOnAndOffAndItIsAudited() throws Exception {
+    void thereIsNoEndpointToFlipTheSwitch() throws Exception {
         setEnabled(false);
 
         mockMvc
             .perform(put("/api/admin/settings/demo").contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.enabled").value(true))
-            .andExpect(jsonPath("$.updatedBy").value("boss"))
-            .andExpect(jsonPath("$.accounts.length()").value(2));
-        // Turning it on for the first time seeded the board.
-        Long demoId = userRepository.findOneByLogin("demo").orElseThrow().getId();
-        org.junit.jupiter.api.Assertions.assertEquals(8, applicationRepository.findByUserId(demoId).size());
-
-        mockMvc
-            .perform(get("/api/public/demo"))
-            .andExpect(jsonPath("$.enabled").value(true));
-
-        mockMvc
-            .perform(put("/api/admin/settings/demo").contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":false}"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.enabled").value(false));
-
-        mockMvc
-            .perform(get("/api/admin/audit?sort=createdDate,desc"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.[*].action").value(org.hamcrest.Matchers.hasItems("DEMO_ENABLE", "DEMO_DISABLE")));
+            .andExpect(status().isMethodNotAllowed());
+        mockMvc.perform(get("/api/admin/settings/demo")).andExpect(jsonPath("$.enabled").value(false));
     }
 
     @Test
@@ -364,13 +343,5 @@ class DemoAuthenticateIT {
             .andExpect(status().isOk());
         Long demoId = userRepository.findOneByLogin("demo").orElseThrow().getId();
         org.junit.jupiter.api.Assertions.assertEquals(8, applicationRepository.findByUserId(demoId).size());
-    }
-
-    @Test
-    @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
-    void theSwitchRejectsAMissingFlag() throws Exception {
-        mockMvc
-            .perform(put("/api/admin/settings/demo").contentType(MediaType.APPLICATION_JSON).content("{}"))
-            .andExpect(status().isBadRequest());
     }
 }

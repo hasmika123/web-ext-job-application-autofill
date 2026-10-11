@@ -249,12 +249,14 @@ dossier:
   # stays only for any endpoints hit DIRECTLY (non-proxied); enable with RATE_LIMIT_ENABLED=true.
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:false}
-  # Public demo accounts ("Try the demo" on the login page). The on/off switch is NOT here: it lives in
-  # the app_setting table (demo.enabled, default false) and is flipped from the admin System page.
+  # Public demo accounts ("Try the demo" on the login page). The on/off switch is SERVER CONFIG ONLY:
+  # DEMO_ENABLED (default false) + an API restart. There is no admin or database switch. When it is
+  # off at startup, existing demo sessions are revoked.
   # DEMO_PASSWORD only sets the accounts' stored hash: the one-click login needs no password, and the
   # password path is refused while the switch is off. Production leaves it blank (docker-compose), which
   # means a random password per boot, so nobody can type their way in.
   demo:
+    enabled: ${DEMO_ENABLED:false}
     password: ${DEMO_PASSWORD:kiwiply-demo}
     create-accounts: ${DEMO_CREATE_ACCOUNTS:true}
   # S3-compatible resume blob store. In prod these come from env (Cloudflare R2);

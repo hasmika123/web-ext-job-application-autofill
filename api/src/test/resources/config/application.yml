@@ -107,6 +107,7 @@ dossier:
     enabled: false
   # The integration suite creates demo accounts itself when it needs them.
   demo:
+    enabled: false
     password: test-demo-password
     create-accounts: false
 management:
