@@ -220,7 +220,7 @@ export default function DataTable<T>({
                   </div>
                   {!hideActions && actionCell(row, i)}
                 </div>
-                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[12.5px]">
+                <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] gap-x-3 gap-y-2 text-[12.5px]">
                   {mobileCols
                     .filter((c) => c !== primary)
                     .map((c) => (
@@ -248,13 +248,13 @@ export default function DataTable<T>({
                   <div className="min-w-0 flex-1 font-semibold text-ink">{primary ? cell(primary, row, i) : null}</div>
                   {!hideActions && <div className="flex-none">{actionCell(row, i)}</div>}
                 </div>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+                <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[13px]">
                   {mobileCols
                     .filter((c) => c !== primary)
                     .map((c) => (
                       <div key={c.key} className="contents">
-                        <dt className="text-v2-muted">{labelOf(c)}</dt>
-                        <dd className="min-w-0 text-ink">{cell(c, row, i)}</dd>
+                        <dt className="max-w-[9rem] text-v2-muted">{labelOf(c)}</dt>
+                        <dd className="min-w-0 break-words text-ink">{cell(c, row, i)}</dd>
                       </div>
                     ))}
                 </dl>
