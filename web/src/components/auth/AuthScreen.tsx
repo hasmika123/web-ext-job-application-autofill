@@ -512,14 +512,14 @@ const HEADLINE = "text-[clamp(40px,4vw,68px)] text-v2-navy";
 function LoginPanel() {
   return (
     <>
-      {/* Desktop */}
-      <section className={PANEL}>
+      {/* Desktop. Pinned to one viewport height so the people stay in view while the form scrolls. */}
+      <section className={cn(PANEL, "lg:sticky lg:top-0 lg:h-screen lg:min-h-[640px] lg:self-start lg:overflow-visible")}>
         <Link href="/" aria-label="Kiwiply home" className="w-fit">
           <BrandLogo height={56} priority />
         </Link>
         <div className="relative mt-5">
           <SparkBurst aria-hidden className="absolute -left-9 top-[62%] hidden h-9 w-9 -rotate-90 text-v2-green xl:block" />
-          <h2 className={HEADLINE}>
+          <h2 className={cn(HEADLINE, "lg:text-[clamp(30px,3.1vw,40px)] xl:text-[clamp(40px,4vw,68px)]")}>
             More
             <br />
             opportunities
@@ -587,7 +587,7 @@ function LoginPanel() {
             width={900}
             height={582}
             sizes="(max-width: 1023px) 440px, 0px"
-            className="h-auto w-full"
+            className="h-auto w-full [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]"
           />
           <StickyNote className="absolute -left-1 top-[58%] z-10 -rotate-[10deg]" />
           <CrownDoodle aria-hidden className="absolute left-[38%] top-[2%] h-9 w-12 text-[#F5C400]" />
