@@ -1,6 +1,7 @@
 import { Caveat, Plus_Jakarta_Sans } from "next/font/google";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
+import ChromeGate from "@/components/marketing/ChromeGate";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 
@@ -32,7 +33,8 @@ function initialFor(a?: MarketingAccount | null): string {
  * in `.theme-v2` ("Kiwiply Bright", packages/ui/styles/theme-v2.css), which re-skins the shared
  * tokens for these routes only. No session gate: when the visitor is already signed in, the
  * header swaps Log in / Get Started for a Dashboard button + account avatar (→ Settings), so the
- * logo can safely bring signed-in users back here. Authed app routes use `(app)`.
+ * logo can safely bring signed-in users back here. Authed app routes use `(app)`. Routes with
+ * their own chrome (`/v3`) opt out via `ChromeGate`.
  */
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const authed = await hasSession();
@@ -47,9 +49,13 @@ export default async function MarketingLayout({ children }: { children: React.Re
   }
   return (
     <div className={`theme-v2 ${jakarta.variable} ${caveat.variable} flex flex-1 flex-col`}>
-      <MarketingHeader authed={authed} initial={initialFor(account)} />
+      <ChromeGate>
+        <MarketingHeader authed={authed} initial={initialFor(account)} />
+      </ChromeGate>
       <div className="flex-1">{children}</div>
-      <MarketingFooter />
+      <ChromeGate>
+        <MarketingFooter />
+      </ChromeGate>
     </div>
   );
 }

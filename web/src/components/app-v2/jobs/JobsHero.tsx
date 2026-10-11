@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ClockIcon, SearchIcon, SendIcon, SparklesIcon, StarDoodle, cn } from "@kiwiply/ui";
+import { ClockIcon, SearchIcon, SendIcon, SparklesIcon, StarDoodle, cn, ArrowRightIcon } from "@kiwiply/ui";
 
 /** Yellow sticky note with handwriting (decorative). */
 function Sticky({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -118,7 +118,7 @@ export function JobsHeroAi({
               className="inline-flex h-12 flex-none items-center justify-center gap-2 rounded-xl bg-v2-lime px-5 text-[14.5px] font-bold text-v2-navy transition-[filter] hover:brightness-95"
             >
               Search with AI
-              <span aria-hidden>→</span>
+              <ArrowRightIcon size={16} />
             </button>
           </form>
         </div>

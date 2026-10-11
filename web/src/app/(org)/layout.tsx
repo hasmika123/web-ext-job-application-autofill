@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Caveat, Plus_Jakarta_Sans } from "next/font/google";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import OrgShell from "@/components/org-v2/shell/OrgShell";
 import type { AppAccount } from "@/components/app-shell/AppShell";
+
+// Sample-data admin awaiting review: keep it out of search results (also in NON_INDEXABLE_PATHS).
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 // Same display + handwriting faces as the marketing group; the CSS variables live on the wrapper
 // below so they only reach the `/org` routes.

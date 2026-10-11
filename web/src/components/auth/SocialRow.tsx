@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useToast } from "@kiwiply/ui";
+import { AppleIcon, LinkedInIcon, useToast } from "@kiwiply/ui";
 import GoogleSignIn from "@/components/auth/GoogleSignIn";
 
 const TILE =
@@ -21,29 +21,14 @@ function SoonButton({ label, mark }: { label: string; mark: ReactNode }) {
 
 /**
  * "Google · Apple · LinkedIn" three-up row. Google is the real GIS sign-in (tile variant);
- * Apple and LinkedIn render per the board but only toast "Not available yet". Their marks are
- * lettered tiles (no third-party glyphs in the shared icon set).
+ * Apple and LinkedIn render per the board but only toast "Not available yet".
  */
 export default function SocialRow({ next }: { next?: string }) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-3">
       <GoogleSignIn next={next} variant="tile" />
-      <SoonButton
-        label="Apple"
-        mark={
-          <span aria-hidden className="grid h-5 w-5 place-items-center rounded-full bg-black text-[11px] font-extrabold leading-none text-white">
-            A
-          </span>
-        }
-      />
-      <SoonButton
-        label="LinkedIn"
-        mark={
-          <span aria-hidden className="grid h-5 w-5 place-items-center rounded-[4px] bg-[#0A66C2] text-[11px] font-extrabold leading-none text-white">
-            in
-          </span>
-        }
-      />
+      <SoonButton label="Apple" mark={<AppleIcon size={20} className="text-black" />} />
+      <SoonButton label="LinkedIn" mark={<LinkedInIcon size={20} className="text-[#0A66C2]" />} />
     </div>
   );
 }

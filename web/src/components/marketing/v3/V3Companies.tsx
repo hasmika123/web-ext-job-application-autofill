@@ -1,4 +1,4 @@
-import { cn } from "@kiwiply/ui";
+import { AppleIcon, LinkedInIcon, cn } from "@kiwiply/ui";
 import {
   V3_APP_TILES,
   V3_COMPANIES,
@@ -62,11 +62,8 @@ function Wordmark({ c }: { c: V3Company }) {
         </span>
       );
     case "apple":
-      return (
-        <span className="text-[24px] font-semibold tracking-[-0.02em]" style={{ color: c.color }}>
-          {c.text}
-        </span>
-      );
+      // The board draws the Apple mark alone; the list item carries the accessible name.
+      return <AppleIcon size={30} style={{ color: c.color }} />;
     case "netflix":
       return (
         <span className="text-[28px] font-black uppercase tracking-[-0.04em]" style={{ color: c.color }}>
@@ -109,7 +106,7 @@ export function V3AppTiles() {
             className="grid h-14 w-14 place-items-center rounded-2xl border border-v2-line/60 text-[22px] font-extrabold shadow-v2-card"
             style={{ color: t.color, background: t.bg }}
           >
-            {t.letter}
+            {t.icon === "linkedin" ? <LinkedInIcon size={30} /> : t.letter}
           </li>
         ))}
       </ul>

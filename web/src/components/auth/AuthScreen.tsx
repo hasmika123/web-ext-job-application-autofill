@@ -12,9 +12,11 @@ import {
   ShieldCheckIcon,
   SparkBurst,
   StarDoodle,
+  CrownDoodle,
   Underline,
   UserIcon,
   cn,
+  ArrowLeftIcon,
 } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { buttonVariants } from "@/components/ui/Button";
@@ -174,7 +176,7 @@ function LoginForm({ next }: { next?: string }) {
           }}
           className="mt-4 inline-flex min-h-[44px] items-center text-[13.5px] font-semibold text-v2-ink-soft hover:text-v2-navy"
         >
-          ← Back to log in
+          <ArrowLeftIcon size={15} className="mr-1.5" /> Back to log in
         </button>
       </>
     );
@@ -295,8 +297,8 @@ function SignupForm({ next }: { next?: string }) {
     try {
       const [firstName, ...rest] = fullName.trim().split(/\s+/);
       const lastName = rest.join(" ");
-      // firstName/lastName ride along in the body, but /api/auth/signup only reads
-      // username/email/password today, so the name is not persisted yet.
+      // firstName/lastName go to Spring's register DTO (persisted on the user, so the app greets
+      // the person by name from their first sign-in).
       const post = (username: string) =>
         fetch("/api/auth/signup", {
           method: "POST",
@@ -584,6 +586,7 @@ function LoginPanel() {
             className="h-auto w-full"
           />
           <StickyNote className="absolute -left-1 top-[6%] -rotate-[10deg]" />
+          <CrownDoodle aria-hidden className="absolute left-[38%] top-[2%] h-9 w-12 text-[#F5C400]" />
           <StarDoodle className="absolute right-[2%] top-[4%] h-9 w-9 text-v2-green" />
           <CurvedArrow aria-hidden direction="down-left" className="absolute left-[4%] top-[34%] h-10 w-10 text-v2-navy" />
         </div>
@@ -607,9 +610,12 @@ function SignupPanel() {
           <br />
           <span className="text-v2-green">opportunities.</span>
         </h2>
-        <p className="mt-5 max-w-[460px] text-[clamp(15px,1.25vw,19px)] leading-snug text-v2-ink-soft">
-          Create your free Kiwiply account and start your journey to better opportunities with AI.
-        </p>
+        <div className="relative mt-5 max-w-[460px]">
+          <p className="text-[clamp(15px,1.25vw,19px)] leading-snug text-v2-ink-soft">
+            Create your free Kiwiply account and start your journey to better opportunities with AI.
+          </p>
+          <CrownDoodle aria-hidden className="absolute bottom-0 left-full ml-3 h-9 w-12 text-[#F5C400]" />
+        </div>
         <FeatureList items={SIGNUP_FEATURES} className="relative z-10 mt-8 max-w-[46%]" />
         <StickyNote className="absolute left-[60%] top-[16%] z-10 -rotate-[10deg]" />
         <StarDoodle className="absolute left-[60%] top-[8%] h-10 w-10 text-v2-green" />
@@ -698,7 +704,9 @@ export default function AuthScreen({ mode, next }: { mode: Mode; next?: string }
             </Link>
           </div>
         )}
-        <div className="w-full max-w-[560px] -mt-6 sm:-mt-8 lg:mt-0">
+        {/* Login: the card overlaps the bottom of the photo (board). Signup: the mascot stands on its
+            books above the card, so nothing may cover it. */}
+        <div className={cn("w-full max-w-[560px] lg:mt-0", mode === "login" ? "-mt-6 sm:-mt-8" : "mt-1")}>
           <AuthCard>{mode === "login" ? <LoginForm next={next} /> : <SignupForm next={next} />}</AuthCard>
         </div>
       </section>

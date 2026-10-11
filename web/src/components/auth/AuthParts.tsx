@@ -178,7 +178,7 @@ export function StickyNote({ className }: { className?: string }) {
     <div
       aria-hidden
       className={cn(
-        "relative w-[130px] rounded-[6px] bg-v2-sticky px-4 pb-4 pt-3 shadow-[0_10px_20px_rgba(27,31,94,0.12)] sm:w-[150px]",
+        "w-[130px] rounded-[6px] bg-v2-sticky px-4 pb-4 pt-3 shadow-[0_10px_20px_rgba(27,31,94,0.12)] sm:w-[150px]",
         className,
       )}
     >

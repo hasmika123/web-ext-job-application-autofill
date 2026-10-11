@@ -25,11 +25,16 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
-> 🌱 **Landing v2 lives on the `version2` branch (V2.0–V2.6 done, 2026-10-11) and awaits the user's
-> promotion decision.** Nothing else is queued from it: do not merge it into `develop` / `main` until
-> the user asks. Before promoting: replace every `PLACEHOLDER` data file (stats, testimonials, partners,
-> about/organizations numbers), and swap the board-extracted artwork in `web/public/v2/` for real
-> renders (see that folder's README). The product-phase focus below is unchanged.
+> 🌱 **The app v2 + enterprise admin work lives on the `version2` branch and awaits the user's review
+> (landing v2 V2.0–V2.6, app0–app2, auth, org1–org2, landing v3 `/v3` and the appqa pass, all done
+> 2026-10-11).** It covers the signed-in app redesign (`/dashboard`, `/jobs`, `/saved`, `/ai-apply`,
+> `/applications`, `/interviews`, `/resume` + coming-soon pages), the split-screen auth pages, the
+> enterprise admin at `/org/*` (sample data, any signed-in user, unindexed) and the alternate landing at
+> `/v3` (unindexed). Nothing else is queued from it: do not merge `version2` into `develop` / `main` until
+> the user asks. Before promoting: replace every `PLACEHOLDER` / `SAMPLE` data file (landing stats,
+> testimonials, partners; `app-v2/sample-data.ts`, `org-v2/sample-data.ts`), swap the board-extracted
+> artwork in `web/public/v2/` (and `app/`) for real renders (see that folder's README), and wire the
+> Apple / LinkedIn sign-in buttons or drop them. The product-phase focus below is unchanged.
 >
 > 🧭 **Expansion plan locked 2026-10-05** (ROADMAP → *Expansion build, Phases 18–23*). It adds
 > Autopilot, services, organizations, the consultancy Marketer role and an optional Ops add-on
@@ -1392,6 +1397,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-11 · **appqa App v2 QA pass (branch `version2`)** · Build gate was already green (no fixes needed). Folded `app-v2/local`, `org-v2/common-local` and `common-local2` into `app-v2/common` (PageHero eyebrow/decor/note placement/size, StatTile sublabel/compact/chip, SectionCard icon/subtitle/onClick, DataTable `inCard`, Donut legend modes, Pagination blue + open-ended, UnderlineTabs id|value + padded + pill counts; new PillTabs, Funnel, BrandTile, KebabMenu, CheckList, FilterSelect, IconTile, ActivityTimeline, QuickActionTiles, RailLayout, ToolbarButton, StatRow) and merged `sample-data.pages.ts` / `sample-data.2.ts` into the two `sample-data.ts` files; before/after geometry diff of 19 routes at 1440. Route smoke at 1440 / 1024 / 375 (no overflow, no console errors, every link 200): org top bar overflowed at 375 (chip's `inline-flex` beat `hidden`; chip now in the drawer), org settings textarea counter overlapped text, org/app page titles added (`X · Organization`, no more double suffix), `AppleIcon` / `LinkedInIcon` / `CrownDoodle` added to `@kiwiply/ui` and used (auth social row, v3 tiles and wordmark, signup + v3 crowns), text glyph icons replaced. `/v3` swaps the shared header/footer via `ChromeGate` (no injected `<style>`); `/org/` + `/v3` in `NON_INDEXABLE_PATHS`; signup now forwards `firstName`/`lastName` to Spring's register DTO.
+- 2026-10-11 · **v3 Landing v3 at `/v3`** · Alternate landing built to `design/app-v2/landing-v3-{desktop,mobile}.webp` (spec section 7): own header + footer, hero with CSS floating cards, partner wordmarks, six pillars, stats band, 4 steps, one-platform phone mock, apply with AI, individuals / organizations, stories, results, CTA band, FAQ (`<details>`). Copy and numbers in `marketing/v3/placeholder-data.ts` (`PLACEHOLDER`); `robots: noindex`.
+- 2026-10-11 · **org2 Enterprise admin: analytics, AI resume support, integrations, billing, settings** · Five `/org/*` pages from the spec section 6 transcriptions (HTML/CSS charts: grouped bars, clip-path funnel and lines, conic donuts; billing and settings tabs). Sample data only.
+- 2026-10-11 · **org1 Enterprise admin shell + dashboard, team, applications, opportunities, interviews** · `(org)` route group (session gate like `(app)`; no org model yet so any signed-in user can open `/org`), `OrgShell` (236px sidebar, 64px top bar with the real account name, drawer below lg), `OrgPageHero`, five pages from the spec 6.x boards. Sample data only.
+- 2026-10-11 · **auth Login / signup / forgot / reset to the boards** · Split-screen "Kiwiply Bright" auth: brand panel + 24px card, Google (real) / Apple / LinkedIn (toast "Not available yet") row, org card; login keeps MFA / `next` logic; signup is Full name + Confirm password with a derived username and the newsletter opt-in.
+- 2026-10-11 · **app2 Saved jobs, AI apply, applications, interviews, resume builder, coming-soon pages** · Six signed-in pages transcribed from the boards, real applications / resumes mapped where an API exists (sample rows when empty), "Coming soon" toasts for the Autopilot buttons; `ComingSoonPage` for AI Tools, Insights, Messages, Company Research, Networking, Learning.
+- 2026-10-11 · **app1 App shell, Home, Job search, Job detail + shared primitives** · New `.theme-v2` signed-in shell (232px sidebar, 64px top bar, Upgrade card hidden on Pro, avatar menu with "Kiwiply for Organizations"), `app-v2/common` primitives + sample data, Home / Job Search (list + split panel) / Job detail to the boards; `/board` and `/matches` redirect to `/applications` and `/jobs`.
+- 2026-10-11 · **app0 App v2 design spec** · `web/APP-V2-SPEC.md` (scope, binding rules, shared primitives, app / auth / enterprise / landing v3 specs, §6 transcriptions of eight enterprise boards), boards in `design/app-v2/`, sixteen cutouts in `web/public/v2/app/`.
+- 2026-10-11 · **v2.2y Landing v2: fluid hero down to tablet widths** · Copy-left / art-right from 768px up; the 820x700 art canvas scales with its container.
 - 2026-10-11 · **v2.6 Landing v2: QA + fix pass** · /organizations hero (card above, team tucked under its bottom edge, mascot in front; stray "· 2 min" dot gone) and CTA band (bottom-anchored `hero-copilot` cutout); /about tools grid (mock frames no longer collapse, AI Autofill rebuilt as a form mock, Interview Readiness visible again) and hero portrait (tint is its own layer, right edge faded); `org-team` / `about-team` refreshed to the re-cut `hero-team.png`; /organizations now uses the shared `Eyebrow` / `Handwritten` / `SectionHeading` (local copies deleted); dead `web/public/ats/` removed; root title, OG image and sitemap dates updated; `public/v2/README.md` inventory; tablet (1024/768) + mobile pass on `/`, `/about`, `/organizations`, `/pricing`. `npm test -w web` + build green.
 - 2026-10-11 · **v2.3y Landing v2: pricing links** · Remaining pricing links point at `/pricing`.
 - 2026-10-11 · **v2.3x Landing v2: body, footer and /pricing to the mock** · Landing body, footer and `/pricing` rebuilt to the board in exact-board mode (spec 13); partners row + `PLACEHOLDER` data files.

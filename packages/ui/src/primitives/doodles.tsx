@@ -96,6 +96,16 @@ export function StarDoodle(props: DoodleProps) {
   );
 }
 
+/** A hand-drawn three-point crown (the signup board's "you're a winner" doodle). */
+export function CrownDoodle(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 64 48" strokeWidth={3} {...props}>
+      <path d="M9 38L6 13l14 13 12-18 12 18 14-13-3 25z" />
+      <path d="M12 44h40" />
+    </Doodle>
+  );
+}
+
 /** A paper plane with a dotted flight trail. */
 export function PaperPlane(props: DoodleProps) {
   return (

@@ -1,4 +1,4 @@
-import { StarDoodle } from "@kiwiply/ui";
+import { CrownDoodle, StarDoodle } from "@kiwiply/ui";
 import { Photo } from "../media";
 import { SIGNUP_HREF } from "../nav";
 import { V3Cta, V3Pill, V3SquareCheck } from "./parts";
@@ -35,7 +35,8 @@ export default function V3Individuals() {
               <V3Cta href={SIGNUP_HREF} className="sm:px-7">
                 Get Started Free
               </V3Cta>
-              <StarDoodle aria-hidden className="absolute -right-14 -top-3 hidden h-10 w-10 text-[#F5C400] sm:block md:-right-12" />
+              <CrownDoodle aria-hidden className="absolute -right-[4.5rem] top-0 h-10 w-14 text-[#F5C400]" />
+              <StarDoodle aria-hidden className="absolute -right-24 -top-5 hidden h-7 w-7 text-v2-lime-deep sm:block" />
             </div>
           </div>
           <div className="relative -mx-2 md:mx-0">

@@ -86,6 +86,8 @@ export const V3_STORIES: V3Story[] = [
 export interface V3AppTile {
   name: string;
   letter: string;
+  /** Draw a brand glyph from `@kiwiply/ui` instead of the letter. */
+  icon?: "linkedin";
   /** Tile text colour. */
   color: string;
   /** Tile background. */
@@ -94,7 +96,7 @@ export interface V3AppTile {
 
 export const V3_APP_TILES: V3AppTile[] = [
   { name: "Google", letter: "G", color: "#4285F4", bg: "#FFFFFF" },
-  { name: "LinkedIn", letter: "in", color: "#FFFFFF", bg: "#0A66C2" },
+  { name: "LinkedIn", letter: "in", icon: "linkedin", color: "#0A66C2", bg: "#FFFFFF" },
   { name: "Indeed", letter: "i", color: "#2557A7", bg: "#FFFFFF" },
   { name: "Glassdoor", letter: "g", color: "#0CAA41", bg: "#FFFFFF" },
   { name: "Workday", letter: "W", color: "#0875E1", bg: "#FFFFFF" },

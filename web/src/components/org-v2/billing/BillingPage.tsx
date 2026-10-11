@@ -77,7 +77,11 @@ export default function BillingPage() {
           icon={<ClockIcon />}
           value="Nov 15, 2026"
           label="Next Renewal"
-          sublabel="⏱ 32 days remaining"
+          sublabel={
+            <span className="inline-flex items-center gap-1">
+              <ClockIcon size={12} /> 32 days remaining
+            </span>
+          }
           tone="amber"
         />
       </div>

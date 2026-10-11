@@ -71,7 +71,40 @@ png, webp, jpg); those render as a cropped, rounded photo rather than a cutout.
 |---|---|---|
 | `cta-backdrop.jpg` | 1920x198 | wide soft sky / foliage strip behind the landing final CTA band (`FinalCta.tsx`). Cleaned board crop with the baked-in copy painted out. **Wanted:** a clean 2400x300 render with no text. |
 
-## Full inventory (18 files)
+## App v2 cutouts (`app/`, signed-in app, auth, org admin and landing v3)
+
+Board extractions (transparent PNG) cut from `design/app-v2/*.webp`, used by the "Kiwiply Bright" app
+surfaces (spec `web/APP-V2-SPEC.md`). Board art is drawn through `AppArt` / `HeroArt` / `MascotCard`
+in `src/components/app-v2/common/` (decorative, `alt=""`), the auth screens in
+`src/components/auth/AuthScreen.tsx`, the org shell in `src/components/org-v2/shell/` and landing v3
+in `src/components/marketing/v3/`. `AppArt` carries the native pixel size of each name, so a
+replacement must keep the same file name and aspect ratio (or update `SIZES` in `AppArt.tsx`).
+
+| File | Size | Used on |
+|---|---|---|
+| `mascot-grad.png` | 151x106 | graduation-cap mascot on a laptop: the "Upgrade to Kiwiply Pro" sidebar card (`AppShell`); landing v3 stats band (small) |
+| `mascot-grad-big.png` | 147x120 | graduation-cap mascot, close crop: landing v3 stats band |
+| `mascot-help.png` | 87x78 | headset mascot: org "Need Help?" sidebar card (`OrgShell`) |
+| `mascot-wave-laptop.png` | 145x142 | waving with a laptop: AI Apply hero, job detail / jobs rail cards |
+| `mascot-binoculars.png` | 171x162 | binoculars: Job Search hero |
+| `mascot-search.png` | 138x132 | magnifier: Job Search hero (alt) |
+| `mascot-heart.png` | 148x150 | holding a heart: Saved Jobs hero |
+| `mascot-apps.png` | 126x130 | holding documents: My Applications hero |
+| `mascot-resume.png` | 154x159 | holding a resume: Resume Builder hero |
+| `mascot-books.png` | 149x154 | on a stack of books: signup mobile panel, "Coming soon" cards |
+| `mascot-laptop-big.png` | 270x254 | large laptop mascot: landing v3 hero, CTA band and "Apply with AI" |
+| `home-woman.png` | 181x185 | woman with a laptop: Home hero (right rail art) |
+| `calendar-note.png` | 425x163 | calendar + sticky note: Interviews hero |
+| `org-team-banner.png` | 260x151 | two people at a laptop: org admin hero banner (every `/org` page) |
+| `auth-trio.png` | 900x582 | three students with a laptop: login panel (desktop + mobile) |
+| `auth-trio-signup.png` | 701x440 | same trio, signup crop: signup panel |
+
+These are small board crops (soft on high-DPI screens), same caveat as the landing v2 set above.
+**Wanted:** high-res transparent renders of each, same names and proportions. Third-party brand marks
+are not shipped as files: Apple / LinkedIn live in `@kiwiply/ui` (`AppleIcon`, `LinkedInIcon`), other
+job-site and ATS marks are lettered tiles.
+
+## Full inventory (18 files here + 16 under `app/`)
 
 `about-portrait.png`, `about-team.png`, `cta-backdrop.jpg`, `hero-copilot.png`, `hero-headphones.png`,
 `hero-individual.png`, `hero-student.png`, `hero-team.png`, `logo-v2.png`, `logo-v2-dark.png`,

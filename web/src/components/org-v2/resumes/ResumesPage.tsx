@@ -13,6 +13,7 @@ import {
   UploadIcon,
   AlertIcon,
   cn,
+  ChevronDownIcon,
 } from "@kiwiply/ui";
 import type { ReactNode } from "react";
 import {
@@ -207,7 +208,7 @@ export default function ResumesPage() {
                 Upload Resume
               </ToolbarButton>
               <ToolbarButton size="md" variant="outline">
-                Bulk Actions <span aria-hidden>▾</span>
+                Bulk Actions <ChevronDownIcon size={14} />
               </ToolbarButton>
             </div>
           }

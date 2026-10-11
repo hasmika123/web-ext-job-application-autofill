@@ -25,6 +25,8 @@ export const SITE_URL = "https://kiwiply.com";
  *    only ever sees the sign-in redirect, so indexing them yields thin duplicates.
  *  - **No search value** (`/api/`, `/login`, `/connect`) — route handlers and
  *    plumbing pages.
+ *  - **Not launched** (`/org/`, `/v3`) — the enterprise admin (sample data, gated) and the
+ *    alternate landing v3, both awaiting the owner's review on `version2`.
  *
  * Trailing-slash entries are directory prefixes; bare entries are exact pages that
  * have no children.
@@ -42,6 +44,8 @@ export const NON_INDEXABLE_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/connect",
+  "/org/",
+  "/v3",
   "/account/",
   "/newsletter/",
 ] as const;

@@ -1,4 +1,4 @@
-import { BookmarkIcon, BriefcaseIcon, CalendarIcon, FileTextIcon, SearchIcon, SparkBurst, StarDoodle, UserIcon, cn } from "@kiwiply/ui";
+import { BookmarkIcon, BriefcaseIcon, CalendarIcon, CrownDoodle, FileTextIcon, SearchIcon, SparkBurst, StarDoodle, UserIcon, cn } from "@kiwiply/ui";
 import BrandLogo from "../BrandLogo";
 import { CompanyTile } from "../mocks/shared";
 import { V3_PHONE_JOBS } from "./placeholder-data";
@@ -72,7 +72,8 @@ export default function V3Platform() {
       className="relative scroll-mt-20 overflow-x-clip px-5 py-12 lg:px-8 lg:py-16"
     >
       <div className="mx-auto grid max-w-[1100px] grid-cols-[minmax(0,1fr)] items-center gap-8 md:grid-cols-2 md:gap-12">
-        <div className="flex flex-col items-start">
+        <div className="relative flex flex-col items-start">
+          <CrownDoodle aria-hidden className="absolute right-0 top-0 h-10 w-14 text-[#F5C400] md:hidden" />
           <V3Pill>See Kiwiply in action</V3Pill>
           <h2 id="v3-platform-title" className="mt-4 max-w-md text-[32px] text-v2-navy md:text-[38px]">
             One platform for your entire job search.
