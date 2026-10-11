@@ -148,8 +148,8 @@ export default function SavedV3Page() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:flex-nowrap">
-                  <p className="inline-flex items-center gap-1.5 text-[12.5px] leading-tight text-v2-muted md:w-[96px]">
-                    <BookmarkIcon className="h-3.5 w-3.5 flex-none" /> Saved {j.savedLabel}
+                  <p className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12.5px] leading-tight text-v2-muted md:w-[128px]">
+                    <BookmarkIcon className="h-3.5 w-3.5 flex-none text-v2-blue" /> Saved {j.savedLabel}
                   </p>
                   <div className="ml-auto flex items-center gap-1.5 md:ml-0">
                     {j.state === "applied" ? (
