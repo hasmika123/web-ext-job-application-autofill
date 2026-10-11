@@ -20,3 +20,10 @@ otherwise. Written 2026-10-11, branch `resume-builder`.
 | 13 | **Versions**: auto every ≥ 10 min of change + on every switch/apply/import, keep 30 + named | Cheap history without a flood of rows | Per-keystroke versions |
 | 14 | **DOCX, share links, photos are R7** (growth), not v1 | Keeps the skeleton small; PDF + TXT cover ATS and recruiters | — (§11.4 asks about share links) |
 | 15 | **Profile onboarding has three paths** (Upload / Paste / Start fresh) into one card-by-card review | Confirm-not-type; no LinkedIn API (paste only) | A single "upload" path leaves phone-first users stuck |
+
+## Answers recorded 2026-10-11 (user said "go with the recommendations")
+- **§11.1 PDF engine:** `chromium` sidecar in Compose (recommended default stands).
+- **§11.2 Free AI:** all builder AI stays Pro/Autopilot; no free taste.
+- **§11.3 Launch templates:** three (Modern, Classic, Compact); Minimal + Creative in R7.
+- **§11.4 Share links:** out of v1 (R7 only).
+- **Storage (new, user decision):** stay **local for now**. All file bytes (built-resume PDFs, uploaded resumes) go through one `FileStorage` seam with a **local-filesystem driver** as the default in dev/prod-for-now; the **S3 driver is wired in later** by configuration only. R0.6 must not call S3 directly. Existing S3 resume upload code stays behind the same seam.
