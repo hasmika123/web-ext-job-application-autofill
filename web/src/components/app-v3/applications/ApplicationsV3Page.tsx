@@ -117,15 +117,18 @@ export default function ApplicationsV3Page({ rows: realRows }: { rows: Applicati
           <CompanyTile name={r.company} size={40} />
           <span className="min-w-0 text-left">
             <span className="block truncate text-[14px] font-bold leading-snug text-v2-navy">{r.title}</span>
-            {r.sub && <span className="block truncate text-[12.5px] text-v2-ink-soft">{r.sub}</span>}
+            <span className="block truncate text-[12.5px] text-v2-ink-soft">
+              <span className="xl:hidden">{r.company}{r.sub ? " · " : ""}</span>
+              {r.sub}
+            </span>
           </span>
         </span>
       ),
     },
-    { key: "company", className: "w-[14%]", header: "Company", render: (r) => <span className="text-[13.5px] text-v2-navy">{r.company}</span> },
+    { key: "company", className: "hidden w-[14%] xl:table-cell", header: "Company", render: (r) => <span className="text-[13.5px] text-v2-navy">{r.company}</span> },
     {
       key: "status",
-      className: "w-[14%]",
+      className: "w-[14%] whitespace-nowrap",
       header: "Status",
       render: (r) => {
         const c = STATUS_CHIP[r.status];
@@ -136,7 +139,7 @@ export default function ApplicationsV3Page({ rows: realRows }: { rows: Applicati
         );
       },
     },
-    { key: "applied", className: "w-[14%]", header: "Applied Date", render: (r) => <span className="text-[13.5px] text-v2-ink-soft">{r.appliedOn}</span> },
+    { key: "applied", className: "w-[14%] whitespace-nowrap", header: "Applied Date", render: (r) => <span className="text-[13.5px] text-v2-ink-soft">{r.appliedOn}</span> },
     {
       key: "next",
       className: "w-[18%]",
