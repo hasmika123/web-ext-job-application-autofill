@@ -67,7 +67,7 @@ function Wordmark({ p }: { p: Partner }) {
 
 export default function TrustStrip() {
   return (
-    <section aria-label="Trusted by" className="px-5 pb-6 pt-7 md:pb-8 md:pt-8">
+    <section aria-label="Trusted by" className="px-5 pb-1 pt-7 md:pb-2 md:pt-8">
       <p className="text-center text-[14px] font-medium text-v2-ink-soft md:text-[15px]">{PARTNERS_TRUST_LINE}</p>
       <ul
         className={cn(

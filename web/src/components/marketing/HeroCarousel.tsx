@@ -180,7 +180,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
                 aria-label={`${i + 1} of ${count}: ${s.title}`}
                 aria-hidden={!active}
                 inert={!active}
-                className="w-full flex-none"
+                className="w-full flex-none overflow-x-clip"
               >
                 {/* Below xl the slide is one column (copy, art, buttons on phones; copy, buttons, art
                     on tablets). From xl the copy is a 46% column and the art stage is pinned to the

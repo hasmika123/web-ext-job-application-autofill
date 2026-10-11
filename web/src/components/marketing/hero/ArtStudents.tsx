@@ -151,7 +151,7 @@ export default function ArtStudents({ priority }: { priority?: boolean }) {
       </Box>
 
       {/* handwriting */}
-      <Box x={-48} y={338} w={110} rot={-17} z={10}>
+      <Box x={-16} y={346} w={110} rot={-17} z={10}>
         <Handwritten ink="navy" className="text-[27px] leading-[1.02]">
           Explore
           <br />
@@ -175,7 +175,6 @@ export default function ArtStudents({ priority }: { priority?: boolean }) {
       <Box x={316} y={104} w={44} h={52} z={10}><CurvedArrow direction="down-right" className="h-full w-full -rotate-12 text-v2-green" /></Box>
       <Box x={304} y={236} w={40} h={50} z={10}><CurvedArrow direction="down-right" className="h-full w-full rotate-12 text-v2-violet" /></Box>
       <Box x={620} y={86} w={90} h={50} z={10}><PaperPlane className="h-full w-full text-v2-blue" /></Box>
-      <Box x={4} y={372} w={36} h={50} z={10}><CurvedArrow direction="down-right" className="h-full w-full -rotate-45 text-v2-green" /></Box>
       <Box x={366} y={448} w={46} h={36} z={10}><Confetti className="h-full w-full text-v2-green" /></Box>
       <Box x={396} y={510} w={30} h={30} z={10}><CurvedArrow direction="down-right" className="h-full w-full text-v2-violet" /></Box>
     </>

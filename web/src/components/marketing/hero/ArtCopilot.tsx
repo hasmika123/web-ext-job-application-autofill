@@ -47,7 +47,7 @@ export default function ArtCopilot({ priority }: { priority?: boolean }) {
       <Disc x={-130} y={330} d={150} color="rgba(166,235,108,.22)" blur={6} z={0} />
 
       {/* the man (441x343 native), bottom hidden behind the laptop */}
-      <Box x={-110} y={225} w={441} z={20}>
+      <Box x={-90} y={225} w={441} z={20}>
         <Photo
           id="hero-headphones"
           alt="A young man smiling, resting his chin on his hand"
@@ -60,15 +60,15 @@ export default function ArtCopilot({ priority }: { priority?: boolean }) {
       </Box>
 
       {/* laptop silhouette + sticker (extends below the hero edge, hidden by the strip) */}
-      <Box x={72} y={452} w={262} h={250} rot={-5} z={30}>
+      <Box x={90} y={452} w={262} h={250} rot={-5} z={30}>
         <Laptop className="h-full w-full" sticker={42} />
       </Box>
 
       {/* Top Job Matches */}
-      <Box x={236} y={128} w={338} h={262} rot={-4} z={10}>
+      <Box x={262} y={128} w={332} h={262} rot={-4} z={10}>
         <Card className="px-5 pt-4">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-[15px] font-bold text-v2-navy">
+            <span className="flex items-center gap-2 text-[14px] font-bold text-v2-navy">
               <span aria-hidden className="grid h-5 w-5 place-items-center rounded-md bg-[#E6F0FF] text-[#1E6FF5]">
                 <UserIcon className="h-3 w-3" />
               </span>

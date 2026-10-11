@@ -43,9 +43,12 @@ function pngSize(rel: string): { w: number; h: number } | null {
 }
 
 /** Horizontal alpha mask that fades the left / right edges (percent of width) of a cutout. */
-function fadeStyle([left, right]: [number, number]): React.CSSProperties {
-  const mask = `linear-gradient(to right, transparent 0, #000 ${left}%, #000 ${100 - right}%, transparent 100%)`;
-  return { maskImage: mask, WebkitMaskImage: mask };
+function fadeStyle(edge?: [number, number], top?: number): React.CSSProperties {
+  const layers: string[] = [];
+  if (edge) layers.push(`linear-gradient(to right, transparent 0, #000 ${edge[0]}%, #000 ${100 - edge[1]}%, transparent 100%)`);
+  if (top) layers.push(`linear-gradient(to bottom, transparent 0, #000 ${top}%)`);
+  const mask = layers.join(",");
+  return { maskImage: mask, WebkitMaskImage: mask, maskComposite: "intersect", WebkitMaskComposite: "source-in" };
 }
 
 /* ── Mascot ───────────────────────────────────────────────────────────────────────── */
@@ -127,6 +130,8 @@ export interface PhotoProps {
    * (`[10, 3]`). Hides hard crop edges left over from the board extraction; the bottom stays solid.
    */
   edgeFade?: [number, number];
+  /** PNG cutouts only: fade the TOP edge to transparent over this percent of the height. Softens a flat crop through the heads (hero-team.png). */
+  topFade?: number;
 }
 
 export function Photo({
@@ -137,6 +142,7 @@ export function Photo({
   priority,
   eager,
   edgeFade,
+  topFade,
 }: PhotoProps) {
   const rel = ["png", "webp", "jpg"].map((ext) => `v2/${id}.${ext}`).find(publicFileExists);
   const size = rel?.endsWith(".png") ? pngSize(rel) : null;
@@ -153,7 +159,7 @@ export function Photo({
           priority={priority}
           loading={eager && !priority ? "eager" : undefined}
           className="block h-auto w-full object-contain object-bottom"
-          style={edgeFade ? fadeStyle(edgeFade) : undefined}
+          style={edgeFade || topFade ? fadeStyle(edgeFade, topFade) : undefined}
         />
       </div>
     );

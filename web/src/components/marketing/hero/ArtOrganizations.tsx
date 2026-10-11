@@ -54,14 +54,14 @@ export default function ArtOrganizations({ priority }: { priority?: boolean }) {
       <Disc x={0} y={230} d={520} color="radial-gradient(closest-side, rgba(150,190,255,.30), rgba(150,190,255,0))" z={0} />
 
       {/* Team Applications */}
-      <Box x={-8} y={78} w={528} h={366} rot={-4} z={10}>
+      <Box x={36} y={78} w={490} h={366} rot={-4} z={10}>
         <Card className="px-5 pt-4">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2.5 text-[18px] font-bold text-v2-navy">
               <UsersIcon className="h-6 w-6 text-[#1E6FF5]" />
               Team Applications
             </span>
-            <span className="flex w-[200px] items-center gap-2 rounded-lg border border-[#E3E8F2] px-3 py-2 text-[12px] text-v2-muted">
+            <span className="flex w-[170px] items-center gap-2 rounded-lg border border-[#E3E8F2] px-3 py-2 text-[12px] text-v2-muted">
               <SearchIcon className="h-3.5 w-3.5" />
               Search candidates…
             </span>
@@ -132,8 +132,8 @@ export default function ArtOrganizations({ priority }: { priority?: boolean }) {
       ))}
 
       {/* the team (683x347 native), bottom-centre */}
-      <Box x={-38} y={402} w={600} z={20}>
-        <Photo id="hero-team" alt="Three colleagues smiling at their laptops" priority={priority} eager edgeFade={[7, 3]} className="w-full" sizes="600px" />
+      <Box x={40} y={396} w={528} z={20}>
+        <Photo id="hero-team" alt="Three colleagues smiling at their laptops" priority={priority} eager edgeFade={[7, 3]} className="w-full" sizes="528px" />
       </Box>
       <Box x={516} y={482} w={186} h={196} z={30}>
         <Mascot pose="plane" eager className="h-full w-full" />
@@ -149,7 +149,7 @@ export default function ArtOrganizations({ priority }: { priority?: boolean }) {
       <Box x={430} y={396} w={34} h={34} z={10}><StarDoodle className="h-full w-full text-v2-amber" /></Box>
       <Box x={712} y={480} w={32} h={32} z={10}><StarDoodle className="h-full w-full text-v2-amber" /></Box>
       <Box x={684} y={560} w={32} h={50} z={10}><Confetti className="h-full w-full rotate-12 text-v2-green" /></Box>
-      <Box x={-30} y={96} w={36} h={50} z={10}><SparkBurst className="h-full w-full text-v2-green" /></Box>
+      <Box x={4} y={92} w={36} h={50} z={10}><SparkBurst className="h-full w-full text-v2-green" /></Box>
     </>
   );
 }

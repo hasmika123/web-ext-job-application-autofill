@@ -37,11 +37,11 @@ export default function ArtAutopilot({ priority }: { priority?: boolean }) {
       <Disc x={-30} y={210} d={470} color="radial-gradient(closest-side, rgba(166,235,108,.32), rgba(166,235,108,0))" z={0} />
 
       {/* the man (580x554 native) */}
-      <Box x={-120} y={190} w={536} z={20}>
+      <Box x={-92} y={190} w={536} z={20}>
         <Photo id="hero-individual" alt="A smiling man in a green hoodie working on his laptop" priority={priority} eager edgeFade={[9, 3]} className="w-full" sizes="536px" />
       </Box>
       {/* winking mascot at his right */}
-      <Box x={274} y={500} w={170} h={178} z={30}>
+      <Box x={296} y={500} w={170} h={178} z={30}>
         <Mascot pose="laptop" eager className="h-full w-full" />
       </Box>
 

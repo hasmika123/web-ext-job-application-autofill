@@ -46,10 +46,11 @@ a section edge, a card), so the person looks cut off like a sticker.
 
 | File | Size | Subject / used on |
 |---|---|---|
-| `hero-copilot.png` | 435x499 | woman, lime hoodie, laptop. Hero slide 1 |
+| `hero-headphones.png` | 441x343 | head-and-shoulders man, hand on chin, headphones round his neck. **Hero slide 1** (V2.2x board with the feature strip) |
+| `hero-copilot.png` | 435x499 | woman, lime hoodie, laptop. Alternate slide 1 (`HERO_SLIDE_COPILOT_ALT`), /about hero |
 | `hero-individual.png` | 580x554 | man, green hoodie, laptop (a sliver of the mascot's headphones remains at the right edge, hidden behind the mascot). Hero slide 2, landing job matches |
 | `hero-student.png` | 611x516 | woman, purple hoodie, thinking at a laptop, **with the mascot already peeking in at her right**, so no separate mascot is rendered next to her. Hero slide 3, landing "for individuals". Faint ghost shape above the mascot; left and right edges are hard crops, so the code fades them (`edgeFade`) |
-| `hero-team.png` | 683x347 | three people at laptops. Hero slide 4, landing "for organisations" |
+| `hero-team.png` | 689x400 | three people at laptops, full heads. Hero slide 4, landing "for organisations" |
 | `about-portrait.png` | 435x499 | same image as `hero-copilot.png`. /about hero |
 | `about-team.png` | 683x347 | same image as `hero-team.png`. /about "Why we built Kiwiply" |
 | `org-team.png` | 683x347 | same image as `hero-team.png`. /organizations hero |
