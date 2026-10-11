@@ -35,6 +35,28 @@ export const DASH_ACTIVITY: { label: string; values: number[] }[] = [
   { label: "Oct 8", values: [30, 10, 5] },
 ];
 
+/**
+ * Application Activity per period. 30 days is the board; the 7 and 90 day sets are sample values in
+ * the same shape so the period select has something to switch to.
+ */
+export const DASH_ACTIVITY_PERIODS: Record<string, { label: string; values: number[] }[]> = {
+  "Last 7 days": [
+    { label: "Oct 4", values: [4, 1, 0] },
+    { label: "Oct 5", values: [6, 2, 1] },
+    { label: "Oct 6", values: [3, 1, 0] },
+    { label: "Oct 7", values: [7, 2, 1] },
+    { label: "Oct 8", values: [9, 3, 1] },
+  ],
+  "Last 30 days": DASH_ACTIVITY,
+  "Last 90 days": [
+    { label: "Jul 20", values: [42, 12, 4] },
+    { label: "Aug 15", values: [55, 17, 6] },
+    { label: "Sep 10", values: [48, 15, 5] },
+    { label: "Sep 24", values: [63, 21, 8] },
+    { label: "Oct 8", values: [71, 24, 9] },
+  ],
+};
+
 export const DASH_STATUS: { label: string; value: number; tone: Tone }[] = [
   { label: "Applied", value: 18, tone: "blue" },
   { label: "Under Review", value: 10, tone: "amber" },
