@@ -603,7 +603,7 @@ function SignupPanel() {
   return (
     <>
       {/* Desktop */}
-      <section className={cn(PANEL, "lg:sticky lg:top-0 lg:h-screen lg:min-h-[640px] lg:self-start")}>
+      <section className={cn(PANEL, "lg:sticky lg:top-0 lg:h-screen lg:min-h-[640px] lg:self-start lg:overflow-visible")}>
         <Link href="/" aria-label="Kiwiply home" className="w-fit">
           <BrandLogo height={52} priority />
         </Link>
@@ -623,14 +623,14 @@ function SignupPanel() {
         <FeatureList items={SIGNUP_FEATURES} className="relative z-10 mt-8 max-w-[46%]" />
         <StickyNote className="absolute left-[60%] top-[16%] z-10 -rotate-[10deg]" />
         <StarDoodle className="absolute left-[60%] top-[8%] h-10 w-10 text-v2-green" />
-        <div className="absolute bottom-0 right-[-3%] w-[min(70%,64vh)]">
+        <div className="absolute bottom-0 right-[-8%] w-[min(72%,66vh)]">
           <Image
             src="/v2/app/auth-trio-signup.png"
             alt=""
             width={701}
             height={440}
             sizes="(min-width: 1024px) 45vw, 0px"
-            className="h-auto w-full [mask-image:linear-gradient(to_right,transparent,black_7%,black_84%,transparent)]"
+            className="h-auto w-full [mask-image:linear-gradient(to_right,transparent,black_7%,black_90%,transparent)]"
           />
           <div aria-hidden className="absolute left-[44%] top-[-26%] -rotate-[9deg]">
             <Hand className="text-[clamp(20px,1.9vw,30px)]">
@@ -646,31 +646,36 @@ function SignupPanel() {
       </section>
 
       {/* Mobile / tablet */}
-      <section className="relative flex flex-col items-start px-5 pt-8 lg:hidden">
-        <Link href="/" aria-label="Kiwiply home" className="mx-auto">
-          <BrandLogo height={56} priority />
+      <section className="relative flex flex-col items-center px-5 pt-8 text-center lg:hidden">
+        <Link href="/" aria-label="Kiwiply home">
+          <BrandLogo height={52} priority />
         </Link>
-        <h2 className="relative mt-6 text-[36px] leading-[1.02] text-v2-navy sm:text-[44px]">
-          Your next
-          <br />
-          opportunity
+        <h2 className="relative mt-5 text-[34px] leading-[1.04] text-v2-navy sm:text-[44px]">
+          Your next opportunity
           <br />
           <span className="text-v2-green">starts here.</span>
-          <SparkBurst aria-hidden className="ml-2 inline-block h-7 w-7 -rotate-[80deg] align-middle text-v2-lime-deep" />
+          <SparkBurst aria-hidden className="ml-2 inline-block h-6 w-6 -rotate-[80deg] align-middle text-v2-lime-deep" />
         </h2>
-        <p className="mt-3 max-w-[420px] text-[16px] leading-snug text-v2-ink-soft">
+        <p className="mt-3 max-w-[380px] text-[16px] leading-snug text-v2-ink-soft">
           Create your free account and get started with AI-powered job search.
         </p>
-        <FeatureList items={SIGNUP_FEATURES_MOBILE} compact className="mt-6" />
-        <div className="relative mt-4 flex w-full items-end justify-between">
-          <div aria-hidden className="-rotate-[8deg] pb-6">
-            <Hand className="text-[24px]">
+        <FeatureList items={SIGNUP_FEATURES_MOBILE} compact className="mt-5 hidden w-full max-w-[420px] text-left sm:block" />
+        <div className="relative mt-3 w-full max-w-[460px]">
+          <div aria-hidden className="relative z-10 -mb-2 ml-[4%] w-fit -rotate-[6deg] text-left">
+            <Hand className="text-[20px] sm:text-[24px]">
               Same me.
               <br />
               More opportunities.
             </Hand>
           </div>
-          <Image src="/v2/app/mascot-books.png" alt="" width={149} height={154} className="mr-2 h-auto w-[150px]" />
+          <Image
+            src="/v2/app/auth-trio-signup.png"
+            alt=""
+            width={701}
+            height={440}
+            sizes="(max-width: 1023px) 460px, 0px"
+            className="h-auto w-full [mask-image:linear-gradient(to_right,transparent,black_7%,black_93%,transparent)]"
+          />
         </div>
       </section>
     </>
