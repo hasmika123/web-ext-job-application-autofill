@@ -1,19 +1,17 @@
 import Skeleton from "@/components/ui/Skeleton";
 
-/** Loading fallback for Job Search / Job detail. */
+/** Loading fallback for Job Search. */
 export default function JobsLoading() {
   return (
-    <div className="mx-auto grid w-full max-w-[1400px] gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="flex min-w-0 flex-col gap-4">
-        <Skeleton className="h-[190px] rounded-[20px]" />
-        <Skeleton className="h-[68px] rounded-2xl" />
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-[104px] rounded-2xl" />
-        ))}
-      </div>
-      <div className="flex min-w-0 flex-col gap-5">
-        <Skeleton className="h-72 rounded-2xl" />
-        <Skeleton className="h-52 rounded-2xl" />
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+      <Skeleton className="h-[190px] rounded-[20px]" />
+      <div className="grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)]">
+        <Skeleton className="hidden h-[640px] rounded-2xl xl:block" />
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-[112px] rounded-2xl" />
+          ))}
+        </div>
       </div>
     </div>
   );

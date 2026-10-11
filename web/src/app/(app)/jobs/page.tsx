@@ -1,24 +1,15 @@
 import type { Metadata } from "next";
 import { loadJobs } from "@/components/app-v2/jobs/data";
-import JobsClient from "@/components/app-v2/jobs/JobsClient";
+import JobsPage from "@/components/app-v3/jobs/JobsPage";
 
 export const metadata: Metadata = { title: "Job Search" };
 
 /**
- * Job Search (board `app-job-search.webp` + the split view `app-job-search-split.webp`). Pro accounts
- * see their real daily matches; everyone else sees the board's sample rows. `?q=` prefills the search
- * (the top bar's search lands here) and `?job=<id>` opens a row's detail panel.
+ * Job Search (app v3, spec 2.2). Pro accounts see their real daily matches; everyone else the board's
+ * SAMPLE rows. `?q=` prefills the search (the top bar lands here) and `?job=<id>` opens a row's panel.
  */
-export default async function JobsPage({ searchParams }: { searchParams: Promise<{ q?: string; job?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ q?: string; job?: string }> }) {
   const { q, job } = await searchParams;
   const data = await loadJobs();
-  return (
-    <JobsClient
-      jobs={data.jobs}
-      real={data.real}
-      matchEnabled={data.matchEnabled}
-      initialQuery={q?.slice(0, 200) ?? ""}
-      initialSelectedId={job ?? null}
-    />
-  );
+  return <JobsPage realJobs={data.real ? data.jobs : null} initialQuery={q?.slice(0, 200) ?? ""} initialSelectedId={job ?? null} />;
 }
