@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import { cn } from "@kiwiply/ui";
 import AppArt, { type AppArtName } from "./AppArt";
+import HeroArt from "./HeroArt";
+import PageHero from "./PageHero";
 
 /**
  * The soft hero band every app v3 page opens with (APP-V3-SPEC section 0): pale lime-to-blue wash,
@@ -9,11 +11,16 @@ import AppArt, { type AppArtName } from "./AppArt";
  * `subtitle`, optional `actions` and a free `children` slot (a search box, chips). Right: an optional
  * `aside` card, then the mascot (`art`: a board art name or a /public path) with a handwritten `note`
  * tilted beside it. Art, note and aside appear from `sm` / `lg`; below that the copy owns the width.
+ *
+ * Two looks, one component: pass `art` for the full band above, or `mascot` (+ `note`, `mascotHeight`)
+ * for the compact v2 `PageHero` look the section pages use (mascot with a sticky note at the right).
  */
 export default function HeroBand({
   title,
   subtitle,
   art,
+  mascot,
+  mascotHeight = 112,
   artHeight = 120,
   note,
   actions,
@@ -25,6 +32,9 @@ export default function HeroBand({
   title: ReactNode;
   subtitle?: ReactNode;
   art?: AppArtName | (string & {});
+  /** Compact PageHero look: a board mascot with the optional `note` as a sticky note. */
+  mascot?: AppArtName;
+  mascotHeight?: number;
   artHeight?: number;
   /** Handwritten (Caveat) annotation beside the art. Decorative: never the only carrier of information. */
   note?: ReactNode;
@@ -35,6 +45,16 @@ export default function HeroBand({
   decor?: ReactNode;
   className?: string;
 }) {
+  if (mascot) {
+    return (
+      <PageHero
+        title={title}
+        subtitle={subtitle}
+        actions={actions}
+        art={<HeroArt mascot={mascot} note={typeof note === "string" ? note : undefined} mascotHeight={mascotHeight} />}
+      />
+    );
+  }
   const image =
     art &&
     (art.includes("/") ? (

@@ -16,7 +16,7 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import { IconTile, KebabMenu, SectionCard, StatusChip, TONE, Toggle, UnderlineTabs } from "../../app-v2/common";
-import HeroBand from "../local-c/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 import {
   ALERTS,
   ALERT_CHANNELS,

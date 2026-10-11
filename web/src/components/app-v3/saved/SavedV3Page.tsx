@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { BookmarkIcon, CheckCircleIcon, LayoutGridIcon, MenuIcon, cn, useToast } from "@kiwiply/ui";
 import { CompanyTile, KebabMenu, SearchInput, UnderlineTabs } from "../../app-v2/common";
 import { V3_SAVED_JOBS, type V3SavedJob, type V3SavedState } from "../sample-data.b";
-import HeroBand from "../local-b/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 
 type TabKey = "all" | "recent" | "to-apply" | "applied" | "not-interested";
 
@@ -56,7 +56,7 @@ export default function SavedV3Page() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
-      <HeroBand
+      <HeroBand mascotHeight={124}
         title="Saved Jobs"
         subtitle="Keep track of opportunities you're interested in."
         mascot="mascot-heart"

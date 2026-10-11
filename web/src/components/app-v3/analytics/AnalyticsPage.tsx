@@ -12,7 +12,7 @@ import {
   StatTile,
   UnderlineTabs,
 } from "@/components/app-v2/common";
-import HeroBand from "../local-d/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 import { AN_SKILLS, AN_TABS, type AnalyticsData } from "../sample-data.v3d";
 
 const PERIODS = ["Last 7 days", "Last 30 days", "Last 90 days"];

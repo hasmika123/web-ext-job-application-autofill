@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BriefcaseIcon, GraduationCapIcon, LayersIcon, cn } from "@kiwiply/ui";
 import BioEditor, { type Bio } from "@/components/BioEditor";
 import { UnderlineTabs } from "../../app-v2/common";
-import HeroBand from "../local-b/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 import OverviewTab, { type ProfileTabKey } from "./OverviewTab";
 import type { ProfileView } from "./derive";
 
@@ -38,7 +38,7 @@ export default function ProfilesPage({ profile, bio }: { profile: ProfileView; b
 
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
-      <HeroBand
+      <HeroBand mascotHeight={124}
         title="My Profiles"
         subtitle="Manage your professional information and tailor it for different jobs."
         mascot="mascot-grad"

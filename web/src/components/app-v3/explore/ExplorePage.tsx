@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowRightIcon, ChevronRightIcon, FileTextIcon, cn, useToast } from "@kiwiply/ui";
 import { CompanyTile, IconTile, SectionCard, UnderlineTabs } from "@/components/app-v2/common";
 import { TONE } from "@/components/app-v2/common";
-import HeroBand from "../local-d/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 import { EX_COMPANIES, EX_PATHS, EX_RESOURCES, EX_ROLES, EX_TABS } from "../sample-data.v3d";
 
 /**

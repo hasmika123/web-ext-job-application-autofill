@@ -16,7 +16,7 @@ import {
 } from "@kiwiply/ui";
 import { AppArt, FilterSelect, IconTile, ProgressRing, SectionCard, StatusChip, UnderlineTabs } from "@/components/app-v2/common";
 import type { Tone } from "@/components/app-v2/common";
-import HeroBand from "../local-d/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 import {
   IP_COMPANIES,
   IP_MODES,

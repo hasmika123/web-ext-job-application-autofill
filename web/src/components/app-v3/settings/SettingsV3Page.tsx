@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { BellIcon, CreditCardIcon, HelpCircleIcon, LockIcon, SlidersIcon, UserIcon, cn } from "@kiwiply/ui";
-import HeroBand from "../local-b/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 
 export type SettingsTabKey = "account" | "notifications" | "privacy" | "job-preferences" | "billing" | "help";
 

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChatIcon, ClockIcon, SendIcon, cn, useToast } from "@kiwiply/ui";
 import Image from "next/image";
 import { InitialsAvatar, SectionCard } from "../../app-v2/common";
-import HeroBand from "../local-c/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 import {
   ASSISTANT_CANNED_REPLY,
   ASSISTANT_CAPABILITIES,

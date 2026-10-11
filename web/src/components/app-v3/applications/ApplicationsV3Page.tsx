@@ -18,7 +18,7 @@ import {
   type Tone,
 } from "../../app-v2/common";
 import { V3_APPLICATION_ROWS, V3_APPLICATION_SAMPLE_COUNTS, type V3ApplicationSample } from "../sample-data.b";
-import HeroBand from "../local-b/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 
 type TabKey = "all" | "applied" | "in-review" | "interview" | "offer" | "rejected";
 type Row = ApplicationRow | V3ApplicationSample;
@@ -187,7 +187,7 @@ export default function ApplicationsV3Page({ rows: realRows }: { rows: Applicati
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
-      <HeroBand
+      <HeroBand mascotHeight={124}
         title="My Applications"
         subtitle="Track, manage, and never miss an update."
         mascot="mascot-apps"

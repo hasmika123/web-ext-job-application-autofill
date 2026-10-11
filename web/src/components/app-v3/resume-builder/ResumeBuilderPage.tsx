@@ -6,7 +6,7 @@ import type { Resume } from "@/components/ResumeList";
 import ResumeDrawer from "@/components/app-v2/resume/ResumeDrawer";
 import TemplateThumb from "@/components/app-v2/resume/TemplateThumb";
 import { IconTile, SectionCard, StatusChip, UnderlineTabs } from "@/components/app-v2/common";
-import HeroBand from "../local-d/HeroBand";
+import { HeroBand } from "@/components/app-v2/common";
 import {
   RB_AI_SUGGESTIONS,
   RB_COVER_LETTER,
