@@ -4,8 +4,8 @@ import { FAMILY, type Family } from "./family";
 
 /**
  * Icon tile + title + body card. Used by the pillars strip. Spec section 4.
- * `layout`: `stack` = icon above text; `row` = icon beside text; `responsive` = a row below lg and
- * a centred stack from lg up (the pillars strip, as on the board's desktop and mobile frames).
+ * `layout`: `stack` = icon above text; `row` = icon beside text; `responsive` = a row below md and
+ * a centred stack from md up (the pillars strip, as on the board's desktop and mobile frames).
  */
 export default function FeatureTile({
   icon: Icon,
@@ -32,7 +32,7 @@ export default function FeatureTile({
         "h-full rounded-[var(--radius-v2-card)] border border-v2-line/60 bg-white p-5 shadow-v2-card",
         layout === "row" && "flex items-start gap-4",
         layout === "stack" && "flex flex-col gap-3",
-        layout === "responsive" && "flex items-start gap-4 lg:flex-col lg:items-center lg:gap-3 lg:text-center",
+        layout === "responsive" && "flex items-start gap-4 md:flex-col md:items-center md:gap-3 md:text-center",
         centered && "items-center text-center",
         className,
       )}

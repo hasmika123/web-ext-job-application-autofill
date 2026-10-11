@@ -1,4 +1,4 @@
-import { ChartIcon, FileTextIcon, SearchIcon, TargetIcon, ZapIcon, type IconProps } from "@kiwiply/ui";
+import { ChartIcon, FileTextIcon, SearchIcon, TargetIcon, ZapIcon, cn, type IconProps } from "@kiwiply/ui";
 import type { ComponentType } from "react";
 import FeatureTile from "../FeatureTile";
 import type { Family } from "../family";
@@ -52,7 +52,7 @@ const PILLARS: {
 export default function Pillars() {
   return (
     <Section id="pillars" labelledBy="pillars-title" className="pb-10 pt-10 lg:pb-12 lg:pt-10">
-      <div className="mb-8 text-center lg:sr-only lg:mb-0">
+      <div className="mb-8 text-center md:sr-only md:mb-0">
         <h2 id="pillars-title" className="mx-auto max-w-sm text-[28px] text-v2-navy">
           Everything you need to get hired faster.
         </h2>
@@ -60,9 +60,9 @@ export default function Pillars() {
           Powerful AI tools to simplify your job search from start to finish.
         </p>
       </div>
-      <ul className="grid gap-3 lg:grid-cols-5 lg:gap-4">
-        {PILLARS.map((p) => (
-          <li key={p.title} id={p.id} className="scroll-mt-24">
+      <ul className="grid gap-3 md:grid-cols-6 md:gap-4 xl:grid-cols-5">
+        {PILLARS.map((p, i) => (
+          <li key={p.title} id={p.id} className={cn("scroll-mt-24 md:col-span-2 xl:col-span-1", i === 3 && "md:col-start-2 xl:col-start-auto", i === 4 && "md:col-start-4 xl:col-start-auto")}>
             <FeatureTile icon={p.icon} family={p.family} title={p.title} body={p.body} layout="responsive" />
           </li>
         ))}

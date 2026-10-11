@@ -28,7 +28,7 @@ export default function V3Footer() {
         className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_0%,rgba(132,227,61,.16),transparent_45%),radial-gradient(ellipse_at_0%_100%,rgba(95,191,31,.14),transparent_45%)]"
       />
       <div className="relative mx-auto max-w-[1200px] px-5 pb-8 pt-12 lg:px-8 lg:pt-16">
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,320px)_1fr] lg:gap-14">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)] md:gap-8 lg:grid-cols-[minmax(0,320px)_1fr] lg:gap-14">
           <div className="flex flex-col gap-4">
             <Link href="/v3" aria-label="Kiwiply home" className="inline-flex w-fit items-center">
               <BrandLogo tone="dark" height={40} />

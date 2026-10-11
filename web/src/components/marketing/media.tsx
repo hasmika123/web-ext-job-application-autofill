@@ -110,7 +110,9 @@ export type PhotoId =
   | "hero-headphones"
   | "about-portrait"
   | "about-team"
-  | "org-team";
+  | "org-team"
+  | "individuals-woman"
+  | "mascot-letter";
 
 export interface PhotoProps {
   id: PhotoId;

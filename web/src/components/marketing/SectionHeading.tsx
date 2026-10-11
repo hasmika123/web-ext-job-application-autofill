@@ -47,7 +47,7 @@ export default function SectionHeading({
       <Eyebrow family={family} className={caps ? "px-3 py-1.5 text-[11.5px] font-bold uppercase tracking-wide" : undefined}>
         {eyebrow}
       </Eyebrow>
-      <h2 id={id} className="max-w-3xl text-[30px] text-v2-navy md:text-4xl lg:text-[40px]">
+      <h2 id={id} className="max-w-3xl text-[30px] text-v2-navy md:text-[clamp(24px,2.6vw,40px)] md:leading-[1.12]">
         {title}
         {accent ? (
           <>
@@ -56,7 +56,7 @@ export default function SectionHeading({
           </>
         ) : null}
       </h2>
-      {lede ? <p className="max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">{lede}</p> : null}
+      {lede ? <p className="max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[clamp(14px,1.15vw,17px)]">{lede}</p> : null}
     </div>
   );
 }

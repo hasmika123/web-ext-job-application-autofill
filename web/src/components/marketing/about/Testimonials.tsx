@@ -20,7 +20,7 @@ export default function Testimonials() {
   return (
     <Section labelledBy="stories-title" className="py-10 lg:py-14">
       <RowHeading id="stories-title" eyebrow="People Love Kiwiply" title="Real stories. Brighter futures." />
-      <ul className="mt-8 grid gap-4 lg:mt-10 lg:grid-cols-3 lg:gap-5">
+      <ul className="mt-8 grid gap-4 md:grid-cols-3 md:gap-3 lg:mt-10 lg:gap-5">
         {ABOUT_TESTIMONIALS.map((t, i) => (
           <li key={t.name}>
             <figure className="flex h-full flex-col justify-between gap-5 rounded-[var(--radius-v2-card)] bg-white p-5 shadow-v2-card lg:p-6">

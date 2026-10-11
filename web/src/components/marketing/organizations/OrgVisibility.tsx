@@ -23,20 +23,20 @@ const TILES: Tile[] = [
 export default function OrgVisibility() {
   return (
     <section id="visibility" aria-labelledby="org-visibility-title" className="scroll-mt-20 py-12 md:py-16">
-      <Container className="grid items-center gap-10 lg:grid-cols-[0.85fr_1.25fr] lg:gap-8">
+      <Container className="grid items-center gap-10 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.25fr)] md:gap-5 lg:gap-8">
         <div className="flex flex-col items-start gap-5">
           <Eyebrow family="green">Collaboration &amp; Oversight</Eyebrow>
-          <h2 id="org-visibility-title" className="text-[28px] leading-[1.08] text-v2-navy md:text-[36px] lg:text-[40px]">
+          <h2 id="org-visibility-title" className="text-[28px] leading-[1.08] text-v2-navy md:text-[clamp(22px,2.9vw,40px)]">
             Full visibility.
             <br />
             Stronger <span className={HEADLINE_GREEN}>outcomes.</span>
           </h2>
-          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[clamp(13.5px,1.3vw,17px)]">
             Get a real-time view of your team&apos;s progress, manage support, and keep everyone aligned with powerful
             oversight tools.
           </p>
 
-          <ul className="mt-2 grid w-full gap-3 sm:grid-cols-2">
+          <ul className="mt-2 grid w-full gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
             {TILES.map((t) => {
               const f = FAMILY[t.family];
               return (

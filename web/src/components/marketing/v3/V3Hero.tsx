@@ -6,13 +6,14 @@ import Eyebrow from "../Eyebrow";
 import Handwritten from "../Handwritten";
 import { Photo } from "../media";
 import { SIGNUP_HREF } from "../nav";
+import ScaledCanvas from "../ScaledCanvas";
 import V3HeroArt from "./V3HeroArt";
 
 /**
  * Landing-v3 hero. Two boards, two variants: from md up the desktop board ("From Resume to Dream
  * Job with AI by Your Side" + the floating cards and the laptop mascot); below md the phone board
  * ("Find jobs. Apply faster. Get hired." + the portrait). The desktop art is a fixed 780x400
- * canvas scaled by CSS transforms so it never overflows (stacked under the copy until xl).
+ * canvas scaled to its column (copy and art stay side by side from md).
  */
 
 const DESKTOP_TICKS = ["AI-Powered", "Save Time", "More Interviews", "Land Better Jobs"];
@@ -43,14 +44,14 @@ export default function V3Hero() {
       />
 
       {/* ───────── Desktop / tablet (md+) ───────── */}
-      <div className="relative mx-auto hidden max-w-[1440px] px-8 pb-6 pt-28 md:block lg:pt-32 xl:grid xl:grid-cols-[minmax(0,1fr)_702px] xl:items-center xl:gap-2 2xl:grid-cols-[minmax(0,1fr)_780px]">
+      <div className="relative mx-auto hidden max-w-[1440px] px-5 pb-6 pt-24 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] md:items-center md:gap-2 lg:px-8 lg:pt-32">
         <div className="flex flex-col items-start xl:pl-8">
           <Eyebrow family="blue" className="px-3.5 py-1.5 text-[11.5px] font-bold uppercase tracking-[0.12em]">
             Your AI Career Copilot
           </Eyebrow>
           <h1
             id="v3-hero-title"
-            className="mt-5 text-[46px] leading-[1.02] text-v2-navy md:text-[54px] xl:text-[60px] 2xl:text-[62px]"
+            className="mt-4 text-v2-navy md:text-[clamp(28px,4.3vw,62px)] md:leading-[1.04] lg:mt-5"
           >
             From Resume
             <br />
@@ -58,20 +59,20 @@ export default function V3Hero() {
             <br />
             <span className="text-v2-green">with AI by Your Side</span>
           </h1>
-          <p className="mt-5 max-w-[520px] text-[18px] leading-[1.45] text-v2-ink-soft">
+          <p className="mt-4 max-w-[520px] text-v2-ink-soft md:text-[clamp(14px,1.4vw,18px)] md:leading-[1.45] lg:mt-5">
             Create standout resumes, find the right opportunities, apply faster, and prepare for interviews — all in
             one place.
           </p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center gap-3 lg:mt-7">
             <Link
               href={SIGNUP_HREF}
-              className={buttonVariants("accent", "lg", "min-h-12 px-7 shadow-[0_8px_20px_rgba(95,191,31,.3)]")}
+              className={buttonVariants("accent", "lg", "min-h-12 shadow-[0_8px_20px_rgba(95,191,31,.3)] md:max-lg:min-h-10 md:max-lg:px-4 md:max-lg:text-sm lg:px-7")}
             >
               Get Started for Free <ArrowRightIcon size={16} />
             </Link>
-            <WatchVideo />
+            <WatchVideo className="md:max-lg:min-h-10 md:max-lg:px-4 md:max-lg:py-2 md:max-lg:text-sm" />
           </div>
-          <ul className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-v2-ink-soft">
+          <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-v2-ink-soft lg:mt-5 lg:gap-x-6 lg:text-[13px]">
             {DESKTOP_TICKS.map((t) => (
               <li key={t} className="flex items-center gap-1.5">
                 <CheckIcon aria-hidden className="h-4 w-4 text-v2-green" strokeWidth={2.6} />
@@ -81,12 +82,10 @@ export default function V3Hero() {
           </ul>
         </div>
 
-        {/* Art stage: 702x360 (xl) / 640x328 (md) / 780x400 (2xl) box around a 780x400 canvas. */}
-        <div className="relative mx-auto mt-6 h-[328px] w-[640px] xl:mx-0 xl:mt-0 xl:h-[360px] xl:w-[702px] 2xl:h-[400px] 2xl:w-[780px]">
-          <div className="absolute left-0 top-0 origin-top-left scale-[0.82] xl:scale-[0.9] 2xl:scale-100">
-            <V3HeroArt />
-          </div>
-        </div>
+        {/* Art: a fixed 780x400 canvas scaled to its column (never overflows). */}
+        <ScaledCanvas width={780} height={400} className="mx-auto mt-0 max-w-[780px]">
+          <V3HeroArt />
+        </ScaledCanvas>
       </div>
 
       {/* ───────── Phone (< md) ───────── */}

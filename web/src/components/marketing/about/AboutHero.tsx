@@ -36,26 +36,26 @@ export default function AboutHero() {
       <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-v2-lime/30 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -right-24 top-0 h-96 w-96 rounded-full bg-v2-blue/20 blur-3xl" />
 
-      <div className="relative mx-auto grid max-w-[1200px] gap-x-8 gap-y-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+      <div className="relative mx-auto grid max-w-[1200px] gap-x-6 gap-y-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:items-center lg:gap-x-8">
         {/* copy */}
-        <div className="lg:col-start-1 lg:row-start-1">
+        <div className="md:col-start-1 md:row-start-1">
           <Eyebrow family="green">About Kiwiply</Eyebrow>
           <h1
             id="about-hero-title"
-            className="mt-5 text-4xl text-v2-navy md:text-[44px] lg:text-[56px] lg:leading-[1.04]"
+            className="mt-5 text-4xl text-v2-navy md:text-[clamp(30px,4.4vw,56px)] md:leading-[1.06]"
           >
             We&rsquo;re building
             <span className={cn("block", FAMILY.green.headline)}>a smarter way</span>
             <span className="block">to get people hired.</span>
           </h1>
-          <p className="mt-5 max-w-[520px] text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+          <p className="mt-5 max-w-[520px] text-base leading-relaxed text-v2-ink-soft md:text-[clamp(14px,1.4vw,17px)]">
             Kiwiply was created to make job searching simpler, faster, and more personal &mdash; using AI to
             match you with the right opportunities and help you every step of the way.
           </p>
         </div>
 
         {/* art */}
-        <div className="relative mx-auto w-full max-w-[560px] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-w-none">
+        <div className="relative mx-auto w-full max-w-[560px] md:col-start-2 md:row-span-2 md:row-start-1 md:max-w-none">
           {/* Handwritten note + arrow (desktop only, decorative) */}
           <div aria-hidden className="absolute -left-20 top-2 z-10 hidden items-end gap-1 xl:flex">
             <Handwritten family="violet" className="w-40 -rotate-6 text-[26px]">
@@ -65,12 +65,12 @@ export default function AboutHero() {
           </div>
 
           {/* The tint is its own layer so the cutout (overflow visible) sits on it, flush with the bottom edge. */}
-          <div className="relative h-[300px] sm:h-[380px] lg:h-[460px]">
+          <div className="relative h-[300px] sm:h-[380px] md:h-[clamp(300px,45vw,460px)]">
             <div
               aria-hidden
-              className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft lg:rounded-[40px]"
+              className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft md:rounded-[40px]"
             />
-            <div className="absolute bottom-0 left-1/2 w-[62%] -translate-x-1/2 lg:left-[44%] lg:w-[58%]">
+            <div className="absolute bottom-0 left-1/2 w-[62%] -translate-x-1/2 md:left-[44%] md:w-[58%]">
               <Photo
                 id="about-portrait"
                 alt="A smiling job seeker working at a laptop"
@@ -103,7 +103,7 @@ export default function AboutHero() {
           {/* Sticky note */}
           <div
             aria-hidden
-            className="absolute -top-3 right-1 z-10 w-[132px] rotate-[5deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card lg:-right-3 lg:-top-6 lg:w-[150px]"
+            className="absolute -top-3 right-1 z-10 w-[132px] rotate-[5deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card md:-right-3 md:-top-6 lg:w-[150px]"
           >
             <p className="font-[family-name:var(--font-hand)] text-[19px] leading-[1.1] text-v2-sticky-ink lg:text-[22px]">
               Same me. Bigger opportunities.
@@ -114,12 +114,12 @@ export default function AboutHero() {
           {/* Mascot overlaps the panel's bottom-right corner */}
           <Mascot
             pose="headphones"
-            className="absolute -bottom-3 right-2 z-10 h-24 w-24 md:h-28 md:w-28 lg:-bottom-2 lg:right-6 lg:h-36 lg:w-36"
+            className="absolute -bottom-3 right-2 z-10 h-24 w-24 md:-bottom-2 md:right-4 md:h-[clamp(96px,11vw,144px)] md:w-[clamp(96px,11vw,144px)]"
           />
         </div>
 
         {/* buttons */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 lg:col-start-1 lg:row-start-2 lg:self-start">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 md:col-start-1 md:row-start-2 md:self-start">
           <MissionButton />
           <WatchStory
             withDuration

@@ -36,17 +36,17 @@ export default function OrgTableMock({ className }: { className?: string }) {
 
       {/* Toolbar: md+ only, it is purely illustrative. */}
       <div className="mt-4 hidden items-center gap-2 md:flex">
-        <span className="flex flex-1 items-center gap-2 rounded-lg border border-v2-line px-3 py-2 text-[12px] text-v2-muted">
-          <SearchIcon className="h-3.5 w-3.5" />
+        <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap rounded-lg border border-v2-line px-3 py-2 text-[12px] text-v2-muted">
+          <SearchIcon className="h-3.5 w-3.5 flex-none" />
           Search employees…
         </span>
         {["All Departments", "All Statuses"].map((t) => (
-          <span key={t} className="flex items-center gap-1.5 rounded-lg border border-v2-line px-3 py-2 text-[12px] text-v2-muted">
+          <span key={t} className="hidden flex-none items-center gap-1.5 whitespace-nowrap rounded-lg border border-v2-line px-3 py-2 text-[12px] text-v2-muted lg:flex">
             {t}
             <ChevronDownIcon className="h-3 w-3" />
           </span>
         ))}
-        <span className="rounded-lg bg-[#1F9D3A] px-3.5 py-2 text-[12px] font-bold text-white">Add Employee</span>
+        <span className="flex-none whitespace-nowrap rounded-lg bg-[#1F9D3A] px-3.5 py-2 text-[12px] font-bold text-white">Add Employee</span>
       </div>
 
       {/* md+: table */}

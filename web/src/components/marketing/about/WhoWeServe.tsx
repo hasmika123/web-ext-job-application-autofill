@@ -78,7 +78,7 @@ export default function WhoWeServe() {
   return (
     <Section labelledBy="serve-title" className="py-10 lg:py-14">
       <RowHeading id="serve-title" eyebrow="Who We Serve" title="Different journeys." accent="A brighter destination." />
-      <ul className="mt-8 grid gap-4 lg:mt-10 lg:grid-cols-4 lg:gap-5">
+      <ul className="mt-8 grid gap-4 md:grid-cols-2 lg:mt-10 lg:grid-cols-4 lg:gap-5">
         {AUDIENCES.map((a) => (
           <li key={a.title}>
             <Link

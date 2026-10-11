@@ -27,29 +27,32 @@ export default function OrgTableMock({ className }: { className?: string }) {
       role="img"
       aria-label="Organization dashboard preview: 248 applications, 32 interviews, 5 offers and 12 active employees, with a Team Activity table for Priya S., Jason T., Maya K. and Rohit A."
       className={cn(
-        "w-full min-w-0 max-w-full overflow-hidden rounded-[var(--radius-v2-card)] border border-v2-line/70 bg-white p-4 shadow-v2-float sm:p-5",
+        "@container w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-v2-line/60 bg-white p-4 shadow-v2-float",
         className,
       )}
     >
-      <p className="text-[15px] font-bold text-v2-navy">Organization Dashboard</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[15px] font-bold text-v2-navy">Organization Dashboard</p>
+        <span aria-hidden className="flex-none text-[12px] font-bold leading-none tracking-widest text-v2-muted/40">· ···</span>
+      </div>
       <ul className="mt-3 grid grid-cols-4 gap-2">
         {STATS.map((s) => (
-          <li key={s.label} className={cn("rounded-xl px-1.5 py-2 text-center", FAMILY[s.family].soft)}>
-            <p className="text-[17px] font-extrabold leading-none text-v2-navy sm:text-[19px]">{s.value}</p>
-            <p className="mt-1 text-[10px] leading-tight text-v2-ink-soft">{s.label}</p>
+          <li key={s.label} className={cn("rounded-xl px-1.5 py-1.5 text-center", FAMILY[s.family].soft)}>
+            <p className="text-[17px] font-extrabold leading-none text-v2-navy @[400px]:text-[20px]">{s.value}</p>
+            <p className="mt-1 text-[10px] leading-tight text-v2-muted @[400px]:text-[11px]">{s.label}</p>
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-[14px] font-bold text-v2-navy">Team Activity</p>
+      <p className="mt-3 text-[14px] font-bold text-v2-navy">Team Activity</p>
       <table className="mt-2 w-full table-fixed border-separate border-spacing-0 text-left text-[12.5px]">
         <thead>
           <tr className="text-[10.5px] font-medium text-v2-muted">
-            <th scope="col" className="w-[28%] pb-2 pl-1 font-medium sm:w-[30%]">
+            <th scope="col" className="w-[28%] pb-2 pl-1 font-medium @[400px]:w-[30%]">
               <span className="sr-only">Name</span>
             </th>
             <th scope="col" className="pb-2 text-center font-medium">
-              <span className="sm:hidden">Apps</span>
-              <span className="hidden sm:inline">Applic&shy;ations</span>
+              <span className="@[400px]:hidden">Apps</span>
+              <span className="hidden @[400px]:inline">Applic&shy;ations</span>
             </th>
             <th scope="col" className="pb-2 text-center font-medium">
               Interviews
@@ -57,7 +60,7 @@ export default function OrgTableMock({ className }: { className?: string }) {
             <th scope="col" className="pb-2 text-center font-medium">
               Offers
             </th>
-            <th scope="col" className="w-[24%] pb-2 text-center font-medium sm:w-[21%]">
+            <th scope="col" className="w-[24%] pb-2 text-center font-medium @[400px]:w-[21%]">
               Status
             </th>
           </tr>
@@ -65,16 +68,16 @@ export default function OrgTableMock({ className }: { className?: string }) {
         <tbody>
           {ROWS.map((r) => (
             <tr key={r.name}>
-              <td className="border-t border-v2-line/60 py-2 pl-1">
+              <td className="border-t border-v2-line/60 py-1.5 pl-1">
                 <span className="flex items-center gap-2">
-                  <LetterTile letter={r.name[0]} family={r.tint} className="hidden h-6 w-6 rounded-full text-[11px] sm:grid" />
+                  <LetterTile letter={r.name[0]} family={r.tint} className="hidden h-6 w-6 rounded-full text-[11px] @[360px]:grid" />
                   <span className="truncate font-semibold text-v2-navy">{r.name}</span>
                 </span>
               </td>
-              <td className="border-t border-v2-line/60 py-2 text-center text-v2-ink-soft">{r.apps}</td>
-              <td className="border-t border-v2-line/60 py-2 text-center text-v2-ink-soft">{r.interviews}</td>
-              <td className="border-t border-v2-line/60 py-2 text-center text-v2-ink-soft">{r.offers}</td>
-              <td className="border-t border-v2-line/60 py-2 text-center">
+              <td className="border-t border-v2-line/60 py-1.5 text-center text-v2-ink-soft">{r.apps}</td>
+              <td className="border-t border-v2-line/60 py-1.5 text-center text-v2-ink-soft">{r.interviews}</td>
+              <td className="border-t border-v2-line/60 py-1.5 text-center text-v2-ink-soft">{r.offers}</td>
+              <td className="border-t border-v2-line/60 py-1.5 text-center">
                 <StatusChip family={r.family} className="px-2 py-1 text-[10.5px]">
                   {r.status}
                 </StatusChip>

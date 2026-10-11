@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import { cn } from "@kiwiply/ui";
 
 /** Soft panel tints for banded landing sections (the board's rounded containers). */
-export type SectionTone = "wash" | "lime" | "blue" | "sky" | "lavender" | "white";
+export type SectionTone = "wash" | "mint" | "lilac" | "lime" | "blue" | "sky" | "lavender" | "white";
 
 const TONE: Record<SectionTone, string> = {
   wash: "bg-gradient-to-br from-[#E6F7DF] via-[#EEF8F6] to-[#E4EEFF]",
+  lilac: "bg-gradient-to-r from-[#EAE3FF] via-[#F2F0FF] to-[#E6F6E2]",
+  mint: "bg-gradient-to-br from-white via-[#F3FBEC] to-[#DFF4D8]",
   lime: "bg-gradient-to-br from-v2-lime-soft via-[#F4FCEA] to-white",
   blue: "bg-gradient-to-br from-[#EEF4FF] via-white to-[#F3F8FF]",
   sky: "bg-gradient-to-br from-v2-blue-soft via-[#F1F6FF] to-v2-violet-soft/60",
@@ -49,8 +51,8 @@ export default function Section({
     >
       <div
         className={cn(
-          "mx-auto max-w-[1200px]",
-          tone && "relative overflow-hidden rounded-[28px] px-6 py-10 sm:px-10 lg:rounded-[32px] lg:px-14 lg:py-14",
+          "mx-auto max-w-[1200px] [container-type:inline-size]",
+          tone && "relative overflow-hidden rounded-[28px] px-6 py-10 sm:px-10 md:px-7 md:py-12 lg:rounded-[32px] lg:px-11 lg:py-14 xl:px-14",
           tone && TONE[tone],
           innerClassName,
         )}

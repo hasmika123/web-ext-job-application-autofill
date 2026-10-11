@@ -13,10 +13,10 @@ import { MissionButton } from "./shared";
 export default function Story() {
   return (
     <Section labelledBy="story-title" className="py-10 lg:py-14">
-      <div className="grid gap-x-12 gap-y-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-        <div className="lg:col-start-1 lg:row-start-1">
+      <div className="grid gap-x-6 gap-y-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:items-center lg:gap-x-12">
+        <div className="md:col-start-1 md:row-start-1">
           <Eyebrow family="green">Our Story</Eyebrow>
-          <h2 id="story-title" className="mt-4 text-[28px] text-v2-navy md:text-4xl lg:text-[40px]">
+          <h2 id="story-title" className="mt-4 text-[28px] text-v2-navy md:text-[clamp(24px,3.2vw,40px)]">
             Built for <span className={FAMILY.green.headline}>brighter careers.</span>
           </h2>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
@@ -30,9 +30,9 @@ export default function Story() {
           </p>
         </div>
 
-        <div className="relative lg:col-start-2 lg:row-span-2 lg:row-start-1">
-          <div className="relative flex min-h-[260px] items-end justify-center overflow-hidden rounded-[32px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft pt-16 lg:min-h-[360px] lg:rounded-[48px]">
-            <div className="w-[92%] lg:w-[84%]">
+        <div className="relative md:col-start-2 md:row-span-2 md:row-start-1">
+          <div className="relative flex min-h-[260px] items-end justify-center overflow-hidden rounded-[32px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft pt-16 md:min-h-[clamp(260px,34vw,360px)] md:rounded-[48px]">
+            <div className="w-[92%] md:w-[84%]">
               <Photo
                 id="about-team"
                 alt="A small team gathered around a laptop, smiling"
@@ -44,7 +44,7 @@ export default function Story() {
 
           <Handwritten
             family="violet"
-            className="absolute left-4 top-4 w-44 -rotate-6 text-[24px] lg:left-6 lg:top-6 lg:w-52 lg:text-[26px]"
+            className="absolute left-4 top-4 w-44 -rotate-6 text-[24px] md:left-5 md:top-5 md:w-[clamp(150px,18vw,208px)] md:text-[clamp(20px,2.2vw,26px)]"
           >
             A brighter future of work. Together.
             <HeartIcon size={16} className="ml-1 inline text-v2-blue" />
@@ -52,7 +52,7 @@ export default function Story() {
 
           <div
             aria-hidden
-            className="absolute -right-1 top-6 z-10 w-[112px] rotate-[4deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card lg:-right-3 lg:top-10 lg:w-[128px]"
+            className="absolute -right-1 top-6 z-10 w-[112px] rotate-[4deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card md:-right-3 md:top-10 md:w-[clamp(100px,11vw,128px)]"
           >
             <p className="font-[family-name:var(--font-hand)] text-[18px] leading-[1.1] text-v2-sticky-ink">
               People Opportunity Progress Always.
@@ -62,11 +62,11 @@ export default function Story() {
 
           <Mascot
             pose="headphones"
-            className="absolute -bottom-3 right-2 z-10 h-24 w-24 lg:bottom-0 lg:right-4 lg:h-32 lg:w-32"
+            className="absolute -bottom-3 right-2 z-10 h-24 w-24 md:bottom-0 md:right-4 md:h-[clamp(80px,10vw,128px)] md:w-[clamp(80px,10vw,128px)]"
           />
         </div>
 
-        <div className="lg:col-start-1 lg:row-start-2 lg:self-start">
+        <div className="md:col-start-1 md:row-start-2 md:self-start">
           <MissionButton />
         </div>
       </div>

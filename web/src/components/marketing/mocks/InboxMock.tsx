@@ -40,7 +40,7 @@ export default function InboxMock({ className }: { className?: string }) {
                 <span className="truncate">{r.role}</span>
               </p>
             </div>
-            <span className="hidden flex-none text-[11.5px] text-v2-muted sm:block">{r.time}</span>
+            <span className="hidden flex-none text-[11.5px] text-v2-muted sm:block md:hidden xl:block">{r.time}</span>
             <StatusChip family={r.family} className="min-w-[68px] justify-center">
               {r.tag}
             </StatusChip>

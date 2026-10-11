@@ -76,20 +76,20 @@ function FoliageMascot({ className }: { className?: string }) {
 export default function InboxTracking() {
   return (
     <Section id="inbox" labelledBy="inbox-title" tone="wash">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,0.95fr)_80px_minmax(0,1.05fr)_236px] xl:items-center xl:gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_calc(236*var(--u))] md:items-center md:gap-4 lg:grid-cols-[minmax(0,0.95fr)_calc(80*var(--u))_minmax(0,1.05fr)_calc(236*var(--u))] lg:gap-5">
         {/* Copy */}
-        <div className="flex flex-col items-start gap-5">
+        <div className="flex flex-col items-start gap-4 lg:gap-5">
           <Eyebrow family="green" className="px-3 py-1.5 text-[11.5px] font-bold uppercase tracking-wide">
             Track Applications
           </Eyebrow>
-          <h2 id="inbox-title" className="text-[30px] text-v2-navy md:text-4xl xl:text-[40px]">
+          <h2 id="inbox-title" className="text-[30px] text-v2-navy md:text-[clamp(22px,2.6vw,40px)] md:leading-[1.12]">
             We track your job application emails automatically.
           </h2>
-          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[clamp(13.5px,1.15vw,17px)]">
             Connect your Gmail or Outlook and Kiwiply monitors recruiter responses, interview invites, rejections and
             more — then alerts you instantly.
           </p>
-          <CtaLink href={SIGNUP_HREF} className="mt-1">
+          <CtaLink href={SIGNUP_HREF} className="mt-1 md:max-lg:min-h-10 md:max-lg:px-4 md:max-lg:text-sm">
             Connect Your Email
           </CtaLink>
           <div className="flex items-center gap-3">
@@ -103,39 +103,39 @@ export default function InboxTracking() {
         </div>
 
         {/* Dotted connector with the three provider tiles (desktop only) */}
-        <div className="relative hidden flex-col items-center gap-6 self-center xl:flex">
+        <div className="relative hidden flex-col items-center gap-[clamp(10px,2.2cqw,24px)] self-center lg:flex">
           <span aria-hidden className="absolute bottom-8 left-1/2 top-8 border-l-2 border-dotted border-v2-blue/35" />
-          <span aria-hidden className={`${TILE} relative h-20 w-20 text-v2-blue`}>
+          <span aria-hidden className={`${TILE} relative h-[calc(80*var(--u))] min-h-12 w-[calc(80*var(--u))] min-w-12 text-v2-blue`}>
             <TargetIcon className="h-9 w-9" />
           </span>
-          <GmailTile className="relative h-20 w-20" />
-          <span aria-hidden className={`${TILE} relative h-20 w-20 text-[#0F6CBD]`}>
+          <GmailTile className="relative h-[calc(80*var(--u))] min-h-12 w-[calc(80*var(--u))] min-w-12" />
+          <span aria-hidden className={`${TILE} relative h-[calc(80*var(--u))] min-h-12 w-[calc(80*var(--u))] min-w-12 text-[#0F6CBD]`}>
             <CalendarIcon className="h-9 w-9" />
           </span>
           <span className="sr-only">Gmail, Outlook and Yahoo Mail supported</span>
         </div>
 
         {/* Inbox card */}
-        <InboxMock className="relative z-10 md:max-w-[560px] xl:max-w-none" />
+        <InboxMock className="relative z-10 w-full max-w-[560px] md:max-w-none" />
 
         {/* Right gutter spacer (desktop): the note, doodles and mascot are positioned against the band */}
-        <div aria-hidden className="hidden xl:block" />
+        <div aria-hidden className="hidden md:block" />
       </div>
 
       {/* Desktop decorations, positioned against the band */}
       <Handwritten
         ink="navy"
-        className="absolute right-12 top-10 z-20 hidden w-[150px] -rotate-[10deg] text-[30px] xl:block xl:right-12 xl:top-10"
+        className="absolute right-12 top-10 z-20 hidden w-[calc(150*var(--u))] min-w-[96px] -rotate-[10deg] text-[clamp(18px,2.7cqw,30px)] md:block md:right-5 md:top-6 lg:right-8 lg:top-9 xl:right-12 xl:top-10"
       >
         We&apos;ll keep an eye on your inbox!
       </Handwritten>
-      <StarDoodle aria-hidden className="absolute right-[250px] top-[34%] z-20 hidden h-7 w-7 text-v2-amber xl:block" />
-      <StarDoodle aria-hidden className="absolute right-6 top-[44%] z-20 hidden h-6 w-6 text-v2-amber xl:block" />
-      <SparkBurst aria-hidden className="absolute right-[160px] top-[40%] z-20 hidden h-8 w-8 text-v2-green xl:block" />
-      <FoliageMascot className="absolute bottom-0 right-0 z-30 hidden w-[372px] xl:block" />
+      <StarDoodle aria-hidden className="absolute right-[calc(250*var(--u))] top-[34%] z-20 hidden h-7 w-7 text-v2-amber lg:block" />
+      <StarDoodle aria-hidden className="absolute right-4 top-[44%] z-20 hidden h-6 w-6 text-v2-amber lg:block" />
+      <SparkBurst aria-hidden className="absolute right-[calc(160*var(--u))] top-[40%] z-20 hidden h-8 w-8 text-v2-green lg:block" />
+      <FoliageMascot className="absolute bottom-0 right-0 z-30 hidden w-[calc(310*var(--u))] md:block" />
 
       {/* Mobile: note over the mascot, bottom flush with the band */}
-      <div className="-mb-10 mt-6 flex flex-col items-start gap-1 xl:hidden">
+      <div className="-mb-10 mt-6 flex flex-col items-start gap-1 md:hidden">
         <Handwritten ink="navy" className="w-full -rotate-3 text-center text-[26px]">
           We&apos;ll keep an eye on your inbox!
         </Handwritten>

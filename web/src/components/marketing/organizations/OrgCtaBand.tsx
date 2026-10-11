@@ -12,8 +12,8 @@ import { ORG_TESTIMONIAL } from "./placeholder-data";
 export default function OrgCtaBand() {
   const t = ORG_TESTIMONIAL;
   return (
-    <section aria-labelledby="org-cta-title" className="relative overflow-hidden pb-16 pt-8 md:pb-24 lg:pb-0">
-      <Container className="grid items-end gap-6 lg:grid-cols-[minmax(0,230px)_minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-6">
+    <section aria-labelledby="org-cta-title" className="relative overflow-hidden pb-16 pt-8 md:pb-16 lg:pb-0">
+      <Container className="grid items-end gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-4 lg:grid-cols-[minmax(0,230px)_minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-6">
         {/* Bottom-anchored cutout with its handwritten note: wide screens only. It is wider than its
             column and tucks under the card; the band's bottom edge is its floor. */}
         <div className="relative hidden self-stretch lg:block">
@@ -34,10 +34,10 @@ export default function OrgCtaBand() {
           />
         </div>
 
-        <div className="relative z-10 rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-v2-card backdrop-blur max-lg:mb-8 sm:p-8 lg:mb-16 lg:p-10">
+        <div className="relative z-10 rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-v2-card backdrop-blur max-lg:mb-8 sm:p-8 md:p-6 lg:mb-16 lg:p-10">
           <div className="flex flex-col items-start gap-4">
             <Eyebrow family="green">Trusted by organizations</Eyebrow>
-            <h2 id="org-cta-title" className="max-w-xl text-[28px] leading-[1.1] text-v2-navy md:text-[36px]">
+            <h2 id="org-cta-title" className="max-w-xl text-[28px] leading-[1.1] text-v2-navy md:text-[clamp(22px,2.9vw,36px)]">
               Help your team land more opportunities <span className={HEADLINE_GREEN}>with less busywork.</span>
             </h2>
             <p className="max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
@@ -52,10 +52,10 @@ export default function OrgCtaBand() {
               </Link>
             </div>
           </div>
-          <Mascot pose="laptop" className="absolute -bottom-12 right-3 h-24 w-24 sm:right-6 sm:h-28 sm:w-28 lg:hidden" />
+          <Mascot pose="laptop" className="absolute -bottom-12 right-3 h-24 w-24 sm:right-6 sm:h-28 sm:w-28 md:hidden" />
         </div>
 
-        <figure className="flex flex-col gap-5 lg:mb-16 rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-6 shadow-v2-card">
+        <figure className="flex flex-col gap-5 max-lg:mb-8 lg:mb-16 rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-6 shadow-v2-card">
           <blockquote className="text-[14.5px] leading-relaxed text-v2-ink-soft">&ldquo;{t.quote}&rdquo;</blockquote>
           <figcaption className="flex items-center gap-3">
             <Avatar initials="PS" family="coral" className="h-11 w-11 text-[13px]" />

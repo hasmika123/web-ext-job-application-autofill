@@ -30,12 +30,12 @@ export default function DashboardMock({ className }: { className?: string }) {
   return (
     <MockFrame
       label="Dashboard preview: a sidebar (Dashboard, Jobs, Applications, Interviews, Offers, Analytics, Settings) and a My Applications list with Google, Amazon, Microsoft and Airbnb applications and their status"
-      className={className}
+      className={cn("@container", className)}
       bodyClassName="p-0 sm:p-0"
     >
-      <div className="grid sm:grid-cols-[168px_minmax(0,1fr)]">
-        <aside className="bg-v2-navy-deep p-4 sm:rounded-none">
-          <div className="mb-4">
+      <div className="grid sm:grid-cols-[168px_minmax(0,1fr)] md:@max-[599px]:grid-cols-[52px_minmax(0,1fr)]">
+        <aside className="bg-v2-navy-deep p-4 sm:rounded-none md:@max-[599px]:px-2">
+          <div className="mb-4 md:@max-[599px]:hidden">
             <BrandLogo tone="dark" height={22} />
           </div>
           <ul className="space-y-0.5">
@@ -43,12 +43,12 @@ export default function DashboardMock({ className }: { className?: string }) {
               <li
                 key={n.label}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium",
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium md:@max-[599px]:justify-center md:@max-[599px]:px-0 md:@max-[599px]:py-2.5",
                   n.active ? "bg-v2-green/25 text-white" : "text-white/70",
                 )}
               >
-                <n.icon aria-hidden className="h-4 w-4" />
-                {n.label}
+                <n.icon aria-hidden className="h-4 w-4 flex-none" />
+                <span className="md:@max-[599px]:sr-only">{n.label}</span>
               </li>
             ))}
           </ul>
@@ -76,7 +76,7 @@ export default function DashboardMock({ className }: { className?: string }) {
                   <p className="truncate text-[13.5px] font-bold leading-tight text-v2-navy">{r.company}</p>
                   <p className="truncate text-[12px] leading-tight text-v2-muted">{r.role}</p>
                 </div>
-                <span className="hidden flex-none text-[11.5px] text-v2-muted sm:block">{r.when}</span>
+                <span className="hidden flex-none text-[11.5px] text-v2-muted sm:block md:@max-[599px]:hidden">{r.when}</span>
                 <StatusChip family={r.family} className="min-w-[72px] justify-center">
                   {r.status}
                 </StatusChip>

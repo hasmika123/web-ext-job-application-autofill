@@ -15,11 +15,11 @@ const APPLICATIONS = [
 export default function Mission() {
   return (
     <Section id="mission" labelledBy="mission-title" className="pb-10 pt-16 lg:pb-14 lg:pt-20">
-      <div className="grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-14">
+      <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-8 lg:gap-14">
         {/* art */}
-        <div className="relative mx-auto w-full max-w-[560px] lg:max-w-none">
-          <div className="relative h-[320px] overflow-hidden rounded-[28px] bg-gradient-to-br from-v2-blue-soft via-white to-v2-lime-soft sm:h-[380px] lg:rounded-[32px]">
-            <div className="absolute bottom-0 left-4 w-[56%] lg:left-6 lg:w-[54%]">
+        <div className="relative mx-auto w-full max-w-[560px] md:max-w-none">
+          <div className="relative h-[320px] overflow-hidden rounded-[28px] bg-gradient-to-br from-v2-blue-soft via-white to-v2-lime-soft sm:h-[380px] md:h-[clamp(300px,44vw,380px)] lg:rounded-[32px]">
+            <div className="absolute bottom-0 left-4 w-[56%] md:left-4 md:w-[54%] lg:left-6">
               <Photo
                 id="hero-student"
                 alt="A job seeker smiling at her laptop"
@@ -71,10 +71,10 @@ export default function Mission() {
         {/* copy */}
         <div>
           <Eyebrow family="green">Our Why</Eyebrow>
-          <h2 id="mission-title" className="mt-4 text-[28px] text-v2-navy md:text-4xl lg:text-[40px]">
+          <h2 id="mission-title" className="mt-4 text-[28px] text-v2-navy md:text-[clamp(24px,3.2vw,40px)]">
             Why we built <span className={cn(FAMILY.green.headline)}>Kiwiply</span>
           </h2>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[clamp(14px,1.4vw,17px)]">
             Job searching is full of friction &mdash; too many tabs, repetitive forms, uncertain follow-ups,
             and missed opportunities. We built Kiwiply to change that. By combining AI with a human-centered
             design, we make it easier to find better-fit opportunities, simplify applications, track your

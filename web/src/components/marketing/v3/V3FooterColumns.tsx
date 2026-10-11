@@ -15,23 +15,23 @@ export default function V3FooterColumns({ groups }: { groups: NavGroup[] }) {
   const [open, setOpen] = useState<string | null>(null);
 
   return (
-    <nav aria-label="Footer" className="divide-y divide-white/10 border-y border-white/10 lg:grid lg:grid-cols-4 lg:gap-6 lg:divide-y-0 lg:border-0">
+    <nav aria-label="Footer" className="divide-y divide-white/10 border-y border-white/10 md:grid md:grid-cols-2 md:gap-x-6 md:gap-y-6 md:divide-y-0 md:border-0 lg:grid-cols-4">
       {groups.map((g) => {
         const isOpen = open === g.label;
         const panelId = `${uid}-${g.label.replace(/\s+/g, "-")}`;
         return (
-          <div key={g.label} className="lg:py-0">
+          <div key={g.label} className="md:py-0">
             <button
               type="button"
               aria-expanded={isOpen}
               aria-controls={panelId}
               onClick={() => setOpen(isOpen ? null : g.label)}
-              className="flex min-h-14 w-full cursor-pointer items-center justify-between text-left text-[15px] font-bold text-white lg:pointer-events-none lg:min-h-0 lg:cursor-default lg:pb-3"
+              className="flex min-h-14 w-full cursor-pointer items-center justify-between text-left text-[15px] font-bold text-white md:pointer-events-none md:min-h-0 md:cursor-default md:pb-3"
             >
               {g.label}
-              <ChevronDownIcon aria-hidden className={cn("h-4 w-4 transition-transform lg:hidden", isOpen && "rotate-180")} />
+              <ChevronDownIcon aria-hidden className={cn("h-4 w-4 transition-transform md:hidden", isOpen && "rotate-180")} />
             </button>
-            <ul id={panelId} className={cn("flex-col pb-4 lg:flex lg:pb-0", isOpen ? "flex" : "hidden")}>
+            <ul id={panelId} className={cn("flex-col pb-4 md:flex md:pb-0", isOpen ? "flex" : "hidden")}>
               {g.items.map((item) => (
                 <li key={item.label}>
                   {item.soon ? (

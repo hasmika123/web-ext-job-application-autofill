@@ -148,15 +148,15 @@ function OutcomesChart() {
 export default function OrgReporting() {
   return (
     <section id="reporting" aria-labelledby="org-reporting-title" className="scroll-mt-20 py-12 md:py-16">
-      <Container className="grid gap-8 lg:grid-cols-[0.8fr_1.4fr] lg:gap-8">
-        <div className="flex flex-col items-start gap-5 lg:pt-6">
+      <Container className="grid gap-8 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)] md:gap-5 lg:gap-8">
+        <div className="flex flex-col items-start gap-5 md:pt-6">
           <Eyebrow family="green">Reporting &amp; Insights</Eyebrow>
-          <h2 id="org-reporting-title" className="text-[28px] leading-[1.08] text-v2-navy md:text-[36px] lg:text-[40px]">
+          <h2 id="org-reporting-title" className="text-[28px] leading-[1.08] text-v2-navy md:text-[clamp(22px,2.9vw,40px)]">
             Turn progress into
             <br />
             measurable <span className={HEADLINE_GREEN}>impact.</span>
           </h2>
-          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[clamp(13.5px,1.3vw,17px)]">
             Track key metrics, understand what&apos;s working, and demonstrate the value of your program with powerful
             analytics.
           </p>
@@ -169,7 +169,7 @@ export default function OrgReporting() {
               <ChevronDownIcon className="h-3 w-3" />
             </span>
           </div>
-          <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {REPORT_TILES.map((t) => {
               const f = FAMILY[t.tone];
               const Icon = TILE_ICONS[t.label] ?? BriefcaseIcon;
@@ -187,7 +187,7 @@ export default function OrgReporting() {
               );
             })}
           </ul>
-          <div className="grid gap-4 md:grid-cols-[1.35fr_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
             <VelocityChart />
             <OutcomesChart />
           </div>

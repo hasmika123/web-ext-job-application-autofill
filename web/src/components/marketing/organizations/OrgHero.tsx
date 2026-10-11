@@ -22,10 +22,10 @@ export default function OrgHero() {
         <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-v2-lime/30 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -right-24 top-0 h-72 w-72 rounded-full bg-v2-blue/20 blur-3xl" />
 
-        <Container className="relative grid items-center gap-10 lg:grid-cols-[0.9fr_1.2fr] lg:gap-6">
-          <div className="relative flex flex-col items-start gap-6">
+        <Container className="relative grid items-center gap-10 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] md:gap-4 lg:gap-6">
+          <div className="relative flex flex-col items-start gap-4 lg:gap-6">
             <Eyebrow family="teal">For Organizations</Eyebrow>
-            <h1 id="org-hero-title" className="text-[36px] leading-[1.04] text-v2-navy md:text-[44px] lg:text-[56px] xl:text-[60px]">
+            <h1 id="org-hero-title" className="text-[36px] leading-[1.04] text-v2-navy md:text-[clamp(28px,4.4vw,56px)] xl:text-[60px]">
               Support employee
               <br />
               <span className={HEADLINE_GREEN}>job placement</span>
@@ -36,11 +36,11 @@ export default function OrgHero() {
               aria-hidden
               className="absolute right-0 top-[8.5rem] hidden h-8 w-8 text-v2-lime-deep lg:block"
             />
-            <p className="max-w-[500px] text-base leading-relaxed text-v2-ink-soft md:text-lg">
+            <p className="max-w-[500px] text-base leading-relaxed text-v2-ink-soft md:text-[clamp(14px,1.4vw,18px)]">
               Manage your team&apos;s job search, assign support, track progress, and improve outcomes with AI-powered
               tools — all in one place.
             </p>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-5">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3">
               <Link href={contactHref("organization")} className={buttonVariants("accent", "lg", "min-h-11 w-full whitespace-nowrap sm:w-auto")}>
                 Book a Demo <ArrowRightIcon size={16} />
               </Link>
