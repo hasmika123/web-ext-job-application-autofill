@@ -14,7 +14,7 @@ import {
   cn,
   useToast,
 } from "@kiwiply/ui";
-import { FilterSelect, IconTile, ProgressRing, SectionCard, StatusChip, UnderlineTabs } from "@/components/app-v2/common";
+import { AppArt, FilterSelect, IconTile, ProgressRing, SectionCard, StatusChip, UnderlineTabs } from "@/components/app-v2/common";
 import type { Tone } from "@/components/app-v2/common";
 import HeroBand from "../local-d/HeroBand";
 import {
@@ -87,7 +87,7 @@ export default function InterviewPrepPage() {
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
       <HeroBand title="Interview Preparation" subtitle="Practice, learn, and build confidence." mascot="calendar-note" />
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+      <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_clamp(220px,26vw,330px)]">
         <div className="flex min-w-0 flex-col gap-5">
           <div className="rounded-2xl border border-v2-line bg-white shadow-v2-soft">
             <UnderlineTabs padded counts="pill" ariaLabel="Interview prep sections" value={tab} onChange={setTab} className="border-b-0 px-2 sm:px-4" tabs={IP_TABS} />
@@ -126,12 +126,12 @@ export default function InterviewPrepPage() {
                   })}
                 </ul>
 
-                <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
-                  <div className="min-w-0 flex-1">
+                <div className="mt-5 flex flex-wrap items-end gap-3">
+                  <div className="min-w-[150px] flex-1">
                     <p className="mb-1.5 text-[12.5px] font-semibold text-v2-ink-soft">Select a Role</p>
                     <FilterSelect label="Select a Role" options={IP_ROLES} value={role} onChange={setRole} />
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-[150px] flex-1">
                     <p className="mb-1.5 text-[12.5px] font-semibold text-v2-ink-soft">Select Company (Optional)</p>
                     <FilterSelect label="Select Company (Optional)" options={IP_COMPANIES} placeholder value={company} onChange={setCompany} />
                   </div>
@@ -236,7 +236,18 @@ export default function InterviewPrepPage() {
           )}
         </div>
 
-        <aside className="grid min-w-0 content-start gap-4 md:grid-cols-2 xl:grid-cols-1">
+        <aside className="grid min-w-0 content-start gap-4">
+          {/* Board 2/3/4: the mock-interview mascot card heads the rail. */}
+          <section className="flex flex-col items-center gap-2 rounded-2xl border border-v2-line bg-[linear-gradient(160deg,#F1FBE5_0%,#E4F1FF_100%)] p-4 text-center shadow-v2-soft">
+            <h2 className="self-start font-display text-[16px] font-extrabold tracking-tight text-v2-navy">Mock Interview</h2>
+            <AppArt name="mascot-wave-laptop" height={112} />
+            <p className="text-[14.5px] font-bold leading-tight text-v2-navy">Start a real-time mock interview</p>
+            <p className="max-w-[260px] text-[12.5px] leading-snug text-v2-ink-soft">Get feedback on your answers, communication, and confidence.</p>
+            <button type="button" onClick={soon} className={cn(LIME_BTN, "mt-1 h-10 w-full text-[13.5px]")}>
+              Start Mock Interview
+            </button>
+          </section>
+
           <SectionCard title="Recent Practice Sessions" action={{ label: "View all", onClick: () => setTab("sessions") }}>
             <ul className="space-y-3">
               {IP_RECENT_SESSIONS.map((s) => (
@@ -244,7 +255,7 @@ export default function InterviewPrepPage() {
                   <ProgressRing value={s.score} tone={scoreTone(s.score)} size={46} label={`${s.score} percent`}>
                     <span className="text-[11.5px] font-extrabold text-v2-navy">{s.score}%</span>
                   </ProgressRing>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-[150px] flex-1">
                     <p className="truncate text-[14px] font-bold leading-tight text-v2-navy">{s.title}</p>
                     <p className="truncate text-[12.5px] text-v2-ink-soft">{s.sub}</p>
                   </div>
