@@ -13,7 +13,8 @@ import { cn } from "@kiwiply/ui";
  *    the right of the art (`"aside"`, the org banner).
  *  - `decor`: an extra absolutely-positioned layer (doodles).
  *  - `size="lg"`: the org hero (40px title, art + note from `lg`).
- *  - `artFrom`: the breakpoint the art appears at (below it the copy keeps the whole width).
+ *  - `artFrom`: the breakpoint the art appears at (default `sm`, `lg` for size `lg`; below it the
+ *    copy keeps the whole width).
  */
 export default function PageHero({
   title,
