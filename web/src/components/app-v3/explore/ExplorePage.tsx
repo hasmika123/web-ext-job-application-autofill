@@ -31,14 +31,14 @@ export default function ExplorePage() {
       </div>
 
       <section id="explore-companies" className="scroll-mt-24">
-        <SectionCard title="Popular Companies">
-          <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <SectionCard title="Popular Companies" action={{ label: "View all", onClick: soon }}>
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
             {EX_COMPANIES.map((c) => (
               <li key={c.name}>
                 <button
                   type="button"
                   onClick={soon}
-                  className="flex w-full flex-col items-center gap-2 rounded-2xl border border-v2-line bg-white p-4 text-center transition-shadow hover:shadow-v2-soft"
+                  className="flex w-full flex-col items-center gap-2 rounded-2xl border border-v2-line bg-white px-2 py-4 text-center transition-shadow hover:shadow-v2-soft"
                 >
                   <CompanyTile name={c.name} size={48} />
                   <span className="text-[14.5px] font-bold text-v2-navy">{c.name}</span>
@@ -51,7 +51,7 @@ export default function ExplorePage() {
       </section>
 
       <section id="explore-roles" className="scroll-mt-24">
-        <SectionCard title="Trending Roles">
+        <SectionCard title="Trending Roles" action={{ label: "View all", onClick: soon }}>
           <ul className="flex flex-wrap gap-2.5">
             {EX_ROLES.map((r) => (
               <li key={r}>
