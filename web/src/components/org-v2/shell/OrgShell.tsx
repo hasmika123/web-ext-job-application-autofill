@@ -251,7 +251,7 @@ export default function OrgShell({
         </header>
 
       {demo && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
-        <main className="min-w-0 px-4 pb-14 pt-2 lg:px-6">{children}</main>
+        <main className="min-w-0 px-4 pb-24 lg:pb-14 pt-2 lg:px-6">{children}</main>
       </div>
     </div>
   );
