@@ -6,6 +6,8 @@
    values → zero visual change). Dark is opt-in via `.dark`/`[data-theme="dark"]`; web does
    not set it yet, so the light palette is unchanged. */
 @import "@kiwiply/ui/styles/tokens.css";
+/* "Kiwiply Bright" - scoped to .theme-v2 (the (marketing) layout wrapper). Landing v2. */
+@import "@kiwiply/ui/styles/theme-v2.css";
 
 /* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
    (e.g. the ResumeUpload form + primitives), which live outside web/src. */

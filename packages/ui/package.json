@@ -10,7 +10,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./styles/tokens.css": "./styles/tokens.css",
-    "./styles/animations.css": "./styles/animations.css"
+    "./styles/animations.css": "./styles/animations.css",
+    "./styles/theme-v2.css": "./styles/theme-v2.css"
   },
   "files": [
     "src",

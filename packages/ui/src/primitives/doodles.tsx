@@ -1,0 +1,141 @@
+import type { ReactNode, SVGProps } from "react";
+
+/**
+ * Doodles — hand-drawn marketing decorations (landing v2). Stroke-based on `currentColor`,
+ * decorative by default (`aria-hidden`), sized via `className` (`h-10 w-10`). Colour them with
+ * a text-colour utility (`text-v2-green`). Like icons, they live here so web never inlines
+ * an `<svg>` (see packages/ui/README.md).
+ */
+export type DoodleProps = Omit<SVGProps<SVGSVGElement>, "viewBox" | "children">;
+
+function Doodle({
+  viewBox,
+  children,
+  className,
+  ...props
+}: DoodleProps & { viewBox: string; children: ReactNode }) {
+  return (
+    <svg
+      viewBox={viewBox}
+      aria-hidden
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={3}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      {children}
+    </svg>
+  );
+}
+
+/** The three short "!!" lines radiating from a corner — emphasis burst. */
+export function SparkBurst(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 48 48" {...props}>
+      <path d="M26 5l-3 12" />
+      <path d="M9 12l11 7" />
+      <path d="M5 30l13-3" />
+    </Doodle>
+  );
+}
+
+export type CurvedArrowDirection = "down-right" | "down-left" | "up-right";
+
+export interface CurvedArrowProps extends DoodleProps {
+  /** Which way the swoop travels. Default `down-right`. */
+  direction?: CurvedArrowDirection;
+}
+
+/** A swooping hand-drawn arrow, for chaining cards ("next step"). */
+export function CurvedArrow({ direction = "down-right", ...props }: CurvedArrowProps) {
+  switch (direction) {
+    case "down-left":
+      return (
+        <Doodle viewBox="0 0 64 64" {...props}>
+          <path d="M52 6C26 8 12 22 12 50" />
+          <path d="M3 41l9 11 10-10" />
+        </Doodle>
+      );
+    case "up-right":
+      return (
+        <Doodle viewBox="0 0 64 64" {...props}>
+          <path d="M6 54C10 30 26 14 56 12" />
+          <path d="M44 3l12 9-11 10" />
+        </Doodle>
+      );
+    case "down-right":
+    default:
+      return (
+        <Doodle viewBox="0 0 64 64" {...props}>
+          <path d="M8 6c26 2 40 16 40 44" />
+          <path d="M38 42l10 11 10-11" />
+        </Doodle>
+      );
+  }
+}
+
+/** A wavy line. */
+export function Squiggle(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 96 24" {...props}>
+      <path d="M4 14c6-12 10-12 14 0s10 12 14 0 10-12 14 0 10 12 14 0 10-12 14 0" />
+    </Doodle>
+  );
+}
+
+/** Five-point outline star. */
+export function StarDoodle(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 48 48" strokeWidth={3.2} {...props}>
+      <path d="M24 5l5.4 12.6 13.6 1.2-10.3 9 3.1 13.4L24 33.8 12.2 41.2l3.1-13.4-10.3-9 13.6-1.2z" />
+    </Doodle>
+  );
+}
+
+/** A paper plane with a dotted flight trail. */
+export function PaperPlane(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 120 64" strokeWidth={2.6} {...props}>
+      {/* trail */}
+      <path d="M6 56c14 6 26-2 30-16s14-20 28-18" strokeDasharray="1 7" />
+      {/* plane */}
+      <path d="M112 6L66 22l16 8 8 14z" />
+      <path d="M112 6L82 30" />
+      <path d="M82 30l-2 12 10-6" />
+    </Doodle>
+  );
+}
+
+/** Three short confetti ticks. */
+export function Confetti(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 48 48" {...props}>
+      <path d="M8 12l7 4" />
+      <path d="M30 6l-2 8" />
+      <path d="M38 26l-8 3" />
+      <path d="M16 38l4-7" />
+    </Doodle>
+  );
+}
+
+/** Rough single underline for a headline word. Stretches to the width of its box. */
+export function Underline(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 200 16" preserveAspectRatio="none" strokeWidth={4} {...props}>
+      <path d="M4 10C40 4 80 12 120 7s56-1 76 3" />
+    </Doodle>
+  );
+}
+
+/** A loose hand-drawn ring (circle a word or number). Stretches to its box. */
+export function CircleScribble(props: DoodleProps) {
+  return (
+    <Doodle viewBox="0 0 120 64" preserveAspectRatio="none" strokeWidth={3} {...props}>
+      <path d="M62 5C32 4 6 16 7 34s30 26 60 24c28-2 48-14 46-30S92 3 56 8" />
+    </Doodle>
+  );
+}

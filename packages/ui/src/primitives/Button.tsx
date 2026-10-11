@@ -7,11 +7,11 @@ import { cn } from "./cn";
  * the shared tokens (styles/tokens.css).
  */
 export type ButtonVariant = "primary" | "accent" | "ghost" | "danger";
-export type ButtonSize = "md" | "sm";
+export type ButtonSize = "lg" | "md" | "sm";
 
 const BASE =
   "inline-flex items-center justify-center gap-2 font-body font-semibold leading-none " +
-  "rounded-full cursor-pointer no-underline select-none " +
+  "rounded-[var(--radius-button)] cursor-pointer no-underline select-none " +
   "transition-[transform,box-shadow,opacity,filter] duration-150 active:translate-y-px " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent " +
   "disabled:opacity-50 disabled:pointer-events-none";
@@ -26,6 +26,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const SIZES: Record<ButtonSize, string> = {
+  lg: "px-6 py-3.5 text-[15px]",
   md: "px-5 py-[11px] text-sm",
   sm: "px-3.5 py-2 text-[13px]",
 };

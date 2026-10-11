@@ -55,6 +55,7 @@
   --radius-sm: 8px;
   --radius: 10px;
   --radius-lg: 14px;
+  --radius-button: 9999px; /* buttons are pills by default; theme-v2 squares them to 12px */
 
   /* Elevation */
   --shadow-sm: 0 1px 2px rgba(45, 49, 51, 0.06), 0 1px 0 rgba(45, 49, 51, 0.03);

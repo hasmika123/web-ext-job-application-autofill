@@ -45,3 +45,9 @@ export const NON_INDEXABLE_PATHS = [
   "/account/",
   "/newsletter/",
 ] as const;
+
+/**
+ * Demo video for the landing hero's "Watch demo" button. `null` hides the button - set it to a
+ * hosted video URL (YouTube/Vimeo/MP4) once a real demo exists. Never point it at a placeholder.
+ */
+export const DEMO_VIDEO_URL: string | null = null;

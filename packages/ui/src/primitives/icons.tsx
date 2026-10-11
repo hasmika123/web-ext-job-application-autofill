@@ -354,6 +354,220 @@ export const BugIcon = makeIcon("BugIcon", {
   ),
 });
 
+/* ── Marketing / landing v2 glyphs ───────────────────────────────────────────────── */
+
+export const ArrowRightIcon = makeIcon("ArrowRightIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M5 12h14M13 6l6 6-6 6" />,
+});
+
+export const ChevronRightIcon = makeIcon("ChevronRightIcon", {
+  strokeWidth: 2,
+  node: <path d="M9 18l6-6-6-6" />,
+});
+
+export const MenuIcon = makeIcon("MenuIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M4 7h16M4 12h16M4 17h16" />,
+});
+
+/** Solid play triangle (demo button). */
+export const PlayIcon = makeIcon("PlayIcon", {
+  stroke: false,
+  node: <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />,
+});
+
+export const SparklesIcon = makeIcon("SparklesIcon", {
+  node: (
+    <>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+    </>
+  ),
+});
+
+export const TargetIcon = makeIcon("TargetIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.2" />
+    </>
+  ),
+});
+
+export const LayoutGridIcon = makeIcon("LayoutGridIcon", {
+  node: (
+    <>
+      <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
+      <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+    </>
+  ),
+});
+
+export const CalendarIcon = makeIcon("CalendarIcon", {
+  node: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
+    </>
+  ),
+});
+
+/** Outline heart; pass `fill="currentColor"` for the filled state. */
+export const HeartIcon = makeIcon("HeartIcon", {
+  node: <path d="M12 20.5s-8-4.8-8-11A4.5 4.5 0 0 1 12 6.8 4.5 4.5 0 0 1 20 9.5c0 6.2-8 11-8 11z" />,
+});
+
+export const BriefcaseIcon = makeIcon("BriefcaseIcon", {
+  node: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2" />
+      <path d="M3 13h18" />
+    </>
+  ),
+});
+
+export const GraduationCapIcon = makeIcon("GraduationCapIcon", {
+  node: (
+    <>
+      <path d="M2 9l10-5 10 5-10 5z" />
+      <path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5" />
+      <path d="M22 9v6" />
+    </>
+  ),
+});
+
+/** Two chasing arrows (refresh / sync). `RestoreIcon` stays the undo-style glyph. */
+export const RefreshIcon = makeIcon("RefreshIcon", {
+  node: (
+    <>
+      <path d="M20 11a8 8 0 0 0-14.3-4.5L4 8.5" />
+      <path d="M4 4v4.5h4.5" />
+      <path d="M4 13a8 8 0 0 0 14.3 4.5l1.7-2" />
+      <path d="M20 20v-4.5h-4.5" />
+    </>
+  ),
+});
+
+export const ZapIcon = makeIcon("ZapIcon", {
+  node: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
+});
+
+export const LightbulbIcon = makeIcon("LightbulbIcon", {
+  node: (
+    <>
+      <path d="M9 18h6M10 21.5h4" />
+      <path d="M12 2.5a6.5 6.5 0 0 0-3.7 11.8c.5.4.7 1 .7 1.7v.5h6V16c0-.7.2-1.3.7-1.7A6.5 6.5 0 0 0 12 2.5z" />
+    </>
+  ),
+});
+
+export const CheckCircleIcon = makeIcon("CheckCircleIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M7.8 12.4l3 3 5.6-6" />
+    </>
+  ),
+});
+
+export const ClockIcon = makeIcon("ClockIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M12 6.5V12l3.5 2" />
+    </>
+  ),
+});
+
+export const TrophyIcon = makeIcon("TrophyIcon", {
+  node: (
+    <>
+      <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+      <path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5" />
+      <path d="M12 14v4M8.5 21h7M9.5 18h5" />
+    </>
+  ),
+});
+
+export const LayersIcon = makeIcon("LayersIcon", {
+  node: (
+    <>
+      <path d="M12 3l9 5-9 5-9-5z" />
+      <path d="M3 12.5l9 5 9-5" />
+      <path d="M3 16.5l9 5 9-5" />
+    </>
+  ),
+});
+
+export const ShieldCheckIcon = makeIcon("ShieldCheckIcon", {
+  node: (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" />
+      <path d="M8.8 12.2l2.2 2.2 4.2-4.6" />
+    </>
+  ),
+});
+
+export const ClipboardIcon = makeIcon("ClipboardIcon", {
+  node: (
+    <>
+      <rect x="5" y="4.5" width="14" height="17" rx="2" />
+      <path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5" />
+      <path d="M9 11h6M9 15h4" />
+    </>
+  ),
+});
+
+export const InboxIcon = makeIcon("InboxIcon", {
+  node: (
+    <>
+      <path d="M3 13l2.7-7.1A2 2 0 0 1 7.6 4.6h8.8a2 2 0 0 1 1.9 1.3L21 13" />
+      <path d="M3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-5.5a3.5 3.5 0 0 1-7 0z" />
+    </>
+  ),
+});
+
+export const TrendingUpIcon = makeIcon("TrendingUpIcon", {
+  strokeWidth: 2.1,
+  node: <path d="M3 17l6-6 4 4 8-8M15 7h6v6" />,
+});
+
+/** Speech bubble with tail. `MessageIcon` stays the round conversation glyph. */
+export const ChatIcon = makeIcon("ChatIcon", {
+  node: (
+    <>
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H11l-4.5 4v-4H5.5A1.5 1.5 0 0 1 4 14.5z" />
+      <path d="M8 9h8M8 12.5h5" />
+    </>
+  ),
+});
+
+export const GlobeIcon = makeIcon("GlobeIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M2.5 12h19" />
+      <path d="M12 2.5c2.6 2.6 3.9 5.8 3.9 9.5s-1.3 6.9-3.9 9.5c-2.6-2.6-3.9-5.8-3.9-9.5S9.4 5.1 12 2.5z" />
+    </>
+  ),
+});
+
+export const LockIcon = makeIcon("LockIcon", {
+  node: (
+    <>
+      <rect x="4.5" y="10.5" width="15" height="10.5" rx="2" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+      <path d="M12 15v2" />
+    </>
+  ),
+});
+
 /* ── Theme ───────────────────────────────────────────────────────────────────────── */
 
 export const SunIcon = makeIcon("SunIcon", {

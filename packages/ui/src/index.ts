@@ -65,6 +65,7 @@ export { Mark, Wordmark, BrandLockup, Check } from "./primitives/Brand";
 export type { MarkProps, WordmarkProps, BrandLockupProps } from "./primitives/Brand";
 
 export * from "./primitives/icons";
+export * from "./primitives/doodles";
 
 export { cn } from "./primitives/cn";
 
