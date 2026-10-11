@@ -6,28 +6,26 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  BarChartIcon,
+  BellIcon,
   BookmarkOutlineIcon,
-  BuildingIcon,
-  CalendarIcon,
-  ChartIcon,
   ChevronLeftIcon,
   ClipboardIcon,
+  CompassIcon,
   FileTextIcon,
   GearIcon,
-  GraduationCapIcon,
   HomeIcon,
   MenuIcon,
   MessageIcon,
+  MicIcon,
   SearchIcon,
   SparklesIcon,
   UserIcon,
-  UsersIcon,
   XIcon,
-  ZapIcon,
   cn,
 } from "@kiwiply/ui";
 import BrandLogo from "@/components/marketing/BrandLogo";
-import MascotCard from "@/components/app-v2/common/MascotCard";
+import PlanCard from "@/components/app-v2/common/PlanCard";
 import NotificationBell from "@/components/app-shell/NotificationBell";
 import AccountMenu from "@/components/app-shell/AccountMenu";
 import DemoReadOnlyToaster from "@/components/demo/DemoReadOnlyToaster";
@@ -40,7 +38,7 @@ export interface AppAccount {
   lastName?: string;
 }
 
-type NavItem = { href: string; label: string; icon: ReactNode };
+type NavItem = { href: string; label: string; icon: ReactNode; dot?: boolean };
 
 const COLLAPSE_KEY = "kiwiply_sidebar_collapsed";
 
@@ -76,22 +74,20 @@ function useCollapsedPref(): [boolean, (v: boolean) => void] {
 
 const ICON = "h-[18px] w-[18px]";
 
-/** The 15 sidebar entries, in board order (spec section 3.1). */
+/** The 13 sidebar entries, in board order (APP-V3-SPEC section 1). `dot` = the red unread dot. */
 const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Home", icon: <HomeIcon className={ICON} /> },
+  { href: "/dashboard", label: "Dashboard", icon: <HomeIcon className={ICON} /> },
   { href: "/jobs", label: "Job Search", icon: <SearchIcon className={ICON} /> },
-  { href: "/ai-apply", label: "AI Apply", icon: <ZapIcon className={ICON} /> },
-  { href: "/applications", label: "My Applications", icon: <ClipboardIcon className={ICON} /> },
-  { href: "/interviews", label: "Interviews", icon: <CalendarIcon className={ICON} /> },
+  { href: "/applications", label: "Applications", icon: <ClipboardIcon className={ICON} /> },
+  { href: "/profiles", label: "My Profiles", icon: <UserIcon className={ICON} /> },
+  { href: "/assistant", label: "AI Assistant", icon: <SparklesIcon className={ICON} /> },
+  { href: "/alerts", label: "Job Alerts", icon: <BellIcon className={ICON} /> },
+  { href: "/resume-builder", label: "Resume Builder", icon: <FileTextIcon className={ICON} /> },
+  { href: "/interview-prep", label: "Interview Prep", icon: <MicIcon className={ICON} /> },
+  { href: "/messages", label: "Messages", icon: <MessageIcon className={ICON} />, dot: true },
   { href: "/saved", label: "Saved Jobs", icon: <BookmarkOutlineIcon className={ICON} /> },
-  { href: "/resume", label: "Resume", icon: <FileTextIcon className={ICON} /> },
-  { href: "/ai-tools", label: "AI Tools", icon: <SparklesIcon className={ICON} /> },
-  { href: "/insights", label: "Career Insights", icon: <ChartIcon className={ICON} /> },
-  { href: "/messages", label: "Messages", icon: <MessageIcon className={ICON} /> },
-  { href: "/companies", label: "Company Research", icon: <BuildingIcon className={ICON} /> },
-  { href: "/networking", label: "Networking", icon: <UsersIcon className={ICON} /> },
-  { href: "/learning", label: "Learning", icon: <GraduationCapIcon className={ICON} /> },
-  { href: "/profile", label: "Profile", icon: <UserIcon className={ICON} /> },
+  { href: "/explore", label: "Explore", icon: <CompassIcon className={ICON} /> },
+  { href: "/analytics", label: "Analytics", icon: <BarChartIcon className={ICON} /> },
   { href: "/settings", label: "Settings", icon: <GearIcon className={ICON} /> },
 ];
 
@@ -100,13 +96,9 @@ function initialFor(account?: AppAccount | null): string {
   return src.charAt(0).toUpperCase();
 }
 
-/** "Priya S." — first name plus the last initial (the boards' format). */
-function shortName(account?: AppAccount | null): string {
-  if (account?.firstName) {
-    const last = account.lastName?.trim().charAt(0);
-    return last ? `${account.firstName} ${last.toUpperCase()}.` : account.firstName;
-  }
-  return account?.login || account?.email?.split("@")[0] || "Your account";
+/** First name for the "Hi, <First>" chip. */
+function firstNameOf(account?: AppAccount | null): string {
+  return account?.firstName?.trim() || account?.login || account?.email?.split("@")[0] || "there";
 }
 
 export default function AppShell({
@@ -147,7 +139,7 @@ export default function AppShell({
     <div
       className={cn(
         "flex flex-1 flex-col bg-v2-canvas lg:grid lg:items-start",
-        collapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[232px_1fr]",
+        collapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[220px_1fr]",
       )}
     >
       {/* Sidebar: full-height and internally scrollable on lg; off-canvas drawer below lg. */}
@@ -196,15 +188,30 @@ export default function AppShell({
                 aria-label={item.label}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-[9px] text-[14.5px] transition-colors",
+                  "flex items-center gap-3 rounded-xl px-3 py-[9px] text-[14px] transition-colors",
                   active
                     ? "bg-v2-nav-active-bg font-bold text-v2-nav-active-text"
                     : "font-medium text-ink-soft hover:bg-paper-2 hover:text-ink",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                 )}
               >
-                <span className={cn("flex-none", active ? "text-v2-navy" : "text-ink-soft")}>{item.icon}</span>
+                <span className={cn("relative flex-none", active ? "text-v2-nav-active-text" : "text-ink-soft")}>
+                  {item.icon}
+                  {item.dot && (
+                    <span
+                      aria-hidden
+                      className={cn("absolute -right-0.5 -top-0.5 hidden h-2 w-2 rounded-full bg-v2-coral ring-2 ring-paper", collapsed && "lg:block")}
+                    />
+                  )}
+                </span>
                 <span className={cn("truncate", collapsed && "lg:hidden")}>{item.label}</span>
+                {item.dot && (
+                  <span
+                    role="img"
+                    aria-label="Unread messages"
+                    className={cn("ml-auto h-2 w-2 flex-none rounded-full bg-v2-coral", collapsed && "lg:hidden")}
+                  />
+                )}
               </Link>
             );
           })}
@@ -225,24 +232,7 @@ export default function AppShell({
           <span className={cn("truncate", collapsed && "lg:hidden")}>Collapse</span>
         </button>
 
-        {!isPro && (
-          <div className={cn("mt-3", collapsed && "lg:hidden")}>
-            <MascotCard
-              title={
-                <>
-                  Upgrade to
-                  <br />
-                  Kiwiply Pro
-                </>
-              }
-              body={["AI Apply to more jobs", "Advanced insights", "Priority support"]}
-              cta={{ label: "Upgrade Now", href: "/pricing" }}
-              mascot="/v2/app/mascot-grad.png"
-              mascotSize={112}
-              onNavigate={() => setOpen(false)}
-            />
-          </div>
-        )}
+        <PlanCard isPro={isPro} className={cn("mt-auto pt-3", collapsed && "lg:hidden")} onNavigate={() => setOpen(false)} />
       </aside>
 
       {/* Scrim (below lg, when the drawer is open). */}
@@ -270,15 +260,15 @@ export default function AppShell({
             <BrandLogo height={30} />
           </Link>
 
-          <form onSubmit={submitSearch} role="search" className="hidden min-w-0 max-w-[880px] flex-1 sm:block">
+          <form onSubmit={submitSearch} role="search" className="hidden min-w-0 max-w-[560px] flex-1 sm:block">
             <label className="relative block">
               <SearchIcon size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-v2-muted" />
               <input
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search jobs, companies, or skills..."
-                aria-label="Search jobs, companies, or skills"
+                placeholder="Search for jobs, companies, or skills..."
+                aria-label="Search for jobs, companies, or skills"
                 className="h-11 w-full rounded-xl border border-transparent bg-v2-blue-soft/60 pl-11 pr-4 text-[14px] text-ink outline-none transition-colors placeholder:text-v2-muted focus:border-v2-blue/40 focus:bg-paper focus-visible:ring-2 focus-visible:ring-v2-blue/25 [&::-webkit-search-cancel-button]:hidden"
               />
             </label>
@@ -289,7 +279,7 @@ export default function AppShell({
             {demo && <DemoReadOnlyToaster />}
             <AccountMenu
               initial={initialFor(account)}
-              name={shortName(account)}
+              name={firstNameOf(account)}
               isPro={isPro}
               demo={demo}
               onNavigate={() => setOpen(false)}

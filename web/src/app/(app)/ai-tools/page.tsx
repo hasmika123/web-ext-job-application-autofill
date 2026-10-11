@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import ComingSoonPage from "@/components/app-v2/coming-soon/ComingSoonPage";
+import { redirectLegacy } from "@/lib/legacy-redirect";
 
-export const metadata: Metadata = { title: "AI Tools" };
-
-export default function Page() {
-  return <ComingSoonPage slug="ai-tools" />;
+/** AI Tools became the AI Assistant (app v3). */
+export default async function AiToolsRedirect({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  redirectLegacy("/assistant", await searchParams, ["q"]);
 }

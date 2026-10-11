@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import ComingSoonPage from "@/components/app-v2/coming-soon/ComingSoonPage";
+import { redirectLegacy } from "@/lib/legacy-redirect";
 
-export const metadata: Metadata = { title: "Learning" };
-
-export default function Page() {
-  return <ComingSoonPage slug="learning" />;
+/** Company Research, Networking and Learning are folded into Explore (app v3). */
+export default function ExploreRedirect() {
+  redirectLegacy("/explore");
 }

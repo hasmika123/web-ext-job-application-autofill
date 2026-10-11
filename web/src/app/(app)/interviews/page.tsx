@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import InterviewsPage from "@/components/app-v2/interviews/InterviewsPage";
+import { redirectLegacy } from "@/lib/legacy-redirect";
 
-export const metadata: Metadata = { title: "Interviews" };
-
-export default function Page() {
-  return <InterviewsPage />;
+/** Interviews became Interview Prep (app v3). */
+export default function InterviewsRedirect() {
+  redirectLegacy("/interview-prep");
 }

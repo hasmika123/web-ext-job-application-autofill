@@ -14,6 +14,9 @@ export { default as MascotCard } from "./MascotCard";
 export { default as AppArt } from "./AppArt";
 export type { AppArtName } from "./AppArt";
 export { default as HeroArt } from "./HeroArt";
+export { default as HeroBand } from "./HeroBand";
+export { default as PlanCard } from "./PlanCard";
+export { default as PromptChip } from "./PromptChip";
 
 // Stats + data display
 export { default as StatTile } from "./StatTile";

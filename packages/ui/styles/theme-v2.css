@@ -90,8 +90,9 @@
  * matching "-soft" tint (the bright brand colours fail contrast on their own tints).
  */
 @theme static {
-  --color-v2-nav-active-bg: #E9FBD9;
-  --color-v2-nav-active-text: #1B1F5E;
+  /* App v3: the individual app's active nav pill is blue (APP-V3-SPEC section 1); lime stays for CTAs. */
+  --color-v2-nav-active-bg: #E8F0FF;
+  --color-v2-nav-active-text: #1E6FF5;
   --color-v2-org-blue: #1E6FF5;
   --color-v2-org-blue-deep: #1558C9;
   --color-v2-org-nav-active-bg: #E8F0FF;

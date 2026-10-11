@@ -9,9 +9,9 @@ import DemoBadge from "@/components/demo/DemoBadge";
 import { DEMO_NOTE } from "@/lib/demo";
 
 /**
- * Avatar + "First L." / "Student · Individual" + chevron, opening Profile · Settings ·
+ * Avatar + "Hi, <First>" + chevron (app v3), opening Profile · Settings ·
  * Kiwiply for Organizations · Sign out. Rendered in the page tree (not a portal) so the popover
- * keeps the `.theme-v2` tokens. The subtitle stays as drawn on the boards.
+ * keeps the `.theme-v2` tokens.
  */
 export default function AccountMenu({
   initial,
@@ -21,7 +21,7 @@ export default function AccountMenu({
   onNavigate,
 }: {
   initial: string;
-  /** Display name already shortened to "First L.". */
+  /** First name only: the chip reads "Hi, <First>". */
   name: string;
   isPro: boolean;
   /** A public demo account: shows a Demo badge and a "changes aren't saved" line. */
@@ -81,7 +81,7 @@ export default function AccountMenu({
         </span>
         <span className="hidden min-w-0 text-left leading-tight sm:block">
           <span className="block max-w-[150px] truncate text-[14px] font-bold text-ink">
-            {name}
+            Hi, {name}
             {demo && <DemoBadge className="ml-1.5" />}
             {isPro && (
               <span className="ml-1.5 rounded-full bg-v2-lime-soft px-1.5 py-0.5 align-middle text-[9.5px] font-extrabold text-v2-green-ink">
@@ -89,7 +89,6 @@ export default function AccountMenu({
               </span>
             )}
           </span>
-          <span className="block text-[12px] text-muted">Student · Individual</span>
         </span>
         <ChevronDownIcon size={16} className={cn("hidden text-ink-soft transition-transform sm:block", open && "rotate-180")} />
       </button>
@@ -103,7 +102,7 @@ export default function AccountMenu({
           {demo && (
             <p className="px-3 pb-1.5 pt-2 text-[12px] font-medium leading-snug text-v2-amber">{DEMO_NOTE}</p>
           )}
-          <Link role="menuitem" href="/profile" onClick={close} className={item}>
+          <Link role="menuitem" href="/profiles" onClick={close} className={item}>
             <UserIcon size={17} className="text-ink-soft" />
             Profile
           </Link>

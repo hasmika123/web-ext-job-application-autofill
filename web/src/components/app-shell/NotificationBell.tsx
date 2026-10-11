@@ -6,8 +6,7 @@ import { BellIcon } from "@kiwiply/ui";
 import LocalDate from "@/components/LocalDate";
 
 /**
- * The notifications bell in the top bar (Phase 14.6, moved from the sidebar for app v2): a red count
- * badge, and on click a popover with the latest notices — each one opens the application it's about.
+ * The notifications bell in the top bar (Phase 14.6, moved from the sidebar for app v2): a red dot, and on click a popover with the latest notices — each one opens the application it's about.
  * Opening the list marks everything read. Checks on load, when the tab comes back into focus, and
  * every few minutes.
  */
@@ -91,9 +90,7 @@ export default function NotificationBell({ onNavigate }: { onNavigate?: () => vo
       >
         <BellIcon size={21} />
         {unread > 0 && (
-          <span className="absolute right-1 top-1 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-v2-coral px-1 text-[10px] font-bold leading-none text-white ring-2 ring-paper">
-            {unread > 9 ? "9+" : unread}
-          </span>
+          <span aria-hidden className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-v2-coral ring-2 ring-paper" />
         )}
       </button>
 

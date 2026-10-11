@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import ComingSoonPage from "@/components/app-v2/coming-soon/ComingSoonPage";
+import { redirectLegacy } from "@/lib/legacy-redirect";
 
-export const metadata: Metadata = { title: "Career Insights" };
-
-export default function Page() {
-  return <ComingSoonPage slug="insights" />;
+/** Career Insights became Analytics (app v3). */
+export default function InsightsRedirect() {
+  redirectLegacy("/analytics");
 }
