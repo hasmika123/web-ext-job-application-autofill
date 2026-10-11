@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChatIcon, ClockIcon, SendIcon, SparklesIcon, cn, useToast } from "@kiwiply/ui";
+import { ChatIcon, ClockIcon, SendIcon, cn, useToast } from "@kiwiply/ui";
+import Image from "next/image";
 import { InitialsAvatar, SectionCard } from "../../app-v2/common";
 import HeroBand from "../local-c/HeroBand";
 import {
@@ -192,8 +193,8 @@ export default function AssistantPage({ firstName }: { firstName: string }) {
 function AiRow({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5">
-      <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full bg-v2-lime-soft text-v2-green-ink">
-        <SparklesIcon size={17} />
+      <span className="mt-0.5 h-9 w-9 flex-none overflow-hidden rounded-full bg-v2-lime-soft">
+        <Image src="/v2/app/mascot-wave-laptop.png" alt="" width={72} height={72} className="h-full w-full object-cover object-[50%_18%]" />
       </span>
       <div className="max-w-[88%] rounded-2xl rounded-tl-md bg-paper-2 px-4 py-3 text-[14.5px] leading-relaxed text-ink sm:max-w-[75%]">
         {children}
