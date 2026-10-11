@@ -194,7 +194,7 @@ export default function ResumeBuilderPage({
               <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className="max-w-[210px] truncate rounded-lg bg-paper-2 px-2.5 py-1.5 text-[12px] font-medium text-v2-ink-soft hover:bg-[#E8EEF8]"
+                className="max-w-[210px] truncate rounded-lg bg-paper-2 px-2.5 py-2.5 sm:py-1.5 text-[12px] font-medium text-v2-ink-soft hover:bg-[#E8EEF8]"
               >
                 {v.label} {"·"} v{v.version}
               </button>
@@ -226,7 +226,7 @@ export default function ResumeBuilderPage({
                     aria-current={s === active ? "true" : undefined}
                     onClick={() => setActive(s)}
                     className={cn(
-                      "w-full whitespace-nowrap rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors",
+                      "w-full whitespace-nowrap rounded-lg px-3 py-2.5 lg:py-2 text-left text-[13.5px] transition-colors",
                       s === active ? "bg-v2-blue-soft font-bold text-v2-blue" : "font-medium text-v2-ink-soft hover:bg-[#F1F5FB]",
                     )}
                   >
@@ -238,7 +238,7 @@ export default function ResumeBuilderPage({
                 <button
                   type="button"
                   onClick={addSection}
-                  className="inline-flex w-full items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-left text-[13.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft"
+                  className="inline-flex w-full items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 lg:py-2 text-left text-[13.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft"
                 >
                   <PlusIcon className="h-3.5 w-3.5" /> Add Section
                 </button>
@@ -254,7 +254,7 @@ export default function ResumeBuilderPage({
                 value={texts[active] ?? ""}
                 onChange={setText}
                 footer={
-                  <button type="button" onClick={soon} className={cn(LIME_BTN, "h-9 text-[13px]")}>
+                  <button type="button" onClick={soon} className={cn(LIME_BTN, "h-11 text-[13px] sm:h-9")}>
                     <SparklesIcon className="h-4 w-4" /> Generate with AI
                   </button>
                 }
@@ -270,7 +270,7 @@ export default function ResumeBuilderPage({
                       <button
                         type="button"
                         onClick={() => setText(ex.text)}
-                        className="rounded-full border border-v2-line bg-white px-3 py-1.5 text-[12.5px] font-medium text-v2-navy hover:bg-[#F1F5FB]"
+                        className="rounded-full border border-v2-line bg-white px-3 py-2.5 sm:py-1.5 text-[12.5px] font-medium text-v2-navy hover:bg-[#F1F5FB]"
                       >
                         {ex.role}
                       </button>
@@ -317,10 +317,10 @@ export default function ResumeBuilderPage({
                 Selected: <span className="font-bold text-v2-navy">{template}</span>
               </p>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setTab("builder")} className={cn(GHOST_BTN, "h-9 text-[13px]")}>
+                <button type="button" onClick={() => setTab("builder")} className={cn(GHOST_BTN, "h-11 text-[13px] sm:h-9")}>
                   Edit
                 </button>
-                <button type="button" onClick={soon} className={cn(LIME_BTN, "h-9 text-[13px]")}>
+                <button type="button" onClick={soon} className={cn(LIME_BTN, "h-11 text-[13px] sm:h-9")}>
                   Download PDF
                 </button>
               </div>
@@ -348,7 +348,7 @@ export default function ResumeBuilderPage({
             value={cover}
             onChange={setCover}
             footer={
-              <button type="button" onClick={soon} className={cn(LIME_BTN, "h-9 text-[13px]")}>
+              <button type="button" onClick={soon} className={cn(LIME_BTN, "h-11 text-[13px] sm:h-9")}>
                 <SparklesIcon className="h-4 w-4" /> Generate with AI
               </button>
             }

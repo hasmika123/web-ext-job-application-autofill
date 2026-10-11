@@ -58,7 +58,7 @@ export default function ExplorePage() {
                 <button
                   type="button"
                   onClick={soon}
-                  className="rounded-full border border-v2-line bg-white px-4 py-2 text-[13.5px] font-semibold text-v2-navy hover:bg-v2-blue-soft hover:text-v2-blue"
+                  className="rounded-full border border-v2-line bg-white px-4 py-2.5 text-[13.5px] font-semibold text-v2-navy hover:bg-v2-blue-soft hover:text-v2-blue"
                 >
                   {r}
                 </button>
@@ -92,8 +92,8 @@ export default function ExplorePage() {
         <SectionCard title="Resources">
           <ul className="divide-y divide-v2-line/70">
             {EX_RESOURCES.map((r) => (
-              <li key={r.title}>
-                <button type="button" onClick={soon} className="flex w-full items-center gap-3 py-3 text-left first:pt-0 last:pb-0">
+              <li key={r.title} className="py-3 first:pt-0 last:pb-0">
+                <button type="button" onClick={soon} className="flex w-full items-center gap-3 text-left">
                   <IconTile tone="blue">
                     <FileTextIcon className="h-5 w-5" />
                   </IconTile>

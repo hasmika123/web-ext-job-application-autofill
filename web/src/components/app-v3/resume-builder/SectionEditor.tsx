@@ -33,7 +33,7 @@ function ToolButton({ label, active, onClick, children }: { label: string; activ
       title={label}
       onClick={onClick}
       className={cn(
-        "grid h-8 w-8 flex-none place-items-center rounded-lg text-[14px] text-v2-navy transition-colors hover:bg-[#F1F5FB]",
+        "grid h-10 w-10 sm:h-8 sm:w-8 flex-none place-items-center rounded-lg text-[14px] text-v2-navy transition-colors hover:bg-[#F1F5FB]",
         active && "bg-v2-blue-soft text-v2-blue",
       )}
     >

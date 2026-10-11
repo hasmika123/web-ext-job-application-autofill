@@ -133,7 +133,7 @@ export default function Onboarding({ initialBio, hasResume }: { initialBio: Bio;
 
   if (done) {
     return (
-      <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-6 shadow-[var(--shadow)] sm:p-8">
+      <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)] sm:p-8">
         <h2 className="font-display text-2xl font-semibold text-ink">You&apos;re set.</h2>
         <p className="mt-2 text-[14px] text-ink-soft">
           Kiwiply will fill these answers on every application. You can change any of them on your{" "}
@@ -164,7 +164,7 @@ export default function Onboarding({ initialBio, hasResume }: { initialBio: Bio;
   const answered = s.keys.some((k) => (answers[k] ?? "").trim());
 
   return (
-    <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-6 shadow-[var(--shadow)] sm:p-8">
+    <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)] sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <span className="text-[12.5px] font-semibold text-muted">
           Question {step + 1} of {STEPS.length}
@@ -173,7 +173,7 @@ export default function Onboarding({ initialBio, hasResume }: { initialBio: Bio;
           type="button"
           onClick={() => void skipForNow()}
           disabled={saving}
-          className="text-[12.5px] font-semibold text-muted hover:text-ink hover:underline disabled:opacity-50"
+          className="-my-3 min-h-11 px-1 text-[12.5px] font-semibold text-muted hover:text-ink hover:underline disabled:opacity-50 sm:-my-0 sm:min-h-0"
         >
           Skip for now
         </button>
@@ -246,11 +246,11 @@ export default function Onboarding({ initialBio, hasResume }: { initialBio: Bio;
           type="button"
           onClick={() => setStep(step - 1)}
           disabled={step === 0 || saving}
-          className={cn(buttonVariants("ghost"), step === 0 && "invisible")}
+          className={cn(buttonVariants("ghost"), "min-h-11 sm:min-h-0", step === 0 && "invisible")}
         >
           Back
         </button>
-        <button type="button" onClick={() => void next()} disabled={saving} className={buttonVariants("accent")}>
+        <button type="button" onClick={() => void next()} disabled={saving} className={cn(buttonVariants("accent"), "min-h-11 sm:min-h-0")}>
           {saving ? "Saving…" : step === STEPS.length - 1 ? "Finish" : answered ? "Next" : "Skip this one"}
         </button>
       </div>

@@ -195,7 +195,7 @@ export default function AlertsPage() {
             <li
               key={a.id}
               className={cn(
-                "flex flex-col gap-3 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-5 lg:flex-row lg:items-center lg:gap-5",
+                "flex flex-col gap-3 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-5 md:flex-row md:items-center md:gap-4 lg:gap-5",
                 !a.active && "bg-paper-2/60",
               )}
             >
@@ -218,7 +218,7 @@ export default function AlertsPage() {
                 </div>
               </div>
 
-              <dl className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-[13.5px] text-ink-soft lg:flex-none">
+              <dl className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-[13.5px] text-ink-soft md:w-[150px] md:flex-none md:flex-col md:items-start md:gap-y-1.5 lg:w-auto lg:flex-row lg:items-center">
                 <div className="flex items-center gap-1.5 lg:w-[104px]">
                   <dt className="sr-only">Frequency</dt>
                   <ClockIcon size={15} className="text-v2-muted" />
@@ -231,7 +231,7 @@ export default function AlertsPage() {
                 </div>
               </dl>
 
-              <div className="flex items-center gap-3 lg:flex-none">
+              <div className="flex items-center gap-3 md:flex-none">
                 <Toggle
                   checked={a.active}
                   onCheckedChange={(v) => {
@@ -243,7 +243,7 @@ export default function AlertsPage() {
                 <button
                   type="button"
                   onClick={() => openEdit(a)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-v2-line px-3 text-[13px] font-semibold text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v2-blue"
+                  className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-v2-line px-3.5 text-[13px] lg:h-9 lg:px-3 font-semibold text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v2-blue"
                 >
                   <PencilIcon size={14} />
                   Edit

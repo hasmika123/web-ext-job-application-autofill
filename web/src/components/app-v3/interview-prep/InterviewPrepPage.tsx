@@ -75,7 +75,7 @@ export default function InterviewPrepPage() {
         <li key={q.text} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
           <span className="min-w-0 flex-1 text-[14px] text-v2-navy">{q.text}</span>
           {q.category && <StatusChip tone="slate" className="hidden rounded-md sm:inline-flex">{q.category}</StatusChip>}
-          <button type="button" onClick={soon} className="inline-flex flex-none items-center gap-1 text-[13px] font-semibold text-v2-blue hover:underline">
+          <button type="button" onClick={soon} className="-my-2 inline-flex min-h-11 flex-none items-center gap-1 px-1 text-[13px] font-semibold text-v2-blue hover:underline sm:min-h-0">
             Practice <ArrowRightIcon className="h-3.5 w-3.5" />
           </button>
         </li>
@@ -87,7 +87,7 @@ export default function InterviewPrepPage() {
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
       <HeroBand title="Interview Preparation" subtitle="Practice, learn, and build confidence." mascot="calendar-note" />
 
-      <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_clamp(220px,26vw,330px)]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_clamp(260px,26vw,330px)]">
         <div className="flex min-w-0 flex-col gap-5">
           <div className="rounded-2xl border border-v2-line bg-white shadow-v2-soft">
             <UnderlineTabs padded counts="pill" ariaLabel="Interview prep sections" value={tab} onChange={setTab} className="border-b-0 px-2 sm:px-4" tabs={IP_TABS} />
@@ -96,7 +96,7 @@ export default function InterviewPrepPage() {
           {tab === "practice" && (
             <>
               <SectionCard title="Choose a practice mode">
-                <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <ul className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                   {IP_MODES.map((m) => {
                     const on = m.id === mode;
                     return (
@@ -106,7 +106,7 @@ export default function InterviewPrepPage() {
                           aria-pressed={on}
                           onClick={() => setMode(m.id)}
                           className={cn(
-                            "relative flex h-full w-full flex-col items-start gap-2.5 rounded-2xl border-2 p-4 text-left transition-colors",
+                            "relative flex h-full w-full flex-col items-start gap-2.5 rounded-2xl border-2 p-3.5 text-left sm:p-4 transition-colors",
                             on ? "border-v2-green bg-v2-lime-soft/40" : "border-v2-line bg-white hover:bg-[#F8FAFF]",
                           )}
                         >
@@ -135,7 +135,7 @@ export default function InterviewPrepPage() {
                     <p className="mb-1.5 text-[12.5px] font-semibold text-v2-ink-soft">Select Company (Optional)</p>
                     <FilterSelect label="Select Company (Optional)" options={IP_COMPANIES} placeholder value={company} onChange={setCompany} />
                   </div>
-                  <button type="button" onClick={soon} className={LIME_BTN}>
+                  <button type="button" onClick={soon} className={cn(LIME_BTN, "w-full sm:w-auto")}>
                     Start Mock Interview
                   </button>
                 </div>
@@ -173,15 +173,15 @@ export default function InterviewPrepPage() {
 
           {tab === "questions" && (
             <SectionCard title="Question bank" subtitle="Pick a question to practice out loud.">
-              <ul className="mb-4 flex flex-wrap gap-2" aria-label="Question category">
+              <ul className="mb-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible" aria-label="Question category">
                 {IP_QUESTION_FILTERS.map((f) => (
-                  <li key={f}>
+                  <li key={f} className="flex-none">
                     <button
                       type="button"
                       aria-pressed={f === filter}
                       onClick={() => setFilter(f)}
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-[12.5px] font-semibold",
+                        "whitespace-nowrap rounded-full border px-3.5 py-2.5 text-[12.5px] font-semibold sm:px-3 sm:py-1.5",
                         f === filter ? "border-v2-blue/40 bg-v2-blue-soft text-v2-blue" : "border-v2-line bg-white text-v2-ink-soft hover:bg-[#F1F5FB]",
                       )}
                     >
@@ -207,7 +207,7 @@ export default function InterviewPrepPage() {
                       <span className="block text-[12.5px] text-v2-ink-soft">{m.sub}</span>
                     </span>
                     <span className="hidden flex-none text-[12.5px] text-v2-muted sm:inline">{m.duration}</span>
-                    <button type="button" onClick={soon} className="inline-flex h-9 flex-none items-center rounded-lg bg-v2-lime px-4 text-[13px] font-bold text-v2-navy hover:brightness-95">
+                    <button type="button" onClick={soon} className="inline-flex h-11 flex-none items-center rounded-lg bg-v2-lime sm:h-9 px-4 text-[13px] font-bold text-v2-navy hover:brightness-95">
                       Start
                     </button>
                   </li>
@@ -226,7 +226,7 @@ export default function InterviewPrepPage() {
                       <span className="block text-[12.5px] text-v2-ink-soft">{s.sub}</span>
                     </span>
                     <StatusChip tone={scoreTone(s.score)}>{s.score}%</StatusChip>
-                    <button type="button" onClick={soon} className="text-[13px] font-semibold text-v2-blue hover:underline">
+                    <button type="button" onClick={soon} className="min-h-11 px-1 text-[13px] font-semibold text-v2-blue hover:underline sm:min-h-0">
                       Review
                     </button>
                   </li>
@@ -236,7 +236,7 @@ export default function InterviewPrepPage() {
           )}
         </div>
 
-        <aside className="grid min-w-0 content-start gap-4">
+        <aside className="grid min-w-0 content-start gap-4 sm:grid-cols-2 sm:[&>*:last-child]:col-span-2 lg:grid-cols-1 lg:[&>*:last-child]:col-span-1">
           {/* Board 2/3/4: the mock-interview mascot card heads the rail. */}
           <section className="flex flex-col items-center gap-2 rounded-2xl border border-v2-line bg-[linear-gradient(160deg,#F1FBE5_0%,#E4F1FF_100%)] p-4 text-center shadow-v2-soft">
             <h2 className="self-start font-display text-[16px] font-extrabold tracking-tight text-v2-navy">Mock Interview</h2>

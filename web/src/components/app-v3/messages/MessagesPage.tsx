@@ -61,7 +61,7 @@ export default function MessagesPage() {
         note="Say hello!"
       />
 
-      <div className="grid h-[min(660px,calc(100dvh-13rem))] min-h-[460px] overflow-hidden rounded-2xl border border-v2-line/70 bg-paper shadow-v2-soft grid-cols-[minmax(0,1fr)] md:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="grid h-[min(660px,calc(100dvh-17rem))] md:h-[min(660px,calc(100dvh-13rem))] min-h-[460px] overflow-hidden rounded-2xl border border-v2-line/70 bg-paper shadow-v2-soft grid-cols-[minmax(0,1fr)] md:grid-cols-[340px_minmax(0,1fr)]">
         {/* Conversation list */}
         <section
           aria-label="Conversations"
@@ -131,7 +131,7 @@ export default function MessagesPage() {
               type="button"
               onClick={() => setView("list")}
               aria-label="Back to conversations"
-              className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v2-blue md:hidden"
+              className="inline-flex h-11 w-11 md:h-9 md:w-9 flex-none items-center justify-center rounded-lg text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v2-blue md:hidden"
             >
               <ArrowLeftIcon size={18} />
             </button>

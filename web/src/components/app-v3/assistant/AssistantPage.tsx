@@ -77,7 +77,7 @@ export default function AssistantPage({ firstName }: { firstName: string }) {
                 key={p}
                 type="button"
                 onClick={() => send(p)}
-                className="flex-none whitespace-nowrap rounded-full border border-v2-line bg-paper-2 px-3.5 py-2 text-[13px] font-semibold text-ink-soft transition-colors hover:border-v2-green hover:bg-v2-lime-soft hover:text-v2-green-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v2-blue"
+                className="flex-none whitespace-nowrap rounded-full border border-v2-line bg-paper-2 px-3.5 py-2.5 text-[13px] font-semibold text-ink-soft transition-colors hover:border-v2-green hover:bg-v2-lime-soft hover:text-v2-green-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v2-blue"
               >
                 {p}
               </button>

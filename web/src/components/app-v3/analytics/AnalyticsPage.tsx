@@ -134,7 +134,7 @@ export default function AnalyticsPage({ data }: { data: AnalyticsData }) {
         <UnderlineTabs padded counts="pill" ariaLabel="Analytics sections" value={tab} onChange={setTab} className="border-b-0 px-2 sm:px-4" tabs={AN_TABS} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 lg:grid-cols-4">
         <StatTile tone="blue" icon={<FileTextIcon className="h-5 w-5" />} value={data.stats.applications.value} label="Applications" delta={data.stats.applications.delta} />
         <StatTile tone="green" icon={<CalendarIcon className="h-5 w-5" />} value={data.stats.interviews.value} label="Interviews" delta={data.stats.interviews.delta} />
         <StatTile tone="violet" icon={<TrophyIcon className="h-5 w-5" />} value={data.stats.offers.value} label="Offers" delta={data.stats.offers.delta} />
