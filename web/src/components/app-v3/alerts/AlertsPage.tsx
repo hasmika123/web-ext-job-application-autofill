@@ -219,12 +219,12 @@ export default function AlertsPage() {
               </div>
 
               <dl className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-[13.5px] text-ink-soft lg:flex-none">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 lg:w-[104px]">
                   <dt className="sr-only">Frequency</dt>
                   <ClockIcon size={15} className="text-v2-muted" />
                   <dd className="font-semibold text-ink">{a.frequency}</dd>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 whitespace-nowrap lg:w-[140px]">
                   <dt className="sr-only">Channels</dt>
                   <MailIcon size={15} className="text-v2-muted" />
                   <dd className="font-semibold text-ink">{channelLabel(a.channels)}</dd>
