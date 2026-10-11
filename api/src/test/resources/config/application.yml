@@ -105,6 +105,10 @@ dossier:
   # endpoints and would otherwise trip the 429 limiter.
   rate-limit:
     enabled: false
+  # The integration suite creates demo accounts itself when it needs them.
+  demo:
+    password: test-demo-password
+    create-accounts: false
 management:
   health:
     mail:

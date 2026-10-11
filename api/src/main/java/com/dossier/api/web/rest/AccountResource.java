@@ -3,6 +3,7 @@ package com.dossier.api.web.rest;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.MailService;
 import com.dossier.api.service.UserService;
 import com.dossier.api.service.dto.AdminUserDTO;
@@ -40,10 +41,13 @@ public class AccountResource {
 
     private final MailService mailService;
 
-    public AccountResource(UserRepository userRepository, UserService userService, MailService mailService) {
+    private final DemoGuard demoGuard;
+
+    public AccountResource(UserRepository userRepository, UserService userService, MailService mailService, DemoGuard demoGuard) {
         this.userRepository = userRepository;
         this.userService = userService;
         this.mailService = mailService;
+        this.demoGuard = demoGuard;
     }
 
     /**
@@ -101,6 +105,7 @@ public class AccountResource {
      */
     @PostMapping("/account")
     public void saveAccount(@Valid @RequestBody AdminUserDTO userDTO) {
+        demoGuard.assertNotDemo();
         String userLogin = SecurityUtils.getCurrentUserLogin()
             .orElseThrow(() -> new AccountResourceException("Current user login not found"));
         Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
@@ -128,6 +133,7 @@ public class AccountResource {
      */
     @PostMapping(path = "/account/change-password")
     public void changePassword(@RequestBody PasswordChangeDTO passwordChangeDto) {
+        demoGuard.assertNotDemo();
         if (isPasswordLengthInvalid(passwordChangeDto.getNewPassword())) {
             throw new InvalidPasswordException();
         }

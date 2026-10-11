@@ -9,6 +9,7 @@ import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.dossier.api.security.DomainUserDetailsService.UserWithId;
 import com.dossier.api.service.AdminMfaService;
+import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.RefreshTokenService;
 import com.dossier.api.web.rest.vm.LoginVM;
 import com.dossier.api.web.rest.vm.MfaVM;
@@ -79,18 +80,22 @@ public class AuthenticateController {
 
     private final AdminMfaService adminMfaService;
 
+    private final DemoGuard demoGuard;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
         AuthenticationManagerBuilder authenticationManagerBuilder,
         RefreshTokenService refreshTokenService,
-        AdminMfaService adminMfaService
+        AdminMfaService adminMfaService,
+        DemoGuard demoGuard
     ) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokenDecoder = refreshTokenDecoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
         this.refreshTokenService = refreshTokenService;
         this.adminMfaService = adminMfaService;
+        this.demoGuard = demoGuard;
     }
 
     @Operation(
@@ -99,6 +104,8 @@ public class AuthenticateController {
     )
     @PostMapping("/authenticate")
     public ResponseEntity<?> authorize(@Valid @RequestBody LoginVM loginVM) {
+        // A demo login (or its email) is refused with DEMO_DISABLED while the demo switch is off.
+        demoGuard.assertLoginAllowed(loginVM.getUsername());
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
             loginVM.getUsername(),
             loginVM.getPassword()

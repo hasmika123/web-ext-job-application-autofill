@@ -3,6 +3,7 @@ package com.dossier.api.web.rest;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
 import com.dossier.api.security.AuthoritiesConstants;
+import com.dossier.api.service.DemoAccountService;
 import com.dossier.api.service.GoogleIdTokenService;
 import com.dossier.api.service.TokenIssuer;
 import com.dossier.api.service.UserService;
@@ -41,11 +42,18 @@ public class GoogleAuthController {
     private final GoogleIdTokenService googleIdTokenService;
     private final UserService userService;
     private final TokenIssuer tokenIssuer;
+    private final DemoAccountService demoAccountService;
 
-    public GoogleAuthController(GoogleIdTokenService googleIdTokenService, UserService userService, TokenIssuer tokenIssuer) {
+    public GoogleAuthController(
+        GoogleIdTokenService googleIdTokenService,
+        UserService userService,
+        TokenIssuer tokenIssuer,
+        DemoAccountService demoAccountService
+    ) {
         this.googleIdTokenService = googleIdTokenService;
         this.userService = userService;
         this.tokenIssuer = tokenIssuer;
+        this.demoAccountService = demoAccountService;
     }
 
     @Operation(
@@ -63,6 +71,10 @@ public class GoogleAuthController {
         try {
             GoogleIdTokenService.GoogleProfile profile = googleIdTokenService.verify(googleLoginVM.getCredential());
             if (profile.email() == null || profile.email().isBlank() || !profile.emailVerified()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            // Google sign-in never maps to a demo account (it would link to the shared demo user by email).
+            if (demoAccountService.isDemoIdentifier(profile.email())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
             User user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());

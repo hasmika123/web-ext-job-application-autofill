@@ -48,6 +48,10 @@ public class AdminAuditService {
     public static final String TARGET_JOB_SOURCE = "JOB_SOURCE";
     public static final String JOB_SOURCE_ADD = "JOB_SOURCE_ADD";
     public static final String JOB_SOURCE_TOGGLE = "JOB_SOURCE_TOGGLE";
+    public static final String TARGET_DEMO = "DEMO";
+    public static final String DEMO_ENABLE = "DEMO_ENABLE";
+    public static final String DEMO_DISABLE = "DEMO_DISABLE";
+    public static final String DEMO_RESET = "DEMO_RESET";
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 

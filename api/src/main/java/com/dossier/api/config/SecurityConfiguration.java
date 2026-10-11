@@ -43,6 +43,8 @@ public class SecurityConfiguration {
                 authz
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/mfa")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/demo")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/demo")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/auth/google")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/refresh")).permitAll()

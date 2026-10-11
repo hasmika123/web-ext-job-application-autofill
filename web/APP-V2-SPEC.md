@@ -267,6 +267,73 @@ accordion columns). Mobile per the mobile board. Stats/testimonials/partner name
 | **D landing v3** | worktree | `(marketing)/v3/**`, `components/marketing/v3/*` | `v3:` |
 | **QA** | main checkout | everything: merge, dedupe local primitives into `app-v2/common`, dedupe sample files, tablet/mobile pass on every new route, `npm run build`, PROGRESS log | `appqa:` |
 
+## 9. Demo accounts, switchable from the internal admin (phase `demo:`)
+
+**Goal.** Two demo accounts anyone can open from the login page with one click, so the redesigned
+app and the `/org` admin can be explored without signing up; an internal admin toggle turns the
+whole feature on/off (default **off** in production).
+
+### 9.1 API (Spring)
+- **`app_setting` table** (Liquibase `20261011010000_app_setting.xml`): `setting_key` varchar(100)
+  PK · `setting_value` varchar(1000) · `updated_by` varchar(50) · `updated_date` timestamp. Entity
+  `AppSetting`, repo, `AppSettingService` (`get(key, default)`, `set(key, value, by)`; cached).
+  Seed row `demo.enabled = false`.
+- **Demo accounts** are created at startup by `DemoAccountService.ensureAccounts()` (a
+  `@PostConstruct`/`ApplicationRunner`), never via CSV: logins `demo` (first/last "Demo" /
+  "Job seeker", email `demo@kiwiply.com`) and `demo-org` ("Demo" / "Organization",
+  `demo-org@kiwiply.com`), `ROLE_USER`, activated, password from `dossier.demo.password`
+  (`${DEMO_PASSWORD:kiwiply-demo}`), bcrypt at runtime. Idempotent (update the password hash if the
+  config changed). `isDemo(login)` = login in that fixed set.
+- **Public** `GET /api/public/demo` (permitAll): `{ enabled, accounts: [{login, label, description,
+  landing}] }` — `demo` → label "Job seeker", landing `/dashboard`; `demo-org` → "Organization admin",
+  landing `/org`. **No passwords in any response.**
+- **`POST /api/authenticate/demo` `{login}`** (permitAll): when `demo.enabled` is true and `login`
+  is a demo account, issue the normal access+refresh token pair exactly as `/api/authenticate`
+  does (reuse its code path; `rememberMe=false`); otherwise 403 `DEMO_DISABLED` / 404.
+- **Login guard:** in the password `/api/authenticate` path, a demo login while the flag is off →
+  403 problem `DEMO_DISABLED` ("Demo accounts are currently disabled"). Google sign-in never maps
+  to a demo account.
+- **Read-only guard** `DemoGuard.assertNotDemo()` (403 problem `DEMO_READ_ONLY`, message "This is
+  a demo account — changes aren't saved") on: `POST /api/account` (profile save), change-password,
+  account deletion, account export, billing checkout/portal, inbox connect/disconnect, resume upload
+  and delete, AI quota-consuming endpoints beyond the free allowance (reuse the Free plan gate —
+  demo accounts are Free; do not grant Pro). Reads and the application board mutations (status
+  changes, notes) stay allowed so the board feels live.
+- **Admin** (`ROLE_ADMIN`): `GET /api/admin/settings/demo` → `{enabled, accounts, updatedBy,
+  updatedDate}`; `PUT /api/admin/settings/demo {enabled}` → writes the setting and an audit entry
+  via the existing admin audit mechanism (see `AdminAuditResource`/its service); `POST
+  /api/admin/settings/demo/reset` → `DemoAccountService.resetData()`: wipes the two accounts'
+  applications/resumes/profile/notifications/inbox rows and re-seeds the `demo` profile (bio payload
+  with a complete fictional job seeker: Jordan Lee, Product Designer, Austin TX, skills, two jobs,
+  one degree) plus 8 applications across SAVED/DRAFT/APPLIED/INTERVIEW/OFFER/REJECTED with
+  realistic company/title/dates, and 2 resume rows WITHOUT files (label + parsed payload only;
+  guard the file endpoints for missing blobs). `resetData()` also runs the first time the flag is
+  turned on if the demo account has no applications.
+- Tests: unit tests for `DemoGuard`, `DemoAccountService.ensureAccounts()` idempotency, the setting
+  service; a `DemoAuthenticateIT` for `/api/authenticate/demo` (enabled/disabled) if Docker ITs run
+  on this machine, otherwise a `@WebMvcTest`-style slice. `./gradlew test` green.
+
+### 9.2 Web (Next)
+- BFF routes: `GET /api/demo` (public proxy, `cache: no-store`), `POST /api/auth/demo {login}` (calls
+  `/api/authenticate/demo`, sets the same cookies as `/api/auth/login` — reuse its cookie helper),
+  `GET`/`PUT /api/admin/settings/demo`, `POST /api/admin/settings/demo/reset`.
+- **Login page** (`AuthScreen`, login mode, below the social row): when `enabled`, a card "Just
+  looking? Try the demo" with two buttons — "Explore as a job seeker →" (logs in as `demo`, goes
+  to `/dashboard`) and "Explore as an organization admin →" (logs in as `demo-org`, goes to
+  `/org`). Fetched server-side in `app/login/page.tsx` and passed as a prop; hidden when disabled
+  or when the fetch fails. Also on `/signup` as a one-line link "or try the demo first".
+- **In-app:** `AppShell` and `OrgShell` account menus show a "Demo" badge next to the name and a
+  "Demo account — changes aren't saved" line; `/settings` hides Delete account / Billing actions
+  for demo accounts and shows the same note. Detect via `account.login` in `["demo","demo-org"]`
+  (the layout already fetches `/api/account`).
+- **Admin:** `/admin/system` gets a "Demo accounts" card (first card on the page): a `Switch`
+  "Demo accounts enabled" (client component, optimistic, toasts on success/failure), the two
+  accounts listed with login · label · landing route, "Last changed by X on <date>", a
+  "Reset demo data" ghost button with a confirm dialog, and a note "When off, demo logins are
+  refused and the login page hides the demo buttons." Audit entries appear in `/admin/audit`.
+- Docs: `DEPLOY.md` gets a short "Demo accounts" note (env `DEMO_PASSWORD`, flag lives in the
+  DB, default off); `PROGRESS.md` Log line.
+
 Worktree boot (every worktree agent): `git fetch origin && git merge --ff-only origin/version2`
 (the worktree starts at an old commit), then link dependencies without installing:
 `cmd /c mklink /J node_modules <main-checkout>\node_modules` at the worktree root AND

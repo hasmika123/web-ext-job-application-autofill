@@ -3,6 +3,7 @@ package com.dossier.api.web.rest;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ResumeStorageService;
 import com.dossier.api.service.ResumeStorageService.StoredFile;
 import java.io.IOException;
@@ -33,13 +34,17 @@ public class ResumeFileResource {
     private final ResumeRepository resumeRepository;
     private final ResumeStorageService storageService;
 
-    public ResumeFileResource(ResumeRepository resumeRepository, ResumeStorageService storageService) {
+    private final DemoGuard demoGuard;
+
+    public ResumeFileResource(ResumeRepository resumeRepository, ResumeStorageService storageService, DemoGuard demoGuard) {
         this.resumeRepository = resumeRepository;
         this.storageService = storageService;
+        this.demoGuard = demoGuard;
     }
 
     @PostMapping
     public ResponseEntity<Void> upload(@PathVariable("id") Long id, @RequestParam("file") MultipartFile file) throws IOException {
+        demoGuard.assertNotDemo();
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file provided");
         }
@@ -78,6 +83,7 @@ public class ResumeFileResource {
 
     @DeleteMapping
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
+        demoGuard.assertNotDemo();
         Resume resume = ownedResumeOr404(id);
         String key = resume.getr2ObjectKey();
         if (key != null && !key.isBlank()) {

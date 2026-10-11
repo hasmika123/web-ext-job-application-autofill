@@ -2,6 +2,7 @@ package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.AccountDeletionService;
+import com.dossier.api.service.DemoGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,8 +30,11 @@ public class AccountDeletionResource {
 
     private final AccountDeletionService accountDeletionService;
 
-    public AccountDeletionResource(AccountDeletionService accountDeletionService) {
+    private final DemoGuard demoGuard;
+
+    public AccountDeletionResource(AccountDeletionService accountDeletionService, DemoGuard demoGuard) {
         this.accountDeletionService = accountDeletionService;
+        this.demoGuard = demoGuard;
     }
 
     @Operation(
@@ -39,6 +43,7 @@ public class AccountDeletionResource {
     )
     @DeleteMapping("")
     public ResponseEntity<Void> deleteMyAccount() {
+        demoGuard.assertNotDemo();
         LOG.debug("REST request to delete the current user's account and all data");
         accountDeletionService.deleteCurrentUserAccount();
         return ResponseEntity.noContent().build();

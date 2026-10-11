@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
+import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.inbox.InboxService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -36,8 +37,11 @@ public class InboxResource {
 
     private final InboxService service;
 
-    public InboxResource(InboxService service) {
+    private final DemoGuard demoGuard;
+
+    public InboxResource(InboxService service, DemoGuard demoGuard) {
         this.service = service;
+        this.demoGuard = demoGuard;
     }
 
     @Operation(summary = "The connected inbox, if any")
@@ -49,6 +53,7 @@ public class InboxResource {
     @Operation(summary = "Connect a Gmail with an app password", description = "Checked against Gmail before anything is stored.")
     @PostMapping
     public ResponseEntity<?> connect(@RequestBody ConnectVM vm) {
+        demoGuard.assertNotDemo();
         InboxService.ConnectResult r = service.connect(vm.address(), vm.appPassword());
         if (r.refusal() != null) {
             return ResponseEntity.status(r.refusal().status()).body(Map.of("code", r.refusal().code(), "message", r.refusal().message()));
@@ -65,6 +70,7 @@ public class InboxResource {
     @Operation(summary = "Disconnect the inbox")
     @DeleteMapping
     public Map<String, Object> disconnect() {
+        demoGuard.assertNotDemo();
         service.disconnect();
         return Map.of("ok", true);
     }

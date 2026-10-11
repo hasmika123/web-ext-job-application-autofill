@@ -105,6 +105,10 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
         if (ex instanceof com.dossier.api.service.BillingException billingEx) return (ProblemDetailWithCause) new BillingProblemException(
             billingEx
         ).getBody();
+        // Phase demo — a demo account hit the read-only guard, or demo logins are switched off. 403 + code.
+        if (ex instanceof com.dossier.api.service.DemoException demoEx) return (ProblemDetailWithCause) new DemoProblemException(
+            demoEx
+        ).getBody();
         // Phase 12 — a Pro-only feature refused for a Free user. 402, not 403: they are not
         // forbidden, they just haven't paid. Clients branch on the `code` property.
         if (ex instanceof com.dossier.api.service.ProRequiredException proEx) return (ProblemDetailWithCause) new ProRequiredException(
