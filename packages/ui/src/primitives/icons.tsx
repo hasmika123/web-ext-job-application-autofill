@@ -892,3 +892,24 @@ export function GoogleIcon({ size = 18, className, ...props }: IconProps) {
     </svg>
   );
 }
+
+/** Open book (guides / help center). */
+export const BookOpenIcon = makeIcon("BookOpenIcon", {
+  node: (
+    <>
+      <path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2z" />
+      <path d="M12 6.5v13" />
+    </>
+  ),
+});
+
+/** Lifebuoy (help & support). */
+export const LifebuoyIcon = makeIcon("LifebuoyIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3.6" />
+      <path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9" />
+    </>
+  ),
+});
