@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import ComingSoonPage from "@/components/app-v2/coming-soon/ComingSoonPage";
+import MessagesPage from "@/components/app-v3/messages/MessagesPage";
 
 export const metadata: Metadata = { title: "Messages" };
 
 export default function Page() {
-  return <ComingSoonPage slug="messages" />;
+  return <MessagesPage />;
 }
