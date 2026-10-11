@@ -1,69 +1,73 @@
-import { BriefcaseIcon, ChatIcon, TrophyIcon, UsersIcon, cn } from "@kiwiply/ui";
-import { FAMILY, type Family } from "./family";
-import { ExampleBadge } from "./parts";
+import type { ComponentType } from "react";
+import { BriefcaseIcon, CalendarIcon, ChevronDownIcon, TrophyIcon, UserIcon, cn, type IconProps } from "@kiwiply/ui";
+import { FAMILY } from "./family";
+import { OVERVIEW } from "./placeholder-data";
+
+const ICONS: Record<string, ComponentType<IconProps>> = {
+  Organizations: UserIcon,
+  Applications: BriefcaseIcon,
+  Interviews: CalendarIcon,
+  Placements: TrophyIcon,
+};
 
 /**
- * Hero stats card: a pure-HTML mock of an organisation overview. Every figure is an
- * illustrative example, flagged by the badge, never a real result.
+ * The hero's "Organization Overview" card: four stat tiles and the "Placement Pipeline" bar.
+ * Decorative product mock (aria-hidden); every number comes from `placeholder-data.ts`.
  */
-const STATS: { label: string; value: string; family: Family; Icon: typeof UsersIcon }[] = [
-  { label: "Consultants", value: "24", family: "blue", Icon: UsersIcon },
-  { label: "Applications", value: "1,243", family: "coral", Icon: BriefcaseIcon },
-  { label: "Interviews", value: "320", family: "violet", Icon: ChatIcon },
-  { label: "Offers", value: "41", family: "green", Icon: TrophyIcon },
-];
-
-const PIPELINE: { label: string; value: string; family: Family; width: string }[] = [
-  { label: "Applied", value: "1,243", family: "blue", width: "w-[58%]" },
-  { label: "Interview", value: "320", family: "violet", width: "w-[28%]" },
-  { label: "Offer", value: "41", family: "green", width: "w-[14%]" },
-];
-
 export default function OrgStatsMock({ className }: { className?: string }) {
   return (
     <div
-      role="group"
-      aria-label="Example organization overview"
+      aria-hidden
       className={cn("rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-4 shadow-v2-float sm:p-5", className)}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-v2-navy">Organization overview</p>
-        <ExampleBadge />
+        <p className="flex items-center gap-2 text-[13px] font-bold text-v2-navy">
+          <span className="grid h-6 w-6 place-items-center rounded-md bg-v2-blue-soft text-v2-blue">
+            <UserIcon className="h-3.5 w-3.5" />
+          </span>
+          {OVERVIEW.title}
+        </p>
+        <span className="inline-flex items-center gap-1 rounded-lg border border-v2-line px-2 py-1 text-[11px] font-medium text-v2-muted">
+          {OVERVIEW.range}
+          <ChevronDownIcon className="h-3 w-3" />
+        </span>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2">
-        {STATS.map(({ label, value, family, Icon }) => {
-          const f = FAMILY[family];
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {OVERVIEW.stats.map((s) => {
+          const f = FAMILY[s.tone];
+          const Icon = ICONS[s.label] ?? UserIcon;
           return (
-            <div key={label} className={cn("flex items-center gap-2.5 rounded-xl p-2.5", f.soft)}>
-              <span aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-white">
-                <Icon size={16} className={f.icon} />
+            <div key={s.label} className={cn("flex items-center gap-2.5 rounded-xl p-2.5", f.soft)}>
+              <span className={cn("grid h-8 w-8 flex-none place-items-center rounded-lg bg-white/80", f.icon)}>
+                <Icon className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <dt className="truncate text-[11px] font-medium text-v2-ink-soft">{label}</dt>
-                <dd className="text-lg font-extrabold leading-tight text-v2-navy">{value}</dd>
+                <p className="truncate text-[10.5px] font-medium text-v2-ink-soft">{s.label}</p>
+                <p className="text-lg font-extrabold leading-tight text-v2-navy">{s.value}</p>
               </div>
             </div>
           );
         })}
-      </dl>
-
-      <div className="mt-4">
-        <p className="text-xs font-bold text-v2-navy">Pipeline</p>
-        <div aria-hidden className="mt-2 flex h-2.5 w-full gap-1 overflow-hidden rounded-full bg-v2-line">
-          {PIPELINE.map((p) => (
-            <span key={p.label} className={cn("h-full rounded-full", p.width, FAMILY[p.family].solid)} />
-          ))}
-        </div>
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-v2-ink-soft">
-          {PIPELINE.map((p) => (
-            <li key={p.label} className="inline-flex items-center gap-1.5">
-              <span aria-hidden className={cn("h-2 w-2 rounded-full", FAMILY[p.family].solid)} />
-              {p.label} <span className="font-semibold text-v2-navy">{p.value}</span>
-            </li>
-          ))}
-        </ul>
       </div>
+
+      <p className="mt-4 text-[13px] font-bold text-v2-navy">{OVERVIEW.pipelineTitle}</p>
+      <div className="mt-2 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full">
+        {OVERVIEW.pipeline.map((p) => (
+          <span key={p.label} className={cn("h-full", FAMILY[p.tone].solid)} style={{ flexGrow: p.weight, flexBasis: 0 }} />
+        ))}
+      </div>
+      <ul className="mt-3 grid grid-cols-3 gap-x-2 gap-y-2 sm:grid-cols-5">
+        {OVERVIEW.pipeline.map((p) => (
+          <li key={p.label} className="flex flex-col">
+            <span className="flex items-center gap-1 text-[10.5px] font-medium text-v2-ink-soft">
+              <span className={cn("h-1.5 w-1.5 rounded-full", FAMILY[p.tone].solid)} />
+              {p.label}
+            </span>
+            <span className="text-[12px] font-bold text-v2-navy">{p.value}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

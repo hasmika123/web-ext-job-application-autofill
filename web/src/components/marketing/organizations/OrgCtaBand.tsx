@@ -1,23 +1,68 @@
-import { Mascot } from "../media";
-import { Container, OrgCtas } from "./parts";
+import Link from "next/link";
+import { ArrowRightIcon, HeartIcon, Squiggle, StarIcon, buttonVariants } from "@kiwiply/ui";
+import { contactHref } from "@/lib/catalog";
+import { HEADLINE_GREEN } from "./family";
+import { Mascot, Photo } from "../media";
+import { Avatar, Container, Eyebrow, Handwritten } from "./parts";
+import { ORG_TESTIMONIAL } from "./placeholder-data";
 
-/** Block 6: closing call-to-action band. */
+/** Block 6: "Trusted by organizations" closing band, the testimonial and the last calls to action. */
 export default function OrgCtaBand() {
+  const t = ORG_TESTIMONIAL;
   return (
-    <section aria-labelledby="org-cta-title" className="pb-16 pt-4 md:pb-24">
-      <Container>
-        <div className="relative flex flex-col items-start gap-6 overflow-hidden rounded-[28px] bg-v2-lime-soft p-6 sm:p-10 md:flex-row md:items-center md:justify-between md:gap-10">
-          <div className="flex max-w-2xl flex-col gap-4">
-            <h2 id="org-cta-title" className="text-[28px] leading-[1.1] text-v2-navy md:text-[36px] md:leading-[1.1]">
-              Help your team land more opportunities with less busywork.
-            </h2>
-            <p className="text-base leading-relaxed text-v2-ink-soft">
-              Tell us about your team and we&apos;ll set up a plan that fits. Pricing is a one-time setup fee plus a plan for each person.
-            </p>
-            <OrgCtas className="mt-1" />
-          </div>
-          <Mascot pose="wave" className="hidden h-40 w-40 md:block" />
+    <section aria-labelledby="org-cta-title" className="relative overflow-hidden pb-16 pt-8 md:pb-24">
+      <Container className="grid items-end gap-6 lg:grid-cols-[0.55fr_1.6fr_1fr] lg:gap-6">
+        {/* Portrait with its handwritten note: wide screens only. */}
+        <div className="relative hidden self-end lg:block">
+          <Handwritten className="absolute -top-2 left-0 z-10 block w-32 -rotate-6 text-[26px]">
+            People. Progress. Together.
+          </Handwritten>
+          <HeartIcon aria-hidden className="absolute left-14 top-[5.5rem] z-10 h-5 w-5 text-v2-amber" />
+          <Squiggle aria-hidden className="absolute left-2 top-28 z-10 h-6 w-10 text-v2-green" />
+          <Photo
+            id="about-portrait"
+            alt="A smiling colleague looking thoughtfully upward"
+            className="aspect-[4/5] w-full"
+            sizes="260px"
+          />
         </div>
+
+        <div className="relative rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-v2-card backdrop-blur sm:p-8 lg:p-10">
+          <div className="flex flex-col items-start gap-4">
+            <Eyebrow family="green">Trusted by organizations</Eyebrow>
+            <h2 id="org-cta-title" className="max-w-xl text-[28px] leading-[1.1] text-v2-navy md:text-[36px]">
+              Help your team land more opportunities <span className={HEADLINE_GREEN}>with less busywork.</span>
+            </h2>
+            <p className="max-w-xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+              Join organizations that are creating brighter futures for their people with Kiwiply.
+            </p>
+            <div className="mt-2 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <Link href={contactHref("organization")} className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>
+                Book a Demo <ArrowRightIcon size={16} />
+              </Link>
+              <Link href="/pricing" className={buttonVariants("ghost", "lg", "min-h-11 w-full bg-white sm:w-auto")}>
+                View Pricing
+              </Link>
+            </div>
+          </div>
+          <Mascot pose="laptop" className="absolute -bottom-6 right-2 h-24 w-24 sm:right-6 sm:h-28 sm:w-28 lg:hidden" />
+        </div>
+
+        <figure className="flex flex-col gap-5 rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-6 shadow-v2-card">
+          <blockquote className="text-[14.5px] leading-relaxed text-v2-ink-soft">&ldquo;{t.quote}&rdquo;</blockquote>
+          <figcaption className="flex items-center gap-3">
+            <Avatar initials="PS" family="coral" className="h-11 w-11 text-[13px]" />
+            <span className="flex flex-col leading-tight">
+              <span className="text-[14px] font-bold text-v2-navy">{t.name}</span>
+              <span className="text-[12.5px] text-v2-ink-soft">{t.role}</span>
+            </span>
+          </figcaption>
+          <p className="flex gap-0.5 text-v2-amber" role="img" aria-label={`${t.stars} out of 5 stars`}>
+            {Array.from({ length: t.stars }, (_, i) => (
+              <StarIcon key={i} aria-hidden className="h-4 w-4 fill-current" />
+            ))}
+          </p>
+        </figure>
       </Container>
     </section>
   );
