@@ -1386,6 +1386,7 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-10 · **v2.0 Landing v2 design (branch `version2`)** · User-supplied mockups (hero carousel, landing, About, Organizations, mobile) saved to `design/landing-v2/`; design locked in `web/LANDING-V2-SPEC.md` (scoped "Kiwiply Bright" theme, honest-copy rules, components, carousel behaviour, phases V2.1–V2.6). Stays on `version2` until the user asks to promote.
 - 2026-10-06 · **Fix: resume upload failing in production** · Reported right after the promotion: "Couldn't
   upload the file". Cause: the box's **S3 key is invalid** (AWS `InvalidClientTokenId`) — every resume file
   upload fails at storage; the user replaces it in IAM + `.env` (DEPLOY.md §1 policy). Two code gaps found on
