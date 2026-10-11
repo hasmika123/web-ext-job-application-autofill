@@ -75,7 +75,7 @@ export default function V3Platform() {
         <div className="relative flex flex-col items-start">
           <CrownDoodle aria-hidden className="absolute right-0 top-0 h-10 w-14 text-[#F5C400] md:hidden" />
           <V3Pill>See Kiwiply in action</V3Pill>
-          <h2 id="v3-platform-title" className="mt-4 max-w-md text-[32px] text-v2-navy md:text-[38px]">
+          <h2 id="v3-platform-title" className="mt-4 max-w-md text-balance text-[32px] text-v2-navy md:text-[clamp(28px,3.7vw,38px)]">
             One platform for your entire job search.
           </h2>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-v2-ink-soft md:text-[16px]">

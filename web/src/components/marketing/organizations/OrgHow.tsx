@@ -81,6 +81,7 @@ export default function OrgHow() {
           accent="better placement outcomes."
           accentFamily="green"
           align="center"
+          className="[&_h2]:max-w-6xl [&_h2]:text-balance"
         />
 
         <ol className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-6 lg:gap-5">

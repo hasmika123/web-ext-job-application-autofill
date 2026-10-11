@@ -40,11 +40,18 @@ function Label({ title, sub, subClass }: { title: string; sub: string; subClass?
 
 export function TeamManagementMock() {
   return (
-    <Chip className="flex items-center gap-1.5 px-2.5 py-2">
+    <Chip className="flex items-center px-2.5 py-2.5">
       {["AL", "MK", "DC"].map((i, n) => (
-        <Avatar key={i} initials={i} family={(["pink", "blue", "teal"] as const)[n]} className="h-7 w-7 text-[10px]" />
+        <Avatar
+          key={i}
+          initials={i}
+          family={(["pink", "blue", "teal"] as const)[n]}
+          className="-ml-2 h-8 w-8 border-2 border-white text-[10px] first:ml-0"
+        />
       ))}
-      <span className="grid h-7 w-7 place-items-center rounded-full bg-v2-blue-soft text-[14px] font-bold leading-none text-v2-blue">+</span>
+      <span className="-ml-2 grid h-8 w-8 flex-none place-items-center rounded-full border-2 border-white bg-v2-blue-soft text-[15px] font-bold leading-none text-v2-blue">
+        +
+      </span>
     </Chip>
   );
 }
@@ -129,7 +136,11 @@ export function AutomationMock() {
 
 export function EmailTrackingMock() {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex items-start gap-1.5">
+      <span className="grid h-6 w-6 flex-none place-items-center rounded-md border border-v2-line/70 bg-white text-[13px] font-extrabold leading-none text-[#D93025] shadow-[0_4px_12px_rgba(27,31,94,0.06)]">
+        M
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
       {[
         { t: "Interview Invitation", s: "2h ago", f: "coral", Icon: MailIcon },
         { t: "Application Viewed", s: "1 day ago", f: "blue", Icon: CheckIcon },
@@ -142,6 +153,7 @@ export function EmailTrackingMock() {
           <Label title={r.t} sub={r.s} />
         </Chip>
       ))}
+      </div>
     </div>
   );
 }
@@ -150,9 +162,9 @@ export function InterviewTrackingMock() {
   return (
     <Chip className="flex flex-col gap-2 px-2.5 py-2">
       <div className="flex items-center gap-2">
-        <IconDot family="coral">
-          <CalendarIcon className="h-3 w-3" />
-        </IconDot>
+        <span className="grid h-7 w-7 flex-none place-items-center rounded-lg bg-v2-coral-soft text-v2-coral">
+          <CalendarIcon className="h-4 w-4" />
+        </span>
         <Label title="Interview" sub="Mon, Apr 22 · 10:00 AM" />
       </div>
       <div className="flex items-center gap-1">
@@ -184,8 +196,8 @@ export function AlertsMock() {
     <div className="flex flex-col gap-1">
       {[
         { t: "Follow up", s: "Due today", f: "coral", Icon: BellIcon },
-        { t: "Interview prep", s: "Tomorrow", f: "green", Icon: CalendarIcon },
-        { t: "Application update", s: "3 new updates", f: "blue", Icon: ChatIcon },
+        { t: "Interview prep", s: "Tomorrow", f: "blue", Icon: CalendarIcon },
+        { t: "Application update", s: "3 new updates", f: "amber", Icon: ChatIcon },
       ].map((r) => (
         <Chip key={r.t} className="flex items-center gap-2 py-1">
           <IconDot family={r.f as Family}>
@@ -213,15 +225,15 @@ export function NotesMock() {
 }
 
 /** Heights (%) of the analytics bars, light and dark alternating as on the board. */
-const ANALYTICS_BARS = [22, 34, 42, 52, 60, 48, 66, 54, 78, 92];
+const ANALYTICS_BARS = [28, 42, 54, 68, 82, 96];
 
 export function AnalyticsMock() {
   return (
-    <div className="flex h-[78px] w-full items-end gap-1.5 rounded-lg bg-v2-green-soft/40 px-2 pb-1.5">
+    <div className="flex h-[78px] w-full items-end gap-2 rounded-lg bg-v2-blue-soft/50 px-3 pb-1.5">
       {ANALYTICS_BARS.map((h, n) => (
         <span
           key={n}
-          className={cn("flex-1 rounded-t-sm", n % 2 === 0 ? "bg-v2-blue/40" : "bg-v2-blue")}
+          className={cn("flex-1 rounded-t-sm", n % 2 === 0 ? "bg-v2-blue" : "bg-v2-green")}
           style={{ height: `${h}%` }}
         />
       ))}

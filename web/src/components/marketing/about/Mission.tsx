@@ -18,8 +18,8 @@ export default function Mission() {
       <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-8 lg:gap-14">
         {/* art */}
         <div className="relative mx-auto w-full max-w-[560px] md:max-w-none">
-          <div className="relative h-[320px] overflow-hidden rounded-[28px] bg-gradient-to-br from-v2-blue-soft via-white to-v2-lime-soft sm:h-[380px] md:h-[clamp(300px,44vw,380px)] lg:rounded-[32px]">
-            <div className="absolute bottom-0 left-4 w-[56%] md:left-4 md:w-[54%] lg:left-6">
+          <div className="relative h-[360px] overflow-hidden rounded-[28px] bg-gradient-to-br from-v2-blue-soft via-white to-v2-lime-soft sm:h-[380px] md:h-[clamp(300px,44vw,380px)] lg:rounded-[32px]">
+            <div className="absolute bottom-0 left-4 z-20 w-[56%] md:left-4 md:w-[54%] lg:left-6">
               <Photo
                 id="hero-student"
                 alt="A job seeker smiling at her laptop"
@@ -28,7 +28,10 @@ export default function Mission() {
               />
             </div>
 
-            <Handwritten family="violet" className="absolute left-4 top-4 w-36 -rotate-6 text-[26px] lg:left-6 lg:top-6">
+            <Handwritten
+              family="violet"
+              className="absolute left-4 top-4 w-[104px] -rotate-6 text-[22px] sm:w-36 sm:text-[26px] md:w-[104px] md:text-[22px] lg:left-6 lg:top-6 lg:w-36 lg:text-[26px]"
+            >
               From searching to thriving
             </Handwritten>
             <CurvedArrow
@@ -37,9 +40,9 @@ export default function Mission() {
             />
 
             {/* Applications card */}
-            <div className="absolute right-3 top-4 z-10 w-[190px] rounded-[var(--radius-v2-card)] bg-white p-3 shadow-v2-float sm:w-[220px] lg:right-5 lg:top-6">
+            <div className="absolute right-3 top-4 z-10 w-[176px] rounded-[var(--radius-v2-card)] bg-white p-3 shadow-v2-float sm:w-[220px] md:w-[176px] lg:right-5 lg:top-6 lg:w-[220px]">
               <p className="text-[13px] font-bold text-v2-navy">Applications</p>
-              <ul className="mt-2 grid gap-2">
+              <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2">
                 {APPLICATIONS.map(({ role, meta, family, icon: Icon }) => (
                   <li key={role} className="flex items-center gap-2.5 rounded-xl border border-v2-line/70 p-2">
                     <IconTile family={family} className="h-8 w-8 rounded-lg">
@@ -55,7 +58,7 @@ export default function Mission() {
             </div>
 
             {/* New message card */}
-            <div className="absolute bottom-5 right-3 z-10 flex w-[200px] items-center gap-3 rounded-[var(--radius-v2-card)] bg-v2-green-soft p-3 shadow-v2-float sm:w-[230px] lg:bottom-7 lg:right-5">
+            <div className="absolute bottom-5 right-3 z-10 flex w-[172px] items-center gap-2.5 rounded-[var(--radius-v2-card)] bg-v2-green-soft p-3 shadow-v2-float sm:w-[230px] sm:gap-3 md:w-[184px] md:gap-2.5 lg:bottom-7 lg:right-5 lg:w-[220px] lg:gap-3">
               <IconTile family="green" className="h-9 w-9 rounded-lg bg-white">
                 <MailIcon size={18} />
               </IconTile>

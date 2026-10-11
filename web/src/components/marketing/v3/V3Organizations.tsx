@@ -11,7 +11,7 @@ const POINTS = ["Manage multiple employees", "Track team applications", "Role-ba
 
 function BarsDoodle() {
   return (
-    <span aria-hidden className="flex h-9 items-end gap-1 text-v2-green">
+    <span aria-hidden className="absolute right-0 top-1 flex h-9 md:left-full md:right-auto md:ml-3 items-end gap-1 text-v2-green">
       <i className="block h-3 w-2.5 rounded-sm border-2 border-current" />
       <i className="block h-5 w-2.5 rounded-sm border-2 border-current" />
       <i className="block h-8 w-2.5 rounded-sm border-2 border-current" />
@@ -26,9 +26,9 @@ export default function V3Organizations() {
         <div className="grid grid-cols-[minmax(0,1fr)] items-end gap-6 md:grid-cols-2 md:gap-10">
           <div className="flex flex-col items-start pb-2 md:pb-14">
             <V3Pill>For Organizations</V3Pill>
-            <div className="mt-4 flex items-start gap-3">
-              <h2 id="v3-org-title" className="text-[32px] text-v2-navy md:text-[38px]">
-                Empower your people.
+            <div className="relative mt-4 w-fit max-w-full">
+              <h2 id="v3-org-title" className="text-[32px] text-v2-navy md:text-[clamp(28px,3.7vw,38px)]">
+                <span className="md:whitespace-nowrap">Empower your people.</span>
                 <br />
                 <span className="text-v2-green">Grow together.</span>
               </h2>
@@ -59,8 +59,8 @@ export default function V3Organizations() {
             <Photo
               id="hero-team"
               alt="Three colleagues smiling at their laptops together"
-              className="mx-auto w-full max-w-[420px] md:ml-auto md:mr-0"
-              sizes="(min-width: 768px) 420px, 100vw"
+              className="mx-auto w-full max-w-[420px] md:-mr-10 md:ml-auto md:w-[calc(100%+2.5rem)] md:max-w-none lg:-mr-14 lg:w-[calc(100%+3.5rem)]"
+              sizes="(min-width: 768px) 480px, 100vw"
               edgeFade={[6, 4]}
               topFade={10}
             />

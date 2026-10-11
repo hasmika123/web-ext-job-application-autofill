@@ -46,8 +46,11 @@ export default function Story() {
             family="violet"
             className="absolute left-4 top-4 w-44 -rotate-6 text-[24px] md:left-5 md:top-5 md:w-[clamp(150px,18vw,208px)] md:text-[clamp(20px,2.2vw,26px)]"
           >
-            A brighter future of work. Together.
-            <HeartIcon size={16} className="ml-1 inline text-v2-blue" />
+            A brighter future of work.{" "}
+            <span className="whitespace-nowrap">
+              Together.
+              <HeartIcon size={16} className="ml-1 inline text-v2-blue" />
+            </span>
           </Handwritten>
 
           <div

@@ -35,13 +35,13 @@ export default function OurPromise() {
   return (
     <Section labelledBy="promise-title" className="py-10 lg:py-14">
       <RowHeading id="promise-title" eyebrow="Our Promise" title="A simpler job search," accent="brighter tomorrows." />
-      <ul className="mt-8 grid grid-cols-2 gap-3 lg:mt-10 lg:grid-cols-4 lg:gap-4">
+      <ul className="mt-8 grid grid-cols-2 gap-3 md:gap-4 lg:mt-10 xl:grid-cols-4">
         {PROMISES.map(({ title, body, family, icon: Icon }) => (
           <li
             key={title}
-            className="flex flex-col items-center gap-3 rounded-[var(--radius-v2-card)] bg-white p-4 text-center shadow-v2-card lg:flex-row lg:items-center lg:gap-4 lg:p-5 lg:text-left"
+            className="flex flex-col items-center gap-3 rounded-[var(--radius-v2-card)] bg-white p-4 text-center shadow-v2-card md:flex-row md:items-center md:gap-4 md:p-5 md:text-left"
           >
-            <IconTile family={family} className="h-14 w-14 rounded-full lg:h-16 lg:w-16">
+            <IconTile family={family} className="h-14 w-14 rounded-full md:h-16 md:w-16">
               <Icon size={26} />
             </IconTile>
             <div>

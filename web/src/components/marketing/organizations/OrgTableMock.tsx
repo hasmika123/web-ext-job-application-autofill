@@ -51,18 +51,18 @@ export default function OrgTableMock({ className }: { className?: string }) {
 
       {/* md+: table */}
       <div className="mt-4 hidden md:block">
-        <div className="grid grid-cols-[24px_1.5fr_1.4fr_1fr_0.9fr_32px] items-center gap-3 rounded-lg bg-v2-canvas px-3 py-2 text-[11px] font-semibold text-v2-muted">
+        <div className="grid grid-cols-[24px_1.5fr_1.4fr_1fr] items-center gap-3 rounded-lg lg:grid-cols-[24px_1.5fr_1.4fr_1fr_0.9fr_32px] bg-v2-canvas px-3 py-2 text-[11px] font-semibold text-v2-muted">
           <span className="h-3.5 w-3.5 rounded border border-v2-line bg-white" />
           <span>Name</span>
           <span>Support Owner</span>
           <span>Placement Stage</span>
-          <span>Last Activity</span>
-          <span>Actions</span>
+          <span className="hidden lg:block">Last Activity</span>
+          <span className="hidden lg:block">Actions</span>
         </div>
         {TEAM_ROWS.map((r, n) => (
           <div
             key={r.name}
-            className="grid grid-cols-[24px_1.5fr_1.4fr_1fr_0.9fr_32px] items-center gap-3 border-b border-v2-line/60 px-3 py-3 last:border-b-0"
+            className="grid grid-cols-[24px_1.5fr_1.4fr_1fr] items-center gap-3 border-b lg:grid-cols-[24px_1.5fr_1.4fr_1fr_0.9fr_32px] border-v2-line/60 px-3 py-3 last:border-b-0"
           >
             <span className="h-3.5 w-3.5 rounded border border-v2-line bg-white" />
             <span className="flex min-w-0 items-center gap-2.5">
@@ -80,8 +80,8 @@ export default function OrgTableMock({ className }: { className?: string }) {
               </span>
             </span>
             <StageChip stage={r.stage} tone={r.tone} />
-            <span className="text-[12px] text-v2-ink-soft">{r.activity}</span>
-            <span className="text-center text-[16px] font-bold leading-none text-v2-muted">···</span>
+            <span className="hidden text-[12px] text-v2-ink-soft lg:block">{r.activity}</span>
+            <span className="hidden text-center text-[16px] lg:block font-bold leading-none text-v2-muted">···</span>
           </div>
         ))}
       </div>

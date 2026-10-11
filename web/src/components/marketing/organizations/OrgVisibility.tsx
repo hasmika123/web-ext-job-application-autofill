@@ -36,7 +36,7 @@ export default function OrgVisibility() {
             oversight tools.
           </p>
 
-          <ul className="mt-2 grid w-full gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+          <ul className="mt-2 grid w-full gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
             {TILES.map((t) => {
               const f = FAMILY[t.family];
               return (

@@ -57,10 +57,10 @@ export default function V3Apply() {
       <div className="mx-auto grid max-w-[1100px] grid-cols-[minmax(0,1fr)] items-center gap-8 md:grid-cols-2 md:gap-12">
         <div className="flex flex-col items-start md:order-1">
           <V3Pill>Let AI do the busy work</V3Pill>
-          <h2 id="v3-apply-title" className="mt-4 text-[32px] text-v2-navy md:text-[38px]">
+          <h2 id="v3-apply-title" className="mt-4 text-balance text-[32px] text-v2-navy md:text-[clamp(28px,3.7vw,38px)]">
             Apply with AI
             <br />
-            on <span className="text-v2-green">LinkedIn + major ATS</span>
+            on <span className="text-v2-green">LinkedIn + major&nbsp;ATS</span>
           </h2>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-v2-ink-soft md:text-[16px]">
             Kiwiply fills forms, generates tailored answers, and selects the best resume — so you can focus on what

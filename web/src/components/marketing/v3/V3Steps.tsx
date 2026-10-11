@@ -23,7 +23,7 @@ export default function V3Steps() {
           <Eyebrow family="blue" className="bg-white px-4 py-1.5 text-[11.5px] font-bold uppercase tracking-[0.12em] shadow-sm">
             How it works
           </Eyebrow>
-          <h2 id="v3-steps-title" className="mt-4 text-[30px] text-v2-navy md:text-[38px]">
+          <h2 id="v3-steps-title" className="mt-4 text-balance text-[30px] text-v2-navy md:text-[clamp(28px,3.7vw,38px)]">
             Get Hired in <span className="text-v2-green">4 Simple Steps</span>
           </h2>
           <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-v2-ink-soft md:text-[16px]">

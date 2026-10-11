@@ -39,8 +39,10 @@ export function RowHeading({
         className,
       )}
     >
-      <Eyebrow family={family}>{eyebrow}</Eyebrow>
-      <h2 id={id} className="text-[28px] leading-[1.1] text-v2-navy md:text-4xl lg:text-[36px]">
+      <Eyebrow family={family} className="flex-none whitespace-nowrap">
+        {eyebrow}
+      </Eyebrow>
+      <h2 id={id} className="min-w-0 text-balance text-[28px] leading-[1.1] text-v2-navy md:text-4xl lg:text-[clamp(28px,3vw,36px)]">
         {title}
         {accent ? (
           <>

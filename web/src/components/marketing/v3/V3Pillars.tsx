@@ -38,7 +38,7 @@ const MOBILE: Pillar[] = [
 
 export default function V3Pillars() {
   return (
-    <section id="pillars" aria-label="What Kiwiply does" className="px-5 pb-4 pt-2 lg:px-8">
+    <section id="pillars" aria-label="What Kiwiply does" className="px-5 pb-4 pt-2 md:pt-10 lg:px-8">
       {/* Desktop */}
       <ul className="mx-auto hidden max-w-[1440px] grid-cols-3 gap-x-6 gap-y-8 md:grid lg:grid-cols-6 lg:gap-x-4 lg:px-6">
         {DESKTOP.map((p) => {

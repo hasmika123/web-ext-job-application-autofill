@@ -89,7 +89,7 @@ export default function V3StoryCarousel({ items }: { items: V3Story[] }) {
           </li>
         ))}
       </ul>
-      <div className="mt-6 flex items-center justify-center gap-2.5" role="group" aria-label="Choose a story">
+      <div className="mt-3 flex items-center justify-center" role="group" aria-label="Choose a story">
         {items.map((t, i) => (
           <button
             key={t.name}
@@ -97,7 +97,7 @@ export default function V3StoryCarousel({ items }: { items: V3Story[] }) {
             aria-label={`Show story ${i + 1} of ${items.length}`}
             aria-current={i === active}
             onClick={() => goTo(i)}
-            className="grid h-6 w-6 cursor-pointer place-items-center"
+            className="grid h-11 w-11 cursor-pointer place-items-center"
           >
             <span className={cn("block h-3 w-3 rounded-full transition-colors", i === active ? "bg-v2-lime-deep" : "bg-v2-line")} />
           </button>

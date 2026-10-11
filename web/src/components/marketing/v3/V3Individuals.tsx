@@ -23,7 +23,7 @@ export default function V3Individuals() {
         <div className="grid grid-cols-[minmax(0,1fr)] items-end gap-6 md:grid-cols-2 md:gap-10">
           <div className="flex flex-col items-start pb-2 md:pb-14">
             <V3Pill>For Individuals</V3Pill>
-            <h2 id="v3-ind-title" className="mt-4 max-w-md text-[32px] text-v2-navy md:text-[38px]">
+            <h2 id="v3-ind-title" className="mt-4 max-w-md text-balance text-[32px] text-v2-navy md:text-[clamp(28px,3.7vw,38px)]">
               More opportunities for a brighter you.
             </h2>
             <ul className="mt-6 space-y-4">

@@ -27,7 +27,7 @@ export default function Testimonials() {
               <blockquote className="text-[15px] italic leading-relaxed text-v2-ink-soft">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
-              <figcaption className="flex items-center gap-3">
+              <figcaption className="flex items-center gap-3 md:max-xl:flex-wrap">
                 <span
                   aria-hidden
                   className={`grid h-12 w-12 flex-none place-items-center rounded-full text-[15px] font-bold ${AVATAR_TINTS[i % AVATAR_TINTS.length]}`}
@@ -38,7 +38,7 @@ export default function Testimonials() {
                   <span className="block text-[15px] font-bold leading-tight text-v2-navy">{t.name}</span>
                   <span className="block text-[13px] text-v2-muted">{t.role}</span>
                 </span>
-                <span role="img" aria-label="5 out of 5 stars" className="flex flex-none gap-0.5 text-v2-amber">
+                <span role="img" aria-label="5 out of 5 stars" className="flex flex-none gap-0.5 text-v2-amber md:max-xl:order-last md:max-xl:w-full">
                   {Array.from({ length: 5 }, (_, s) => (
                     <StarIcon key={s} size={15} fill="currentColor" aria-hidden />
                   ))}

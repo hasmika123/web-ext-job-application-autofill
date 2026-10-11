@@ -102,15 +102,15 @@ export default function WhoWeServe() {
                 </div>
               </div>
 
-              <div className="relative flex min-w-0 flex-1 items-start gap-3 p-4 lg:px-5 lg:pb-5 lg:pt-0">
+              <div className="relative flex min-w-0 flex-1 items-start gap-3 p-4 lg:px-4 lg:pb-5 lg:pt-0 xl:px-5">
                 <div className="min-w-0 flex-1">
                   <IconTile
                     family={a.family}
-                    className="mb-2 h-10 w-10 lg:absolute lg:-top-7 lg:left-5 lg:mb-0 lg:h-14 lg:w-14 lg:rounded-full lg:border-4 lg:border-white"
+                    className="mb-2 h-10 w-10 lg:absolute lg:-top-7 lg:left-4 xl:left-5 lg:mb-0 lg:h-14 lg:w-14 lg:rounded-full lg:border-4 lg:border-white"
                   >
                     <a.icon size={22} />
                   </IconTile>
-                  <h3 className="text-[17px] font-bold leading-snug tracking-normal text-v2-navy lg:mt-8">
+                  <h3 className="text-[17px] font-bold leading-snug tracking-normal text-v2-navy lg:mt-8 lg:max-xl:text-[16px]">
                     {a.title}
                   </h3>
                   <p className="mt-1.5 text-[13.5px] leading-relaxed text-v2-ink-soft">{a.body}</p>

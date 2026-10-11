@@ -72,7 +72,7 @@ export default function V3Hero() {
             </Link>
             <WatchVideo className="md:max-lg:min-h-10 md:max-lg:px-4 md:max-lg:py-2 md:max-lg:text-sm" />
           </div>
-          <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-v2-ink-soft lg:mt-5 lg:gap-x-6 lg:text-[13px]">
+          <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-v2-ink-soft md:max-lg:grid md:max-lg:grid-cols-2 lg:mt-5 lg:gap-x-6 lg:text-[13px]">
             {DESKTOP_TICKS.map((t) => (
               <li key={t} className="flex items-center gap-1.5">
                 <CheckIcon aria-hidden className="h-4 w-4 text-v2-green" strokeWidth={2.6} />
@@ -111,17 +111,15 @@ export default function V3Hero() {
           <WatchVideo className="w-full" />
         </div>
 
-        <div className="relative mt-4 flex min-h-[270px] items-end justify-center">
-          <Handwritten ink="navy" className="absolute left-2 top-2 z-10 -rotate-3 text-[22px]">
-            Same me.
-            <br />
-            More opportunities.
+        <div className="relative mt-4 flex min-h-[270px] items-end justify-end">
+          <Handwritten ink="navy" className="absolute left-2 top-2 z-10 w-[128px] -rotate-3 text-[22px]">
+            Same me. More opportunities.
           </Handwritten>
           <StarDoodle aria-hidden className="absolute right-6 top-3 h-5 w-5 text-v2-green" />
           <Photo
             id="hero-copilot"
             alt="A smiling young woman working on a laptop with a Kiwiply sticker"
-            className="w-[78%] max-w-[300px]"
+            className="mr-[2%] w-[72%] max-w-[280px]"
             sizes="300px"
             priority
           />

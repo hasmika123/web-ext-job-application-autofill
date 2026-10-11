@@ -22,15 +22,16 @@ export default function OrgHero() {
         <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-v2-lime/30 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -right-24 top-0 h-72 w-72 rounded-full bg-v2-blue/20 blur-3xl" />
 
-        <Container className="relative grid items-center gap-10 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] md:gap-4 lg:gap-6">
-          <div className="relative flex flex-col items-start gap-4 lg:gap-6">
+        <Container className="relative grid items-start gap-10 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] md:gap-4 lg:gap-6">
+          <div className="relative flex flex-col items-start gap-4 [container-type:inline-size] md:pt-6 lg:gap-6 lg:pt-16 xl:pt-20">
             <Eyebrow family="teal">For Organizations</Eyebrow>
-            <h1 id="org-hero-title" className="text-[36px] leading-[1.04] text-v2-navy md:text-[clamp(28px,4.4vw,56px)] xl:text-[60px]">
-              Support employee
-              <br />
-              <span className={HEADLINE_GREEN}>job placement</span>
-              <br />
-              at scale.
+            <h1
+              id="org-hero-title"
+              className="w-full text-[36px] leading-[1.04] text-v2-navy md:text-[clamp(24px,10.2cqw,60px)]"
+            >
+              <span className="block whitespace-nowrap">Support employee</span>
+              <span className={`block whitespace-nowrap ${HEADLINE_GREEN}`}>job placement</span>
+              <span className="block whitespace-nowrap">at scale.</span>
             </h1>
             <SparkBurst
               aria-hidden
@@ -85,7 +86,7 @@ export default function OrgHero() {
                 id="org-team"
                 alt="A small team of colleagues looking at a laptop together"
                 className="w-full"
-                sizes="(min-width: 1024px) 640px, 100vw"
+                sizes="(min-width: 1024px) 640px, (min-width: 768px) 50vw, 100vw"
                 priority
               />
               <Mascot pose="headphones" className="absolute -bottom-3 -right-1 h-28 w-28 md:h-36 md:w-36 lg:-right-10 lg:bottom-0" />

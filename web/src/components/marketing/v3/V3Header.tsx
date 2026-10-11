@@ -73,7 +73,7 @@ export default function V3Header({ authed, initial }: { authed: boolean; initial
       )}
     >
       <div className="mx-auto flex h-16 max-w-[1320px] items-center gap-4 px-5 lg:h-[76px] lg:px-8">
-        <Link href="/v3" aria-label="Kiwiply home" className="flex flex-none items-center">
+        <Link href="/v3" aria-label="Kiwiply home" className="flex min-h-11 flex-none items-center">
           <BrandLogo priority className="h-[34px] lg:h-11" />
         </Link>
 

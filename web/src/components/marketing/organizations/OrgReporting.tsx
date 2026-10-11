@@ -118,22 +118,22 @@ function ringGradient(): string {
 
 function OutcomesChart() {
   return (
-    <div className="rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-4 shadow-v2-card md:p-5">
+    <div className="@container rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-4 shadow-v2-card md:p-5">
       <p className="text-[14px] font-bold text-v2-navy">{OUTCOMES.title}</p>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 sm:flex-nowrap">
-        <div className="relative h-32 w-32 flex-none rounded-full" style={{ background: ringGradient() }}>
-          <div className="absolute inset-[16px] grid place-items-center rounded-full bg-white text-center">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-4 @[250px]:flex-nowrap @[300px]:gap-x-6">
+        <div className="relative h-24 w-24 flex-none rounded-full @[300px]:h-32 @[300px]:w-32" style={{ background: ringGradient() }}>
+          <div className="absolute inset-[12px] grid @[300px]:inset-[16px] place-items-center rounded-full bg-white text-center">
             <div className="leading-tight">
-              <p className="text-[26px] font-extrabold text-v2-navy">{OUTCOMES.centerValue}</p>
+              <p className="text-[22px] font-extrabold text-v2-navy @[300px]:text-[26px]">{OUTCOMES.centerValue}</p>
               <p className="text-[11px] text-v2-ink-soft">{OUTCOMES.centerLabel}</p>
             </div>
           </div>
         </div>
-        <ul className="flex min-w-0 flex-1 flex-col gap-2 text-[12px]">
+        <ul className="flex w-full min-w-0 flex-col gap-2 text-[11.5px] @[250px]:w-auto @[250px]:flex-1 @[300px]:text-[12px]">
           {OUTCOMES.legend.map((l) => (
             <li key={l.label} className="flex items-center gap-2">
               <span aria-hidden className={cn("h-2 w-2 flex-none rounded-full", l.dot)} />
-              <span className="text-v2-ink-soft">{l.label}</span>
+              <span className="whitespace-nowrap text-v2-ink-soft">{l.label}</span>
               <span className="ml-auto flex-none font-bold text-v2-navy">
                 {l.value} <span className="font-normal text-v2-muted">({l.pct})</span>
               </span>

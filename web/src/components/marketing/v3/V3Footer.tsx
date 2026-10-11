@@ -49,7 +49,7 @@ export default function V3Footer() {
                     href={s.href}
                     aria-label={s.label}
                     rel="noopener noreferrer"
-                    className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/10 text-[13px] font-extrabold text-white transition-colors hover:bg-white/20"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/10 text-[13px] font-extrabold text-white transition-colors hover:bg-white/20"
                   >
                     {s.short}
                   </a>
@@ -74,7 +74,7 @@ export default function V3Footer() {
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-1">
             {LEGAL.map((l) => (
               <li key={l.label}>
-                <Link href={l.href} className="inline-flex min-h-7 items-center transition-colors hover:text-white">
+                <Link href={l.href} className="inline-flex min-h-11 items-center transition-colors hover:text-white lg:min-h-7">
                   {l.label}
                 </Link>
               </li>

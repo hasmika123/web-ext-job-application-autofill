@@ -38,13 +38,13 @@ const VALUES: Array<{
 export default function ValuesStrip() {
   return (
     <section aria-label="What we stand for" className="px-5 lg:px-8">
-      <ul className="mx-auto grid max-w-[1200px] grid-cols-2 gap-x-4 gap-y-6 rounded-[28px] bg-white p-5 shadow-v2-card lg:grid-cols-4 lg:gap-0 lg:px-4 lg:py-5">
+      <ul className="mx-auto grid max-w-[1200px] grid-cols-2 gap-x-4 gap-y-6 rounded-[28px] bg-white p-5 shadow-v2-card md:gap-x-6 xl:grid-cols-4 xl:gap-0 xl:px-4 xl:py-5">
         {VALUES.map(({ title, body, family, icon: Icon }, i) => (
           <li
             key={title}
             className={cn(
-              "flex flex-col items-center gap-3 text-center lg:flex-row lg:items-center lg:gap-4 lg:px-5 lg:text-left",
-              i > 0 && "lg:border-l lg:border-v2-line",
+              "flex flex-col items-center gap-3 text-center md:flex-row md:items-center md:gap-4 md:px-3 md:text-left xl:px-5",
+              i > 0 && "xl:border-l xl:border-v2-line",
             )}
           >
             <IconTile family={family} className="h-14 w-14">
