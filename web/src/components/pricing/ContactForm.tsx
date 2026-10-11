@@ -9,7 +9,7 @@ import { isEmail, LIMITS } from "@/lib/validate";
 
 /** The board's counter is 0/1000; the API accepts more (4000) but we never send beyond this. */
 const MESSAGE_MAX = 1000;
-const cardClass = "rounded-[22px] bg-white p-5 shadow-v2-card sm:p-7";
+const cardClass = "relative rounded-[22px] bg-white p-5 shadow-v2-card sm:p-7";
 
 /** The "Contact us" form (Phase 15.6, v3 board). Posts to the rate-limited BFF `/api/inquiries`. */
 export default function ContactForm({ initialTopic }: { initialTopic: InquiryTopic }) {

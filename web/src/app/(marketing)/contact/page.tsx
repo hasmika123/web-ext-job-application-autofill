@@ -70,16 +70,16 @@ export default async function ContactPage({
         <Leaf className="left-[10%] top-[200px] hidden h-[56px] w-[34px] rotate-[20deg] lg:block" />
         <Leaf className="left-[16%] top-[170px] hidden h-[34px] w-[22px] rotate-[35deg] lg:block" />
         <Leaf className="right-[6%] top-[400px] hidden h-[34px] w-[56px] -rotate-[20deg] lg:block" />
-        <Leaf className="left-[6%] top-[90px] h-[24px] w-[38px] rotate-[10deg] md:left-[22%]" />
+        <Leaf className="left-[6%] top-[90px] h-[24px] w-[38px] rotate-[10deg] max-sm:left-[1%] max-sm:top-[300px] max-sm:h-[34px] max-sm:w-[54px] max-sm:rotate-[-25deg] md:left-[22%]" />
       </div>
 
       <div className="mx-auto w-full max-w-[1180px] px-4 pb-14 pt-9 sm:px-6 lg:px-8 lg:pt-12">
-        <header className="text-center md:pr-[130px] lg:pr-0">
+        <header className="text-center max-sm:text-left md:pr-[130px] lg:pr-0">
           <p className="text-[11.5px] font-extrabold uppercase tracking-[.22em] text-accent-deep">We&apos;d love to hear from you</p>
-          <h1 className="mt-3 font-display text-[44px] font-extrabold leading-none tracking-tight text-ink md:text-[54px]">
+          <h1 className="mt-3 font-display text-[clamp(40px,12.5vw,56px)] font-extrabold leading-none tracking-tight text-ink sm:text-[44px] md:text-[54px]">
             Talk to us
           </h1>
-          <p className="mx-auto mt-4 max-w-[500px] text-[15px] leading-relaxed text-muted md:text-[17px]">
+          <p className="mx-auto mt-4 max-w-[500px] max-sm:mx-0 max-sm:max-w-[55%] max-sm:text-[14.5px] text-[15px] leading-relaxed text-muted md:text-[17px]">
             {initialTopic === "other"
               ? "Tell us what you’re after"
               : `Interested in ${TOPIC_LABELS[initialTopic]}? Tell us a little about it`}{" "}
@@ -87,8 +87,8 @@ export default async function ContactPage({
           </p>
         </header>
 
-        <div className="mt-[135px] grid items-start gap-6 md:mt-12 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-5 lg:mt-5 lg:gap-8">
-          <div className="order-2 grid gap-4 sm:grid-cols-2 md:order-1 md:grid-cols-1 md:pt-[6px]">
+        <div className="mt-[135px] max-sm:mt-6 grid items-start gap-6 md:mt-12 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-5 lg:mt-5 lg:gap-8">
+          <div className="order-2 grid gap-4 max-sm:hidden sm:grid-cols-2 md:order-1 md:grid-cols-1 md:pt-[6px]">
             {INFO.map(({ icon: Icon, title, body }) => (
               <div key={title} className="flex items-center gap-4 rounded-[18px] bg-white p-4 shadow-v2-soft lg:min-h-[126px] lg:gap-5 lg:p-5">
                 <span className="grid h-12 w-12 flex-none place-items-center rounded-full bg-v2-lime-soft text-v2-navy lg:h-[54px] lg:w-[54px]">
@@ -110,13 +110,13 @@ export default async function ContactPage({
               width={213}
               height={250}
               priority
-              className="pointer-events-none absolute bottom-[calc(100%-6px)] right-3 z-10 h-auto w-[104px] select-none md:right-4 md:w-[130px] lg:right-10 lg:w-[160px]"
+              className="pointer-events-none absolute bottom-[calc(100%-6px)] right-3 z-10 h-auto w-[104px] max-sm:bottom-[calc(100%-10px)] max-sm:right-1 max-sm:z-0 max-sm:w-[136px] select-none md:right-4 md:w-[130px] lg:right-10 lg:w-[160px]"
             />
             <ContactForm initialTopic={initialTopic} />
           </div>
         </div>
 
-        <section className="mt-12 border-t border-line pt-8" aria-labelledby="quick-answers">
+        <section className="mt-12 border-t border-line pt-8 max-sm:mt-8 max-sm:border-t-0 max-sm:pt-0" aria-labelledby="quick-answers">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 id="quick-answers" className="font-display text-[28px] font-extrabold leading-none text-ink">
@@ -126,23 +126,23 @@ export default async function ContactPage({
             </div>
             <a
               href={HELP_HREF}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-v2-lime-deep/50 bg-v2-lime-soft/60 px-4 text-[14px] font-semibold text-accent-deep transition hover:bg-v2-lime-soft"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl max-sm:hidden border border-v2-lime-deep/50 bg-v2-lime-soft/60 px-4 text-[14px] font-semibold text-accent-deep transition hover:bg-v2-lime-soft"
             >
               Visit Help Center <ExternalLinkIcon className="h-4 w-4" />
             </a>
           </div>
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:gap-4 lg:grid-cols-3">
             {QUICK.map(({ icon: Icon, title, body, href }) => (
               <Link
                 key={title}
                 href={href}
-                className="flex min-h-[88px] items-center gap-4 rounded-[18px] bg-white p-4 shadow-v2-soft transition hover:shadow-v2-card"
+                className="flex min-h-[88px] items-center gap-4 rounded-[18px] bg-white p-4 shadow-v2-soft transition hover:shadow-v2-card max-sm:min-h-[96px]"
               >
-                <span className="grid h-12 w-12 flex-none place-items-center rounded-full bg-v2-lime-soft text-v2-navy">
-                  <Icon className="h-6 w-6" />
+                <span className="grid h-12 w-12 flex-none place-items-center rounded-full bg-v2-lime-soft text-v2-navy max-sm:h-14 max-sm:w-14">
+                  <Icon className="h-6 w-6 max-sm:h-7 max-sm:w-7" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-display text-[15px] font-extrabold text-ink">{title}</span>
+                  <span className="block font-display text-[15px] font-extrabold text-ink">{title === "Browse our Help Center" ? (<><span className="sm:hidden">Help Center</span><span className="max-sm:hidden">{title}</span></>) : title}</span>
                   <span className="mt-0.5 block text-[13px] leading-snug text-muted">{body}</span>
                 </span>
                 <ChevronRightIcon className="h-5 w-5 flex-none text-ink" />
