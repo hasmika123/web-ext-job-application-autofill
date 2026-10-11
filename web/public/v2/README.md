@@ -28,8 +28,8 @@ transparent lockup, keeping the 764:234 ratio (or update the constants in `Brand
 | `mascot-wave.png` | 210x221 | winking, one paw raised. About CTA, organisations CTA band |
 | `mascot-laptop.png` | 210x221 | same image. Landing final CTA, hero slide 2, About "Different" |
 | `mascot-headphones.png` | 210x221 | same image. Hero slide 1, About hero, organisations hero |
-| `mascot-envelope.png` | 210x221 | same image. Landing inbox section |
-| `track-foliage.png` | 372x402 | watercolour greenery cut from the Track Applications board (contains the mascot too; `mascot-envelope.png` is laid over it at left 64 / top 121). Has board leftovers (handwriting on top, dark strip on the right) that `InboxTracking` masks out |
+| `mascot-envelope-2.png` | 210x221 | same image. Landing inbox section |
+| `track-foliage-2.png` | 372x402 | watercolour greenery cut from the Track Applications board (contains the mascot too; `mascot-envelope-2.png` is laid over it at left 64 / top 121). Has board leftovers (handwriting on top, dark strip on the right) that `InboxTracking` masks out |
 | `mascot-plane.png` | 210x221 | same image. Hero slide 4, landing organisations + how-it-works |
 | `mascot-clap.png` | 221x246 | eyes closed, clapping. **Left edge slightly clipped**: only use where a card or photo hides it. Not placed yet |
 | `mascot-peek.png` | 172x214 | peeking, paws on a ledge. **Top-left clipped**: only use peeking from behind something. Landing dashboard (behind the mock's lower-right corner) |

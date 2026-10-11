@@ -69,8 +69,11 @@ export interface MascotProps {
   eager?: boolean;
 }
 
+/** Poses whose file was replaced in place get a versioned name so browsers drop the stale copy. */
+const MASCOT_FILE: Partial<Record<MascotPose, string>> = { envelope: "mascot-envelope-2" };
+
 export function Mascot({ pose, className, eager }: MascotProps) {
-  const rel = `v2/mascot-${pose}.png`;
+  const rel = `v2/${MASCOT_FILE[pose] ?? `mascot-${pose}`}.png`;
   const box = cn("block flex-none", className ?? "h-40 w-40");
   if (publicFileExists(rel)) {
     return (

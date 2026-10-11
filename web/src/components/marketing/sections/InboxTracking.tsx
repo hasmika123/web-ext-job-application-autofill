@@ -42,8 +42,8 @@ function YahooTile({ className }: { className?: string }) {
 }
 
 /**
- * The board's soft watercolour greenery with the envelope mascot on top. `track-foliage.png`
- * (372x402) was cut from the board and itself contains the mascot, so `mascot-envelope.png`
+ * The board's soft watercolour greenery with the envelope mascot on top. `track-foliage-2.png`
+ * (372x402) was cut from the board and itself contains the mascot, so `mascot-envelope-2.png`
  * (213x250) is laid over it at the same spot (left 64px, top 121px in the 372x402 frame) and
  * everything scales with the box width. The cut still carries a few board leftovers (the board's
  * own handwriting at the top, a dark page-edge strip on the right), which the mask hides.
@@ -55,7 +55,7 @@ function FoliageMascot({ className }: { className?: string }) {
   return (
     <div aria-hidden className={`aspect-[372/402] ${className ?? ""}`}>
       <Image
-        src="/v2/track-foliage.png"
+        src="/v2/track-foliage-2.png"
         alt=""
         width={372}
         height={402}
