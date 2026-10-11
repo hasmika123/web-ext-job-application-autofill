@@ -21,7 +21,7 @@ export default function PillTabs({
   className?: string;
 }) {
   return (
-    <div role="tablist" aria-label={ariaLabel} className={cn("flex flex-wrap gap-2", className)}>
+    <div role="tablist" aria-label={ariaLabel} className={cn("flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}>
       {tabs.map((t) => {
         const id = tabKey(t);
         const on = id === value;
@@ -33,7 +33,7 @@ export default function PillTabs({
             aria-selected={on}
             onClick={() => onChange(id)}
             className={cn(
-              "inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
+              "inline-flex flex-none cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
               on ? "border-v2-blue/40 bg-v2-blue-soft text-v2-blue" : "border-transparent text-ink-soft hover:bg-[#F1F4FA]",
             )}
           >

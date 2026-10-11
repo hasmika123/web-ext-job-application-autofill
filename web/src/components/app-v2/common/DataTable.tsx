@@ -88,7 +88,7 @@ export default function DataTable<T>({
       <button
         type="button"
         aria-label="Row actions"
-        className={cn("grid place-items-center rounded-lg text-v2-muted hover:bg-paper-2 hover:text-ink", inCard ? "h-7 w-7" : "h-8 w-8")}
+        className={cn("grid place-items-center rounded-lg text-v2-muted hover:bg-paper-2 hover:text-ink", inCard ? "h-10 w-10 sm:h-7 sm:w-7" : "h-10 w-10 sm:h-8 sm:w-8")}
       >
         <MoreVerticalIcon size={16} />
       </button>

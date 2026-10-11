@@ -27,7 +27,7 @@ export default function SectionCard({
   className?: string;
   bodyClassName?: string;
 }) {
-  const actionClass = "inline-flex flex-none items-center gap-1 text-[12.5px] font-semibold text-v2-blue-ink hover:underline";
+  const actionClass = "-mr-2 inline-flex min-h-10 flex-none items-center gap-1 px-2 text-[12.5px] sm:mr-0 sm:min-h-0 sm:px-0 font-semibold text-v2-blue-ink hover:underline";
   const hasHeader = title || subtitle || headerExtra || action;
   return (
     <section className={cn("min-w-0 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-5", className)}>
