@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { ArrowRightIcon, BriefcaseIcon, ChevronDownIcon, GearIcon, GlobeIcon, MonitorIcon, PlayIcon, SearchIcon, XIcon, Switch, cn } from "@kiwiply/ui";
-import { AUTO_ACTIVITY, AUTO_ADVANCED_FILTERS, CAMPAIGNS, type AutoActivitySample } from "../sample-data.pages";
-import { CompanyTile, DataTable, FilterSelect, KebabMenu, StatusChip, TONE, type DataColumn, type Tone } from "../local";
+import { AUTO_ACTIVITY, AUTO_ADVANCED_FILTERS, CAMPAIGNS, type AutoActivitySample } from "../sample-data";
+import { CompanyTile, DataTable, FilterSelect, KebabMenu, StatusChip, TONE, type DataColumn, type Tone } from "../common";
 
 const STATUS_TONE: Record<AutoActivitySample["status"], Tone> = { Applied: "blue", "Under Review": "amber", Interview: "violet" };
 
 const ACTIVITY_COLUMNS: DataColumn<AutoActivitySample>[] = [
   {
     key: "date",
+    className: "w-[18%]",
     header: "Date",
-    cell: (r) => (
+    render: (r) => (
       <span className="flex items-center gap-2.5 text-[13.5px] text-v2-navy">
         <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-v2-blue-soft text-v2-blue">
           <MonitorIcon className="h-3.5 w-3.5" />
@@ -20,29 +21,31 @@ const ACTIVITY_COLUMNS: DataColumn<AutoActivitySample>[] = [
       </span>
     ),
   },
-  { key: "title", header: "Job Title", cell: (r) => <span className="text-[13.5px] font-medium text-v2-navy">{r.title}</span> },
+  { key: "title", className: "w-[20%]", header: "Job Title", render: (r) => <span className="text-[13.5px] font-medium text-v2-navy">{r.title}</span> },
   {
     key: "company",
+    className: "w-[18%]",
     header: "Company",
-    cell: (r) => (
+    render: (r) => (
       <span className="flex items-center gap-2 text-[13.5px] text-v2-navy">
         <CompanyTile name={r.company} size={22} className="rounded-md" />
         {r.company}
       </span>
     ),
   },
-  { key: "status", header: "Status", cell: (r) => <StatusChip tone={STATUS_TONE[r.status]} dot>{r.status}</StatusChip> },
+  { key: "status", className: "w-[18%]", header: "Status", render: (r) => <StatusChip tone={STATUS_TONE[r.status]} dot>{r.status}</StatusChip> },
   {
     key: "match",
+    className: "w-[11%]",
     header: "Match",
-    cell: (r) => (
+    render: (r) => (
       <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-v2-navy">
         <span aria-hidden className="h-2 w-2 rounded-full bg-v2-green" />
         {r.match}%
       </span>
     ),
   },
-  { key: "with", header: "Applied With", cell: () => <span className="text-[13.5px] text-v2-ink-soft">AI Apply</span> },
+  { key: "with", className: "w-[15%]", header: "Applied With", render: () => <span className="text-[13.5px] text-v2-ink-soft">AI Apply</span> },
 ];
 
 /**
@@ -98,7 +101,7 @@ export default function AutoApply({ onStart }: { onStart: () => void }) {
             <GlobeIcon className="h-4 w-4 flex-none text-v2-ink-soft" />
             <input defaultValue="United States" aria-label="Location" className="min-w-0 flex-1 bg-transparent text-[14px] text-v2-navy outline-none" />
           </label>
-          <FilterSelect label="Remote / Hybrid" options={["Remote", "Hybrid", "On-site"]} className="[&_select]:h-12" />
+          <FilterSelect placeholder label="Remote / Hybrid" options={["Remote", "Hybrid", "On-site"]} className="[&_button]:h-12" />
           <button
             type="button"
             onClick={onStart}
@@ -111,7 +114,7 @@ export default function AutoApply({ onStart }: { onStart: () => void }) {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="mr-1 text-[13px] font-semibold text-v2-navy">Advanced Filters</span>
           {AUTO_ADVANCED_FILTERS.map((f) => (
-            <FilterSelect key={f} label={f} options={[]} />
+            <FilterSelect placeholder key={f} label={f} options={[]} />
           ))}
           <button
             type="button"
@@ -202,7 +205,7 @@ export default function AutoApply({ onStart }: { onStart: () => void }) {
           columns={ACTIVITY_COLUMNS}
           rows={AUTO_ACTIVITY}
           rowKey={(r) => `${r.date}-${r.company}-${r.title}`}
-          template="minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,0.7fr) minmax(0,1fr)"
+          noActions
         />
       </section>
     </div>

@@ -6,7 +6,8 @@ import {
   TrophyIcon,
   UserIcon,
   UsersIcon,
-} from "../common-local/icons";
+  cn,
+} from "@kiwiply/ui";
 import {
   ActivityTimeline,
   CompanyTile,
@@ -16,8 +17,7 @@ import {
   StatRow,
   TONE,
   type QuickAction,
-} from "../common-local";
-import { cn } from "@kiwiply/ui";
+} from "@/components/app-v2/common";
 import OrgPageHero from "../shell/OrgPageHero";
 import {
   DASHBOARD_QUICK_ACTIONS,

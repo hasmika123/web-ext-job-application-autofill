@@ -1,4 +1,4 @@
-import { BriefcaseIcon, CalendarIcon, ChartIcon, CheckCircleIcon, MailIcon, UsersIcon } from "../common-local/icons";
+import { BriefcaseIcon, CalendarIcon, ChartIcon, CheckCircleIcon, MailIcon, UsersIcon } from "@kiwiply/ui";
 import {
   CompanyTile,
   DataTable,
@@ -10,9 +10,9 @@ import {
   SectionCard,
   StatRow,
   StatusChip,
-  type Column,
+  type DataColumn,
   type QuickAction,
-} from "../common-local";
+} from "@/components/app-v2/common";
 import OrgPageHero from "../shell/OrgPageHero";
 import {
   INTERVIEWS_STATS,
@@ -25,12 +25,12 @@ import {
 } from "../sample-data";
 import InterviewCalendar from "./InterviewCalendar";
 
-const UPCOMING_COLUMNS: Column<UpcomingInterview>[] = [
+const UPCOMING_COLUMNS: DataColumn<UpcomingInterview>[] = [
   {
     key: "employee",
     header: "Employee",
-    mobile: "title",
-    cell: (r) => (
+    primary: true,
+    render: (r) => (
       <div className="flex min-w-[120px] items-center gap-2.5">
         <InitialsAvatar name={r.name} size={32} />
         <span className="truncate text-[12.5px] font-bold text-v2-navy">{r.name}</span>
@@ -40,44 +40,44 @@ const UPCOMING_COLUMNS: Column<UpcomingInterview>[] = [
   {
     key: "company",
     header: "Company",
-    cell: (r) => (
+    render: (r) => (
       <div className="flex items-center gap-2">
         <CompanyTile name={r.company} size={26} />
         <span className="text-[12.5px] font-medium text-v2-navy">{r.company}</span>
       </div>
     ),
   },
-  { key: "role", header: "Role", cell: (r) => r.role },
-  { key: "type", header: "Interview Type", cell: (r) => r.type },
-  { key: "when", header: "Date & Time", cell: (r) => <span className="whitespace-nowrap">{r.when}</span> },
-  { key: "interviewer", header: "Interviewer", cell: (r) => <span className="whitespace-nowrap">{r.interviewer}</span> },
-  { key: "status", header: "Status", cell: (r) => <StatusChip tone="blue">{r.status}</StatusChip> },
+  { key: "role", header: "Role", render: (r) => r.role },
+  { key: "type", header: "Interview Type", render: (r) => r.type },
+  { key: "when", header: "Date & Time", render: (r) => <span className="whitespace-nowrap">{r.when}</span> },
+  { key: "interviewer", header: "Interviewer", render: (r) => <span className="whitespace-nowrap">{r.interviewer}</span> },
+  { key: "status", header: "Status", render: (r) => <StatusChip tone="blue">{r.status}</StatusChip> },
 ];
 
-const PREP_COLUMNS: Column<(typeof PREP_STATUS)[number]>[] = [
+const PREP_COLUMNS: DataColumn<(typeof PREP_STATUS)[number]>[] = [
   {
     key: "employee",
     header: "Employee",
-    mobile: "title",
-    cell: (r) => (
+    primary: true,
+    render: (r) => (
       <div className="flex items-center gap-2.5">
         <InitialsAvatar name={r.name} size={30} />
         <span className="text-[12.5px] font-bold text-v2-navy">{r.name}</span>
       </div>
     ),
   },
-  { key: "upcoming", header: "Upcoming Interviews", cell: (r) => r.upcoming },
+  { key: "upcoming", header: "Upcoming Interviews", render: (r) => r.upcoming },
   {
     key: "progress",
     header: "Prep Progress",
-    cell: (r) => (
+    render: (r) => (
       <div className="flex min-w-[130px] items-center gap-2.5">
         <Progress value={r.progress} tone={r.tone} label={`${r.name} prep progress`} className="flex-1" />
         <span className="w-9 flex-none text-right text-[12px] font-semibold text-v2-navy">{r.progress}%</span>
       </div>
     ),
   },
-  { key: "status", header: "Status", cell: (r) => <StatusChip tone={r.tone}>{r.status}</StatusChip> },
+  { key: "status", header: "Status", render: (r) => <StatusChip tone={r.tone}>{r.status}</StatusChip> },
 ];
 
 const QUICK_ICONS: Record<(typeof INTERVIEW_QUICK_ACTIONS)[number]["icon"], React.ReactNode> = {
@@ -119,8 +119,8 @@ export default function InterviewsPage() {
           <>
             <InterviewCalendar />
             <SectionCard title="Upcoming Interviews" action={{ label: "View all", href: "/org/interviews" }}>
-              <DataTable
-                label="Upcoming interviews"
+              <DataTable inCard
+                aria-label="Upcoming interviews"
                 columns={UPCOMING_COLUMNS}
                 rows={UPCOMING_INTERVIEWS}
                 rowKey={(r) => r.id}
@@ -128,8 +128,8 @@ export default function InterviewsPage() {
               />
             </SectionCard>
             <SectionCard title="Employee Interview Prep Status" action={{ label: "View all", href: "/org/interviews" }}>
-              <DataTable
-                label="Employee interview prep status"
+              <DataTable inCard
+                aria-label="Employee interview prep status"
                 columns={PREP_COLUMNS}
                 rows={PREP_STATUS}
                 rowKey={(r) => r.id}

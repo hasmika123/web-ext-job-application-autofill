@@ -9,8 +9,8 @@ import {
   AUTO_SETTINGS,
   AUTO_TIPS,
   FIND_ACTIVITY,
-} from "../sample-data.pages";
-import { CheckList, HeroArt, PageHero, SectionCard, TONE, UnderlineTabs } from "../local";
+} from "../sample-data";
+import { CheckList, HeroArt, PageHero, SectionCard, TONE, UnderlineTabs } from "../common";
 import AutoApply from "./AutoApply";
 import FindApply from "./FindApply";
 import { CopilotChip, MiniBars, SettingsList } from "./parts";
@@ -95,7 +95,7 @@ export default function AiApplyPage({ defaultResumeLabel }: { defaultResumeLabel
         )}
 
         <section className="min-w-0 rounded-2xl border border-v2-line bg-white shadow-v2-card">
-          <UnderlineTabs ariaLabel="AI Apply" tabs={TABS} value={tab} onChange={setTab} className="px-2 sm:px-4" />
+          <UnderlineTabs padded counts="pill" ariaLabel="AI Apply" tabs={TABS} value={tab} onChange={setTab} className="px-2 sm:px-4" />
           {tab === "find" && <FindApply onApply={soon} />}
           {tab === "auto" && <AutoApply onStart={soon} />}
           {SOON[tab] && (

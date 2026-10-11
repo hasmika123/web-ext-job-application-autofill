@@ -19,7 +19,7 @@ export default function DetailTabs() {
     <UnderlineTabs
       tabs={TABS}
       value={active}
-      aria-label="Job sections"
+      ariaLabel="Job sections"
       className="rounded-2xl border border-v2-line/70 bg-paper px-5 shadow-v2-soft"
       onChange={(id) => {
         setActive(id);

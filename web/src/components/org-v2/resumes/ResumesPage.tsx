@@ -15,19 +15,24 @@ import {
   cn,
 } from "@kiwiply/ui";
 import type { ReactNode } from "react";
-import { InitialsAvatar, StatusChip, TONE, type Tone } from "@/components/app-v2/common";
-import { PageHero, SectionCard, StatTile } from "../common-local2/primitives";
 import {
+  InitialsAvatar,
+  StatusChip,
+  TONE,
+  type Tone,
+  SectionCard,
+  StatTile,
   DataTable,
   FilterSelect,
   IconSquareButton,
-  OrgButton,
+  ToolbarButton,
   Pagination,
   PillTabs,
   SearchInput,
   UnderlineTabs,
-  type Column,
-} from "../common-local2/controls";
+  type DataColumn,
+} from "@/components/app-v2/common";
+import OrgPageHero from "../shell/OrgPageHero";
 import {
   EMPLOYEE_RESUMES,
   RESUME_STATS,
@@ -36,7 +41,7 @@ import {
   RESUME_TOOLS,
   type EmployeeResume,
   type ResumeStatus,
-} from "../sample-data.2";
+} from "../sample-data";
 
 const STAT_ICONS = [<FileTextIcon key="a" />, <CheckCircleIcon key="b" />, <SparklesIcon key="c" />, <AlertIcon key="d" />];
 
@@ -54,24 +59,24 @@ const STATUS_TONE: Record<ResumeStatus, Tone> = {
   "Review Suggested": "amber",
 };
 
-const COLUMNS: Column<EmployeeResume>[] = [
+const COLUMNS: DataColumn<EmployeeResume>[] = [
   {
     key: "name",
     header: "Name",
     primary: true,
-    cell: (r) => (
+    render: (r) => (
       <span className="flex items-center gap-2.5">
         <InitialsAvatar name={r.name} size={30} />
         <span className="font-semibold text-v2-navy">{r.name}</span>
       </span>
     ),
   },
-  { key: "cur", header: "Current Role", cell: (r) => r.currentRole },
-  { key: "tgt", header: "Target Role", cell: (r) => r.targetRole },
-  { key: "rs", header: "Resume Score", cell: (r) => <StatusChip tone={scoreTone(r.resumeScore)}>{r.resumeScore}</StatusChip> },
-  { key: "ats", header: "ATS Score", cell: (r) => <StatusChip tone={scoreTone(r.atsScore)}>{r.atsScore}</StatusChip> },
-  { key: "ver", header: "Latest Version", cell: (r) => <span className="whitespace-nowrap">{r.latestVersion}</span> },
-  { key: "st", header: "Status", cell: (r) => <StatusChip tone={STATUS_TONE[r.status]}>{r.status}</StatusChip> },
+  { key: "cur", header: "Current Role", render: (r) => r.currentRole },
+  { key: "tgt", header: "Target Role", render: (r) => r.targetRole },
+  { key: "rs", header: "Resume Score", render: (r) => <StatusChip tone={scoreTone(r.resumeScore)}>{r.resumeScore}</StatusChip> },
+  { key: "ats", header: "ATS Score", render: (r) => <StatusChip tone={scoreTone(r.atsScore)}>{r.atsScore}</StatusChip> },
+  { key: "ver", header: "Latest Version", render: (r) => <span className="whitespace-nowrap">{r.latestVersion}</span> },
+  { key: "st", header: "Status", render: (r) => <StatusChip tone={STATUS_TONE[r.status]}>{r.status}</StatusChip> },
 ];
 
 const SORTS = ["Last Updated (Newest)", "Last Updated (Oldest)", "Name (A-Z)", "Resume Score (High-Low)"];
@@ -116,7 +121,7 @@ function SuggestionsRail() {
           ATS Score <b className="font-extrabold">{s.atsScore}/100</b>
         </StatusChip>
       </div>
-      <UnderlineTabs tabs={SUGGESTION_TABS} value={tab} onChange={setTab} label="Suggestion type" className="mt-3" />
+      <UnderlineTabs tone="blue" padded tabs={SUGGESTION_TABS} value={tab} onChange={setTab} ariaLabel="Suggestion type" className="mt-3" />
       <ul className="mt-2 divide-y divide-[#EEF1F7]">
         {items.map((i) => (
           <li key={i.id}>
@@ -134,10 +139,10 @@ function SuggestionsRail() {
         ))}
       </ul>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <OrgButton variant="outline" icon={<SparklesIcon />}>
+        <ToolbarButton size="md" variant="outline" icon={<SparklesIcon />}>
           Generate Suggestions
-        </OrgButton>
-        <OrgButton variant="solid">Tailor for Job</OrgButton>
+        </ToolbarButton>
+        <ToolbarButton size="md" variant="solid">Tailor for Job</ToolbarButton>
       </div>
     </SectionCard>
   );
@@ -180,7 +185,7 @@ export default function ResumesPage() {
 
   return (
     <div className="space-y-4">
-      <PageHero
+      <OrgPageHero
         title="AI Resume Support"
         icon={<SparklesIcon />}
         subtitle="Optimize employee resumes and application materials with AI-powered insights."
@@ -198,18 +203,18 @@ export default function ResumesPage() {
           title="Employee Resumes"
           headerExtra={
             <div className="flex flex-wrap gap-2">
-              <OrgButton variant="solid" icon={<UploadIcon />}>
+              <ToolbarButton size="md" variant="solid" icon={<UploadIcon />}>
                 Upload Resume
-              </OrgButton>
-              <OrgButton variant="outline">
+              </ToolbarButton>
+              <ToolbarButton size="md" variant="outline">
                 Bulk Actions <span aria-hidden>▾</span>
-              </OrgButton>
+              </ToolbarButton>
             </div>
           }
         >
-          <PillTabs tabs={RESUME_TABS} value={tab} onChange={setTab} label="Employee resume filters" />
+          <PillTabs tabs={RESUME_TABS} value={tab} onChange={setTab} ariaLabel="Employee resume filters" />
           <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-            <SearchInput placeholder="Search employees by name, role, or department..." value={q} onChange={setQ} className="min-w-[220px] flex-1" />
+            <SearchInput variant="grey" placeholder="Search employees by name, role, or department..." value={q} onChange={(e) => setQ(e.target.value)} wrapperClassName="min-w-[220px] flex-1" />
             <FilterSelect label="Sort" value={sort} onChange={setSort} options={SORTS} className="w-[200px]" />
             <IconSquareButton label="More filters">
               <FunnelIcon />
@@ -219,17 +224,19 @@ export default function ResumesPage() {
             {rows.length === 0 ? (
               <p className="rounded-xl bg-[#F6F8FC] px-4 py-8 text-center text-[13px] text-v2-ink-soft">No employees match this view.</p>
             ) : (
-              <DataTable
-                caption="Employee resumes"
+              <DataTable inCard
+                aria-label="Employee resumes"
                 columns={COLUMNS}
                 rows={rows}
                 rowKey={(r) => r.name}
                 minWidth={860}
                 footer={
                   <Pagination
+                    tone="blue"
+                    className="mt-3 border-t border-[#EEF1F7] pt-3"
                     page={page}
                     pages={11}
-                    onPage={setPage}
+                    onPageChange={setPage}
                     summary={`Showing 1-${rows.length} of ${tab === "all" || tab === "dept" ? 85 : rows.length} employees`}
                   />
                 }

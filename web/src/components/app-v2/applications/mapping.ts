@@ -1,5 +1,5 @@
 import type { Application } from "@/components/ApplicationBoard";
-import type { AppStatusKey, ApplicationRowSample } from "../sample-data.pages";
+import type { AppStatusKey, ApplicationRowSample } from "../sample-data";
 
 /**
  * Maps the real `/api/profile/applications` list onto the My Applications board's table

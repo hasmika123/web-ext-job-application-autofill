@@ -27,7 +27,7 @@ import {
   SAVED_JOBS,
   SAVED_TAB_COUNTS,
   type SavedJobSample,
-} from "../sample-data.pages";
+} from "../sample-data";
 import {
   CheckList,
   CompanyTile,
@@ -41,7 +41,7 @@ import {
   TONE,
   UnderlineTabs,
   type Tone,
-} from "../local";
+} from "../common";
 import MatchRing from "./MatchRing";
 
 type TabKey = "all" | "high" | "applied" | "notApplied" | "collections";
@@ -128,7 +128,7 @@ export default function SavedJobsPage() {
       </div>
 
       <section className="min-w-0 rounded-2xl border border-v2-line bg-white shadow-v2-card">
-        <UnderlineTabs
+        <UnderlineTabs padded counts="pill"
           ariaLabel="Saved jobs views"
           value={tab}
           onChange={(v) => setTab(v as TabKey)}
@@ -145,11 +145,11 @@ export default function SavedJobsPage() {
             onChange={(e) => setQuery(e.target.value)}
             className="h-10 w-full bg-white sm:w-52"
           />
-          <FilterSelect label="Job Type" options={["Internship"]} value={jobType} onChange={setJobType} />
-          <FilterSelect label="Location" options={["Remote", "Hybrid", "On-site"]} value={location} onChange={setLocation} />
-          <FilterSelect label="Company" options={companies} value={company} onChange={setCompany} />
-          <FilterSelect label="Match Score" options={["90%+", "85%+", "80%+"]} value={score} onChange={setScore} />
-          <FilterSelect label="Date Saved" options={["Oct", "Sep"]} value={month} onChange={setMonth} />
+          <FilterSelect placeholder label="Job Type" options={["Internship"]} value={jobType} onChange={setJobType} />
+          <FilterSelect placeholder label="Location" options={["Remote", "Hybrid", "On-site"]} value={location} onChange={setLocation} />
+          <FilterSelect placeholder label="Company" options={companies} value={company} onChange={setCompany} />
+          <FilterSelect placeholder label="Match Score" options={["90%+", "85%+", "80%+"]} value={score} onChange={setScore} />
+          <FilterSelect placeholder label="Date Saved" options={["Oct", "Sep"]} value={month} onChange={setMonth} />
           <div className="ml-auto flex overflow-hidden rounded-xl border border-v2-line">
             {(
               [
@@ -266,16 +266,17 @@ export default function SavedJobsPage() {
       <aside className="flex min-w-0 flex-col gap-4">
         <SectionCard title="Quick Stats" icon={<ChartIcon className="h-5 w-5 text-v2-blue" />}>
           <div className="grid grid-cols-2 gap-3">
-            <StatTile tone="blue" icon={<BookmarkIcon className="h-5 w-5" />} value={counts.all} label="Saved Jobs" />
+            <StatTile compact tone="blue" icon={<BookmarkIcon className="h-5 w-5" />} value={counts.all} label="Saved Jobs" />
             <StatTile
+              compact
               tone="amber"
               icon={<TargetIcon className="h-5 w-5" />}
               value={counts.high}
               label="High Match"
               sublabel={"(≥ 85%)"}
             />
-            <StatTile tone="blue" icon={<RocketIcon className="h-5 w-5" />} value={counts.applied} label="Already Applied" />
-            <StatTile tone="amber" icon={<ClockIcon className="h-5 w-5" />} value={5 - gone.filter((j) => !j.applied).length} label="Not Applied" />
+            <StatTile compact tone="blue" icon={<RocketIcon className="h-5 w-5" />} value={counts.applied} label="Already Applied" />
+            <StatTile compact tone="amber" icon={<ClockIcon className="h-5 w-5" />} value={5 - gone.filter((j) => !j.applied).length} label="Not Applied" />
           </div>
         </SectionCard>
 

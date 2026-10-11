@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { SparkBurst } from "@kiwiply/ui";
 import Handwritten from "@/components/marketing/Handwritten";
-import { PageHero } from "../common-local";
+import { PageHero } from "@/components/app-v2/common";
 import OrgChip from "./OrgChip";
 
 /**
@@ -24,6 +24,9 @@ export default function OrgPageHero({
   return (
     <PageHero
       tone="blue"
+      size="lg"
+      iconPlacement="after"
+      notePlacement="aside"
       title={title}
       icon={icon}
       subtitle={subtitle}

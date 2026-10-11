@@ -17,9 +17,21 @@ import {
   ClockIcon,
   cn,
 } from "@kiwiply/ui";
-import { BarGroupChart, StatusChip, TONE, type Tone } from "@/components/app-v2/common";
-import { Funnel, LineChart, PageHero, SectionCard, StatTile } from "../common-local2/primitives";
-import { DataTable, FilterSelect, OrgButton, type Column } from "../common-local2/controls";
+import {
+  BarGroupChart,
+  StatusChip,
+  TONE,
+  type Tone,
+  Funnel,
+  LineChart,
+  SectionCard,
+  StatTile,
+  DataTable,
+  FilterSelect,
+  ToolbarButton,
+  type DataColumn,
+} from "@/components/app-v2/common";
+import OrgPageHero from "../shell/OrgPageHero";
 import {
   ANALYTICS_FILTERS,
   ANALYTICS_STATS,
@@ -30,7 +42,7 @@ import {
   RESPONSE_RATE,
   ROI_TILES,
   SUPPORT_OWNER_PERFORMANCE,
-} from "../sample-data.2";
+} from "../sample-data";
 
 const STAT_ICONS = [
   <FileTextIcon key="a" />,
@@ -88,13 +100,13 @@ function ImpactTile({ icon, value, label, delta, tone }: { icon: ReactNode; valu
 }
 
 type OwnerRow = (typeof SUPPORT_OWNER_PERFORMANCE)[number];
-const OWNER_COLUMNS: Column<OwnerRow>[] = [
-  { key: "owner", header: "Support Owner", primary: true, cell: (r) => <span className="font-semibold text-v2-navy">{r.name}</span> },
-  { key: "apps", header: "Applications", cell: (r) => r.applications },
-  { key: "int", header: "Interviews", cell: (r) => r.interviews },
-  { key: "off", header: "Offers", cell: (r) => r.offers },
-  { key: "pl", header: "Placements", cell: (r) => r.placements },
-  { key: "rate", header: "Success Rate", cell: (r) => <StatusChip tone="green">{r.rate}</StatusChip> },
+const OWNER_COLUMNS: DataColumn<OwnerRow>[] = [
+  { key: "owner", header: "Support Owner", primary: true, render: (r) => <span className="font-semibold text-v2-navy">{r.name}</span> },
+  { key: "apps", header: "Applications", render: (r) => r.applications },
+  { key: "int", header: "Interviews", render: (r) => r.interviews },
+  { key: "off", header: "Offers", render: (r) => r.offers },
+  { key: "pl", header: "Placements", render: (r) => r.placements },
+  { key: "rate", header: "Success Rate", render: (r) => <StatusChip tone="green">{r.rate}</StatusChip> },
 ];
 
 /** Analytics & Reports body (spec 6.6). Renders inside the org shell. */
@@ -106,7 +118,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHero
+      <OrgPageHero
         title="Analytics & Reports"
         icon={<BarChartIcon />}
         subtitle="Measure your team's placement performance and track the impact of Kiwiply."
@@ -138,12 +150,12 @@ export default function AnalyticsPage() {
             </FilterField>
           </div>
           <div className="flex flex-wrap gap-2">
-            <OrgButton variant="outline" icon={<DownloadIcon />}>
+            <ToolbarButton size="md" variant="outline" icon={<DownloadIcon />}>
               Export Report
-            </OrgButton>
-            <OrgButton variant="solid" icon={<CalendarIcon />}>
+            </ToolbarButton>
+            <ToolbarButton size="md" variant="solid" icon={<CalendarIcon />}>
               Schedule Report
-            </OrgButton>
+            </ToolbarButton>
           </div>
         </div>
       </section>
@@ -190,7 +202,7 @@ export default function AnalyticsPage() {
         </SectionCard>
 
         <SectionCard title="Support Owner Performance" action={{ label: "View all", href: "/org/team" }}>
-          <DataTable caption="Support owner performance" columns={OWNER_COLUMNS} rows={SUPPORT_OWNER_PERFORMANCE} rowKey={(r) => r.name} actions={false} minWidth={420} />
+          <DataTable inCard aria-label="Support owner performance" columns={OWNER_COLUMNS} rows={SUPPORT_OWNER_PERFORMANCE} rowKey={(r) => r.name} actions={false} minWidth={420} />
         </SectionCard>
 
         <SectionCard title="Kiwiply Impact & ROI" headerExtra={<PeriodSelect />} className="lg:col-span-2 xl:col-span-1">

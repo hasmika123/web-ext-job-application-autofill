@@ -26,7 +26,7 @@ import {
   APPLICATION_SAMPLE_TILES,
   APPLICATION_UPCOMING,
   type AppStatusKey,
-} from "../sample-data.pages";
+} from "../sample-data";
 import {
   CompanyTile,
   DataTable,
@@ -43,7 +43,7 @@ import {
   UnderlineTabs,
   type DataColumn,
   type Tone,
-} from "../local";
+} from "../common";
 import type { ApplicationRow } from "./mapping";
 
 type TabKey = "all" | "in-review" | "interview" | "offer" | "rejected" | "withdrawn";
@@ -153,8 +153,9 @@ export default function ApplicationsPage({
   const columns: DataColumn<Row>[] = [
     {
       key: "title",
+      className: "w-[30%]",
       header: "Job Title",
-      cell: (r) => (
+      render: (r) => (
         <span className="flex items-center gap-3">
           <CompanyTile name={r.company} size={40} />
           <span className="min-w-0 text-left">
@@ -164,11 +165,12 @@ export default function ApplicationsPage({
         </span>
       ),
     },
-    { key: "company", header: "Company", cell: (r) => <span className="text-[13.5px] text-v2-navy">{r.company}</span> },
+    { key: "company", className: "w-[14%]", header: "Company", render: (r) => <span className="text-[13.5px] text-v2-navy">{r.company}</span> },
     {
       key: "status",
+      className: "w-[15%]",
       header: "Status",
-      cell: (r) => {
+      render: (r) => {
         const c = STATUS_CHIP[r.status];
         return (
           <StatusChip tone={c.tone} dot={c.dot}>
@@ -178,11 +180,12 @@ export default function ApplicationsPage({
         );
       },
     },
-    { key: "applied", header: "Applied On", cell: (r) => <span className="text-[13.5px] text-v2-ink-soft">{r.appliedOn}</span> },
+    { key: "applied", className: "w-[12%]", header: "Applied On", render: (r) => <span className="text-[13.5px] text-v2-ink-soft">{r.appliedOn}</span> },
     {
       key: "next",
+      className: "w-[20%]",
       header: "Next Step",
-      cell: (r) => (
+      render: (r) => (
         <span className="text-[13px] leading-snug text-v2-ink-soft">
           {r.nextStep}
           {"nextStepDetail" in r && r.nextStepDetail && (
@@ -251,7 +254,7 @@ export default function ApplicationsPage({
         />
 
         <section className="min-w-0 rounded-2xl border border-v2-line bg-white shadow-v2-card">
-          <UnderlineTabs
+          <UnderlineTabs padded counts="pill"
             ariaLabel="Application status"
             value={tab}
             onChange={(v) => setTab(v as TabKey)}
@@ -260,11 +263,11 @@ export default function ApplicationsPage({
           />
 
           <div className="flex flex-wrap items-center gap-2 p-3 sm:p-4">
-            <FilterSelect label="Job Type" options={["Internship"]} />
-            <FilterSelect label="Status" options={Object.values(STATUS_CHIP).map((c) => c.label)} value={status} onChange={setStatus} />
-            <FilterSelect label="Company" options={companies} value={company} onChange={setCompany} />
-            <FilterSelect label="Date Applied" options={[]} />
-            <FilterSelect label="Location" options={[]} />
+            <FilterSelect placeholder label="Job Type" options={["Internship"]} />
+            <FilterSelect placeholder label="Status" options={Object.values(STATUS_CHIP).map((c) => c.label)} value={status} onChange={setStatus} />
+            <FilterSelect placeholder label="Company" options={companies} value={company} onChange={setCompany} />
+            <FilterSelect placeholder label="Date Applied" options={[]} />
+            <FilterSelect placeholder label="Location" options={[]} />
             <SearchInput
               size="sm"
               aria-label="Search applications"
@@ -293,12 +296,12 @@ export default function ApplicationsPage({
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 px-3 pb-4 sm:grid-cols-3 sm:px-4 min-[1440px]:grid-cols-6">
-            <StatTile tone="blue" icon={<FileTextIcon className="h-5 w-5" />} value={tiles.total} label="Total Applications" />
-            <StatTile tone="amber" icon={<ClockIcon className="h-5 w-5" />} value={tiles["in-review"]} label="In Review" />
-            <StatTile tone="blue" icon={<CalendarIcon className="h-5 w-5" />} value={tiles.interview} label="Interviews" />
-            <StatTile tone="teal" icon={<BriefcaseIcon className="h-5 w-5" />} value={tiles.offer} label="Offers" />
-            <StatTile tone="coral" icon={<XIcon className="h-5 w-5" />} value={tiles.rejected} label="Rejected" />
-            <StatTile tone="slate" icon={<ArchiveIcon className="h-5 w-5" />} value={tiles.withdrawn} label="Withdrawn" />
+            <StatTile compact tone="blue" icon={<FileTextIcon className="h-5 w-5" />} value={tiles.total} label="Total Applications" />
+            <StatTile compact tone="amber" icon={<ClockIcon className="h-5 w-5" />} value={tiles["in-review"]} label="In Review" />
+            <StatTile compact tone="blue" icon={<CalendarIcon className="h-5 w-5" />} value={tiles.interview} label="Interviews" />
+            <StatTile compact tone="teal" icon={<BriefcaseIcon className="h-5 w-5" />} value={tiles.offer} label="Offers" />
+            <StatTile compact tone="coral" icon={<XIcon className="h-5 w-5" />} value={tiles.rejected} label="Rejected" />
+            <StatTile compact tone="slate" icon={<ArchiveIcon className="h-5 w-5" />} value={tiles.withdrawn} label="Withdrawn" />
           </div>
 
           <div className="px-3 pb-4 sm:px-4">
@@ -312,7 +315,6 @@ export default function ApplicationsPage({
                 rows={shown}
                 rowKey={(r) => r.id}
                 selectable
-                template="minmax(0,2.3fr) minmax(0,1fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.5fr)"
                 actions={rowAction}
                 actionsHeader={<span className="pr-2">Actions</span>}
               />

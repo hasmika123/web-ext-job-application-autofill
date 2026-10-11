@@ -10,37 +10,37 @@ import {
   SearchInput,
   StatusChip,
   ToolbarButton,
-  type Column,
-} from "../common-local";
-import { FilterIcon, PlusIcon, UploadIcon, UsersIcon } from "../common-local/icons";
+  type DataColumn,
+} from "@/components/app-v2/common";
+import { FilterIcon, PlusIcon, UploadIcon, UsersIcon } from "@kiwiply/ui";
 import { EMPLOYEES, STAGE_TONE, TEAM_TABS, type EmployeeRow } from "../sample-data";
 
-const COLUMNS: Column<EmployeeRow>[] = [
+const COLUMNS: DataColumn<EmployeeRow>[] = [
   {
     key: "name",
     header: "Name",
-    mobile: "title",
-    cell: (r) => (
+    primary: true,
+    render: (r) => (
       <div className="flex min-w-[130px] items-center gap-2.5">
         <InitialsAvatar name={r.name} size={34} />
         <span className="truncate text-[12.5px] font-bold text-v2-navy">{r.name}</span>
       </div>
     ),
   },
-  { key: "role", header: "Current Role", cell: (r) => r.role },
-  { key: "dept", header: "Department", cell: (r) => r.department },
+  { key: "role", header: "Current Role", render: (r) => r.role },
+  { key: "dept", header: "Department", render: (r) => r.department },
   {
     key: "owner",
     header: "Support Owner",
-    cell: (r) => (
+    render: (r) => (
       <div className="flex items-center gap-2 whitespace-nowrap">
         <InitialsAvatar name={r.owner} size={26} />
         <span>{r.owner}</span>
       </div>
     ),
   },
-  { key: "stage", header: "Placement Stage", cell: (r) => <StatusChip tone={STAGE_TONE[r.stage]}>{r.stage}</StatusChip> },
-  { key: "last", header: "Last Activity", cell: (r) => <span className="whitespace-nowrap">{r.last}</span> },
+  { key: "stage", header: "Placement Stage", render: (r) => <StatusChip tone={STAGE_TONE[r.stage]}>{r.stage}</StatusChip> },
+  { key: "last", header: "Last Activity", render: (r) => <span className="whitespace-nowrap">{r.last}</span> },
 ];
 
 /** The employee table card on /org/team (APP-V2-SPEC §6.9). */
@@ -75,7 +75,7 @@ export default function TeamTable() {
         </div>
       </header>
 
-      <PillTabs label="Employee group" tabs={TEAM_TABS} value={tab} onChange={setTab} />
+      <PillTabs ariaLabel="Employee group" tabs={TEAM_TABS} value={tab} onChange={setTab} />
 
       <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
         <SearchInput
@@ -95,8 +95,8 @@ export default function TeamTable() {
       </div>
 
       <div className="mt-3.5">
-        <DataTable
-          label="Employees"
+        <DataTable inCard
+          aria-label="Employees"
           selectable
           columns={COLUMNS}
           rows={rows}
@@ -107,6 +107,8 @@ export default function TeamTable() {
       </div>
 
       <Pagination
+        tone="blue"
+        className="pt-3.5"
         page={1}
         pages={Math.max(1, Math.ceil(total / 8))}
         summary={`Showing ${rows.length ? 1 : 0}–${rows.length} of ${total} employees`}

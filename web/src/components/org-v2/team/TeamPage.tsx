@@ -1,4 +1,4 @@
-import { CheckCircleIcon, ClipboardIcon, UserIcon, UsersIcon } from "../common-local/icons";
+import { CheckCircleIcon, ClipboardIcon, UserIcon, UsersIcon } from "@kiwiply/ui";
 import {
   ActivityTimeline,
   Donut,
@@ -6,7 +6,7 @@ import {
   RailLayout,
   SectionCard,
   StatRow,
-} from "../common-local";
+} from "@/components/app-v2/common";
 import OrgPageHero from "../shell/OrgPageHero";
 import { DEPARTMENTS, SUPPORT_OWNERS, TEAM_STATS, TIMELINE } from "../sample-data";
 import TeamTable from "./TeamTable";

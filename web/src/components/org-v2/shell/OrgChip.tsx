@@ -1,5 +1,7 @@
-import { cn } from "@kiwiply/ui";
-import { BuildingIcon } from "../common-local/icons";
+import {
+  cn,
+  BuildingIcon,
+} from "@kiwiply/ui";
 import { ORG } from "../sample-data";
 
 /** "Acme Corp [Enterprise]" chip: building icon + blue-soft plan pill (top bar and every hero). */

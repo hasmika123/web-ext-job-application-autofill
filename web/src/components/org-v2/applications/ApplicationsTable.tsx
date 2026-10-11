@@ -11,9 +11,9 @@ import {
   StatusChip,
   FilterSelect,
   ToolbarButton,
-  type Column,
-} from "../common-local";
-import { FilterIcon, PlusIcon, SendIcon, UploadIcon } from "../common-local/icons";
+  type DataColumn,
+} from "@/components/app-v2/common";
+import { FilterIcon, PlusIcon, SendIcon, UploadIcon } from "@kiwiply/ui";
 import {
   APPLICATIONS,
   APPLICATION_TABS,
@@ -21,12 +21,12 @@ import {
   type ApplicationRow,
 } from "../sample-data";
 
-const COLUMNS: Column<ApplicationRow>[] = [
+const COLUMNS: DataColumn<ApplicationRow>[] = [
   {
     key: "employee",
     header: "Employee",
-    mobile: "title",
-    cell: (r) => (
+    primary: true,
+    render: (r) => (
       <div className="flex min-w-[130px] items-center gap-2.5">
         <InitialsAvatar name={r.name} size={34} />
         <div className="min-w-0">
@@ -39,24 +39,24 @@ const COLUMNS: Column<ApplicationRow>[] = [
   {
     key: "company",
     header: "Company",
-    cell: (r) => (
+    render: (r) => (
       <div className="flex items-center gap-2">
         <CompanyTile name={r.company} size={26} />
         <span className="text-[12.5px] font-medium text-v2-navy">{r.company}</span>
       </div>
     ),
   },
-  { key: "position", header: "Role / Position", cell: (r) => r.position },
-  { key: "date", header: "Application Date", cell: (r) => <span className="whitespace-nowrap">{r.date}</span> },
+  { key: "position", header: "Role / Position", render: (r) => r.position },
+  { key: "date", header: "Application Date", render: (r) => <span className="whitespace-nowrap">{r.date}</span> },
   {
     key: "stage",
     header: "Current Stage",
-    cell: (r) => <StatusChip tone={STAGE_TONE[r.stage]}>{r.stage}</StatusChip>,
+    render: (r) => <StatusChip tone={STAGE_TONE[r.stage]}>{r.stage}</StatusChip>,
   },
   {
     key: "owner",
     header: "Support Owner",
-    cell: (r) => (
+    render: (r) => (
       <div className="flex items-center gap-2 whitespace-nowrap">
         <InitialsAvatar name={r.owner} size={26} />
         <span>{r.owner}</span>
@@ -66,12 +66,12 @@ const COLUMNS: Column<ApplicationRow>[] = [
   {
     key: "resume",
     header: "Resume Status",
-    cell: (r) => <StatusChip tone={r.resume === "Submitted" ? "green" : "coral"}>{r.resume}</StatusChip>,
+    render: (r) => <StatusChip tone={r.resume === "Submitted" ? "green" : "coral"}>{r.resume}</StatusChip>,
   },
   {
     key: "next",
     header: "Next Action",
-    cell: (r) => (
+    render: (r) => (
       <div className="leading-tight">
         <p>{r.nextAction}</p>
         <p className="text-v2-muted">{r.nextDate}</p>
@@ -115,7 +115,7 @@ export default function ApplicationsTable() {
         </div>
       </header>
 
-      <PillTabs label="Application stage" tabs={APPLICATION_TABS} value={tab} onChange={setTab} />
+      <PillTabs ariaLabel="Application stage" tabs={APPLICATION_TABS} value={tab} onChange={setTab} />
 
       <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
         <SearchInput
@@ -137,8 +137,8 @@ export default function ApplicationsTable() {
       </div>
 
       <div className="mt-3.5">
-        <DataTable
-          label="Applications"
+        <DataTable inCard
+          aria-label="Applications"
           selectable
           columns={COLUMNS}
           rows={rows}
@@ -148,6 +148,8 @@ export default function ApplicationsTable() {
       </div>
 
       <Pagination
+        tone="blue"
+        className="pt-3.5"
         page={1}
         pages={pages}
         summary={`Showing ${first}–${rows.length} of ${total} applications`}

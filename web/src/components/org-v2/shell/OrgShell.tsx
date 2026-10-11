@@ -3,13 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { cn, Menu } from "@kiwiply/ui";
-import BrandLogo from "@/components/marketing/BrandLogo";
-import { contactHref } from "@/lib/catalog";
-import { notifyExtension } from "@/lib/extension-signal";
-import type { AppAccount } from "@/components/app-shell/AppShell";
-import { InitialsAvatar, MascotCard, SearchInput } from "../common-local";
 import {
+  cn,
+  Menu,
   BellIcon,
   BriefcaseIcon,
   CalendarIcon,
@@ -27,7 +23,12 @@ import {
   UserIcon,
   UsersIcon,
   XIcon,
-} from "../common-local/icons";
+} from "@kiwiply/ui";
+import BrandLogo from "@/components/marketing/BrandLogo";
+import { contactHref } from "@/lib/catalog";
+import { notifyExtension } from "@/lib/extension-signal";
+import type { AppAccount } from "@/components/app-shell/AppShell";
+import { InitialsAvatar, MascotCard, SearchInput } from "@/components/app-v2/common";
 import OrgChip from "./OrgChip";
 
 const ICON = "h-[18px] w-[18px]";

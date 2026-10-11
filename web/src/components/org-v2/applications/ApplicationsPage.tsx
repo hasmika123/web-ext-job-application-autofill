@@ -10,19 +10,18 @@ import {
   SendIcon,
   ShareNodesIcon,
   UploadIcon,
-} from "../common-local/icons";
+} from "@kiwiply/ui";
 import {
   ActivityTimeline,
   CompanyTile,
   Donut,
-  DonutLegend,
   QuickActionTiles,
   RailLayout,
   SectionCard,
   StatRow,
   StatusChip,
   type QuickAction,
-} from "../common-local";
+} from "@/components/app-v2/common";
 import OrgPageHero from "../shell/OrgPageHero";
 import {
   APPLICATIONS_STATS,
@@ -91,15 +90,11 @@ export default function ApplicationsPage() {
         rail={
           <>
             <SectionCard title="Application Stage Breakdown" action={{ label: "View all", href: "/org/applications" }}>
-              <div className="flex flex-col items-center gap-5 sm:flex-row">
-                <Donut
-                  centerValue="124"
-                  centerLabel="Applications"
-                  legend={false}
-                  segments={STAGE_BREAKDOWN.map((s) => ({ label: s.label, value: s.value, tone: s.tone }))}
-                />
-                <DonutLegend items={STAGE_BREAKDOWN} className="self-stretch" />
-              </div>
+              <Donut
+                centerValue="124"
+                centerLabel="Applications"
+                segments={STAGE_BREAKDOWN.map((s) => ({ label: s.label, value: s.value, tone: s.tone, pct: s.pct }))}
+              />
             </SectionCard>
             <SectionCard title="Recent Responses" action={{ label: "View all", href: "/org/applications" }}>
               <ul className="space-y-3">

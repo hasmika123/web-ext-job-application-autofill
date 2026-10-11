@@ -20,9 +20,15 @@ import {
   UsersIcon,
   cn,
 } from "@kiwiply/ui";
-import { InitialsAvatar, StatusChip } from "@/components/app-v2/common";
-import { PageHero, SectionCard } from "../common-local2/primitives";
-import { OrgButton, UnderlineTabs, type TabDef } from "../common-local2/controls";
+import {
+  InitialsAvatar,
+  StatusChip,
+  SectionCard,
+  ToolbarButton,
+  UnderlineTabs,
+  type TabDef,
+} from "@/components/app-v2/common";
+import OrgPageHero from "../shell/OrgPageHero";
 import {
   ABOUT_COMPANY,
   ADMIN_ROLES,
@@ -32,7 +38,7 @@ import {
   INDUSTRIES,
   PERMISSION_TOGGLES,
   SECURITY_CHECKS,
-} from "../sample-data.2";
+} from "../sample-data";
 
 const TABS: TabDef[] = [
   { id: "profile", label: "Organization Profile", icon: <BuildingIcon /> },
@@ -66,7 +72,7 @@ function SaveButton() {
     if (timer.current) clearTimeout(timer.current);
   }, []);
   return (
-    <OrgButton
+    <ToolbarButton size="md"
       variant="solid"
       icon={saved ? <CheckIcon /> : undefined}
       onClick={() => {
@@ -76,7 +82,7 @@ function SaveButton() {
       }}
     >
       {saved ? "Saved" : "Save Changes"}
-    </OrgButton>
+    </ToolbarButton>
   );
 }
 
@@ -111,7 +117,7 @@ function OrganizationProfile() {
           <BuildingIcon />
         </span>
         <div>
-          <OrgButton variant="outline">Change Logo</OrgButton>
+          <ToolbarButton size="md" variant="outline">Change Logo</ToolbarButton>
           <p className="mt-1.5 text-[12px] text-v2-muted">JPG, PNG up to 2MB</p>
         </div>
       </div>
@@ -226,9 +232,9 @@ function AdminRoles() {
           </li>
         ))}
       </ul>
-      <OrgButton variant="soft-blue" className="mt-3 w-full" icon={<PlusIcon />}>
+      <ToolbarButton size="md" variant="soft-blue" className="mt-3 w-full" icon={<PlusIcon />}>
         Add Admin
-      </OrgButton>
+      </ToolbarButton>
     </SectionCard>
   );
 }
@@ -286,7 +292,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHero
+      <OrgPageHero
         title="Settings"
         icon={<GearIcon />}
         subtitle="Configure your enterprise workspace, manage permissions, and customize your hiring experience."
@@ -295,7 +301,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <section className="min-w-0 rounded-2xl bg-white shadow-v2-card">
-          <UnderlineTabs tabs={TABS} value={tab} onChange={setTab} label="Settings sections" className="px-2 sm:px-3" />
+          <UnderlineTabs tone="blue" padded tabs={TABS} value={tab} onChange={setTab} ariaLabel="Settings sections" className="px-2 sm:px-3" />
           <div className="p-4 sm:p-6" role="tabpanel" aria-label={current.label}>
             {tab === "profile" ? <OrganizationProfile /> : tab === "permissions" ? <TeamPermissions /> : <ComingSoon label={current.label} />}
           </div>

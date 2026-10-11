@@ -17,16 +17,23 @@ import {
   UsersIcon,
   cn,
 } from "@kiwiply/ui";
-import { StatusChip } from "@/components/app-v2/common";
-import { BrandTile, PageHero, SectionCard, StatTile } from "../common-local2/primitives";
-import { MoreButton, OrgButton, SearchInput } from "../common-local2/controls";
+import {
+  StatusChip,
+  BrandTile,
+  SectionCard,
+  StatTile,
+  KebabMenu,
+  ToolbarButton,
+  SearchInput,
+} from "@/components/app-v2/common";
+import OrgPageHero from "../shell/OrgPageHero";
 import {
   API_ACCESS_ROWS,
   AUTOMATION_FLOWS,
   INTEGRATIONS,
   INTEGRATION_STATS,
   NOTIFICATION_ROUTES,
-} from "../sample-data.2";
+} from "../sample-data";
 
 const STAT_ICONS = [<ShareNodesIcon key="a" />, <CheckCircleIcon key="b" />, <ClockIcon key="c" />, <AlertIcon key="d" />];
 
@@ -38,7 +45,7 @@ function SyncButton({ variant = "outline", size = "md", className }: { variant?:
     if (timer.current) clearTimeout(timer.current);
   }, []);
   return (
-    <OrgButton
+    <ToolbarButton
       variant={variant}
       size={size}
       className={className}
@@ -49,7 +56,7 @@ function SyncButton({ variant = "outline", size = "md", className }: { variant?:
       }}
     >
       {busy ? "Syncing…" : "Run Sync"}
-    </OrgButton>
+    </ToolbarButton>
   );
 }
 
@@ -64,7 +71,7 @@ function IntegrationCard({ name, lastSync, data }: { name: string; lastSync: str
             Connected
           </StatusChip>
         </div>
-        <MoreButton label={`${name} options`} />
+        <KebabMenu label={`${name} options`} />
       </header>
       <dl className="mt-3.5 flex-1 space-y-2.5 text-[12.5px]">
         <div>
@@ -77,9 +84,9 @@ function IntegrationCard({ name, lastSync, data }: { name: string; lastSync: str
         </div>
       </dl>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <OrgButton variant="outline" size="sm">
+        <ToolbarButton variant="outline" size="sm">
           Manage
-        </OrgButton>
+        </ToolbarButton>
         <SyncButton size="sm" />
       </div>
     </article>
@@ -141,7 +148,7 @@ function AutomationFlows() {
               onCheckedChange={(v) => setOn((p) => ({ ...p, [f.id]: v }))}
               className={on[f.id] ? "bg-v2-green!" : ""}
             />
-            <MoreButton label={`${f.title} options`} />
+            <KebabMenu label={`${f.title} options`} />
           </li>
         ))}
       </ul>
@@ -160,7 +167,7 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHero
+      <OrgPageHero
         title="Integrations"
         icon={<ShareNodesIcon />}
         subtitle="Connect the tools you use for employee job placement and streamline your workflow."
@@ -177,12 +184,12 @@ export default function IntegrationsPage() {
         title="Connected Integrations"
         headerExtra={
           <div className="flex flex-wrap items-center gap-2">
-            <SearchInput placeholder="Search integrations..." size="sm" value={q} onChange={setQ} className="w-full min-[480px]:w-[220px]" />
-            <OrgButton variant="solid" icon={<PlusIcon />}>
+            <SearchInput variant="grey" placeholder="Search integrations..." size="sm" value={q} onChange={(e) => setQ(e.target.value)} wrapperClassName="w-full min-[480px]:w-[220px]" />
+            <ToolbarButton size="md" variant="solid" icon={<PlusIcon />}>
               Add Integration
-            </OrgButton>
+            </ToolbarButton>
             <SyncButton />
-            <OrgButton variant="outline">Configure Mapping</OrgButton>
+            <ToolbarButton size="md" variant="outline">Configure Mapping</ToolbarButton>
           </div>
         }
       >

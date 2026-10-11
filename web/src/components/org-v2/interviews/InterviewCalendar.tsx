@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@kiwiply/ui";
-import type { Tone } from "../common-local";
-import { ChevronLeftIcon, ChevronRightIcon } from "../common-local/icons";
+import {
+  cn,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@kiwiply/ui";
+import type { Tone } from "@/components/app-v2/common";
 import { CALENDAR_EVENTS, WEEK, type CalendarEvent } from "../sample-data";
 
 /** Event-block palette: soft tint, tone-coloured left rule, navy text. */

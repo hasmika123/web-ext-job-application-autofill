@@ -262,7 +262,7 @@ export default function JobsClient({
             value={tab}
             onChange={setTab}
             className="min-w-0 max-w-full flex-1 border-b-0"
-            aria-label="Job lists"
+            ariaLabel="Job lists"
           />
           {sortSelect}
         </div>

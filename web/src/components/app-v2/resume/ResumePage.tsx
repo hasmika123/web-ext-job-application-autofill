@@ -20,8 +20,8 @@ import {
   RESUME_SCORE,
   RESUME_TABS,
   RESUME_TEMPLATES,
-} from "../sample-data.pages";
-import { CheckList, HeroArt, IconTile, KebabMenu, PageHero, SectionCard, StatusChip, UnderlineTabs } from "../local";
+} from "../sample-data";
+import { CheckList, HeroArt, IconTile, KebabMenu, PageHero, SectionCard, StatusChip, UnderlineTabs } from "../common";
 import ResumeDrawer from "./ResumeDrawer";
 import TemplateThumb from "./TemplateThumb";
 
@@ -101,7 +101,7 @@ export default function ResumePage({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-v2-line bg-white pr-3 shadow-v2-card sm:pr-4">
-        <UnderlineTabs ariaLabel="Resume sections" value={tab} onChange={go} className="min-w-0 flex-1 border-b-0 px-2 sm:px-4" tabs={RESUME_TABS} />
+        <UnderlineTabs padded counts="pill" ariaLabel="Resume sections" value={tab} onChange={go} className="min-w-0 flex-1 border-b-0 px-2 sm:px-4" tabs={RESUME_TABS} />
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -118,7 +118,7 @@ export default function ResumePage({
             <p className="mt-1 text-[13.5px] text-v2-ink-soft">Keep your resume updated and tailored for each job application.</p>
             <div className="mt-4 flex flex-col gap-3 rounded-xl border border-v2-line p-3 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <IconTile tone="bg-v2-blue-soft text-v2-blue"><FileTextIcon className="h-5 w-5" /></IconTile>
+                <IconTile tone="blue"><FileTextIcon className="h-5 w-5" /></IconTile>
                 <div className="min-w-0">
                   <p className="truncate text-[15px] font-bold text-v2-navy">{current.label}</p>
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-v2-ink-soft">
@@ -173,7 +173,7 @@ export default function ResumePage({
           <section id="ai-suggestions" className="scroll-mt-24 rounded-2xl border border-v2-line bg-[#F4F8FF] p-4 sm:p-5">
             <div className="grid gap-5 md:grid-cols-[1fr_1.1fr] md:items-center">
               <div className="flex items-start gap-3">
-                <IconTile tone="bg-v2-blue-soft text-v2-blue"><SparklesIcon className="h-6 w-6" /></IconTile>
+                <IconTile tone="blue"><SparklesIcon className="h-6 w-6" /></IconTile>
                 <div>
                   <h2 className="text-[17px] font-extrabold tracking-tight text-v2-navy">AI Resume Suggestions</h2>
                   <p className="mt-1 text-[13.5px] leading-relaxed text-v2-ink-soft">
@@ -196,7 +196,7 @@ export default function ResumePage({
 
           <section id="cover-letter" className="scroll-mt-24 flex flex-col gap-3 rounded-2xl border border-v2-line bg-white p-4 shadow-v2-card sm:flex-row sm:items-center sm:p-5">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <IconTile tone="bg-v2-blue-soft text-v2-blue"><FileTextIcon className="h-6 w-6" /></IconTile>
+              <IconTile tone="blue"><FileTextIcon className="h-6 w-6" /></IconTile>
               <div>
                 <h2 className="text-[17px] font-extrabold tracking-tight text-v2-navy">Cover Letter</h2>
                 <p className="text-[13.5px] text-v2-ink-soft">Create personalized cover letters for your applications with AI.</p>
@@ -268,7 +268,7 @@ export default function ResumePage({
               <ul className="divide-y divide-v2-line/70">
                 {versions.slice(0, 3).map((v) => (
                   <li key={v.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                    <IconTile tone="bg-v2-blue-soft text-v2-blue"><FileTextIcon className="h-5 w-5" /></IconTile>
+                    <IconTile tone="blue"><FileTextIcon className="h-5 w-5" /></IconTile>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13.5px] font-bold text-v2-navy">{v.label}</p>
                       <p className="text-[12px] text-v2-ink-soft">

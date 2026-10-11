@@ -26,8 +26,8 @@ import {
   PAST_INTERVIEWS,
   UPCOMING_INTERVIEWS,
   type InterviewSample,
-} from "../sample-data.pages";
-import { AppArt, CompanyTile, IconTile, KebabMenu, PageHero, SectionCard, StatusChip, TONE, UnderlineTabs } from "../local";
+} from "../sample-data";
+import { AppArt, CompanyTile, IconTile, KebabMenu, PageHero, SectionCard, StatusChip, UnderlineTabs } from "../common";
 
 const PREP_ICON: Record<string, React.ReactNode> = {
   "AI Mock Interview": <ChatIcon className="h-5 w-5" />,
@@ -78,7 +78,7 @@ export default function InterviewsPage() {
         />
 
         <section className="min-w-0 rounded-2xl border border-v2-line bg-white shadow-v2-card">
-          <UnderlineTabs
+          <UnderlineTabs padded counts="pill"
             ariaLabel="Interview views"
             value={top}
             onChange={setTop}
@@ -175,7 +175,7 @@ export default function InterviewsPage() {
               {INTERVIEW_PREP.map((p) => (
                 <li key={p.title}>
                   <button type="button" onClick={soon} className="flex w-full items-center gap-3 py-3 text-left">
-                    <IconTile tone={`${TONE[p.tone].soft} ${TONE[p.tone].ink}`}>{PREP_ICON[p.title]}</IconTile>
+                    <IconTile tone={p.tone}>{PREP_ICON[p.title]}</IconTile>
                     <span className="flex-1">
                       <span className="block font-bold text-v2-navy">{p.title}</span>
                       <span className="block text-[13px] text-v2-ink-soft">{p.sub}</span>
@@ -229,7 +229,7 @@ export default function InterviewsPage() {
               </div>
             </div>
 
-            <UnderlineTabs
+            <UnderlineTabs padded counts="pill"
               ariaLabel="Interview detail sections"
               value={detailTab}
               onChange={setDetailTab}
@@ -240,7 +240,7 @@ export default function InterviewsPage() {
             {detailTab === "Overview" ? (
               <div className="mt-5 grid gap-6 lg:grid-cols-[1.2fr_1fr_1fr]">
                 <div className="flex items-start gap-3">
-                  <IconTile tone={`${TONE.amber.soft} ${TONE.amber.ink}`}><FileTextIcon className="h-5 w-5" /></IconTile>
+                  <IconTile tone="amber"><FileTextIcon className="h-5 w-5" /></IconTile>
                   <div>
                     <h3 className="text-[15px] font-bold tracking-normal text-v2-navy">{INTERVIEW_DETAIL.expectTitle}</h3>
                     <p className="mt-1 text-[13px] leading-relaxed text-v2-ink-soft">{INTERVIEW_DETAIL.expectBody}</p>
@@ -252,7 +252,7 @@ export default function InterviewsPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <IconTile tone={`${TONE.amber.soft} ${TONE.amber.ink}`}><CheckIcon className="h-5 w-5" /></IconTile>
+                  <IconTile tone="amber"><CheckIcon className="h-5 w-5" /></IconTile>
                   <div>
                     <h3 className="text-[15px] font-bold tracking-normal text-v2-navy">Key Topics</h3>
                     <ul className="mt-1 list-disc space-y-1 pl-4 text-[13px] text-v2-ink-soft marker:text-v2-green">
@@ -261,7 +261,7 @@ export default function InterviewsPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <IconTile tone={`${TONE.blue.soft} ${TONE.blue.ink}`}><SparklesIcon className="h-5 w-5" /></IconTile>
+                  <IconTile tone="blue"><SparklesIcon className="h-5 w-5" /></IconTile>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-[15px] font-bold tracking-normal text-v2-navy">Quick Actions</h3>
                     <ul className="mt-2 space-y-1.5">
@@ -290,7 +290,7 @@ export default function InterviewsPage() {
             {INTERVIEW_PREP.map((p) => (
               <li key={p.title}>
                 <button type="button" onClick={soon} className="flex w-full items-center gap-3 py-2.5 text-left">
-                  <IconTile tone={`${TONE[p.tone].soft} ${TONE[p.tone].ink}`}>{PREP_ICON[p.title]}</IconTile>
+                  <IconTile tone={p.tone}>{PREP_ICON[p.title]}</IconTile>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[14px] font-bold leading-tight text-v2-navy">{p.title}</span>
                     <span className="block text-[12.5px] leading-snug text-v2-ink-soft">{p.sub}</span>

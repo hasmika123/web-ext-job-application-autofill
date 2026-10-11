@@ -13,7 +13,7 @@ import {
   TargetIcon,
   XIcon,
 } from "@kiwiply/ui";
-import { IconTile, TONE, type Tone } from "../local";
+import { IconTile, type Tone } from "../common";
 
 const SETTING_ICON: Record<string, ReactNode> = {
   "Default Resume": <FileTextIcon className="h-5 w-5" />,
@@ -36,7 +36,7 @@ export function SettingsList({ items, onSelect }: { items: { title: string; sub:
       {items.map((s) => (
         <li key={s.title}>
           <button type="button" onClick={onSelect} className="flex w-full items-center gap-3 py-2.5 text-left">
-            <IconTile tone={`${TONE[s.tone].soft} ${TONE[s.tone].ink}`}>{SETTING_ICON[s.title]}</IconTile>
+            <IconTile tone={s.tone}>{SETTING_ICON[s.title]}</IconTile>
             <span className="min-w-0 flex-1">
               <span className="block text-[14px] font-bold leading-tight text-v2-navy">{s.title}</span>
               <span className="mt-0.5 block truncate text-[12.5px] text-v2-ink-soft">{s.sub}</span>

@@ -1,12 +1,12 @@
-import { COMING_SOON } from "../sample-data.pages";
-import { HeroArt, MascotCard, PageHero } from "../local";
+import { COMING_SOON } from "../sample-data";
+import { HeroArt, MascotCard, PageHero } from "../common";
 
 export type ComingSoonSlug = keyof typeof COMING_SOON;
 
 /**
  * One component behind /ai-tools, /insights, /messages, /companies, /networking and /learning
  * (no boards exist for them): the shared hero plus a "Coming soon" mascot card. The copy lives
- * in `sample-data.pages.ts` so the six routes stay one line each.
+ * in `sample-data.ts` so the six routes stay one line each.
  */
 export default function ComingSoonPage({ slug }: { slug: ComingSoonSlug }) {
   const page = COMING_SOON[slug];

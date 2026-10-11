@@ -11,28 +11,28 @@ import {
   SearchInput,
   StatusChip,
   ToolbarButton,
-  type Column,
-} from "../common-local";
-import { FilterIcon, MapPinIcon, PlusIcon, UploadIcon, UsersIcon } from "../common-local/icons";
+  type DataColumn,
+} from "@/components/app-v2/common";
+import { FilterIcon, MapPinIcon, PlusIcon, UploadIcon, UsersIcon } from "@kiwiply/ui";
 import { OPPORTUNITIES, OPP_STATUS_TONE, type OpportunityRow } from "../sample-data";
 
-const COLUMNS: Column<OpportunityRow>[] = [
+const COLUMNS: DataColumn<OpportunityRow>[] = [
   {
     key: "company",
     header: "Company",
-    mobile: "title",
-    cell: (r) => (
+    primary: true,
+    render: (r) => (
       <div className="flex items-center gap-2.5">
         <CompanyTile name={r.company} size={30} />
         <span className="text-[12.5px] font-bold text-v2-navy">{r.company}</span>
       </div>
     ),
   },
-  { key: "role", header: "Role Title", cell: (r) => <span className="font-medium text-v2-navy">{r.role}</span> },
+  { key: "role", header: "Role Title", render: (r) => <span className="font-medium text-v2-navy">{r.role}</span> },
   {
     key: "location",
     header: "Location",
-    cell: (r) => (
+    render: (r) => (
       <span className="inline-flex items-center gap-1 whitespace-nowrap">
         <MapPinIcon size={13} className="flex-none text-v2-muted" />
         {r.location}
@@ -42,13 +42,13 @@ const COLUMNS: Column<OpportunityRow>[] = [
   {
     key: "mode",
     header: "Work Mode",
-    cell: (r) => <StatusChip tone={r.mode === "Hybrid" ? "violet" : "blue"}>{r.mode}</StatusChip>,
+    render: (r) => <StatusChip tone={r.mode === "Hybrid" ? "violet" : "blue"}>{r.mode}</StatusChip>,
   },
-  { key: "assigned", header: "Assigned", cell: (r) => r.assigned },
+  { key: "assigned", header: "Assigned", render: (r) => r.assigned },
   {
     key: "match",
     header: "Match Score",
-    cell: (r) => (
+    render: (r) => (
       <div className="min-w-[78px]">
         <p className="text-[12px] font-semibold text-v2-navy">{r.match}%</p>
         <Progress value={r.match} tone={r.match >= 80 ? "green" : "amber"} label={`Match score ${r.match}%`} className="mt-1" />
@@ -58,14 +58,14 @@ const COLUMNS: Column<OpportunityRow>[] = [
   {
     key: "owner",
     header: "Support Owner",
-    cell: (r) => (
+    render: (r) => (
       <div className="flex items-center gap-2 whitespace-nowrap">
         <InitialsAvatar name={r.owner} size={26} />
         <span>{r.owner}</span>
       </div>
     ),
   },
-  { key: "status", header: "Status", cell: (r) => <StatusChip tone={OPP_STATUS_TONE[r.status]}>{r.status}</StatusChip> },
+  { key: "status", header: "Status", render: (r) => <StatusChip tone={OPP_STATUS_TONE[r.status]}>{r.status}</StatusChip> },
 ];
 
 /** The "All Opportunities" card on /org/opportunities (APP-V2-SPEC §6.8). */
@@ -119,8 +119,8 @@ export default function OpportunitiesTable() {
       </div>
 
       <div className="mt-3.5">
-        <DataTable
-          label="Opportunities"
+        <DataTable inCard
+          aria-label="Opportunities"
           selectable
           columns={COLUMNS}
           rows={rows}
@@ -130,6 +130,8 @@ export default function OpportunitiesTable() {
       </div>
 
       <Pagination
+        tone="blue"
+        className="pt-3.5"
         page={1}
         summary={q.trim() ? `Showing 1–${rows.length} of ${rows.length} opportunities` : "Showing 1-10 of 48 opportunities"}
         pages={q.trim() ? 1 : undefined}

@@ -101,7 +101,7 @@ export default function JobDetailPanel({ job, onClose }: { job: SampleJob; onClo
         </ul>
       </div>
 
-      <UnderlineTabs tabs={TABS} value={tab} onChange={setTab} className="px-5" aria-label="Job sections" />
+      <UnderlineTabs tabs={TABS} value={tab} onChange={setTab} className="px-5" ariaLabel="Job sections" />
 
       <div className="flex-1 space-y-5 p-5">
         {tab === "overview" && (

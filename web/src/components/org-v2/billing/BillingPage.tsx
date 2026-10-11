@@ -15,9 +15,20 @@ import {
   UsersIcon,
   cn,
 } from "@kiwiply/ui";
-import { Donut, InitialsAvatar, Progress, StatusChip, TONE } from "@/components/app-v2/common";
-import { PageHero, SectionCard, StatTile } from "../common-local2/primitives";
-import { DataTable, MoreButton, OrgButton, type Column } from "../common-local2/controls";
+import {
+  Donut,
+  InitialsAvatar,
+  Progress,
+  StatusChip,
+  TONE,
+  SectionCard,
+  StatTile,
+  DataTable,
+  KebabMenu,
+  ToolbarButton,
+  type DataColumn,
+} from "@/components/app-v2/common";
+import OrgPageHero from "../shell/OrgPageHero";
 import {
   BILLING_CONTACTS,
   INVOICES,
@@ -25,16 +36,16 @@ import {
   SUBSCRIPTION_DETAILS,
   UPGRADE_OPTIONS,
   USAGE,
-} from "../sample-data.2";
+} from "../sample-data";
 
 type Invoice = (typeof INVOICES)[number];
 
-const INVOICE_COLUMNS: Column<Invoice>[] = [
-  { key: "id", header: "Invoice #", primary: true, cell: (r) => <span className="font-semibold text-v2-navy">{r.id}</span> },
-  { key: "date", header: "Date", cell: (r) => <span className="whitespace-nowrap">{r.date}</span> },
-  { key: "desc", header: "Description", cell: (r) => r.description },
-  { key: "amt", header: "Amount", cell: (r) => <span className="font-semibold text-v2-navy">{r.amount}</span> },
-  { key: "st", header: "Status", cell: () => <StatusChip tone="green">Paid</StatusChip> },
+const INVOICE_COLUMNS: DataColumn<Invoice>[] = [
+  { key: "id", header: "Invoice #", primary: true, render: (r) => <span className="font-semibold text-v2-navy">{r.id}</span> },
+  { key: "date", header: "Date", render: (r) => <span className="whitespace-nowrap">{r.date}</span> },
+  { key: "desc", header: "Description", render: (r) => r.description },
+  { key: "amt", header: "Amount", render: (r) => <span className="font-semibold text-v2-navy">{r.amount}</span> },
+  { key: "st", header: "Status", render: () => <StatusChip tone="green">Paid</StatusChip> },
 ];
 
 function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
@@ -50,7 +61,7 @@ function SummaryRow({ label, children }: { label: string; children: ReactNode })
 export default function BillingPage() {
   return (
     <div className="space-y-4">
-      <PageHero
+      <OrgPageHero
         title="Billing & Subscription"
         icon={<CreditCardIcon />}
         subtitle="Manage your plan, seats, usage, and invoices all in one place."
@@ -77,9 +88,9 @@ export default function BillingPage() {
           title="Plan Summary"
           className="lg:col-span-2 xl:col-span-1"
           headerExtra={
-            <OrgButton variant="outline" size="sm" icon={<GearIcon />}>
+            <ToolbarButton variant="outline" size="sm" icon={<GearIcon />}>
               Manage Plan
-            </OrgButton>
+            </ToolbarButton>
           }
         >
           <div className="flex items-start gap-4">
@@ -116,9 +127,9 @@ export default function BillingPage() {
               { label: "Available Seats", value: 28, tone: "blue" },
             ]}
           />
-          <OrgButton variant="solid" className="mt-4 w-full">
+          <ToolbarButton size="md" variant="solid" className="mt-4 w-full">
             Add Seats
-          </OrgButton>
+          </ToolbarButton>
         </SectionCard>
 
         <SectionCard title="Payment Method">
@@ -128,22 +139,22 @@ export default function BillingPage() {
               <div className="text-[13.5px] font-bold text-v2-navy">Visa ending in 4242</div>
               <div className="text-[12.5px] text-v2-muted">Expires 04/2028</div>
             </div>
-            <MoreButton label="Payment method options" />
+            <KebabMenu label="Payment method options" />
           </div>
           <StatusChip tone="green" className="mt-3">
             Default Payment Method
           </StatusChip>
-          <OrgButton variant="outline" className="mt-4 w-full">
+          <ToolbarButton size="md" variant="outline" className="mt-4 w-full">
             Update Payment Method
-          </OrgButton>
+          </ToolbarButton>
         </SectionCard>
       </div>
 
       {/* invoices + usage */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <SectionCard title="Billing History & Invoices" action={{ label: "View all", href: "/org/billing" }}>
-          <DataTable
-            caption="Billing history and invoices"
+          <DataTable inCard
+            aria-label="Billing history and invoices"
             columns={INVOICE_COLUMNS}
             rows={INVOICES}
             rowKey={(r) => r.id}
@@ -178,9 +189,9 @@ export default function BillingPage() {
         <SectionCard
           title="Subscription Details"
           headerExtra={
-            <OrgButton variant="outline" size="sm" icon={<PencilIcon />}>
+            <ToolbarButton variant="outline" size="sm" icon={<PencilIcon />}>
               Edit
-            </OrgButton>
+            </ToolbarButton>
           }
         >
           <dl className="divide-y divide-[#EEF1F7]">
@@ -218,9 +229,9 @@ export default function BillingPage() {
           title="Billing Contacts"
           className="lg:col-span-2 xl:col-span-1"
           headerExtra={
-            <OrgButton variant="soft-blue" size="sm" icon={<PlusIcon />}>
+            <ToolbarButton variant="soft-blue" size="sm" icon={<PlusIcon />}>
               Add Contact
-            </OrgButton>
+            </ToolbarButton>
           }
         >
           <ul className="divide-y divide-[#EEF1F7]">
@@ -232,7 +243,7 @@ export default function BillingPage() {
                   <div className="text-[12px] text-v2-muted">{c.role}</div>
                   <div className="truncate text-[12.5px] text-v2-ink-soft">{c.email}</div>
                 </div>
-                <MoreButton label={`${c.name} options`} />
+                <KebabMenu label={`${c.name} options`} />
               </li>
             ))}
           </ul>

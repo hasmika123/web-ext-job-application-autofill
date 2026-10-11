@@ -1,4 +1,4 @@
-import { BriefcaseIcon, CheckCircleIcon, MailIcon, RocketIcon } from "../common-local/icons";
+import { BriefcaseIcon, CheckCircleIcon, MailIcon, RocketIcon } from "@kiwiply/ui";
 import {
   CompanyTile,
   Donut,
@@ -7,7 +7,7 @@ import {
   RailLayout,
   SectionCard,
   StatRow,
-} from "../common-local";
+} from "@/components/app-v2/common";
 import OrgPageHero from "../shell/OrgPageHero";
 import { OPPORTUNITIES_STATS, PIPELINE_DONUT, RECENT_ASSIGNMENTS, TOP_HIRING } from "../sample-data";
 import OpportunitiesTable from "./OpportunitiesTable";

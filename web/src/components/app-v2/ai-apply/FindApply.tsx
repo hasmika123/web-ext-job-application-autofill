@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRightIcon, BookmarkIcon, SearchIcon, cn } from "@kiwiply/ui";
-import { FIND_FILTERS, RECOMMENDED_JOBS } from "../sample-data.pages";
-import { CompanyTile, FilterSelect } from "../local";
+import { FIND_FILTERS, RECOMMENDED_JOBS } from "../sample-data";
+import { CompanyTile, FilterSelect } from "../common";
 
 /**
  * "Find & Apply" panel (board `app-ai-apply-find.webp`): the AI search bar, the filter row and
@@ -57,7 +57,7 @@ export default function FindApply({ onApply }: { onApply: () => void }) {
 
       <div className="mt-3 flex flex-wrap gap-2">
         {FIND_FILTERS.map((f) => (
-          <FilterSelect key={f} label={f} options={[]} className="min-w-[110px]" />
+          <FilterSelect placeholder key={f} label={f} options={[]} className="min-w-[110px]" />
         ))}
       </div>
 
