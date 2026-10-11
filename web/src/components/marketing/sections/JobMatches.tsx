@@ -38,32 +38,34 @@ export default function JobMatches() {
 
         <MatchesMock className="relative z-10 mx-auto max-w-[480px] md:max-w-none" />
 
-        {/* Right column (md+): reserves the space; the note sits at its top, the cutout is placed
-            against the band below. */}
-        <div aria-hidden className="relative hidden self-stretch md:block">
-          <Handwritten
-            ink="navy"
-            className="absolute right-0 top-[8%] z-20 -rotate-[4deg] text-right text-[clamp(18px,2.4cqw,28px)]"
-          >
-            Jobs <br />
-            that fit you.
-          </Handwritten>
-          <CurvedArrow
-            direction="down-left"
-            className="absolute right-[34%] top-[calc(8%+clamp(44px,5.4cqw,64px))] z-20 h-[clamp(26px,3.4cqw,40px)] w-[clamp(26px,3.4cqw,40px)] text-v2-green"
-          />
-          <StarDoodle className="absolute right-[3%] top-[calc(8%+clamp(52px,6.4cqw,76px))] z-20 h-5 w-5 text-v2-amber" />
+        {/* Right column (md+): a flex column. The note + swoosh sit at the top and keep their own
+            height; the zone below fills what is left down to the band's bottom edge (negative
+            margin eats the band's bottom padding) and the cutout, capped to that zone's height,
+            shrinks instead of ever climbing under the note. */}
+        <div aria-hidden className="hidden self-stretch md:flex md:flex-col">
+          <div className="relative shrink-0 pt-2">
+            <Handwritten ink="navy" className="-rotate-[4deg] text-right text-[clamp(18px,2.4cqw,28px)]">
+              Jobs <br />
+              that fit you.
+            </Handwritten>
+            <CurvedArrow
+              direction="down-left"
+              className="ml-auto mr-[34%] mt-1 h-[clamp(26px,3.4cqw,40px)] w-[clamp(26px,3.4cqw,40px)] text-v2-green"
+            />
+            <StarDoodle className="absolute right-[3%] top-[calc(8px+clamp(44px,5.4cqw,64px))] h-5 w-5 text-v2-amber" />
+          </div>
+
+          <div className="relative -mb-12 mt-4 min-h-0 flex-1 lg:-mb-14">
+            <Photo
+              id="hero-individual"
+              alt="A job seeker in a green hoodie smiling at his laptop"
+              className="pointer-events-none absolute inset-y-0 right-[calc(8*var(--u)-28px)] z-20 flex w-[calc(250*var(--u))] items-end justify-end lg:right-[calc(8*var(--u)-44px)] xl:right-[calc(8*var(--u)-56px)] xl:w-[calc(300*var(--u))] [&_img]:max-h-full [&_img]:w-auto"
+              sizes="(min-width: 1024px) 300px, 250px"
+              edgeFade={[4, 8]}
+            />
+          </div>
         </div>
       </div>
-
-      {/* md+: the cutout stands on the band's bottom edge, in front of the wash. */}
-      <Photo
-        id="hero-individual"
-        alt="A job seeker in a green hoodie smiling at his laptop"
-        className="pointer-events-none absolute bottom-0 right-[calc(8*var(--u))] z-20 hidden w-[calc(250*var(--u))] md:block xl:w-[calc(300*var(--u))]"
-        sizes="(min-width: 1024px) 300px, 250px"
-        edgeFade={[4, 8]}
-      />
 
       {/* Mobile: the note over the cutout, flush on the band's bottom edge (negative margin eats the band's padding). */}
       <div className="relative -mb-10 mt-6 md:hidden">
