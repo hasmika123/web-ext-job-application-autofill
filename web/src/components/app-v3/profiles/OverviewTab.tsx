@@ -106,7 +106,7 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         {/* Completeness */}
         <SectionCard title="Profile completeness" headerExtra={<span className="font-display text-[22px] font-extrabold text-v2-green-ink">{profile.percent}%</span>}>
           <Progress value={profile.percent} tone="green" label="Profile completeness" className="h-2" />
-          <ul className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          <ul className="mt-4 grid grid-cols-2 gap-2.5 min-[1280px]:grid-cols-3">
             {profile.tiles.map((t) => {
               const meta = TILE_ICON[t.key];
               const done = t.status === "done";
@@ -138,7 +138,8 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         </SectionCard>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid items-start gap-4 md:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-4">
         {/* Public profile preview */}
         <SectionCard title="Public Profile Preview">
           <div className="rounded-xl border border-v2-line/70 p-4">
@@ -168,6 +169,28 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
             View Full Profile
           </button>
         </SectionCard>
+
+        {/* Resume versions */}
+        <SectionCard title="Resume Versions" action={{ label: "Manage", href: "/resume-builder" }}>
+          <ul className="divide-y divide-v2-line/60">
+            {versions.map((r) => (
+              <li key={r.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-v2-blue-soft text-v2-blue">
+                  <FileTextIcon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-semibold text-v2-navy">
+                    {r.label}
+                    {r.isDefault && <span className="ml-1.5 text-[12px] font-medium text-v2-ink-soft">(Default)</span>}
+                  </p>
+                  <p className="text-[12px] text-v2-muted">Updated {r.date}</p>
+                </div>
+                {r.isDefault && <StarIcon className="h-4 w-4 flex-none text-v2-amber" aria-label="Default resume" />}
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+        </div>
 
         <div className="flex min-w-0 flex-col gap-4">
           {/* Job preferences (board 1): real bio answers, the board's text while unset */}
@@ -229,30 +252,6 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
               )}
             </div>
           </SectionCard>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Resume versions */}
-        <SectionCard title="Resume Versions" action={{ label: "Manage", href: "/resume-builder" }}>
-          <ul className="divide-y divide-v2-line/60">
-            {versions.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-v2-blue-soft text-v2-blue">
-                  <FileTextIcon className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-semibold text-v2-navy">
-                    {r.label}
-                    {r.isDefault && <span className="ml-1.5 text-[12px] font-medium text-v2-ink-soft">(Default)</span>}
-                  </p>
-                  <p className="text-[12px] text-v2-muted">Updated {r.date}</p>
-                </div>
-                {r.isDefault && <StarIcon className="h-4 w-4 flex-none text-v2-amber" aria-label="Default resume" />}
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
 
         {/* Linked profiles */}
         <SectionCard title="Linked Profiles">
@@ -281,6 +280,7 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
             ))}
           </ul>
         </SectionCard>
+        </div>
       </div>
     </div>
   );
