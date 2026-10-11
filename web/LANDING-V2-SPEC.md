@@ -397,3 +397,92 @@ Mobile: single column; feature grid 1-col; table mock becomes stacked cards.
 
 Each phase: commit `v2.<N>: <subject>` on `version2`, push the branch, one Log line in
 `PROGRESS.md`. Do not touch `job-autofill/` or `api/`.
+
+---
+
+## 13. Exact-board mode (user decision 2026-10-10 — supersedes §1 item 1 and the §6–§9 copy)
+
+The user wants the pages to display **exactly as the boards**, copy included. This section wins
+over the honest-copy substitutions above. Guard-rails that remain:
+
+- **Placeholder data lives in one file:** `web/src/components/marketing/placeholder-data.ts`
+  exports `TRUST_LINE`, `PARTNER_LOGOS`, `STATS`, `TESTIMONIALS`, `ORG_TESTIMONIAL`, `FOOTER_TRUST`,
+  with a top-of-file comment `PLACEHOLDER — board copy, not verified; replace with real values
+  before version2 is promoted`. Markup renders whatever is there; nothing is hard-coded in JSX.
+- **Third-party marks:** we ship no third-party logo files. Partner names (LinkedIn, Indeed,
+  Glassdoor, ZipRecruiter, Handshake, Wellfound, Workday, Greenhouse) render as styled text
+  wordmarks in their brand colours; company rows in mocks (Google, Amazon, Microsoft, Airbnb,
+  Netflix, Spotify, Notion) render the name with a coloured initial tile (`GoogleIcon` may be
+  used for Google). Gmail / Outlook / Yahoo render as coloured letter tiles (M / O / Y).
+- **Pricing moves to `/pricing`.** The boards have no pricing on `/`. `(marketing)/pricing/page.tsx`
+  becomes a real page rendering `PricingSection` + `ServicesSection` (same props, same pop-ups,
+  same Stripe buttons, plus metadata); every `/#pricing` link becomes `/pricing`; `#services` →
+  `/pricing#services`. The old redirect is gone.
+- **Video buttons** ("Watch Demo · 2 min", "Watch Our Story", "Watch Overview") are always shown;
+  they link to `DEMO_VIDEO_URL` when set, otherwise to `#how` (landing), `#mission` (about),
+  `#how` (organizations).
+- Links to pages that don't exist map to the closest real destination (§13.6); items with no
+  destination render as text with a small "Soon" chip, never a dead link.
+
+### 13.1 Hero slides (exact)
+
+| # | Eyebrow | Headline (3 lines; last line coloured) | Lede | Ticks | Handwritten / sticky |
+|---|---|---|---|---|---|
+| 1 | AI Job Application Copilot | Find jobs. / Apply faster. / **Get hired.** (green) | Kiwiply helps you find the right jobs, autofill applications with AI, track every application, and get smart updates — so you can spend less time on paperwork and more time on your future. | Works on all major job sites · No credit card required · Free plan available | "Same me. More opportunities." · sticky "Less busy work. More you." |
+| 2 | From Search to Interview | Your / job search / **on autopilot.** (violet) | Kiwiply finds the right opportunities, customizes your applications, tracks every update, and keeps you ready for interviews — automatically. | Works at major job sites · No credit card required · Free plan available | "Step by step to your next chapter." |
+| 3 | For Students & Early Career | Discover / opportunities / **that fit you.** (teal) | Explore job roles, get personalized recommendations, and build the skills you need for the career you want. | No credit card required · Free plan available · For your next step | "Explore / Learn / Grow / Get hired." · "Your future step by step." |
+| 4 | For Organisations | A smarter / way to grow / **your team.** (blue) | Manage multiple candidates, track applications, collaborate with your team, and hire top talent faster — all in one place. | All your hiring in one place · Built for growing teams · Hire smarter, faster | "Build great teams together." |
+
+CTAs: slides 1–3 "Get Started Free →" + "Watch Demo / 2 min"; slide 4 "Explore for Organizations →" + "Watch Demo / 2 min".
+
+Cards. **Slide 1:** "Top Job Matches for You · View all →": Product Designer · Spotify · Remote · 98% Match; UX Researcher · Google · New York, NY · 92% Match; Product Manager · Notion · Remote · 88% Match; side cards "Auto apply with AI", "Track updates in real time", "Prepare for interviews", "Get hired" (heart). **Slide 2:** chain Find jobs / that match you → Auto apply / with AI → Track updates / in real time → Prepare for / interviews → Get hired. **Slide 3:** "Career matches": Product Designer 96% Match · Data Analyst 88% Match · Software Engineer 82% Match · UX Researcher; "Top skills for you": Problem Solving · Communication · Data Analysis · Creativity · Leadership; "Learning resources" (three thumbnail tiles with play icons); book spines "Career Exploration / Build New Skills / Land Your First Job". **Slide 4:** "Team Applications" (search box "Search candidates…"; Applied 248 · In Review 96 · Interview 32 · Offer 12; rows Priya S. Software Engineer → In Review; Jason T. Product Manager → Interview; Maya K. UX Designer → Interview; Derek A. Data Analyst → Offer); "Team Insights" bars + "+40% Faster hiring"; side cards Collaborate with your team · Track progress every step · Manage interviews and offers · Make data-driven hiring decisions.
+
+### 13.2 Landing body (exact, in order)
+
+1. **Trust line + logos** — `TRUST_LINE` "Trusted by 1M+ job seekers and 10,000+ companies"; `PARTNER_LOGOS` LinkedIn · indeed · glassdoor · ZipRecruiter · Handshake · wellfound · workday · greenhouse · "and 1,000+ more…". Mobile: the line, then a 2–3 column wordmark grid.
+2. **Pillars** (mobile heading "Everything you need to get hired faster." / "Powerful AI tools to simplify your job search from start to finish."): Find the right jobs — Discover opportunities that match your skills, goals and vibe. · AI autofill applications — Accurate, fast and tailored to each job. · Smart resume selection — Use the best resume automatically. · AI-generated answers — Get good answers for tough questions. · Track everything — Keep all your applications, responses and interviews in one place. No "Pro" chips.
+3. **Track applications** — "We track your job application emails automatically." · "Connect your Gmail or Outlook and Kiwiply monitors recruiter responses, interview invites, rejections and more — then alerts you instantly." · CTA "Connect Your Email →" (→ `/signup`) · provider tiles Gmail / Outlook / Yahoo · handwritten "No more checking manually!" · Inbox mock rows: Google · Interview Invite · Software Engineer · 2m ago · Interview; Amazon · Application Received · Product Manager · 1h ago · Applied; Microsoft · Follow Up · Software Engineer · 1d ago · Response; Airbnb · Unfortunately… · Frontend Developer · 2d ago · Rejection; Netflix · Portfolio Review · Product Manager · 3d ago · Update · handwritten "We'll keep an eye on your inbox!" · mascot with envelope.
+4. **Find better opportunities** — "Get personalized job matches." · "Kiwiply finds jobs that match your skills, interests and goals — so you don't have to search endlessly." · CTA "Find My Matches →" · mock "Top Job Matches for You · View All" (same three rows as slide 1) · handwritten "Jobs that fit you." · `hero-individual` cutout.
+5. **AI resume builder** — "Create the perfect resume for every job." · "Kiwiply tailors your resume, cover letter and application answers based on the job description." · CTA "Try Resume Builder →" (→ `/signup`) · mock: tabs Resume / Cover Letter / Application Answers, document "Product Designer" with chip "Tailored for this job", checklist Resume optimized · Keywords matched · Tailored to job description · Cover letter generated · Ready to apply · mobile mascot note "One click. Job ready!".
+6. **One dashboard** — "Keep track of everything in one place." · "All your applications, interviews, offers and notes — organized automatically." · CTA "View Your Dashboard →" (→ `/dashboard`) · mock: sidebar Dashboard · Jobs · Applications · Interviews · Offers · Analytics · Settings; "My Applications" tabs All (248) · Active (112) · Interviews (5) · Offers (3) · Rejected (88); rows Google · Software Engineer · 2 days ago · Interview; Amazon · SDE Intern · 4 days ago · In Review; Microsoft · Product Manager · 1 week ago · Interview; Airbnb · Frontend Developer · 1 week ago · Offer; stat chips 12 Applications · 5 Interviews · 3 Offers · handwritten "Stay organized. Make progress."
+7. **How it works** — "Get from search to interview, faster." · "Kiwiply handles the busy work — so you can focus on what really matters." · Find jobs — We find jobs that match your profile. · Apply with AI — We autofill and tailor your application. · Track progress — We monitor responses and keep you updated. · Get hired — You focus on what's next. · mobile: handwritten "Same goals. Bigger possibilities." + mascot on a paper plane.
+8. **For Individuals** — "Land your dream job." · "Find better opportunities, save time and stay in control of your job search." · CTA "Get Started Free →" · list Students · New Grads · Career Switchers · Freelancers · Professionals · Return to Work (chevrons; all → `/signup`) · card "Product Designer · Google · Full-time · Remote · 92% Match" with checklist Role matches your skills · Aligned with your goals · Great culture fit · High growth potential · handwritten "Your Next Chapter Starts Here." · `hero-student` cutout + mascot.
+9. **For Organizations** — "Empower your team." · "Help your team find opportunities, track applications and grow together." · CTA "Explore for Organizations →" · checklist Manage multiple employees · Track team applications · Role-based access · Analytics and reports · Custom workflows & alerts · mock "Organization Dashboard": 248 Applications · 32 Interviews · 5 Offers · 12 Active Employees; "Team Activity" (Applications / Interviews / Offers / Status): Priya S. 24 · 4 · 1 · Active; Jason T. 18 · 2 · 0 · Active; Maya K. 30 · 5 · 2 · Active; Rohit A. 12 · 1 · 0 · In Review · handwritten "Build greater opportunities together." · `hero-team` cutout + mascot.
+10. **Stats** (`STATS`) — 100K+ Applications submitted · 5x Faster applications · 3x More responses on average · 90% Save 10+ hours every week.
+11. **Success stories** (`TESTIMONIALS`) — eyebrow SUCCESS STORIES · "Real People. Real Opportunities." · "See how Kiwiply has helped students and professionals land their dream jobs." · three cards, 5 stars, initial avatars, prev/next arrows: Priya S. · Recent Graduate · "Kiwiply helped me apply to 5x more jobs in way less time. I finally started getting interviews!" / Jason T. · Computer Science Student · "The email tracking feature is a game changer. I never miss an update anymore." / Maya K. · Marketing Intern · "I love how it suggests the right jobs and tailors my resume for each one. Super easy to use!"
+12. **Final CTA** — "Your next opportunity is waiting." · "Join thousands of students and professionals who are building brighter futures with Kiwiply." · "Get Started for Free →" + "View Pricing" (→ `/pricing`) · handwritten "Same goals. Bigger possibilities." · mascot `laptop` · backdrop: the board's illustrated campus band — crop `design/landing-v2/landing-desktop-full.webp` at y≈1755–1860 full width, upscale, slight blur, saved as `web/public/v2/cta-backdrop.jpg`, placed as a background image at reduced opacity under a white→transparent gradient so the text stays legible.
+
+### 13.3 Footer (exact)
+
+Navy. Left: logo (dark) · "More opportunities for a brighter you." · "Kiwiply helps you find the right jobs, autofill applications with AI, and keep track of everything — so you can spend less time on paperwork and more time on your future."
+Columns — **For Individuals:** How It Works · Find Jobs · AI Application Copilot · Resume Builder · Interview Prep · Application Tracker · Browser Extension · Pricing · Sign Up. **For Organizations:** Overview · Team Management · Scheduled Applications · Reports & Analytics · Recruiter Manager Tools · Roles & Permissions · Enterprise Security · Pricing · Request a Demo. **Resources:** Blog · Career Guides · Resume Examples · Interview Questions · Company Reviews · Job Search Tips · Browser Extension Help · API (Coming Soon). **Company:** About Us · Our Mission · Careers · Press · Contact Us · Security · Privacy · Terms · Status.
+Right: "Stay ahead with Kiwiply." · "Get career insights, product updates, and more." · email + "Subscribe" (the existing `NewsletterSignup`, restyled for the dark surface) · "Get the Kiwiply Extension" · "Works on all major job sites" · browser tiles (Chrome, Edge, Firefox, Brave, Opera, Safari as lettered tiles) · "Follow Kiwiply" X · LinkedIn · Instagram · YouTube · TikTok (`SOCIAL_LINKS`, `#` until real).
+Trust row (`FOOTER_TRUST`): Your data is safe — Security & privacy first · Trusted by 100K+ — Job seekers worldwide · Works on 1,000+ sites — Including Workday, Greenhouse, Lever, Ashby and more · Built for your future — More opportunities. More possibilities.
+Bottom: "© {year} Kiwiply. All rights reserved." · Privacy · Terms · Cookies · Accessibility · Sitemap · Do Not Sell or Share My Personal Information · language chip "English". Keep the beta "as is" sentence as a final small line.
+
+### 13.4 Mobile landing (exact order, from `landing-mobile-screens.webp`)
+Header (logo + hamburger) → hero: eyebrow, h1, lede, handwritten note, art (person + mascot + laptop), "Get Started Free →" (full width), "Watch Demo / 2 min" (full width, outlined), ticks row, trust line, partner wordmark grid → pillars ("Everything you need to get hired faster.") as a vertical list → Track applications (provider tiles, inbox mock, mascot + note) → Find better opportunities (mock, handwritten, cutout, CTA) → AI resume builder → One dashboard → How it works (vertical steps) → For Individuals (list with chevrons, cutout) → For Organizations → stats 2×2 → success stories → final CTA → footer.
+
+### 13.5 `/about` and `/organizations` — exact
+Transcribe the copy from `about-desktop-b.webp` (primary; `about-desktop-a.webp` for the extra sections it has) and `organizations-desktop-full.webp` **verbatim**, section for section, including: "Watch Our Story", the "Trusted by Organizations" testimonial (Priya Nair, Director of Career Services — placeholder file), the stats, "Book a Demo →" (→ `/contact?topic=organization`), the 12 enterprise feature cards as labelled on the board (no "Coming" chips), the six how-it-works steps as written on the board, and the About board's footer line "Made with ♥ in New Zealand". Mobile per `about-mobile-screens.webp` / `organizations-mobile-screens.webp`.
+
+### 13.6 Link map for board items with no page
+| Board item | Destination |
+|---|---|
+| How It Works / Interview Prep | `/#how` |
+| Find Jobs | `/#matches` |
+| AI Application Copilot | `/#pillars` |
+| Resume Builder | `/#resumes` |
+| Application Tracker / View Your Dashboard | `/dashboard` (signed-out visitors get the login redirect) |
+| Browser Extension / Browser Extension Help | `/signup` |
+| Pricing / View Pricing | `/pricing` |
+| Sign Up / Get Started | `/signup` |
+| Overview | `/organizations` |
+| Team Management · Scheduled Applications · Reports & Analytics · Recruiter Manager Tools · Roles & Permissions · Enterprise Security | `/organizations#features` |
+| Request a Demo / Book a Demo | `/contact?topic=organization` |
+| About Us / Our Mission | `/about` / `/about#mission` |
+| Contact Us / Careers / Press / Status | `/contact` |
+| Security / Do Not Sell or Share My Personal Information | `/privacy` |
+| Cookies | `/privacy#cookies` (add the anchor if missing) |
+| Accessibility · Sitemap | `/contact` · `/sitemap.xml` |
+| Blog · Career Guides · Resume Examples · Interview Questions · Company Reviews · Job Search Tips · API | text + "Soon" chip |
