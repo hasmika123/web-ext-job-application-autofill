@@ -9,38 +9,26 @@ Read in this order: root `CLAUDE.md` → this file → `web/LANDING-V2-SPEC.md` 
 
 ## 0. START HERE — the exact continuation point
 
-**Last commit:** `734bd0b` on `origin/version2` (2026-10-11). Working tree was clean, all agent
-worktrees removed and merged, no stashes. Nothing exists only on the old machine.
+**Last commit:** the `app3qa:` series on `origin/version2` (2026-10-11; `git log --oneline -8`).
+**App v3 is built and QA'd**: all 13 signed-in routes exist as v3 pages, `npm test -w web` and
+`npm run build -w web` are green. Nothing is promoted to `develop` or `main`.
 
 ```bash
 git clone <repo> && cd web-ext-job-application-autofill
 git checkout version2
 npm ci                      # at the ROOT (npm workspaces)
-npm test -w web             # must be green (tsc + eslint) — it was at 734bd0b
-npm run dev -w web          # http://localhost:3000
+npm test -w web             # tsc + eslint, green
+npm run dev:demo -w web     # mock API (:8080) + Next (:3000); /login -> "Job seeker" -> "Open demo"
 ```
 
-**The task in flight is "App v3" (`web/APP-V3-SPEC.md`), stopped mid-build.** Resume in this
-order, one Sonnet agent per step, worktrees for parallel steps:
+**What to do next** (in this order; nothing here is blocked on code):
 
-1. **V3-A — finish the shell, then build Dashboard + Job Search** (spec §1, §2.1, §2.2).
-   Start from the WIP in `web/src/components/app-shell/{AppShell,AccountMenu,NotificationBell}.tsx`
-   (13-item nav, blue active pill, `PlanCard`, "Hi, First" top bar — partly edited), the new
-   `app-v2/common/{HeroBand,PlanCard,PromptChip}.tsx`, `web/src/lib/legacy-redirect.ts` and the
-   redirect pages already rewritten under `web/src/app/(app)/*`. Verify the redirects, then build
-   `app-v3/home/*` + `app-v3/jobs/*` and point `(app)/dashboard` and `(app)/jobs/**` at them.
-2. **V3-B — finish `/profiles` and `/settings`** (spec §2.4, §2.13); `/applications` and `/saved`
-   v3 pages already exist (`app-v3/applications`, `app-v3/saved`) — verify them in the browser.
-3. **Verify V3-C and V3-D in the browser** (`/assistant`, `/alerts`, `/messages`,
-   `/resume-builder`, `/interview-prep`, `/explore`, `/analytics`) — they were built without one.
-4. **V3-QA** — fold `app-v3/local-{b,c,d}/HeroBand.tsx` into `app-v2/common/HeroBand.tsx`, merge
-   `sample-data.{a,b,c,v3d}.ts` into `app-v3/sample-data.ts`, delete unused v2 page folders
-   (`app-v2/{home,jobs,saved,ai-apply,applications,interviews,resume,coming-soon}` once nothing
-   imports them), route smoke at 1440/1024/375, `npm run build -w web`, PROGRESS log line.
-5. **Fidelity pass** against the per-page board images once the user drops them into
-   `design/app-v3/` (not received yet — see §3).
-
-Before step 1, check `design/app-v3/` — if the images are there, update `APP-V3-SPEC.md` §2 first.
+1. Get the user's decisions in section 3 (board images in `design/app-v3/`, `/` vs `/v3`, placeholder
+   copy). Board images are the only thing that changes page work: re-check each page against its
+   image and fix by diff.
+2. A real-browser look by the user at 1440/1024/375 (agents verified in a throttled hidden pane, see
+   "never verified" below).
+3. Only when the user asks: PR `version2` into `develop`. Promotion to `main` is a production deploy.
 
 ## 1. How the user wants work done (decisions, not suggestions)
 
@@ -75,39 +63,35 @@ Before step 1, check `design/app-v3/` — if the images are there, update `APP-V
 | Demo accounts | admin switch at `/admin/system` | APP-V2-SPEC §9 | off by default; see `DEPLOY.md` §12.1 |
 | Marketing nav | header | — | active item highlighted |
 
-### In progress — **app v3** (second-generation signed-in app), stopped mid-build
-Spec: `web/APP-V3-SPEC.md` (transcribed from four composite boards the user pasted inline; the
-user has been asked to drop one image per page into `design/app-v3/` — **not received yet**; when
-they arrive, re-check every page against them).
+### App v3 (second-generation signed-in app): built and QA'd
+Spec: `web/APP-V3-SPEC.md`. Pages live in `web/src/components/app-v3/*` (one folder per route, one
+shared `sample-data.ts` marked SAMPLE); shared primitives in `app-v2/common` (single `HeroBand` with
+an `art` band look and a `mascot` PageHero look). Old routes redirect via `lib/legacy-redirect.ts`
+(`/ai-apply /interviews /resume /ai-tools /insights /companies /networking /learning /profile /board
+/matches /jobs/<id>` -> v3 pages; `/jobs/<id>` opens `/jobs?job=<id>`).
 
-| Phase | Commit | State |
-|---|---|---|
-| V3-A shell + dashboard + jobs | `2e397a5` `app3a-wip` | **partial**: new `HeroBand`/`PlanCard`/`PromptChip` in `app-v2/common`, `lib/legacy-redirect.ts`, old routes rewritten as redirects, `AppShell`/`AccountMenu`/`NotificationBell` mid-edit (13-item nav, plan card, "Hi, First" top bar). Dashboard and Job Search **not started**. |
-| V3-B applications/profiles/saved/settings | `14ff512` `app3b-wip` (merged) | **partial**: `app-v3/{applications,profiles,saved}` + `local-b/HeroBand`; `/applications` and `/saved` routes point at the v3 pages; `/profiles` and `/settings` **not done**; `BioEditor.tsx` touched |
-| V3-C assistant/alerts/messages | `7d53eed` `app3c` (merged) | **complete** (not visually checked); uses `local-c/HeroBand` |
-| V3-D resume-builder/interview-prep/explore/analytics | `78e6d48` `app3d-wip` (merged) | **partial**: four routes + page components exist; sample data `sample-data.v3d.ts`; uses `local-d/HeroBand`; unverified |
-| V3-QA | — | not started |
+V3-QA (`app3qa:` commits) folded the three local `HeroBand` copies into the shared one, merged the four
+sample-data files, deleted the unused v2 page folders (kept: `app-v2/applications/mapping.ts`,
+`jobs/{data,JobBits,job-utils}`, `resume/{ResumeDrawer,TemplateThumb}`, `sample-data.ts`, `common/*`)
+and two dead components, and removed `/profile/loading.tsx` so `/profile` is a plain server redirect.
+Smoke at 1440/1024/375 over all 14 signed-in routes (incl. `/org`): no horizontal overflow, no blank
+page, no console errors beyond a dev-only HMR websocket warning.
 
-`npm test -w web` (tsc + eslint) is **green** on the merged tree as of `e2eff68`; `npm run build`
-was not re-run after the WIP merges. Three `HeroBand` copies exist (`app-v2/common`, `local-b`,
-`local-c`, `local-d`) — QA folds them into `app-v2/common/HeroBand`.
-
-### How to resume app v3
-1. Pull `version2`. Check `design/app-v3/` for the per-page images; update `APP-V3-SPEC.md` §2 if
-   they differ from the transcription.
-2. Finish V3-A (shell, Dashboard, Job Search) first — other pages assume the shell.
-3. Finish V3-B (`/profiles`, `/settings`) and verify V3-C/V3-D in the browser (they were built
-   without one). Then V3-QA: dedupe HeroBand + sample-data files into `app-v3/sample-data.ts`,
-   delete unused v2 page folders, route smoke at 1440/1024/375, `npm run build -w web`,
-   PROGRESS log.
-4. Signed-in pages need a session: run a throwaway Node mock on :8080 answering `/api/account`,
-   `/api/billing/me`, `/api/profile`, `/api/profile/applications`, `/api/profile/resumes`,
-   `/api/profile/notifications`, `/api/profile/job-matches` (402), `/api/profile/inbox`, and set
-   the cookie the proxy expects (see `web/src/lib/{auth,cookies}.ts`, `web/src/proxy.ts`;
-   `git log -p bc41cff` shows how the first agent did it).
+**Honestly never verified**
+- Pixel fidelity against the per-page board images (never received); pages follow the transcribed spec.
+- The smoke ran in the hidden in-app browser pane: streamed pages (`/dashboard`, `/jobs`, `/settings`
+  have `loading.tsx`) only paint when the pane is woken, so those three were checked by screenshot
+  at selected widths, not by the automated sweep at every width. Tap-target sizes, keyboard and screen
+  reader paths, dark mode, and real (non-demo) data/empty states were not checked.
+- Real-API behaviour: the sweep used `scripts/mock-api.mjs` (demo account); billing/inbox/402 paths
+  and a signed-out `/profile` against the real Spring API were not exercised.
+- Sample-data pages (Alerts, Messages, Assistant, Interview Prep, Explore, Analytics partly) show
+  board rows when the real list is empty; none of them persists anything yet.
+- `components/ApplicationBoard.tsx` is only used for its `Application` type; the component itself is
+  dead weight left in place (moving the type is trivial but touches many imports).
 
 ## 3. Open items the user still has to decide / supply
-- Per-page app v3 board images → `design/app-v3/`.
+- Per-page app v3 board images → `design/app-v3/` (then a fidelity pass).
 - `/` (carousel) vs `/v3` as the real home page.
 - Replace placeholder testimonials/quotes (`*/placeholder-data.ts`, marked `PLACEHOLDER`) and the
   "Trusted by organizations" eyebrow before promotion.
