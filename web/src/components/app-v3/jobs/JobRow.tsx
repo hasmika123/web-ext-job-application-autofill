@@ -38,16 +38,18 @@ export default function JobRow({ job, selected, onOpen }: { job: V3Job; selected
               <JobTag key={t}>{t}</JobTag>
             ))}
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-[12px] text-v2-muted">
-            <ClockIcon size={12} />
-            Posted {job.posted}
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-v2-muted">
+            <MatchBadge score={job.score} />
+            <span className="flex items-center gap-1.5">
+              <ClockIcon size={12} />
+              Posted {job.posted}
+            </span>
           </div>
         </div>
         <div className="flex flex-none flex-col items-end gap-2">
           <span className="pointer-events-auto relative z-10">
             <SaveButton job={job} className="-mr-1 -mt-1" />
           </span>
-          <MatchBadge score={job.score} />
         </div>
       </div>
     </li>

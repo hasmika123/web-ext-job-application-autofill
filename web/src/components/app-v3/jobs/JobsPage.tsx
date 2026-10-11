@@ -177,7 +177,7 @@ export default function JobsPage({
           <div
             className={cn(
               "grid items-start gap-4",
-              selected && "md:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]",
+              selected && "md:grid-cols-[minmax(0,1fr)_minmax(290px,340px)] xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]",
             )}
           >
             <section aria-label="Jobs" className={cn("min-w-0", selected && "hidden md:block")}>

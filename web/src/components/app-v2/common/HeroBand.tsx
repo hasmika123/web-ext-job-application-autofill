@@ -30,7 +30,7 @@ export default function HeroBand({
   note?: ReactNode;
   actions?: ReactNode;
   children?: ReactNode;
-  /** A card on the right (e.g. "Let AI find better matches for you"). Shown from `lg`. */
+  /** A card on the right (e.g. "Let AI find better matches for you"). Shown from `xl`. */
   aside?: ReactNode;
   decor?: ReactNode;
   className?: string;
@@ -61,13 +61,13 @@ export default function HeroBand({
           {children && <div className="mt-4">{children}</div>}
           {actions && <div className="mt-4 flex flex-wrap items-center gap-2.5">{actions}</div>}
         </div>
-        {aside && <div className="hidden flex-none items-center self-center py-4 lg:flex">{aside}</div>}
+        {aside && <div className="hidden flex-none items-center self-center py-4 xl:flex">{aside}</div>}
         {(image || note) && (
           <div className="relative hidden flex-none items-end justify-end self-stretch pr-4 sm:flex">
             {note && (
               <p
                 aria-hidden
-                className="absolute left-0 top-4 z-[2] w-[150px] -rotate-6 font-[family-name:var(--font-hand)] text-[21px] leading-[1.05] text-v2-green-ink md:-left-16"
+                className="absolute -left-[138px] top-4 z-[2] hidden w-[140px] -rotate-6 font-[family-name:var(--font-hand)] text-[21px] leading-[1.05] text-v2-green-ink md:block"
               >
                 {note}
               </p>

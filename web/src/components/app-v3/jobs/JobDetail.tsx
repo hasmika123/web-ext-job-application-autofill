@@ -78,7 +78,7 @@ export default function JobDetail({ job, onClose }: { job: V3Job; onClose: () =>
       </div>
 
       <div className="-mt-8 px-5 pb-4">
-        <CompanyTile name={job.company} size={60} className="rounded-xl border-2 border-paper shadow-v2-soft" />
+        <CompanyTile name={job.company} size={60} className="relative z-[1] rounded-xl border-2 border-paper shadow-v2-soft" />
         <h2 className="mt-3 font-display text-[21px] font-extrabold! leading-tight! tracking-tight! text-ink">{job.title}</h2>
         <div className="mt-1 text-[14px] text-ink-soft">{job.company}</div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-v2-muted">
