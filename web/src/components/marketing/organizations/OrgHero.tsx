@@ -6,7 +6,9 @@ import { DEMO_VIDEO_URL } from "@/lib/site";
 import { FAMILY, HEADLINE_GREEN } from "./family";
 import { Mascot, Photo } from "../media";
 import OrgStatsMock from "./OrgStatsMock";
-import { Container, Eyebrow, Handwritten } from "./parts";
+import Eyebrow from "../Eyebrow";
+import Handwritten from "../Handwritten";
+import { Container } from "./parts";
 import { MOBILE_STRIP } from "./placeholder-data";
 
 /** "Watch Overview" opens the demo video when there is one, otherwise jumps to How It Works. */
@@ -39,7 +41,7 @@ export default function OrgHero() {
               tools — all in one place.
             </p>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-5">
-              <Link href={contactHref("organization")} className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>
+              <Link href={contactHref("organization")} className={buttonVariants("accent", "lg", "min-h-11 w-full whitespace-nowrap sm:w-auto")}>
                 Book a Demo <ArrowRightIcon size={16} />
               </Link>
               <a
@@ -55,30 +57,34 @@ export default function OrgHero() {
                   <PlayIcon className="h-4 w-4" />
                 </span>
                 <span className="flex flex-col items-start text-left leading-tight">
-                  <span className="text-[14px] font-bold text-v2-navy">Watch Overview</span>
-                  <span className="text-[12.5px] font-medium text-v2-ink-soft">· 2 min</span>
+                  <span className="whitespace-nowrap text-[14px] font-bold text-v2-navy">Watch Overview</span>
+                  <span className="text-[12.5px] font-medium text-v2-ink-soft">2 min</span>
                 </span>
               </a>
             </div>
           </div>
 
-          <div className="relative lg:h-[500px]">
-            <Handwritten className="mb-3 block text-center lg:absolute lg:right-0 lg:top-0 lg:z-30 lg:mb-0 lg:w-36 lg:rotate-6 lg:text-left lg:text-[28px]">
+          {/* Card on top, team tucked under its bottom edge (about 10% overlap), mascot in front bottom-right. */}
+          <div className="relative lg:pt-16">
+            <Handwritten
+              family="blue"
+              className="mb-3 text-center text-2xl lg:absolute lg:right-0 lg:top-0 lg:z-30 lg:mb-0 lg:w-52 lg:rotate-3 lg:text-left lg:text-[28px]"
+            >
               Brighter futures for your team.
             </Handwritten>
             <CurvedArrow
               direction="down-left"
               aria-hidden
-              className="absolute right-6 top-28 z-30 hidden h-12 w-12 text-v2-green lg:block"
+              className="absolute right-1 top-14 z-30 hidden h-12 w-12 text-v2-green lg:block"
             />
 
-            <OrgStatsMock className="relative z-10 hidden md:block lg:absolute lg:left-0 lg:right-16 lg:top-10" />
+            <OrgStatsMock className="relative z-10 hidden md:block lg:mr-16" />
 
-            <div className="relative mt-4 lg:absolute lg:bottom-0 lg:left-[8%] lg:right-[4%] lg:z-20 lg:mt-0">
+            <div className="relative mt-4 lg:z-20 lg:-mt-6 lg:ml-[8%] lg:mr-[4%]">
               <Photo
                 id="org-team"
                 alt="A small team of colleagues looking at a laptop together"
-                className="aspect-[2/1] w-full"
+                className="w-full"
                 sizes="(min-width: 1024px) 640px, 100vw"
                 priority
               />

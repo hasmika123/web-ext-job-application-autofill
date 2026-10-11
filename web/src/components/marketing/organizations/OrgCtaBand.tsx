@@ -3,31 +3,38 @@ import { ArrowRightIcon, HeartIcon, Squiggle, StarIcon, buttonVariants } from "@
 import { contactHref } from "@/lib/catalog";
 import { HEADLINE_GREEN } from "./family";
 import { Mascot, Photo } from "../media";
-import { Avatar, Container, Eyebrow, Handwritten } from "./parts";
+import Eyebrow from "../Eyebrow";
+import Handwritten from "../Handwritten";
+import { Avatar, Container } from "./parts";
 import { ORG_TESTIMONIAL } from "./placeholder-data";
 
 /** Block 6: "Trusted by organizations" closing band, the testimonial and the last calls to action. */
 export default function OrgCtaBand() {
   const t = ORG_TESTIMONIAL;
   return (
-    <section aria-labelledby="org-cta-title" className="relative overflow-hidden pb-16 pt-8 md:pb-24">
-      <Container className="grid items-end gap-6 lg:grid-cols-[0.55fr_1.6fr_1fr] lg:gap-6">
-        {/* Portrait with its handwritten note: wide screens only. */}
-        <div className="relative hidden self-end lg:block">
-          <Handwritten className="absolute -top-2 left-0 z-10 block w-32 -rotate-6 text-[26px]">
+    <section aria-labelledby="org-cta-title" className="relative overflow-hidden pb-16 pt-8 md:pb-24 lg:pb-0">
+      <Container className="grid items-end gap-6 lg:grid-cols-[minmax(0,230px)_minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-6">
+        {/* Bottom-anchored cutout with its handwritten note: wide screens only. It is wider than its
+            column and tucks under the card; the band's bottom edge is its floor. */}
+        <div className="relative hidden self-stretch lg:block">
+          <Handwritten
+            family="blue"
+            className="absolute -top-2 left-0 z-10 w-36 -rotate-6 text-[26px]"
+          >
             People. Progress. Together.
           </Handwritten>
           <HeartIcon aria-hidden className="absolute left-14 top-[5.5rem] z-10 h-5 w-5 text-v2-amber" />
           <Squiggle aria-hidden className="absolute left-2 top-28 z-10 h-6 w-10 text-v2-green" />
           <Photo
-            id="about-portrait"
+            id="hero-copilot"
             alt="A smiling colleague looking thoughtfully upward"
-            className="aspect-[4/5] w-full"
-            sizes="260px"
+            className="absolute bottom-0 left-0 w-[300px]"
+            sizes="300px"
+            edgeFade={[0, 14]}
           />
         </div>
 
-        <div className="relative rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-v2-card backdrop-blur sm:p-8 lg:p-10">
+        <div className="relative z-10 rounded-[28px] border border-white/70 bg-white/80 p-6 shadow-v2-card backdrop-blur max-lg:mb-8 sm:p-8 lg:mb-16 lg:p-10">
           <div className="flex flex-col items-start gap-4">
             <Eyebrow family="green">Trusted by organizations</Eyebrow>
             <h2 id="org-cta-title" className="max-w-xl text-[28px] leading-[1.1] text-v2-navy md:text-[36px]">
@@ -45,10 +52,10 @@ export default function OrgCtaBand() {
               </Link>
             </div>
           </div>
-          <Mascot pose="laptop" className="absolute -bottom-6 right-2 h-24 w-24 sm:right-6 sm:h-28 sm:w-28 lg:hidden" />
+          <Mascot pose="laptop" className="absolute -bottom-12 right-3 h-24 w-24 sm:right-6 sm:h-28 sm:w-28 lg:hidden" />
         </div>
 
-        <figure className="flex flex-col gap-5 rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-6 shadow-v2-card">
+        <figure className="flex flex-col gap-5 lg:mb-16 rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-6 shadow-v2-card">
           <blockquote className="text-[14.5px] leading-relaxed text-v2-ink-soft">&ldquo;{t.quote}&rdquo;</blockquote>
           <figcaption className="flex items-center gap-3">
             <Avatar initials="PS" family="coral" className="h-11 w-11 text-[13px]" />

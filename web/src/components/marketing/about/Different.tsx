@@ -25,7 +25,7 @@ import { IconTile, RowHeading, type Family } from "./shared";
 
 function MockFrame({ children, tint }: { children: ReactNode; tint: string }) {
   return (
-    <div aria-hidden className={cn("relative hidden h-44 overflow-hidden rounded-2xl p-3 md:block", tint)}>
+    <div aria-hidden className={cn("relative hidden h-44 w-full overflow-hidden rounded-2xl p-3 md:block", tint)}>
       {children}
     </div>
   );
@@ -38,13 +38,17 @@ function Bar({ w, className }: { w: string; className?: string }) {
 function MockAutofill() {
   return (
     <MockFrame tint="bg-gradient-to-br from-v2-green-soft via-white to-v2-lime-soft">
-      <div className="mx-auto mt-1 grid w-[88%] gap-1.5 rounded-xl bg-white p-3 shadow-v2-card">
-        <Bar w="w-2/5" className="bg-v2-blue" />
-        <Bar w="w-full" />
-        <Bar w="w-4/5" />
-        <Bar w="w-3/5" />
+      <div className="mx-auto mt-1 grid w-[88%] gap-2 rounded-xl bg-white p-3 shadow-v2-card">
+        {["w-3/5", "w-4/5"].map((fill) => (
+          <span key={fill} className="grid gap-1">
+            <Bar w="w-1/3" />
+            <span className="flex h-6 items-center rounded-md border border-v2-line bg-v2-lime-soft/50 px-2">
+              <Bar w={fill} className="bg-v2-navy/25" />
+            </span>
+          </span>
+        ))}
       </div>
-      <span className="absolute inset-x-6 bottom-4 grid h-9 place-items-center rounded-lg bg-v2-green text-[12px] font-bold text-white shadow-v2-card">
+      <span className="absolute inset-x-0 bottom-3.5 mx-auto grid h-8 w-[58%] place-items-center rounded-full bg-v2-lime text-[11px] font-bold text-v2-navy shadow-v2-card">
         Auto Apply
       </span>
     </MockFrame>
@@ -82,7 +86,7 @@ function MockInbox() {
   ];
   return (
     <MockFrame tint="bg-gradient-to-br from-v2-teal-soft via-white to-v2-green-soft">
-      <ul className="grid gap-1.5">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
         {rows.map(([t, meta, family, Icon]) => (
           <li key={t} className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 shadow-v2-card">
             <IconTile family={family} className="h-7 w-7 rounded-full">
@@ -107,7 +111,7 @@ function MockMatches() {
   ];
   return (
     <MockFrame tint="bg-gradient-to-br from-v2-lime-soft via-white to-v2-green-soft">
-      <ul className="grid gap-1.5">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
         {rows.map(([t, pct, family, Icon]) => (
           <li key={t} className="flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 shadow-v2-card">
             <IconTile family={family} className="h-7 w-7 rounded-lg">
@@ -248,11 +252,11 @@ export default function Different() {
         >
           Less effort, more opportunity!
         </Handwritten>
-        <Mascot pose="headphones" className="absolute right-0 top-8 h-20 w-20 md:h-24 md:w-24 xl:hidden" />
+        <Mascot pose="headphones" className="absolute right-0 top-11 h-20 w-20 md:h-24 md:w-24 xl:hidden" />
       </div>
 
       <div className="mt-8 rounded-[28px] bg-white/70 p-3 shadow-v2-card lg:mt-10 lg:p-4">
-        <ul className="grid gap-3 md:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+        <ul className="grid gap-3 md:grid-cols-3 xl:grid-cols-6 lg:gap-4">
           {TOOLS.map((t) => (
             <li
               key={t.title}

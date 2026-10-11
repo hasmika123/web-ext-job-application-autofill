@@ -25,6 +25,12 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> 🌱 **Landing v2 lives on the `version2` branch (V2.0–V2.6 done, 2026-10-11) and awaits the user's
+> promotion decision.** Nothing else is queued from it: do not merge it into `develop` / `main` until
+> the user asks. Before promoting: replace every `PLACEHOLDER` data file (stats, testimonials, partners,
+> about/organizations numbers), and swap the board-extracted artwork in `web/public/v2/` for real
+> renders (see that folder's README). The product-phase focus below is unchanged.
+>
 > 🧭 **Expansion plan locked 2026-10-05** (ROADMAP → *Expansion build, Phases 18–23*). It adds
 > Autopilot, services, organizations, the consultancy Marketer role and an optional Ops add-on
 > (timesheets + finances); there is no Coach tier. **New Launch-1 task 15.5 (re-price
@@ -1386,6 +1392,12 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-11 · **v2.6 Landing v2: QA + fix pass** · /organizations hero (card above, team tucked under its bottom edge, mascot in front; stray "· 2 min" dot gone) and CTA band (bottom-anchored `hero-copilot` cutout); /about tools grid (mock frames no longer collapse, AI Autofill rebuilt as a form mock, Interview Readiness visible again) and hero portrait (tint is its own layer, right edge faded); `org-team` / `about-team` refreshed to the re-cut `hero-team.png`; /organizations now uses the shared `Eyebrow` / `Handwritten` / `SectionHeading` (local copies deleted); dead `web/public/ats/` removed; root title, OG image and sitemap dates updated; `public/v2/README.md` inventory; tablet (1024/768) + mobile pass on `/`, `/about`, `/organizations`, `/pricing`. `npm test -w web` + build green.
+- 2026-10-11 · **v2.3y Landing v2: pricing links** · Remaining pricing links point at `/pricing`.
+- 2026-10-11 · **v2.3x Landing v2: body, footer and /pricing to the mock** · Landing body, footer and `/pricing` rebuilt to the board in exact-board mode (spec 13); partners row + `PLACEHOLDER` data files.
+- 2026-10-11 · **v2.2x Landing v2: header and hero carousel to the mocks** · Header, hero carousel and the feature strip rebuilt to the boards; transparent people/mascot cutouts (`hero-headphones.png`, re-cut `hero-team.png`) in `web/public/v2/`.
+- 2026-10-10 · **v2.5x Landing v2: /organizations to the board** · `/organizations` rebuilt (hero with overview card, features, how it works, reporting, visibility, CTA band); all numbers and quotes live in `organizations/placeholder-data.ts` (`PLACEHOLDER`).
+- 2026-10-10 · **v2.4x Landing v2: /about to the board** · `/about` rebuilt (hero, story, mission, who we serve, tools grid, values, promise, testimonials, CTA); fictional copy in `about/placeholder-data.ts` (`PLACEHOLDER`).
 - 2026-10-10 · **v2.3 Landing v2: page body** · Landing sections 3-12 per spec 7: `Pillars` (`#pillars`, `#autofill` alias on the autofill tile), `InboxTracking`, `JobMatches`, `Resumes`, `Dashboard`, `HowItWorks`, `ForIndividuals`, `ForOrganizations` + `FinalCta`; shared `SectionHeading`/`FeatureTile`/`Section`; pure-HTML mocks (`InboxMock`, `MatchesMock`, `ResumeMock`, `DashboardMock`, `OrgTableMock`) all fictional with an Example badge; empty `TESTIMONIALS`; old How/Features markup removed; root metadata updated to the v2 positioning. Pro chip only on AI-drafted answers (core autofill is free). Pricing/Services untouched. Shots in `design/landing-v2/shots/v2.3-*.png`. `npm test -w web` + build green.
 - 2026-10-10 · **v2.2 Landing v2: hero carousel + trust strip** · Four-slide `HeroCarousel` (client; autoplay 7s with hover/focus/hidden-tab/reduced-motion pause, dots, arrows, keys, touch swipe, inert inactive slides, live announcer) fed by `hero-slides.tsx` data + server `HeroArt` (photo/mascot slots, fictional-sample `FloatingCard`s, doodles, handwriting); `Eyebrow`, `Handwritten`, `FloatingCard`, `family.ts`, ATS `TrustStrip` replace the old charcoal hero + marquee on `/`.
 - 2026-10-10 · **v2.1 Landing v2: theme + shell** · `theme-v2.css` (scoped `.theme-v2`), Button `--radius-button` + `lg`, 25 new icons + `doodles.tsx`, Jakarta/Caveat fonts, new `MarketingHeader` (click dropdowns, mobile sheet) + `MarketingFooter` + `nav.ts`, `Mascot`/`Photo` slots with fallbacks (`public/v2/README.md`), `DEMO_VIDEO_URL`. Old landing body untouched; `npm test -w web` + build green.

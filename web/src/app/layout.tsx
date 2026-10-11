@@ -19,7 +19,7 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const TITLE = "Kiwiply — find jobs, autofill applications, track every reply";
+const TITLE = "Kiwiply — Find jobs. Apply faster. Get hired.";
 const DESCRIPTION =
   "Kiwiply matches you with roles, fills job applications for you to review, and tracks replies in your Gmail — one profile, one board, no auto-submit.";
 

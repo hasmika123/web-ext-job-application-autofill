@@ -150,7 +150,7 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
   /* ── render ────────────────────────────────────────────────────────────────────── */
 
   const topLinkClass =
-    "inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius)] px-3.5 text-[15px] font-medium text-ink " +
+    "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius)] px-2.5 text-[14px] font-medium text-ink xl:px-3.5 xl:text-[15px] " +
     "transition-colors hover:bg-white/70";
 
   return (
@@ -167,7 +167,7 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
         </Link>
 
         {/* Desktop nav */}
-        <nav ref={navRef} aria-label="Main" className="ml-6 hidden items-center gap-1 lg:ml-10 lg:flex">
+        <nav ref={navRef} aria-label="Main" className="ml-4 hidden items-center gap-0.5 lg:flex xl:ml-10 xl:gap-1">
           {NAV.map((entry) => {
             if (entry.kind === "link") {
               return (
@@ -235,13 +235,13 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
               <>
                 <Link
                   href={LOGIN_HREF}
-                  className="inline-flex items-center justify-center rounded-[12px] bg-white px-6 py-3 text-[15px] font-semibold leading-none text-ink shadow-v2-card transition-shadow hover:shadow-v2-float"
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-[12px] bg-white px-4 py-3 text-[15px] xl:px-6 font-semibold leading-none text-ink shadow-v2-card transition-shadow hover:shadow-v2-float"
                 >
                   Log in
                 </Link>
-                <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg", "shadow-[0_6px_16px_rgba(95,191,31,.28)]")}>
+                <Link href={SIGNUP_HREF} className={buttonVariants("accent", "lg", "whitespace-nowrap px-4 shadow-[0_6px_16px_rgba(95,191,31,.28)] xl:px-6")}>
                   Get Started Free
-                  <ArrowRightIcon size={16} />
+                  <ArrowRightIcon size={16} className="hidden xl:block" />
                 </Link>
               </>
             )}

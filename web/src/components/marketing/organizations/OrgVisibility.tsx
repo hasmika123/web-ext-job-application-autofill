@@ -2,7 +2,8 @@ import type { ComponentType } from "react";
 import { BellIcon, ChatIcon, ChartIcon, UsersIcon, cn, type IconProps } from "@kiwiply/ui";
 import { FAMILY, HEADLINE_GREEN, type Family } from "./family";
 import OrgTableMock from "./OrgTableMock";
-import { Container, Eyebrow } from "./parts";
+import Eyebrow from "../Eyebrow";
+import { Container } from "./parts";
 
 /** Block 4: "Collaboration & Oversight". Copy and four tiles left, the Team Management table right. */
 interface Tile {

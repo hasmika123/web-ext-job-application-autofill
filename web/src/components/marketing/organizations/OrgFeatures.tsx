@@ -30,7 +30,8 @@ import {
   SupportCoachesMock,
   TeamManagementMock,
 } from "./feature-mocks";
-import { Container, SectionHeading } from "./parts";
+import SectionHeading from "../SectionHeading";
+import { Container } from "./parts";
 
 /** Block 2: "Everything you need to support your team's success." Twelve cards, as on the board. */
 interface Feature {
@@ -136,8 +137,10 @@ export default function OrgFeatures() {
           id="org-features-title"
           eyebrow="Enterprise Features"
           family="blue"
-          before="Everything you need to support your"
+          title="Everything you need to support your"
           accent="team’s success."
+          accentFamily="green"
+          align="center"
           lede="Powerful tools to manage people, streamline job placement, and achieve better outcomes."
         />
 

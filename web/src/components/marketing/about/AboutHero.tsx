@@ -64,13 +64,19 @@ export default function AboutHero() {
             <CurvedArrow direction="down-right" className="mb-1 h-9 w-9 text-v2-green" />
           </div>
 
-          <div className="relative h-[300px] overflow-hidden rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft sm:h-[380px] lg:h-[460px] lg:rounded-[40px]">
+          {/* The tint is its own layer so the cutout (overflow visible) sits on it, flush with the bottom edge. */}
+          <div className="relative h-[300px] sm:h-[380px] lg:h-[460px]">
+            <div
+              aria-hidden
+              className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft lg:rounded-[40px]"
+            />
             <div className="absolute bottom-0 left-1/2 w-[62%] -translate-x-1/2 lg:left-[44%] lg:w-[58%]">
               <Photo
                 id="about-portrait"
                 alt="A smiling job seeker working at a laptop"
                 className="w-full"
                 sizes="(min-width: 1024px) 400px, 70vw"
+                edgeFade={[0, 16]}
                 priority
               />
             </div>

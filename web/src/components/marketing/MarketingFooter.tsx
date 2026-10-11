@@ -30,7 +30,7 @@ export default function MarketingFooter() {
   return (
     <footer className="mt-auto bg-v2-navy-deep text-white">
       <div className="mx-auto max-w-[1280px] px-5 pb-8 pt-14 lg:px-8 lg:pt-16">
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_3.4fr_1.15fr] lg:gap-8">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-x-8 xl:grid-cols-[1fr_3.4fr_1.15fr]">
           {/* Brand */}
           <div className="flex max-w-xs flex-col gap-4">
             <Link href="/" aria-label="Kiwiply home" className="inline-flex w-fit items-center">
@@ -46,7 +46,7 @@ export default function MarketingFooter() {
           </div>
 
           {/* Link columns */}
-          <nav aria-label="Footer" className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-4">
+          <nav aria-label="Footer" className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-4 lg:order-last lg:col-span-2 xl:order-none xl:col-span-1">
             {FOOTER_COLUMNS.map((col) => (
               <div key={col.label}>
                 <p className="text-[14px] font-bold text-white">{col.label}</p>
@@ -107,7 +107,7 @@ export default function MarketingFooter() {
         </div>
 
         {/* Trust row */}
-        <ul className="mt-12 grid grid-cols-1 gap-x-8 gap-y-5 border-t border-white/10 pt-8 sm:grid-cols-2 lg:ml-[calc(1/5.55*100%)] lg:mr-[calc(1.15/5.55*100%)] lg:grid-cols-4">
+        <ul className="mt-12 grid grid-cols-1 gap-x-8 gap-y-5 border-t border-white/10 pt-8 sm:grid-cols-2 xl:ml-[calc(1/5.55*100%)] xl:mr-[calc(1.15/5.55*100%)] lg:grid-cols-4">
           {FOOTER_TRUST.map((t) => {
             const { Icon, ring } = TRUST_ICONS[t.icon];
             return (

@@ -1,7 +1,8 @@
 import type { ComponentType, CSSProperties } from "react";
 import { BriefcaseIcon, CalendarIcon, ChevronDownIcon, ShieldCheckIcon, TrophyIcon, cn, type IconProps } from "@kiwiply/ui";
 import { FAMILY, HEADLINE_GREEN } from "./family";
-import { Container, Eyebrow } from "./parts";
+import Eyebrow from "../Eyebrow";
+import { Container } from "./parts";
 import { OUTCOMES, REPORT_RANGE, REPORT_TILES, VELOCITY } from "./placeholder-data";
 
 /** Block 5: "Reporting & Insights". Pure HTML/CSS charts; every value comes from `placeholder-data.ts`. */

@@ -11,7 +11,8 @@ import {
   type IconProps,
 } from "@kiwiply/ui";
 import { FAMILY, type Family } from "./family";
-import { Container, SectionHeading } from "./parts";
+import SectionHeading from "../SectionHeading";
+import { Container } from "./parts";
 
 /** Block 3: "How It Works". Six steps, as on the board; vertical list on mobile. */
 interface Step {
@@ -76,8 +77,10 @@ export default function OrgHow() {
           id="org-how-title"
           eyebrow="How It Works"
           family="green"
-          before="A simple process for"
+          title="A simple process for"
           accent="better placement outcomes."
+          accentFamily="green"
+          align="center"
         />
 
         <ol className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-6 lg:gap-5">

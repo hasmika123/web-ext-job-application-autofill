@@ -49,7 +49,7 @@ export default function OrgTableMock({ className }: { className?: string }) {
             </th>
             <th scope="col" className="pb-2 text-center font-medium">
               <span className="sm:hidden">Apps</span>
-              <span className="hidden sm:inline">Applications</span>
+              <span className="hidden sm:inline">Applic&shy;ations</span>
             </th>
             <th scope="col" className="pb-2 text-center font-medium">
               Interviews
