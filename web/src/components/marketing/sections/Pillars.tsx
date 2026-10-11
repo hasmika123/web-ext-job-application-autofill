@@ -51,7 +51,7 @@ const PILLARS: {
 
 export default function Pillars() {
   return (
-    <Section id="pillars" labelledBy="pillars-title" className="py-10 lg:py-12">
+    <Section id="pillars" labelledBy="pillars-title" className="pb-10 pt-10 lg:pb-12 lg:pt-10">
       <div className="mb-8 text-center lg:sr-only lg:mb-0">
         <h2 id="pillars-title" className="mx-auto max-w-sm text-[28px] text-v2-navy">
           Everything you need to get hired faster.

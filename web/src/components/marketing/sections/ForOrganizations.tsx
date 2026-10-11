@@ -8,8 +8,7 @@ import { CtaLink } from "./shared";
 
 /**
  * For Organizations (spec 13.2 item 9): copy | white checklist card | "Organization Dashboard"
- * mock, with the note and the headphones mascot in a right-hand gutter. The team cutout sits under
- * the CTA. Mobile order: heading, CTA, team cutout, checklist, dashboard, note + mascot.
+ * mock, with the note and the headphones mascot in a right-hand gutter. The team cutout shows on mobile only (the desktop board has none). Mobile order: heading, CTA, team cutout, checklist, dashboard, note + mascot.
  */
 const CHECKLIST = [
   "Manage multiple employees",
@@ -22,7 +21,7 @@ const CHECKLIST = [
 export default function ForOrganizations() {
   return (
     <Section id="organizations" labelledBy="orgs-title" className="py-10 lg:py-14">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[0.85fr_0.8fr_1.25fr_120px] lg:items-center lg:gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[0.9fr_0.7fr_1.5fr_110px] lg:items-center lg:gap-6">
         <div className="flex flex-col items-start gap-6">
           <SectionHeading
             id="orgs-title"
@@ -35,7 +34,7 @@ export default function ForOrganizations() {
           <Photo
             id="hero-team"
             alt="Three colleagues smiling at their laptops together"
-            className="mx-auto mt-2 w-full max-w-[360px] lg:mx-0 lg:mt-4 lg:w-[88%]"
+            className="mx-auto mt-2 w-full max-w-[360px] lg:hidden"
             sizes="(min-width: 1024px) 300px, 360px"
             edgeFade={[8, 4]}
           />

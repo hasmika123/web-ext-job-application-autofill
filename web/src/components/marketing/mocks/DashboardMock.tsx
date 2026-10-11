@@ -1,4 +1,5 @@
-import { BoardIcon, CalendarIcon, ChartIcon, DashboardIcon, GearIcon, Mark, SearchIcon, TrophyIcon, UsersIcon, cn } from "@kiwiply/ui";
+import { BoardIcon, CalendarIcon, ChartIcon, DashboardIcon, GearIcon, SearchIcon, TrophyIcon, UsersIcon, cn } from "@kiwiply/ui";
+import BrandLogo from "../BrandLogo";
 import { FAMILY, type Family } from "../family";
 import { CompanyTile, MockFrame, StatusChip } from "./shared";
 
@@ -34,8 +35,8 @@ export default function DashboardMock({ className }: { className?: string }) {
     >
       <div className="grid sm:grid-cols-[168px_minmax(0,1fr)]">
         <aside className="bg-v2-navy-deep p-4 sm:rounded-none">
-          <div className="mb-4 flex items-center gap-2 text-[16px] font-extrabold text-white">
-            <Mark size={26} /> kiwiply
+          <div className="mb-4">
+            <BrandLogo tone="dark" height={22} />
           </div>
           <ul className="space-y-0.5">
             {NAV.map((n) => (
