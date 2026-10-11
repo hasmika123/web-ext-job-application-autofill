@@ -55,6 +55,25 @@ export const NAV: NavEntry[] = [
   { kind: "group", label: "Resources", items: RESOURCES },
 ];
 
+/**
+ * Which top-level header entry is active for a pathname. "For Individuals" lives on `/` anchors
+ * only (hash is not tracked), so it is never active.
+ */
+export function isNavActive(label: string, pathname: string | null): boolean {
+  if (!pathname) return false;
+  const is = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  switch (label) {
+    case "Pricing":
+      return is("/pricing");
+    case "For Organizations":
+      return pathname === "/organizations" || pathname.startsWith("/org");
+    case "Resources":
+      return ["/about", "/contact", "/privacy", "/terms"].some(is);
+    default:
+      return false;
+  }
+}
+
 /** Footer link columns, exactly as on the board (spec §13.3), destinations per §13.6. */
 export const FOOTER_COLUMNS: NavGroup[] = [
   {

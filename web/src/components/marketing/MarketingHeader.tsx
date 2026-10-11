@@ -6,7 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } f
 import { ArrowRightIcon, ChevronDownIcon, MenuIcon, XIcon, cn } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import BrandLogo from "./BrandLogo";
-import { LOGIN_HREF, NAV, SIGNUP_HREF, type NavGroup } from "./nav";
+import { LOGIN_HREF, NAV, SIGNUP_HREF, isNavActive, type NavGroup } from "./nav";
 
 export interface MarketingHeaderProps {
   /** Visitor has a session cookie → Dashboard + avatar instead of Log in / Get Started. */
@@ -39,7 +39,8 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accordion, setAccordion] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
-  const overlay = usePathname() === "/";
+  const pathname = usePathname();
+  const overlay = pathname === "/";
 
   // Transparent until the page has scrolled a few px (then translucent white + blur, no border).
   useEffect(() => {
@@ -150,8 +151,12 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
   /* ── render ────────────────────────────────────────────────────────────────────── */
 
   const topLinkClass =
-    "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius)] px-2.5 text-[14px] font-medium text-ink xl:px-3.5 xl:text-[15px] " +
-    "transition-colors hover:bg-white/70";
+    "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius)] px-2.5 text-[14px] xl:px-3.5 xl:text-[15px] " +
+    "relative transition-colors hover:bg-white/70";
+  const idleClass = "font-medium text-ink";
+  // Active top-level item: deep green, semibold, 2px lime bar 6px under the label (inset to the label, not the padding).
+  const activeClass =
+    "font-semibold text-accent-deep after:absolute after:inset-x-2.5 after:bottom-1 after:h-0.5 after:rounded-full after:bg-v2-lime after:content-[''] xl:after:inset-x-3.5";
 
   return (
     <header
@@ -171,12 +176,19 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
           {NAV.map((entry) => {
             if (entry.kind === "link") {
               return (
-                <Link key={entry.label} href={fixHref(entry.href)} data-nav-top className={topLinkClass}>
+                <Link
+                  key={entry.label}
+                  href={fixHref(entry.href)}
+                  data-nav-top
+                  aria-current={isNavActive(entry.label, pathname) ? "page" : undefined}
+                  className={cn(topLinkClass, isNavActive(entry.label, pathname) ? activeClass : idleClass)}
+                >
                   {entry.label}
                 </Link>
               );
             }
             const open = openGroup === entry.label;
+            const active = isNavActive(entry.label, pathname);
             const panelId = `${uid}-${entry.label.replace(/\s+/g, "-")}`;
             return (
               <div key={entry.label} className="relative" onBlur={(e) => {
@@ -188,9 +200,10 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
                   data-nav-trigger={entry.label}
                   aria-expanded={open}
                   aria-controls={open ? panelId : undefined}
+                  aria-current={active ? "page" : undefined}
                   onClick={() => setOpenGroup(open ? null : entry.label)}
                   onKeyDown={(e) => onTriggerKeyDown(e, entry.label)}
-                  className={cn(topLinkClass, "cursor-pointer", open && "bg-paper-2")}
+                  className={cn(topLinkClass, "cursor-pointer", open && "bg-paper-2", active ? activeClass : idleClass)}
                 >
                   {entry.label}
                   <ChevronDownIcon
@@ -276,15 +289,20 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
                     <Link
                       href={fixHref(entry.href)}
                       onClick={() => closeMobile(false)}
-                      className="flex min-h-12 items-center text-base font-semibold text-ink"
+                      aria-current={isNavActive(entry.label, pathname) ? "page" : undefined}
+                      className={cn(
+                        "flex min-h-12 items-center text-base font-semibold",
+                        isNavActive(entry.label, pathname) ? "text-accent-deep" : "text-ink",
+                      )}
                     >
-                      {entry.label}
+                      <ActiveLabel active={isNavActive(entry.label, pathname)}>{entry.label}</ActiveLabel>
                     </Link>
                   </li>
                 ) : (
                   <MobileGroup
                     key={entry.label}
                     group={entry}
+                    active={isNavActive(entry.label, pathname)}
                     open={accordion === entry.label}
                     onToggle={() => setAccordion(accordion === entry.label ? null : entry.label)}
                     onNavigate={() => closeMobile(false)}
@@ -323,6 +341,17 @@ export default function MarketingHeader({ authed, initial }: MarketingHeaderProp
   );
 }
 
+/** Mobile-sheet label; the active one gets the lime underline bar (2px, 6px below the text). */
+function ActiveLabel({ active, children }: { active: boolean; children: string }) {
+  if (!active) return <>{children}</>;
+  return (
+    <span className="relative">
+      {children}
+      <span aria-hidden className="absolute inset-x-0 -bottom-1.5 h-0.5 rounded-full bg-v2-lime" />
+    </span>
+  );
+}
+
 function AccountAvatar({ initial }: { initial: string }) {
   return (
     <Link
@@ -338,12 +367,14 @@ function AccountAvatar({ initial }: { initial: string }) {
 
 function MobileGroup({
   group,
+  active,
   open,
   onToggle,
   onNavigate,
   idPrefix,
 }: {
   group: NavGroup;
+  active: boolean;
   open: boolean;
   onToggle: () => void;
   onNavigate: () => void;
@@ -357,9 +388,13 @@ function MobileGroup({
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={onToggle}
-        className="flex min-h-12 w-full cursor-pointer items-center justify-between text-left text-base font-semibold text-ink"
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex min-h-12 w-full cursor-pointer items-center justify-between text-left text-base font-semibold",
+          active ? "text-accent-deep" : "text-ink",
+        )}
       >
-        {group.label}
+        <ActiveLabel active={active}>{group.label}</ActiveLabel>
         <ChevronDownIcon size={18} className={cn("transition-transform duration-150", open && "rotate-180")} />
       </button>
       {open && (
