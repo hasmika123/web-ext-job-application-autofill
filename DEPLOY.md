@@ -899,19 +899,16 @@ Two public demo accounts, `demo` (a job seeker with a ready-made search) and `de
 organization admin), that anyone can open from the login page without signing up. **Default off.**
 
 - **They exist** after the first boot with this release: the API creates them at startup (Free plan,
-  `ROLE_USER`, never an admin) and seeds the job seeker's data the first time the switch goes on.
-- **The switch lives in the database**, not in `.env`: table `app_setting`, key `demo.enabled`
-  (shipped `false`). Turn it on in either of two ways:
-  - **Admin UI:** `/admin/system` -> "Demo accounts" -> the "Demo accounts enabled" switch. The change is
-    audited (`DEMO_ENABLE` / `DEMO_DISABLE` on `/admin/audit`). Turning it off also signs the demo
-    accounts out everywhere (their refresh tokens are revoked).
-  - **SQL**, no restart (the API re-reads the row every few seconds):
-    ```sql
-    UPDATE app_setting SET setting_value = 'true' WHERE setting_key = 'demo.enabled';   -- on
-    UPDATE app_setting SET setting_value = 'false' WHERE setting_key = 'demo.enabled';  -- off
-    ```
-    A SQL flip is not audited. It needs no seeding step: the first demo job-seeker login fills an
-    empty board by itself (the admin card's "Reset demo data" does the same on demand).
+  `ROLE_USER`, never an admin) and seeds the job seeker's data when the demo is enabled (an empty board is
+  also filled on the first demo job-seeker login).
+- **The switch is server config only: the `DEMO_ENABLED` env var** (bound to `dossier.demo.enabled`,
+  default `false`). To turn the demo **on**: set `DEMO_ENABLED=true` in the box's `.env` and recreate the
+  api container (`docker compose ... up -d api`, with the shared-edge overlay). To turn it **off**: set it
+  to `false` (or remove it) and restart the same way. There is **no admin switch** and **no SQL flip**: the
+  admin card on `/admin/system` only shows the current state ("Enabled"/"Disabled"), and the old
+  `app_setting` `demo.enabled` row is ignored. The API reads the property directly, with no caching.
+- **When it starts disabled**, the API revokes the demo accounts' refresh tokens, so flipping to off and
+  restarting signs any open demo session out.
 - **While off**, the login page shows nothing about the demo, `POST /api/authenticate/demo` and a typed
   `demo` / `demo@kiwiply.com` login both return 403 `DEMO_DISABLED`.
 - **`DEMO_PASSWORD`** (optional env): the stored password of the two accounts. Leave it **blank** in
@@ -919,16 +916,17 @@ organization admin), that anyone can open from the login page without signing up
 - **Read-only:** a demo session gets 403 `DEMO_READ_ONLY` ("This is a demo account - changes aren't saved")
   on profile save, password change, account delete/export, billing, inbox connect/disconnect, resume
   upload/delete and the AI resume parse. The application board (status changes, notes) stays live.
-- **Reset:** "Reset demo data" on the admin card wipes both accounts' rows and re-seeds the job seeker
+- **Reset:** "Reset demo data" on the admin card (a data operation, still in admin and audited as
+  `DEMO_RESET`; disabled while the demo is off) wipes both accounts' rows and re-seeds the job seeker
   (Jordan Lee, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
   board in a mess.
 - **Local demo (no API, no database):** `npm ci` at the repo root, then `npm run dev:demo -w web`. It starts
-  `web/scripts/mock-api.mjs` (a stand-in for the Spring API on `:8080`, demo switched on, fixed data for
+  `web/scripts/mock-api.mjs` (a stand-in for the Spring API on `:8080`, demo switched on unless `MOCK_DEMO_ENABLED=false`, fixed data for
   Priya Sharma and the org admin, every write refused with `DEMO_READ_ONLY`) and `next dev` pointed at it.
   Open http://localhost:3000/login, pick an account, press "Open demo". Change the mock's port with
   `MOCK_API_PORT` (the script wires `DOSSIER_API_URL` for you). It is a separate script, not part of the
-  Next bundle, and refuses to start under `NODE_ENV=production`; production still takes its demo state from
-  the API switch above.
+  Next bundle, and refuses to start under `NODE_ENV=production`; production takes its demo state from
+  `DEMO_ENABLED` on the API.
 
 ## 13. Promoting `develop` → `main` — the first big release (reviewed 2026-10-05)
 
