@@ -1,7 +1,12 @@
 import { notFound, redirect } from "next/navigation";
+import { Caveat, Plus_Jakarta_Sans } from "next/font/google";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import AdminShell, { type AdminAccount } from "@/components/admin-shell/AdminShell";
+
+// Same display + handwriting faces as the (app) group; the variables live on the `.theme-v2` wrapper.
+const jakarta = Plus_Jakarta_Sans({ weight: ["700", "800"], subsets: ["latin"], variable: "--font-jakarta", display: "swap" });
+const caveat = Caveat({ weight: "600", subsets: ["latin"], variable: "--font-caveat", display: "swap" });
 
 /**
  * Gate for the admin console (Phase 9.A1). This is a UX gate — the real enforcement is
@@ -32,5 +37,10 @@ export default async function AdminGroupLayout({ children }: { children: React.R
     notFound();
   }
 
-  return <AdminShell account={account}>{children}</AdminShell>;
+  // Admin v3 look: "Kiwiply Bright" tokens (`.theme-v2`), same as the signed-in app.
+  return (
+    <div className={`theme-v2 ${jakarta.variable} ${caveat.variable} flex flex-1 flex-col`}>
+      <AdminShell account={account}>{children}</AdminShell>
+    </div>
+  );
 }
