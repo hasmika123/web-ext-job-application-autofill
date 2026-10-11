@@ -25,6 +25,9 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> 📄 **Resume Builder + Common Profile is designed (branch `resume-builder`, 2026-10-11)** — see the
+> *Resume Builder* section below (its own Current focus: **R0.1 Schema**) and `docs/HANDOFF-RESUME-BUILDER.md`.
+>
 > 🌱 **The app v2 + enterprise admin work lives on the `version2` branch and awaits the user's review
 > (landing v2 V2.0–V2.6, app0–app2, auth, org1–org2, landing v3 `/v3` and the appqa pass, all done
 > 2026-10-11).** It covers the signed-in app redesign (`/dashboard`, `/jobs`, `/saved`, `/ai-apply`,
@@ -1395,7 +1398,38 @@ focused Claude Code session.
 
 ---
 
+## Resume Builder (branch `resume-builder`, off `version2`)
+> Design 2026-10-11: `docs/RESUME-BUILDER-DESIGN.md` (the design), `docs/RESUME-BUILDER-STORIES.md`
+> (45 stories, R0–R7), `docs/RESUME-BUILDER-DECISIONS.md` (vetoable defaults), on-ramp
+> `docs/HANDOFF-RESUME-BUILDER.md`. Pulls ROADMAP 16.7 (builder + templates) and 16.6 (cover letter)
+> forward and completes the profile half of 10.3. Commit prefix `rb<epic>.<n>:`; one story per commit.
+> Locked by the design: `bio.payload` wrapped not migrated (`profile_item` for career lists);
+> `resume_doc` JSON beside `resume` with `parsed_json` re-derived on every save (extension, matcher,
+> tailor, ATS unchanged); templates are code in `@kiwiply/ui`; PDF = Chromium printing the same HTML;
+> all builder AI is Pro via `AiBudgetService`, suggest → diff → accept.
+>
+> **Current focus (this branch): R0.1 Schema** — then R0.2 → R0.5 (the first five), then R0.6–R0.7
+> to close the walking skeleton (DB → API → editor → template → PDF).
+- [ ] **R0 Foundations (walking skeleton)** — R0.1 schema · R0.2 document contract (Java) · R0.3 doc
+  endpoints (ETag/If-Match) · R0.4 `@kiwiply/ui` resume package + Modern template + vitest · R0.5 web
+  editor skeleton + autosave · R0.6 PDF via Chromium sidecar → S3 · R0.7 smoke + handoff.
+- [ ] **R1 Common Profile builder** — items API + completeness · `/profiles` real tabs · drag-reorder ·
+  onboarding wizard (upload / paste → card review) · start-fresh flow · headline/summary + provenance.
+- [ ] **R2 Editor + preview + templates** — all section editors · reorder · Classic + Compact + picker ·
+  theme + page-fit ladder · writing lint (Free) · resume list page.
+- [ ] **R3 Switching, versions, import, export** — version history · pull from profile · export dialog ·
+  switch safety net · extension badge (optional ext bump).
+- [ ] **R4 AI assist (Pro)** — proposal service + truth checks + rewrite · diff UI · summary + tone ·
+  fit-to-page assist · grammar.
+- [ ] **R5 Tailoring, ATS, cover letter, hand-off** — tailor to pasted JD · keywords panel · cover letter
+  (16.6) · translate · board/extension hand-off.
+- [ ] **R6 Polish** — phone pass · a11y · performance · empty/error states · CI (vitest, PDF smoke).
+- [ ] **R7 Growth** — Minimal + Creative · share link · DOCX · photo · health nudge · Autopilot hook.
+
+---
+
 ## Log
+- 2026-10-11 · **design: Resume Builder + Common Profile (branch `resume-builder`)** · Wrote `docs/RESUME-BUILDER-DESIGN.md` (goals/personas, common profile wrap-not-migrate with `profile_item` + provenance, `ResumeDocument` v1 + `resume_doc`/versions/proposals schema, template registry in `@kiwiply/ui` with lossless switching + 7-step page-fit, Chromium-sidecar PDF through the existing file endpoint, Pro-only AI via `AiBudgetService` with the 13.4 suggest→diff→accept pattern generalised, API/BFF contracts, wireframes, risks, 4 open questions), `docs/RESUME-BUILDER-STORIES.md` (45 stories R0–R7, ★ first five = R0.1–R0.5, walking skeleton R0.1–R0.7), `docs/RESUME-BUILDER-DECISIONS.md`, `docs/HANDOFF-RESUME-BUILDER.md`. No product code.
 > One line per completed task: date · task · note.
 - 2026-10-11 · **app3a App v3 shell + Dashboard + Job Search** · Shell verified (13-item nav, blue pill, PlanCard, Hi-First menu, all legacy routes redirect; /jobs/[id] now opens the Job Search panel). `app-v3/home/*` Dashboard (real counts, activity, status, recent, recommended, profile strength; sample interviews/alerts) and `app-v3/jobs/*` Job Search (filter rail, list, detail panel, pagination); HeroBand note/aside layering fixed. tsc+eslint green; checked in browser at 1440/1024/375.
 - 2026-10-11 · **demo Demo selector on /login + local mock (branch `worktree-agent-aebb348a4abddfc89`)** · `DemoCard` is now a radio-card picker (job seeker / organization admin, each with a blurb and "You'll see", one "Open demo" button, 44px targets). `web/scripts/mock-api.mjs` is a dependency-free stand-in for the Spring API (demo on, both accounts, read-only 403 `DEMO_READ_ONLY` on writes, no DB); `npm run dev:demo -w web` starts it plus `next dev`. Dev-only by construction (separate script, refuses `NODE_ENV=production`). Verified in the browser: both accounts land on `/dashboard` / `/org` with the Demo badge. DEPLOY.md 12.1 "Local demo".
