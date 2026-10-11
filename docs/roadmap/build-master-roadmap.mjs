@@ -81,8 +81,8 @@ function loadArea(a) {
   }
   const d = r.data;
   base.updated = str(d.updated);
-  if (d.name && !a.resume) base.name = str(d.name);
-  base.summary = str(d.summary) || (planFile && firstParagraph(planFile)) || a.fallback;
+  // keep the short area name from AREAS (the plan JSON carries a long title)
+  base.summary = str(d.summary) || a.fallback;
   const epicsIn = Array.isArray(d.epics) ? d.epics : [];
   const map = new Map();
   for (const e of epicsIn) {
@@ -472,7 +472,7 @@ function renderAreas(m){
     b.appendChild(hd);
     b.appendChild(el("p","sum",a.summary));
     if(!a.pending){b.appendChild(counts(a));b.appendChild(p0line(a))}
-    var open=el("button","btn"+(a.pending?"":" primary"),a.pending?"Plan being written":"Open "+a.name,{type:"button","data-k":"area-"+a.key});
+    var open=el("button","btn"+(a.pending?"":" primary"),a.pending?"Plan being written":"Open",{type:"button","data-k":"area-"+a.key});
     if(a.pending)open.disabled=true;else open.addEventListener("click",function(){noScroll=true;go(href(a.key))});
     open.style.alignSelf="flex-start";b.appendChild(open);
     g.appendChild(b);
