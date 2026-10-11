@@ -603,7 +603,7 @@ function SignupPanel() {
   return (
     <>
       {/* Desktop */}
-      <section className={PANEL}>
+      <section className={cn(PANEL, "lg:sticky lg:top-0 lg:h-screen lg:min-h-[640px] lg:self-start")}>
         <Link href="/" aria-label="Kiwiply home" className="w-fit">
           <BrandLogo height={52} priority />
         </Link>
@@ -623,7 +623,7 @@ function SignupPanel() {
         <FeatureList items={SIGNUP_FEATURES} className="relative z-10 mt-8 max-w-[46%]" />
         <StickyNote className="absolute left-[60%] top-[16%] z-10 -rotate-[10deg]" />
         <StarDoodle className="absolute left-[60%] top-[8%] h-10 w-10 text-v2-green" />
-        <div className="absolute bottom-0 right-[-3%] w-[min(78%,76vh)]">
+        <div className="absolute bottom-0 right-[-3%] w-[min(70%,64vh)]">
           <Image
             src="/v2/app/auth-trio-signup.png"
             alt=""
@@ -632,7 +632,7 @@ function SignupPanel() {
             sizes="(min-width: 1024px) 45vw, 0px"
             className="h-auto w-full"
           />
-          <div aria-hidden className="absolute left-[-2%] top-[-26%] -rotate-[9deg]">
+          <div aria-hidden className="absolute left-[44%] top-[-26%] -rotate-[9deg]">
             <Hand className="text-[clamp(20px,1.9vw,30px)]">
               Same me.
               <br />
@@ -640,8 +640,8 @@ function SignupPanel() {
             </Hand>
             <Underline className="mt-1 h-3 w-40 text-v2-green" />
           </div>
-          <StarDoodle className="absolute left-[-12%] top-[10%] h-8 w-8 text-v2-green" />
-          <StarDoodle className="absolute left-[2%] top-[-4%] h-6 w-6 text-v2-lime-deep" />
+          <StarDoodle className="absolute left-[88%] top-[-34%] h-8 w-8 text-v2-green" />
+          <StarDoodle className="absolute left-[20%] top-[-8%] h-6 w-6 text-v2-lime-deep" />
         </div>
       </section>
 
