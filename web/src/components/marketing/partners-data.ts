@@ -1,6 +1,6 @@
 /**
  * Hero trust strip + roadmap data (spec 13.2 item 1). The marks are styled TEXT wordmarks in brand
- * colours - no third-party logo files ship. `TrustStrip.tsx` and `sections/Roadmap.tsx` render
+ * colours - no third-party logo files ship. `TrustStrip.tsx` renders
  * whatever is here.
  *
  * REAL DATA, NOT PLACEHOLDER: these lists state what the extension actually supports. Edit them
@@ -41,26 +41,4 @@ export const ON_THE_ROADMAP: Partner[] = [
   { name: "ZipRecruiter", text: "ZipRecruiter", color: "#14161F", glyph: "bolt", glyphColor: "#8BD130" },
   { name: "Handshake", text: "Handshake", color: "#111111", glyph: "bars", glyphColor: "#E03C31" },
   { name: "Wellfound", text: "wellfound", color: "#111111" },
-];
-
-/** Where the "See what's next" link lands (the `Roadmap` section on the landing page). */
-export const ROADMAP_HREF = "/#roadmap";
-
-export type RoadmapStatus = "now" | "progress" | "planned";
-
-export interface RoadmapColumn {
-  status: RoadmapStatus;
-  title: string;
-  items: string[];
-}
-
-/** The three-column "Where Kiwiply works next" list. */
-export const ROADMAP: RoadmapColumn[] = [
-  {
-    status: "now",
-    title: "Available now",
-    items: ["LinkedIn Easy Apply forms", "Workday", "Greenhouse", "Lever", "Ashby", "Workable", "Gmail inbox tracking"],
-  },
-  { status: "progress", title: "In progress", items: ["Indeed", "Glassdoor", "ZipRecruiter"] },
-  { status: "planned", title: "Planned", items: ["Handshake", "Wellfound", "Outlook inbox"] },
 ];

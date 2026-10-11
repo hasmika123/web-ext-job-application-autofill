@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { CheckIcon, ZapIcon, cn } from "@kiwiply/ui";
-import { ON_THE_ROADMAP, PARTNERS_TRUST_LINE, ROADMAP_HREF, WORKS_TODAY, type Partner } from "./partners-data";
+import { ON_THE_ROADMAP, PARTNERS_TRUST_LINE, WORKS_TODAY, type Partner } from "./partners-data";
 
 /**
  * Trust line + support rows directly under the hero (spec 13.2 item 1). Two labelled rows of
@@ -111,11 +110,6 @@ export function TrustRows({ className }: { className?: string }) {
             </span>
           </li>
         ))}
-        <li className="flex-none text-[13.5px] font-semibold tracking-normal">
-          <Link href={ROADMAP_HREF} className="text-v2-blue hover:underline">
-            See what&rsquo;s next &rarr;
-          </Link>
-        </li>
       </Row>
     </div>
   );

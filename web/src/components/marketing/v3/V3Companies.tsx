@@ -1,13 +1,12 @@
-import Link from "next/link";
 import { LinkedInIcon, cn } from "@kiwiply/ui";
 import { V3_APP_TILES } from "./placeholder-data";
-import { PARTNERS_TRUST_LINE, ROADMAP_HREF } from "../partners-data";
+import { PARTNERS_TRUST_LINE } from "../partners-data";
 import { TrustRows } from "../TrustStrip";
 
 /**
  * Landing-v3 support strip (desktop): the same "Works today" / "On the roadmap" rows as the main
  * landing page's trust strip (`TrustRows`), on a white card. Phones get a row of lettered job-site
- * tiles (LinkedIn + the five ATS) and a link to the roadmap. No logo files ship; data lives in
+ * tiles (LinkedIn + the five ATS) and a "more sites on the way" line. No logo files ship; data lives in
  * `../partners-data.ts` and `placeholder-data.ts` and states real support only.
  */
 
@@ -40,10 +39,7 @@ export function V3AppTiles() {
         ))}
       </ul>
       <p className="mt-4 text-center text-[13px] text-v2-ink-soft">
-        Works today. More sites on the way.{" "}
-        <Link href={ROADMAP_HREF} className="font-semibold text-v2-blue hover:underline">
-          See what&rsquo;s next &rarr;
-        </Link>
+        Works today. More sites on the way.
       </p>
     </section>
   );
