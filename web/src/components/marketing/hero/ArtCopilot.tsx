@@ -54,6 +54,7 @@ export default function ArtCopilot({ priority }: { priority?: boolean }) {
           priority={priority}
           eager
           edgeFade={[12, 0]}
+          bottomFade={16}
           className="w-full"
           sizes="441px"
         />

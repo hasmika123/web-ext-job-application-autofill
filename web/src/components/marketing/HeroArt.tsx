@@ -14,9 +14,10 @@ import { Sticky } from "./hero/parts";
  *  - below md (phones): a simple stack - the handwritten note top-left, the sticky note tucked
  *    top-right (slide 1), the person cutout centred (~75-80% wide), the mascot overlapping its
  *    lower right. No cards (the boards' phone hero has none).
- *  - md and up: the full composition on an 820x700 px stage (`.hero-art-stage`, globals.css), scaled
- *    to fit: stacked under the copy on tablets, pinned to the hero's bottom-right from 1280px, so
- *    the person is flush with the hero's bottom edge. Each slide's stage lives in `hero/Art*.tsx`.
+ *  - md and up: the full composition on an 820x700 px design canvas (`.hero-art-cell` /
+ *    `.hero-art-stage`, globals.css) scaled fluidly to the width of the carousel's art column, so
+ *    the person stays flush with the hero's bottom edge at every width. Each slide's stage lives in
+ *    `hero/Art*.tsx`.
  * `HeroCarousel` (client) receives the rendered node as a prop, so it never imports media.tsx.
  */
 
@@ -62,13 +63,17 @@ function MobileArt({ slide }: { slide: HeroSlide }) {
 
 export default function HeroArt({ slide, priority = false }: { slide: HeroSlide; priority?: boolean }) {
   return (
-    <div className="order-2 md:order-3 md:mt-6 xl:mt-0">
+    <>
       <MobileArt slide={slide} />
-      <div className="hero-art-stage pointer-events-none relative z-10 mx-auto hidden md:block xl:z-0">
-        <div className="hero-art-canvas absolute left-0 top-0">
-          <Stage slide={slide} priority={priority} />
+      {/* md and up: the cell is a size container filling the carousel's art column; the stage's
+          height and the canvas scale follow its width (globals.css). */}
+      <div className="hero-art-cell pointer-events-none relative hidden md:block">
+        <div className="hero-art-stage">
+          <div className="hero-art-canvas">
+            <Stage slide={slide} priority={priority} />
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

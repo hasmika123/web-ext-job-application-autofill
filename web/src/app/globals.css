@@ -37,35 +37,47 @@ h3 {
   font-weight: 600;
 }
 
-/* Landing v2 hero art stage (V2.2x). The art is composed on a fixed 820x700 canvas (px) and scaled
-   with `--hs`: 0.88 on tablets (stacked under the copy), then from 1280px it pins to the hero's
-   bottom-right and grows 0.86 -> 1.0 so the cards never run into the copy column. The scaled box is
-   what takes up layout space; the inner 820x700 canvas is scaled from its top-left corner. */
+/* Landing v2 hero art stage (V2.2y). The art is composed on a fixed 820x700 px design canvas and
+   scaled to FILL whatever width its grid column has: the cell is a size container, the stage's height
+   follows the scale, and the canvas is scaled from its top-left corner with `100cqw / 820px` (typed
+   arithmetic). Browsers without typed arithmetic get a viewport-width ladder of the same scales. */
+/* The art column bleeds past the slide container's right padding (and, on wide screens, up to the
+   viewport edge, capped so the canvas is never scaled above 1x). */
+.hero-art-col { margin-right: -1.5rem; }
+@media (min-width: 1024px) { .hero-art-col { margin-right: -1rem; } }
+@media (min-width: 1360px) {
+  .hero-art-col { margin-right: calc(-1 * min(142px, max(1rem, (100vw - 1320px) / 2 + 2rem))); }
+}
+.hero-art-cell {
+  container-type: inline-size;
+  max-width: 820px;
+  margin-left: auto;
+}
 .hero-art-stage {
   --hs: 1;
-  width: calc(820px * var(--hs));
-  height: calc(700px * var(--hs));
+  position: relative;
+  width: 100%;
+  height: calc(100cqw * 700 / 820);
 }
 .hero-art-stage > .hero-art-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 820px;
   height: 700px;
-  transform: scale(var(--hs));
+  transform: scale(calc(100cqw / 820px));
   transform-origin: top left;
 }
-@media (min-width: 768px) and (max-width: 1023.98px) {
-  .hero-art-stage { --hs: 0.88; }
+@supports not (transform: scale(calc(100px / 1px))) {
+  .hero-art-stage { height: calc(700px * var(--hs)); }
+  .hero-art-stage > .hero-art-canvas { transform: scale(var(--hs)); }
+  .hero-art-stage { --hs: 0.5; }
 }
-@media (min-width: 1280px) {
-  .hero-art-stage {
-    --hs: 0.86;
-    position: absolute;
-    bottom: 0;
-    right: calc(-1 * min(72px, (100vw - 100%) / 2));
-  }
-}
-@media (min-width: 1360px) {
-  .hero-art-stage { --hs: 0.93; }
-}
-@media (min-width: 1440px) {
-  .hero-art-stage { --hs: 1; }
-}
+@media (max-width: 1099.98px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.6; } } }
+@media (min-width: 1100px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.78; } } }
+@media (min-width: 1280px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.86; } } }
+@media (min-width: 1440px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.94; } } }
+
+
+
+

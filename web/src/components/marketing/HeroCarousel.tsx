@@ -63,11 +63,11 @@ const getHidden = () => document.hidden;
 const CTA_PRIMARY =
   "inline-flex w-full items-center justify-center gap-2.5 rounded-[12px] bg-accent px-8 py-[17px] text-[16px] font-bold leading-none " +
   "text-on-accent no-underline shadow-[0_10px_24px_rgba(95,191,31,.30)] transition hover:brightness-95 active:translate-y-px " +
-  "sm:w-auto md:py-[19px] md:text-[17px]";
+  "sm:w-auto md:px-5 md:py-3 md:text-[14.5px] xl:px-8 xl:py-[19px] xl:text-[17px]";
 
 const CTA_DEMO =
   "group inline-flex w-full items-center justify-center gap-3 rounded-[14px] border border-v2-line bg-white px-5 py-2.5 no-underline " +
-  "shadow-v2-card transition hover:shadow-v2-float sm:w-auto sm:justify-start sm:border-white/80 sm:pr-8";
+  "shadow-v2-card transition hover:shadow-v2-float sm:w-auto sm:justify-start sm:border-white/80 sm:pr-8 md:gap-2.5 md:px-3.5 md:py-1.5 md:pr-5 xl:gap-3 xl:px-5 xl:py-2.5 xl:pr-8";
 
 export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
   const count = slides.length;
@@ -171,7 +171,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
             const active = i === index;
             const f = FAMILY[s.family];
             const Heading = i === 0 ? "h1" : "h2";
-            const noTicksXl = STRIP_SLIDES.has(s.id);
+            const hasStrip = STRIP_SLIDES.has(s.id);
             return (
               <div
                 key={s.id}
@@ -182,26 +182,37 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
                 inert={!active}
                 className="w-full flex-none overflow-x-clip"
               >
-                {/* Below xl the slide is one column (copy, art, buttons on phones; copy, buttons, art
-                    on tablets). From xl the copy is a 46% column and the art stage is pinned to the
-                    bottom-right of this box (see HeroArt / .hero-art-stage in globals.css). */}
-                <div className="relative mx-auto flex h-full max-w-[1320px] flex-col px-5 pb-4 pt-[88px] md:px-8 md:pt-[108px] xl:min-h-[700px] xl:pb-0 xl:pt-[104px]">
-                  <div className="contents xl:relative xl:z-20 xl:block xl:w-[46%] xl:max-w-[640px]">
+                {/* Below md (phones) the slide is one column: copy, art, buttons + ticks. From md it is
+                    two columns, copy 46% / art 54% (the art bleeds past the container edge), and the
+                    art cell scales fluidly with its column (see HeroArt / .hero-art-cell in globals.css). */}
+                <div
+                  className={cn(
+                    "relative mx-auto flex h-full max-w-[1320px] flex-col px-5 pb-4 pt-[88px]",
+                    "md:grid md:grid-cols-[minmax(0,46fr)_minmax(0,54fr)] md:items-start md:px-6 md:pt-[96px] lg:px-8 lg:pt-[104px]",
+                    hasStrip ? "md:pb-[var(--hero-pb)] [--hero-pb:0px] max-[1099px]:[--hero-pb:112px] max-[899px]:[--hero-pb:196px]" : "md:pb-0",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "contents md:relative md:z-20 md:col-start-1 md:row-start-1 md:block md:self-start",
+                      hasStrip ? "min-[1100px]:pb-[150px]" : "md:pb-6",
+                    )}
+                  >
                     <div className="order-1 min-w-0">
                       <Eyebrow family={s.family} icon={SparklesIcon} bordered className="text-[14px]">
                         {s.eyebrow}
                       </Eyebrow>
-                      <Heading className="mt-5 text-[36px] text-v2-navy md:text-[48px] xl:text-[58px] min-[1400px]:text-[64px]">
+                      <Heading className="mt-5 text-[36px] text-v2-navy md:mt-4 md:text-[clamp(34px,4.2vw,64px)]">
                         <span className="block">{s.headline[0]}</span>
                         <span className="block">{s.headline[1]}</span>
                         <span className={cn("block", f.headline)}>{s.headline[2]}</span>
                       </Heading>
-                      <p className="mt-4 max-w-[560px] text-[15.5px] leading-[1.6] text-v2-ink-soft md:mt-4 md:text-[18px] md:leading-[1.55] xl:max-w-[500px] xl:text-[17.5px]">
+                      <p className="mt-4 max-w-[560px] text-[15.5px] leading-[1.6] text-v2-ink-soft md:mt-3 md:max-w-[500px] md:text-[clamp(14.5px,1.2vw,18px)] md:leading-[1.5]">
                         {s.lede}
                       </p>
                     </div>
-                    <div className="order-3 min-w-0 md:order-2">
-                      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 md:mt-6">
+                    <div className="order-3 min-w-0">
+                      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 md:mt-5 md:gap-3 xl:mt-6 xl:gap-4">
                         <Link href={s.cta.href} className={CTA_PRIMARY}>
                           {s.cta.label}
                           <ArrowRightIcon className="h-[18px] w-[18px]" />
@@ -211,7 +222,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
                           {...(demoExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                           className={CTA_DEMO}
                         >
-                          <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-white text-v2-navy shadow-[0_2px_8px_rgba(27,31,94,.12)] transition group-hover:scale-105">
+                          <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-white md:h-9 md:w-9 xl:h-10 xl:w-10 text-v2-navy shadow-[0_2px_8px_rgba(27,31,94,.12)] transition group-hover:scale-105">
                             <PlayIcon className="h-[18px] w-[18px]" />
                           </span>
                           <span className="text-left leading-tight">
@@ -222,23 +233,29 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
                       </div>
                       <ul
                         className={cn(
-                          "mt-6 grid grid-cols-3 gap-2 md:mt-7 md:flex md:flex-wrap md:gap-x-6 md:gap-y-2.5 xl:flex-nowrap xl:gap-x-5",
-                          noTicksXl && "xl:hidden",
+                          "mt-6 grid grid-cols-3 gap-2 md:mt-4 md:flex md:flex-wrap md:gap-x-4 md:gap-y-1.5 xl:mt-5 xl:gap-x-5",
+                          hasStrip && "md:hidden",
                         )}
                       >
                         {s.ticks.map((t) => (
                           <li
                             key={t}
-                            className="flex flex-col items-center gap-1.5 text-center text-[11.5px] font-medium leading-tight text-v2-ink-soft md:flex-row md:gap-2 md:text-left md:text-[13.5px] xl:whitespace-nowrap xl:text-[13px]"
+                            className="flex flex-col items-center gap-1.5 text-center text-[11.5px] font-medium leading-tight text-v2-ink-soft md:flex-row md:gap-1.5 md:text-left md:text-[12.5px] xl:gap-2 xl:text-[13px]"
                           >
-                            <CheckCircleIcon className="h-[22px] w-[22px] flex-none text-[#4B49D6] md:h-[24px] md:w-[24px]" />
+                            <CheckCircleIcon className="h-[22px] w-[22px] flex-none text-[#4B49D6] md:h-5 md:w-5 xl:h-[24px] xl:w-[24px]" />
                             {t}
                           </li>
                         ))}
                       </ul>
                     </div>
                   </div>
-                  {s.art}
+                  <div
+                    className={cn(
+                      "hero-art-col order-2 md:order-none md:col-start-2 md:row-start-1 md:self-start",
+                    )}
+                  >
+                    {s.art}
+                  </div>
                 </div>
               </div>
             );
@@ -246,15 +263,15 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
         </div>
       </div>
 
-      {/* From xl a soft fade dissolves the cut-off person into the page colour at the hero's edge. */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 hidden h-14 bg-gradient-to-t from-v2-canvas to-transparent xl:block" />
+      {/* From md a soft fade dissolves the cut-off person into the page colour at the hero's edge. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 hidden h-14 bg-gradient-to-t from-v2-canvas to-transparent md:block" />
 
-      {/* Slide 1 only: the four-tile strip overlaps the hero's bottom edge (xl+). */}
+      {/* Slide 1 only: the four-tile strip overlaps the hero's bottom edge (md+; 2x2 tiles below 1100px). */}
       <div
         aria-hidden={!stripOn}
         inert={!stripOn}
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-[22px] z-20 hidden px-5 transition-opacity duration-300 motion-reduce:transition-none xl:block",
+          "pointer-events-none absolute inset-x-0 bottom-[22px] z-20 hidden px-4 transition-opacity duration-300 motion-reduce:transition-none md:block lg:px-5",
           stripOn ? "opacity-100" : "opacity-0",
         )}
       >
@@ -264,7 +281,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlideView[] }) {
       </div>
 
       {/* Dots: small and subtle, centred at the hero's bottom (24px hit areas, 8px discs). */}
-      <div className="relative z-30 flex items-center justify-center pb-3 xl:absolute xl:inset-x-0 xl:bottom-0 xl:pb-0.5">
+      <div className="relative z-30 flex items-center justify-center pb-3 md:absolute md:inset-x-0 md:bottom-0 md:pb-0.5">
         <div className="flex items-center">
           {slides.map((s, i) => (
             <button
