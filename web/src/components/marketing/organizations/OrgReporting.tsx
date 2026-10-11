@@ -1,102 +1,194 @@
-import type { ComponentType } from "react";
-import { BriefcaseIcon, ChatIcon, TrendingUpIcon, TrophyIcon, cn, type IconProps } from "@kiwiply/ui";
-import { FAMILY, type Family } from "./family";
-import { Container, ExampleBadge, SectionHeading, StatusChip } from "./parts";
+import type { ComponentType, CSSProperties } from "react";
+import { BriefcaseIcon, CalendarIcon, ChevronDownIcon, ShieldCheckIcon, TrophyIcon, cn, type IconProps } from "@kiwiply/ui";
+import { FAMILY, HEADLINE_GREEN } from "./family";
+import { Container, Eyebrow } from "./parts";
+import { OUTCOMES, REPORT_RANGE, REPORT_TILES, VELOCITY } from "./placeholder-data";
 
-/**
- * Block 5: reporting and insights. Analytics is a "Coming" feature (spec section 9), so the
- * block says so, and every number is marked as an example.
- */
-const TILES: { label: string; value: string; delta: string; Icon: ComponentType<IconProps>; family: Family }[] = [
-  { label: "Applications", value: "1,243", delta: "+24%", Icon: BriefcaseIcon, family: "blue" },
-  { label: "Interviews", value: "320", delta: "+18%", Icon: ChatIcon, family: "violet" },
-  { label: "Offers", value: "41", delta: "+32%", Icon: TrophyIcon, family: "green" },
-  { label: "Placements", value: "28", delta: "+12%", Icon: TrendingUpIcon, family: "amber" },
-];
+/** Block 5: "Reporting & Insights". Pure HTML/CSS charts; every value comes from `placeholder-data.ts`. */
 
-/** Weekly applications, as bar heights (percent of the chart). */
-const WEEKS = [34, 42, 38, 55, 48, 62, 58, 71, 66, 80, 74, 92];
+const TILE_ICONS: Record<string, ComponentType<IconProps>> = {
+  Applications: BriefcaseIcon,
+  Interviews: CalendarIcon,
+  Offers: ShieldCheckIcon,
+  Placements: TrophyIcon,
+};
 
-const STAGES: { label: string; pct: number; family: Family }[] = [
-  { label: "Applied", pct: 100, family: "blue" },
-  { label: "Interview", pct: 26, family: "violet" },
-  { label: "Offer", pct: 9, family: "green" },
-  { label: "Placed", pct: 6, family: "amber" },
-];
+/** Delta colour per tile, as on the board (green, blue, lime, green). */
+const DELTA: Record<string, string> = {
+  Applications: "text-[#14702A]",
+  Interviews: "text-[#1349B5]",
+  Offers: "text-[#3E7A0A]",
+  Placements: "text-[#14702A]",
+};
+
+/** Points of the trend line as CSS percentages (x across, y down from the top of the plot). */
+function linePoints(): { x: number; y: number }[] {
+  const n = VELOCITY.line.length;
+  return VELOCITY.line.map((v, i) => ({ x: (i / (n - 1)) * 100, y: 100 - (v / VELOCITY.max) * 100 }));
+}
+
+function polygon(points: string[]): CSSProperties {
+  return { clipPath: `polygon(${points.join(", ")})` };
+}
+
+function VelocityChart() {
+  const pts = linePoints();
+  const fwd = pts.map((p) => `${p.x}% ${p.y}%`);
+  const band = [...fwd, ...[...pts].reverse().map((p) => `${p.x}% ${Math.min(p.y + 3, 100)}%`)];
+  const area = [...fwd, "100% 100%", "0% 100%"];
+  const barMax = Math.max(...VELOCITY.bars);
+  return (
+    <div className="rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-4 shadow-v2-card md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[14px] font-bold text-v2-navy">{VELOCITY.title}</p>
+        <ul className="flex items-center gap-3 text-[11px] text-v2-muted">
+          <li className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-v2-blue" />
+            {VELOCITY.legend[0]}
+          </li>
+          <li className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[#8FBBF5]" />
+            {VELOCITY.legend[1]}
+          </li>
+        </ul>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <div className="flex h-40 flex-none flex-col justify-between pb-0.5 text-[10px] text-v2-muted md:h-44">
+          {VELOCITY.axis.map((a) => (
+            <span key={a}>{a}</span>
+          ))}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="relative h-40 border-b border-v2-line md:h-44">
+            {/* gridlines */}
+            <span className="absolute inset-x-0 top-0 border-t border-v2-line/60" />
+            <span className="absolute inset-x-0 top-1/3 border-t border-v2-line/60" />
+            <span className="absolute inset-x-0 top-2/3 border-t border-v2-line/60" />
+            {/* weekly bars */}
+            <div className="absolute inset-x-0 bottom-0 top-0 flex items-end gap-[3px]">
+              {VELOCITY.bars.map((b, i) => (
+                <span
+                  key={i}
+                  className={cn("flex-1 rounded-t-[2px]", i % 3 === 0 ? "bg-[#8FBBF5]" : "bg-[#BCD6F8]")}
+                  style={{ height: `${(b / barMax) * 36}%` }}
+                />
+              ))}
+            </div>
+            {/* trend line: soft area under it, then the line itself */}
+            <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-v2-blue/15 to-transparent" style={polygon(area)} />
+            <span aria-hidden className="absolute inset-0 bg-v2-blue" style={polygon(band)} />
+            {pts.map((p, i) => (
+              <span
+                key={i}
+                aria-hidden
+                className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-v2-blue"
+                style={{ left: `${p.x}%`, top: `${p.y + 1.5}%` }}
+              />
+            ))}
+            <div className="absolute left-[52%] top-[4%] rounded-xl border border-v2-line/60 bg-white px-3 py-2 shadow-v2-card">
+              <p className="text-[14px] font-extrabold leading-tight text-v2-navy">{VELOCITY.tooltip.value}</p>
+              <p className="text-[10.5px] leading-tight text-v2-ink-soft">{VELOCITY.tooltip.label}</p>
+            </div>
+          </div>
+          <div className="mt-1.5 flex justify-between text-[10.5px] text-v2-muted">
+            {VELOCITY.months.map((m) => (
+              <span key={m}>{m}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** `conic-gradient` for the donut, from the arc shares in the data. */
+function ringGradient(): string {
+  const total = OUTCOMES.ring.reduce((s, r) => s + r.share, 0);
+  let at = 0;
+  const stops = OUTCOMES.ring.map((r) => {
+    const from = (at / total) * 360;
+    at += r.share;
+    const to = (at / total) * 360;
+    return `${r.color} ${from}deg ${to}deg`;
+  });
+  return `conic-gradient(from 0deg, ${stops.join(", ")})`;
+}
+
+function OutcomesChart() {
+  return (
+    <div className="rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-4 shadow-v2-card md:p-5">
+      <p className="text-[14px] font-bold text-v2-navy">{OUTCOMES.title}</p>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 sm:flex-nowrap">
+        <div className="relative h-32 w-32 flex-none rounded-full" style={{ background: ringGradient() }}>
+          <div className="absolute inset-[16px] grid place-items-center rounded-full bg-white text-center">
+            <div className="leading-tight">
+              <p className="text-[26px] font-extrabold text-v2-navy">{OUTCOMES.centerValue}</p>
+              <p className="text-[11px] text-v2-ink-soft">{OUTCOMES.centerLabel}</p>
+            </div>
+          </div>
+        </div>
+        <ul className="flex min-w-0 flex-1 flex-col gap-2 text-[12px]">
+          {OUTCOMES.legend.map((l) => (
+            <li key={l.label} className="flex items-center gap-2">
+              <span aria-hidden className={cn("h-2 w-2 flex-none rounded-full", l.dot)} />
+              <span className="text-v2-ink-soft">{l.label}</span>
+              <span className="ml-auto flex-none font-bold text-v2-navy">
+                {l.value} <span className="font-normal text-v2-muted">({l.pct})</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 export default function OrgReporting() {
   return (
-    <section id="reporting" aria-labelledby="org-reporting-title" className="scroll-mt-24 py-16 md:py-24">
-      <Container className="flex flex-col gap-10 md:gap-12">
-        <div className="flex flex-col items-center gap-4">
-          <SectionHeading
-            id="org-reporting-title"
-            eyebrow="Reporting & insights"
-            family="pink"
-            before="Turn progress into"
-            accent="measurable impact."
-            lede="See applications, interviews and offers across your bench, and show what your support is achieving. Reporting is on its way, and the numbers below are examples."
-          />
-          <StatusChip status="coming" />
+    <section id="reporting" aria-labelledby="org-reporting-title" className="scroll-mt-20 py-12 md:py-16">
+      <Container className="grid gap-8 lg:grid-cols-[0.8fr_1.4fr] lg:gap-8">
+        <div className="flex flex-col items-start gap-5 lg:pt-6">
+          <Eyebrow family="green">Reporting &amp; Insights</Eyebrow>
+          <h2 id="org-reporting-title" className="text-[28px] leading-[1.08] text-v2-navy md:text-[36px] lg:text-[40px]">
+            Turn progress into
+            <br />
+            measurable <span className={HEADLINE_GREEN}>impact.</span>
+          </h2>
+          <p className="max-w-md text-base leading-relaxed text-v2-ink-soft md:text-[17px]">
+            Track key metrics, understand what&apos;s working, and demonstrate the value of your program with powerful
+            analytics.
+          </p>
         </div>
 
-        <div className="rounded-[var(--radius-v2-card)] border border-v2-line/70 bg-white p-4 shadow-v2-float sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-bold text-v2-navy">Last 90 days</p>
-            <ExampleBadge />
+        <div aria-hidden className="flex min-w-0 flex-col gap-4">
+          <div className="flex justify-end">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-v2-line bg-white px-3 py-2 text-[12px] text-v2-ink-soft">
+              {REPORT_RANGE}
+              <ChevronDownIcon className="h-3 w-3" />
+            </span>
           </div>
-
-          <dl className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {TILES.map(({ label, value, delta, Icon, family }) => {
-              const f = FAMILY[family];
+          <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {REPORT_TILES.map((t) => {
+              const f = FAMILY[t.tone];
+              const Icon = TILE_ICONS[t.label] ?? BriefcaseIcon;
               return (
-                <div key={label} className={cn("flex items-center gap-3 rounded-2xl p-4", f.soft)}>
-                  <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-white">
-                    <Icon size={20} className={f.icon} />
+                <li key={t.label} className={cn("flex items-center gap-3 rounded-[var(--radius-v2-card)] p-3.5", f.soft)}>
+                  <span className={cn("grid h-11 w-11 flex-none place-items-center rounded-full bg-white/80", f.icon)}>
+                    <Icon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
-                    <dt className="truncate text-xs font-medium text-v2-ink-soft">{label}</dt>
-                    <dd className="flex flex-wrap items-baseline gap-x-2 text-2xl font-extrabold leading-tight text-v2-navy">
-                      {value}
-                      <span className="text-xs font-semibold text-[#14702A]">{delta}</span>
-                    </dd>
+                    <p className="text-[12px] text-v2-ink-soft">{t.label}</p>
+                    <p className="text-[22px] font-extrabold leading-tight text-v2-navy">{t.value}</p>
+                    <p className={cn("text-[12px] font-bold", DELTA[t.label])}>↑ {t.delta}</p>
                   </div>
-                </div>
+                </li>
               );
             })}
-          </dl>
-
-          <div className="mt-5 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-            <figure className="rounded-2xl border border-v2-line/70 bg-v2-canvas p-4">
-              <figcaption className="text-xs font-bold text-v2-navy">Applications per week</figcaption>
-              <div role="img" aria-label="Example bar chart: weekly applications rising over twelve weeks" className="mt-4 flex h-36 items-end gap-1.5 sm:gap-2">
-                {WEEKS.map((h, i) => (
-                  <span
-                    key={i}
-                    style={{ height: `${h}%` }}
-                    className={cn("w-full rounded-t-md", i === WEEKS.length - 1 ? "bg-v2-blue" : "bg-v2-blue/35")}
-                  />
-                ))}
-              </div>
-              <div aria-hidden className="mt-2 flex justify-between text-[11px] text-v2-muted">
-                <span>Week 1</span>
-                <span>Week 12</span>
-              </div>
-            </figure>
-
-            <div className="rounded-2xl border border-v2-line/70 bg-v2-canvas p-4">
-              <p className="text-xs font-bold text-v2-navy">Where applications stand</p>
-              <ul className="mt-4 flex flex-col gap-3">
-                {STAGES.map((s) => (
-                  <li key={s.label} className="flex items-center gap-3 text-[13px]">
-                    <span className="w-16 flex-none text-v2-ink-soft">{s.label}</span>
-                    <span aria-hidden className="h-2.5 flex-1 overflow-hidden rounded-full bg-v2-line">
-                      <span style={{ width: `${s.pct}%` }} className={cn("block h-full rounded-full", FAMILY[s.family].solid)} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          </ul>
+          <div className="grid gap-4 md:grid-cols-[1.35fr_1fr]">
+            <VelocityChart />
+            <OutcomesChart />
           </div>
         </div>
       </Container>

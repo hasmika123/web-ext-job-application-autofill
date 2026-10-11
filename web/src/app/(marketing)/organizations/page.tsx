@@ -9,10 +9,10 @@ import OrgCtaBand from "@/components/marketing/organizations/OrgCtaBand";
 export const metadata: Metadata = {
   title: "Kiwiply for organizations",
   description:
-    "Support your people's job search at scale. Consultancies and teams manage every consultant's search, track progress and prepare applications that each person reviews and submits.",
+    "Support employee job placement at scale. Manage your team's job search, assign support, track progress, and improve outcomes with AI-powered tools, all in one place.",
 };
 
-/** /organizations (landing v2, spec section 9): six blocks, all server-rendered. */
+/** /organizations (landing v2, exact-board mode, spec section 13): six blocks, all server-rendered. */
 export default function OrganizationsPage() {
   return (
     <main>

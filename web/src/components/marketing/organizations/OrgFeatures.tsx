@@ -1,189 +1,170 @@
 import type { ComponentType, ReactNode } from "react";
 import {
-  BriefcaseIcon,
+  BellIcon,
+  CalendarIcon,
   ChartIcon,
   ClipboardIcon,
-  GraduationCapIcon,
-  InboxIcon,
-  LayoutGridIcon,
+  FileTextIcon,
   MailIcon,
-  ShieldCheckIcon,
   SparklesIcon,
+  StarIcon,
+  UserIcon,
   UsersIcon,
   ZapIcon,
-  FileTextIcon,
+  ShieldCheckIcon,
   cn,
   type IconProps,
 } from "@kiwiply/ui";
 import { FAMILY, type Family } from "./family";
-import { Container, SectionHeading, StatusChip } from "./parts";
 import {
+  AiMatchingMock,
+  AlertsMock,
   AnalyticsMock,
-  AutofillReviewMock,
-  AutopilotBatchMock,
-  ConsultantAccountsMock,
-  ExpertServicesMock,
-  InboxTrackingMock,
-  JobBanksMock,
-  MarketerMock,
+  AutomationMock,
+  EmailTrackingMock,
+  EmployeeProfilesMock,
+  InterviewTrackingMock,
   NotesMock,
-  OutreachMock,
-  ProfilesResumesMock,
-  RolesMock,
+  PermissionsMock,
+  ResumeManagementMock,
+  SupportCoachesMock,
+  TeamManagementMock,
 } from "./feature-mocks";
+import { Container, SectionHeading } from "./parts";
 
-/**
- * Block 2: "Everything you need". Twelve cards, each a mini mock, grouped Available now
- * first and Coming second. The split follows spec section 9 exactly, so nothing unbuilt reads
- * as shipped.
- */
+/** Block 2: "Everything you need to support your team's success." Twelve cards, as on the board. */
 interface Feature {
   title: string;
   body: string;
   Icon: ComponentType<IconProps>;
   family: Family;
-  status: "now" | "coming";
   mock: ReactNode;
 }
 
 const FEATURES: Feature[] = [
   {
-    title: "Consultant accounts",
-    body: "A Kiwiply account for every consultant, on the plan you choose for each person.",
-    Icon: UsersIcon,
+    title: "Team management",
+    body: "Organize employees, candidates, and support staff in one place.",
+    Icon: StarIcon,
     family: "blue",
-    status: "now",
-    mock: <ConsultantAccountsMock />,
+    mock: <TeamManagementMock />,
   },
   {
-    title: "Profiles & resumes",
-    body: "Each consultant keeps their own profile and resume versions, built from the resume they upload.",
+    title: "Employee profiles",
+    body: "Centralize profiles, skills, goals, and job preferences.",
+    Icon: UserIcon,
+    family: "green",
+    mock: <EmployeeProfilesMock />,
+  },
+  {
+    title: "Resume management",
+    body: "Store, edit, and manage multiple resume versions.",
     Icon: FileTextIcon,
-    family: "pink",
-    status: "now",
-    mock: <ProfilesResumesMock />,
+    family: "blue",
+    mock: <ResumeManagementMock />,
   },
   {
-    title: "Autofill they review",
-    body: "Applications fill in the consultant's own browser. They check every field and submit.",
+    title: "Assign support coaches",
+    body: "Assign coaches or recruiters to provide personalised support.",
+    Icon: UsersIcon,
+    family: "violet",
+    mock: <SupportCoachesMock />,
+  },
+  {
+    title: "AI job matching",
+    body: "Find relevant opportunities with AI-powered matching.",
+    Icon: SparklesIcon,
+    family: "violet",
+    mock: <AiMatchingMock />,
+  },
+  {
+    title: "Application automation",
+    body: "Help your team apply faster with smart automation tools.",
     Icon: ZapIcon,
-    family: "amber",
-    status: "now",
-    mock: <AutofillReviewMock />,
+    family: "blue",
+    mock: <AutomationMock />,
   },
   {
-    title: "Inbox tracking per consultant",
-    body: "Each consultant connects their own Gmail. Replies and interview invites update their board.",
+    title: "Email & response tracking",
+    body: "Track outreach, responses, and follow-ups in one place.",
     Icon: MailIcon,
     family: "coral",
-    status: "now",
-    mock: <InboxTrackingMock />,
+    mock: <EmailTrackingMock />,
   },
   {
-    title: "Role-based access",
-    body: "Admins invite the team and assign or change plans. Reports are shared with consent.",
+    title: "Interview tracking",
+    body: "Schedule, track, and manage interviews with reminders.",
+    Icon: CalendarIcon,
+    family: "blue",
+    mock: <InterviewTrackingMock />,
+  },
+  {
+    title: "Role-based permissions",
+    body: "Control access with flexible team roles and permissions.",
     Icon: ShieldCheckIcon,
-    family: "green",
-    status: "now",
-    mock: <RolesMock />,
+    family: "blue",
+    mock: <PermissionsMock />,
   },
   {
-    title: "Notes & activity",
-    body: "Keep notes and see a running timeline of activity for each consultant.",
+    title: "Alerts & reminders",
+    body: "Stay on top of important deadlines and next steps.",
+    Icon: BellIcon,
+    family: "amber",
+    mock: <AlertsMock />,
+  },
+  {
+    title: "Notes & activity timeline",
+    body: "Keep all notes, updates, and activity in a shared timeline.",
     Icon: ClipboardIcon,
     family: "teal",
-    status: "now",
     mock: <NotesMock />,
   },
   {
-    title: "Expert services per person",
-    body: "Add resume review, rewrite, mock interviews or coaching for any consultant, at standard prices.",
-    Icon: GraduationCapIcon,
-    family: "violet",
-    status: "now",
-    mock: <ExpertServicesMock />,
-  },
-  {
-    title: "Marketer role",
-    body: "Marketers prepare resumes, jobs and outreach for their consultants. They never submit or sign in as a consultant.",
-    Icon: BriefcaseIcon,
-    family: "violet",
-    status: "coming",
-    mock: <MarketerMock />,
-  },
-  {
-    title: "Job banks per consultant",
-    body: "A job list for each consultant, with the right resume paired to every job.",
-    Icon: LayoutGridIcon,
-    family: "pink",
-    status: "coming",
-    mock: <JobBanksMock />,
-  },
-  {
-    title: "Recruiter outreach matching",
-    body: "Recruiter mail is matched to the right consultant's board.",
-    Icon: InboxIcon,
-    family: "blue",
-    status: "coming",
-    mock: <OutreachMock />,
-  },
-  {
-    title: "Analytics & reporting",
-    body: "Applications, interviews and offers across your bench, shared with consent.",
+    title: "Analytics & ROI reporting",
+    body: "Track progress, measure outcomes, and demonstrate impact.",
     Icon: ChartIcon,
     family: "green",
-    status: "coming",
     mock: <AnalyticsMock />,
-  },
-  {
-    title: "Autopilot batches",
-    body: "Prepare applications in bulk. Each one stops before submit, for the consultant to review.",
-    Icon: SparklesIcon,
-    family: "violet",
-    status: "coming",
-    mock: <AutopilotBatchMock />,
   },
 ];
 
-function FeatureCard({ f }: { f: Feature }) {
-  const fam = FAMILY[f.family];
-  return (
-    <li className="flex flex-col gap-4 rounded-[var(--radius-v2-card)] border border-v2-line/70 bg-white p-5 shadow-v2-card">
-      <div className="flex items-start justify-between gap-3">
-        <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-xl", fam.soft)}>
-          <f.Icon size={22} className={fam.icon} />
-        </span>
-        <StatusChip status={f.status} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <h3 className="text-[17px] leading-snug text-v2-navy">{f.title}</h3>
-        <p className="text-sm leading-relaxed text-v2-ink-soft">{f.body}</p>
-      </div>
-      <div className="mt-auto">{f.mock}</div>
-    </li>
-  );
-}
-
 export default function OrgFeatures() {
   return (
-    <section id="features" aria-labelledby="org-features-title" className="scroll-mt-24 py-16 md:py-24">
-      <Container className="flex flex-col gap-10 md:gap-12">
+    <section id="features" aria-labelledby="org-features-title" className="scroll-mt-20 py-12 md:py-20">
+      <Container>
         <SectionHeading
           id="org-features-title"
-          eyebrow="Everything you need"
-          family="lime"
+          eyebrow="Enterprise Features"
+          family="blue"
           before="Everything you need to support your"
-          accent="team's search."
-          lede="Tools for the people who run the bench and the people on it. Some are live today; the rest are on the way, and each card says which."
+          accent="team’s success."
+          lede="Powerful tools to manage people, streamline job placement, and achieve better outcomes."
         />
-        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map((f) => (
-            <FeatureCard key={f.title} f={f} />
-          ))}
+
+        <ul className="mt-10 grid grid-cols-2 gap-3 md:mt-12 md:gap-5 lg:grid-cols-4">
+          {FEATURES.map((f) => {
+            const fam = FAMILY[f.family];
+            return (
+              <li
+                key={f.title}
+                className="flex flex-col gap-3 rounded-[var(--radius-v2-card)] border border-white/70 bg-white p-4 shadow-v2-card md:p-5"
+              >
+                <div className="flex items-start gap-3">
+                  <span className={cn("grid h-11 w-11 flex-none place-items-center rounded-xl", fam.soft, fam.icon)}>
+                    <f.Icon className="h-5 w-5" />
+                  </span>
+                  <div aria-hidden className="hidden min-h-[88px] min-w-0 flex-1 items-center justify-end md:flex">
+                    <div className="w-full max-w-[190px]">{f.mock}</div>
+                  </div>
+                </div>
+                <div className="mt-auto flex flex-col gap-1.5 md:pt-2">
+                  <h3 className="text-[15px] font-bold leading-snug tracking-normal text-v2-navy md:text-base">{f.title}</h3>
+                  <p className="text-[13px] leading-relaxed text-v2-ink-soft md:text-[14px]">{f.body}</p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
-        <p className="text-center text-[13px] text-v2-muted">
-          Pictures on this page are examples with made-up names and numbers.
-        </p>
       </Container>
     </section>
   );

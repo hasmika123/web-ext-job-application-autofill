@@ -3,7 +3,10 @@
  * Tailwind's scanner emits them (no string-built class names). `text` is a deepened shade so
  * small labels on the soft backgrounds stay AA.
  */
-export type Family = "lime" | "green" | "violet" | "blue" | "teal" | "coral" | "amber" | "pink";
+/** Headline green for accent words in h1/h2 (large text, AA on the canvas; the token is too light). */
+export const HEADLINE_GREEN = "text-[#1A9A35]";
+
+export type Family ="lime" | "green" | "violet" | "blue" | "teal" | "coral" | "amber" | "pink";
 
 export interface FamilyClasses {
   /** Soft tint background. */

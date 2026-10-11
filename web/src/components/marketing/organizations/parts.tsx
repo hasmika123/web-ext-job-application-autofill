@@ -1,9 +1,6 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { ArrowRightIcon, cn } from "@kiwiply/ui";
-import { buttonVariants } from "@/components/ui";
-import { contactHref } from "@/lib/catalog";
-import { FAMILY, type Family } from "./family";
+import { cn } from "@kiwiply/ui";
+import { FAMILY, HEADLINE_GREEN, type Family } from "./family";
 
 /**
  * Small building blocks local to the /organizations page (a later QA phase dedupes these
@@ -49,7 +46,7 @@ export function SectionHeading({
   eyebrow: string;
   family?: Family;
   /** Heading text before the coloured words. */
-  before?: string;
+  before?: ReactNode;
   /** Coloured words. */
   accent: string;
   /** Heading text after the coloured words. */
@@ -62,8 +59,9 @@ export function SectionHeading({
     <div className={cn("flex flex-col gap-4", centered ? "items-center text-center" : "items-start text-left")}>
       <Eyebrow family={family}>{eyebrow}</Eyebrow>
       <h2 id={id} className="max-w-3xl text-[28px] leading-[1.1] text-v2-navy md:text-[36px] md:leading-[1.1]">
-        {before ? `${before} ` : null}
-        <span className="text-accent-deep">{accent}</span>
+        {before}
+        {before ? " " : null}
+        <span className={HEADLINE_GREEN}>{accent}</span>
         {after ? ` ${after}` : null}
       </h2>
       {lede ? <p className="max-w-2xl text-base leading-relaxed text-v2-ink-soft md:text-[17px]">{lede}</p> : null}
@@ -71,46 +69,33 @@ export function SectionHeading({
   );
 }
 
-/** Tiny "Example" tag carried by every mock, so no sample number is mistaken for a result. */
-export function ExampleBadge({ className }: { className?: string }) {
+/** Initials tile standing in for the board's face photos (we ship no portraits). */
+export function Avatar({
+  initials,
+  family = "blue",
+  className,
+}: {
+  initials: string;
+  family?: Family;
+  className?: string;
+}) {
+  const f = FAMILY[family];
   return (
     <span
-      className={cn(
-        "inline-flex items-center rounded-full border border-v2-line bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-v2-muted",
-        className,
-      )}
+      aria-hidden
+      className={cn("grid h-8 w-8 flex-none place-items-center rounded-full text-[11px] font-bold", f.soft, f.text, className)}
     >
-      Example
+      {initials}
     </span>
   );
 }
 
-/** "Available now" / "Coming" chip on feature cards. */
-export function StatusChip({ status }: { status: "now" | "coming" }) {
-  const now = status === "now";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold leading-none",
-        now ? "bg-v2-lime-soft text-v2-navy" : "bg-v2-amber-soft text-v2-sticky-ink",
-      )}
-    >
-      <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", now ? "bg-v2-lime-deep" : "bg-v2-amber")} />
-      {now ? "Available now" : "Coming"}
-    </span>
-  );
-}
-
-/** The page's two calls to action. Talk to us is primary; View pricing is secondary. */
-export function OrgCtas({ className }: { className?: string }) {
-  return (
-    <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-center", className)}>
-      <Link href={contactHref("organization")} className={buttonVariants("accent", "lg", "min-h-11 w-full sm:w-auto")}>
-        Talk to us <ArrowRightIcon size={16} />
-      </Link>
-      <Link href="/#pricing" className={buttonVariants("ghost", "lg", "min-h-11 w-full bg-white sm:w-auto")}>
-        View pricing
-      </Link>
-    </div>
-  );
+/** "Sarah Kim" -> "SK". */
+export function initialsOf(name: string): string {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
