@@ -7,6 +7,41 @@ production deploy and only the user triggers it (see root `CLAUDE.md` → Branch
 Read in this order: root `CLAUDE.md` → this file → `web/LANDING-V2-SPEC.md` → `web/APP-V2-SPEC.md`
 → `web/APP-V3-SPEC.md`. The `PROGRESS.md` **Log** has one line per completed phase.
 
+## 0. START HERE — the exact continuation point
+
+**Last commit:** `734bd0b` on `origin/version2` (2026-10-11). Working tree was clean, all agent
+worktrees removed and merged, no stashes. Nothing exists only on the old machine.
+
+```bash
+git clone <repo> && cd web-ext-job-application-autofill
+git checkout version2
+npm ci                      # at the ROOT (npm workspaces)
+npm test -w web             # must be green (tsc + eslint) — it was at 734bd0b
+npm run dev -w web          # http://localhost:3000
+```
+
+**The task in flight is "App v3" (`web/APP-V3-SPEC.md`), stopped mid-build.** Resume in this
+order, one Sonnet agent per step, worktrees for parallel steps:
+
+1. **V3-A — finish the shell, then build Dashboard + Job Search** (spec §1, §2.1, §2.2).
+   Start from the WIP in `web/src/components/app-shell/{AppShell,AccountMenu,NotificationBell}.tsx`
+   (13-item nav, blue active pill, `PlanCard`, "Hi, First" top bar — partly edited), the new
+   `app-v2/common/{HeroBand,PlanCard,PromptChip}.tsx`, `web/src/lib/legacy-redirect.ts` and the
+   redirect pages already rewritten under `web/src/app/(app)/*`. Verify the redirects, then build
+   `app-v3/home/*` + `app-v3/jobs/*` and point `(app)/dashboard` and `(app)/jobs/**` at them.
+2. **V3-B — finish `/profiles` and `/settings`** (spec §2.4, §2.13); `/applications` and `/saved`
+   v3 pages already exist (`app-v3/applications`, `app-v3/saved`) — verify them in the browser.
+3. **Verify V3-C and V3-D in the browser** (`/assistant`, `/alerts`, `/messages`,
+   `/resume-builder`, `/interview-prep`, `/explore`, `/analytics`) — they were built without one.
+4. **V3-QA** — fold `app-v3/local-{b,c,d}/HeroBand.tsx` into `app-v2/common/HeroBand.tsx`, merge
+   `sample-data.{a,b,c,v3d}.ts` into `app-v3/sample-data.ts`, delete unused v2 page folders
+   (`app-v2/{home,jobs,saved,ai-apply,applications,interviews,resume,coming-soon}` once nothing
+   imports them), route smoke at 1440/1024/375, `npm run build -w web`, PROGRESS log line.
+5. **Fidelity pass** against the per-page board images once the user drops them into
+   `design/app-v3/` (not received yet — see §3).
+
+Before step 1, check `design/app-v3/` — if the images are there, update `APP-V3-SPEC.md` §2 first.
+
 ## 1. How the user wants work done (decisions, not suggestions)
 
 - **Model split:** the orchestrating model does *deep design* (specs, trade-offs, review);
