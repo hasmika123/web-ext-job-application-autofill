@@ -1,5 +1,10 @@
 # HANDOFF.md — start here in a new chat
 
+> **⚠️ Branch `version2` (landing/app redesign, 2026-10-10/11): start from
+> [`docs/HANDOFF-V2.md`](docs/HANDOFF-V2.md) instead — it has the exact continuation point,
+> the in-flight app v3 build, and the local tooling recipes. This file is the general
+> orientation for `main`/`develop`.**
+
 A fast orientation for picking this up cold, plus a **kickstart for what's immediately next**.
 Canonical docs stay authoritative; this just points you at them and gets you moving.
 
