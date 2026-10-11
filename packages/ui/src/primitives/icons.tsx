@@ -579,6 +579,268 @@ export const LockIcon = makeIcon("LockIcon", {
   ),
 });
 
+/* ── App v2 glyphs (signed-in app + org admin, spec web/APP-V2-SPEC.md section 2) ───── */
+
+export const HomeIcon = makeIcon("HomeIcon", {
+  node: (
+    <>
+      <path d="M3.5 11.2L12 4l8.5 7.2" />
+      <path d="M5.5 9.8V19a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5V9.8" />
+      <path d="M10 20.5v-5h4v5" />
+    </>
+  ),
+});
+
+export const HelpCircleIcon = makeIcon("HelpCircleIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M9.4 9.4a2.7 2.7 0 0 1 5.2 1c0 1.8-2.6 2.2-2.6 3.9" />
+      <path d="M12 17.4h.01" />
+    </>
+  ),
+});
+
+export const BuildingIcon = makeIcon("BuildingIcon", {
+  node: (
+    <>
+      <rect x="4.5" y="3" width="11" height="18" rx="1.5" />
+      <path d="M15.5 9H18a1.5 1.5 0 0 1 1.5 1.5V21" />
+      <path d="M2.5 21h19" />
+      <path d="M8 7.5h4M8 11h4M8 14.5h4" />
+    </>
+  ),
+});
+
+/** Three nodes joined by lines (share / network graph). */
+export const ShareNodesIcon = makeIcon("ShareNodesIcon", {
+  node: (
+    <>
+      <circle cx="6" cy="12" r="2.6" />
+      <circle cx="18" cy="5.5" r="2.6" />
+      <circle cx="18" cy="18.5" r="2.6" />
+      <path d="M8.3 10.8l7.4-4.1M8.3 13.2l7.4 4.1" />
+    </>
+  ),
+});
+
+/** Paper plane (send / apply). */
+export const SendIcon = makeIcon("SendIcon", {
+  node: (
+    <>
+      <path d="M21.5 3L10.5 14" />
+      <path d="M21.5 3l-6.6 18-4.4-7-7-4.4z" />
+    </>
+  ),
+});
+
+/** Networking: a hub with satellite people-dots. */
+export const NetworkIcon = makeIcon("NetworkIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="8" r="3" />
+      <path d="M6.5 20v-.5a5.5 5.5 0 0 1 11 0v.5" />
+      <circle cx="4.8" cy="10.5" r="2" />
+      <circle cx="19.2" cy="10.5" r="2" />
+    </>
+  ),
+});
+
+export const CompassIcon = makeIcon("CompassIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M15.8 8.2l-2 5.6-5.6 2 2-5.6z" />
+    </>
+  ),
+});
+
+export const DownloadIcon = makeIcon("DownloadIcon", {
+  node: (
+    <>
+      <path d="M12 3.5v12M7 11l5 5 5-5" />
+      <path d="M4.5 20.5h15" />
+    </>
+  ),
+});
+
+/** Three horizontal dots. */
+export const MoreHorizontalIcon = makeIcon("MoreHorizontalIcon", {
+  stroke: false,
+  node: (
+    <>
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </>
+  ),
+});
+
+/** Three vertical dots (row actions). */
+export const MoreVerticalIcon = makeIcon("MoreVerticalIcon", {
+  stroke: false,
+  node: (
+    <>
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
+    </>
+  ),
+});
+
+export const ExternalLinkIcon = makeIcon("ExternalLinkIcon", {
+  node: (
+    <>
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-9 9" />
+      <path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" />
+    </>
+  ),
+});
+
+export const CrownIcon = makeIcon("CrownIcon", {
+  node: (
+    <>
+      <path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" />
+      <path d="M5.5 19h13" />
+    </>
+  ),
+});
+
+export const KeyIcon = makeIcon("KeyIcon", {
+  node: (
+    <>
+      <circle cx="8" cy="15" r="4.5" />
+      <path d="M11.2 11.8L20 3M16.5 6.5l2.5 2.5M14 9l2 2" />
+    </>
+  ),
+});
+
+/** Webhook: three nodes joined by a looping hook. */
+export const WebhookIcon = makeIcon("WebhookIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="6" r="2.5" />
+      <circle cx="5.5" cy="17.5" r="2.5" />
+      <circle cx="18.5" cy="17.5" r="2.5" />
+      <path d="M12 8.5l-4.7 6.7M8 17.5h8M13.5 8.2l3.8 6.5" />
+    </>
+  ),
+});
+
+export const ListIcon = makeIcon("ListIcon", {
+  node: (
+    <>
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeWidth={2.6} />
+    </>
+  ),
+});
+
+/** Alias of LayoutGridIcon under the spec's name. */
+export const GridIcon = LayoutGridIcon;
+/** Alias of ChartIcon under the spec's name. */
+export const BarChartIcon = ChartIcon;
+/** Alias of FunnelIcon under the spec's name. */
+export const FilterIcon = FunnelIcon;
+
+export const MapPinIcon = makeIcon("MapPinIcon", {
+  node: (
+    <>
+      <path d="M12 21.5s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10.5" r="2.4" />
+    </>
+  ),
+});
+
+export const DollarIcon = makeIcon("DollarIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M14.8 9.2c-.4-1-1.4-1.6-2.8-1.6-1.6 0-2.8.8-2.8 2s1 1.6 2.8 2c1.8.4 2.8.9 2.8 2.1s-1.2 2-2.8 2c-1.5 0-2.5-.7-2.9-1.7" />
+      <path d="M12 6v1.6M12 16.4V18" />
+    </>
+  ),
+});
+
+export const VideoIcon = makeIcon("VideoIcon", {
+  node: (
+    <>
+      <rect x="3" y="6" width="13" height="12" rx="2.2" />
+      <path d="M16 10.5l5-3v9l-5-3z" />
+    </>
+  ),
+});
+
+export const XCircleIcon = makeIcon("XCircleIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M9 9l6 6M15 9l-6 6" />
+    </>
+  ),
+});
+
+export const MinusCircleIcon = makeIcon("MinusCircleIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M8 12h8" />
+    </>
+  ),
+});
+
+export const PlusIcon = makeIcon("PlusIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M12 5v14M5 12h14" />,
+});
+
+export const ArrowUpRightIcon = makeIcon("ArrowUpRightIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M7 17L17 7M8 7h9v9" />,
+});
+
+export const ArrowLeftIcon = makeIcon("ArrowLeftIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M19 12H5M11 6l-6 6 6 6" />,
+});
+
+export const ChevronUpIcon = makeIcon("ChevronUpIcon", {
+  strokeWidth: 2,
+  node: <path d="M6 15l6-6 6 6" />,
+});
+
+/** Two horizontal slider bars ("More filters"). */
+export const SlidersIcon = makeIcon("SlidersIcon", {
+  node: (
+    <>
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </>
+  ),
+});
+
+/** Solid verified badge (company checkmark). */
+export const VerifiedIcon = makeIcon("VerifiedIcon", {
+  stroke: false,
+  node: (
+    <path
+      fillRule="evenodd"
+      d="M12 1.8l2.3 1.9 3-.1.9 2.9 2.5 1.7-.9 2.9.9 2.9-2.5 1.7-.9 2.9-3-.1L12 22.2l-2.3-1.9-3 .1-.9-2.9-2.5-1.7.9-2.9-.9-2.9 2.5-1.7.9-2.9 3 .1zM10.7 15.6l5.2-5.2-1.3-1.3-3.9 3.9-1.6-1.6-1.3 1.3z"
+    />
+  ),
+});
+
+export const MicIcon = makeIcon("MicIcon", {
+  node: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" />
+    </>
+  ),
+});
+
 /* ── Theme ───────────────────────────────────────────────────────────────────────── */
 
 export const SunIcon = makeIcon("SunIcon", {

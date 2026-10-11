@@ -84,3 +84,28 @@
   letter-spacing: -0.025em;
   line-height: 1.02;
 }
+
+/* ── App v2 tokens (signed-in app + org admin; spec web/APP-V2-SPEC.md section 1.5) ───────
+ * Added, never renamed. "-ink" variants are the AA-contrast text colours for chips on the
+ * matching "-soft" tint (the bright brand colours fail contrast on their own tints).
+ */
+@theme static {
+  --color-v2-nav-active-bg: #E9FBD9;
+  --color-v2-nav-active-text: #1B1F5E;
+  --color-v2-org-blue: #1E6FF5;
+  --color-v2-org-blue-deep: #1558C9;
+  --color-v2-org-nav-active-bg: #E8F0FF;
+  --color-v2-org-nav-active-text: #1E6FF5;
+
+  --color-v2-blue-ink: #1553C0;
+  --color-v2-green-ink: #167A2C;
+  --color-v2-amber-ink: #935700;
+  --color-v2-violet-ink: #4A31C9;
+  --color-v2-teal-ink: #11706A;
+  --color-v2-coral-ink: #BE2E2E;
+  --color-v2-pink-ink: #A32776;
+
+  --color-v2-hero-lime: #EAF8D2;
+  --color-v2-hero-sky: #DDEBFF;
+  --shadow-v2-soft: 0 4px 14px rgba(27, 31, 94, 0.06), 0 1px 0 rgba(27, 31, 94, 0.03);
+}
