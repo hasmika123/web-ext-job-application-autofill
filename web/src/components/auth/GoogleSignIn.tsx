@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { GoogleIcon } from "@kiwiply/ui";
+import { GoogleIcon, useToast } from "@kiwiply/ui";
 
 // The OAuth client id is NOT a secret (it's visible in every Google sign-in request), so
 // it ships in the bundle as a default — overridable per-build via NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -43,8 +43,10 @@ function safeNext(next?: string): string | null {
  * honoring `?next`. When no client id is configured this falls back to a disabled stub so
  * the layout (with its "or" divider) still reads correctly.
  */
-export default function GoogleSignIn({ next }: { next?: string }) {
+export default function GoogleSignIn({ next, variant = "default" }: { next?: string; variant?: "default" | "tile" }) {
   const router = useRouter();
+  const toast = useToast();
+  const tile = variant === "tile";
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,13 +68,18 @@ export default function GoogleSignIn({ next }: { next?: string }) {
           if (cancelled) return;
           if (!r.ok) {
             const d = await r.json().catch(() => ({}));
-            setError(d.error ?? "Google sign-in failed. Please try again.");
+            const msg = d.error ?? "Google sign-in failed. Please try again.";
+            if (tile) toast({ title: msg, variant: "error" });
+            else setError(msg);
             return;
           }
           router.push(safeNext(next) ?? "/dashboard");
           router.refresh();
         } catch {
-          if (!cancelled) setError("Network error during sign-in.");
+          if (!cancelled) {
+            if (tile) toast({ title: "Network error during sign-in.", variant: "error" });
+            else setError("Network error during sign-in.");
+          }
         }
       })();
     };
@@ -87,7 +94,7 @@ export default function GoogleSignIn({ next }: { next?: string }) {
         gisInitialized = true;
       }
       host.innerHTML = "";
-      window.google.accounts.id.renderButton(host, { theme: "outline", size: "large", text: "continue_with", shape: "pill", width: 360 });
+      window.google.accounts.id.renderButton(host, { theme: "outline", size: "large", text: "continue_with", shape: "pill", width: tile ? 240 : 360 });
     };
 
     if (window.google) {
@@ -107,7 +114,38 @@ export default function GoogleSignIn({ next }: { next?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [next, router]);
+  }, [next, router, tile, toast]);
+
+  // Board look: an outlined "Google" tile in the three-up social row. Google only issues the ID
+  // token through its own rendered button, so that official button is laid (invisible, scaled to
+  // cover the tile) over our styled tile and receives the real click.
+  if (tile) {
+    const tileClass =
+      "relative h-12 overflow-hidden rounded-[12px] border border-line bg-paper shadow-[0_2px_8px_rgba(27,31,94,0.05)] " +
+      "transition-colors hover:bg-paper-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent";
+    const face = (
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-[14px] font-semibold text-v2-navy sm:text-[15px]"
+      >
+        <GoogleIcon size={20} /> Google
+      </span>
+    );
+    if (!CLIENT_ID) {
+      return (
+        <button type="button" disabled title="Coming soon" className={cn(tileClass, "w-full cursor-not-allowed opacity-70")}>
+          {face}
+          <span className="sr-only">Continue with Google (coming soon)</span>
+        </button>
+      );
+    }
+    return (
+      <div className={tileClass}>
+        {face}
+        <div ref={ref} className="absolute inset-0 flex origin-center scale-[1.3] items-center justify-center opacity-[0.02]" />
+      </div>
+    );
+  }
 
   if (!CLIENT_ID) {
     return (
