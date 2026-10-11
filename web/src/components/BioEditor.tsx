@@ -155,8 +155,15 @@ function CheckIcon() {
   return <SharedCheckIcon strokeWidth={2.4} className="h-[15px] w-[15px] text-accent-deep" />;
 }
 
-export default function BioEditor({ initialBio }: { initialBio: Bio }) {
+/**
+ * `show` (optional) limits the editor to the listed section ids (identity, location, links, work,
+ * preferences, eeo, skills): the v3 My Profiles tabs reuse this one editor instance, so state and
+ * autosave persist as the visible subset changes. Without it the full editor renders (the legacy
+ * `/profile` page).
+ */
+export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?: string[] }) {
   const router = useRouter();
+  const vis = (id: string) => !show || show.includes(id);
 
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {};
@@ -336,8 +343,9 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
   }
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[210px_1fr]">
+    <div className={cn("grid items-start gap-6", !show && "lg:grid-cols-[210px_1fr]")}>
       {/* Section sub-nav (sticky on desktop; horizontal scroll on mobile) */}
+      {!show && (
       <nav className="flex gap-1.5 overflow-x-auto pb-1 lg:sticky lg:top-4 lg:flex-col lg:overflow-visible">
         {NAV.map((n) => (
           <a
@@ -353,8 +361,10 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           </a>
         ))}
       </nav>
+      )}
 
       <div>
+        {vis("identity") && (<>
         {/* Autofill from a resume — parsed in the browser, fills empty fields only */}
         <div className="mb-5 flex flex-col gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-4 shadow-[var(--shadow)] sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -407,8 +417,9 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
         <p className="mb-4 text-[12px] text-muted">
           <span className="text-danger">*</span> Required field
         </p>
+        </>)}
 
-        {SECTIONS.map((section) => (
+        {SECTIONS.filter((section) => vis(section.id)).map((section) => (
           <section key={section.id} id={section.id} className="mb-7 scroll-mt-6">
             <SectionTitle>{section.title}</SectionTitle>
             <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">{section.fields.map(renderField)}</div>
@@ -416,6 +427,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
         ))}
 
         {/* EEO / demographics — its own section with fields always visible, before Skills */}
+        {vis("eeo") && (
         <section id="eeo" className="mb-7 scroll-mt-6">
           <SectionTitle>
             EEO / demographics
@@ -423,8 +435,10 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           </SectionTitle>
           <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">{EEO_FIELDS.map(renderField)}</div>
         </section>
+        )}
 
         {/* Base skills — applied on top of every resume, regardless of which is chosen */}
+        {vis("skills") && (
         <section id="skills" className="mb-7 scroll-mt-6">
           <SectionTitle>
             Base skills
@@ -436,6 +450,7 @@ export default function BioEditor({ initialBio }: { initialBio: Bio }) {
           </p>
           <SkillsEditor skills={skills} onChange={updateSkills} />
         </section>
+        )}
 
         {/* Docked save bar — opaque (was translucent, which let fields show through as you
             scrolled under it). Sticks to the bottom; content scrolls hidden behind it. */}
