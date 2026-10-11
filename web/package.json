@@ -7,6 +7,8 @@
     "predev": "node scripts/sync-parser-core.mjs",
     "prebuild": "node scripts/sync-parser-core.mjs",
     "dev": "next dev",
+    "dev:demo": "node scripts/dev-demo.mjs",
+    "mock-api": "node scripts/mock-api.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
