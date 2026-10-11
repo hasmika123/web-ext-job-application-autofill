@@ -30,6 +30,8 @@ import BrandLogo from "@/components/marketing/BrandLogo";
 import MascotCard from "@/components/app-v2/common/MascotCard";
 import NotificationBell from "@/components/app-shell/NotificationBell";
 import AccountMenu from "@/components/app-shell/AccountMenu";
+import DemoReadOnlyToaster from "@/components/demo/DemoReadOnlyToaster";
+import { isDemoLogin } from "@/lib/demo";
 
 export interface AppAccount {
   login?: string;
@@ -123,6 +125,7 @@ export default function AppShell({
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useCollapsedPref();
   const toggleCollapsed = () => setCollapsed(!collapsed);
+  const demo = isDemoLogin(account?.login);
 
   // Esc closes the mobile drawer.
   useEffect(() => {
@@ -283,7 +286,14 @@ export default function AppShell({
 
           <div className="ml-auto flex flex-none items-center gap-1 sm:gap-2">
             <NotificationBell onNavigate={() => setOpen(false)} />
-            <AccountMenu initial={initialFor(account)} name={shortName(account)} isPro={isPro} onNavigate={() => setOpen(false)} />
+            {demo && <DemoReadOnlyToaster />}
+            <AccountMenu
+              initial={initialFor(account)}
+              name={shortName(account)}
+              isPro={isPro}
+              demo={demo}
+              onNavigate={() => setOpen(false)}
+            />
           </div>
         </header>
 

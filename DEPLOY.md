@@ -893,6 +893,36 @@ bump `DOSSIER_INBOX_KEY_VERSION` by one, and keep the old one readable by adding
 with that env var set. Each stored password moves to the new key the next time its inbox is
 checked (every 15 minutes once the poller, 14.3, is live), so keep the retired key for a day, then drop it.
 
+### 12.1 Demo accounts (phase demo)
+
+Two public demo accounts, `demo` (a job seeker with a ready-made search) and `demo-org` (the
+organization admin), that anyone can open from the login page without signing up. **Default off.**
+
+- **They exist** after the first boot with this release: the API creates them at startup (Free plan,
+  `ROLE_USER`, never an admin) and seeds the job seeker's data the first time the switch goes on.
+- **The switch lives in the database**, not in `.env`: table `app_setting`, key `demo.enabled`
+  (shipped `false`). Turn it on in either of two ways:
+  - **Admin UI:** `/admin/system` -> "Demo accounts" -> the "Demo accounts enabled" switch. The change is
+    audited (`DEMO_ENABLE` / `DEMO_DISABLE` on `/admin/audit`). Turning it off also signs the demo
+    accounts out everywhere (their refresh tokens are revoked).
+  - **SQL**, no restart (the API re-reads the row every few seconds):
+    ```sql
+    UPDATE app_setting SET setting_value = 'true' WHERE setting_key = 'demo.enabled';   -- on
+    UPDATE app_setting SET setting_value = 'false' WHERE setting_key = 'demo.enabled';  -- off
+    ```
+    A SQL flip is not audited. It needs no seeding step: the first demo job-seeker login fills an
+    empty board by itself (the admin card's "Reset demo data" does the same on demand).
+- **While off**, the login page shows nothing about the demo, `POST /api/authenticate/demo` and a typed
+  `demo` / `demo@kiwiply.com` login both return 403 `DEMO_DISABLED`.
+- **`DEMO_PASSWORD`** (optional env): the stored password of the two accounts. Leave it **blank** in
+  production: the API then uses a random password per boot, so the only way in is the one-click button.
+- **Read-only:** a demo session gets 403 `DEMO_READ_ONLY` ("This is a demo account - changes aren't saved")
+  on profile save, password change, account delete/export, billing, inbox connect/disconnect, resume
+  upload/delete and the AI resume parse. The application board (status changes, notes) stays live.
+- **Reset:** "Reset demo data" on the admin card wipes both accounts' rows and re-seeds the job seeker
+  (Jordan Lee, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
+  board in a mess.
+
 ## 13. Promoting `develop` → `main` — the first big release (reviewed 2026-10-05)
 
 Production last deployed `main` at **`4de5b60`** (PR #56, images built 2026-09-21). `develop` is

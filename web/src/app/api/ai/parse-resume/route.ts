@@ -1,5 +1,6 @@
 import { apiUrl } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * POST /api/ai/parse-resume — thin authenticated proxy to the Spring endpoint (the
@@ -39,6 +40,9 @@ export async function POST(request: Request) {
   if (res.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+
+  const demo = await demoReadOnly(res);
+  if (demo) return demo;
 
   const data = await res.json().catch(() => ({}));
   return Response.json(data, { status: res.status });

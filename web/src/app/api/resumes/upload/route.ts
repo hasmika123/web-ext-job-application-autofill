@@ -1,6 +1,7 @@
 import { apiUrl } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
 import { LIMITS } from "@/lib/validate";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * POST /api/resumes/upload — Option A proxy upload (the permanent design on a
@@ -66,6 +67,8 @@ export async function POST(request: Request) {
   if (createRes.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  const demo = await demoReadOnly(createRes);
+  if (demo) return demo;
   // The Free resume cap (Phase 12.4). Passed through with its code and counts rather than
   // flattened into a 502: this is the one upload failure the user can actually do something
   // about, and the upload screen turns it into an inline upgrade prompt.

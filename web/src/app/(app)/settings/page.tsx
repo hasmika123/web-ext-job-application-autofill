@@ -8,6 +8,7 @@ import BillingCard from "@/components/billing/BillingCard";
 import { getPlan } from "@/lib/billing";
 import { getAiUsage } from "@/lib/ai-usage";
 import AiUsageMeter from "@/components/settings/AiUsageMeter";
+import { DEMO_NOTE, isDemoLogin } from "@/lib/demo";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -40,6 +41,8 @@ export default async function SettingsPage() {
     redirect("/login");
   }
   const account: Account | null = res.ok ? await res.json() : null;
+  // A public demo account: nothing here is saved, and the destructive/billing actions are hidden.
+  const demo = isDemoLogin(account?.login);
   const [plan, aiUsage, inboxRes] = await Promise.all([getPlan(), getAiUsage(), serverApiFetch("/api/profile/inbox")]);
   const inbox = inboxRes.ok
     ? ((await inboxRes.json().catch(() => null)) as { connected?: boolean; address?: string | null; status?: string | null } | null)
@@ -58,6 +61,7 @@ export default async function SettingsPage() {
         <div className="flex flex-col gap-6">
           {/* Account */}
           <Card id="account" title="Account">
+            {demo && <DemoNote />}
             {account ? (
               <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
                 <dt className="text-muted">Username</dt>
@@ -131,27 +135,44 @@ export default async function SettingsPage() {
               Your data is yours. Read what we collect and how it&apos;s handled in the{" "}
               <Link href="/privacy" className="font-medium text-accent-deep hover:underline">Privacy Policy</Link>.
             </p>
-            <div className="mt-4">
-              <a
-                href="/api/account/export"
-                className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper-2"
-              >
-                Download my data
-              </a>
-              <p className="mt-1.5 text-xs text-ink-soft">A JSON copy of your profile, resumes, applications, and activity.</p>
-            </div>
-            <div className="mt-5">
-              <DeleteAccountButton />
-            </div>
+            {demo ? (
+              <div className="mt-4">
+                <DemoNote />
+              </div>
+            ) : (
+              <>
+                <div className="mt-4">
+                  <a
+                    href="/api/account/export"
+                    className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper-2"
+                  >
+                    Download my data
+                  </a>
+                  <p className="mt-1.5 text-xs text-ink-soft">A JSON copy of your profile, resumes, applications, and activity.</p>
+                </div>
+                <div className="mt-5">
+                  <DeleteAccountButton />
+                </div>
+              </>
+            )}
           </Card>
 
           {/* Billing */}
           <Card id="billing" title="Billing">
-            <BillingCard plan={plan} />
+            {demo ? <DemoNote /> : <BillingCard plan={plan} />}
           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+/** Shown to the public demo accounts where a real account would get a save, delete or billing action. */
+function DemoNote() {
+  return (
+    <p className="mb-3 rounded-[var(--radius)] border border-v2-amber/40 bg-v2-amber-soft px-3 py-2 text-[13px] font-medium text-v2-amber">
+      {DEMO_NOTE}
+    </p>
   );
 }
 

@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/api";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * Connect or disconnect the user's dedicated Gmail (Phase 14.1). Proxies Spring's
@@ -19,6 +20,8 @@ export async function POST(request: Request) {
     return Response.json({ code: "UNREACHABLE", message: "Couldn't reach the server. Please try again." }, { status: 502 });
   }
   if (res.status === 401) return Response.json({ code: "SESSION", message: "Your session expired — please sign in again." }, { status: 401 });
+  const demoRes = await demoReadOnly(res);
+  if (demoRes) return demoRes;
   if (res.status === 402) return Response.json({ code: "PRO_REQUIRED", message: "Connecting an inbox is part of Pro." }, { status: 402 });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
@@ -36,6 +39,8 @@ export async function DELETE() {
   } catch {
     return Response.json({ message: "Couldn't reach the server. Please try again." }, { status: 502 });
   }
+  const demoDel = await demoReadOnly(res);
+  if (demoDel) return demoDel;
   if (!res.ok) return Response.json({ message: "Disconnecting didn't work. Please try again." }, { status: 502 });
   return Response.json({ ok: true });
 }

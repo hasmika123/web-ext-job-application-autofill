@@ -1,5 +1,6 @@
 import { serverApiFetch } from "@/lib/api";
 import { clearAuthCookies } from "@/lib/auth";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * DELETE /api/account — proxy the GDPR/CCPA account deletion to Spring, then clear the
@@ -17,6 +18,8 @@ export async function DELETE() {
   if (res.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  const demo = await demoReadOnly(res);
+  if (demo) return demo;
   if (!res.ok) {
     return Response.json({ error: "Couldn't delete your account. Please try again." }, { status: 502 });
   }

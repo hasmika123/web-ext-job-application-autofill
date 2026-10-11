@@ -25,6 +25,8 @@ import { notifyExtension } from "@/lib/extension-signal";
 import BrandLogo from "@/components/marketing/BrandLogo";
 import AuthField from "@/components/auth/AuthField";
 import SocialRow from "@/components/auth/SocialRow";
+import DemoCard, { DemoSignupLink } from "@/components/auth/DemoCard";
+import type { DemoInfo } from "@/lib/demo";
 import {
   AuthBackdrop,
   AuthCard,
@@ -56,7 +58,7 @@ const TEXT_LINK = "font-semibold text-accent-deep hover:underline";
 
 /* ───────────────────────── Login form ───────────────────────── */
 
-function LoginForm({ next }: { next?: string }) {
+function LoginForm({ next, demo }: { next?: string; demo?: DemoInfo | null }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -237,6 +239,7 @@ function LoginForm({ next }: { next?: string }) {
       </form>
       <AuthDivider>or continue with</AuthDivider>
       <SocialRow next={next} />
+      {demo && <DemoCard demo={demo} />}
       <p className="mt-5 text-center text-[14px] text-v2-ink-soft">
         Don&apos;t have an account?{" "}
         <Link href={withNext("/signup", next)} className={cn(TEXT_LINK, "inline-flex min-h-[44px] items-center gap-1.5")}>
@@ -263,7 +266,7 @@ function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 6).padEnd(4, "x");
 }
 
-function SignupForm({ next }: { next?: string }) {
+function SignupForm({ next, demo }: { next?: string; demo?: DemoInfo | null }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -446,6 +449,7 @@ function SignupForm({ next }: { next?: string }) {
       </form>
       <AuthDivider>or sign up with</AuthDivider>
       <SocialRow next={next} />
+      {demo && <DemoSignupLink demo={demo} />}
       <p className="mt-5 text-center text-[13px] leading-relaxed text-v2-ink-soft">
         By creating an account, you agree to our{" "}
         <Link href="/terms" className={TEXT_LINK}>
@@ -674,7 +678,7 @@ function SignupPanel() {
 }
 
 /** Split-screen auth shared by /login + /signup: brand panel left, white form card right. */
-export default function AuthScreen({ mode, next }: { mode: Mode; next?: string }) {
+export default function AuthScreen({ mode, next, demo }: { mode: Mode; next?: string; demo?: DemoInfo | null }) {
   return (
     <div
       className={cn(
@@ -707,7 +711,7 @@ export default function AuthScreen({ mode, next }: { mode: Mode; next?: string }
         {/* Login: the card overlaps the bottom of the photo (board). Signup: the mascot stands on its
             books above the card, so nothing may cover it. */}
         <div className={cn("w-full max-w-[560px] lg:mt-0", mode === "login" ? "-mt-6 sm:-mt-8" : "mt-1")}>
-          <AuthCard>{mode === "login" ? <LoginForm next={next} /> : <SignupForm next={next} />}</AuthCard>
+          <AuthCard>{mode === "login" ? <LoginForm next={next} demo={demo} /> : <SignupForm next={next} demo={demo} />}</AuthCard>
         </div>
       </section>
     </div>

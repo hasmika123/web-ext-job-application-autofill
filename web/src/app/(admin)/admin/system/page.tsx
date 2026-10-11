@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
+import DemoAccountsCard from "@/components/admin/DemoAccountsCard";
+import type { DemoAdminState } from "@/lib/demo";
 
 export const metadata: Metadata = {
   title: "System · Admin · Kiwiply",
@@ -42,8 +44,21 @@ function duration(seconds?: number): string {
   return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+/** The demo switch + accounts (null when the API can't be read; the card then says so). */
+async function fetchDemoState(): Promise<DemoAdminState | null> {
+  const data = await fetchJson("/api/admin/settings/demo");
+  if (!data || typeof data.enabled !== "boolean" || !Array.isArray(data.accounts)) return null;
+  return {
+    enabled: data.enabled,
+    accounts: data.accounts as DemoAdminState["accounts"],
+    updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : null,
+    updatedDate: typeof data.updatedDate === "string" ? data.updatedDate : null,
+  };
+}
+
 export default async function AdminSystemPage() {
-  const [health, info, metrics, loggers] = await Promise.all([
+  const [demo, health, info, metrics, loggers] = await Promise.all([
+    fetchDemoState(),
     fetchJson("/management/health"),
     fetchJson("/management/info"),
     fetchJson("/management/jhimetrics"),
@@ -93,8 +108,13 @@ export default async function AdminSystemPage() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-6">
         <h1 className="font-display text-[26px] font-bold tracking-tight text-ink">System</h1>
-        <p className="mt-1 text-sm text-ink-soft">Read-only health, build, runtime, and log levels from the live API.</p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Demo switch, plus read-only health, build, runtime, and log levels from the live API.
+        </p>
       </header>
+
+      {/* Demo accounts: the one control on this page. */}
+      <DemoAccountsCard initial={demo} />
 
       {/* Health */}
       <section className="mb-5 rounded-[var(--radius)] border border-line bg-paper p-5">

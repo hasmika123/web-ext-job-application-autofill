@@ -30,6 +30,9 @@ import { notifyExtension } from "@/lib/extension-signal";
 import type { AppAccount } from "@/components/app-shell/AppShell";
 import { InitialsAvatar, MascotCard, SearchInput } from "@/components/app-v2/common";
 import OrgChip from "./OrgChip";
+import DemoBadge from "@/components/demo/DemoBadge";
+import DemoReadOnlyToaster from "@/components/demo/DemoReadOnlyToaster";
+import { DEMO_NOTE, isDemoLogin } from "@/lib/demo";
 
 const ICON = "h-[18px] w-[18px]";
 
@@ -74,6 +77,7 @@ export default function OrgShell({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const name = displayName(account);
+  const demo = isDemoLogin(account?.login);
 
   useEffect(() => {
     if (!open) return;
@@ -218,19 +222,24 @@ export default function OrgShell({
             >
               <HelpCircleIcon className="h-[22px] w-[22px]" />
             </Link>
+            {demo && <DemoReadOnlyToaster />}
             <Menu
               align="end"
               trigger={
                 <div className="flex cursor-pointer items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 hover:bg-white">
                   <InitialsAvatar name={name} size={38} tone="blue" />
                   <div className="hidden min-w-0 text-left sm:block">
-                    <p className="max-w-[140px] truncate text-[14px] font-bold leading-tight text-v2-navy">{name}</p>
+                    <p className="flex max-w-[170px] items-center gap-1.5 text-[14px] font-bold leading-tight text-v2-navy">
+                      <span className="truncate">{name}</span>
+                      {demo && <DemoBadge />}
+                    </p>
                     <p className="text-[12px] leading-tight text-v2-muted">Admin</p>
                   </div>
                   <ChevronDownIcon className="h-4 w-4 text-v2-muted" />
                 </div>
               }
               items={[
+                ...(demo ? [{ heading: DEMO_NOTE }, { separator: true as const }] : []),
                 { label: "Switch to individual app", icon: <UserIcon className="h-4 w-4" />, onSelect: () => router.push("/dashboard") },
                 { label: "Settings", icon: <GearIcon className="h-4 w-4" />, onSelect: () => router.push("/org/settings") },
                 { separator: true },

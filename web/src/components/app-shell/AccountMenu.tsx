@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BuildingIcon, ChevronDownIcon, GearIcon, SignOutIcon, UserIcon, cn } from "@kiwiply/ui";
 import { notifyExtension } from "@/lib/extension-signal";
+import DemoBadge from "@/components/demo/DemoBadge";
+import { DEMO_NOTE } from "@/lib/demo";
 
 /**
  * Avatar + "First L." / "Student · Individual" + chevron, opening Profile · Settings ·
@@ -15,12 +17,15 @@ export default function AccountMenu({
   initial,
   name,
   isPro,
+  demo = false,
   onNavigate,
 }: {
   initial: string;
   /** Display name already shortened to "First L.". */
   name: string;
   isPro: boolean;
+  /** A public demo account: shows a Demo badge and a "changes aren't saved" line. */
+  demo?: boolean;
   onNavigate?: () => void;
 }) {
   const router = useRouter();
@@ -77,6 +82,7 @@ export default function AccountMenu({
         <span className="hidden min-w-0 text-left leading-tight sm:block">
           <span className="block max-w-[150px] truncate text-[14px] font-bold text-ink">
             {name}
+            {demo && <DemoBadge className="ml-1.5" />}
             {isPro && (
               <span className="ml-1.5 rounded-full bg-v2-lime-soft px-1.5 py-0.5 align-middle text-[9.5px] font-extrabold text-v2-green-ink">
                 PRO
@@ -94,6 +100,9 @@ export default function AccountMenu({
           aria-label="Account"
           className="absolute right-0 top-full z-[130] mt-2 w-[250px] rounded-2xl border border-line bg-paper p-1.5 shadow-[var(--shadow-lg)]"
         >
+          {demo && (
+            <p className="px-3 pb-1.5 pt-2 text-[12px] font-medium leading-snug text-v2-amber">{DEMO_NOTE}</p>
+          )}
           <Link role="menuitem" href="/profile" onClick={close} className={item}>
             <UserIcon size={17} className="text-ink-soft" />
             Profile
