@@ -9,22 +9,21 @@ import { CtaLink } from "./shared";
 
 /**
  * Find better opportunities (spec 13.2 item 4), rebuilt to its board: a soft white-to-green band.
- * From md: copy | "Top Job Matches for You" card | a right column holding the navy "Jobs that fit
- * you." note with a green swoosh and the person cutout, which stands flush on the band's bottom
- * edge (it is placed against the band, whose inner column is a size container; `--u` is one design
- * pixel of the 1088px-wide band, so the cutout and the right column scale with it).
- * The board's man points up at the note; we only have the seated pose, so it sits beside the note.
+ * From md: copy | a middle column with the navy "Jobs that fit you." note + green swoosh over the
+ * person cutout | the "Top Job Matches for You" card (vertically centred). The cutout stands flush
+ * on the band's bottom edge (the middle column stretches to the band's bottom and a negative margin
+ * eats the band's padding) and shrinks to the room below the note, so its head never climbs under it.
  * Mobile (<768): eyebrow, heading, lede, button, card, then the note over the cutout.
  */
 export default function JobMatches() {
   return (
     <Section id="matches" labelledBy="matches-title" tone="mint">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.25fr)_calc(250*var(--u))] md:items-center md:gap-4 lg:gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.25fr)_calc(300*var(--u))]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 md:grid-cols-[minmax(0,30fr)_minmax(0,26fr)_minmax(0,44fr)] md:items-center md:gap-4 lg:grid-cols-[minmax(0,30fr)_minmax(0,30fr)_minmax(0,40fr)] lg:gap-5 xl:grid-cols-[minmax(0,29fr)_minmax(0,29fr)_minmax(0,42fr)]">
         <div className="flex flex-col items-start gap-4 lg:gap-5">
           <Eyebrow family="green" className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide">
             Find Better Opportunities
           </Eyebrow>
-          <h2 id="matches-title" className="text-[30px] text-v2-navy md:text-[clamp(22px,2.6vw,40px)] md:leading-[1.12]">
+          <h2 id="matches-title" className="text-[30px] text-v2-navy md:text-[clamp(22px,2.6vw,37px)] md:leading-[1.12]">
             Get personalized <br className="hidden md:block" />
             job matches.
           </h2>
@@ -36,31 +35,31 @@ export default function JobMatches() {
           </CtaLink>
         </div>
 
-        <MatchesMock className="relative z-10 mx-auto max-w-[480px] md:max-w-none" />
+        <MatchesMock className="relative z-10 mx-auto max-w-[480px] md:order-3 md:max-w-none" />
 
-        {/* Right column (md+): a flex column. The note + swoosh sit at the top and keep their own
+        {/* Middle column (md+): a flex column. The note + swoosh sit at the top and keep their own
             height; the zone below fills what is left down to the band's bottom edge (negative
             margin eats the band's bottom padding) and the cutout, capped to that zone's height,
             shrinks instead of ever climbing under the note. */}
-        <div aria-hidden className="hidden self-stretch md:flex md:flex-col">
+        <div aria-hidden className="hidden self-stretch md:order-2 md:flex md:flex-col">
           <div className="relative shrink-0 pt-2">
-            <Handwritten ink="navy" className="-rotate-[4deg] text-right text-[clamp(18px,2.4cqw,28px)]">
+            <Handwritten ink="navy" className="-rotate-[4deg] text-center text-[clamp(18px,2.4cqw,28px)]">
               Jobs <br />
               that fit you.
             </Handwritten>
             <CurvedArrow
               direction="down-left"
-              className="ml-auto mr-[34%] mt-1 h-[clamp(26px,3.4cqw,40px)] w-[clamp(26px,3.4cqw,40px)] text-v2-green"
+              className="mx-auto mt-1 h-[clamp(26px,3.4cqw,40px)] w-[clamp(26px,3.4cqw,40px)] text-v2-green"
             />
-            <StarDoodle className="absolute right-[3%] top-[calc(8px+clamp(44px,5.4cqw,64px))] h-5 w-5 text-v2-amber" />
+            <StarDoodle className="absolute right-[6%] top-[calc(8px+clamp(24px,3cqw,36px))] h-5 w-5 text-v2-amber" />
           </div>
 
           <div className="relative -mb-12 mt-4 min-h-0 flex-1 lg:-mb-14">
             <Photo
               id="hero-individual"
               alt="A job seeker in a green hoodie smiling at his laptop"
-              className="pointer-events-none absolute inset-y-0 right-[calc(8*var(--u)-28px)] z-20 flex w-[calc(250*var(--u))] items-end justify-end lg:right-[calc(8*var(--u)-44px)] xl:right-[calc(8*var(--u)-56px)] xl:w-[calc(300*var(--u))] [&_img]:max-h-full [&_img]:w-auto"
-              sizes="(min-width: 1024px) 300px, 250px"
+              className="pointer-events-none absolute inset-0 z-20 flex w-full items-end justify-center [&_img]:max-h-full [&_img]:w-auto [&_img]:max-w-full"
+              sizes="(min-width: 1024px) 340px, 260px"
               edgeFade={[4, 8]}
             />
           </div>
