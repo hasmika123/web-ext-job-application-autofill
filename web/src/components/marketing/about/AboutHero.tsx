@@ -13,6 +13,7 @@ import Eyebrow from "../Eyebrow";
 import { FAMILY } from "../family";
 import Handwritten from "../Handwritten";
 import { Mascot, Photo } from "../media";
+import ScaledCanvas from "../ScaledCanvas";
 import { IconTile, MissionButton, WatchStory, type Family } from "./shared";
 
 const CHECKS: Array<{ label: string; family: Family; icon: typeof SearchIcon }> = [
@@ -54,68 +55,99 @@ export default function AboutHero() {
           </p>
         </div>
 
-        {/* art */}
-        <div className="relative mx-auto w-full max-w-[560px] md:col-start-2 md:row-span-2 md:row-start-1 md:max-w-none">
-          {/* Handwritten note + arrow (desktop only, decorative) */}
-          <div aria-hidden className="absolute -left-20 top-2 z-10 hidden items-end gap-1 xl:flex">
-            <Handwritten family="violet" className="w-40 -rotate-6 text-[26px]">
-              More than job search. A brighter next chapter.
-            </Handwritten>
-            <CurvedArrow direction="down-right" className="mb-1 h-9 w-9 text-v2-green" />
-          </div>
-
-          {/* The tint is its own layer so the cutout (overflow visible) sits on it, flush with the bottom edge. */}
-          <div className="relative h-[300px] sm:h-[380px] md:h-[clamp(300px,45vw,460px)]">
+        {/* art, mobile (< md): a compact panel; the person is anchored left so the mascot (right)
+            never touches her laptop. z: wash < person < mascot / sticky. */}
+        <div className="relative mx-auto w-full max-w-[560px] md:hidden">
+          <div className="relative h-[300px] sm:h-[380px]">
             <div
               aria-hidden
-              className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft md:rounded-[40px]"
+              className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft"
             />
-            <div className="absolute bottom-0 left-1/2 w-[62%] -translate-x-1/2 md:left-[44%] md:w-[58%]">
+            <div className="absolute bottom-0 left-[4%] z-20 w-[58%]">
               <Photo
                 id="about-portrait"
                 alt="A smiling job seeker working at a laptop"
                 className="w-full"
-                sizes="(min-width: 1024px) 400px, 70vw"
+                sizes="70vw"
+                edgeFade={[0, 16]}
+                eager
+              />
+            </div>
+            <div
+              aria-hidden
+              className="absolute -top-3 right-1 z-30 w-[132px] rotate-[5deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card"
+            >
+              <p className="font-[family-name:var(--font-hand)] text-[19px] leading-[1.1] text-v2-sticky-ink">
+                Same me. Bigger opportunities.
+                <HeartIcon size={14} className="ml-1 inline text-v2-amber" fill="currentColor" />
+              </p>
+            </div>
+            <Mascot pose="headphones" className="absolute bottom-0 right-2 z-30 h-24 w-24 sm:h-32 sm:w-32" />
+          </div>
+        </div>
+
+        {/* art, md and up: ONE fixed composition scaled to its column (`ScaledCanvas`), so nothing can
+            collide at any width. Stacking: wash (0) < arrow/spark (1) < checklist card (10) < person
+            (20) < mascot + sticky (30). The card sits right of her head; her hair and shoulder overlap
+            its lower-left corner, her face is clear. */}
+        <div className="relative hidden w-full max-w-[660px] md:col-start-2 md:row-span-2 md:row-start-1 md:ml-auto md:block">
+          <ScaledCanvas width={620} height={480}>
+            <div
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 top-6 z-0 rounded-[40px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft"
+            />
+
+            {/* Handwritten note + arrow (decorative) */}
+            <div aria-hidden className="absolute left-2 top-10 z-[1] hidden items-end gap-1 lg:flex">
+              <Handwritten family="violet" className="w-40 -rotate-6 text-[26px]">
+                More than job search. A brighter next chapter.
+              </Handwritten>
+              <CurvedArrow direction="down-right" className="mb-1 h-9 w-9 text-v2-green" />
+            </div>
+            <SparkBurst className="absolute left-[220px] top-2 z-[1] h-9 w-9 text-v2-green" />
+
+            {/* Floating checklist card */}
+            <ul
+              aria-label="What Kiwiply helps with"
+              className="absolute left-[392px] top-[96px] z-10 grid w-[220px] gap-2.5 rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-float"
+            >
+              {CHECKS.map(({ label, family, icon: Icon }) => (
+                <li key={label} className="flex items-center gap-3 text-[13px] font-semibold text-v2-navy">
+                  <IconTile family={family} className="h-9 w-9 rounded-xl">
+                    <Icon size={18} />
+                  </IconTile>
+                  <span className="flex-1">{label}</span>
+                  <CheckCircleIcon size={18} aria-hidden className="flex-none text-v2-green" />
+                </li>
+              ))}
+            </ul>
+
+            {/* Person: bottom flush with the band, in front of the card */}
+            <div className="absolute bottom-0 left-[80px] z-20 w-[370px]">
+              <Photo
+                id="about-portrait"
+                alt="A smiling job seeker working at a laptop"
+                className="w-full"
+                sizes="(min-width: 1024px) 400px, 50vw"
                 edgeFade={[0, 16]}
                 priority
               />
             </div>
-          </div>
 
-          <SparkBurst className="absolute -top-4 left-[38%] hidden h-9 w-9 text-v2-green lg:block" />
+            {/* Sticky note, above the card's top edge */}
+            <div
+              aria-hidden
+              className="absolute right-0 top-0 z-30 w-[150px] rotate-[5deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card"
+            >
+              <p className="font-[family-name:var(--font-hand)] text-[22px] leading-[1.1] text-v2-sticky-ink">
+                Same me. Bigger opportunities.
+                <HeartIcon size={14} className="ml-1 inline text-v2-amber" fill="currentColor" />
+              </p>
+            </div>
 
-          {/* Floating checklist card */}
-          <ul
-            aria-label="What Kiwiply helps with"
-            className="absolute right-[6%] top-5 z-10 hidden w-[250px] gap-2.5 rounded-[var(--radius-v2-card)] bg-white p-4 shadow-v2-float lg:grid"
-          >
-            {CHECKS.map(({ label, family, icon: Icon }) => (
-              <li key={label} className="flex items-center gap-3 text-[13px] font-semibold text-v2-navy">
-                <IconTile family={family} className="h-9 w-9 rounded-xl">
-                  <Icon size={18} />
-                </IconTile>
-                <span className="flex-1">{label}</span>
-                <CheckCircleIcon size={18} aria-hidden className="flex-none text-v2-green" />
-              </li>
-            ))}
-          </ul>
-
-          {/* Sticky note */}
-          <div
-            aria-hidden
-            className="absolute -top-3 right-1 z-10 w-[132px] rotate-[5deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card md:-right-3 md:-top-6 lg:w-[150px]"
-          >
-            <p className="font-[family-name:var(--font-hand)] text-[19px] leading-[1.1] text-v2-sticky-ink lg:text-[22px]">
-              Same me. Bigger opportunities.
-              <HeartIcon size={14} className="ml-1 inline text-v2-amber" fill="currentColor" />
-            </p>
-          </div>
-
-          {/* Mascot overlaps the panel's bottom-right corner */}
-          <Mascot
-            pose="headphones"
-            className="absolute -bottom-3 right-2 z-10 h-24 w-24 md:-bottom-2 md:right-4 md:h-[clamp(96px,11vw,144px)] md:w-[clamp(96px,11vw,144px)]"
-          />
+            {/* Mascot: far right, bottom flush, clear of the laptop */}
+            <Mascot pose="headphones" className="absolute bottom-0 right-0 z-30 h-[132px] w-[132px]" />
+          </ScaledCanvas>
         </div>
 
         {/* buttons */}

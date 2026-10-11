@@ -132,12 +132,14 @@ function MockInterview() {
   const rows = ["Practice questions", "AI feedback", "Build confidence"];
   return (
     <MockFrame tint="bg-gradient-to-br from-v2-teal-soft via-white to-v2-blue-soft">
-      <div className="absolute inset-x-0 bottom-0 left-0 w-[70%]">
+      {/* Bottom-flush and capped at 112px wide (<= ~130px tall) so the head is never cut by the
+          frame's h-44; the card (in front, as on the board) is short enough to stay under her chin. */}
+      <div className="absolute bottom-0 left-0 z-10 w-[min(60%,112px)]">
         <Photo id="hero-copilot" alt="" className="w-full" sizes="140px" />
       </div>
-      <ul className="absolute bottom-3 right-3 grid w-[72%] gap-1.5 rounded-lg bg-white p-2 shadow-v2-card">
+      <ul className="absolute bottom-3 right-3 z-20 grid w-[72%] gap-1 rounded-lg bg-white p-1.5 shadow-v2-card">
         {rows.map((t) => (
-          <li key={t} className="flex items-center gap-1.5 text-[10px] font-semibold text-v2-navy">
+          <li key={t} className="flex items-center gap-1.5 text-[10px] font-semibold leading-tight text-v2-navy">
             <CheckIcon size={11} className="flex-none text-v2-green" />
             {t}
           </li>

@@ -21,8 +21,10 @@ interface Audience {
   icon: ComponentType<IconProps>;
   photo: PhotoId;
   photoAlt: string;
-  /** Width of the cutout inside the photo panel. */
-  photoWidth: string;
+  /** Max width of the cutout inside the photo panel, % of the panel width. */
+  photoWidth: number;
+  /** Cutout width / height (the PNG's own ratio), so its height can be capped to the panel. */
+  photoRatio: number;
   href: string;
 }
 
@@ -35,7 +37,8 @@ const AUDIENCES: Audience[] = [
     icon: GraduationCapIcon,
     photo: "hero-student",
     photoAlt: "A student smiling at her laptop",
-    photoWidth: "w-[88%] lg:w-[78%]",
+    photoWidth: 88,
+    photoRatio: 1.184,
     href: "/signup",
   },
   {
@@ -46,7 +49,8 @@ const AUDIENCES: Audience[] = [
     icon: BriefcaseIcon,
     photo: "hero-individual",
     photoAlt: "A new graduate smiling at his laptop",
-    photoWidth: "w-[94%] lg:w-[82%]",
+    photoWidth: 94,
+    photoRatio: 1.047,
     href: "/signup",
   },
   {
@@ -57,7 +61,8 @@ const AUDIENCES: Audience[] = [
     icon: RefreshIcon,
     photo: "hero-copilot",
     photoAlt: "A career switcher smiling at her laptop",
-    photoWidth: "w-[84%] lg:w-[66%]",
+    photoWidth: 84,
+    photoRatio: 0.872,
     href: "/signup",
   },
   {
@@ -68,7 +73,8 @@ const AUDIENCES: Audience[] = [
     icon: UsersIcon,
     photo: "hero-team",
     photoAlt: "A team collaborating at their laptops",
-    photoWidth: "w-[96%] lg:w-[96%]",
+    photoWidth: 96,
+    photoRatio: 1.722,
     href: "/organizations",
   },
 ];
@@ -93,11 +99,16 @@ export default function WhoWeServe() {
               {/* photo panel */}
               <div
                 className={cn(
-                  "relative w-28 flex-none overflow-hidden bg-gradient-to-br sm:w-40 lg:h-48 lg:w-full",
+                  "relative w-28 flex-none overflow-hidden bg-gradient-to-br [container-type:size] sm:w-40 lg:h-48 lg:w-full",
                   a.panel,
                 )}
               >
-                <div className={cn("absolute bottom-0 left-1/2 -translate-x-1/2", a.photoWidth)}>
+                {/* Bottom-flush; the width is capped so the cutout's HEIGHT stays under 92% of the panel
+                    (cqh = panel height), which leaves the head room it needs: nothing is clipped. */}
+                <div
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2"
+                  style={{ width: `min(${a.photoWidth}cqw, calc(92cqh * ${a.photoRatio}))` }}
+                >
                   <Photo id={a.photo} alt={a.photoAlt} className="w-full" sizes="(min-width: 1024px) 280px, 160px" />
                 </div>
               </div>

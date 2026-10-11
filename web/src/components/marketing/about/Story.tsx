@@ -3,8 +3,32 @@ import Eyebrow from "../Eyebrow";
 import { FAMILY } from "../family";
 import Handwritten from "../Handwritten";
 import { Mascot, Photo } from "../media";
+import ScaledCanvas from "../ScaledCanvas";
 import Section from "../Section";
 import { MissionButton } from "./shared";
+
+const TEAM_ALT = "A small team gathered around a laptop, smiling";
+
+function StoryNote({ className }: { className?: string }) {
+  return (
+    <Handwritten family="violet" className={className}>
+      A brighter future of work.{" "}
+      <span className="whitespace-nowrap">
+        Together.
+        <HeartIcon size={16} className="ml-1 inline text-v2-blue" />
+      </span>
+    </Handwritten>
+  );
+}
+
+function StickyText() {
+  return (
+    <p className="font-[family-name:var(--font-hand)] text-[18px] leading-[1.1] text-v2-sticky-ink">
+      People Opportunity Progress Always.
+      <HeartIcon size={13} className="ml-1 inline text-v2-amber" fill="currentColor" />
+    </p>
+  );
+}
 
 /**
  * "Built for brighter careers." Copy left, team photo + handwriting + sticky + mascot right.
@@ -30,43 +54,42 @@ export default function Story() {
           </p>
         </div>
 
-        <div className="relative md:col-start-2 md:row-span-2 md:row-start-1">
-          <div className="relative flex min-h-[260px] items-end justify-center overflow-hidden rounded-[32px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft pt-16 md:min-h-[clamp(260px,34vw,360px)] md:rounded-[48px]">
-            <div className="w-[92%] md:w-[84%]">
-              <Photo
-                id="about-team"
-                alt="A small team gathered around a laptop, smiling"
-                className="w-full"
-                sizes="(min-width: 1024px) 560px, 92vw"
-              />
+        {/* art, mobile (< md): handwriting + sticky above, team left, mascot right; no overlaps */}
+        <div className="relative mx-auto w-full max-w-[560px] md:hidden">
+          <div className="relative h-[330px] sm:h-[380px]">
+            <div aria-hidden className="absolute inset-0 rounded-[32px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft" />
+            <StoryNote className="absolute left-4 top-4 z-[1] w-44 -rotate-6 text-[24px]" />
+            <div
+              aria-hidden
+              className="absolute right-3 top-5 z-30 w-[112px] rotate-[4deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card"
+            >
+              <StickyText />
             </div>
+            <div className="absolute bottom-0 left-2 z-20 w-[76%]">
+              <Photo id="about-team" alt={TEAM_ALT} className="w-full" sizes="76vw" />
+            </div>
+            <Mascot pose="headphones" className="absolute bottom-0 right-1 z-30 h-20 w-[22%] sm:h-28" />
           </div>
+        </div>
 
-          <Handwritten
-            family="violet"
-            className="absolute left-4 top-4 w-44 -rotate-6 text-[24px] md:left-5 md:top-5 md:w-[clamp(150px,18vw,208px)] md:text-[clamp(20px,2.2vw,26px)]"
-          >
-            A brighter future of work.{" "}
-            <span className="whitespace-nowrap">
-              Together.
-              <HeartIcon size={16} className="ml-1 inline text-v2-blue" />
-            </span>
-          </Handwritten>
-
-          <div
-            aria-hidden
-            className="absolute -right-1 top-6 z-10 w-[112px] rotate-[4deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card md:-right-3 md:top-10 md:w-[clamp(100px,11vw,128px)]"
-          >
-            <p className="font-[family-name:var(--font-hand)] text-[18px] leading-[1.1] text-v2-sticky-ink">
-              People Opportunity Progress Always.
-              <HeartIcon size={13} className="ml-1 inline text-v2-amber" fill="currentColor" />
-            </p>
-          </div>
-
-          <Mascot
-            pose="headphones"
-            className="absolute -bottom-3 right-2 z-10 h-24 w-24 md:bottom-0 md:right-4 md:h-[clamp(80px,10vw,128px)] md:w-[clamp(80px,10vw,128px)]"
-          />
+        {/* art, md and up: one fixed composition scaled to its column (`ScaledCanvas`). The card is a
+            separate wash layer (the cutout is never inside an overflow clip); the team stands flush on
+            its bottom edge, the mascot is bottom-right OUTSIDE the people, sticky top-right. */}
+        <div className="relative hidden md:col-start-2 md:row-span-2 md:row-start-1 md:block">
+          <ScaledCanvas width={560} height={380}>
+            <div aria-hidden className="absolute inset-0 z-0 rounded-[48px] bg-gradient-to-br from-v2-lime-soft via-white to-v2-blue-soft" />
+            <StoryNote className="absolute left-6 top-[22px] z-[1] w-[190px] -rotate-6 text-[26px]" />
+            <div
+              aria-hidden
+              className="absolute right-3 top-6 z-30 w-[128px] rotate-[4deg] rounded-md bg-v2-sticky px-3 py-2.5 shadow-v2-card"
+            >
+              <StickyText />
+            </div>
+            <div className="absolute bottom-0 left-3 z-20 w-[420px]">
+              <Photo id="about-team" alt={TEAM_ALT} className="w-full" sizes="(min-width: 1024px) 420px, 40vw" />
+            </div>
+            <Mascot pose="headphones" className="absolute bottom-0 right-2 z-30 h-[120px] w-[120px]" />
+          </ScaledCanvas>
         </div>
 
         <div className="md:col-start-1 md:row-start-2 md:self-start">
