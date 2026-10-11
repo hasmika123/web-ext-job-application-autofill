@@ -922,6 +922,13 @@ organization admin), that anyone can open from the login page without signing up
 - **Reset:** "Reset demo data" on the admin card wipes both accounts' rows and re-seeds the job seeker
   (Jordan Lee, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
   board in a mess.
+- **Local demo (no API, no database):** `npm ci` at the repo root, then `npm run dev:demo -w web`. It starts
+  `web/scripts/mock-api.mjs` (a stand-in for the Spring API on `:8080`, demo switched on, fixed data for
+  Priya Sharma and the org admin, every write refused with `DEMO_READ_ONLY`) and `next dev` pointed at it.
+  Open http://localhost:3000/login, pick an account, press "Open demo". Change the mock's port with
+  `MOCK_API_PORT` (the script wires `DOSSIER_API_URL` for you). It is a separate script, not part of the
+  Next bundle, and refuses to start under `NODE_ENV=production`; production still takes its demo state from
+  the API switch above.
 
 ## 13. Promoting `develop` → `main` — the first big release (reviewed 2026-10-05)
 
