@@ -103,3 +103,20 @@ html { --u: calc(100cqw / 1088); }
 
 
 
+
+/* Tailwind v4 preflight makes buttons cursor:default; restore the pointer on everything clickable. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="tab"],
+  summary,
+  select:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
