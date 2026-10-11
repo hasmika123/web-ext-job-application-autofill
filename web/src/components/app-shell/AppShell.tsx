@@ -1,5 +1,6 @@
 "use client";
 
+import DemoSideTab from "@/components/demo/DemoSideTab";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
@@ -288,6 +289,7 @@ export default function AppShell({
         </header>
 
         {/* Main content. The page (window) scrolls; the sidebar is sticky-pinned. */}
+      {demo && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
         <main className="min-w-0 flex-1 px-3.5 pb-14 pt-4 sm:px-5 lg:px-6 lg:pb-16 lg:pt-5">{children}</main>
       </div>
     </div>

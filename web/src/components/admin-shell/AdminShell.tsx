@@ -1,5 +1,7 @@
 "use client";
 
+import DemoSideTab from "@/components/demo/DemoSideTab";
+import { isDemoLogin } from "@/lib/demo";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -212,6 +214,7 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
         />
       )}
 
+      {isDemoLogin(account?.login) && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
       <main className="min-w-0 p-5 pb-14 lg:p-8 lg:pb-16">{children}</main>
     </div>
   );

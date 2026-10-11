@@ -6,8 +6,8 @@
  * `demo-server.ts`.
  */
 
-/** The two fixed demo logins (the API's `DemoAccountService`). */
-export const DEMO_LOGINS = ["demo", "demo-org"] as const;
+/** The fixed demo logins (the API's `DemoAccountService`; `demo-admin` exists only in the local mock API). */
+export const DEMO_LOGINS = ["demo", "demo-org", "demo-admin"] as const;
 export type DemoLogin = (typeof DEMO_LOGINS)[number];
 
 /** True when `login` (from `GET /api/account`) is a demo account. */

@@ -38,6 +38,15 @@ const ACCOUNTS = {
     authorities: ["ROLE_USER"],
     activated: true,
   },
+  // LOCAL MOCK ONLY: the real API never makes a public demo account an admin.
+  "demo-admin": {
+    login: "demo-admin",
+    email: "demo-admin@kiwiply.com",
+    firstName: "Maya",
+    lastName: "Chen",
+    authorities: ["ROLE_ADMIN", "ROLE_USER"],
+    activated: true,
+  },
 };
 
 const DEMO_INFO = {
@@ -54,6 +63,12 @@ const DEMO_INFO = {
       label: "Organization admin",
       description: "The organization admin: people, boards and reports.",
       landing: "/org",
+    },
+    {
+      login: "demo-admin",
+      label: "App admin",
+      description: "The platform admin console: users, analytics, system settings and the audit log.",
+      landing: "/admin",
     },
   ],
 };
@@ -184,6 +199,43 @@ const server = http.createServer((req, res) => {
   // The real API refuses writes from a demo session. (Reads below.)
   if (method !== "GET" && method !== "HEAD") {
     return json(res, 403, { code: "DEMO_READ_ONLY", message: "This is a demo account - changes aren't saved" });
+  }
+
+  // Platform-admin sample data (demo-admin only, GET only; writes are refused above).
+  if (path.startsWith("/api/admin/") || path.startsWith("/management/")) {
+    if (!ACCOUNTS[sub].authorities.includes("ROLE_ADMIN")) return json(res, 403, { error: "Forbidden" });
+    if (path === "/api/admin/analytics")
+      return json(res, 200, {
+        totalUsers: 1284, activatedUsers: 912, activationRatePct: 71, signups7d: 96, signups30d: 340,
+        activeUsers7d: 412, activeUsers30d: 780, totalResumes: 1650, totalApplications: 5420,
+        funnel: { signedUp: 1284, activated: 912, withProfile: 700, startedApplying: 520, applied: 430 },
+        applicationsByStatus: { SAVED: 900, DRAFT: 300, APPLIED: 3100, INTERVIEW: 700, OFFER: 120, REJECTED: 300 },
+        billing: { activePro: 64, monthlyCount: 40, threeMonthCount: 24, mrr: 1400, newThisMonth: 11, churnedThisMonth: 2, pastDue: 1 },
+        fillQuality: [{ ats: "greenhouse", fills: 320, fillRatePct: 92, gapRatePct: 6, correctionRatePct: 4, genericPct: 3, fieldsFailed: 12 }],
+      });
+    if (path === "/api/admin/users") {
+      const users = Object.values(ACCOUNTS).map((a, i) => ({
+        id: i + 1, login: a.login, email: a.email, firstName: a.firstName, lastName: a.lastName,
+        activated: true, authorities: a.authorities, createdDate: ago(30 - i), lastModifiedDate: ago(i),
+      }));
+      res.writeHead(200, { "content-type": "application/json", "x-total-count": String(users.length) });
+      return res.end(JSON.stringify(users));
+    }
+    if (path === "/api/admin/settings/demo")
+      return json(res, 200, { ...DEMO_INFO, updatedBy: "admin", updatedDate: ago(2) });
+    if (path === "/api/admin/audit") {
+      const events = [
+        ["admin", "DEMO_SETTING_CHANGED", "app_setting", "demo.enabled", 2],
+        ["admin", "USER_ACTIVATED", "user", "priya.s", 4],
+        ["admin", "AI_QUOTA_OVERRIDE", "user", "ravi.k", 6],
+      ].map(([actor, action, targetType, targetId, d], i) => ({
+        id: i + 1, actor, action, targetType, targetId, reason: null, createdDate: ago(d),
+      }));
+      res.writeHead(200, { "content-type": "application/json", "x-total-count": String(events.length) });
+      return res.end(JSON.stringify(events));
+    }
+    if (path === "/management/health") return json(res, 200, { status: "UP", components: {} });
+    return json(res, 404, { error: `mock-api: no admin handler for ${path}` });
   }
 
   if (path === "/api/account") return json(res, 200, ACCOUNTS[sub]);

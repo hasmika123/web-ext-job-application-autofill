@@ -11,7 +11,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
  * rest of the app cannot tell a demo session from a password one. The browser only sees
  * `{ ok, landing }`. `landing` comes from THIS table, never from the client.
  */
-const LANDING: Record<string, string> = { demo: "/dashboard", "demo-org": "/org" };
+const LANDING: Record<string, string> = { demo: "/dashboard", "demo-org": "/org", "demo-admin": "/admin" };
 
 export async function POST(request: Request) {
   const rl = rateLimit(request, "demo-login", 20, 5 * 60_000); // 20 / 5 min per client IP

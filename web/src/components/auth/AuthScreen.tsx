@@ -25,7 +25,8 @@ import { notifyExtension } from "@/lib/extension-signal";
 import BrandLogo from "@/components/marketing/BrandLogo";
 import AuthField from "@/components/auth/AuthField";
 import SocialRow from "@/components/auth/SocialRow";
-import DemoCard, { DemoSignupLink } from "@/components/auth/DemoCard";
+import { DemoSignupLink } from "@/components/auth/DemoCard";
+import DemoSideTab from "@/components/demo/DemoSideTab";
 import type { DemoInfo } from "@/lib/demo";
 import {
   AuthBackdrop,
@@ -58,7 +59,7 @@ const TEXT_LINK = "font-semibold text-accent-deep hover:underline";
 
 /* ───────────────────────── Login form ───────────────────────── */
 
-function LoginForm({ next, demo }: { next?: string; demo?: DemoInfo | null }) {
+function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -239,7 +240,6 @@ function LoginForm({ next, demo }: { next?: string; demo?: DemoInfo | null }) {
       </form>
       <AuthDivider>or continue with</AuthDivider>
       <SocialRow next={next} />
-      {demo && <DemoCard demo={demo} />}
       <p className="mt-5 text-center text-[14px] text-v2-ink-soft">
         Don&apos;t have an account?{" "}
         <Link href={withNext("/signup", next)} className={cn(TEXT_LINK, "inline-flex min-h-[44px] items-center gap-1.5")}>
@@ -589,10 +589,10 @@ function LoginPanel() {
             sizes="(max-width: 1023px) 440px, 0px"
             className="h-auto w-full"
           />
-          <StickyNote className="absolute -left-1 top-[6%] -rotate-[10deg]" />
+          <StickyNote className="absolute -left-1 top-[58%] z-10 -rotate-[10deg]" />
           <CrownDoodle aria-hidden className="absolute left-[38%] top-[2%] h-9 w-12 text-[#F5C400]" />
           <StarDoodle className="absolute right-[2%] top-[4%] h-9 w-9 text-v2-green" />
-          <CurvedArrow aria-hidden direction="down-left" className="absolute left-[4%] top-[34%] h-10 w-10 text-v2-navy" />
+          <CurvedArrow aria-hidden direction="down-left" className="absolute left-[3%] top-[40%] h-10 w-10 text-v2-navy" />
         </div>
       </section>
     </>
@@ -711,7 +711,8 @@ export default function AuthScreen({ mode, next, demo }: { mode: Mode; next?: st
         {/* Login: the card overlaps the bottom of the photo (board). Signup: the mascot stands on its
             books above the card, so nothing may cover it. */}
         <div className={cn("w-full max-w-[560px] lg:mt-0", mode === "login" ? "-mt-6 sm:-mt-8" : "mt-1")}>
-          <AuthCard>{mode === "login" ? <LoginForm next={next} demo={demo} /> : <SignupForm next={next} demo={demo} />}</AuthCard>
+          {mode === "login" && demo && <DemoSideTab demo={demo} />}
+          <AuthCard>{mode === "login" ? <LoginForm next={next} /> : <SignupForm next={next} demo={demo} />}</AuthCard>
         </div>
       </section>
     </div>

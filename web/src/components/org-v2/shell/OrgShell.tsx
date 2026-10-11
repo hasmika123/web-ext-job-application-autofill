@@ -1,5 +1,6 @@
 "use client";
 
+import DemoSideTab from "@/components/demo/DemoSideTab";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -249,6 +250,7 @@ export default function OrgShell({
           </div>
         </header>
 
+      {demo && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
         <main className="min-w-0 px-4 pb-14 pt-2 lg:px-6">{children}</main>
       </div>
     </div>
