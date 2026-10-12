@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import type { RefObject } from "react";
+import { useState } from "react";
+import type { FormEvent, RefObject } from "react";
 import {
   Button,
   CheckIcon,
   ChevronDownIcon,
+  Dialog,
   DownloadIcon,
   FileTextIcon,
+  Input,
   Menu,
   Spinner,
   XIcon,
@@ -78,6 +81,12 @@ export default function EditorTopBar({
   rightView = null,
   onToggleView,
   printLayout = true,
+  pdfView = true,
+  onSave,
+  onSaveAsVersion,
+  canSave = false,
+  saving = false,
+  justSaved = false,
   onClose,
   pdf,
   onPdfRetry,
@@ -91,7 +100,9 @@ export default function EditorTopBar({
   panelRefs: Record<LeftPanel, RefObject<HTMLButtonElement | null>>;
   /** `features.tailor` from the builder config. */
   showTailor?: boolean;
+  /** Download ▾ → Save & Download PDF: saves a checkpoint, then downloads the stored PDF (R3.3). */
   onDownloadPdf: () => void;
+  /** Download ▾ → Save & Download plain text (.txt). */
   onDownloadText: () => void;
   exporting?: boolean;
   exportDisabled?: boolean;
@@ -103,6 +114,18 @@ export default function EditorTopBar({
   onToggleView?: (view: RightView) => void;
   /** `features.printLayout` from the builder config. */
   printLayout?: boolean;
+  /** `features.pdfView` from the builder config. */
+  pdfView?: boolean;
+  /** Save (Ctrl/⌘+S): writes a checkpoint and queues the PDF (DESIGN 10.15). */
+  onSave?: () => void;
+  /** Save ▾ → Save as version…: a named checkpoint. */
+  onSaveAsVersion?: (name: string) => void | Promise<void>;
+  /** Something changed since the last checkpoint, or the PDF is stale / failed / missing. Otherwise Save reads "Saved" and is disabled. */
+  canSave?: boolean;
+  /** A checkpoint is being written. */
+  saving?: boolean;
+  /** The "Saved" confirmation (2 s after a Save). */
+  justSaved?: boolean;
   onClose: () => void;
   /** The stored PDF's state (R3.7): shown as a muted suffix after the save status. */
   pdf?: PdfInfo | null;
@@ -111,8 +134,19 @@ export default function EditorTopBar({
 }) {
   const bad = status === "retrying" || status === "conflict" || status === "error";
   const busy = exporting || exportDisabled;
+  const [naming, setNaming] = useState(false);
+  const [versionName, setVersionName] = useState("");
+  const submitName = (e: FormEvent) => {
+    e.preventDefault();
+    const name = versionName.trim();
+    if (!name) return;
+    setNaming(false);
+    setVersionName("");
+    void onSaveAsVersion?.(name);
+  };
+  const saveLabel = saving ? "Saving…" : justSaved || !canSave ? "Saved" : "Save";
 
-  const downloadItems: MenuEntry[] = [
+  const viewItems: MenuEntry[] = [
     ...(printLayout
       ? [
           {
@@ -122,11 +156,22 @@ export default function EditorTopBar({
           } satisfies MenuEntry,
         ]
       : []),
-    { label: <>PDF view{SOON}</>, icon: <FileTextIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
-    { separator: true },
-    { label: "Download PDF", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadPdf, disabled: busy },
-    { label: "Download plain text (.txt)", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadText, disabled: busy },
-    { label: <>Download DOCX{SOON}</>, icon: <DownloadIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
+    ...(pdfView
+      ? [
+          {
+            label: <>PDF view{rightView === "pdf" && <span className="ml-2 text-[11px] font-medium text-muted">Open</span>}</>,
+            icon: <FileTextIcon className="h-4 w-4" />,
+            onSelect: () => onToggleView?.("pdf"),
+          } satisfies MenuEntry,
+        ]
+      : []),
+  ];
+  const downloadItems: MenuEntry[] = [
+    ...viewItems,
+    ...(viewItems.length > 0 ? [{ separator: true } satisfies MenuEntry] : []),
+    { label: "Save & Download PDF", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadPdf, disabled: busy },
+    { label: "Save & Download plain text (.txt)", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadText, disabled: busy },
+    { label: <>Save &amp; Download DOCX{SOON}</>, icon: <DownloadIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
   ];
 
   return (
@@ -189,18 +234,37 @@ export default function EditorTopBar({
           })}
         </div>
 
-        {/* Save: a stub until R3.3 wires checkpoints; until then it reflects autosave honestly. */}
-        <span className="hidden lg:inline-flex">
+        {/* Save (DESIGN 10.15): a checkpoint + the PDF now; "Saved" and disabled when nothing changed since the last one. */}
+        <span className="hidden items-stretch lg:inline-flex">
           <Button
             variant="ghost"
             size="sm"
-            disabled
-            title="Your changes save automatically"
-            className="min-h-11 gap-2 bg-paper px-3 text-[14px]"
+            onClick={onSave}
+            disabled={!onSave || saving || exportDisabled || (!canSave && !justSaved)}
+            aria-busy={saving}
+            title={canSave ? "Save (Ctrl+S)" : "Everything is saved"}
+            data-save-button
+            className="min-h-11 gap-2 rounded-r-none border-r-0 bg-paper px-3 text-[14px]"
           >
-            {status === "saved" && <CheckIcon className="h-4 w-4" />}
-            {status === "saved" ? "Saved" : "Save"}
+            {saving ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : saveLabel === "Saved" ? <CheckIcon className="h-4 w-4" /> : null}
+            {saveLabel}
           </Button>
+          <Menu
+            align="end"
+            disabled={saving || exportDisabled}
+            items={[{ label: "Save as version…", icon: <FileTextIcon className="h-4 w-4" />, onSelect: () => setNaming(true) }]}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Save options"
+                title="Save options"
+                className="min-h-11 rounded-l-none bg-paper px-2"
+              >
+                <ChevronDownIcon className="h-4 w-4" />
+              </Button>
+            }
+          />
         </span>
 
         <span ref={downloadRef} className="inline-flex">
@@ -237,6 +301,37 @@ export default function EditorTopBar({
       >
         <XIcon className="h-5 w-5" />
       </button>
+
+      <Dialog
+        open={naming}
+        onClose={() => setNaming(false)}
+        title="Save as version"
+        description="Name this moment so you can find it later in the version history."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setNaming(false)}>
+              Cancel
+            </Button>
+            <Button variant="accent" type="submit" form="rb-version-form" disabled={!versionName.trim()}>
+              Save version
+            </Button>
+          </>
+        }
+      >
+        <form id="rb-version-form" onSubmit={submitName}>
+          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink">
+            Version name
+            <Input
+              value={versionName}
+              onChange={(e) => setVersionName(e.target.value)}
+              // config-literal-ok: the version-name limit is a server rule (R3.9: at most 80 characters); the server refuses longer
+              maxLength={80}
+              placeholder="e.g. Before the Acme call"
+              autoFocus
+            />
+          </label>
+        </form>
+      </Dialog>
     </header>
   );
 }

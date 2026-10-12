@@ -1,6 +1,6 @@
 import { createRef } from "react";
 import type { RefObject } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PdfInfo } from "@/lib/resume-doc";
 import type { LeftPanel } from "./state/ui";
@@ -123,13 +123,44 @@ describe("EditorTopBar", () => {
     expect(screen.queryByRole("button", { name: "Tailor to Job" })).toBeNull();
   });
 
-  it("Save is a disabled stub that mirrors autosave (Saved / Save)", () => {
-    bar({ status: "saved" });
+  it("Save reads Saved and is disabled when nothing changed since the last checkpoint", () => {
+    bar({ onSave: vi.fn(), canSave: false });
     const save = screen.getByRole("button", { name: "Saved" }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
+  });
+
+  it("Save is enabled when something changed and calls back", () => {
+    const p = bar({ onSave: vi.fn(), canSave: true });
+    const save = screen.getByRole("button", { name: "Save" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(false);
+    expect(save.title).toContain("Ctrl+S");
+    fireEvent.click(save);
+    expect(p.onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("Save shows Saving… while the checkpoint is written, and Saved for the 2 s after", () => {
+    bar({ onSave: vi.fn(), canSave: true, saving: true });
+    const busy = screen.getByRole("button", { name: "Saving…" }) as HTMLButtonElement;
+    expect(busy.disabled).toBe(true);
+    expect(busy.getAttribute("aria-busy")).toBe("true");
     cleanup();
-    bar({ status: "saving" });
-    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    bar({ onSave: vi.fn(), canSave: true, justSaved: true });
+    expect(screen.getByRole("button", { name: "Saved" })).toBeTruthy();
+  });
+
+  it("Save ▾ → Save as version… asks for a name (at most 80 characters) and reports it", () => {
+    const p = bar({ onSave: vi.fn(), onSaveAsVersion: vi.fn() });
+    const chevron = screen.getAllByRole("button", { name: "Save options" }).find((b) => b.tagName === "BUTTON")!;
+    fireEvent.click(chevron);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Save as version…" }));
+    const dialog = screen.getByRole("dialog", { name: "Save as version" });
+    const input = within(dialog).getByLabelText("Version name") as HTMLInputElement;
+    expect(input.maxLength).toBe(80);
+    expect((within(dialog).getByRole("button", { name: "Save version" }) as HTMLButtonElement).disabled).toBe(true); // a name is needed
+    fireEvent.change(input, { target: { value: "  Before the Acme call " } });
+    fireEvent.submit(dialog.querySelector("form")!);
+    expect(p.onSaveAsVersion).toHaveBeenCalledWith("Before the Acme call");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("the Download menu: items, disabled states and handlers", () => {
@@ -138,11 +169,27 @@ describe("EditorTopBar", () => {
     fireEvent.click(trigger);
     const items = screen.getAllByRole("menuitem");
     const names = items.map((i) => i.textContent);
-    expect(names).toEqual(["Print layout", "PDF viewComing soon", "Download PDF", "Download plain text (.txt)", "Download DOCXComing soon"]);
-    expect(items.map((i) => (i as HTMLButtonElement).disabled)).toEqual([false, true, false, false, true]);
+    expect(names).toEqual(["Print layout", "PDF view", "Save & Download PDF", "Save & Download plain text (.txt)", "Save & Download DOCXComing soon"]);
+    expect(items.map((i) => (i as HTMLButtonElement).disabled)).toEqual([false, false, false, false, true]);
     fireEvent.click(items[3]);
     expect(p.onDownloadText).toHaveBeenCalledTimes(1);
     expect(p.onDownloadPdf).not.toHaveBeenCalled();
+  });
+
+  it("PDF view toggles the right view and shows Open while it is the open one", () => {
+    const p = bar({ onToggleView: vi.fn(), rightView: "pdf" });
+    fireEvent.click(screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON")!);
+    const pdfItem = screen.getByRole("menuitem", { name: /PDF view/ });
+    expect(pdfItem.textContent).toContain("Open");
+    fireEvent.click(pdfItem);
+    expect(p.onToggleView).toHaveBeenCalledWith("pdf");
+  });
+
+  it("the PDF view item is left out when the feature is off", () => {
+    bar({ pdfView: false });
+    fireEvent.click(screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON")!);
+    expect(screen.queryByRole("menuitem", { name: /PDF view/ })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: /Print layout/ })).toBeTruthy();
   });
 
   it("Print layout toggles the right view; the Download button is pressed while a view is open", () => {
@@ -170,7 +217,7 @@ describe("EditorTopBar", () => {
     const trigger = screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON")!;
     expect(trigger.getAttribute("aria-busy")).toBe("true");
     fireEvent.click(trigger);
-    expect((screen.getByRole("menuitem", { name: "Download PDF" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("menuitem", { name: "Save & Download PDF" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("✕ reports a close", () => {

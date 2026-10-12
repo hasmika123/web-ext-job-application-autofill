@@ -146,6 +146,17 @@ describe("SideSheet", () => {
     expect((custom.container.querySelector("aside") as HTMLElement).style.width).toBe("300px");
   });
 
+  it("an overlay sheet is absolutely positioned against its edge (no competing `relative`)", () => {
+    for (const side of ["left", "right"] as const) {
+      const { unmount } = render(<Host mode="overlay" side={side} />);
+      const dialog = screen.getByRole("dialog");
+      expect(dialog.className).toContain("absolute");
+      expect(dialog.className).not.toMatch(/(^|\s)relative(\s|$)/);
+      expect(dialog.className).toContain(side === "left" ? "left-0" : "right-0");
+      unmount();
+    }
+  });
+
   it("reduced motion renders without transform (opacity only, 80 ms)", () => {
     stubReducedMotion(true);
     const overlay = render(<Host mode="overlay" />);

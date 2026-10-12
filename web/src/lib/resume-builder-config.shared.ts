@@ -59,6 +59,8 @@ export type ResumeBuilderConfig = {
   resumes: { count: number; max: number };
   /** Common Profile limits (R1.1): bytes per item, live items per user, items per import call. */
   profile: { itemMaxBytes: number; maxItemsPerUser: number; maxImportItems: number };
+  /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF (ms); whether the PDF view re-renders by itself. */
+  pdf: { waitMs: number; viewAutoRefresh: boolean };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
@@ -98,4 +100,5 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
   aiAllowed: false,
   resumes: { count: 0, max: 3 },
   profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200 },
+  pdf: { waitMs: 30000, viewAutoRefresh: false },
 };

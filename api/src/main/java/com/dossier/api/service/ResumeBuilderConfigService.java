@@ -87,7 +87,8 @@ public class ResumeBuilderConfigService {
                 s.getInt(PROFILE_ITEM_MAX_BYTES),
                 s.getInt(PROFILE_ITEMS_MAX_PER_USER),
                 s.getInt(PROFILE_IMPORT_MAX_ITEMS)
-            )
+            ),
+            new ResumeBuilderConfigDTO.Pdf(s.getInt(PDF_WAIT_MS), s.getBool(PDF_VIEW_AUTO_REFRESH))
         );
     }
 

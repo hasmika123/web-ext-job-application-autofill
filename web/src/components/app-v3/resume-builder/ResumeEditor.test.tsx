@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
-import type { ExportPdfResult, ExportTextResult, PatchResult, PdfInfo, ResumeDocDTO, SaveResult } from "@/lib/resume-doc";
+import type { CheckpointResult, ExportPdfResult, ExportTextResult, PatchResult, PdfInfo, PdfWaitResult, ResumeDocDTO, SaveResult } from "@/lib/resume-doc";
 import { testDoc } from "./state/test-doc";
 
 const putDoc = vi.fn<(id: number, version: number, body: { doc: ReturnType<typeof testDoc> }) => Promise<SaveResult>>();
@@ -13,6 +13,8 @@ const saveBlob = vi.fn();
 const push = vi.fn();
 const requestPdfNow = vi.fn<(id: number, opts?: { keepalive?: boolean }) => Promise<boolean>>();
 const getPdfStatus = vi.fn<(id: number) => Promise<PdfInfo | null>>();
+const checkpointDoc = vi.fn<(id: number, name?: string) => Promise<CheckpointResult>>();
+const waitForStoredPdf = vi.fn<(id: number, opts: { waitMs: number; pollMs?: number | null }) => Promise<PdfWaitResult>>();
 vi.mock("@/lib/resume-doc", async (orig) => ({
   ...(await orig<typeof import("@/lib/resume-doc")>()),
   putDoc: (...a: Parameters<typeof putDoc>) => putDoc(...a),
@@ -23,6 +25,8 @@ vi.mock("@/lib/resume-doc", async (orig) => ({
   saveBlob: (...a: unknown[]) => saveBlob(...a),
   requestPdfNow: (id: number, opts?: { keepalive?: boolean }) => requestPdfNow(id, opts),
   getPdfStatus: (id: number) => getPdfStatus(id),
+  checkpointDoc: (id: number, name?: string) => checkpointDoc(id, name),
+  waitForStoredPdf: (id: number, opts: { waitMs: number; pollMs?: number | null }) => waitForStoredPdf(id, opts),
 }));
 vi.mock("@/lib/api", () => ({ serverApiFetch: vi.fn() })); // resume-builder-config imports it (server only)
 vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
@@ -90,6 +94,10 @@ beforeEach(() => {
   push.mockReset();
   requestPdfNow.mockReset().mockResolvedValue(true);
   getPdfStatus.mockReset().mockResolvedValue(null);
+  checkpointDoc.mockReset().mockResolvedValue({ kind: "ok", versionNo: 2, reason: "MANUAL", pdf: { status: "PENDING", pollMs: 5000, pollWindowMs: 20000 } });
+  waitForStoredPdf.mockReset().mockResolvedValue("ready");
+  URL.createObjectURL = vi.fn(() => "blob:test-pdf");
+  URL.revokeObjectURL = vi.fn();
 });
 afterEach(() => {
   cleanup();
@@ -487,14 +495,33 @@ describe("ResumeEditor", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
-    it("Preview is a fullscreen sheet hosting Print layout, segmented with PDF view (a placeholder until R3.3)", () => {
+    it("Preview is a fullscreen sheet hosting Print layout, segmented with PDF view", async () => {
+      exportPdf.mockResolvedValue({ kind: "ok", blob: new Blob(["%PDF"]), fileName: "r.pdf", pages: 1, fits: true, stored: true, contentHash: null, cached: true });
       renderEditor();
       fireEvent.click(within(tabBar()).getByRole("tab", { name: "Preview" }));
       const dialog = screen.getByRole("dialog", { name: "Preview" });
       expect(within(dialog).getByRole("img", { name: "Page 1 of 1" })).toBeTruthy();
       expect(within(dialog).getByRole("button", { name: "Zoom in" })).toBeTruthy(); // phone: pinch + zoom buttons
       fireEvent.click(within(dialog).getByRole("radio", { name: "PDF view" }));
-      expect(dialog.textContent).toContain("Coming in R3.3");
+      await flush(300);
+      expect(within(dialog).getByTitle("PDF preview")).toBeTruthy();
+    });
+
+    it("with Print layout switched off the Preview tab opens the PDF view (R3.8 gap)", async () => {
+      exportPdf.mockResolvedValue({ kind: "ok", blob: new Blob(["%PDF"]), fileName: "r.pdf", pages: 1, fits: true, stored: true, contentHash: null, cached: true });
+      renderEditor({ ...DEFAULT_BUILDER_CONFIG, features: { ...DEFAULT_BUILDER_CONFIG.features, printLayout: false } });
+      fireEvent.click(within(tabBar()).getByRole("tab", { name: "Preview" }));
+      const dialog = screen.getByRole("dialog", { name: "Preview" });
+      expect(within(dialog).queryByRole("img", { name: /Page 1/ })).toBeNull();
+      expect(within(dialog).queryByRole("radio", { name: "Print layout" })).toBeNull(); // a single view needs no switch
+      await flush(300);
+      expect(within(dialog).getByTitle("PDF preview")).toBeTruthy();
+    });
+
+    it("with both views switched off there is no Preview tab and nothing opens", () => {
+      renderEditor({ ...DEFAULT_BUILDER_CONFIG, features: { ...DEFAULT_BUILDER_CONFIG.features, printLayout: false, pdfView: false } });
+      expect(within(tabBar()).queryByRole("tab", { name: "Preview" })).toBeNull();
+      expect(within(tabBar()).getAllByRole("tab").length).toBe(3);
     });
   });
 
@@ -644,21 +671,21 @@ describe("ResumeEditor", () => {
     const item = (name: string | RegExp) => screen.getByRole("menuitem", { name }) as HTMLButtonElement;
     const downloadPdf = () => {
       openMenu();
-      fireEvent.click(item("Download PDF"));
+      fireEvent.click(item("Save & Download PDF"));
     };
 
-    it("lists Print layout, PDF view (soon), Download PDF, plain text and DOCX (soon)", () => {
+    it("lists Print layout, PDF view, Save & Download PDF, plain text and DOCX (soon)", () => {
       renderEditor();
       openMenu();
       const items = screen.getAllByRole("menuitem");
       expect(items.map((i) => i.textContent)).toEqual([
         "Print layout",
-        "PDF viewComing soon",
-        "Download PDF",
-        "Download plain text (.txt)",
-        "Download DOCXComing soon",
+        "PDF view",
+        "Save & Download PDF",
+        "Save & Download plain text (.txt)",
+        "Save & Download DOCXComing soon",
       ]);
-      expect(items.map((i) => i.getAttribute("aria-disabled") === "true")).toEqual([false, true, false, false, true]);
+      expect(items.map((i) => i.getAttribute("aria-disabled") === "true")).toEqual([false, false, false, false, true]);
     });
 
     it("Alt+D opens the menu", () => {
@@ -695,8 +722,8 @@ describe("ResumeEditor", () => {
       expect(downloadBtn().getAttribute("aria-busy")).toBe("true");
       expect(downloadBtn().textContent).toContain("Preparing");
       openMenu();
-      expect(item("Download PDF").getAttribute("aria-disabled")).toBe("true");
-      fireEvent.click(item("Download PDF"));
+      expect(item("Save & Download PDF").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(item("Save & Download PDF"));
       expect(exportPdf).toHaveBeenCalledTimes(1);
       await act(async () => done(okPdf()));
       expect(downloadBtn().textContent).toContain("Download");
@@ -719,7 +746,8 @@ describe("ResumeEditor", () => {
       downloadPdf();
       await flush(0);
       expect(exportPdf).not.toHaveBeenCalled();
-      expect(screen.getByText("Couldn't export yet")).toBeTruthy();
+      expect(screen.getByText("Couldn't save yet")).toBeTruthy();
+      expect(checkpointDoc).not.toHaveBeenCalled();
     });
 
     it("says so when the PDF downloaded but could not be attached to the resume", async () => {
@@ -736,7 +764,7 @@ describe("ResumeEditor", () => {
       fireEvent.change(bullet(), { target: { value: "Mine" } });
       await flush(800);
       openMenu();
-      expect(item("Download PDF").getAttribute("aria-disabled")).toBe("true");
+      expect(item("Save & Download PDF").getAttribute("aria-disabled")).toBe("true");
       expect(item(/plain text/).getAttribute("aria-disabled")).toBe("true");
     });
 
@@ -762,6 +790,218 @@ describe("ResumeEditor", () => {
       await flush(0);
       expect(saveBlob).not.toHaveBeenCalled();
       expect(screen.getByText("Couldn't make the text file")).toBeTruthy();
+    });
+  });
+
+  describe("Save and Save & Download (R3.3, DESIGN 10.15)", () => {
+    const okPdf = (over: Partial<Extract<ExportPdfResult, { kind: "ok" }>> = {}): ExportPdfResult => ({
+      kind: "ok",
+      blob: new Blob(["%PDF"], { type: "application/pdf" }),
+      fileName: "Backend-SWE.pdf",
+      pages: 1,
+      fits: true,
+      stored: true,
+      contentHash: "a".repeat(64),
+      cached: true,
+      ...over,
+    });
+    const saveButton = () => document.querySelector<HTMLButtonElement>("[data-save-button]")!;
+    const downloadBtn = () => screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON") as HTMLButtonElement;
+    const ctrlS = () => fireEvent.keyDown(document, { key: "s", code: "KeyS", ctrlKey: true });
+
+    it("opens as Saved with Save disabled when nothing changed and the PDF is fine", () => {
+      renderWithPdf({ status: "READY", hash: "h" });
+      expect(saveButton().textContent).toBe("Saved");
+      expect(saveButton().disabled).toBe(true);
+    });
+
+    it("Save is on offer while the stored PDF is missing or failed, even with no edits", () => {
+      renderWithPdf({ status: "FAILED" });
+      expect(saveButton().textContent).toBe("Save");
+      expect(saveButton().disabled).toBe(false);
+    });
+
+    it("Ctrl+S flushes the pending edit, then posts the checkpoint", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      renderWithPdf({ status: "READY", hash: "h" });
+      fireEvent.change(bullet(), { target: { value: "Edited, then Ctrl+S" } });
+      expect(saveButton().textContent).toBe("Save");
+      expect(putDoc).not.toHaveBeenCalled(); // still inside the 800 ms debounce
+      ctrlS();
+      await flush(0);
+      expect(putDoc).toHaveBeenCalledTimes(1);
+      expect(checkpointDoc).toHaveBeenCalledWith(42, undefined);
+      expect(putDoc.mock.invocationCallOrder[0]).toBeLessThan(checkpointDoc.mock.invocationCallOrder[0]);
+    });
+
+    it("the button reads Saved for 2 s, then stays disabled until something changes; the status says the PDF is updating", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      renderWithPdf({ status: "READY", hash: "h", pollMs: 5000, pollWindowMs: 20000 });
+      fireEvent.change(bullet(), { target: { value: "Changed" } });
+      fireEvent.click(saveButton());
+      await flush(0);
+      expect(checkpointDoc).toHaveBeenCalledTimes(1);
+      expect(saveButton().textContent).toBe("Saved");
+      expect(document.querySelector('[data-pdf-status="updating"]')?.textContent).toContain("PDF updating…");
+      await flush(2000);
+      expect(saveButton().textContent).toBe("Saved");
+      expect(saveButton().disabled).toBe(true);
+      fireEvent.change(bullet(), { target: { value: "Changed again" } });
+      expect(saveButton().textContent).toBe("Save");
+      expect(saveButton().disabled).toBe(false);
+    });
+
+    it("does not post a checkpoint when the latest edit could not be saved", async () => {
+      putDoc.mockResolvedValue({ kind: "invalid", path: "$", message: "nope" });
+      renderEditor();
+      fireEvent.change(bullet(), { target: { value: "Unsaveable" } });
+      ctrlS();
+      await flush(0);
+      expect(checkpointDoc).not.toHaveBeenCalled();
+      expect(screen.getByText("Couldn't save yet")).toBeTruthy();
+    });
+
+    it("Save ▾ → Save as version… names the checkpoint", async () => {
+      renderEditor();
+      const chevron = screen.getAllByRole("button", { name: "Save options" }).find((b) => b.tagName === "BUTTON")!;
+      fireEvent.click(chevron);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Save as version…" }));
+      const dialog = screen.getByRole("dialog", { name: "Save as version" });
+      fireEvent.change(within(dialog).getByLabelText("Version name"), { target: { value: "Before the Acme call" } });
+      fireEvent.submit(dialog.querySelector("form")!);
+      await flush(0);
+      expect(checkpointDoc).toHaveBeenCalledWith(42, "Before the Acme call");
+      expect(screen.getByText("Version 'Before the Acme call' saved")).toBeTruthy();
+    });
+
+    it("Save & Download PDF waits for the stored PDF, then downloads it (no second render)", async () => {
+      exportPdf.mockResolvedValue(okPdf());
+      renderEditor();
+      fireEvent.click(downloadBtn());
+      fireEvent.click(screen.getByRole("menuitem", { name: "Save & Download PDF" }));
+      await flush(0);
+      expect(checkpointDoc).toHaveBeenCalledTimes(1);
+      expect(waitForStoredPdf).toHaveBeenCalledWith(42, expect.objectContaining({ waitMs: DEFAULT_BUILDER_CONFIG.pdf.waitMs }));
+      expect(exportPdf).toHaveBeenCalledTimes(1); // the cached GET: the stored file, not a render
+      expect(checkpointDoc.mock.invocationCallOrder[0]).toBeLessThan(waitForStoredPdf.mock.invocationCallOrder[0]);
+      expect(waitForStoredPdf.mock.invocationCallOrder[0]).toBeLessThan(exportPdf.mock.invocationCallOrder[0]);
+      expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), "Backend-SWE.pdf");
+    });
+
+    it("skips the wait when the checkpoint answers with the PDF already READY", async () => {
+      checkpointDoc.mockResolvedValue({ kind: "ok", versionNo: 3, reason: "MANUAL", pdf: { status: "READY" } });
+      exportPdf.mockResolvedValue(okPdf());
+      renderEditor();
+      fireEvent.click(downloadBtn());
+      fireEvent.click(screen.getByRole("menuitem", { name: "Save & Download PDF" }));
+      await flush(0);
+      expect(waitForStoredPdf).not.toHaveBeenCalled();
+      expect(saveBlob).toHaveBeenCalled();
+    });
+
+    it("falls back to the synchronous export when the stored PDF is not ready in time", async () => {
+      waitForStoredPdf.mockResolvedValue("timeout");
+      exportPdf.mockResolvedValue(okPdf({ cached: false }));
+      renderEditor();
+      fireEvent.click(downloadBtn());
+      fireEvent.click(screen.getByRole("menuitem", { name: "Save & Download PDF" }));
+      await flush(0);
+      expect(exportPdf).toHaveBeenCalledTimes(1);
+      expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), "Backend-SWE.pdf");
+      expect(screen.getByText("PDF ready")).toBeTruthy();
+    });
+
+    it("still downloads when only the checkpoint failed, and says the version was not saved", async () => {
+      checkpointDoc.mockResolvedValue({ kind: "error", status: 403, message: "This account can't save versions." });
+      exportPdf.mockResolvedValue(okPdf({ cached: false }));
+      renderEditor();
+      fireEvent.click(downloadBtn());
+      fireEvent.click(screen.getByRole("menuitem", { name: "Save & Download PDF" }));
+      await flush(0);
+      expect(waitForStoredPdf).not.toHaveBeenCalled();
+      expect(saveBlob).toHaveBeenCalled();
+      expect(screen.getByText("Couldn't save a version")).toBeTruthy();
+    });
+
+    it("Save & Download plain text checkpoints, then downloads the txt", async () => {
+      exportText.mockResolvedValue({ kind: "ok", blob: new Blob(["PRIYA"]), fileName: "Backend-SWE.txt" });
+      renderEditor();
+      fireEvent.click(downloadBtn());
+      fireEvent.click(screen.getByRole("menuitem", { name: "Save & Download plain text (.txt)" }));
+      await flush(0);
+      expect(checkpointDoc).toHaveBeenCalledTimes(1);
+      expect(exportText).toHaveBeenCalledWith(42);
+      expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), "Backend-SWE.txt");
+    });
+  });
+
+  describe("PDF view: the right side-nav (R3.3)", () => {
+    const okPdf = (over: Partial<Extract<ExportPdfResult, { kind: "ok" }>> = {}): ExportPdfResult => ({
+      kind: "ok",
+      blob: new Blob(["%PDF"], { type: "application/pdf" }),
+      fileName: "Backend-SWE.pdf",
+      pages: 1,
+      fits: true,
+      stored: true,
+      contentHash: "a".repeat(64),
+      cached: true,
+      ...over,
+    });
+    const downloadBtn = () => screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON") as HTMLButtonElement;
+    const rightSheet = () => document.getElementById("rb-right-sheet")!;
+
+    it("Download ▾ → PDF view opens the sheet with the real PDF; Alt+V and choosing it again close it", async () => {
+      exportPdf.mockResolvedValue(okPdf());
+      renderEditor();
+      fireEvent.click(downloadBtn());
+      fireEvent.click(screen.getByRole("menuitem", { name: /PDF view/ }));
+      await flush(300);
+      expect(within(rightSheet()).getByTitle("PDF preview").getAttribute("src")).toContain("blob:test-pdf");
+      expect(downloadBtn().getAttribute("aria-pressed")).toBe("true");
+      fireEvent.keyDown(document, { key: "v", code: "KeyV", altKey: true });
+      await flush(300);
+      expect(document.getElementById("rb-right-sheet")?.querySelector("iframe")).toBeNull();
+      fireEvent.keyDown(document, { key: "v", code: "KeyV", altKey: true });
+      await flush(300);
+      expect(within(rightSheet()).getByTitle("PDF preview")).toBeTruthy();
+    });
+
+    it("a switched-off PDF view is not in the menu and Alt+V does nothing", async () => {
+      renderEditor({ ...DEFAULT_BUILDER_CONFIG, features: { ...DEFAULT_BUILDER_CONFIG.features, pdfView: false } });
+      fireEvent.keyDown(document, { key: "v", code: "KeyV", altKey: true });
+      await flush(0);
+      expect(exportPdf).not.toHaveBeenCalled();
+      fireEvent.click(downloadBtn());
+      expect(screen.queryByRole("menuitem", { name: /PDF view/ })).toBeNull();
+    });
+
+    it("switches Print layout ↔ PDF view inside the open sheet", async () => {
+      exportPdf.mockResolvedValue(okPdf());
+      renderEditor();
+      fireEvent.keyDown(document, { key: "p", code: "KeyP", altKey: true });
+      expect(within(rightSheet()).getByRole("img", { name: "Page 1 of 1" })).toBeTruthy();
+      fireEvent.click(within(rightSheet()).getByRole("radio", { name: "PDF view" }));
+      await flush(300);
+      expect(within(rightSheet()).getByTitle("PDF preview")).toBeTruthy();
+      fireEvent.click(within(rightSheet()).getByRole("radio", { name: "Print layout" }));
+      expect(within(rightSheet()).getByRole("img", { name: "Page 1 of 1" })).toBeTruthy();
+    });
+
+    it("an edit makes the shown PDF stale; Refresh makes a new one", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      exportPdf.mockResolvedValue(okPdf());
+      renderEditor();
+      fireEvent.keyDown(document, { key: "v", code: "KeyV", altKey: true });
+      await flush(0);
+      expect(exportPdf).toHaveBeenCalledTimes(1);
+      fireEvent.change(bullet(), { target: { value: "Changed under the PDF" } });
+      const banner = within(rightSheet()).getByText(/Document changed since this PDF/);
+      expect(banner).toBeTruthy();
+      fireEvent.click(within(rightSheet()).getByRole("button", { name: "Refresh" }));
+      await flush(0);
+      expect(exportPdf).toHaveBeenCalledTimes(2);
+      expect(putDoc).toHaveBeenCalled(); // the refresh saved the edit first
+      expect(within(rightSheet()).queryByText(/Document changed since this PDF/)).toBeNull();
     });
   });
 
@@ -878,6 +1118,7 @@ describe("ResumeEditor", () => {
       fireEvent.click(within(rightSheet()).getByRole("button", { name: "Download PDF" }));
       await flush(0);
       expect(exportPdf).toHaveBeenCalledWith(42);
+      expect(checkpointDoc).not.toHaveBeenCalled(); // a view footer downloads; Save & Download is the menu item
       expect(saveBlob).toHaveBeenCalled();
     });
 

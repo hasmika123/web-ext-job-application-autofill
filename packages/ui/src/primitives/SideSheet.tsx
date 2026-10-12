@@ -259,7 +259,7 @@ export default function SideSheet({
   );
 
   const surface =
-    "relative flex h-full min-h-0 flex-col bg-paper text-ink outline-none border-line";
+    "flex h-full min-h-0 flex-col bg-paper text-ink outline-none border-line";
 
   /* ── push: the aside always exists (aria-controls target) and reserves `px` while open. ── */
   if (mode === "push") {
@@ -284,7 +284,7 @@ export default function SideSheet({
           tabIndex={-1}
           className={cn(
             surface,
-            "rounded-[var(--radius-lg)] border",
+            "relative rounded-[var(--radius-lg)] border",
           )}
           style={{ width: px, ...motion }}
         >

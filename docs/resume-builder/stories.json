@@ -1082,7 +1082,7 @@
       "id": "R3.3",
       "epic": "R3",
       "title": "PDF view pane + Download ▾ (Save & Download PDF/TXT, cached export) + Save button wired to checkpoints + mobile fallback",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web"

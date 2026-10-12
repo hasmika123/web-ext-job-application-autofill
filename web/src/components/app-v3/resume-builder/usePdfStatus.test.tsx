@@ -98,6 +98,16 @@ describe("usePdfStatus", () => {
     expect(result.current.pdf?.status).toBe("READY");
   });
 
+  it("follow() adopts the checkpoint's answer (Save queued the PDF) and polls until READY", async () => {
+    getPdfStatus.mockResolvedValue(info("READY"));
+    const { result } = renderHook(() => usePdfStatus(42, info("READY"), null));
+    act(() => result.current.follow(info("PENDING")));
+    expect(result.current.pdf?.status).toBe("PENDING");
+    await settle(POLL);
+    expect(getPdfStatus).toHaveBeenCalledTimes(1);
+    expect(result.current.pdf?.status).toBe("READY");
+  });
+
   it("a PDF that opens STALE is queued once", async () => {
     getPdfStatus.mockResolvedValue(info("READY"));
     renderHook(() => usePdfStatus(42, info("STALE"), null));

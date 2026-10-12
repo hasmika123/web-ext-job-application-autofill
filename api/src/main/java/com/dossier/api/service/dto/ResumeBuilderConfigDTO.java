@@ -24,7 +24,8 @@ public record ResumeBuilderConfigDTO(
     String plan,
     boolean aiAllowed,
     Resumes resumes,
-    Profile profile
+    Profile profile,
+    Pdf pdf
 ) {
     public record Templates(
         List<String> enabled,
@@ -69,4 +70,7 @@ public record ResumeBuilderConfigDTO(
 
     /** Common Profile limits (R1.1): one item's bytes, live items per user, items per import call. */
     public record Profile(int itemMaxBytes, int maxItemsPerUser, int maxImportItems) {}
+
+    /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF; whether the PDF view re-renders by itself. */
+    public record Pdf(int waitMs, boolean viewAutoRefresh) {}
 }
