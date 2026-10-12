@@ -65,4 +65,8 @@ export type EditorAction =
   | { type: "save/conflict"; serverVersion: number; doc: ResumeDocument }
   | { type: "save/failed"; message: string }
   | { type: "conflict/keepMine" }
-  | { type: "conflict/takeTheirs" };
+  | { type: "conflict/takeTheirs" }
+  /* presentation (R2.4): the template / theme are optimistic and never in the undo history or the autosave PUT */
+  | { type: "presentation/set"; templateId?: string; theme?: Partial<ResumeTheme> | null }
+  /** A template / theme PATCH was confirmed: adopt the version its ETag carried. */
+  | { type: "presentation/version"; version: number };

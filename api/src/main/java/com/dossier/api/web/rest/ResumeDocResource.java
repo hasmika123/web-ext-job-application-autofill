@@ -114,6 +114,21 @@ public class ResumeDocResource {
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
     }
 
+    /**
+     * {@code PATCH /api/profile/resumes/:id/doc/theme} : replace the presentation (Customize Template).
+     * Needs no If-Match; bumps the version like the template switch.
+     */
+    @Operation(
+        summary = "Change a resume's theme",
+        description = "Body {theme} (accent, fontPair, spacing, pageSize, dateStyle, showPhoto, fit{mode,target,step}, _touched): bounded fields only, at most 8 KB; 422 THEME_INVALID {path, message}. Does not change the content, writes no version row and bumps doc_version (the ETag)."
+    )
+    @PatchMapping("/{id}/doc/theme")
+    public ResponseEntity<ResumeDocDTO> patchTheme(@PathVariable("id") Long id, @RequestBody(required = false) JsonNode body) {
+        demoGuard.assertNotDemo();
+        ResumeDocDTO dto = resumeDocService.setTheme(id, body);
+        return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
+    }
+
     /** Body of {@code POST /{id}/export-recorded}. */
     public record ExportRecordedVM(@Schema(description = "The content hash of the document that was exported (ResumeDocDTO.contentHash).") String hash) {}
 

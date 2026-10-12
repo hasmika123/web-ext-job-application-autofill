@@ -1,10 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
-import type { ExportPdfResult, ExportTextResult, PdfInfo, ResumeDocDTO, SaveResult } from "@/lib/resume-doc";
+import type { ExportPdfResult, ExportTextResult, PatchResult, PdfInfo, ResumeDocDTO, SaveResult } from "@/lib/resume-doc";
 import { testDoc } from "./state/test-doc";
 
 const putDoc = vi.fn<(id: number, version: number, body: { doc: ReturnType<typeof testDoc> }) => Promise<SaveResult>>();
+const patchTemplate = vi.fn<(id: number, templateId: string) => Promise<PatchResult>>();
+const patchTheme = vi.fn<(id: number, theme: Record<string, unknown>) => Promise<PatchResult>>();
 const exportPdf = vi.fn<(id: number) => Promise<ExportPdfResult>>();
 const exportText = vi.fn<(id: number) => Promise<ExportTextResult>>();
 const saveBlob = vi.fn();
@@ -14,6 +16,8 @@ const getPdfStatus = vi.fn<(id: number) => Promise<PdfInfo | null>>();
 vi.mock("@/lib/resume-doc", async (orig) => ({
   ...(await orig<typeof import("@/lib/resume-doc")>()),
   putDoc: (...a: Parameters<typeof putDoc>) => putDoc(...a),
+  patchTemplate: (id: number, t: string) => patchTemplate(id, t),
+  patchTheme: (id: number, t: Record<string, unknown>) => patchTheme(id, t),
   exportPdf: (id: number) => exportPdf(id),
   exportText: (id: number) => exportText(id),
   saveBlob: (...a: unknown[]) => saveBlob(...a),
@@ -78,6 +82,8 @@ beforeEach(() => {
   setWidth(1440);
   window.localStorage.clear();
   putDoc.mockReset();
+  patchTemplate.mockReset();
+  patchTheme.mockReset();
   exportPdf.mockReset();
   exportText.mockReset();
   saveBlob.mockReset();
@@ -283,7 +289,6 @@ describe("ResumeEditor", () => {
       renderEditor();
       const cases: Array<[string, string]> = [
         ["Add Section", "R2.12"],
-        ["Pick Template", "R2.4"],
         ["Swap Section", "R2.2"],
         ["Tailor to Job", "R5.8"],
       ];
@@ -292,6 +297,16 @@ describe("ResumeEditor", () => {
         expect(within(leftSheet()).getByRole("heading", { name })).toBeTruthy();
         expect(leftSheet().textContent).toContain(`Coming in ${story}`);
       }
+    });
+
+    it("Pick Template shows the live template grid and Customize Template (R2.4), not a placeholder", () => {
+      renderEditor();
+      fireEvent.click(panelButton("Pick Template"));
+      const sheet = within(leftSheet());
+      expect(sheet.getByRole("heading", { name: "Pick Template" })).toBeTruthy();
+      expect(sheet.getByRole("heading", { name: "Customize Template" })).toBeTruthy();
+      expect(leftSheet().textContent).not.toContain("Coming in");
+      expect(leftSheet().querySelector('[data-template="modern"]')?.getAttribute("aria-pressed")).toBe("true");
     });
 
     it("the centre expands when the sheet closes (the push track is 0 wide)", () => {
@@ -458,6 +473,92 @@ describe("ResumeEditor", () => {
       const dialog = screen.getByRole("dialog", { name: "Preview" });
       expect(within(dialog).getByRole("radio", { name: "PDF view" })).toBeTruthy();
       expect(dialog.textContent).toContain("Coming in R3.8");
+    });
+  });
+
+  describe("Pick Template: Customize Template saves through PATCH /doc/theme (R2.4)", () => {
+    const open = () => {
+      renderEditor();
+      fireEvent.click(panelButton("Pick Template"));
+    };
+
+    it("a change updates the editor at once, then PATCHes the theme 500 ms later and the next save adopts the new ETag", async () => {
+      patchTheme.mockResolvedValue({ kind: "ok", version: 9 });
+      putDoc.mockResolvedValue({ kind: "ok", version: 10, contentHash: null });
+      open();
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Spacious" }));
+      expect(within(leftSheet()).getByRole("radio", { name: "Spacious" }).getAttribute("aria-checked")).toBe("true"); // optimistic
+      await flush(499);
+      expect(patchTheme).not.toHaveBeenCalled();
+      await flush(1);
+      expect(patchTheme).toHaveBeenCalledTimes(1);
+      expect(patchTheme.mock.calls[0][0]).toBe(42);
+      expect(patchTheme.mock.calls[0][1]).toMatchObject({ spacing: "spacious", _touched: ["spacing"] });
+      expect(patchTheme.mock.calls[0][1]).not.toHaveProperty("size");
+
+      // the editor adopted the ETag the PATCH returned: the next content save is sent against it
+      fireEvent.change(bullet(), { target: { value: "Led the migration" } });
+      await flush(800);
+      expect(putDoc).toHaveBeenCalledTimes(1);
+      expect(putDoc.mock.calls[0][1]).toBe(9);
+    });
+
+    it("a saved theme re-queues the PDF: the top bar shows 'PDF updating…' and then follows the server to READY (R3.7 x R2.4)", async () => {
+      patchTheme.mockResolvedValue({ kind: "ok", version: 9 });
+      getPdfStatus.mockResolvedValue({ status: "READY", pollMs: 5000, pollWindowMs: 180000 });
+      renderWithPdf({ status: "READY", pollMs: 5000, pollWindowMs: 180000 });
+      fireEvent.click(panelButton("Pick Template"));
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Spacious" }));
+      expect(screen.queryByText("PDF updating…")).toBeNull(); // nothing saved yet
+      await flush(500);
+      expect(patchTheme).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("PDF updating…")).toBeTruthy();
+      await flush(5000);
+      expect(getPdfStatus).toHaveBeenCalledWith(42);
+      expect(screen.queryByText("PDF updating…")).toBeNull();
+    });
+
+    it("a burst of changes sends only the last theme", async () => {
+      patchTheme.mockResolvedValue({ kind: "ok", version: 4 });
+      open();
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Compact" }));
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Two Pages" }));
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Spacious" }));
+      await flush(500);
+      expect(patchTheme).toHaveBeenCalledTimes(1);
+      expect(patchTheme.mock.calls[0][1]).toMatchObject({ spacing: "spacious", fit: { target: 2, step: 0 } });
+    });
+
+    it("a refused theme goes back to the last saved one and says so", async () => {
+      patchTheme.mockResolvedValue({ kind: "invalid", message: "fit.target must be 1 or 2" });
+      open();
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Spacious" }));
+      await flush(500);
+      expect(within(leftSheet()).getByRole("radio", { name: "Normal" }).getAttribute("aria-checked")).toBe("true");
+      expect(screen.getByText("Couldn't save that change")).toBeTruthy();
+    });
+
+    it("typing during a theme change never sends a content save with a stale version", async () => {
+      let finish: (r: PatchResult) => void = () => {};
+      patchTheme.mockImplementation(() => new Promise<PatchResult>((r) => (finish = r)));
+      putDoc.mockResolvedValue({ kind: "ok", version: 7, contentHash: null });
+      open();
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Compact" }));
+      await flush(500); // PATCH in flight, autosave held
+      fireEvent.change(bullet(), { target: { value: "typed meanwhile" } });
+      await flush(2000);
+      expect(putDoc).not.toHaveBeenCalled();
+      finish({ kind: "ok", version: 5 });
+      await flush(900);
+      expect(putDoc).toHaveBeenCalledTimes(1);
+      expect(putDoc.mock.calls[0][1]).toBe(5); // the PATCH's version, not the stale 3
+    });
+
+    it("Modern is an ATS template: no accent swatch can be picked and the document keeps the ink colour", () => {
+      open();
+      expect(within(leftSheet()).getAllByRole("radio", { name: "Green" })[0].getAttribute("aria-disabled")).toBe("true");
+      const card = document.querySelector<HTMLElement>("main [style*='--rb-doc-accent']");
+      expect(card?.style.getPropertyValue("--rb-doc-accent")).toBe("#111827");
     });
   });
 

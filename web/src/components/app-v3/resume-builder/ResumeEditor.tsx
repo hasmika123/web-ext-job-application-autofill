@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, useToast } from "@kiwiply/ui";
+import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, resolveCapabilities, useToast } from "@kiwiply/ui";
 import type { ResumeSectionKind } from "@kiwiply/ui";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
 import { exportPdf, exportText, putDoc, requestPdfNow, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
 import EditorTopBar from "./EditorTopBar";
+import HiddenContentBar from "./HiddenContentBar";
 import RailStrip from "./RailStrip";
 import RightRail from "./RightRail";
 import SectionEditor from "./SectionEditor";
@@ -34,7 +35,9 @@ import {
   type RightView,
 } from "./state/ui";
 import { usePdfStatus } from "./usePdfStatus";
+import { canvasThemeStyle } from "./themeEdit";
 import { useBuilderLayout } from "./useBuilderLayout";
+import { usePresentation } from "./usePresentation";
 
 /** A resume with nothing in it opens Add Section once (DESIGN 10.3). */
 function isEmptyDoc(doc: ResumeDocDTO["doc"]): boolean {
@@ -124,6 +127,16 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     };
   }, [resumeId, initialVersion]);
 
+  /* ── template + theme (R2.4): optimistic, saved by PATCH, the autosave held around each ─── */
+  const caps = useMemo(() => resolveCapabilities(state.templateId, config.templates.overrides), [state.templateId, config.templates.overrides]);
+  // A saved template / theme changes the render, so the server re-queues the PDF just like after a content save (R3.7 x R2.4).
+  const [presentationSavedAt, setPresentationSavedAt] = useState<number | null>(null);
+  const presentationDispatch = useCallback((a: Parameters<typeof dispatch>[0]) => {
+    if (a.type === "presentation/version") setPresentationSavedAt(Date.now());
+    dispatch(a);
+  }, []);
+  const presentation = usePresentation({ resumeId, autosave, templateId: state.templateId, theme: state.theme, doc, config, dispatch: presentationDispatch });
+
   // Every change of the document tells the controller; it debounces and serialises.
   useEffect(() => {
     autosave.current?.schedule({ doc, rev: state.rev });
@@ -160,7 +173,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   }, [resumeId]);
 
   // The stored PDF's state for the top bar: "PDF updating…" after a save, "couldn't be made · Retry" on failure.
-  const { pdf, retry: retryPdf, refresh: refreshPdf } = usePdfStatus(resumeId, initial.pdf, state.savedAt);
+  const { pdf, retry: retryPdf, refresh: refreshPdf } = usePdfStatus(resumeId, initial.pdf, Math.max(state.savedAt ?? 0, presentationSavedAt ?? 0) || null);
 
   /* ── "Saved N minutes ago" stays honest ──────────────────────────────────────────────── */
   useEffect(() => {
@@ -319,6 +332,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
 
   /* ── exports: both need the SAVED document, so save first and refuse if that fails ───── */
   const savedFirst = async (what: string): Promise<boolean> => {
+    await presentation.flush(); // a theme still in its 500 ms debounce is part of "what's saved"
     await autosave.current?.flush();
     if ((autosave.current?.savedRev ?? 0) < latestRev.current) {
       toast({ title: `Couldn't ${what} yet`, description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
@@ -373,6 +387,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
 
   /* ✕: save what can be saved, then leave; the unsaved guard asks only when something is still not saved. */
   const closeEditor = async () => {
+    await presentation.flush();
     await autosave.current?.flush();
     const stillUnsaved = (autosave.current?.savedRev ?? 0) < latestRev.current || conflicted.current;
     if (stillUnsaved && !window.confirm("Your latest changes aren't saved. Leave anyway?")) return;
@@ -412,7 +427,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         />
       )}
       {shownPanel === "add" && <AddSectionPanel focusKind={addFocusKind} />}
-      {shownPanel === "template" && <PickTemplatePanel />}
+      {shownPanel === "template" && (
+        <PickTemplatePanel doc={doc} templateId={state.templateId} theme={state.theme} config={config} controls={presentation} disabled={state.phase === "conflict"} />
+      )}
       {shownPanel === "swap" && <SwapSectionPanel />}
       {shownPanel === "tailor" && <TailorPanel />}
     </>
@@ -509,8 +526,13 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               className="sticky top-0 z-10 rounded-2xl border shadow-v2-soft"
             />
 
-            {/* Placeholder blocks (the R0 section editors) until the document canvas, R2.1. */}
-            <div className="flex flex-col gap-8 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-6">
+            <HiddenContentBar doc={doc} theme={state.theme} caps={caps} />
+
+            {/* Placeholder blocks (the R0 section editors) until the document canvas, R2.1; they follow the accent / font the template allows. */}
+            <div
+              style={canvasThemeStyle(state.theme, caps)}
+              className="flex flex-col gap-8 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-6 [&_h2]:text-[color:var(--rb-doc-accent)] [&_h2]:[font-family:var(--rb-doc-font-display)]! [&_p]:[font-family:var(--rb-doc-font-body)]"
+            >
               <section id={BASICS_BLOCK_ID} aria-label="Personal info" className="rb-block scroll-mt-20">
                 <h2 className="font-display text-[26px] font-extrabold tracking-tight text-ink">{doc.basics.name?.trim() || "Your name"}</h2>
                 {doc.basics.headline?.trim() && <p className="text-[15px] text-ink-soft">{doc.basics.headline}</p>}

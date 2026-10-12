@@ -249,7 +249,7 @@ const problem = (res, status, code, extra = {}) => json(res, status, { status, c
 function handleBuilder(req, res, path, method) {
   const isBuilder =
     path === "/api/profile/resumes/built" ||
-    /^\/api\/profile\/resumes\/\d+\/(doc(\/template)?|export-recorded)$/.test(path) ||
+    /^\/api\/profile\/resumes\/\d+\/(doc(\/template|\/theme)?|export-recorded)$/.test(path) ||
     /^\/api\/resumes\/\d+\/file$/.test(path) ||
     /^\/mock\/resumes\/\d+\/edit-elsewhere$/.test(path);
   if (!isBuilder) return false;
@@ -356,6 +356,27 @@ function handleBuilder(req, res, path, method) {
     withBody(req, (b) => {
       if (b.templateId !== "modern") return problem(res, 422, "DOC_INVALID", { path: "$.templateId", message: "unknown template" });
       d.templateId = b.templateId;
+      d.version += 1;
+      d.updatedAt = new Date().toISOString();
+      withEtag(res, 200, docDto(id), d.version);
+    });
+    return true;
+  }
+
+  // Customize Template (R2.4): bounded fields only, derived numbers dropped; no If-Match, bumps the version.
+  if (method === "PATCH" && path.endsWith("/doc/theme")) {
+    withBody(req, (b) => {
+      const t = b.theme;
+      const bad = (p, message) => problem(res, 422, "THEME_INVALID", { path: p, message });
+      if (!t || typeof t !== "object" || Array.isArray(t)) return bad("$.theme", "must be an object");
+      const oneOf = (k, allowed) => t[k] == null || allowed.includes(t[k]);
+      if (t.accent != null && !(typeof t.accent === "string" && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(t.accent))) return bad("$.theme.accent", "must be a #rgb or #rrggbb colour");
+      if (!oneOf("fontPair", ["inter", "source-serif", "georgia-arial"])) return bad("$.theme.fontPair", "unknown font pair");
+      if (!oneOf("spacing", ["compact", "normal", "spacious"])) return bad("$.theme.spacing", "unknown spacing");
+      if (t.fit != null && (typeof t.fit !== "object" || ![undefined, null, 1, 2].includes(t.fit.target))) return bad("$.theme.fit.target", "must be 1 or 2");
+      const stored = { ...t };
+      for (const derived of ["size", "density", "margin"]) delete stored[derived];
+      d.theme = stored;
       d.version += 1;
       d.updatedAt = new Date().toISOString();
       withEtag(res, 200, docDto(id), d.version);

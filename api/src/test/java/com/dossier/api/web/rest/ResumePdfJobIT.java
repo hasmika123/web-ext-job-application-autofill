@@ -200,6 +200,25 @@ class ResumePdfJobIT {
     }
 
     @Test
+    void aThemeChangeChangesTheRenderSoItQueuesThePdfWithTheSettleDelay() throws Exception {
+        Long id = createBuilt("Theme");
+        String before = renderHash(id);
+        docRepo.markReady(id, row(id).getDocVersion(), before, Instant.now());
+        assertThat(row(id).getPdfStatus()).isEqualTo("READY");
+
+        Instant t0 = Instant.now();
+        mockMvc
+            .perform(patch("/api/profile/resumes/" + id + "/doc/theme").contentType(MediaType.APPLICATION_JSON).content("{\"theme\":{\"spacing\":\"spacious\"}}"))
+            .andExpect(status().isOk());
+        ResumeDoc d = row(id);
+        assertThat(renderHash(id)).isNotEqualTo(before);
+        assertThat(d.getPdfStatus()).isEqualTo("PENDING");
+        // a theme save settles like a content save (default resume.pdf.settleMs = 15 s), unlike a template switch
+        assertThat(d.getPdfNextAttemptAt()).isAfter(t0.plus(Duration.ofSeconds(10)));
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(jsonPath("$.pdf.status").value("PENDING"));
+    }
+
+    @Test
     void anEditThatIsUndoneLeavesTheStoredPdfCurrent() throws Exception {
         Long id = createBuilt("Undo");
         JsonNode original = getDoc(id);

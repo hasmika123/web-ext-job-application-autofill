@@ -157,6 +157,43 @@ export async function getDoc(resumeId: number): Promise<FetchDocResult> {
   }
 }
 
+/** What a `PATCH …/doc/template` or `…/doc/theme` answered: the new version, or why not. */
+export type PatchResult =
+  /** `version` = the response's ETag (the `If-Match` of the next content save). */
+  | { kind: "ok"; version: number }
+  /** 422: the value was refused (unknown/disabled template, theme out of bounds). */
+  | { kind: "invalid"; message: string }
+  | { kind: "error"; message: string };
+
+async function patchPresentation(path: string, body: unknown): Promise<PatchResult> {
+  let res: Response;
+  try {
+    res = await fetch(path, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  } catch {
+    return { kind: "error", message: "Couldn't reach the server." };
+  }
+  if (res.ok) {
+    const dto = await readJson<ResumeDocDTO>(res);
+    const version = parseEtag(res.headers.get("etag")) ?? dto?.docVersion;
+    return typeof version === "number" ? { kind: "ok", version } : { kind: "error", message: "The server's answer was incomplete." };
+  }
+  const p = (await readJson<Problem>(res)) ?? {};
+  if (res.status === 422) return { kind: "invalid", message: p.message && p.message !== "error.resumeDoc" ? p.message : (p.detail ?? "That isn't allowed.") };
+  if (res.status === 401) return { kind: "error", message: "Your session expired — please sign in again." };
+  if (res.status === 404) return { kind: "error", message: "That resume is no longer there." };
+  return { kind: "error", message: p.error ?? "Couldn't save that change." };
+}
+
+/** `PATCH /api/resumes/:id/doc/template` (never touches the content; bumps the version). Never throws. */
+export function patchTemplate(resumeId: number, templateId: string): Promise<PatchResult> {
+  return patchPresentation(`/api/resumes/${resumeId}/doc/template`, { templateId });
+}
+
+/** `PATCH /api/resumes/:id/doc/theme` (Customize Template; never touches the content; bumps the version). Never throws. */
+export function patchTheme(resumeId: number, theme: Partial<ResumeTheme>): Promise<PatchResult> {
+  return patchPresentation(`/api/resumes/${resumeId}/doc/theme`, { theme });
+}
+
 export type CreateBuiltResult =
   | { kind: "ok"; id: number }
   /** 402 RESUME_LIMIT: the plan's resume cap. `plan` says which copy to show. */
