@@ -36,7 +36,7 @@ import {
   type SetupPath,
   type SetupState,
 } from "@/lib/profile-setup/state";
-import type { IdentityKey } from "@/lib/profile-setup/draft";
+import type { BioLimits, IdentityKey } from "@/lib/profile-setup/draft";
 import { sensitiveMessage, type DraftLimits } from "../itemSchema";
 import FinishStep, { type FinishResult } from "./FinishStep";
 import IdentityStep from "./IdentityStep";
@@ -79,6 +79,10 @@ export default function ProfileSetup({
   const questions = useMemo(() => unansweredQuestions(bio), [bio]);
   const steps = stepsFor(state, questions.length > 0);
   const limits: DraftLimits = { bullets: config.limits.bullets, bulletChars: config.limits.bulletChars };
+  const bioLimits: BioLimits = useMemo(
+    () => ({ valueChars: config.profile.bioValueMaxChars, summaryChars: config.profile.bioSummaryMaxChars }),
+    [config.profile.bioValueMaxChars, config.profile.bioSummaryMaxChars],
+  );
 
   // Offer a draft left in this tab. Read after mount so the server and first client render agree.
   useEffect(() => {
@@ -133,7 +137,7 @@ export default function ProfileSetup({
     setSaving(true);
     setError(null);
     try {
-      const plan = planIdentity(state.identity, parsed?.parsedIdentity ?? {}, bio);
+      const plan = planIdentity(state.identity, parsed?.parsedIdentity ?? {}, bio, bioLimits);
       const items = [...keptItems(parsed?.candidates ?? [], state.decisions, state.edits), ...skillItems(state.skills), ...languageItems(state.languages)];
       let added = 0;
       if (!state.imported) {
@@ -167,7 +171,7 @@ export default function ProfileSetup({
     } finally {
       setSaving(false);
     }
-  }, [state, parsed, bio, config.profile.maxImportItems]);
+  }, [state, parsed, bio, config.profile.maxImportItems, bioLimits]);
 
   const lastDataStep = steps[steps.length - 2];
   const onLast = state.step === lastDataStep;
@@ -231,8 +235,8 @@ export default function ProfileSetup({
       <section aria-label={STEP_LABELS[state.step]} className={CARD}>
         {state.step === "path" && <PathPicker onPick={pick} />}
 
-        {state.step === "input" && state.path === "upload" && <UploadStep onParsed={onParsed} onBack={() => go("path")} />}
-        {state.step === "input" && state.path === "paste" && <PasteStep onParsed={onParsed} onBack={() => go("path")} />}
+        {state.step === "input" && state.path === "upload" && <UploadStep onParsed={onParsed} onBack={() => go("path")} maxBytes={config.profile.uploadMaxBytes} bioLimits={bioLimits} />}
+        {state.step === "input" && state.path === "paste" && <PasteStep onParsed={onParsed} onBack={() => go("path")} bioLimits={bioLimits} />}
 
         {state.step === "cards" && parsed && (
           <>

@@ -548,6 +548,19 @@ class ProfileItemResourceIT {
     }
 
     @Test
+    void theBioValueCapsComeFromTheSettings() throws Exception {
+        setting(ResumeBuilderSettingKeys.PROFILE_BIO_VALUE_MAX_CHARS, "50");
+        setting(ResumeBuilderSettingKeys.PROFILE_BIO_SUMMARY_MAX_CHARS, "200");
+        importItems("{\"items\":[],\"bio\":{\"headline\":\"" + "x".repeat(50) + "\",\"summary\":\"" + "y".repeat(200) + "\"}}").andExpect(status().isOk());
+        importItems("{\"items\":[],\"bio\":{\"headline\":\"" + "x".repeat(51) + "\"}}")
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.path").value("bio.headline"));
+        importItems("{\"items\":[],\"bio\":{\"summary\":\"" + "y".repeat(201) + "\"}}")
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.path").value("bio.summary"));
+    }
+
+    @Test
     void importLimits() throws Exception {
         StringBuilder sb = new StringBuilder("{\"items\":[");
         for (int i = 0; i < 201; i++) sb.append(i == 0 ? "" : ",").append("{\"section\":\"CUSTOM\",\"dataJson\":{\"title\":\"t").append(i).append("\"}}");

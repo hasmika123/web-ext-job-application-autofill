@@ -2247,6 +2247,9 @@ B1.2's `has(login, "builder.ai")`.
 | `resume.theme.accentPalette` | JSON string[] | the 6 hexes | 3–12 `#rrggbb` | §4 |
 | `resume.doc.limits.sections` / `.items` / `.bullets` / `.bulletChars` / `.summaryChars` / `.marks` / `.docBytes` | INT | 20 / 40 / 12 / 600 / 2000 / 64 / 262144 | 5–50 / 5–100 / 3–30 / 100–2000 / 200–5000 / 0–200 / 64 K–1 M | §3.1, reducer |
 | `profile.item.maxBytes` / `profile.items.maxPerUser` / `profile.import.maxItems` | INT | 16384 / 500 / 200 | 1 K–64 K / 50–5000 / 10–1000 | R1.1 Common Profile items (bytes per item / live items per user / items per import) |
+| `profile.bio.valueMaxChars` / `.summaryMaxChars` | INT | 500 / 2000 | 50–2000 / 200–10000 | R1.1 / R1.4 characters per identity or contact value, and for the summary, a profile import writes |
+| `profile.setup.promptBelowPercent` | INT | 40 | 0–100 | R1.4 the dashboard "Build your profile" card shows while completeness is under this percent (0 hides it) |
+| `profile.upload.maxBytes` | INT | 10485760 | 1 M–10 M (the multipart transport limit) | R1.4 resume file upload cap, read by the setup wizard, the web upload route and the file endpoint |
 | `resume.versions.coalesceMinutes` / `.retentionAuto` | INT | 10 / 30 | 1–120 / 5–200 | §8.2 |
 | `resume.photo.maxBytes` / `.discouragedRegions` | INT / JSON | 5242880 / ["US","CA","GB","AU","IE","NZ"] | 1 M–10 M | §5 |
 | `resume.score.rulesetVersion` | ENUM | "v1" | v1 | §11 |

@@ -8,7 +8,7 @@
  */
 import { heuristicStructure } from "@/lib/parser-core";
 import { parseResume, parseResumeWithAi, parseText, parseTextWithAi, type ParsedResume } from "@/lib/resume-parse";
-import { toDraft, type ParsedDraft } from "./draft";
+import { toDraft, type BioLimits, type ParsedDraft } from "./draft";
 import { redactForParsing } from "./sensitive";
 
 export interface SetupParse {
@@ -24,17 +24,17 @@ export class NothingFoundError extends Error {}
 const NOTHING_FOUND = "We couldn't find work history, education or skills in that. Try pasting the text of your resume instead.";
 const GARBLED = "We couldn't read the text in that PDF - it may be a scan. Paste the text of your resume instead, or upload a DOCX or TXT version.";
 
-function finish(parsed: ParsedResume, redacted: number): SetupParse {
+function finish(parsed: ParsedResume, redacted: number, bioLimits: BioLimits): SetupParse {
   // Skill-looking terms the heuristic parser finds that an AI parse left out: offered as one-tap adds.
   const extras = parsed.source === "ai" && parsed.rawText ? heuristicStructure(parsed.rawText).skills : [];
-  const draft = toDraft(parsed.structured, parsed.bio, extras);
+  const draft = toDraft(parsed.structured, parsed.bio, extras, bioLimits);
   const found = draft.candidates.length > 0 || draft.skills.length > 0 || draft.languages.length > 0;
   if (!found) throw new NothingFoundError(parsed.garbled ? GARBLED : NOTHING_FOUND);
   return { draft, source: parsed.source ?? "heuristic", removed: redacted + draft.removed };
 }
 
 /** An uploaded PDF / DOCX / TXT. `ai` is the user's AI-parsing choice (on by default). */
-export async function parseFileForSetup(file: File, ai: boolean): Promise<SetupParse> {
+export async function parseFileForSetup(file: File, ai: boolean, bioLimits: BioLimits): Promise<SetupParse> {
   let redacted = 0;
   const prepareText = (raw: string) => {
     const r = redactForParsing(raw);
@@ -42,12 +42,12 @@ export async function parseFileForSetup(file: File, ai: boolean): Promise<SetupP
     return r.text;
   };
   const parsed = ai ? await parseResumeWithAi(file, { prepareText, textOnly: true }) : await parseResume(file, { prepareText });
-  return finish(parsed, redacted);
+  return finish(parsed, redacted, bioLimits);
 }
 
 /** Pasted text. */
-export async function parseTextForSetup(text: string, ai: boolean): Promise<SetupParse> {
+export async function parseTextForSetup(text: string, ai: boolean, bioLimits: BioLimits): Promise<SetupParse> {
   const r = redactForParsing(text);
   const parsed = ai ? await parseTextWithAi(r.text) : parseText(r.text);
-  return finish(parsed, r.removed);
+  return finish(parsed, r.removed, bioLimits);
 }

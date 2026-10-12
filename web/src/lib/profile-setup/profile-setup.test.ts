@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ParsedBio, StructuredResume } from "@kiwiply/ui";
-import { MAX_SKILL_CHARS, toDraft, toIsoDate } from "./draft";
+import { MAX_SKILL_CHARS, toDraft, toIsoDate, type BioLimits } from "./draft";
 import {
   buildImportBody,
   identityConflicts,
@@ -12,6 +12,9 @@ import {
 } from "./import";
 import { cleanParsedString, redactForParsing, removedNotice, stripMarker } from "./sensitive";
 import { DRAFT_KEY, INITIAL_STATE, clearDraft, keptCounts, loadDraft, nextStep, prevStep, reducer, saveDraft, stepsFor } from "./state";
+
+/** The bio caps `config.profile` carries (the API defaults). */
+const BIO: BioLimits = { valueChars: 500, summaryChars: 2000 };
 
 const structured: StructuredResume = {
   summary: "Engineer who ships.",
@@ -51,7 +54,7 @@ describe("toIsoDate", () => {
 });
 
 describe("toDraft", () => {
-  const d = toDraft(structured, bio, ["Kubernetes", "react"]);
+  const d = toDraft(structured, bio, ["Kubernetes", "react"], BIO);
 
   it("makes one candidate per non-empty experience, education and project, in the API's item shape", () => {
     expect(d.candidates.map((c) => c.section)).toEqual(["EXPERIENCE", "EXPERIENCE", "EDUCATION", "PROJECT"]);
@@ -82,10 +85,21 @@ describe("toDraft", () => {
     expect(d.languages).toEqual([{ name: "English", level: "Native" }]);
   });
 
+  it("clips identity values and the summary to the configured bio limits, not to a fixed number", () => {
+    const long = toDraft({ ...structured, summary: "s".repeat(300) }, { ...bio, city: "h".repeat(90) }, [], { valueChars: 40, summaryChars: 120 });
+    expect(long.identity.summary).toHaveLength(120);
+    expect(long.identity.city).toHaveLength(40);
+    const plan = planIdentity({ city: "h".repeat(90), summary: "s".repeat(300) }, {}, {}, { valueChars: 40, summaryChars: 120 });
+    expect(plan.fromUser.city).toHaveLength(40);
+    expect(plan.fromUser.summary).toHaveLength(120);
+  });
+
   it("removes a never-collected value the parser put back and counts it", () => {
     const dirty = toDraft(
       { ...structured, experience: [{ ...structured.experience[0], bullets: ["Led payroll. SSN: 123-45-6789", "Fine bullet"] }] },
       bio,
+      [],
+      BIO,
     );
     const texts = (dirty.candidates[0].data.bullets as { text: string }[]).map((b) => b.text);
     expect(texts.join(" ")).not.toContain("123-45-6789");
@@ -119,7 +133,7 @@ describe("sensitive values in the text", () => {
 });
 
 describe("import payload", () => {
-  const cands = toDraft(structured, bio).candidates;
+  const cands = toDraft(structured, bio, [], BIO).candidates;
 
   it("sends only kept entries, edits applied, edited ones as the user's own", () => {
     const decisions = { [cands[0].id]: "keep", [cands[1].id]: "skip", [cands[2].id]: "keep" } as const;
@@ -167,7 +181,7 @@ describe("identity: never overwrite what the profile has without asking", () => 
   });
   it("leaves an untouched value out of the write, imports resume values, routes typed values through the PUT", () => {
     const values = { firstName: "Janet", lastName: "Doe", email: "jane@new.com", city: "Hamburg" };
-    const plan = planIdentity(values, parsed, existing);
+    const plan = planIdentity(values, parsed, existing, BIO);
     expect(plan.fromResume).toEqual({ lastName: "Doe", email: "jane@new.com" }); // chose the resume's email
     expect(plan.fromUser).toEqual({ city: "Hamburg" }); // typed over the resume's
     expect(Object.keys({ ...plan.fromResume, ...plan.fromUser })).not.toContain("firstName"); // kept theirs, unchanged
@@ -175,7 +189,7 @@ describe("identity: never overwrite what the profile has without asking", () => 
 });
 
 describe("reducer and steps", () => {
-  const draft = toDraft(structured, bio);
+  const draft = toDraft(structured, bio, [], BIO);
   const parsedState = reducer(INITIAL_STATE, { type: "parsed", draft, source: "ai", removed: 2, existing: {} });
 
   it("parsing lands on the review, or on skills when there are no cards", () => {
@@ -214,7 +228,7 @@ describe("abandon-safe draft", () => {
     const m = new Map<string, string>();
     return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), m };
   };
-  const parsedState = reducer(INITIAL_STATE, { type: "parsed", draft: toDraft(structured, bio), source: "ai", removed: 0, existing: {} });
+  const parsedState = reducer(INITIAL_STATE, { type: "parsed", draft: toDraft(structured, bio, [], BIO), source: "ai", removed: 0, existing: {} });
 
   it("round-trips a state worth resuming and holds only parsed content", () => {
     const s = store();

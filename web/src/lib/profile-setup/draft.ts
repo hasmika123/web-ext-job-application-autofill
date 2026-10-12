@@ -47,9 +47,14 @@ export const MAX_SKILL_CHARS = 60;
 /** Skills per SKILL item (ProfileSeed.SKILLS_PER_ROW). */
 export const SKILLS_PER_ROW = 40;
 export const SKILL_GROUP = "Skills";
-/** Longest bio value an import writes; the summary is the one long one (ProfileItemService). */
-export const MAX_BIO_VALUE = 500;
-export const MAX_BIO_SUMMARY = 2000;
+/**
+ * Longest bio value an import writes, and the summary (the one long one): the admin settings
+ * `profile.bio.valueMaxChars` / `profile.bio.summaryMaxChars` as `config.profile` carries them.
+ */
+export interface BioLimits {
+  valueChars: number;
+  summaryChars: number;
+}
 
 // ---- dates (ProfileSeed.date) ------------------------------------------------------------------
 
@@ -105,7 +110,7 @@ function put(d: ItemData, key: string, value: string): boolean {
   return true;
 }
 
-export function toDraft(structured: StructuredResume, bio: ParsedBio, suggestions: string[] = []): ParsedDraft {
+export function toDraft(structured: StructuredResume, bio: ParsedBio, suggestions: string[] = [], bioLimits: BioLimits): ParsedDraft {
   const c: Counter = { removed: 0 };
   const candidates: Candidate[] = [];
   const next = (section: CandidateSection) => `${section.slice(0, 3).toLowerCase()}${candidates.filter((x) => x.section === section).length}`;
@@ -168,10 +173,10 @@ export function toDraft(structured: StructuredResume, bio: ParsedBio, suggestion
   const identity: Identity = {};
   for (const k of IDENTITY_KEYS) {
     if (k === "summary") continue;
-    const v = clean(k, (bio as Record<string, unknown>)[k], c, MAX_BIO_VALUE);
+    const v = clean(k, (bio as Record<string, unknown>)[k], c, bioLimits.valueChars);
     if (v) identity[k] = v;
   }
-  const summary = clean("summary", structured.summary, c, MAX_BIO_SUMMARY);
+  const summary = clean("summary", structured.summary, c, bioLimits.summaryChars);
   if (summary) identity.summary = summary;
 
   return { candidates, skills, suggestions: extra, languages, identity, removed: c.removed };

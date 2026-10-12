@@ -9,11 +9,10 @@ import type { ItemData, Provenance } from "@/lib/profile-items";
 import { ItemApiError } from "@/lib/profile-items";
 import {
   IDENTITY_KEYS,
-  MAX_BIO_SUMMARY,
-  MAX_BIO_VALUE,
   MAX_SKILL_CHARS,
   SKILLS_PER_ROW,
   SKILL_GROUP,
+  type BioLimits,
   type Candidate,
   type Identity,
   type IdentityKey,
@@ -75,7 +74,7 @@ export interface IdentityPlan {
  * profile's own, or the resume's) never overwrites anything unasked: `existing` values stay unless the
  * user chose the resume's value in the card.
  */
-export function planIdentity(values: Identity, parsed: Identity, existing: Record<string, unknown>): IdentityPlan {
+export function planIdentity(values: Identity, parsed: Identity, existing: Record<string, unknown>, bioLimits: BioLimits): IdentityPlan {
   const fromResume: Record<string, string> = {};
   const fromUser: Record<string, string> = {};
   for (const k of IDENTITY_KEYS) {
@@ -83,7 +82,7 @@ export function planIdentity(values: Identity, parsed: Identity, existing: Recor
     if (!v) continue;
     const had = typeof existing[k] === "string" ? (existing[k] as string).trim() : "";
     if (v === had) continue; // unchanged: nothing to write
-    const cap = k === "summary" ? MAX_BIO_SUMMARY : MAX_BIO_VALUE;
+    const cap = k === "summary" ? bioLimits.summaryChars : bioLimits.valueChars;
     const value = Array.from(v).slice(0, cap).join("");
     if (v === (parsed[k] ?? "").trim()) fromResume[k] = value;
     else fromUser[k] = value;

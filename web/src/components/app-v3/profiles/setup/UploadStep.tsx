@@ -3,11 +3,10 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { Button, Spinner, UploadIcon, cn } from "@kiwiply/ui";
 import { getAiParseConsent } from "@/lib/ai-parse-consent";
+import { formatBytesCap } from "@/lib/format-bytes";
+import type { BioLimits } from "@/lib/profile-setup/draft";
 import { parseFileForSetup, type SetupParse } from "@/lib/profile-setup/parse";
 import ParseConsent from "./ParseConsent";
-
-/** A resume file bigger than this is refused before any parsing (the resumes page uploads at most the same). */
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 /**
  * Upload step: drop or pick a PDF / DOCX / TXT. The text is read in the browser, stripped of
@@ -17,12 +16,18 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export default function UploadStep({
   onParsed,
   onBack,
+  maxBytes,
+  bioLimits,
   parse = parseFileForSetup,
 }: {
   onParsed: (result: SetupParse) => void;
   onBack?: () => void;
+  /** A file bigger than this is refused before any parsing: `config.profile.uploadMaxBytes` (`profile.upload.maxBytes`). */
+  maxBytes: number;
+  /** `config.profile` bio caps the draft is clipped to. */
+  bioLimits: BioLimits;
   /** Test seam; defaults to the real pipeline. */
-  parse?: (file: File, ai: boolean) => Promise<SetupParse>;
+  parse?: (file: File, ai: boolean, bioLimits: BioLimits) => Promise<SetupParse>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -31,13 +36,13 @@ export default function UploadStep({
 
   async function handle(file: File) {
     setError(null);
-    if (file.size > MAX_FILE_BYTES) {
-      setError("That file is too large. Keep it under 10 MB, or paste the text instead.");
+    if (file.size > maxBytes) {
+      setError(`That file is too large. Keep it under ${formatBytesCap(maxBytes)}, or paste the text instead.`);
       return;
     }
     setBusy(true);
     try {
-      onParsed(await parse(file, getAiParseConsent()));
+      onParsed(await parse(file, getAiParseConsent(), bioLimits));
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "We couldn't read that file. Try another, or paste the text instead.");
       setBusy(false);
