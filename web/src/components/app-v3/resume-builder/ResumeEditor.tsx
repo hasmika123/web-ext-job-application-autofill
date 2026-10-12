@@ -303,6 +303,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     uiDispatch({ type: "phone/tab", tab });
   };
 
+  const clearAddFocus = useCallback(() => setAddFocusKind(null), []);
   const openAddFor = useCallback(
     (kind: ResumeSectionKind | null) => {
       setAddFocusKind(kind);
@@ -451,7 +452,19 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
           onChange={(v) => openPanel(v as LeftPanel)}
         />
       )}
-      {shownPanel === "add" && <AddSectionPanel focusKind={addFocusKind} />}
+      {shownPanel === "add" && (
+        <AddSectionPanel
+          doc={doc}
+          caps={caps}
+          limits={state.limits}
+          dispatch={dispatch}
+          focusKind={addFocusKind}
+          open={leftOpen}
+          onFocusHandled={clearAddFocus}
+          // The sheet covers the document (overlay / fullscreen): close it so the new section shows.
+          onAdded={layout.leftMode === "push" ? undefined : closeLeft}
+        />
+      )}
       {shownPanel === "template" && (
         <PickTemplatePanel doc={doc} templateId={state.templateId} theme={state.theme} config={config} controls={presentation} disabled={state.phase === "conflict"} />
       )}
