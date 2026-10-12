@@ -87,23 +87,34 @@ describe("ui state: layout per breakpoint (DESIGN 10.1)", () => {
     expect(computeLayout(900, true)).toMatchObject({ leftMode: "overlay", rightMode: "overlay", viewport: "tablet" });
   });
 
-  it("pushes only while the centre keeps 560 px (rail 360 + left 400 -> needs 1320)", () => {
-    expect(computeLayout(1319, true).leftMode).toBe("overlay");
-    expect(computeLayout(1320, true).leftMode).toBe("push");
+  it("pushes with the full rail while the centre keeps 560 px (rail 360 + left 400 -> needs 1320)", () => {
+    expect(computeLayout(1320, true)).toMatchObject({ leftMode: "push", railCollapsed: false });
+    expect(computeLayout(1440, true)).toMatchObject({ leftMode: "push", railCollapsed: false });
     // desktop: the right sheet always overlays the rail
     expect(computeLayout(1100, false).rightMode).toBe("overlay");
   });
 
+  it("rail collapse (#28): below 1320 the open left sheet collapses the rail to the 56 px strip and still pushes", () => {
+    expect(computeLayout(1319, true)).toMatchObject({ leftMode: "push", railCollapsed: true });
+    expect(computeLayout(1280, true)).toMatchObject({ leftMode: "push", railCollapsed: true });
+    // 1024 - 56 - 400 = 568 >= 560: the narrowest desktop still pushes
+    expect(computeLayout(1024, true)).toMatchObject({ leftMode: "push", railCollapsed: true });
+    // closed: the full rail stays, whatever the width
+    expect(computeLayout(1280, false).railCollapsed).toBe(false);
+    // below 1024 there is no rail beside the document at all: sheets overlay
+    expect(computeLayout(1023, true)).toMatchObject({ leftMode: "overlay", railCollapsed: false });
+  });
+
   it("wide: both push only when 360 + 400 + 520 + 560 fit (1840), else the right overlays", () => {
     expect(computeLayout(1840, true)).toMatchObject({ leftMode: "push", rightMode: "push" });
-    expect(computeLayout(1839, true)).toMatchObject({ leftMode: "push", rightMode: "overlay" });
+    expect(computeLayout(1839, true)).toMatchObject({ leftMode: "push", rightMode: "overlay", railCollapsed: false });
     // with the left closed the right needs only 360 + 520 + 560
     expect(computeLayout(1440, false).rightMode).toBe("push");
   });
 
   it("layout/set recomputes modes and ignores junk", () => {
     let s = at(1100);
-    expect(s.layout).toMatchObject({ viewport: "desktop", leftMode: "overlay", width: 1100 });
+    expect(s.layout).toMatchObject({ viewport: "desktop", leftMode: "push", width: 1100 });
     expect(run(s, { type: "layout/set", width: 1100 })).toBe(s);
     expect(run(s, { type: "layout/set", width: Number.NaN })).toBe(s);
     s = at(390, s);
@@ -111,9 +122,33 @@ describe("ui state: layout per breakpoint (DESIGN 10.1)", () => {
   });
 });
 
-describe("ui state: newest wins when space runs out", () => {
-  it("at 1100 px both sheets would overlay, so opening the right view closes the left panel", () => {
+describe("ui state: rail collapse", () => {
+  it("opening the left panel at 1280 collapses the rail; closing re-expands it", () => {
+    let s = at(1280);
+    expect(s.layout.railCollapsed).toBe(false);
+    s = run(s, { type: "panel/toggle", panel: "swap" });
+    expect(s.layout).toMatchObject({ leftMode: "push", railCollapsed: true });
+    s = run(s, { type: "panel/toggle", panel: "swap" });
+    expect(s.layout.railCollapsed).toBe(false);
+  });
+
+  it("rail/expand (a strip icon) closes the left panel and shows that rail tab", () => {
+    let s = at(1280);
+    s = run(s, { type: "panel/toggle", panel: "add" }, { type: "rail/expand", tab: "match" });
+    expect([s.leftPanel, s.railTab, s.layout.railCollapsed]).toEqual([null, "match", false]);
+  });
+
+  it("a pushed left panel and the right view overlay coexist at 1100 px", () => {
     let s = at(1100);
+    s = run(s, { type: "panel/toggle", panel: "add" }, { type: "rightView/toggle", view: "print" });
+    expect([s.leftPanel, s.rightView]).toEqual(["add", "print"]);
+    expect(s.layout).toMatchObject({ leftMode: "push", rightMode: "overlay", railCollapsed: true });
+  });
+});
+
+describe("ui state: newest wins when space runs out", () => {
+  it("at 1000 px both sheets would overlay, so opening the right view closes the left panel", () => {
+    let s = at(1000);
     s = run(s, { type: "panel/toggle", panel: "add" });
     expect(s.leftPanel).toBe("add");
     s = run(s, { type: "rightView/toggle", view: "print" });

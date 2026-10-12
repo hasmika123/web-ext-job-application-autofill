@@ -8,6 +8,9 @@
  *  - one left panel and one right view at a time; pressing the open one again closes it;
  *  - a sheet PUSHES (reserves a grid track) only when the centre column keeps >= MIN_CENTRE px,
  *    otherwise it OVERLAYS (§10.1 "space-aware push"); phone is always fullscreen;
+ *  - RAIL COLLAPSE (DECISIONS #28, §10.1): on desktop >= 1024 the LEFT sheet first collapses the
+ *    right rail to a 56 px strip and pushes; only when even that does not fit does it overlay.
+ *    `layout.railCollapsed` is derived (never persisted) and re-expands when the sheet closes;
  *  - two MODAL sheets (overlay / fullscreen) never stay open together: the newest wins and the older
  *    closes. A push + an overlay is fine.
  * `leftPanel` and `railTab` are remembered in `localStorage["rb.ui.v1"]` (never a URL parameter).
@@ -28,6 +31,8 @@ export interface BuilderLayout {
   viewport: Viewport;
   /** The measured grid width the modes were computed from (px). */
   width: number;
+  /** The right rail shows as the 56 px icon strip because the left sheet is open and pushing (derived). */
+  railCollapsed: boolean;
 }
 
 export interface UiState {
@@ -48,6 +53,8 @@ export type UiAction =
   | { type: "rightView/toggle"; view: RightView }
   | { type: "rightView/close" }
   | { type: "rail/tab"; tab: RailTab }
+  /** A rail-strip icon: show the rail on `tab`, which closes the left sheet that collapsed it. */
+  | { type: "rail/expand"; tab: RailTab }
   | { type: "layout/set"; width: number }
   | { type: "section/active"; id: string | null }
   | { type: "phone/tab"; tab: PhoneTab }
@@ -61,6 +68,8 @@ export const DESKTOP_MAX = 1280; // 1024-1279   desktop: left may push, right ov
 export const LEFT_SHEET_WIDTH = 400;
 export const RIGHT_SHEET_WIDTH = 520;
 export const RAIL_WIDTH = 360;
+/** The collapsed rail (RailStrip): icon buttons with 44 px hit areas. */
+export const RAIL_STRIP_WIDTH = 56;
 export const MIN_CENTRE = 560;
 
 export function viewportFor(width: number): Viewport {
@@ -71,21 +80,30 @@ export function viewportFor(width: number): Viewport {
 }
 
 /**
- * The mode each sheet has (or would have) at `width`. The left sheet is judged on its own; the right
- * sheet then accounts for a left sheet that is open and pushing.
+ * The mode each sheet has (or would have) at `width`. The left sheet is judged on its own (full rail
+ * first, then the collapsed 56 px strip: rail collapse, DECISIONS #28); the right sheet then accounts
+ * for a left sheet that is open and pushing. `railCollapsed` is true only while the left sheet is
+ * open, pushing, and would not leave the centre MIN_CENTRE px next to the full rail.
  */
 export function computeLayout(width: number, leftOpen: boolean): BuilderLayout {
   const viewport = viewportFor(width);
-  if (viewport === "phone") return { leftMode: "fullscreen", rightMode: "fullscreen", viewport, width };
-  if (viewport === "tablet") return { leftMode: "overlay", rightMode: "overlay", viewport, width };
+  if (viewport === "phone") {
+    return { leftMode: "fullscreen", rightMode: "fullscreen", viewport, width, railCollapsed: false };
+  }
+  if (viewport === "tablet") {
+    return { leftMode: "overlay", rightMode: "overlay", viewport, width, railCollapsed: false };
+  }
 
-  const leftMode: SheetMode = width - RAIL_WIDTH - LEFT_SHEET_WIDTH >= MIN_CENTRE ? "push" : "overlay";
-  if (viewport === "desktop") return { leftMode, rightMode: "overlay", viewport, width };
+  const fullRailFits = width - RAIL_WIDTH - LEFT_SHEET_WIDTH >= MIN_CENTRE;
+  const stripFits = width - RAIL_STRIP_WIDTH - LEFT_SHEET_WIDTH >= MIN_CENTRE;
+  const leftMode: SheetMode = fullRailFits || stripFits ? "push" : "overlay";
+  const railCollapsed = leftOpen && leftMode === "push" && !fullRailFits;
+  if (viewport === "desktop") return { leftMode, rightMode: "overlay", viewport, width, railCollapsed };
 
   const leftTaken = leftOpen && leftMode === "push" ? LEFT_SHEET_WIDTH : 0;
   const rightMode: SheetMode =
     width - RAIL_WIDTH - RIGHT_SHEET_WIDTH - leftTaken >= MIN_CENTRE ? "push" : "overlay";
-  return { leftMode, rightMode, viewport, width };
+  return { leftMode, rightMode, viewport, width, railCollapsed };
 }
 
 const DEFAULT_WIDTH = 1440;
@@ -124,6 +142,7 @@ function reconcile(state: UiState): UiState {
     layout.leftMode === state.layout.leftMode &&
     layout.rightMode === state.layout.rightMode &&
     layout.viewport === state.layout.viewport &&
+    layout.railCollapsed === state.layout.railCollapsed &&
     layout.width === state.layout.width;
   return same ? state : { ...state, leftPanel, rightView, newest, layout };
 }
@@ -144,6 +163,8 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       return state.rightView === null ? state : reconcile({ ...state, rightView: null });
     case "rail/tab":
       return state.railTab === action.tab ? state : { ...state, railTab: action.tab };
+    case "rail/expand":
+      return reconcile({ ...state, railTab: action.tab, leftPanel: null });
     case "layout/set": {
       const width = Number.isFinite(action.width) ? Math.max(0, Math.round(action.width)) : state.layout.width;
       if (width === state.layout.width) return state;

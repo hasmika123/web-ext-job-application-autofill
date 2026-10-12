@@ -3,7 +3,7 @@ import { getAccessToken } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import { rateLimit } from "@/lib/rate-limit";
 import { RESUME_ID, badId } from "@/lib/resume-doc-proxy";
-import { pdfFileName } from "@/lib/pdf-name";
+import { downloadFileName, pdfFileName } from "@/lib/pdf-name";
 import { PdfBusyError, PdfTimeoutError, PdfUnavailableError, exportResumePdf } from "@/lib/pdf";
 import { resumeContentHash } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme } from "@kiwiply/ui";
@@ -18,6 +18,60 @@ interface DocDto {
   templateId: string;
   contentHash: string | null;
   label: string;
+}
+
+/**
+ * GET /api/resumes/:id/export?format=txt  (DESIGN 14, R2.10): the document as plain text, proxied from
+ * Spring's `/doc/text` and served as a download. Reads only: no PDF, nothing stored or recorded.
+ * (`format=pdf&cached=1`, the stored-PDF read, arrives with R3.3.)
+ */
+export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  if (!RESUME_ID.test(id)) return badId();
+
+  const format = new URL(request.url).searchParams.get("format");
+  if (format !== "txt") {
+    return Response.json({ error: "Only format=txt is supported here.", code: "FORMAT_UNSUPPORTED" }, { status: 400 });
+  }
+
+  const token = await getAccessToken();
+  if (!token) return Response.json({ error: "You're not signed in." }, { status: 401 });
+
+  const limited = rateLimit(request, "resume-export-txt", 30, 60_000);
+  if (!limited.ok) {
+    return Response.json(
+      { error: "Too many downloads - try again in a moment.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "retry-after": String(limited.retryAfter) } },
+    );
+  }
+
+  let textRes: Response;
+  let docRes: Response;
+  try {
+    [textRes, docRes] = await Promise.all([
+      serverApiFetch(`/api/profile/resumes/${id}/doc/text`),
+      serverApiFetch(`/api/profile/resumes/${id}/doc`),
+    ]);
+  } catch {
+    return Response.json({ error: "Couldn't reach the server." }, { status: 502 });
+  }
+  if (!textRes.ok) {
+    return Response.json(
+      { error: textRes.status === 404 ? "That resume is no longer there." : "Couldn't load the resume." },
+      { status: textRes.status },
+    );
+  }
+  const label = docRes.ok ? ((await docRes.json().catch(() => null)) as { label?: string } | null)?.label : undefined;
+  const text = await textRes.text();
+  const fileName = downloadFileName(label, `resume-${id}`, "txt");
+  return new Response(text, {
+    status: 200,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "content-disposition": `attachment; filename="${fileName}"`,
+      "cache-control": "no-store",
+    },
+  });
 }
 
 /**

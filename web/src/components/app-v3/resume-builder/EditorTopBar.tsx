@@ -1,17 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeftIcon, Button, CheckIcon, DownloadIcon, IconButton, Spinner, RedoIcon, UndoIcon, cn } from "@kiwiply/ui";
+import type { RefObject } from "react";
+import {
+  Button,
+  CheckIcon,
+  ChevronDownIcon,
+  DownloadIcon,
+  FileTextIcon,
+  Menu,
+  Spinner,
+  XIcon,
+  buttonVariants,
+  cn,
+} from "@kiwiply/ui";
+import type { MenuEntry } from "@kiwiply/ui";
+import BrandLogo from "@/components/marketing/BrandLogo";
+import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
+import type { LeftPanel } from "./state/ui";
 import type { SaveStatus } from "./state/types";
 
-/** "just now" for the first minute, then whole minutes / hours. Pure, so it is testable. */
+/**
+ * "Saved just now" (< 45 s), then whole minutes and hours (DESIGN 10.2). `null` = nothing has been
+ * saved in this session and the server did not say when: the document is as loaded.
+ */
 export function savedAgo(savedAt: number | null, now: number): string {
   if (savedAt === null) return "All changes saved";
   const s = Math.max(0, Math.round((now - savedAt) / 1000));
-  if (s < 45) return "Saved · just now";
+  if (s < 45) return "Saved just now";
   const m = Math.round(s / 60);
-  if (m < 60) return `Saved · ${m} min ago`;
-  return `Saved · ${Math.round(m / 60)} h ago`;
+  if (m < 60) return `Saved ${m} ${m === 1 ? "minute" : "minutes"} ago`;
+  const h = Math.round(m / 60);
+  return `Saved ${h} ${h === 1 ? "hour" : "hours"} ago`;
 }
 
 export function statusLabel(status: SaveStatus, savedAt: number | null, now: number, error: string | null): string {
@@ -29,97 +49,166 @@ export function statusLabel(status: SaveStatus, savedAt: number | null, now: num
   }
 }
 
+const SOON = <span className="ml-2 text-[11px] font-medium text-muted">Coming soon</span>;
+
 /**
- * The editor's top bar: back to the list, the resume's name (it is the label shown everywhere),
- * the autosave status, undo / redo, and Export PDF.
+ * The editor's top bar, to the boards (DESIGN 10.2): kiwiply mark + wordmark, "Resume Builder", the
+ * save status, the four panel toggles (the open one is highlighted green), Save, Download ▾ and ✕.
+ * Panel buttons are toggles (`aria-pressed` / `aria-expanded` / `aria-controls="rb-left-sheet"`).
+ * On a phone only ✕, the title, the status and the download menu remain (the panels live in the
+ * bottom tab bar, DESIGN 10.9).
  */
 export default function EditorTopBar({
-  title,
-  onTitleChange,
-  onTitleBlur,
   status,
   savedAt,
   now,
   error,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onExport,
+  leftPanel,
+  onTogglePanel,
+  panelRefs,
+  showTailor = true,
+  onDownloadPdf,
+  onDownloadText,
   exporting = false,
   exportDisabled = false,
+  downloadRef,
+  onClose,
 }: {
-  title: string;
-  onTitleChange: (v: string) => void;
-  onTitleBlur: () => void;
   status: SaveStatus;
   savedAt: number | null;
   now: number;
   error: string | null;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
-  onExport?: () => void;
+  leftPanel: LeftPanel | null;
+  onTogglePanel: (panel: LeftPanel) => void;
+  panelRefs: Record<LeftPanel, RefObject<HTMLButtonElement | null>>;
+  /** `features.tailor` from the builder config. */
+  showTailor?: boolean;
+  onDownloadPdf: () => void;
+  onDownloadText: () => void;
   exporting?: boolean;
   exportDisabled?: boolean;
+  /** Wraps the Download menu so `Alt+D` can open it. */
+  downloadRef?: RefObject<HTMLSpanElement | null>;
+  onClose: () => void;
 }) {
   const bad = status === "retrying" || status === "conflict" || status === "error";
-  return (
-    <div className="sticky top-16 z-20 -mx-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/60 bg-paper/95 px-3.5 py-2 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6">
-      <Link
-        href="/resume-builder"
-        className="inline-flex min-h-11 items-center gap-1.5 text-[13px] font-semibold text-ink-soft hover:text-ink sm:min-h-9"
-      >
-        <ArrowLeftIcon className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">My resumes</span>
-        <span className="sm:hidden">Back</span>
-      </Link>
+  const busy = exporting || exportDisabled;
 
-      <label className="min-w-0 flex-1 basis-40">
-        <span className="sr-only">Resume name</span>
-        <input
-          value={title}
-          maxLength={200}
-          onChange={(e) => onTitleChange(e.target.value)}
-          onBlur={onTitleBlur}
-          placeholder="Untitled resume"
-          className="min-h-11 w-full min-w-0 truncate rounded-lg border border-transparent bg-transparent px-2 font-display text-[16px] font-bold text-ink outline-none hover:border-line focus:border-accent focus:bg-paper sm:min-h-9"
-        />
-      </label>
+  const downloadItems: MenuEntry[] = [
+    { label: <>Print layout{SOON}</>, icon: <FileTextIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
+    { label: <>PDF view{SOON}</>, icon: <FileTextIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
+    { separator: true },
+    { label: "Download PDF", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadPdf, disabled: busy },
+    { label: "Download plain text (.txt)", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadText, disabled: busy },
+    { label: <>Download DOCX{SOON}</>, icon: <DownloadIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
+  ];
+
+  return (
+    <header className="flex h-16 flex-none items-center gap-2 border-b border-line/60 bg-paper px-3 sm:gap-3 md:px-4">
+      <Link href="/dashboard" aria-label="Kiwiply" className="hidden flex-none lg:block">
+        <BrandLogo height={36} priority />
+      </Link>
+      <span aria-hidden className="hidden h-7 w-px flex-none bg-line lg:block" />
+      <h1 className="order-1 flex-none font-display text-[15px] font-bold text-ink md:order-none md:text-[17px]">Resume Builder</h1>
+      <span aria-hidden className="hidden h-7 w-px flex-none bg-line xl:block" />
 
       <p
         role="status"
         aria-live="polite"
         data-save-status={status}
-        className={cn("inline-flex min-w-0 items-center gap-1.5 text-[12.5px] font-medium", bad ? "text-danger" : "text-ink-soft")}
+        className={cn(
+          "order-2 inline-flex min-w-0 items-center gap-1.5 text-[12.5px] font-medium md:order-none",
+          bad ? "text-danger" : "text-muted",
+        )}
       >
-        {status === "saving" ? <Spinner role="presentation" aria-hidden className="h-3.5 w-3.5" /> : status === "saved" ? <CheckIcon className="h-3.5 w-3.5 text-ok" /> : null}
-        <span className="truncate">{statusLabel(status, savedAt, now, error)}</span>
+        {status === "saving" ? (
+          <Spinner role="presentation" aria-hidden className="h-4 w-4 flex-none" />
+        ) : status === "saved" ? (
+          <CheckIcon className="h-4 w-4 flex-none rounded-full bg-ok p-0.5 text-white" strokeWidth={3} />
+        ) : null}
+        <span className="truncate" suppressHydrationWarning>
+          {statusLabel(status, savedAt, now, error)}
+        </span>
       </p>
 
-      <div className="flex items-center gap-0.5">
-        <IconButton aria-label="Undo" title="Undo (Ctrl/⌘ Z)" disabled={!canUndo} onClick={onUndo} className="h-11 w-11 sm:h-8 sm:w-8">
-          <UndoIcon className="h-4 w-4" />
-        </IconButton>
-        <IconButton aria-label="Redo" title="Redo (Shift Ctrl/⌘ Z)" disabled={!canRedo} onClick={onRedo} className="h-11 w-11 sm:h-8 sm:w-8">
-          <RedoIcon className="h-4 w-4" />
-        </IconButton>
+      <div className="ml-auto flex flex-none items-center gap-2 max-md:order-3">
+        <div role="group" aria-label="Editor panels" className="hidden items-center gap-2 md:flex">
+          {PANEL_ORDER.filter((p) => p !== "tailor" || showTailor).map((p) => {
+            const meta = PANEL_META[p];
+            const active = leftPanel === p;
+            return (
+              <button
+                key={p}
+                ref={panelRefs[p]}
+                type="button"
+                aria-pressed={active}
+                aria-expanded={active}
+                aria-controls="rb-left-sheet"
+                aria-label={meta.title}
+                title={`${meta.title} (Alt+${meta.shortcut})`}
+                onClick={() => onTogglePanel(p)}
+                className={buttonVariants(
+                  active ? "accent" : "ghost",
+                  "sm",
+                  cn("min-h-11 gap-2 px-3 text-[14px]", active ? "border border-transparent" : "bg-paper"),
+                )}
+              >
+                <span aria-hidden className="flex">
+                  {meta.icon}
+                </span>
+                <span className="hidden min-[1420px]:inline">{meta.title}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Save: a stub until R3.3 wires checkpoints; until then it reflects autosave honestly. */}
+        <span className="hidden lg:inline-flex">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled
+            title="Your changes save automatically"
+            className="min-h-11 gap-2 bg-paper px-3 text-[14px]"
+          >
+            {status === "saved" && <CheckIcon className="h-4 w-4" />}
+            {status === "saved" ? "Saved" : "Save"}
+          </Button>
+        </span>
+
+        <span ref={downloadRef} className="inline-flex">
+          <Menu
+            align="end"
+            items={downloadItems}
+            trigger={
+              <Button
+                variant="accent"
+                size="sm"
+                aria-label="Download"
+                aria-busy={exporting}
+                title="Download (Alt+D)"
+                className="min-h-11 gap-2 px-3 text-[14px]"
+              >
+                {exporting ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : <DownloadIcon className="h-5 w-5" />}
+                <span className="hidden lg:inline">{exporting ? "Preparing…" : "Download"}</span>
+                <ChevronDownIcon className="h-4 w-4" />
+              </Button>
+            }
+          />
+        </span>
+
+        <span aria-hidden className="hidden h-7 w-px flex-none bg-line md:block" />
       </div>
 
-      {onExport && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onExport}
-          disabled={exporting || exportDisabled}
-          aria-busy={exporting}
-          className="min-h-11 sm:min-h-9"
-        >
-          {exporting ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
-          <span>{exporting ? "Making PDF…" : "Export PDF"}</span>
-        </Button>
-      )}
-    </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close editor"
+        title="Close"
+        className="order-first inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-line bg-paper text-ink transition-colors hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:order-none"
+      >
+        <XIcon className="h-5 w-5" />
+      </button>
+    </header>
   );
 }

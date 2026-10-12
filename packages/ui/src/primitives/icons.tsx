@@ -169,6 +169,12 @@ export const ArrowsUpDownIcon = makeIcon("ArrowsUpDownIcon", {
   node: <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />,
 });
 
+/** Two opposing horizontal arrows: "Swap Section" in the Resume Builder's top bar. */
+export const SwapIcon = makeIcon("SwapIcon", {
+  strokeWidth: 2,
+  node: <path d="M17 3l4 4-4 4M21 7H8M7 21l-4-4 4-4M3 17h13" />,
+});
+
 export const TrashIcon = makeIcon("TrashIcon", {
   strokeWidth: 2,
   node: (
