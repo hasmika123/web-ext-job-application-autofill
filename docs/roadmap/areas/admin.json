@@ -3397,7 +3397,7 @@
       "id": "E2E-A15.0",
       "epic": "A15",
       "title": "Admin page kit: tiles with real deltas, filter bar, table, reason/confirm sheets, admin client + proxy, sample lint",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web",

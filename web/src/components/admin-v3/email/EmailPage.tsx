@@ -24,6 +24,7 @@ import { AdminHero, AdminPanel, AdminStatTiles, AdminTabs, SampleTag, StatusDot 
 import { SUBSCRIBER_STATUS_TABS } from "./constants";
 import { spreadLabels } from "./chart-labels";
 import StatusFilterLinks from "./StatusFilterLinks";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until E2E-A7.0 removes it (ADMIN-E2E-PLAN 3.5)
 import {
   AUTOMATIONS,
   CLICK_RATE,
@@ -114,10 +115,10 @@ export default function EmailPage({
 
       <AdminStatTiles
         stats={[
-          { label: "Total subscribers", value: error ? "n/a" : allCount.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue", delta: X.subscribers.delta, caption: "vs last 30 days", sparkline: X.subscribers.spark },
-          { label: "Average open rate", value: X.open.value, icon: <MailIcon size={26} />, tone: "green", delta: X.open.delta, caption: "sample data", sparkline: X.open.spark },
-          { label: "Average click rate", value: X.click.value, icon: <TargetIcon size={26} />, tone: "amber", delta: X.click.delta, caption: "sample data", sparkline: X.click.spark },
-          { label: "Bounce rate", value: X.bounce.value, icon: <XCircleIcon size={26} />, tone: "violet", delta: { ...X.bounce.delta, good: true }, caption: "sample data", sparkline: X.bounce.spark },
+          { label: "Total subscribers", value: error ? "n/a" : allCount.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue" },
+          { label: "Average open rate", value: X.open.value, icon: <MailIcon size={26} />, tone: "green" },
+          { label: "Average click rate", value: X.click.value, icon: <TargetIcon size={26} />, tone: "amber" },
+          { label: "Bounce rate", value: X.bounce.value, icon: <XCircleIcon size={26} />, tone: "violet" },
         ]}
       />
 

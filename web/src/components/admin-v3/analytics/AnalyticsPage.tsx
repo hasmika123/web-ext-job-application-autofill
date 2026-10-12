@@ -18,9 +18,9 @@ import {
 import { DataTable, FilterSelect, TONE, type DataColumn } from "@/components/app-v2/common";
 import { AdminHero, AdminPanel, AdminStatTiles, BarLineChart, HBarList, SampleTag } from "../common";
 import AnalyticsFilters from "./AnalyticsFilters";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until E2E-A11.0 removes it (ADMIN-E2E-PLAN 3.5)
 import {
   ACTIVE_USERS_SERIES,
-  ANALYTICS_TILE_EXTRAS as X,
   CHANNELS,
   COHORTS,
   COHORT_WEEKS,
@@ -184,10 +184,10 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
 
       <AdminStatTiles
         stats={[
-          { label: "Total users", value: a.totalUsers.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue", delta: X.total.delta, caption: "vs last 30 days", sparkline: X.total.spark },
-          { label: "Active users (7d)", value: a.activeUsers7d.toLocaleString("en-US"), icon: <BarChartIcon size={26} />, tone: "green", delta: X.active.delta, caption: "vs last 30 days", sparkline: X.active.spark },
-          { label: "New users (30d)", value: a.signups30d.toLocaleString("en-US"), icon: <UserIcon size={26} />, tone: "amber", delta: X.signups.delta, caption: "vs last 30 days", sparkline: X.signups.spark },
-          { label: "Pro churn (month)", value: `${churnPct}%`, icon: <TrendingUpIcon size={26} />, tone: "violet", delta: X.churn.delta, caption: "vs last 30 days", sparkline: X.churn.spark },
+          { label: "Total users", value: a.totalUsers.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue" },
+          { label: "Active users (7d)", value: a.activeUsers7d.toLocaleString("en-US"), icon: <BarChartIcon size={26} />, tone: "green" },
+          { label: "New users (30d)", value: a.signups30d.toLocaleString("en-US"), icon: <UserIcon size={26} />, tone: "amber" },
+          { label: "Pro churn (month)", value: `${churnPct}%`, icon: <TrendingUpIcon size={26} />, tone: "violet" },
         ]}
       />
 

@@ -3,6 +3,7 @@ import { AlertIcon, CalendarIcon, ClockIcon, DollarIcon, UsersIcon } from "@kiwi
 import { Donut, InitialsAvatar } from "@/components/app-v2/common";
 import { AdminHero, AdminPanel, AdminStatTiles, LegendList } from "../common";
 import CustomersTable, { type CustomerTab } from "./CustomersTable";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until A2.1 removes it (ADMIN-E2E-PLAN 3.5)
 import { CUSTOMER_TILE_EXTRAS as X } from "./sample-data";
 import { day, STATUS_LABEL, type Customer } from "@/lib/customers";
 
@@ -81,10 +82,10 @@ export default function CustomersPage({
 
       <AdminStatTiles
         stats={[
-          { label: "Active customers", value: n("ACTIVE").toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue", delta: X.active.delta, caption: "vs last 30 days", sparkline: X.active.spark },
-          { label: "Payment failed", value: n("PAST_DUE").toLocaleString("en-US"), icon: <AlertIcon size={26} />, tone: "coral", delta: X.pastDue.delta, caption: "vs last 30 days", sparkline: X.pastDue.spark },
-          { label: "Cancelling", value: n("CANCELLING").toLocaleString("en-US"), icon: <ClockIcon size={26} />, tone: "amber", delta: X.cancelling.delta, caption: "vs last 30 days", sparkline: X.cancelling.spark },
-          { label: "Monthly recurring revenue", value: X.mrr.value, icon: <DollarIcon size={26} />, tone: "green", delta: X.mrr.delta, caption: "sample data", sparkline: X.mrr.spark },
+          { label: "Active customers", value: n("ACTIVE").toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue" },
+          { label: "Payment failed", value: n("PAST_DUE").toLocaleString("en-US"), icon: <AlertIcon size={26} />, tone: "coral" },
+          { label: "Cancelling", value: n("CANCELLING").toLocaleString("en-US"), icon: <ClockIcon size={26} />, tone: "amber" },
+          { label: "Monthly recurring revenue", value: X.mrr.value, icon: <DollarIcon size={26} />, tone: "green" },
         ]}
       />
 

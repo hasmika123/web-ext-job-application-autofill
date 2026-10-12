@@ -44,6 +44,13 @@ regenerates `master-roadmap.html`; commit both). One story = one commit (`admin-
   live in `AdminSettingKeys` (descriptions say "Not enforced yet" until the story that reads them ships — remove that
   sentence there), generic writes audit as `SETTING_CHANGE` with `area=… risk=…` in `details` until A12.2 adds real
   columns, and `AdminSettingsWriter.writeValidated` is the shared persist step (the AI path still uses `write`).
+- **E2E-A15.0 admin page kit: done** (commit `e2e-a15.0`). Import from `components/admin-v3/common` (API in the header of `common/index.ts`), `lib/admin-client.ts`, `lib/admin-proxy.ts`, `e2e/fixtures/admin.ts`. Things the next stories must know:
+  - `AdminStatTiles` deltas are now `{value, previous?}`; the old sample deltas/sparklines/captions were stripped from all pages (tiles show value + real captions only). Pass `previous` from the API's `previous{}` block.
+  - Each unconverted page has `// eslint-disable-next-line no-restricted-imports -- ... until <story>` above its `sample-data` import: **delete that comment with the import** in your page story. A new page cannot import sample data.
+  - `/admin/kit` is a dev-only specimen of every kit piece (copy its wiring); `admin-kit.spec.ts` drives it. `signInAdmin` replays one cached session (the demo sign-in route is limited to 20 / 5 min).
+  - For A15.1: axe on the full page still fails in the shell, not the kit: the `soon` Security nav item (`text-ink-soft/70`, goes with E2E-A9.0) and the `MascotCard` 9.5 px text in the sidebar. The kit spec audits `main` only.
+  - Row-action buttons inside `AdminTable` need `className="min-h-11 sm:min-h-0"` to be 44 px targets on the phone sheet; icon-only ones need Tooltip + aria-label.
+  - `Source`, `Resolved`, `SOURCE_LABEL` now live in `lib/admin-client.ts` (re-exported by `ai-admin.ts`).
 
 ## Key facts an implementer must not rediscover
 

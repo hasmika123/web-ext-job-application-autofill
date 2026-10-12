@@ -10,7 +10,8 @@ import { AdminHero, AdminPanel, AdminStatTiles, LegendList, PersonCell, SampleTa
 import { INQUIRY_STATUS_TABS } from "./constants";
 import { spreadLabels } from "../email/chart-labels";
 import StatusFilterLinks from "../email/StatusFilterLinks";
-import { CATEGORY_MIX, ESCALATIONS, INQUIRY_TILE_EXTRAS as X, SLA_HEADLINE, SLA_HOURS, SLA_MAX, SLA_X, SLA_Y } from "./sample-data";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until A8.4 removes it (ADMIN-E2E-PLAN 3.5)
+import { CATEGORY_MIX, ESCALATIONS, SLA_HEADLINE, SLA_HOURS, SLA_MAX, SLA_X, SLA_Y } from "./sample-data";
 
 export interface Inquiry {
   id: number;
@@ -82,10 +83,10 @@ export default function InquiriesPage({
 
       <AdminStatTiles
         stats={[
-          { label: "All inquiries", value: n(allCount), icon: <ChatIcon size={26} />, tone: "blue", delta: X.all.delta, caption: "trend is sample", sparkline: X.all.spark },
-          { label: "Open (new)", value: n(counts.NEW ?? 0), icon: <ClockIcon size={26} />, tone: "amber", delta: X.open.delta, caption: "trend is sample", sparkline: X.open.spark },
-          { label: "Contacted", value: n(counts.CONTACTED ?? 0), icon: <MailIcon size={26} />, tone: "violet", delta: X.awaiting.delta, caption: "trend is sample", sparkline: X.awaiting.spark },
-          { label: "Resolved (won + lost)", value: n((counts.WON ?? 0) + (counts.LOST ?? 0)), icon: <CheckCircleIcon size={26} />, tone: "green", delta: X.resolved.delta, caption: "trend is sample", sparkline: X.resolved.spark },
+          { label: "All inquiries", value: n(allCount), icon: <ChatIcon size={26} />, tone: "blue" },
+          { label: "Open (new)", value: n(counts.NEW ?? 0), icon: <ClockIcon size={26} />, tone: "amber" },
+          { label: "Contacted", value: n(counts.CONTACTED ?? 0), icon: <MailIcon size={26} />, tone: "violet" },
+          { label: "Resolved (won + lost)", value: n((counts.WON ?? 0) + (counts.LOST ?? 0)), icon: <CheckCircleIcon size={26} />, tone: "green" },
         ]}
       />
 

@@ -15,6 +15,9 @@ export type { IconButtonProps } from "./primitives/IconButton";
 export { default as Input, inputClass } from "./primitives/Input";
 export type { InputProps } from "./primitives/Input";
 
+export { default as Textarea } from "./primitives/Textarea";
+export type { TextareaProps } from "./primitives/Textarea";
+
 export { default as Select, selectClass } from "./primitives/Select";
 export type { SelectProps, SelectOption } from "./primitives/Select";
 
@@ -43,6 +46,8 @@ export { default as ProgressBar } from "./primitives/ProgressBar";
 export type { ProgressBarProps } from "./primitives/ProgressBar";
 
 export { default as useReducedMotion, prefersReducedMotion } from "./primitives/useReducedMotion";
+
+export { default as useMediaQuery } from "./primitives/useMediaQuery";
 
 export { default as useBottomBar, bottomInsetOf, BOTTOM_INSET_VAR } from "./primitives/useBottomBar";
 
@@ -112,6 +117,10 @@ export type { DragHandleProps } from "./primitives/DragHandle";
 
 export { default as Tooltip, TOOLTIP_DELAY_MS } from "./primitives/Tooltip";
 export type { TooltipProps, TooltipSide } from "./primitives/Tooltip";
+
+/* ── The admin page kit's shared bits (E2E-A15.0): a delta computed from a real previous value, never typed in ── */
+export { default as DeltaChip, deltaOf } from "./primitives/DeltaChip";
+export type { Delta, DeltaDir, DeltaOptions, DeltaChipProps } from "./primitives/DeltaChip";
 
 export { default as SavedTick, useSavedFlash, SAVED_TICK_MS } from "./primitives/SavedTick";
 export type { SavedTickProps, SavedFlash } from "./primitives/SavedTick";
