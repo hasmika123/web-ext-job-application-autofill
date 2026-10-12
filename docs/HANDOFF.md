@@ -1,6 +1,10 @@
+> **AI providers & routing (2026-10-12/13, `resume-builder`): the design is [`AI-ADMIN-CONFIG-DESIGN.md`](AI-ADMIN-CONFIG-DESIGN.md); Phase 1 (I1.9-I1.14) is built and proven.** Run the proof: `node scripts/dev/api-local.mjs --stub` then `node web/scripts/ai-smoke.mjs --stub` (DEPLOY.md 10.3); the live Gemini pass needs `api/.env.ai.local`.
+
 > **Roadmap + Resume Builder (2026-10-11, local `version2` + `resume-builder`): start from
 > [`HANDOFF-ROADMAP.md`](HANDOFF-ROADMAP.md)** — exact continuation point (roadmap complete: 893 stories + RECONCILIATION.md;
 > Resume Builder skeleton done on `resume-builder`; Timesheets designed as product area H — `HANDOFF-TIMESHEETS.md`), decisions, open questions. App work on `version2`: see `HANDOFF-V2.md`.
+> **End-to-end builds (2026-10-12):** user + org dashboards → [`HANDOFF-APP-E2E.md`](HANDOFF-APP-E2E.md) (branch `app-e2e`);
+> platform admin area → [`HANDOFF-ADMIN-E2E.md`](HANDOFF-ADMIN-E2E.md) (branch `admin-e2e`, plan `ADMIN-E2E-PLAN.md`).
 
 # HANDOFF.md — start here in a new chat
 
