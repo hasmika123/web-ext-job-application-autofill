@@ -595,6 +595,77 @@ if (uid) {
   });
 }
 
+// 6. Onboarding v2 (R1.12, DESIGN 17): the resumable draft and the finish, through the web BFF against the real API.
+// The account is reused between runs, so an earlier run may have finished it already: the first row accepts either start.
+{
+  const draftBody = {
+    v: 2,
+    step: "review",
+    persona: "experienced",
+    stepsDone: 3,
+    stepsTotal: 7,
+    // parsed cards only (counts and titles a person would see), never the file or the text: nothing the product never collects
+    state: { v: 2, step: "review", path: "paste", cursor: 2, parsed: { candidates: [{ id: "exp0", section: "EXPERIENCE", data: { title: "Engineer", org: "Acme" } }], skills: ["Go"] } },
+  };
+  let vBefore;
+  await step("onboarding: GET status is NONE (or FINISHED when an earlier run finished this account) with no draft", async () => {
+    await web("DELETE", "/api/profile/onboarding/draft"); // a draft left by an earlier failed run
+    const res = await web("GET", "/api/profile/onboarding");
+    must(res.status === 200, `-> ${res.status} ${(await res.text()).slice(0, 200)}`);
+    const s = await res.json();
+    must(s.status === "NONE" || s.status === "FINISHED", `status ${s.status}`);
+    must(s.draft === null, "a draft is already there");
+    return s.status;
+  });
+  await step("onboarding: PUT draft (3 of 7) saves, and the extension's profile version does not move", async () => {
+    vBefore = await profileVersion();
+    const res = await web("PUT", "/api/profile/onboarding/draft", { body: draftBody });
+    const text = await res.text();
+    must(res.status === 200, `-> ${res.status} ${text.slice(0, 300)}`);
+    const saved = JSON.parse(text);
+    must(typeof saved.updatedAt === "string" && typeof saved.expiresAt === "string", "no updatedAt / expiresAt");
+    const vAfter = await profileVersion();
+    must(vAfter === vBefore, `profile version moved: ${vBefore} -> ${vAfter}`);
+    return `updatedAt ${saved.updatedAt}`;
+  });
+  await step("onboarding: GET status is DRAFT, 3 of 7, with the saved state", async () => {
+    const res = await web("GET", "/api/profile/onboarding?include=state");
+    must(res.status === 200, `-> ${res.status}`);
+    const s = await res.json();
+    must(s.status === "DRAFT", `status ${s.status}`);
+    must(s.draft?.stepsDone === 3 && s.draft?.stepsTotal === 7, `draft ${JSON.stringify(s.draft).slice(0, 120)}`);
+    must(s.draft?.state?.cursor === 2, "the state did not round-trip");
+    must(s.persona === "experienced", `persona ${s.persona}`);
+    must(s.card?.state === "IN_PROGRESS", `card ${JSON.stringify(s.card)}`);
+    return "DRAFT 3 of 7, IN_PROGRESS";
+  });
+  await step("onboarding: a value we never collect is refused (422 SENSITIVE_CONTENT) and nothing is stored", async () => {
+    const bad = { ...draftBody, state: { ...draftBody.state, parsed: { candidates: [{ id: "x", section: "EXPERIENCE", data: { title: "Engineer", notes: "My SSN is 123-45-6789" } }] } } };
+    const res = await web("PUT", "/api/profile/onboarding/draft", { body: bad });
+    const b = await json(res);
+    must(res.status === 422 && b.code === "SENSITIVE_CONTENT", `-> ${res.status} ${JSON.stringify(b).slice(0, 200)}`);
+    const s = await (await web("GET", "/api/profile/onboarding?include=state")).json();
+    must(s.draft?.state?.cursor === 2 && !JSON.stringify(s.draft.state).includes("123-45"), "the refused draft was stored");
+    return "422, the earlier draft is untouched";
+  });
+  await step("onboarding: finish -> FINISHED, the draft row is gone, onboardedAt is on the profile", async () => {
+    const res = await web("POST", "/api/profile/onboarding/finish", { body: {} });
+    const text = await res.text();
+    must(res.status === 200, `-> ${res.status} ${text.slice(0, 300)}`);
+    const done = JSON.parse(text);
+    must(typeof done.finishedAt === "string" && typeof done.coverage?.fields === "number", `shape ${text.slice(0, 200)}`);
+    const s = await (await web("GET", "/api/profile/onboarding?include=state")).json();
+    must(s.status === "FINISHED", `status ${s.status}`);
+    must(s.draft === null, "the draft is still there");
+    const bio = await api("GET", "/api/profile");
+    must(bio.ok, `GET /api/profile -> ${bio.status}`);
+    const payload = JSON.parse((await bio.json()).payload ?? "{}");
+    must(typeof payload.onboardedAt === "string" && payload.onboardedAt.length > 0, "onboardedAt is not set");
+    const again = await web("POST", "/api/profile/onboarding/finish", { body: {} });
+    must(again.status === 200 && (await again.json()).finishedAt === done.finishedAt, "finish is not idempotent");
+    return `~${done.coverage.fields} fields, onboardedAt set, finish is idempotent`;
+  });
+}
 
 finish();
 

@@ -8,7 +8,8 @@ import { cn } from "./cn";
 /**
  * Toast — transient feedback, styled 1:1 with the web app's `ui/Toast` + `ToastProvider`
  * (bottom-right stack, left accent border). `ToastProvider` hands out a `toast()` via
- * `useToast()`. Self-contained (the enter keyframe is injected once) so it works in the
+ * `useToast()`. On a phone the stack is full width with a 16 px gutter and sits above any sticky bottom bar (`useBottomBar`
+ * publishes `--kiwi-bottom-inset`), so a toast never covers a bar's primary action. Self-contained (the enter keyframe is injected once) so it works in the
  * extension surfaces too — this is the toast surface W3 deferred. A toast that has a timer stops it while the
  * pointer is over it or focus is inside it (so an Undo can be reached), and runs the rest of its time afterwards.
  *
@@ -46,6 +47,13 @@ const ACCENT: Record<ToastVariant, string> = {
   success: "border-l-accent",
   error: "border-l-danger",
 };
+
+// The enter animation is a rule on `[data-kiwi-toast]` (not an inline style) so reduced motion can swap the slide for a fade.
+const TOAST_CSS =
+  "@keyframes kiwi-toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}" +
+  "@keyframes kiwi-toast-fade{from{opacity:0}to{opacity:1}}" +
+  "[data-kiwi-toast]{animation:kiwi-toast-in .2s ease-out}" +
+  "@media (prefers-reduced-motion:reduce){[data-kiwi-toast]{animation:kiwi-toast-fade .12s ease-out}}";
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -110,10 +118,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <style>{"@keyframes kiwi-toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}"}</style>
+      <style>{TOAST_CSS}</style>
       <div
         aria-live="polite"
-        className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex w-full max-w-[360px] flex-col gap-2"
+        data-kiwi-toasts
+        className={
+          "pointer-events-none fixed bottom-4 right-4 z-[9999] flex w-full max-w-[360px] flex-col gap-2 " +
+          "max-sm:inset-x-4 max-sm:bottom-[calc(var(--kiwi-bottom-inset,0px)+1rem)] max-sm:w-auto max-sm:max-w-none"
+        }
       >
         {items.map((t) => (
           <div
@@ -125,9 +137,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onBlur={(e: FocusEvent<HTMLDivElement>) => {
               if (!e.currentTarget.contains(e.relatedTarget)) resume(t.id);
             }}
-            style={{ animation: "kiwi-toast-in .2s ease-out" }}
+            data-kiwi-toast
             className={cn(
-              "pointer-events-auto flex min-w-[260px] max-w-[92vw] items-start gap-3 rounded-[var(--radius)] border border-line " +
+              "pointer-events-auto flex min-w-[260px] max-w-[92vw] items-start max-sm:w-full max-sm:min-w-0 max-sm:max-w-none gap-3 rounded-[var(--radius)] border border-line " +
                 "border-l-4 bg-paper px-4 py-3 text-sm text-ink shadow-[var(--shadow-lg)]",
               ACCENT[t.variant ?? "default"],
             )}
@@ -152,7 +164,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               type="button"
               onClick={() => dismiss(t.id)}
               aria-label="Dismiss"
-              className="flex-none rounded-md px-1.5 text-muted transition-colors hover:text-ink"
+              className="flex-none rounded-md px-1.5 text-muted transition-colors hover:text-ink max-sm:min-h-11 max-sm:min-w-11"
             >
               ✕
             </button>

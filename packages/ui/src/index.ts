@@ -44,6 +44,8 @@ export type { ProgressBarProps } from "./primitives/ProgressBar";
 
 export { default as useReducedMotion, prefersReducedMotion } from "./primitives/useReducedMotion";
 
+export { default as useBottomBar, bottomInsetOf, BOTTOM_INSET_VAR } from "./primitives/useBottomBar";
+
 export { default as Tabs, TabList, Tab, TabPanel } from "./primitives/Tabs";
 export type { TabsProps, TabsVariant } from "./primitives/Tabs";
 

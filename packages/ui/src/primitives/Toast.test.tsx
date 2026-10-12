@@ -71,6 +71,26 @@ describe("Toast", () => {
     expect(screen.queryByText("Skipped Acme")).toBeNull();
   });
 
+  it("on a phone the stack is full width with a 16 px gutter, above any sticky bottom bar (--kiwi-bottom-inset)", () => {
+    show();
+    const host = document.querySelector("[data-kiwi-toasts]") as HTMLElement;
+    expect(host.className).toContain("max-sm:inset-x-4");
+    expect(host.className).toContain("max-sm:bottom-[calc(var(--kiwi-bottom-inset,0px)+1rem)]");
+    expect(host.className).toContain("max-sm:max-w-none");
+    const toast = host.querySelector("[data-kiwi-toast]") as HTMLElement;
+    expect(toast.className).toContain("max-sm:w-full");
+    expect(toast.className).toContain("max-sm:max-w-none");
+    // the Undo button and the dismiss cross are 44 px tall on a phone
+    expect(screen.getByRole("button", { name: "Dismiss" }).className).toContain("max-sm:min-h-11");
+  });
+
+  it("slides in, and only fades under reduced motion", () => {
+    show();
+    const css = document.querySelector("style")?.textContent ?? "";
+    expect(css).toContain("[data-kiwi-toast]{animation:kiwi-toast-in");
+    expect(css).toMatch(/prefers-reduced-motion:reduce\)\{\[data-kiwi-toast\]\{animation:kiwi-toast-fade/);
+  });
+
   it("duration 0 stays until dismissed", () => {
     show({ duration: 0 });
     tick(60_000);

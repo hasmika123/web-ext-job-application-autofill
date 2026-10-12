@@ -14,7 +14,7 @@
  * Nothing here writes the profile: the extension's mirror only moves at the confirm points.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { track } from "@/lib/analytics";
+import { ONBOARDING_EVENTS as EV, trackOnboarding } from "@/lib/onboarding/events";
 import { draftPayload, isResumable, migrateV1Draft, readState, type SetupState } from "@/lib/profile-setup/state";
 import { OnboardingApiError, deleteDraft, getOnboarding, putDraft, sendDraftBeacon, sendDraftKeepalive, type DraftBody, type OnboardingStatus } from "./api";
 import { clearMirror, readMirror, writeMirror, type Mirror } from "./mirror";
@@ -226,7 +226,7 @@ export default function useDraftSync({ state, login, server, onHydrate }: UseDra
       onHydrateRef.current(s);
       writeMirror(storage(), { login: loginRef.current, base: pick.base, dirty: pick.dirty, state: s });
       const ageHours = s.updatedAt ? Math.max(0, Math.round((Date.now() - stamp(s.updatedAt)) / 3_600_000)) : 0;
-      track("onboarding_resumed", { stepsDone: s.stepsDone, stepsTotal: s.stepsTotal, device: pick.device, ageHours });
+      trackOnboarding(EV.resumed, { stepsDone: s.stepsDone, stepsTotal: s.stepsTotal, device: pick.device, ageHours });
       setResumed({ device: pick.device, stepsDone: s.stepsDone, stepsTotal: s.stepsTotal, step: s.step });
       if (server !== null && !pick.dirty) setStatus("saved");
     }
@@ -266,7 +266,7 @@ export default function useDraftSync({ state, login, server, onHydrate }: UseDra
       setStatus("offline");
       if (!offlineTracked.current) {
         offlineTracked.current = true;
-        track("onboarding_draft_offline", { retries: retries.current });
+        trackOnboarding(EV.draftOffline, { retries: retries.current });
       }
       scheduleRetry();
       return;
@@ -423,7 +423,7 @@ export default function useDraftSync({ state, login, server, onHydrate }: UseDra
       const st = await getOnboarding(true);
       const row = st.draft;
       const theirs = row?.state ? readState(row.state) : null;
-      track("onboarding_draft_conflict", { choice: "theirs" });
+      trackOnboarding(EV.draftConflict, { choice: "theirs" });
       setConflicted(false);
       if (row && theirs) {
         baseRef.current = row.updatedAt;
@@ -444,7 +444,7 @@ export default function useDraftSync({ state, login, server, onHydrate }: UseDra
   }, []);
 
   const keepMine = useCallback(async () => {
-    track("onboarding_draft_conflict", { choice: "mine" });
+    trackOnboarding(EV.draftConflict, { choice: "mine" });
     setConflicted(false);
     await saveRef.current(true);
   }, []);

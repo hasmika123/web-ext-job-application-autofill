@@ -12,7 +12,7 @@ vi.mock("@/lib/resume-doc", async (orig) => ({ ...(await orig<typeof import("@/l
 const attachOriginal = vi.fn();
 vi.mock("@/lib/resume-list-api", () => ({ attachOriginal: (...a: unknown[]) => attachOriginal(...a) }));
 
-import NewResumeSheet, { type NewResumeSheetProps } from "./NewResumeSheet";
+import NewResumeSheet, { BUILD_PROFILE_HREF, type NewResumeSheetProps } from "./NewResumeSheet";
 import type { ProfileSummary, ResumeChoice } from "./new-resume/model";
 
 const PROFILE: ProfileSummary = { itemCount: 5, roles: 3, schools: 2, skills: 14, score: 78, headline: "Backend Engineer" };
@@ -95,11 +95,23 @@ describe("NewResumeSheet: step 1, the four sources", () => {
     open({ profile: { itemCount: 0, roles: 0, schools: 0, skills: 0, score: null, headline: null } });
     expect(screen.getByText("Your profile is empty")).toBeTruthy();
     expect((radio(/Use my profile/) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole("link", { name: "Build my profile" }).getAttribute("href")).toBe("/profiles/setup");
+    expect(screen.getByRole("link", { name: "Build my profile · 2 min" }).getAttribute("href")).toBe("/profiles/setup?return=%2Fresume-builder%3Fnew%3Dprofile");
     // the quickest way in is an upload, so that is what is preselected
     expect(radio(/Upload a resume/).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Start with just my name and contact" }));
     expect(radio(/Start from scratch/).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("opened for ?new=profile (initialSource profile) it preselects Use my profile", () => {
+    open({ initialSource: "profile" });
+    expect(radio(/Use my profile/).getAttribute("aria-checked")).toBe("true");
+    expect(radio(/Upload a resume/).getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("the Build my profile link round-trips: the setup's return path is the chooser on Use my profile", () => {
+    expect(BUILD_PROFILE_HREF).toBe("/profiles/setup?return=%2Fresume-builder%3Fnew%3Dprofile");
+    const params = new URL(BUILD_PROFILE_HREF, "https://x.test").searchParams;
+    expect(params.get("return")).toBe("/resume-builder?new=profile");
   });
 
   it("Copy lists the non-archived resumes handed to it, and says so when there are none", () => {

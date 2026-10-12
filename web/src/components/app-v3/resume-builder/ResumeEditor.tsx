@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { ChartIcon, ChoiceGroup, FileTextIcon, GearIcon, SavedTick, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useSavedFlash, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
+import { ChartIcon, ChoiceGroup, FileTextIcon, GearIcon, SavedTick, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useBottomBar, useSavedFlash, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
 import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { COPY, suggestionNeedsReview, type AiProposal } from "@/lib/resume-ai";
@@ -139,6 +139,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
 
   const [ui, uiDispatch] = useUiState({ openAdd: isEmptyDoc(initial.doc) });
   const gridRef = useRef<HTMLDivElement>(null);
+  // The phone tab bar is fixed at the bottom: toasts and the bug-report button stay above it.
+  const phoneNavRef = useRef<HTMLDivElement>(null);
+  useBottomBar(phoneNavRef);
   useBuilderLayout(gridRef, uiDispatch);
   // Arriving from the list's View / AI buttons: once, after the remembered panels are restored.
   useEffect(() => {
@@ -325,7 +328,12 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   // The right sheet hands focus back to what opened it: the Preview tab on a phone, else the Download button.
   const rightReturnFocus = useRef<HTMLElement | null>(null);
   const defaultRightFocus = useCallback(
-    (): HTMLElement | null => (phone ? previewTabRef.current : (downloadRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"] button') ?? null)),
+    (): HTMLElement | null => {
+      if (phone) return previewTabRef.current;
+      // The Download button carries the menu semantics itself (`Menu` puts them on a button trigger).
+      const trigger = downloadRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"]') ?? null;
+      return trigger instanceof HTMLButtonElement ? trigger : (trigger?.querySelector<HTMLElement>("button") ?? null);
+    },
     [phone],
   );
   useEffect(() => {
@@ -1062,6 +1070,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
 
       {/* phone: Edit · Layout · Insights · Preview (DESIGN 10.9) */}
       <div
+        ref={phoneNavRef}
         role="tablist"
         aria-label="Editor views"
         className={cn("fixed inset-x-0 bottom-0 z-30 grid h-14 border-t border-line/70 bg-paper md:hidden", views.length > 0 ? "grid-cols-4" : "grid-cols-3")}

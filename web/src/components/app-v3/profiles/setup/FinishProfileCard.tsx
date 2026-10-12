@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, IconButton, Menu, MoreHorizontalIcon, Meter, Tooltip, buttonVariants, cn, useToast } from "@kiwiply/ui";
-import { track } from "@/lib/analytics";
+import { ONBOARDING_EVENTS as EV, trackOnboarding } from "@/lib/onboarding/events";
 import { patchOnboarding, type CardAction, type OnboardingStatus } from "@/lib/onboarding/api";
 import {
   CARD_SHOWN_KEY,
@@ -78,7 +78,7 @@ export default function FinishProfileCard({
     } catch {
       // storage blocked: the event may repeat, never break the card
     }
-    track("onboarding_card_shown", {
+    trackOnboarding(EV.cardShown, {
       state: inProgress ? "in_progress" : "not_started",
       stepsDone: inProgress ? draft.stepsDone : 0,
       stepsTotal: inProgress ? draft.stepsTotal : 0,
@@ -90,7 +90,7 @@ export default function FinishProfileCard({
 
   const act = (action: "SNOOZE" | "DISMISS") => {
     setHidden(true);
-    track("onboarding_dismissed", { action: action === "SNOOZE" ? "snooze" : "dismiss" });
+    trackOnboarding(EV.dismissed, { action: action === "SNOOZE" ? "snooze" : "dismiss" });
     patchOnboarding({ card: { action } })
       .then(() =>
         toast(
@@ -122,7 +122,7 @@ export default function FinishProfileCard({
         {inProgress && (
           <Meter value={draft.stepsDone} max={draft.stepsTotal} label="Setup progress" valueText={`${draft.stepsDone} of ${draft.stepsTotal} steps done`} neutral className="mt-2.5 max-w-xs" />
         )}
-        <Link href="/profiles/setup" className={cn(buttonVariants("accent"), "mt-3 max-sm:min-h-11 max-sm:w-full")}>
+        <Link href="/profiles/setup?entry=card" className={cn(buttonVariants("accent"), "mt-3 max-sm:min-h-11 max-sm:w-full")}>
           {inProgress ? "Continue" : "Start"} <ArrowRightIcon size={15} aria-hidden />
         </Link>
       </div>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "reac
 import { useRouter } from "next/navigation";
 import { Input, Field, Select, inputClass } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
-import { CheckIcon as SharedCheckIcon, SENSITIVE_LABELS, SourceChip, Spinner as SharedSpinner, scanSensitiveField, type SensitiveClass } from "@kiwiply/ui";
+import { CheckIcon as SharedCheckIcon, SENSITIVE_LABELS, SourceChip, Spinner as SharedSpinner, scanSensitiveField, useBottomBar, type SensitiveClass } from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
 import { isEmail, isUrl, isPhone, LIMITS } from "@/lib/validate";
 import { parseResume } from "@/lib/resume-parse";
@@ -183,6 +183,9 @@ export default function BioEditor({
 }) {
   const router = useRouter();
   const vis = (id: string) => !show || show.includes(id);
+  // The docked save bar sticks to the window's bottom: toasts and the bug-report button stay above it.
+  const saveBarRef = useRef<HTMLDivElement>(null);
+  useBottomBar(saveBarRef);
 
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {};
@@ -502,7 +505,7 @@ export default function BioEditor({
 
         {/* Docked save bar — opaque (was translucent, which let fields show through as you
             scrolled under it). Sticks to the bottom; content scrolls hidden behind it. */}
-        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-app-bg py-3.5 shadow-[0_-10px_16px_-14px_rgba(45,49,51,0.2)]">
+        <div ref={saveBarRef} className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-app-bg py-3.5 shadow-[0_-10px_16px_-14px_rgba(45,49,51,0.2)]">
           <div className="mr-auto flex items-center gap-1.5 text-[12.5px] text-muted">
             {saving ? (
               <>

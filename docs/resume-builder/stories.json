@@ -647,7 +647,7 @@
       "benchmark": "Spotify-style payoff: computed from what you just did; Duolingo single celebration (DESIGN §1, §10)."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "star": false,
       "tech": "`web/src/components/app-v3/resume-builder/NewResumeSheet.tsx`, `web/src/app/(app)/resume-builder/page.tsx` (`?new=profile`), `web/src/components/app-v3/profiles/SectionTab.tsx`, `web/src/components/app-v3/profiles/*` (preferences tab persona row), `web/src/lib/onboarding/events.ts`, `web/e2e/onboarding-v2.spec.ts` (new), `web/playwright.config.ts` (reduced-motion project), `web/scripts/rb-smoke.mjs`, `web/package.json` (dev dep if needed).",
       "relates": [],

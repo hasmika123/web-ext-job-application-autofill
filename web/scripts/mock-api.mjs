@@ -66,6 +66,8 @@ const FIXTURE_ACCOUNTS = FIXTURE?.accounts ?? {};
 for (const a of Object.values(FIXTURE_ACCOUNTS))
   ACCOUNTS[a.login] = { login: a.login, email: a.email, firstName: a.firstName, lastName: a.lastName, authorities: a.authorities, activated: a.activated };
 const isEmptyAccount = (sub) => !!sub && !!FIXTURE_ACCOUNTS[sub]?.empty;
+/** An empty account's own bio (R1.12): the setup flow writes it, so the demo accounts' shared bio is never touched. */
+const EMPTY_BIOS = new Map();
 
 // Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
 const DEMO_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ENABLED ?? "true");
@@ -848,7 +850,7 @@ const capProblem = (res) =>
   });
 
 /** The builder settings the web reads (`GET /api/profile/resume-builder/config`), with the live resume count. */
-function builderConfig() {
+function builderConfig(empty = false) {
   const pro = PRO; // MOCK_PRO=1 / MOCK_RESUME_LIMIT>3 / GET /__mock/ai?plan=pro
   return {
     templates: { enabled: ["modern"], default: "modern", overrides: {}, popular: ["modern"] },
@@ -871,7 +873,7 @@ function builderConfig() {
     ai: { suggestAutoRefresh: false, suggestStaleMinutes: 10, rewriteMaxRefs: 12 },
     plan: pro ? "PRO" : "FREE",
     aiAllowed: pro,
-    resumes: { count: liveCount(), max: pro ? Math.max(RESUME_LIMIT, 25) : RESUME_LIMIT },
+    resumes: { count: empty ? 0 : liveCount(), max: pro ? Math.max(RESUME_LIMIT, 25) : RESUME_LIMIT },
     profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200, bioValueMaxChars: 500, bioSummaryMaxChars: 2000, setupPromptBelowPercent: 40, uploadMaxBytes: 10485760 },
     pdf: { waitMs: 30000, viewAutoRefresh: false },
     share: { maxLinks: 3 },
@@ -964,7 +966,7 @@ const newBuilt = (label, doc, source, extra = {}) => {
 function handleSources(req, res, path, method) {
   if (path === "/api/profile/resume-builder/config" && method === "GET") {
     req.resume();
-    json(res, 200, builderConfig());
+    json(res, 200, builderConfig(isEmptyAccount(subOf(req))));
     return true;
   }
   const m = path.match(/^\/api\/profile\/resumes\/(\d+)(?:\/(doc\/duplicate|doc\/import|original))?$/);
@@ -1484,7 +1486,7 @@ function handleProfileItems(req, res, path, method) {
         if (!it.section || !data || typeof data !== "object" || Array.isArray(data)) return problem(res, 422, "ITEM_INVALID", { path: "items", message: "must be a JSON object" });
         const hit = findSensitive(data, "dataJson");
         if (hit) return problem(res, 422, "SENSITIVE_CONTENT", { path: hit, class: "SSN_ITIN" });
-        ITEMS.push({ id: nextItemId++, section: it.section, position: ITEMS.filter((i) => i.section === it.section).length, data, provenance: it.provenance ?? "USER", sourceResumeId: null, hidden: false, updatedAt: new Date().toISOString() });
+        if (!isEmptyAccount(subOf(req))) ITEMS.push({ id: nextItemId++, section: it.section, position: ITEMS.filter((i) => i.section === it.section).length, data, provenance: it.provenance ?? "USER", sourceResumeId: null, hidden: false, updatedAt: new Date().toISOString() });
         created++;
       }
       json(res, 200, { created, merged: 0, updatedBio: !!b.bio });
@@ -1557,15 +1559,22 @@ let onboardingOffline = false;
 function onboardingOf(login) {
   let o = ONBOARDING.get(login);
   if (!o) {
-    o = { draft: null, persona: null, finishedAt: ONBOARDING_FRESH ? null : BIO.onboardedAt ?? null, card: { dismissedAt: null, snoozedUntil: null, resurfaceCount: 0 } };
+    // a brand-new (fixture) account is never onboarded; the demo logins are seeded finished unless MOCK_ONBOARDING_FRESH=1
+    o = { draft: null, persona: null, finishedAt: ONBOARDING_FRESH || isEmptyAccount(login) ? null : BIO.onboardedAt ?? null, card: { dismissedAt: null, snoozedUntil: null, resurfaceCount: 0 } };
     ONBOARDING.set(login, o);
   }
   return o;
 }
 
+/** A rough meter for an empty account: 8 points per filled bio field, from the bio the setup flow wrote. */
+function emptyScore(login) {
+  const bio = EMPTY_BIOS.get(login) ?? {};
+  return Math.min(100, Object.values(bio).filter((v) => typeof v === "string" && v.trim() !== "").length * 8);
+}
+
 function onboardingStatus(login, includeState) {
   const o = onboardingOf(login);
-  const score = completeness().score;
+  const score = isEmptyAccount(login) ? emptyScore(login) : completeness().score;
   const promptBelow = 40;
   const now = Date.now();
   const finished = !!o.finishedAt;
@@ -1601,6 +1610,7 @@ function handleOnboarding(req, res, path, method) {
     }
     if (path === "/mock/onboarding/reset") {
       ONBOARDING.clear();
+      EMPTY_BIOS.clear();
       onboardingOffline = false;
       return json(res, 200, { reset: true }), true;
     }
@@ -1676,7 +1686,7 @@ function handleOnboarding(req, res, path, method) {
     req.resume();
     o.finishedAt = o.finishedAt ?? new Date().toISOString();
     o.draft = null;
-    const filled = Object.values(BIO).filter((v) => typeof v === "string" && v.trim() !== "").length;
+    const filled = Object.values(isEmptyAccount(sub) ? (EMPTY_BIOS.get(sub) ?? {}) : BIO).filter((v) => typeof v === "string" && v.trim() !== "").length;
     return json(res, 200, { finishedAt: o.finishedAt, completeness: onboardingStatus(sub, false).completeness, coverage: { fields: filled, groups: {} } }), true;
   }
   req.resume();
@@ -1742,13 +1752,18 @@ const server = http.createServer((req, res) => {
   // The setup flow's profile writes (Onboarding v2 R1.10 / R1.11): `PUT /api/profile` replaces the in-memory bio, so the
   // core confirm, the per-answer question writes and the payoff's "~N fields" can be walked through without the API.
   if (path === "/api/profile" && method === "PUT") {
-    if (!subOf(req)) {
+    const who = subOf(req);
+    if (!who) {
       req.resume();
       return json(res, 401, { error: "Unauthorized" });
     }
     return withBody(req, (b) => {
       try {
         const next = JSON.parse(String(b.payload ?? "{}"));
+        if (isEmptyAccount(who)) {
+          EMPTY_BIOS.set(who, next);
+          return json(res, 200, { payload: JSON.stringify(next) });
+        }
         for (const k of Object.keys(BIO)) delete BIO[k];
         Object.assign(BIO, next);
       } catch {
@@ -1950,7 +1965,7 @@ const server = http.createServer((req, res) => {
   if (path === "/api/ai/usage")
     return json(res, 200, PRO ? { metered: "budget", ...aiUsage() } : { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
   const emptyUser = isEmptyAccount(sub);
-  if (path === "/api/profile") return emptyUser ? json(res, 404, {}) : json(res, 200, { payload: JSON.stringify(BIO) });
+  if (path === "/api/profile") return emptyUser ? (EMPTY_BIOS.has(sub) ? json(res, 200, { payload: JSON.stringify(EMPTY_BIOS.get(sub)) }) : json(res, 404, {})) : json(res, 200, { payload: JSON.stringify(BIO) });
   // R1.6: where each saved bio value came from (the real API keeps this off GET /api/profile). The demo says "parsed" for names, "user" for the rest.
   if (path === "/api/profile/provenance")
     return json(res, 200, emptyUser ? {} : Object.fromEntries(Object.keys(BIO).filter((k) => typeof BIO[k] === "string").map((k) => [k, k === "firstName" || k === "lastName" ? "parsed" : "user"])));

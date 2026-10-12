@@ -7,9 +7,11 @@ import { UnderlineTabs } from "../../app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
 import { fetchCompleteness, type Completeness, type ProfileItem } from "@/lib/profile-items";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
+import type { Persona } from "@/lib/onboarding/persona";
 import OverviewTab from "./OverviewTab";
 import { PROFILE_TABS, tabFromHref, type ProfileTabKey } from "./tabs";
 import SectionTab from "./SectionTab";
+import SetupPreferences from "./SetupPreferences";
 import SkillsChips from "./SkillsChips";
 import { buildTiles, type ProfileView } from "./derive";
 import type { DraftLimits } from "./itemSchema";
@@ -39,6 +41,7 @@ export default function ProfilesPage({
   completeness: initialCompleteness,
   config,
   initialTab,
+  persona = null,
 }: {
   profile: ProfileView;
   bio: Bio;
@@ -50,6 +53,8 @@ export default function ProfilesPage({
   completeness: Completeness | null;
   config: ResumeBuilderConfig;
   initialTab: ProfileTabKey;
+  /** The setup flow's persona (`GET /api/profile/onboarding`), for the Preferences tab's "I'm a ..." row. */
+  persona?: Persona | null;
 }) {
   const [tab, setTabState] = useState<ProfileTabKey>(initialTab);
   const [completeness, setCompleteness] = useState<Completeness | null>(initialCompleteness);
@@ -128,6 +133,7 @@ export default function ProfilesPage({
           empty="Nothing here yet. Add a project, or upload a resume and Kiwiply fills this in for you."
         />
       )}
+      {tab === "preferences" && <SetupPreferences persona={persona} />}
       {tab === "skills" && <SkillsChips api={api} atCap={atCap} loadFailed={loadFailed} />}
 
       {tab === "more" && (
