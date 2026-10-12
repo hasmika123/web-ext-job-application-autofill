@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChartIcon, ChoiceGroup, FileTextIcon, GearIcon, SavedTick, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useSavedFlash, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
 import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
+import { COPY, suggestionNeedsReview, type AiProposal } from "@/lib/resume-ai";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
 import {
@@ -32,6 +33,8 @@ import RailStrip from "./RailStrip";
 import ResumeHeaderBar from "./ResumeHeaderBar";
 import ResumeSettingsSheet from "./ResumeSettingsSheet";
 import RightRail from "./RightRail";
+import SuggestionsSheet from "./rail/SuggestionsSheet";
+import { useSuggestions } from "./rail/useSuggestions";
 import SectionTabs from "./SectionTabs";
 import TipsSheet from "./TipsSheet";
 import { goToField } from "./goToField";
@@ -96,8 +99,6 @@ export interface ResumeEditorProps {
   initialMeta?: ResumeMeta | null;
   /** The job this resume targets: always null until R5.6. */
   jobTarget?: null;
-  /** Open AI suggestion cards: always empty until R4.1. */
-  openProposals?: ReadonlyArray<{ id: string }>;
   /** The user's current primary resume (null = unknown): lets "Set as primary" offer Undo, which restores this one. */
   primaryResumeId?: number | null;
   /** Where to land (R2.6, the list's View / AI buttons): `?view=pdf` opens the PDF view, `?tab=ai` the AI Suggestions tab. */
@@ -112,7 +113,7 @@ export interface ResumeEditorProps {
  * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
  * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [], entry, initialMeta = null, primaryResumeId = null }: ResumeEditorProps) {
+export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, entry, initialMeta = null, primaryResumeId = null }: ResumeEditorProps) {
   const resumeId = initial.resumeId;
   const initialVersion = initial.docVersion;
   const router = useRouter();
@@ -645,7 +646,20 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     }
   };
 
-  /* Rewrite with AI (R4.2): the section / bullet buttons ask, the diff sheet reviews, Apply writes through the reducer (Undo works). */
+  /* AI Suggestions (R4.6): the stored cards are read when the editor opens (no AI call); asking for new ones is a click. */
+  const suggestions = useSuggestions({
+    resumeId,
+    enabled: config.aiAllowed && config.features.aiSuggestions,
+    rev: state.rev,
+    ensureSaved,
+    autoRefresh: config.ai.suggestAutoRefresh,
+    staleMinutes: config.ai.suggestStaleMinutes,
+  });
+  const { ask: askSuggestions, reload: reloadSuggestions } = suggestions;
+  const refreshSuggestions = useCallback(() => void askSuggestions(true), [askSuggestions]);
+
+  /* Rewrite with AI (R4.2): the section / bullet buttons ask, the diff sheet reviews, Apply writes through the reducer (Undo works).
+     The same flow reviews and applies an AI Suggestions card (R4.6): Preview is its diff, "Apply Suggestion" its one-click apply. */
   const rewrite = useRewriteFlow({
     resumeId,
     enabled: config.aiAllowed,
@@ -656,7 +670,53 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     latestRev,
     ensureSaved,
     adoptServerDoc,
+    onSettled: () => void reloadSuggestions(),
+    onRefreshSuggestions: refreshSuggestions,
   });
+  const [applyingCard, setApplyingCard] = useState<number | null>(null);
+  const [seeAllOpen, setSeeAllOpen] = useState(false);
+  const seeAllReturn = useRef<HTMLElement | null>(null);
+  const seeAll = (returnTo: HTMLElement | null) => {
+    seeAllReturn.current = returnTo;
+    setSeeAllOpen(true);
+    track("resume_ai_suggestions_see_all", { count: suggestions.cards.length });
+  };
+  const previewSuggestion = (p: AiProposal, returnTo: HTMLElement | null) => {
+    // From the See all list the list closes first; the diff gives focus back to wherever the person was.
+    if (seeAllOpen) setSeeAllOpen(false);
+    rewrite.preview(p, returnTo);
+  };
+  const applySuggestion = async (p: AiProposal) => {
+    if (applyingCard !== null) return;
+    if (suggestionNeedsReview(p)) {
+      previewSuggestion(p, document.activeElement instanceof HTMLElement ? document.activeElement : null);
+      return;
+    }
+    setApplyingCard(p.id);
+    try {
+      const problem = await rewrite.quickApply(p);
+      if (!problem) return;
+      if (problem.kind === "placeholder") previewSuggestion(p, null);
+      else if (problem.kind === "stale") {
+        toast({ title: COPY.suggestStale, description: "Refresh to get suggestions for what is there now.", variant: "default" });
+        void reloadSuggestions();
+      } else if (problem.kind === "closed") {
+        toast({ title: COPY.suggestUsed, variant: "default" });
+        void reloadSuggestions();
+      } else if (problem.kind === "locked") toast({ title: COPY.suggestLocked, variant: "default" });
+      else toast({ title: problem.message ?? "Couldn't apply that", description: "Your resume is untouched. Try again.", variant: "error" });
+    } finally {
+      setApplyingCard(null);
+    }
+  };
+  const railSuggestions = {
+    state: suggestions,
+    applyingId: applyingCard,
+    busy: applyingCard !== null || rewrite.sheetProps.applying,
+    onApply: (p: AiProposal) => void applySuggestion(p),
+    onPreview: previewSuggestion,
+    onSeeAll: seeAll,
+  };
   const trimLongest = useMemo(
     () => ({
       allowed: config.aiAllowed,
@@ -695,7 +755,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   const railTrack = layout.railCollapsed ? RAIL_STRIP_WIDTH : RAIL_WIDTH;
   const leftPush = leftOpen && layout.leftMode === "push";
   const rightPush = rightOpen && layout.rightMode === "push";
-  const suggestionCount = openProposals.length;
+  const suggestionCount = suggestions.locked ? 0 : suggestions.cards.length;
   const onRailTab = (tab: RailTab) => uiDispatch({ type: "rail/tab", tab });
 
   const meta = PANEL_META[shownPanel];
@@ -746,7 +806,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       onTab={onRailTab}
       config={config}
       aiUsageLine={aiUsageLine}
-      suggestionCount={suggestionCount}
+      suggestions={railSuggestions}
       onTailor={() => openPanel("tailor")}
       insights={{ report, good: scoreGood, onViewTips: openTips, viewTipsRef }}
     />
@@ -982,6 +1042,22 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
           rewrite.sheetProps.onClose();
           openTips();
         }}
+      />
+
+      {/* AI Suggestions "See all": every open card in one list (DESIGN 10.7) */}
+      <SuggestionsSheet
+        open={seeAllOpen}
+        phone={phone}
+        cards={suggestions.cards}
+        stale={suggestions.stale}
+        asking={suggestions.asking}
+        applyingId={applyingCard}
+        busy={applyingCard !== null || rewrite.sheetProps.applying || suggestions.settling}
+        onApply={(p) => void applySuggestion(p)}
+        onPreview={previewSuggestion}
+        onRefresh={refreshSuggestions}
+        onClose={() => setSeeAllOpen(false)}
+        returnFocusTo={seeAllReturn}
       />
 
       {/* phone: Edit · Layout · Insights · Preview (DESIGN 10.9) */}

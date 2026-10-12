@@ -507,4 +507,248 @@ class ResumeAiServiceTest {
         assertThat(open).extracting(ProposalResult.ProposalView::stale).containsExactly(false, true);
         assertThat(open.get(0).changes()).hasSize(2);
     }
+
+    // ---- suggestions (R4.6) ------------------------------------------------------------------------
+
+    private static String card(String kind, String title, String changes) {
+        return "{\"kind\":\"" + kind + "\",\"title\":\"" + title + "\",\"body\":\"Why it helps\",\"changes\":[" + changes + "]}";
+    }
+
+    private static String change(String ref, String after) {
+        return "{\"ref\":\"" + ref + "\",\"after\":\"" + after + "\",\"reason\":\"Clearer\"}";
+    }
+
+    private static String suggestions(String... cards) {
+        return "{\"suggestions\":[" + String.join(",", cards) + "]}";
+    }
+
+    private List<ResumeAiProposal> savedCards() {
+        ArgumentCaptor<ResumeAiProposal> row = ArgumentCaptor.forClass(ResumeAiProposal.class);
+        verify(proposals, org.mockito.Mockito.atLeastOnce()).save(row.capture());
+        return row.getAllValues().stream().filter(p -> "suggest".equals(p.getTask())).toList();
+    }
+
+    @Test
+    void atMostSuggestMaxCardsAreStored() {
+        String[] nouns = {"onboarding guide", "release notes", "runbooks", "design docs", "test plans", "status reports", "style guides"};
+        StringBuilder bullets = new StringBuilder();
+        List<String> cards = new java.util.ArrayList<>();
+        for (int i = 0; i < nouns.length; i++) {
+            bullets.append(i == 0 ? "" : ",").append("{\"id\":\"b_cap000").append(i).append("\",\"text\":\"Wrote the ").append(nouns[i]).append("\"}");
+            cards.add(card("bullets", "Card " + i, change("b_cap000" + i, "Authored the " + nouns[i])));
+        }
+        doc.setDocJson("{\"schema\":2,\"meta\":{},\"basics\":{\"name\":\"Ada\"},\"sections\":[{\"id\":\"s_exper001\",\"kind\":\"EXPERIENCE\",\"items\":[{\"id\":\"i_exp00001\",\"title\":\"Engineer\",\"org\":\"Globex\",\"bullets\":[" + bullets + "]}]}]}");
+        reply(suggestions(cards.toArray(String[]::new)));
+
+        ProposalListResult r = service.suggest(11L, true, false);
+        assertThat(r.suggestions()).extracting(ProposalResult.ProposalView::title).containsExactly("Card 0", "Card 1", "Card 2", "Card 3", "Card 4");
+        assertThat(savedCards()).hasSize(5);
+    }
+
+    @Test
+    void suggestionsAreStoredAsOneCardEachInCarouselOrderAndALineIsOfferedOnce() {
+        reply(
+            suggestions(
+                card("skills", "Group skills", change("b_bullet03", "Authored documentation")),
+                card("summary", "Sharper summary", change("i_summary1", "Backend engineer with 6 years building Java services.")),
+                card("bullets", "Stronger verb", change("b_bullet02", "Managed 4 engineers")),
+                card("keywords", "Add Kafka", change("b_bullet01", "Engineered event pipelines handling 1,200 requests per second")),
+                card("section", "Tighten", change("b_bullet03", "Authored docs")),
+                card("bullets", "A sixth card", change("b_bullet02", "Directed 4 engineers"))
+            )
+        );
+        ProposalListResult r = service.suggest(11L, true, false);
+
+        assertThat(r.status()).isEqualTo(ProposalResult.OK);
+        assertThat(r.contentHash()).isEqualTo(HASH);
+        assertThat(r.usage().used()).isEqualTo(10);
+        // "Tighten" and "A sixth card" reuse lines other cards already propose, so they are dropped
+        assertThat(r.suggestions()).extracting(ProposalResult.ProposalView::kind).containsExactly("summary", "bullets", "keywords", "skills");
+        ProposalResult.ProposalView first = r.suggestions().get(0);
+        assertThat(first.title()).isEqualTo("Sharper summary");
+        assertThat(first.body()).isEqualTo("Why it helps");
+        assertThat(first.task()).isEqualTo("suggest");
+        assertThat(first.changes().get(0).ref()).isEqualTo("i_summary1");
+        assertThat(first.changes().get(0).before()).isEqualTo("Backend engineer with 6 years in Java.");
+        assertThat(first.stale()).isFalse();
+        assertThat(r.staleAt()).isNull();
+
+        List<ResumeAiProposal> saved = savedCards();
+        assertThat(saved).hasSize(4).allSatisfy(p -> {
+            assertThat(p.getContentHash()).isEqualTo(HASH);
+            assertThat(p.getStatus()).isEqualTo(ResumeAiProposal.STATUS_OPEN);
+            assertThat(p.getCacheKey()).hasSize(64);
+        });
+        assertThat(saved.get(0).getKind()).isEqualTo("summary");
+        verify(metering, times(1)).record(eq("user"), eq(AiTask.SUGGEST), any());
+    }
+
+    @Test
+    void theSuggestRequestCarriesTheMaxTheScoreGapsAndNoContactDetails() {
+        doc.setScoreJson("{\"rulesetVersion\":\"v1\",\"score\":70,\"groups\":[{\"id\":\"G1\",\"pass\":false,\"fraction\":0.2},{\"id\":\"G2\",\"pass\":true,\"fraction\":1},{\"id\":\"G5\",\"pass\":false,\"fraction\":0}]}");
+        reply(suggestions());
+        service.suggest(11L, true, false);
+        ArgumentCaptor<String> question = ArgumentCaptor.forClass(String.class);
+        verify(provider).generate(eq(AiTask.SUGGEST), eq(MODEL), question.capture(), eq(""), eq(3000));
+        assertThat(question.getValue()).contains("at most 5 improvements").contains("the summary is missing or unclear; few measurable results");
+        assertThat(question.getValue()).contains("[b_bullet03] Wrote docs").contains("Job description:\n(none)");
+        assertThat(question.getValue()).doesNotContain("ada@example.com").doesNotContain("555 0100").doesNotContain("Ada Lovelace");
+    }
+
+    @Test
+    void aChangeThatBreaksTheTruthChecksIsDroppedAndACardLeftWithNothingIsRemoved() {
+        reply(
+            suggestions(
+                card("bullets", "Invented", change("b_bullet03", "Wrote docs that cut onboarding time by 40%")),
+                card("bullets", "Half good", change("b_bullet02", "Managed a team of 40 engineers") + "," + change("b_bullet03", "Authored documentation")),
+                card("section", "Unknown line", change("b_nope", "Anything")),
+                card("bullets", "Placeholder is fine", change("b_bullet01", "Engineered event pipelines handling 1,200 requests per second, up [add a number]"))
+            )
+        );
+        ProposalListResult r = service.suggest(11L, true, false);
+        assertThat(r.suggestions()).extracting(ProposalResult.ProposalView::title).containsExactly("Half good", "Placeholder is fine");
+        assertThat(r.suggestions().get(0).changes()).extracting(ProposalResult.ChangeView::ref).containsExactly("b_bullet03");
+        assertThat(r.dropped()).isEqualTo(3);
+    }
+
+    @Test
+    void everyCardDroppedIsNothingToChangeAndAnEmptyAnswerIsToo() {
+        reply(suggestions(card("bullets", "Invented", change("b_bullet03", "Wrote docs at Initech"))));
+        ProposalListResult bad = service.suggest(11L, true, false);
+        assertThat(bad.status()).isEqualTo(ProposalResult.NOTHING_TO_CHANGE);
+        assertThat(bad.dropped()).isEqualTo(1);
+        assertThat(bad.suggestions()).isEmpty();
+
+        reply(suggestions());
+        ProposalListResult none = service.suggest(11L, true, false);
+        assertThat(none.status()).isEqualTo(ProposalResult.NOTHING_TO_CHANGE);
+        assertThat(none.dropped()).isZero();
+        verify(proposals, never()).save(any());
+    }
+
+    @Test
+    void aCardWithALinkAnUnknownKindOrNoTitleIsDroppedAndLongTextIsClipped() {
+        String longTitle = "Make every one of your bullets stronger by leading with a verb and the result".replace("Make", "Make sure");
+        reply(
+            suggestions(
+                card("bullets", "See https://evil.example now", change("b_bullet03", "Authored documentation")),
+                card("poetry", "Odd kind", change("b_bullet02", "Managed 4 engineers")),
+                card("bullets", "", change("b_bullet02", "Managed 4 engineers")),
+                card("bullets", longTitle, change("b_bullet01", "Engineered event pipelines handling 1,200 requests per second"))
+            )
+        );
+        ProposalListResult r = service.suggest(11L, true, false);
+        assertThat(r.suggestions()).hasSize(1);
+        assertThat(r.suggestions().get(0).title()).hasSizeLessThanOrEqualTo(60).endsWith("…");
+        assertThat(r.dropped()).isEqualTo(3);
+    }
+
+    @Test
+    void theSameDocumentIsServedFromTheStoredCardsAtZeroCostAndRefreshAsksAgain() {
+        ResumeAiProposal stored = storedOpen(
+            "{\"changes\":[{\"ref\":\"b_bullet03\",\"section\":\"Engineer · Globex\",\"before\":\"Wrote docs\",\"alternatives\":[\"Authored documentation\"],\"reason\":\"Clearer\",\"sources\":[\"b_bullet03\"]}]}"
+        );
+        stored.setTask("suggest");
+        stored.setKind("bullets");
+        stored.setTitle("Stronger verb");
+        stored.setBody("Open with the result");
+        when(proposals.findFirstByUserIdAndResumeIdAndCacheKeyAndStatusOrderByCreatedAtDesc(eq(7L), eq(11L), anyString(), eq("OPEN"))).thenReturn(Optional.of(stored));
+        when(proposals.findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(7L, 11L, "suggest", "OPEN")).thenReturn(List.of(stored));
+
+        ProposalListResult cached = service.suggest(11L, true, false);
+        assertThat(cached.status()).isEqualTo(ProposalResult.CACHED);
+        assertThat(cached.suggestions()).hasSize(1);
+        assertThat(cached.suggestions().get(0).title()).isEqualTo("Stronger verb");
+        verify(provider, never()).generate(any(AiTask.class), any(), anyString(), anyString(), anyInt());
+        verify(metering, never()).record(any(), any(), any());
+
+        reply(suggestions(card("bullets", "Fresh", change("b_bullet02", "Managed 4 engineers"))));
+        ProposalListResult fresh = service.suggest(11L, true, true);
+        assertThat(fresh.status()).isEqualTo(ProposalResult.OK);
+        assertThat(fresh.suggestions()).extracting(ProposalResult.ProposalView::title).containsExactly("Fresh");
+        assertThat(stored.getStatus()).as("the cards a fresh set replaces are dismissed").isEqualTo(ResumeAiProposal.STATUS_DISMISSED);
+    }
+
+    @Test
+    void suggestHonoursThePlanConsentBudgetAndDailyCapLikeEveryOtherCall() {
+        when(budget.decide(anyString(), any())).thenReturn(new Decision(Verdict.PRO_REQUIRED, null, false, 0, 0, RESET, false));
+        assertThatThrownBy(() -> service.suggest(11L, true, false)).isInstanceOf(ProRequiredException.class).hasMessageContaining("AI suggestions is part of Kiwiply Pro");
+        when(budget.decide(anyString(), any())).thenReturn(new Decision(Verdict.OK, MODEL, true, 10, 100, RESET, false));
+        assertThat(service.suggest(11L, false, false).status()).isEqualTo(ProposalResult.CONSENT_REQUIRED);
+        when(budget.decide(anyString(), any())).thenReturn(new Decision(Verdict.EXHAUSTED, null, true, 100, 100, RESET, false));
+        assertThat(service.suggest(11L, true, false).status()).isEqualTo(ProposalResult.QUOTA_EXCEEDED);
+        when(budget.decide(anyString(), any())).thenReturn(new Decision(Verdict.OK, MODEL, true, 10, 100, RESET, false));
+        when(calls.countByLoginAndTaskInAndCreatedAtGreaterThanEqual(eq("user"), any(), any())).thenAnswer(inv -> ((java.util.Collection<?>) inv.getArgument(1)).size() == 3 ? 40L : 0L);
+        ProposalListResult daily = service.suggest(11L, true, false);
+        assertThat(daily.status()).isEqualTo(ProposalResult.QUOTA_EXCEEDED);
+        assertThat(daily.cap()).isEqualTo("daily");
+        verify(provider, never()).generate(any(AiTask.class), any(), anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    void aProviderFailureOrUnusableJsonIsAnError() {
+        when(provider.generate(any(AiTask.class), any(), anyString(), anyString(), anyInt())).thenThrow(new AiProviderException("boom"));
+        assertThat(service.suggest(11L, true, false).status()).isEqualTo(ProposalResult.ERROR);
+        reply("{\"nope\":1}");
+        assertThat(service.suggest(11L, true, false).status()).isEqualTo(ProposalResult.ERROR);
+    }
+
+    @Test
+    void theOpenCardsAreListedInCarouselOrderWithStaleMarkedAndTheRefreshDueTime() {
+        ResumeAiProposal bullets = suggestRow(1L, "bullets", HASH);
+        ResumeAiProposal summary = suggestRow(2L, "summary", "d".repeat(64));
+        when(proposals.findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(7L, 11L, "suggest", "OPEN")).thenReturn(List.of(bullets, summary));
+        Instant changed = Instant.parse("2026-10-12T10:00:00Z");
+        doc.setUpdatedAt(changed);
+
+        ProposalListResult r = service.suggestions(11L);
+        assertThat(r.suggestions()).extracting(ProposalResult.ProposalView::kind).containsExactly("summary", "bullets");
+        assertThat(r.suggestions()).extracting(ProposalResult.ProposalView::stale).containsExactly(true, false);
+        assertThat(r.staleAt()).isEqualTo(changed.plusSeconds(10 * 60L));
+
+        when(proposals.findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(7L, 11L, "suggest", "OPEN")).thenReturn(List.of(bullets));
+        assertThat(service.suggestions(11L).staleAt()).isNull();
+        assertThatThrownBy(() -> service.suggestions(99L)).isInstanceOf(ResponseStatusException.class);
+    }
+
+    private ResumeAiProposal suggestRow(long id, String kind, String hash) {
+        ResumeAiProposal p = new ResumeAiProposal();
+        org.springframework.test.util.ReflectionTestUtils.setField(p, "id", id);
+        p.setUser(user);
+        p.setResumeId(11L);
+        p.setContentHash(hash);
+        p.setTask("suggest");
+        p.setKind(kind);
+        p.setTitle("Title " + kind);
+        p.setBody("Body");
+        p.setCacheKey("k".repeat(64));
+        p.setResultJson(
+            "{\"changes\":[{\"ref\":\"b_bullet03\",\"section\":\"s\",\"before\":\"Wrote docs\",\"alternatives\":[\"Authored documentation\"],\"reason\":\"r\",\"sources\":[\"b_bullet03\"]}]}"
+        );
+        return p;
+    }
+
+    @Test
+    void applyingOneCardKeepsTheOtherCardsUsableWhenTheirLinesAreUntouched() {
+        ResumeAiProposal applied = suggestRow(3L, "bullets", HASH);
+        ResumeAiProposal untouched = suggestRow(4L, "skills", HASH);
+        untouched.setResultJson(
+            "{\"changes\":[{\"ref\":\"b_bullet02\",\"section\":\"s\",\"before\":\"Led a team of 4 engineers\",\"alternatives\":[\"Managed 4 engineers\"],\"reason\":\"r\",\"sources\":[\"b_bullet02\"]}]}"
+        );
+        ResumeAiProposal overlapping = suggestRow(5L, "section", HASH);
+        when(proposals.findByIdAndUserId(3L, 7L)).thenReturn(Optional.of(applied));
+        when(proposals.findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(7L, 11L, "suggest", "OPEN")).thenReturn(List.of(untouched, overlapping));
+        String newHash = "e".repeat(64);
+        when(docService.applyAiTexts(eq(11L), eq(HASH), any())).thenAnswer(inv -> {
+            doc.setDocJson(DOC.replace("Wrote docs", "Authored documentation"));
+            doc.setContentHash(newHash);
+            return new ResumeDocDTO();
+        });
+
+        service.apply(3L, List.of("b_bullet03"), null);
+
+        assertThat(untouched.getContentHash()).as("its line still reads as it did").isEqualTo(newHash);
+        assertThat(overlapping.getContentHash()).as("its line was just rewritten").isEqualTo(HASH);
+        assertThat(applied.getStatus()).isEqualTo(ResumeAiProposal.STATUS_APPLIED);
+    }
 }

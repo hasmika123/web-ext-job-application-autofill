@@ -1,13 +1,27 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode, Ref } from "react";
-import { Button, ChartIcon, LockIcon, SparklesIcon, TargetIcon, Tab, TabList, TabPanel, Tabs, cn } from "@kiwiply/ui";
+import { Button, ChartIcon, SparklesIcon, TargetIcon, Tab, TabList, TabPanel, Tabs, cn } from "@kiwiply/ui";
 import type { ResumeScoreReport } from "@kiwiply/ui";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
+import type { AiProposal } from "@/lib/resume-ai";
 import InsightsTab from "./InsightsTab";
 import RailCard from "./RailCard";
+import AiSuggestionsTab, { CountBadge } from "./rail/AiSuggestionsTab";
+import type { Suggestions } from "./rail/useSuggestions";
 import type { RailTab } from "./state/ui";
+
+/** What the AI Suggestions tab needs from the editor (R4.6): the cards and the three things a card can do. */
+export interface RailSuggestions {
+  state: Suggestions;
+  /** The card whose one-click apply is in flight. */
+  applyingId: number | null;
+  /** Another AI change is being applied. */
+  busy: boolean;
+  onApply: (proposal: AiProposal) => void;
+  onPreview: (proposal: AiProposal, returnTo: HTMLElement | null) => void;
+  onSeeAll: (returnTo: HTMLElement | null) => void;
+}
 
 /** The rail's three tabs, in board order; `RailStrip` shows the same three as icons. */
 export const RAIL_TABS: ReadonlyArray<{ value: RailTab; label: string }> = [
@@ -28,7 +42,7 @@ const Card = RailCard;
 
 /**
  * The right rail (DESIGN 10.7): tabs Insights · AI Suggestions (n) · Job Match. The Insights body is the
- * Resume Score (R2.5); suggestions arrive with R4.x, the target with R5.x (placeholders until then).
+ * Resume Score (R2.5), the AI Suggestions are the cards of R4.6, the target arrives with R5.x (a placeholder until then).
  * `aiAllowed` and the feature switches come from the builder config, never from plan names.
  */
 export default function RightRail({
@@ -36,7 +50,7 @@ export default function RightRail({
   onTab,
   config,
   aiUsageLine,
-  suggestionCount = 0,
+  suggestions,
   onTailor,
   insights,
   className,
@@ -46,8 +60,8 @@ export default function RightRail({
   config: ResumeBuilderConfig;
   /** The words for this period's Kiwiply AI meter (`describeAiUsage`, computed on the server), or null. */
   aiUsageLine?: { headline: string; detail: string } | null;
-  /** Open AI suggestion cards; the count badge hides at 0 and for plans without builder AI. */
-  suggestionCount?: number;
+  /** The AI Suggestions cards and what a card can do; the count badge hides at 0 and for plans without builder AI. */
+  suggestions: RailSuggestions;
   /** Opens the Tailor to Job left panel. */
   onTailor: () => void;
   /** The Resume Score (R2.5): the live report, whether it is at or above the pass threshold, and how to open the tips. */
@@ -61,7 +75,8 @@ export default function RightRail({
 }) {
   const tabs = visibleRailTabs(config.features);
   const current = tabs.some((t) => t.value === tab) ? tab : "insights";
-  const showCount = config.aiAllowed && suggestionCount > 0;
+  const suggestionCount = suggestions.state.cards.length;
+  const showCount = config.aiAllowed && !suggestions.state.locked && suggestionCount > 0;
 
   return (
     <Tabs value={current} onValueChange={(v) => onTab(v as RailTab)} variant="underline" className={cn("flex min-w-0 flex-col gap-4", className)}>
@@ -70,11 +85,7 @@ export default function RightRail({
           <Tab key={t.value} value={t.value}>
             {railIcon(t.value)}
             {t.label}
-            {t.value === "ai" && showCount && (
-              <span className="rounded-full bg-v2-blue-soft px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-v2-blue" aria-label={`${suggestionCount} suggestions`}>
-                {suggestionCount}
-              </span>
-            )}
+            {t.value === "ai" && showCount && <CountBadge count={suggestionCount} />}
           </Tab>
         ))}
       </TabList>
@@ -84,34 +95,16 @@ export default function RightRail({
       </TabPanel>
 
       <TabPanel value="ai">
-        <Card title={<><SparklesIcon className="h-4 w-4 text-v2-blue" />AI Suggestions</>}>
-          {config.aiAllowed ? (
-            <div className="rounded-xl border border-dashed border-line bg-paper-2/60 p-4 text-center">
-              <p className="text-[14px] font-semibold text-ink">No suggestions yet</p>
-              <Button variant="accent" size="sm" disabled className="mt-3" aria-describedby="rb-ai-stub-note">
-                Get suggestions
-              </Button>
-              <p id="rb-ai-stub-note" className="mt-2 text-[12px] text-muted">
-                Suggestions arrive in a later release.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-xl bg-paper-2/60 p-4 text-center">
-              <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-v2-violet-soft text-v2-violet-ink">
-                <LockIcon className="h-5 w-5" />
-              </span>
-              <p className="mt-2 text-[14px] font-semibold text-ink">AI suggestions are part of Pro</p>
-              <Link href="/pricing" className="mt-2 inline-block text-[13px] font-bold text-v2-blue hover:underline">
-                See Pro
-              </Link>
-            </div>
-          )}
-          {aiUsageLine && (
-            <p className="mt-3 text-[12px] leading-snug text-muted">
-              {aiUsageLine.headline}. {aiUsageLine.detail}
-            </p>
-          )}
-        </Card>
+        <AiSuggestionsTab
+          allowed={config.aiAllowed}
+          suggestions={suggestions.state}
+          aiUsageLine={aiUsageLine}
+          applyingId={suggestions.applyingId}
+          busy={suggestions.busy}
+          onApply={suggestions.onApply}
+          onPreview={suggestions.onPreview}
+          onSeeAll={suggestions.onSeeAll}
+        />
       </TabPanel>
 
       <TabPanel value="match">

@@ -1559,7 +1559,7 @@
       "id": "R4.6",
       "epic": "R4",
       "title": "AI Suggestions tab — `SUGGEST` task + prompt, suggestion cards (count badge, carousel, Apply Suggestion / Preview, See all, Refresh)",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API",

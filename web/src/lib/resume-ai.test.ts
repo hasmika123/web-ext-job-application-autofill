@@ -6,9 +6,12 @@ import {
   dismissProposal,
   hasPlaceholder,
   listOpenProposals,
+  listSuggestions,
   modeLabel,
   quotaSentence,
   requestRewrite,
+  requestSuggestions,
+  suggestionNeedsReview,
   usageLine,
   type AiChange,
 } from "./resume-ai";
@@ -135,5 +138,60 @@ describe("the little helpers", () => {
     expect(usageLine({ used: 25, limit: 100, resetsAt: "2026-11-01T00:00:00Z", economy: true })).toBe("25% of your Kiwiply AI used · resets November 1 · lighter model now");
     expect(usageLine({ used: 40, limit: 40 }, "daily")).toBe("40 of 40 AI rewrites used today");
     expect(usageLine(undefined)).toBeNull();
+  });
+});
+
+describe("AI Suggestions fetchers (R4.6)", () => {
+  const card = { id: 5, task: "suggest", kind: "bullets", title: "Stronger verb", body: "Lead with the action", stale: false, changes: [change()] };
+
+  it("requestSuggestions POSTs consent and refresh, and hands back the cards", async () => {
+    fetchMock.mockResolvedValue(reply(200, { status: "ok", suggestions: [card], contentHash: "h", usage: { used: 12, limit: 100 } }));
+    const out = await requestSuggestions(42, true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/resumes/42/ai/suggestions",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ consent: true, refresh: true }) }),
+    );
+    expect(out).toMatchObject({ kind: "result", result: { status: "ok", suggestions: [{ id: 5, title: "Stronger verb" }] } });
+  });
+
+  it("an answer without a card list still has an (empty) list; the refusals that are statuses stay results", async () => {
+    fetchMock.mockResolvedValueOnce(reply(200, { status: "nothingToChange", dropped: 2 }));
+    expect(await requestSuggestions(1, false)).toMatchObject({ kind: "result", result: { status: "nothingToChange", suggestions: [], dropped: 2 } });
+    for (const status of ["quotaExceeded", "disabled", "consentRequired"]) {
+      fetchMock.mockResolvedValueOnce(reply(200, { status, suggestions: [] }));
+      expect(await requestSuggestions(1, false)).toMatchObject({ kind: "result", result: { status } });
+    }
+  });
+
+  it("402 is the Pro lock; 429, 502 and a dead network are retryable errors; 401 and 404 are not", async () => {
+    fetchMock.mockResolvedValueOnce(reply(402, { code: "PRO_REQUIRED" }));
+    expect(await requestSuggestions(1, false)).toEqual({ kind: "locked" });
+    fetchMock.mockResolvedValueOnce(reply(429, {}));
+    expect(await requestSuggestions(1, false)).toMatchObject({ kind: "error", status: 429, retry: true });
+    fetchMock.mockResolvedValueOnce(reply(502, { status: "error", error: "Couldn't reach Kiwiply AI right now - try again." }));
+    expect(await requestSuggestions(1, false)).toMatchObject({ kind: "error", status: 502, retry: true, message: "Couldn't reach Kiwiply AI right now - try again." });
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    expect(await requestSuggestions(1, false)).toMatchObject({ kind: "error", status: 0, retry: true });
+    fetchMock.mockResolvedValueOnce(reply(401, {}));
+    expect(await requestSuggestions(1, false)).toMatchObject({ kind: "error", status: 401, retry: false });
+    fetchMock.mockResolvedValueOnce(reply(404, {}));
+    expect(await requestSuggestions(1, false)).toMatchObject({ kind: "error", status: 404, retry: false });
+  });
+
+  it("listSuggestions reads the stored cards, and is null on any failure", async () => {
+    fetchMock.mockResolvedValueOnce(reply(200, { status: "ok", suggestions: [card], staleAt: null }));
+    expect(await listSuggestions(42)).toMatchObject({ suggestions: [{ id: 5 }] });
+    expect(fetchMock).toHaveBeenCalledWith("/api/resumes/42/ai/suggestions", { cache: "no-store" });
+    fetchMock.mockResolvedValueOnce(reply(500, {}));
+    expect(await listSuggestions(42)).toBeNull();
+    fetchMock.mockResolvedValueOnce(reply(200, { nope: true }));
+    expect(await listSuggestions(42)).toBeNull();
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    expect(await listSuggestions(42)).toBeNull();
+  });
+
+  it("a card with a [add a number] gap needs a review before it can be applied", () => {
+    expect(suggestionNeedsReview({ ...card, changes: [change()] } as never)).toBe(false);
+    expect(suggestionNeedsReview({ ...card, changes: [change({ after: "Cut costs by [add a number]" })] } as never)).toBe(true);
   });
 });

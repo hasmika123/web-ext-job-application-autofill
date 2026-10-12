@@ -32,6 +32,7 @@ import com.dossier.api.service.ai.guard.AiTruthChecks.Profile;
 import com.dossier.api.service.ai.guard.AiTruthChecks.Sources;
 import com.dossier.api.service.ai.prompts.Prompt;
 import com.dossier.api.service.ai.prompts.resume.ResumePrompts;
+import com.dossier.api.service.privacy.SensitivePatterns;
 import com.dossier.api.service.dto.ResumeDocDTO;
 import com.dossier.api.service.resume.ResumeDocument;
 import com.dossier.api.service.resume.ResumeDocumentUpgrader;
@@ -302,6 +303,215 @@ public class ResumeAiService {
         return finish(user, doc, AiTask.SUMMARY, null, prompt, cacheKey, call, kept, om.createArrayNode(), dropped, t);
     }
 
+    // ---- suggestions (R4.6) ----------------------------------------------------------------------
+
+    /** The card kinds in the order the carousel shows them (DESIGN 13.3: summary, bullets, keywords, skills, section). */
+    static final List<String> KIND_ORDER = List.of("summary", "bullets", "keywords", "skills", "section");
+    static final int TITLE_MAX_CHARS = 60;
+    static final int BODY_MAX_CHARS = 160;
+    /** What a failing Resume Score group means in the prompt's words ("Fix real gaps first"), by group id. */
+    static final Map<String, String> GROUP_GAPS = Map.of(
+        "G1", "the summary is missing or unclear",
+        "G2", "experience bullets need work",
+        "G3", "job keywords are missing",
+        "G4", "formatting and length",
+        "G5", "few measurable results",
+        "G6", "ATS readability"
+    );
+
+    /**
+     * Ask for up to {@code resume.ai.suggestMax} improvement cards for a resume (DESIGN 13.2, R4.6). Each card is
+     * stored as its own OPEN {@code suggest} proposal (kind, title, body and its checked changes) pinned to the
+     * document's content hash; a change that fails the truth checks is dropped, and a card left with no change is
+     * dropped. The answer for the same document is the stored one at zero cost; {@code refresh} asks again anyway
+     * (the manual Refresh), and a fresh set replaces the cards it supersedes. 402 {@code PRO_REQUIRED} for Free.
+     */
+    public ProposalListResult suggest(Long resumeId, boolean consent, boolean refresh) {
+        User user = currentUser();
+        ResumeDoc doc = ownedDoc(user, resumeId);
+        JsonNode json = docJson(doc);
+        ResumeDigest digest = AiInputs.resumeDigestV2(json, AiInputs.DETAILED);
+
+        Prompt prompt = ResumePrompts.get("resume.suggest");
+        int max = settings.getInt(ResumeBuilderSettingKeys.AI_SUGGEST_MAX);
+        int bulletMax = settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_BULLET_CHARS);
+        int summaryMax = settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_SUMMARY_CHARS);
+        Map<String, String> slots = new LinkedHashMap<>();
+        slots.put("max", String.valueOf(max));
+        slots.put("gaps", scoreGaps(doc));
+        slots.put("keywords", "(none)"); // the job's key skills arrive with the job target (R5.6)
+        slots.put("jd", "");
+        slots.put("resume", digest.text());
+
+        String cacheKey = cacheKey(AiTask.SUGGEST, "", prompt, doc.getContentHash(), new TreeSet<>(), "", "", "");
+        Call call = callModel(user, doc, AiTask.SUGGEST, prompt, slots, cacheKey, consent, !refresh);
+        if (call.early() != null) {
+            ProposalResult early = call.early();
+            if (!ProposalResult.CACHED.equals(early.status())) return ProposalListResult.of(early);
+            return listOf(ProposalResult.CACHED, user, doc, early.usage(), null);
+        }
+
+        JsonNode cards = call.json().path("suggestions");
+        if (!cards.isArray()) return ProposalListResult.of(error(call.usage()));
+        Sources base = Sources.of(digest.sourceText());
+        record Card(String kind, String title, String body, ArrayNode changes) {}
+        List<Card> kept = new ArrayList<>();
+        Set<String> usedRefs = new LinkedHashSet<>();
+        int dropped = 0;
+        for (JsonNode s : cards) {
+            if (kept.size() >= max) break;
+            String kind = s.path("kind").asText("").trim().toLowerCase(Locale.ROOT);
+            String title = clip(oneLine(s.path("title").asText("")), TITLE_MAX_CHARS);
+            String body = clip(oneLine(s.path("body").asText("")), BODY_MAX_CHARS);
+            if (!KIND_ORDER.contains(kind) || title.isEmpty() || !safeCardText(title) || !safeCardText(body)) {
+                dropped++;
+                continue;
+            }
+            ArrayNode changes = om.createArrayNode();
+            Set<String> cardRefs = new LinkedHashSet<>();
+            for (JsonNode c : s.path("changes")) {
+                String ref = c.path("ref").asText("").trim();
+                Ref r = digest.refs().get(ref);
+                // One card per line: a line another card already proposes (or this card does twice) is not offered again.
+                if (r == null || usedRefs.contains(ref) || !cardRefs.add(ref)) {
+                    dropped++;
+                    continue;
+                }
+                List<String> after = checkedTexts(List.of(c.path("after").asText("")), r, base, "", "SUMMARY".equals(r.sectionKind()) ? summaryMax : bulletMax);
+                if (after.isEmpty()) {
+                    dropped++;
+                    cardRefs.remove(ref);
+                    continue;
+                }
+                ObjectNode change = changes.addObject();
+                change.put("ref", ref);
+                change.put("section", r.section());
+                change.put("before", r.text());
+                change.putArray("alternatives").add(after.get(0));
+                change.put("reason", reasonOr(c.path("reason").asText(""), "Suggested to strengthen this line"));
+                change.putArray("sources").add(ref);
+                change.put("formatted", r.formatted());
+            }
+            if (changes.isEmpty()) continue; // a card with nothing left to propose is dropped (its changes were counted above)
+            usedRefs.addAll(cardRefs);
+            kept.add(new Card(kind, title, body, changes));
+        }
+        meters.counter("ai.truth.checked", "task", AiTask.SUGGEST.wire()).increment(kept.size() + dropped);
+        meters.counter("ai.truth.dropped", "task", AiTask.SUGGEST.wire()).increment(dropped);
+        if (kept.isEmpty()) return new ProposalListResult(ProposalResult.NOTHING_TO_CHANGE, List.of(), doc.getContentHash(), null, call.usage(), null, dropped);
+
+        List<ResumeAiProposal> superseded = proposals.findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(user.getId(), doc.getResumeId(), AiTask.SUGGEST.wire(), ResumeAiProposal.STATUS_OPEN);
+        kept.sort(java.util.Comparator.comparingInt(c -> KIND_ORDER.indexOf(c.kind())));
+        List<ResumeAiProposal> stored = new ArrayList<>();
+        for (Card card : kept) {
+            ObjectNode result = om.createObjectNode();
+            result.set("changes", card.changes());
+            result.set("suggestions", om.createArrayNode());
+            result.put("dropped", dropped);
+            result.put("prompt", prompt.id() + "@" + prompt.version());
+            ResumeAiProposal row = new ResumeAiProposal();
+            row.setUser(user);
+            row.setResumeId(doc.getResumeId());
+            row.setContentHash(doc.getContentHash());
+            row.setTask(AiTask.SUGGEST.wire());
+            row.setCacheKey(cacheKey);
+            row.setResultJson(result.toString());
+            row.setModel(call.model());
+            row.setAiCallId(call.callId());
+            row.setKind(card.kind());
+            row.setTitle(card.title());
+            row.setBody(card.body());
+            stored.add(proposals.save(row));
+        }
+        // The new set replaces the cards it supersedes (older, or the same document asked again).
+        for (ResumeAiProposal old : superseded) {
+            old.setStatus(ResumeAiProposal.STATUS_DISMISSED);
+            proposals.save(old);
+        }
+        trimOpen(user.getId());
+        return listOf(ProposalResult.OK, stored, doc, call.usage(), dropped);
+    }
+
+    /** The resume's open suggestion cards (no AI call): in carousel order, each marked {@code stale} when the document has moved on. */
+    @Transactional(readOnly = true)
+    public ProposalListResult suggestions(Long resumeId) {
+        User user = currentUser();
+        ResumeDoc doc = ownedDoc(user, resumeId);
+        return listOf(ProposalResult.OK, user, doc, null, null);
+    }
+
+    private ProposalListResult listOf(String status, User user, ResumeDoc doc, UsageView usage, Integer dropped) {
+        return listOf(status, proposals.findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(user.getId(), doc.getResumeId(), AiTask.SUGGEST.wire(), ResumeAiProposal.STATUS_OPEN), doc, usage, dropped);
+    }
+
+    private ProposalListResult listOf(String status, List<ResumeAiProposal> open, ResumeDoc doc, UsageView usage, Integer dropped) {
+        List<ResumeAiProposal> rows = new ArrayList<>(open);
+        rows.sort(java.util.Comparator.comparingInt(r -> {
+            int i = KIND_ORDER.indexOf(r.getKind());
+            return i < 0 ? KIND_ORDER.size() : i;
+        }));
+        List<ProposalView> views = new ArrayList<>();
+        boolean stale = false;
+        for (ResumeAiProposal row : rows) {
+            ProposalView v = present(row, doc.getContentHash());
+            if (v.changes().isEmpty()) continue;
+            stale |= v.stale();
+            views.add(v);
+        }
+        Instant staleAt = stale ? doc.getUpdatedAt().plus(Duration.ofMinutes(settings.getInt(ResumeBuilderSettingKeys.AI_SUGGEST_STALE_MINUTES))) : null;
+        return new ProposalListResult(status, views, doc.getContentHash(), staleAt, usage, null, dropped);
+    }
+
+    /** A card's title or body: no link, no e-mail, nothing the privacy patterns would redact. */
+    private static boolean safeCardText(String text) {
+        return AiTruthChecks.checkReason(text).isEmpty() && SensitivePatterns.scan(text).isEmpty();
+    }
+
+    private static String clip(String text, int max) {
+        if (text.length() <= max) return text;
+        int cut = text.lastIndexOf(' ', max - 1);
+        return text.substring(0, cut > max / 2 ? cut : max - 1).stripTrailing() + "…";
+    }
+
+    /** The failing Resume Score groups of the stored score (DESIGN 11.5), in the prompt's words; "(none recorded)" when there is no score. */
+    private String scoreGaps(ResumeDoc doc) {
+        JsonNode score = readJson(doc.getScoreJson());
+        List<String> gaps = new ArrayList<>();
+        if (score != null) {
+            for (JsonNode g : score.path("groups")) {
+                String text = GROUP_GAPS.get(g.path("id").asText(""));
+                if (text != null && !g.path("pass").asBoolean(true)) gaps.add(text);
+            }
+        }
+        return gaps.isEmpty() ? "(none recorded)" : String.join("; ", gaps);
+    }
+
+    /**
+     * After an apply the document has a new content hash: the other open suggestion cards of the resume stay usable
+     * (re-pinned to it) when every line they propose to change still reads as it did, so applying one card does not
+     * leave the carousel stale. A card whose line was just rewritten is left pinned to the old hash (stale).
+     */
+    private void repinSuggestions(User user, Long resumeId, String oldHash) {
+        ResumeDoc fresh = docs.findByResumeIdAndUserId(resumeId, user.getId()).orElse(null);
+        if (fresh == null || fresh.getContentHash() == null || fresh.getContentHash().equals(oldHash)) return;
+        ResumeDigest digest = AiInputs.resumeDigestV2(docJson(fresh), AiInputs.DETAILED);
+        for (ResumeAiProposal p : proposals.findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(user.getId(), resumeId, AiTask.SUGGEST.wire(), ResumeAiProposal.STATUS_OPEN)) {
+            if (!oldHash.equals(p.getContentHash())) continue;
+            JsonNode stored = readJson(p.getResultJson());
+            boolean intact = stored != null;
+            if (stored != null) {
+                for (JsonNode c : stored.path("changes")) {
+                    Ref r = digest.refs().get(c.path("ref").asText(""));
+                    if (r == null || !r.text().equals(c.path("before").asText(""))) intact = false;
+                }
+            }
+            if (intact) {
+                p.setContentHash(fresh.getContentHash());
+                proposals.save(p);
+            }
+        }
+    }
+
     // ---- apply, dismiss, list --------------------------------------------------------------------
 
     /**
@@ -350,6 +560,7 @@ public class ResumeAiService {
         ResumeDocDTO dto = docService.applyAiTexts(row.getResumeId(), row.getContentHash(), texts);
         row.setStatus(ResumeAiProposal.STATUS_APPLIED);
         proposals.save(row);
+        repinSuggestions(user, row.getResumeId(), row.getContentHash());
         return dto;
     }
 
@@ -391,6 +602,11 @@ public class ResumeAiService {
      * {@code error}. Throws {@link ProRequiredException} (Free) and {@code 429 RATE_LIMITED}.
      */
     private Call callModel(User user, ResumeDoc doc, AiTask task, Prompt prompt, Map<String, String> slots, String cacheKey, boolean consent) {
+        return callModel(user, doc, task, prompt, slots, cacheKey, consent, true);
+    }
+
+    /** {@code useCache} false asks for a fresh answer (the suggestions' manual Refresh): the stored one is not looked up. */
+    private Call callModel(User user, ResumeDoc doc, AiTask task, Prompt prompt, Map<String, String> slots, String cacheKey, boolean consent, boolean useCache) {
         String login = user.getLogin();
         if (!enabled || !provider.isConfigured() || !settings.getBool(ResumeBuilderSettingKeys.AI_FEATURE_RESUME)) {
             return early(ProposalResult.refusal(ProposalResult.DISABLED, null));
@@ -406,7 +622,9 @@ public class ResumeAiService {
         UsageView usage = usage(d);
         if (!consent) return early(ProposalResult.refusal(ProposalResult.CONSENT_REQUIRED, usage));
 
-        var hit = proposals.findFirstByUserIdAndResumeIdAndCacheKeyAndStatusOrderByCreatedAtDesc(user.getId(), doc.getResumeId(), cacheKey, ResumeAiProposal.STATUS_OPEN);
+        var hit = useCache
+            ? proposals.findFirstByUserIdAndResumeIdAndCacheKeyAndStatusOrderByCreatedAtDesc(user.getId(), doc.getResumeId(), cacheKey, ResumeAiProposal.STATUS_OPEN)
+            : java.util.Optional.<ResumeAiProposal>empty();
         if (hit.isPresent()) {
             return early(new ProposalResult(ProposalResult.CACHED, present(hit.get(), doc.getContentHash()), usage, null, null));
         }

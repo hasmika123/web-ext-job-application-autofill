@@ -604,7 +604,43 @@ function aiLines(doc) {
 
 const proposalView = (p, d) => ({
   id: p.id, task: p.task, mode: p.mode ?? undefined, stale: p.version !== d.version, createdAt: p.createdAt, changes: p.changes, suggestions: [], model: "mock-flash-lite", aiCallId: p.id + 4000,
+  ...(p.kind ? { kind: p.kind, title: p.title, body: p.body } : {}),
 });
+
+/* AI Suggestions mock (R4.6): up to four deterministic cards per document version, in carousel order (summary, bullets,
+ * keywords, section), each with its own lines so applying one leaves the others usable (the server re-pins them). */
+const KIND_RANK = { summary: 0, bullets: 1, keywords: 2, skills: 3, section: 4 };
+const openCards = (resumeId) => [...AI_PROPOSALS.values()].filter((p) => p.resumeId === resumeId && p.task === "suggest" && p.status === "OPEN").sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind] || a.id - b.id);
+function mockCards(doc) {
+  const lines = aiLines(doc);
+  const cards = [];
+  const used = new Set();
+  const change = (ref, mode, after) => {
+    const line = lines.get(ref);
+    const alts = after ? [after] : mockAlternatives(line.text, mode).filter((a) => !a.includes("[add a number]"));
+    if (!line || used.has(ref) || alts.length === 0) return null;
+    used.add(ref);
+    return { ref, section: line.section, before: line.text, after: alts[0], reason: { stronger: "Opens with a strong verb and keeps your facts", plain: "Simpler words, same meaning", formal: "A more professional tone" }[mode] ?? "Drafted from what your resume already says", sources: [ref], formatted: line.formatted };
+  };
+  const sum = doc.sections.find((s) => s.kind === "SUMMARY")?.items?.[0];
+  if (sum?.text?.trim()) {
+    const c = change(sum.id, "stronger", `${noDot(sum.text.trim())}, shipping design systems used by teams.`);
+    if (c) cards.push({ kind: "summary", title: "Make your summary stronger", body: "Add more impact with specific skills, achievements and your unique value.", changes: [c] });
+  }
+  const bulletRefs = [];
+  for (const s of doc.sections) for (const it of s.hidden ? [] : s.items ?? []) for (const b of it.hidden ? [] : it.bullets ?? []) if (lines.has(b.id)) bulletRefs.push(b.id);
+  const first = bulletRefs.slice(0, 2).map((r) => change(r, "stronger")).filter(Boolean);
+  if (first.length) cards.push({ kind: "bullets", title: "Lead your bullets with a strong verb", body: "Start each bullet with what you did, so the result reads first.", changes: first });
+  const kw = bulletRefs.slice(2, 3).map((r) => change(r, "plain")).filter(Boolean);
+  if (kw.length) cards.push({ kind: "keywords", title: "Use plainer words recruiters search for", body: "Everyday wording matches more of the terms in job posts.", changes: kw });
+  const sec = bulletRefs.slice(3, 4).map((r) => change(r, "formal")).filter(Boolean);
+  if (sec.length) cards.push({ kind: "section", title: "Tighten the tone of this section", body: "A steadier, more professional voice across the section.", changes: sec });
+  return cards;
+}
+const suggestionsView = (resumeId, d, extra = {}) => {
+  const cards = openCards(resumeId);
+  return { status: "ok", suggestions: cards.map((p) => proposalView(p, d)), contentHash: `mock-${d.version}`, ...(cards.some((p) => p.version !== d.version) ? { staleAt: new Date(Date.parse(d.updatedAt ?? new Date().toISOString()) + 10 * 60_000).toISOString() } : {}), ...extra };
+};
 
 function handleAi(req, res, path, method) {
   if (path === "/__mock/ai") {
@@ -616,7 +652,7 @@ function handleAi(req, res, path, method) {
     json(res, 200, { pro: PRO, mode: AI_MODE, used: aiUsed });
     return true;
   }
-  const m = path.match(/^\/api\/profile\/resumes\/(\d+)\/ai\/(rewrite|summary|proposals)$/);
+  const m = path.match(/^\/api\/profile\/resumes\/(\d+)\/ai\/(rewrite|summary|proposals|suggestions)$/);
   const a = path.match(/^\/api\/profile\/ai\/proposals\/(\d+)\/(apply|dismiss)$/);
   if (!m && !a) return false;
   if (!subOf(req)) {
@@ -643,6 +679,11 @@ function handleAi(req, res, path, method) {
       json(res, 200, [...AI_PROPOSALS.values()].filter((p) => p.resumeId === id && p.status === "OPEN").reverse().map((p) => proposalView(p, d)));
       return true;
     }
+    if (m[2] === "suggestions" && method === "GET") {
+      req.resume();
+      json(res, 200, suggestionsView(id, d));
+      return true;
+    }
     if (method !== "POST") {
       req.resume();
       json(res, 405, { error: "Method not allowed" });
@@ -650,11 +691,27 @@ function handleAi(req, res, path, method) {
     }
     withBody(req, (b) => {
       if (b.consent !== true) return json(res, 200, { status: "consentRequired", usage: aiUsage() });
+      if (m[2] === "suggestions") {
+        const open = openCards(id);
+        // The same document is answered from the stored cards at zero cost, unless the person asked to refresh.
+        if (open.length > 0 && open.every((p) => p.version === d.version) && b.refresh !== true) return json(res, 200, suggestionsView(id, d, { status: "cached", usage: aiUsage() }));
+      }
       if (AI_MODE === "disabled") return json(res, 200, { status: "disabled" });
       if (AI_MODE === "quota") return json(res, 200, { status: "quotaExceeded", usage: aiUsage({ used: 100 }) });
       if (AI_MODE === "daily") return json(res, 200, { status: "quotaExceeded", cap: "daily", usage: { used: 40, limit: 40, resetsAt: new Date(Date.now() + 86_400_000).toISOString(), economy: false } });
       if (AI_MODE === "fail") return json(res, 502, { status: "error", error: "Couldn't reach Kiwiply AI right now - try again." });
       const respond = () => {
+        if (m[2] === "suggestions") {
+          const fresh = AI_MODE === "nothing" ? [] : mockCards(d.doc);
+          if (fresh.length === 0) return json(res, 200, { status: "nothingToChange", suggestions: [], usage: aiUsage(), dropped: 0 });
+          aiUsed = Math.min(99, aiUsed + 1);
+          for (const old of openCards(id)) old.status = "DISMISSED"; // the fresh set replaces the cards it supersedes
+          for (const c of fresh) {
+            const p = { id: nextProposalId++, resumeId: id, task: "suggest", mode: null, version: d.version, status: "OPEN", createdAt: new Date().toISOString(), changes: c.changes, kind: c.kind, title: c.title, body: c.body };
+            AI_PROPOSALS.set(p.id, p);
+          }
+          return json(res, 200, suggestionsView(id, d, { usage: aiUsage(), dropped: 0 }));
+        }
         const lines = aiLines(d.doc);
         const changes = [];
         const mode = m[2] === "rewrite" ? String(b.mode ?? "stronger") : null;
@@ -732,8 +789,14 @@ function handleAi(req, res, path, method) {
       node.src = "ai";
     }
     p.status = "APPLIED";
+    const wasVersion = d.version;
     d.version += 1;
     d.updatedAt = new Date().toISOString();
+    // The other open suggestion cards stay usable (re-pinned to the new version) when the lines they propose to change still read as they did.
+    const after = aiLines(d.doc);
+    for (const o of openCards(p.resumeId)) {
+      if (o.version === wasVersion && o.changes.every((c) => after.get(c.ref)?.text === c.before)) o.version = d.version;
+    }
     withEtag(res, 200, docDto(p.resumeId), d.version);
   });
   return true;

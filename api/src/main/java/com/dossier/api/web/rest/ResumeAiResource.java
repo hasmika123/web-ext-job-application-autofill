@@ -2,6 +2,7 @@ package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.ai.engines.ProposalListResult;
 import com.dossier.api.service.ai.engines.ProposalResult;
 import com.dossier.api.service.ai.engines.ProposalResult.ProposalView;
 import com.dossier.api.service.ai.engines.ResumeAiService;
@@ -39,6 +40,8 @@ public class ResumeAiResource {
 
     public record SummaryVM(@Size(max = 16) String tone, boolean consent) {}
 
+    public record SuggestVM(boolean consent, boolean refresh) {}
+
     public record ApplyVM(@Size(max = 40) List<@Size(max = 40) String> keep, @Size(max = 40) Map<@Size(max = 40) String, Integer> alternatives) {}
 
     private final ResumeAiService service;
@@ -61,6 +64,22 @@ public class ResumeAiResource {
     public ResponseEntity<?> summary(@PathVariable("id") Long id, @Valid @RequestBody SummaryVM vm) {
         demoGuard.assertNotDemo();
         return respond(service.summary(id, vm.tone(), vm.consent()));
+    }
+
+    @Operation(
+        summary = "Get AI suggestion cards",
+        description = "Pro. Up to resume.ai.suggestMax improvement cards (kind, title, body, checked changes) for the document as it is now. The answer for the same document is the stored one at zero cost; refresh=true asks again. Nothing changes until a card is applied."
+    )
+    @PostMapping("/resumes/{id}/ai/suggestions")
+    public ResponseEntity<?> suggest(@PathVariable("id") Long id, @Valid @RequestBody SuggestVM vm) {
+        demoGuard.assertNotDemo();
+        return respond(service.suggest(id, vm.consent(), vm.refresh()));
+    }
+
+    @Operation(summary = "Open AI suggestion cards of a resume", description = "No AI call. Cards in carousel order, each marked stale when the resume has changed since; staleAt is when a refresh is due.")
+    @GetMapping("/resumes/{id}/ai/suggestions")
+    public ProposalListResult suggestions(@PathVariable("id") Long id) {
+        return service.suggestions(id);
     }
 
     @Operation(summary = "Open AI proposals of a resume", description = "No AI call. Each proposal says whether the resume has changed since (stale).")
@@ -87,13 +106,18 @@ public class ResumeAiResource {
 
     /** 200 with the result, except a provider failure: 502 with an {@code error} message the UI shows. */
     private static ResponseEntity<?> respond(ProposalResult r) {
-        if (ProposalResult.ERROR.equals(r.status())) {
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("status", r.status());
-            body.put("error", "Couldn't reach Kiwiply AI right now - try again.");
-            if (r.usage() != null) body.put("usage", r.usage());
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
-        }
-        return ResponseEntity.ok(r);
+        return ProposalResult.ERROR.equals(r.status()) ? providerFailure(r.status(), r.usage()) : ResponseEntity.ok(r);
+    }
+
+    private static ResponseEntity<?> respond(ProposalListResult r) {
+        return ProposalResult.ERROR.equals(r.status()) ? providerFailure(r.status(), r.usage()) : ResponseEntity.ok(r);
+    }
+
+    private static ResponseEntity<?> providerFailure(String status, Object usage) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", status);
+        body.put("error", "Couldn't reach Kiwiply AI right now - try again.");
+        if (usage != null) body.put("usage", usage);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
     }
 }

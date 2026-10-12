@@ -6,7 +6,7 @@ export interface RewriteRequest {
   /** The words the sheet uses for what is being rewritten. */
   scope: string;
   /** Where the request came from, for the analytics event. */
-  from: "section" | "bullet" | "tip";
+  from: "section" | "bullet" | "tip" | "suggestion";
 }
 
 /** What the canvas hands its blocks to start the rewrite flow. */

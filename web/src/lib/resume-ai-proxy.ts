@@ -31,6 +31,12 @@ export async function summaryBody(request: Request): Promise<string> {
   return JSON.stringify({ tone: typeof b.tone === "string" ? b.tone : undefined, consent: b.consent === true });
 }
 
+/** `{consent, refresh}` for `POST /ai/suggestions`. */
+export async function suggestBody(request: Request): Promise<string> {
+  const b = await readObject(request);
+  return JSON.stringify({ consent: b.consent === true, refresh: b.refresh === true });
+}
+
 /** `{keep, alternatives}` for `POST /ai/proposals/:pid/apply`: refs and an alternative index per ref, never text. */
 export async function applyBody(request: Request): Promise<string> {
   const b = await readObject(request);

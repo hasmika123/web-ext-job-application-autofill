@@ -37,6 +37,8 @@ export interface ProposalDiffProps {
   phone: boolean;
   /** What is being rewritten, in the sheet's words ("Summary", "Experience", "this bullet"). */
   scope: string;
+  /** The sheet's title; "Rewrite with AI" unless it is previewing an AI Suggestions card (R4.6). */
+  title?: string;
   view: ProposalSheetView;
   mode: RewriteMode;
   /** Re-run with another mode; omit to hide the picker (a summary proposal has none). */
@@ -89,6 +91,7 @@ export default function ProposalDiff({
   open,
   phone,
   scope,
+  title = "Rewrite with AI",
   view,
   mode,
   onMode,
@@ -166,7 +169,7 @@ export default function ProposalDiff({
       mode={phone ? "fullscreen" : "overlay"}
       open={open}
       width={SHEET_WIDTH}
-      title="Rewrite with AI"
+      title={title}
       description={description}
       icon={<SparklesIcon className="h-5 w-5" />}
       onClose={onClose}
