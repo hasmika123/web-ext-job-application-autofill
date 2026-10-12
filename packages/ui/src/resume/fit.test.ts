@@ -1,10 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { FIT_LADDER, MAX_FIT_STEP, clampStep, fitToPages, pageCount, resolveTheme } from "./fit";
+import { FIT_LADDER, MAX_FIT_STEP, SPACING_PRESETS, clampStep, fitToPages, pageCount, resolveTheme, stepValues } from "./fit";
 import { DEFAULT_THEME } from "./theme";
 
 describe("fit ladder", () => {
-  it("is the seven design steps, each tighter than the last", () => {
+  it("is seven deltas on the Spacing preset, each tighter than the last", () => {
     expect(FIT_LADDER).toEqual([
+      { dDensity: 0, dSize: 0, dMargin: 0 },
+      { dDensity: 0, dSize: -0.5, dMargin: -0.05 },
+      { dDensity: -0.08, dSize: -0.5, dMargin: -0.1 },
+      { dDensity: -0.12, dSize: -1, dMargin: -0.15 },
+      { dDensity: -0.18, dSize: -1, dMargin: -0.2 },
+      { dDensity: -0.22, dSize: -1.5, dMargin: -0.25 },
+      { dDensity: -0.28, dSize: -1.5, dMargin: -0.3 },
+    ]);
+    expect(MAX_FIT_STEP).toBe(6);
+    for (let i = 1; i < FIT_LADDER.length; i++) {
+      expect(FIT_LADDER[i].dDensity).toBeLessThanOrEqual(FIT_LADDER[i - 1].dDensity);
+      expect(FIT_LADDER[i].dSize).toBeLessThanOrEqual(FIT_LADDER[i - 1].dSize);
+      expect(FIT_LADDER[i].dMargin).toBeLessThan(FIT_LADDER[i - 1].dMargin);
+    }
+  });
+
+  it("presets match DESIGN 4", () => {
+    expect(SPACING_PRESETS).toEqual({
+      compact: { size: 10.5, density: 0.88, margin: 0.6 },
+      normal: { size: 11, density: 1, margin: 0.75 },
+      spacious: { size: 11, density: 1.1, margin: 0.9 },
+    });
+  });
+
+  it("for `normal` the seven steps reproduce the v1 absolute ladder exactly", () => {
+    const v1 = [
       { density: 1, size: 11, margin: 0.75 },
       { density: 1, size: 10.5, margin: 0.7 },
       { density: 0.92, size: 10.5, margin: 0.65 },
@@ -12,26 +38,37 @@ describe("fit ladder", () => {
       { density: 0.82, size: 10, margin: 0.55 },
       { density: 0.78, size: 9.5, margin: 0.5 },
       { density: 0.72, size: 9.5, margin: 0.45 },
-    ]);
-    expect(MAX_FIT_STEP).toBe(6);
-    for (let i = 1; i < FIT_LADDER.length; i++) {
-      expect(FIT_LADDER[i].density).toBeLessThanOrEqual(FIT_LADDER[i - 1].density);
-      expect(FIT_LADDER[i].size).toBeLessThanOrEqual(FIT_LADDER[i - 1].size);
-      expect(FIT_LADDER[i].margin).toBeLessThan(FIT_LADDER[i - 1].margin);
+    ];
+    expect(v1.map((_, step) => stepValues("normal", step))).toEqual(v1);
+  });
+
+  it("never goes below the floors (size 9, density 0.6, margin 0.3), even at the last step of compact", () => {
+    for (const spacing of ["compact", "normal", "spacious"] as const) {
+      for (let step = 0; step <= MAX_FIT_STEP; step++) {
+        const v = stepValues(spacing, step);
+        expect(v.size).toBeGreaterThanOrEqual(9);
+        expect(v.density).toBeGreaterThanOrEqual(0.6);
+        expect(v.margin).toBeGreaterThanOrEqual(0.3);
+      }
     }
+    expect(stepValues("compact", 6)).toEqual({ size: 9, density: 0.6, margin: 0.3 });
+    expect(stepValues("spacious", 0)).toEqual({ size: 11, density: 1.1, margin: 0.9 });
+    expect(stepValues("nonsense", 0)).toEqual(stepValues("normal", 0));
   });
 
   it("clamps steps", () => {
     expect([clampStep(-3), clampStep(0), clampStep(2.9), clampStep(99), clampStep(NaN)]).toEqual([0, 0, 2, 6, 0]);
   });
 
-  it("resolveTheme applies the step's size/density/margin and keeps everything else", () => {
+  it("resolveTheme = preset + delta, sets fit.step and keeps everything else", () => {
     const theme = { ...DEFAULT_THEME, accent: "#ff0000", pageSize: "a4" as const, _touched: ["accent"] };
     const r = resolveTheme(theme, 3);
     expect(r).toMatchObject({ density: 0.88, size: 10, margin: 0.6, accent: "#ff0000", pageSize: "a4", _touched: ["accent"] });
     expect(r.fit).toEqual({ ...theme.fit, step: 3 });
     expect(theme.fit.step).toBe(0); // input untouched
     expect(resolveTheme(theme, 50).fit.step).toBe(6);
+    expect(resolveTheme({ ...theme, spacing: "compact" }, 2)).toMatchObject({ size: 10, density: 0.8, margin: 0.5 });
+    expect(resolveTheme({ ...theme, spacing: "spacious" }, 0)).toMatchObject({ size: 11, density: 1.1, margin: 0.9 });
   });
 
   it("pageCount counts pages from a measured content height", () => {

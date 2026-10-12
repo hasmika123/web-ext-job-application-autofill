@@ -51,37 +51,48 @@ this package (plus the few genuinely web-only pieces: `Logo` (next/image), `Beta
 
 ## Resume templates (`src/resume/`)
 
-The Resume Builder's render layer. **A template is `(ResumeDocument, Theme) -> markup`, nothing else**,
-so the editor preview and the Chromium-printed PDF are the same string
-(`renderToStaticMarkup(<ResumePreview doc theme templateId />)`).
+The Resume Builder's render layer. **A template is `(ResumeDocument, Theme, Capabilities) -> markup` plus a
+declaration of what it can show** (DESIGN 6), so the editor preview and the Chromium-printed PDF are the
+same string (`renderToStaticMarkup(<ResumePreview doc theme templateId caps />)`).
 
 | File | Job |
 |---|---|
-| `types.ts` | `ResumeDocument` v1, `Theme`, `TemplateMeta` (mirrors the Java contract in `api/.../service/resume/`) |
-| `registry.ts` | `TEMPLATES`, `getTemplate(id)` (unknown id falls back to `modern`), `listTemplates()` |
-| `project.ts` / `text.ts` / `json.ts` | doc -> `StructuredResume` (`parsed_json`), doc -> ATS text, byte-exact JSON writer + canonical hash. **Ports of the Java classes; tested byte-for-byte against `__fixtures__/` (copied from `api/src/test/resources/resume-doc/`).** Change a rule in Java first, regenerate the fixtures, then here. |
-| `fit.ts` | the 7-step page-fit ladder, `resolveTheme(theme, step)`, `pageCount`, `fitToPages` |
-| `theme.ts` | defaults, sanitising (hostile values never reach CSS), the scoped CSS-variable block |
-| `templates/shared.tsx` | data rules every template reuses (hidden items, dates, links, per-kind item markup) |
+| `types.ts` | `ResumeDocument` v2, `Theme` v2 (spacing preset, `showPhoto`), `TemplateCapabilities`, `TemplateMeta` (mirrors the Java contract in `api/.../service/resume/`) |
+| `capabilities.ts` | `ATS_STRICT` / `DESIGN_FREE`, `isAtLeastAsStrictAs`, `tightenCapabilities` (admin overrides, tighten-only), `planSections`, `hiddenContent` (what a template switch hides), `controlStates` (what each editor control does), `allowedMarks`. Pure; no registry import. |
+| `registry.ts` | `TEMPLATES`, `getTemplate(id)` (unknown id falls back to `modern`), `listTemplates()`, `resolveCapabilities(id, overrides)` (registry profile + `resume.templates.overrides`) |
+| `project.ts` / `text.ts` / `json.ts` | doc -> `StructuredResume` (`parsed_json`), doc -> ATS text, byte-exact JSON writer + canonical hash. **Ports of the Java classes; tested byte-for-byte against `__fixtures__/` (copied from `api/src/test/resources/resume-doc/`).** Change a rule in Java first, regenerate the fixtures, then here. They never depend on the template. |
+| `fit.ts` | Spacing presets, the 7-step page-fit ladder as deltas on the preset, `resolveTheme(theme, step)`, `pageCount`, `fitToPages` |
+| `theme.ts` | defaults, sanitising (hostile values never reach CSS; v1 sliders map to a preset), `applyCapabilities`, the scoped CSS-variable block |
+| `templates/shared.tsx` | the renderer: data rules AND capability rules every template reuses (hidden items, dates, links, marks, lists, standard headings, skill-group collapse, photo) |
 | `styles/resume.css` | ALL template CSS, `.rz-*` classes; fonts in `fonts/` (Inter + Source Serif 4, Latin variable subsets, SIL OFL licences alongside) |
+
+**The capability contract.** Every template declares `meta.capabilities` (a `TemplateCapabilities`). A template with
+`ats: true` must satisfy `isAtLeastAsStrictAs(caps, ATS_STRICT)` (one column, standard headings, bold only, no photo,
+no lists, plain colours...); one with `ats: false` stays inside `DESIGN_FREE`; `registry.test.ts` enforces both. The
+renderer, not the template, applies the capabilities, and the editor reads the resolved object
+(`resolveCapabilities(templateId, config.templates.overrides)`) instead of testing for "ATS". Admin overrides may only
+tighten. Content a template does not draw is kept in the document and listed by `hiddenContent` - switching never
+deletes anything.
 
 **Rules for a template** (a test enforces the first three on rendered HTML):
 
 1. Only `.rz-*` classes from `styles/resume.css` and the theme variables (`--rz-accent`, `--rz-font-body`,
    `--rz-font-display`, `--rz-size`, `--rz-density`, `--rz-margin`, `--rz-page-w/h`). **No Tailwind, no
-   `style=""`, no `<table>`/`<img>`/`<svg>`** for layout.
+   `style=""`, no `<table>`/`<svg>`** for layout; the photo is the one `<img>` (`Photo` from `shared.tsx`).
 2. **No hooks, no effects, no `next/*` imports** - the template must survive `renderToStaticMarkup`.
-3. Render every section kind in `doc.sections[]` order via `renderSections` (it already drops hidden
-   sections/items and empty ones, and renders unknown kinds as a generic list). The template decides
-   layout, never data. Switching templates must never lose content.
-4. ATS-safe means one reading order in the DOM, real text, conventional section titles, contact info in
-   the body. Two-column templates declare `atsSafe: "caution"`.
+3. Render sections only through `renderSections(doc, theme, caps, only?)` (hidden sections/items, empty ones and
+   everything the capabilities forbid are dropped there). The template decides placement (columns, where `Photo`
+   goes), never data.
+4. ATS-friendly means one reading order in the DOM (sidebar after main), real text, standard section titles,
+   contact info in the body.
 
-**Adding a template:** (1) `templates/<id>.tsx` exporting a `TemplateDefinition` (`meta` + `Render`),
-(2) add it to `registry.ts`, (3) any new `.rz-*` rules in `styles/resume.css` (scope them with
-`.rz-tpl-<id>`), (4) a 240x340 PNG `src/resume/thumbs/<id>.png` (screenshot of `__fixtures__/full.json`),
-(5) a snapshot test next to it (`templates/<id>.test.tsx`, copy `modern.test.tsx`). Nothing in the API
-changes; the web must import `@kiwiply/ui/styles/resume.css` once for the preview.
+**Adding a template:** (1) `templates/<id>.tsx` exporting a `TemplateDefinition` (`meta` incl. `capabilities` +
+`Render`), (2) add it to `registry.ts` (and its id to `ResumeDocService.KNOWN_TEMPLATE_IDS` in the API), (3) any new
+`.rz-*` rules in `styles/resume.css` (scope them with `.rz-tpl-<id>`), (4) a 240x340 PNG
+`src/resume/thumbs/<id>.png` (screenshot of `__fixtures__/full.json`), (5) a snapshot test next to it
+(`templates/<id>.test.tsx`, copy `modern.test.tsx`) and the registry rule test passing, (6) for `ats: true` the
+parse-check gate (DESIGN 7.3). `templates/__test__/designFree.tsx` is the test-only two-column example; it is
+registered only inside tests (`registerTemplateForTests`).
 
 `PageFrame` (`src/primitives/PageFrame.tsx`) is the editor's page box: children are laid out at the page's natural width (816 px Letter) and scaled with a CSS transform to fit the container (`fitScale`), reserving the scaled height; `onMeasure` reports `{scale, contentHeight}`. Use it to show a `ResumePreview` anywhere (editor pane, template picker thumbnails).
 

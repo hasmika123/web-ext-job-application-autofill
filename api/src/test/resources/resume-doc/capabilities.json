@@ -1,0 +1,38 @@
+{
+  "ATS_STRICT": {
+    "ats": true,
+    "columns": 1,
+    "sidebarSections": [],
+    "photo": false,
+    "photoDefault": false,
+    "marks": ["b"],
+    "lists": false,
+    "graphics": false,
+    "theme": { "accent": false, "fontPairs": ["inter", "georgia-arial"], "spacing": true, "pageLength": true },
+    "maxPages": 2,
+    "sections": ["SUMMARY", "EXPERIENCE", "EDUCATION", "SKILLS", "PROJECTS", "CERTIFICATIONS", "LANGUAGES", "ACHIEVEMENTS"],
+    "custom": "limited",
+    "customLimit": 1,
+    "headings": "standard",
+    "dateStyles": ["range"],
+    "maxSkillGroups": 6
+  },
+  "DESIGN_FREE": {
+    "ats": false,
+    "columns": 2,
+    "sidebarSections": ["SKILLS", "LANGUAGES", "CERTIFICATIONS", "INTERESTS"],
+    "photo": true,
+    "photoDefault": false,
+    "marks": ["b", "i", "u", "a"],
+    "lists": true,
+    "graphics": true,
+    "theme": { "accent": true, "fontPairs": ["inter", "source-serif", "georgia-arial"], "spacing": true, "pageLength": true },
+    "maxPages": 2,
+    "sections": ["SUMMARY", "EXPERIENCE", "EDUCATION", "SKILLS", "PROJECTS", "CERTIFICATIONS", "LANGUAGES", "ACHIEVEMENTS", "INTERESTS", "CUSTOM"],
+    "custom": "any",
+    "customLimit": 99,
+    "headings": "free",
+    "dateStyles": ["range", "year"],
+    "maxSkillGroups": 0
+  }
+}

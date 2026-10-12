@@ -4,9 +4,10 @@
  * rules (what is hidden, which fields join, the date format) live here once.
  */
 import { Fragment, type ReactNode } from "react";
-import { flag, isObject, list, one, parseKind, str, visibleItems, visibleSections, type Json, type JsonObject } from "../doc";
+import { headingFor, photoShown, planSections } from "../capabilities";
+import { flag, isListed, isObject, list, one, str, trimWs, visibleItems, type Json, type JsonObject } from "../doc";
 import { isLinkHref } from "../marks";
-import { DEFAULT_SECTION_TITLES, MARK_TYPES, type DateStyle, type MarkType, type SectionKind } from "../types";
+import { DEFAULT_SECTION_TITLES, MARK_TYPES, type DateStyle, type MarkType, type SectionKind, type TemplateCapabilities, type Theme } from "../types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const EN_DASH = "–";
@@ -194,21 +195,62 @@ export function RichText({
   );
 }
 
-export function Bullets({ item, allowed }: { item: Json; allowed?: readonly MarkType[] }): ReactNode {
+/** `ordered` draws the bullets as a numbered list (`<ol>`); only when the template's `lists` capability allows it. */
+export function Bullets({ item, allowed, ordered = false }: { item: Json; allowed?: readonly MarkType[]; ordered?: boolean }): ReactNode {
   const bullets: JsonObject[] = [];
   for (const b of list(item, "bullets")) {
     if (isObject(b) && one(b, "text")) bullets.push(b);
   }
   if (bullets.length === 0) return null;
-  return (
-    <ul className="rz-bullets">
-      {bullets.map((b, i) => (
-        <li key={i} className="rz-bullet">
-          <RichText text={b.text as string} marks={b.marks} allowed={allowed} />
-        </li>
-      ))}
-    </ul>
-  );
+  const items = bullets.map((b, i) => (
+    <li key={i} className="rz-bullet">
+      <RichText text={b.text as string} marks={b.marks} allowed={allowed} />
+    </li>
+  ));
+  return ordered ? <ol className="rz-bullets rz-numbered">{items}</ol> : <ul className="rz-bullets">{items}</ul>;
+}
+
+/**
+ * The summary as a list: one item per non-empty line of the raw text, each with the marks that fall on
+ * it re-based to the line (a mark crossing a line break is cut at the break).
+ */
+function SummaryList({ item, allowed, ordered }: { item: JsonObject; allowed: readonly MarkType[]; ordered: boolean }): ReactNode {
+  const raw = typeof item.text === "string" ? item.text : "";
+  const marks = Array.isArray(item.marks) ? item.marks : [];
+  const lines: Array<{ text: string; marks: unknown[] }> = [];
+  let start = 0;
+  for (const piece of raw.split("\n")) {
+    const end = start + piece.length;
+    if (trimWs(piece)) {
+      const own: unknown[] = [];
+      for (const m of marks) {
+        if (!isObject(m) || typeof m.s !== "number" || typeof m.e !== "number") continue;
+        const s2 = Math.max(m.s, start);
+        const e2 = Math.min(m.e, end);
+        if (e2 > s2) own.push({ ...m, s: s2 - start, e: e2 - start });
+      }
+      lines.push({ text: piece, marks: own });
+    }
+    start = end + 1;
+  }
+  if (lines.length === 0) return null;
+  const items = lines.map((l, i) => (
+    <li key={i} className="rz-bullet">
+      <RichText text={l.text} marks={l.marks} allowed={allowed} />
+    </li>
+  ));
+  return ordered ? <ol className="rz-bullets rz-numbered">{items}</ol> : <ul className="rz-bullets">{items}</ul>;
+}
+
+/**
+ * The profile photo, when the template may draw it (`caps.photo`), the theme wants it (`showPhoto`, or
+ * the template default when null), the document has one and the caller supplied a URL. A template only
+ * decides where this goes.
+ */
+export function Photo({ doc, theme, caps, src }: { doc: Json; theme: Pick<Theme, "showPhoto">; caps: TemplateCapabilities; src?: string | null }): ReactNode {
+  if (!src || !photoShown(doc, theme, caps)) return null;
+  // eslint-disable-next-line @next/next/no-img-element -- the render is shared with a static HTML export, next/image does not apply
+  return <img className="rz-photo" src={src} alt="" />;
 }
 
 /** The header's contact entries, in text.ts order: email, phone, location, links. */
@@ -260,10 +302,13 @@ function ItemHead({ left, dates, sub }: { left: ReactNode; dates?: string; sub?:
   );
 }
 
-function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, allowed: readonly MarkType[]): ReactNode {
+function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, caps: TemplateCapabilities): ReactNode {
+  const allowed = caps.marks;
+  const ordered = caps.lists && item.listStyle === "number";
   switch (kind) {
     case "SUMMARY": {
       if (!str(item, "text")) return null;
+      if (caps.lists && isListed(item, "list")) return <SummaryList item={item} allowed={allowed} ordered={item.list === "number"} />;
       return (
         <p className="rz-text">
           <RichText text={item.text as string} marks={item.marks} allowed={allowed} keepLines />
@@ -290,7 +335,7 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, a
             dates={dates}
             sub={location}
           />
-          <Bullets item={item} allowed={allowed} />
+          <Bullets item={item} allowed={allowed} ordered={ordered} />
         </div>
       );
     }
@@ -314,7 +359,7 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, a
             dates={dates}
             sub={[location, gpa && `GPA: ${gpa}`].filter(Boolean).join(` ${MIDDOT} `)}
           />
-          <Bullets item={item} allowed={allowed} />
+          <Bullets item={item} allowed={allowed} ordered={ordered} />
         </div>
       );
     }
@@ -344,7 +389,7 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, a
               />
             }
           />
-          <Bullets item={item} allowed={allowed} />
+          <Bullets item={item} allowed={allowed} ordered={ordered} />
         </div>
       );
     }
@@ -417,19 +462,35 @@ export interface RenderedSection {
 }
 
 /**
- * Every visible section that has at least one renderable item, in document order, with its items
- * already rendered. Hidden sections/items, empty items and empty sections are dropped here so the
- * templates never have to repeat the rule.
+ * Skill groups collapse at `maxSkillGroups`: groups past the limit fold into the last drawn one
+ * (its label stays, its skill list takes the rest). `0` = unlimited.
+ */
+function collapseSkillGroups(items: JsonObject[], max: number): JsonObject[] {
+  if (max <= 0 || items.length <= max) return items;
+  const head = items.slice(0, max - 1);
+  const rest = items.slice(max - 1);
+  const skills = rest.flatMap((it) => list(it, "skills"));
+  return [...head, { ...rest[0], skills }];
+}
+
+/**
+ * Every section the template draws that has at least one renderable item, in document order, with its
+ * items already rendered. Hidden sections/items, empty items and empty sections are dropped here so the
+ * templates never have to repeat the rule; so is every capability rule (DESIGN 6.4): sections the template
+ * does not carry (kind outside `caps.sections`, custom sections over the limit), standard headings,
+ * marks filtered by `caps.marks`, lists only with `caps.lists`, skill groups collapsed at
+ * `caps.maxSkillGroups`. `only` narrows to a column (a template placing a sidebar).
  */
 export function renderSections(
   doc: Json,
-  dateStyle: DateStyle,
+  theme: Pick<Theme, "dateStyle">,
+  caps: TemplateCapabilities,
   only?: (kind: SectionKind | null) => boolean,
-  allowed: readonly MarkType[] = ALL_MARKS,
 ): RenderedSection[] {
+  const dateStyle = caps.dateStyles.includes(theme.dateStyle) || caps.dateStyles.length === 0 ? theme.dateStyle : caps.dateStyles[0];
   const out: RenderedSection[] = [];
-  visibleSections(doc, null).forEach((s, si) => {
-    const kind = parseKind(s.kind);
+  planSections(doc, caps).forEach(({ section: s, kind, verdict }, si) => {
+    if (verdict !== "shown") return;
     if (only && !only(kind)) return;
     const items: ReactNode[] = [];
     if (kind === "INTERESTS") {
@@ -440,13 +501,14 @@ export function renderSections(
         .join(", ");
       if (line) items.push(<p className="rz-line">{line}</p>);
     } else {
-      for (const item of visibleItems(s)) {
-        const node = kind ? renderItem(item, kind, dateStyle, allowed) : renderUnknownItem(item);
+      const source = kind === "SKILLS" ? collapseSkillGroups(visibleItems(s), caps.maxSkillGroups) : visibleItems(s);
+      for (const item of source) {
+        const node = kind ? renderItem(item, kind, dateStyle, caps) : renderUnknownItem(item);
         if (node) items.push(node);
       }
     }
     if (items.length === 0) return;
-    out.push({ id: str(s, "id") || `s${si}`, kind, title: sectionTitle(s, kind), items });
+    out.push({ id: str(s, "id") || `s${si}`, kind, title: headingFor(s, kind, caps), items });
   });
   return out;
 }

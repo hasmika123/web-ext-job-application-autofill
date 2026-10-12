@@ -1,9 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fixtureDoc } from "../test-fixtures";
 import ResumePreview from "../ResumePreview";
+import { registerTemplateForTests } from "../registry";
+import { designFree } from "./__test__/designFree";
 import { DEFAULT_THEME } from "../theme";
 import type { Mark, MarkType } from "../types";
+import { DESIGN_FREE } from "../capabilities";
 import { RichText, renderSections } from "./shared";
 
 const html = (text: string, marks?: unknown, allowed?: readonly MarkType[], keepLines = false) =>
@@ -92,7 +95,14 @@ describe("RichText", () => {
 });
 
 describe("marks in a rendered resume", () => {
-  const out = renderToStaticMarkup(<ResumePreview doc={fixtureDoc("full-v2")} theme={DEFAULT_THEME} />);
+  // Modern is an ATS template (bold only); the marks vectors render through the DESIGN_FREE test template.
+  let unregister: () => void;
+  let out = "";
+  beforeAll(() => {
+    unregister = registerTemplateForTests(designFree);
+    out = renderToStaticMarkup(<ResumePreview doc={fixtureDoc("full-v2")} theme={DEFAULT_THEME} templateId={designFree.meta.id} />);
+  });
+  afterAll(() => unregister());
 
   it("reach the summary, bullets and achievements", () => {
     expect(out).toContain("<strong>backend engineer</strong>");
@@ -109,7 +119,7 @@ describe("marks in a rendered resume", () => {
   });
 
   it("narrowing `allowed` is honoured by renderSections", () => {
-    const sections = renderSections(fixtureDoc("full-v2"), "range", undefined, []);
+    const sections = renderSections(fixtureDoc("full-v2"), { dateStyle: "range" }, { ...DESIGN_FREE, marks: [] });
     const markup = renderToStaticMarkup(
       <>
         {sections

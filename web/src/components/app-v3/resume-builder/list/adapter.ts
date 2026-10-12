@@ -59,7 +59,7 @@ export function toCardModel(r: ResumeDto): ResumeCardModel {
   const createdAt = blank(r.createdAt);
 
   let atsFriendly: boolean | undefined;
-  if (templateId && hasTemplate(templateId)) atsFriendly = getTemplate(templateId).meta.atsSafe === true;
+  if (templateId && hasTemplate(templateId)) atsFriendly = getTemplate(templateId).meta.capabilities.ats;
 
   const pdfState: PdfState = kind !== "BUILT" || !r.exportedHash ? "none" : pdfOutOfDate(r) ? "outOfDate" : "current";
 
