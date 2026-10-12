@@ -1,0 +1,2546 @@
+{
+  "area": "ent",
+  "name": "Enterprise V2 — multi-tenant portals, roles, consultant licensing, talent marketing",
+  "prefix": "X",
+  "summary": "Hostname tenancy, branded login-first portals, configurable multi-role permissions, base-license + feature add-on subscriptions, and the talent-marketing pipeline on the shared deployment. Design: docs/enterprise-v2/.",
+  "updated": "2026-10-12",
+  "epics": [
+    {
+      "id": "X0",
+      "name": "Phase 0 — Audit, debate, foundation design, plan",
+      "priority": "P0",
+      "goal": "The design set under docs/enterprise-v2 that every later phase builds from; 23 ADRs; escalations for the user."
+    },
+    {
+      "id": "X1",
+      "name": "Phase 1 — Enterprise tenant foundation",
+      "priority": "P0",
+      "goal": "Hostname → tenant resolution the client can never influence, tenant-bound sessions, roles as data, the invitation framework, and the negative-test gate — before any protected feature."
+    },
+    {
+      "id": "X2",
+      "name": "Phase 2 — Branded login and dashboard shell",
+      "priority": "P0",
+      "goal": "Runtime branding, one branded login, one enterprise shell with permission-driven workspaces, Org Admin lands on the Org Admin Dashboard, basic profile from the avatar menu, the Kiwiply character used compactly."
+    },
+    {
+      "id": "X3",
+      "name": "Phase 3 — Custom domains",
+      "priority": "P0",
+      "goal": "careers.acme.com: registration, ownership verification, on-demand certificates through the shared edge, activation, primary/redirect, suspension, removal, monitoring."
+    },
+    {
+      "id": "X4",
+      "name": "Phase 4 — Roles, employees, departments, teams, assignments",
+      "priority": "P0",
+      "goal": "Configurable role templates with a ceiling rule, employee lifecycle with bulk actions and audit, departments/teams, auditable consultant–marketer assignments."
+    },
+    {
+      "id": "X5",
+      "name": "Phase 5 — Subscription foundation",
+      "priority": "P0",
+      "goal": "Catalog (shared with personal plans), feature definitions and dependencies, base license + add-ons, pricing engine with contracts, entitlement evaluation, usage ledger, personal-subscription regression suite."
+    },
+    {
+      "id": "X6",
+      "name": "Phase 6 — Billing and license UI, Stripe org billing",
+      "priority": "P0",
+      "goal": "Subscription Overview, Consultant Licenses, Configure License with backend quotes, Billing & Invoices, Feature Usage, Platform Pricing Admin; one Stripe subscription per org; reconciliation."
+    },
+    {
+      "id": "X7",
+      "name": "Phase 7 — Consultant and resume management",
+      "priority": "P1",
+      "goal": "Consultant directory and profile overlay, org-managed resume links with approval and visibility, readiness, per-feature consent."
+    },
+    {
+      "id": "X8",
+      "name": "Phase 8 — Talent marketing",
+      "priority": "P1",
+      "goal": "Assigned talent, job discovery and AI matching for a consultant, opportunity assignment and authorization, follow-ups, activities, duplicate guard — the marketer prepares, never submits."
+    },
+    {
+      "id": "X9",
+      "name": "Phase 9 — Consultant applications, interviews, extension workspace",
+      "priority": "P1",
+      "goal": "Consultant workspace, assigned jobs, application link via submit-detect, interview coordination, AI interview prep (licensed), offers, extension workspace selector."
+    },
+    {
+      "id": "X10",
+      "name": "Phase 10 — Clients and placements",
+      "priority": "P1",
+      "goal": "Client accounts, contacts, vendor relationships, requirements, candidate submissions (records), offers, placements, extensions and redeployment, Account Manager workspace."
+    },
+    {
+      "id": "X11",
+      "name": "Phase 11 — HR and Finance",
+      "priority": "P1",
+      "goal": "Lifecycle records, compliance checklists and policy acknowledgements without identity documents; finance records over the Timesheets product; reports."
+    },
+    {
+      "id": "X12",
+      "name": "Phase 12 — Advanced analytics and enterprise features",
+      "priority": "P2",
+      "goal": "Org analytics with k-anonymity, Autopilot prepare for assigned jobs, integrations, SSO, second-instance readiness, Cloudflare-for-SaaS evaluation."
+    }
+  ],
+  "stories": [
+    {
+      "id": "X0.1",
+      "epic": "X0",
+      "title": "Phase 0 deliverables: audit, debate, 23 ADRs, domain model, tenancy/security, permission model, phase plan, backlog skeleton, escalations, handoff",
+      "status": "done",
+      "size": "L",
+      "owners": [
+        "Design"
+      ],
+      "deps": [],
+      "persona": "Fable (lead architect)",
+      "objective": "Give Sonnet agents a build-ready foundation and give the user the decisions that need them.",
+      "story": "As the team, we want the Enterprise V2 foundation designed against the real code so that every later story is implementation-ready and no locked decision is silently overridden.",
+      "genz": "The blueprint. Everything after this is bricks.",
+      "functional": [
+        "docs/enterprise-v2/00–08, progress-tracker, README; docs/HANDOFF-ENTERPRISE-V2.md",
+        "roadmap area ent (prefix X) with 0 dangling ids"
+      ],
+      "ui": [],
+      "backend": [],
+      "db": [],
+      "apis": [],
+      "permissions": [],
+      "entitlements": [],
+      "ac": [
+        "All documents listed in docs/enterprise-v2/README.md exist and cross-reference by file name.",
+        "docs/roadmap/build-master-roadmap.mjs --list reports 0 dangling ids with the ent area registered.",
+        "Every CLAUDE.md conflict is in 08-decisions-for-user.md with a safe default."
+      ],
+      "tests": [
+        "node docs/roadmap/build-master-roadmap.mjs --list (0 dangling)."
+      ],
+      "tech": "docs/enterprise-v2/**, docs/roadmap/areas/ent.json, docs/roadmap/build-master-roadmap.mjs (AREAS entry only).",
+      "complexity": "L",
+      "dod": "Committed on enterprise-v2; not pushed; handoff START HERE points at X1.1.",
+      "design": "docs/enterprise-v2/README.md",
+      "evidence": [
+        "docs/enterprise-v2/"
+      ],
+      "critical": true
+    },
+    {
+      "id": "X1.1",
+      "epic": "X1",
+      "title": "Enterprise feature flags in the settings registry + EnterpriseEnabledFilter (second 404 wall)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X0.1"
+      ],
+      "persona": "Platform admin",
+      "objective": "Turn the whole enterprise surface on per org from admin settings, failing closed.",
+      "story": "As a platform admin, I want flag.enterprise and its sub-flags in the typed settings registry so that enterprise routes do not exist until I allow them for an org.",
+      "genz": "Dark until switched on. Per org. No surprises.",
+      "functional": [
+        "Keys per 06-phase-plan.md §3 registered in SettingDefinitions (via a new EnterpriseSettingKeys class) with risk levels and reason rules.",
+        "EnterpriseFeatureFlag.isEnabled(orgId?) resolves the FLAG JSON {on,pct,allow,deny}: deny wins, then allow list, then on/pct; fails closed on any exception (OrgFeatureFlag pattern).",
+        "EnterpriseEnabledFilter answers 404 problem+json (same body as OrgsEnabledFilter) for /api/public/tenant, /api/orgs/*/enterprise/**, /api/ent/** when the master flag is off; per-org checks happen in the interceptor once the org is known."
+      ],
+      "ui": [
+        "None (admin Settings page lists the keys automatically from the registry)."
+      ],
+      "backend": [
+        "service/settings/EnterpriseSettingKeys.java",
+        "service/ent/EnterpriseFeatureFlag.java",
+        "config/EnterpriseEnabledFilter.java registered in WebConfigurer next to OrgsEnabledFilter"
+      ],
+      "db": [
+        "None (app_setting rows)."
+      ],
+      "apis": [
+        "Existing /api/admin/settings lists and edits the keys."
+      ],
+      "permissions": [
+        "ROLE_ADMIN for edits (existing)."
+      ],
+      "entitlements": [],
+      "ac": [
+        "With flag.enterprise off, GET /api/public/tenant and every /api/ent/** path return 404 with code NOT_FOUND and message error.org, before authentication.",
+        "With {\"on\":true,\"allow\":[<acmeId>]}, acme resolves; beta (not in allow) behaves as if the flag were off for its routes.",
+        "SettingDefinitionsTest proves no duplicate keys and that every flag.enterprise.* key has risk HIGH or MEDIUM and type JSON.",
+        "Reading settings throws → isEnabled() returns false (fail closed) — unit test with a throwing SettingsService."
+      ],
+      "tests": [
+        "EnterpriseFeatureFlagTest (allow/deny/pct/fail-closed).",
+        "EnterpriseEnabledFilterIT (404 body shape, path normalisation incl. ;matrix and ..).",
+        "SettingDefinitionsTest extension."
+      ],
+      "tech": "Mirror OrgFeatureFlag/OrgsEnabledFilter exactly; keys in 06-phase-plan.md §3; flag JSON shape from AdminSettingKeys.FLAG_OFF.",
+      "complexity": "S",
+      "dod": "Keys visible in admin settings; CI green; progress-tracker row Code Complete → Testing → Completed.",
+      "design": "docs/enterprise-v2/06-phase-plan.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.2",
+      "epic": "X1",
+      "title": "Tenancy schema: org_hostname, org_branding, org_setting, organization subdomain/config_version, audit columns, OrgType STAFFING/PROFESSIONAL_SERVICES",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.1"
+      ],
+      "persona": "The API",
+      "objective": "Give tenancy its tables additively so resolution, branding and per-org settings have a home.",
+      "story": "As the API, I want the tenancy tables so that a hostname can name exactly one organization and an organization can carry published branding and per-org setting overrides.",
+      "genz": "Your own front door, on the record.",
+      "functional": [
+        "Liquibase 20261015010000_ent_tenancy.xml: createTable org_hostname, org_branding, org_setting; addColumn organization.subdomain (varchar 63, unique), subdomain_enabled (bool default false), config_version (int default 0), display_name (varchar 120); addColumn org_audit_event.hostname_id, beneficiary_login, risk (varchar 10 default LOW).",
+        "Entities + repositories under domain/ent and repository/ent; every repository method takes orgId first except OrgHostnameRepository.findActiveByHostname(hostname) and findBySubdomain(label) (allow-listed in the contract test).",
+        "OrgType gains STAFFING, PROFESSIONAL_SERVICES (additive; COACH stays reserved).",
+        "Reserved subdomain labels extend OrgSlugs.isReserved (list in 04 §2.2); hostnames are lower-cased and punycoded on write; a generated active key enforces one is_primary per org."
+      ],
+      "ui": [],
+      "backend": [
+        "domain/ent/OrgHostname, OrgBranding, OrgSetting; repository/ent/*; OrgSlugs reserved list"
+      ],
+      "db": [
+        "Additive changelog as above; preconditions tableExists false."
+      ],
+      "apis": [],
+      "permissions": [],
+      "entitlements": [],
+      "ac": [
+        "Changelog runs clean on an empty DB and on a DB at the last existing changelog (20261013050000_job_posting_search.xml).",
+        "Two ACTIVE org_hostname rows with the same hostname are refused by the unique index; two is_primary rows for one org are refused by the generated key.",
+        "organization.subdomain accepts [a-z0-9-]{3,63}, rejects reserved labels (www, app, api, admin, edge, …) at the service layer with 422 RESERVED_VALUE.",
+        "TenantRepositoryContractTest (X1.9) passes for repository/ent."
+      ],
+      "tests": [
+        "Liquibase migration test (existing pattern).",
+        "OrgSlugsTest reserved labels.",
+        "Entity round-trip ITs for unique/generated keys."
+      ],
+      "tech": "Column list: 03-domain-model.md §2.1. Mirror org_core.xml style (${datetimeType}, generated STORED keys via <sql>).",
+      "complexity": "M",
+      "dod": "CI green; 03-domain-model.md updated if a column changed.",
+      "design": "docs/enterprise-v2/03-domain-model.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.3",
+      "epic": "X1",
+      "title": "TenantResolver + TenantContext in the API, GET /api/public/tenant, internal tenant-hosts/check (ask) endpoint",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.2"
+      ],
+      "persona": "Any visitor of a tenant host",
+      "objective": "The API decides the tenant from the host alone, never from a client-supplied id, and fails closed.",
+      "story": "As the API, I want to resolve X-Kiwiply-Host to exactly one tenant (or none) on every request so that every later check starts from a trustworthy tenant context.",
+      "genz": "The door knows whose house it is. You don't get to tell it.",
+      "functional": [
+        "TenantResolverFilter (OncePerRequestFilter, before the JWT filter) reads X-Kiwiply-Host, normalises, resolves per 04 §2.2, stores TenantContext in a request attribute + ThreadLocal holder (cleared in finally) + MDC tenant/host.",
+        "Resolution cache: Caffeine, key host, TTL 60 s (setting enterprise.tenant.cache_seconds), evicted when organization.config_version changes (bumped by any hostname/branding/status write through OrgTenancyService).",
+        "GET /api/public/tenant (permitAll, rate-limited per host+IP) returns PublicTenantDTO per 04 §2.4 for TENANT; 404 for UNKNOWN; for PLATFORM returns {kind:\"PLATFORM\"} only.",
+        "GET /api/internal/tenant-hosts/check?domain= (X-Internal-Token, internal network) returns 200 for ACTIVE org_hostname rows of orgs ACTIVE/PAST_DUE and for {label}.kiwiply.com when subdomain_enabled; 404 otherwise; CUSTOM rows only when flag.enterprise.domains allows the org.",
+        "OrgPermissionInterceptor: if context is TENANT, path {orgId} must equal context.orgId else 404; if UNKNOWN, every /api/orgs/**, /api/me/orgs/**, /api/join/** → 404."
+      ],
+      "ui": [],
+      "backend": [
+        "config/TenantResolverFilter, service/ent/TenantResolver, service/ent/TenantContext(+Holder), web/rest/PublicTenantResource, web/rest/InternalTenantHostResource, OrgPermissionInterceptor change"
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "GET /api/public/tenant → PublicTenantDTO | 404",
+        "GET /api/internal/tenant-hosts/check?domain= → 200 | 404 | 401"
+      ],
+      "permissions": [
+        "public; internal token"
+      ],
+      "entitlements": [],
+      "ac": [
+        "Host acme.kiwiply.com with acme ACTIVE and subdomain_enabled → TENANT(acme); same host with subdomain_enabled=false → UNKNOWN.",
+        "Host careers.acme.com with an ACTIVE row → TENANT; PENDING/VERIFIED/SUSPENDED/REMOVED → UNKNOWN; org SUSPENDED → UNKNOWN.",
+        "kiwiply.com, www., app., api., localhost → PLATFORM; nobody.example → UNKNOWN; missing header → UNKNOWN for tenant routes but PLATFORM-compatible for existing personal routes (no behaviour change for today's clients: the extension sends no header and keeps working).",
+        "A member of beta forging X-Kiwiply-Host: acme.kiwiply.com gets 200 on /api/public/tenant (public branding) and 404 on /api/orgs/{acme}/*.",
+        "config_version bump evicts the cache within one request.",
+        "The ask endpoint answers within 50 ms from cache and never 200s for a non-ACTIVE row (AskEndpointIT)."
+      ],
+      "tests": [
+        "TenantResolverTest (table-driven hosts).",
+        "PublicTenantResourceIT, InternalTenantHostResourceIT (AskEndpointIT).",
+        "OrgPermissionInterceptor ITs extended: tenant mismatch → 404."
+      ],
+      "tech": "Algorithm and DTO: 04-tenancy-and-security.md §2–3. Never read tenant ids from headers. Keep OrgsEnabledFilter first.",
+      "complexity": "M",
+      "dod": "openapi.json regenerated; CI green.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.4",
+      "epic": "X1",
+      "title": "Web host resolution: proxy.ts carries the host, serverApiFetch forwards X-Kiwiply-Host, getTenant(), (tenant) route group skeleton, tenant-404 page",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "Web"
+      ],
+      "deps": [
+        "X1.3"
+      ],
+      "persona": "A visitor of acme.localhost / careers.acme.com",
+      "objective": "The web app renders the tenant or a safe 404, never another tenant or the public site.",
+      "story": "As a visitor on a tenant host, I want the site to know it is Acme's portal (or honestly say the workspace isn't available) so that I never land on the wrong company or the public marketing site.",
+      "genz": "Wrong address? You get a polite \"not here\", not someone else's lobby.",
+      "functional": [
+        "web/src/proxy.ts: compute host (x-forwarded-host ?? host, lower-case, strip port), set internal request header x-kiwiply-host; unchanged refresh logic.",
+        "web/src/lib/api.ts serverApiFetch forwards X-Kiwiply-Host from the incoming request (headers()); tracker/resume proxies inherit it.",
+        "web/src/lib/tenant.ts: getTenant() cached per request → {kind, tenant?: PublicTenantDTO}; PLATFORM for reserved hosts without calling the API when the master flag is off (public-config orgs/enterprise flags).",
+        "Route group web/src/app/(tenant)/ with layout.tsx: UNKNOWN → render TenantUnavailable (404 status, no branding, no links, no cookies, noindex); TENANT → children; PLATFORM → notFound() for tenant-only paths.",
+        "Reserved hosts keep today's (marketing)/(app)/(admin)/(org) behaviour untouched.",
+        "Dev: next dev accepts acme.localhost:3100; mock-api resolves hosts (X1.12)."
+      ],
+      "ui": [
+        "TenantUnavailable page: packages/ui EmptyState + mascot warn pose (compact), copy \"This workspace isn't available\"; no Kiwiply marketing links; 16 px gutters at 390 px."
+      ],
+      "backend": [],
+      "db": [],
+      "apis": [
+        "Consumes GET /api/public/tenant"
+      ],
+      "permissions": [],
+      "entitlements": [],
+      "ac": [
+        "Request with Host: nobody.localhost renders TenantUnavailable with HTTP 404 and no Set-Cookie.",
+        "Request with Host: acme.localhost (mock ACTIVE) renders the (tenant) layout with Acme's display name in <title>.",
+        "Request with Host: localhost:3100 renders the existing marketing home unchanged (snapshot of status + title).",
+        "X-Kiwiply-Host reaches the mock on every BFF call (mock asserts and the route test checks the header).",
+        "public-config fails closed → UNKNOWN for non-reserved hosts."
+      ],
+      "tests": [
+        "tenant.test.ts (host normalisation, reserved hosts).",
+        "app/(tenant)/layout.test.tsx (three branches).",
+        "api.test.ts header forwarding.",
+        "Playwright tenant-unknown.spec.ts with extraHTTPHeaders Host."
+      ],
+      "tech": "Next 16 proxy (web/src/proxy.ts), React cache() per request as in branch A org.ts; keep SITE_URL for the platform only.",
+      "complexity": "M",
+      "dod": "npm test + build green; Playwright green over mock.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.5",
+      "epic": "X1",
+      "title": "Tenant-bound sessions: tid/hid claims on tenant-host login, decoder validation, refresh keeps tid, interceptor enforces tid = path org",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "Web"
+      ],
+      "deps": [
+        "X1.3",
+        "X1.4"
+      ],
+      "persona": "Acme employee signing in on careers.acme.com",
+      "objective": "A session from one tenant is useless on another, even if a token leaks.",
+      "story": "As a security architect, I want tokens minted on a tenant host to be bound to that tenant so that replaying them against another tenant or the platform org console fails.",
+      "genz": "Your badge opens your building. Not the one next door.",
+      "functional": [
+        "POST /api/authenticate (+/mfa, /auth/google, /refresh) on a TENANT context adds claims tid=<orgId>, hid=<hostnameId> to both tokens; requires the user to be an ACTIVE, non-reserved member of that org — otherwise 403 NOT_A_MEMBER (the only non-404 here, the login page needs it) with no org data.",
+        "JwtDecoder validator: tid present and context TENANT → tid must equal context.orgId (else 401 TOKEN_TENANT_MISMATCH); tid present and context PLATFORM → token accepted for user-scoped routes only, 404 on /api/orgs/{any}; tid absent and context TENANT → unauthenticated on tenant routes except /api/account (login-first hand-off).",
+        "Refresh rotation preserves tid/hid; /api/logout unchanged; /api/extension/session never adds tid.",
+        "Web login route handlers forward X-Kiwiply-Host (already by X1.4); cookies unchanged (host-only)."
+      ],
+      "ui": [
+        "Login page on tenant hosts (unbranded placeholder until X2.3): NOT_A_MEMBER renders \"You're not a member of this workspace\" with no data and a sign-out link."
+      ],
+      "backend": [
+        "AuthenticateController, GoogleAuthController, SecurityJwtConfiguration validator, SecurityUtils (TENANT_CLAIM = \"tid\"), OrgPermissionInterceptor"
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "Existing auth endpoints; new 403 NOT_A_MEMBER on tenant hosts"
+      ],
+      "permissions": [
+        "membership ACTIVE"
+      ],
+      "entitlements": [],
+      "ac": [
+        "Token minted on acme host decodes with tid=acme; used on beta host → 401; used on kiwiply.com /api/orgs/{acme} → 404; used on kiwiply.com /api/account → 200.",
+        "Personal token (no tid) on acme host → GET /api/orgs/{acme}/… 401 (not 404) so the web redirects to the tenant login; GET /api/account → 200.",
+        "Refresh on acme host returns tokens with the same tid; the old family revocation still applies.",
+        "Extension tokens carry no tid before and after.",
+        "Non-member login on acme host → 403 NOT_A_MEMBER, no Set-Cookie, audit row LOGIN_DENIED_NOT_MEMBER in acme's org_audit_event with hostname_id."
+      ],
+      "tests": [
+        "AuthenticateControllerIT extended (HostMismatchIT cases).",
+        "SecurityJwtConfigurationTest validator table.",
+        "Web auth route tests forward the host."
+      ],
+      "tech": "Claims next to USER_ID_CLAIM in SecurityUtils; keep tokens stateless; 04 §3.",
+      "complexity": "M",
+      "dod": "openapi regenerated; CI green; 04 §3 matches code.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.6",
+      "epic": "X1",
+      "title": "Roles as data: org_role, org_role_permission, org_member_role; system templates seeded from the enum; backfill; OrgAccessService reads the join table; dual-write of org_member.role",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.2"
+      ],
+      "persona": "The API",
+      "objective": "Stop building on the fixed enum without breaking anything that uses it.",
+      "story": "As the API, I want roles and their permissions stored as data and a member able to hold several roles so that enterprise roles are configurable and multi-role, while the existing enum callers keep working.",
+      "genz": "Sarah can be two things at once. Finally.",
+      "functional": [
+        "Liquibase 20261015020000_ent_roles.xml: org_role, org_role_permission, org_member_role (03 §2.1) + organization-independent system rows (org_id NULL) for OWNER, ORG_ADMIN, STAFF, MEMBER, CONSULTANT, MARKETING_SPECIALIST, MARKETING_MANAGER, HR_SPECIALIST, FINANCE_SPECIALIST, ACCOUNT_MANAGER, TALENT_ACQUISITION, EXECUTIVE_VIEWER with permission rows per 05 §3; backfill changeset: one org_member_role (is_primary) per live org_member from role (OWNER→OWNER, ADMIN→ORG_ADMIN, STAFF→STAFF, MEMBER→MEMBER, MARKETER→MARKETING_SPECIALIST, FINANCE→FINANCE_SPECIALIST), set org_member.primary_role_id.",
+        "RoleTemplateSeeder (idempotent, runs at startup, doc-sync test against 05 §3 like ShareMatrixTest) keeps system rows equal to code; org clones are untouched.",
+        "OrgMembership gains roles[] and permissions Map<String permissionKey, PermissionScope>; can(OrgPermission) and scopeOf() keep their signatures (mapped); permissionKeys() returns the union.",
+        "OrgAccessService.resolve builds the membership from org_member_role (fallback to the enum column when the member has no role rows — transitional), cached per request.",
+        "OrgRoleService: list templates/org roles, clone(templateKey), update permissions with the ceiling rule (every (key, scope) ⊆ actor's effective set), assign/revoke member roles with is_primary handling and the last-OWNER/ADMIN guard; every write dual-writes org_member.role = primary template's legacy enum (ORG_ADMIN→ADMIN, MARKETING_*→MARKETER, HR/ACCOUNT/TALENT/EXEC→STAFF, CONSULTANT→MEMBER, FINANCE_SPECIALIST→FINANCE)."
+      ],
+      "ui": [],
+      "backend": [
+        "domain/ent/OrgRole*, repository/ent/*, service/ent/OrgRoleService, RoleTemplateSeeder, EntPermissions registry; OrgMembership/OrgAccessService changes"
+      ],
+      "db": [
+        "Additive tables + backfill with preconditions."
+      ],
+      "apis": [
+        "GET /api/orgs/{orgId}/roles (MEMBER_VIEW_SUMMARY)",
+        "POST /api/orgs/{orgId}/roles (roles.manage) {templateKey, name}",
+        "PATCH /api/orgs/{orgId}/roles/{roleId} (roles.manage) {name, permissions:[{key, scope}]}",
+        "PUT /api/orgs/{orgId}/members/{memberId}/roles (members.role.set) {roleIds[], primaryRoleId}"
+      ],
+      "permissions": [
+        "roles.manage (new), members.role.set (exists)"
+      ],
+      "entitlements": [],
+      "ac": [
+        "After backfill every live member has exactly one is_primary role row and OrgIsolationIT passes unchanged.",
+        "A member with ORG_ADMIN + MARKETING_MANAGER has the union of permissions and TEAM scope for assignments.manage widened to ORG (widest wins).",
+        "Ceiling rule: an ORG_ADMIN cannot add org.close to a cloned role (422 ROLE_CEILING {key}); OWNER system rows are read-only (409 ROLE_SYSTEM).",
+        "Removing the last OWNER/ORG_ADMIN role is refused (409 LAST_ADMIN).",
+        "Every role write produces one org_audit_event (ROLE_CREATE/ROLE_UPDATE/ROLE_ASSIGN/ROLE_REVOKE, risk HIGH for permission changes) and org_member.role mirrors the primary role.",
+        "RoleTemplateDocSyncTest fails if 05 §3 and the seeder disagree."
+      ],
+      "tests": [
+        "OrgRoleServiceTest (ceiling, last-admin, primary rules).",
+        "OrgRoleResourceIT (+ OrgIsolationIT coverage registry entries).",
+        "RoleTemplateDocSyncTest.",
+        "Backfill IT: seed enum members → run changeset → assert rows."
+      ],
+      "tech": "Keep OrgRole enum as the legacy mirror; map in one class LegacyRoleMirror; 05-permission-model.md §3, §6.",
+      "complexity": "L",
+      "dod": "Behind flag.enterprise.roles for the write endpoints; reads always on; CI green.",
+      "design": "docs/enterprise-v2/05-permission-model.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.7",
+      "epic": "X1",
+      "title": "Scope model: PermissionScope {OWN, ASSIGNED, TEAM, DEPARTMENT, ORG}, ScopeEvaluator, legacy OrgScope mapping, EntPermissions registry + AuthorizationService skeleton with the 11-step order",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.6"
+      ],
+      "persona": "The API",
+      "objective": "One authorization function with a fixed order that every later phase calls.",
+      "story": "As the API, I want AuthorizationService.authorize(AuthzRequest) with the evaluation order from 05 §2 so that permissions, scopes, assignments and (later) entitlements are checked in one place.",
+      "genz": "One bouncer, one list, same order every time.",
+      "functional": [
+        "PermissionScope enum (ordered) + mapping from legacy OrgScope (05 §4) used by the seeder and OrgMembership.",
+        "ScopeEvaluator.inScope(actorMembership, scope, targetMemberId) implementing OWN/ASSIGNED (reads org_assignment — table created here as an empty shell with the final columns, populated in X4.7)/TEAM/DEPARTMENT/ORG using org_member.team_group_id/department_group_id and org_group.lead_member_id.",
+        "AuthorizationService.authorize(AuthzRequest) performs steps 1–5 and 9 (tenant, membership, org status via OrgStateRules, permission, scope, assignment) and leaves hooks (step interfaces) for 6–8, 10–11 to be filled by X5.6/X7.6; returns AuthzDecision with reasonCode; one ReasonToHttp mapper.",
+        "OrgPermissionInterceptor builds AuthzRequest from @OrgPermissionRequired (new attributes beneficiary = NONE|PATH_MEMBER|SELF, scopeTarget) and calls authorize; stores the decision.",
+        "EntPermissions registry class (constants + family, description, defaultScope, dangerous) and a doc-sync test against 05 §3."
+      ],
+      "ui": [],
+      "backend": [
+        "service/ent/PermissionScope, ScopeEvaluator, AuthorizationService, AuthzRequest/Decision, OrgStateRules, EntPermissions; interceptor change"
+      ],
+      "db": [
+        "org_assignment table (empty shell, 03 §2.3)."
+      ],
+      "apis": [],
+      "permissions": [
+        "all"
+      ],
+      "entitlements": [],
+      "ac": [
+        "Table-driven unit test covers every (scope × relationship) cell for inScope.",
+        "A MARKETING_SPECIALIST with ASSIGNED scope reading a consultant with no open assignment → 404 NOT_ASSIGNED; with an open PRIMARY → allowed; with ended assignment → 404.",
+        "ORG_INACTIVE: a SUSPENDED org refuses writes with 404 on org routes and 409 ORG_STATE on explicit state actions; PAST_DUE allows reads.",
+        "Existing OrgIsolationIT and OrgHandlerGuardIT pass unchanged (behavioural equivalence for existing roles)."
+      ],
+      "tests": [
+        "ScopeEvaluatorTest.",
+        "AuthorizationServiceTest (order + first-failure).",
+        "EntPermissionsDocSyncTest.",
+        "Interceptor ITs."
+      ],
+      "tech": "05-permission-model.md §2, §4, §6; keep 404 semantics.",
+      "complexity": "M",
+      "dod": "CI green; 05 §2 table matches reason codes in code.",
+      "design": "docs/enterprise-v2/05-permission-model.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.8",
+      "epic": "X1",
+      "title": "Invitation framework: adopt branch B (a6a9a62) invites + join API, re-verify, add multi-role/department/team, email-match setting, tenant-aware links",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.6",
+        "X1.3"
+      ],
+      "persona": "Org Admin / HR inviting an employee",
+      "objective": "Invite people with the right roles and placement, from the tenant's own host, safely.",
+      "story": "As an org admin, I want to invite employees with roles, department and team so that they land in the right workspace on first sign-in, and I want invites to bind only to the invited email.",
+      "genz": "Invite → they click → they're in the right seat. No DM chaos.",
+      "functional": [
+        "Cherry-pick a6a9a62 onto enterprise-v2 (changeset 20261014010000_org_invites.xml, InviteTokens, OrgInviteService, OrgMemberResource invite/resend, JoinResource previews/accepts, JoinRateLimiter, settings org.invite.*/org.join.*, orgInviteEmail.html, tests); resolve conflicts; run the full API suite.",
+        "Extend OrgInviteRequest with roleIds[] (default: CONSULTANT for consultancies, MEMBER otherwise), departmentGroupId, teamGroupId, managerMemberId; the ceiling rule applies to roleIds; accepting creates org_member_role rows and group columns.",
+        "Setting org.invite.require_email_match (BOOL, default true, org-overridable via org_setting): when true, accept requires the signed-in account's email to equal invite_email (case-insensitive) else 409 INVITE_EMAIL_MISMATCH {invitedEmailMasked}.",
+        "TenantUrls.joinLink(org, token): the email link uses the org's primary ACTIVE hostname when one exists (https://{host}/join/t/{token}), else https://kiwiply.com/join/t/{token}; mail template takes tenant branding name/logo (placeholder until X2.5).",
+        "Join accept on a TENANT host requires the invite's org to equal the tenant (else 404); on PLATFORM any org (today's behaviour)."
+      ],
+      "ui": [],
+      "backend": [
+        "service/org/OrgInviteService, OrgJoinService (extended), service/ent/TenantUrls, MailService template param"
+      ],
+      "db": [
+        "Branch B changeset (additive) + no new tables."
+      ],
+      "apis": [
+        "POST /api/orgs/{orgId}/members/invite (members.invite) — body gains roleIds[], departmentGroupId, teamGroupId, managerMemberId",
+        "POST /api/orgs/{orgId}/members/{memberId}/resend",
+        "GET /api/join/{token}, GET /api/join/code/{code}, POST /api/join/{token}/accept, POST /api/join/code/{code} (branch B)"
+      ],
+      "permissions": [
+        "members.invite; roleIds within ceiling"
+      ],
+      "entitlements": [],
+      "ac": [
+        "Full API suite green after the cherry-pick (JoinResourceIT, OrgInviteServiceTest, OrgInviteEmailIT, OrgIsolationIT, OrgHandlerGuardIT).",
+        "Invite with roleIds [MARKETING_SPECIALIST] by an HR_SPECIALIST (who lacks marketing permissions) → 422 ROLE_CEILING.",
+        "Accept with a different email when require_email_match=true → 409 INVITE_EMAIL_MISMATCH and the seat stays INVITED; with the setting false → accepted (audited with flag).",
+        "Email link uses careers.acme.com when acme has an ACTIVE primary hostname, otherwise kiwiply.com (unit test on TenantUrls).",
+        "Accepting an acme invite while on beta.localhost → 404."
+      ],
+      "tests": [
+        "Branch B suites + OrgInviteServiceTest extensions + TenantUrlsTest + JoinResourceIT tenant cases."
+      ],
+      "tech": "git cherry-pick a6a9a62; keep 01 §5 security note; settings via EnterpriseSettingKeys/org_setting.",
+      "complexity": "L",
+      "dod": "openapi regenerated; CI green; 01 §5 row for a6a9a62 marked adopted.",
+      "design": "docs/enterprise-v2/01-existing-system-audit.md",
+      "evidence": [],
+      "critical": true,
+      "supersedes": [
+        "O2.2"
+      ]
+    },
+    {
+      "id": "X1.9",
+      "epic": "X1",
+      "title": "Isolation test gate: HostUnknownIT, HostMismatchIT, ForgedHostHeaderIT, SuspendedHostnameIT, AskEndpointIT, TenantRepositoryContractTest, CrossTenantSweepIT, Playwright tenant-isolation.spec.ts",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "Web",
+        "QA"
+      ],
+      "deps": [
+        "X1.3",
+        "X1.4",
+        "X1.5",
+        "X1.12"
+      ],
+      "persona": "QA architect",
+      "objective": "Scenario F is a CI gate before any protected feature ships.",
+      "story": "As QA, I want the negative cross-tenant tests from 04 §5 in CI so that no later story can regress tenant isolation unnoticed.",
+      "genz": "The tripwire. Trips every PR.",
+      "functional": [
+        "New IT classes under api/src/test/java/com/dossier/api/web/rest/ent/ per 04 §5 items 1–7, using OrgFixtures extended with two tenants (acme, beta) and hostnames.",
+        "OrgIsolationIT coverage registry includes every new route (fails otherwise, existing pattern).",
+        "TenantRepositoryContractTest: reflection over repository.org and repository.ent; allow-list file for the few host/subdomain lookups.",
+        "Playwright web/e2e/journeys/tenant-isolation.spec.ts over the mock with Host emulation: different branding per host, non-member sees not-a-member, unknown host 404, /admin on a tenant host 404."
+      ],
+      "ui": [],
+      "backend": [
+        "tests only"
+      ],
+      "db": [],
+      "apis": [],
+      "permissions": [],
+      "entitlements": [],
+      "ac": [
+        "All classes exist, run in the CI api-tests job and pass.",
+        "Deliberately removing the tid check (mutation) fails HostMismatchIT; deliberately adding a findById to an ent repository fails the contract test (documented in the test javadoc).",
+        "ci.yml needs no change (tests discovered by pattern)."
+      ],
+      "tests": [
+        "Themselves."
+      ],
+      "tech": "04-tenancy-and-security.md §5; OrgIsolationIT patterns; Playwright extraHTTPHeaders.",
+      "complexity": "M",
+      "dod": "CI green; 04 §5 lists the class names as built.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
+      "id": "X1.10",
+      "epic": "X1",
+      "title": "Tenant context in logs, audit and async work: MDC tenant/host/member, TenantScoped helper, OrgAuditService hostname/beneficiary/risk",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.3"
+      ],
+      "persona": "Operator / org admin reading the audit log",
+      "objective": "Every log line and audit row says which tenant it belongs to; background work never inherits a tenant by accident.",
+      "story": "As an operator, I want tenant ids in logs and audit rows and an explicit way to run background work for one org so that incidents are attributable and jobs cannot leak context across tenants.",
+      "genz": "Receipts with the company name on them.",
+      "functional": [
+        "TenantResolverFilter puts tenant, host into MDC; OrgPermissionInterceptor adds member; cleared after the request.",
+        "TenantScoped.run(orgId, Runnable/Callable) sets the holder + MDC for the scope and clears in finally; @Async methods receive orgId explicitly (lint: a ArchUnit/TechnicalStructureTest rule forbids TenantContextHolder reads inside service.*Scheduler/*Job classes).",
+        "OrgAuditService.record(...) overloads accept hostnameId, beneficiaryLogin, risk; existing calls default to LOW/none.",
+        "ErrorDigest lines include tenant."
+      ],
+      "ui": [],
+      "backend": [
+        "TenantResolverFilter, TenantScoped, OrgAuditService, TechnicalStructureTest rule"
+      ],
+      "db": [
+        "Columns from X1.2."
+      ],
+      "apis": [],
+      "permissions": [],
+      "entitlements": [],
+      "ac": [
+        "A request on acme host logs tenant=<acmeId> host=acme.localhost member=<id> on every line emitted by the request (log capture test).",
+        "A scheduler iterating orgs logs each org id and never a stale one (unit test with two orgs).",
+        "TechnicalStructureTest fails if a *Scheduler class references TenantContextHolder."
+      ],
+      "tests": [
+        "LogCaptureIT.",
+        "TenantScopedTest.",
+        "TechnicalStructureTest rule."
+      ],
+      "tech": "logback MDC via CRLFLogConverter-safe keys; AsyncConfiguration unchanged.",
+      "complexity": "S",
+      "dod": "CI green.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "X1.11",
+      "epic": "X1",
+      "title": "Platform admin: Organizations & hostnames — list, tenant detail, provision subdomain, enterprise allow-list toggle, reason-sheet audited",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "Web"
+      ],
+      "deps": [
+        "X1.3",
+        "X1.1"
+      ],
+      "persona": "Kiwiply platform admin",
+      "objective": "Provision a tenant and watch it, with the admin page kit.",
+      "story": "As a platform admin, I want an Organizations page with hostnames and an enterprise switch per org so that I can provision Acme's subdomain and turn enterprise on for it without touching the database.",
+      "genz": "One screen to spin up a company. Reason required.",
+      "functional": [
+        "API: GET /api/admin/orgs (search, status, type, enterprise filters; AdminTable paging headers), GET /api/admin/orgs/{id} (org, members count, hostnames, flags, audit tail — no member PII beyond counts), POST /api/admin/orgs/{id}/hostnames/subdomain {label} (creates SUBDOMAIN row ACTIVE + subdomain_enabled, bumps config_version; reserved/duplicate → 422/409), POST /api/admin/orgs/{id}/enterprise {on, reason} (edits the allow list of flag.enterprise through SettingsService with reason), POST /api/admin/orgs/{id}/hostnames/{hid}/suspend|resume {reason}. All ROLE_ADMIN, every mutation an AdminAuditEvent and an OrgAuditEvent (ADMIN_* actions, risk HIGH) in the tenant's log.",
+        "Web: /admin/organizations (list, filters, table→cards) and /admin/organizations/[id] (detail, hostnames panel, enterprise switch with ReasonSheet, provision subdomain dialog with live reserved/taken check) using admin-v3/common kit and admin-client.ts; BFF routes under web/src/app/api/admin/orgs/**."
+      ],
+      "ui": [
+        "AdminHero → AdminStatTiles (orgs, enterprise-on, hostnames active, pending) → AdminFilterBar + AdminTable; detail uses AdminPanel, HistoryDrawer for the org audit tail; sample-lint applies (no sample data)."
+      ],
+      "backend": [
+        "web/rest/AdminOrgResource, service/ent/OrgTenancyService (provision/suspend/resume + config_version), DTOs"
+      ],
+      "db": [
+        "None beyond X1.2."
+      ],
+      "apis": [
+        "GET /api/admin/orgs",
+        "GET /api/admin/orgs/{id}",
+        "POST /api/admin/orgs/{id}/hostnames/subdomain",
+        "POST /api/admin/orgs/{id}/enterprise",
+        "POST /api/admin/orgs/{id}/hostnames/{hid}/suspend",
+        "POST /api/admin/orgs/{id}/hostnames/{hid}/resume"
+      ],
+      "permissions": [
+        "ROLE_ADMIN (+ admin MFA session as today)"
+      ],
+      "entitlements": [],
+      "ac": [
+        "Provisioning acme → acme.localhost resolves within one request (cache evicted); provisioning \"api\" → 422 RESERVED_VALUE; provisioning a taken label → 409 SLUG_TAKEN with suggestion.",
+        "Enterprise switch on → flag.enterprise allow list contains the org id; AppSettingHistory has the reason; off removes it.",
+        "Suspending a hostname makes the host UNKNOWN immediately; resume restores.",
+        "Every mutation writes one AdminAuditEvent and one OrgAuditEvent in the tenant's log with actor_login = the admin and risk HIGH.",
+        "Playwright admin-organizations.spec.ts: list → open → provision → switch (ReasonSheet) at 390 px and desktop."
+      ],
+      "tests": [
+        "AdminOrgResourceIT.",
+        "OrgTenancyServiceTest.",
+        "Web route tests + component tests + Playwright."
+      ],
+      "tech": "Admin page kit (5e12f6a) and admin-client/admin-proxy; tenancy service also serves X3 later.",
+      "complexity": "M",
+      "dod": "openapi regenerated; CI green; A14.1 marked related.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": true,
+      "supersedes": [
+        "O14.4"
+      ],
+      "relates": [
+        "A14.1",
+        "A14.3"
+      ]
+    },
+    {
+      "id": "X1.12",
+      "epic": "X1",
+      "title": "Mock API tenants + fixtures: acme (CONSULTANCY) and beta, host emulation, dev host mapping, DemoOrgSeeder enterprise variant",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "Web",
+        "API"
+      ],
+      "deps": [
+        "X1.3"
+      ],
+      "persona": "Developer / Playwright",
+      "objective": "Two tenants to test against locally and in CI without Docker.",
+      "story": "As a developer, I want the mock API and the demo seeder to know two enterprise tenants so that every tenant story can be exercised at acme.localhost and beta.localhost.",
+      "genz": "Two fake companies, zero real data, infinite tests.",
+      "functional": [
+        "web/scripts/mock-api.mjs: GET /api/public/tenant by X-Kiwiply-Host (acme.localhost → Acme branding; beta.localhost → Beta; others 404); accounts acme-admin, acme-marketer, acme-consultant (Anika), acme-hr, acme-finance, beta-admin with memberships/roles; fixtures web/scripts/fixtures/enterprise.mjs; MOCK_ENTERPRISE_ENABLED env.",
+        "Playwright: helper withHost(page, host) setting extraHTTPHeaders Host/X-Forwarded-Host; auth.setup adds the new accounts (storage state per account).",
+        "API DemoOrgSeeder: optional enterprise demo orgs behind dossier.demo.enterprise=true (dev/CI only, E16): acme CONSULTANCY with subdomain acme, beta COMPANY with subdomain beta, roles per 05 §3, one assignment Sarah→Anika.",
+        "Dev docs: how next dev serves acme.localhost:3100 (no hosts-file change needed; *.localhost resolves to loopback in Chromium)."
+      ],
+      "ui": [],
+      "backend": [
+        "DemoOrgSeeder extension"
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "mock only"
+      ],
+      "permissions": [],
+      "entitlements": [],
+      "ac": [
+        "Playwright can sign in as acme-admin on acme.localhost and sees Acme's display name; the same storage state on beta.localhost gets not-a-member.",
+        "DemoOrgSeederIT seeds both orgs idempotently and only when the property is on.",
+        "The mock refuses to start in production (existing guard)."
+      ],
+      "tests": [
+        "mock self-test in web/scripts (existing pattern), DemoOrgSeederIT, auth.setup run."
+      ],
+      "tech": "Mirror demo-org.json shape; keep Playwright accounts in e2e/fixtures/accounts.ts.",
+      "complexity": "S",
+      "dod": "CI green; HANDOFF lists the accounts.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "X2.1",
+      "epic": "X2",
+      "title": "Consolidate the two parked web helper sets (org-types/org-api vs org-client/org-join/org-proxy, mock-orgs vs mock-org) into web/src/lib/ent/*",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O1.6"
+      ]
+    },
+    {
+      "id": "X2.2",
+      "epic": "X2",
+      "title": "EnterpriseShell: tenant theme tokens, permission-driven nav from workspace definitions, switcher only when >1 workspace, avatar menu with basic profile",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O1.7"
+      ]
+    },
+    {
+      "id": "X2.3",
+      "epic": "X2",
+      "title": "BrandedLogin component: runtime branding from GET /api/public/tenant, password + verification, NOT_A_MEMBER state, \"Powered by Kiwiply\" mark, mascot welcome pose",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X2.4",
+      "epic": "X2",
+      "title": "Org Admin Dashboard on real data: tiles (consultants, licensed, available, activity, applications, interviews, placements, pending approvals), subscription summary, alerts, quick actions, activation checklist (reworked from 18f2123)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O2.7",
+        "O7.4"
+      ]
+    },
+    {
+      "id": "X2.5",
+      "epic": "X2",
+      "title": "Organization Branding page: logo/favicon/banner upload (S3 org/{id}/…), colours with contrast validation, welcome copy, terminology and nav prefs (allow-listed), draft → publish, config_version bump",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O13.1"
+      ]
+    },
+    {
+      "id": "X2.6",
+      "epic": "X2",
+      "title": "Login-first routing on tenant hosts: unauthenticated → BrandedLogin, authenticated member → primary workspace home, join pages branded (from 2672733, re-verified)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O2.3"
+      ]
+    },
+    {
+      "id": "X2.7",
+      "epic": "X2",
+      "title": "Basic user profile surface (avatar menu): photo, name, work email, phone, title, timezone, language, notification prefs, security, memberships and roles (read-only)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X2.8",
+      "epic": "X2",
+      "title": "MascotPose wrapper in packages/ui with the enterprise pose map; empty states and celebrations use it compactly",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X2.9",
+      "epic": "X2",
+      "title": "Organization Settings page (separate from the basic profile): name/display name, contact, addresses, timezone, policies (org_setting overrides), subdomain display",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X2.10",
+      "epic": "X2",
+      "title": "Tenant-aware URL building (TenantUrls) for mail, notifications and redirects; notification kinds for org events",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X2.11",
+      "epic": "X2",
+      "title": "E2E-A (to dashboard) and E2E-B (multi-role switcher) Playwright journeys over the mock at 390 px and desktop",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X3.1",
+      "epic": "X3",
+      "title": "Domains page + API: add custom hostname (PENDING), DNS instructions (TXT ownership token + CNAME to edge.kiwiply.com), verify now, status timeline",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O2.6"
+      ]
+    },
+    {
+      "id": "X3.2",
+      "epic": "X3",
+      "title": "Ownership verification job: TXT + CNAME checks, VERIFYING → VERIFIED, re-check every enterprise.domains.recheck_hours, grace then SUSPENDED, audit",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X3.3",
+      "epic": "X3",
+      "title": "Activation and certificates: VERIFIED → ACTIVE enables the ask endpoint for the host; cert_state from ask hits; troubleshooting panel (last check, reason, LE rate-limit hints)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X3.4",
+      "epic": "X3",
+      "title": "Primary domain and redirects: one primary per org; non-primary ACTIVE hosts 301 to primary (configurable); subdomain stays reachable or redirects per org setting",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X3.5",
+      "epic": "X3",
+      "title": "Suspension and removal lifecycle with typed confirmation; sessions on a removed host invalidated (tid/hid check); audit",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X3.6",
+      "epic": "X3",
+      "title": "Edge snippet and runbook (on_demand_tls ask + catch-all block + DNS records) for the user to apply; staging rehearsal on a *.localhost Caddy; monitoring alert when ask 404 rate spikes",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X3.7",
+      "epic": "X3",
+      "title": "Google sign-in per tenant host (opt-in after origin registration) and security headers on tenant hosts (CSP, frame-deny, noindex)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X3.8",
+      "epic": "X3",
+      "title": "E2E-A custom-domain segment and SuspendedHostnameIT/AskEndpointIT hardening; Playwright domains journey",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X4.1",
+      "epic": "X4",
+      "title": "Roles & Permissions page: templates, clone, edit permission/scope grid with ceiling rule, diff and history",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X4.2",
+      "epic": "X4",
+      "title": "Workspace definitions as data (workspace_key → nav → needs) with per-org nav preferences; primary role → landing",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X4.3",
+      "epic": "X4",
+      "title": "Employees page on real data: list/filters/search, roles, department, team, manager, status, bulk actions (assign roles, move team, suspend)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O5.1"
+      ]
+    },
+    {
+      "id": "X4.4",
+      "epic": "X4",
+      "title": "Employee lifecycle: activate, suspend, deactivate, reinstate, offboard (records kept), transfer ownership, last-admin guards, audit history",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O5.2"
+      ]
+    },
+    {
+      "id": "X4.5",
+      "epic": "X4",
+      "title": "Departments and teams: parent/child groups, leads, move members, counts",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O5.3"
+      ]
+    },
+    {
+      "id": "X4.6",
+      "epic": "X4",
+      "title": "Employee detail sheet: seat, roles, groups, manager, consent scope summary, audit of org actions on them",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O5.8"
+      ]
+    },
+    {
+      "id": "X4.7",
+      "epic": "X4",
+      "title": "Consultant–marketer assignments: org_assignment CRUD (primary/backup/manager/delegate), effective dates, history, reassignment with consent re-point prompt",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O10.1"
+      ]
+    },
+    {
+      "id": "X4.8",
+      "epic": "X4",
+      "title": "Workload balancing view for Marketing Managers: open assignments per marketer, caps from entitlement, drag/reassign with undo",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X4.9",
+      "epic": "X4",
+      "title": "Org audit log viewer (filters, risk, CSV export audited) for OWNER/ORG_ADMIN/FINANCE",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O13.4"
+      ]
+    },
+    {
+      "id": "X4.10",
+      "epic": "X4",
+      "title": "org_member_role becomes authoritative; legacy enum fallback removed from OrgAccessService; flag.enterprise.roles on by default for enterprise orgs",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X5.1",
+      "epic": "X5",
+      "title": "Catalog tables (product, product_price, product_entitlement, bundle_item) from the Phase 18 design + effective dates and catalog_version; admin Catalog page read/write for platform admins",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "A3.1",
+        "A3.5",
+        "A3.7"
+      ]
+    },
+    {
+      "id": "X5.2",
+      "epic": "X5",
+      "title": "feature_definition, feature_dependency, license_preset, volume_tier tables + admin editors; initial feature keys seeded inactive with no prices",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O3.1"
+      ]
+    },
+    {
+      "id": "X5.3",
+      "epic": "X5",
+      "title": "MarginCalculator for BASE_LICENSE/FEATURE/ORG_MODULE incl. \"above individual\" check at preset level; publish refused below floor without typed reason",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O3.6"
+      ]
+    },
+    {
+      "id": "X5.4",
+      "epic": "X5",
+      "title": "consultant_license + license_feature + license_change + license_quote tables and LicenseService (assign, add/remove features, upgrade, schedule downgrade, suspend, cancel, reactivate, bulk) — API only, Stripe off",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O3.2"
+      ]
+    },
+    {
+      "id": "X5.5",
+      "epic": "X5",
+      "title": "PricingEngine: list → contract → one discount → volume tier → effective; org_contract(+price) tables; golden-table tests; quote generation with inputs_hash and expiry",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "E2E-A5.1"
+      ]
+    },
+    {
+      "id": "X5.6",
+      "epic": "X5",
+      "title": "EntitlementService.check with EntitlementContext (PERSONAL | ORG) and the 11-step order; @RequiresFeature; FEATURE_NOT_LICENSED/ALLOWANCE 402 codes; AuthzCoverageTest",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O3.3",
+        "O3.5",
+        "A3.2"
+      ]
+    },
+    {
+      "id": "X5.7",
+      "epic": "X5",
+      "title": "usage_event ledger: reserve/commit/release, idempotency, period keys, sweeper job, allowance resolution (per-consultant / org pool)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X5.8",
+      "epic": "X5",
+      "title": "Migrate the eight isPro callers to EntitlementService.check behind the flag; ai_call gains org_id/beneficiary/feature_key/usage_event_id; AiBudgetService keyed by beneficiary + org",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X5.9",
+      "epic": "X5",
+      "title": "PersonalSubscriptionUnchangedIT + billing regression suite; dev/CI billing-off path (from 25bae76) for licenses",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "E2E-O4.0"
+      ]
+    },
+    {
+      "id": "X5.10",
+      "epic": "X5",
+      "title": "E2E-C API-level scenario test (activate base → add two features → quote → confirm → entitlements effective, others unavailable)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X6.1",
+      "epic": "X6",
+      "title": "Subscription Overview page: totals, MRR, next invoice estimate, status, usage summary, pending changes",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X6.2",
+      "epic": "X6",
+      "title": "Consultant Licenses page: table/cards, filters, search, sorting, bulk assign/modify, next effective change",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O5.5"
+      ]
+    },
+    {
+      "id": "X6.3",
+      "epic": "X6",
+      "title": "Configure Consultant License: base, feature picker with prices/dependencies/allowances, cost-impact confirmation for COMMERCIAL deps, quote preview, confirm",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X6.4",
+      "epic": "X6",
+      "title": "Billing & Invoices page: billing account, contracts, payment method via Stripe Portal, invoices/credits/history mirrors",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O4.6"
+      ]
+    },
+    {
+      "id": "X6.5",
+      "epic": "X6",
+      "title": "Feature Usage page: by consultant, feature, team; remaining allowances; history",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X6.6",
+      "epic": "X6",
+      "title": "StripeGateway extension (org customer, subscription with items, quantities with proration, upcoming invoice preview, invoices, coupons, invoice items, refund) + org webhook routing writing the mirrors",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O4.3"
+      ]
+    },
+    {
+      "id": "X6.7",
+      "epic": "X6",
+      "title": "Apply license changes to Stripe: add now (create_prorations), remove at period end (none), discounts as coupons; COMPUTED_INVOICE fallback per org",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O4.4"
+      ]
+    },
+    {
+      "id": "X6.8",
+      "epic": "X6",
+      "title": "OrgSeatReconciler nightly + drift alerts; dunning PAST_DUE/SUSPENDED → license effects; notifications",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O4.8"
+      ]
+    },
+    {
+      "id": "X6.9",
+      "epic": "X6",
+      "title": "Platform Pricing Admin: catalog, base/feature prices, versions, presets, discounts, contracts, publication, change history",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "A3.4"
+      ]
+    },
+    {
+      "id": "X6.10",
+      "epic": "X6",
+      "title": "Platform admin org billing operations (setup fee, invoices, seats, dunning, disputes) and comps for enterprise orgs",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "A14.2"
+      ]
+    },
+    {
+      "id": "X6.11",
+      "epic": "X6",
+      "title": "Stripe test-clock QA runbook + E2E-C Playwright journey over mock",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X7.1",
+      "epic": "X7",
+      "title": "Consultant directory: photo, skills, experience summary (consented), availability, marketing status, assigned marketer, license status, resume completeness",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X7.2",
+      "epic": "X7",
+      "title": "Consultant profile overlay (consultant_profile): availability, bench date, marketing status, preferences, self-declared work-auth category; consultant edits own, marketer proposes",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O10.12"
+      ]
+    },
+    {
+      "id": "X7.3",
+      "epic": "X7",
+      "title": "Resumes page for the org: org_resume links, named/primary per org, versions, approval status, visibility, view/download/print by permission, audit",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O8.4"
+      ]
+    },
+    {
+      "id": "X7.4",
+      "epic": "X7",
+      "title": "Resume approval workflow: marketer proposes (ORG_MANAGED or edit of shared), consultant approves/rejects with diff, approved_version pin",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X7.5",
+      "epic": "X7",
+      "title": "Marketer-made resumes via the builder in act-for mode (FULL consent + resumes.edit_for), versions with reason, AI tailoring charged to the consultant's entitlement (or org pool)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O10.4"
+      ]
+    },
+    {
+      "id": "X7.6",
+      "epic": "X7",
+      "title": "org_feature_consent: per-feature act-for consent with cooldown-limited requests; CONSENT_REQUIRED 403 card; immediate revoke",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X7.7",
+      "epic": "X7",
+      "title": "Marketing readiness checklist per consultant (profile, approved resume, availability, license, consent) feeding the dashboard",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X8.1",
+      "epic": "X8",
+      "title": "Marketing workspace shell: My Assigned Talent, consultant switcher, consent/license chips",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O10.3"
+      ]
+    },
+    {
+      "id": "X8.2",
+      "epic": "X8",
+      "title": "Job discovery for a consultant (JobSearchService with beneficiary) and org-curated job banks",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X8.3",
+      "epic": "X8",
+      "title": "AI matching for a consultant (opportunity_match with score/reason, beneficiary entitlement ai.job_matching, actor recorded)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X8.4",
+      "epic": "X8",
+      "title": "Opportunity assignment: assign/withdraw, batch assign with default/override approved resume, one notification, duplicate guard",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O10.5"
+      ]
+    },
+    {
+      "id": "X8.5",
+      "epic": "X8",
+      "title": "Authorization requests: consultant accepts/declines and authorizes a submission; marketer sees state; approvals for Marketing Managers",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X8.6",
+      "epic": "X8",
+      "title": "Follow-ups and tasks: due dates, reminders, activity feed, status updates on matches/submissions",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X8.7",
+      "epic": "X8",
+      "title": "Marketer performance view (counts, response rates; k-anonymity rules not needed for own rows)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X8.8",
+      "epic": "X8",
+      "title": "Duplicate-submission guard across consultants and vendors; same-employer window setting",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O10.11"
+      ]
+    },
+    {
+      "id": "X8.9",
+      "epic": "X8",
+      "title": "NoSubmitSurfaceTest + MarketerScopeTest kept green; E2E-D up to authorization in Playwright",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X9.1",
+      "epic": "X9",
+      "title": "Consultant workspace: Home, My Profile, My Resumes, Job Matches, Assigned Opportunities, Applications, Interviews, Offers, Placements, My Available Features, Notifications",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X9.2",
+      "epic": "X9",
+      "title": "Assigned jobs list for the consultant and application link via submit-detect (pipeline_application_link); marketer sees APPLIED live",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O10.6"
+      ]
+    },
+    {
+      "id": "X9.3",
+      "epic": "X9",
+      "title": "Application tracking for the org: consented stage view, timeline merge of application_event and pipeline_event",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X9.4",
+      "epic": "X9",
+      "title": "Applications page (org side) consent-scoped on real data",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O8.1"
+      ]
+    },
+    {
+      "id": "X9.5",
+      "epic": "X9",
+      "title": "Interview coordination: interview_slot propose/confirm, consultant accepts into own calendar (interview row), ICS, reminders",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X9.6",
+      "epic": "X9",
+      "title": "Interviews page (org side) and calendar of consented interviews",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O8.3"
+      ]
+    },
+    {
+      "id": "X9.7",
+      "epic": "X9",
+      "title": "AI Interview Preparation for consultants gated by interview.ai_prep entitlement; mascot encouragement",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X9.8",
+      "epic": "X9",
+      "title": "Offers: extend/record, consultant responds, feedback capture",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X9.9",
+      "epic": "X9",
+      "title": "Extension workspace selector: GET /api/profile/version workspaces[], X-Kiwiply-Workspace header, per-workspace mirror partition, \"Pro via Acme\" only inside the org workspace",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false,
+      "relates": [
+        "O3.4"
+      ]
+    },
+    {
+      "id": "X9.10",
+      "epic": "X9",
+      "title": "E2E-D completion (submit in own session → interview → outcome) and E2E-E personal-compatibility Playwright journeys",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X10.1",
+      "epic": "X10",
+      "title": "Client accounts, contacts, relationships (vendor chains) CRUD with PII scanner",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X10.2",
+      "epic": "X10",
+      "title": "Client requirements: intake (manual/email paste/import), status, owner, dedupe",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X10.3",
+      "epic": "X10",
+      "title": "Candidate submissions as records: authorize → submitted → shortlisted/rejected; unique per requirement+consultant; channel label and external reference",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X10.4",
+      "epic": "X10",
+      "title": "Offers → placements lifecycle: pending start, active, extension, redeployment, ended/terminated; bill-to account",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X10.5",
+      "epic": "X10",
+      "title": "Account Manager workspace: Clients, Contacts, Requirements, Submissions, Interviews, Offers, Placements",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X10.6",
+      "epic": "X10",
+      "title": "Placement declaration from the consultant side and org celebration (mascot), feeding Timesheets (H)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X10.7",
+      "epic": "X10",
+      "title": "Pipeline reports: requirement fill rate, time-to-place, submissions per consultant (consent-scoped)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X11.1",
+      "epic": "X11",
+      "title": "HR lifecycle records (employment_record): onboarding → active → leave → offboarding → ended; manager, department, team; history",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X11.2",
+      "epic": "X11",
+      "title": "Compliance checklists (hr_task) and policy acknowledgements (policy_ack) with org-authored policy PDFs; no identity documents; PII scanner on uploads",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X11.3",
+      "epic": "X11",
+      "title": "HR workspace: Employees, Onboarding, Documents (policies only), Compliance, Lifecycle, Offboarding, Reports",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X11.4",
+      "epic": "X11",
+      "title": "Finance workspace over product H: Consultant Subscriptions (read), Billing, Invoices, Placements (rates), Timesheets, Approvals, Payments (status records), Reports",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X11.5",
+      "epic": "X11",
+      "title": "Finance records for placements: bill/pay rate labels, invoice_record and payment_record links to H6; profit view (H5.15)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X11.6",
+      "epic": "X11",
+      "title": "HR/Finance reports and CSV exports (audited); retention per settings",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X12.1",
+      "epic": "X12",
+      "title": "Org analytics with k-anonymity (from docs/design/org/analytics.md) across pipeline and licenses; Executive/Viewer workspace",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X12.2",
+      "epic": "X12",
+      "title": "Autopilot prepare for assigned jobs (automation.approved_apply) — stops before submit, attestation untouched",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X12.3",
+      "epic": "X12",
+      "title": "Integrations: outbound webhooks, Slack digests, ICS feeds (from O12) scoped per tenant",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X12.4",
+      "epic": "X12",
+      "title": "SSO: SAML/OIDC per org with JIT membership mapping to role templates",
+      "status": "not_started",
+      "size": "L",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X12.5",
+      "epic": "X12",
+      "title": "Second-instance readiness: ShedLock, shared rate limits, cache invalidation across instances",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X12.6",
+      "epic": "X12",
+      "title": "Cloudflare for SaaS evaluation and migration runbook (if custom-host volume or DDoS exposure requires it)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    },
+    {
+      "id": "X12.7",
+      "epic": "X12",
+      "title": "Advanced reporting and scheduled report emails per workspace",
+      "status": "not_started",
+      "size": "M",
+      "owners": [],
+      "deps": [],
+      "story": "",
+      "genz": "",
+      "ac": [],
+      "tests": [],
+      "tech": "",
+      "evidence": [],
+      "design": "docs/enterprise-v2/07-backlog.md",
+      "critical": false
+    }
+  ]
+}

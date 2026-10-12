@@ -995,7 +995,8 @@
       "design": "docs/design/admin/catalog-margin-entitlements.md",
       "critical": true,
       "relates": [
-        "B1.1"
+        "B1.1",
+        "X5.1"
       ]
     },
     {
@@ -1028,7 +1029,8 @@
       "design": "docs/design/admin/catalog-margin-entitlements.md",
       "critical": true,
       "relates": [
-        "B1.2"
+        "B1.2",
+        "X5.6"
       ]
     },
     {
@@ -1093,7 +1095,8 @@
       "design": "docs/design/admin/catalog-margin-entitlements.md",
       "critical": true,
       "relates": [
-        "B1.5"
+        "B1.5",
+        "X6.9"
       ]
     },
     {
@@ -1126,7 +1129,8 @@
       "design": "docs/design/admin/catalog-margin-entitlements.md",
       "critical": false,
       "relates": [
-        "B1.6"
+        "B1.6",
+        "X5.1"
       ]
     },
     {
@@ -1179,7 +1183,8 @@
       ],
       "relates": [
         "B1.5",
-        "A3.4"
+        "A3.4",
+        "X5.1"
       ],
       "story": "As finance I want publish to create the Stripe Price with an idempotency key, retire to never delete, and a diff log per product so that the catalog is run from admin safely.",
       "genz": "A price change is a visible, reversible act, not a redeploy.",
@@ -1653,7 +1658,8 @@
       ],
       "relates": [
         "A3.4",
-        "B1.4"
+        "B1.4",
+        "X5.5"
       ],
       "story": "As the owner I want the Features tab to show, per feature, the global switch, the per-plan default and every org override with its limit so that 'who gets what' is one screen.",
       "genz": "Turn a feature on for a cohort, cap it for a plan, lift the cap for one org, from one page.",
@@ -1691,7 +1697,9 @@
         "E8.4",
         "B11.1",
         "U20.5",
-        "B1.4"
+        "B1.4",
+        "X1.1",
+        "X5.6"
       ],
       "story": "As a developer on any surface I want one evaluated config object (features, limits, flags, public settings) so that no surface reinvents a gate or a number.",
       "genz": "The paywall, the drawer and the pricing page can never disagree because they read the same answer.",
@@ -3331,7 +3339,8 @@
       "critical": true,
       "relates": [
         "O14.4",
-        "O1.3"
+        "O1.3",
+        "X1.11"
       ]
     },
     {
@@ -3362,7 +3371,10 @@
       "tech": "api billing/*, org/*; web organizations detail",
       "evidence": [],
       "design": "docs/design/admin/catalog-margin-entitlements.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X6.10"
+      ]
     },
     {
       "id": "A14.3",
@@ -3391,7 +3403,10 @@
       "tech": "api org/*; web organizations detail",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X1.11"
+      ]
     },
     {
       "id": "E2E-A15.0",

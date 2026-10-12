@@ -1,3 +1,7 @@
+> **Enterprise V2 (2026-10-12, local `enterprise-v2`, design only — Sonnet builds): start from
+> [`HANDOFF-ENTERPRISE-V2.md`](HANDOFF-ENTERPRISE-V2.md)** — audit, 23 ADRs, foundation design, phase plan,
+> roadmap area `ent` (prefix `X`), escalations in `enterprise-v2/08-decisions-for-user.md`.
+
 > **AI providers & routing (2026-10-12/13, `resume-builder`): the design is [`AI-ADMIN-CONFIG-DESIGN.md`](AI-ADMIN-CONFIG-DESIGN.md); Phase 1 (I1.9-I1.14) is built and proven.** Run the proof: `node scripts/dev/api-local.mjs --stub` then `node web/scripts/ai-smoke.mjs --stub` (DEPLOY.md 10.3); the live Gemini pass needs `api/.env.ai.local`.
 
 > **Roadmap + Resume Builder (2026-10-11, local `version2` + `resume-builder`): start from
