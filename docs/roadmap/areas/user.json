@@ -3657,7 +3657,7 @@
       "tech": "service/NotificationService.java, service/NotificationPreferenceService.java, web/rest/NotificationPreferenceResource.java, web app/api/notification-preferences/route.ts, components/app-v3/settings/NotificationsPanel.tsx"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "evidence": [
