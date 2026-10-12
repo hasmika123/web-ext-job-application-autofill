@@ -87,8 +87,12 @@ interface Normalised {
  * The text the page shows - `oneLine` (trim + collapse whitespace runs) or, with `keepLines`, `trimWs`
  * only - and where each raw offset lands in it, so marks stored against the raw text can be remapped.
  */
-function normalise(raw: string, keepLines: boolean): Normalised {
+function normalise(raw: string, keepLines: boolean, verbatim = false): Normalised {
   const map: number[] = new Array(raw.length + 1);
+  if (verbatim) {
+    for (let i = 0; i <= raw.length; i++) map[i] = i;
+    return { text: raw, map };
+  }
   let out = "";
   let pendingSpace = false;
   for (let i = 0; i < raw.length; i++) {
@@ -151,14 +155,17 @@ export function RichText({
   marks,
   allowed = ALL_MARKS,
   keepLines = false,
+  verbatim = false,
 }: {
   text: string | null | undefined;
   marks?: unknown;
   allowed?: readonly MarkType[];
   keepLines?: boolean;
+  /** Every character as typed (no trimming, no collapsing): the editor's mirror layer must line up with its textarea. */
+  verbatim?: boolean;
 }): ReactNode {
   const raw = typeof text === "string" ? text : "";
-  const { text: shown, map } = normalise(raw, keepLines);
+  const { text: shown, map } = normalise(raw, keepLines, verbatim);
   const spans = usableSpans(marks, raw.length, allowed, map);
   if (spans.length === 0) return shown;
 

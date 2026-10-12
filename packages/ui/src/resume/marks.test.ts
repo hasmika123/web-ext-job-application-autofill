@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCovered, isLinkHref, shiftMarks, sortMarks, toggleMark } from "./marks";
+import { clearMark, isCovered, isLinkHref, markAt, shiftMarks, sortMarks, toggleMark } from "./marks";
 import type { Mark } from "./types";
 
 const b = (s: number, e: number): Mark => ({ s, e, t: "b" });
@@ -155,6 +155,31 @@ describe("shiftMarks (text edits)", () => {
 
   it("a no-op edit changes nothing", () => {
     expect(shiftMarks([b(1, 4), i(2, 9)], 5, 0, 0)).toEqual([b(1, 4), i(2, 9)]);
+  });
+});
+
+describe("clearMark", () => {
+  it("removes the type from the range and keeps the pieces outside it", () => {
+    expect(clearMark([b(0, 10)], 3, 6, "b")).toEqual([b(0, 3), b(6, 10)]);
+    expect(clearMark([b(0, 4), b(6, 10)], 2, 8, "b")).toEqual([b(0, 2), b(8, 10)]);
+  });
+
+  it("leaves other types and an empty range alone", () => {
+    expect(clearMark([b(0, 10), i(0, 10)], 2, 5, "i")).toEqual([i(0, 2), b(0, 10), i(5, 10)]);
+    expect(clearMark([b(0, 10)], 5, 5, "b")).toEqual([b(0, 10)]);
+  });
+
+  it("removes a link over a partial range, whichever target it had", () => {
+    expect(clearMark([a(0, 6), a(8, 12, "mailto:x@y.dev")], 4, 10, "a")).toEqual([a(0, 4), a(10, 12, "mailto:x@y.dev")]);
+  });
+});
+
+describe("markAt", () => {
+  it("finds the mark of that type that holds the offset", () => {
+    expect(markAt([b(2, 5), a(6, 9)], 3, "b")).toEqual(b(2, 5));
+    expect(markAt([b(2, 5)], 5, "b")).toBeNull();
+    expect(markAt([b(2, 5)], 5, "b", true)).toEqual(b(2, 5));
+    expect(markAt([b(2, 5)], 3, "i")).toBeNull();
   });
 });
 

@@ -169,7 +169,8 @@ export type {
 } from "./resume/types";
 export { MARK_TYPES as RESUME_MARK_TYPES } from "./resume/types";
 export { upgradeDocument as upgradeResumeDocument } from "./resume/upgrade";
-export { toggleMark, shiftMarks, isCovered, sortMarks, isLinkHref } from "./resume/marks";
+export { toggleMark, shiftMarks, isCovered, sortMarks, isLinkHref, clearMark, markAt } from "./resume/marks";
+export { RichText as ResumeRichText } from "./resume/templates/shared";
 export { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE_ID, getTemplate, hasTemplate, listTemplates, resolveCapabilities } from "./resume/registry";
 export {
   ATS_STRICT,

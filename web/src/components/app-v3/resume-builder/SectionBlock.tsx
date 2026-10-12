@@ -10,16 +10,19 @@ import {
   PlusIcon,
   SparklesIcon,
   TrashIcon,
+  allowedMarks,
   cn,
   headingFor,
   iconButtonClass,
   useToast,
 } from "@kiwiply/ui";
-import type { MenuEntry, ResumeSection } from "@kiwiply/ui";
-import AutoTextarea from "./AutoTextarea";
+import type { MenuEntry, ResumeMark, ResumeSection } from "@kiwiply/ui";
 import { useCanvas, useField } from "./canvasContext";
 import { PILL_BUTTON } from "./canvasStyles";
 import ItemRow from "./ItemRow";
+import { ScopedMarkToolbar } from "./MarkToolbar";
+import MarkedTextarea from "./MarkedTextarea";
+import { MarkScope } from "./markScope";
 import { KIND_META } from "./sectionKinds";
 import { blockId } from "./sectionTitle";
 import { nowMs } from "./state/clock";
@@ -34,7 +37,16 @@ export const MARK_TOOLBAR_SLOT = "mark-toolbar";
  * with nothing in it shows one placeholder row that adds an item the moment it gets focus. A hidden
  * section collapses to its header with "Hidden" and "Show".
  */
-export default function SectionBlock({ section, index, count }: { section: ResumeSection; index: number; count: number }) {
+/** One mark scope per block: the Summary's toolbar (in its header) and its text share the focused-field binding. */
+export default function SectionBlock(props: { section: ResumeSection; index: number; count: number }) {
+  return (
+    <MarkScope>
+      <SectionBlockInner {...props} />
+    </MarkScope>
+  );
+}
+
+function SectionBlockInner({ section, index, count }: { section: ResumeSection; index: number; count: number }) {
   const { dispatch, caps, controls, limits, canUndo, canRedo, requestFocus, aiAllowed } = useCanvas();
   const toast = useToast();
   const meta = KIND_META[section.kind];
@@ -182,8 +194,10 @@ export default function SectionBlock({ section, index, count }: { section: Resum
 
         {section.kind === "SUMMARY" && (
           <>
-            {/* The mark toolbar mounts here (R2.11); the template decides which buttons it has (`controls.toolbar`). */}
-            <div data-slot={MARK_TOOLBAR_SLOT} data-buttons={controls.toolbar.join(",")} className="flex min-h-8 flex-none items-center" />
+            {/* The mark toolbar (R2.11): the template decides which buttons it has (`controls.toolbar`); none = no bar. */}
+            <div data-slot={MARK_TOOLBAR_SLOT} data-buttons={controls.toolbar.join(",")} className="flex min-h-8 flex-none items-center">
+              <ScopedMarkToolbar />
+            </div>
             <RewriteWithAi locked={!aiAllowed} />
             <span className="flex-1" />
           </>
@@ -254,24 +268,38 @@ function RewriteWithAi({ locked }: { locked: boolean }) {
 }
 
 function SummaryBody({ section }: { section: Extract<ResumeSection, { kind: "SUMMARY" }> }) {
-  const { dispatch, limits } = useCanvas();
+  const { dispatch, limits, caps } = useCanvas();
   const first = section.items[0];
   const text = first?.text ?? "";
   const f = useField(first ? `${first.id}.text` : `${section.id}.text`);
+  const list = first?.list ?? null;
+  const edit = (next: string, marks: ResumeMark[], format?: boolean) =>
+    dispatch({ type: "summary/edit", sectionId: section.id, text: next, newItemId: newId("i"), marks, format, at: nowMs() });
   return (
     <div>
-      <AutoTextarea
+      <MarkedTextarea
         {...f}
         rows={4}
         aria-label="Summary"
         maxLength={limits.summaryChars}
         value={text}
+        marks={first?.marks}
+        allowed={allowedMarks(caps)}
+        sticky
+        boxed
+        listStyle={list}
+        onListStyle={(style) => dispatch({ type: "list/set", sectionId: section.id, style, at: nowMs() })}
         placeholder="Two or three sentences: who you are, what you do best, what you want next."
-        className="text-[14.5px]"
-        onChange={(e) => dispatch({ type: "summary/edit", sectionId: section.id, text: e.target.value, newItemId: newId("i"), at: nowMs() })}
+        textClass="text-[14.5px] leading-snug"
+        className="px-3 py-2.5"
+        onChange={(next, marks) => edit(next, marks)}
+        onFormat={(marks) => edit(text, marks, true)}
       />
-      <p className="mt-1 text-right text-[11.5px] text-muted" aria-live="off">
-        {text.length} / {limits.summaryChars}
+      <p className="mt-1 flex items-center justify-between gap-2 text-[11.5px] text-muted">
+        <span>{list ? `Printed as a ${list === "number" ? "numbered" : "bulleted"} list, one line per item (when the template shows lists).` : ""}</span>
+        <span aria-live="off">
+          {text.length} / {limits.summaryChars}
+        </span>
       </p>
     </div>
   );

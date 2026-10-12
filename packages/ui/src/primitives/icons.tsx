@@ -969,3 +969,35 @@ export const RedoIcon = makeIcon("RedoIcon", {
     </>
   ),
 });
+
+/* ── Text formatting (the resume editor's mark toolbar) ───────────────────────────── */
+
+export const BoldIcon = makeIcon("BoldIcon", {
+  strokeWidth: 2.4,
+  node: <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" />,
+});
+
+export const ItalicIcon = makeIcon("ItalicIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M10 5h8M6 19h8M15 5l-6 14" />,
+});
+
+export const UnderlineIcon = makeIcon("UnderlineIcon", {
+  strokeWidth: 2.2,
+  node: (
+    <>
+      <path d="M7 4v7a5 5 0 0 0 10 0V4" />
+      <path d="M5 20h14" />
+    </>
+  ),
+});
+
+/** Numbered list (1. 2. 3.); the bulleted one is `ListIcon`. */
+export const ListOrderedIcon = makeIcon("ListOrderedIcon", {
+  node: (
+    <>
+      <path d="M11 6h9M11 12h9M11 18h9" />
+      <path d="M4 5.2l1.4-.7V9M4 15.5a1.4 1.4 0 0 1 2.7.3c0 .8-.6 1.2-1.3 1.7L4 18.4h2.9" strokeWidth={1.5} />
+    </>
+  ),
+});

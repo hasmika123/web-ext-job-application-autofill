@@ -217,7 +217,7 @@ As a user, I want to edit my whole resume inline on the board's document canvas 
 - Deps: R2.10, R2.7, R2.8. Size L. Owner web.
 - Tests: `reducer.test.ts` (every new action incl. move bounds, duplicate ids regenerated, hide/show, section add once per kind except CUSTOM, limits clamp), `DocumentCanvas.test.tsx` (renders all kinds from `full-v2.json`; placeholder adds on focus not render; 422 path → error ring), `SectionBlock.test.tsx` (↑↓ disabled at ends; rename disabled under ATS_STRICT with tooltip), `ItemRow.test.tsx` (per-kind fields, ⋮ menu actions), `ChipInput.test.tsx`.
 
-### R2.11 `MarkedTextarea` + mark toolbar (B/I/U/•/1./🔗) — capability-aware, keyboard shortcuts, link popover
+### ★ R2.11 `MarkedTextarea` + mark toolbar (B/I/U/•/1./🔗) — capability-aware, keyboard shortcuts, link popover
 As a user, I want the board's B/I/U/list/link toolbar on the summary and bullets, but only what the selected template can print, so that formatting never surprises an ATS.
 - AC: `MarkedTextarea.tsx` per DESIGN §10.6 (two-layer; mirror `RichText`; `shiftMarks` on change via common prefix/suffix diff; selection reporting; Ctrl/⌘+B/I/U/K only for allowed marks).
 - AC: `MarkToolbar.tsx` (`role="toolbar"`, arrow-key navigation): buttons B · I · U · • · 1. · 🔗 rendered per `allowedMarks(caps)` and `caps.lists`; hidden entirely when nothing is allowed; pressed state from `isCovered`; • / 1. set `list` on the summary or `listStyle` on the focused bullet's item; link popover (URL input, Apply/Remove) validating `^(https?://|mailto:)`.

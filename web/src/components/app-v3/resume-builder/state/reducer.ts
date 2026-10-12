@@ -528,13 +528,13 @@ function coalesceKey(a: EditorAction): string | undefined {
     case "section/rename":
       return `sectionTitle:${a.sectionId}`;
     case "summary/edit":
-      return `summary:${a.sectionId}`;
+      return a.format ? undefined : `summary:${a.sectionId}`;
     case "item/field":
       return `${a.itemId}:${a.field}`;
     case "skills/group.edit":
       return `${a.itemId}:group`;
     case "bullet/edit":
-      return `bullet:${a.bulletId}`;
+      return a.format ? undefined : `bullet:${a.bulletId}`;
     default:
       return undefined;
   }
