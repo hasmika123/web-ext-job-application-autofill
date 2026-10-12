@@ -86,6 +86,22 @@ export type ResumeBuilderConfig = {
   share: { maxLinks: number; maxGrants: number; linkDefaultDays: number; allowDownloadDefault: boolean };
   /** Version history retention (R3.10): automatic versions kept per resume; named ones are kept always. */
   versions: { retentionAuto: number };
+  /**
+   * Onboarding v2 (R1.8, ONBOARDING-V2-DESIGN 9 / 11): the `feature.onboarding_v2.enabled` switch, the "~N min" label,
+   * seconds per step (hello, source, review, skills, you, prefs) behind "about N min left", the draft cap in bytes, the
+   * dashboard card's timings, the flair switches, whether the persona step is asked and the payoff screen's next actions.
+   */
+  onboarding: {
+    enabled: boolean;
+    estimateMinutes: number;
+    stepSeconds: Record<string, number>;
+    draftMaxBytes: number;
+    card: { snoozeDays: number; resurfaceBelowPercent: number; resurfaceAfterDays: number; maxResurfaces: number };
+    confetti: boolean;
+    mascot: boolean;
+    personaStep: boolean;
+    payoffActions: string[];
+  };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
@@ -145,4 +161,15 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
   pdf: { waitMs: 30000, viewAutoRefresh: false },
   share: { maxLinks: 3, maxGrants: 20, linkDefaultDays: 30, allowDownloadDefault: false },
   versions: { retentionAuto: 30 },
+  onboarding: {
+    enabled: true,
+    estimateMinutes: 2,
+    stepSeconds: { hello: 10, source: 40, review: 45, skills: 20, you: 15, prefs: 30 },
+    draftMaxBytes: 262144,
+    card: { snoozeDays: 3, resurfaceBelowPercent: 20, resurfaceAfterDays: 14, maxResurfaces: 2 },
+    confetti: true,
+    mascot: true,
+    personaStep: true,
+    payoffActions: ["build_resume", "install_extension", "find_jobs"],
+  },
 };

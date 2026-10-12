@@ -6,22 +6,29 @@
  * `sessionStorage` setup draft. R1.8 adds the server status (`GET /api/profile/onboarding`) and R1.9
  * switches the card to it and migrates the local value once; until then this file is the only owner.
  */
+import { DEFAULT_BUILDER_CONFIG, type ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import { stepsFor, type SetupState, type StepKey } from "@/lib/profile-setup/state";
 
 /**
- * Declared defaults of the `onboarding.*` settings (DESIGN 11): `onboarding.estimateMinutes`,
- * `onboarding.card.snoozeDays`, `onboarding.stepSeconds`. They are admin settings; until the builder
- * config carries them (R1.8 API, R1.9 web) the dashboard passes these as props, so the card itself
- * holds no tunable.
+ * The card's three tunables (DESIGN 11): `onboarding.estimateMinutes`, `onboarding.card.snoozeDays`,
+ * `onboarding.stepSeconds`. They are admin settings and arrive on the builder config (R1.8 API,
+ * `config.onboarding`); {@link onboardingSettings} picks them out. The card itself holds no tunable.
  */
-export const ONBOARDING_DEFAULTS = {
-  estimateMinutes: 2,
-  snoozeDays: 3,
+export interface OnboardingSettings {
+  estimateMinutes: number;
+  snoozeDays: number;
   /** Seconds a person is expected to spend per step, keyed by the v2 step names. */
-  stepSeconds: { hello: 10, source: 40, review: 45, skills: 20, you: 15, prefs: 30 } as Record<string, number>,
-};
+  stepSeconds: Record<string, number>;
+}
 
-export type OnboardingSettings = typeof ONBOARDING_DEFAULTS;
+/** The card's settings from the builder config (an older API without `onboarding` falls back to the declared defaults). */
+export function onboardingSettings(config: { onboarding?: ResumeBuilderConfig["onboarding"] }): OnboardingSettings {
+  const o = config.onboarding ?? DEFAULT_BUILDER_CONFIG.onboarding;
+  return { estimateMinutes: o.estimateMinutes, snoozeDays: o.card.snoozeDays, stepSeconds: o.stepSeconds };
+}
+
+/** The API's declared defaults, for tests and for when the API is unreachable. */
+export const ONBOARDING_DEFAULTS: OnboardingSettings = onboardingSettings(DEFAULT_BUILDER_CONFIG);
 
 /** localStorage key of the snooze / dismiss memory (temporary: R1.9 moves it to the server). */
 export const CARD_KEY = "kiwiply.onboarding.card.v1";

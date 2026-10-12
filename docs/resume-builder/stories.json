@@ -514,7 +514,7 @@
       "benchmark": "Duolingo/Notion: an invitation card, not a gate; no loss-aversion copy (DESIGN §1)."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "star": true,
       "tech": "`api/src/main/resources/config/liquibase/changelog/20261012110000_onboarding_draft.xml`, `master.xml`, `domain/OnboardingDraft.java`, `repository/OnboardingDraftRepository.java`, `service/resume/ProfileMeta.java`, `service/onboarding/{OnboardingService,AutofillCoverage,OnboardingDraftPurgeJob}.java`, `service/dto/OnboardingDTOs.java`, `web/rest/OnboardingResource.java`, `service/ResumeBuilderSettingKeys.java`, `service/ResumeBuilderSettings.java`, `service/ResumeBuilderConfigService.java`, `service/dto/ResumeBuilderConfigDTO.java`, `service/ResumeBuilderDataService.java`, `service/AccountDeletionService.java`, `service/AccountExportService.java`, `web/rest/errors/*` (new codes).",
       "relates": [],

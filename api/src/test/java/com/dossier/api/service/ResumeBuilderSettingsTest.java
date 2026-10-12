@@ -190,6 +190,109 @@ class ResumeBuilderSettingsTest {
         assertThatThrownBy(() -> settings.getJson(ResumeBuilderSettingKeys.DOC_LIMIT_ITEMS, JsonNode.class)).isInstanceOf(IllegalArgumentException.class);
     }
 
+    // ---- Onboarding v2 keys (R1.8) -------------------------------------------
+
+    private static final String[][] ONBOARDING_INTS = {
+        // key, default, min, max
+        { ResumeBuilderSettingKeys.ONBOARDING_ESTIMATE_MINUTES, "2", "1", "10" },
+        { ResumeBuilderSettingKeys.ONBOARDING_DRAFT_TTL_DAYS, "30", "7", "365" },
+        { ResumeBuilderSettingKeys.ONBOARDING_DRAFT_MAX_BYTES, "262144", "65536", "1048576" },
+        { ResumeBuilderSettingKeys.ONBOARDING_RATE_DRAFT_PER_MIN, "60", "10", "600" },
+        { ResumeBuilderSettingKeys.ONBOARDING_CARD_SNOOZE_DAYS, "3", "1", "30" },
+        { ResumeBuilderSettingKeys.ONBOARDING_CARD_RESURFACE_BELOW_PERCENT, "20", "0", "100" },
+        { ResumeBuilderSettingKeys.ONBOARDING_CARD_RESURFACE_AFTER_DAYS, "14", "1", "365" },
+        { ResumeBuilderSettingKeys.ONBOARDING_CARD_MAX_RESURFACES, "2", "0", "10" },
+    };
+
+    @Test
+    void onboardingDefaultsAreTheDesignOnes() {
+        assertThat(settings.getBool(ResumeBuilderSettingKeys.FEATURE_ONBOARDING_V2)).isTrue();
+        assertThat(settings.getBool(ResumeBuilderSettingKeys.ONBOARDING_PERSONA_ENABLED)).isTrue();
+        assertThat(settings.getBool(ResumeBuilderSettingKeys.ONBOARDING_CONFETTI_ENABLED)).isTrue();
+        assertThat(settings.getBool(ResumeBuilderSettingKeys.ONBOARDING_MASCOT_ENABLED)).isTrue();
+        for (String[] k : ONBOARDING_INTS) assertThat(settings.getInt(k[0])).as(k[0]).isEqualTo(Integer.parseInt(k[1]));
+        JsonNode steps = settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_STEP_SECONDS, JsonNode.class);
+        assertThat(steps.path("hello").asInt()).isEqualTo(10);
+        assertThat(steps.path("source").asInt()).isEqualTo(40);
+        assertThat(steps.path("review").asInt()).isEqualTo(45);
+        assertThat(steps.path("skills").asInt()).isEqualTo(20);
+        assertThat(steps.path("you").asInt()).isEqualTo(15);
+        assertThat(steps.path("prefs").asInt()).isEqualTo(30);
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_PAYOFF_ACTIONS, String[].class))
+            .containsExactly("build_resume", "install_extension", "find_jobs");
+        assertThat(warnings()).isZero();
+    }
+
+    @Test
+    void everyOnboardingIntegerAcceptsItsBoundsAndFallsBackOutsideThem() {
+        for (String[] k : ONBOARDING_INTS) {
+            int def = Integer.parseInt(k[1]);
+            int min = Integer.parseInt(k[2]);
+            int max = Integer.parseInt(k[3]);
+            put(k[0], String.valueOf(min));
+            settings.invalidate();
+            assertThat(settings.getInt(k[0])).as(k[0] + " at min").isEqualTo(min);
+            put(k[0], String.valueOf(max));
+            settings.invalidate();
+            assertThat(settings.getInt(k[0])).as(k[0] + " at max").isEqualTo(max);
+            for (int bad : new int[] { min - 1, max + 1 }) {
+                put(k[0], String.valueOf(bad));
+                settings.invalidate();
+                assertThat(settings.getInt(k[0])).as(k[0] + " at " + bad).isEqualTo(def);
+            }
+            put(k[0], "many");
+            settings.invalidate();
+            assertThat(settings.getInt(k[0])).as(k[0] + " unparsable").isEqualTo(def);
+        }
+    }
+
+    @Test
+    void onboardingStepSecondsNeedsAllSixStepsWithinBounds() {
+        String ok = "{\"hello\":5,\"source\":600,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30}";
+        put(ResumeBuilderSettingKeys.ONBOARDING_STEP_SECONDS, ok);
+        settings.invalidate();
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_STEP_SECONDS, JsonNode.class).path("source").asInt()).isEqualTo(600);
+
+        for (String bad : List.of(
+            "{\"hello\":4,\"source\":40,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30}",
+            "{\"hello\":10,\"source\":601,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30}",
+            "{\"hello\":10,\"source\":40,\"review\":45,\"skills\":20,\"you\":15}",
+            "{\"hello\":10,\"source\":40,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30,\"done\":9}",
+            "{\"hello\":\"10\",\"source\":40,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30}",
+            "[10,40,45,20,15,30]"
+        )) {
+            put(ResumeBuilderSettingKeys.ONBOARDING_STEP_SECONDS, bad);
+            settings.invalidate();
+            assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_STEP_SECONDS, JsonNode.class).path("hello").asInt()).as(bad).isEqualTo(10);
+        }
+    }
+
+    @Test
+    void onboardingPayoffActionsAreAnOrderedSubsetOfOneToThree() {
+        put(ResumeBuilderSettingKeys.ONBOARDING_PAYOFF_ACTIONS, "[\"find_jobs\",\"build_resume\"]");
+        settings.invalidate();
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_PAYOFF_ACTIONS, String[].class)).containsExactly("find_jobs", "build_resume");
+
+        put(ResumeBuilderSettingKeys.ONBOARDING_PAYOFF_ACTIONS, "[\"find_jobs\"]");
+        settings.invalidate();
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_PAYOFF_ACTIONS, String[].class)).containsExactly("find_jobs");
+
+        for (String bad : List.of("[]", "[\"nope\"]", "[\"find_jobs\",\"find_jobs\"]", "[\"build_resume\",\"install_extension\",\"find_jobs\",\"find_jobs\"]", "\"find_jobs\"")) {
+            put(ResumeBuilderSettingKeys.ONBOARDING_PAYOFF_ACTIONS, bad);
+            settings.invalidate();
+            assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_PAYOFF_ACTIONS, String[].class)).as(bad).hasSize(3);
+        }
+    }
+
+    @Test
+    void onboardingSwitchesParseAsBooleans() {
+        put(ResumeBuilderSettingKeys.FEATURE_ONBOARDING_V2, "false");
+        put(ResumeBuilderSettingKeys.ONBOARDING_CONFETTI_ENABLED, "yes");
+        settings.invalidate();
+        assertThat(settings.getBool(ResumeBuilderSettingKeys.FEATURE_ONBOARDING_V2)).isFalse();
+        assertThat(settings.getBool(ResumeBuilderSettingKeys.ONBOARDING_CONFETTI_ENABLED)).as("not a boolean: default").isTrue();
+    }
+
     @Test
     void everyDeclaredDefaultIsItselfValid() {
         for (var key : ResumeBuilderSettingKeys.all()) {

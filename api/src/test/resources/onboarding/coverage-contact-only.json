@@ -1,0 +1,21 @@
+{
+  "name": "contact-only",
+  "note": "Name, email, phone, city and country: 6 keys plus fullName (first + last both set). Blank values and keys outside the schema (headline, onboardedAt) count for nothing.",
+  "bio": {
+    "firstName": "Priya",
+    "lastName": "Sharma",
+    "email": "priya@example.com",
+    "phone": "+1 512 555 0100",
+    "city": "Austin",
+    "country": "United States",
+    "state": "",
+    "postalCode": "   ",
+    "headline": "Product designer",
+    "onboardedAt": "2026-10-12T10:00:00Z"
+  },
+  "counts": { "experience": 0, "education": 0, "skills": 0 },
+  "expected": {
+    "fields": 7,
+    "groups": { "contact": 7, "links": 0, "work": 0, "education": 0, "skills": 0, "preferences": 0, "eeo": 0 }
+  }
+}

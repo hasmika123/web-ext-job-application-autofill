@@ -15,7 +15,8 @@ vi.mock("@/lib/api", () => ({ serverApiFetch: (p: string) => serverApiFetch(p) }
 vi.mock("@/components/app-v2/jobs/data", () => ({ loadJobs: async () => ({ real: false, jobs: [] }) }));
 let score = 0;
 vi.mock("@/lib/profile-items-server", () => ({ getCompleteness: async () => ({ score, parts: {}, nextAction: null }) }));
-vi.mock("@/lib/resume-builder-config", () => ({ getBuilderConfig: async () => DEFAULT_BUILDER_CONFIG }));
+let config = DEFAULT_BUILDER_CONFIG;
+vi.mock("@/lib/resume-builder-config", () => ({ getBuilderConfig: async () => config }));
 // The page shell and the fs-backed mascot are not under test here.
 vi.mock("@/components/app-v3/home/DashboardPage", () => ({ default: ({ children }: { children: React.ReactNode }) => <main>{children}</main> }));
 vi.mock("@/components/marketing/media", () => ({ Mascot: ({ pose }: { pose: string }) => <span data-pose={pose} /> }));
@@ -36,6 +37,7 @@ function api(profile: Response) {
 beforeEach(() => {
   redirect.mockClear();
   score = 0;
+  config = DEFAULT_BUILDER_CONFIG;
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -66,5 +68,30 @@ describe("Dashboard", () => {
     await open();
     expect(redirect).not.toHaveBeenCalled();
     expect(screen.queryByRole("region", { name: "Set up your profile" })).toBeNull();
+  });
+});
+
+describe("Dashboard card and the onboarding config (R1.8)", () => {
+  it("shows the card's estimate from config.onboarding.estimateMinutes", async () => {
+    config = { ...DEFAULT_BUILDER_CONFIG, onboarding: { ...DEFAULT_BUILDER_CONFIG.onboarding, estimateMinutes: 5 } };
+    api(json({ payload: "{}" }));
+    await open();
+    expect(screen.getByText(/About 5 minutes/)).toBeTruthy();
+  });
+
+  it("feature.onboarding_v2.enabled = false hides the card", async () => {
+    config = { ...DEFAULT_BUILDER_CONFIG, onboarding: { ...DEFAULT_BUILDER_CONFIG.onboarding, enabled: false } };
+    api(json({ payload: "{}" }));
+    await open();
+    expect(screen.queryByRole("region", { name: "Set up your profile" })).toBeNull();
+  });
+
+  it("an API without the onboarding group falls back to the declared defaults", async () => {
+    const older: Partial<typeof DEFAULT_BUILDER_CONFIG> = { ...DEFAULT_BUILDER_CONFIG };
+    delete older.onboarding;
+    config = older as typeof DEFAULT_BUILDER_CONFIG;
+    api(json({ payload: "{}" }));
+    await open();
+    expect(screen.getByRole("heading", { name: "Let's get you job-ready" })).toBeTruthy();
   });
 });

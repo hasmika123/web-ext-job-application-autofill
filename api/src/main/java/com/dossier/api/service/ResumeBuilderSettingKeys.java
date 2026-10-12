@@ -152,6 +152,27 @@ public final class ResumeBuilderSettingKeys {
     public static final String ORG_RESUMES_PAGE_SIZE = "org.resumes.pageSize";
     public static final String ORG_RESUMES_MAX_SAVED_VIEWS = "org.resumes.maxSavedViews";
 
+    // ---- Onboarding v2 (R1.8, ONBOARDING-V2-DESIGN 11) ----------------------
+    public static final String FEATURE_ONBOARDING_V2 = "feature.onboarding_v2.enabled";
+    public static final String ONBOARDING_PERSONA_ENABLED = "onboarding.persona.enabled";
+    public static final String ONBOARDING_ESTIMATE_MINUTES = "onboarding.estimateMinutes";
+    public static final String ONBOARDING_STEP_SECONDS = "onboarding.stepSeconds";
+    public static final String ONBOARDING_DRAFT_TTL_DAYS = "onboarding.draft.ttlDays";
+    public static final String ONBOARDING_DRAFT_MAX_BYTES = "onboarding.draft.maxBytes";
+    public static final String ONBOARDING_RATE_DRAFT_PER_MIN = "onboarding.rate.draftPerMin";
+    public static final String ONBOARDING_CARD_SNOOZE_DAYS = "onboarding.card.snoozeDays";
+    public static final String ONBOARDING_CARD_RESURFACE_BELOW_PERCENT = "onboarding.card.resurfaceBelowPercent";
+    public static final String ONBOARDING_CARD_RESURFACE_AFTER_DAYS = "onboarding.card.resurfaceAfterDays";
+    public static final String ONBOARDING_CARD_MAX_RESURFACES = "onboarding.card.maxResurfaces";
+    public static final String ONBOARDING_CONFETTI_ENABLED = "onboarding.confetti.enabled";
+    public static final String ONBOARDING_MASCOT_ENABLED = "onboarding.mascot.enabled";
+    public static final String ONBOARDING_PAYOFF_ACTIONS = "onboarding.payoff.actions";
+
+    /** The flow's steps that have a time estimate (DESIGN 3.1; {@code done} has none). */
+    public static final Set<String> ONBOARDING_STEP_KEYS = Set.of("hello", "source", "review", "skills", "you", "prefs");
+    /** The actions the payoff screen may offer (DESIGN 5.11). */
+    public static final Set<String> ONBOARDING_PAYOFF_ACTION_IDS = Set.of("build_resume", "install_extension", "find_jobs");
+
     // ---- BFF rate limits ----------------------------------------------------
     public static final String RATE_DOC_WRITES_PER_MIN = "resume.rate.docWritesPerMin";
     public static final String RATE_AI_PER_MIN = "resume.rate.aiPerMin";
@@ -191,7 +212,9 @@ public final class ResumeBuilderSettingKeys {
     public static final String DEFAULT_QUICK_TIPS =
         "[\"Create different resumes for different roles\",\"Tailor your resume for each job application\"," +
         "\"Use AI suggestions to improve your content\",\"Keep one primary resume for quick applications\"]";
-    public static final String DEFAULT_DISCOURAGED_REGIONS = "[\"US\",\"CA\",\"GB\",\"AU\",\"IE\",\"NZ\"]";
+    public static final String DEFAULT_ONBOARDING_STEP_SECONDS = "{\"hello\":10,\"source\":40,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30}";
+    public static final String DEFAULT_ONBOARDING_PAYOFF_ACTIONS = "[\"build_resume\",\"install_extension\",\"find_jobs\"]";
+    public static final String DEFAULT_DISCOURAGED_REGIONS ="[\"US\",\"CA\",\"GB\",\"AU\",\"IE\",\"NZ\"]";
 
     private static final Pattern HEX = Pattern.compile("#[0-9a-fA-F]{6}");
     private static final Pattern COUNTRY = Pattern.compile("[A-Z]{2}");
@@ -400,6 +423,36 @@ public final class ResumeBuilderSettingKeys {
         integer(k, ORG_RESUMES_NEW_DAYS, 30, 7, 90, "Days a resume counts as new on the org page.");
         integer(k, ORG_RESUMES_PAGE_SIZE, 24, 12, 96, "Org Resumes & Profiles page size.");
         integer(k, ORG_RESUMES_MAX_SAVED_VIEWS, 10, 1, 30, "Saved views per org admin.");
+
+        // Onboarding v2 (DESIGN 11). The existing profile.setup.promptBelowPercent above is the card's finished-user threshold.
+        bool(k, FEATURE_ONBOARDING_V2, true, "Onboarding v2: the dashboard 'Finish your profile' card and the /welcome redirect (the flow itself is always on).");
+        bool(k, ONBOARDING_PERSONA_ENABLED, true, "Ask 'which one's you?' first; off hides that step and the persona stays empty.");
+        integer(k, ONBOARDING_ESTIMATE_MINUTES, 2, 1, 10, "The '~N min' estimate shown at the start of setup and on the dashboard card.");
+        k.add(
+            json(
+                ONBOARDING_STEP_SECONDS,
+                DEFAULT_ONBOARDING_STEP_SECONDS,
+                "Seconds each setup step takes {hello, source, review, skills, you, prefs}, each 5-600; they drive 'about N min left'.",
+                n -> exactKeys(n, ONBOARDING_STEP_KEYS) && intMap(n, 5, 600, ONBOARDING_STEP_KEYS.size())
+            )
+        );
+        integer(k, ONBOARDING_DRAFT_TTL_DAYS, 30, 7, 365, "Days an unfinished setup draft is kept after its last save.");
+        integer(k, ONBOARDING_DRAFT_MAX_BYTES, 262144, 65536, 1048576, "Max serialised size of one setup draft in bytes.");
+        integer(k, ONBOARDING_RATE_DRAFT_PER_MIN, 60, 10, 600, "Setup draft saves per user per minute (BFF).");
+        integer(k, ONBOARDING_CARD_SNOOZE_DAYS, 3, 1, 30, "Days 'Remind me in a few days' hides the dashboard card.");
+        integer(k, ONBOARDING_CARD_RESURFACE_BELOW_PERCENT, 20, 0, 100, "A dismissed card comes back only while the profile is under this percent (0 = never).");
+        integer(k, ONBOARDING_CARD_RESURFACE_AFTER_DAYS, 14, 1, 365, "Days after 'Don't show this again' before the card may come back.");
+        integer(k, ONBOARDING_CARD_MAX_RESURFACES, 2, 0, 10, "How many times a dismissed card may come back.");
+        bool(k, ONBOARDING_CONFETTI_ENABLED, true, "Confetti on the setup payoff screen.");
+        bool(k, ONBOARDING_MASCOT_ENABLED, true, "The mascot on setup screens and the dashboard card.");
+        k.add(
+            json(
+                ONBOARDING_PAYOFF_ACTIONS,
+                DEFAULT_ONBOARDING_PAYOFF_ACTIONS,
+                "Next actions on the payoff screen, in order: 1-3 of build_resume, install_extension, find_jobs.",
+                n -> idList(n, 1, 3, ONBOARDING_PAYOFF_ACTION_IDS::contains)
+            )
+        );
 
         // BFF rate limits.
         integer(k, RATE_DOC_WRITES_PER_MIN, 120, 10, 1000, "Document writes per user per minute.");

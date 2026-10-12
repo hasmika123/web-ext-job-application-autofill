@@ -8,6 +8,8 @@ import DashboardPage from "@/components/app-v3/home/DashboardPage";
 import FinishProfileCard from "@/components/app-v3/profiles/setup/FinishProfileCard";
 import { Mascot } from "@/components/marketing/media";
 import { getBuilderConfig } from "@/lib/resume-builder-config";
+import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
+import { onboardingSettings } from "@/lib/onboarding-card";
 import ProfileProgressCard from "@/components/app-v3/profiles/setup/ProfileProgressCard";
 import { getCompleteness } from "@/lib/profile-items-server";
 import { computeDashboard, computeProfile } from "@/components/app-v3/home/compute";
@@ -60,6 +62,10 @@ export default async function Page() {
     ? jobsData.jobs.slice(0, 3).map((j) => ({ id: j.id, title: j.title, company: j.company, score: j.score, real: j.real }))
     : DASH_RECOMMENDED;
 
+  // `feature.onboarding_v2.enabled` (R1.8) switches the card; its timings and the mascot flair come from `config.onboarding`
+  // (an API without the group falls back to the declared defaults).
+  const onboarding = builderConfig.onboarding ?? DEFAULT_BUILDER_CONFIG.onboarding;
+
   return (
     <DashboardPage
       firstName={firstName}
@@ -71,15 +77,18 @@ export default async function Page() {
       recommended={recommended}
       profile={computeProfile(profileRes.ok ? bio : null, resumes.length)}
     >
+      {onboarding.enabled && (
       <FinishProfileCard
         login={account?.login ?? account?.email ?? "me"}
         onboarded={typeof bio[ONBOARDED_KEY] === "string" && bio[ONBOARDED_KEY].trim() !== ""}
         score={completeness?.score ?? null}
         promptBelow={builderConfig.profile.setupPromptBelowPercent}
         bio={Object.fromEntries(Object.entries(bio).filter(([, v]) => typeof v === "string"))}
-        mascotWave={<Mascot pose="wave" className="h-24 w-24 sm:h-32 sm:w-32" />}
-        mascotLaptop={<Mascot pose="laptop" className="h-24 w-24 sm:h-32 sm:w-32" />}
+        settings={onboardingSettings(builderConfig)}
+        mascotWave={onboarding.mascot ? <Mascot pose="wave" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}
+        mascotLaptop={onboarding.mascot ? <Mascot pose="laptop" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}
       />
+      )}
       <ProfileProgressCard completeness={completeness} promptBelow={builderConfig.profile.setupPromptBelowPercent} />
       <SuggestionsCard initial={suggestions} />
     </DashboardPage>

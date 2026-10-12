@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Onboarding v2 R1.8 (docs/ONBOARDING-V2-DESIGN.md section 8.1) - the resumable setup draft.
+
+        One row per user: the working copy of the /profiles/setup flow (the parsed candidates, the cards
+        the user kept or skipped, the cursor), autosaved on every decision so progress is never lost and
+        resumes on another device. It is NOT the profile: nothing here reaches bio.payload or the
+        extension's mirror (ProfileVersion hashes only bio.payload and resume.parsed_json). The small
+        long-lived markers (persona, finishedAt, the card's snooze / dismiss) live in bio.meta_json
+        instead; this table is the large, short-lived part.
+
+        `updated_at` is the conflict token of PUT /draft. `expires_at` = updated_at + onboarding.draft.ttlDays;
+        a nightly job deletes expired rows. The row goes with the user (FK cascade) and is erased and
+        exported with the account. The server refuses any string that matches a never-collected class
+        (SSN, bank, passport ...) before a row is written. Additive; no data migration.
+    -->
+    <changeSet id="20261012110000-1" author="dossier">
+        <createTable tableName="onboarding_draft">
+            <column name="user_id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="v" type="tinyint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="step" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="persona" type="varchar(16)"/>
+            <column name="steps_done" type="tinyint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="steps_total" type="tinyint" defaultValueNumeric="7">
+                <constraints nullable="false"/>
+            </column>
+            <column name="state_json" type="${clobType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="onboarding_draft"
+            baseColumnNames="user_id"
+            constraintName="fk_onboarding_draft_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <createIndex tableName="onboarding_draft" indexName="idx_onboarding_draft_expires">
+            <column name="expires_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>
