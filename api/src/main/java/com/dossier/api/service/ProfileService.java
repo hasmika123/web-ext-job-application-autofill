@@ -333,6 +333,19 @@ public class ProfileService {
      * The refusal carries {@code plan} so a client offers an upgrade only to a Free user.
      */
     private void enforceResumeLimit(String login) {
+        enforceResumeLimitFor(login);
+    }
+
+    /**
+     * Throws {@code 402 RESUME_LIMIT} when the current user is at their plan's live-resume cap - the check
+     * {@link #createResume} makes, exposed so a create that does other work first (an upload to parse, a
+     * resume to copy) can refuse before any of it (R2.6: "cap checked first").
+     */
+    public void assertCanCreateResume() {
+        enforceResumeLimitFor(currentUser().getLogin());
+    }
+
+    private void enforceResumeLimitFor(String login) {
         boolean pro = entitlementService.isPro(login);
         int limit = resumeLimit(pro);
         long live = resumeRepository

@@ -24,12 +24,14 @@ public record ResumeBuilderConfigDTO(
     String plan,
     boolean aiAllowed,
     Resumes resumes,
-    Profile profile
+    Profile profile,
+    Lists list
 ) {
     public record Templates(
         List<String> enabled,
         @JsonProperty("default") String defaultId,
-        @Schema(type = "object", description = "Per-template partial TemplateCapabilities; may only tighten.") JsonNode overrides
+        @Schema(type = "object", description = "Per-template partial TemplateCapabilities; may only tighten.") JsonNode overrides,
+        @Schema(description = "Template ids in the order the Popular Templates strip shows them first (resume.templates.popular).") List<String> popular
     ) {}
 
     public record Limits(int sections, int items, int bullets, int bulletChars, int summaryChars, int marks, int docBytes) {}
@@ -81,4 +83,7 @@ public record ResumeBuilderConfigDTO(
         int setupPromptBelowPercent,
         int uploadMaxBytes
     ) {}
+
+    /** The My Resumes page (R2.6): the Quick Tips lines and the card count above which the grid is virtualised. */
+    public record Lists(List<String> quickTips, int virtualizeAbove) {}
 }

@@ -16,7 +16,9 @@ import com.dossier.api.service.dto.BuiltResumeDTO;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.dto.ResumeDocDTO;
 import com.dossier.api.service.dto.ResumePdfDTO;
+import com.dossier.api.service.privacy.SensitiveContent;
 import com.dossier.api.service.resume.ResumeDocument;
+import com.dossier.api.service.resume.ResumeDocumentIds;
 import com.dossier.api.service.resume.ResumeDocumentCanonical;
 import com.dossier.api.service.resume.ResumeMetaMirror;
 import com.dossier.api.service.resume.ResumeDocumentJson;
@@ -28,8 +30,11 @@ import com.dossier.api.service.resume.ResumeDocumentValidator;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
 import com.dossier.api.service.resume.ResumeThemeValidator;
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -85,6 +90,7 @@ public class ResumeDocService {
     private final ResumeRepository resumeRepository;
     private final ResumeBuilderSettings settings;
     private final ResumeDocVersionService versionService;
+    private final FileStorage storage;
 
     public ResumeDocService(
         ResumeDocRepository resumeDocRepository,
@@ -94,8 +100,10 @@ public class ResumeDocService {
         ProfileService profileService,
         ResumeRepository resumeRepository,
         ResumeBuilderSettings settings,
-        ResumeDocVersionService versionService
+        ResumeDocVersionService versionService,
+        FileStorage storage
     ) {
+        this.storage = storage;
         this.settings = settings;
         this.versionService = versionService;
         this.resumeDocRepository = resumeDocRepository;
@@ -108,46 +116,143 @@ public class ResumeDocService {
 
     // ---- create -------------------------------------------------------------
 
+    /** The ways a new built resume can start (DESIGN 8.8 / 9.10). {@code SCRATCH} is stored as {@code PROFILE} (a header from the bio, nothing else). */
+    public enum Source {
+        PROFILE,
+        SCRATCH,
+        UPLOAD,
+        COPY;
+
+        static Source parse(String s) {
+            if (s != null) {
+                for (Source v : values()) if (v.name().equalsIgnoreCase(s.trim())) return v;
+            }
+            return null;
+        }
+    }
+
+    /** {@code source.kind} values as the API stores them in {@code resume_doc.source_kind}. */
+    static final String SOURCE_PROFILE = "PROFILE";
+    static final String SOURCE_UPLOAD = "UPLOAD";
+    static final String SOURCE_COPY = "COPY";
+    static final String SOURCE_IMPORT = "IMPORT";
+    /** Where a created-from-upload resume's untouched original file lives (never the PDF slot, which the PDF job replaces). */
+    static final String ORIGINAL_KEY_PREFIX = "resume-originals/";
+    private static final int MAX_FILE_NAME = 200;
+
     /**
-     * Create a BUILT resume and its first document. The plan cap applies exactly as for an upload
-     * ({@code 402 RESUME_LIMIT}, thrown before anything is written). The document is seeded from the
-     * user's profile items when they have any, otherwise from the bio header alone.
+     * Create a BUILT resume from the user's profile (the R0.3 behaviour). Kept for callers that pass no source.
      */
     public BuiltResumeDTO createBuilt(String templateId, String target, String label) {
-        String template = templateId == null || templateId.isBlank() ? defaultTemplateId() : templateId;
-        requireEnabledTemplate(template);
-        User user = currentUser();
+        return createBuilt(templateId, target, label, null);
+    }
 
-        String title = firstNonBlank(label, target, DEFAULT_TITLE);
+    /**
+     * Create a BUILT resume and its first document from {@code source} (DESIGN 9.10), a string or
+     * {@code {kind, ...}}: {@code profile} (default; profile items, else the bio header), {@code scratch} (the
+     * bio header only), {@code upload} ({@code structured, bio?, fileName?, keep?}: a parsed resume file) or
+     * {@code copy} ({@code fromResumeId}: an independent deep copy with new ids). The plan cap applies first
+     * ({@code 402 RESUME_LIMIT}, before anything is parsed, scanned or copied); a copy source that is not the
+     * caller's is a 404; a parsed upload that carries a never-collected value is refused with
+     * {@code 422 SENSITIVE_CONTENT} naming the item.
+     */
+    public BuiltResumeDTO createBuilt(String templateId, String target, String label, JsonNode source) {
+        profileService.assertCanCreateResume();
+        Source kind = sourceKindOf(source);
+        User user = currentUser();
+        Instant now = Instant.now();
+
+        Resume from = null;
+        ResumeDoc fromDoc = null;
+        if (kind == Source.COPY) {
+            from = ownedResume(user, longOrNull(source, "fromResumeId"), "$.source.fromResumeId");
+            fromDoc = resumeDocRepository.findByResumeIdAndUserId(from.getId(), user.getId()).orElse(null);
+        }
+
+        String template = firstNonBlank(templateId);
+        if (template.isEmpty()) {
+            template = fromDoc != null && enabledTemplateIds().contains(fromDoc.getTemplateId()) ? fromDoc.getTemplateId() : defaultTemplateId();
+        }
+        requireEnabledTemplate(template);
+
+        String cleanTarget = ProfileService.clipTarget(target);
+        String title = switch (kind) {
+            case UPLOAD -> firstNonBlank(label, stripExtension(textOrNull(source, "fileName")), cleanTarget, DEFAULT_TITLE);
+            case COPY -> firstNonBlank(label, (from.getLabel() == null || from.getLabel().isBlank() ? "Resume" : from.getLabel()) + " (copy)");
+            default -> firstNonBlank(label, cleanTarget, DEFAULT_TITLE);
+        };
         if (title.length() > 200) title = title.substring(0, 200);
+
+        JsonNode bio = bioRepository.findByUserIsCurrentUser().stream().findFirst().map(Bio::getPayload).map(ResumeDocService::parseQuietly).orElse(null);
+        ResumeDocumentValidator.Limits limits = limits();
+        JsonNode doc;
+        String sourceKind = SOURCE_PROFILE;
+        switch (kind) {
+            case UPLOAD -> {
+                doc = seedFromUpload(title, cleanTarget, source, bio, now);
+                sourceKind = SOURCE_UPLOAD;
+            }
+            case COPY -> {
+                doc = copyOf(from, fromDoc, title, bio, now);
+                sourceKind = SOURCE_COPY;
+            }
+            case SCRATCH -> doc = ResumeDocumentSeeder.seed(title, cleanTarget, bio, List.of(), now);
+            default -> {
+                var items = profileItemRepository.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(user.getId());
+                doc = ResumeDocumentSeeder.seed(title, cleanTarget, bio, items, now);
+                // The seeder only emits valid documents; if a future change breaks that, a bare header beats a 500.
+                if (ResumeDocumentValidator.validate(doc, limits).isPresent()) {
+                    LOG.warn("Seeded document for user {} failed validation ({}); falling back to the bio header", user.getId(), ResumeDocumentValidator.validate(doc, limits).get());
+                    doc = ResumeDocumentSeeder.seed(title, cleanTarget, bio, List.of(), now);
+                }
+            }
+        }
+        // A copy's photo is attached after the resume exists (its file gets a key of its own), so it is validated then.
+        JsonNode copiedPhoto = kind == Source.COPY ? detachPhoto(doc) : null;
+        if (kind == Source.UPLOAD || kind == Source.COPY) {
+            ResumeDocumentValidator.validate(doc, limits).ifPresent(v -> {
+                throw v.tooLarge() ? ResumeDocException.tooLarge(v.message()) : ResumeDocException.invalid(v.path(), v.message());
+            });
+        }
 
         ResumeDTO request = new ResumeDTO();
         request.setLabel(title);
-        request.setTarget(target);
+        request.setTarget(cleanTarget);
         request.setStatus(ResumeStatus.CONFIRMED); // authored by the user: nothing to review
         ResumeDTO created = profileService.createResume(request, ResumeKind.BUILT);
+        Resume resume = resumeRepository.findById(created.getId()).orElseThrow();
 
-        Instant now = Instant.now();
-        JsonNode bio = bioRepository.findByUserIsCurrentUser().stream().findFirst().map(Bio::getPayload).map(ResumeDocService::parseQuietly).orElse(null);
-        var items = profileItemRepository.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(user.getId());
-        JsonNode doc = ResumeDocumentSeeder.seed(title, target, bio, items, now);
-        // The seeder only emits valid documents; if a future change breaks that, a bare header beats a 500.
-        ResumeDocumentValidator.Limits limits = limits();
-        if (ResumeDocumentValidator.validate(doc, limits).isPresent()) {
-            LOG.warn("Seeded document for user {} failed validation ({}); falling back to the bio header", user.getId(), ResumeDocumentValidator.validate(doc, limits).get());
-            doc = ResumeDocumentSeeder.seed(title, target, bio, List.of(), now);
+        String photoCopyKey = null;
+        if (copiedPhoto != null) {
+            photoCopyKey = copyPhoto(user, resume, copiedPhoto);
+            if (photoCopyKey != null) {
+                ObjectNode photo = ((ObjectNode) doc.get("basics")).putObject("photo");
+                photo.put("key", photoCopyKey);
+                photo.put("updatedAt", now.toString());
+            }
         }
 
-        Resume resume = resumeRepository.findById(created.getId()).orElseThrow();
         ResumeDoc d = new ResumeDoc();
         d.setResume(resume);
         d.setUser(user);
         d.setTemplateId(template);
-        d.setThemeJson("{}");
-        d.setProfileSyncedAt(now);
-        applyContent(d, resume, doc, now);
-        markPdfPending(d, false);
-        resumeDocRepository.saveAndFlush(d);
+        d.setThemeJson(kind == Source.COPY && fromDoc != null && fromDoc.getThemeJson() != null ? fromDoc.getThemeJson() : "{}");
+        d.setSourceKind(sourceKind);
+        if (kind == Source.COPY) d.setParentResumeId(from.getId());
+        d.setProfileSyncedAt(kind == Source.COPY && fromDoc != null && fromDoc.getProfileSyncedAt() != null ? fromDoc.getProfileSyncedAt() : now);
+        try {
+            if (photoCopyKey != null) {
+                ResumeDocumentValidator.validate(doc, ResumeDocumentValidator.Options.DEFAULTS.withPhotoKeyPrefix(PHOTO_KEY_PREFIX + user.getId() + "/").withLimits(limits)).ifPresent(v -> {
+                    throw ResumeDocException.invalid(v.path(), v.message());
+                });
+            }
+            applyContent(d, resume, doc, now);
+            markPdfPending(d, false);
+            resumeDocRepository.saveAndFlush(d);
+        } catch (RuntimeException e) {
+            if (photoCopyKey != null) deleteQuietly(photoCopyKey);
+            throw e;
+        }
         // The first snapshot: what the resume looked like when it was made (a base for Restore and Compare).
         versionService.record(d, ResumeDocVersionService.IMPORT, null, user.getLogin());
 
@@ -155,6 +260,302 @@ public class ResumeDocService {
         created.setTemplateId(template);
         created.setParsedJson(resume.getParsedJson());
         return new BuiltResumeDTO(created, toDto(d, resume));
+    }
+
+    /** {@code POST .../doc/duplicate}: an alias of {@code source: copy} for the list's duplicate button. */
+    public BuiltResumeDTO duplicate(Long resumeId, String label) {
+        ObjectNode source = JsonNodeFactory.instance.objectNode();
+        source.put("kind", "copy");
+        source.put("fromResumeId", resumeId);
+        return createBuilt(null, null, label, source);
+    }
+
+    /**
+     * "Open in builder" on an uploaded resume ({@code POST .../doc/import}): the file's parsed structure becomes
+     * a document and the resume becomes BUILT in place (same id, name, target, flags and applications). The
+     * uploaded file is kept as {@code meta.originalFileKey}; the resume's own file slot is then free for the
+     * generated PDF. 409 {@code ALREADY_BUILT} when it already is.
+     */
+    public BuiltResumeDTO importUploaded(Long resumeId) {
+        User user = currentUser();
+        Resume resume = ownedResume(user, resumeId, "$.id");
+        if (resume.getKind() == ResumeKind.BUILT || resumeDocRepository.existsById(resumeId)) {
+            throw new ResumeDocException(409, "ALREADY_BUILT", "This resume is already in the builder", java.util.Map.of());
+        }
+        Instant now = Instant.now();
+        JsonNode structured = parseQuietly(resume.getParsedJson());
+        if (!structured.isObject()) structured = JsonNodeFactory.instance.objectNode();
+        // The structure was stored by an earlier, already-guarded write; scrub a straggler rather than refuse the import.
+        structured = structured.deepCopy();
+        SensitiveContent.redact(structured);
+        JsonNode bio = bioRepository.findByUserIsCurrentUser().stream().findFirst().map(Bio::getPayload).map(ResumeDocService::parseQuietly).orElse(null);
+        String title = firstNonBlank(resume.getLabel(), DEFAULT_TITLE);
+        ObjectNode doc = ResumeDocumentSeeder.fromStructured(title, resume.getTarget(), structured, null, bio, null, now);
+        String originalKey = copyOriginalAside(user, resume);
+        if (originalKey != null) ((ObjectNode) doc.get("meta")).put("originalFileKey", originalKey);
+        ResumeDocumentValidator.validate(doc, limits()).ifPresent(v -> {
+            throw v.tooLarge() ? ResumeDocException.tooLarge(v.message()) : ResumeDocException.invalid(v.path(), v.message());
+        });
+
+        resume.setKind(ResumeKind.BUILT);
+        ResumeDoc d = new ResumeDoc();
+        d.setResume(resume);
+        d.setUser(user);
+        d.setTemplateId(defaultTemplateId());
+        d.setThemeJson("{}");
+        d.setSourceKind(SOURCE_IMPORT);
+        d.setProfileSyncedAt(now);
+        applyContent(d, resume, doc, now);
+        markPdfPending(d, false);
+        resumeDocRepository.saveAndFlush(d);
+        versionService.record(d, ResumeDocVersionService.IMPORT, null, user.getLogin());
+
+        ResumeDTO dto = profileService.listResumes().stream().filter(r -> resumeId.equals(r.getId())).findFirst().orElseGet(ResumeDTO::new);
+        dto.setKind(ResumeKind.BUILT);
+        dto.setTemplateId(d.getTemplateId());
+        return new BuiltResumeDTO(dto, toDto(d, resume));
+    }
+
+    // ---- the uploaded original ------------------------------------------------
+
+    /**
+     * True when a file posted to this resume is the user's uploaded original rather than a generated PDF: a BUILT
+     * resume that started from an upload (or was imported) and has no original yet. {@code ResumeFileResource}
+     * then stores it under {@code resume-originals/...} and calls {@link #noteOriginalFile}.
+     */
+    @Transactional(readOnly = true)
+    public boolean wantsOriginal(Resume resume) {
+        if (resume.getKind() != ResumeKind.BUILT) return false;
+        return resumeDocRepository
+            .findById(resume.getId())
+            .filter(d -> SOURCE_UPLOAD.equals(d.getSourceKind()) || SOURCE_IMPORT.equals(d.getSourceKind()))
+            .map(d -> originalKeyOf(storedDoc(d)) == null)
+            .orElse(false);
+    }
+
+    /**
+     * Record {@code key} as the document's {@code meta.originalFileKey}. A document write like any other
+     * (it ticks the version and changes the content hash), which is why the web waits for the upload to finish
+     * before it opens the editor.
+     */
+    public void noteOriginalFile(Long resumeId, String key) {
+        ResumeDoc d = ownedDoc(resumeId);
+        ObjectNode doc = (ObjectNode) storedDoc(d).deepCopy();
+        JsonNode meta = doc.get("meta");
+        if (meta == null || !meta.isObject()) return;
+        ((ObjectNode) meta).put("originalFileKey", key);
+        Instant now = Instant.now();
+        applyContent(d, d.getResume(), doc, now);
+        markPdfPending(d, false);
+        resumeDocRepository.saveAndFlush(d);
+    }
+
+    /** The uploaded original: its bytes and type. 404 when there is none (owner only). */
+    @Transactional(readOnly = true)
+    public StoredOriginal original(Long resumeId) {
+        User user = currentUser();
+        ResumeDoc d = ownedDoc(resumeId);
+        String key = originalKeyOf(storedDoc(d));
+        // Server-written, but never trust a key outside the caller's own prefix.
+        if (key == null || !key.startsWith(ORIGINAL_KEY_PREFIX + user.getId() + "/")) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No original file");
+        }
+        try {
+            FileStorage.StoredFile f = storage.load(key);
+            return new StoredOriginal(f.content(), f.contentType(), downloadName(d.getResume(), key));
+        } catch (StorageObjectNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "FILE_MISSING");
+        }
+    }
+
+    /** The original file for download. */
+    public record StoredOriginal(byte[] content, String contentType, String fileName) {}
+
+    /** Overwrites {@code doc.meta.originalFileKey} with the stored document's, so a client save can neither set nor drop it. */
+    private static void keepOriginalFileKey(JsonNode doc, JsonNode stored) {
+        if (doc == null || !doc.path("meta").isObject()) return;
+        ObjectNode meta = (ObjectNode) doc.get("meta");
+        String key = originalKeyOf(stored);
+        if (key == null) {
+            if (meta.has("originalFileKey")) meta.putNull("originalFileKey");
+        } else {
+            meta.put("originalFileKey", key);
+        }
+    }
+
+    private static String originalKeyOf(JsonNode doc) {
+        JsonNode k = doc == null ? null : doc.path("meta").get("originalFileKey");
+        return k != null && k.isTextual() && !k.textValue().isBlank() ? k.textValue() : null;
+    }
+
+    private static String downloadName(Resume resume, String key) {
+        String ext = key.contains(".") ? key.substring(key.lastIndexOf('.')) : "";
+        String base = resume.getLabel() == null ? "resume" : resume.getLabel().replaceAll("[^A-Za-z0-9._-]+", "_");
+        return (base.isBlank() ? "resume" : base) + ext.replaceAll("[^A-Za-z0-9.]", "");
+    }
+
+    /** Copy the uploaded file in a resume's own slot to the originals prefix so the PDF job cannot delete it; null when none. */
+    private String copyOriginalAside(User user, Resume resume) {
+        String key = resume.getr2ObjectKey();
+        if (key == null || key.isBlank()) return null;
+        try {
+            FileStorage.StoredFile f = storage.load(key);
+            String ext = key.contains(".") ? key.substring(key.lastIndexOf('.')) : ".pdf";
+            String newKey = storage.objectKeyFor("resume-originals", user.getId(), resume.getId(), "original" + ext.replaceAll("[^A-Za-z0-9.]", ""));
+            storage.store(newKey, f.content(), f.contentType());
+            return newKey;
+        } catch (RuntimeException e) {
+            LOG.warn("Could not keep the original file of resume {} aside: {}", resume.getId(), e.getMessage());
+            return null;
+        }
+    }
+
+    // ---- create helpers -------------------------------------------------------------------------
+
+    private static Source sourceKindOf(JsonNode source) {
+        if (source == null || source.isNull()) return Source.PROFILE;
+        String kind = source.isTextual() ? source.textValue() : source.isObject() ? textOrNull(source, "kind") : null;
+        if (kind == null || kind.isBlank()) {
+            if (source.isObject()) return Source.PROFILE;
+            throw ResumeDocException.invalid("$.source", "must be a source kind or an object {kind, ...}");
+        }
+        Source parsed = Source.parse(kind);
+        if (parsed == null) throw ResumeDocException.invalid("$.source.kind", "unknown source '" + kind + "' (profile, scratch, upload or copy)");
+        return parsed;
+    }
+
+    private ObjectNode seedFromUpload(String title, String target, JsonNode source, JsonNode userBio, Instant now) {
+        if (!source.isObject()) throw ResumeDocException.invalid("$.source", "an upload needs {kind, structured, fileName}");
+        JsonNode structured = source.get("structured");
+        if (structured == null || !structured.isObject()) throw ResumeDocException.invalid("$.source.structured", "is required for an upload");
+        JsonNode fileBio = source.get("bio");
+        if (fileBio != null && !fileBio.isNull() && !fileBio.isObject()) throw ResumeDocException.invalid("$.source.bio", "must be an object");
+        ResumeDocumentSeeder.KeepMask keep = keepMaskOf(source.get("keep"));
+        guardSensitive(structured, fileBio, keep);
+        return ResumeDocumentSeeder.fromStructured(title, target, structured, fileBio, userBio, keep, now);
+    }
+
+    /**
+     * Refuses never-collected values in what the user KEPT: each kept entry is scanned on its own, so the 422
+     * names the entry by its index in the uploaded arrays ({@code structured.experience[2]}) and unticking it fixes it.
+     */
+    private static void guardSensitive(JsonNode structured, JsonNode fileBio, ResumeDocumentSeeder.KeepMask keep) {
+        for (String section : new String[] { "experience", "education", "projects" }) {
+            java.util.Set<Integer> kept = switch (section) {
+                case "experience" -> keep.experience();
+                case "education" -> keep.education();
+                default -> keep.projects();
+            };
+            JsonNode arr = structured.get(section);
+            if (arr == null || !arr.isArray()) continue;
+            for (int i = 0; i < arr.size(); i++) {
+                if (ResumeDocumentSeeder.KeepMask.has(kept, i)) SensitiveContent.check("structured." + section + "[" + i + "]", arr.get(i));
+            }
+        }
+        if (keep.keepsSkills()) SensitiveContent.check("structured.skills", structured.get("skills"));
+        if (keep.keepsSummary()) SensitiveContent.check("structured.summary", "summary", structured.path("summary").asText(""));
+        SensitiveContent.check("structured.languages", structured.get("languages"));
+        if (fileBio != null) SensitiveContent.check("bio", fileBio);
+    }
+
+    private static ResumeDocumentSeeder.KeepMask keepMaskOf(JsonNode keep) {
+        if (keep == null || !keep.isObject()) return ResumeDocumentSeeder.KeepMask.ALL;
+        return new ResumeDocumentSeeder.KeepMask(
+            indexSet(keep.get("experience")),
+            indexSet(keep.get("education")),
+            indexSet(keep.get("projects")),
+            keep.hasNonNull("skills") ? keep.get("skills").asBoolean(true) : null,
+            keep.hasNonNull("summary") ? keep.get("summary").asBoolean(true) : null
+        );
+    }
+
+    private static java.util.Set<Integer> indexSet(JsonNode n) {
+        if (n == null || !n.isArray()) return null;
+        java.util.Set<Integer> out = new java.util.HashSet<>();
+        for (JsonNode i : n) if (i.isInt() && i.intValue() >= 0) out.add(i.intValue());
+        return out;
+    }
+
+    /**
+     * The copy's document: the source's with every id regenerated, no job target, no tailoring lineage, no
+     * original-file link. A source that is only an uploaded file (no document) is built from its parsed structure.
+     */
+    private JsonNode copyOf(Resume from, ResumeDoc fromDoc, String title, JsonNode userBio, Instant now) {
+        if (fromDoc == null) {
+            JsonNode structured = parseQuietly(from.getParsedJson());
+            structured = structured.isObject() ? structured.deepCopy() : JsonNodeFactory.instance.objectNode();
+            SensitiveContent.redact(structured);
+            return ResumeDocumentSeeder.fromStructured(title, null, structured, null, userBio, null, now);
+        }
+        JsonNode copy = ResumeDocumentIds.regenerate(storedDoc(fromDoc));
+        ObjectNode meta = copy.has("meta") && copy.get("meta").isObject() ? (ObjectNode) copy.get("meta") : ((ObjectNode) copy).putObject("meta");
+        meta.remove("tailoredFrom");
+        meta.putNull("originalFileKey");
+        ResumeMetaMirror.apply(copy, title, null);
+        return copy;
+    }
+
+    /** Takes {@code basics.photo} out of a document and returns it (null when none). */
+    private static JsonNode detachPhoto(JsonNode doc) {
+        JsonNode basics = doc.get("basics");
+        if (basics == null || !basics.isObject()) return null;
+        JsonNode photo = basics.get("photo");
+        ((ObjectNode) basics).remove("photo");
+        return photo != null && photo.hasNonNull("key") ? photo : null;
+    }
+
+    /** A photo is content, so a copy gets a file of its own (same bytes, new key); null if the bytes cannot be copied. */
+    private String copyPhoto(User user, Resume resume, JsonNode photo) {
+        String key = photo.get("key").asText("");
+        if (!key.startsWith(PHOTO_KEY_PREFIX + user.getId() + "/")) return null;
+        try {
+            FileStorage.StoredFile f = storage.load(key);
+            String ext = key.contains(".") ? key.substring(key.lastIndexOf('.')).replaceAll("[^A-Za-z0-9.]", "") : ".jpg";
+            String newKey = storage.objectKeyFor("resume-photos", user.getId(), resume.getId(), "photo" + ext);
+            storage.store(newKey, f.content(), f.contentType());
+            return newKey;
+        } catch (RuntimeException e) {
+            LOG.warn("Could not copy the photo of resume {} into its copy: {}", resume.getId(), e.getMessage());
+            return null;
+        }
+    }
+
+    private void deleteQuietly(String key) {
+        try {
+            storage.delete(key);
+        } catch (RuntimeException e) {
+            LOG.warn("Could not delete {}: {}", key, e.getMessage());
+        }
+    }
+
+    private Resume ownedResume(User user, Long resumeId, String path) {
+        if (resumeId == null) throw ResumeDocException.invalid(path, "is required");
+        return resumeRepository
+            .findById(resumeId)
+            .filter(r -> r.getUser() != null && user.getId().equals(r.getUser().getId()))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume not found"));
+    }
+
+    private static String textOrNull(JsonNode n, String field) {
+        JsonNode v = n == null ? null : n.get(field);
+        return v != null && v.isTextual() ? v.textValue() : null;
+    }
+
+    private static Long longOrNull(JsonNode n, String field) {
+        JsonNode v = n == null ? null : n.get(field);
+        return v != null && v.canConvertToLong() ? v.longValue() : null;
+    }
+
+    /** {@code "My CV.final.pdf"} -> {@code "My CV.final"}; null/blank -> null. */
+    private static String stripExtension(String fileName) {
+        if (fileName == null || fileName.isBlank()) return null;
+        String name = fileName.strip();
+        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        if (slash >= 0) name = name.substring(slash + 1);
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) name = name.substring(0, dot);
+        name = name.strip();
+        return name.isEmpty() ? null : (name.length() > MAX_FILE_NAME ? name.substring(0, MAX_FILE_NAME) : name);
     }
 
     // ---- read ---------------------------------------------------------------
@@ -215,6 +616,8 @@ public class ResumeDocService {
         // The name and target are the resume's (DESIGN 8.6): the document only mirrors them, so whatever the client
         // sent in meta.title / meta.target is overwritten, not rejected.
         ResumeMetaMirror.apply(doc, d.getResume().getLabel(), d.getResume().getTarget());
+        // meta.originalFileKey is server-written too (it names a stored file the owner may download): a save never sets it.
+        keepOriginalFileKey(doc, storedDoc(d));
         // meta.tailoredFrom is server-written: a save may echo the stored value, never introduce, change or drop it.
         JsonNode storedTailoredFrom = tailoredFromOf(ResumeDocumentUpgrader.upgrade(parseQuietly(d.getDocJson())));
         JsonNode incomingTailoredFrom = tailoredFromOf(doc);

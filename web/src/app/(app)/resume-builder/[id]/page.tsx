@@ -26,11 +26,13 @@ async function getProfileUpdatedAt(): Promise<string | null> {
  * profile's update time are fetched here in parallel, on the server, and handed to the
  * `ResumeEditor` client island, which does all the editing and saving through the
  * `/api/resumes/[id]/doc` BFF. A resume that is not the caller's (or is an uploaded file with no
- * document) is a 404. The job target (R5.6) and open AI proposals (R4.1) are empty until those
+ * document) is a 404. `?view=pdf` / `?tab=ai` (the My Resumes buttons) pick where the editor opens. The job target (R5.6) and open AI proposals (R4.1) are empty until those
  * stories land.
  */
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ view?: string | string[]; tab?: string | string[] }> }) {
   const { id } = await params;
+  const q = await searchParams;
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   if (!/^\d+$/.test(id)) notFound();
 
   const [docRes, plan, config, aiUsage, profileUpdatedAt] = await Promise.all([
@@ -58,6 +60,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       profileUpdatedAt={profileUpdatedAt}
       jobTarget={null}
       openProposals={[]}
+      entry={{ view: one(q.view) === "pdf" ? "pdf" : undefined, tab: one(q.tab) === "ai" ? "ai" : undefined }}
     />
   );
 }

@@ -40,7 +40,8 @@ public class ResumeBuilderConfigService {
             new ResumeBuilderConfigDTO.Templates(
                 strings(TEMPLATES_ENABLED),
                 s.getString(TEMPLATES_DEFAULT),
-                s.getJson(TEMPLATES_OVERRIDES, JsonNode.class)
+                s.getJson(TEMPLATES_OVERRIDES, JsonNode.class),
+                strings(TEMPLATES_POPULAR)
             ),
             new ResumeBuilderConfigDTO.Limits(
                 s.getInt(DOC_LIMIT_SECTIONS),
@@ -91,7 +92,8 @@ public class ResumeBuilderConfigService {
                 s.getInt(PROFILE_BIO_SUMMARY_MAX_CHARS),
                 s.getInt(PROFILE_SETUP_PROMPT_BELOW_PERCENT),
                 s.getInt(PROFILE_UPLOAD_MAX_BYTES)
-            )
+            ),
+            new ResumeBuilderConfigDTO.Lists(strings(LIST_QUICK_TIPS), s.getInt(LIST_VIRTUALIZE_ABOVE))
         );
     }
 

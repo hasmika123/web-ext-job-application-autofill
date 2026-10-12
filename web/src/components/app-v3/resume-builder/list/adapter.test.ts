@@ -114,6 +114,27 @@ describe("toCardModel", () => {
     expect(withPdf("FAILED", { kind: "UPLOADED", templateId: null })).toBe("none"); // uploads never have a job
   });
 
+  it("type: Tailored beats Built; an upload is Uploaded", () => {
+    expect(toCardModel(built()).type).toBe("Built");
+    expect(toCardModel(built({ role: "TAILORED" })).type).toBe("Tailored");
+    expect(toCardModel(built({ role: "MASTER" })).type).toBe("Built");
+    expect(toCardModel(built({ kind: "UPLOADED", templateId: null })).type).toBe("Uploaded");
+  });
+
+  it("score is optional (R2.5 adds it): a number is clamped and rounded, anything else is null", () => {
+    expect(toCardModel(built()).score).toBeNull();
+    expect(toCardModel(built({ score: 82.4 })).score).toBe(82);
+    expect(toCardModel(built({ score: 140 })).score).toBe(100);
+    expect(toCardModel(built({ score: -3 })).score).toBe(0);
+    expect(toCardModel(built({ score: null })).score).toBeNull();
+    expect(toCardModel(built({ score: Number.NaN })).score).toBeNull();
+  });
+
+  it("exportedAt is the last stored PDF's time, or null", () => {
+    expect(toCardModel(built({ exportedAt: "2026-10-01T00:00:00Z" })).exportedAt).toBe("2026-10-01T00:00:00Z");
+    expect(toCardModel(built()).exportedAt).toBeNull();
+  });
+
   it("keeps the id and kind", () => {
     const m = toCardModel(built({ id: 42 }));
     expect(m.id).toBe(42);

@@ -148,7 +148,11 @@ class ResumeBuilderConfigResourceIT {
             .andExpect(jsonPath("$.profile.bioValueMaxChars").value(500))
             .andExpect(jsonPath("$.profile.bioSummaryMaxChars").value(2000))
             .andExpect(jsonPath("$.profile.setupPromptBelowPercent").value(40))
-            .andExpect(jsonPath("$.profile.uploadMaxBytes").value(10485760));
+            .andExpect(jsonPath("$.profile.uploadMaxBytes").value(10485760))
+            .andExpect(jsonPath("$.templates.popular[0]").value("modern"))
+            .andExpect(jsonPath("$.list.quickTips.length()").value(4))
+            .andExpect(jsonPath("$.list.quickTips[3]").value("Keep one primary resume for quick applications"))
+            .andExpect(jsonPath("$.list.virtualizeAbove").value(60));
     }
 
     @Test

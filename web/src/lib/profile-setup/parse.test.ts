@@ -12,7 +12,7 @@ vi.mock("@/lib/resume-parse", () => ({
   parseText: (...a: unknown[]) => parseText(...a),
 }));
 
-import { NothingFoundError, parseFileForSetup, parseTextForSetup } from "./parse";
+import { NothingFoundError, parseFileForResume, parseFileForSetup, parseTextForSetup } from "./parse";
 
 const BIO = { valueChars: 500, summaryChars: 2000 };
 
@@ -66,6 +66,44 @@ describe("parseFileForSetup", () => {
     parseResumeWithAi.mockResolvedValue({ structured: { summary: "", skills: [], experience: [], education: [], languages: [], projects: [] }, bio: {}, rawText: "", source: "heuristic", garbled: true });
     await expect(parseFileForSetup(new File(["x"], "scan.pdf"), true, BIO)).rejects.toThrow(/scan/);
     await expect(parseFileForSetup(new File(["x"], "scan.pdf"), true, BIO)).rejects.toBeInstanceOf(NothingFoundError);
+  });
+});
+
+describe("parseFileForResume (the new-resume chooser's upload)", () => {
+  it("redacts the text first, never lets the AI parser take the file, and returns the structure with its indexes intact", async () => {
+    let seen = "";
+    parseResumeWithAi.mockImplementation(async (_f: File, opts: { prepareText: (t: string) => string; textOnly: boolean }) => {
+      seen = opts.prepareText("Led a team\nSSN 123-45-6789");
+      expect(opts.textOnly).toBe(true);
+      return {
+        ...ok(),
+        structured: {
+          ...ok().structured,
+          // a value the parser put back after the text was redacted, in the SECOND role: it is cleaned, not dropped
+          experience: [ok().structured.experience[0], { ...ok().structured.experience[0], company: "Globex", bullets: ["Visa number: A12345678 was handled"] }],
+        },
+      };
+    });
+    const out = await parseFileForResume(new File(["x"], "cv.pdf", { type: "application/pdf" }), true);
+    expect(seen).not.toContain("123-45-6789");
+    expect(out.structured.experience).toHaveLength(2); // indexes are what the KeepMask refers to
+    expect(out.structured.experience[1].company).toBe("Globex");
+    expect(JSON.stringify(out.structured)).not.toContain("A12345678");
+    expect(out.bio).toEqual({ firstName: "Jane" });
+    expect(out.source).toBe("ai");
+    expect(out.removed).toBeGreaterThanOrEqual(2);
+  });
+
+  it("uses the local parser without AI", async () => {
+    parseResume.mockResolvedValue(ok("heuristic"));
+    const out = await parseFileForResume(new File(["x"], "cv.txt"), false);
+    expect(parseResumeWithAi).not.toHaveBeenCalled();
+    expect(out.source).toBe("heuristic");
+  });
+
+  it("refuses a file with nothing in it, saying why", async () => {
+    parseResumeWithAi.mockResolvedValue({ structured: { summary: "", skills: [], experience: [], education: [], languages: [], projects: [] }, bio: {}, rawText: "", source: "heuristic", garbled: true });
+    await expect(parseFileForResume(new File(["x"], "scan.pdf"), true)).rejects.toBeInstanceOf(NothingFoundError);
   });
 });
 

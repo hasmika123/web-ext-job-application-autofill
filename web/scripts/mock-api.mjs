@@ -153,6 +153,7 @@ const BIO = {
   authorizedToWork: "Yes",
   firstName: "Priya",
   lastName: "Sharma",
+  headline: "Product Designer",
   email: "demo@kiwiply.com",
   city: "Austin",
   state: "TX",
@@ -314,6 +315,14 @@ function handleBuilder(req, res, path, method) {
     req.on("data", (c) => (bytes += c.length));
     req.on("end", () => {
       if (!d) return json(res, 404, { status: 404, title: "Not Found" });
+      // A resume made from an upload keeps the first file apart from its generated PDF (ResumeFileResource#upload).
+      if ((d.sourceKind === "UPLOAD" || d.sourceKind === "IMPORT") && !d.originalBytes) {
+        d.originalBytes = bytes;
+        d.doc.meta.originalFileKey = `resume-originals/mock/${id}`;
+        d.version += 1;
+        res.writeHead(200);
+        return res.end();
+      }
       d.fileBytes = bytes;
       const r = RESUMES.find((x) => x.id === id);
       if (r) r.r2ObjectKey = `mock/${id}-export.pdf`;
@@ -495,6 +504,274 @@ function handleAccess(req, res, path, method) {
   return true;
 }
 
+/* ── My Resumes + "New resume" start chooser mock (R2.6; in memory) ──────────────────────────────── */
+// MOCK_RESUME_LIMIT is the plan's live-resume cap (default 3 = Free, which the seeded demo is already over, so
+// the cap prompt shows); start with MOCK_RESUME_LIMIT=25 to try the four chooser sources.
+const RESUME_LIMIT = Number(process.env.MOCK_RESUME_LIMIT ?? FREE_RESUME_LIMIT);
+const liveCount = () => RESUMES.filter((r) => !r.archived).length;
+const capProblem = (res) =>
+  json(res, 402, {
+    status: 402,
+    code: "RESUME_LIMIT",
+    detail: RESUME_LIMIT <= FREE_RESUME_LIMIT ? "Free accounts keep up to 3 resumes — archive one, or upgrade to Pro." : `Pro accounts keep up to ${RESUME_LIMIT} resumes — archive one to add another`,
+    plan: RESUME_LIMIT <= FREE_RESUME_LIMIT ? "FREE" : "PRO",
+    limit: RESUME_LIMIT,
+    count: liveCount(),
+  });
+
+/** The builder settings the web reads (`GET /api/profile/resume-builder/config`), with the live resume count. */
+function builderConfig() {
+  const pro = RESUME_LIMIT > FREE_RESUME_LIMIT;
+  return {
+    templates: { enabled: ["modern"], default: "modern", overrides: {}, popular: ["modern"] },
+    limits: { sections: 20, items: 40, bullets: 12, bulletChars: 600, summaryChars: 2000, marks: 64, docBytes: 262144 },
+    score: {
+      rulesetVersion: "v1",
+      weights: {},
+      groupWeights: { G1: 15, G2: 25, G3: 20, G4: 20, G5: 20, G6: 10 },
+      passThreshold: 0.7,
+      bands: [
+        { min: 80, title: "Great match!", body: "Your resume is well-optimized and ready to impress." },
+        { min: 60, title: "Good progress", body: "A few fixes will make it stand out." },
+        { min: 40, title: "Getting there", body: "Follow the tips below to strengthen it." },
+        { min: 0, title: "Needs work", body: "Start with the checklist below." },
+      ],
+    },
+    match: { weights: { skills: 50, title: 15, years: 10, industry: 15, education: 10 }, keySkillsCount: 10, thresholds: { keySkills: 0.7, experience: 0.6, industry: 0.6 }, maxJdChars: 8000, embeddings: false },
+    theme: { accentPalette: ["#16a34a", "#2563eb", "#7c3aed", "#ec4899", "#f97316", "#eab308"] },
+    features: { photo: true, docx: false, aiSuggestions: true, jobMatch: true, tailor: true, printLayout: true, pdfView: true },
+    ai: { suggestAutoRefresh: false, suggestStaleMinutes: 10, rewriteMaxRefs: 12 },
+    plan: pro ? "PRO" : "FREE",
+    aiAllowed: pro,
+    resumes: { count: liveCount(), max: RESUME_LIMIT },
+    profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200, bioValueMaxChars: 500, bioSummaryMaxChars: 2000, setupPromptBelowPercent: 40, uploadMaxBytes: 10485760 },
+    list: {
+      quickTips: ["Create different resumes for different roles", "Tailor your resume for each job application", "Use AI suggestions to improve your content", "Keep one primary resume for quick applications"],
+      virtualizeAbove: 60,
+    },
+  };
+}
+
+/** One row of GET /api/profile/resumes with the metadata model (R3.9) the list reads. */
+function listRow(r) {
+  const d = DOCS.get(r.id);
+  const built = r.kind === "BUILT" && d;
+  const lifecycle = r.archived ? "ARCHIVED" : built && !d.checkpoint && !d.exportedAt ? "DRAFT" : "ACTIVE";
+  return {
+    ...r,
+    primary: !!r.defaultResume,
+    updatedAt: d?.updatedAt ?? r.updatedAt ?? r.createdAt,
+    lifecycle,
+    target: r.target ?? null,
+    tags: r.tags ?? [],
+    role: r.role ?? "MASTER",
+    ...(d ? { contentHash: `mock-${d.version}`, exportedHash: d.exportedHash ?? null, exportedAt: d.exportedAt ?? null } : {}),
+    ...(built ? { pdf: { status: d.exportedHash && d.exportedHash !== "stale-hash" ? "READY" : "NONE" } } : {}),
+    ...(d?.score?.score != null ? { score: d.score.score } : r.score != null ? { score: r.score } : {}),
+  };
+}
+RESUMES.find((r) => r.id === 3).score = 82;
+RESUMES.find((r) => r.id === 3).target = "Product Manager";
+RESUMES.find((r) => r.id === 3).tags = ["growth", "b2b"];
+RESUMES.find((r) => r.id === 4).score = 54;
+DOCS.get(3).checkpoint = true;
+
+const regenIds = (node) => {
+  if (Array.isArray(node)) return node.map(regenIds);
+  if (node && typeof node === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(node)) out[k] = k === "id" && typeof v === "string" && /^[a-z]_/.test(v) ? docId(v[0]) : regenIds(v);
+    return out;
+  }
+  return node;
+};
+
+/** A document from a parsed upload (ResumeDocumentSeeder.fromStructured, simplified), honouring the KeepMask. */
+function docFromStructured(title, s, bio, keep = {}) {
+  const kept = (list, key) => (s[list] ?? []).filter((_, i) => !Array.isArray(keep[key]) || keep[key].includes(i));
+  const doc = scratchDoc(title);
+  Object.assign(doc.basics, Object.fromEntries(Object.entries({ name: [bio?.firstName, bio?.lastName].filter(Boolean).join(" ") || doc.basics.name, email: bio?.email }).filter(([, v]) => v)));
+  if (keep.summary !== false && s.summary) doc.sections.push({ id: docId("s"), kind: "SUMMARY", title: "Summary", items: [{ id: docId("i"), text: String(s.summary), src: "parsed" }] });
+  const exp = kept("experience", "experience");
+  if (exp.length) doc.sections.push({ id: docId("s"), kind: "EXPERIENCE", title: "Experience", items: exp.map((e) => ({ id: docId("i"), title: e.title ?? "", org: e.company ?? "", location: e.location ?? "", start: /^\d{4}(-\d{2})?$/.test(e.startDate ?? "") ? e.startDate : null, end: null, current: !!e.current, bullets: (e.bullets ?? []).map((t) => ({ id: docId("b"), text: String(t), src: "parsed" })) })) });
+  const edu = kept("education", "education");
+  if (edu.length) doc.sections.push({ id: docId("s"), kind: "EDUCATION", title: "Education", items: edu.map((e) => ({ id: docId("i"), school: e.school ?? "", degree: e.degree ?? "", field: e.field ?? "", bullets: [] })) });
+  if (keep.skills !== false && (s.skills ?? []).length) doc.sections.push({ id: docId("s"), kind: "SKILLS", title: "Skills", items: [{ id: docId("i"), group: "Skills", skills: s.skills.map(String) }] });
+  const proj = kept("projects", "projects");
+  if (proj.length) doc.sections.push({ id: docId("s"), kind: "PROJECTS", title: "Projects", items: proj.map((p) => ({ id: docId("i"), title: p.name ?? "", bullets: (p.bullets ?? []).map((t) => ({ id: docId("b"), text: String(t), src: "parsed" })) })) });
+  return doc;
+}
+const scratchDoc = (title) => ({
+  schema: 2,
+  meta: { title, target: null, language: "en", originalFileKey: null },
+  basics: { name: `${BIO.firstName} ${BIO.lastName}`, headline: BIO.headline, email: BIO.email, location: `${BIO.city}, ${BIO.state}`, links: [] },
+  sections: [],
+});
+
+const newBuilt = (label, doc, source, extra = {}) => {
+  const rid = nextResumeId++;
+  const now = new Date().toISOString();
+  const resume = { id: rid, kind: "BUILT", templateId: "modern", label, status: "CONFIRMED", createdAt: now, defaultResume: false, starred: false, archived: false, parsedJson: "{}", ...extra };
+  RESUMES.push(resume);
+  DOCS.set(rid, { doc, templateId: "modern", theme: null, version: 1, updatedAt: now, sourceKind: source });
+  return resume;
+};
+
+/** `POST /built` with a `source`, duplicate, import, original, metadata PATCH and delete. True when answered. */
+function handleSources(req, res, path, method) {
+  if (path === "/api/profile/resume-builder/config" && method === "GET") {
+    req.resume();
+    json(res, 200, builderConfig());
+    return true;
+  }
+  const m = path.match(/^\/api\/profile\/resumes\/(\d+)(?:\/(doc\/duplicate|doc\/import|original|meta))?$/);
+  const isBuilt = path === "/api/profile/resumes/built" && method === "POST";
+  if (!isBuilt && !m) return false;
+  if (!subOf(req)) {
+    req.resume();
+    json(res, 401, { error: "Unauthorized" });
+    return true;
+  }
+  const id = m ? Number(m[1]) : null;
+  const r = id != null ? RESUMES.find((x) => x.id === id) : null;
+  const tail = m?.[2];
+  if (m && !tail && method !== "DELETE") return false; // GET/PUT of a plain resume: the generic handlers
+
+  if (isBuilt) {
+    withBody(req, (b) => {
+      if (liveCount() >= RESUME_LIMIT) return capProblem(res);
+      const src = typeof b.source === "string" ? { kind: b.source } : (b.source ?? { kind: "profile" });
+      const target = typeof b.target === "string" && b.target.trim() ? b.target.trim().slice(0, 80) : null;
+      if (!["profile", "scratch", "upload", "copy"].includes(src.kind)) return problem(res, 422, "DOC_INVALID", { path: "$.source.kind", message: `unknown source '${src.kind}'` });
+      let doc;
+      let title = String(b.label || "").trim();
+      let kind = "PROFILE";
+      if (src.kind === "upload") {
+        if (!src.structured || typeof src.structured !== "object") return problem(res, 422, "DOC_INVALID", { path: "$.source.structured", message: "is required for an upload" });
+        const keep = src.keep ?? {};
+        for (const list of ["experience", "education", "projects"]) {
+          for (const [i, item] of (src.structured[list] ?? []).entries()) {
+            if (Array.isArray(keep[list]) && !keep[list].includes(i)) continue;
+            const hit = findSensitive(item, `structured.${list}[${i}]`);
+            if (hit) return json(res, 422, { status: 422, code: "SENSITIVE_CONTENT", path: hit, class: "SSN_ITIN", message: "We never store a Social Security or tax identification number - please remove it" });
+          }
+        }
+        title = title || String(src.fileName ?? "").replace(/\.[^.]+$/, "") || target || "My resume";
+        doc = docFromStructured(title, src.structured, src.bio, keep);
+        kind = "UPLOAD";
+      } else if (src.kind === "copy") {
+        const from = RESUMES.find((x) => x.id === src.fromResumeId);
+        if (!from) return json(res, 404, { status: 404, title: "Not Found" });
+        title = title || `${from.label} (copy)`;
+        const fd = DOCS.get(from.id);
+        doc = fd ? regenIds(structuredClone(fd.doc)) : docFromStructured(title, JSON.parse(from.parsedJson || "{}"), null);
+        doc.meta = { ...doc.meta, target: null, originalFileKey: null };
+        kind = "COPY";
+      } else if (src.kind === "scratch") {
+        title = title || target || "My resume";
+        doc = scratchDoc(title);
+      } else {
+        title = title || target || "My resume";
+        doc = seedDoc(title);
+      }
+      doc.meta.title = title.slice(0, 200);
+      doc.meta.target = target;
+      const resume = newBuilt(doc.meta.title, doc, kind, { target });
+      const d = DOCS.get(resume.id);
+      if (kind === "COPY") d.parent = src.fromResumeId;
+      withEtag(res, 201, { resume: listRow(resume), doc: docDto(resume.id) }, 1);
+    });
+    return true;
+  }
+
+  if (!r) {
+    req.resume();
+    json(res, 404, { status: 404, title: "Not Found" });
+    return true;
+  }
+
+  if (tail === "doc/duplicate" && method === "POST") {
+    req.resume();
+    if (liveCount() >= RESUME_LIMIT) return capProblem(res), true;
+    const fd = DOCS.get(r.id);
+    const title = `${r.label} (copy)`.slice(0, 200);
+    const doc = fd ? regenIds(structuredClone(fd.doc)) : docFromStructured(title, JSON.parse(r.parsedJson || "{}"), null);
+    doc.meta = { ...doc.meta, title, target: null, originalFileKey: null };
+    const resume = newBuilt(title, doc, "COPY");
+    DOCS.get(resume.id).parent = r.id;
+    withEtag(res, 201, { resume: listRow(resume), doc: docDto(resume.id) }, 1);
+    return true;
+  }
+
+  if (tail === "doc/import" && method === "POST") {
+    req.resume();
+    if (r.kind === "BUILT") return problem(res, 409, "ALREADY_BUILT"), true;
+    const doc = docFromStructured(r.label, JSON.parse(r.parsedJson || "{}"), null);
+    r.kind = "BUILT";
+    r.templateId = "modern";
+    DOCS.set(r.id, { doc, templateId: "modern", theme: null, version: 1, updatedAt: new Date().toISOString(), sourceKind: "IMPORT" });
+    withEtag(res, 200, { resume: listRow(r), doc: docDto(r.id) }, 1);
+    return true;
+  }
+
+  if (tail === "original" && method === "GET") {
+    req.resume();
+    const d = DOCS.get(r.id);
+    if (!d?.originalBytes) return json(res, 404, { status: 404, title: "Not Found" }), true;
+    res.writeHead(200, { "content-type": "application/pdf" });
+    res.end("%PDF-1.4 mock original");
+    return true;
+  }
+
+  if (tail === "meta" && method === "PATCH") {
+    withBody(req, (b) => {
+      if (typeof b.name === "string") {
+        if (!b.name.trim() || b.name.length > 200) return json(res, 422, { status: 422, code: "META_INVALID", path: "$.name", message: "name must be 1-200 characters" });
+        r.label = b.name.trim();
+        const d = DOCS.get(r.id);
+        if (d) d.doc.meta.title = r.label;
+      }
+      if (b.archived === true && !r.archived && r.defaultResume && RESUMES.some((x) => x.id !== r.id && !x.archived)) {
+        return json(res, 409, { status: 409, code: "PRIMARY_REQUIRED", message: "This is your primary resume: make another one primary before archiving it" });
+      }
+      if (b.primary === true) {
+        if (r.archived) return json(res, 422, { status: 422, code: "META_INVALID", path: "$.primary", message: "an archived resume cannot be primary" });
+        for (const x of RESUMES) x.defaultResume = x.id === r.id;
+      }
+      if (typeof b.archived === "boolean") {
+        r.archived = b.archived;
+        if (b.archived) r.defaultResume = false;
+      }
+      if (!RESUMES.some((x) => x.defaultResume && !x.archived)) {
+        const first = RESUMES.find((x) => !x.archived);
+        if (first) first.defaultResume = true;
+      }
+      const d = DOCS.get(r.id);
+      if (d) d.updatedAt = new Date().toISOString();
+      json(res, 200, listRow(r));
+    });
+    return true;
+  }
+
+  if (!tail && method === "DELETE") {
+    req.resume();
+    const used = APPLICATIONS.some((a) => a.resume?.id === r.id);
+    if (used) return json(res, 409, { status: 409, detail: "This resume is used by a tracked application — archive it instead." }), true;
+    RESUMES.splice(RESUMES.indexOf(r), 1);
+    DOCS.delete(r.id);
+    if (!RESUMES.some((x) => x.defaultResume && !x.archived)) {
+      const first = RESUMES.find((x) => !x.archived);
+      if (first) first.defaultResume = true;
+    }
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+  req.resume();
+  json(res, 405, { error: "Method not allowed" });
+  return true;
+}
+
 /* ── Common Profile items mock (R1.1 contract; in memory, writable like the builder) ─────────────── */
 // Seeded the way the real API does it on first read: from the default resume (provenance PARSED).
 const bullet = (text) => ({ text, src: "parsed" });
@@ -669,6 +946,7 @@ const server = http.createServer((req, res) => {
   // Unlike every other write in this mock, these succeed, so the editor can be tried without the API.
   // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
+  if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
@@ -833,15 +1111,7 @@ const server = http.createServer((req, res) => {
     return json(res, 200, { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
   if (path === "/api/profile") return json(res, 200, { payload: JSON.stringify(BIO) });
   if (path === "/api/profile/applications") return json(res, 200, APPLICATIONS);
-  if (path === "/api/profile/resumes")
-    return json(
-      res,
-      200,
-      RESUMES.map((r) => {
-        const d = DOCS.get(r.id);
-        return d ? { ...r, contentHash: `mock-${d.version}`, exportedHash: d.exportedHash ?? null, exportedAt: d.exportedAt ?? null, score: d.score?.score ?? null } : r;
-      }),
-    );
+  if (path === "/api/profile/resumes") return json(res, 200, RESUMES.map(listRow));
   if (path === "/api/profile/suggestions") return json(res, 200, []);
   if (path === "/api/profile/notifications") return json(res, 200, { unread: 0, items: [] });
   if (path === "/api/profile/job-matches/settings") return json(res, 200, { enabled: false });

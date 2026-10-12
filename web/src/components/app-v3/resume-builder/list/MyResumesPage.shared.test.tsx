@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
 import type { Resume } from "@/components/ResumeList";
+import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
@@ -15,7 +16,7 @@ const mine: Resume[] = [{ id: 1, label: "Software Engineer", kind: "BUILT", temp
 const renderPage = () =>
   render(
     <ToastProvider>
-      <MyResumesPage resumes={mine} usage={{}} baseProfile={{}} isPro={false} />
+      <MyResumesPage resumes={mine} usage={{}} baseProfile={{}} isPro={false} config={DEFAULT_BUILDER_CONFIG} />
     </ToastProvider>,
   );
 

@@ -6,11 +6,12 @@
  * never sent to the AI parser (a file cannot be redacted; its text can). Reusable by the new-resume
  * chooser's "Upload a resume" path (R2.6).
  */
+import type { ParsedBio, StructuredResume } from "@kiwiply/ui";
 import { heuristicStructure } from "@/lib/parser-core";
 import { parseResume, parseResumeWithAi, parseText, parseTextWithAi, type ParsedResume } from "@/lib/resume-parse";
 import { toDraft, type BioLimits, type Identity, type ParsedDraft } from "./draft";
 import type { ParseSource } from "./state";
-import { redactForParsing } from "./sensitive";
+import { cleanParsedString, redactForParsing } from "./sensitive";
 
 export interface SetupParse {
   draft: ParsedDraft;
@@ -53,4 +54,55 @@ export async function parseTextForSetup(text: string, ai: boolean, bioLimits: Bi
   const r = redactForParsing(text);
   const parsed = ai ? await parseTextWithAi(r.text) : parseText(r.text);
   return finish(parsed, r.removed, bioLimits);
+}
+
+/** An uploaded file read for the new-resume chooser: the parsed structure itself (arrays keep their indexes). */
+export interface ResumeUploadParse {
+  structured: StructuredResume;
+  bio: ParsedBio;
+  source: "ai" | "heuristic";
+  /** Sensitive values taken out before parsing plus any taken out of the parsed output. */
+  removed: number;
+}
+
+/** The same string, with the never-collected values (and the redaction marker) taken out; every array keeps its length and order. */
+function cleanDeep(value: unknown, key: string, c: { removed: number }): unknown {
+  if (typeof value === "string") {
+    const r = cleanParsedString(key, value);
+    c.removed += r.removed;
+    return r.value;
+  }
+  if (Array.isArray(value)) return value.map((v) => cleanDeep(v, key, c));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, cleanDeep(v, k, c)]));
+  }
+  return value;
+}
+
+/**
+ * "Upload a resume" in the new-resume chooser (R2.6): the same pipeline as `parseFileForSetup` (text is
+ * stripped of never-collected values before it is parsed or sent anywhere; the file itself never goes to
+ * the AI parser), but the result is the `StructuredResume` + bio the API's `source: upload` takes, not a
+ * profile draft. A second pass cleans the parsed strings; indexes in every array are preserved, because the
+ * review's "untick this role" is sent back as an index into them (`KeepMask`).
+ */
+export async function parseFileForResume(file: File, ai: boolean): Promise<ResumeUploadParse> {
+  let redacted = 0;
+  const prepareText = (raw: string) => {
+    const r = redactForParsing(raw);
+    redacted = r.removed;
+    return r.text;
+  };
+  const parsed = ai ? await parseResumeWithAi(file, { prepareText, textOnly: true }) : await parseResume(file, { prepareText });
+  const c = { removed: redacted };
+  const structured = cleanDeep(parsed.structured, "", c) as StructuredResume;
+  const bio = cleanDeep(parsed.bio, "", c) as ParsedBio;
+  const found =
+    (structured.experience?.length ?? 0) > 0 ||
+    (structured.education?.length ?? 0) > 0 ||
+    (structured.skills?.length ?? 0) > 0 ||
+    (structured.projects?.length ?? 0) > 0 ||
+    !!structured.summary?.trim();
+  if (!found) throw new NothingFoundError(parsed.garbled ? GARBLED : NOTHING_FOUND);
+  return { structured, bio, source: parsed.source ?? "heuristic", removed: c.removed };
 }

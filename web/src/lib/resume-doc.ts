@@ -4,7 +4,7 @@
  * contacted directly. Each fetcher maps the HTTP outcome to a small tagged result so callers (the
  * autosave controller, the "New resume" button) branch on `kind`, never on status numbers.
  */
-import type { ResumeDocument, ResumeTheme } from "@kiwiply/ui";
+import type { ParsedBio, ResumeDocument, ResumeTheme, StructuredResume } from "@kiwiply/ui";
 
 /** The stored PDF's job state (DESIGN 8.5). `STALE` = READY but behind the document. */
 export type PdfStatus = "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE";
@@ -194,14 +194,42 @@ export function patchTheme(resumeId: number, theme: Partial<ResumeTheme>): Promi
   return patchPresentation(`/api/resumes/${resumeId}/doc/theme`, { theme });
 }
 
+/** Which items of an uploaded resume the user left ticked (DESIGN 9.10): indexes into the structured arrays. */
+export interface KeepMask {
+  experience?: number[];
+  education?: number[];
+  projects?: number[];
+  skills?: boolean;
+  summary?: boolean;
+}
+
+/** Where a new built resume starts (DESIGN 9.10; the four chooser sources, DECISIONS #29). */
+export type BuiltSource =
+  | { kind: "profile" }
+  | { kind: "scratch" }
+  | { kind: "upload"; structured: StructuredResume; bio?: ParsedBio; fileName: string; keep?: KeepMask }
+  | { kind: "copy"; fromResumeId: number };
+
+export interface CreateBuiltBody {
+  templateId?: string;
+  target?: string;
+  label?: string;
+  /** Omitted = `profile`. */
+  source?: BuiltSource;
+}
+
 export type CreateBuiltResult =
   | { kind: "ok"; id: number }
   /** 402 RESUME_LIMIT: the plan's resume cap. `plan` says which copy to show. */
   | { kind: "limit"; plan?: string; message: string }
+  /** 422 SENSITIVE_CONTENT: a value the product never collects, and where (`structured.experience[1].bullets[0]`). */
+  | { kind: "sensitive"; path: string; message: string }
+  /** 422 DOC_INVALID / unknown template: the first thing the validator refused. */
+  | { kind: "invalid"; path: string; message: string }
   | { kind: "error"; message: string };
 
 /** `POST /api/resumes/built`. Never throws. */
-export async function createBuilt(body: { templateId?: string; target?: string; label?: string } = {}): Promise<CreateBuiltResult> {
+export async function createBuilt(body: CreateBuiltBody = {}): Promise<CreateBuiltResult> {
   try {
     const res = await fetch("/api/resumes/built", {
       method: "POST",
@@ -218,6 +246,12 @@ export async function createBuilt(body: { templateId?: string; target?: string; 
     }
     if (res.status === 401) return { kind: "error", message: "Your session expired — please sign in again." };
     if (res.status === 403) return { kind: "error", message: data?.error ?? "This account can't create resumes." };
+    if (res.status === 404) return { kind: "error", message: "That resume is no longer there." };
+    if (res.status === 422) {
+      const message = data?.message && data.message !== "error.resumeDoc" ? data.message : (data?.detail ?? "That isn't allowed.");
+      if (data?.code === "SENSITIVE_CONTENT") return { kind: "sensitive", path: data.path ?? "", message };
+      return { kind: "invalid", path: data?.path ?? "$", message };
+    }
     const id = data?.resume?.id ?? data?.doc?.resumeId;
     if (!res.ok || typeof id !== "number") {
       return { kind: "error", message: data?.error ?? "Couldn't create the resume. Please try again." };

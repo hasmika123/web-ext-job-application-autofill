@@ -15,6 +15,8 @@ export type ResumeBuilderConfig = {
     default: string;
     /** Per-template partial `TemplateCapabilities`; they may only tighten (DESIGN 6.3). */
     overrides: Record<string, Record<string, unknown>>;
+    /** Template ids the Popular Templates strip shows first, in this order (`resume.templates.popular`). */
+    popular: string[];
   };
   limits: {
     sections: number;
@@ -71,11 +73,13 @@ export type ResumeBuilderConfig = {
     setupPromptBelowPercent: number;
     uploadMaxBytes: number;
   };
+  /** The My Resumes page (R2.6): Quick Tips lines, and the card count above which the grid shows a page at a time. */
+  list: { quickTips: string[]; virtualizeAbove: number };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
 export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
-  templates: { enabled: ["modern"], default: "modern", overrides: {} },
+  templates: { enabled: ["modern"], default: "modern", overrides: {}, popular: ["modern"] },
   limits: { sections: 20, items: 40, bullets: 12, bulletChars: 600, summaryChars: 2000, marks: 64, docBytes: 262144 },
   score: {
     rulesetVersion: "v1",
@@ -117,5 +121,14 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
     bioSummaryMaxChars: 2000,
     setupPromptBelowPercent: 40,
     uploadMaxBytes: 10485760,
+  },
+  list: {
+    quickTips: [
+      "Create different resumes for different roles",
+      "Tailor your resume for each job application",
+      "Use AI suggestions to improve your content",
+      "Keep one primary resume for quick applications",
+    ],
+    virtualizeAbove: 60,
   },
 };

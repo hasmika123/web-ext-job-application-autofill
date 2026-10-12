@@ -47,8 +47,15 @@ public class ResumeDocResource {
     public record CreateBuiltVM(
         @Schema(description = "An enabled template id (setting resume.templates.enabled); the configured default (modern) when omitted.") String templateId,
         @Schema(description = "Free label for the role this resume targets (meta.target).") String target,
-        @Schema(description = "The resume's name; defaults to the target, then 'My resume'.") String label
+        @Schema(description = "The resume's name; defaults by source: the target / 'My resume', the file name, '<from> (copy)'.") String label,
+        @Schema(
+            type = "object",
+            description = "Where the content comes from: 'profile' (default), 'scratch', {kind:'upload', structured, bio?, fileName, keep?} or {kind:'copy', fromResumeId}."
+        ) JsonNode source
     ) {}
+
+    /** Body of {@code POST /{id}/doc/duplicate}. */
+    public record DuplicateVM(@Schema(description = "The copy's name; '<name> (copy)' when omitted.") String label) {}
 
     /** Body of {@code PATCH /{id}/doc/template}. */
     public record TemplateVM(String templateId) {}
@@ -59,17 +66,47 @@ public class ResumeDocResource {
      */
     @Operation(
         summary = "Create a built resume",
-        description = "Creates a BUILT resume (the plan's resume cap applies: 402 RESUME_LIMIT) with a document seeded from the profile."
+        description = "Creates a BUILT resume (the plan's resume cap applies first: 402 RESUME_LIMIT) from a source: the profile (default), scratch (header from the bio only), an upload (parsed structure; 422 SENSITIVE_CONTENT) or a copy of one of the caller's resumes (404 if not theirs)."
     )
     @PostMapping("/built")
     public ResponseEntity<BuiltResumeDTO> createBuilt(@RequestBody(required = false) CreateBuiltVM vm) {
         demoGuard.assertNotDemo();
         LOG.debug("REST request to create a built resume");
-        CreateBuiltVM body = vm == null ? new CreateBuiltVM(null, null, null) : vm;
-        BuiltResumeDTO created = resumeDocService.createBuilt(body.templateId(), body.target(), body.label());
+        CreateBuiltVM body = vm == null ? new CreateBuiltVM(null, null, null, null) : vm;
+        BuiltResumeDTO created = resumeDocService.createBuilt(body.templateId(), body.target(), body.label(), body.source());
         return ResponseEntity.status(HttpStatus.CREATED)
             .header(HttpHeaders.ETAG, etag(created.doc()))
             .body(created);
+    }
+
+    /** {@code POST /api/profile/resumes/:id/doc/import} : turn an uploaded resume into a built one, in place. */
+    @Operation(summary = "Open an uploaded resume in the builder", description = "Builds a document from the uploaded resume's parsed structure and makes it BUILT (same id). 409 ALREADY_BUILT when it already is; 404 if not owned.")
+    @PostMapping("/{id}/doc/import")
+    public ResponseEntity<BuiltResumeDTO> importUploaded(@PathVariable("id") Long id) {
+        demoGuard.assertNotDemo();
+        BuiltResumeDTO built = resumeDocService.importUploaded(id);
+        return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(built.doc())).body(built);
+    }
+
+    /** {@code POST /api/profile/resumes/:id/doc/duplicate} : a copy of a resume (an alias of {@code source: copy}). */
+    @Operation(summary = "Duplicate a resume", description = "Same as POST /built with source {kind:'copy', fromResumeId}: the plan cap applies first (402), ids are regenerated, label '<name> (copy)'.")
+    @PostMapping("/{id}/doc/duplicate")
+    public ResponseEntity<BuiltResumeDTO> duplicate(@PathVariable("id") Long id, @RequestBody(required = false) DuplicateVM vm) {
+        demoGuard.assertNotDemo();
+        BuiltResumeDTO created = resumeDocService.duplicate(id, vm == null ? null : vm.label());
+        return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.ETAG, etag(created.doc())).body(created);
+    }
+
+    /** {@code GET /api/profile/resumes/:id/original} : the file the resume was made from. */
+    @Operation(summary = "Download the original uploaded file", description = "Owner only. 404 when the resume was not made from an upload or the file is gone.")
+    @GetMapping("/{id}/original")
+    public ResponseEntity<byte[]> original(@PathVariable("id") Long id) {
+        ResumeDocService.StoredOriginal f = resumeDocService.original(id);
+        MediaType type = f.contentType() != null ? MediaType.parseMediaType(f.contentType()) : MediaType.APPLICATION_OCTET_STREAM;
+        return ResponseEntity.ok()
+            .contentType(type)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + f.fileName() + "\"")
+            .body(f.content());
     }
 
     /** {@code GET /api/profile/resumes/:id/doc} : the document, with its version as the ETag. */

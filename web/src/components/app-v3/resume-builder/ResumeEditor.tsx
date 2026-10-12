@@ -68,6 +68,8 @@ export interface ResumeEditorProps {
   jobTarget?: null;
   /** Open AI suggestion cards: always empty until R4.1. */
   openProposals?: ReadonlyArray<{ id: string }>;
+  /** Where to land (R2.6, the list's View / AI buttons): `?view=pdf` opens the PDF view, `?tab=ai` the AI Suggestions tab. */
+  entry?: { view?: "pdf"; tab?: "ai" };
 }
 
 /**
@@ -78,7 +80,7 @@ export interface ResumeEditorProps {
  * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
  * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [] }: ResumeEditorProps) {
+export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [], entry }: ResumeEditorProps) {
   const resumeId = initial.resumeId;
   const initialVersion = initial.docVersion;
   const router = useRouter();
@@ -99,6 +101,11 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   const [ui, uiDispatch] = useUiState({ openAdd: isEmptyDoc(initial.doc) });
   const gridRef = useRef<HTMLDivElement>(null);
   useBuilderLayout(gridRef, uiDispatch);
+  // Arriving from the list's View / AI buttons: once, after the remembered panels are restored.
+  useEffect(() => {
+    if (entry?.view === "pdf") uiDispatch({ type: "rightView/toggle", view: "pdf" });
+    if (entry?.tab === "ai") uiDispatch({ type: "rail/expand", tab: "ai" });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { layout } = ui;
   const phone = layout.viewport === "phone";
   const compact = phone || layout.viewport === "tablet";
