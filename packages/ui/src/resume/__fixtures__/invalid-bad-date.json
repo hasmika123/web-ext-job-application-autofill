@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "meta": {"title": "Invalid fixture"},
+  "basics": {"name": "Test Person"},
+  "sections": [
+    {
+      "id": "s_experience", "kind": "EXPERIENCE",
+      "items": [{"id": "i_exp00001", "title": "Engineer", "org": "Acme", "start": "2022-13", "bullets": []}]
+    }
+  ]
+}

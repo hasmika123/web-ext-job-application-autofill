@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "meta": {"title": "Invalid fixture"},
+  "basics": {"name": "Test Person"},
+  "sections": [
+    {"id": "s_summary", "kind": "SUMMARY", "items": []},
+    {"id": "s_hobbies", "kind": "HOBBIES", "items": []}
+  ]
+}

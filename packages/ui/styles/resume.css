@@ -1,0 +1,243 @@
+/*
+ * Resume templates - ALL template CSS lives here, in `.rz-*` classes (no Tailwind, no tokens.css).
+ * The preview <div> and the print page share this file byte for byte.
+ *
+ * Theme: `ResumePreview` emits a scoped <style> that sets, on `.rz-root[data-rz-theme=...]`:
+ *   --rz-accent  --rz-font-body  --rz-font-display  --rz-size (pt)  --rz-density  --rz-margin (in)
+ *   --rz-page-w  --rz-page-h  (+ the matching @page { size; margin } rule)
+ * The fallbacks below keep a bare `.rz-page` renderable (Letter, Inter, 11 pt).
+ *
+ * Pagination: `.rz-page` is one tall sheet of fixed WIDTH and a minimum Letter/A4 height. In print
+ * `@page` supplies the margins and Chromium breaks the flow; items never split (`break-inside`).
+ * `fit.ts#pageCount` converts a measured content height into a page count the same way.
+ *
+ * Fonts: self-hosted Latin variable subsets in ../fonts (SIL OFL, see the OFL-*.txt files there).
+ * `font-display: block` so print never captures a fallback face. The PDF route swaps these URLs for
+ * base64 data URIs.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: block;
+  src: url("../fonts/inter-latin-var.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: block;
+  src: url("../fonts/source-serif-4-latin-var.woff2") format("woff2");
+}
+
+@page {
+  size: 8.5in 11in;
+  margin: 0.75in;
+}
+
+.rz-root {
+  --rz-accent: #2563eb;
+  --rz-font-body: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --rz-font-display: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --rz-size: 11pt;
+  --rz-density: 1;
+  --rz-margin: 0.75in;
+  --rz-page-w: 8.5in;
+  --rz-page-h: 11in;
+  --rz-ink: #111827;
+  --rz-muted: #4b5563;
+  --rz-paper: #ffffff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.rz-page {
+  box-sizing: border-box;
+  width: var(--rz-page-w);
+  min-height: var(--rz-page-h);
+  padding: var(--rz-margin);
+  background: var(--rz-paper);
+  color: var(--rz-ink);
+  font-family: var(--rz-font-body);
+  font-size: var(--rz-size);
+  line-height: 1.4;
+  font-kerning: normal;
+  text-rendering: geometricPrecision;
+  overflow-wrap: break-word;
+}
+
+.rz-page *,
+.rz-page *::before,
+.rz-page *::after {
+  box-sizing: border-box;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────────────────── */
+
+.rz-header {
+  margin: 0 0 calc(1.1em * var(--rz-density));
+}
+
+.rz-name {
+  margin: 0;
+  font-family: var(--rz-font-display);
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.rz-headline {
+  margin: 0.15em 0 0;
+  font-size: 1.1em;
+  color: var(--rz-muted);
+}
+
+.rz-contact {
+  display: block;
+  margin: calc(0.45em * var(--rz-density)) 0 0;
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-sep {
+  white-space: pre-wrap;
+}
+
+.rz-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+}
+
+/* ── Sections ───────────────────────────────────────────────────────────────────────────── */
+
+.rz-main {
+  display: block;
+}
+
+.rz-section {
+  margin: 0 0 calc(1em * var(--rz-density));
+}
+
+.rz-section-title {
+  margin: 0 0 calc(0.55em * var(--rz-density));
+  padding: 0 0 0.2em;
+  font-family: var(--rz-font-display);
+  font-size: 0.95em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rz-accent);
+  border-bottom: 1.5px solid var(--rz-accent);
+  break-after: avoid;
+}
+
+.rz-entry {
+  margin: 0 0 calc(0.7em * var(--rz-density));
+  break-inside: avoid;
+}
+
+.rz-entry:last-child {
+  margin-bottom: 0;
+}
+
+/* One-line entries (skills, languages, achievements, certifications) sit closer together. */
+.rz-section-skills .rz-entry,
+.rz-section-languages .rz-entry,
+.rz-section-achievements .rz-entry,
+.rz-section-certifications .rz-entry {
+  margin-bottom: calc(0.2em * var(--rz-density));
+}
+
+.rz-section-skills .rz-entry:last-child,
+.rz-section-languages .rz-entry:last-child,
+.rz-section-achievements .rz-entry:last-child,
+.rz-section-certifications .rz-entry:last-child {
+  margin-bottom: 0;
+}
+
+.rz-section-achievements .rz-bullets {
+  margin-top: 0;
+}
+
+.rz-section-skills .rz-skill-row {
+  margin: 0;
+}
+
+/* ── Items ──────────────────────────────────────────────────────────────────────────────── */
+
+.rz-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1em;
+}
+
+.rz-item-main {
+  min-width: 0;
+}
+
+.rz-item-title {
+  font-weight: 600;
+}
+
+.rz-item-org {
+  font-weight: 400;
+}
+
+.rz-item-dates {
+  flex: none;
+  font-size: 0.9em;
+  color: var(--rz-muted);
+  white-space: nowrap;
+}
+
+.rz-item-sub {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.rz-line {
+  margin: 0;
+}
+
+.rz-skill-row {
+  margin: 0 0 calc(0.2em * var(--rz-density));
+}
+
+.rz-skill-group {
+  font-weight: 600;
+}
+
+.rz-bullets {
+  margin: calc(0.3em * var(--rz-density)) 0 0;
+  padding: 0 0 0 1.2em;
+  list-style: disc;
+}
+
+.rz-bullet {
+  margin: 0 0 calc(0.18em * var(--rz-density));
+  padding-left: 0.1em;
+}
+
+.rz-bullet::marker {
+  color: var(--rz-accent);
+}
+
+/* ── Print ──────────────────────────────────────────────────────────────────────────────── */
+
+@media print {
+  .rz-page {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+  }
+}

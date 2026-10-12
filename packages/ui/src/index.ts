@@ -93,3 +93,49 @@ export type {
   ResumeLanguage,
   ResumeProject,
 } from "./parser-core-types";
+
+/* ── Resume templates (Resume Builder R0.4): document contract, registry, projection, preview ─ */
+/* Import the stylesheet separately: `@kiwiply/ui/styles/resume.css` (fonts: `fonts/`). */
+export { default as ResumePreview } from "./resume/ResumePreview";
+export type { ResumePreviewProps } from "./resume/ResumePreview";
+export {
+  SCHEMA_VERSION as RESUME_DOC_SCHEMA_VERSION,
+  SECTION_KINDS as RESUME_SECTION_KINDS,
+  DEFAULT_SECTION_TITLES as RESUME_DEFAULT_SECTION_TITLES,
+} from "./resume/types";
+export type {
+  ResumeDocument,
+  Section as ResumeSection,
+  SectionKind as ResumeSectionKind,
+  Bullet as ResumeBullet,
+  Src as ResumeSrc,
+  DocMeta as ResumeDocMeta,
+  DocBasics as ResumeDocBasics,
+  DocLink as ResumeDocLink,
+  SummaryItem,
+  ExperienceItem,
+  EducationItem,
+  SkillsItem,
+  ProjectItem,
+  CertificationItem,
+  LanguageItem,
+  AchievementItem,
+  CustomItem,
+  Theme as ResumeTheme,
+  FitState,
+  FontPair,
+  PageSize,
+  DateStyle,
+  TemplateMeta,
+  TemplateProps,
+  TemplateDefinition,
+  TemplateSupports,
+} from "./resume/types";
+export { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE_ID, getTemplate, hasTemplate, listTemplates } from "./resume/registry";
+export { toStructured, toStructuredJson, toStructuredPretty } from "./resume/project";
+export { renderText as renderResumeText } from "./resume/text";
+export { writeJson, canonicalJson, contentHash as resumeContentHash } from "./resume/json";
+export type { WriteOptions } from "./resume/json";
+export { FIT_LADDER, MAX_FIT_STEP, PAGE_DIMENSIONS, clampStep, resolveTheme, pageCount, fitToPages } from "./resume/fit";
+export type { FitStep, FitResult } from "./resume/fit";
+export { DEFAULT_THEME, FONT_STACKS, sanitizeTheme, themeCss, themeScope } from "./resume/theme";

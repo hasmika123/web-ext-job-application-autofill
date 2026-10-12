@@ -7,3 +7,5 @@
 
 # ResumeDocument golden fixtures are compared byte for byte (Java + TS); never CRLF.
 api/src/test/resources/resume-doc/** text eol=lf
+# The @kiwiply/ui copies of those fixtures (R0.4) - same byte-for-byte rule.
+packages/ui/src/resume/__fixtures__/** text eol=lf

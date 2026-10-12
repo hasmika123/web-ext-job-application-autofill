@@ -49,6 +49,42 @@ this package (plus the few genuinely web-only pieces: `Logo` (next/image), `Beta
 5. Both consumers tree-shake — an unused primitive costs nothing, so err on adding here
    rather than locally.
 
+## Resume templates (`src/resume/`)
+
+The Resume Builder's render layer. **A template is `(ResumeDocument, Theme) -> markup`, nothing else**,
+so the editor preview and the Chromium-printed PDF are the same string
+(`renderToStaticMarkup(<ResumePreview doc theme templateId />)`).
+
+| File | Job |
+|---|---|
+| `types.ts` | `ResumeDocument` v1, `Theme`, `TemplateMeta` (mirrors the Java contract in `api/.../service/resume/`) |
+| `registry.ts` | `TEMPLATES`, `getTemplate(id)` (unknown id falls back to `modern`), `listTemplates()` |
+| `project.ts` / `text.ts` / `json.ts` | doc -> `StructuredResume` (`parsed_json`), doc -> ATS text, byte-exact JSON writer + canonical hash. **Ports of the Java classes; tested byte-for-byte against `__fixtures__/` (copied from `api/src/test/resources/resume-doc/`).** Change a rule in Java first, regenerate the fixtures, then here. |
+| `fit.ts` | the 7-step page-fit ladder, `resolveTheme(theme, step)`, `pageCount`, `fitToPages` |
+| `theme.ts` | defaults, sanitising (hostile values never reach CSS), the scoped CSS-variable block |
+| `templates/shared.tsx` | data rules every template reuses (hidden items, dates, links, per-kind item markup) |
+| `styles/resume.css` | ALL template CSS, `.rz-*` classes; fonts in `fonts/` (Inter + Source Serif 4, Latin variable subsets, SIL OFL licences alongside) |
+
+**Rules for a template** (a test enforces the first three on rendered HTML):
+
+1. Only `.rz-*` classes from `styles/resume.css` and the theme variables (`--rz-accent`, `--rz-font-body`,
+   `--rz-font-display`, `--rz-size`, `--rz-density`, `--rz-margin`, `--rz-page-w/h`). **No Tailwind, no
+   `style=""`, no `<table>`/`<img>`/`<svg>`** for layout.
+2. **No hooks, no effects, no `next/*` imports** - the template must survive `renderToStaticMarkup`.
+3. Render every section kind in `doc.sections[]` order via `renderSections` (it already drops hidden
+   sections/items and empty ones, and renders unknown kinds as a generic list). The template decides
+   layout, never data. Switching templates must never lose content.
+4. ATS-safe means one reading order in the DOM, real text, conventional section titles, contact info in
+   the body. Two-column templates declare `atsSafe: "caution"`.
+
+**Adding a template:** (1) `templates/<id>.tsx` exporting a `TemplateDefinition` (`meta` + `Render`),
+(2) add it to `registry.ts`, (3) any new `.rz-*` rules in `styles/resume.css` (scope them with
+`.rz-tpl-<id>`), (4) a 240x340 PNG `src/resume/thumbs/<id>.png` (screenshot of `__fixtures__/full.json`),
+(5) a snapshot test next to it (`templates/<id>.test.tsx`, copy `modern.test.tsx`). Nothing in the API
+changes; the web must import `@kiwiply/ui/styles/resume.css` once for the preview.
+
+Tests: `npm test -w packages/ui` (vitest + jsdom, this package only; web's `npm test` is unchanged).
+
 ## Consumption wiring (for reference)
 
 ```css

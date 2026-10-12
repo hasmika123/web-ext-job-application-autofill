@@ -11,19 +11,30 @@
     ".": "./src/index.ts",
     "./styles/tokens.css": "./styles/tokens.css",
     "./styles/animations.css": "./styles/animations.css",
-    "./styles/theme-v2.css": "./styles/theme-v2.css"
+    "./styles/theme-v2.css": "./styles/theme-v2.css",
+    "./styles/resume.css": "./styles/resume.css",
+    "./fonts/*": "./fonts/*"
   },
   "files": [
     "src",
-    "styles"
+    "styles",
+    "fonts"
   ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "peerDependencies": {
     "react": "^19",
     "react-dom": "^19"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5"
+    "jsdom": "^28.1.0",
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   }
 }
