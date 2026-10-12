@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { SignOutIcon } from "@kiwiply/ui";
 import { notifyExtension } from "@/lib/extension-signal";
+import { clearOnboardingMirror } from "@/lib/onboarding/mirror";
 
 /** `collapsed` renders an icon-only button on `lg` (label still shows in the mobile drawer). */
 export default function SignOutButton({ collapsed = false }: { collapsed?: boolean }) {
@@ -16,6 +17,7 @@ export default function SignOutButton({ collapsed = false }: { collapsed?: boole
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       notifyExtension("signedOut"); // the extension drops its own session at once (11.1)
+      clearOnboardingMirror(); // a half-built profile on this device is not for the next person to see (Onboarding v2 R1.9)
       router.push("/login");
       router.refresh();
     } finally {

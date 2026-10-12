@@ -846,6 +846,18 @@ function builderConfig() {
     pdf: { waitMs: 30000, viewAutoRefresh: false },
     share: { maxLinks: 3 },
     versions: { retentionAuto: 30 },
+    // Onboarding v2 (R1.8 / R1.9): the declared defaults (ResumeBuilderSettingKeys).
+    onboarding: {
+      enabled: true,
+      estimateMinutes: 2,
+      stepSeconds: { hello: 10, source: 40, review: 45, skills: 20, you: 15, prefs: 30 },
+      draftMaxBytes: 262144,
+      card: { snoozeDays: 3, resurfaceBelowPercent: 20, resurfaceAfterDays: 14, maxResurfaces: 2 },
+      confetti: true,
+      mascot: true,
+      personaStep: true,
+      payoffActions: ["build_resume", "install_extension", "find_jobs"],
+    },
     list: {
       quickTips: ["Create different resumes for different roles", "Tailor your resume for each job application", "Use AI suggestions to improve your content", "Keep one primary resume for quick applications"],
       virtualizeAbove: 60,
@@ -1471,6 +1483,154 @@ function handleProfileItems(req, res, path, method) {
   return true;
 }
 
+/* ── Onboarding v2 mock (R1.8 contract, R1.9; in memory per login, DEV ONLY) ───────────────────────
+ * GET /api/profile/onboarding[?include=state], PUT/DELETE /draft, PATCH, POST /finish, like OnboardingResource:
+ * the draft is a conflict token (`updatedAt`) with 409 DRAFT_CONFLICT when `baseUpdatedAt` is stale, 413 / 422
+ * (an SSN anywhere in the state), and the dashboard card decision (DESIGN 6). Unlike the real demo guard these writes
+ * succeed, so the flow can be tried without the API. Every mock login starts as "finished" (the demos are seeded
+ * onboarded); start the mock with MOCK_ONBOARDING_FRESH=1 to start unfinished, and drive the awkward cases with:
+ *   curl -X POST http://localhost:<MOCK_API_PORT>/mock/onboarding/offline?on=1   draft calls then drop the connection (0 = back)
+ *   curl -X POST http://localhost:<MOCK_API_PORT>/mock/onboarding/edit-elsewhere[?login=demo]   another device saves the draft
+ *   curl -X POST http://localhost:<MOCK_API_PORT>/mock/onboarding/reset          forget every login's onboarding state
+ */
+const ONBOARDING = new Map(); // login -> { draft, persona, finishedAt, card }
+const ONBOARDING_STEPS = new Set(["hello", "source", "review", "skills", "you", "prefs"]);
+const ONBOARDING_PERSONAS = new Set(["student", "first_job", "switching", "experienced"]);
+const ONBOARDING_MAX_BYTES = 262144;
+const ONBOARDING_FRESH = process.env.MOCK_ONBOARDING_FRESH === "1";
+const ONBOARDING_SNOOZE_DAYS = 3;
+let onboardingOffline = false;
+
+function onboardingOf(login) {
+  let o = ONBOARDING.get(login);
+  if (!o) {
+    o = { draft: null, persona: null, finishedAt: ONBOARDING_FRESH ? null : BIO.onboardedAt ?? null, card: { dismissedAt: null, snoozedUntil: null, resurfaceCount: 0 } };
+    ONBOARDING.set(login, o);
+  }
+  return o;
+}
+
+function onboardingStatus(login, includeState) {
+  const o = onboardingOf(login);
+  const score = completeness().score;
+  const promptBelow = 40;
+  const now = Date.now();
+  const finished = !!o.finishedAt;
+  let show = true;
+  if (finished && score >= promptBelow) show = false;
+  if (o.card.snoozedUntil && Date.parse(o.card.snoozedUntil) > now) show = false;
+  if (o.card.dismissedAt) show = false;
+  return {
+    status: o.draft ? "DRAFT" : finished ? "FINISHED" : "NONE",
+    persona: o.persona,
+    finishedAt: o.finishedAt,
+    draft: o.draft
+      ? { step: o.draft.step, stepsDone: o.draft.stepsDone, stepsTotal: o.draft.stepsTotal, updatedAt: o.draft.updatedAt, ...(includeState ? { state: o.draft.state } : {}) }
+      : null,
+    card: { dismissedAt: o.card.dismissedAt, snoozedUntil: o.card.snoozedUntil, resurfaceCount: o.card.resurfaceCount, show, state: o.draft ? "IN_PROGRESS" : "NOT_STARTED", resurfaced: false },
+    completeness: { score, promptBelow, resurfaceBelow: 20 },
+  };
+}
+
+/** A strictly increasing ISO instant, so two saves in one millisecond still differ (the conflict token). */
+let lastOnboardingStamp = 0;
+const onboardingNow = () => new Date((lastOnboardingStamp = Math.max(Date.now(), lastOnboardingStamp + 1))).toISOString();
+
+/** Handles /api/profile/onboarding/** and the /mock/onboarding/* controls; true when answered. */
+function handleOnboarding(req, res, path, method) {
+  const url = new URL(req.url ?? "/", "http://localhost");
+  if (path.startsWith("/mock/onboarding/")) {
+    req.resume();
+    const login = url.searchParams.get("login") ?? "demo";
+    if (path === "/mock/onboarding/offline") {
+      onboardingOffline = url.searchParams.get("on") !== "0";
+      return json(res, 200, { offline: onboardingOffline }), true;
+    }
+    if (path === "/mock/onboarding/reset") {
+      ONBOARDING.clear();
+      onboardingOffline = false;
+      return json(res, 200, { reset: true }), true;
+    }
+    if (path === "/mock/onboarding/edit-elsewhere") {
+      const d = onboardingOf(login).draft;
+      if (!d) return json(res, 404, { error: "no draft to edit" }), true;
+      const state = { ...d.state, cursor: Math.min((d.state.cursor ?? 0) + 1, (d.state.parsed?.candidates ?? []).length), updatedAt: onboardingNow() };
+      onboardingOf(login).draft = { ...d, state, updatedAt: onboardingNow() };
+      return json(res, 200, { updatedAt: onboardingOf(login).draft.updatedAt, cursor: state.cursor }), true;
+    }
+    return json(res, 404, { error: "unknown mock control" }), true;
+  }
+  if (path !== "/api/profile/onboarding" && !path.startsWith("/api/profile/onboarding/")) return false;
+  const sub = subOf(req);
+  if (!sub) {
+    req.resume();
+    return json(res, 401, { error: "Unauthorized" }), true;
+  }
+  // The draft endpoints drop the connection while "offline" (the web's BFF then answers 502, which the client retries).
+  if (onboardingOffline && path.endsWith("/draft")) {
+    req.resume();
+    req.socket.destroy();
+    return true;
+  }
+  const o = onboardingOf(sub);
+  if (path === "/api/profile/onboarding" && method === "GET") {
+    req.resume();
+    return json(res, 200, onboardingStatus(sub, url.searchParams.get("include") === "state")), true;
+  }
+  if (path === "/api/profile/onboarding" && method === "PATCH") {
+    withBody(req, (b) => {
+      if (b.persona !== undefined) {
+        if (b.persona !== null && !ONBOARDING_PERSONAS.has(b.persona)) return problem(res, 422, "PERSONA_INVALID");
+        o.persona = b.persona;
+      }
+      const action = b.card?.action;
+      if (action === "SNOOZE") o.card.snoozedUntil = new Date(Date.now() + ONBOARDING_SNOOZE_DAYS * DAY).toISOString();
+      else if (action === "DISMISS") o.card.dismissedAt = new Date().toISOString();
+      else if (action === "RESET") o.card = { dismissedAt: null, snoozedUntil: null, resurfaceCount: 0 };
+      else if (action !== undefined) return problem(res, 422, "DRAFT_INVALID", { path: "card.action" });
+      json(res, 200, onboardingStatus(sub, false));
+    });
+    return true;
+  }
+  if (path === "/api/profile/onboarding/draft" && method === "DELETE") {
+    req.resume();
+    o.draft = null;
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+  if (path === "/api/profile/onboarding/draft" && method === "PUT") {
+    withBody(req, (b) => {
+      if (b.v !== 2) return problem(res, 422, "DRAFT_INVALID", { path: "v" });
+      if (!ONBOARDING_STEPS.has(b.step)) return problem(res, 422, "DRAFT_INVALID", { path: "step" });
+      if (!Number.isInteger(b.stepsTotal) || b.stepsTotal < 1 || !Number.isInteger(b.stepsDone) || b.stepsDone < 0 || b.stepsDone > b.stepsTotal) return problem(res, 422, "DRAFT_INVALID", { path: "stepsDone" });
+      if (!b.state || typeof b.state !== "object" || Array.isArray(b.state)) return problem(res, 422, "DRAFT_INVALID", { path: "state" });
+      if (b.persona != null && !ONBOARDING_PERSONAS.has(b.persona)) return problem(res, 422, "DRAFT_INVALID", { path: "persona" });
+      if (Buffer.byteLength(JSON.stringify(b.state)) > ONBOARDING_MAX_BYTES) return problem(res, 413, "DRAFT_TOO_LARGE", { max: ONBOARDING_MAX_BYTES });
+      if (o.draft && b.force !== true && (!b.baseUpdatedAt || Date.parse(o.draft.updatedAt) > Date.parse(b.baseUpdatedAt))) {
+        return problem(res, 409, "DRAFT_CONFLICT", { serverUpdatedAt: o.draft.updatedAt });
+      }
+      const hit = findSensitive(b.state, "state");
+      if (hit) return problem(res, 422, "SENSITIVE_CONTENT", { path: hit, class: "SSN_ITIN" });
+      if (b.persona != null) o.persona = b.persona;
+      const updatedAt = onboardingNow();
+      o.draft = { step: b.step, stepsDone: b.stepsDone, stepsTotal: b.stepsTotal, state: b.state, updatedAt };
+      json(res, 200, { updatedAt, expiresAt: new Date(Date.now() + 30 * DAY).toISOString() });
+    });
+    return true;
+  }
+  if (path === "/api/profile/onboarding/finish" && method === "POST") {
+    req.resume();
+    o.finishedAt = o.finishedAt ?? new Date().toISOString();
+    o.draft = null;
+    const filled = Object.values(BIO).filter((v) => typeof v === "string" && v.trim() !== "").length;
+    return json(res, 200, { finishedAt: o.finishedAt, completeness: onboardingStatus(sub, false).completeness, coverage: { fields: filled, groups: {} } }), true;
+  }
+  req.resume();
+  json(res, 405, { error: "Method not allowed" });
+  return true;
+}
+
 const server = http.createServer((req, res) => {
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
   const method = req.method ?? "GET";
@@ -1514,6 +1674,7 @@ const server = http.createServer((req, res) => {
   if (handleMeta(req, res, path, method)) return;
   if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
+  if (handleOnboarding(req, res, path, method)) return;
 
   req.resume(); // other bodies are ignored
   const sub = subOf(req);

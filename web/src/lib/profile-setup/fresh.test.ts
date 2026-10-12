@@ -15,7 +15,7 @@ import {
   type FreshLimits,
   type FreshState,
 } from "./fresh";
-import { INITIAL_STATE, isResumable, loadDraft, reducer, saveDraft, DRAFT_KEY } from "./state";
+import { INITIAL_STATE, V1_DRAFT_KEY, isResumable, migrateV1Draft, readState, reducer } from "./state";
 import { keptItems, skillItems } from "./import";
 
 const LIMITS: FreshLimits = { shortChars: 100, bulletChars: 120 };
@@ -273,7 +273,7 @@ describe("the draft the review lands on", () => {
 describe("inside the wizard state", () => {
   it("the fresh action drives the answers and the parsed action puts typed values over the profile's", () => {
     let s = reducer(INITIAL_STATE, { type: "path", path: "fresh" });
-    expect(s.step).toBe("input");
+    expect(s.step).toBe("source");
     s = reducer(s, { type: "fresh", action: { type: "headline", value: "Barista" } });
     expect(s.fresh?.headline).toBe("Barista");
     const { draft, typed } = freshToDraft({ ...initialFresh(), headline: "Barista", links: { linkedin: "", github: "", website: "https://me.dev" } });
@@ -290,24 +290,20 @@ describe("inside the wizard state", () => {
     const typing = reducer(empty, { type: "fresh", action: { type: "goal", goal: "same" } });
     expect(isResumable(typing)).toBe(true);
 
-    const store = new Map<string, string>();
-    const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
-    saveDraft(storage, typing);
-    expect(store.has(DRAFT_KEY)).toBe(true);
-    const back = loadDraft(storage);
+    // what the local mirror and the server draft hand back is the same state
+    const back = readState(JSON.parse(JSON.stringify(typing)));
     expect(back?.fresh?.goal).toBe("same");
-    expect(back?.step).toBe("input");
+    expect(back?.step).toBe("source");
     expect(back?.path).toBe("fresh");
 
-    // an upload that has not produced anything is still not saved
-    saveDraft(storage, reducer(INITIAL_STATE, { type: "path", path: "upload" }));
-    expect(store.has(DRAFT_KEY)).toBe(false);
+    // an upload that has not produced anything is still not worth saving
+    expect(isResumable(reducer(INITIAL_STATE, { type: "path", path: "upload" }))).toBe(false);
   });
 
-  it("an older stored draft (no fresh field) still loads", () => {
-    const store = new Map<string, string>([[DRAFT_KEY, JSON.stringify({ v: 1, step: "skills", path: "paste", parsed: { candidates: [], parsedIdentity: {}, skills: [], suggestions: [], source: "ai", removed: 0 } })]]);
+  it("an older stored v1 draft (no fresh field) is upgraded once", () => {
+    const store = new Map<string, string>([[V1_DRAFT_KEY, JSON.stringify({ v: 1, step: "skills", path: "paste", parsed: { candidates: [], parsedIdentity: {}, skills: [], suggestions: [], source: "ai", removed: 0 } })]]);
     const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: () => undefined, removeItem: () => undefined };
-    const s = loadDraft(storage);
+    const s = migrateV1Draft(storage);
     expect(s?.step).toBe("skills");
     expect(s?.fresh).toBeNull();
   });

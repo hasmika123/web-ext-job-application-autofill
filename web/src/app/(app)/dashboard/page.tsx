@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
-import { ONBOARDED_KEY, parseBioPayload } from "@/lib/profile-options";
+import { parseBioPayload } from "@/lib/profile-options";
+import { getOnboardingStatus } from "@/lib/onboarding/server";
 import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
 import type { Application } from "@/components/ApplicationBoard";
 import { loadJobs } from "@/components/app-v2/jobs/data";
@@ -29,7 +30,7 @@ export const metadata: Metadata = { title: "Dashboard" };
  * `app-v3/sample-data.ts`. Session gate + shell live in the `(app)` layout.
  */
 export default async function Page() {
-  const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData, completeness, builderConfig] = await Promise.all([
+  const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData, completeness, builderConfig, onboardingStatus] = await Promise.all([
     serverApiFetch("/api/account"),
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile"),
@@ -37,10 +38,13 @@ export default async function Page() {
     // Answers learned while applying, awaiting the user's decision. Best-effort: no card on failure.
     serverApiFetch("/api/profile/suggestions").catch(() => null),
     loadJobs(),
-    // The profile strength decides whether the "Finish your profile" card shows (R1.4, R1.7). Null on failure: no card.
+    // The profile strength meter card (R1.4). Null on failure: no card.
     getCompleteness(),
-    // The admin threshold under which that card shows (`profile.setup.promptBelowPercent`).
+    // The admin threshold under which that card shows (`profile.setup.promptBelowPercent`) and the onboarding tunables.
     getBuilderConfig(),
+    // Where setup stands and whether the "Finish your profile" card shows (R1.9: the server evaluates `card.show` /
+    // `card.state`; "n of total done" comes from its draft). Null on failure: no card, it never nags on a hiccup.
+    getOnboardingStatus(),
   ]);
 
   const account = accountRes.ok
@@ -80,10 +84,7 @@ export default async function Page() {
       {onboarding.enabled && (
       <FinishProfileCard
         login={account?.login ?? account?.email ?? "me"}
-        onboarded={typeof bio[ONBOARDED_KEY] === "string" && bio[ONBOARDED_KEY].trim() !== ""}
-        score={completeness?.score ?? null}
-        promptBelow={builderConfig.profile.setupPromptBelowPercent}
-        bio={Object.fromEntries(Object.entries(bio).filter(([, v]) => typeof v === "string"))}
+        status={onboardingStatus}
         settings={onboardingSettings(builderConfig)}
         mascotWave={onboarding.mascot ? <Mascot pose="wave" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}
         mascotLaptop={onboarding.mascot ? <Mascot pose="laptop" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}

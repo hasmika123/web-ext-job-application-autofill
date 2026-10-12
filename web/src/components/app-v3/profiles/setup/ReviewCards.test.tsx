@@ -18,7 +18,7 @@ const limits = { bullets: 8, bulletChars: 200 };
 function Harness({ onDone = vi.fn() }: { onDone?: () => void }) {
   const [state, dispatch] = useReducer(reducer, {
     ...INITIAL_STATE,
-    step: "cards",
+    step: "review",
     parsed: { candidates, parsedIdentity: {}, skills: [], suggestions: [], source: "ai", removed: 0 },
   });
   return (
