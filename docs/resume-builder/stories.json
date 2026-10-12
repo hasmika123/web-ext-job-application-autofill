@@ -1146,7 +1146,7 @@
       "id": "R3.4",
       "epic": "R3",
       "title": "Template switch safety net — per-template theme defaults on untouched keys, version row, undo restores the template, \"what changes\" note",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "web",

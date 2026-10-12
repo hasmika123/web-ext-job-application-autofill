@@ -157,6 +157,15 @@ describe("patchTemplate / patchTheme", () => {
     expect(f).toHaveBeenCalledWith("/api/resumes/42/doc/template", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ templateId: "classic" }) }));
   });
 
+  it("returns the theme the server stored (its defaults on untouched keys) and can send an exact theme to restore (R3.4)", async () => {
+    const f = stubFetch(json(200, { templateId: "classic", docVersion: 8, theme: { fontPair: "source-serif" } }, { etag: '"8"' }));
+    expect(await patchTemplate(42, "classic")).toEqual({ kind: "ok", version: 8, theme: { fontPair: "source-serif" } });
+    const g =stubFetch(json(200, { templateId: "modern", docVersion: 9, theme: { accent: "#2563eb" } }, { etag: '"9"' }));
+    await patchTemplate(42, "modern", { accent: "#2563eb" });
+    expect(g).toHaveBeenCalledWith("/api/resumes/42/doc/template", expect.objectContaining({ body: JSON.stringify({ templateId: "modern", theme: { accent: "#2563eb" } }) }));
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
   it("PATCHes the theme route with {theme}; no If-Match is sent", async () => {
     const f = stubFetch(json(200, { docVersion: 5 }, { etag: '"5"' }));
     expect(await patchTheme(42, { accent: "#16a34a" })).toEqual({ kind: "ok", version: 5 });

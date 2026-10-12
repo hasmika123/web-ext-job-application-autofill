@@ -21,7 +21,8 @@ export const THEME_DELAY_MS = 500;
 type Theme = Partial<ResumeTheme>;
 
 export interface PresentationOptions {
-  patchTemplate(templateId: string): Promise<PatchResult>;
+  /** `theme` = store exactly this theme with the template (undo / redo of a switch); absent = the server applies the template's defaults. */
+  patchTemplate(templateId: string, theme?: Theme): Promise<PatchResult>;
   patchTheme(theme: Theme): Promise<PatchResult>;
   /** The autosave's `hold` / `release` (see autosave.ts). */
   hold(): Promise<void>;
@@ -31,14 +32,25 @@ export interface PresentationOptions {
   theme: Theme | null;
   /** A PATCH was confirmed with this ETag version. */
   onVersion?(version: number): void;
-  onTemplateFailed?(confirmed: string, message: string): void;
+  /**
+   * A template PATCH was confirmed and the server stored this theme (it applies the new template's defaults to
+   * the untouched keys, R3.4). Only reported when nothing else is waiting behind it and no theme edit is pending,
+   * so a late answer never overwrites a newer choice.
+   */
+  onThemeAdopted?(theme: Theme): void;
+  /** `failed` = the template id whose PATCH was refused (its undo entry, if any, is dropped). */
+  onTemplateFailed?(confirmed: string, message: string, failed: string): void;
   onThemeFailed?(confirmed: Theme | null, message: string): void;
   delayMs?: number;
 }
 
 export interface PresentationSync {
-  /** Save a template switch now (queued behind anything in flight). */
-  setTemplate(templateId: string): void;
+  /**
+   * Save a template switch now (queued behind anything in flight). With `theme` the server stores that exact
+   * theme (undo / redo) and a pending theme edit is dropped as superseded; without it the server applies the
+   * new template's defaults to the untouched keys.
+   */
+  setTemplate(templateId: string, theme?: Theme): void;
   /** Save this theme 500 ms after the last call. */
   setTheme(theme: Theme): void;
   /** Send a pending theme now (leaving the page); resolves when the queue is empty. */
@@ -95,16 +107,26 @@ export function createPresentationSync(opts: PresentationOptions): PresentationS
   };
 
   return {
-    setTemplate(templateId) {
+    setTemplate(templateId, theme) {
       if (disposed) return;
+      if (theme) {
+        // The exact theme is sent with the template: an older pending edit would only overwrite it.
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+        pendingTheme = null;
+      }
       enqueue(async () => {
-        const r = await opts.patchTemplate(templateId);
+        const r = await opts.patchTemplate(templateId, theme);
         if (r.kind === "ok") {
           confirmedTemplate = templateId;
+          if (r.theme) confirmedTheme = r.theme;
+          else if (theme) confirmedTheme = theme;
           opts.onVersion?.(r.version);
+          // queued includes this task: nothing else is waiting and the user has not touched a theme control since.
+          if (r.theme && queued === 1 && pendingTheme === null) opts.onThemeAdopted?.(r.theme);
           return r.version;
         }
-        opts.onTemplateFailed?.(confirmedTemplate, r.message);
+        opts.onTemplateFailed?.(confirmedTemplate, r.message, templateId);
         return undefined;
       });
     },

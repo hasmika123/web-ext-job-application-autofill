@@ -51,7 +51,7 @@ public class ResumeDocResource {
     ) {}
 
     /** Body of {@code PATCH /{id}/doc/template}. */
-    public record TemplateVM(String templateId) {}
+    public record TemplateVM(String templateId, @Schema(description = "Optional exact theme to store instead of the template defaults (the editor's undo/redo of a switch).") JsonNode theme) {}
 
     /**
      * {@code POST /api/profile/resumes/built} : create a built resume and its first document, seeded
@@ -106,11 +106,11 @@ public class ResumeDocResource {
     }
 
     /** {@code PATCH /api/profile/resumes/:id/doc/template} : switch the template (422 if unknown). */
-    @Operation(summary = "Switch a resume's template", description = "Body {templateId}; 422 DOC_INVALID for an unknown or disabled id. Does not change the fillable content.")
+    @Operation(summary = "Switch a resume's template", description = "Body {templateId, theme?}; 422 DOC_INVALID for an unknown or disabled id. Applies the new template's theme defaults to the theme keys the user has not touched (or stores the given theme verbatim), writes a TEMPLATE_SWITCH version row and queues the PDF at once. Does not change the fillable content.")
     @PatchMapping("/{id}/doc/template")
     public ResponseEntity<ResumeDocDTO> patchTemplate(@PathVariable("id") Long id, @RequestBody(required = false) TemplateVM vm) {
         demoGuard.assertNotDemo();
-        ResumeDocDTO dto = resumeDocService.setTemplate(id, vm == null ? null : vm.templateId());
+        ResumeDocDTO dto = resumeDocService.setTemplate(id, vm == null ? null : vm.templateId(), vm == null ? null : vm.theme());
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
     }
 

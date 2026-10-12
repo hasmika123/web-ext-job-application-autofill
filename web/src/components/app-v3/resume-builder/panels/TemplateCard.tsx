@@ -2,8 +2,9 @@
 
 import "@kiwiply/ui/styles/resume.css";
 import { memo } from "react";
-import { CheckIcon, PAGE_DIMENSIONS, PageFrame, ResumePreview, cn, hiddenContent, sanitizeTheme } from "@kiwiply/ui";
+import { CheckIcon, PAGE_DIMENSIONS, PageFrame, ResumePreview, cn, sanitizeTheme } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities, TemplateMeta } from "@kiwiply/ui";
+import { previewSwitch } from "../themeEdit";
 
 /** The live thumbnail scale (DESIGN 7.4: the user's own document through the template at `PageFrame` scale 0.22). */
 const THUMB_SCALE = 0.22;
@@ -27,7 +28,8 @@ export interface TemplateCardProps {
 function TemplateCard({ meta, caps, selected, doc, theme, disabled, onPick }: TemplateCardProps) {
   const base = sanitizeTheme(theme);
   const pageWidth = Math.round(PAGE_DIMENSIONS[base.pageSize].widthIn * 96);
-  const hides = selected ? [] : hiddenContent(doc, base, caps);
+  // The same computation as the switch toast (usePresentation), on the theme the switch would land on.
+  const hides = selected ? [] : previewSwitch(doc, theme, meta, caps).hidden;
   const hidesId = `rb-tpl-hides-${meta.id}`;
 
   return (

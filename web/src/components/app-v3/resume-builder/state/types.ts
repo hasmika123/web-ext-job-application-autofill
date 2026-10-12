@@ -19,12 +19,32 @@ export interface Conflict {
   doc: ResumeDocument;
 }
 
+/** The presentation a template switch moves between (template + the whole stored theme). */
+export interface Presentation {
+  templateId: string;
+  theme: Partial<ResumeTheme> | null;
+}
+
+/**
+ * One template switch on the UI-level undo stack (`history/templateSwitch`, R3.4): the presentation before and
+ * after, and the document it happened on - the entry is next in line for Undo while that exact document is still
+ * the present one (so typing after a switch is undone first, then the switch).
+ */
+export interface TemplateSwitch {
+  before: Presentation;
+  after: Presentation;
+  doc: ResumeDocument;
+}
+
 export interface EditorState {
   /** Undo/redo over the document; `history.present` is what the preview shows and autosave saves. */
   history: History<ResumeDocument>;
-  /** Presentation: kept beside the document, never in the undo history (template switches are server-side). */
+  /** Presentation: kept beside the document; theme edits are not in the undo history, template switches are (below). */
   theme: Partial<ResumeTheme> | null;
   templateId: string;
+  /** Template switches that can be undone / redone, newest last; ordered with the document history by `TemplateSwitch.doc`. */
+  templateUndo: TemplateSwitch[];
+  templateRedo: TemplateSwitch[];
   /** The version the server has (the `If-Match` of the next save). Mirrored from `SAVE_OK`. */
   docVersion: number;
   /** Bumped on every change to the document (edit, undo, redo, take-theirs). */
@@ -134,5 +154,14 @@ export type EditorAction =
   | { type: "conflict/takeTheirs" }
   /* presentation (R2.4): the template / theme are optimistic and never in the undo history or the autosave PUT */
   | { type: "presentation/set"; templateId?: string; theme?: Partial<ResumeTheme> | null }
+  /**
+   * A template switch (R3.4): sets template and theme together and records `{before, after}` so Undo / Redo
+   * (`history/undo`, `history/redo`) restore both. The caller saves it (the hook's PATCH).
+   */
+  | { type: "template/switch"; templateId: string; theme: Partial<ResumeTheme> | null }
+  /** The "Undo" on the switch toast: undoes the newest switch whatever was typed since. */
+  | { type: "template/undo" }
+  /** The template PATCH for `templateId` was refused: drop its undo entry. */
+  | { type: "template/forget"; templateId: string }
   /** A template / theme PATCH was confirmed: adopt the version its ETag carried. */
   | { type: "presentation/version"; version: number };

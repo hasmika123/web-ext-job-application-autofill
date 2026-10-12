@@ -28,8 +28,10 @@ import com.dossier.api.service.resume.ResumeDocumentValidator;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
 import com.dossier.api.service.resume.ResumeThemeValidator;
+import com.dossier.api.service.resume.TemplateThemeDefaults;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -82,6 +84,10 @@ public class ResumeDocService {
     private final ResumeRepository resumeRepository;
     private final ResumeBuilderSettings settings;
     private final ResumeDocVersionService versionService;
+
+    /** The templates' {@code meta.defaults} (R3.4); field-injected so the constructor above stays as the other stories left it. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private TemplateThemeDefaults templateThemeDefaults;
 
     public ResumeDocService(
         ResumeDocRepository resumeDocRepository,
@@ -237,10 +243,22 @@ public class ResumeDocService {
      * Switch the template. Needs no If-Match (choosing a template never loses typed text) but bumps
      * the version, so the response's ETag is what the editor must send next. Touches neither
      * {@code parsed_json} nor {@code label}, hence leaves {@link ProfileVersion} where it was.
+     *
+     * <p>R3.4 (DESIGN 4 + 6.5): the new template's {@code meta.defaults} are applied to every theme key the user
+     * has not touched ({@code theme._touched}, {@link TemplateThemeDefaults#apply}); the response carries the
+     * resulting theme. {@code theme} (optional) is the editor's undo/redo: that exact theme is stored instead of
+     * applying defaults, so one request restores template and theme together. A {@code TEMPLATE_SWITCH}
+     * version row is written after the change and the PDF is queued with no settle delay.
      */
-    public ResumeDocDTO setTemplate(Long resumeId, String templateId) {
+    public ResumeDocDTO setTemplate(Long resumeId, String templateId, JsonNode theme) {
         ResumeDoc d = ownedDoc(resumeId);
         requireEnabledTemplate(templateId);
+        if (theme != null && !theme.isNull()) {
+            d.setThemeJson(ResumeDocumentJson.write(ResumeThemeValidator.sanitize(theme), 0));
+        } else {
+            ObjectNode next = TemplateThemeDefaults.apply(parseQuietly(d.getThemeJson()), templateThemeDefaults.defaultsFor(templateId));
+            if (next != null) d.setThemeJson(ResumeDocumentJson.write(next, 0));
+        }
         d.setTemplateId(templateId);
         d.setUpdatedAt(Instant.now());
         d.getResume().setUpdatedAt(d.getUpdatedAt());
@@ -249,6 +267,11 @@ public class ResumeDocService {
         resumeDocRepository.saveAndFlush(d);
         versionService.record(d, ResumeDocVersionService.TEMPLATE_SWITCH, null, currentLogin());
         return toDto(d, d.getResume());
+    }
+
+    /** {@link #setTemplate(Long, String, JsonNode)} with the template's defaults (the usual switch). */
+    public ResumeDocDTO setTemplate(Long resumeId, String templateId) {
+        return setTemplate(resumeId, templateId, null);
     }
 
     /**

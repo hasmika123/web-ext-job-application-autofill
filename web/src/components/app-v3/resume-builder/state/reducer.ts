@@ -13,8 +13,8 @@
 import { RESUME_DEFAULT_SECTION_TITLES, shiftMarks } from "@kiwiply/ui";
 import type { ResumeBullet, ResumeDocument, ResumeMark, ResumeSection, ResumeSectionKind, ResumeTheme } from "@kiwiply/ui";
 import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
-import { canRedo, canUndo, createHistory, record, redo, undo } from "./history";
-import type { BasicsField, DocLimits, EditorAction, EditorState, ItemTextField, SaveStatus, TextRef } from "./types";
+import { HISTORY_CAP, canRedo, canUndo, createHistory, record, redo, undo } from "./history";
+import type { BasicsField, DocLimits, EditorAction, EditorState, ItemTextField, SaveStatus, TemplateSwitch, TextRef } from "./types";
 
 /** The API's declared limits: the fallback when the config does not carry them. */
 export const DEFAULT_LIMITS: DocLimits = DEFAULT_BUILDER_CONFIG.limits;
@@ -51,6 +51,8 @@ export function initEditorState(input: InitialEditorInput): EditorState {
     history: createHistory(input.doc),
     theme: input.theme,
     templateId: input.templateId,
+    templateUndo: [],
+    templateRedo: [],
     docVersion: input.docVersion,
     rev: 0,
     savedRev: 0,
@@ -67,8 +69,10 @@ export function initEditorState(input: InitialEditorInput): EditorState {
 
 export const currentDoc = (s: EditorState): ResumeDocument => s.history.present;
 export const hasUnsaved = (s: EditorState): boolean => s.rev > s.savedRev;
-export const canUndoEdit = (s: EditorState): boolean => canUndo(s.history);
-export const canRedoEdit = (s: EditorState): boolean => canRedo(s.history);
+export const canUndoEdit = (s: EditorState): boolean => canUndo(s.history) || s.templateUndo.length > 0;
+export const canRedoEdit = (s: EditorState): boolean => canRedo(s.history) || s.templateRedo.length > 0;
+
+const last = <T,>(a: readonly T[]): T | undefined => a[a.length - 1];
 
 /** The one word the top bar renders ("saved" / "saving" / ...). Unsaved-but-not-yet-sent reads as saving. */
 export function saveStatus(s: EditorState): SaveStatus {
@@ -233,7 +237,7 @@ function maxFor(field: ItemTextField, kind: ResumeSectionKind, limits: DocLimits
   return MAX_SHORT_CHARS;
 }
 
-type EditAction = Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` | `presentation/${string}` }>;
+type EditAction = Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` | `presentation/${string}` | `template/${string}` }>;
 
 /** The next document for an edit action, or the same `doc` when it is a no-op. */
 function applyEdit(doc: ResumeDocument, a: EditAction, limits: DocLimits): ResumeDocument {
@@ -545,6 +549,8 @@ function commit(state: EditorState, next: ResumeDocument, key: string | undefine
   return {
     ...state,
     history: record(state.history, next, { key, at }),
+    // An edit after an undone switch ends its redo, like it ends the document's.
+    templateRedo: state.templateRedo.length > 0 ? [] : state.templateRedo,
     rev: state.rev + 1,
     // A new edit after a failed save is a new attempt: the autosave controller will try again.
     phase: state.phase === "error" ? "idle" : state.phase,
@@ -556,10 +562,31 @@ function commit(state: EditorState, next: ResumeDocument, key: string | undefine
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case "history/undo": {
+      // A template switch made on exactly this document is the next thing to undo (R3.4).
+      const sw = last(state.templateUndo);
+      if (sw && sw.doc === state.history.present) {
+        return {
+          ...state,
+          templateId: sw.before.templateId,
+          theme: sw.before.theme,
+          templateUndo: state.templateUndo.slice(0, -1),
+          templateRedo: [...state.templateRedo, sw],
+        };
+      }
       const history = undo(state.history);
       return history === state.history ? state : { ...state, history, rev: state.rev + 1, errorPath: null };
     }
     case "history/redo": {
+      const sw = last(state.templateRedo);
+      if (sw && sw.doc === state.history.present) {
+        return {
+          ...state,
+          templateId: sw.after.templateId,
+          theme: sw.after.theme,
+          templateUndo: [...state.templateUndo, sw],
+          templateRedo: state.templateRedo.slice(0, -1),
+        };
+      }
       const history = redo(state.history);
       return history === state.history ? state : { ...state, history, rev: state.rev + 1, errorPath: null };
     }
@@ -569,6 +596,42 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const theme = action.theme === undefined ? state.theme : action.theme;
       return templateId === state.templateId && theme === state.theme ? state : { ...state, templateId, theme };
     }
+
+    case "template/switch": {
+      if (action.templateId === state.templateId) return state;
+      const entry: TemplateSwitch = {
+        before: { templateId: state.templateId, theme: state.theme },
+        after: { templateId: action.templateId, theme: action.theme },
+        doc: state.history.present,
+      };
+      return {
+        ...state,
+        templateId: action.templateId,
+        theme: action.theme,
+        templateUndo: [...state.templateUndo, entry].slice(-HISTORY_CAP),
+        templateRedo: [],
+        // The switch is a new action: the document's redo is gone, like after any edit, and typing right after it
+        // must not coalesce into the step before it (the entry is anchored on that step's document).
+        history: state.history.future.length > 0 || state.history.key !== null ? { ...state.history, future: [], key: null } : state.history,
+      };
+    }
+
+    case "template/undo": {
+      const sw = last(state.templateUndo);
+      if (!sw || sw.after.templateId !== state.templateId) return state;
+      return {
+        ...state,
+        templateId: sw.before.templateId,
+        theme: sw.before.theme,
+        templateUndo: state.templateUndo.slice(0, -1),
+        templateRedo: [...state.templateRedo, { ...sw, doc: state.history.present }],
+      };
+    }
+
+    case "template/forget":
+      return state.templateUndo.some((e) => e.after.templateId === action.templateId)
+        ? { ...state, templateUndo: state.templateUndo.filter((e) => e.after.templateId !== action.templateId) }
+        : state;
 
     case "presentation/version":
       return state.docVersion === action.version ? state : { ...state, docVersion: action.version };
@@ -611,6 +674,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return {
         ...state,
         history: createHistory(state.conflict.doc),
+        templateUndo: [],
+        templateRedo: [],
         docVersion: state.conflict.serverVersion,
         rev,
         savedRev: rev, // identical to the server's copy: nothing left to save

@@ -77,6 +77,23 @@ class ResumeMetaResourceIT {
     @Autowired
     private jakarta.persistence.EntityManager em;
 
+    @Autowired
+    private com.dossier.api.repository.AppSettingRepository appSettingRepository;
+
+    @Autowired
+    private com.dossier.api.service.ResumeBuilderSettings builderSettings;
+
+    /** Classic exists but only Modern is enabled by default: a test that switches to it enables it itself (not order-dependent). */
+    private void enableClassic() {
+        appSettingRepository.saveAndFlush(new com.dossier.api.domain.AppSetting("resume.templates.enabled", "[\"modern\",\"classic\"]", "it", java.time.Instant.now()));
+        builderSettings.invalidate();
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void dropSettingsCache() {
+        builderSettings.invalidate();
+    }
+
     // ---- helpers ------------------------------------------------------------
 
     private User user() {
@@ -583,6 +600,7 @@ class ResumeMetaResourceIT {
 
     @Test
     void versionsListCarriesByAndKindNewestFirst() throws Exception {
+        enableClassic();
         Long id = createBuilt("Mine");
         mockMvc.perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"v1.0\"}")).andExpect(status().isOk());
         mockMvc

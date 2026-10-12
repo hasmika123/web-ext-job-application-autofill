@@ -385,6 +385,7 @@ function handleBuilder(req, res, path, method) {
     withBody(req, (b) => {
       if (b.templateId !== "modern") return problem(res, 422, "DOC_INVALID", { path: "$.templateId", message: "unknown template" });
       d.templateId = b.templateId;
+      if (b.theme && typeof b.theme === "object") d.theme = b.theme; // R3.4: an undo / redo restores the exact theme (the real API applies template defaults otherwise)
       d.version += 1;
       d.updatedAt = new Date().toISOString();
       withEtag(res, 200, docDto(id), d.version);

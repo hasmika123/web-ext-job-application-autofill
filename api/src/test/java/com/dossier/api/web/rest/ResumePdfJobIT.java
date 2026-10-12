@@ -67,6 +67,23 @@ class ResumePdfJobIT {
     private EntityManager em;
 
     @Autowired
+    private com.dossier.api.repository.AppSettingRepository appSettingRepository;
+
+    @Autowired
+    private com.dossier.api.service.ResumeBuilderSettings builderSettings;
+
+    /** Classic exists but only Modern is enabled by default: a test that switches to it enables it itself (not order-dependent). */
+    private void enableClassic() {
+        appSettingRepository.saveAndFlush(new com.dossier.api.domain.AppSetting("resume.templates.enabled", "[\"modern\",\"classic\"]", "it", java.time.Instant.now()));
+        builderSettings.invalidate();
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void dropSettingsCache() {
+        builderSettings.invalidate();
+    }
+
+    @Autowired
     private ResumePdfJobService jobs;
 
     @Autowired
@@ -186,6 +203,7 @@ class ResumePdfJobIT {
 
     @Test
     void templateSwitchIsACheckpointWithNoSettleDelay() throws Exception {
+        enableClassic();
         Long id = createBuilt("Switch");
         docRepo.markReady(id, row(id).getDocVersion(), renderHash(id), Instant.now());
 
