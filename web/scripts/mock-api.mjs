@@ -280,7 +280,7 @@ const problem = (res, status, code, extra = {}) => json(res, status, { status, c
 function handleBuilder(req, res, path, method) {
   const isBuilder =
     path === "/api/profile/resumes/built" ||
-    /^\/api\/profile\/resumes\/\d+\/(doc(\/template|\/theme)?|export-recorded)$/.test(path) ||
+    /^\/api\/profile\/resumes\/\d+\/(doc(\/template|\/theme|\/text)?|export-recorded)$/.test(path) ||
     /^\/api\/resumes\/\d+\/file$/.test(path) ||
     /^\/mock\/resumes\/\d+\/edit-elsewhere$/.test(path);
   if (!isBuilder) return false;
@@ -365,6 +365,13 @@ function handleBuilder(req, res, path, method) {
     return true;
   }
 
+  if (method === "GET" && path.endsWith("/doc/text")) {
+    req.resume();
+    res.writeHead(200, { "content-type": "text/plain;charset=UTF-8" });
+    res.end(docText(d.doc));
+    return true;
+  }
+
   if (method === "GET") {
     req.resume();
     withEtag(res, 200, docDto(id), d.version);
@@ -387,7 +394,9 @@ function handleBuilder(req, res, path, method) {
       d.version += 1;
       d.updatedAt = new Date().toISOString();
       const r = RESUMES.find((x) => x.id === id);
-      if (r) r.label = d.doc.meta.title;
+      // The name is the resume's (R3.9): the document only mirrors it, whatever the client sent.
+      if (r) d.doc.meta.title = r.label;
+      recordAutosave(id);
       withEtag(res, 200, docDto(id), d.version);
     });
     return true;
@@ -443,8 +452,15 @@ const newToken = () => {
 };
 const linkDto = (l, base) => ({
   id: l.id, subjectType: "LINK", role: "VIEW", label: l.label ?? undefined, allowDownload: l.allowDownload, expired: false,
-  createdAt: l.createdAt, viewCount: l.viewCount, url: `${base}/r/${l.token}`,
+  expiresAt: l.expiresAt ?? null, createdAt: l.createdAt, viewCount: l.viewCount, url: `${base}/r/${l.token}`,
 });
+const LINK_DAYS = 30; // resume.share.linkDefaultDays
+const addLink = (resumeId, b = {}) => {
+  const l = { id: nextLinkId++, resumeId, token: newToken(), label: b.label || null, allowDownload: b.allowDownload === true, revokedAt: null, viewCount: 0, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + LINK_DAYS * DAY).toISOString() };
+  LINKS.push(l);
+  return l;
+};
+const MAX_LINKS = 3; // resume.share.maxLinks
 
 function handleAccess(req, res, path, method) {
   const pub = path.match(/^\/api\/public\/resumes\/([^/]+)(\/pdf)?$/);
@@ -479,9 +495,20 @@ function handleAccess(req, res, path, method) {
   }
   if (m[2] === "link" && method === "POST") {
     withBody(req, (b) => {
-      const l = { id: nextLinkId++, resumeId, token: newToken(), label: b.label || null, allowDownload: b.allowDownload === true, revokedAt: null, viewCount: 0, createdAt: new Date().toISOString() };
-      LINKS.push(l);
-      json(res, 201, linkDto(l, webBase));
+      if (LINKS.filter((x) => x.resumeId === resumeId && !x.revokedAt).length >= MAX_LINKS) {
+        return json(res, 422, { status: 422, code: "LIMIT", title: `A resume can have at most ${MAX_LINKS} active links` });
+      }
+      json(res, 201, linkDto(addLink(resumeId, b), webBase));
+    });
+    return true;
+  }
+  if (m[2] && /^\d+$/.test(m[2]) && method === "PATCH") {
+    withBody(req, (b) => {
+      const l = LINKS.find((x) => x.id === Number(m[2]) && x.resumeId === resumeId && !x.revokedAt);
+      if (!l) return json(res, 404, { status: 404, title: "Not Found" });
+      if (typeof b.allowDownload !== "boolean") return json(res, 422, { status: 422, code: "ACCESS_INVALID", title: "allowDownload must be true or false" });
+      l.allowDownload = b.allowDownload;
+      json(res, 200, linkDto(l, webBase));
     });
     return true;
   }
@@ -539,13 +566,15 @@ function builderConfig() {
     },
     match: { weights: { skills: 50, title: 15, years: 10, industry: 15, education: 10 }, keySkillsCount: 10, thresholds: { keySkills: 0.7, experience: 0.6, industry: 0.6 }, maxJdChars: 8000, embeddings: false },
     theme: { accentPalette: ["#16a34a", "#2563eb", "#7c3aed", "#ec4899", "#f97316", "#eab308"] },
-    features: { photo: true, docx: false, aiSuggestions: true, jobMatch: true, tailor: true, printLayout: true, pdfView: true },
+    features: { photo: true, docx: false, aiSuggestions: true, jobMatch: true, tailor: true, printLayout: true, pdfView: true, shareLinks: true },
     ai: { suggestAutoRefresh: false, suggestStaleMinutes: 10, rewriteMaxRefs: 12 },
     plan: pro ? "PRO" : "FREE",
     aiAllowed: pro,
     resumes: { count: liveCount(), max: RESUME_LIMIT },
     profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200, bioValueMaxChars: 500, bioSummaryMaxChars: 2000, setupPromptBelowPercent: 40, uploadMaxBytes: 10485760 },
     pdf: { waitMs: 30000, viewAutoRefresh: false },
+    share: { maxLinks: 3 },
+    versions: { retentionAuto: 30 },
     list: {
       quickTips: ["Create different resumes for different roles", "Tailor your resume for each job application", "Use AI suggestions to improve your content", "Keep one primary resume for quick applications"],
       virtualizeAbove: 60,
@@ -625,7 +654,7 @@ function handleSources(req, res, path, method) {
     json(res, 200, builderConfig());
     return true;
   }
-  const m = path.match(/^\/api\/profile\/resumes\/(\d+)(?:\/(doc\/duplicate|doc\/import|original|meta))?$/);
+  const m = path.match(/^\/api\/profile\/resumes\/(\d+)(?:\/(doc\/duplicate|doc\/import|original))?$/);
   const isBuilt = path === "/api/profile/resumes/built" && method === "POST";
   if (!isBuilt && !m) return false;
   if (!subOf(req)) {
@@ -724,36 +753,6 @@ function handleSources(req, res, path, method) {
     return true;
   }
 
-  if (tail === "meta" && method === "PATCH") {
-    withBody(req, (b) => {
-      if (typeof b.name === "string") {
-        if (!b.name.trim() || b.name.length > 200) return json(res, 422, { status: 422, code: "META_INVALID", path: "$.name", message: "name must be 1-200 characters" });
-        r.label = b.name.trim();
-        const d = DOCS.get(r.id);
-        if (d) d.doc.meta.title = r.label;
-      }
-      if (b.archived === true && !r.archived && r.defaultResume && RESUMES.some((x) => x.id !== r.id && !x.archived)) {
-        return json(res, 409, { status: 409, code: "PRIMARY_REQUIRED", message: "This is your primary resume: make another one primary before archiving it" });
-      }
-      if (b.primary === true) {
-        if (r.archived) return json(res, 422, { status: 422, code: "META_INVALID", path: "$.primary", message: "an archived resume cannot be primary" });
-        for (const x of RESUMES) x.defaultResume = x.id === r.id;
-      }
-      if (typeof b.archived === "boolean") {
-        r.archived = b.archived;
-        if (b.archived) r.defaultResume = false;
-      }
-      if (!RESUMES.some((x) => x.defaultResume && !x.archived)) {
-        const first = RESUMES.find((x) => !x.archived);
-        if (first) first.defaultResume = true;
-      }
-      const d = DOCS.get(r.id);
-      if (d) d.updatedAt = new Date().toISOString();
-      json(res, 200, listRow(r));
-    });
-    return true;
-  }
-
   if (!tail && method === "DELETE") {
     req.resume();
     const used = APPLICATIONS.some((a) => a.resume?.id === r.id);
@@ -771,6 +770,296 @@ function handleSources(req, res, path, method) {
   req.resume();
   json(res, 405, { error: "Method not allowed" });
   return true;
+}
+
+/* ── Resume metadata mock (R3.9 / R3.10 contract; in memory) ──────────────────────────────────────
+ * meta GET/PATCH, the master to tailored lineage (resume 6 is a copy of resume 3 whose master has moved on),
+ * versions with checkpoint / text / restore, and sync-master. Dev only, like the builder above. */
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const VERS = new Map(); // resume id -> [{ versionNo, reason, name, createdAt, by, doc, templateId, theme }] (oldest first)
+const TAIL = new Map(); // tailored resume id -> { parent, snapshot (the master's doc when it was copied) }
+const VERSION_COALESCE_MS = 5 * 60 * 1000; // resume.versions.coalesceMinutes
+const AUTO_KEEP = 30; // resume.versions.retentionAuto
+const actorOf = (req) => {
+  const sub = subOf(req) ?? "demo";
+  const a = ACCOUNTS[sub];
+  return { login: sub, label: a ? `${a.firstName} ${a.lastName}` : "Priya Sharma" };
+};
+const kindOf = (reason) => (reason === "AUTOSAVE" ? "auto" : reason === "NAMED" ? "named" : reason === "MANUAL" ? "checkpoint" : "system");
+
+function versionsOf(id) {
+  if (!VERS.has(id) && DOCS.has(id)) {
+    const d = DOCS.get(id);
+    VERS.set(id, [{ versionNo: 1, reason: "IMPORT", name: null, createdAt: RESUMES.find((r) => r.id === id)?.createdAt ?? new Date().toISOString(), by: null, doc: clone(d.doc), templateId: d.templateId, theme: d.theme }]);
+  }
+  return VERS.get(id) ?? [];
+}
+function addVersion(id, reason, name) {
+  const rows = versionsOf(id);
+  const d = DOCS.get(id);
+  const row = { versionNo: (rows.at(-1)?.versionNo ?? 0) + 1, reason, name: name || null, createdAt: new Date().toISOString(), by: null, doc: clone(d.doc), templateId: d.templateId, theme: d.theme };
+  rows.push(row);
+  const auto = rows.filter((r) => r.reason !== "MANUAL" && r.reason !== "NAMED");
+  for (const old of auto.slice(0, Math.max(0, auto.length - AUTO_KEEP))) rows.splice(rows.indexOf(old), 1);
+  return row;
+}
+// A row with no `by` was written by the resume's owner (the only user of the mock).
+/** The autosave policy: changed content, and not inside the coalescing window of the previous row. */
+function recordAutosave(id) {
+  const rows = versionsOf(id);
+  const last = rows.at(-1);
+  const d = DOCS.get(id);
+  if (last && JSON.stringify(last.doc) === JSON.stringify(d.doc)) return;
+  if (last && Date.now() - Date.parse(last.createdAt) < VERSION_COALESCE_MS) return;
+  addVersion(id, "AUTOSAVE", null);
+}
+
+/** A small ATS-style text of a document (the real one is ResumeDocumentText). */
+function docText(doc) {
+  const out = [doc.basics?.name, doc.basics?.headline, [doc.basics?.email, doc.basics?.location].filter(Boolean).join(" | ")].filter(Boolean);
+  for (const s of doc.sections ?? []) {
+    if (s.hidden || !s.items?.length) continue;
+    out.push("", String(s.title || s.kind).toUpperCase());
+    for (const it of s.items) {
+      if (s.kind === "SUMMARY") out.push(it.text);
+      else if (s.kind === "SKILLS") out.push(`${it.group ? it.group + ": " : ""}${(it.skills ?? []).join(", ")}`);
+      else {
+        out.push([it.title ?? it.degree, it.org ?? it.school].filter(Boolean).join(", "));
+        for (const b of it.bullets ?? []) out.push(`- ${b.text}`);
+      }
+    }
+  }
+  return out.join("\n") + "\n";
+}
+
+const itemsById = (doc) => {
+  const m = new Map();
+  for (const s of doc.sections ?? []) for (const it of s.items ?? []) m.set(it.id, { kind: s.kind, title: s.title, item: it });
+  return m;
+};
+/** What the master did since the copy: items added / changed / removed, by id. */
+function masterChanges(childId) {
+  const t = TAIL.get(childId);
+  const master = DOCS.get(t.parent);
+  const before = itemsById(t.snapshot);
+  const after = itemsById(master.doc);
+  const out = [];
+  for (const [id, a] of after) {
+    const b = before.get(id);
+    if (!b) out.push({ id, kind: "added", section: a.title || a.kind, after: a.item });
+    else if (JSON.stringify(b.item) !== JSON.stringify(a.item)) out.push({ id, kind: "changed", section: a.title || a.kind, before: b.item, after: a.item });
+  }
+  for (const [id, b] of before) if (!after.has(id)) out.push({ id, kind: "removed", section: b.title || b.kind, before: b.item });
+  return out;
+}
+const masterChanged = (childId) => TAIL.has(childId) && masterChanges(childId).length > 0;
+
+function metaDto(id, req) {
+  const r = RESUMES.find((x) => x.id === id);
+  const d = DOCS.get(id);
+  const tail = TAIL.get(id);
+  const built = r.kind === "BUILT" && d;
+  const links = LINKS.filter((l) => l.resumeId === id && !l.revokedAt);
+  const rows = built ? versionsOf(id) : [];
+  const latest = rows.at(-1);
+  const masterId = tail ? tail.parent : id;
+  const master = RESUMES.find((x) => x.id === masterId);
+  const me = actorOf(req);
+  return {
+    id, name: r.label, kind: r.kind,
+    source: { kind: r.kind, origin: built ? (tail ? "TAILOR" : "PROFILE") : null, tailoredFrom: tail ? { resumeId: tail.parent, label: master.label, job: tail.job } : null, madeBy: null, approvalRequired: false, approvedAt: null },
+    target: r.target ?? null, tags: r.tags ?? [], primary: !!r.defaultResume, starred: !!r.starred, archived: !!r.archived,
+    lifecycle: r.archived ? "ARCHIVED" : rows.some((v) => v.reason === "MANUAL" || v.reason === "NAMED") ? "ACTIVE" : "DRAFT",
+    role: tail ? "TAILORED" : "MASTER", templateId: built ? d.templateId : null,
+    createdAt: r.createdAt, createdBy: me, updatedAt: d?.updatedAt ?? r.createdAt, updatedBy: me, lastExportedAt: d?.exportedAt ?? null, score: null,
+    pdf: built ? { status: "READY", hash: null, generatedAt: d.exportedAt ?? null, attempts: 0, error: null } : null,
+    shareWithOrg: r.shareWithOrg !== false,
+    lineage: { masterId, masterName: master.label, masterChanged: masterChanged(id), children: [...TAIL.values()].filter((t) => t.parent === id).length },
+    visibility: { mode: "PRIVATE", orgPaired: null, orgScope: null, shareWithOrg: r.shareWithOrg !== false, people: 0 },
+    recruiterSharing: { on: links.length > 0, links: links.length, views: links.reduce((n, l) => n + l.viewCount, 0) },
+    version: { current: latest?.versionNo ?? 0, latest: latest ? { name: latest.name, createdAt: latest.createdAt, kind: kindOf(latest.reason) } : null },
+  };
+}
+
+function handleMeta(req, res, path, method) {
+  const m = path.match(/^\/api\/profile\/resumes\/(\d+)\/(meta|lineage|detach|doc\/(?:checkpoint|versions|versions\/\d+\/text|versions\/\d+\/restore|sync-master|sync-master\/apply))$/);
+  if (!m) return false;
+  if (!subOf(req)) {
+    req.resume();
+    return json(res, 401, { error: "Unauthorized" }), true;
+  }
+  const id = Number(m[1]);
+  const what = m[2];
+  const r = RESUMES.find((x) => x.id === id);
+  if (!r) {
+    req.resume();
+    return json(res, 404, { status: 404, title: "Not Found" }), true;
+  }
+  const built = r.kind === "BUILT" && DOCS.has(id);
+  const d = DOCS.get(id);
+  const webBase = process.env.MOCK_WEB_URL ?? "http://localhost:3000";
+  void webBase;
+
+  if (what === "meta" && method === "GET") {
+    req.resume();
+    return json(res, 200, metaDto(id, req)), true;
+  }
+  if (what === "meta" && method === "PATCH") {
+    withBody(req, (b) => {
+      const bad = (path2, message) => json(res, 422, { status: 422, code: "META_INVALID", title: message, path: path2, message });
+      if ("name" in b) {
+        if (typeof b.name !== "string" || !b.name.trim()) return bad("$.name", "must not be blank");
+        if (b.name.trim().length > 200) return bad("$.name", "must be at most 200 characters");
+      }
+      if (b.primary === false && r.defaultResume && !r.archived) return json(res, 409, { status: 409, code: "PRIMARY_REQUIRED", title: "Pick another resume as primary instead of unsetting this one" });
+      if (b.primary === true && (b.archived ?? r.archived)) return bad("$.primary", "an archived resume cannot be primary");
+      if (b.archived === true && !r.archived && r.defaultResume && RESUMES.some((x) => x.id !== r.id && !x.archived)) {
+        return json(res, 409, { status: 409, code: "PRIMARY_REQUIRED", title: "This is your primary resume: make another one primary before archiving it", message: "This is your primary resume: make another one primary before archiving it" });
+      }
+      if ("name" in b) {
+        r.label = b.name.trim();
+        if (d) d.doc.meta.title = r.label;
+      }
+      if ("target" in b) r.target = b.target ? String(b.target).trim() || null : null;
+      if (Array.isArray(b.tags)) r.tags = b.tags.map(String);
+      if (typeof b.starred === "boolean") r.starred = b.starred;
+      if (typeof b.shareWithOrg === "boolean") r.shareWithOrg = b.shareWithOrg;
+      if (typeof b.archived === "boolean") {
+        r.archived = b.archived;
+        if (b.archived) r.defaultResume = false;
+      }
+      if (b.primary === true) for (const x of RESUMES) x.defaultResume = x.id === id;
+      if (!RESUMES.some((x) => x.defaultResume && !x.archived)) {
+        const first = RESUMES.find((x) => !x.archived);
+        if (first) first.defaultResume = true;
+      }
+      if (b.visibility === "PRIVATE") r.shareWithOrg = false;
+      if (typeof b.recruiterSharing === "boolean") {
+        const live = LINKS.filter((l) => l.resumeId === id && !l.revokedAt);
+        if (b.recruiterSharing && live.length === 0) addLink(id);
+        if (!b.recruiterSharing) for (const l of live) l.revokedAt = new Date().toISOString();
+      }
+      if (d && ("name" in b || "target" in b)) d.updatedAt = new Date().toISOString();
+      json(res, 200, metaDto(id, req));
+    });
+    return true;
+  }
+  if (what === "lineage" && method === "GET") {
+    req.resume();
+    const tail = TAIL.get(id);
+    const masterId = tail ? tail.parent : id;
+    const master = RESUMES.find((x) => x.id === masterId);
+    const children = [...TAIL.entries()]
+      .filter(([, t]) => t.parent === masterId)
+      .map(([cid, t]) => ({ id: cid, name: RESUMES.find((x) => x.id === cid).label, job: t.job, updatedAt: DOCS.get(cid).updatedAt, masterChanged: masterChanged(cid) }));
+    return json(res, 200, { master: { id: masterId, name: master.label, updatedAt: DOCS.get(masterId)?.updatedAt ?? null }, children, self: tail ? "TAILORED" : "MASTER" }), true;
+  }
+  if (what === "detach" && method === "POST") {
+    req.resume();
+    if (!TAIL.has(id)) return json(res, 409, { status: 409, code: "NOT_TAILORED", title: "This resume is not a tailored copy" }), true;
+    TAIL.delete(id);
+    addVersion(id, "DETACH", null);
+    return json(res, 200, metaDto(id, req)), true;
+  }
+
+  // everything below needs a built document
+  if (!built) {
+    req.resume();
+    return json(res, 404, { status: 404, title: "Not Found" }), true;
+  }
+  if (what === "doc/checkpoint" && method === "POST") {
+    withBody(req, (b) => {
+      const name = typeof b.name === "string" ? b.name.trim() : "";
+      if (name.length > 80) return json(res, 422, { status: 422, code: "DOC_INVALID", message: "name must be at most 80 characters", path: "$.name" });
+      const row = addVersion(id, name ? "NAMED" : "MANUAL", name);
+      json(res, 200, { versionNo: row.versionNo, reason: row.reason, pdf: { status: "PENDING", attempts: 0 } });
+    });
+    return true;
+  }
+  if (what === "doc/versions" && method === "GET") {
+    req.resume();
+    return json(res, 200, versionsOf(id).slice().reverse().map((v) => ({ versionNo: v.versionNo, reason: v.reason, name: v.name, createdAt: v.createdAt, contentHash: `mock-v${v.versionNo}`, by: v.by ?? actorOf(req), kind: kindOf(v.reason) }))), true;
+  }
+  const vm = what.match(/^doc\/versions\/(\d+)\/(text|restore)$/);
+  if (vm) {
+    const row = versionsOf(id).find((v) => v.versionNo === Number(vm[1]));
+    if (!row) {
+      req.resume();
+      return json(res, 404, { status: 404, title: "Not Found" }), true;
+    }
+    if (vm[2] === "text" && method === "GET") {
+      req.resume();
+      res.writeHead(200, { "content-type": "text/plain;charset=UTF-8" });
+      return res.end(docText(row.doc)), true;
+    }
+    if (vm[2] === "restore" && method === "POST") {
+      req.resume();
+      const last = versionsOf(id).at(-1);
+      if (JSON.stringify(last.doc) !== JSON.stringify(d.doc)) addVersion(id, "AUTOSAVE", null); // what is here now is kept first
+      d.doc = clone(row.doc);
+      d.doc.meta.title = r.label; // the name is the resume's, not the old document's
+      d.theme = row.theme;
+      d.version += 1;
+      d.updatedAt = new Date().toISOString();
+      addVersion(id, "RESTORE", null);
+      return withEtag(res, 200, docDto(id), d.version), true;
+    }
+  }
+  if (what === "doc/sync-master" && method === "POST") {
+    req.resume();
+    if (!TAIL.has(id)) return json(res, 409, { status: 409, code: "NOT_TAILORED", title: "This resume is not a tailored copy" }), true;
+    return json(res, 200, { changes: masterChanges(id) }), true;
+  }
+  if (what === "doc/sync-master/apply" && method === "POST") {
+    withBody(req, (b) => {
+      if (!TAIL.has(id)) return json(res, 409, { status: 409, code: "NOT_TAILORED", title: "This resume is not a tailored copy" });
+      const t = TAIL.get(id);
+      const picked = new Set(Array.isArray(b.ids) ? b.ids : []);
+      const master = DOCS.get(t.parent);
+      for (const c of masterChanges(id)) {
+        if (!picked.has(c.id)) continue;
+        for (const s of d.doc.sections) s.items = s.items.filter((it) => it.id !== c.id);
+        if (c.kind === "removed") continue;
+        const home = itemsById(master.doc).get(c.id);
+        const sec = d.doc.sections.find((s) => s.kind === home.kind);
+        if (sec) sec.items.push(clone(c.after));
+      }
+      t.snapshot = clone(master.doc); // "copied from" now reads as the master's current state
+      d.version += 1;
+      d.updatedAt = new Date().toISOString();
+      addVersion(id, "AUTOSAVE", null);
+      withEtag(res, 200, docDto(id), d.version);
+    });
+    return true;
+  }
+  req.resume();
+  json(res, 405, { error: "Method not allowed" });
+  return true;
+}
+
+// The seed for the header bar: resume 6 is a tailored copy of 3, and 3 has moved on since (one edit, one addition).
+RESUMES.push({ id: 6, kind: "BUILT", templateId: "modern", label: "Product Manager @ Stripe", status: "CONFIRMED", createdAt: ago(8), defaultResume: false, starred: false, archived: false, parsedJson: "{}" });
+// A tailored copy keeps the master's item ids (DESIGN 9.10), which is what lets "Pull changes" match items.
+DOCS.set(6, { doc: { ...clone(DOCS.get(3).doc), meta: { ...DOCS.get(3).doc.meta, title: "Product Manager @ Stripe" } }, templateId: "modern", theme: null, version: 2, updatedAt: ago(1) });
+TAIL.set(6, { parent: 3, job: { title: "Product Manager", company: "Stripe" }, snapshot: clone(DOCS.get(3).doc) });
+{
+  const master = DOCS.get(3).doc;
+  const sum = master.sections.find((s) => s.kind === "SUMMARY");
+  sum.items[0].text = "Product designer with 7 years shipping consumer and B2B products, now leading platform design.";
+  master.sections.find((s) => s.kind === "SKILLS").items.push({ id: "i_mock_mentor", group: "Leadership", skills: ["Mentoring", "Hiring"] });
+}
+// A short history on resumes 3 and 4 so Version, Compare and Restore have something to show.
+for (const id of [3, 4]) {
+  const d = DOCS.get(id);
+  const earlier = clone(d.doc);
+  earlier.sections.find((s) => s.kind === "SUMMARY").items[0].text = "Designer building products people enjoy.";
+  const rows = [
+    { versionNo: 1, reason: "IMPORT", name: null, createdAt: ago(20), by: null, doc: clone(earlier), templateId: "modern", theme: null },
+    { versionNo: 2, reason: "AUTOSAVE", name: null, createdAt: ago(9), by: null, doc: clone(earlier), templateId: "modern", theme: null },
+    { versionNo: 3, reason: "NAMED", name: "Before tailoring", createdAt: ago(3), by: null, doc: clone(d.doc), templateId: "modern", theme: null },
+  ];
+  rows[1].doc.sections.find((s) => s.kind === "SUMMARY").items[0].text = "Product designer with 5 years shipping consumer products.";
+  VERS.set(id, rows);
 }
 
 /* ── Common Profile items mock (R1.1 contract; in memory, writable like the builder) ─────────────── */
@@ -949,6 +1238,7 @@ const server = http.createServer((req, res) => {
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
+  if (handleMeta(req, res, path, method)) return;
   if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
 

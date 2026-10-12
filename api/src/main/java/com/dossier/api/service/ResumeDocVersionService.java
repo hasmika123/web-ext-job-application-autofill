@@ -38,6 +38,7 @@ public class ResumeDocVersionService {
     public static final String TEMPLATE_SWITCH = "TEMPLATE_SWITCH";
     public static final String IMPORT = "IMPORT";
     public static final String DETACH = "DETACH";
+    public static final String RESTORE = "RESTORE";
 
     /** A version name is at most this long (DESIGN 9.2). */
     public static final int MAX_NAME_CHARS = 80;
@@ -136,6 +137,12 @@ public class ResumeDocVersionService {
         return repository
             .findByResumeIdAndUserIdAndVersionNo(resumeId, userId, versionNo)
             .map(v -> ResumeDocumentText.render(ResumeDocumentUpgrader.upgrade(ResumeDocument.parse(v.getDocJson()))));
+    }
+
+    /** One whole version (document, template, theme) for Restore; empty when there is no such number. */
+    @Transactional(readOnly = true)
+    public Optional<ResumeDocVersion> find(Long resumeId, Long userId, int versionNo) {
+        return repository.findByResumeIdAndUserIdAndVersionNo(resumeId, userId, versionNo);
     }
 
     /** The newest row (its number and kind feed the header's Version menu); empty before the first. */

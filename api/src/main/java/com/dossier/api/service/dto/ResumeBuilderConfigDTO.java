@@ -26,7 +26,9 @@ public record ResumeBuilderConfigDTO(
     Resumes resumes,
     Profile profile,
     Lists list,
-    Pdf pdf
+    Pdf pdf,
+    Share share,
+    Versions versions
 ) {
     public record Templates(
         List<String> enabled,
@@ -62,7 +64,8 @@ public record ResumeBuilderConfigDTO(
         boolean jobMatch,
         boolean tailor,
         boolean printLayout,
-        boolean pdfView
+        boolean pdfView,
+        @Schema(description = "Share links are on (feature.resume_share_links.enabled); the header hides Shared with Recruiters when off.") boolean shareLinks
     ) {}
 
     public record Ai(boolean suggestAutoRefresh, int suggestStaleMinutes, int rewriteMaxRefs) {}
@@ -90,4 +93,10 @@ public record ResumeBuilderConfigDTO(
 
     /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF; whether the PDF view re-renders by itself. */
     public record Pdf(int waitMs, boolean viewAutoRefresh) {}
+
+    /** Resume sharing limits the header bar needs (R3.10): how many active links one resume may have. */
+    public record Share(int maxLinks) {}
+
+    /** Version history retention the header's All versions sheet states: automatic rows kept per resume (named ones are kept always). */
+    public record Versions(int retentionAuto) {}
 }

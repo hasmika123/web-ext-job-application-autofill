@@ -5,6 +5,7 @@ import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
 import { getBuilderConfig } from "@/lib/resume-builder-config";
 import { parseEtag, type ResumeDocDTO } from "@/lib/resume-doc";
+import type { ResumeMeta } from "@/lib/resume-meta";
 import ResumeEditor from "@/components/app-v3/resume-builder/ResumeEditor";
 
 export const metadata: Metadata = { title: "Edit resume" };
@@ -16,6 +17,16 @@ async function getProfileUpdatedAt(): Promise<string | null> {
     if (!res.ok) return null;
     const bio = (await res.json()) as { updatedAt?: unknown };
     return typeof bio.updatedAt === "string" ? bio.updatedAt : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The resume's metadata for the header bar (`GET …/meta`); null when it cannot be read (the bar then reads it itself). Never throws. */
+async function getMeta(id: string): Promise<ResumeMeta | null> {
+  try {
+    const res = await serverApiFetch(`/api/profile/resumes/${id}/meta`);
+    return res.ok ? ((await res.json()) as ResumeMeta) : null;
   } catch {
     return null;
   }
@@ -35,12 +46,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   if (!/^\d+$/.test(id)) notFound();
 
-  const [docRes, plan, config, aiUsage, profileUpdatedAt] = await Promise.all([
+  const [docRes, plan, config, aiUsage, profileUpdatedAt, meta] = await Promise.all([
     serverApiFetch(`/api/profile/resumes/${id}/doc`),
     getPlan(),
     getBuilderConfig(),
     getAiUsage(),
     getProfileUpdatedAt(),
+    getMeta(id),
   ]);
   if (docRes.status === 401 || docRes.status === 403) redirect("/login");
   if (docRes.status === 404 || docRes.status === 400) notFound();
@@ -58,6 +70,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       config={config}
       aiUsageLine={aiUsageLine ? { headline: aiUsageLine.headline, detail: aiUsageLine.detail } : null}
       profileUpdatedAt={profileUpdatedAt}
+      initialMeta={meta}
       jobTarget={null}
       openProposals={[]}
       entry={{ view: one(q.view) === "pdf" ? "pdf" : undefined, tab: one(q.tab) === "ai" ? "ai" : undefined }}

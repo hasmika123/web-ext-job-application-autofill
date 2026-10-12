@@ -233,7 +233,7 @@ function maxFor(field: ItemTextField, kind: ResumeSectionKind, limits: DocLimits
   return MAX_SHORT_CHARS;
 }
 
-type EditAction = Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` | `presentation/${string}` }>;
+type EditAction = Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` | `presentation/${string}` | `server/${string}` }>;
 
 /** The next document for an edit action, or the same `doc` when it is a no-op. */
 function applyEdit(doc: ResumeDocument, a: EditAction, limits: DocLimits): ResumeDocument {
@@ -618,6 +618,23 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         phase: "idle",
         error: null,
         errorPath: null,
+      };
+    }
+
+    case "server/replace": {
+      const rev = state.rev + 1;
+      return {
+        ...state,
+        history: createHistory(action.doc),
+        templateId: action.templateId,
+        theme: action.theme,
+        docVersion: action.docVersion,
+        rev,
+        savedRev: rev, // identical to the server's copy: nothing left to save
+        savedAt: action.at,
+        conflict: null,
+        phase: "idle",
+        error: null,
       };
     }
 

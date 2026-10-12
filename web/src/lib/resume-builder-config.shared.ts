@@ -52,6 +52,8 @@ export type ResumeBuilderConfig = {
     tailor: boolean;
     printLayout: boolean;
     pdfView: boolean;
+    /** Revocable share links are on (R3.11): the header hides "Shared with Recruiters" when off. */
+    shareLinks: boolean;
   };
   ai: { suggestAutoRefresh: boolean; suggestStaleMinutes: number; rewriteMaxRefs: number };
   plan: ResumeBuilderPlan;
@@ -77,6 +79,10 @@ export type ResumeBuilderConfig = {
   list: { quickTips: string[]; virtualizeAbove: number };
   /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF (ms); whether the PDF view re-renders by itself. */
   pdf: { waitMs: number; viewAutoRefresh: boolean };
+  /** Sharing limits the header bar needs (R3.10): active links per resume. */
+  share: { maxLinks: number };
+  /** Version history retention (R3.10): automatic versions kept per resume; named ones are kept always. */
+  versions: { retentionAuto: number };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
@@ -110,7 +116,7 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
     embeddings: false,
   },
   theme: { accentPalette: ["#16a34a", "#2563eb", "#7c3aed", "#ec4899", "#f97316", "#eab308"] },
-  features: { photo: true, docx: false, aiSuggestions: true, jobMatch: true, tailor: true, printLayout: true, pdfView: true },
+  features: { photo: true, docx: false, aiSuggestions: true, jobMatch: true, tailor: true, printLayout: true, pdfView: true, shareLinks: true },
   ai: { suggestAutoRefresh: false, suggestStaleMinutes: 10, rewriteMaxRefs: 12 },
   plan: "FREE",
   aiAllowed: false,
@@ -134,4 +140,6 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
     virtualizeAbove: 60,
   },
   pdf: { waitMs: 30000, viewAutoRefresh: false },
+  share: { maxLinks: 3 },
+  versions: { retentionAuto: 30 },
 };

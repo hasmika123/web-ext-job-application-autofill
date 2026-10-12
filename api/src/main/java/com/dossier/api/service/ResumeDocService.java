@@ -3,6 +3,7 @@ package com.dossier.api.service;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.ResumeDoc;
+import com.dossier.api.domain.ResumeDocVersion;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ResumeKind;
 import com.dossier.api.domain.enumeration.ResumeStatus;
@@ -688,6 +689,44 @@ public class ResumeDocService {
         // A theme change alters the render (DESIGN 8.5): a settled save, so the usual settle delay applies.
         markPdfPending(d, false);
         resumeDocRepository.saveAndFlush(d);
+        return toDto(d, d.getResume());
+    }
+
+    /**
+     * Restore an earlier version (R3.10, DESIGN 9.2): the document, theme and (when it is still enabled) template of
+     * version {@code versionNo} become the current ones. What the resume holds now is written as its own row first
+     * (unless the newest row already is that content), so a restore never loses work; the restored state is then
+     * recorded as a {@code RESTORE} row. The resume's name, target and {@code meta.tailoredFrom} stay what they are
+     * now (the name is the resume's truth, DESIGN 8.6, and {@code tailoredFrom} is server-written). No If-Match: the
+     * answer carries the new ETag, which the editor adopts. 404 when there is no such version.
+     */
+    public ResumeDocDTO restore(Long resumeId, int versionNo) {
+        ResumeDoc d = ownedDoc(resumeId);
+        ResumeDocVersion v = versionService
+            .find(d.getResumeId(), d.getUser().getId(), versionNo)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Version not found"));
+        String login = currentLogin();
+
+        // Keep what is here now, unless the newest row already holds exactly it.
+        boolean captured = versionService
+            .latest(d.getResumeId(), d.getUser().getId())
+            .map(latest -> latest.getContentHash().equals(d.getContentHash()) && latest.getTemplateId().equals(d.getTemplateId()) && latest.getThemeJson().equals(d.getThemeJson()))
+            .orElse(false);
+        if (!captured) versionService.record(d, ResumeDocVersionService.AUTOSAVE, null, login);
+
+        JsonNode doc = ResumeDocumentUpgrader.upgrade(parseQuietly(v.getDocJson()));
+        JsonNode keepTailoredFrom = tailoredFromOf(storedDoc(d));
+        if (doc.path("meta").isObject()) {
+            ObjectNode meta = (ObjectNode) doc.get("meta");
+            if (keepTailoredFrom == null) meta.remove("tailoredFrom");
+            else meta.set("tailoredFrom", keepTailoredFrom);
+        }
+        if (enabledTemplateIds().contains(v.getTemplateId())) d.setTemplateId(v.getTemplateId());
+        d.setThemeJson(v.getThemeJson());
+        applyContent(d, d.getResume(), doc, Instant.now());
+        markPdfPending(d, true); // a restore is a checkpoint: no settle delay
+        resumeDocRepository.saveAndFlush(d);
+        versionService.record(d, ResumeDocVersionService.RESTORE, null, login);
         return toDto(d, d.getResume());
     }
 

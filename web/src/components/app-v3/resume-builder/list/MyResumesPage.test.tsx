@@ -273,6 +273,32 @@ describe("My Resumes: cards", () => {
     expect(within(up).queryByRole("link", { name: /AI tools/ })).toBeNull();
   });
 
+  it("Set as Primary in the card menu patches meta and refreshes; the primary card does not offer it", async () => {
+    api.patchResumeMeta.mockResolvedValue({ kind: "ok" });
+    renderPage();
+    const primary = document.querySelector('[data-resume-id="1"]') as HTMLElement;
+    fireEvent.click(within(primary).getByText("More actions for Software Engineer"));
+    expect(screen.queryByRole("menuitem", { name: "Set as Primary" })).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    const second = document.querySelector('[data-resume-id="2"]') as HTMLElement;
+    fireEvent.click(within(second).getByText("More actions for Product Manager"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set as Primary" }));
+    await screen.findByText("Product Manager is now your primary resume");
+    expect(api.patchResumeMeta).toHaveBeenCalledWith(2, { primary: true });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("Set as Primary says why it failed and does not refresh", async () => {
+    api.patchResumeMeta.mockResolvedValue({ kind: "error", status: 422, message: "An archived resume cannot be primary" });
+    renderPage();
+    const second = document.querySelector('[data-resume-id="2"]') as HTMLElement;
+    fireEvent.click(within(second).getByText("More actions for Product Manager"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set as Primary" }));
+    expect(await screen.findByText("An archived resume cannot be primary")).toBeTruthy();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it("Edit on an uploaded file opens the manage panel", () => {
     renderPage();
     fireEvent.click(within(card(3)).getByRole("button", { name: "Edit Data Analyst" }));

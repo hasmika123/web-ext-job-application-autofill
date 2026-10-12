@@ -84,6 +84,12 @@ export type { TooltipProps, TooltipSide } from "./primitives/Tooltip";
 export { default as PageFrame, fitScale } from "./primitives/PageFrame";
 export type { PageFrameProps } from "./primitives/PageFrame";
 
+export { default as Popover } from "./primitives/Popover";
+export type { PopoverProps, PopoverTriggerApi } from "./primitives/Popover";
+
+export { default as DiffText } from "./primitives/DiffText";
+export type { DiffTextProps, DiffPart, DiffPartType } from "./primitives/DiffText";
+
 export { default as Menu } from "./primitives/Menu";
 export type { MenuProps, MenuItem, MenuHeading, MenuSeparator, MenuEntry } from "./primitives/Menu";
 

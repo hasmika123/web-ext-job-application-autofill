@@ -470,6 +470,26 @@ class ResumeAccessResourceIT {
     }
 
     @Test
+    void aLinkCanAllowOrStopPdfDownloadWithoutChangingItsAddress() throws Exception {
+        Long id = createBuilt("Backend");
+        JsonNode l = link(id, "{}");
+        long accessId = l.get("id").asLong();
+        String url = "/api/profile/resumes/" + id + "/access/" + accessId;
+        mockMvc
+            .perform(patch(url).contentType(MediaType.APPLICATION_JSON).content("{\"allowDownload\":true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.allowDownload").value(true))
+            .andExpect(jsonPath("$.url").value(l.get("url").asText()));
+        publicGet("/api/public/resumes/" + tokenOf(l)).andExpect(jsonPath("$.allowDownload").value(true));
+        mockMvc.perform(patch(url).contentType(MediaType.APPLICATION_JSON).content("{\"allowDownload\":false}")).andExpect(jsonPath("$.allowDownload").value(false));
+        mockMvc.perform(patch(url).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isUnprocessableEntity());
+
+        // a revoked link, and a link of someone else's resume, are the same 404
+        mockMvc.perform(delete(url)).andExpect(status().isNoContent());
+        mockMvc.perform(patch(url).contentType(MediaType.APPLICATION_JSON).content("{\"allowDownload\":true}")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void revokedExpiredAndUnknownLinksAreIndistinguishable() throws Exception {
         Long id = createBuilt("Backend");
         JsonNode revoked = link(id, "{}");

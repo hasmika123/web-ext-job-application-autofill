@@ -19,11 +19,13 @@ import {
   type CheckpointResult,
   type ResumeDocDTO,
 } from "@/lib/resume-doc";
+import type { ResumeMeta } from "@/lib/resume-meta";
 import ConflictDialog from "./ConflictDialog";
 import DocumentCanvas from "./DocumentCanvas";
 import EditorTopBar from "./EditorTopBar";
 import HiddenContentBar from "./HiddenContentBar";
 import RailStrip from "./RailStrip";
+import ResumeHeaderBar from "./ResumeHeaderBar";
 import RightRail from "./RightRail";
 import SectionTabs from "./SectionTabs";
 import TipsSheet from "./TipsSheet";
@@ -79,6 +81,8 @@ export interface ResumeEditorProps {
   aiUsageLine?: { headline: string; detail: string } | null;
   /** When the Common Profile last changed; the sync banner (R3.x) compares it to `meta.profileSyncedAt`. */
   profileUpdatedAt?: string | null;
+  /** The resume's metadata (name, primary, visibility, versions...) read on the server for the header bar; null = it reads it itself. */
+  initialMeta?: ResumeMeta | null;
   /** The job this resume targets: always null until R5.6. */
   jobTarget?: null;
   /** Open AI suggestion cards: always empty until R4.1. */
@@ -95,7 +99,7 @@ export interface ResumeEditorProps {
  * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
  * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [], entry }: ResumeEditorProps) {
+export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [], entry, initialMeta = null }: ResumeEditorProps) {
   const resumeId = initial.resumeId;
   const initialVersion = initial.docVersion;
   const router = useRouter();
@@ -443,6 +447,23 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     return false;
   };
 
+  /** Stable for the header bar: always the latest flushAll (it closes over the presentation hook). */
+  const flushAllRef = useRef(flushAll);
+  useEffect(() => {
+    flushAllRef.current = flushAll;
+  });
+  const ensureSaved = useCallback(() => flushAllRef.current(), []);
+
+  /** The header bar restored a version / pulled master changes: the server's document replaces the one on screen. */
+  const adoptServerDoc = useCallback(
+    (dto: ResumeDocDTO) => {
+      dispatch({ type: "server/replace", doc: dto.doc, templateId: dto.templateId, theme: dto.theme, docVersion: dto.docVersion, at: Date.now() });
+      autosave.current?.reset(dto.docVersion, latestRev.current + 1);
+    },
+    [],
+  );
+
+
   /* Save (DESIGN 10.15): autosave stays as built; Save flushes it, writes a checkpoint (a MANUAL / NAMED version)
      and the server queues the PDF at once. "Saved" is honest: it reads Save only while something changed since the
      last checkpoint, or the stored PDF is missing / stale / failed. */
@@ -710,21 +731,18 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
           className="col-start-2 row-start-1 min-h-0 min-w-0 overflow-y-auto px-4 pb-4 max-md:pb-24 md:max-lg:pb-20"
         >
           <div className="mx-auto flex max-w-[880px] flex-col gap-4">
-            {/* Interim rename field until the resume header bar (R3.9). */}
-            <label className="flex items-center gap-3 rounded-2xl border border-v2-line/70 bg-paper px-4 py-2 shadow-v2-soft">
-              <span className="flex-none text-[12.5px] font-semibold text-ink-soft">Resume name</span>
-              <input
-                value={doc.meta.title}
-                // config-literal-ok: meta.title maxLength is a schema constant (DESIGN 3.1), not a settings key
-                maxLength={200}
-                onChange={(e) => dispatch({ type: "title/edit", title: e.target.value, at: Date.now() })}
-                onBlur={() => {
-                  if (!doc.meta.title.trim()) dispatch({ type: "title/edit", title: "Untitled resume", at: Date.now() });
-                }}
-                placeholder="Untitled resume"
-                className="min-h-11 min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 font-display text-[16px] font-bold text-ink outline-none hover:border-line focus:border-accent focus:bg-paper"
-              />
-            </label>
+            <ResumeHeaderBar
+              resumeId={resumeId}
+              initialMeta={initialMeta}
+              fallbackName={initial.label}
+              config={config}
+              viewport={layout.viewport}
+              savedAt={state.savedAt}
+              ensureSaved={ensureSaved}
+              onDocReplaced={adoptServerDoc}
+              onServerChange={() => void refreshPdf()}
+              onTailor={() => openPanel("tailor")}
+            />
 
             <SectionTabs
               sections={doc.sections}

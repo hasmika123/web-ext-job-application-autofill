@@ -135,4 +135,9 @@ export type EditorAction =
   /* presentation (R2.4): the template / theme are optimistic and never in the undo history or the autosave PUT */
   | { type: "presentation/set"; templateId?: string; theme?: Partial<ResumeTheme> | null }
   /** A template / theme PATCH was confirmed: adopt the version its ETag carried. */
-  | { type: "presentation/version"; version: number };
+  | { type: "presentation/version"; version: number }
+  /**
+   * The server replaced the document under the editor (Restore a version, Pull changes from master, R3.10): adopt it
+   * as saved (`docVersion` is the one the next save must send). Undo history starts over from it.
+   */
+  | { type: "server/replace"; doc: ResumeDocument; templateId: string; theme: EditorState["theme"]; docVersion: number; at: number };

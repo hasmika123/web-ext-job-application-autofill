@@ -991,7 +991,7 @@
       "id": "R3.10",
       "epic": "R3",
       "title": "Resume header bar (board `editor-metadata-header.webp`) — name + rename, Master/Tailored selector, ⋮, created/modified, Visibility ▾, Primary, Shared with Recruiters ▾, Version ▾ + Compare",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web"

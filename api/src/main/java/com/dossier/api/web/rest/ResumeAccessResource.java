@@ -2,6 +2,7 @@ package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.ResumeAccessException;
 import com.dossier.api.service.ResumeAccessService;
 import com.dossier.api.service.ResumeAccessService.PdfFile;
 import com.dossier.api.service.dto.ResumeAccessDTOs.AccessGrantDTO;
@@ -90,7 +91,21 @@ public class ResumeAccessResource {
         return ResponseEntity.status(HttpStatus.CREATED).body(accessService.createLink(id, body.expiresAt(), body.label(), body.allowDownload()));
     }
 
-    @Operation(summary = "Revoke a grant or link", description = "Idempotent: 204 whether or not it was already revoked. 404 if the resume or the grant is not yours.")
+    /** Body of {@code PATCH /{id}/access/{accessId}}. */
+    public record LinkPatchVM(@Schema(description = "May the holder of this link download the PDF?") Boolean allowDownload) {}
+
+    @Operation(
+        summary = "Change a share link",
+        description = "Body {allowDownload}: allow or stop PDF download on a live link without changing its address. 404 if the resume, or a live link of it, is not yours; 422 ACCESS_INVALID without allowDownload."
+    )
+    @PatchMapping("/{id}/access/{accessId}")
+    public AccessGrantDTO patchLink(@PathVariable("id") Long id, @PathVariable("accessId") Long accessId, @RequestBody(required = false) LinkPatchVM vm) {
+        demoGuard.assertNotDemo();
+        if (vm == null || vm.allowDownload() == null) throw ResumeAccessException.invalid("$.allowDownload", "must be true or false");
+        return accessService.setLinkDownload(id, accessId, vm.allowDownload());
+    }
+
+    @Operation(summary = "Revoke a grant or link",description = "Idempotent: 204 whether or not it was already revoked. 404 if the resume or the grant is not yours.")
     @DeleteMapping("/{id}/access/{accessId}")
     public ResponseEntity<Void> revoke(@PathVariable("id") Long id, @PathVariable("accessId") Long accessId) {
         demoGuard.assertNotDemo();
