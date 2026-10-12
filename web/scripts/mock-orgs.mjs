@@ -243,6 +243,23 @@ export function createOrgsMock({ DEMO_ORG, orgsEnabled, json, withBody, subOf, f
     return true;
   };
 
+  // ---- billing-off activation (E2E-O4.0) ----------------------------------------------------------------------------
+  // MOCK_ORGS_BILLING=on pretends Stripe is connected; MOCK_ORGS_DEV_ACTIVATE=off closes the dev path (like production).
+  const billingOn = /^(on|true|1|yes)$/i.test(process.env.MOCK_ORGS_BILLING ?? "off");
+  const devActivate = !/^(false|0|no|off)$/i.test(process.env.MOCK_ORGS_DEV_ACTIVATE ?? "on");
+  const activatable = (o) => o.status === "DRAFT" || o.status === "PENDING_SETUP_FEE";
+  on("GET", "/billing", "billing.view", (req, res, o, m) =>
+    ok(res, { status: o.status, billingEnabled: billingOn, devActivation: devActivate && !billingOn && m.role === "OWNER" && activatable(o), subscription: null, items: [], invoices: [] }),
+  );
+  on("POST", "/activate", "billing.manage", (req, res, o, m) => {
+    if (!devActivate || billingOn || m.role !== "OWNER") return notFound(res);
+    if (o.status === "ACTIVE") return ok(res, detail(o, m));
+    if (!activatable(o)) return problem(res, 409, "ORG_NOT_EDITABLE", { title: "This organization can't be activated from its current state" });
+    o.status = "ACTIVE";
+    audit(o, m, "BILLING_DEV_ACTIVATED", `status DRAFT -> ACTIVE (billing off)`);
+    return ok(res, detail(o, m));
+  });
+
   /** The request handler: true when it answered. */
   return function handleOrgs(req, res, path, method) {
     if (path === "/mock/orgs/reset" && method === "POST") {

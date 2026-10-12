@@ -55,6 +55,9 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   **O1.7 done** (`e2e-o1.7`): `OrgSwitcher` (sheet on phone, menu on desktop, `POST /api/orgs/current`), role-aware nav as data in
   `components/org-v2/shell/org-nav.ts` (a path outside the role is not rendered), real `NotificationBell`. Gotcha: the sticky top bar has a backdrop blur, so
   anything `fixed` inside it must be portalled out (the switcher sheet goes to the `.theme-v2` wrapper).
+  **E2E-O4.0 done** (`e2e-o4.0`): `OrgBillingResource` + `OrgActivationService` (`POST /api/orgs/{id}/activate` only with `dossier.orgs.dev-activate=true`
+  AND Stripe off, OWNER only, else the generic 404; `GET .../billing` skeleton), `BillingPage` real (status card + "not connected" / "Set up billing"),
+  `DraftBanner`, BFF `api/orgs/{route,[orgId]/billing,[orgId]/activate}`, `lib/org-api.ts`. Env: `ORGS_DEV_ACTIVATE` (prod never sets it).
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),

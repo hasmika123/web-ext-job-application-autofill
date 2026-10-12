@@ -121,3 +121,44 @@ test.describe("role-aware nav", () => {
     });
   });
 });
+
+const MOCK = `http://localhost:${process.env.E2E_MOCK_PORT ?? 8180}`;
+
+test.describe("billing-off activation", () => {
+  test.use({ storageState: STATE["org.draft"], viewport: { width: 1440, height: 900 } });
+  test.beforeEach(async ({ request }) => {
+    await request.post(`${MOCK}/mock/orgs/reset`); // the mock keeps orgs in memory for the whole run
+  });
+
+  test("a draft workspace says so, billing says it is not connected, and the owner activates it", async ({ page }) => {
+    await page.goto("/org");
+    const banner = page.locator("[data-draft-banner]");
+    await expect(banner).toContainText("This workspace is a draft");
+    await expect(page.locator("header").getByText("Draft")).toBeVisible();
+
+    await banner.getByRole("link", { name: "Activate" }).click();
+    await expect(page).toHaveURL(/\/org\/billing$/);
+    await expect(page.getByText("Your workspace is a draft")).toBeVisible();
+    await expect(page.getByText("Billing isn't connected in this environment")).toBeVisible();
+    for (const invented of ["Enterprise", "4242", "INV-", "72 / 100"]) await expect(page.getByText(invented)).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Activate workspace (dev)" }).click();
+    await expect(page.getByText("Workspace activated")).toBeVisible();
+    await expect(page.getByText("Your workspace is active")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Activate workspace (dev)" })).toHaveCount(0);
+    await page.goto("/org");
+    await expect(page.locator("[data-draft-banner]")).toHaveCount(0);
+    await expect(page.locator("header").getByText("Active")).toBeVisible();
+  });
+});
+
+test.describe("billing for an active workspace", () => {
+  test.use({ storageState: STATE["org.finance"], viewport: { width: 390, height: 844 } });
+  test("finance reads the honest state on a phone, without sideways scroll", async ({ page }) => {
+    await page.goto("/org/billing");
+    await expect(page.getByText("Your workspace is active")).toBeVisible();
+    await expect(page.getByText("Billing isn't connected in this environment")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Activate/ })).toHaveCount(0);
+    await expectNoHorizontalScroll(page, "/org/billing at 390");
+  });
+});

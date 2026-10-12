@@ -12,13 +12,16 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 import { GET as mineGET } from "./mine/route";
 import { POST as currentPOST } from "./current/route";
 import { GET as orgGET, PATCH as orgPATCH } from "./[orgId]/route";
+import { GET as billingGET } from "./[orgId]/billing/route";
+import { POST as activatePOST } from "./[orgId]/activate/route";
+import { POST as createPOST } from "./route";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const ctx = (orgId: string) => ({ params: Promise.resolve({ orgId }) });
 const req = (method: string, url: string, body?: unknown) =>
   new Request(`http://web.test${url}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body) });
 
-beforeEach(() => serverApiFetch.mockResolvedValue(json({ ok: true })));
+beforeEach(() => serverApiFetch.mockImplementation(async () => json({ ok: true })));
 afterEach(() => {
   serverApiFetch.mockReset();
   cookieStore.set.mockReset();
@@ -55,6 +58,38 @@ describe("/api/orgs/:orgId", () => {
     expect(init?.method).toBe("PATCH");
     expect(init?.body).toBe(JSON.stringify({ name: "Acme 2" }));
     expect((await orgPATCH(req("PATCH", "/api/orgs/9", ""), ctx("9"))).status).toBe(400);
+  });
+});
+
+describe("billing, activation and create (E2E-O4.0 / O2.1)", () => {
+  it("GET billing and POST activate go to the org's routes; the id must be numeric", async () => {
+    await billingGET(req("GET", "/api/orgs/9/billing"), ctx("9"));
+    expect(serverApiFetch.mock.calls[0]![0]).toBe("/api/orgs/9/billing");
+    await activatePOST(req("POST", "/api/orgs/9/activate"), ctx("9"));
+    expect(serverApiFetch.mock.calls[1]![0]).toBe("/api/orgs/9/activate");
+    expect(serverApiFetch.mock.calls[1]![1]?.method).toBe("POST");
+    expect((await billingGET(req("GET", "/api/orgs/x/billing"), ctx("x"))).status).toBe(404);
+    expect((await activatePOST(req("POST", "/api/orgs/x/activate"), ctx("x"))).status).toBe(404);
+    expect(serverApiFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("activate relays the generic 404 of an environment that does not allow it", async () => {
+    serverApiFetch.mockResolvedValue(json({ code: "NOT_FOUND" }, 404));
+    const res = await activatePOST(req("POST", "/api/orgs/9/activate"), ctx("9"));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("create forwards the body and relays the problem codes the flow branches on", async () => {
+    serverApiFetch.mockResolvedValue(json({ code: "SLUG_TAKEN", suggestion: "acme-2" }, 409));
+    const res = await createPOST(req("POST", "/api/orgs", { name: "Acme", type: "BOOTCAMP" }));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "SLUG_TAKEN", suggestion: "acme-2" });
+    const [path, init] = serverApiFetch.mock.calls[0]!;
+    expect(path).toBe("/api/orgs");
+    expect(init?.method).toBe("POST");
+    expect(init?.body).toBe(JSON.stringify({ name: "Acme", type: "BOOTCAMP" }));
+    expect((await createPOST(req("POST", "/api/orgs", ""))).status).toBe(400);
   });
 });
 

@@ -98,3 +98,15 @@ export function decideOrgGate(mine: readonly OrgMine[], cookieOrgId?: string | n
   const current = orgs.find((o) => o.orgId === wanted) ?? orgs[0];
   return { kind: "render", orgs, current };
 }
+
+/** `GET /api/orgs/{id}/billing` (E2E-O4.0): the skeleton until org billing ships (Wave 5). */
+export interface OrgBilling {
+  status: OrgStatus;
+  /** Stripe is connected in this environment. */
+  billingEnabled: boolean;
+  /** The OWNER may activate a DRAFT workspace without paying (billing off, dev/CI/demo only). */
+  devActivation: boolean;
+  subscription: unknown | null;
+  items: unknown[];
+  invoices: unknown[];
+}

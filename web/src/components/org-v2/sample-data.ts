@@ -528,51 +528,6 @@ export const AUTOMATION_FLOWS = [
   { id: "a4", title: "Save resumes to Drive", sub: "Applications → Google Drive" },
 ];
 
-/* ── 6.3 Billing & Subscription ───────────────────────────────────────────────────────── */
-export const PLAN_FEATURES = [
-  "AI Resume Support",
-  "Advanced Analytics",
-  "Team Collaboration",
-  "Custom Integrations",
-  "Dedicated Support",
-  "Priority Access",
-];
-
-export const INVOICES = [
-  { id: "INV-2026-010", date: "Oct 15, 2026", description: "Enterprise Plan (72 seats)", amount: "$1,800.00" },
-  { id: "INV-2026-009", date: "Sep 15, 2026", description: "Enterprise Plan (68 seats)", amount: "$1,700.00" },
-  { id: "INV-2026-008", date: "Aug 15, 2026", description: "Enterprise Plan (65 seats)", amount: "$1,625.00" },
-  { id: "INV-2026-007", date: "Jul 15, 2026", description: "Enterprise Plan (62 seats)", amount: "$1,550.00" },
-  { id: "INV-2026-006", date: "Jun 15, 2026", description: "Enterprise Plan (60 seats)", amount: "$1,500.00" },
-];
-
-export const USAGE: { label: string; used: string; pct: number; tone: Tone }[] = [
-  { label: "AI Resume Support", used: "842 / 1,000 resumes", pct: 84, tone: "violet" },
-  { label: "Job Applications", used: "1,240 / 2,000 applications", pct: 62, tone: "blue" },
-  { label: "Integrations", used: "404 / 500 API calls", pct: 81, tone: "green" },
-];
-
-export const SUBSCRIPTION_DETAILS: { label: string; value: string; chip?: boolean }[] = [
-  { label: "Plan", value: "Enterprise" },
-  { label: "Active Seats", value: "72 / 100" },
-  { label: "Billing Cycle", value: "Monthly" },
-  { label: "Next Renewal", value: "Nov 15, 2026" },
-  { label: "Plan Started", value: "Jan 15, 2025" },
-  { label: "Annual Contract", value: "Yes" },
-  { label: "Auto-Renewal", value: "Enabled", chip: true },
-  { label: "Currency", value: "USD" },
-];
-
-export const UPGRADE_OPTIONS = [
-  { title: "Add More Seats", body: "Scale your team as you grow." },
-  { title: "Custom Plan", body: "Need a tailored solution?" },
-];
-
-export const BILLING_CONTACTS = [
-  { name: "Priya Nair", role: "Primary Billing Contact", email: "priya.nair@acmecorp.com" },
-  { name: "Rahul Sharma", role: "Finance Team", email: "rahul.sharma@acmecorp.com" },
-];
-
 /* ── 6.4 Settings ─────────────────────────────────────────────────────────────────────── */
 export const ABOUT_COMPANY =
   "Acme Corp is a technology company building innovative solutions for a brighter future. We're committed to diversity, growth, and creating meaningful opportunities for talent worldwide.";

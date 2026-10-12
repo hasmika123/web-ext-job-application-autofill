@@ -115,6 +115,9 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}", Case.read()),
         Map.entry("PATCH /api/orgs/{orgId}", Case.write("{\"name\":\"Hijacked\"}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("POST /api/orgs/{orgId}/close", Case.write(null, 200, OrgAuditService.ORG_CLOSE)),
+        Map.entry("GET /api/orgs/{orgId}/billing", Case.read()),
+        // E2E-O4.0: the legitimate call needs a DRAFT org, so the legit loop below puts the world's org back to DRAFT first.
+        Map.entry("POST /api/orgs/{orgId}/activate", Case.write(null, 200, OrgAuditService.BILLING_DEV_ACTIVATED)),
         Map.entry("GET /api/orgs/{orgId}/groups", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/groups", Case.write("{\"name\":\"Hijack\"}", 201, OrgAuditService.GROUP_CREATE)),
         Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
@@ -433,6 +436,11 @@ class OrgIsolationIT {
             Case c = COVERAGE.get(route.key());
             assertThat(c).as(route.key() + " is not in COVERAGE").isNotNull();
             World w = new World("legit" + (n++), false); // a world of its own, so a close or a delete cannot break the next route
+            if (route.key().equals("POST /api/orgs/{orgId}/activate")) { // activation moves DRAFT -> ACTIVE; the worlds are born ACTIVE
+                Organization draft = orgs.findByOrgId(w.org.getId()).orElseThrow();
+                draft.setStatus(OrgStatus.DRAFT);
+                orgs.saveAndFlush(draft);
+            }
             long before = audit.countByOrgId(w.org.getId());
             MvcResult r = mockMvc.perform(request(route, uri(route, w.ids())).with(user(w.p + "-owner"))).andReturn();
             assertThat(r.getResponse().getStatus()).as(route.key() + " legitimately -> " + r.getResponse().getContentAsString()).isEqualTo(c.legitStatus());

@@ -3176,7 +3176,7 @@
       "tech": "api config/application.yml, web/rest/PublicConfigResource.java, config/OrgsEnabledFilter.java, SecurityConfiguration"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "evidence": [

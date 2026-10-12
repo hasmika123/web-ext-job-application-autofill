@@ -113,6 +113,7 @@ dossier:
   # Org features are on in the suite; the flag tests switch it with the admin setting.
   orgs:
     enabled: true
+    dev-activate: true
   # The service-to-service secret for /api/internal/** (ResumePdfJobIT sends it).
   internal:
     token: test-internal-token

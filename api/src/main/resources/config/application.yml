@@ -264,6 +264,10 @@ dossier:
   # /api/orgs/**, /api/join/** and /api/me/orgs/** answer 404 and the web hides the org navigation.
   orgs:
     enabled: ${ORGS_ENABLED:false}
+    # Billing-off activation (E2E-O4.0): lets an OWNER move a DRAFT org to ACTIVE with POST /api/orgs/{id}/activate while Stripe is not
+    # connected, so every org page can be built and demoed before org billing exists. Production never sets it (and the path is also
+    # closed whenever StripeGateway is enabled), so there it is a 404.
+    dev-activate: ${ORGS_DEV_ACTIVATE:false}
   # Service-to-service secret for /api/internal/** (the web's resume-PDF worker, Resume Builder R3.7).
   # Sent as X-Internal-Token; the same value is the web container's DOSSIER_INTERNAL_TOKEN. Blank (the
   # default) = the internal routes refuse every request. Never exposed by the edge proxy.

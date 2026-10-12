@@ -4016,6 +4016,24 @@
         }
       }
     },
+    "/api/orgs/{orgId}/activate" : {
+      "post" : {
+        "tags" : [ "org-billing-resource" ],
+        "operationId" : "activate",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgDetailDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/newsletter/unsubscribe" : {
       "post" : {
         "tags" : [ "newsletter-resource" ],
@@ -5857,7 +5875,7 @@
     "/api/admin/users/{login}/activate" : {
       "post" : {
         "tags" : [ "admin-user-action-resource" ],
-        "operationId" : "activate",
+        "operationId" : "activate_1",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -7475,6 +7493,24 @@
         "security" : [ {
           "bearer-jwt" : [ ]
         } ]
+      }
+    },
+    "/api/orgs/{orgId}/billing" : {
+      "get" : {
+        "tags" : [ "org-billing-resource" ],
+        "operationId" : "billing",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgBillingDTO"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/orgs/mine" : {
@@ -12967,6 +13003,30 @@
           "count" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "OrgBillingDTO" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_SETUP_FEE", "ACTIVE", "PAST_DUE", "SUSPENDED", "CLOSED" ]
+          },
+          "billingEnabled" : {
+            "type" : "boolean"
+          },
+          "devActivation" : {
+            "type" : "boolean"
+          },
+          "subscription" : { },
+          "items" : {
+            "type" : "array",
+            "items" : { }
+          },
+          "invoices" : {
+            "type" : "array",
+            "items" : { }
           }
         }
       },

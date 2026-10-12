@@ -59,6 +59,9 @@ public class OrgAuditService {
     public static final String GROUP_UPDATE = "GROUP_UPDATE";
     public static final String GROUP_DELETE = "GROUP_DELETE";
 
+    // --- Billing family (BILLING_*): the billing-off activation path (E2E-O4.0); Wave 5 adds the rest ---
+    public static final String BILLING_DEV_ACTIVATED = PREFIX_BILLING + "DEV_ACTIVATED";
+
     // --- Target kinds ---
     public static final String TARGET_ORG = "ORG";
     public static final String TARGET_MEMBER = "MEMBER";

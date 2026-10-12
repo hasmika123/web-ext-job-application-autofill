@@ -32,6 +32,7 @@ import { notifyExtension } from "@/lib/extension-signal";
 import type { AppAccount } from "@/components/app-shell/AppShell";
 import NotificationBell from "@/components/app-shell/NotificationBell";
 import { InitialsAvatar, MascotCard, SearchInput } from "@/components/app-v2/common";
+import DraftBanner from "./DraftBanner";
 import OrgSwitcher from "./OrgSwitcher";
 import { OrgProvider, useOrg } from "./OrgContext";
 import { roleLabel } from "./org-labels";
@@ -256,7 +257,10 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
         {demo && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
         <main className="min-w-0 px-4 pb-24 lg:pb-14 pt-2 lg:px-6">
           {pathAllowed(pathname, permissions) ? (
-            children
+            <>
+              <DraftBanner />
+              {children}
+            </>
           ) : (
             <EmptyState
               mascot
