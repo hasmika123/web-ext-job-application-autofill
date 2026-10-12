@@ -7,6 +7,7 @@ import ProfilesPage from "@/components/app-v3/profiles/ProfilesPage";
 import { tabFromParam } from "@/components/app-v3/profiles/tabs";
 import { deriveProfile } from "@/components/app-v3/profiles/derive";
 import { getBioProvenance, getCompleteness, getProfileItems } from "@/lib/profile-items-server";
+import { getOnboardingStatus } from "@/lib/onboarding/server";
 import { getBuilderConfig } from "@/lib/resume-builder-config";
 
 export const metadata: Metadata = { title: "My Profiles" };
@@ -19,7 +20,7 @@ export const metadata: Metadata = { title: "My Profiles" };
  */
 export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   const { tab } = await searchParams;
-  const [accRes, bioRes, resRes, items, completeness, config, bioProvenanceRes] = await Promise.all([
+  const [accRes, bioRes, resRes, items, completeness, config, bioProvenanceRes, onboarding] = await Promise.all([
     serverApiFetch("/api/account"),
     serverApiFetch("/api/profile"),
     serverApiFetch("/api/profile/resumes"),
@@ -27,6 +28,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
     getCompleteness(),
     getBuilderConfig(),
     getBioProvenance(), // where each saved bio value came from: the source chips (R1.6)
+    getOnboardingStatus(), // the persona, for the Preferences tab (R1.12); null when the API could not say
   ]);
   if (accRes.status === 401 || accRes.status === 403) redirect("/login");
   const account = accRes.ok ? await accRes.json().catch(() => null) : null;
@@ -56,6 +58,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       completeness={completeness}
       config={config}
       initialTab={tabFromParam(Array.isArray(tab) ? tab[0] : tab)}
+      persona={onboarding?.persona ?? null}
     />
   );
 }

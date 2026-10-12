@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from "react";
+import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactElement, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "./cn";
 
@@ -18,6 +18,10 @@ import { cn } from "./cn";
  *     { separator: true },
  *     { label: "Delete", onSelect: remove, danger: true },
  *   ]} />
+ *
+ * A trigger that is itself a button (a `<button>`, `Button`, `IconButton`) IS the menu's button: it gets the menu semantics
+ * (`aria-haspopup`, `aria-expanded`, Arrow Down opens) and the click handler directly, so there is one tab stop and no
+ * button nested in a button. Any other trigger (a `div` with an avatar in it) is wrapped in a `role="button"` span as before.
  */
 export interface MenuItem {
   label: ReactNode;
@@ -139,33 +143,62 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
     }
   }
 
+  const aria = {
+    "aria-haspopup": "menu" as const,
+    "aria-expanded": open,
+    "aria-disabled": disabled || undefined,
+    "aria-controls": open ? `${baseId}-menu` : undefined,
+  };
+  const toggle = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    if (disabled) return;
+    setOpen((v) => !v);
+  };
+  // The trigger is a button already (a host `<button>` or a component such as `IconButton`): it takes the menu's behaviour itself.
+  const own = isValidElement(trigger) && (typeof trigger.type !== "string" || trigger.type === "button") ? (trigger as ReactElement<Record<string, unknown>>) : null;
+
   return (
     <div className={cn("inline-flex", className)}>
-      <span
-        ref={triggerRef}
-        role="button"
-        tabIndex={disabled ? -1 : 0}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-disabled={disabled || undefined}
-        aria-controls={open ? `${baseId}-menu` : undefined}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (disabled) return;
-          setOpen((v) => !v);
-        }}
-        onKeyDown={(e) => {
-          if (disabled) return;
-          if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen(true);
-          }
-        }}
-        className="inline-flex"
-      >
-        {trigger}
-      </span>
+      {own ? (
+        <span ref={triggerRef} className="inline-flex">
+          {cloneElement(own, {
+            ...aria,
+            onClick: (e: ReactMouseEvent) => {
+              (own.props.onClick as ((ev: ReactMouseEvent) => void) | undefined)?.(e);
+              toggle(e);
+            },
+            onKeyDown: (e: KeyboardEvent) => {
+              (own.props.onKeyDown as ((ev: KeyboardEvent) => void) | undefined)?.(e);
+              if (disabled) return;
+              // Enter and Space already click a button; Arrow Down is the menu's own way in
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(true);
+              }
+            },
+          })}
+        </span>
+      ) : (
+        <span
+          ref={triggerRef}
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          {...aria}
+          onClick={toggle}
+          onKeyDown={(e) => {
+            if (disabled) return;
+            if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(true);
+            }
+          }}
+          className="inline-flex"
+        >
+          {trigger}
+        </span>
+      )}
 
       {open &&
         typeof document !== "undefined" &&

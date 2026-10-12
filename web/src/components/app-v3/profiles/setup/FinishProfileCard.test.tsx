@@ -47,7 +47,7 @@ describe("FinishProfileCard (server-evaluated)", () => {
     expect(screen.getByRole("region", { name: "Set up your profile" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Let's get you job-ready" })).toBeTruthy();
     expect(screen.getByText(`Drop in a resume, confirm a few cards, done. About ${ONBOARDING_DEFAULTS.estimateMinutes} minutes.`)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Start/ }).getAttribute("href")).toBe("/profiles/setup");
+    expect(screen.getByRole("link", { name: /Start/ }).getAttribute("href")).toBe("/profiles/setup?entry=card");
     expect(screen.getByTestId("wave")).toBeTruthy();
     expect(screen.queryByTestId("laptop")).toBeNull();
     expect(screen.queryByRole("meter")).toBeNull();
@@ -66,7 +66,7 @@ describe("FinishProfileCard (server-evaluated)", () => {
     const meter = screen.getByRole("meter", { name: "Setup progress" });
     expect(meter.getAttribute("aria-valuenow")).toBe("3");
     expect(meter.getAttribute("aria-valuemax")).toBe("7");
-    expect(screen.getByRole("link", { name: /Continue/ }).getAttribute("href")).toBe("/profiles/setup");
+    expect(screen.getByRole("link", { name: /Continue/ }).getAttribute("href")).toBe("/profiles/setup?entry=card");
     expect(screen.getByTestId("laptop")).toBeTruthy();
     expect(screen.queryByTestId("wave")).toBeNull();
   });

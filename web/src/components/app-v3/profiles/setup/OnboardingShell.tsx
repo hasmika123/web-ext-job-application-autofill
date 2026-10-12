@@ -65,16 +65,15 @@ export default function OnboardingShell({
 }: OnboardingShellProps) {
   const router = useRouter();
   const body = useRef<HTMLDivElement>(null);
-  const first = useRef(true);
+  const shownKey = useRef(screenKey);
   const [heard, setHeard] = useState("");
   const [confirming, setConfirming] = useState(false);
 
   // A new screen: focus its heading (not on the first paint, which would scroll the page) and announce the step.
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    // Compared with the screen last shown (not a "first run" flag), so a dev-mode double run of the effect cannot steal focus on load.
+    if (shownKey.current === screenKey) return;
+    shownKey.current = screenKey;
     // A screen that put the cursor in its own first answer (the guided questions) keeps it.
     if (body.current?.contains(document.activeElement)) return;
     const h1 = body.current?.querySelector<HTMLElement>("h1");
@@ -141,8 +140,13 @@ export default function OnboardingShell({
 
       {banners && <div className="mt-3 flex flex-col gap-2">{banners}</div>}
 
-      <div key={screenKey} data-dir={direction} className="ob-screen mt-6 overflow-x-clip">
-        <div ref={body}>{children}</div>
+      {/* The slide-in moves `.ob-screen` itself, so the clip lives on a wrapper that stays put (clipping the moving box would let
+          its 16 px shift show as a sideways scroll for the length of the animation). On a phone the wrapper reaches the window
+          edges, so the sticky footer's full-bleed gradient is not cut off. `clip`, not `hidden`, keeps `position: sticky` working. */}
+      <div className="mt-6 overflow-x-clip max-sm:-mx-3.5 max-sm:px-3.5">
+        <div key={screenKey} data-dir={direction} className="ob-screen">
+          <div ref={body}>{children}</div>
+        </div>
       </div>
 
       <p role="status" aria-live="polite" className="sr-only" data-testid="step-announce">

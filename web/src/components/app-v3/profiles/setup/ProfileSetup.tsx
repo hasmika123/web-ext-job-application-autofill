@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type Rea
 import { Button, useToast } from "@kiwiply/ui";
 import type { Bio } from "@/components/BioEditor";
 import { unansweredQuestions } from "@/components/onboarding/preferences";
-import { track } from "@/lib/analytics";
 import { notifyExtension } from "@/lib/extension-signal";
 import { ItemApiError } from "@/lib/profile-items";
 import { finishOnboarding, patchOnboarding, type OnboardingStatus } from "@/lib/onboarding/api";
 import { autofillCoverage } from "@/lib/onboarding/coverage";
+import { ONBOARDING_EVENTS as EV, trackOnboarding, type SetupEntry } from "@/lib/onboarding/events";
 import { freshGoalFor, prefOrder } from "@/lib/onboarding/persona";
 import { barLabel, barValueText, secondsRemaining } from "@/lib/onboarding/progress";
 import useDraftSync, { type SyncError } from "@/lib/onboarding/useDraftSync";
@@ -57,8 +57,7 @@ import SourceStep from "./SourceStep";
 
 export { summaryLine };
 
-/** Where a run came from (DESIGN 12 `onboarding_started.entry`). */
-export type SetupEntry = "card" | "chooser" | "profiles" | "welcome" | "ext" | "direct";
+export type { SetupEntry };
 
 /**
  * The profile setup flow (`/profiles/setup`; Resume Builder R1.4, Onboarding v2 R1.10): one question or one card per
@@ -191,15 +190,15 @@ export default function ProfileSetup({
     if (!sync.ready || started.current) return;
     started.current = true;
     if (sync.resumed) return;
-    track("onboarding_started", { entry, ...(state.persona ? { persona: state.persona } : {}) });
+    trackOnboarding(EV.started, { entry, ...(state.persona ? { persona: state.persona } : {}) });
     // once per mount, with the persona the run began with
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sync.ready]);
 
   const personaScreen = state.step === "hello" || personaOverlay;
   const stepIndex = Math.max(0, steps.indexOf(state.step));
-  const completed = (skipped: boolean, extra: Record<string, number> = {}) =>
-    track("onboarding_step_completed", { step: state.step, index: stepIndex + 1, total: steps.length, skipped, seconds: Math.round((Date.now() - enteredAt.current) / 1000), ...extra });
+  const completed = (skipped: boolean, extra: { kept?: number; skippedCards?: number } = {}) =>
+    trackOnboarding(EV.stepCompleted, { step: state.step, index: stepIndex + 1, total: steps.length, skipped, seconds: Math.round((Date.now() - enteredAt.current) / 1000), ...extra });
 
   const go = (step: StepKey) => {
     setError(null);
@@ -209,7 +208,7 @@ export default function ProfileSetup({
   };
   const next = () => go(nextStep(state, hasPrefQuestions));
   /** Finish the screen on show and move on. */
-  const advance = (skipped = false, extra: Record<string, number> = {}) => {
+  const advance = (skipped = false, extra: { kept?: number; skippedCards?: number } = {}) => {
     completed(skipped, extra);
     next();
   };
@@ -245,7 +244,7 @@ export default function ProfileSetup({
   // ---- persona ------------------------------------------------------------------------------
   const choosePersona = (p: Persona | null) => {
     const changed = state.persona !== null && state.persona !== p;
-    track("onboarding_persona_set", { persona: p ?? "skipped", changed });
+    trackOnboarding(EV.personaSet, { persona: p ?? "skipped", changed });
     if (p !== null && p !== state.persona) {
       dispatch({ type: "persona", persona: p });
       // The server keeps it with the profile's markers; the draft carries it too, so a failure here is not lost.
@@ -263,18 +262,18 @@ export default function ProfileSetup({
 
   // ---- the way in -----------------------------------------------------------------------------
   const choosePath = (path: SetupPath) => {
-    track("onboarding_path_chosen", { path, persona: state.persona ?? "none" });
+    trackOnboarding(EV.pathChosen, { path, persona: state.persona ?? "none" });
     setDirection("forward");
     dispatch({ type: "path", path });
   };
   const skipSource = () => {
-    track("onboarding_path_chosen", { path: "skip", persona: state.persona ?? "none" });
+    trackOnboarding(EV.pathChosen, { path: "skip", persona: state.persona ?? "none" });
     completed(true);
     setDirection("forward");
     dispatch({ type: "skipSource", existing: bio });
   };
   const onParsed = (p: SetupParse) => {
-    track("profile_setup_parsed", { source: p.source, cards: p.draft.candidates.length, skills: p.draft.skills.length, removed: p.removed });
+    trackOnboarding(EV.parsed, { source: p.source, cards: p.draft.candidates.length, skills: p.draft.skills.length, removed: p.removed });
     completed(false);
     setDirection("forward");
     dispatch({ type: "parsed", draft: p.draft, source: p.source, removed: p.removed, existing: bio, typed: p.typed });
@@ -298,7 +297,7 @@ export default function ProfileSetup({
       const res = await finishOnboarding();
       const fields = res.coverage?.fields ?? autofillCoverage(bioRef.current, { experience: counts.EXPERIENCE, education: counts.EDUCATION, skills: state.skills.length }).fields;
       const score = res.completeness?.score ?? null;
-      track("onboarding_finished", {
+      trackOnboarding(EV.finished, {
         fields,
         score,
         seconds: Math.round((Date.now() - runStart.current) / 1000),
@@ -357,7 +356,7 @@ export default function ProfileSetup({
       await putBio(next);
       bioRef.current = next;
       notifyExtension("changed");
-      track("onboarding_core_confirmed", { items: items.length, merged });
+      trackOnboarding(EV.coreConfirmed, { items: items.length, merged });
       dispatch({ type: "coreConfirmed" });
       completed(false);
       setDirection("forward");
@@ -402,7 +401,7 @@ export default function ProfileSetup({
         notifyExtension("changed");
       }
       dispatch({ type: "prefDone", key: prefId(q) });
-      track("onboarding_pref_answered", { key: prefId(q), skipped: false });
+      trackOnboarding(EV.prefAnswered, { key: prefId(q), skipped: false });
     } catch {
       setError("Couldn't save that answer. Try again.");
       setSaving(false);
@@ -419,7 +418,7 @@ export default function ProfileSetup({
     }
     const q = prefList[index];
     dispatch({ type: "prefDone", key: prefId(q) });
-    track("onboarding_pref_answered", { key: prefId(q), skipped: true });
+    trackOnboarding(EV.prefAnswered, { key: prefId(q), skipped: true });
     await moveOn();
   };
   const showAllQuestions = () => {
@@ -540,7 +539,7 @@ export default function ProfileSetup({
         onUndecide={(id) => dispatch({ type: "undecide", id })}
         onEdit={(id, data) => dispatch({ type: "edit", id, data })}
         onKeepRemaining={() => dispatch({ type: "decideAll", decision: "keep" })}
-        onDone={(kept, skipped) => advance(false, { kept, skipped })}
+        onDone={(kept, skipped) => advance(false, { kept, skippedCards: skipped })}
         provenance={parsed.source === "fresh" ? "USER" : "PARSED"}
       />
     );
@@ -628,7 +627,7 @@ export default function ProfileSetup({
         jobsCount={jobsCount}
         mascot={ob.mascot}
         confetti={ob.confetti}
-        onAction={(action: PayoffAction | "dashboard") => track("onboarding_payoff_action", { action })}
+        onAction={(action: PayoffAction | "dashboard") => trackOnboarding(EV.payoffAction, { action })}
       />
     );
   }
@@ -647,7 +646,7 @@ export default function ProfileSetup({
       sync={{ status: sync.status, reason: sync.reason, onRetry: sync.retry }}
       onChangePersona={ob.personaStep ? () => (setPersonaPick(null), setDirection("forward"), setPersonaOverlay(true)) : undefined}
       onStartOver={() => void startOver()}
-      onExit={() => track("onboarding_dismissed", { action: "exit" })}
+      onExit={() => trackOnboarding(EV.dismissed, { action: "exit" })}
       banners={banners.length > 0 ? banners : undefined}
     >
       {screen}

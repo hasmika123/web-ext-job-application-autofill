@@ -5,6 +5,7 @@ import { ALL_PREFERENCE_KEYS } from "@/components/onboarding/preferences";
 import { ToastProvider } from "@kiwiply/ui";
 import type { OnboardingStatus } from "@/lib/onboarding/api";
 import { MIRROR_KEY } from "@/lib/onboarding/mirror";
+import { ONBOARDING_EVENTS, ONBOARDING_EVENTS as EV } from "@/lib/onboarding/events";
 import { V1_DRAFT_KEY } from "@/lib/profile-setup/state";
 
 vi.mock("@/lib/extension-signal", () => ({ notifyExtension: vi.fn(), detectExtension: () => Promise.resolve(true), EXT_STORE_URL: "https://store.example/kiwiply" }));
@@ -407,6 +408,71 @@ describe("ProfileSetup: the whole flow from a pasted resume", () => {
     expect(onboardingCalls("POST", "/finish")).toHaveLength(1);
     expect(track).toHaveBeenCalledWith("onboarding_finished", expect.objectContaining({ fields: 14, score: 62, persona: "experienced", path: "paste", prefsAnswered: 1 }));
     expect(localStorage.getItem(MIRROR_KEY)).toBeNull();
+  });
+
+  it("the funnel (DESIGN 12): every event fires once where the table says, in order, and carries counts and fixed words only", async () => {
+    // a new person: no persona yet, so the run starts on `hello`; the entry comes from the page (here: the dashboard card)
+    setup({}, none({ persona: null }), { firstName: "Priya", entry: "card" });
+    await screen.findByRole("heading", { level: 1, name: /job-ready/ });
+    fireEvent.click(screen.getByRole("radio", { name: /Experienced/ }));
+    cont(); // hello
+    await pasteAndRead(); // source -> paste -> parse
+    keep();
+    keep();
+    cont(); // recap
+    cont(); // skills
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
+    cont(); // question 1: answered
+    await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" });
+    await skipQuestions();
+
+    const fired = track.mock.calls.map(([name, props]) => ({ name: name as string, props: props as Record<string, unknown> }));
+    const names = fired.map((e) => e.name);
+
+    // the ordered spine of the funnel
+    const spine = [
+      EV.started,
+      EV.personaSet,
+      EV.pathChosen,
+      EV.parsed,
+      EV.stepCompleted, // source
+      EV.stepCompleted, // review (at the recap)
+      EV.stepCompleted, // skills
+      EV.coreConfirmed,
+      EV.stepCompleted, // you
+      EV.prefAnswered,
+      EV.finished,
+    ];
+    let at = -1;
+    for (const n of spine) {
+      const i = names.indexOf(n, at + 1);
+      expect(i, `${n} after the one before it: ${names.join(" > ")}`).toBeGreaterThan(at);
+      at = i;
+    }
+    // each of the once-per-run events fires exactly once
+    for (const once of [EV.started, EV.personaSet, EV.pathChosen, EV.parsed, EV.coreConfirmed, EV.finished]) expect(names.filter((n) => n === once), once).toHaveLength(1);
+    expect(fired.find((e) => e.name === EV.started)?.props).toEqual({ entry: "card" });
+    // the steps are reported by name, in order, with the review's counts on its own (never overwriting `skipped`)
+    const steps = fired.filter((e) => e.name === EV.stepCompleted);
+    expect(steps.map((e) => e.props.step)).toEqual(["hello", "source", "review", "skills", "you", "prefs"]);
+    expect(steps.map((e) => e.props.index)).toEqual([1, 2, 3, 4, 5, 6]);
+    const review = steps.find((e) => e.props.step === "review")!;
+    expect(review.props).toMatchObject({ skipped: false, kept: 2, skippedCards: 0 });
+    // every question is reported by key, answered or skipped
+    expect(fired.filter((e) => e.name === EV.prefAnswered).map((e) => e.props.skipped)).toEqual([false, true, true, true, true, true]);
+
+    // nothing in any event is content: only numbers, booleans, null and short fixed words; no name, no entry title, no answer
+    const blob = JSON.stringify(fired);
+    for (const content of ["Priya", "Jane", "Doe", "Acme", "MIT", "Engineer", "jane@example.com", "Shipped", "React"]) expect(blob).not.toContain(content);
+    for (const e of fired) {
+      expect(Object.values(ONBOARDING_EVENTS), e.name).toContain(e.name);
+      for (const [k, v] of Object.entries(e.props)) {
+        const ok = v === null || typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && v.length <= 24);
+        expect(ok, `${e.name}.${k} is a count, a switch or a short word`).toBe(true);
+      }
+    }
   });
 
   it("Back from the questions after the core confirm shows 'Your profile so far', not the cards", async () => {

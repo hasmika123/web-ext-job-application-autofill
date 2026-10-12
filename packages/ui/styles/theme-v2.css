@@ -14,7 +14,7 @@
   --color-v2-navy: #1B1F5E;
   --color-v2-navy-deep: #0F1340;
   --color-v2-ink-soft: #4A4F78;
-  --color-v2-muted: #6E7294;
+  --color-v2-muted: #646989; /* was #6E7294 (4.4:1 on the canvas); #646989 is 5:1, AA for small text (R1.12) */
   --color-v2-line: #E3E8F2;
 
   --color-v2-lime: #84E33D;
@@ -54,7 +54,7 @@
   --color-accent: var(--color-v2-lime);
   --color-accent-2: var(--color-v2-lime-deep);
   --color-accent-soft: var(--color-v2-lime-soft);
-  --color-accent-deep: #3E8F0E; /* AA green text on white */
+  --color-accent-deep: #2F7A06; /* AA green text on white AND on lime-soft (was #3E8F0E: 3.9:1; R1.12) */
   --color-on-accent: var(--color-v2-navy);
   --color-hero-ink: #FFFFFF;
 
@@ -92,11 +92,11 @@
 @theme static {
   /* App v3: the individual app's active nav pill is blue (APP-V3-SPEC section 1); lime stays for CTAs. */
   --color-v2-nav-active-bg: #E8F0FF;
-  --color-v2-nav-active-text: #1E6FF5;
+  --color-v2-nav-active-text: #1A64E0; /* 4.65:1 on the pill (was #1E6FF5, 3.95:1; R1.12) */
   --color-v2-org-blue: #1E6FF5;
   --color-v2-org-blue-deep: #1558C9;
   --color-v2-org-nav-active-bg: #E8F0FF;
-  --color-v2-org-nav-active-text: #1E6FF5;
+  --color-v2-org-nav-active-text: #1A64E0;
 
   --color-v2-blue-ink: #1553C0;
   --color-v2-green-ink: #167A2C;

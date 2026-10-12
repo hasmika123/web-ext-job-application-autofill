@@ -67,7 +67,7 @@ existing token names** under `.theme-v2` so primitives restyle.
 | `--color-v2-navy` | `#1B1F5E` | headlines, footer bg (`#0F1340` for footer, see below) |
 | `--color-v2-navy-deep` | `#0F1340` | footer background |
 | `--color-v2-ink-soft` | `#4A4F78` | body copy |
-| `--color-v2-muted` | `#6E7294` | captions |
+| `--color-v2-muted` | `#646989` | captions (darkened from `#6E7294` in R1.12 for AA contrast: 5:1 on the canvas) |
 | `--color-v2-line` | `#E3E8F2` | hairlines |
 | `--color-v2-lime` | `#84E33D` | primary CTA fill |
 | `--color-v2-lime-deep` | `#5FBF1F` | hover / lime text on white |

@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import Image from "next/image";
-import { LockIcon, cn } from "@kiwiply/ui";
+import { LockIcon, cn, useBottomBar } from "@kiwiply/ui";
 
 /**
  * The small pieces every onboarding screen shares (Onboarding v2 R1.10, ONBOARDING-V2-DESIGN 5): the one `<h1>` with
@@ -24,11 +24,15 @@ export function StepHeading({ title, sub, className, id }: { title: ReactNode; s
 /**
  * The primary action of a screen and its quiet siblings. On a phone it sticks to the bottom of the window, above the
  * home bar and so above the keyboard's top edge, so the primary button is never out of reach (DESIGN 15); from `sm` it is
- * ordinary content. Put it last in the screen.
+ * ordinary content. Put it last in the screen. While it is stuck it tells the rest of the app (`useBottomBar`), so the
+ * bug-report button lifts above it and a toast sits above it instead of covering the primary action.
  */
 export function StepFooter({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useBottomBar(ref);
   return (
     <div
+      ref={ref}
       data-testid="step-footer"
       className={cn(
         "sticky bottom-0 z-20 -mx-3.5 mt-6 bg-gradient-to-t from-app-bg from-75% to-transparent px-3.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-5",

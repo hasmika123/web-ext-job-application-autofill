@@ -92,7 +92,7 @@ describe("Dashboard card reads the server (R1.9)", () => {
     await open();
     expect(screen.getByRole("heading", { name: "Finish your profile" })).toBeTruthy();
     expect(screen.getByText(/3 of 7 done/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Continue/ }).getAttribute("href")).toBe("/profiles/setup");
+    expect(screen.getByRole("link", { name: /Continue/ }).getAttribute("href")).toBe("/profiles/setup?entry=card");
   });
 
   it("no card when the status could not be loaded", async () => {

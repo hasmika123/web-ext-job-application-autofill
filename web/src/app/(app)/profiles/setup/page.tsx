@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { serverApiFetch } from "@/lib/api";
+import { entryFrom } from "@/lib/onboarding/events";
 import { safeReturn } from "@/lib/onboarding/return";
 import { getOnboardingStatus } from "@/lib/onboarding/server";
 import { parseBioPayload } from "@/lib/profile-options";
@@ -19,8 +20,8 @@ export const metadata: Metadata = { title: "Set up your profile" };
  * use it); `?step=prefs` (where the retired `/welcome` lands, R1.7) opens on the application questions. Both only start a
  * NEW run: a saved draft is picked up instead.
  */
-export default async function Page({ searchParams }: { searchParams: Promise<{ path?: string | string[]; step?: string | string[]; from?: string | string[]; return?: string | string[] }> }) {
-  const { path, step, from, return: returnParam } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ path?: string | string[]; step?: string | string[]; from?: string | string[]; return?: string | string[]; entry?: string | string[]; utm_source?: string | string[] }> }) {
+  const { path, step, from, return: returnParam, entry: entryParam, utm_source: utm } = await searchParams;
   const [bioRes, config, status, accountRes, jobs] = await Promise.all([
     serverApiFetch("/api/profile"),
     getBuilderConfig(),
@@ -36,8 +37,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   const wantedStep = Array.isArray(step) ? step[0] : step;
   const wantedFrom = Array.isArray(from) ? from[0] : from;
   const wantedReturn = Array.isArray(returnParam) ? returnParam[0] : returnParam;
-  // Where this run came from, for the funnel: the retired /welcome, the new-resume chooser (it sends `return`), an empty-state link (`path`).
-  const entry = wantedFrom === "welcome" ? "welcome" : wantedReturn ? "chooser" : wanted ? "profiles" : "direct";
+  // Where this run came from, for the funnel (DESIGN 12): an explicit `?entry=` marker (the dashboard card sends `card`, the My Profiles
+  // empty states `profiles`), the retired /welcome, the new-resume chooser (it sends `return`), the extension (`utm_source=ext`).
+  const wantedEntry = Array.isArray(entryParam) ? entryParam[0] : entryParam;
+  const wantedUtm = Array.isArray(utm) ? utm[0] : utm;
+  const entry = entryFrom({ entry: wantedEntry, from: wantedFrom, returnTo: wantedReturn, path: wanted, utm: wantedUtm });
   return (
     <ProfileSetup
       bio={bio}

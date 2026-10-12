@@ -45,6 +45,12 @@ import {
 } from "./new-resume/model";
 import { usePhone } from "./usePhone";
 
+/**
+ * The empty-profile card's way in (Onboarding v2, DESIGN 4): the setup flow, and its payoff's "Build a resume" comes back
+ * to this chooser with "Use my profile" preselected (`/resume-builder?new=profile`, handled by the list page).
+ */
+export const BUILD_PROFILE_HREF = "/profiles/setup?return=%2Fresume-builder%3Fnew%3Dprofile";
+
 /** A file bigger than this is refused before any parsing (the resumes page uploads at most the same). */
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // config-literal-ok: the upload route's 10 MB body cap, not a resume setting
 
@@ -260,8 +266,11 @@ function Chooser({
               onSelect={() => choose(id)}
               action={
                 id === "profile" && profile.itemCount === 0 ? (
-                  <Link href="/profiles/setup" className="inline-flex min-h-10 flex-none items-center rounded-xl border border-v2-line px-3 text-[13px] font-bold text-v2-blue hover:bg-paper-2">
-                    Build my profile
+                  <Link
+                    href={BUILD_PROFILE_HREF}
+                    className="inline-flex min-h-11 flex-none items-center rounded-xl border border-v2-line px-3 text-[13px] font-bold text-v2-blue hover:bg-paper-2"
+                  >
+                    Build my profile · 2 min
                   </Link>
                 ) : undefined
               }

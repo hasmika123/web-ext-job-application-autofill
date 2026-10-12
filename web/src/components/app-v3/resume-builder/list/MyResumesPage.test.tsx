@@ -463,6 +463,19 @@ describe("My Resumes: Popular Templates and Quick Tips", () => {
     replace.mockRestore();
   });
 
+  it("arriving from the profile setup (?new=profile) opens the chooser on Use my profile, once, and clears the address", () => {
+    const replace = vi.spyOn(window.history, "replaceState");
+    render(
+      <ToastProvider>
+        <MyResumesPage resumes={resumes()} usage={{}} baseProfile={{}} isPro={false} config={cfg()} profile={{ itemCount: 2, roles: 1, schools: 1, skills: 4, score: 60, headline: null }} initialNew="profile" />
+      </ToastProvider>,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Start your resume from" });
+    expect(within(dialog).getByRole("radio", { name: /Use my profile/ }).getAttribute("aria-checked")).toBe("true");
+    expect(replace).toHaveBeenCalledTimes(1);
+    replace.mockRestore();
+  });
+
   it("an id that is not an enabled template opens nothing", () => {
     render(
       <ToastProvider>

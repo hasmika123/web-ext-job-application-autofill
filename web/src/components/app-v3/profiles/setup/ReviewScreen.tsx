@@ -69,15 +69,15 @@ export default function ReviewScreen({
   const [editing, setEditing] = useState(false);
   const [announce, setAnnounce] = useState("");
   const cardHeading = useRef<HTMLHeadingElement>(null);
-  const first = useRef(true);
+  const shownCursor = useRef(cursor);
   const titleId = useId();
 
-  // After a decision (or Back) put focus on the new card's title, so a keyboard user keeps their place.
+  // After a decision (or Back) put focus on the new card's title, so a keyboard user keeps their place. Only when the card
+  // really changed: arriving on the screen leaves focus to the shell, which puts it on the heading (and a dev-mode double
+  // run of this effect must not take it away).
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    if (shownCursor.current === cursor) return;
+    shownCursor.current = cursor;
     cardHeading.current?.focus();
   }, [cursor]);
 

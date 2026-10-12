@@ -16,11 +16,12 @@ export const metadata: Metadata = { title: "Resume Builder" };
  * so "Manage resumes" can host `ResumesWorkspace` in a side panel unchanged, plus the builder config (plan,
  * cap, templates, Quick Tips) and the profile items + meter the start chooser describes. "New Resume" opens the
  * four-source chooser (profile / upload / copy / scratch) and lands in `/resume-builder/[id]`. `?template=<id>` (the
- * template gallery's "Use this template", R3.13) opens that chooser with the template preselected.
+ * template gallery's "Use this template", R3.13) opens that chooser with the template preselected; `?new=profile` (the profile setup's "Build a resume") opens it on "Use my profile".
  */
-export default async function Page({ searchParams }: { searchParams: Promise<{ template?: string | string[] }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ template?: string | string[]; new?: string | string[] }> }) {
   const q = await searchParams;
   const template = Array.isArray(q.template) ? q.template[0] : q.template;
+  const wantedNew = Array.isArray(q.new) ? q.new[0] : q.new;
   const [resumesRes, appsRes, profileRes, plan, config, items, completeness] = await Promise.all([
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile/applications"),
@@ -58,5 +59,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
   const headline = typeof baseProfile.headline === "string" ? baseProfile.headline : typeof baseProfile.currentTitle === "string" ? baseProfile.currentTitle : null;
   const profile = summarizeProfile(items ?? [], completeness, headline);
 
-  return <ResumeList resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} config={config} profile={profile} initialTemplate={template ?? null} />;
+  return <ResumeList resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} config={config} profile={profile} initialTemplate={template ?? null} initialNew={wantedNew === "profile" ? "profile" : null} />;
 }
