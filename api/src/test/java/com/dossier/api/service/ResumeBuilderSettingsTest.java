@@ -107,10 +107,12 @@ class ResumeBuilderSettingsTest {
     @Test
     void validDatabaseValuesOverrideTheDefaults() {
         put(ResumeBuilderSettingKeys.DOC_LIMIT_ITEMS, "55");
+        put(ResumeBuilderSettingKeys.PROFILE_ITEMS_MAX_PER_USER, "800");
         put(ResumeBuilderSettingKeys.SCORE_PASS_THRESHOLD, "0.8");
         put(ResumeBuilderSettingKeys.FEATURE_DOCX, "true");
         put(ResumeBuilderSettingKeys.TEMPLATES_ENABLED, "[\"modern\",\"classic\"]");
         assertThat(settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_ITEMS)).isEqualTo(55);
+        assertThat(settings.getInt(ResumeBuilderSettingKeys.PROFILE_ITEMS_MAX_PER_USER)).isEqualTo(800);
         assertThat(settings.getDecimal(ResumeBuilderSettingKeys.SCORE_PASS_THRESHOLD)).isEqualTo(0.8);
         assertThat(settings.getBool(ResumeBuilderSettingKeys.FEATURE_DOCX)).isTrue();
         assertThat(settings.getJson(ResumeBuilderSettingKeys.TEMPLATES_ENABLED, String[].class)).containsExactly("modern", "classic");

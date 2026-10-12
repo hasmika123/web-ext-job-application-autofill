@@ -9,9 +9,9 @@ import java.util.Map;
  *
  * <ul>
  *   <li>{@code ITEM_INVALID} (422) - the item is not a JSON object, or a field of the request is wrong.</li>
- *   <li>{@code ITEM_TOO_LARGE} (413) - one item is over {@link ProfileItemService#MAX_ITEM_BYTES}.</li>
- *   <li>{@code ITEM_LIMIT} (422) - the profile already holds {@link ProfileItemService#MAX_LIVE_ITEMS} items,
- *       or one import carries more than {@link ProfileItemService#MAX_IMPORT_ITEMS}.</li>
+ *   <li>{@code ITEM_TOO_LARGE} (413) - one item is over {@code profile.item.maxBytes}.</li>
+ *   <li>{@code ITEM_LIMIT} (422) - the profile already holds {@code profile.items.maxPerUser} items,
+ *       or one import carries more than {@code profile.import.maxItems} (admin settings, DESIGN 15.2).</li>
  * </ul>
  *
  * Sensitive values are a different, shared refusal: {@code SensitiveContentException}.

@@ -64,12 +64,8 @@ public class ProfileItemService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProfileItemService.class);
 
-    /** One item's serialised data. Resume bullets are 600 characters and an item has a dozen at most. */
-    public static final int MAX_ITEM_BYTES = 16 * 1024;
-    /** Live (not deleted) items per user, all sections together. */
-    public static final int MAX_LIVE_ITEMS = 500;
-    /** Items in one {@code /import} call. */
-    public static final int MAX_IMPORT_ITEMS = 200;
+    // The item size, live-item count and import size limits are admin settings (profile.item.maxBytes,
+    // profile.items.maxPerUser, profile.import.maxItems - ResumeBuilderSettingKeys), read per call.
     /** Longest bio value an import writes (the summary is the one long one). */
     static final int MAX_BIO_VALUE = 500;
     static final int MAX_BIO_SUMMARY = 2000;
@@ -147,6 +143,7 @@ public class ProfileItemService {
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
     private final EntityManager em;
+    private final ResumeBuilderSettings settings;
     private final ObjectMapper om = new ObjectMapper();
 
     public ProfileItemService(
@@ -154,13 +151,15 @@ public class ProfileItemService {
         BioRepository bioRepository,
         ResumeRepository resumeRepository,
         UserRepository userRepository,
-        EntityManager em
+        EntityManager em,
+        ResumeBuilderSettings settings
     ) {
         this.itemRepository = itemRepository;
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
         this.em = em;
+        this.settings = settings;
     }
 
     // ---- read -------------------------------------------------------------------------------------
@@ -197,8 +196,9 @@ public class ProfileItemService {
         ensureSeeded(user);
 
         List<ProfileItem> live = itemRepository.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(user.getId());
-        if (live.size() >= MAX_LIVE_ITEMS) {
-            throw ProfileItemException.limit("A profile holds at most " + MAX_LIVE_ITEMS + " items", MAX_LIVE_ITEMS);
+        int maxLive = settings.getInt(ResumeBuilderSettingKeys.PROFILE_ITEMS_MAX_PER_USER);
+        if (live.size() >= maxLive) {
+            throw ProfileItemException.limit("A profile holds at most " + maxLive + " items", maxLive);
         }
         List<ProfileItem> inSection = new ArrayList<>(live.stream().filter(i -> i.getSection() == req.section()).toList());
 
@@ -278,8 +278,9 @@ public class ProfileItemService {
         Long uid = user.getId();
         if (req == null) throw ProfileItemException.invalid("body", "is required");
         List<ImportItem> items = req.items() == null ? List.of() : req.items();
-        if (items.size() > MAX_IMPORT_ITEMS) {
-            throw ProfileItemException.limit("One import holds at most " + MAX_IMPORT_ITEMS + " items", MAX_IMPORT_ITEMS);
+        int maxImport = settings.getInt(ResumeBuilderSettingKeys.PROFILE_IMPORT_MAX_ITEMS);
+        if (items.size() > maxImport) {
+            throw ProfileItemException.limit("One import holds at most " + maxImport + " items", maxImport);
         }
 
         Set<Long> ownedResumeIds = new HashSet<>();
@@ -434,6 +435,7 @@ public class ProfileItemService {
             if (key != null) byKey.putIfAbsent(key, it);
             next.merge(it.getSection(), 1, Integer::sum);
         }
+        int maxLive = settings.getInt(ResumeBuilderSettingKeys.PROFILE_ITEMS_MAX_PER_USER);
         int created = 0;
         int merged = 0;
         for (Incoming in : incoming) {
@@ -449,8 +451,8 @@ public class ProfileItemService {
                 merged++;
                 continue;
             }
-            if (live.size() >= MAX_LIVE_ITEMS) {
-                throw ProfileItemException.limit("A profile holds at most " + MAX_LIVE_ITEMS + " items", MAX_LIVE_ITEMS);
+            if (live.size() >= maxLive) {
+                throw ProfileItemException.limit("A profile holds at most " + maxLive + " items", maxLive);
             }
             ProfileItem row = newRow(user, in.section(), in.data(), in.provenance(), in.sourceResumeId());
             row.setPosition(next.merge(in.section(), 1, Integer::sum) - 1);
@@ -524,8 +526,9 @@ public class ProfileItemService {
             }
         }
         if (!(n instanceof ObjectNode obj)) throw ProfileItemException.invalid(path, "must be a JSON object");
-        if (ResumeDocumentJson.write(obj, 0).getBytes(StandardCharsets.UTF_8).length > MAX_ITEM_BYTES) {
-            throw ProfileItemException.tooLarge(path, MAX_ITEM_BYTES);
+        int maxBytes = settings.getInt(ResumeBuilderSettingKeys.PROFILE_ITEM_MAX_BYTES);
+        if (ResumeDocumentJson.write(obj, 0).getBytes(StandardCharsets.UTF_8).length > maxBytes) {
+            throw ProfileItemException.tooLarge(path, maxBytes);
         }
         SensitiveContent.check(path, obj);
         return obj;

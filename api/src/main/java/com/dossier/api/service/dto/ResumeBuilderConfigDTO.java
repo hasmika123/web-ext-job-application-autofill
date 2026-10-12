@@ -23,7 +23,8 @@ public record ResumeBuilderConfigDTO(
     Ai ai,
     String plan,
     boolean aiAllowed,
-    Resumes resumes
+    Resumes resumes,
+    Profile profile
 ) {
     public record Templates(
         List<String> enabled,
@@ -65,4 +66,7 @@ public record ResumeBuilderConfigDTO(
 
     /** The signed-in user's live (non-archived) resume count and their plan's cap. */
     public record Resumes(int count, int max) {}
+
+    /** Common Profile limits (R1.1): one item's bytes, live items per user, items per import call. */
+    public record Profile(int itemMaxBytes, int maxItemsPerUser, int maxImportItems) {}
 }

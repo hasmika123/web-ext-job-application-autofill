@@ -65,6 +65,8 @@ export type ResumeBuilderConfig = {
   aiAllowed: boolean;
   /** Live (non-archived) resumes and the plan's cap. */
   resumes: { count: number; max: number };
+  /** Common Profile limits (R1.1): bytes per item, live items per user, items per import call. */
+  profile: { itemMaxBytes: number; maxItemsPerUser: number; maxImportItems: number };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
@@ -103,6 +105,7 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
   plan: "FREE",
   aiAllowed: false,
   resumes: { count: 0, max: 3 },
+  profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200 },
 };
 
 /**

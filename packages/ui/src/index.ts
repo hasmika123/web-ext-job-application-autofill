@@ -75,6 +75,18 @@ export * from "./primitives/doodles";
 
 export { cn } from "./primitives/cn";
 
+/* ── Never-collected values detector (Resume Builder R1.1; twin of the API's SensitivePatterns) ─ */
+/* Aliased with a "Sensitive" tag because `scan` / `redact` are too generic for a package barrel. */
+export {
+  scan as scanSensitive,
+  scanField as scanSensitiveField,
+  redact as redactSensitive,
+  redactField as redactSensitiveField,
+  SENSITIVE_LABELS,
+  REDACTED as SENSITIVE_REDACTED,
+} from "./sensitive-patterns";
+export type { SensitiveClass, Hit as SensitiveHit } from "./sensitive-patterns";
+
 /* ── The portable ResumeUpload form + its types ───────────────────────────────────── */
 /* ── The job-fit report (13.3): shared by the extension drawer and the web board ─────── */
 export { default as JobFitReport } from "./JobFitReport";

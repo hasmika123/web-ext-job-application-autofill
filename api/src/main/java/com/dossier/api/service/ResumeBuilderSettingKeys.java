@@ -76,6 +76,11 @@ public final class ResumeBuilderSettingKeys {
     public static final String DOC_LIMIT_MARKS = "resume.doc.limits.marks";
     public static final String DOC_LIMIT_DOC_BYTES = "resume.doc.limits.docBytes";
 
+    // ---- Common Profile (R1.1 item limits) ----------------------------------
+    public static final String PROFILE_ITEM_MAX_BYTES = "profile.item.maxBytes";
+    public static final String PROFILE_ITEMS_MAX_PER_USER = "profile.items.maxPerUser";
+    public static final String PROFILE_IMPORT_MAX_ITEMS = "profile.import.maxItems";
+
     // ---- versions, photo ----------------------------------------------------
     public static final String VERSIONS_COALESCE_MINUTES = "resume.versions.coalesceMinutes";
     public static final String VERSIONS_RETENTION_AUTO = "resume.versions.retentionAuto";
@@ -260,6 +265,11 @@ public final class ResumeBuilderSettingKeys {
         integer(k, DOC_LIMIT_SUMMARY_CHARS, 2000, 200, 5000, "Max characters in the summary.");
         integer(k, DOC_LIMIT_MARKS, 64, 0, 200, "Max inline marks per text field (schema v2).");
         integer(k, DOC_LIMIT_DOC_BYTES, 262144, 65536, 1048576, "Max serialised document size in bytes.");
+
+        // Common Profile item limits (R1.1).
+        integer(k, PROFILE_ITEM_MAX_BYTES, 16384, 1024, 65536, "Max serialised size of one profile item in bytes.");
+        integer(k, PROFILE_ITEMS_MAX_PER_USER, 500, 50, 5000, "Max live profile items per user, all sections together.");
+        integer(k, PROFILE_IMPORT_MAX_ITEMS, 200, 10, 1000, "Max items in one profile import call.");
 
         // Versions and photo.
         integer(k, VERSIONS_COALESCE_MINUTES, 10, 1, 120, "Autosaves within this many minutes share one version row.");
