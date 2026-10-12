@@ -75,6 +75,8 @@ export type ResumeBuilderConfig = {
   };
   /** The My Resumes page (R2.6): Quick Tips lines, and the card count above which the grid shows a page at a time. */
   list: { quickTips: string[]; virtualizeAbove: number };
+  /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF (ms); whether the PDF view re-renders by itself. */
+  pdf: { waitMs: number; viewAutoRefresh: boolean };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
@@ -131,4 +133,5 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
     ],
     virtualizeAbove: 60,
   },
+  pdf: { waitMs: 30000, viewAutoRefresh: false },
 };

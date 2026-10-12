@@ -139,6 +139,8 @@ class ResumeBuilderConfigResourceIT {
             .andExpect(jsonPath("$.features.tailor").value(true))
             .andExpect(jsonPath("$.features.printLayout").value(true))
             .andExpect(jsonPath("$.features.pdfView").value(true))
+            .andExpect(jsonPath("$.pdf.waitMs").value(30000))
+            .andExpect(jsonPath("$.pdf.viewAutoRefresh").value(false))
             .andExpect(jsonPath("$.ai.suggestAutoRefresh").value(false))
             .andExpect(jsonPath("$.ai.suggestStaleMinutes").value(10))
             .andExpect(jsonPath("$.ai.rewriteMaxRefs").value(12))

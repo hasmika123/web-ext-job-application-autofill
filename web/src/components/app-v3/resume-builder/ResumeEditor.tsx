@@ -7,7 +7,18 @@ import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, failingRu
 import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
-import { exportPdf, exportText, putDoc, requestPdfNow, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
+import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
+import {
+  checkpointDoc,
+  exportPdf,
+  exportText,
+  putDoc,
+  requestPdfNow,
+  saveBlob,
+  waitForStoredPdf,
+  type CheckpointResult,
+  type ResumeDocDTO,
+} from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
 import DocumentCanvas from "./DocumentCanvas";
 import EditorTopBar from "./EditorTopBar";
@@ -21,9 +32,9 @@ import { useScoreReport } from "./useScoreReport";
 import AddSectionPanel from "./panels/AddSectionPanel";
 import PickTemplatePanel from "./panels/PickTemplatePanel";
 import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
-import PanelPlaceholder from "./panels/PanelPlaceholder";
 import SwapSectionPanel from "./panels/SwapSectionPanel";
 import TailorPanel from "./panels/TailorPanel";
+import PdfView from "./views/PdfView";
 import PrintLayoutView from "./views/PrintLayoutView";
 import { createAutosave, type Autosave } from "./state/autosave";
 import { fieldIdForPath } from "./state/paths";
@@ -54,6 +65,10 @@ const PHONE_TABS: ReadonlyArray<{ value: PhoneTab; label: string }> = [
   { value: "insights", label: "Insights" },
   { value: "preview", label: "Preview" },
 ];
+
+/** The Save button's "Saved" confirmation stays for 2 s (DESIGN 10.15). */
+// config-literal-ok: the confirmation flash is fixed by DESIGN 10.15 ("Saved ✓ for 2 s"), a UI beat, not a builder limit
+const SAVED_FLASH_MS = 2000;
 
 export interface ResumeEditorProps {
   initial: ResumeDocDTO;
@@ -194,7 +209,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   }, [resumeId]);
 
   // The stored PDF's state for the top bar: "PDF updating…" after a save, "couldn't be made · Retry" on failure.
-  const { pdf, retry: retryPdf, refresh: refreshPdf } = usePdfStatus(resumeId, initial.pdf, Math.max(state.savedAt ?? 0, presentationSavedAt ?? 0) || null);
+  const { pdf, retry: retryPdf, refresh: refreshPdf, follow: followPdf } = usePdfStatus(resumeId, initial.pdf, Math.max(state.savedAt ?? 0, presentationSavedAt ?? 0) || null);
 
   /* ── "Saved N minutes ago" stays honest ──────────────────────────────────────────────── */
   useEffect(() => {
@@ -238,7 +253,12 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   // The sheet keeps its panel's title while it slides out.
   const [shownPanel, setShownPanel] = useState<LeftPanel>("add");
   if (ui.leftPanel && ui.leftPanel !== shownPanel) setShownPanel(ui.leftPanel);
-  const [shownView, setShownView] = useState<RightView>("print");
+  // The right sheet's views are the two feature switches (DESIGN 10.8); "print" leads when both are on.
+  const views = useMemo<RightView[]>(
+    () => [...(config.features.printLayout ? (["print"] as const) : []), ...(config.features.pdfView ? (["pdf"] as const) : [])],
+    [config.features.printLayout, config.features.pdfView],
+  );
+  const [shownView, setShownView] = useState<RightView>(views[0] ?? "print");
   if (ui.rightView && ui.rightView !== shownView) setShownView(ui.rightView);
 
   // On a phone the Layout sheet is open only on the Layout tab (a remembered panel does not open by itself).
@@ -280,10 +300,10 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     uiDispatch({ type: "rightView/close" });
     if (compact) uiDispatch({ type: "phone/tab", tab: "edit" });
   }, [compact, uiDispatch]);
-  /** Download ▾ → Print layout / Alt+P: open the view, or close it when it is the open one (one right view at a time). */
+  /** Download ▾ → Print layout / PDF view, Alt+P / Alt+V: open the view, or close it when it is the open one (one right view at a time). */
   const toggleView = useCallback(
     (view: RightView) => {
-      if (view === "print" && !config.features.printLayout) return;
+      if (!views.includes(view)) return; // a switched-off view never opens
       if (ui.rightView === view) {
         closeRight();
         return;
@@ -294,7 +314,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       }
       uiDispatch({ type: "rightView/toggle", view });
     },
-    [config.features.printLayout, ui.rightView, compact, closeRight, uiDispatch],
+    [views, ui.rightView, compact, closeRight, uiDispatch],
   );
   const closeRailSheet = useCallback(() => uiDispatch({ type: "phone/tab", tab: "edit" }), [uiDispatch]);
   const closeAll = useCallback(() => {
@@ -311,7 +331,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       uiDispatch({ type: "rightView/close" });
     } else if (tab === "preview") {
       uiDispatch({ type: "panel/close" });
-      if (!ui.rightView) uiDispatch({ type: "rightView/toggle", view: "print" });
+      if (!ui.rightView && views[0]) uiDispatch({ type: "rightView/toggle", view: views[0] });
     } else {
       uiDispatch({ type: "panel/close" });
       uiDispatch({ type: "rightView/close" });
@@ -364,7 +384,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     track("resume_score_viewed", { score: report.score, band: report.band.title });
   }, [insightsVisible, report.score, report.band.title]);
 
-  /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu, Alt+P toggles Print layout (desktop and tablet). */
+  /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu, Alt+P / Alt+V toggle Print layout / PDF view (desktop and tablet). */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.metaKey || phone) return;
@@ -380,6 +400,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       } else if (e.code === "KeyP" || e.key.toLowerCase() === "p") {
         e.preventDefault();
         toggleView("print");
+      } else if (e.code === "KeyV" || e.key.toLowerCase() === "v") {
+        e.preventDefault();
+        toggleView("pdf");
       }
     };
     document.addEventListener("keydown", onKey);
@@ -408,28 +431,108 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     return () => window.removeEventListener("popstate", onPop);
   }, [closeAll]);
 
-  /* ── exports: both need the SAVED document, so save first and refuse if that fails ───── */
-  const savedFirst = async (what: string): Promise<boolean> => {
+  /* ── Save and the exports: all of them need the SAVED document, so flush first and refuse if that fails ───── */
+  const flushAll = async (): Promise<boolean> => {
     await presentation.flush(); // a theme still in its 500 ms debounce is part of "what's saved"
     await autosave.current?.flush();
-    if ((autosave.current?.savedRev ?? 0) < latestRev.current) {
-      toast({ title: `Couldn't ${what} yet`, description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
-      return false;
-    }
-    return true;
+    return (autosave.current?.savedRev ?? 0) >= latestRev.current;
+  };
+  const savedFirst = async (what: string): Promise<boolean> => {
+    if (await flushAll()) return true;
+    toast({ title: `Couldn't ${what} yet`, description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
+    return false;
   };
 
-  const downloadPdf = async () => {
+  /* Save (DESIGN 10.15): autosave stays as built; Save flushes it, writes a checkpoint (a MANUAL / NAMED version)
+     and the server queues the PDF at once. "Saved" is honest: it reads Save only while something changed since the
+     last checkpoint, or the stored PDF is missing / stale / failed. */
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const checkpointing = useRef(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+  const [checkpointed, setCheckpointed] = useState(() => ({ doc, templateId: state.templateId, theme: state.theme }));
+  const current = useRef({ doc, templateId: state.templateId, theme: state.theme });
+  useEffect(() => {
+    current.current = { doc, templateId: state.templateId, theme: state.theme };
+  });
+  const dirty = doc !== checkpointed.doc || state.templateId !== checkpointed.templateId || state.theme !== checkpointed.theme;
+  const pdfNeedsSave = pdf?.status === "NONE" || pdf?.status === "FAILED" || pdf?.status === "STALE";
+  const canSave = dirty || pdfNeedsSave;
+  const pdfSettings = config.pdf ?? DEFAULT_BUILDER_CONFIG.pdf;
+
+  const saveCheckpoint = async (name?: string): Promise<{ flushed: boolean; checkpoint: CheckpointResult | null }> => {
+    if (checkpointing.current || state.phase === "conflict") return { flushed: false, checkpoint: null };
+    checkpointing.current = true;
+    setSaving(true);
+    try {
+      // What is on screen NOW is what this checkpoint covers; edits made while it is written stay "changed".
+      const snapshot = { ...current.current };
+      if (!(await savedFirst("save"))) return { flushed: false, checkpoint: null };
+      const checkpoint = await checkpointDoc(resumeId, name);
+      if (checkpoint.kind === "error") {
+        toast({ title: "Couldn't save a version", description: checkpoint.message, variant: "error" });
+        return { flushed: true, checkpoint };
+      }
+      setCheckpointed(snapshot);
+      followPdf(checkpoint.pdf);
+      setJustSaved(true);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setJustSaved(false), SAVED_FLASH_MS);
+      if (name) toast({ title: `Version '${name}' saved`, variant: "success" });
+      return { flushed: true, checkpoint };
+    } finally {
+      checkpointing.current = false;
+      setSaving(false);
+    }
+  };
+  // Ctrl/⌘+S and the Save button call the latest closure.
+  const saveRef = useRef(saveCheckpoint);
+  useEffect(() => {
+    saveRef.current = saveCheckpoint;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "s") return;
+      e.preventDefault(); // the browser's own "save page" has no business here
+      void saveRef.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  /**
+   * Download the PDF. `withSave` (Download ▾ → Save & Download PDF): checkpoint first, then wait up to
+   * `resume.pdf.waitMs` for the stored file the checkpoint queued, and download THAT; when it is not ready in time the
+   * export below renders it itself (and stores it). Without it (a view's footer button): flush and export only.
+   */
+  const downloadPdfFile = async (withSave: boolean) => {
     if (exporting) return;
     setExporting(true);
     try {
-      if (!(await savedFirst("export"))) return;
+      let checkpoint: CheckpointResult | null = null;
+      if (withSave) {
+        const saved = await saveCheckpoint();
+        if (!saved.flushed) return;
+        checkpoint = saved.checkpoint;
+        if (checkpoint?.kind === "ok" && checkpoint.pdf?.status !== "READY") {
+          await waitForStoredPdf(resumeId, { waitMs: pdfSettings.waitMs, pollMs: pdf?.pollMs });
+        }
+      } else if (!(await savedFirst("export"))) {
+        return;
+      }
       const res = await exportPdf(resumeId);
       if (res.kind === "error") {
         toast({ title: "Couldn't make the PDF", description: res.message, variant: "error" });
         return;
       }
       saveBlob(res.blob, res.fileName);
+      track("resume_download", { format: "pdf", cached: res.cached });
       if (res.stored) void refreshPdf();
       const pages = `${res.pages} ${res.pages === 1 ? "page" : "pages"}`;
       toast({
@@ -446,17 +549,22 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     }
   };
 
-  const downloadText = async () => {
+  const downloadText = async (withSave: boolean) => {
     if (exporting) return;
     setExporting(true);
     try {
-      if (!(await savedFirst("download"))) return;
+      if (withSave) {
+        if (!(await saveCheckpoint()).flushed) return;
+      } else if (!(await savedFirst("download"))) {
+        return;
+      }
       const res = await exportText(resumeId);
       if (res.kind === "error") {
         toast({ title: "Couldn't make the text file", description: res.message, variant: "error" });
         return;
       }
       saveBlob(res.blob, res.fileName);
+      track("resume_download", { format: "txt", cached: false });
       toast({ title: "Text file ready", description: "Plain text, the way an ATS reads your resume.", variant: "success" });
     } finally {
       setExporting(false);
@@ -526,7 +634,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   );
 
   const rightTitle = phone ? "Preview" : shownView === "pdf" ? "PDF view" : "Print layout";
-  const rightDescription = shownView === "pdf" ? "Arrives with the PDF view" : "See how your resume paginates on paper";
+  const rightDescription = shownView === "pdf" ? "The file employers and job sites receive" : "See how your resume paginates on paper";
 
   const rail = (
     <RightRail
@@ -551,14 +659,20 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         onTogglePanel={togglePanel}
         panelRefs={panelRefs}
         showTailor={config.features.tailor}
-        onDownloadPdf={downloadPdf}
-        onDownloadText={downloadText}
+        onDownloadPdf={() => void downloadPdfFile(true)}
+        onDownloadText={() => void downloadText(true)}
         exporting={exporting}
         exportDisabled={state.phase === "conflict"}
         downloadRef={downloadRef}
         rightView={ui.rightView}
         onToggleView={toggleView}
         printLayout={config.features.printLayout}
+        pdfView={config.features.pdfView}
+        onSave={() => void saveCheckpoint()}
+        onSaveAsVersion={(name) => void saveCheckpoint(name)}
+        canSave={canSave}
+        saving={saving}
+        justSaved={justSaved}
         onClose={closeEditor}
         pdf={pdf}
         onPdfRetry={retryPdf}
@@ -671,14 +785,11 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
             onClose={closeRight}
             returnFocusTo={rightReturnFocus}
           >
-            {phone && (
+            {views.length > 1 && (
               <ChoiceGroup
                 aria-label="Preview type"
                 className="mb-4"
-                options={[
-                  { value: "print", label: "Print layout" },
-                  { value: "pdf", label: "PDF view" },
-                ]}
+                options={views.map((v) => ({ value: v, label: v === "pdf" ? "PDF view" : "Print layout" }))}
                 value={shownView}
                 onChange={(v) => uiDispatch({ type: "rightView/toggle", view: v as RightView })}
               />
@@ -690,13 +801,24 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
                 templateId={state.templateId}
                 caps={caps}
                 controls={presentation}
-                onDownloadPdf={downloadPdf}
+                onDownloadPdf={() => void downloadPdfFile(false)}
                 exporting={exporting}
                 disabled={state.phase === "conflict"}
                 zoomable={phone}
               />
             ) : (
-              <PanelPlaceholder panel="preview" comingIn="R3.3" />
+              <PdfView
+                resumeId={resumeId}
+                doc={doc}
+                theme={state.theme}
+                templateId={state.templateId}
+                caps={caps}
+                prepare={flushAll}
+                pdfInfo={pdf}
+                autoRefresh={pdfSettings.viewAutoRefresh}
+                disabled={state.phase === "conflict"}
+                onStored={() => void refreshPdf()}
+              />
             )}
           </SideSheet>
         </div>
@@ -734,9 +856,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       <div
         role="tablist"
         aria-label="Editor views"
-        className="fixed inset-x-0 bottom-0 z-30 grid h-14 grid-cols-4 border-t border-line/70 bg-paper md:hidden"
+        className={cn("fixed inset-x-0 bottom-0 z-30 grid h-14 border-t border-line/70 bg-paper md:hidden", views.length > 0 ? "grid-cols-4" : "grid-cols-3")}
       >
-        {PHONE_TABS.map((t) => {
+        {PHONE_TABS.filter((t) => t.value !== "preview" || views.length > 0).map((t) => {
           const selected = ui.phoneTab === t.value;
           return (
             <button

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBuilt, exportPdf, fileNameFromDisposition, getDoc, ifMatch, parseEtag, patchTemplate, patchTheme, pdfOutOfDate, putDoc } from "./resume-doc";
+import { checkpointDoc, createBuilt, exportPdf, fileNameFromDisposition, getDoc, ifMatch, parseEtag, patchTemplate, patchTheme, pdfOutOfDate, putDoc, waitForStoredPdf } from "./resume-doc";
 import type { ResumeDocument } from "@kiwiply/ui";
 
 const doc = { schema: 2, meta: { title: "t" }, basics: {}, sections: [] } as ResumeDocument;
@@ -210,6 +210,70 @@ describe("patchTemplate / patchTheme", () => {
     expect(await patchTheme(1, {})).toEqual({ kind: "error", message: "boom" });
     stubFetch(new Error("offline"));
     expect(await patchTemplate(1, "x")).toEqual({ kind: "error", message: "Couldn't reach the server." });
+  });
+});
+
+describe("checkpointDoc (R3.3)", () => {
+  it("POSTs the checkpoint route ({} unnamed, {name} named) and reads versionNo / reason / pdf", async () => {
+    const f = stubFetch(json(200, { versionNo: 4, reason: "NAMED", pdf: { status: "PENDING" } }));
+    expect(await checkpointDoc(42, "Before Acme")).toEqual({ kind: "ok", versionNo: 4, reason: "NAMED", pdf: { status: "PENDING" } });
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/resumes/42/doc/checkpoint");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(JSON.stringify({ name: "Before Acme" }));
+    await checkpointDoc(42);
+    expect((f.mock.calls[1] as unknown as [string, RequestInit])[1].body).toBe("{}");
+  });
+
+  it("maps failures to a plain message and never throws", async () => {
+    stubFetch(json(422, { message: "error.resumeDoc", detail: "name too long" }));
+    expect(await checkpointDoc(1, "x")).toEqual({ kind: "error", status: 422, message: "name too long" });
+    stubFetch(json(404, {}));
+    expect(await checkpointDoc(1)).toMatchObject({ kind: "error", status: 404, message: expect.stringContaining("no longer there") });
+    stubFetch(json(403, { error: "Demo accounts are read-only." }));
+    expect(await checkpointDoc(1)).toMatchObject({ kind: "error", status: 403, message: "Demo accounts are read-only." });
+    stubFetch(new Error("offline"));
+    expect(await checkpointDoc(1)).toEqual({ kind: "error", status: 0, message: "Couldn't reach the server." });
+  });
+});
+
+describe("waitForStoredPdf (R3.3)", () => {
+  const status = (s: string, over: Record<string, unknown> = {}) => json(200, { status: s, pollMs: 5000, pollWindowMs: 20000, ...over });
+
+  it("returns ready as soon as pdf-status says READY, asking at the server's cadence", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = vi.fn().mockResolvedValueOnce(status("PENDING")).mockResolvedValueOnce(status("RUNNING")).mockResolvedValueOnce(status("READY"));
+      vi.stubGlobal("fetch", f);
+      const done = waitForStoredPdf(42, { waitMs: 30_000 });
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await done).toBe("ready");
+      expect(f).toHaveBeenCalledTimes(3);
+      expect(f.mock.calls[0][0]).toBe("/api/resumes/42/doc/pdf-status");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up after waitMs (timeout) and on FAILED, so the caller renders it itself", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("fetch", vi.fn(async () => status("PENDING")));
+      const slow = waitForStoredPdf(42, { waitMs: 12_000 });
+      await vi.advanceTimersByTimeAsync(12_000);
+      expect(await slow).toBe("timeout");
+      vi.stubGlobal("fetch", vi.fn(async () => status("FAILED")));
+      expect(await waitForStoredPdf(42, { waitMs: 12_000 })).toBe("failed");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never guesses a cadence: with no hint from the server it falls back at once", async () => {
+    const f = vi.fn(async () => json(200, { status: "PENDING" }));
+    vi.stubGlobal("fetch", f);
+    expect(await waitForStoredPdf(42, { waitMs: 30_000 })).toBe("timeout");
+    expect(f).toHaveBeenCalledTimes(1);
   });
 });
 

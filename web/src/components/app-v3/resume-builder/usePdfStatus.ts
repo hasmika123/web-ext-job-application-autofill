@@ -80,5 +80,14 @@ export function usePdfStatus(resumeId: number, initial: PdfInfo | null | undefin
     if (next) adopt(next);
   }, [resumeId, adopt]);
 
-  return { pdf, retry, refresh };
+  // Save (R3.3): the checkpoint queued the PDF at once and answered with its state; follow it like after a save.
+  const follow = useCallback(
+    (next: PdfInfo | null) => {
+      if (next) adopt(next);
+      setNudgedAt(Date.now());
+    },
+    [adopt],
+  );
+
+  return { pdf, retry, refresh, follow };
 }

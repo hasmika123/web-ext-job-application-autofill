@@ -93,7 +93,8 @@ public class ResumeBuilderConfigService {
                 s.getInt(PROFILE_SETUP_PROMPT_BELOW_PERCENT),
                 s.getInt(PROFILE_UPLOAD_MAX_BYTES)
             ),
-            new ResumeBuilderConfigDTO.Lists(strings(LIST_QUICK_TIPS), s.getInt(LIST_VIRTUALIZE_ABOVE))
+            new ResumeBuilderConfigDTO.Lists(strings(LIST_QUICK_TIPS), s.getInt(LIST_VIRTUALIZE_ABOVE)),
+            new ResumeBuilderConfigDTO.Pdf(s.getInt(PDF_WAIT_MS), s.getBool(PDF_VIEW_AUTO_REFRESH))
         );
     }
 

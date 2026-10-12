@@ -545,6 +545,7 @@ function builderConfig() {
     aiAllowed: pro,
     resumes: { count: liveCount(), max: RESUME_LIMIT },
     profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200, bioValueMaxChars: 500, bioSummaryMaxChars: 2000, setupPromptBelowPercent: 40, uploadMaxBytes: 10485760 },
+    pdf: { waitMs: 30000, viewAutoRefresh: false },
     list: {
       quickTips: ["Create different resumes for different roles", "Tailor your resume for each job application", "Use AI suggestions to improve your content", "Keep one primary resume for quick applications"],
       virtualizeAbove: 60,

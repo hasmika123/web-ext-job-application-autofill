@@ -285,8 +285,7 @@ export default function SideSheet({
           tabIndex={-1}
           className={cn(
             surface,
-            "relative",
-            "rounded-[var(--radius-lg)] border",
+            "relative rounded-[var(--radius-lg)] border",
           )}
           style={{ width: px, ...motion }}
         >

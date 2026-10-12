@@ -384,6 +384,78 @@ export async function requestPdfNow(resumeId: number, opts: { keepalive?: boolea
   }
 }
 
+/* ── checkpoints: Save / Save as version (R3.3 over R3.9) ─────────────────────────────────── */
+
+export type CheckpointResult =
+  /** The version row was written; `pdf` is the PDF job's state right after (the Save queued it at once). */
+  | { kind: "ok"; versionNo: number; reason: string; pdf: PdfInfo | null }
+  | { kind: "error"; status: number; message: string };
+
+/**
+ * `POST /api/resumes/:id/doc/checkpoint {name?}`: write a MANUAL (or NAMED) version of the SAVED document and
+ * ask for its PDF now. Flush the editor's autosave first so the row snapshots what the user sees. Never throws.
+ */
+export async function checkpointDoc(resumeId: number, name?: string): Promise<CheckpointResult> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/resumes/${resumeId}/doc/checkpoint`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(name ? { name } : {}),
+    });
+  } catch {
+    return { kind: "error", status: 0, message: "Couldn't reach the server." };
+  }
+  if (res.ok) {
+    const body = await readJson<{ versionNo?: number; reason?: string; pdf?: PdfInfo | null }>(res);
+    return {
+      kind: "ok",
+      versionNo: body?.versionNo ?? 0,
+      reason: body?.reason ?? "MANUAL",
+      pdf: body?.pdf && typeof body.pdf.status === "string" ? body.pdf : null,
+    };
+  }
+  const p = (await readJson<Problem>(res)) ?? {};
+  const message =
+    res.status === 401
+      ? "Your session expired - please sign in again."
+      : res.status === 404
+        ? "That resume is no longer there."
+        : res.status === 422
+          ? p.message && p.message !== "error.resumeDoc"
+            ? p.message
+            : (p.detail ?? "That name isn't allowed.")
+          : res.status === 403
+            ? (p.error ?? "This account can't save versions.")
+            : (p.error ?? "Couldn't save a version. Please try again.");
+  return { kind: "error", status: res.status, message };
+}
+
+export type PdfWaitResult = "ready" | "failed" | "timeout";
+
+/**
+ * Save & Download PDF: after a checkpoint queued the PDF, ask `pdf-status` every `pollMs` (the server's hint, a
+ * setting) until it is READY, FAILED, or `waitMs` (`resume.pdf.waitMs`) is spent. "timeout" and "failed" both mean
+ * the caller falls back to the synchronous export, which renders and stores the PDF itself. With no interval hint
+ * from the server there is no polling (never guess one): the caller falls back at once. Never throws.
+ */
+export async function waitForStoredPdf(
+  resumeId: number,
+  opts: { waitMs: number; pollMs?: number | null; signal?: AbortSignal },
+): Promise<PdfWaitResult> {
+  const deadline = Date.now() + opts.waitMs;
+  let pollMs = opts.pollMs ?? null;
+  for (;;) {
+    const info = await getPdfStatus(resumeId, opts.signal);
+    if (opts.signal?.aborted) return "timeout";
+    if (info?.status === "READY") return "ready";
+    if (info?.status === "FAILED") return "failed";
+    pollMs = info?.pollMs ?? pollMs;
+    if (!pollMs || Date.now() + pollMs > deadline) return "timeout";
+    await new Promise<void>((resolve) => setTimeout(resolve, pollMs ?? 0));
+  }
+}
+
 /** Saves a blob through a temporary link (the browser's normal download). */
 export function saveBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);

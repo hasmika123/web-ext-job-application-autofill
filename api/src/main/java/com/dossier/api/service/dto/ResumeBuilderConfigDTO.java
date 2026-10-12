@@ -25,7 +25,8 @@ public record ResumeBuilderConfigDTO(
     boolean aiAllowed,
     Resumes resumes,
     Profile profile,
-    Lists list
+    Lists list,
+    Pdf pdf
 ) {
     public record Templates(
         List<String> enabled,
@@ -86,4 +87,7 @@ public record ResumeBuilderConfigDTO(
 
     /** The My Resumes page (R2.6): the Quick Tips lines and the card count above which the grid is virtualised. */
     public record Lists(List<String> quickTips, int virtualizeAbove) {}
+
+    /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF; whether the PDF view re-renders by itself. */
+    public record Pdf(int waitMs, boolean viewAutoRefresh) {}
 }
