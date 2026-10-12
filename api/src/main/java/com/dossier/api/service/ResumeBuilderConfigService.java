@@ -82,7 +82,12 @@ public class ResumeBuilderConfigService {
             ),
             entitlements.planName(login),
             entitlements.builderAiAllowed(login),
-            new ResumeBuilderConfigDTO.Resumes(entitlements.liveResumeCount(), entitlements.resumesMax(login))
+            new ResumeBuilderConfigDTO.Resumes(entitlements.liveResumeCount(), entitlements.resumesMax(login)),
+            new ResumeBuilderConfigDTO.Profile(
+                s.getInt(PROFILE_ITEM_MAX_BYTES),
+                s.getInt(PROFILE_ITEMS_MAX_PER_USER),
+                s.getInt(PROFILE_IMPORT_MAX_ITEMS)
+            )
         );
     }
 

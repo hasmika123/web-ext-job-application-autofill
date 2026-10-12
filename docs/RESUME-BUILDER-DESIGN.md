@@ -2245,6 +2245,7 @@ B1.2's `has(login, "builder.ai")`.
 | `resume.templates.overrides` | JSON | {} | tighten-only per §6.3 | §6.3 |
 | `resume.theme.accentPalette` | JSON string[] | the 6 hexes | 3–12 `#rrggbb` | §4 |
 | `resume.doc.limits.sections` / `.items` / `.bullets` / `.bulletChars` / `.summaryChars` / `.marks` / `.docBytes` | INT | 20 / 40 / 12 / 600 / 2000 / 64 / 262144 | 5–50 / 5–100 / 3–30 / 100–2000 / 200–5000 / 0–200 / 64 K–1 M | §3.1, reducer |
+| `profile.item.maxBytes` / `profile.items.maxPerUser` / `profile.import.maxItems` | INT | 16384 / 500 / 200 | 1 K–64 K / 50–5000 / 10–1000 | R1.1 Common Profile items (bytes per item / live items per user / items per import) |
 | `resume.versions.coalesceMinutes` / `.retentionAuto` | INT | 10 / 30 | 1–120 / 5–200 | §8.2 |
 | `resume.photo.maxBytes` / `.discouragedRegions` | INT / JSON | 5242880 / ["US","CA","GB","AU","IE","NZ"] | 1 M–10 M | §5 |
 | `resume.score.rulesetVersion` | ENUM | "v1" | v1 | §11 |

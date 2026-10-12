@@ -135,7 +135,10 @@ class ResumeBuilderConfigResourceIT {
             .andExpect(jsonPath("$.features.pdfView").value(true))
             .andExpect(jsonPath("$.ai.suggestAutoRefresh").value(false))
             .andExpect(jsonPath("$.ai.suggestStaleMinutes").value(10))
-            .andExpect(jsonPath("$.ai.rewriteMaxRefs").value(12));
+            .andExpect(jsonPath("$.ai.rewriteMaxRefs").value(12))
+            .andExpect(jsonPath("$.profile.itemMaxBytes").value(16384))
+            .andExpect(jsonPath("$.profile.maxItemsPerUser").value(500))
+            .andExpect(jsonPath("$.profile.maxImportItems").value(200));
     }
 
     @Test

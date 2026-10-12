@@ -21,10 +21,10 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import { BrandTile, InitialsAvatar, Progress, SectionCard, StatusChip, TONE, type Tone } from "../../app-v2/common";
-import { V3_PROFILE_FALLBACK, V3_PROFILE_VARIANTS, V3_RESUME_VERSION_SAMPLES } from "../sample-data";
+import { V3_PROFILE_FALLBACK, V3_RESUME_VERSION_SAMPLES } from "../sample-data";
 import type { CompletenessTile, ProfileView } from "./derive";
+import type { ProfileTabKey } from "./tabs";
 
-export type ProfileTabKey = "overview" | "personal" | "work" | "education" | "skills" | "projects" | "preferences";
 
 const TILE_ICON: Record<CompletenessTile["key"], { icon: ReactNode; tone: Tone; tab: ProfileTabKey }> = {
   personal: { icon: <UserIcon className="h-5 w-5" />, tone: "blue", tab: "personal" },
@@ -37,11 +37,25 @@ const TILE_ICON: Record<CompletenessTile["key"], { icon: ReactNode; tone: Tone; 
 
 /**
  * My Profiles > Overview (APP-V3-SPEC section 2.4). Real: name, email, location, completeness,
- * skills, About (default resume's summary), resume versions and the LinkedIn / GitHub / Portfolio
- * links. Sample (board text): the job title / location / About / skills when the user has none yet,
- * and the "Multiple Profiles" row (that feature is not built).
+ * skills, About, resume versions and the LinkedIn / GitHub / Portfolio links, and (R1.2) the meter and
+ * its tiles, which are the API's profile completeness - `percent` is `null` when the API could not be
+ * reached. Sample (board text): the job title / location / About / skills when the user has none yet.
+ * "Targets" replaces the board's "Multiple Profiles" row: the built resumes, one per role aimed at
+ * (DESIGN v1 2.6 - there are no profile variants).
  */
-export default function OverviewTab({ profile, onTab }: { profile: ProfileView; onTab: (t: ProfileTabKey) => void }) {
+export default function OverviewTab({
+  profile,
+  tiles,
+  percent,
+  nextAction,
+  onTab,
+}: {
+  profile: ProfileView;
+  tiles: CompletenessTile[];
+  percent: number | null;
+  nextAction: { label: string; tab: ProfileTabKey } | null;
+  onTab: (t: ProfileTabKey) => void;
+}) {
   const toast = useToast();
   const comingSoon = (what: string) => toast({ title: "Coming soon", description: `${what} is on the way.` });
 
@@ -50,7 +64,6 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
   const about = profile.about || V3_PROFILE_FALLBACK.about;
   const skills = profile.skills.length > 0 ? profile.skills : V3_PROFILE_FALLBACK.skills;
   const versions = profile.versions.length > 0 ? profile.versions : V3_RESUME_VERSION_SAMPLES;
-  const variants = [title, ...V3_PROFILE_VARIANTS.filter((v) => v !== title)].slice(0, 3);
 
   const linked: { name: string; url: string }[] = [
     { name: "LinkedIn", url: profile.links.linkedin },
@@ -104,10 +117,21 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         </section>
 
         {/* Completeness */}
-        <SectionCard title="Profile completeness" headerExtra={<span className="font-display text-[22px] font-extrabold text-v2-green-ink">{profile.percent}%</span>}>
-          <Progress value={profile.percent} tone="green" label="Profile completeness" className="h-2" />
+        <SectionCard
+          title="Profile completeness"
+          headerExtra={<span className="font-display text-[22px] font-extrabold text-v2-green-ink">{percent === null ? "—" : `${percent}%`}</span>}
+        >
+          <Progress value={percent ?? 0} tone="green" label="Profile completeness" className="h-2" />
+          {nextAction && (
+            <p className="mt-3 text-[13px] text-v2-ink-soft">
+              Next:{" "}
+              <button type="button" onClick={() => onTab(nextAction.tab)} className="font-semibold text-v2-blue hover:underline max-sm:min-h-11 max-sm:py-2">
+                {nextAction.label}
+              </button>
+            </p>
+          )}
           <ul className="mt-4 grid grid-cols-2 gap-2.5 min-[1280px]:grid-cols-3">
-            {profile.tiles.map((t) => {
+            {tiles.map((t) => {
               const meta = TILE_ICON[t.key];
               const done = t.status === "done";
               return (
@@ -207,29 +231,26 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
             <button type="button" onClick={() => onTab("preferences")} className="mt-3 text-[13px] font-semibold text-v2-blue hover:underline">Edit preferences</button>
           </SectionCard>
 
-          {/* Multiple profiles */}
-          <SectionCard title="Multiple Profiles">
+          {/* Targets: the built resumes, one per role aimed at (replaces the board's "Multiple Profiles") */}
+          <SectionCard title="Targets" subtitle="One resume per kind of role you're going for.">
             <ul className="flex flex-wrap items-center gap-2">
-              {variants.map((v, i) => (
-                <li
-                  key={v}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-[13.5px] font-semibold",
-                    i === 0 ? "border-v2-blue/40 bg-v2-blue-soft text-v2-blue" : "border-v2-line bg-white text-v2-navy",
-                  )}
-                >
-                  {v}
-                  {i === 0 && <span className="text-[11.5px] font-medium text-v2-ink-soft">(Default)</span>}
+              {profile.built.map((r) => (
+                <li key={r.id} className="min-w-0 max-w-full">
+                  <Link
+                    href={`/resume-builder/${r.id}`}
+                    className="inline-flex max-w-full items-center rounded-xl border border-v2-line bg-white px-3.5 py-2 text-[13.5px] font-semibold text-v2-navy hover:bg-v2-blue-soft max-sm:min-h-11"
+                  >
+                    <span className="truncate">{r.label}</span>
+                  </Link>
                 </li>
               ))}
               <li>
-                <button
-                  type="button"
-                  onClick={() => comingSoon("Multiple profiles")}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-v2-blue/50 px-3.5 py-2 text-[13.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft"
+                <Link
+                  href="/resume-builder"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-v2-blue/50 px-3.5 py-2 text-[13.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft max-sm:min-h-11"
                 >
-                  <PlusIcon className="h-4 w-4" /> Create Profile
-                </button>
+                  <PlusIcon className="h-4 w-4" /> New resume
+                </Link>
               </li>
             </ul>
           </SectionCard>

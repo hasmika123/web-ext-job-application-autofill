@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.ProfileItem;
 import com.dossier.api.domain.Resume;
@@ -16,16 +17,20 @@ import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ProfileSection;
 import com.dossier.api.domain.enumeration.Provenance;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ProfileItemRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.service.ResumeBuilderSettingKeys;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -66,6 +71,12 @@ class ProfileItemResourceIT {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private AppSettingRepository appSettingRepository;
+
+    @Autowired
+    private ResumeBuilderSettings settings;
+
     // ---- helpers ------------------------------------------------------------------------------
 
     private User user() {
@@ -101,6 +112,22 @@ class ProfileItemResourceIT {
         List<Long> out = new ArrayList<>();
         arr.forEach(n -> out.add(n.get("id").asLong()));
         return out;
+    }
+
+    private static String customItems(int n) {
+        StringBuilder sb = new StringBuilder("{\"items\":[");
+        for (int i = 0; i < n; i++) sb.append(i == 0 ? "" : ",").append("{\"section\":\"CUSTOM\",\"dataJson\":{\"title\":\"t").append(i).append("\"}}");
+        return sb.append("]}").toString();
+    }
+
+    private void setting(String key, String value) {
+        appSettingRepository.saveAndFlush(new AppSetting(key, value, "it", Instant.now()));
+        settings.invalidate();
+    }
+
+    @AfterEach
+    void dropSettingsCache() {
+        settings.invalidate(); // the setting rows roll back with the test transaction; the cache must not outlive them
     }
 
     private ResultActions importItems(String body) throws Exception {
@@ -486,6 +513,38 @@ class ProfileItemResourceIT {
         JsonNode items = list("?section=EXPERIENCE");
         assertThat(items.get(0).get("sourceResumeId").asLong()).isEqualTo(mine.getId());
         assertThat(items.get(1).path("sourceResumeId").asLong()).isZero(); // null (or absent): not theirs to claim
+    }
+
+    @Test
+    void theItemSizeLimitComesFromTheSetting() throws Exception {
+        String twoKb = "a".repeat(2_000);
+        createItem("EXPERIENCE", "{\"title\":\"" + twoKb + "\"}"); // default 16 KB: fine
+        setting(ResumeBuilderSettingKeys.PROFILE_ITEM_MAX_BYTES, "1024");
+        postItem("{\"section\":\"EXPERIENCE\",\"dataJson\":{\"title\":\"" + twoKb + "\"}}")
+            .andExpect(status().isPayloadTooLarge())
+            .andExpect(jsonPath("$.code").value("ITEM_TOO_LARGE"))
+            .andExpect(jsonPath("$.maxBytes").value(1024));
+    }
+
+    @Test
+    void theLiveItemCapComesFromTheSetting() throws Exception {
+        setting(ResumeBuilderSettingKeys.PROFILE_ITEMS_MAX_PER_USER, "50");
+        for (int i = 0; i < 50; i++) createItem("CUSTOM", "{\"title\":\"c" + i + "\"}");
+        postItem("{\"section\":\"CUSTOM\",\"dataJson\":{\"title\":\"one too many\"}}")
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value("ITEM_LIMIT"))
+            .andExpect(jsonPath("$.limit").value(50));
+        assertThat(list("")).hasSize(50);
+    }
+
+    @Test
+    void theImportSizeLimitComesFromTheSetting() throws Exception {
+        setting(ResumeBuilderSettingKeys.PROFILE_IMPORT_MAX_ITEMS, "10");
+        importItems(customItems(10)).andExpect(status().isOk());
+        importItems(customItems(11))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value("ITEM_LIMIT"))
+            .andExpect(jsonPath("$.limit").value(10));
     }
 
     @Test
