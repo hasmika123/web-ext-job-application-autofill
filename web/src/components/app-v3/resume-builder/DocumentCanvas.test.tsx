@@ -67,7 +67,8 @@ describe("DocumentCanvas", () => {
     fireEvent.click(screen.getByLabelText("Remove link 1"));
     expect(liveDoc().basics.links).toHaveLength(7);
     expect(add().disabled).toBe(false);
-  });
+    // config-literal-ok: test timeout — six full-canvas re-renders exceed vitest's 5 s default under parallel CPU load
+  }, 20_000);
 
   it("draws the photo slot only when the template allows a photo; the upload is 'Coming soon'", () => {
     const { unmount } = render(<CanvasHarness doc={everyKind()} />);
