@@ -110,11 +110,14 @@ function firstNameOf(account?: AppAccount | null): string {
 export default function AppShell({
   account,
   isPro = false,
+  orgsEnabled = false,
   children,
 }: {
   account?: AppAccount | null;
   /** Hides the Upgrade card and adds a Pro pill. Display only: entitlement is enforced server-side. */
   isPro?: boolean;
+  /** The API's org feature flag; while it is off the account menu has no organization entry. */
+  orgsEnabled?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -300,6 +303,7 @@ export default function AppShell({
               name={firstNameOf(account)}
               isPro={isPro}
               demo={demo}
+              orgsEnabled={orgsEnabled}
               onNavigate={() => setOpen(false)}
             />
           </div>

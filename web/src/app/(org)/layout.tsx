@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Caveat, Plus_Jakarta_Sans } from "next/font/google";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
+import { getPublicConfig } from "@/lib/public-config";
 import OrgShell from "@/components/org-v2/shell/OrgShell";
 import type { AppAccount } from "@/components/app-shell/AppShell";
 
@@ -48,6 +49,12 @@ export default async function OrgGroupLayout({ children }: { children: React.Rea
   }
   if (res.ok) {
     account = (await res.json().catch(() => null)) as AppAccount | null;
+  }
+
+  // The org feature flag (E2E-O1.9, APP-E2E-PLAN 2.2): off in production until the org area ships. While it is off
+  // the whole area is unreachable (the API answers 404 for every org route) and the app menu has no entry for it.
+  if (!(await getPublicConfig()).orgs) {
+    redirect("/dashboard");
   }
 
   return (

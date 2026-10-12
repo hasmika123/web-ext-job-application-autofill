@@ -1,6 +1,7 @@
 package com.dossier.api.config;
 
 import com.dossier.api.service.org.OrgAccessService;
+import com.dossier.api.service.org.OrgFeatureFlag;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
@@ -33,8 +34,10 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
     private static final Logger LOG = LoggerFactory.getLogger(OrgPermissionInterceptor.class);
 
     private final OrgAccessService accessService;
+    private final OrgFeatureFlag featureFlag;
 
-    public OrgPermissionInterceptor(OrgAccessService accessService) {
+    public OrgPermissionInterceptor(OrgAccessService accessService, OrgFeatureFlag featureFlag) {
+        this.featureFlag = featureFlag;
         this.accessService = accessService;
     }
 
@@ -42,6 +45,7 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
     @SuppressWarnings("unchecked")
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         if (!(handler instanceof HandlerMethod method)) return true;
+        if (!featureFlag.isEnabled()) throw new OrgNotFoundException(); // the flag is off: the org API does not exist (OrgsEnabledFilter answers first; this is the second wall)
         OrgPermissionRequired required = method.getMethodAnnotation(OrgPermissionRequired.class);
         if (required == null) {
             if (method.hasMethodAnnotation(OrgUnscoped.class)) return true;

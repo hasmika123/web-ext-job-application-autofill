@@ -259,6 +259,11 @@ dossier:
     enabled: ${DEMO_ENABLED:false}
     password: ${DEMO_PASSWORD:kiwiply-demo}
     create-accounts: ${DEMO_CREATE_ACCOUNTS:true}
+  # Organization features (E2E-O1.9). OFF unless ORGS_ENABLED=true (the dev profile turns it on). This is only the
+  # environment default: an admin-stored `feature.orgs.enabled` setting, when present, wins (OrgFeatureFlag). While off,
+  # /api/orgs/**, /api/join/** and /api/me/orgs/** answer 404 and the web hides the org navigation.
+  orgs:
+    enabled: ${ORGS_ENABLED:false}
   # Service-to-service secret for /api/internal/** (the web's resume-PDF worker, Resume Builder R3.7).
   # Sent as X-Internal-Token; the same value is the web container's DOSSIER_INTERNAL_TOKEN. Blank (the
   # default) = the internal routes refuse every request. Never exposed by the edge proxy.

@@ -53,6 +53,8 @@ const ACCOUNTS = {
 
 // Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
 const DEMO_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ENABLED ?? "true");
+// Mirrors the real API org feature flag (ORGS_ENABLED): on in the mock by default, MOCK_ORGS_ENABLED=false turns it off.
+const ORGS_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_ORGS_ENABLED ?? "true");
 
 const DEMO_ACCOUNTS = [
   {
@@ -1413,6 +1415,8 @@ const server = http.createServer((req, res) => {
   const method = req.method ?? "GET";
 
   if (path === "/api/public/demo") return json(res, 200, DEMO_INFO);
+  // GET /api/config/public: the two public switches the web reads server-side (booleans only, same for everyone).
+  if (path === "/api/config/public" && method === "GET") return json(res, 200, { orgs: ORGS_ENABLED, demo: DEMO_ENABLED });
 
   if (path === "/api/authenticate/demo" && method === "POST") {
     if (!DEMO_ENABLED) {
