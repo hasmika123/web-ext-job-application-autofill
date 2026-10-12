@@ -13,6 +13,7 @@
  * NODE_ENV=production.
  */
 import http from "node:http";
+import { createTrackerMock } from "./mock-tracker.mjs";
 
 if (process.env.NODE_ENV === "production") {
   console.error("mock-api: refusing to run with NODE_ENV=production");
@@ -191,6 +192,9 @@ const withBody = (req, cb) => {
     cb(body);
   });
 };
+
+/* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
+const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
 
 /* ── Resume Builder mock (R0.3 contract; in memory) ──────────────────────────────────────────── */
 const DOCS = new Map(); // resume id -> { doc, templateId, theme, version, updatedAt }
@@ -1719,6 +1723,7 @@ const server = http.createServer((req, res) => {
   if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
   if (handleOnboarding(req, res, path, method)) return;
+  if (handleTracker(req, res, path, method)) return;
 
   // The setup flow's profile writes (Onboarding v2 R1.10 / R1.11): `PUT /api/profile` replaces the in-memory bio, so the
   // core confirm, the per-answer question writes and the payoff's "~N fields" can be walked through without the API.
@@ -1902,7 +1907,6 @@ const server = http.createServer((req, res) => {
   // R1.6: where each saved bio value came from (the real API keeps this off GET /api/profile). The demo says "parsed" for names, "user" for the rest.
   if (path === "/api/profile/provenance")
     return json(res, 200, emptyUser ? {} : Object.fromEntries(Object.keys(BIO).filter((k) => typeof BIO[k] === "string").map((k) => [k, k === "firstName" || k === "lastName" ? "parsed" : "user"])));
-  if (path === "/api/profile/applications") return json(res, 200, emptyUser ? [] : APPLICATIONS);
   if (path === "/api/profile/resumes") return json(res, 200, emptyUser ? [] : RESUMES.map(listRow));
   if (path === "/api/profile/suggestions") return json(res, 200, []);
   if (path === "/api/profile/notifications") return json(res, 200, { unread: 0, items: [] });

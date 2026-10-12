@@ -1,0 +1,81 @@
+package com.dossier.api.domain;
+
+import jakarta.persistence.*;
+import java.io.Serializable;
+import java.time.Instant;
+
+/**
+ * The user's own free text about one application (APP-E2E U6.1). Every write is checked for values the
+ * product never collects before it gets here (SensitiveContent). Removed with its application.
+ */
+@Entity
+@Table(name = "application_note")
+public class ApplicationNote implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "application_id", nullable = false)
+    private Long applicationId;
+
+    @Lob
+    @Column(name = "body", nullable = false)
+    private String body;
+
+    @Column(name = "pinned", nullable = false)
+    private boolean pinned;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getApplicationId() {
+        return applicationId;
+    }
+
+    public void setApplicationId(Long applicationId) {
+        this.applicationId = applicationId;
+    }
+
+    public String getBody() {
+        return body;
+    }
+
+    public void setBody(String body) {
+        this.body = body;
+    }
+
+    public boolean isPinned() {
+        return pinned;
+    }
+
+    public void setPinned(boolean pinned) {
+        this.pinned = pinned;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+}

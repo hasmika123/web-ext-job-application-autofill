@@ -312,6 +312,16 @@ function mockFetch(handler) {
   await pBugAnon.submitBugReport({ message: "hi", category: "IDEA" });
   ok("submitBugReport works without a token (no auth header)", fetchBugAnon.calls[0].headers.Authorization === undefined);
 
+  /* ---- APP-E2E U6.1: the server gained statuses (IN_REVIEW, WITHDRAWN) and tracker fields ---- */
+  // The mirror is read-only and the extension only ever writes DRAFT/APPLIED, so a status it does not know
+  // must pass through untouched (never throw, never rewritten) and server-owned fields must never be sent back.
+  for (const st of ["IN_REVIEW", "WITHDRAWN", "SOME_FUTURE_STATUS"]) {
+    const mapped = T.dtoToApplication({ id: 7, company: "Acme", roleTitle: "Eng", status: st, lastEventAt: "2026-10-01T00:00:00Z", ghosted: true, nextStep: { label: "Review offer" }, interviewsCount: 2 });
+    ok("dtoToApplication keeps unknown status " + st, mapped.status === st && mapped.serverId === 7);
+  }
+  const outbound = T.applicationToDto({ serverId: 7, company: "Acme", roleTitle: "Eng", status: "IN_REVIEW", lastEventAt: "x", ghosted: true, nextStep: {}, notesCount: 3 });
+  ok("applicationToDto never sends server-owned tracker fields", outbound.status === "IN_REVIEW" && !("lastEventAt" in outbound) && !("ghosted" in outbound) && !("nextStep" in outbound) && !("notesCount" in outbound));
+
   /* ---- base contract still rejects newly-declared, unimplemented methods ---- */
   let aiThrew = false; try { await base.aiDraft({}); } catch (e) { aiThrew = e.name === "NotSupportedError"; }
   ok("base TrackingProvider.aiDraft throws NotSupported", aiThrew);

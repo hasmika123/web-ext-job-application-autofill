@@ -30,6 +30,24 @@ class MailClassifierTest {
     }
 
     @Test
+    void underReviewIsItsOwnStageButAReceiptWithBoilerplateIsNot() {
+        assertThat(read("Update on your application", "Your application is currently under review by our hiring team.", "Acme Careers").category()).isEqualTo(
+            Category.IN_REVIEW
+        );
+        assertThat(read("Application status: In review", "Hi Sam, we're reviewing your application for the Data Analyst role.", "Globex").category()).isEqualTo(
+            Category.IN_REVIEW
+        );
+        // The receipt says "our team will review" as boilerplate - still just a confirmation.
+        assertThat(
+            read("Thank you for applying to Acme", "We received your application. Your application is under review and we will be in touch.", "Acme").category()
+        ).isEqualTo(Category.APPLIED);
+        // A decision outranks it.
+        assertThat(read("Your application", "Your application was under review; unfortunately we have decided not to move forward.", null).category()).isEqualTo(
+            Category.REJECTED
+        );
+    }
+
+    @Test
     void rejections() {
         MailClassifier.Reading r = read(
             "Your application to Initech",

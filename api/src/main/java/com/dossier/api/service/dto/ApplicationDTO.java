@@ -3,6 +3,7 @@ package com.dossier.api.service.dto;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.domain.enumeration.JobMode;
 import com.dossier.api.domain.enumeration.JobType;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
@@ -78,6 +79,138 @@ public class ApplicationDTO implements Serializable {
     // when "just attach the file" was used instead of a library resume. Null = no attachment.
     @Size(max = 255)
     private String attachmentFilename;
+
+    // ---- Tracker memory (APP-E2E U6.1/U6.2). All additive; the extension neither sends nor needs them,
+    // and the derived ones are only filled by the v2 list / detail / patch endpoints (NON_NULL keeps the
+    // legacy payload exactly as it was when they are not).
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Instant lastEventAt;
+
+    @Size(max = 160)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String nextAction;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Instant nextActionAt;
+
+    /** ACCEPTED or DECLINED once an offer is resolved. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String outcome;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Instant acceptedAt;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Long postingId;
+
+    /** What happens next, derived: the soonest interview, "Review offer", or the user's own next action. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private NextStep nextStep;
+
+    /** Derived, never stored: applied or in review with no event for the configured number of days. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean ghosted;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer interviewsCount;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer notesCount;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer mailCount;
+
+    /** {@code label} is plain words ("Video interview"); {@code at} is when, when there is a date. */
+    public record NextStep(String label, Instant at) implements Serializable {}
+
+    public Instant getLastEventAt() {
+        return lastEventAt;
+    }
+
+    public void setLastEventAt(Instant lastEventAt) {
+        this.lastEventAt = lastEventAt;
+    }
+
+    public String getNextAction() {
+        return nextAction;
+    }
+
+    public void setNextAction(String nextAction) {
+        this.nextAction = nextAction;
+    }
+
+    public Instant getNextActionAt() {
+        return nextActionAt;
+    }
+
+    public void setNextActionAt(Instant nextActionAt) {
+        this.nextActionAt = nextActionAt;
+    }
+
+    public String getOutcome() {
+        return outcome;
+    }
+
+    public void setOutcome(String outcome) {
+        this.outcome = outcome;
+    }
+
+    public Instant getAcceptedAt() {
+        return acceptedAt;
+    }
+
+    public void setAcceptedAt(Instant acceptedAt) {
+        this.acceptedAt = acceptedAt;
+    }
+
+    public Long getPostingId() {
+        return postingId;
+    }
+
+    public void setPostingId(Long postingId) {
+        this.postingId = postingId;
+    }
+
+    public NextStep getNextStep() {
+        return nextStep;
+    }
+
+    public void setNextStep(NextStep nextStep) {
+        this.nextStep = nextStep;
+    }
+
+    public Boolean getGhosted() {
+        return ghosted;
+    }
+
+    public void setGhosted(Boolean ghosted) {
+        this.ghosted = ghosted;
+    }
+
+    public Integer getInterviewsCount() {
+        return interviewsCount;
+    }
+
+    public void setInterviewsCount(Integer interviewsCount) {
+        this.interviewsCount = interviewsCount;
+    }
+
+    public Integer getNotesCount() {
+        return notesCount;
+    }
+
+    public void setNotesCount(Integer notesCount) {
+        this.notesCount = notesCount;
+    }
+
+    public Integer getMailCount() {
+        return mailCount;
+    }
+
+    public void setMailCount(Integer mailCount) {
+        this.mailCount = mailCount;
+    }
 
     public Long getId() {
         return id;

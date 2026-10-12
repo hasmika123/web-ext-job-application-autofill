@@ -45,6 +45,8 @@ public class NotificationService {
     private static final Map<ApplicationStatus, String> WORDS = Map.of(
         ApplicationStatus.APPLIED,
         "Application confirmed",
+        ApplicationStatus.IN_REVIEW,
+        "Application under review",
         ApplicationStatus.INTERVIEW,
         "Moved to Interview",
         ApplicationStatus.OFFER,

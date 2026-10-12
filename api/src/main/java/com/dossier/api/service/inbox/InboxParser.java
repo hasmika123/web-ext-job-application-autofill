@@ -212,13 +212,13 @@ public class InboxParser {
         ApplicationStatus from = a.getStatus();
         ApplicationStatus to = MailMatcher.next(from, c);
         boolean touched = false;
-        if (c == MailClassifier.Category.APPLIED && !Boolean.TRUE.equals(a.getSubmissionConfirmed())) {
+        if ((c == MailClassifier.Category.APPLIED || c == MailClassifier.Category.IN_REVIEW) && !Boolean.TRUE.equals(a.getSubmissionConfirmed())) {
             a.setSubmissionConfirmed(true);
             touched = true;
         }
         if (to != null) {
             a.setStatus(to);
-            if (to == ApplicationStatus.APPLIED && a.getAppliedAt() == null) a.setAppliedAt(m.getSentAt() != null ? m.getSentAt() : Instant.now());
+            if ((to == ApplicationStatus.APPLIED || to == ApplicationStatus.IN_REVIEW) && a.getAppliedAt() == null) a.setAppliedAt(m.getSentAt() != null ? m.getSentAt() : Instant.now());
             m.setStatusChange(to.name());
             touched = true;
         }
@@ -249,7 +249,7 @@ public class InboxParser {
     String prompt(List<InboxMessage> slice) {
         StringBuilder sb = new StringBuilder();
         sb.append("Classify each email about a job seeker's applications. For each id return category: ");
-        sb.append("APPLIED (confirms an application was received), INTERVIEW (an invitation to interview or talk, or scheduling one), ");
+        sb.append("APPLIED (confirms an application was received), IN_REVIEW (says the application is under review), INTERVIEW (an invitation to interview or talk, or scheduling one), ");
         sb.append("ASSESSMENT (a test, coding challenge or take-home), REJECTED (they won't proceed with the candidate), OFFER (a job offer), ");
         sb.append("ALERT (job recommendations or a newsletter, not about one application), OTHER (anything else). ");
         sb.append("Also company: the hiring company's name as written — not the applicant-tracking system or job board — and role: the job title ");

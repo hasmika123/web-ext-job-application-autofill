@@ -1393,7 +1393,7 @@
       "id": "U6.1",
       "epic": "U6",
       "title": "Schema: application_event, application_note, interview; IN_REVIEW/WITHDRAWN statuses; backfill",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -1428,7 +1428,7 @@
       "id": "U6.2",
       "epic": "U6",
       "title": "Applications list API v2: filters, cursor paging, per-status summary, bulk actions",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -1492,7 +1492,7 @@
       "id": "U6.4",
       "epic": "U6",
       "title": "Interviews: CRUD, .ics / Google Calendar, reminders at setting `notify.interview_reminder_hours` (default 24 h + 1 h), outcome",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API",
