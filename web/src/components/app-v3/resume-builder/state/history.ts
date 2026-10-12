@@ -10,7 +10,9 @@
  *
  * Pure: the caller supplies the clock (`at`), so tests need no fake timers.
  */
+// config-literal-ok: client undo depth and typing-coalesce window are editor-local; DESIGN 15.2 has no key (resume.versions.* is the server version history)
 export const HISTORY_CAP = 100;
+// config-literal-ok: typing-coalesce window, same reason as above
 export const COALESCE_MS = 1000;
 
 export interface History<T> {

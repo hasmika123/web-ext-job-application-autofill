@@ -17,7 +17,9 @@
 import type { ResumeDocument } from "@kiwiply/ui";
 import type { SaveResult } from "@/lib/resume-doc";
 
+// config-literal-ok: autosave debounce and backoff are fixed by DESIGN 8.5 / 10.15 ("800 ms, as built"); no settings key exists for them in DESIGN 15.2
 export const AUTOSAVE_DELAY_MS = 800;
+// config-literal-ok: backoff ladder, same reason as above
 export const RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 4000, 8000, 15000];
 
 export interface Snapshot {

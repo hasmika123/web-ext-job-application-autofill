@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.ProfileItem;
 import com.dossier.api.domain.Resume;
@@ -21,12 +22,14 @@ import com.dossier.api.domain.enumeration.ProfileSection;
 import com.dossier.api.domain.enumeration.Provenance;
 import com.dossier.api.domain.enumeration.ResumeKind;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ProfileItemRepository;
 import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.ProfileService;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.resume.ResumeDocumentValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -78,10 +81,27 @@ class ResumeDocResourceIT {
     @Autowired
     private jakarta.persistence.EntityManager em;
 
+    @Autowired
+    private AppSettingRepository appSettingRepository;
+
+    @Autowired
+    private ResumeBuilderSettings settings;
+
     // ---- helpers ------------------------------------------------------------
 
     private User user() {
         return userRepository.findOneByLogin("user").orElseThrow();
+    }
+
+    /** Writes a setting (rolled back with the test transaction) and drops the settings cache. */
+    private void setting(String key, String value) {
+        appSettingRepository.saveAndFlush(new AppSetting(key, value, "it", Instant.now()));
+        settings.invalidate();
+    }
+
+    /** {@code resume.templates.enabled} defaults to Modern only; the tests that switch to the other known ids enable them first. */
+    private void enableTemplates(String... ids) {
+        setting("resume.templates.enabled", om.valueToTree(ids).toString());
     }
 
     private JsonNode json(String body) throws Exception {
@@ -159,6 +179,7 @@ class ResumeDocResourceIT {
         bio.setUser(user());
         bioRepository.saveAndFlush(bio);
 
+        enableTemplates("modern", "classic");
         String res = mockMvc
             .perform(
                 post("/api/profile/resumes/built")
@@ -272,6 +293,7 @@ class ResumeDocResourceIT {
 
     @Test
     void listedResumesCarryKindAndTheTemplateOfBuiltOnes() throws Exception {
+        enableTemplates("modern", "compact");
         createBuilt("{\"templateId\":\"compact\",\"label\":\"Built\"}");
         mockMvc
             .perform(get("/api/profile/resumes"))
@@ -588,6 +610,7 @@ class ResumeDocResourceIT {
 
     @Test
     void templatePatchSwitchesTheTemplateAndRejectsUnknownOnes() throws Exception {
+        enableTemplates("modern", "classic");
         Long id = createBuilt("{}").at("/resume/id").asLong();
 
         mockMvc
@@ -608,7 +631,49 @@ class ResumeDocResourceIT {
     }
 
     @Test
+    void aKnownButDisabledTemplateIsRejectedOnSwitchAndOnCreate() throws Exception {
+        // Default setting: only Modern is enabled, so "classic" exists but cannot be picked.
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        long before = resumeRepository.count();
+
+        mockMvc
+            .perform(patch("/api/profile/resumes/" + id + "/doc/template").contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":\"classic\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value("DOC_INVALID"))
+            .andExpect(jsonPath("$.path").value("$.templateId"))
+            .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("not enabled")));
+        mockMvc
+            .perform(post("/api/profile/resumes/built").contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":\"classic\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.path").value("$.templateId"));
+        assertThat(resumeRepository.count()).isEqualTo(before);
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(jsonPath("$.templateId").value("modern"));
+
+        // Enabling it by setting makes the same request succeed, and disabling Modern rejects Modern.
+        enableTemplates("classic");
+        mockMvc
+            .perform(patch("/api/profile/resumes/" + id + "/doc/template").contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":\"classic\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.templateId").value("classic"));
+        mockMvc
+            .perform(patch("/api/profile/resumes/" + id + "/doc/template").contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":\"modern\"}"))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void aNewResumeStartsWithTheConfiguredDefaultTemplateWhenItIsEnabled() throws Exception {
+        enableTemplates("modern", "compact");
+        setting("resume.templates.default", "compact");
+        assertThat(createBuilt("{}").at("/doc/templateId").asText()).isEqualTo("compact");
+
+        // a default that is not enabled falls back to the first enabled template
+        enableTemplates("modern");
+        assertThat(createBuilt("{}").at("/doc/templateId").asText()).isEqualTo("modern");
+    }
+
+    @Test
     void profileVersionMovesOnAContentSaveButNotOnATemplateSwitch() throws Exception {
+        enableTemplates("modern", "compact");
         Long id = createBuilt("{\"label\":\"Mine\"}").at("/resume/id").asLong();
         String created = version();
 

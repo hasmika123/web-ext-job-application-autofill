@@ -153,7 +153,10 @@ export type {
   TemplateMeta,
   TemplateProps,
   TemplateDefinition,
-  TemplateSupports,
+  TemplateCapabilities,
+  Spacing as ResumeSpacing,
+  CustomMode as ResumeCustomMode,
+  HeadingsMode as ResumeHeadingsMode,
   Mark as ResumeMark,
   MarkType as ResumeMarkType,
   ListStyle as ResumeListStyle,
@@ -167,11 +170,26 @@ export type {
 export { MARK_TYPES as RESUME_MARK_TYPES } from "./resume/types";
 export { upgradeDocument as upgradeResumeDocument } from "./resume/upgrade";
 export { toggleMark, shiftMarks, isCovered, sortMarks, isLinkHref } from "./resume/marks";
-export { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE_ID, getTemplate, hasTemplate, listTemplates } from "./resume/registry";
+export { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE_ID, getTemplate, hasTemplate, listTemplates, resolveCapabilities } from "./resume/registry";
+export {
+  ATS_STRICT,
+  DESIGN_FREE,
+  isAtLeastAsStrictAs,
+  tightenCapabilities,
+  allowedMarks,
+  planSections,
+  headingFor,
+  photoShown,
+  hiddenContent,
+  hiddenNotice,
+  controlStates,
+  LIMITED_CUSTOM_TITLE,
+} from "./resume/capabilities";
+export type { HiddenItem, HiddenKind, EditorControls, ControlState, ToolbarButton, PlannedSection } from "./resume/capabilities";
 export { toStructured, toStructuredJson, toStructuredPretty } from "./resume/project";
 export { renderText as renderResumeText } from "./resume/text";
 export { writeJson, canonicalJson, contentHash as resumeContentHash } from "./resume/json";
 export type { WriteOptions } from "./resume/json";
-export { FIT_LADDER, MAX_FIT_STEP, PAGE_DIMENSIONS, clampStep, resolveTheme, pageCount, fitToPages } from "./resume/fit";
-export type { FitStep, FitResult } from "./resume/fit";
-export { DEFAULT_THEME, FONT_STACKS, sanitizeTheme, themeCss, themeScope } from "./resume/theme";
+export { FIT_LADDER, SPACING_PRESETS, MAX_FIT_STEP, PAGE_DIMENSIONS, clampStep, resolveTheme, stepValues, pageCount, fitToPages } from "./resume/fit";
+export type { FitStep, FitDelta, FitResult } from "./resume/fit";
+export { DEFAULT_THEME, FONT_STACKS, INK, applyCapabilities, sanitizeTheme, themeCss, themeScope } from "./resume/theme";

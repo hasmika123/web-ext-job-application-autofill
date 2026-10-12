@@ -38,6 +38,7 @@ export default function ResumesHero({ onNew, busy }: { onNew: () => void; busy: 
           >
             {HERO_NOTE}
           </p>
+          {/* config-literal-ok: pixel size of the mascot art, layout geometry */}
           <AppArt name="mascot-resume" height={124} className="relative ml-[120px] lg:ml-[110px]" />
         </div>
         <div className="hidden flex-none items-center pr-6 md:flex lg:pr-8">{button}</div>

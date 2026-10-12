@@ -83,6 +83,7 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
 
   /* ── "Saved · N min ago" stays honest ────────────────────────────────────────────────── */
   useEffect(() => {
+    // config-literal-ok: repaint tick for the "Saved N min ago" label (display only), not a builder timing
     const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);

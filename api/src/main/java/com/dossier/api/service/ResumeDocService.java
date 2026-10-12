@@ -52,8 +52,10 @@ public class ResumeDocService {
     private static final Logger LOG = LoggerFactory.getLogger(ResumeDocService.class);
 
     /**
-     * Template ids the API accepts. The registry itself lives in {@code packages/ui}; this list is
-     * the server-side allow-list and must gain an id when a template ships there.
+     * Template ids that can ever exist. The registry itself lives in {@code packages/ui}; this list must
+     * gain an id when a template ships there, and it is what {@code resume.templates.*} settings are
+     * validated against. Which of them a user may pick is the {@code resume.templates.enabled} setting
+     * (DESIGN 6.3), read through {@link #enabledTemplateIds()}.
      */
     public static final Set<String> KNOWN_TEMPLATE_IDS = Set.of("modern", "classic", "compact");
 
@@ -99,8 +101,8 @@ public class ResumeDocService {
      * user's profile items when they have any, otherwise from the bio header alone.
      */
     public BuiltResumeDTO createBuilt(String templateId, String target, String label) {
-        String template = templateId == null || templateId.isBlank() ? DEFAULT_TEMPLATE_ID : templateId;
-        requireKnownTemplate(template);
+        String template = templateId == null || templateId.isBlank() ? defaultTemplateId() : templateId;
+        requireEnabledTemplate(template);
         User user = currentUser();
 
         String title = firstNonBlank(label, target, DEFAULT_TITLE);
@@ -208,7 +210,7 @@ public class ResumeDocService {
      */
     public ResumeDocDTO setTemplate(Long resumeId, String templateId) {
         ResumeDoc d = ownedDoc(resumeId);
-        requireKnownTemplate(templateId);
+        requireEnabledTemplate(templateId);
         d.setTemplateId(templateId);
         d.setUpdatedAt(Instant.now());
         d.getResume().setUpdatedAt(d.getUpdatedAt());
@@ -267,9 +269,27 @@ public class ResumeDocService {
         resume.setUpdatedAt(now);
     }
 
-    private static void requireKnownTemplate(String templateId) {
+    /** The template ids the picker offers, from {@code resume.templates.enabled} (default {@code ["modern"]}), in setting order. */
+    public List<String> enabledTemplateIds() {
+        String[] ids = settings.getJson(ResumeBuilderSettingKeys.TEMPLATES_ENABLED, String[].class);
+        return ids == null || ids.length == 0 ? List.of(DEFAULT_TEMPLATE_ID) : List.of(ids);
+    }
+
+    /** The template a new resume starts with: {@code resume.templates.default} when it is enabled, else the first enabled one. */
+    private String defaultTemplateId() {
+        List<String> enabled = enabledTemplateIds();
+        String configured = settings.getString(ResumeBuilderSettingKeys.TEMPLATES_DEFAULT);
+        return enabled.contains(configured) ? configured : enabled.get(0);
+    }
+
+    /** 422 {@code $.templateId} unless the id is a known template that the {@code resume.templates.enabled} setting offers. */
+    private void requireEnabledTemplate(String templateId) {
+        String shown = templateId == null ? "" : templateId;
         if (templateId == null || !KNOWN_TEMPLATE_IDS.contains(templateId)) {
-            throw ResumeDocException.invalid("$.templateId", "unknown template '" + (templateId == null ? "" : templateId) + "'");
+            throw ResumeDocException.invalid("$.templateId", "unknown template '" + shown + "'");
+        }
+        if (!enabledTemplateIds().contains(templateId)) {
+            throw ResumeDocException.invalid("$.templateId", "template '" + shown + "' is not enabled");
         }
     }
 

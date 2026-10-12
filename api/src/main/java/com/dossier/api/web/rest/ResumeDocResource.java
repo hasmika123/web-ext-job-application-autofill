@@ -43,7 +43,7 @@ public class ResumeDocResource {
 
     /** Body of {@code POST /built}. */
     public record CreateBuiltVM(
-        @Schema(description = "A known template id (modern, classic, compact); modern when omitted.") String templateId,
+        @Schema(description = "An enabled template id (setting resume.templates.enabled); the configured default (modern) when omitted.") String templateId,
         @Schema(description = "Free label for the role this resume targets (meta.target).") String target,
         @Schema(description = "The resume's name; defaults to the target, then 'My resume'.") String label
     ) {}
@@ -104,7 +104,7 @@ public class ResumeDocResource {
     }
 
     /** {@code PATCH /api/profile/resumes/:id/doc/template} : switch the template (422 if unknown). */
-    @Operation(summary = "Switch a resume's template", description = "Body {templateId}; 422 DOC_INVALID for an unknown id. Does not change the fillable content.")
+    @Operation(summary = "Switch a resume's template", description = "Body {templateId}; 422 DOC_INVALID for an unknown or disabled id. Does not change the fillable content.")
     @PatchMapping("/{id}/doc/template")
     public ResponseEntity<ResumeDocDTO> patchTemplate(@PathVariable("id") Long id, @RequestBody(required = false) TemplateVM vm) {
         demoGuard.assertNotDemo();

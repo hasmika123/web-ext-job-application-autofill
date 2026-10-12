@@ -245,6 +245,20 @@
   color: var(--rz-accent);
 }
 
+/* Numbered list (template capability `lists`): 1. 2. 3. instead of bullets. */
+.rz-numbered {
+  list-style: decimal;
+}
+
+/* Profile photo (template capability `photo`): a square crop, the template places it. */
+.rz-photo {
+  display: block;
+  width: 5.5em;
+  height: 5.5em;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {

@@ -133,8 +133,7 @@ export interface SummaryItem extends ItemBase {
   text?: string | null;
   src?: Src;
   marks?: Mark[];
-  /** Renders each 
- line of the text as a list item. */
+  /** Renders each line of the text as a list item. */
   list?: ListStyle | null;
 }
 export interface ExperienceItem extends ItemBase {
@@ -235,13 +234,17 @@ export type ResumeDocumentAnySchema = ResumeDocumentV1 | ResumeDocument;
 
 /* ── Theme ────────────────────────────────────────────────────────────────────────────────── */
 
-export type FontPair = "inter" | "source-serif" | "ibm-plex" | "georgia-arial";
+/** Font Family options (DESIGN 4). IBM Plex is not offered until it is bundled. */
+export type FontPair = "inter" | "source-serif" | "georgia-arial";
+export const FONT_PAIRS: readonly FontPair[] = ["inter", "source-serif", "georgia-arial"];
 export type PageSize = "letter" | "a4";
 export type DateStyle = "range" | "year";
+/** The Spacing segmented control (DESIGN 4): a preset of size / density / margin. */
+export type Spacing = "compact" | "normal" | "spacious";
 
 export interface FitState {
   mode: "auto" | "manual";
-  /** Page budget the auto mode aims for. */
+  /** Page Length: the page budget the auto mode aims for. */
   target: 1 | 2;
   /** Position on the 7-step ladder, 0-6 (see `fit.ts`). */
   step: number;
@@ -251,14 +254,18 @@ export interface Theme {
   /** `#rgb` / `#rrggbb` hex. */
   accent: string;
   fontPair: FontPair;
-  /** Body size in pt, 9.5-12. */
+  /** Spacing preset; `size` / `density` / `margin` are derived from it and `fit.step`. */
+  spacing: Spacing;
+  /** Body size in pt, 9-12. Derived (preset + ladder step); kept so the CSS variables are unchanged. */
   size: number;
-  /** Vertical rhythm multiplier, 0.7-1.1. */
+  /** Vertical rhythm multiplier, 0.6-1.1. Derived. */
   density: number;
-  /** Page margin in inches, 0.4-1.0. */
+  /** Page margin in inches, 0.3-1.0. Derived. */
   margin: number;
   pageSize: PageSize;
   dateStyle: DateStyle;
+  /** Draw the photo: `null` = the template default (`capabilities.photoDefault`). */
+  showPhoto: boolean | null;
   fit: FitState;
   /** Theme keys the user changed by hand; template `defaults` only apply to the rest. */
   _touched?: string[];
@@ -266,14 +273,53 @@ export interface Theme {
 
 /* ── Templates ────────────────────────────────────────────────────────────────────────────── */
 
-export interface TemplateSupports {
+export type CustomMode = "any" | "limited" | "none";
+export type HeadingsMode = "standard" | "free";
+
+/**
+ * What a template can show (DESIGN 6.2). The renderer and the editor read this; nothing about a
+ * template's abilities is hard-coded in a component. `ats: true` templates declare a profile at least
+ * as strict as `ATS_STRICT`, the rest stay inside `DESIGN_FREE` (see `capabilities.ts`).
+ */
+export interface TemplateCapabilities {
+  /** The "ATS Friendly" chip in the picker and the strict-profile switch for the editor. */
+  ats: boolean;
   columns: 1 | 2;
-  /** Sections the template can host in a sidebar; any other kind renders in the main column. */
+  /** Sections the template may draw in a sidebar; others always render in the main column. */
   sidebarSections: SectionKind[];
   photo: boolean;
-  /** Max skill groups drawn before the rest collapse into the last group; `0` = unlimited. */
+  /** Draw the photo by default when the document has one (every shipped template: false). */
+  photoDefault: boolean;
+  /** Inline marks the template renders and the toolbar offers. `[]` = no toolbar. */
+  marks: MarkType[];
+  /** Summary list / numbered bullets. */
+  lists: boolean;
+  /** Icons or decorative graphics in the render. ATS templates: false. */
+  graphics: boolean;
+  /** Which Customize controls are enabled. */
+  theme: {
+    /** false = the accent swatches are disabled and the render uses the ink colour. */
+    accent: boolean;
+    /** Allowed Font Family options (at least one). */
+    fontPairs: FontPair[];
+    spacing: boolean;
+    /** false = Page Length is fixed to `maxPages`. */
+    pageLength: boolean;
+  };
+  /** Caps `fit.target`. */
+  maxPages: 1 | 2;
+  /** Section kinds the template renders; others are hidden (kept) and listed in the notice. CUSTOM is governed by `custom`. */
+  sections: SectionKind[];
+  /** Custom sections: any, limited (<= `customLimit`, plain titles) or none. */
+  custom: CustomMode;
+  /** Used when `custom == "limited"`. */
+  customLimit: number;
+  /** "standard" = section titles are forced to `DEFAULT_SECTION_TITLES`; "free" = overrides are rendered. */
+  headings: HeadingsMode;
+  /** Date formats the template renders; the Customize panel offers only these. */
+  dateStyles: DateStyle[];
+  /** Max skill groups drawn before the rest collapse into the last one; `0` = unlimited. */
   maxSkillGroups: number;
-  dateStyle: DateStyle[];
 }
 
 export interface TemplateMeta {
@@ -281,9 +327,7 @@ export interface TemplateMeta {
   id: string;
   name: string;
   description: string;
-  /** `true` passes every ATS-safe rule; `"caution"` (e.g. two columns) is flagged in the picker. */
-  atsSafe: boolean | "caution";
-  supports: TemplateSupports;
+  capabilities: TemplateCapabilities;
   /** File name under `packages/ui/src/resume/thumbs/` (240x340 PNG). */
   thumb: string;
   /** Applied on a template switch only to theme keys that are not in `theme._touched`. */
@@ -292,8 +336,12 @@ export interface TemplateMeta {
 
 export interface TemplateProps {
   doc: ResumeDocument;
-  /** The resolved theme (ladder step already applied). */
+  /** The resolved theme (ladder step and capabilities already applied). */
   theme: Theme;
+  /** The resolved capabilities (registry + admin overrides). The shared renderer applies them; a template only decides placement. */
+  caps: TemplateCapabilities;
+  /** URL the photo is drawn from (a BFF route in the editor, a `data:` URI in the PDF); no URL = no photo. */
+  photoSrc?: string | null;
 }
 
 export interface TemplateDefinition {

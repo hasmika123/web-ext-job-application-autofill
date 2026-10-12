@@ -542,7 +542,7 @@
       "id": "R2.8",
       "epic": "R2",
       "title": "Template capability model — `TemplateCapabilities`, `ATS_STRICT`/`DESIGN_FREE`, resolution with admin overrides, `hiddenContent()`, capability-aware renderer; Modern re-declared",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "ui",
