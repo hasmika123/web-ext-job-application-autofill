@@ -39,6 +39,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -631,6 +632,54 @@ class ResumeMetaResourceIT {
             .andExpect(content().string(org.hamcrest.Matchers.containsString("First summary text")))
             .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Second summary text"))));
         mockMvc.perform(get("/api/profile/resumes/" + id + "/doc/versions/99/text")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void restoreMakesAnEarlierVersionCurrentAndKeepsTheWorkItReplaces() throws Exception {
+        Long id = createBuilt("Mine");
+        putDoc(id, 1, doc("Mine", "First summary text"));
+        mockMvc.perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Sent\"}")).andExpect(status().isOk());
+        putDoc(id, 2, doc("Mine", "Second summary text"));
+        int docVersionBefore = resumeDocRepository.findById(id).orElseThrow().getDocVersion();
+
+        // version 2 is the "Sent" checkpoint (the first summary text)
+        MvcResult restored = mockMvc
+            .perform(post("/api/profile/resumes/" + id + "/doc/versions/2/restore"))
+            .andExpect(status().isOk())
+            .andExpect(header().exists(HttpHeaders.ETAG))
+            .andExpect(jsonPath("$.doc.sections[0].items[0].text").value("First summary text"))
+            .andExpect(jsonPath("$.doc.meta.title").value("Mine"))
+            .andReturn();
+        assertThat(json(restored.getResponse().getContentAsString()).get("docVersion").asInt()).isGreaterThan(docVersionBefore);
+        // the stored projection moved with it, and the second text is still reachable as a version
+        assertThat(resumeRepository.findById(id).orElseThrow().getParsedJson()).contains("First summary text");
+        mockMvc
+            .perform(get("/api/profile/resumes/" + id + "/doc/versions"))
+            .andExpect(jsonPath("$[0].reason").value("RESTORE"))
+            .andExpect(jsonPath("$[0].kind").value("system"));
+        boolean second = false;
+        for (JsonNode row : json(mockMvc.perform(get("/api/profile/resumes/" + id + "/doc/versions")).andReturn().getResponse().getContentAsString())) {
+            int n = row.get("versionNo").asInt();
+            String text = mockMvc.perform(get("/api/profile/resumes/" + id + "/doc/versions/" + n + "/text")).andReturn().getResponse().getContentAsString();
+            if (text.contains("Second summary text")) second = true;
+        }
+        assertThat(second).as("the content the restore replaced was written as a version first").isTrue();
+    }
+
+    @Test
+    void restoreKeepsTheNameAndRefusesAnUnknownVersionOrAnotherUsersResume() throws Exception {
+        Long id = createBuilt("Mine");
+        putDoc(id, 1, doc("Mine", "First"));
+        mockMvc.perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
+        patchMeta(id, "{\"name\":\"Renamed after\"}").andExpect(status().isOk());
+        mockMvc
+            .perform(post("/api/profile/resumes/" + id + "/doc/versions/2/restore"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.label").value("Renamed after"))
+            .andExpect(jsonPath("$.doc.meta.title").value("Renamed after")); // the name is the resume's truth, not the old document's
+        mockMvc.perform(post("/api/profile/resumes/" + id + "/doc/versions/99/restore")).andExpect(status().isNotFound());
+        Long theirs = otherUsersBuiltResume();
+        mockMvc.perform(post("/api/profile/resumes/" + theirs + "/doc/versions/1/restore")).andExpect(status().isNotFound());
     }
 
     @Test

@@ -114,6 +114,18 @@ public class ResumeDocResource {
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
     }
 
+    /** {@code POST /api/profile/resumes/:id/doc/versions/:n/restore} : make an earlier version the current document. */
+    @Operation(
+        summary = "Restore a version",
+        description = "Writes the current content as its own version first (unless it already is the newest row), then makes version n the document, theme and (when still enabled) template; the PDF is queued at once. The response carries the new ETag. 404 for a resume that is not yours or a version that is not there."
+    )
+    @PostMapping("/{id}/doc/versions/{n}/restore")
+    public ResponseEntity<ResumeDocDTO> restoreVersion(@PathVariable("id") Long id, @PathVariable("n") int n) {
+        demoGuard.assertNotDemo();
+        ResumeDocDTO dto = resumeDocService.restore(id, n);
+        return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
+    }
+
     /** Body of {@code POST /{id}/export-recorded}. */
     public record ExportRecordedVM(@Schema(description = "The content hash of the document that was exported (ResumeDocDTO.contentHash).") String hash) {}
 

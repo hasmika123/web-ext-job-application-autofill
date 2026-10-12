@@ -24,7 +24,9 @@ public record ResumeBuilderConfigDTO(
     String plan,
     boolean aiAllowed,
     Resumes resumes,
-    Profile profile
+    Profile profile,
+    Share share,
+    Versions versions
 ) {
     public record Templates(
         List<String> enabled,
@@ -59,7 +61,8 @@ public record ResumeBuilderConfigDTO(
         boolean jobMatch,
         boolean tailor,
         boolean printLayout,
-        boolean pdfView
+        boolean pdfView,
+        @Schema(description = "Share links are on (feature.resume_share_links.enabled); the header hides Shared with Recruiters when off.") boolean shareLinks
     ) {}
 
     public record Ai(boolean suggestAutoRefresh, int suggestStaleMinutes, int rewriteMaxRefs) {}
@@ -69,4 +72,10 @@ public record ResumeBuilderConfigDTO(
 
     /** Common Profile limits (R1.1): one item's bytes, live items per user, items per import call. */
     public record Profile(int itemMaxBytes, int maxItemsPerUser, int maxImportItems) {}
+
+    /** Resume sharing limits the header bar needs (R3.10): how many active links one resume may have. */
+    public record Share(int maxLinks) {}
+
+    /** Version history retention the header's All versions sheet states: automatic rows kept per resume (named ones are kept always). */
+    public record Versions(int retentionAuto) {}
 }

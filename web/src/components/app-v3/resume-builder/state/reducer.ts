@@ -106,7 +106,7 @@ function mapBullets(
 const clamp = (s: string, max: number) => (s.length > max ? s.slice(0, max) : s);
 
 /** The next document for an edit action, or the same `doc` when it is a no-op. */
-function applyEdit(doc: ResumeDocument, a: Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` }>): ResumeDocument {
+function applyEdit(doc: ResumeDocument, a: Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` | `server/${string}` }>): ResumeDocument {
   switch (a.type) {
     case "title/edit": {
       const title = clamp(a.title, MAX_SHORT_CHARS);
@@ -270,6 +270,23 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         docVersion: state.conflict.serverVersion,
         rev,
         savedRev: rev, // identical to the server's copy: nothing left to save
+        conflict: null,
+        phase: "idle",
+        error: null,
+      };
+    }
+
+    case "server/replace": {
+      const rev = state.rev + 1;
+      return {
+        ...state,
+        history: createHistory(action.doc),
+        templateId: action.templateId,
+        theme: action.theme,
+        docVersion: action.docVersion,
+        rev,
+        savedRev: rev, // identical to the server's copy: nothing left to save
+        savedAt: action.at,
         conflict: null,
         phase: "idle",
         error: null,

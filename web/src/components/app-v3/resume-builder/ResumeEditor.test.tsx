@@ -20,6 +20,17 @@ vi.mock("@/lib/resume-doc", async (orig) => ({
   requestPdfNow: (id: number, opts?: { keepalive?: boolean }) => requestPdfNow(id, opts),
   getPdfStatus: (id: number) => getPdfStatus(id),
 }));
+const restoreVersion = vi.fn<(id: number, n: number) => Promise<unknown>>();
+vi.mock("@/lib/resume-meta", async (orig) => {
+  const { testLineage, testMeta, testVersions } = await import("./test-meta");
+  return {
+    ...(await orig<typeof import("@/lib/resume-meta")>()),
+    getMeta: async () => ({ kind: "ok", value: testMeta({ name: "Backend SWE" }) }),
+    getLineage: async () => ({ kind: "ok", value: testLineage() }),
+    listVersions: async () => ({ kind: "ok", value: testVersions() }),
+    restoreVersion: (id: number, n: number) => restoreVersion(id, n),
+  };
+});
 vi.mock("@/lib/api", () => ({ serverApiFetch: vi.fn() })); // resume-builder-config imports it (server only)
 vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -232,7 +243,6 @@ describe("ResumeEditor", () => {
       fireEvent.click(screen.getByRole("button", { name: "Take theirs" }));
       await flush(5000);
       expect(screen.queryByRole("dialog")).toBeNull();
-      expect((screen.getByLabelText("Resume name") as HTMLInputElement).value).toBe("Their copy");
       expect(bullet().value).toBe("Led migration"); // their bullets, not "Mine"
       expect(putDoc).toHaveBeenCalledTimes(1);
       expect(status()).toBe("saved");
@@ -626,4 +636,41 @@ describe("ResumeEditor", () => {
       expect(screen.getByText("Couldn't make the text file")).toBeTruthy();
     });
   });
-});
+
+  describe("resume header bar (R3.10)", () => {
+    it("replaces the interim name field: the resume's name comes from its metadata, above the section tabs", async () => {
+      renderEditor();
+      await flush(0);
+      expect(screen.queryByLabelText("Resume name")).toBeNull();
+      const header = screen.getByRole("region", { name: "Resume details" });
+      expect(within(header).getByRole("heading", { name: "Backend SWE" })).toBeTruthy();
+      const tabs = screen.getByRole("navigation", { name: "Resume sections" });
+      expect(header.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("Restore adopts the server's document, shows it as saved, and the next save is sent against its version", async () => {
+      const restored = testDoc();
+      const exp = restored.sections.find((s) => s.kind === "EXPERIENCE");
+      if (exp && exp.kind === "EXPERIENCE" && exp.items[0].bullets) exp.items[0].bullets[0].text = "Restored bullet";
+      restoreVersion.mockResolvedValue({ kind: "ok", value: { ...dto(), doc: restored, docVersion: 20 } });
+      putDoc.mockResolvedValue({ kind: "ok", version: 21, contentHash: null });
+      renderEditor();
+      await flush(0);
+
+      fireEvent.click(screen.getByRole("button", { name: /^Version 3/ }));
+      await flush(0);
+      fireEvent.click(screen.getByRole("button", { name: "Restore v6" }));
+      fireEvent.click(within(screen.getByRole("dialog", { name: "Restore v6?" })).getByRole("button", { name: "Restore" }));
+      await flush(0);
+
+      expect(restoreVersion).toHaveBeenCalledWith(42, 6);
+      expect(bullet().value).toBe("Restored bullet");
+      expect(status()).toBe("saved");
+      expect(putDoc).not.toHaveBeenCalled(); // adopting the server's copy is not an edit
+
+      fireEvent.change(bullet(), { target: { value: "Then edited" } });
+      await flush(800);
+      expect(putDoc).toHaveBeenCalledTimes(1);
+      expect(putDoc.mock.calls[0][1]).toBe(20);
+    });
+  });});

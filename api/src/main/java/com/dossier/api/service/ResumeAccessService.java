@@ -222,6 +222,21 @@ public class ResumeAccessService {
         return toDto(newLink(resume, user, expiresAt, label, allowDownload), Instant.now(), Map.of());
     }
 
+    /**
+     * Allow or stop PDF download on a share link (the header bar's "Allow PDF download" switch, R3.10). Only a
+     * live LINK grant of this (owned) resume can be changed; anything else, a revoked link included, is a 404.
+     */
+    public AccessGrantDTO setLinkDownload(Long resumeId, Long accessId, boolean allowDownload) {
+        User user = currentUser();
+        owned(resumeId, user);
+        ResumeAccess a = accessRepository
+            .findByIdAndResumeId(accessId, resumeId)
+            .filter(g -> g.isLink() && g.getRevokedAt() == null)
+            .orElseThrow(ResumeAccessService::notFound);
+        a.setAllowDownload(allowDownload);
+        return toDto(accessRepository.saveAndFlush(a), Instant.now(), Map.of());
+    }
+
     /** Revoke a grant of this resume. Idempotent; an id that is not a grant of this (owned) resume is a 404. */
     public void revoke(Long resumeId, Long accessId) {
         User user = currentUser();

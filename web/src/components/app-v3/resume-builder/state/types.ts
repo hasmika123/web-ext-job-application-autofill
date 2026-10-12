@@ -65,4 +65,9 @@ export type EditorAction =
   | { type: "save/conflict"; serverVersion: number; doc: ResumeDocument }
   | { type: "save/failed"; message: string }
   | { type: "conflict/keepMine" }
-  | { type: "conflict/takeTheirs" };
+  | { type: "conflict/takeTheirs" }
+  /**
+   * The server replaced the document under the editor (Restore a version, Pull changes from master, R3.10): adopt it
+   * as saved (`docVersion` is the one the next save must send). Undo history starts over from it.
+   */
+  | { type: "server/replace"; doc: ResumeDocument; templateId: string; theme: EditorState["theme"]; docVersion: number; at: number };

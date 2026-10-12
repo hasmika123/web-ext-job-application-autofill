@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArchiveIcon,
   CalendarIcon,
@@ -15,10 +16,12 @@ import {
   StarIcon,
   TrashIcon,
   cn,
+  useToast,
 } from "@kiwiply/ui";
 import type { ReactNode } from "react";
 import { KebabMenu, StatusChip, type Tone } from "@/components/app-v2/common";
 import { formatDate, type DateDisplay } from "@/lib/dates";
+import { patchMeta } from "@/lib/resume-meta";
 import type { ResumeCardModel } from "./adapter";
 import type { ViewMode } from "./constants";
 import { thumbFor } from "./templateThumbs";
@@ -69,6 +72,19 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
   const chip = statusChip(m);
   const list = layout === "list";
   const built = m.kind === "BUILT";
+  const router = useRouter();
+  const toast = useToast();
+
+  /** "Set as primary": the same `PATCH meta {primary:true}` as the editor's header bar (R3.10). */
+  const setPrimary = async () => {
+    const res = await patchMeta(m.id, { primary: true });
+    if (res.kind === "error") {
+      toast({ title: "Couldn't set the primary resume", description: res.message, variant: "error" });
+      return;
+    }
+    toast({ title: "Now your primary resume", description: "The extension attaches it by default.", variant: "success" });
+    router.refresh();
+  };
 
   const chips = (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -101,10 +117,12 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
         // Real: uploaded + built resumes can still be archived / deleted / re-uploaded from the side panel.
         { label: "Manage resume", icon: <FileTextIcon size={15} />, onSelect: onManage },
         { separator: true },
-        // DESIGN-PENDING (R-list): rename / set primary / archive / delete. The API now has PATCH /api/profile/resumes/{id}/meta
-        // (R3.9); the BFF route `/api/resumes/[id]/meta` and these menu items are wired by the list-actions story.
+        // Set as Primary is real (R3.10: `PATCH /api/resumes/:id/meta`). DESIGN-PENDING (R-list): rename / archive / delete from the list.
         { label: "Rename", icon: <PencilIcon size={15} />, onSelect: soon("Renaming from the list") },
-        { label: "Set as Primary", icon: <StarIcon size={15} />, onSelect: soon("Setting a primary resume from the list") },
+        ...(m.isPrimary || m.status === "Archived" ? [] : [{ label: "Set as Primary", icon: <StarIcon size={15} />, onSelect: () => void setPrimary() }]),
+        // Wired by R3.12 (the settings sheet) and R5.9 (tailor-copy); the entries are here so the menu matches the editor's.
+        { label: "Settings…", onSelect: soon("Resume settings") },
+        ...(built ? [{ label: "Tailor to job…", onSelect: soon("Tailoring a resume") }] : []),
         { label: m.status === "Archived" ? "Restore" : "Archive", icon: <ArchiveIcon size={15} />, onSelect: soon("Archiving from the list") },
         { label: "Delete", icon: <TrashIcon size={15} />, onSelect: soon("Deleting from the list"), danger: true },
       ]}

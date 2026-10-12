@@ -7,9 +7,11 @@ import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, useToast 
 import type { ResumeSectionKind } from "@kiwiply/ui";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
 import { exportPdf, exportText, putDoc, requestPdfNow, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
+import type { ResumeMeta } from "@/lib/resume-meta";
 import ConflictDialog from "./ConflictDialog";
 import EditorTopBar from "./EditorTopBar";
 import RailStrip from "./RailStrip";
+import ResumeHeaderBar from "./ResumeHeaderBar";
 import RightRail from "./RightRail";
 import SectionEditor from "./SectionEditor";
 import SectionTabs from "./SectionTabs";
@@ -57,6 +59,8 @@ export interface ResumeEditorProps {
   aiUsageLine?: { headline: string; detail: string } | null;
   /** When the Common Profile last changed; the sync banner (R3.x) compares it to `meta.profileSyncedAt`. */
   profileUpdatedAt?: string | null;
+  /** The resume's metadata (name, primary, visibility, versions...) read on the server for the header bar; null = it reads it itself. */
+  initialMeta?: ResumeMeta | null;
   /** The job this resume targets: always null until R5.6. */
   jobTarget?: null;
   /** Open AI suggestion cards: always empty until R4.1. */
@@ -71,7 +75,7 @@ export interface ResumeEditorProps {
  * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
  * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [] }: ResumeEditorProps) {
+export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [], initialMeta = null }: ResumeEditorProps) {
   const resumeId = initial.resumeId;
   const initialVersion = initial.docVersion;
   const router = useRouter();
@@ -318,9 +322,23 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   }, [closeAll]);
 
   /* ── exports: both need the SAVED document, so save first and refuse if that fails ───── */
-  const savedFirst = async (what: string): Promise<boolean> => {
+  /** Saves what is pending and says whether the server now holds the latest content (silent; the caller words a refusal). */
+  const flushSaved = useCallback(async (): Promise<boolean> => {
     await autosave.current?.flush();
-    if ((autosave.current?.savedRev ?? 0) < latestRev.current) {
+    return (autosave.current?.savedRev ?? 0) >= latestRev.current;
+  }, []);
+
+  /** The header bar restored a version / pulled master changes: the server's document replaces the one on screen. */
+  const adoptServerDoc = useCallback(
+    (dto: ResumeDocDTO) => {
+      dispatch({ type: "server/replace", doc: dto.doc, templateId: dto.templateId, theme: dto.theme, docVersion: dto.docVersion, at: Date.now() });
+      autosave.current?.reset(dto.docVersion, latestRev.current + 1);
+    },
+    [],
+  );
+
+  const savedFirst = async (what: string): Promise<boolean> => {
+    if (!(await flushSaved())) {
       toast({ title: `Couldn't ${what} yet`, description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
       return false;
     }
@@ -484,21 +502,18 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
           className="col-start-2 row-start-1 min-h-0 min-w-0 overflow-y-auto px-4 pb-4 max-md:pb-24 md:max-lg:pb-20"
         >
           <div className="mx-auto flex max-w-[880px] flex-col gap-4">
-            {/* Interim rename field until the resume header bar (R3.9) and the canvas name block (R2.1). */}
-            <label className="flex items-center gap-3 rounded-2xl border border-v2-line/70 bg-paper px-4 py-2 shadow-v2-soft">
-              <span className="flex-none text-[12.5px] font-semibold text-ink-soft">Resume name</span>
-              <input
-                value={doc.meta.title}
-                // config-literal-ok: meta.title maxLength is a schema constant (DESIGN 3.1), not a settings key
-                maxLength={200}
-                onChange={(e) => dispatch({ type: "title/edit", title: e.target.value, at: Date.now() })}
-                onBlur={() => {
-                  if (!doc.meta.title.trim()) dispatch({ type: "title/edit", title: "Untitled resume", at: Date.now() });
-                }}
-                placeholder="Untitled resume"
-                className="min-h-11 min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 font-display text-[16px] font-bold text-ink outline-none hover:border-line focus:border-accent focus:bg-paper"
-              />
-            </label>
+            <ResumeHeaderBar
+              resumeId={resumeId}
+              initialMeta={initialMeta}
+              fallbackName={initial.label}
+              config={config}
+              viewport={layout.viewport}
+              savedAt={state.savedAt}
+              ensureSaved={flushSaved}
+              onDocReplaced={adoptServerDoc}
+              onServerChange={() => void refreshPdf()}
+              onTailor={() => openPanel("tailor")}
+            />
 
             <SectionTabs
               sections={doc.sections}

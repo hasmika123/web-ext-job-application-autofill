@@ -73,7 +73,8 @@ public class ResumeBuilderConfigService {
                 s.getBool(FEATURE_JOB_MATCH),
                 s.getBool(FEATURE_TAILOR),
                 s.getBool(FEATURE_PRINT_LAYOUT),
-                s.getBool(FEATURE_PDF_VIEW)
+                s.getBool(FEATURE_PDF_VIEW),
+                s.getBool(FEATURE_SHARE_LINKS)
             ),
             new ResumeBuilderConfigDTO.Ai(
                 s.getBool(AI_SUGGEST_AUTO_REFRESH),
@@ -87,7 +88,9 @@ public class ResumeBuilderConfigService {
                 s.getInt(PROFILE_ITEM_MAX_BYTES),
                 s.getInt(PROFILE_ITEMS_MAX_PER_USER),
                 s.getInt(PROFILE_IMPORT_MAX_ITEMS)
-            )
+            ),
+            new ResumeBuilderConfigDTO.Share(s.getInt(SHARE_MAX_LINKS)),
+            new ResumeBuilderConfigDTO.Versions(s.getInt(VERSIONS_RETENTION_AUTO))
         );
     }
 

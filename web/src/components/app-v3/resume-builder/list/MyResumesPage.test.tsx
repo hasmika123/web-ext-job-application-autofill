@@ -5,7 +5,10 @@ import type { Resume } from "@/components/ResumeList";
 import { QUICK_TIPS, VIEW_STORAGE_KEY } from "./constants";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
+const patchMeta = vi.fn();
+vi.mock("@/lib/resume-meta", async (orig) => ({ ...(await orig<typeof import("@/lib/resume-meta")>()), patchMeta: (...a: unknown[]) => patchMeta(...a) }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
 vi.mock("@/components/app-v2/resume/ResumeDrawer", () => ({ default: () => <div data-testid="drawer" /> }));
 const createBuilt = vi.fn();
@@ -45,6 +48,8 @@ beforeEach(() => {
   window.localStorage.clear();
   createBuilt.mockReset();
   push.mockReset();
+  refresh.mockReset();
+  patchMeta.mockReset();
 });
 afterEach(cleanup);
 
@@ -193,6 +198,41 @@ describe("My Resumes: cards", () => {
     const first = document.querySelector('[data-resume-id="1"]') as HTMLElement;
     expect(within(first).getByRole("link", { name: "Edit Software Engineer" }).getAttribute("href")).toBe("/resume-builder/1");
     fireEvent.click(within(first).getByRole("button", { name: "Duplicate Software Engineer" }));
+    expect(await screen.findByText("Coming soon")).toBeTruthy();
+  });
+
+  it("Set as Primary in the card menu patches meta and refreshes; the primary card does not offer it", async () => {
+    patchMeta.mockResolvedValue({ kind: "ok", value: {} });
+    renderPage();
+    const primary = document.querySelector('[data-resume-id="1"]') as HTMLElement;
+    fireEvent.click(within(primary).getByText("More actions for Software Engineer"));
+    expect(screen.queryByRole("menuitem", { name: "Set as Primary" })).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    const second = document.querySelector('[data-resume-id="2"]') as HTMLElement;
+    fireEvent.click(within(second).getByText("More actions for Product Manager"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set as Primary" }));
+    await screen.findByText("Now your primary resume");
+    expect(patchMeta).toHaveBeenCalledWith(2, { primary: true });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("Set as Primary says why it failed and does not refresh", async () => {
+    patchMeta.mockResolvedValue({ kind: "error", status: 422, message: "An archived resume cannot be primary" });
+    renderPage();
+    const second = document.querySelector('[data-resume-id="2"]') as HTMLElement;
+    fireEvent.click(within(second).getByText("More actions for Product Manager"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set as Primary" }));
+    expect(await screen.findByText("An archived resume cannot be primary")).toBeTruthy();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("the card menu also offers Settings… and Tailor to job… (built resumes), as Coming soon", async () => {
+    renderPage();
+    const second = document.querySelector('[data-resume-id="2"]') as HTMLElement;
+    fireEvent.click(within(second).getByText("More actions for Product Manager"));
+    expect(screen.getByRole("menuitem", { name: "Settings…" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Tailor to job…" }));
     expect(await screen.findByText("Coming soon")).toBeTruthy();
   });
 

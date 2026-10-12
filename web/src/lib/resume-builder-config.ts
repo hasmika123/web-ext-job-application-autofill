@@ -59,6 +59,8 @@ export type ResumeBuilderConfig = {
     tailor: boolean;
     printLayout: boolean;
     pdfView: boolean;
+    /** Revocable share links are on (R3.11): the header hides "Shared with Recruiters" when off. */
+    shareLinks: boolean;
   };
   ai: { suggestAutoRefresh: boolean; suggestStaleMinutes: number; rewriteMaxRefs: number };
   plan: ResumeBuilderPlan;
@@ -68,6 +70,10 @@ export type ResumeBuilderConfig = {
   resumes: { count: number; max: number };
   /** Common Profile limits (R1.1): bytes per item, live items per user, items per import call. */
   profile: { itemMaxBytes: number; maxItemsPerUser: number; maxImportItems: number };
+  /** Sharing limits the header bar needs (R3.10): active links per resume. */
+  share: { maxLinks: number };
+  /** Version history retention (R3.10): automatic versions kept per resume; named ones are kept always. */
+  versions: { retentionAuto: number };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
@@ -101,12 +107,14 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
     embeddings: false,
   },
   theme: { accentPalette: ["#16a34a", "#2563eb", "#7c3aed", "#ec4899", "#f97316", "#eab308"] },
-  features: { photo: true, docx: false, aiSuggestions: true, jobMatch: true, tailor: true, printLayout: true, pdfView: true },
+  features: { photo: true, docx: false, aiSuggestions: true, jobMatch: true, tailor: true, printLayout: true, pdfView: true, shareLinks: true },
   ai: { suggestAutoRefresh: false, suggestStaleMinutes: 10, rewriteMaxRefs: 12 },
   plan: "FREE",
   aiAllowed: false,
   resumes: { count: 0, max: 3 },
   profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200 },
+  share: { maxLinks: 3 },
+  versions: { retentionAuto: 30 },
 };
 
 /**
