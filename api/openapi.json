@@ -1846,6 +1846,67 @@
         }
       }
     },
+    "/api/admin/ai/prices/{model}" : {
+      "put" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "putPrice",
+        "parameters" : [ {
+          "name" : "model",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PriceView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "deletePrice",
+        "parameters" : [ {
+          "name" : "model",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PriceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/telemetry/fills" : {
       "post" : {
         "tags" : [ "telemetry" ],
@@ -6022,6 +6083,42 @@
         }
       }
     },
+    "/api/admin/ai/providers/{id}/test" : {
+      "post" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "test",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TestResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/account" : {
       "get" : {
         "tags" : [ "account-resource" ],
@@ -6523,6 +6620,133 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/OrgGroupDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ai/routes/{task}" : {
+      "delete" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "deleteRoute",
+        "parameters" : [ {
+          "name" : "task",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RouteView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "patchRoute",
+        "parameters" : [ {
+          "name" : "task",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RouteView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ai/providers/{id}" : {
+      "patch" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "patchProvider",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ai/config/global" : {
+      "patch" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "patchGlobal",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GlobalView"
                 }
               }
             }
@@ -9041,6 +9265,126 @@
         }
       }
     },
+    "/api/admin/ai/config" : {
+      "get" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "config",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConfigView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ai/config/history" : {
+      "get" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "history",
+        "parameters" : [ {
+          "name" : "key",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/HistoryRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ai/calls" : {
+      "get" : {
+        "tags" : [ "admin-ai-config-resource" ],
+        "operationId" : "calls",
+        "parameters" : [ {
+          "name" : "hours",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "task",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "provider",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "failed",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "before",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CallsView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/ai-usage" : {
       "get" : {
         "tags" : [ "admin-ai-usage-resource" ],
@@ -10235,6 +10579,50 @@
           "createdDate" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "PriceView" : {
+        "type" : "object",
+        "properties" : {
+          "model" : {
+            "type" : "string"
+          },
+          "inputPerMtokMicros" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          },
+          "cachedPerMtokMicros" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          },
+          "outputPerMtokMicros" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          },
+          "custom" : {
+            "type" : "boolean"
+          },
+          "builtin" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ResolvedInteger" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "db", "env", "default" ]
+          },
+          "envDefault" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "codeDefault" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -11669,6 +12057,47 @@
           }
         }
       },
+      "TestError" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "TestResult" : {
+        "type" : "object",
+        "properties" : {
+          "ok" : {
+            "type" : "boolean"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "latencyMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "costMicros" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/TestError"
+          }
+        }
+      },
       "KeyAndPasswordVM" : {
         "type" : "object",
         "properties" : {
@@ -11860,6 +12289,196 @@
           },
           "settings" : {
             "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
+      "ResolvedBoolean" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "boolean"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "db", "env", "default" ]
+          },
+          "envDefault" : {
+            "type" : "boolean"
+          },
+          "codeDefault" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ResolvedString" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "db", "env", "default" ]
+          },
+          "envDefault" : {
+            "type" : "string"
+          },
+          "codeDefault" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RouteView" : {
+        "type" : "object",
+        "properties" : {
+          "task" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "$ref" : "#/components/schemas/ResolvedBoolean"
+          },
+          "provider" : {
+            "$ref" : "#/components/schemas/ResolvedString"
+          },
+          "model" : {
+            "$ref" : "#/components/schemas/ResolvedString"
+          },
+          "fallbackProvider" : {
+            "$ref" : "#/components/schemas/ResolvedString"
+          },
+          "fallbackModel" : {
+            "$ref" : "#/components/schemas/ResolvedString"
+          },
+          "maxOutputTokens" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          },
+          "risk" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LastProbe" : {
+        "type" : "object",
+        "properties" : {
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "ok" : {
+            "type" : "boolean"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "latencyMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "costMicros" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "errorKind" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ProviderView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "$ref" : "#/components/schemas/ResolvedBoolean"
+          },
+          "keyPresent" : {
+            "type" : "boolean"
+          },
+          "keyRequired" : {
+            "type" : "boolean"
+          },
+          "keyEnvVar" : {
+            "type" : "string"
+          },
+          "baseUrl" : {
+            "$ref" : "#/components/schemas/ResolvedString"
+          },
+          "timeoutMs" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          },
+          "models" : {
+            "$ref" : "#/components/schemas/ResolvedListString"
+          },
+          "capabilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "configured" : {
+            "type" : "boolean"
+          },
+          "usedByTasks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "lastProbe" : {
+            "$ref" : "#/components/schemas/LastProbe"
+          }
+        }
+      },
+      "ResolvedListString" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "db", "env", "default" ]
+          },
+          "envDefault" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "codeDefault" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "GlobalView" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "$ref" : "#/components/schemas/ResolvedBoolean"
           }
         }
       },
@@ -13400,6 +14019,211 @@
           "applied" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "ConfigView" : {
+        "type" : "object",
+        "properties" : {
+          "envMasterEnabled" : {
+            "type" : "boolean"
+          },
+          "global" : {
+            "$ref" : "#/components/schemas/GlobalView"
+          },
+          "economy" : {
+            "$ref" : "#/components/schemas/EconomyView"
+          },
+          "providers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProviderView"
+            }
+          },
+          "routes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RouteView"
+            }
+          },
+          "prices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PriceView"
+            }
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/LimitsView"
+          }
+        }
+      },
+      "EconomyView" : {
+        "type" : "object",
+        "properties" : {
+          "model" : {
+            "$ref" : "#/components/schemas/ResolvedString"
+          },
+          "softCapPct" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          }
+        }
+      },
+      "LimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "testPerHour" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          },
+          "callsWindowHours" : {
+            "$ref" : "#/components/schemas/ResolvedInteger"
+          }
+        }
+      },
+      "HistoryRow" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "oldValue" : {
+            "type" : "string"
+          },
+          "newValue" : {
+            "type" : "string"
+          },
+          "actorLogin" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "CallRow" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "login" : {
+            "type" : "string"
+          },
+          "task" : {
+            "type" : "string"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "success" : {
+            "type" : "boolean"
+          },
+          "errorKind" : {
+            "type" : "string"
+          },
+          "latencyMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cachedTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "costMicros" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CallsSummary" : {
+        "type" : "object",
+        "properties" : {
+          "calls" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failedPct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "p95LatencyMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "costMicros" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "byProvider" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProviderCalls"
+            }
+          }
+        }
+      },
+      "CallsView" : {
+        "type" : "object",
+        "properties" : {
+          "summary" : {
+            "$ref" : "#/components/schemas/CallsSummary"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CallRow"
+            }
+          },
+          "nextBefore" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ProviderCalls" : {
+        "type" : "object",
+        "properties" : {
+          "provider" : {
+            "type" : "string"
+          },
+          "calls" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "p95LatencyMs" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },

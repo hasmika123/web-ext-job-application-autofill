@@ -54,6 +54,12 @@ public class AdminAuditService {
     public static final String DEMO_DISABLE = "DEMO_DISABLE";
     public static final String DEMO_RESET = "DEMO_RESET";
 
+    // Admin AI config (I1.9 / I1.11): one row per runtime AI setting write, one per provider test.
+    public static final String TARGET_AI_SETTING = "AI_SETTING";
+    public static final String AI_CONFIG_CHANGE = "AI_CONFIG_CHANGE";
+    public static final String TARGET_AI_PROVIDER = "AI_PROVIDER";
+    public static final String AI_PROVIDER_TEST = "AI_PROVIDER_TEST";
+
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 
     private final AdminAuditEventRepository repository;
