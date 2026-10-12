@@ -4,3 +4,6 @@
 # Shell scripts must keep LF even on Windows checkouts - they are scp'd to Linux hosts,
 # and CRLF makes the shebang fail with "bad interpreter: /usr/bin/env bash^M".
 *.sh text eol=lf
+
+# ResumeDocument golden fixtures are compared byte for byte (Java + TS); never CRLF.
+api/src/test/resources/resume-doc/** text eol=lf
