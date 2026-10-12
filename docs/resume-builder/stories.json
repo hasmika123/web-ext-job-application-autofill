@@ -208,7 +208,7 @@
       "id": "R0.7",
       "epic": "R0",
       "title": "Walking-skeleton verification + handoff refresh",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "web"
