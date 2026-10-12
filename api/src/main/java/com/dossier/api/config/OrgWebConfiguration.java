@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Puts {@link OrgPermissionInterceptor} in front of every {@code /api/orgs/**} handler and {@link OrgsEnabledFilter}
+ * Puts {@link OrgPermissionInterceptor} in front of every {@code /api/orgs/**} and {@code /api/me/orgs/**} handler and {@link OrgsEnabledFilter}
  * in front of the whole org API (the feature flag, E2E-O1.9).
  */
 @Configuration
@@ -26,7 +26,7 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new OrgPermissionInterceptor(accessService, orgFeatureFlag)).addPathPatterns("/api/orgs", "/api/orgs/**");
+        registry.addInterceptor(new OrgPermissionInterceptor(accessService, orgFeatureFlag)).addPathPatterns("/api/orgs", "/api/orgs/**", "/api/me/orgs", "/api/me/orgs/**");
     }
 
     /** Ahead of Spring Security (order -100) so a signed-out probe gets the same 404 as everyone else while the flag is off. */

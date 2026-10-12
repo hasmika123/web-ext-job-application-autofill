@@ -20,6 +20,19 @@ const fixture = {
       // answers every per-user list with an empty one
       empty: true,
     },
+    // The owner of a writable organization (mock-org.mjs seeds "Brightside Bootcamp" for it): the journeys invite people to
+    // it. Also brand new and empty; test-only credentials.
+    "org.owner": {
+      login: "org.owner",
+      email: "org.owner@example.test",
+      firstName: "Jordan",
+      lastName: "Ellis",
+      authorities: ["ROLE_USER"],
+      activated: true,
+      password: "fixture-pass-2",
+      empty: true,
+      orgOwner: true,
+    },
   },
 };
 

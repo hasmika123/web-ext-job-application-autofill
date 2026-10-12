@@ -97,13 +97,18 @@ class OrgIsolationIT {
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
 
     /** How to attack a route, and what a legitimate call by the org's owner must do. */
-    private record Case(String body, int legitStatus, String auditAction) {
+    private record Case(String body, int legitStatus, String auditAction, String as) {
         static Case read() {
-            return new Case(null, 200, null);
+            return new Case(null, 200, null, "owner");
         }
 
         static Case write(String body, int status, String action) {
-            return new Case(body, status, action);
+            return new Case(body, status, action, "owner");
+        }
+
+        /** The legitimate call is made by this seat of the world (default "owner"): an owner may not leave, a member may. */
+        Case as(String who) {
+            return new Case(body, legitStatus, auditAction, who);
         }
     }
 
@@ -120,7 +125,9 @@ class OrgIsolationIT {
         Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
         Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE)),
         Map.entry("POST /api/orgs/{orgId}/members/invite", Case.write("{\"emails\":[\"newcomer@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
-        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND))
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
+        Map.entry("PUT /api/me/orgs/{orgId}/share", Case.write("{\"scope\":\"NONE\",\"consentVersion\":\"org-share/v1\"}", 200, OrgAuditService.SHARE_SCOPE_CHANGED)),
+        Map.entry("POST /api/me/orgs/{orgId}/leave", Case.write(null, 204, OrgAuditService.MEMBER_LEFT).as("member"))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -258,7 +265,7 @@ class OrgIsolationIT {
             var patterns = e.getKey().getPathPatternsCondition() == null ? Set.<String>of() : e.getKey().getPathPatternsCondition().getPatternValues();
             Method handler = e.getValue().getMethod();
             for (String pattern : patterns) {
-                if (!pattern.startsWith("/api/orgs/{orgId}")) continue;
+                if (!pattern.startsWith("/api/orgs/{orgId}") && !pattern.startsWith("/api/me/orgs/{orgId}")) continue; // the member-side routes carry the same guard
                 Set<org.springframework.web.bind.annotation.RequestMethod> methods = e.getKey().getMethodsCondition().getMethods();
                 assertThat(methods).as(pattern + " must declare its HTTP method (a wildcard route cannot be attacked precisely)").isNotEmpty();
                 OrgPermissionRequired required = handler.getAnnotation(OrgPermissionRequired.class);
@@ -447,7 +454,7 @@ class OrgIsolationIT {
             assertThat(c).as(route.key() + " is not in COVERAGE").isNotNull();
             World w = new World("legit" + (n++), false); // a world of its own, so a close or a delete cannot break the next route
             long before = audit.countByOrgId(w.org.getId());
-            MvcResult r = mockMvc.perform(request(route, uri(route, w.ids())).with(user(w.p + "-owner"))).andReturn();
+            MvcResult r = mockMvc.perform(request(route, uri(route, w.ids())).with(user(w.p + "-" + c.as()))).andReturn();
             assertThat(r.getResponse().getStatus()).as(route.key() + " legitimately -> " + r.getResponse().getContentAsString()).isEqualTo(c.legitStatus());
             em.flush();
             long delta = audit.countByOrgId(w.org.getId()) - before;

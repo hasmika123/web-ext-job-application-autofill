@@ -87,6 +87,9 @@
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
   }, {
+    "name" : "org-me",
+    "description" : "A member's organizations: what they share, and leaving."
+  }, {
     "name" : "profile-suggestions",
     "description" : "Suggested profile values learned while applying; reviewed by the user."
   }, {
@@ -966,6 +969,36 @@
         "security" : [ {
           "bearer-jwt" : [ ]
         } ]
+      }
+    },
+    "/api/me/orgs/{orgId}/share" : {
+      "put" : {
+        "tags" : [ "org-me" ],
+        "summary" : "Change what I share",
+        "description" : "NONE, SUMMARY or FULL with the consent text version shown. Effective on the next request. FULL needs a named active marketer of the org (422 otherwise).",
+        "operationId" : "changeShare",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ShareChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MyOrgDTO"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/field-caches/{id}" : {
@@ -4170,6 +4203,19 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/me/orgs/{orgId}/leave" : {
+      "post" : {
+        "tags" : [ "org-me" ],
+        "summary" : "Leave an organization",
+        "description" : "Ends all sharing and the seat. Nothing is deleted from the account. 409 OWNER_MUST_TRANSFER for an owner, 409 LEAVE_NOT_ALLOWED when the org does not let members leave.",
+        "operationId" : "leave",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
           }
         }
       }
@@ -7665,6 +7711,29 @@
         }
       }
     },
+    "/api/me/orgs" : {
+      "get" : {
+        "tags" : [ "org-me" ],
+        "summary" : "My organizations",
+        "description" : "Every organization the caller is an active (or suspended) member of: their role, what they share and, in plain words, what that lets the org see. Scoped by the caller, never by an org id.",
+        "operationId" : "mine_4",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MyOrgDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/join/{token}" : {
       "get" : {
         "tags" : [ "org-join" ],
@@ -10119,6 +10188,113 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "ShareChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "scope" : {
+            "type" : "string",
+            "enum" : [ "NONE", "SUMMARY", "FULL" ]
+          },
+          "consentVersion" : {
+            "type" : "string"
+          },
+          "fullToMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "FullTo" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "MyOrgDTO" : {
+        "type" : "object",
+        "properties" : {
+          "org" : {
+            "$ref" : "#/components/schemas/Org"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "OWNER", "ADMIN", "STAFF", "MEMBER", "MARKETER", "FINANCE", "COACH" ]
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "INVITED", "ACTIVE", "SUSPENDED", "LEFT", "REMOVED", "ERASED" ]
+          },
+          "scope" : {
+            "type" : "string",
+            "enum" : [ "NONE", "SUMMARY", "FULL" ]
+          },
+          "effectiveScope" : {
+            "type" : "string",
+            "enum" : [ "NONE", "SUMMARY", "FULL" ]
+          },
+          "consentVersion" : {
+            "type" : "string"
+          },
+          "fullTo" : {
+            "$ref" : "#/components/schemas/FullTo"
+          },
+          "since" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "scopeChangedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sees" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "neverSees" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "canLeave" : {
+            "type" : "boolean"
+          },
+          "canChangeScope" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Org" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_SETUP_FEE", "ACTIVE", "PAST_DUE", "SUSPENDED", "CLOSED" ]
           }
         }
       },

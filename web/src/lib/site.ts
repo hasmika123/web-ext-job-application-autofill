@@ -49,6 +49,7 @@ export const NON_INDEXABLE_PATHS = [
   "/account/",
   "/newsletter/",
   "/r/",
+  "/join/",
 ] as const;
 
 /**

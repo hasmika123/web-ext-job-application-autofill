@@ -33,7 +33,7 @@ class OrgHandlerGuardIT {
         int seen = 0;
         for (Map.Entry<RequestMappingInfo, HandlerMethod> e : mapping.getHandlerMethods().entrySet()) {
             var patterns = e.getKey().getPathPatternsCondition() == null ? java.util.Set.<String>of() : e.getKey().getPathPatternsCondition().getPatternValues();
-            boolean underOrgs = patterns.stream().anyMatch(p -> p.equals("/api/orgs") || p.startsWith("/api/orgs/"));
+            boolean underOrgs = patterns.stream().anyMatch(p -> p.equals("/api/orgs") || p.startsWith("/api/orgs/") || p.equals("/api/me/orgs") || p.startsWith("/api/me/orgs/"));
             if (!underOrgs) continue;
             seen++;
             Method m = e.getValue().getMethod();
@@ -64,6 +64,7 @@ class OrgHandlerGuardIT {
         assertThat(unscoped).containsExactlyInAnyOrder(
             "OrgResource#create",
             "OrgResource#mine",
+            "MeOrgResource#mine",
             "JoinResource#previewInvite",
             "JoinResource#previewCode",
             "JoinResource#acceptInvite",

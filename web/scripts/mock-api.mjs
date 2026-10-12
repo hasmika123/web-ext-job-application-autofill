@@ -14,6 +14,7 @@
  */
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
+import { createOrgMock } from "./mock-org.mjs";
 import { readFileSync } from "node:fs";
 
 if (process.env.NODE_ENV === "production") {
@@ -209,6 +210,9 @@ const withBody = (req, cb) => {
 
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
+
+/* ── Organizations mock (APP-E2E O2.2 / O6.2 / O2.3: invites, join previews + accept, my orgs, share, leave; scripts/mock-org.mjs) ── */
+const handleOrg = createOrgMock({ json, withBody, subOf, ACCOUNTS, FIXTURE_ACCOUNTS, DEMO_ORG, ORGS_ENABLED, findSensitive });
 
 /* ── Resume Builder mock (R0.3 contract; in memory) ──────────────────────────────────────────── */
 const DOCS = new Map(); // resume id -> { doc, templateId, theme, version, updatedAt }
@@ -1551,8 +1555,9 @@ const NOTIFY_KINDS = [
   { kind: "BILLING", title: "Billing", description: "Receipts, renewals and card problems.", locked: true, lockedWhy: "Needed so you never miss a payment issue." },
   { kind: "SECURITY", title: "Security", description: "New sign-ins and password changes.", locked: true, lockedWhy: "Needed to keep your account safe." },
   { kind: "SYSTEM", title: "Kiwiply news", description: "Product updates and the occasional announcement.", locked: false, lockedWhy: null },
+  { kind: "ORG_INVITE_ACCEPTED", title: "People joining your organization", description: "When someone you invited accepts and joins your organization.", locked: false, lockedWhy: null },
 ];
-const NOTIFY_DEFAULT_EMAIL = { APP_STATUS: "now", INTERVIEW_REMINDER: "now", PROFILE_SUGGESTION: "off", BILLING: "now", SECURITY: "now", SYSTEM: "off" };
+const NOTIFY_DEFAULT_EMAIL = { APP_STATUS: "now", INTERVIEW_REMINDER: "now", PROFILE_SUGGESTION: "off", BILLING: "now", SECURITY: "now", SYSTEM: "off", ORG_INVITE_ACCEPTED: "off" };
 const NOTIFY_PREFS = new Map(); // login -> { matrix, quietStart, quietEnd, tz, updatedAt }
 const NOTIFY_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -1838,6 +1843,7 @@ const server = http.createServer((req, res) => {
   if (handleProfileItems(req, res, path, method)) return;
   if (handleOnboarding(req, res, path, method)) return;
   if (handleTracker(req, res, path, method)) return;
+  if (handleOrg(req, res, path, method)) return;
   if (handleNotificationPrefs(req, res, path, method)) return;
 
   // The setup flow's profile writes (Onboarding v2 R1.10 / R1.11): `PUT /api/profile` replaces the in-memory bio, so the
