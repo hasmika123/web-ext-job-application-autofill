@@ -1,22 +1,31 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
-import { PlusIcon, cn } from "@kiwiply/ui";
-import type { ResumeBullet, ResumeListStyle } from "@kiwiply/ui";
-import AutoTextarea from "./AutoTextarea";
+import type { FocusEvent, KeyboardEvent } from "react";
+import { PlusIcon, allowedMarks } from "@kiwiply/ui";
+import type { ResumeBullet, ResumeListStyle, ResumeMark } from "@kiwiply/ui";
 import { useCanvas, useField } from "./canvasContext";
-import { GHOST } from "./canvasStyles";
+import { ScopedMarkToolbar } from "./MarkToolbar";
+import MarkedTextarea from "./MarkedTextarea";
+import { MarkScope, useMarkScope } from "./markScope";
 import { nowMs } from "./state/clock";
 import { newId } from "./state/ids";
 
 /**
- * The bullets of one item: an inline list of auto-sizing textareas with a disc (or `1.` when the
- * item's list style is numbered). Enter starts a new bullet (splitting at the caret); Backspace in an
+ * The bullets of one item: an inline list of marked textareas with a disc (or `1.` when the item's
+ * list style is numbered). Enter starts a new bullet (splitting at the caret); Backspace in an
  * empty one deletes it and at the start of a non-empty one merges it into the bullet above; Ctrl/Cmd
- * with the arrow keys moves the focused bullet. The mark toolbar's textarea (`MarkedTextarea`,
- * R2.11) replaces `AutoTextarea` here without touching the keyboard model.
+ * with the arrow keys moves the focused bullet. Each bullet is a `MarkedTextarea` (R2.11): the
+ * item's bullets share one mark toolbar, which floats above the list while one of them has focus.
  */
-export default function BulletList({
+export default function BulletList(props: { sectionId: string; itemId: string; bullets: ResumeBullet[]; listStyle?: ResumeListStyle | null }) {
+  return (
+    <MarkScope>
+      <Bullets {...props} />
+    </MarkScope>
+  );
+}
+
+function Bullets({
   sectionId,
   itemId,
   bullets,
@@ -28,11 +37,17 @@ export default function BulletList({
   listStyle?: ResumeListStyle | null;
 }) {
   const { dispatch, limits, requestFocus } = useCanvas();
+  const scope = useMarkScope();
 
   const addBullet = () => {
     const bulletId = newId("b");
     requestFocus({ field: bulletId, caret: 0 });
     dispatch({ type: "bullet/add", sectionId, itemId, bulletId, at: nowMs() });
+  };
+
+  // Focus left the whole list (and its toolbar): nothing to format until a bullet is focused again.
+  const onBlur = (e: FocusEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) scope?.clear();
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>, bullet: ResumeBullet, i: number) => {
@@ -73,7 +88,8 @@ export default function BulletList({
   };
 
   return (
-    <div>
+    <div className="relative" onBlur={onBlur}>
+      {scope?.target && <ScopedMarkToolbar className="absolute -top-10 right-0 z-20" />}
       <ul className="flex flex-col gap-1">
         {bullets.map((b, i) => (
           <li key={b.id} className="flex items-start gap-2">
@@ -84,7 +100,14 @@ export default function BulletList({
             ) : (
               <span aria-hidden className="mt-3 h-1.5 w-1.5 flex-none rounded-full bg-ink-soft" />
             )}
-            <BulletBox bullet={b} index={i} onKeyDown={(e) => onKeyDown(e, b, i)} onText={(text) => dispatch({ type: "bullet/edit", sectionId, itemId, bulletId: b.id, text, at: nowMs() })} />
+            <BulletBox
+              bullet={b}
+              index={i}
+              listStyle={listStyle ?? null}
+              onListStyle={(style) => dispatch({ type: "list/set", sectionId, itemId, style, at: nowMs() })}
+              onKeyDown={(e) => onKeyDown(e, b, i)}
+              onText={(text, marks, format) => dispatch({ type: "bullet/edit", sectionId, itemId, bulletId: b.id, text, marks, format, at: nowMs() })}
+            />
           </li>
         ))}
       </ul>
@@ -105,26 +128,35 @@ export default function BulletList({
 function BulletBox({
   bullet,
   index,
+  listStyle,
+  onListStyle,
   onKeyDown,
   onText,
 }: {
   bullet: ResumeBullet;
   index: number;
+  listStyle: ResumeListStyle | null;
+  onListStyle: (style: ResumeListStyle | null) => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
-  onText: (text: string) => void;
+  onText: (text: string, marks: ResumeMark[], format?: boolean) => void;
 }) {
-  const { limits } = useCanvas();
+  const { limits, caps } = useCanvas();
   const field = useField(bullet.id);
   return (
-    <AutoTextarea
+    <MarkedTextarea
       {...field}
       aria-label={`Bullet ${index + 1}`}
       value={bullet.text}
+      marks={bullet.marks}
+      allowed={allowedMarks(caps)}
+      listStyle={listStyle}
+      onListStyle={onListStyle}
       maxLength={limits.bulletChars}
       placeholder={index === 0 ? "What you did and the result, e.g. Cut page load time 40%" : undefined}
-      bare
-      className={cn(GHOST, "flex-1 text-[14px] leading-snug")}
-      onChange={(e) => onText(e.target.value)}
+      textClass="text-[14px] leading-snug"
+      className="flex-1"
+      onChange={(text, marks) => onText(text, marks)}
+      onFormat={(marks) => onText(bullet.text, marks, true)}
       onKeyDown={onKeyDown}
     />
   );

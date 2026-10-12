@@ -36,6 +36,15 @@ describe("RichText", () => {
     expect(html("abcdef", marks)).toBe('<strong><em><u><a class="rz-link" href="mailto:a@b.dev">abcdef</a></u></em></strong>');
   });
 
+  it("verbatim (the editor's mirror layer) keeps every character where it was typed", () => {
+    const text = "  a   b\n";
+    expect(renderToStaticMarkup(<RichText text={text} verbatim />)).toBe("  a   b\n");
+    expect(renderToStaticMarkup(<RichText text={text} marks={[{ s: 2, e: 3, t: "b" }]} verbatim />)).toBe("  <strong>a</strong>   b\n");
+    // for text that needs no normalising it is the same markup as the template's renderer
+    const marks: Mark[] = [{ s: 0, e: 3, t: "b" }, { s: 4, e: 8, t: "a", href: "https://x.dev" }];
+    expect(renderToStaticMarkup(<RichText text="Cut page load" marks={marks} verbatim />)).toBe(html("Cut page load", marks));
+  });
+
   it("splits at partial overlaps and keeps the nesting order in each piece", () => {
     expect(html("abcdef", [{ s: 0, e: 4, t: "b" }, { s: 2, e: 6, t: "i" }])).toBe("<strong>ab</strong><strong><em>cd</em></strong><em>ef</em>");
   });

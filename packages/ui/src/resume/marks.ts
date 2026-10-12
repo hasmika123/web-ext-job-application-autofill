@@ -67,6 +67,17 @@ function cut(marks: readonly Mark[], s: number, e: number, t: MarkType): Mark[] 
   return out;
 }
 
+/** Removes every `t` mark from `[s, e)` (a longer mark keeps the pieces outside it). Used for "Remove link". */
+export function clearMark(marks: readonly Mark[], s: number, e: number, t: MarkType): Mark[] {
+  if (!(s < e) || s < 0) return sortMarks(marks);
+  return merge(cut(marks, s, e, t));
+}
+
+/** The mark of type `t` that contains offset `at` (`s <= at < e`, or `at == e` when `touchEnd`), or null. */
+export function markAt(marks: readonly Mark[], at: number, t: MarkType, touchEnd = false): Mark | null {
+  return marks.find((m) => m.t === t && m.s <= at && (at < m.e || (touchEnd && at === m.e))) ?? null;
+}
+
 /**
  * The toolbar action. If `[s, e)` is entirely covered by `t` the coverage is removed from the range
  * (the rest of a longer mark survives on either side); otherwise `t` is added over the whole range,

@@ -92,8 +92,8 @@ export type EditorAction =
   | { type: "section/rename"; sectionId: string; title: string | null; at: number }
   /** Moves the section to index `to` (clamped). The up/down buttons and the Swap Section panel dispatch this. */
   | { type: "section/move"; sectionId: string; to: number; at: number }
-  /** `marks`: the text's marks after the edit (the mark toolbar); absent = the reducer re-bases the old ones. */
-  | { type: "summary/edit"; sectionId: string; text: string; newItemId: string; marks?: ResumeMark[]; at: number }
+  /** `marks`: the text's marks after the edit (the mark editor); absent = the reducer re-bases the old ones. `format`: a toolbar formatting change, its own undo step (never coalesced with typing). */
+  | { type: "summary/edit"; sectionId: string; text: string; newItemId: string; marks?: ResumeMark[]; format?: boolean; at: number }
   | { type: "item/field"; sectionId: string; itemId: string; field: ItemTextField; value: string; at: number }
   | { type: "item/current"; sectionId: string; itemId: string; current: boolean; at: number }
   /** Kind-aware: the new item's shape follows the section's kind; `bulletId` is used when the kind has bullets. */
@@ -113,7 +113,7 @@ export type EditorAction =
   | { type: "list/set"; sectionId: string; itemId?: string; style: ResumeListStyle | null; at: number }
   /** AI apply / sync apply: replaces one text and clears its marks (so one undo reverts it). */
   | { type: "text/replace"; ref: TextRef; text: string; at: number }
-  | { type: "bullet/edit"; sectionId: string; itemId: string; bulletId: string; text: string; marks?: ResumeMark[]; at: number }
+  | { type: "bullet/edit"; sectionId: string; itemId: string; bulletId: string; text: string; marks?: ResumeMark[]; format?: boolean; at: number }
   | { type: "bullet/move"; sectionId: string; itemId: string; bulletId: string; to: number; at: number }
   /** Appends an empty bullet to an item (the "Add bullet" button). */
   | { type: "bullet/add"; sectionId: string; itemId: string; bulletId: string; at: number }
