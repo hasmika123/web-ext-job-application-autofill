@@ -272,7 +272,7 @@
       "id": "O1.7",
       "epic": "O1",
       "title": "OrgChip real + org switcher sheet + role-aware nav in OrgShell",
-      "status": "partial",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"

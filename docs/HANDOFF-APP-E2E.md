@@ -52,6 +52,9 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   through `useOrg()` (`components/org-v2/shell/OrgContext.tsx`), the create flow in its own route group `(org-flow)/org/new` (outside the gate),
   BFF `app/api/orgs/{mine,current,[orgId]}` + `api/config/public`, `QueryToast` for `?toast=org_member`. Mock: `web/scripts/mock-orgs.mjs` + fixture
   `org-roles` (nine non-demo logins; `MOCK_FIXTURE=fresh,org-roles`); Playwright journey `web/e2e/journeys/org-console.spec.ts`.
+  **O1.7 done** (`e2e-o1.7`): `OrgSwitcher` (sheet on phone, menu on desktop, `POST /api/orgs/current`), role-aware nav as data in
+  `components/org-v2/shell/org-nav.ts` (a path outside the role is not rendered), real `NotificationBell`. Gotcha: the sticky top bar has a backdrop blur, so
+  anything `fixed` inside it must be portalled out (the switcher sheet goes to the `.theme-v2` wrapper).
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),

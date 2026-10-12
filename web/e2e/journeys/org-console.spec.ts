@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { STATE } from "../fixtures/accounts";
+import { expectNoHorizontalScroll } from "../fixtures/audit";
 
 /**
  * The org console opens (O1.6, O1.7, E2E-O4.0, O2.1, O2.7): the gate sends each membership shape where it belongs, the
@@ -62,6 +63,61 @@ test.describe("the console gate", () => {
       expect(cookie?.httpOnly).toBe(true);
       await page.goto("/org");
       await expect(page.locator("header").getByText("Zephyr Academy")).toBeVisible();
+    });
+  });
+});
+
+test.describe("the org switcher (phone)", () => {
+  test.use({ storageState: STATE["org.multi"], viewport: { width: 390, height: 844 } });
+
+  test("a bottom sheet lists the orgs you can open, switching sticks, and the page does not scroll sideways", async ({ page }) => {
+    await page.goto("/org");
+    await expectNoHorizontalScroll(page, "/org at 390");
+    await page.getByRole("button", { name: /Switch organization/ }).click();
+    const sheet = page.getByRole("dialog", { name: "Your organizations" });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText("Harbor Staffing")).toBeVisible();
+    await expect(sheet.getByText("Zephyr Academy")).toBeVisible();
+    await expect(sheet.getByText("Orbit Coaching")).toHaveCount(0); // a plain MEMBER seat is not a console
+    for (const row of await sheet.getByRole("button", { name: /Zephyr|Harbor|Create a workspace/ }).all()) {
+      expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await sheet.getByRole("button", { name: /Zephyr Academy/ }).click();
+    await expect(page.getByRole("button", { name: /Current: Zephyr Academy/ })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("button", { name: /Current: Zephyr Academy/ })).toBeVisible();
+  });
+});
+
+test.describe("role-aware nav", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  const nav = (page: import("@playwright/test").Page) => page.getByRole("navigation", { name: "Organization" }).getByRole("link");
+
+  test.describe("owner", () => {
+    test.use({ storageState: STATE["org.owner"] });
+    test("sees all ten pages and the role under their name", async ({ page }) => {
+      await page.goto("/org");
+      await expect(nav(page)).toHaveCount(10);
+      await expect(page.locator("header").getByText("Owner", { exact: true })).toBeVisible();
+    });
+  });
+
+  test.describe("support owner", () => {
+    test.use({ storageState: STATE["org.staff"] });
+    test("sees five pages, and a page outside the role says so instead of rendering", async ({ page }) => {
+      await page.goto("/org");
+      await expect(nav(page)).toHaveText(["Dashboard", "Team Management", "Applications", "Interviews", "AI Resume Support"]);
+      await expect(page.locator("header").getByText("Support owner")).toBeVisible();
+      await page.goto("/org/billing");
+      await expect(page.getByText("That page isn't part of your role")).toBeVisible();
+    });
+  });
+
+  test.describe("finance", () => {
+    test.use({ storageState: STATE["org.finance"] });
+    test("sees the dashboard, analytics and billing", async ({ page }) => {
+      await page.goto("/org");
+      await expect(nav(page)).toHaveText(["Dashboard", "Analytics & Reports", "Billing & Subscription"]);
     });
   });
 });

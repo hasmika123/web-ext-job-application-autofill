@@ -7,8 +7,9 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   cn,
   Menu,
-  BellIcon,
+  EmptyState,
   BriefcaseIcon,
+  buttonVariants,
   CalendarIcon,
   ChartIcon,
   ChevronDownIcon,
@@ -29,10 +30,12 @@ import BrandLogo from "@/components/marketing/BrandLogo";
 import { contactHref } from "@/lib/catalog";
 import { notifyExtension } from "@/lib/extension-signal";
 import type { AppAccount } from "@/components/app-shell/AppShell";
+import NotificationBell from "@/components/app-shell/NotificationBell";
 import { InitialsAvatar, MascotCard, SearchInput } from "@/components/app-v2/common";
-import OrgChip from "./OrgChip";
+import OrgSwitcher from "./OrgSwitcher";
 import { OrgProvider, useOrg } from "./OrgContext";
 import { roleLabel } from "./org-labels";
+import { navFor, navSpecFor, pathAllowed, type NavKey } from "./org-nav";
 import type { CurrentOrg, OrgMine } from "@/lib/org-types";
 import DemoBadge from "@/components/demo/DemoBadge";
 import DemoReadOnlyToaster from "@/components/demo/DemoReadOnlyToaster";
@@ -40,24 +43,18 @@ import { DEMO_NOTE, isDemoLogin } from "@/lib/demo";
 
 const ICON = "h-[18px] w-[18px]";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const NAV: NavItem[] = [
-  { href: "/org", label: "Dashboard", icon: <DashboardIcon className={ICON} /> },
-  { href: "/org/team", label: "Team Management", icon: <UsersIcon className={ICON} /> },
-  { href: "/org/opportunities", label: "Job Opportunities", icon: <BriefcaseIcon className={ICON} /> },
-  { href: "/org/applications", label: "Applications", icon: <FileTextIcon className={ICON} /> },
-  { href: "/org/interviews", label: "Interviews", icon: <CalendarIcon className={ICON} /> },
-  { href: "/org/analytics", label: "Analytics & Reports", icon: <ChartIcon className={ICON} /> },
-  { href: "/org/resumes", label: "AI Resume Support", icon: <SparklesIcon className={ICON} /> },
-  { href: "/org/integrations", label: "Integrations", icon: <ShareNodesIcon className={ICON} /> },
-  { href: "/org/billing", label: "Billing & Subscription", icon: <CreditCardIcon className={ICON} /> },
-  { href: "/org/settings", label: "Settings", icon: <GearIcon className={ICON} /> },
-];
+const ICONS: Record<NavKey, React.ReactNode> = {
+  dashboard: <DashboardIcon className={ICON} />,
+  team: <UsersIcon className={ICON} />,
+  opportunities: <BriefcaseIcon className={ICON} />,
+  applications: <FileTextIcon className={ICON} />,
+  interviews: <CalendarIcon className={ICON} />,
+  analytics: <ChartIcon className={ICON} />,
+  resumes: <SparklesIcon className={ICON} />,
+  integrations: <ShareNodesIcon className={ICON} />,
+  billing: <CreditCardIcon className={ICON} />,
+  settings: <GearIcon className={ICON} />,
+};
 
 function displayName(account?: AppAccount | null): string {
   if (account?.firstName) return [account.firstName, account.lastName].filter(Boolean).join(" ");
@@ -65,9 +62,10 @@ function displayName(account?: AppAccount | null): string {
 }
 
 /**
- * Enterprise admin shell (APP-V2-SPEC §5): 236px sidebar (ten nav items, blue-soft active pill,
- * "Need Help?" mascot card), 64px top bar, drawer below `lg`. The shell is a client component
- * for the drawer + account menu; pages stay server components.
+ * Enterprise admin shell (APP-V2-SPEC §5): 236px sidebar (the pages this role may open, blue-soft active pill, "Need Help?"
+ * mascot card), 64px top bar with the real org chip (the switcher), the real notifications bell and the account menu, drawer
+ * below `lg`. The nav comes from `permissions[]` (`org-nav.ts`); a path outside the role's pages shows a calm "not part of your
+ * role" instead of the page. The shell is a client component for the drawer + menus; pages stay server components.
  */
 export default function OrgShell({
   account,
@@ -91,11 +89,14 @@ export default function OrgShell({
 function OrgShellFrame({ account, children }: { account?: AppAccount | null; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { role } = useOrg();
+  const { role, permissions } = useOrg();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const name = displayName(account);
   const demo = isDemoLogin(account?.login);
+  const nav = navFor(permissions);
+  const activeKey = navSpecFor(pathname)?.key;
+  const canSettings = nav.some((n) => n.key === "settings");
 
   useEffect(() => {
     if (!open) return;
@@ -139,20 +140,15 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
             type="button"
             aria-label="Close menu"
             onClick={() => setOpen(false)}
-            className="grid h-8 w-8 place-items-center rounded-lg text-v2-muted hover:bg-[#F1F4FA] lg:hidden"
+            className="grid h-11 w-11 place-items-center rounded-lg text-v2-muted hover:bg-[#F1F4FA] lg:hidden"
           >
             <XIcon className="h-4 w-4" />
           </button>
         </div>
 
-        {/* The top bar has no room for the workspace chip below `lg`, so the drawer carries it. */}
-        <div className="mb-4 px-2 lg:hidden">
-          <OrgChip />
-        </div>
-
         <nav className="flex flex-col gap-1" aria-label="Organization">
-          {NAV.map((item) => {
-            const active = item.href === "/org" ? pathname === "/org" : pathname.startsWith(item.href);
+          {nav.map((item) => {
+            const active = item.key === activeKey;
             return (
               <Link
                 key={item.href}
@@ -160,13 +156,13 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
                 onClick={() => setOpen(false)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3.5 py-[11px] text-[14px] transition-colors",
+                  "flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-[11px] text-[14px] transition-colors",
                   active
                     ? "bg-v2-blue-soft font-bold text-v2-blue"
                     : "font-medium text-v2-ink-soft hover:bg-[#F3F6FC] hover:text-v2-navy",
                 )}
               >
-                <span className="flex-none">{item.icon}</span>
+                <span className="flex-none">{ICONS[item.key]}</span>
                 <span className="truncate">{item.label}</span>
               </Link>
             );
@@ -195,22 +191,22 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
 
       <div className="flex min-w-0 flex-col">
         {/* Top bar, 64px */}
-        <header className="sticky top-0 z-[60] flex h-16 items-center gap-3 bg-v2-canvas/90 px-4 backdrop-blur lg:px-6">
+        <header className="sticky top-0 z-[60] flex h-16 items-center gap-2 bg-v2-canvas/90 px-3 backdrop-blur sm:gap-3 sm:px-4 lg:px-6">
           <button
             type="button"
             aria-label="Open menu"
             onClick={() => setOpen(true)}
-            className="grid h-10 w-10 flex-none place-items-center rounded-xl border border-v2-line bg-white text-v2-navy lg:hidden"
+            className="grid h-11 w-11 flex-none place-items-center rounded-xl border border-v2-line bg-white text-v2-navy lg:hidden"
           >
             <MenuIcon className="h-5 w-5" />
           </button>
-          <Link href="/org" aria-label="Kiwiply" className="flex-none lg:hidden">
+          <Link href="/org" aria-label="Kiwiply" className="hidden flex-none sm:block lg:hidden">
             <BrandLogo height={28} />
           </Link>
 
-          {/* A wrapper, not a class on the chip: the chip's own `inline-flex` would beat `hidden`. */}
-          <div className="hidden flex-none lg:block">
-            <OrgChip />
+          {/* The real org chip, the switcher. It truncates its name so a phone keeps room for the bell and the account. */}
+          <div className="min-w-0 flex-1 md:flex-none">
+            <OrgSwitcher />
           </div>
           <div className="hidden min-w-0 flex-1 md:block">
             <SearchInput
@@ -220,19 +216,9 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
               className="border-v2-line/60 bg-white/70"
             />
           </div>
-          <div className="flex-1 md:hidden" />
 
-          <div className="flex flex-none items-center gap-1.5 sm:gap-2.5">
-            <button
-              type="button"
-              aria-label="Notifications, 1 unread"
-              className="relative grid h-10 w-10 place-items-center rounded-xl text-v2-navy hover:bg-white"
-            >
-              <BellIcon className="h-[21px] w-[21px]" />
-              <span className="absolute right-1.5 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-v2-coral px-1 text-[10px] font-bold leading-none text-white">
-                1
-              </span>
-            </button>
+          <div className="flex flex-none items-center gap-1 sm:gap-2.5">
+            <NotificationBell />
             <Link
               href={contactHref("organization")}
               aria-label="Help and support"
@@ -244,7 +230,7 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
             <Menu
               align="end"
               trigger={
-                <div className="flex cursor-pointer items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 hover:bg-white">
+                <div className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl py-1 pl-1 pr-1.5 hover:bg-white sm:gap-2.5 sm:pr-2">
                   <InitialsAvatar name={name} size={38} tone="blue" />
                   <div className="hidden min-w-0 text-left sm:block">
                     <p className="flex max-w-[170px] items-center gap-1.5 text-[14px] font-bold leading-tight text-v2-navy">
@@ -259,7 +245,7 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
               items={[
                 ...(demo ? [{ heading: DEMO_NOTE }, { separator: true as const }] : []),
                 { label: "Switch to individual app", icon: <UserIcon className="h-4 w-4" />, onSelect: () => router.push("/dashboard") },
-                { label: "Settings", icon: <GearIcon className="h-4 w-4" />, onSelect: () => router.push("/org/settings") },
+                ...(canSettings ? [{ label: "Settings", icon: <GearIcon className="h-4 w-4" />, onSelect: () => router.push("/org/settings") }] : []),
                 { separator: true },
                 { label: busy ? "Signing out…" : "Sign out", icon: <SignOutIcon className="h-4 w-4" />, onSelect: signOut },
               ]}
@@ -267,8 +253,24 @@ function OrgShellFrame({ account, children }: { account?: AppAccount | null; chi
           </div>
         </header>
 
-      {demo && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
-        <main className="min-w-0 px-4 pb-24 lg:pb-14 pt-2 lg:px-6">{children}</main>
+        {demo && <DemoSideTab current={account?.login?.trim().toLowerCase()} />}
+        <main className="min-w-0 px-4 pb-24 lg:pb-14 pt-2 lg:px-6">
+          {pathAllowed(pathname, permissions) ? (
+            children
+          ) : (
+            <EmptyState
+              mascot
+              title="That page isn't part of your role"
+              description={`You're a ${roleLabel(role).toLowerCase()} here. An owner or admin can open it for you.`}
+              action={
+                <Link href="/org" className={buttonVariants("primary", "md")}>
+                  Back to the dashboard
+                </Link>
+              }
+              className="mx-auto mt-6 max-w-lg"
+            />
+          )}
+        </main>
       </div>
     </div>
   );
