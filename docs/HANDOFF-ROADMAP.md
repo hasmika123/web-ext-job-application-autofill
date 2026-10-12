@@ -6,18 +6,18 @@ Written 2026-10-11 at the end of a long session. Read after root `CLAUDE.md`. Co
 
 ## 0. START HERE — the exact continuation point
 
-**Branches (all pushed to origin, working tree clean at the time of writing):**
-
-| Branch | Head | What it holds |
-|---|---|---|
-| `version2` | `2c5212b` | The built app: landing, auth, user app v3 (13 pages), org `/org` (10 pages, sample data), app admin `/admin` (12 pages), demo accounts, mobile polish. **Not promoted** to `develop`/`main`. |
-| `resume-builder` | `a810371` | Branched from `version2`. Resume Builder design docs + stories + HTML pages (`docs/RESUME-BUILDER-*.md`, `docs/resume-builder/`). No product code yet. |
-| `product-roadmap` | `9758a83` | Branched from `resume-builder`. The whole-product roadmap: three area plans, 27 design docs, the master roadmap HTML + generator. **Current branch.** |
+**Branch (updated 2026-10-11, user decision): everything is now on `version2`, and the new work is LOCAL ONLY (not pushed).**
+`version2` is **10 commits ahead of `origin/version2`** (`git status -sb` shows `[ahead 10]`): it holds the app work
+(pushed up to `2c5212b`) plus the Resume Builder design/stories/HTML (`docs/RESUME-BUILDER-*.md`, `docs/resume-builder/`),
+the product roadmap (`docs/roadmap/`, `docs/design/{user,org,admin}/`) and this handoff. **Do not push** until the user
+says so. The earlier stacked branches still exist and are already pushed to origin, unchanged: `resume-builder`
+(`a810371`) and `product-roadmap` (`3e8a687`, same content as local `version2` HEAD); the user has not asked to delete them.
+Resume Builder implementation work stays local until the user says otherwise.
 
 Promotion (`develop` → `main` = production deploy) is the user's call only (root `CLAUDE.md` → Branching).
 
 ```bash
-git checkout product-roadmap
+git checkout version2
 npm ci                                  # at the ROOT (npm workspaces)
 # view the roadmap page
 npx --yes serve docs/roadmap -l 5056    # then open http://localhost:5056/master-roadmap.html
@@ -118,7 +118,7 @@ security/privacy, cost, tests, rollout, 390px ASCII wireframes); (4) write
 
 (5) `PLAN-<key>.md`: narrative, recommended build order (first 10), an area-specific "Experience
 principles for Gen Z/Alpha/millennials" paragraph, 3–6 open questions. Commit prefix `roadmap:`,
-`git pull --rebase --autostash origin product-roadmap`, `git push origin product-roadmap`; touch only
+`git pull --rebase --autostash origin version2` (do NOT push; user wants these local), local commit only (no push); touch only
 files named after the area.
 
 Area scope notes (for the prompts): see the table in §0.1; extra detail — `ext`: capture real ATS DOM
