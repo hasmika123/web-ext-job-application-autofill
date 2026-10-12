@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, IconButton, Spinner, RedoIcon, UndoIcon, cn } from "@kiwiply/ui";
+import { ArrowLeftIcon, Button, CheckIcon, DownloadIcon, IconButton, Spinner, RedoIcon, UndoIcon, cn } from "@kiwiply/ui";
 import type { SaveStatus } from "./state/types";
 
 /** "just now" for the first minute, then whole minutes / hours. Pure, so it is testable. */
@@ -31,7 +31,7 @@ export function statusLabel(status: SaveStatus, savedAt: number | null, now: num
 
 /**
  * The editor's top bar: back to the list, the resume's name (it is the label shown everywhere),
- * the autosave status, and undo / redo.
+ * the autosave status, undo / redo, and Export PDF.
  */
 export default function EditorTopBar({
   title,
@@ -45,6 +45,9 @@ export default function EditorTopBar({
   canRedo,
   onUndo,
   onRedo,
+  onExport,
+  exporting = false,
+  exportDisabled = false,
 }: {
   title: string;
   onTitleChange: (v: string) => void;
@@ -57,6 +60,9 @@ export default function EditorTopBar({
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  onExport?: () => void;
+  exporting?: boolean;
+  exportDisabled?: boolean;
 }) {
   const bad = status === "retrying" || status === "conflict" || status === "error";
   return (
@@ -100,6 +106,20 @@ export default function EditorTopBar({
           <RedoIcon className="h-4 w-4" />
         </IconButton>
       </div>
+
+      {onExport && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onExport}
+          disabled={exporting || exportDisabled}
+          aria-busy={exporting}
+          className="min-h-11 sm:min-h-9"
+        >
+          {exporting ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
+          <span>{exporting ? "Making PDF…" : "Export PDF"}</span>
+        </Button>
+      )}
     </div>
   );
 }

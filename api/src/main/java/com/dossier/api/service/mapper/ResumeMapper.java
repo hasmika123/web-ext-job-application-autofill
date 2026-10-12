@@ -11,10 +11,13 @@ import org.mapstruct.*;
  */
 @Mapper(componentModel = "spring")
 public interface ResumeMapper extends EntityMapper<ResumeDTO, Resume> {
-    // kind passes through by name. templateId lives on the web-only resume_doc row, not on Resume,
-    // so the mapper leaves it null; the builder services fill it for BUILT resumes.
+    // kind passes through by name. templateId and the export state live on the web-only resume_doc
+    // row, not on Resume, so the mapper leaves them null; ProfileService fills them for BUILT resumes.
     @Mapping(target = "user", source = "user", qualifiedByName = "userLogin")
     @Mapping(target = "templateId", ignore = true)
+    @Mapping(target = "contentHash", ignore = true)
+    @Mapping(target = "exportedHash", ignore = true)
+    @Mapping(target = "exportedAt", ignore = true)
     ResumeDTO toDto(Resume s);
 
     @Named("userLogin")

@@ -1018,3 +1018,59 @@ $COMPOSE up -d api web
 The dump re-creates the database exactly as it was, which removes the new tables' changelog rows,
 so Liquibase stays consistent with the old code. Then `git reset --hard 4de5b60` on the box's checkout
 so the next deploy starts from a known place, and revert the promotion on `main`.
+
+## 14. PDF service (Resume Builder export, R0.6)
+
+"Export PDF" in the resume editor makes the PDF with a headless Chromium: the web renders the
+same HTML as the live preview and the `chromium` sidecar prints it. The PDF is then stored through
+the API's `FileStorage` (the `uploads` volume by default) so the extension can attach it.
+
+**What runs.** One extra container in `docker-compose.prod.yml`, `chromium`
+(`ghcr.io/browserless/chromium`, pinned by version **and** digest: `v2.57.0@sha256:6bac628b...`).
+It is on the `internal` network only: no `ports:`, and it is **not** in
+`docker-compose.shared-edge.yml`, so neither the standalone Caddy nor the shared edge can reach it.
+The web talks to it at `PDF_BROWSER_URL` (default `ws://chromium:3000`). The overlay needs no change;
+`up -d` with both files starts it with the rest. There is no `depends_on` from web: if the sidecar is
+down the site is fine and only "Export PDF" fails (503 "needs the pdf service").
+
+**Memory and limits.** `mem_limit: 1g`, `cpus: 1.5`, `shm_size: 512m` (Chromium crashes on big
+pages with Docker's default 64 MB `/dev/shm`). Measured on v2.57.0: about 260 MB after a few prints.
+Admission control is two walls: the web prints one PDF at a time with a queue of 10 (a full queue is
+a 503 with `Retry-After`), and browserless itself takes 2 at once with 4 queued. A print that takes
+more than 20 s is cut off (504). These are env now and become admin settings later:
+
+| Env on the web container | Future admin key | Default |
+|---|---|---|
+| `RESUME_PDF_TIMEOUT_MS` | `resume.pdf.timeoutMs` | `20000` |
+| `RESUME_PDF_MAX_CONCURRENT` | `resume.pdf.maxConcurrent` | `1` |
+| `RESUME_PDF_QUEUE_MAX` | `resume.pdf.queueMax` | `10` |
+| `RESUME_PDF_MAX_FIT_STEPS` | `resume.pdf.maxFitSteps` | `3` |
+
+**Restart.** `restart: unless-stopped` plus a healthcheck (`curl /pressure` every 30 s, 3 strikes).
+Docker restarts a crashed container but does not restart an unhealthy one; if it shows `unhealthy`,
+`$COMPOSE restart chromium`. A restart loses nothing (no state, nothing is stored in it).
+
+**Health check, from the box**
+```bash
+$COMPOSE ps chromium                     # STATUS should say "(healthy)"
+$COMPOSE exec chromium curl -s localhost:3000/pressure     # "isAvailable": true, "running": 0
+$COMPOSE exec web node -e "fetch('http://chromium:3000/pressure').then(r=>console.log(r.status))"   # 200: web can reach it
+$COMPOSE port chromium 3000              # prints nothing: it is not published
+```
+
+**Verify an export end to end** (after a deploy or an image bump): sign in, open any built resume,
+press **Export PDF**. Expect a download named after the resume, a "PDF ready" toast, and in
+`$COMPOSE logs web` a line `{"event":"resume.export.pdf","pages":1,...}`. Then
+`https://kiwiply.com/resume-builder` shows no "PDF out of date" chip on that resume until you edit it.
+A `resume.fit.mismatch` line means Chromium needed more pages than the editor preview predicted and the
+export stepped the fit ladder down; it is information, not an error.
+
+**Bumping the image.** Pick the new tag, resolve its digest with
+`docker buildx imagetools inspect ghcr.io/browserless/chromium:<tag>` (the top "Digest"), change both
+in the compose file, `docker compose ... pull chromium && up -d chromium`, then run the checks above.
+Chromium versions move the layout by a hair at most; the one-page fixture test
+(`PDF_SMOKE=1 PDF_BROWSER_URL=ws://localhost:3000 npm run test:unit -w web -- pdf.browser`, with the
+sidecar's port published temporarily on a dev machine) must still say 1 page.
+
+**Backups.** The sidecar holds nothing. The PDFs themselves are in the `uploads` volume (§1), which is
+not in the MySQL dump.

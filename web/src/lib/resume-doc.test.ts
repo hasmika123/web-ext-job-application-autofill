@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBuilt, getDoc, ifMatch, parseEtag, putDoc } from "./resume-doc";
+import { createBuilt, exportPdf, fileNameFromDisposition, getDoc, ifMatch, parseEtag, pdfOutOfDate, putDoc } from "./resume-doc";
 import type { ResumeDocument } from "@kiwiply/ui";
 
 const doc = { schema: 1, meta: { title: "t" }, basics: {}, sections: [] } as ResumeDocument;
@@ -104,5 +104,54 @@ describe("createBuilt", () => {
   it("survives a network failure", async () => {
     stubFetch(new Error("offline"));
     expect((await createBuilt({})).kind).toBe("error");
+  });
+});
+
+describe("exportPdf", () => {
+  it("posts {format:'pdf'} and reads the PDF + its headers", async () => {
+    const f = stubFetch(
+      new Response("%PDF-1.4", {
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": 'attachment; filename="Jane-Doe.pdf"',
+          "x-resume-pdf-pages": "2",
+          "x-resume-pdf-fits": "0",
+          "x-resume-pdf-stored": "1",
+          "x-resume-content-hash": "abc",
+        },
+      }),
+    );
+    const r = await exportPdf(42);
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/resumes/42/export");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ format: "pdf" });
+    expect(r).toMatchObject({ kind: "ok", fileName: "Jane-Doe.pdf", pages: 2, fits: false, stored: true, contentHash: "abc" });
+    expect(r.kind === "ok" && (await r.blob.text())).toBe("%PDF-1.4");
+  });
+
+  it("maps failures to a message the toast can show", async () => {
+    stubFetch(json(503, { error: "The PDF service is busy - try again in a few seconds.", code: "PDF_BUSY" }));
+    expect(await exportPdf(1)).toEqual({ kind: "error", status: 503, code: "PDF_BUSY", message: "The PDF service is busy - try again in a few seconds." });
+    stubFetch(json(401, {}));
+    expect(await exportPdf(1)).toMatchObject({ kind: "error", status: 401, message: expect.stringContaining("sign in") });
+    stubFetch(new Error("offline"));
+    expect(await exportPdf(1)).toMatchObject({ kind: "error", status: 0 });
+  });
+
+  it("parses the download name", () => {
+    expect(fileNameFromDisposition('attachment; filename="a b.pdf"', "x.pdf")).toBe("a b.pdf");
+    expect(fileNameFromDisposition(null, "x.pdf")).toBe("x.pdf");
+  });
+});
+
+describe("pdfOutOfDate", () => {
+  it("is true only for a built resume exported once whose content has since changed", () => {
+    expect(pdfOutOfDate({ kind: "BUILT", contentHash: "b", exportedHash: "a" })).toBe(true);
+    expect(pdfOutOfDate({ kind: "BUILT", contentHash: "a", exportedHash: "a" })).toBe(false);
+    expect(pdfOutOfDate({ kind: "BUILT", contentHash: "a", exportedHash: null })).toBe(false); // never exported
+    expect(pdfOutOfDate({ kind: "UPLOADED", contentHash: "b", exportedHash: "a" })).toBe(false);
+    expect(pdfOutOfDate({ kind: "BUILT", contentHash: null, exportedHash: "a" })).toBe(false);
   });
 });

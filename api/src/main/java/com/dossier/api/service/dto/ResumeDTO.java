@@ -45,6 +45,14 @@ public class ResumeDTO implements Serializable {
 
     private String templateId;
 
+    // Export state of a BUILT resume (R0.6): the list shows "PDF out of date" when
+    // exportedHash differs from contentHash. Not hashed by ProfileVersion.
+    private String contentHash;
+
+    private String exportedHash;
+
+    private Instant exportedAt;
+
     private UserDTO user;
 
     public Long getId() {
@@ -133,6 +141,30 @@ public class ResumeDTO implements Serializable {
 
     public void setTemplateId(String templateId) {
         this.templateId = templateId;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
+    }
+
+    public String getExportedHash() {
+        return exportedHash;
+    }
+
+    public void setExportedHash(String exportedHash) {
+        this.exportedHash = exportedHash;
+    }
+
+    public Instant getExportedAt() {
+        return exportedAt;
+    }
+
+    public void setExportedAt(Instant exportedAt) {
+        this.exportedAt = exportedAt;
     }
 
     public UserDTO getUser() {

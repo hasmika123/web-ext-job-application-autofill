@@ -499,4 +499,62 @@ class ResumeDocResourceIT {
         putDoc(id, "W/\"1\"", putBody(doc("T", "weak"))).andExpect(status().isOk());
         putDoc(id, "2", putBody(doc("T", "bare"))).andExpect(status().isOk()).andExpect(jsonPath("$.docVersion").value(3));
     }
+
+    // ---- export-recorded (R0.6) -------------------------------------------------
+
+    @Test
+    void exportRecordedSetsTheExportFieldsWithoutBumpingTheVersion() throws Exception {
+        JsonNode created = createBuilt("{\"label\":\"Mine\"}");
+        Long id = created.at("/resume/id").asLong();
+        String hash = created.at("/doc/contentHash").asText();
+        assertThat(created.at("/doc/exportedHash").isNull()).isTrue();
+
+        mockMvc
+            .perform(post("/api/profile/resumes/" + id + "/export-recorded").contentType(MediaType.APPLICATION_JSON).content("{\"hash\":\"" + hash + "\"}"))
+            .andExpect(status().isNoContent());
+
+        mockMvc
+            .perform(get("/api/profile/resumes/" + id + "/doc"))
+            .andExpect(jsonPath("$.exportedHash").value(hash))
+            .andExpect(jsonPath("$.exportedAt").isNotEmpty())
+            .andExpect(jsonPath("$.docVersion").value(1))
+            .andExpect(header().string(HttpHeaders.ETAG, "\"1\""));
+
+        // the list carries what "PDF out of date" needs: equal hashes now, different after an edit
+        String list = mockMvc.perform(get("/api/profile/resumes")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        JsonNode row = null;
+        for (JsonNode n : json(list)) if (n.path("id").asLong() == id) row = n;
+        assertThat(row).isNotNull();
+        assertThat(row.path("exportedHash").asText()).isEqualTo(hash);
+        assertThat(row.path("contentHash").asText()).isEqualTo(hash);
+
+        putDoc(id, "\"1\"", putBody(doc("Mine", "Edited after export"))).andExpect(status().isOk());
+        list = mockMvc.perform(get("/api/profile/resumes")).andReturn().getResponse().getContentAsString();
+        for (JsonNode n : json(list)) if (n.path("id").asLong() == id) row = n;
+        assertThat(row.path("exportedHash").asText()).isEqualTo(hash);
+        assertThat(row.path("contentHash").asText()).isNotEqualTo(hash);
+    }
+
+    @Test
+    void exportRecordedRejectsAMalformedHash() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        for (String body : new String[] { "{}", "{\"hash\":\"abc\"}", "{\"hash\":\"" + "G".repeat(64) + "\"}" }) {
+            mockMvc
+                .perform(post("/api/profile/resumes/" + id + "/export-recorded").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("DOC_INVALID"));
+        }
+    }
+
+    @Test
+    void exportRecordedOnAnotherUsersResumeIs404AndWritesNothing() throws Exception {
+        Long theirs = otherUsersBuiltResume();
+        mockMvc
+            .perform(post("/api/profile/resumes/" + theirs + "/export-recorded").contentType(MediaType.APPLICATION_JSON).content("{\"hash\":\"" + "a".repeat(64) + "\"}"))
+            .andExpect(status().isNotFound());
+        assertThat(resumeDocRepository.findById(theirs).orElseThrow().getExportedHash()).isNull();
+        mockMvc
+            .perform(post("/api/profile/resumes/999999999/export-recorded").contentType(MediaType.APPLICATION_JSON).content("{\"hash\":\"" + "a".repeat(64) + "\"}"))
+            .andExpect(status().isNotFound());
+    }
 }

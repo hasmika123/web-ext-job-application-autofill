@@ -16,15 +16,35 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
 
     List<ResumeDoc> findByUserId(Long userId);
 
-    /** Just (resume id, template id) per document - the list views must not load every doc_json. */
-    @Query("select d.resumeId as resumeId, d.templateId as templateId from ResumeDoc d where d.user.id = :userId")
-    List<TemplateRow> findTemplateIdsByUserId(@Param("userId") Long userId);
+    /**
+     * Just the list-view columns per document (template + export state) - the list views must not
+     * load every doc_json.
+     */
+    @Query(
+        "select d.resumeId as resumeId, d.templateId as templateId, d.contentHash as contentHash, " +
+        "d.exportedHash as exportedHash, d.exportedAt as exportedAt from ResumeDoc d where d.user.id = :userId"
+    )
+    List<BuiltMetaRow> findBuiltMetaByUserId(@Param("userId") Long userId);
 
-    interface TemplateRow {
+    interface BuiltMetaRow {
         Long getResumeId();
 
         String getTemplateId();
+
+        String getContentHash();
+
+        String getExportedHash();
+
+        java.time.Instant getExportedAt();
     }
+
+    /**
+     * Stamp an export without touching {@code @Version}: a bulk update does not bump it, which is the
+     * point (an export must not make an open editor's {@code If-Match} stale). Callers check ownership first.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update ResumeDoc d set d.exportedAt = :at, d.exportedHash = :hash where d.resumeId = :resumeId")
+    int recordExport(@Param("resumeId") Long resumeId, @Param("hash") String hash, @Param("at") java.time.Instant at);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ResumeDoc d where d.user.id = :userId")

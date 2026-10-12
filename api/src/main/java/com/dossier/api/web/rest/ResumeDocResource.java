@@ -112,6 +112,25 @@ public class ResumeDocResource {
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
     }
 
+    /** Body of {@code POST /{id}/export-recorded}. */
+    public record ExportRecordedVM(@Schema(description = "The content hash of the document that was exported (ResumeDocDTO.contentHash).") String hash) {}
+
+    /**
+     * {@code POST /api/profile/resumes/:id/export-recorded} : the web calls it after a PDF was
+     * uploaded to {@code /api/resumes/:id/file}. Sets {@code exportedAt}/{@code exportedHash}; never
+     * bumps the document version.
+     */
+    @Operation(
+        summary = "Record a successful PDF export",
+        description = "Body {hash}: the contentHash that was exported. Sets exportedAt and exportedHash; 404 if not owned, 422 DOC_INVALID for a malformed hash."
+    )
+    @PostMapping("/{id}/export-recorded")
+    public ResponseEntity<Void> exportRecorded(@PathVariable("id") Long id, @RequestBody(required = false) ExportRecordedVM vm) {
+        demoGuard.assertNotDemo();
+        resumeDocService.recordExport(id, vm == null ? null : vm.hash());
+        return ResponseEntity.noContent().build();
+    }
+
     /** {@code GET /api/profile/resumes/:id/doc/text} : the document as plain text (what an ATS reads). */
     @Operation(summary = "Get a resume document as plain text", description = "text/plain rendering of the visible parts of the document.")
     @GetMapping(value = "/{id}/doc/text", produces = MediaType.TEXT_PLAIN_VALUE + ";charset=UTF-8")

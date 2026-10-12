@@ -228,7 +228,7 @@ function docDto(id) {
   const r = RESUMES.find((x) => x.id === id);
   return {
     resumeId: id, label: r?.label ?? d.doc.meta.title, kind: "BUILT", doc: d.doc, templateId: d.templateId, theme: d.theme,
-    docVersion: d.version, contentHash: `mock-${d.version}`, profileSyncedAt: null, exportedAt: null, exportedHash: null, updatedAt: d.updatedAt,
+    docVersion: d.version, contentHash: `mock-${d.version}`, profileSyncedAt: null, exportedAt: d.exportedAt ?? null, exportedHash: d.exportedHash ?? null, updatedAt: d.updatedAt,
   };
 }
 const withEtag = (res, status, body, version) => {
@@ -240,7 +240,10 @@ const problem = (res, status, code, extra = {}) => json(res, status, { status, c
 /** Handles the builder endpoints; returns true when the request was answered. */
 function handleBuilder(req, res, path, method) {
   const isBuilder =
-    path === "/api/profile/resumes/built" || /^\/api\/profile\/resumes\/\d+\/doc(\/template)?$/.test(path) || /^\/mock\/resumes\/\d+\/edit-elsewhere$/.test(path);
+    path === "/api/profile/resumes/built" ||
+    /^\/api\/profile\/resumes\/\d+\/(doc(\/template)?|export-recorded)$/.test(path) ||
+    /^\/api\/resumes\/\d+\/file$/.test(path) ||
+    /^\/mock\/resumes\/\d+\/edit-elsewhere$/.test(path);
   if (!isBuilder) return false;
   const isMock = path.startsWith("/mock/");
   if (!isMock && !subOf(req)) {
@@ -266,6 +269,34 @@ function handleBuilder(req, res, path, method) {
   }
 
   const d = DOCS.get(id);
+
+  // R0.6: the export route uploads the PDF here (multipart; the mock keeps only its size) ...
+  if (/^\/api\/resumes\/\d+\/file$/.test(path) && method === "POST") {
+    let bytes = 0;
+    req.on("data", (c) => (bytes += c.length));
+    req.on("end", () => {
+      if (!d) return json(res, 404, { status: 404, title: "Not Found" });
+      d.fileBytes = bytes;
+      const r = RESUMES.find((x) => x.id === id);
+      if (r) r.r2ObjectKey = `mock/${id}-export.pdf`;
+      res.writeHead(200);
+      res.end();
+    });
+    return true;
+  }
+
+  // ... and records the export afterwards (same contract as ResumeDocResource#exportRecorded).
+  if (path.endsWith("/export-recorded") && method === "POST") {
+    withBody(req, (b) => {
+      if (!d) return json(res, 404, { status: 404, title: "Not Found" });
+      if (typeof b.hash !== "string" || !b.hash) return problem(res, 422, "DOC_INVALID", { path: "$.hash", message: "must be a content hash" });
+      d.exportedHash = b.hash;
+      d.exportedAt = new Date().toISOString();
+      res.writeHead(204);
+      res.end();
+    });
+    return true;
+  }
 
   if (isMock && method === "POST") {
     req.resume();
@@ -528,7 +559,15 @@ const server = http.createServer((req, res) => {
     return json(res, 200, { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
   if (path === "/api/profile") return json(res, 200, { payload: JSON.stringify(BIO) });
   if (path === "/api/profile/applications") return json(res, 200, APPLICATIONS);
-  if (path === "/api/profile/resumes") return json(res, 200, RESUMES);
+  if (path === "/api/profile/resumes")
+    return json(
+      res,
+      200,
+      RESUMES.map((r) => {
+        const d = DOCS.get(r.id);
+        return d ? { ...r, contentHash: `mock-${d.version}`, exportedHash: d.exportedHash ?? null, exportedAt: d.exportedAt ?? null } : r;
+      }),
+    );
   if (path === "/api/profile/suggestions") return json(res, 200, []);
   if (path === "/api/profile/notifications") return json(res, 200, { unread: 0, items: [] });
   if (path === "/api/profile/job-matches/settings") return json(res, 200, { enabled: false });

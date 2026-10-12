@@ -165,3 +165,81 @@ export async function createBuilt(body: { templateId?: string; target?: string; 
     return { kind: "error", message: "Couldn't reach the server." };
   }
 }
+
+/* ── PDF export (R0.6) ───────────────────────────────────────────────────────────────────── */
+
+export type ExportPdfResult =
+  | {
+      kind: "ok";
+      blob: Blob;
+      fileName: string;
+      pages: number;
+      /** The PDF has no more pages than the target (the ladder succeeded). */
+      fits: boolean;
+      /** The PDF was also stored on the resume (the extension can attach it). */
+      stored: boolean;
+      contentHash: string | null;
+    }
+  | { kind: "error"; status: number; code?: string; message: string };
+
+/** `Content-Disposition: attachment; filename="x.pdf"` -> `x.pdf`. */
+export function fileNameFromDisposition(header: string | null, fallback: string): string {
+  const m = header ? /filename="?([^";]+)"?/i.exec(header) : null;
+  return m?.[1] || fallback;
+}
+
+/**
+ * `POST /api/resumes/:id/export {format:"pdf"}`. Makes the PDF from the SAVED document (flush the
+ * editor's autosave first) and returns the bytes. Never throws.
+ */
+export async function exportPdf(resumeId: number): Promise<ExportPdfResult> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/resumes/${resumeId}/export`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ format: "pdf" }),
+    });
+  } catch {
+    return { kind: "error", status: 0, message: "Couldn't reach the server." };
+  }
+  if (res.ok) {
+    const blob = await res.blob();
+    return {
+      kind: "ok",
+      blob,
+      fileName: fileNameFromDisposition(res.headers.get("content-disposition"), `resume-${resumeId}.pdf`),
+      pages: Number(res.headers.get("x-resume-pdf-pages")) || 1,
+      fits: res.headers.get("x-resume-pdf-fits") !== "0",
+      stored: res.headers.get("x-resume-pdf-stored") === "1",
+      contentHash: res.headers.get("x-resume-content-hash"),
+    };
+  }
+  const p = (await readJson<Problem>(res)) ?? {};
+  const message =
+    res.status === 401
+      ? "Your session expired - please sign in again."
+      : res.status === 404
+        ? "That resume is no longer there."
+        : res.status === 429
+          ? "Too many exports - try again in a moment."
+          : (p.error ?? "Couldn't make the PDF. Please try again.");
+  return { kind: "error", status: res.status, code: p.code, message };
+}
+
+/** Saves a blob through a temporary link (the browser's normal download). */
+export function saveBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** The list's "PDF out of date" test: a PDF was exported once, and the content has moved on since. */
+export function pdfOutOfDate(r: { kind?: string | null; contentHash?: string | null; exportedHash?: string | null }): boolean {
+  return r.kind === "BUILT" && !!r.exportedHash && !!r.contentHash && r.exportedHash !== r.contentHash;
+}

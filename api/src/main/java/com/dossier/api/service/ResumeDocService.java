@@ -60,6 +60,7 @@ public class ResumeDocService {
     private static final String DEFAULT_TITLE = "My resume";
     /** The theme is a small style object (colors, font, spacing); anything bigger is a mistake. */
     private static final int MAX_THEME_BYTES = 8 * 1024;
+    private static final java.util.regex.Pattern HASH_PATTERN = java.util.regex.Pattern.compile("[0-9a-f]{64}");
 
     private final ResumeDocRepository resumeDocRepository;
     private final ProfileItemRepository profileItemRepository;
@@ -195,6 +196,22 @@ public class ResumeDocService {
         d.getResume().setUpdatedAt(d.getUpdatedAt());
         resumeDocRepository.saveAndFlush(d);
         return toDto(d, d.getResume());
+    }
+
+    /**
+     * Record that a PDF of the document with content hash {@code hash} was exported and stored (R0.6).
+     * Sets {@code exported_at} and {@code exported_hash} only: it never bumps {@code doc_version} or
+     * touches the content, so an open editor's ETag stays valid. Whether the PDF is "out of date" is
+     * then simply {@code exportedHash != contentHash}.
+     */
+    public void recordExport(Long resumeId, String hash) {
+        ResumeDoc d = ownedDoc(resumeId);
+        if (hash == null || !HASH_PATTERN.matcher(hash).matches()) {
+            throw ResumeDocException.invalid("$.hash", "must be a 64-character lowercase hex content hash");
+        }
+        // A bulk update, not d.setExportedHash(..) + save: the entity's @Version would tick and the
+        // editor's next autosave (If-Match: the old version) would 409 right after an export.
+        resumeDocRepository.recordExport(d.getResumeId(), hash, Instant.now());
     }
 
     /** The server's document for a client that lost an optimistic-lock race (the 409 body). */

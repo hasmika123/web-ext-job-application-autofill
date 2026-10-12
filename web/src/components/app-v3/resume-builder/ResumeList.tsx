@@ -7,7 +7,7 @@ import { FileTextIcon, PlusIcon, Spinner, cn, useToast } from "@kiwiply/ui";
 import type { Resume } from "@/components/ResumeList";
 import ResumeDrawer from "@/components/app-v2/resume/ResumeDrawer";
 import { HeroBand, IconTile, SectionCard, StatusChip } from "@/components/app-v2/common";
-import { createBuilt } from "@/lib/resume-doc";
+import { createBuilt, pdfOutOfDate } from "@/lib/resume-doc";
 
 const fmt = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—";
@@ -167,6 +167,11 @@ export default function ResumeList({
                   </span>
                   <span className="mt-3 flex flex-wrap items-center gap-1.5">
                     <StatusChip tone={built ? "green" : "slate"}>{built ? "Built" : "Uploaded"}</StatusChip>
+                    {pdfOutOfDate(r) && (
+                      <StatusChip tone="amber" dot>
+                        PDF out of date
+                      </StatusChip>
+                    )}
                     {r.defaultResume && <StatusChip tone="blue">Default</StatusChip>}
                     {(usage[r.id] ?? 0) > 0 && (
                       <StatusChip tone="slate">

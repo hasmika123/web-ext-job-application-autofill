@@ -124,17 +124,28 @@ public class ProfileService {
     }
 
     /**
-     * Fill {@code templateId} on BUILT resumes (it lives on the web-only {@code resume_doc} row, not
-     * on {@code Resume}). One narrow query, and none at all for users without a built resume - this
+     * Fill {@code templateId} and the export state ({@code contentHash}, {@code exportedHash},
+     * {@code exportedAt}) on BUILT resumes (they live on the web-only {@code resume_doc} row, not on
+     * {@code Resume}). One narrow query, and none at all for users without a built resume - this
      * runs on every extension version poll.
      */
     private List<ResumeDTO> withTemplateIds(List<ResumeDTO> dtos) {
         if (dtos.stream().noneMatch(d -> d.getKind() == ResumeKind.BUILT)) {
             return dtos;
         }
-        Map<Long, String> templates = new HashMap<>();
-        resumeDocRepository.findTemplateIdsByUserId(currentUser().getId()).forEach(r -> templates.put(r.getResumeId(), r.getTemplateId()));
-        dtos.stream().filter(d -> d.getKind() == ResumeKind.BUILT).forEach(d -> d.setTemplateId(templates.get(d.getId())));
+        Map<Long, ResumeDocRepository.BuiltMetaRow> meta = new HashMap<>();
+        resumeDocRepository.findBuiltMetaByUserId(currentUser().getId()).forEach(r -> meta.put(r.getResumeId(), r));
+        dtos
+            .stream()
+            .filter(d -> d.getKind() == ResumeKind.BUILT)
+            .forEach(d -> {
+                ResumeDocRepository.BuiltMetaRow row = meta.get(d.getId());
+                if (row == null) return;
+                d.setTemplateId(row.getTemplateId());
+                d.setContentHash(row.getContentHash());
+                d.setExportedHash(row.getExportedHash());
+                d.setExportedAt(row.getExportedAt());
+            });
         return dtos;
     }
 

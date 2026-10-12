@@ -35,6 +35,10 @@ export interface Resume {
   /** `BUILT` = authored in the Resume Builder (has a document); `UPLOADED` = a file. Absent on older APIs. */
   kind?: "BUILT" | "UPLOADED" | null;
   templateId?: string | null;
+  /** BUILT only (R0.6): the document's content hash, and the hash of the last exported PDF. */
+  contentHash?: string | null;
+  exportedHash?: string | null;
+  exportedAt?: string | null;
 }
 
 function statusBadge(status?: string | null) {

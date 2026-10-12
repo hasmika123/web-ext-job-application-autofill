@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { cn } from "@kiwiply/ui";
-import { putDoc, type ResumeDocDTO } from "@/lib/resume-doc";
+import { cn, useToast } from "@kiwiply/ui";
+import { exportPdf, putDoc, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
 import EditorTopBar from "./EditorTopBar";
 import PreviewPane from "./PreviewPane";
@@ -30,6 +30,12 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
   const [tab, setTab] = useState<PhoneTab>("edit");
   const [now, setNow] = useState(() => Date.now());
   const autosave = useRef<Autosave | null>(null);
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+  const latestRev = useRef(state.rev);
+  useEffect(() => {
+    latestRev.current = state.rev;
+  }, [state.rev]);
 
   /* ── autosave controller: one per resume ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -101,6 +107,40 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
   const active = useMemo(() => doc.sections.find((s) => s.id === activeId) ?? doc.sections[0], [doc.sections, activeId]);
   const status = saveStatus(state);
 
+  /**
+   * Export PDF: the server prints the SAVED document, so save first, and refuse (with a reason) if the
+   * latest edits could not be saved - a PDF that silently lacks them would be worse than no PDF.
+   */
+  const exportNow = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await autosave.current?.flush();
+      if ((autosave.current?.savedRev ?? 0) < latestRev.current) {
+        toast({ title: "Couldn't export yet", description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
+        return;
+      }
+      const res = await exportPdf(resumeId);
+      if (res.kind === "error") {
+        toast({ title: "Couldn't make the PDF", description: res.message, variant: "error" });
+        return;
+      }
+      saveBlob(res.blob, res.fileName);
+      const pages = `${res.pages} ${res.pages === 1 ? "page" : "pages"}`;
+      toast({
+        title: "PDF ready",
+        variant: res.stored && res.fits ? "success" : "default",
+        description: !res.stored
+          ? `${pages}. It downloaded, but couldn't be attached to this resume - try again.`
+          : res.fits
+            ? `${pages}. Saved to this resume too, so the extension can attach it.`
+            : `${pages} - still over your page target. Hide a section or shorten bullets to fit.`,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const keepMine = () => {
     const c = state.conflict;
     if (!c) return;
@@ -130,6 +170,9 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
         canRedo={canRedoEdit(state)}
         onUndo={() => dispatch({ type: "history/undo" })}
         onRedo={() => dispatch({ type: "history/redo" })}
+        onExport={exportNow}
+        exporting={exporting}
+        exportDisabled={state.phase === "conflict"}
       />
 
       <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-[200px_minmax(0,1fr)_minmax(0,1fr)]">
