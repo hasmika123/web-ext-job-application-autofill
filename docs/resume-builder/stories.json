@@ -158,7 +158,7 @@
       "id": "R0.5",
       "epic": "R0",
       "title": "Web editor skeleton — `/resume-builder/[id]`: load doc, edit summary + experience text, live preview, autosave with ETag",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web"
