@@ -8,11 +8,14 @@ import { ONBOARDING_EVENTS, entryFrom, trackOnboarding } from "./events";
 afterEach(() => track.mockReset());
 
 describe("onboarding events", () => {
-  it("lists the fourteen funnel events of DESIGN 12, snake_case and unique", () => {
-    const names = Object.values(ONBOARDING_EVENTS);
+  it("lists the fourteen funnel events of DESIGN 12 and the delight events of DELIGHT 11, snake_case and unique", () => {
+    const all = Object.values(ONBOARDING_EVENTS);
+    const delight = all.filter((n) => n.startsWith("onboarding_delight_"));
+    const names = all.filter((n) => !n.startsWith("onboarding_delight_"));
     expect(names).toHaveLength(14);
-    expect(new Set(names).size).toBe(14);
-    for (const n of names) expect(n).toMatch(/^[a-z]+(_[a-z]+)+$/);
+    expect(new Set(all).size).toBe(all.length);
+    expect(delight).toContain("onboarding_delight_highlight");
+    for (const n of all) expect(n).toMatch(/^[a-z]+(_[a-z]+)+$/);
     // the retired events are gone, `profile_setup_parsed` is kept
     expect(names).toContain("profile_setup_parsed");
     for (const gone of ["profile_setup_step", "profile_setup_started", "profile_setup_completed"]) expect(names).not.toContain(gone);

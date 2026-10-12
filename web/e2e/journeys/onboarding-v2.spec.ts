@@ -527,6 +527,15 @@ for (const vp of [
       await expectNoWordPerLineHeadings(page, "review with the companion");
       await auditScreen(page, "review with the companion", keep);
 
+      // honest highlights (R1.16): card 1 has a real figure ("18%"), so its one chip is the number rule, on that bullet
+      const chip = page.locator("[data-highlight]");
+      await expect(chip).toHaveCount(1);
+      await expect(chip).toHaveAttribute("data-highlight", "number");
+      await expect(chip).toHaveText("Numbers stand out to recruiters");
+      await expect(page.locator("li").filter({ has: chip })).toContainText("lifting activation 18%");
+      await expect(page.getByTestId("number-tip")).toHaveCount(0);
+      await expect(chip, "the chip is real text for a screen reader").not.toHaveAttribute("aria-hidden", "true");
+
       // a Keep: the companion reacts, nothing moves, nothing is announced twice
       const before = (await h1(page).boundingBox())!;
       await keep.click();
@@ -537,6 +546,14 @@ for (const vp of [
       const after = (await h1(page).boundingBox())!;
       expect(Math.abs(after.y - before.y) + Math.abs(after.height - before.height), "the heading row does not move when the companion reacts").toBeLessThanOrEqual(1);
       await expectNoHorizontalScroll(page, "review after a Keep");
+
+      // card 2 has no figure: a result chip on "Cut checkout drop-off..." and the gentle tip, together
+      await expect(chip).toHaveCount(1);
+      await expect(chip).toHaveAttribute("data-highlight", "outcome");
+      await expect(page.locator("li").filter({ has: chip })).toContainText("Cut checkout drop-off");
+      await expect(page.getByTestId("number-tip")).toBeVisible();
+      await expectNoHorizontalScroll(page, "review card with a chip and the tip");
+      await auditScreen(page, "review card 2 with a chip and the tip", page.getByRole("button", { name: /^Keep/ }).first());
     });
   });
 }

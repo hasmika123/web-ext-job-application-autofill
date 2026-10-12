@@ -27,6 +27,8 @@ export const ONBOARDING_EVENTS = {
   draftConflict: "onboarding_draft_conflict",
   draftOffline: "onboarding_draft_offline",
   payoffAction: "onboarding_payoff_action",
+  // The delight layer (DELIGHT 11): rule ids, percentages, counts and methods only, never text.
+  delightHighlight: "onboarding_delight_highlight",
 } as const;
 
 export type OnboardingEventName = (typeof ONBOARDING_EVENTS)[keyof typeof ONBOARDING_EVENTS];
@@ -52,6 +54,7 @@ export interface OnboardingEventProps {
   [ONBOARDING_EVENTS.draftConflict]: { choice: "theirs" | "mine" };
   [ONBOARDING_EVENTS.draftOffline]: { retries: number };
   [ONBOARDING_EVENTS.payoffAction]: { action: PayoffAction | "dashboard" };
+  [ONBOARDING_EVENTS.delightHighlight]: { rule: "number" | "outcome" | "lead" | "built" };
 }
 
 /** Fire one funnel event. The properties are checked against the design's table at compile time. */

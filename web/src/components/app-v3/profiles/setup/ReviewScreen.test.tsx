@@ -5,15 +5,20 @@ import { ToastProvider } from "@kiwiply/ui";
 import type { Candidate } from "@/lib/profile-setup/draft";
 import { INITIAL_STATE, reducer } from "@/lib/profile-setup/state";
 import { DelightProvider } from "@/lib/onboarding/delight";
-import { DEFAULT_BUILDER_CONFIG, DEFAULT_DELIGHT_CONFIG } from "@/lib/resume-builder-config.shared";
+import { DEFAULT_BUILDER_CONFIG, DEFAULT_DELIGHT_CONFIG, type OnboardingDelightConfig } from "@/lib/resume-builder-config.shared";
 import type { Persona } from "@/lib/profile-setup/state";
 import { CompanionProvider } from "./delight/Companion";
 import { CompanionDock } from "./delight/CompanionDock";
 import ReviewScreen from "./ReviewScreen";
 
 vi.mock("next/image", () => ({ default: ({ src }: { src: string }) => <span data-mascot={src} /> }));
+const track = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/analytics", () => ({ track }));
 
-beforeEach(() => vi.useRealTimers());
+beforeEach(() => {
+  vi.useRealTimers();
+  track.mockClear();
+});
 afterEach(cleanup);
 
 const candidates: Candidate[] = [
@@ -30,6 +35,8 @@ function Harness({
   mascot = true,
   persona = null,
   companion = false,
+  delight,
+  cards = candidates,
 }: {
   onDone?: (kept: number, skipped: number) => void;
   removed?: number;
@@ -37,17 +44,21 @@ function Harness({
   persona?: Persona | null;
   /** Wrap it in the delight layer with the companion dock, as the setup flow does. */
   companion?: boolean;
+  /** Wrap it in the delight layer (no companion dock) with these settings overridden, as the setup flow does. */
+  delight?: Partial<OnboardingDelightConfig>;
+  /** The cards to review (default: the three-card fixture). */
+  cards?: Candidate[];
 }) {
   const [state, dispatch] = useReducer(reducer, {
     ...INITIAL_STATE,
     step: "review",
-    parsed: { candidates, parsedIdentity: {}, skills: [], suggestions: [], source: "ai", removed },
+    parsed: { candidates: cards, parsedIdentity: {}, skills: [], suggestions: [], source: "ai", removed },
     skills: ["React", "Go"],
   });
   const screenEl = (
     <ToastProvider>
       <ReviewScreen
-        candidates={candidates}
+        candidates={cards}
         decisions={state.decisions}
         edits={state.edits}
         cursor={state.cursor}
@@ -68,12 +79,12 @@ function Harness({
       <output data-testid="state">{JSON.stringify({ decisions: state.decisions, edits: state.edits, cursor: state.cursor })}</output>
     </ToastProvider>
   );
-  if (!companion) return screenEl;
-  const cfg = { ...DEFAULT_BUILDER_CONFIG, onboarding: { ...DEFAULT_BUILDER_CONFIG.onboarding, mascot, delight: { ...DEFAULT_DELIGHT_CONFIG } } };
+  if (!companion && !delight) return screenEl;
+  const cfg = { ...DEFAULT_BUILDER_CONFIG, onboarding: { ...DEFAULT_BUILDER_CONFIG.onboarding, mascot, delight: { ...DEFAULT_DELIGHT_CONFIG, ...delight } } };
   return (
     <DelightProvider config={cfg}>
       <CompanionProvider>
-        <CompanionDock screenKey="review" />
+        {companion && <CompanionDock screenKey="review" />}
         {screenEl}
       </CompanionProvider>
     </DelightProvider>
@@ -297,4 +308,100 @@ describe("ReviewScreen", () => {
       expect(dock().getAttribute("aria-hidden")).toBe("true");
     });
   });
+
+  describe("honest highlights", () => {
+    const card = (id: string, section: Candidate["section"], bullets: string[], title = "Role"): Candidate => ({
+      id,
+      section,
+      data: { title, org: "Acme", bullets: bullets.map((text) => ({ text, src: "parsed" })) },
+    });
+    const cardsWith = [
+      card("a", "EXPERIENCE", ["Worked on the thing", "Led the weekly review", "Lifted activation 18%"], "Designer"),
+      card("b", "EXPERIENCE", ["Led the weekly review", "Built the new flow"], "Lead"),
+      { id: "c", section: "EDUCATION", data: { school: "MIT", degree: "BS" } } as Candidate,
+      card("d", "PROJECT", ["Prototyped three landing pages"], "Landing"),
+    ];
+    const chips = () => [...document.querySelectorAll("[data-highlight]")];
+
+    it("one chip per card, on the right bullet, as real text", () => {
+      render(<Harness delight={{}} cards={cardsWith} />);
+      expect(chips()).toHaveLength(1);
+      const chip = chips()[0] as HTMLElement;
+      expect(chip.getAttribute("data-highlight")).toBe("number");
+      expect(chip.textContent).toBe("Numbers stand out to recruiters");
+      expect(chip.closest("li")?.textContent).toContain("Lifted activation 18%");
+      expect(chip.closest("[aria-hidden=true]")).toBeNull(); // read by a screen reader, after its bullet
+    });
+
+    it("the next card gets its own single chip (lead on the first matching bullet)", () => {
+      render(<Harness delight={{}} cards={cardsWith} />);
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(chips()).toHaveLength(1);
+      expect(chips()[0].getAttribute("data-highlight")).toBe("lead");
+      expect(chips()[0].closest("li")?.textContent).toContain("Led the weekly review");
+    });
+
+    it("the tip shows on an experience or project card with no number, and not when there is one", () => {
+      render(<Harness delight={{}} cards={cardsWith} />);
+      expect(screen.queryByTestId("number-tip")).toBeNull(); // card a has 18%
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(screen.getByTestId("number-tip").textContent).toBe("Tip: a number here (users, %, $) makes it stronger — easy to add later in your Resume Builder.");
+      // a chip of another rule and the tip coexist
+      expect(chips()).toHaveLength(1);
+    });
+
+    it("no tip on education, and none on a card with no bullets", () => {
+      render(<Harness delight={{}} cards={cardsWith} />);
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(screen.getByText("MIT")).toBeTruthy();
+      expect(screen.queryByTestId("number-tip")).toBeNull();
+      expect(chips()).toHaveLength(0);
+    });
+
+    it("is recomputed after an edit is saved", async () => {
+      render(<Harness delight={{}} cards={[card("x", "EXPERIENCE", ["Led the weekly review"], "Lead")]} />);
+      expect(chips()[0].getAttribute("data-highlight")).toBe("lead");
+      expect(screen.getByTestId("number-tip")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /^Edit / }));
+      const bullet = screen.getAllByRole("textbox").find((el) => (el as HTMLTextAreaElement).value === "Led the weekly review") as HTMLTextAreaElement;
+      fireEvent.change(bullet, { target: { value: "Led the weekly review for 12 designers, 40% faster" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Nice. Here's what we'll add." })).toBeTruthy());
+      expect(chips()).toHaveLength(0); // the recap carries none
+    });
+
+    it("is hidden when delight.highlights is off, and with the whole layer off", () => {
+      const off = render(<Harness delight={{ highlights: false }} cards={cardsWith} />);
+      expect(chips()).toHaveLength(0);
+      expect(screen.queryByTestId("number-tip")).toBeNull();
+      off.unmount();
+      render(<Harness cards={cardsWith} />); // no layer at all: today's card
+      expect(chips()).toHaveLength(0);
+      expect(screen.queryByTestId("number-tip")).toBeNull();
+      cleanup();
+      render(<Harness delight={{ enabled: false }} cards={cardsWith} />);
+      expect(chips()).toHaveLength(0);
+    });
+
+    it("the highlight event fires once per card shown, with the rule id and nothing else", () => {
+      render(<Harness delight={{}} cards={cardsWith} />);
+      const events = () => track.mock.calls.filter(([name]) => name === "onboarding_delight_highlight");
+      expect(events()).toEqual([["onboarding_delight_highlight", { rule: "number" }]]);
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(events()).toHaveLength(2);
+      expect(events()[1]).toEqual(["onboarding_delight_highlight", { rule: "lead" }]);
+      fireEvent.click(screen.getByRole("button", { name: "shell back" })); // back onto card a: not counted again
+      expect(events()).toHaveLength(2);
+      expect(JSON.stringify(track.mock.calls)).not.toMatch(/Lifted|Led the|Numbers stand/);
+    });
+
+    it("the admin's copy override wins for the chip and the tip", () => {
+      render(<Harness delight={{ copy: { "highlight.number": "Big numbers", "highlight.tip": "Add a figure." } }} cards={cardsWith} />);
+      expect(chips()[0].textContent).toBe("Big numbers");
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(screen.getByTestId("number-tip").textContent).toBe("Add a figure.");
+    });
+  });
+
 });

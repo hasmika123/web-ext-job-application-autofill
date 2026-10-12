@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowRightIcon, BriefcaseIcon, Button, CheckIcon, GraduationCapIcon, LayersIcon, PencilIcon, SourceChip, SwipeCard, useToast } from "@kiwiply/ui";
 import type { ItemData } from "@/lib/profile-items";
 import type { Candidate } from "@/lib/profile-setup/draft";
 import type { Decision } from "@/lib/profile-setup/import";
+import { ONBOARDING_EVENTS as EV, trackOnboarding } from "@/lib/onboarding/events";
+import { useDelight } from "@/lib/onboarding/delight";
+import { highlightFor, needsNumberTip } from "@/lib/onboarding/highlights";
 import type { Persona } from "@/lib/profile-setup/state";
 import { summaryLine } from "@/lib/profile-setup/summary";
 import ItemForm from "../ItemForm";
 import { describeItem, itemBullets, type DraftLimits } from "../itemSchema";
 import { useCompanionActive } from "./delight/Companion";
+import HighlightChip from "./delight/HighlightChip";
 import { useReaction, useSceneLine } from "./delight/useCompanionLines";
 import SensitiveNotice from "./SensitiveNotice";
 import { SkipButton, StepFooter, StepHeading, StepMascot } from "./parts";
@@ -81,6 +85,7 @@ export default function ReviewScreen({
   // The companion (R1.14, DELIGHT 2.5): its resting line for this card (a persona's flavour on the first, "Last one." on the final
   // card, otherwise a rotating line by the card's place) and the recap's; reactions are fired from the decisions below.
   const react = useReaction();
+  const delight = useDelight();
   const idleKey = !card ? "recap.idle" : cursor === total - 1 && total > 1 ? "review.last" : cursor === 0 && persona ? `review.idle.${persona}` : "review.idle";
   useSceneLine(card ? "idle" : "cheer", idleKey, { seed: cursor });
 
@@ -95,6 +100,20 @@ export default function ReviewScreen({
 
   const data = card ? (edits[card.id] ?? card.data) : null;
   const described = card && data ? describeItem(card.section, data) : null;
+
+  // Honest highlights (R1.16): from this card's own bullets (the edited ones once an edit is saved), only with delight and its switch on.
+  const bulletTexts = useMemo(() => (data ? itemBullets(data).map((b) => b.text) : []), [data]);
+  const highlight = useMemo(() => (delight.highlights ? highlightFor(bulletTexts) : null), [delight.highlights, bulletTexts]);
+  const numberTip = delight.highlights && card ? needsNumberTip(card.section, bulletTexts) : false;
+  const trackedHighlights = useRef(new Set<string>());
+  const cardId = card?.id;
+  const highlightRule = highlight?.rule;
+  useEffect(() => {
+    // Once per card shown, rule id only (never any text).
+    if (!cardId || !highlightRule || editing || trackedHighlights.current.has(cardId)) return;
+    trackedHighlights.current.add(cardId);
+    trackOnboarding(EV.delightHighlight, { rule: highlightRule });
+  }, [cardId, highlightRule, editing]);
 
   if (!card || !data || !described) {
     const kept = candidates.filter((c) => decisions[c.id] === "keep");
@@ -185,9 +204,15 @@ export default function ReviewScreen({
                     {bullets.map((b, i) => (
                       <li key={i} className="break-words">
                         {b.text}
+                        {highlight && highlight.index === i && <HighlightChip rule={highlight.rule} label={delight.copy(highlight.label)} />}
                       </li>
                     ))}
                   </ul>
+                )}
+                {numberTip && (
+                  <p data-testid="number-tip" className="mt-2 text-[12.5px] leading-snug text-v2-muted">
+                    {delight.copy("highlight.tip")}
+                  </p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <SourceChip provenance={edits[card.id] ? "USER" : provenance} />

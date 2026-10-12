@@ -19,4 +19,18 @@
   .kiwi-bubble-text {
     animation: kiwi-bubble-in 120ms ease-out both;
   }
+
+  /* A chip that just appeared or was just picked: one 150 ms pop (1 to 1.06 and back). Colour only under reduced motion. */
+  @keyframes ob-chip-pop {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.06);
+    }
+  }
+  .ob-chip-pop {
+    animation: ob-chip-pop 150ms ease-out both;
+  }
 }
