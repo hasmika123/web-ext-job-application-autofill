@@ -30,3 +30,7 @@ Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real u
 - **Resume metadata:** every resume (built or uploaded) has a name, created / last-modified times, and
   settings — is primary, visibility, and who can see it (private by default; org marketer/coach by consent;
   specific people; share link) — with an audit of views.
+- **New resume = a start chooser:** upload a resume, use my profile (the Common Profile from onboarding), or
+  copy an existing resume; then the new resume opens in edit mode. The profile is the source; the resume is a
+  snapshot the user modifies.
+- **Save and Save & Download** actions in the editor (explicit save checkpoint; save then download).
