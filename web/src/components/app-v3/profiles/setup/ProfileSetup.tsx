@@ -64,13 +64,20 @@ export default function ProfileSetup({
   bio,
   config,
   initialPath = null,
+  initialStep = null,
 }: {
   /** The profile's flat bio as the page loaded it. */
   bio: Bio;
   config: ResumeBuilderConfig;
   initialPath?: SetupPath | null;
+  /** `?step=prefs` (the retired `/welcome` lands here): open on the application questions when any are unanswered. */
+  initialStep?: "prefs" | null;
 }) {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE, (s) => (initialPath ? { ...s, path: initialPath, step: "input" as const } : s));
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE, (s) => {
+    if (initialPath) return { ...s, path: initialPath, step: "input" as const };
+    if (initialStep === "prefs" && unansweredQuestions(bio).length > 0) return { ...s, step: "prefs" as const };
+    return s;
+  });
   const [resumed, setResumed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +87,9 @@ export default function ProfileSetup({
 
   const fresh = state.path === "fresh";
   const questions = useMemo(() => unansweredQuestions(bio), [bio]);
-  const steps = stepsFor(state, questions.length > 0);
+  // Arriving on the questions with nothing parsed (the `/welcome` link): just the questions, then done.
+  const prefsOnly = state.step === "prefs" && !state.parsed;
+  const steps = prefsOnly ? (["prefs", "done"] as SetupState["step"][]) : stepsFor(state, questions.length > 0);
   const limits: DraftLimits = { bullets: config.limits.bullets, bulletChars: config.limits.bulletChars };
   const bioLimits: BioLimits = useMemo(
     () => ({ valueChars: config.profile.bioValueMaxChars, summaryChars: config.profile.bioSummaryMaxChars }),
@@ -113,7 +122,7 @@ export default function ProfileSetup({
     dispatch({ type: "goto", step });
   };
   const next = () => go(nextStep(state, questions.length > 0));
-  const back = () => go(prevStep(state, questions.length > 0));
+  const back = () => go(prefsOnly ? "path" : prevStep(state, questions.length > 0));
   const startOver = () => {
     clearDraft(window.sessionStorage);
     setResumed(false);
@@ -184,7 +193,7 @@ export default function ProfileSetup({
 
   const footer = (
     <div className="mt-6 flex flex-col gap-3">
-      {onLast && (
+      {onLast && !prefsOnly && (
         <p className="text-[13px] text-v2-ink-soft" data-testid="summary">
           {summaryLine(counts, skillList.length)}
         </p>

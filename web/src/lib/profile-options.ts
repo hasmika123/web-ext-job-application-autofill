@@ -72,19 +72,6 @@ export const FIELD_OPTIONS: Record<string, string[]> = {
  */
 export const ONBOARDED_KEY = "onboardedAt";
 
-function has(v: unknown): boolean {
-  return v !== undefined && v !== null && String(v).trim() !== "";
-}
-
-/**
- * Should the dashboard send this user to `/welcome`? Only once: never after they've finished
- * or skipped it, and not for someone who already answered the work-authorization question
- * (they set up their profile before onboarding existed).
- */
-export function needsOnboarding(bio: Bio): boolean {
-  return !has(bio[ONBOARDED_KEY]) && !has(bio.authorizedToWork);
-}
-
 /** Parse the server's opaque `payload` into a bio object; anything unreadable is an empty bio. */
 export function parseBioPayload(dto: { payload?: string } | null): Bio {
   if (!dto?.payload) return {};
