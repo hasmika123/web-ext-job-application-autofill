@@ -579,8 +579,9 @@ describe("ResumeEditor", () => {
       expect(screen.getByText("Pick the job this resume is for")).toBeTruthy();
     });
 
-    it("Pro: 'Get suggestions' stub instead of the lock", () => {
+    it("Pro: the empty 'Get suggestions' card (the stored cards are read first), not the lock", async () => {
       renderEditor({ ...DEFAULT_BUILDER_CONFIG, plan: "PRO", aiAllowed: true });
+      await act(async () => {}); // the first read of the stored cards settles (nothing there)
       fireEvent.click(screen.getAllByRole("tab", { name: /AI Suggestions/ })[0]);
       expect(screen.getByRole("button", { name: "Get suggestions" })).toBeTruthy();
       expect(screen.queryByText("AI suggestions are part of Pro")).toBeNull();

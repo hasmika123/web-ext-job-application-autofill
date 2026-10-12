@@ -22,6 +22,9 @@ public interface ResumeAiProposalRepository extends JpaRepository<ResumeAiPropos
     /** A resume's proposals in one status, newest first (the open cards and diffs). */
     List<ResumeAiProposal> findByUserIdAndResumeIdAndStatusOrderByCreatedAtDesc(Long userId, Long resumeId, String status);
 
+    /** A resume's proposals of one task in one status, in the order they were stored (the suggestion cards). */
+    List<ResumeAiProposal> findByUserIdAndResumeIdAndTaskAndStatusOrderByIdAsc(Long userId, Long resumeId, String task, String status);
+
     /** A user's proposals in one status, oldest first (trimming the open ones to the cap). */
     List<ResumeAiProposal> findByUserIdAndStatusOrderByCreatedAtAsc(Long userId, String status);
 

@@ -361,6 +361,133 @@ class ResumeAiResourceIT {
         assertThat(rewriteOk("b_bullet01").path("status").asText()).isEqualTo("ok");
     }
 
+    // ---- suggestions (R4.6) -------------------------------------------------------
+
+    private static final String GOOD_SUGGESTIONS =
+        "{\"suggestions\":[" +
+        "{\"kind\":\"skills\",\"title\":\"Clearer docs line\",\"body\":\"Name what you wrote\",\"changes\":[{\"ref\":\"b_bullet03\",\"after\":\"Authored documentation\",\"reason\":\"More specific\"}]}," +
+        "{\"kind\":\"bullets\",\"title\":\"Stronger verb\",\"body\":\"Lead with the action\",\"changes\":[{\"ref\":\"b_bullet02\",\"after\":\"Managed 4 engineers\",\"reason\":\"Active verb\"}]}," +
+        "{\"kind\":\"keywords\",\"title\":\"Invented\",\"body\":\"x\",\"changes\":[{\"ref\":\"b_bullet01\",\"after\":\"Built event pipelines handling 9,000 requests per second\",\"reason\":\"y\"}]}]}";
+
+    private ResultActions suggest(boolean consent, boolean refresh) throws Exception {
+        return postJson("/api/profile/resumes/" + resumeId + "/ai/suggestions", Map.of("consent", consent, "refresh", refresh));
+    }
+
+    private JsonNode suggestOk(boolean refresh) throws Exception {
+        return om.readTree(suggest(true, refresh).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    @Test
+    void aFreeUserGets402ForSuggestionsButTheListIsEmptyAndFree() throws Exception {
+        suggest(true, false).andExpect(status().isPaymentRequired()).andExpect(jsonPath("$.code").value("PRO_REQUIRED"));
+        mockMvc.perform(get("/api/profile/resumes/" + resumeId + "/ai/suggestions")).andExpect(status().isOk()).andExpect(jsonPath("$.suggestions.length()").value(0));
+        verify(aiProvider, never()).generate(any(AiTask.class), any(), anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    void suggestionsAreCheckedCardsInCarouselOrderAndTheSameDocumentIsCachedForFree() throws Exception {
+        pro();
+        reply(GOOD_SUGGESTIONS);
+        JsonNode first = suggestOk(false);
+        assertThat(first.path("status").asText()).isEqualTo("ok");
+        assertThat(first.path("suggestions")).hasSize(2); // the invented number's card is dropped
+        assertThat(first.path("dropped").asInt()).isEqualTo(1);
+        assertThat(first.at("/suggestions/0/kind").asText()).isEqualTo("bullets");
+        assertThat(first.at("/suggestions/0/title").asText()).isEqualTo("Stronger verb");
+        assertThat(first.at("/suggestions/0/changes/0/after").asText()).isEqualTo("Managed 4 engineers");
+        assertThat(first.at("/suggestions/1/kind").asText()).isEqualTo("skills");
+        assertThat(first.at("/suggestions/0/stale").asBoolean()).isFalse();
+        assertThat(first.path("contentHash").asText()).hasSize(64);
+        assertThat(first.has("staleAt")).isFalse();
+
+        JsonNode again = suggestOk(false);
+        assertThat(again.path("status").asText()).isEqualTo("cached");
+        assertThat(again.path("suggestions")).hasSize(2);
+        verify(aiProvider, times(1)).generate(eq(AiTask.SUGGEST), any(), anyString(), anyString(), eq(3000));
+
+        JsonNode listed = om.readTree(mockMvc.perform(get("/api/profile/resumes/" + resumeId + "/ai/suggestions")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(listed.path("suggestions")).hasSize(2);
+        assertThat(listed.at("/suggestions/0/id").asLong()).isEqualTo(first.at("/suggestions/0/id").asLong());
+    }
+
+    @Test
+    void refreshAsksAgainAndReplacesTheOldCardsAndEditingMakesCardsStale() throws Exception {
+        pro();
+        reply(GOOD_SUGGESTIONS);
+        JsonNode first = suggestOk(false);
+        long oldId = first.at("/suggestions/0/id").asLong();
+
+        reply("{\"suggestions\":[{\"kind\":\"summary\",\"title\":\"Fresh\",\"body\":\"b\",\"changes\":[{\"ref\":\"b_bullet03\",\"after\":\"Authored documentation\",\"reason\":\"r\"}]}]}");
+        JsonNode fresh = suggestOk(true);
+        assertThat(fresh.path("status").asText()).isEqualTo("ok");
+        assertThat(fresh.path("suggestions")).hasSize(1);
+        assertThat(proposalRepository.findById(oldId).orElseThrow().getStatus()).isEqualTo("DISMISSED");
+        verify(aiProvider, times(2)).generate(eq(AiTask.SUGGEST), any(), anyString(), anyString(), anyInt());
+
+        long version = resumeDocRepository.findById(resumeId).orElseThrow().getDocVersion();
+        saveDoc(DOC_BODY.replace("Wrote docs", "Wrote runbooks"), "\"" + version + "\"");
+        JsonNode stale = om.readTree(mockMvc.perform(get("/api/profile/resumes/" + resumeId + "/ai/suggestions")).andReturn().getResponse().getContentAsString());
+        assertThat(stale.at("/suggestions/0/stale").asBoolean()).isTrue();
+        assertThat(stale.path("staleAt").asText()).isNotEmpty();
+        long staleId = stale.at("/suggestions/0/id").asLong();
+        postJson("/api/profile/ai/proposals/" + staleId + "/apply", Map.of("keep", List.of("b_bullet03"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PROPOSAL_STALE"));
+    }
+
+    @Test
+    void applyingOneCardWritesItAndKeepsTheOtherCardUsable() throws Exception {
+        pro();
+        reply(GOOD_SUGGESTIONS);
+        JsonNode r = suggestOk(false);
+        long applyId = r.at("/suggestions/0/id").asLong();
+        long otherId = r.at("/suggestions/1/id").asLong();
+
+        postJson("/api/profile/ai/proposals/" + applyId + "/apply", Map.of("keep", List.of("b_bullet02"))).andExpect(status().isOk());
+        assertThat(bullet(currentDoc(), "b_bullet02").path("text").asText()).isEqualTo("Managed 4 engineers");
+
+        JsonNode left = om.readTree(mockMvc.perform(get("/api/profile/resumes/" + resumeId + "/ai/suggestions")).andReturn().getResponse().getContentAsString());
+        assertThat(left.path("suggestions")).hasSize(1);
+        assertThat(left.at("/suggestions/0/id").asLong()).isEqualTo(otherId);
+        assertThat(left.at("/suggestions/0/stale").asBoolean()).as("its line is untouched, so it follows the document").isFalse();
+        postJson("/api/profile/ai/proposals/" + otherId + "/apply", Map.of("keep", List.of("b_bullet03"))).andExpect(status().isOk());
+        assertThat(bullet(currentDoc(), "b_bullet03").path("text").asText()).isEqualTo("Authored documentation");
+    }
+
+    @Test
+    void suggestionConsentKillSwitchAndProviderFailure() throws Exception {
+        pro();
+        suggest(false, false).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("consentRequired"));
+        verify(aiProvider, never()).generate(any(AiTask.class), any(), anyString(), anyString(), anyInt());
+
+        when(aiProvider.generate(any(AiTask.class), any(), anyString(), anyString(), anyInt())).thenThrow(new com.dossier.api.service.ai.AiProviderException("down"));
+        suggest(true, false).andExpect(status().isBadGateway()).andExpect(jsonPath("$.status").value("error"));
+
+        appSettingRepository.saveAndFlush(new AppSetting("ai.feature.resume.enabled", "false", "it", Instant.now()));
+        settings.invalidate();
+        suggest(true, false).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("disabled"));
+    }
+
+    @Test
+    void suggestionsOfAnotherUsersResumeAre404AndNothingPersonalIsSent() throws Exception {
+        pro();
+        mockMvc.perform(get("/api/profile/resumes/987654/ai/suggestions")).andExpect(status().isNotFound());
+        postJson("/api/profile/resumes/987654/ai/suggestions", Map.of("consent", true)).andExpect(status().isNotFound());
+        reply("{\"suggestions\":[]}");
+        suggestOk(false);
+        ArgumentCaptor<String> question = ArgumentCaptor.forClass(String.class);
+        verify(aiProvider).generate(eq(AiTask.SUGGEST), any(), question.capture(), anyString(), anyInt());
+        assertThat(question.getValue()).contains("[b_bullet03] Wrote docs").doesNotContain("ada@example.com").doesNotContain("555 0100").doesNotContain("Ada Lovelace");
+    }
+
+    @Test
+    void anEmptyOrAllDroppedAnswerIsNothingToChange() throws Exception {
+        pro();
+        reply("{\"suggestions\":[]}");
+        JsonNode none = suggestOk(false);
+        assertThat(none.path("status").asText()).isEqualTo("nothingToChange");
+        assertThat(none.path("suggestions")).isEmpty();
+        assertThat(none.path("dropped").asInt()).isZero();
+    }
+
     // ---- summary -----------------------------------------------------------------
 
     @Test

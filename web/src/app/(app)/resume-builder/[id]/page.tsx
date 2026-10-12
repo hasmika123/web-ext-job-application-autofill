@@ -109,7 +109,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       initialMeta={meta}
       primaryResumeId={primaryResumeId}
       jobTarget={null}
-      openProposals={[]}
       entry={{ view: one(q.view) === "pdf" ? "pdf" : one(q.view) === "settings" ? "settings" : undefined, tab: one(q.tab) === "ai" ? "ai" : undefined }}
     />
   );

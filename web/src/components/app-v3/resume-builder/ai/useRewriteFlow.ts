@@ -45,6 +45,13 @@ interface Args {
   ensureSaved: () => Promise<boolean>;
   /** The server's document replaces the one on screen (the fallback when a line cannot be found locally). */
   adoptServerDoc: (dto: ResumeDocDTO) => void;
+  /**
+   * A proposal left the open list: applied (from the diff or a one-click card) or dismissed. The AI Suggestions tab
+   * reloads its cards on it (the server keeps the cards whose lines are untouched usable).
+   */
+  onSettled?: (proposalId: number, outcome: "applied" | "dismissed") => void;
+  /** "Ask again" / "Try again" on a suggestion's Preview: the sheet closes and the cards are refreshed. */
+  onRefreshSuggestions?: () => void;
 }
 
 export interface RewriteFlow {
@@ -59,6 +66,12 @@ export interface RewriteFlow {
   discardPending: () => void;
   /** Starts a rewrite from outside the canvas (the Insights F4 tip: "Trim the longest bullets"); `returnTo` is where focus goes back to. */
   start: (request: RewriteRequest, mode: RewriteMode, returnTo?: HTMLElement | null) => void;
+  /** Opens a suggestion card's proposal in the diff sheet (AI Suggestions "Preview"). */
+  preview: (proposal: AiProposal, returnTo?: HTMLElement | null) => void;
+  /** Applies every change of a card in one click (AI Suggestions "Apply Suggestion"): the same server-then-reducer path as the diff's Apply. Null on success, else what went wrong. */
+  quickApply: (proposal: AiProposal) => Promise<ApplyProblem | null>;
+  /** The diff sheet is showing a suggestion's Preview (it is titled and behaves differently from a rewrite). */
+  previewing: boolean;
 }
 
 /** The proposal a session is showing (a usable "ok" or "cached" answer), if any. */
@@ -75,7 +88,7 @@ function proposalOfSession(s: Session | null): AiProposal | undefined {
  * autosave controller adopts the server's version instead of saving the same document again. The sheet closes on
  * success with an "Applied N changes - Undo" toast (no confirm step, DECISIONS 32).
  */
-export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, autosave, latestRev, ensureSaved, adoptServerDoc }: Args): RewriteFlow {
+export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, autosave, latestRev, ensureSaved, adoptServerDoc, onSettled, onRefreshSuggestions }: Args): RewriteFlow {
   const toast = useToast();
   const [session, setSession] = useState<Session | null>(null);
   const [open, setOpen] = useState(false);
@@ -140,7 +153,8 @@ export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, auto
   const close = useCallback(() => {
     epoch.current += 1;
     const proposal = proposalOfSession(session);
-    if (proposal && !applying) setPending(proposal);
+    // A rewrite left open comes back as the "unreviewed" bar; a suggestion's card simply stays in the AI Suggestions tab.
+    if (proposal && !applying && session?.request.from !== "suggestion") setPending(proposal);
     setOpen(false);
     setProblem(null);
   }, [session, applying]);
@@ -152,10 +166,64 @@ export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, auto
     setProblem(null);
     setPending(null);
     if (proposal) {
-      void dismissProposal(proposal.id);
+      void dismissProposal(proposal.id).then(() => onSettled?.(proposal.id, "dismissed"));
       track("resume_ai_dismiss", { task: proposal.task });
     }
-  }, [session]);
+  }, [session, onSettled]);
+
+  /**
+   * Applies `keep` of a proposal: the server first (it re-checks the proposal against the saved document), then the same
+   * texts into the editor's own state as ONE reducer step so Undo works. Null when it went through (the toast is shown),
+   * else what stopped it. Shared by the diff's "Apply N selected" and the one-click "Apply Suggestion".
+   */
+  const applyToEditor = useCallback(
+    async (proposal: AiProposal, keep: string[], alternatives: Record<string, number>): Promise<ApplyProblem | null> => {
+      const a = autosave.current;
+      // The proposal is checked against the saved document: save first, and keep the autosave from racing the apply.
+      if (!(await ensureSaved())) return { kind: "error", message: "Your latest changes aren't saved yet. Try again in a moment." };
+      await a?.hold();
+      const out = await applyProposal(proposal.id, keep, alternatives);
+      if (out.kind !== "ok") {
+        a?.release();
+        return out.kind === "error" ? { kind: "error", message: out.message } : { kind: out.kind };
+      }
+
+      const items = keep.flatMap((ref) => {
+        const change = proposal.changes.find((c) => c.ref === ref);
+        const at = resolveRef(docRef.current, ref);
+        return change && at ? [{ ref: at, text: chosenText(change, alternatives[ref] ?? 0) }] : [];
+      });
+      if (items.length === keep.length) {
+        const clean = (latestRev.current ?? 0) <= (a?.savedRev ?? 0);
+        dispatch({ type: "text/replaceMany", items, src: "ai", at: Date.now() });
+        if (clean) {
+          // The editor now holds exactly what the server stored: mark it saved and move the autosave to the new version.
+          const rev = (latestRev.current ?? 0) + 1;
+          dispatch({ type: "save/ok", rev, version: out.dto.docVersion, at: Date.now() });
+          a?.reset(out.dto.docVersion, rev);
+          a?.release();
+        } else {
+          a?.release(out.dto.docVersion);
+        }
+      } else {
+        // A line the server changed is not where the editor expects it: take the server's copy (Undo is lost, the text is right).
+        adoptServerDoc(out.dto);
+        a?.release();
+      }
+
+      track("resume_ai_apply", { task: proposal.task, kept: keep.length, total: proposal.changes.length });
+      toast({
+        title: `Applied ${keep.length} ${keep.length === 1 ? "change" : "changes"}`,
+        description: "Made with Kiwiply AI",
+        variant: "success",
+        duration: UNDO_TOAST_MS,
+        action: { label: "Undo", onClick: () => dispatch({ type: "history/undo" }) },
+      });
+      onSettled?.(proposal.id, "applied");
+      return null;
+    },
+    [autosave, latestRev, ensureSaved, dispatch, adoptServerDoc, toast, onSettled],
+  );
 
   const apply = useCallback(
     async (keep: string[], alternatives: Record<string, number>) => {
@@ -163,61 +231,50 @@ export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, auto
       if (!proposal || applying) return;
       setApplying(true);
       setProblem(null);
-      const a = autosave.current;
       try {
-        // The proposal is checked against the saved document: save first, and keep the autosave from racing the apply.
-        if (!(await ensureSaved())) {
-          setProblem({ kind: "error", message: "Your latest changes aren't saved yet. Try again in a moment." });
+        const failed = await applyToEditor(proposal, keep, alternatives);
+        if (failed) {
+          setProblem(failed);
           return;
         }
-        await a?.hold();
-        const out = await applyProposal(proposal.id, keep, alternatives);
-        if (out.kind !== "ok") {
-          a?.release();
-          if (out.kind === "error") setProblem({ kind: "error", message: out.message });
-          else setProblem({ kind: out.kind });
-          return;
-        }
-
-        const items = keep.flatMap((ref) => {
-          const change = proposal.changes.find((c) => c.ref === ref);
-          const at = resolveRef(docRef.current, ref);
-          return change && at ? [{ ref: at, text: chosenText(change, alternatives[ref] ?? 0) }] : [];
-        });
-        if (items.length === keep.length) {
-          const clean = (latestRev.current ?? 0) <= (a?.savedRev ?? 0);
-          dispatch({ type: "text/replaceMany", items, src: "ai", at: Date.now() });
-          if (clean) {
-            // The editor now holds exactly what the server stored: mark it saved and move the autosave to the new version.
-            const rev = (latestRev.current ?? 0) + 1;
-            dispatch({ type: "save/ok", rev, version: out.dto.docVersion, at: Date.now() });
-            a?.reset(out.dto.docVersion, rev);
-            a?.release();
-          } else {
-            a?.release(out.dto.docVersion);
-          }
-        } else {
-          // A line the server changed is not where the editor expects it: take the server's copy (Undo is lost, the text is right).
-          adoptServerDoc(out.dto);
-          a?.release();
-        }
-
-        track("resume_ai_apply", { task: proposal.task, kept: keep.length, total: proposal.changes.length });
         setOpen(false);
         setPending(null);
-        toast({
-          title: `Applied ${keep.length} ${keep.length === 1 ? "change" : "changes"}`,
-          description: "Made with Kiwiply AI",
-          variant: "success",
-          duration: UNDO_TOAST_MS,
-          action: { label: "Undo", onClick: () => dispatch({ type: "history/undo" }) },
-        });
       } finally {
         setApplying(false);
       }
     },
-    [session, applying, autosave, latestRev, ensureSaved, dispatch, adoptServerDoc, toast],
+    [session, applying, applyToEditor],
   );
+
+  const quickApply = useCallback(
+    async (proposal: AiProposal): Promise<ApplyProblem | null> => {
+      if (applying) return { kind: "error", message: "Another change is being applied. Try again in a moment." };
+      setApplying(true);
+      try {
+        return await applyToEditor(
+          proposal,
+          proposal.changes.map((c) => c.ref),
+          {},
+        );
+      } finally {
+        setApplying(false);
+      }
+    },
+    [applying, applyToEditor],
+  );
+
+  const preview = useCallback<RewriteFlow["preview"]>((proposal, returnTo) => {
+    returnFocusTo.current = returnTo ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    epoch.current += 1;
+    setProblem(null);
+    setSession({
+      request: { refs: proposal.changes.map((c) => c.ref), scope: proposal.title ?? "AI suggestion", from: "suggestion" },
+      mode: DEFAULT_REWRITE_MODE,
+      view: { phase: "result", result: { status: "ok", proposal } },
+    });
+    setOpen(true);
+    track("resume_ai_suggestion_preview", { kind: proposal.kind ?? "unknown", changes: proposal.changes.length });
+  }, []);
 
   const setMode = useCallback(
     (mode: RewriteMode) => {
@@ -225,9 +282,19 @@ export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, auto
     },
     [session, run],
   );
+  const previewing = session?.request.from === "suggestion";
   const retry = useCallback(() => {
-    if (session) void run(session.request, session.mode);
-  }, [session, run]);
+    if (!session) return;
+    if (session.request.from === "suggestion") {
+      // A suggestion is not re-run with its own refs: the cards are asked for again, and the sheet gets out of the way.
+      epoch.current += 1;
+      setOpen(false);
+      setProblem(null);
+      onRefreshSuggestions?.();
+      return;
+    }
+    void run(session.request, session.mode);
+  }, [session, run, onRefreshSuggestions]);
 
   const review = useCallback(() => {
     if (!pending) return;
@@ -263,7 +330,8 @@ export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, auto
     scope: session?.request.scope ?? "",
     view: session?.view ?? { phase: "loading", lines: 0 },
     mode: session?.mode ?? DEFAULT_REWRITE_MODE,
-    onMode: setMode,
+    onMode: previewing ? undefined : setMode,
+    title: previewing ? "AI suggestion" : undefined,
     applying,
     problem,
     onApply: (keep, alternatives) => void apply(keep, alternatives),
@@ -273,5 +341,5 @@ export function useRewriteFlow({ resumeId, enabled, maxRefs, doc, dispatch, auto
     onAskAgain: retry,
   };
 
-  return { canvasAi, sheetProps, returnFocusTo, pending, review, discardPending, start };
+  return { canvasAi, sheetProps, returnFocusTo, pending, review, discardPending, start, preview, quickApply, previewing };
 }
