@@ -55,6 +55,33 @@ public class ResumeDoc implements Serializable {
     @Column(name = "exported_hash", length = 64)
     private String exportedHash;
 
+    /** The document schema this row was last written at: 1 until the first v2 write (DESIGN 3.6). */
+    @Column(name = "schema_version", nullable = false)
+    private int schemaVersion = 1;
+
+    /** Mirror of {@code basics.photo.key}, for file cleanup without parsing {@code docJson}. */
+    @Column(name = "photo_key", length = 255)
+    private String photoKey;
+
+    /** Tailored copies: the base resume (no foreign key; a copy outlives its base). */
+    @Column(name = "parent_resume_id")
+    private Long parentResumeId;
+
+    @Column(name = "parent_hash_at_copy", length = 64)
+    private String parentHashAtCopy;
+
+    /** Where the document came from: PROFILE | UPLOAD | BLANK | COPY ... */
+    @Column(name = "source_kind", nullable = false, length = 10)
+    private String sourceKind = "PROFILE";
+
+    /** The Insights score record (DESIGN 11.5); written by the score story. */
+    @Column(name = "score_json", columnDefinition = "json")
+    private String scoreJson;
+
+    /** Denormalised score for the list badge and sort. */
+    @Column(name = "score", columnDefinition = "smallint")
+    private Integer score;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -139,6 +166,62 @@ public class ResumeDoc implements Serializable {
 
     public void setExportedHash(String exportedHash) {
         this.exportedHash = exportedHash;
+    }
+
+    public int getSchemaVersion() {
+        return schemaVersion;
+    }
+
+    public void setSchemaVersion(int schemaVersion) {
+        this.schemaVersion = schemaVersion;
+    }
+
+    public String getPhotoKey() {
+        return photoKey;
+    }
+
+    public void setPhotoKey(String photoKey) {
+        this.photoKey = photoKey;
+    }
+
+    public Long getParentResumeId() {
+        return parentResumeId;
+    }
+
+    public void setParentResumeId(Long parentResumeId) {
+        this.parentResumeId = parentResumeId;
+    }
+
+    public String getParentHashAtCopy() {
+        return parentHashAtCopy;
+    }
+
+    public void setParentHashAtCopy(String parentHashAtCopy) {
+        this.parentHashAtCopy = parentHashAtCopy;
+    }
+
+    public String getSourceKind() {
+        return sourceKind;
+    }
+
+    public void setSourceKind(String sourceKind) {
+        this.sourceKind = sourceKind;
+    }
+
+    public String getScoreJson() {
+        return scoreJson;
+    }
+
+    public void setScoreJson(String scoreJson) {
+        this.scoreJson = scoreJson;
+    }
+
+    public Integer getScore() {
+        return score;
+    }
+
+    public void setScore(Integer score) {
+        this.score = score;
     }
 
     public Instant getCreatedAt() {

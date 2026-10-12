@@ -9,8 +9,9 @@
  * (U+007F, U+2028, U+2029, all non-ASCII) is raw. Numbers are plain decimal integers.
  *
  * Canonical form: every string value trimmed with `trimWs`, every object's keys sorted ascending by
- * UTF-16 code unit (default `Array.prototype.sort`), arrays kept in order, compact output, UTF-8,
- * no trailing newline. `contentHash` = lowercase-hex SHA-256 of those bytes.
+ * UTF-16 code unit (default `Array.prototype.sort`), arrays kept in order - except an array under the
+ * key `marks` whose elements are all `{s, e, t}` objects, which is sorted by (s, e, t) - compact output,
+ * UTF-8, no trailing newline. `contentHash` = lowercase-hex SHA-256 of those bytes.
  */
 import { trimWs, isObject, type Json } from "./doc";
 
@@ -81,13 +82,30 @@ function write(out: string[], v: Json, indent: number, depth: number, canonical:
       newline(out, indent, depth + 1);
       string(out, k);
       out.push(indent > 0 ? ": " : ":");
-      write(out, v[k], indent, depth + 1, canonical);
+      write(out, canonical && k === "marks" ? sortedMarks(v[k]) : v[k], indent, depth + 1, canonical);
     });
     newline(out, indent, depth);
     out.push("}");
   } else {
     out.push("null");
   }
+}
+
+const isInt32 = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= -2147483648 && n <= 2147483647;
+
+/** A well-formed mark list sorted by (s, e, t); anything else is returned as it is (mirrors the Java canonicaliser). */
+function sortedMarks(v: Json): Json {
+  if (!Array.isArray(v)) return v;
+  for (const m of v) {
+    if (!isObject(m) || !isInt32(m.s) || !isInt32(m.e) || typeof m.t !== "string") return v;
+  }
+  const list = v as Array<{ s: number; e: number; t: string }>;
+  // `t` is compared as the canonical (trimmed) value, like the Java side, which sorts after trimming.
+  return [...list].sort((a, b) => {
+    const ta = trimWs(a.t);
+    const tb = trimWs(b.t);
+    return a.s - b.s || a.e - b.e || (ta < tb ? -1 : ta > tb ? 1 : 0);
+  });
 }
 
 function unicode(c: number): string {

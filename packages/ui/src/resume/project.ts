@@ -5,13 +5,16 @@
  *
  * - Always six top-level keys: summary, skills, experience, education, languages, projects.
  * - Every string leaf is a string (never null) and trimmed with `trimWs`; `current` is a boolean.
- * - Hidden sections/items are skipped; empty bullets dropped; CERTIFICATIONS, ACHIEVEMENTS and
- *   CUSTOM are not projected.
+ * - Hidden sections/items are skipped; empty bullets dropped; CERTIFICATIONS, ACHIEVEMENTS, INTERESTS
+ *   and CUSTOM are not projected.
+ * - v2: marks, photo and list styles are never read (a formatting-only edit leaves `parsed_json`, and
+ *   so `ProfileVersion`, unchanged); a summary with `list` set projects as its trimmed non-empty
+ *   lines joined by "\n".
  * - Experience: `current` wins over `end` (endDate is "" when current). Items with no title, org
  *   and bullets are skipped (education: no school/degree/field; languages: no name; projects: no
  *   title and no bullets).
  */
-import { bulletTexts, flag, list, str, trimWs, visibleItems, visibleSections, type Json } from "./doc";
+import { bulletTexts, flag, isListed, list, str, trimWs, visibleItems, visibleSections, type Json } from "./doc";
 import { writeJson } from "./json";
 import type { StructuredResume } from "../parser-core-types";
 
@@ -104,8 +107,18 @@ function summary(doc: Json): string {
   for (const s of visibleSections(doc, "SUMMARY")) {
     for (const item of visibleItems(s)) {
       const t = str(item, "text");
-      if (t) return t;
+      if (!t) continue;
+      return isListed(item, "list") ? listLines(t) : t;
     }
   }
   return "";
+}
+
+/** A list summary projects as its trimmed, non-empty lines joined by "\n" (marks are never read). */
+function listLines(text: string): string {
+  return text
+    .split("\n")
+    .map((l) => trimWs(l))
+    .filter((l) => l)
+    .join("\n");
 }

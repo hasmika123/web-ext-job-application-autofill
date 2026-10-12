@@ -55,6 +55,22 @@ public class ResumeAiProposal implements Serializable {
     @Column(name = "model", length = 80)
     private String model;
 
+    /** Suggestion cards: the one-line headline ("Make your summary stronger"). */
+    @Column(name = "title", length = 80)
+    private String title;
+
+    /** Suggestion cards: the one-line explanation. */
+    @Column(name = "body", length = 240)
+    private String body;
+
+    /** Suggestion cards: summary | bullets | skills | section | keywords. */
+    @Column(name = "kind", length = 12)
+    private String kind;
+
+    /** Provenance: the AI call that made it (no foreign key). */
+    @Column(name = "ai_call_id")
+    private Long aiCallId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -132,6 +148,38 @@ public class ResumeAiProposal implements Serializable {
 
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getBody() {
+        return body;
+    }
+
+    public void setBody(String body) {
+        this.body = body;
+    }
+
+    public String getKind() {
+        return kind;
+    }
+
+    public void setKind(String kind) {
+        this.kind = kind;
+    }
+
+    public Long getAiCallId() {
+        return aiCallId;
+    }
+
+    public void setAiCallId(Long aiCallId) {
+        this.aiCallId = aiCallId;
     }
 
     public Instant getCreatedAt() {

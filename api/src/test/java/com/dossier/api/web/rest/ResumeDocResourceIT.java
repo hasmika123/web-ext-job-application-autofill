@@ -173,7 +173,8 @@ class ResumeDocResourceIT {
             .andExpect(jsonPath("$.doc.kind").value("BUILT"))
             .andExpect(jsonPath("$.doc.templateId").value("classic"))
             .andExpect(jsonPath("$.doc.docVersion").value(1))
-            .andExpect(jsonPath("$.doc.doc.schema").value(1))
+            .andExpect(jsonPath("$.doc.doc.schema").value(2))
+            .andExpect(jsonPath("$.doc.schemaVersion").value(2))
             .andExpect(jsonPath("$.doc.doc.meta.title").value("Backend resume"))
             .andExpect(jsonPath("$.doc.doc.meta.target").value("Backend SWE"))
             .andExpect(jsonPath("$.doc.doc.basics.name").value("Ada Lovelace"))
@@ -410,6 +411,177 @@ class ResumeDocResourceIT {
         ObjectNode big = doc("T", "x".repeat(ResumeDocumentValidator.MAX_BYTES + 10));
 
         putDoc(id, "\"1\"", putBody(big)).andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.code").value("DOC_TOO_LARGE"));
+    }
+
+    // ---- schema v2 (R2.7) ---------------------------------------------------------
+
+    private static final String V1_DOC =
+        "{\"schema\":1,\"meta\":{\"title\":\"Old\"},\"basics\":{\"name\":\"Ada Lovelace\",\"photoKey\":\"resume-photos/1/old.jpg\"},\"sections\":["
+        + "{\"id\":\"s_sum0001\",\"kind\":\"SUMMARY\",\"title\":\"Summary\",\"items\":[{\"id\":\"i_sum0001\",\"text\":\"Hello there\"}]}]}";
+
+    /** A built resume of the current user whose stored document is exactly {@code docJson}, at schema_version {@code schemaVersion}. */
+    private Long builtResumeWithStoredDoc(String docJson, int schemaVersion) {
+        User me = user();
+        Resume r = new Resume().label("Stored").r2ObjectKey("").status(ResumeStatus.CONFIRMED).createdAt(Instant.now());
+        r.setKind(ResumeKind.BUILT);
+        r.setUser(me);
+        r = resumeRepository.saveAndFlush(r);
+        ResumeDoc d = new ResumeDoc();
+        d.setResume(r);
+        d.setUser(me);
+        d.setDocJson(docJson);
+        d.setSchemaVersion(schemaVersion);
+        d.setThemeJson("{}");
+        d.setContentHash("0".repeat(64));
+        resumeDocRepository.saveAndFlush(d);
+        return r.getId();
+    }
+
+    private String etagOf(Long id) throws Exception {
+        return mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(status().isOk()).andReturn().getResponse().getHeader(HttpHeaders.ETAG);
+    }
+
+    @Test
+    void aV1RowReadsAsV2WithoutBeingRewritten() throws Exception {
+        Long id = builtResumeWithStoredDoc(V1_DOC, 1);
+        em.flush();
+        em.clear();
+
+        mockMvc
+            .perform(get("/api/profile/resumes/" + id + "/doc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.doc.schema").value(2))
+            .andExpect(jsonPath("$.schemaVersion").value(2))
+            .andExpect(jsonPath("$.doc.basics.photo.key").value("resume-photos/1/old.jpg"))
+            .andExpect(jsonPath("$.doc.basics.photoKey").doesNotExist())
+            .andExpect(jsonPath("$.doc.sections[0].items[0].text").value("Hello there"));
+
+        ResumeDoc stored = resumeDocRepository.findById(id).orElseThrow();
+        // MySQL's JSON type re-spaces and re-orders keys, so compare the parsed documents
+        assertThat(json(stored.getDocJson())).as("a read never writes").isEqualTo(json(V1_DOC));
+        assertThat(stored.getSchemaVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void aV1ConflictBodyIsUpgradedToo() throws Exception {
+        Long id = builtResumeWithStoredDoc(V1_DOC, 1);
+        putDoc(id, "\"99\"", putBody(doc("Mine", "x")))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.doc.schema").value(2))
+            .andExpect(jsonPath("$.doc.basics.photo.key").value("resume-photos/1/old.jpg"));
+    }
+
+    @Test
+    void putAcceptsV1AndStoresV2() throws Exception {
+        Long id = builtResumeWithStoredDoc(V1_DOC, 1);
+        em.flush();
+        em.clear();
+        String etag = etagOf(id);
+
+        // doc() builds a schema 1 document: the save upgrades it, validates it as v2 and stores v2
+        putDoc(id, etag, putBody(doc("Upgraded", "Fresh text")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.doc.schema").value(2))
+            .andExpect(jsonPath("$.schemaVersion").value(2));
+
+        ResumeDoc stored = resumeDocRepository.findById(id).orElseThrow();
+        assertThat(stored.getSchemaVersion()).isEqualTo(2);
+        assertThat(stored.getDocJson()).contains("\"schema\":2").doesNotContain("\"schema\":1");
+        assertThat(stored.getPhotoKey()).isNull();
+    }
+
+    @Test
+    void putStoresMarksListsAndInterestsAndMirrorsThePhotoKey() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        String photoKey = "resume-photos/" + user().getId() + "/" + id + "-abc-photo.jpg";
+        ObjectNode v2 = (ObjectNode) json(
+            "{\"schema\":2,\"meta\":{\"title\":\"V2\"},\"basics\":{\"name\":\"Ada\",\"photo\":{\"key\":\"" + photoKey + "\"}},\"sections\":["
+                + "{\"id\":\"s_sum0001\",\"kind\":\"SUMMARY\",\"items\":[{\"id\":\"i_sum0001\",\"text\":\"Bold start\\nsecond line\",\"list\":\"bullet\",\"marks\":[{\"s\":0,\"e\":4,\"t\":\"b\"}]}]},"
+                + "{\"id\":\"s_int00001\",\"kind\":\"INTERESTS\",\"items\":[{\"id\":\"i_int00001\",\"text\":\"Chess\"}]}]}"
+        );
+        putDoc(id, "\"1\"", putBody(v2))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.doc.sections[0].items[0].marks[0].t").value("b"))
+            .andExpect(jsonPath("$.doc.basics.photo.key").value(photoKey));
+
+        ResumeDoc stored = resumeDocRepository.findById(id).orElseThrow();
+        assertThat(stored.getPhotoKey()).isEqualTo(photoKey);
+        // the mirror: summary list lines, nothing from INTERESTS
+        assertThat(stored.getResume().getParsedJson()).contains("\"summary\":\"Bold start\\nsecond line\"").doesNotContain("Chess");
+        mockMvc
+            .perform(get("/api/profile/resumes/" + id + "/doc/text"))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("- Bold start\n- second line")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("INTERESTS\nChess")));
+    }
+
+    @Test
+    void aPhotoUnderSomeoneElsesPrefixIs422() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        ObjectNode v2 = (ObjectNode) json(
+            "{\"schema\":2,\"meta\":{\"title\":\"V2\"},\"basics\":{\"photo\":{\"key\":\"resume-photos/" + (user().getId() + 1) + "/x.jpg\"}},\"sections\":[]}"
+        );
+        putDoc(id, "\"1\"", putBody(v2))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value("DOC_INVALID"))
+            .andExpect(jsonPath("$.path").value("$.basics.photo.key"));
+    }
+
+    @Test
+    void invalidMarksAre422WithTheirPath() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        ObjectNode bad = doc("T", "short");
+        ((ObjectNode) bad.at("/sections/0/items/0")).set("marks", json("[{\"s\":0,\"e\":50,\"t\":\"b\"}]"));
+        putDoc(id, "\"1\"", putBody(bad))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.path").value("$.sections[0].items[0].marks[0].e"));
+    }
+
+    @Test
+    void aFormattingOnlySaveLeavesTheProfileVersionAlone() throws Exception {
+        Long id = createBuilt("{\"label\":\"Mine\"}").at("/resume/id").asLong();
+        putDoc(id, "\"1\"", putBody(doc("Mine", "Some summary text"))).andExpect(status().isOk());
+        String before = version();
+
+        ObjectNode marked = doc("Mine", "Some summary text");
+        ((ObjectNode) marked.at("/sections/0/items/0")).set("marks", json("[{\"s\":0,\"e\":4,\"t\":\"b\"},{\"s\":5,\"e\":12,\"t\":\"i\"}]"));
+        putDoc(id, "\"2\"", putBody(marked)).andExpect(status().isOk());
+        assertThat(version()).as("marks are not in parsed_json").isEqualTo(before);
+    }
+
+    @Test
+    void tailoredFromCanBeEchoedButNotIntroducedChangedOrDropped() throws Exception {
+        String tailored =
+            "{\"resumeId\":9,\"job\":{\"source\":\"pasted\",\"title\":\"PM\",\"company\":\"Stripe\",\"jdHash\":\"" + "a".repeat(64) + "\"}}";
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+
+        // introducing it: refused
+        ObjectNode withTf = doc("T", "s");
+        ((ObjectNode) withTf.get("meta")).set("tailoredFrom", json(tailored));
+        putDoc(id, "\"1\"", putBody(withTf))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.path").value("$.meta.tailoredFrom"));
+
+        // the server writes it (a later story does; here, straight into the row)
+        ResumeDoc d = resumeDocRepository.findById(id).orElseThrow();
+        ObjectNode stored = (ObjectNode) json(d.getDocJson());
+        ((ObjectNode) stored.get("meta")).set("tailoredFrom", json(tailored));
+        d.setDocJson(om.writeValueAsString(stored));
+        resumeDocRepository.saveAndFlush(d);
+        em.flush();
+        em.clear();
+        String etag = etagOf(id);
+
+        // echoing it unchanged: fine
+        ObjectNode echo = doc("T", "s");
+        ((ObjectNode) echo.get("meta")).set("tailoredFrom", json(tailored));
+        putDoc(id, etag, putBody(echo)).andExpect(status().isOk());
+        etag = etagOf(id);
+
+        // changing it, or dropping it: refused
+        ObjectNode changed = doc("T", "s");
+        ((ObjectNode) changed.get("meta")).set("tailoredFrom", json(tailored.replace("\"resumeId\":9", "\"resumeId\":10")));
+        putDoc(id, etag, putBody(changed)).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.path").value("$.meta.tailoredFrom"));
+        putDoc(id, etag, putBody(doc("T", "s"))).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.path").value("$.meta.tailoredFrom"));
     }
 
     // ---- template and ProfileVersion ------------------------------------------

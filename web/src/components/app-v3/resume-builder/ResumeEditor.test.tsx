@@ -29,6 +29,7 @@ const dto = (): ResumeDocDTO => ({
   label: "Backend SWE",
   kind: "BUILT",
   doc: testDoc(),
+  schemaVersion: 2,
   templateId: "modern",
   theme: null,
   docVersion: 3,

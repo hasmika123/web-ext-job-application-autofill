@@ -5,7 +5,8 @@
  */
 import { Fragment, type ReactNode } from "react";
 import { flag, isObject, list, one, parseKind, str, visibleItems, visibleSections, type Json, type JsonObject } from "../doc";
-import { DEFAULT_SECTION_TITLES, type DateStyle, type SectionKind } from "../types";
+import { isLinkHref } from "../marks";
+import { DEFAULT_SECTION_TITLES, MARK_TYPES, type DateStyle, type MarkType, type SectionKind } from "../types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const EN_DASH = "–";
@@ -72,18 +73,138 @@ export function Link({ url, label }: { url: string; label?: string }): ReactNode
   );
 }
 
-export function Bullets({ item }: { item: Json }): ReactNode {
-  const texts: string[] = [];
-  for (const b of list(item, "bullets")) {
-    const t = isObject(b) ? one(b, "text") : "";
-    if (t) texts.push(t);
+/** The marks a template draws when nothing narrower is passed (R2.8 passes the template's capability). */
+export const ALL_MARKS: readonly MarkType[] = MARK_TYPES;
+
+interface Normalised {
+  text: string;
+  /** `map[i]` = where raw offset `i` lands in `text` (length `raw.length + 1`). */
+  map: number[];
+}
+
+/**
+ * The text the page shows - `oneLine` (trim + collapse whitespace runs) or, with `keepLines`, `trimWs`
+ * only - and where each raw offset lands in it, so marks stored against the raw text can be remapped.
+ */
+function normalise(raw: string, keepLines: boolean): Normalised {
+  const map: number[] = new Array(raw.length + 1);
+  let out = "";
+  let pendingSpace = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ws = /[\t-\r ]/.test(raw[i]);
+    if (keepLines) {
+      map[i] = out.length;
+      if (!ws || out.length > 0) out += raw[i];
+    } else if (ws) {
+      map[i] = out.length;
+      pendingSpace = true;
+    } else {
+      if (pendingSpace && out.length > 0) out += " ";
+      pendingSpace = false;
+      map[i] = out.length;
+      out += raw[i];
+    }
   }
-  if (texts.length === 0) return null;
+  if (keepLines) out = out.replace(/[\t-\r ]+$/, "");
+  map[raw.length] = out.length;
+  return { text: out, map: map.map((v) => Math.min(v, out.length)) };
+}
+
+interface Span {
+  s: number;
+  e: number;
+  t: MarkType;
+  href?: string;
+}
+
+/** Marks that are well formed, allowed, in range of the raw text, and still non-empty once remapped. */
+function usableSpans(marks: unknown, rawLength: number, allowed: readonly MarkType[], map: number[]): Span[] {
+  if (!Array.isArray(marks)) return [];
+  const out: Span[] = [];
+  for (const m of marks) {
+    if (!isObject(m)) continue;
+    const { s, e, t, href } = m;
+    if (typeof s !== "number" || typeof e !== "number" || !Number.isInteger(s) || !Number.isInteger(e)) continue;
+    if (s < 0 || s >= e || e > rawLength) continue;
+    if (typeof t !== "string" || !(MARK_TYPES as readonly string[]).includes(t) || !allowed.includes(t as MarkType)) continue;
+    if (t === "a" && !isLinkHref(href)) continue;
+    const ns = map[s];
+    const ne = map[e];
+    if (ne > ns) out.push(t === "a" ? { s: ns, e: ne, t, href: (href as string).replace(/^[\t-\r ]+|[\t-\r ]+$/g, "") } : { s: ns, e: ne, t: t as MarkType });
+  }
+  return out;
+}
+
+/** Innermost first: a link wraps the text, then underline, italic, bold - nested b > i > u > a. */
+const NEST: MarkType[] = ["a", "u", "i", "b"];
+
+/**
+ * Text with inline marks (DESIGN 3.3). Splits at mark boundaries and emits `<strong>`, `<em>`, `<u>`,
+ * `<a class="rz-link">` nested b > i > u > a - only for mark types in `allowed`; a stored mark outside
+ * `allowed`, malformed, or out of range is ignored (never thrown on). With no usable marks it returns the
+ * plain string, so unmarked documents render exactly as before. `keepLines` keeps inner newlines (the
+ * summary, drawn `pre-line`); otherwise whitespace runs collapse to one space like every other value.
+ */
+export function RichText({
+  text,
+  marks,
+  allowed = ALL_MARKS,
+  keepLines = false,
+}: {
+  text: string | null | undefined;
+  marks?: unknown;
+  allowed?: readonly MarkType[];
+  keepLines?: boolean;
+}): ReactNode {
+  const raw = typeof text === "string" ? text : "";
+  const { text: shown, map } = normalise(raw, keepLines);
+  const spans = usableSpans(marks, raw.length, allowed, map);
+  if (spans.length === 0) return shown;
+
+  const cuts = [...new Set([0, shown.length, ...spans.flatMap((x) => [x.s, x.e])])].sort((a, b) => a - b);
+  const pieces: Array<{ text: string; active: Span[] }> = [];
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const [p, q] = [cuts[i], cuts[i + 1]];
+    const active = spans.filter((x) => x.s <= p && x.e >= q);
+    const sig = active.map((x) => x.t + (x.href ?? "")).sort().join("|");
+    const last = pieces[pieces.length - 1];
+    if (last && last.active.map((x) => x.t + (x.href ?? "")).sort().join("|") === sig) last.text += shown.slice(p, q);
+    else pieces.push({ text: shown.slice(p, q), active });
+  }
+  return (
+    <>
+      {pieces.map((piece, i) => {
+        let node: ReactNode = piece.text;
+        for (const t of NEST) {
+          const m = piece.active.find((x) => x.t === t);
+          if (!m) continue;
+          if (t === "a") {
+            node = (
+              <a className="rz-link" href={m.href}>
+                {node}
+              </a>
+            );
+          } else if (t === "u") node = <u>{node}</u>;
+          else if (t === "i") node = <em>{node}</em>;
+          else node = <strong>{node}</strong>;
+        }
+        return <Fragment key={i}>{node}</Fragment>;
+      })}
+    </>
+  );
+}
+
+export function Bullets({ item, allowed }: { item: Json; allowed?: readonly MarkType[] }): ReactNode {
+  const bullets: JsonObject[] = [];
+  for (const b of list(item, "bullets")) {
+    if (isObject(b) && one(b, "text")) bullets.push(b);
+  }
+  if (bullets.length === 0) return null;
   return (
     <ul className="rz-bullets">
-      {texts.map((t, i) => (
+      {bullets.map((b, i) => (
         <li key={i} className="rz-bullet">
-          {t}
+          <RichText text={b.text as string} marks={b.marks} allowed={allowed} />
         </li>
       ))}
     </ul>
@@ -139,11 +260,15 @@ function ItemHead({ left, dates, sub }: { left: ReactNode; dates?: string; sub?:
   );
 }
 
-function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle): ReactNode {
+function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, allowed: readonly MarkType[]): ReactNode {
   switch (kind) {
     case "SUMMARY": {
-      const t = str(item, "text");
-      return t ? <p className="rz-text">{t}</p> : null;
+      if (!str(item, "text")) return null;
+      return (
+        <p className="rz-text">
+          <RichText text={item.text as string} marks={item.marks} allowed={allowed} keepLines />
+        </p>
+      );
     }
     case "EXPERIENCE":
     case "CUSTOM": {
@@ -165,7 +290,7 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle): 
             dates={dates}
             sub={location}
           />
-          <Bullets item={item} />
+          <Bullets item={item} allowed={allowed} />
         </div>
       );
     }
@@ -189,7 +314,7 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle): 
             dates={dates}
             sub={[location, gpa && `GPA: ${gpa}`].filter(Boolean).join(` ${MIDDOT} `)}
           />
-          <Bullets item={item} />
+          <Bullets item={item} allowed={allowed} />
         </div>
       );
     }
@@ -219,7 +344,7 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle): 
               />
             }
           />
-          <Bullets item={item} />
+          <Bullets item={item} allowed={allowed} />
         </div>
       );
     }
@@ -261,10 +386,15 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle): 
       return (
         <ul className="rz-bullets">
           <li className="rz-bullet">
-            <Parts parts={[text, date]} sep={` ${MIDDOT} `} />
+            <Parts parts={[text && <RichText text={item.text as string} marks={item.marks} allowed={allowed} />, date]} sep={` ${MIDDOT} `} />
           </li>
         </ul>
       );
+    }
+    case "INTERESTS": {
+      // Rendered once per section by renderSections (a comma list); a lone item is just its text.
+      const text = one(item, "text");
+      return text ? <p className="rz-line">{text}</p> : null;
     }
   }
 }
@@ -291,15 +421,29 @@ export interface RenderedSection {
  * already rendered. Hidden sections/items, empty items and empty sections are dropped here so the
  * templates never have to repeat the rule.
  */
-export function renderSections(doc: Json, dateStyle: DateStyle, only?: (kind: SectionKind | null) => boolean): RenderedSection[] {
+export function renderSections(
+  doc: Json,
+  dateStyle: DateStyle,
+  only?: (kind: SectionKind | null) => boolean,
+  allowed: readonly MarkType[] = ALL_MARKS,
+): RenderedSection[] {
   const out: RenderedSection[] = [];
   visibleSections(doc, null).forEach((s, si) => {
     const kind = parseKind(s.kind);
     if (only && !only(kind)) return;
     const items: ReactNode[] = [];
-    for (const item of visibleItems(s)) {
-      const node = kind ? renderItem(item, kind, dateStyle) : renderUnknownItem(item);
-      if (node) items.push(node);
+    if (kind === "INTERESTS") {
+      // The whole section is one comma-separated line (text.ts renders it the same way).
+      const line = visibleItems(s)
+        .map((it) => one(it, "text"))
+        .filter(Boolean)
+        .join(", ");
+      if (line) items.push(<p className="rz-line">{line}</p>);
+    } else {
+      for (const item of visibleItems(s)) {
+        const node = kind ? renderItem(item, kind, dateStyle, allowed) : renderUnknownItem(item);
+        if (node) items.push(node);
+      }
     }
     if (items.length === 0) return;
     out.push({ id: str(s, "id") || `s${si}`, kind, title: sectionTitle(s, kind), items });

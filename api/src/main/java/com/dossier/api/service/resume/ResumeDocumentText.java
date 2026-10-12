@@ -3,6 +3,7 @@ package com.dossier.api.service.resume;
 import com.dossier.api.service.resume.ResumeDocument.Kind;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -29,12 +30,16 @@ import java.util.Locale;
  *            line: one blank line (only if something precedes it), then the TITLE line, then the body.
  *            TITLE = oneLine(section.title) or the kind's default title if that is empty
  *            (Summary, Experience, Education, Skills, Projects, Certifications, Languages,
- *             Achievements, "Additional Information" for CUSTOM), upper-cased with the locale-free
+ *             Achievements, Interests, "Additional Information" for CUSTOM), upper-cased with the locale-free
  *            Unicode toUpperCase (Java toUpperCase(Locale.ROOT), JS toUpperCase()).
  *   END      the text ends with exactly one "\n" when it is non-empty; an empty document renders "".
  *
  * Hidden items are skipped. Items that render no line are skipped. Per kind, one item renders:
- *   SUMMARY        the text line.
+ *   SUMMARY        the text line. With list = "bullet" / "number" (v2): the text is split on "\n" and
+ *                  every non-empty line (oneLine'd) is its own line prefixed "- " / "1. " (the
+ *                  literal "1. " on every line, not a counter).
+ *   INTERESTS      the whole section is ONE line: every visible item's text (oneLine'd, empties
+ *                  dropped) joined with ", ". Items are not separated by blank lines.
  *   EXPERIENCE     join(DOT, join(EM, title, org), location, dates), then "- " + bullet per bullet.
  *   CUSTOM         same as EXPERIENCE.
  *   EDUCATION      join(DOT, join(EM, join(" in ", degree, field), school), location, dates,
@@ -49,6 +54,12 @@ import java.util.Locale;
  *                 : (start and end both non-empty ? start + EN + end : start + end)
  * (dates are the stored YYYY / YYYY-MM strings, untouched. Only EXPERIENCE/CUSTOM/EDUCATION have
  *  dates; for the other kinds "current" is ignored.)
+ * Bullets (EXPERIENCE / EDUCATION / PROJECTS / CUSTOM) are "- " prefixed, or "1. " when the item has
+ * listStyle = "number". Inline marks are otherwise ignored (plain text), EXCEPT links: after the end
+ * of every link mark (t = "a") whose covered text (trimWs'd) is not already its href, " (" + trimWs(href)
+ * + ")" is inserted; this is done on the RAW text using the mark offsets, before oneLine() collapses
+ * whitespace. Malformed / out-of-range marks are ignored. Applies to the summary, bullets and
+ * ACHIEVEMENTS text.
  * Items of EXPERIENCE, EDUCATION, PROJECTS and CUSTOM are separated by one blank line; items of
  * every other kind follow each other directly.
  * </pre>
@@ -92,6 +103,12 @@ public final class ResumeDocumentText {
     }
 
     private static List<String> body(JsonNode section, Kind kind) {
+        if (kind == Kind.INTERESTS) {
+            List<String> interests = new ArrayList<>();
+            for (JsonNode item : ResumeDocument.visibleItems(section)) interests.add(one(item, "text"));
+            String line = join(", ", interests);
+            return line.isEmpty() ? new ArrayList<>() : new ArrayList<>(List.of(line));
+        }
         boolean block = kind == Kind.EXPERIENCE || kind == Kind.EDUCATION || kind == Kind.PROJECTS || kind == Kind.CUSTOM;
         List<String> body = new ArrayList<>();
         for (JsonNode item : ResumeDocument.visibleItems(section)) {
@@ -106,7 +123,7 @@ public final class ResumeDocumentText {
     private static List<String> item(JsonNode it, Kind kind) {
         List<String> lines = new ArrayList<>();
         switch (kind) {
-            case SUMMARY -> add(lines, one(it, "text"));
+            case SUMMARY -> summary(lines, it);
             case EXPERIENCE, CUSTOM -> {
                 add(lines, join(DOT, join(EM, one(it, "title"), one(it, "org")), one(it, "location"), dates(it)));
                 bullets(lines, it);
@@ -135,8 +152,9 @@ public final class ResumeDocumentText {
             }
             case CERTIFICATIONS -> add(lines, join(DOT, join(EM, one(it, "title"), one(it, "org")), one(it, "date"), one(it, "url")));
             case LANGUAGES -> add(lines, join(EM, one(it, "name"), one(it, "level")));
+            case INTERESTS -> add(lines, one(it, "text")); // body() normally joins the whole section onto one line
             case ACHIEVEMENTS -> {
-                String line = join(DOT, one(it, "text"), one(it, "date"));
+                String line = join(DOT, marked(it), one(it, "date"));
                 if (!line.isEmpty()) lines.add("- " + line);
             }
         }
@@ -144,10 +162,72 @@ public final class ResumeDocumentText {
     }
 
     private static void bullets(List<String> lines, JsonNode item) {
+        String marker = marker(ResumeDocument.str(item, "listStyle"));
         for (JsonNode b : ResumeDocument.list(item, "bullets")) {
-            String t = one(b, "text");
-            if (!t.isEmpty()) lines.add("- " + t);
+            String t = marked(b);
+            if (!t.isEmpty()) lines.add(marker + t);
         }
+    }
+
+    /** SUMMARY: one line, or - when {@code list} is set - one marker-prefixed line per non-empty "\n" line. */
+    private static void summary(List<String> lines, JsonNode it) {
+        String text = withLinks(it);
+        String list = ResumeDocument.str(it, "list");
+        if (!ResumeDocument.isListed(it, "list")) {
+            add(lines, ResumeDocument.oneLine(text));
+            return;
+        }
+        String marker = marker(list);
+        for (String line : text.split("\n", -1)) {
+            String t = ResumeDocument.oneLine(line);
+            if (!t.isEmpty()) lines.add(marker + t);
+        }
+    }
+
+    /** {@code "number"} -> "1. " (the literal prefix on every line); anything else -> "- ". */
+    private static String marker(String style) {
+        return style.equals("number") ? "1. " : "- ";
+    }
+
+    /** {@code node.text} with link suffixes, as a single cleaned line. */
+    private static String marked(JsonNode node) {
+        return ResumeDocument.oneLine(withLinks(node));
+    }
+
+    /**
+     * {@code node.text} (raw, uncleaned) with {@code " (<href>)"} inserted right after the end of every
+     * link mark ({@code t == "a"}) whose covered text (trimmed) is not already the URL. Offsets are UTF-16
+     * units into the raw text, so this runs <em>before</em> whitespace is collapsed. Marks that are
+     * malformed or out of range are ignored (this never throws); other mark types are plain text.
+     */
+    static String withLinks(JsonNode node) {
+        JsonNode t = node == null ? null : node.get("text");
+        String raw = t != null && t.isTextual() ? t.textValue() : "";
+        List<JsonNode> links = new ArrayList<>();
+        for (JsonNode m : ResumeDocument.list(node, "marks")) {
+            if (!m.isObject()) continue;
+            JsonNode s = m.get("s");
+            JsonNode e = m.get("e");
+            JsonNode type = m.get("t");
+            JsonNode href = m.get("href");
+            if (s == null || e == null || !s.isInt() || !e.isInt() || type == null || !type.isTextual()) continue;
+            if (!type.textValue().equals("a") || href == null || !href.isTextual()) continue;
+            if (s.intValue() < 0 || s.intValue() >= e.intValue() || e.intValue() > raw.length()) continue;
+            String url = ResumeDocument.trimWs(href.textValue());
+            if (url.isEmpty()) continue;
+            if (ResumeDocument.trimWs(raw.substring(s.intValue(), e.intValue())).equals(url)) continue;
+            links.add(m);
+        }
+        if (links.isEmpty()) return raw;
+        links.sort(Comparator.comparingInt((JsonNode m) -> m.get("e").intValue()));
+        StringBuilder sb = new StringBuilder(raw.length() + 32);
+        int at = 0;
+        for (JsonNode m : links) {
+            int e = m.get("e").intValue();
+            sb.append(raw, at, e).append(" (").append(ResumeDocument.trimWs(m.get("href").textValue())).append(')');
+            at = e;
+        }
+        return sb.append(raw, at, raw.length()).toString();
     }
 
     private static String dates(JsonNode it) {

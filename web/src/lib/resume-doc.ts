@@ -12,6 +12,8 @@ export interface ResumeDocDTO {
   label: string;
   kind: "BUILT" | "UPLOADED";
   doc: ResumeDocument;
+  /** The schema of `doc` - always 2; a stored v1 document is upgraded by the API on read. */
+  schemaVersion: number;
   templateId: string;
   theme: Partial<ResumeTheme> | null;
   docVersion: number;

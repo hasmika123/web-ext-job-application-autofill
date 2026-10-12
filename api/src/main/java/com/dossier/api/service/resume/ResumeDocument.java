@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The canonical Resume Builder document (schema v1, DESIGN section 4) as a Jackson tree, plus the small
+ * The canonical Resume Builder document (schema v2, DESIGN section 3) as a Jackson tree, plus the small
  * helpers every consumer (validator, canonicaliser, projections) shares. The document is never bound
  * to a POJO: unknown keys survive a round trip, and each consumer reads only what it understands.
  *
@@ -18,7 +18,7 @@ import java.util.List;
  */
 public final class ResumeDocument {
 
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
 
     /** Strict reader: duplicate keys and trailing tokens are errors, not silently accepted. */
     private static final ObjectMapper MAPPER = new ObjectMapper()
@@ -37,6 +37,7 @@ public final class ResumeDocument {
         CERTIFICATIONS("Certifications"),
         LANGUAGES("Languages"),
         ACHIEVEMENTS("Achievements"),
+        INTERESTS("Interests"),
         CUSTOM("Additional Information");
 
         private final String defaultTitle;
@@ -121,6 +122,12 @@ public final class ResumeDocument {
     public static boolean flag(JsonNode node, String field) {
         JsonNode v = node == null ? null : node.get(field);
         return v != null && v.isBoolean() && v.booleanValue();
+    }
+
+    /** True when {@code node.field} is the string {@code "bullet"} or {@code "number"} (a list setting). */
+    public static boolean isListed(JsonNode node, String field) {
+        JsonNode v = node == null ? null : node.get(field);
+        return v != null && v.isTextual() && (v.textValue().equals("bullet") || v.textValue().equals("number"));
     }
 
     public static boolean isHidden(JsonNode node) {

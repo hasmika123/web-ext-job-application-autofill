@@ -506,7 +506,7 @@
       "id": "R2.7",
       "epic": "R2",
       "title": "Document schema v2 — marks, photo object, INTERESTS, list styles, `tailoredFrom`; upgrader + fixtures (Java + TS)",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API",

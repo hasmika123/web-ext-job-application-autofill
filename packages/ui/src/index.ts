@@ -133,7 +133,19 @@ export type {
   TemplateProps,
   TemplateDefinition,
   TemplateSupports,
+  Mark as ResumeMark,
+  MarkType as ResumeMarkType,
+  ListStyle as ResumeListStyle,
+  InterestsItem,
+  DocPhoto as ResumeDocPhoto,
+  JobRef as ResumeJobRef,
+  TailoredFrom as ResumeTailoredFrom,
+  ResumeDocumentV1,
+  ResumeDocumentAnySchema,
 } from "./resume/types";
+export { MARK_TYPES as RESUME_MARK_TYPES } from "./resume/types";
+export { upgradeDocument as upgradeResumeDocument } from "./resume/upgrade";
+export { toggleMark, shiftMarks, isCovered, sortMarks, isLinkHref } from "./resume/marks";
 export { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE_ID, getTemplate, hasTemplate, listTemplates } from "./resume/registry";
 export { toStructured, toStructuredJson, toStructuredPretty } from "./resume/project";
 export { renderText as renderResumeText } from "./resume/text";
