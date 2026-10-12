@@ -923,3 +923,34 @@ U2.5 on the user roadmap; the payoff links to `/jobs`) · a separate mobile app 
 same web flow) · collecting address, date of birth, or any EEO value outside the voluntary last screen ·
 AI anywhere but resume parsing · a template step · importing LinkedIn by API · gamified "profile
 levels".
+
+---
+
+## 20. Delight layer (v2.1) — `docs/ONBOARDING-DELIGHT-DESIGN.md`
+
+Added 2026-10-12 after the user saw the built review screen: *"this page seems plain.. dont we need any
+entertainments here :)"*. The full design is the sibling document (it is long); this section is the
+contract between the two.
+
+- **It is a layer, not a rebuild.** Every v2 decision above stands. The layer extends `SwipeCard`,
+  `ProgressBar`, `ChoiceGroup`, `ChipInput`, `ConfettiBurst` and the shell; nothing in §3–§9 (flow,
+  confirm points, draft, API) changes. With `onboarding.delight.enabled=false` the DOM is the v2 DOM.
+- **What it adds:** a mascot **companion** that reacts per screen and per action (companion column at
+  ≥ 1280, a 44 px head in the heading row on phones; speech bubbles `aria-hidden`, never announced);
+  the review as a **card-stack game** (two ghosts peeking, tilt + KEEP ✓ / SKIP stamp, 240 ms fly-off,
+  200 ms spring-up, animated counter, a session-only "🔥 3 in a row" combo, a guarded haptic tap,
+  `← → E Z`); **honest highlights** (regex rules → one ✨ chip per card, a tip when a card has no
+  numbers; no AI); **progress delight** (milestone pops at 25/50/75 % announced once through the
+  existing region, a shine on the bar, the time-left digit flipping down, one ~1.2 s skippable
+  interstitial after the parse); **micro-interactions** (squish, chip pops, skills flying in, emoji
+  glyphs on the natural options, a bigger payoff with a count-up, a mascot dance and a shareable
+  "Profile ready ✨" card via Web Share / copy).
+- **Amendments to this document:** §1's "no streaks" is kept for anything daily, persistent or
+  loss-framed; a session combo chip is allowed (DECISIONS #34a). §5.2's "never emoji in the UI" becomes
+  "emoji allowed in delight copy and as `aria-hidden` option glyphs, never on legal/EEO questions"
+  (#34b). §5.6's desktop mascot-clap behind the recap card is replaced by the companion (one mascot per
+  screen). §13's motion table is extended by the delight document's §10.1 (every effect has a static
+  twin). §11 gains the `onboarding.delight.*` keys (delight §8). §12 gains six `onboarding_delight_*`
+  events, no content.
+- **Stories:** R1.14–R1.20 ("R1b delight"), build order in the delight document §12; R1.14 waits for
+  R1.12 so the motion/a11y pass and the layer never edit the same files at once.
