@@ -4,7 +4,7 @@
  * No React. The palette, the allowed fonts and which controls are on all come from the caller
  * (admin config + the template's capabilities); nothing here decides a limit.
  */
-import { FONT_STACKS, applyCapabilities, sanitizeTheme } from "@kiwiply/ui";
+import { FONT_STACKS, applyCapabilities, clampStep, sanitizeTheme } from "@kiwiply/ui";
 import type { CSSProperties } from "react";
 import type { DateStyle, FontPair, ResumeSpacing, ResumeTheme, TemplateCapabilities, TemplateMeta } from "@kiwiply/ui";
 
@@ -16,6 +16,8 @@ export type ThemeChange =
   | { control: "font"; value: FontPair }
   | { control: "spacing"; value: ResumeSpacing }
   | { control: "pages"; value: 1 | 2 }
+  /** "Fit to one page" (Print layout, R3.8): the fit-ladder rung the measured document needs. */
+  | { control: "fit"; step: number }
   | { control: "dateStyle"; value: DateStyle };
 
 /** The labels the board shows (DESIGN 4). */
@@ -74,6 +76,8 @@ export function editTheme(current: Theme | null, change: ThemeChange): Theme {
       return { ...base, spacing: change.value, fit: { ...fit, step: 0 }, _touched: touch(base, "spacing") };
     case "pages":
       return { ...base, fit: { ...fit, target: change.value }, _touched: touch(base, "fit") };
+    case "fit":
+      return { ...base, fit: { ...fit, mode: "auto", step: clampStep(change.step) }, _touched: touch(base, "fit") };
     case "dateStyle":
       return { ...base, dateStyle: change.value, _touched: touch(base, "dateStyle") };
   }

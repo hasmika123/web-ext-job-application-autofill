@@ -487,12 +487,14 @@ describe("ResumeEditor", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
-    it("Preview is a placeholder sheet with Print layout | PDF view", () => {
+    it("Preview is a fullscreen sheet hosting Print layout, segmented with PDF view (a placeholder until R3.3)", () => {
       renderEditor();
       fireEvent.click(within(tabBar()).getByRole("tab", { name: "Preview" }));
       const dialog = screen.getByRole("dialog", { name: "Preview" });
-      expect(within(dialog).getByRole("radio", { name: "PDF view" })).toBeTruthy();
-      expect(dialog.textContent).toContain("Coming in R3.8");
+      expect(within(dialog).getByRole("img", { name: "Page 1 of 1" })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Zoom in" })).toBeTruthy(); // phone: pinch + zoom buttons
+      fireEvent.click(within(dialog).getByRole("radio", { name: "PDF view" }));
+      expect(dialog.textContent).toContain("Coming in R3.3");
     });
   });
 
@@ -645,18 +647,18 @@ describe("ResumeEditor", () => {
       fireEvent.click(item("Download PDF"));
     };
 
-    it("lists Print layout / PDF view (soon), Download PDF, plain text and DOCX (soon)", () => {
+    it("lists Print layout, PDF view (soon), Download PDF, plain text and DOCX (soon)", () => {
       renderEditor();
       openMenu();
       const items = screen.getAllByRole("menuitem");
       expect(items.map((i) => i.textContent)).toEqual([
-        "Print layoutComing soon",
+        "Print layout",
         "PDF viewComing soon",
         "Download PDF",
         "Download plain text (.txt)",
         "Download DOCXComing soon",
       ]);
-      expect(items.map((i) => i.getAttribute("aria-disabled") === "true")).toEqual([true, true, false, false, true]);
+      expect(items.map((i) => i.getAttribute("aria-disabled") === "true")).toEqual([false, true, false, false, true]);
     });
 
     it("Alt+D opens the menu", () => {
@@ -760,6 +762,131 @@ describe("ResumeEditor", () => {
       await flush(0);
       expect(saveBlob).not.toHaveBeenCalled();
       expect(screen.getByText("Couldn't make the text file")).toBeTruthy();
+    });
+  });
+
+  describe("Print layout: the right side-nav (R3.8)", () => {
+    // jsdom has no layout: give `.rz-page` a height from the theme variables (see PrintLayoutView.test).
+    let contentAtStep0 = 1500;
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    const cssVar = (el: HTMLElement, name: string) =>
+      Number.parseFloat(new RegExp(`--rz-${name}:([\\d.]+)`).exec(el.parentElement?.querySelector("style")?.textContent ?? "")?.[1] ?? "0");
+    beforeEach(() => {
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+        configurable: true,
+        get(this: HTMLElement) {
+          if (!this.classList?.contains("rz-page")) return 0;
+          return Math.max(1056, contentAtStep0 * (cssVar(this, "size") / 11) * cssVar(this, "density") + 2 * cssVar(this, "margin") * 96);
+        },
+      });
+    });
+    afterEach(() => {
+      if (original) Object.defineProperty(HTMLElement.prototype, "offsetHeight", original);
+    });
+
+    const downloadBtn = () => screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON") as HTMLButtonElement;
+    const rightSheet = () => document.getElementById("rb-right-sheet")!;
+    const openPrint = () => {
+      fireEvent.click(downloadBtn());
+      fireEvent.click(screen.getByRole("menuitem", { name: /Print layout/ }));
+    };
+    const banner = () => document.querySelector("[data-print-banner]");
+
+    it("Download ▾ → Print layout slides the pages in beside the rail; choosing it again closes it", async () => {
+      renderEditor();
+      expect(rightSheet().getAttribute("data-state")).toBe("closed");
+      openPrint();
+      expect(rightSheet().getAttribute("data-state")).toBe("open");
+      expect(rightSheet().getAttribute("data-mode")).toBe("push");
+      expect(within(rightSheet()).getAllByRole("img", { name: /^Page \d of 2$/ })).toHaveLength(2);
+      expect(downloadBtn().getAttribute("aria-pressed")).toBe("true");
+      expect(grid().getAttribute("data-rail")).toBe("full"); // the rail stays
+
+      openPrint(); // the same item again
+      await flush(300);
+      expect(rightSheet().getAttribute("data-state")).toBe("closed");
+      expect(downloadBtn().getAttribute("aria-pressed")).toBe("false");
+    });
+
+    it("Alt+P toggles it", async () => {
+      renderEditor();
+      fireEvent.keyDown(document, { key: "p", code: "KeyP", altKey: true });
+      expect(rightSheet().getAttribute("data-state")).toBe("open");
+      fireEvent.keyDown(document, { key: "p", code: "KeyP", altKey: true });
+      await flush(300);
+      expect(rightSheet().getAttribute("data-state")).toBe("closed");
+    });
+
+    it("Esc and the sheet's ✕ close it and focus returns to the Download button", async () => {
+      renderEditor();
+      openPrint();
+      await flush(50);
+      expect(rightSheet().contains(document.activeElement)).toBe(true);
+      fireEvent.keyDown(document, { key: "Escape" });
+      await flush(300);
+      expect(rightSheet().getAttribute("data-state")).toBe("closed");
+      expect(document.activeElement).toBe(downloadBtn());
+
+      openPrint();
+      await flush(50);
+      fireEvent.click(screen.getByRole("button", { name: "Close Print layout" }));
+      await flush(300);
+      expect(document.activeElement).toBe(downloadBtn());
+    });
+
+    it("opening it at 1100 px overlays the rail with a scrim instead of pushing", () => {
+      setWidth(1100);
+      renderEditor();
+      openPrint();
+      const dialog = screen.getByRole("dialog", { name: "Print layout" });
+      expect(dialog.parentElement?.getAttribute("data-mode")).toBe("overlay");
+      expect(document.querySelector("[data-sheet-scrim]")).not.toBeNull();
+      fireEvent.click(document.querySelector("[data-sheet-scrim]")!);
+    });
+
+    it("the warning follows Page Length: One Page warns for a 2-page resume, Two Pages does not", () => {
+      patchTheme.mockResolvedValue({ kind: "ok", version: 5 });
+      renderEditor();
+      fireEvent.click(panelButton("Pick Template"));
+      openPrint();
+      expect(banner()?.textContent).toContain("Over 1 page");
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Two Pages" }));
+      expect(banner()).toBeNull();
+      expect(rightSheet().querySelector("[data-print-summary]")!.textContent).toContain("2 pages");
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "One Page" }));
+      expect(banner()?.textContent).toContain("Over 1 page");
+    });
+
+    it("Fit to one page runs the ladder and saves the rung through PATCH /doc/theme", async () => {
+      contentAtStep0 = 1300;
+      patchTheme.mockResolvedValue({ kind: "ok", version: 7 });
+      renderEditor();
+      openPrint();
+      fireEvent.click(within(rightSheet()).getByRole("button", { name: "Fit to one page" }));
+      expect(banner()).toBeNull(); // optimistic: the page re-measures at the new rung at once
+      expect(within(rightSheet()).getAllByRole("img", { name: /^Page \d of 1$/ })).toHaveLength(1);
+      await flush(500);
+      expect(patchTheme).toHaveBeenCalledTimes(1);
+      expect(patchTheme.mock.calls[0][1]).toMatchObject({ fit: { mode: "auto", target: 1, step: 5 }, _touched: ["fit"] });
+    });
+
+    it("Download PDF in the footer uses the same save-then-export path as the menu", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      exportPdf.mockResolvedValue({ kind: "ok", blob: new Blob(["%PDF"]), fileName: "r.pdf", pages: 2, fits: true, stored: true, contentHash: null, cached: false });
+      renderEditor();
+      openPrint();
+      fireEvent.click(within(rightSheet()).getByRole("button", { name: "Download PDF" }));
+      await flush(0);
+      expect(exportPdf).toHaveBeenCalledWith(42);
+      expect(saveBlob).toHaveBeenCalled();
+    });
+
+    it("the Print layout item is gone when the feature is switched off", () => {
+      renderEditor({ ...DEFAULT_BUILDER_CONFIG, features: { ...DEFAULT_BUILDER_CONFIG.features, printLayout: false } });
+      fireEvent.click(downloadBtn());
+      expect(screen.queryByRole("menuitem", { name: /Print layout/ })).toBeNull();
+      fireEvent.keyDown(document, { key: "p", code: "KeyP", altKey: true });
+      expect(rightSheet().getAttribute("data-state")).toBe("closed");
     });
   });
 });

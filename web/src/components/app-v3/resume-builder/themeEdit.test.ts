@@ -29,6 +29,14 @@ describe("editTheme", () => {
     expect(t._touched).toContain("fit");
   });
 
+  it("fit stores the ladder rung in auto mode, keeps the page target and marks fit touched", () => {
+    const t = editTheme({ spacing: "compact", fit: { mode: "manual", target: 2, step: 0 } }, { control: "fit", step: 4 });
+    expect(t.fit).toEqual({ mode: "auto", target: 2, step: 4 });
+    expect(t.spacing).toBe("compact");
+    expect(t._touched).toContain("fit");
+    expect(editTheme(null, { control: "fit", step: 99 }).fit?.step).toBe(6); // clamped to the ladder
+  });
+
   it("never sends the derived size / density / margin", () => {
     const t = editTheme({ size: 10.5, density: 0.88, margin: 0.6, accent: "#2563eb" }, { control: "spacing", value: "spacious" });
     expect(t).not.toHaveProperty("size");

@@ -142,7 +142,8 @@ export default function SideSheet({
     if (open && !wasOpen.current) {
       wasOpen.current = true;
       const sheet = sheetRef.current;
-      const first = sheet?.querySelector<HTMLElement>(FOCUSABLE);
+      // Not inside an `inert` subtree (a picture of a page with links in it): those cannot take focus.
+      const first = Array.from(sheet?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).find((el) => !el.closest("[inert]"));
       (first ?? sheet)?.focus({ preventScroll: true });
     } else if (!open && wasOpen.current) {
       wasOpen.current = false;
@@ -167,7 +168,7 @@ export default function SideSheet({
       }
       if (e.key !== "Tab" || !modal) return;
       const items = Array.from(sheet.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (el) => el.offsetParent !== null || el === document.activeElement,
+        (el) => (el.offsetParent !== null || el === document.activeElement) && !el.closest("[inert]"),
       );
       if (items.length === 0) {
         e.preventDefault();

@@ -1,0 +1,39 @@
+/*
+ * Print layout - browser print of the editor's resume (Resume Builder DESIGN 10.8, story R3.8).
+ *
+ * `printResume()` (web) mounts `#rb-print-root` straight under <body> (a portal, so no ancestor's
+ * transform / overflow can clip it), sets `data-rb-printing="true"` on <body>, calls `window.print()`
+ * and removes the attribute on `afterprint`. While the attribute is set, print shows ONLY that root:
+ * every other child of <body> is hidden. The page size and margins are NOT set here - `resume.css`
+ * (`@page`) and the theme block `ResumePreview` emits already do, and `.rz-page` drops its own
+ * padding in print so the `@page` margin is the only margin.
+ *
+ * Browser print is the same HTML Chromium prints for the PDF, but it is not byte-identical to the PDF;
+ * the view's footnote says so ("For an exact file use Download PDF.").
+ */
+
+/* On screen the root is never visible (it is only mounted while a print is in flight). */
+#rb-print-root {
+  display: none;
+}
+
+@media print {
+  body[data-rb-printing="true"] {
+    margin: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body[data-rb-printing="true"] > *:not(#rb-print-root) {
+    display: none !important;
+  }
+
+  body[data-rb-printing="true"] > #rb-print-root {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
