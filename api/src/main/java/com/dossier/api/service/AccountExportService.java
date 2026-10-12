@@ -3,6 +3,7 @@ package com.dossier.api.service;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.service.inbox.InboxService;
+import com.dossier.api.service.org.OrgMembershipPrivacyService;
 import com.dossier.api.service.mapper.AiAnswerMapper;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -32,6 +33,7 @@ public class AccountExportService {
     private final InboxService inboxService;
     private final NotificationService notificationService;
     private final ResumeBuilderDataService resumeBuilderDataService;
+    private final OrgMembershipPrivacyService orgMembershipPrivacyService;
 
     public AccountExportService(
         UserService userService,
@@ -43,7 +45,8 @@ public class AccountExportService {
         ProfileSuggestionService profileSuggestionService,
         InboxService inboxService,
         NotificationService notificationService,
-        ResumeBuilderDataService resumeBuilderDataService
+        ResumeBuilderDataService resumeBuilderDataService,
+        OrgMembershipPrivacyService orgMembershipPrivacyService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -55,6 +58,7 @@ public class AccountExportService {
         this.inboxService = inboxService;
         this.notificationService = notificationService;
         this.resumeBuilderDataService = resumeBuilderDataService;
+        this.orgMembershipPrivacyService = orgMembershipPrivacyService;
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -88,6 +92,8 @@ public class AccountExportService {
         // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
         out.put("inbox", inboxService.exportCurrentUser());
         out.put("notifications", notificationService.exportCurrentUser());
+        // Org tenant model (O1.3): the organizations the user belongs to / belonged to, with role, state and dates.
+        out.put("organizations", orgMembershipPrivacyService.exportFor(u.getId()));
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());
         return out;
     }
