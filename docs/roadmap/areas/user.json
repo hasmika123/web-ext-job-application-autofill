@@ -2283,7 +2283,7 @@
       "id": "U12.1",
       "epic": "U12",
       "title": "Analytics page on real data: funnel, rates by resume/ATS/company/week, honest empty state",
-      "status": "partial",
+      "status": "done",
       "size": "M",
       "owners": [
         "API",

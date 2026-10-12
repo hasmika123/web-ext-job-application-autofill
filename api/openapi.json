@@ -87,6 +87,9 @@
     "name" : "profile-sync",
     "description" : "User-scoped sync API: the authenticated user's bio and resumes."
   }, {
+    "name" : "analytics",
+    "description" : "The user's job-search numbers, from the application history."
+  }, {
     "name" : "interviews",
     "description" : "The user's interviews: log, change, outcome, date range, calendar export."
   }, {
@@ -7701,6 +7704,45 @@
         } ]
       }
     },
+    "/api/profile/analytics" : {
+      "get" : {
+        "tags" : [ "analytics" ],
+        "summary" : "My job-search analytics",
+        "description" : "{range, granularity: week|month, real, stats{applied, appliedPrev, replies, interviews, offers, responseRate?}, overTime[{start, applied, interviews, offers}], byStatus[{status, label, count}], inboxSeen, responseByCompany[{company, applied, replied}]}. Counts are applications by the first time they reached each stage, over the last `range` days (default and cap are settings). `real` is false until the account has applied anywhere. responseByCompany is empty until a reply has come through the user's inbox. Days are named in `tz` (an IANA zone, default UTC).",
+        "operationId" : "analytics",
+        "parameters" : [ {
+          "name" : "range",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "tz",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Analytics"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/orgs/mine" : {
       "get" : {
         "tags" : [ "org-resource" ],
@@ -13581,6 +13623,126 @@
         "type" : "object",
         "properties" : {
           "day" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Analytics" : {
+        "type" : "object",
+        "properties" : {
+          "range" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "granularity" : {
+            "type" : "string"
+          },
+          "real" : {
+            "type" : "boolean"
+          },
+          "stats" : {
+            "$ref" : "#/components/schemas/AnalyticsStats"
+          },
+          "overTime" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AnalyticsBucket"
+            }
+          },
+          "byStatus" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AnalyticsStatusCount"
+            }
+          },
+          "inboxSeen" : {
+            "type" : "boolean"
+          },
+          "responseByCompany" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AnalyticsCompany"
+            }
+          }
+        }
+      },
+      "AnalyticsBucket" : {
+        "type" : "object",
+        "properties" : {
+          "start" : {
+            "type" : "string"
+          },
+          "applied" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "interviews" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "offers" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "AnalyticsCompany" : {
+        "type" : "object",
+        "properties" : {
+          "company" : {
+            "type" : "string"
+          },
+          "applied" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "replied" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "AnalyticsStats" : {
+        "type" : "object",
+        "properties" : {
+          "applied" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "appliedPrev" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "replies" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "interviews" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "offers" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "responseRate" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "AnalyticsStatusCount" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN" ]
+          },
+          "label" : {
             "type" : "string"
           },
           "count" : {

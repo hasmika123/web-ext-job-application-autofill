@@ -16,7 +16,6 @@ vi.mock("@/components/app-v2/common", async (orig) => {
 });
 
 import AlertsPage from "./alerts/AlertsPage";
-import AnalyticsPage from "./analytics/AnalyticsPage";
 import AssistantPage from "./assistant/AssistantPage";
 import ExplorePage from "./explore/ExplorePage";
 import InterviewPrepPage from "./interview-prep/InterviewPrepPage";
@@ -36,7 +35,6 @@ describe("samples()", () => {
     "ALERTS",
     "CONVERSATIONS",
     "MESSAGES_NOTE",
-    "AN_SAMPLE",
     "V3_PROFILE_FALLBACK",
     "ASSISTANT_CANNED_REPLY",
   ] as const satisfies readonly SampleName[];
@@ -47,14 +45,12 @@ describe("samples()", () => {
       expect(Array.isArray(v) ? v.length === 0 : v === null).toBe(true);
     }
     expect(samples("ALERTS", false)).toEqual([]);
-    expect(samples("AN_SAMPLE", false)).toBeNull();
     expect(samples("JOBS_SAMPLE_TOTAL", false)).toBeNull();
     expect(samples("MESSAGES_NOTE", false)).toBeNull();
   });
 
   it("open: the constant itself", () => {
     expect(samples("ALERTS", true)).toBe(S.ALERTS);
-    expect(samples("AN_SAMPLE", true)).toBe(S.AN_SAMPLE);
     expect(samples("JOBS_SAMPLE_TOTAL", true)).toBe(S.JOBS_SAMPLE_TOTAL);
   });
 });
@@ -77,7 +73,6 @@ const PAGES: { name: string; node: () => ReactNode; sampleText: string | RegExp 
   { name: "Interview prep", node: () => <InterviewPrepPage />, sampleText: /Common Question Sets/ },
   { name: "Assistant", node: () => <AssistantPage firstName="Jo" />, sampleText: /Recent chats/ },
   { name: "Jobs", node: () => <JobsPage realJobs={null} />, sampleText: /jobs found/ },
-  { name: "Analytics", node: () => <AnalyticsPage data={null} />, sampleText: /Conversion funnel|Applications over time/ },
 ];
 
 describe("pages for a real account (gate closed): an honest empty state, no sample row", () => {
@@ -101,7 +96,7 @@ describe("pages for a real account (gate closed): an honest empty state, no samp
 describe("pages for a demo account on a sample-enabled build keep the board look", () => {
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_BOARD_SAMPLES", "1"));
 
-  for (const p of PAGES.filter((x) => x.name !== "Analytics")) {
+  for (const p of PAGES) {
     it(`${p.name}: sample content, no page-level empty state`, () => {
       const { container } = view(p.node(), "demo");
       expect(screen.getAllByText(p.sampleText, { exact: false }).length).toBeGreaterThan(0);

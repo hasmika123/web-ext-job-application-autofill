@@ -200,6 +200,12 @@ public final class ResumeBuilderSettingKeys {
     public static final String TRACKER_INTERVIEWS_MAX_RANGE_DAYS = "tracker.interviews.maxRangeDays";
     public static final String TRACKER_INTERVIEWS_LIST_MAX = "tracker.interviews.listMax";
 
+    // ---- Analytics (E2E U12.1) ---------------------------------------------
+    public static final String ANALYTICS_DEFAULT_RANGE_DAYS = "analytics.defaultRangeDays";
+    public static final String ANALYTICS_MAX_RANGE_DAYS = "analytics.maxRangeDays";
+    public static final String ANALYTICS_MONTHLY_FROM_DAYS = "analytics.monthlyFromDays";
+    public static final String ANALYTICS_TOP_COMPANIES = "analytics.topCompanies";
+
     // ---- Notifications (E2E-U7.0, docs/design/user/alerts-notifications.md) ---
     public static final String NOTIFY_DEFAULTS = "notifications.defaults";
     public static final String NOTIFY_EMAIL_ENABLED = "notifications.email.enabled";
@@ -522,6 +528,12 @@ public final class ResumeBuilderSettingKeys {
         integer(k, RATE_AI_PER_MIN, 20, 10, 1000, "AI calls per user per minute.");
         integer(k, RATE_EXPORT_PER_MIN, 10, 10, 1000, "Exports per user per minute.");
         integer(k, RATE_PUBLIC_PER_MIN, 60, 10, 1000, "Public share-link requests per IP per minute.");
+
+        // Analytics (E2E U12.1).
+        integer(k, ANALYTICS_DEFAULT_RANGE_DAYS, 30, 7, 365, "Days the analytics page covers when the request names no range.");
+        integer(k, ANALYTICS_MAX_RANGE_DAYS, 365, 30, 730, "Longest range (days) one analytics request may ask for; a bigger range is clamped to it.");
+        integer(k, ANALYTICS_MONTHLY_FROM_DAYS, 180, 30, 730, "Ranges longer than this many days chart one bar per month instead of per week.");
+        integer(k, ANALYTICS_TOP_COMPANIES, 5, 3, 20, "Companies listed in the analytics response-rate-by-company card.");
 
         // Applications tracker (APP-E2E U6.x).
         integer(k, TRACKER_LIST_DEFAULT_SIZE, 20, 5, 50, "Applications per page when the request names no size.");

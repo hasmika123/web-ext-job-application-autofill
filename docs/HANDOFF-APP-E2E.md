@@ -54,6 +54,9 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   still owes U12.1 and E2E-U14.0. U3.1 reads
   `GET /api/applications/activity` and `GET /api/interviews`. Deferred: reminders (U7.1), inbox-proposed
   interviews (I9.9), bulk select / swipe (U6.5), manual email linking (U6.6).
+  **U12.1 done** (`e2e-u12.1`, lane B, API + web): `GET /api/profile/analytics?range&tz` (`ProfileAnalyticsService`, "first
+  became X" over `application_event`; cohort response rate; `analytics.*` settings), BFF `app/api/analytics`, `lib/job-analytics.ts`,
+  `/analytics` fetches in the browser with a real period select; `AN_SAMPLE` / `AN_SKILLS` deleted, "Skills in demand" removed.
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),
