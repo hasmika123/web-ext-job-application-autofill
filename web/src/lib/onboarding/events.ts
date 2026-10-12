@@ -27,6 +27,10 @@ export const ONBOARDING_EVENTS = {
   draftConflict: "onboarding_draft_conflict",
   draftOffline: "onboarding_draft_offline",
   payoffAction: "onboarding_payoff_action",
+  // The delight layer (DELIGHT 11): rule ids, percentages, counts and methods only, never text.
+  delightHighlight: "onboarding_delight_highlight",
+  delightCombo: "onboarding_delight_combo",
+  delightShortcut: "onboarding_delight_shortcut",
 } as const;
 
 export type OnboardingEventName = (typeof ONBOARDING_EVENTS)[keyof typeof ONBOARDING_EVENTS];
@@ -52,6 +56,11 @@ export interface OnboardingEventProps {
   [ONBOARDING_EVENTS.draftConflict]: { choice: "theirs" | "mine" };
   [ONBOARDING_EVENTS.draftOffline]: { retries: number };
   [ONBOARDING_EVENTS.payoffAction]: { action: PayoffAction | "dashboard" };
+  [ONBOARDING_EVENTS.delightHighlight]: { rule: "number" | "outcome" | "lead" | "built" };
+  /** The longest run of Keeps in a row this review had (0 when it never reached 3). */
+  [ONBOARDING_EVENTS.delightCombo]: { max: number };
+  /** A decision (or Undo / Edit) made from the keyboard. */
+  [ONBOARDING_EVENTS.delightShortcut]: { key: "left" | "right" | "e" | "z" };
 }
 
 /** Fire one funnel event. The properties are checked against the design's table at compile time. */

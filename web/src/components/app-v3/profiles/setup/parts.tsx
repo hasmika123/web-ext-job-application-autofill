@@ -3,6 +3,11 @@
 import { useRef, type ReactNode } from "react";
 import Image from "next/image";
 import { LockIcon, cn, useBottomBar } from "@kiwiply/ui";
+import { CompanionCaption, CompanionHead, CompanionMid } from "./delight/CompanionDock";
+import { useCompanionActive } from "./delight/Companion";
+import { MASCOT_ART, type MascotName } from "./mascot-art";
+
+export type { MascotName };
 
 /**
  * The small pieces every onboarding screen shares (Onboarding v2 R1.10, ONBOARDING-V2-DESIGN 5): the one `<h1>` with
@@ -10,14 +15,85 @@ import { LockIcon, cn, useBottomBar } from "@kiwiply/ui";
  */
 
 /** The question of a screen: exactly one `<h1>`, focusable so the shell can move focus to it on a step change (DESIGN 14). */
-export function StepHeading({ title, sub, className, id }: { title: ReactNode; sub?: ReactNode; className?: string; id?: string }) {
+export function StepHeading({
+  title,
+  sub,
+  className,
+  id,
+  aside,
+  companion = true,
+}: {
+  title: ReactNode;
+  sub?: ReactNode;
+  className?: string;
+  id?: string;
+  /** Something small at the end of the heading's row (the review's "3 / 8" counter and combo chip); wraps below on a narrow phone. */
+  aside?: ReactNode;
+  /** With the delight companion on, the phone head sits in this row and its caption under it; `false` opts a heading out. */
+  companion?: boolean;
+}) {
+  const withCompanion = useCompanionActive() && companion;
+  const h1 = (
+    <h1 id={id} tabIndex={-1} className="font-display text-[24px] font-extrabold leading-tight text-balance text-v2-navy sm:text-[28px]" style={{ outline: "none" }}>
+      {title}
+    </h1>
+  );
+  const line = sub && <p className="mt-1.5 text-[14px] leading-snug text-v2-ink-soft">{sub}</p>;
+  if (!withCompanion) {
+    if (!aside) {
+      return (
+        <div className={className}>
+          {h1}
+          {line}
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+        <div className={cn("min-w-0 flex-1 basis-48", className)}>
+          {h1}
+          {line}
+        </div>
+        {aside}
+      </div>
+    );
+  }
+  // The head is always the top-right item; the title and its aside wrap inside the column to its left, so the head never drops
+  // onto a line of its own. The caption (18 px, reserved) sits under the whole row.
   return (
     <div className={className}>
-      <h1 id={id} tabIndex={-1} className="font-display text-[24px] font-extrabold leading-tight text-balance text-v2-navy sm:text-[28px]" style={{ outline: "none" }}>
-        {title}
-      </h1>
-      {sub && <p className="mt-1.5 text-[14px] leading-snug text-v2-ink-soft">{sub}</p>}
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+            <div className="min-w-0 shrink grow basis-48">{h1}</div>
+            {aside}
+          </div>
+          {line}
+        </div>
+        <CompanionHead className="mt-0.5" />
+        <CompanionMid />
+      </div>
+      <CompanionCaption />
     </div>
+  );
+}
+
+/**
+ * For a screen with its own heading markup (the guided questions): puts the companion's phone head to the right of whatever
+ * is passed and its caption under it. Without a companion it is just the children, so the screen's DOM is untouched.
+ */
+export function WithCompanion({ children }: { children: ReactNode }) {
+  const active = useCompanionActive();
+  if (!active) return <>{children}</>;
+  return (
+    <>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">{children}</div>
+        <CompanionHead className="mt-0.5" />
+        <CompanionMid />
+      </div>
+      <CompanionCaption />
+    </>
   );
 }
 
@@ -59,24 +135,13 @@ export function SkipButton({ children, onClick, disabled }: { children: ReactNod
   );
 }
 
-/** Native pixel sizes of the mascot artwork the onboarding screens draw (public/v2). */
-const ART = {
-  wave: ["/v2/mascot-wave.png", 210, 221],
-  clap: ["/v2/mascot-clap.png", 221, 246],
-  laptop: ["/v2/mascot-laptop.png", 210, 221],
-  resume: ["/v2/app/mascot-resume.png", 154, 159],
-  books: ["/v2/app/mascot-books.png", 149, 154],
-} as const;
-
-export type MascotName = keyof typeof ART;
-
 /**
  * A mascot from `public/v2`, decorative only (`alt=""`, never the sole carrier of meaning, DESIGN 5). `className` sets the
  * displayed size (`h-24 w-auto sm:h-32`); render it only when `config.onboarding.mascot` is on (`enabled`).
  */
 export function StepMascot({ name, enabled, className }: { name: MascotName; enabled: boolean; className?: string }) {
   if (!enabled) return null;
-  const [src, width, height] = ART[name];
+  const [src, width, height] = MASCOT_ART[name];
   return <Image src={src} alt="" aria-hidden width={width} height={height} className={cn("flex-none object-contain", className)} />;
 }
 

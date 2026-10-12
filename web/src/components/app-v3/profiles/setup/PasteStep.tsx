@@ -5,6 +5,7 @@ import { ArrowRightIcon, Button, ClipboardIcon, Spinner, inputClass } from "@kiw
 import { getAiParseConsent } from "@/lib/ai-parse-consent";
 import type { BioLimits } from "@/lib/profile-setup/draft";
 import { parseTextForSetup, type SetupParse } from "@/lib/profile-setup/parse";
+import { useReaction, useSceneLine } from "./delight/useCompanionLines";
 import ParseConsent from "./ParseConsent";
 import { PrivacyLine, SkipButton, StepFooter, StepHeading } from "./parts";
 
@@ -41,6 +42,15 @@ export default function PasteStep({
   const area = useRef<HTMLTextAreaElement>(null);
   const length = text.trim().length;
   const ready = length >= MIN_CHARS;
+
+  // The companion (R1.14): reads along, cheers once when there is enough to work with, thinks while it reads.
+  const react = useReaction();
+  useSceneLine(busy ? "think" : "read", busy ? "source.reading" : ready ? "paste.ready" : "paste.idle");
+  const wasReady = useRef(false);
+  useEffect(() => {
+    if (ready && !wasReady.current) react("cheer");
+    wasReady.current = ready;
+  }, [ready, react]);
 
   // `navigator.clipboard.readText` exists on phones and modern desktops; it is only known on the client.
   useEffect(() => {

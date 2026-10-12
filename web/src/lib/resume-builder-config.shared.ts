@@ -101,8 +101,47 @@ export type ResumeBuilderConfig = {
     mascot: boolean;
     personaStep: boolean;
     payoffActions: string[];
+    /**
+     * The delight layer (R1.14, ONBOARDING-DELIGHT-DESIGN 8): `enabled` is the whole layer (off gives the plain v2 flow); the
+     * other switches gate one feature each; `interstitialMs` is the interstitial's wait (0 = none) and `interstitials` which
+     * sections get it; `copy` overrides the copy deck by key. Absent on an API that predates it: read through `delightOf`.
+     */
+    delight?: OnboardingDelightConfig;
   };
 };
+
+/** `config.onboarding.delight` (DELIGHT 8). */
+export type OnboardingDelightConfig = {
+  enabled: boolean;
+  haptics: boolean;
+  combo: boolean;
+  highlights: boolean;
+  milestones: boolean;
+  interstitialMs: number;
+  interstitials: string[];
+  barRider: boolean;
+  share: boolean;
+  copy: Record<string, string | string[]>;
+};
+
+/** The API's declared delight defaults (`ResumeBuilderSettingKeys`). */
+export const DEFAULT_DELIGHT_CONFIG: OnboardingDelightConfig = {
+  enabled: true,
+  haptics: true,
+  combo: true,
+  highlights: true,
+  milestones: true,
+  interstitialMs: 1200,
+  interstitials: ["review"],
+  barRider: false,
+  share: true,
+  copy: {},
+};
+
+/** The delight settings of a config, field by field over the defaults (an older API, or a test config, may omit some). */
+export function delightOf(config: { onboarding?: { delight?: Partial<OnboardingDelightConfig> } } | null | undefined): OnboardingDelightConfig {
+  return { ...DEFAULT_DELIGHT_CONFIG, ...(config?.onboarding?.delight ?? {}) };
+}
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
 export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
@@ -171,5 +210,17 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
     mascot: true,
     personaStep: true,
     payoffActions: ["build_resume", "install_extension", "find_jobs"],
+    delight: {
+      enabled: true,
+      haptics: true,
+      combo: true,
+      highlights: true,
+      milestones: true,
+      interstitialMs: 1200,
+      interstitials: ["review"],
+      barRider: false,
+      share: true,
+      copy: {},
+    },
   },
 };

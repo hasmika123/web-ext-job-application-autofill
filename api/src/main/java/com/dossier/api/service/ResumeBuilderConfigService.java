@@ -117,7 +117,19 @@ public class ResumeBuilderConfigService {
                 s.getBool(ONBOARDING_CONFETTI_ENABLED),
                 s.getBool(ONBOARDING_MASCOT_ENABLED),
                 s.getBool(ONBOARDING_PERSONA_ENABLED),
-                strings(ONBOARDING_PAYOFF_ACTIONS)
+                strings(ONBOARDING_PAYOFF_ACTIONS),
+                new ResumeBuilderConfigDTO.OnboardingDelight(
+                    s.getBool(ONBOARDING_DELIGHT_ENABLED),
+                    s.getBool(ONBOARDING_DELIGHT_HAPTICS),
+                    s.getBool(ONBOARDING_DELIGHT_COMBO),
+                    s.getBool(ONBOARDING_DELIGHT_HIGHLIGHTS),
+                    s.getBool(ONBOARDING_DELIGHT_MILESTONES),
+                    s.getInt(ONBOARDING_DELIGHT_INTERSTITIAL_MS),
+                    strings(ONBOARDING_DELIGHT_INTERSTITIALS),
+                    s.getBool(ONBOARDING_DELIGHT_BAR_RIDER),
+                    s.getBool(ONBOARDING_DELIGHT_SHARE),
+                    s.getJson(ONBOARDING_DELIGHT_COPY, JsonNode.class)
+                )
             )
         );
     }

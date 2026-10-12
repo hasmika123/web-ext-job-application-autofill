@@ -121,7 +121,26 @@ public record ResumeBuilderConfigDTO(
         boolean confetti,
         boolean mascot,
         boolean personaStep,
-        List<String> payoffActions
+        List<String> payoffActions,
+        OnboardingDelight delight
+    ) {}
+
+    /**
+     * The delight layer (R1.14, ONBOARDING-DELIGHT-DESIGN 8): {@code enabled} is the whole layer; the other switches gate one
+     * feature each; {@code interstitialMs} is the section interstitial's wait (0 = none) and {@code interstitials} which sections
+     * get it; {@code copy} overrides the copy deck by key.
+     */
+    public record OnboardingDelight(
+        boolean enabled,
+        boolean haptics,
+        boolean combo,
+        boolean highlights,
+        boolean milestones,
+        int interstitialMs,
+        List<String> interstitials,
+        boolean barRider,
+        boolean share,
+        @Schema(type = "object", description = "Copy deck key to a string or an array of strings.") JsonNode copy
     ) {}
 
     public record OnboardingCard(int snoozeDays, int resurfaceBelowPercent, int resurfaceAfterDays, int maxResurfaces) {}
