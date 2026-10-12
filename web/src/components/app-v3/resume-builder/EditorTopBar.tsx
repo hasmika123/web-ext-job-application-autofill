@@ -7,6 +7,7 @@ import type { SaveStatus } from "./state/types";
 /** "just now" for the first minute, then whole minutes / hours. Pure, so it is testable. */
 export function savedAgo(savedAt: number | null, now: number): string {
   if (savedAt === null) return "All changes saved";
+  // config-literal-ok: milliseconds -> seconds unit conversion, not a limit
   const s = Math.max(0, Math.round((now - savedAt) / 1000));
   if (s < 45) return "Saved · just now";
   const m = Math.round(s / 60);
@@ -80,6 +81,7 @@ export default function EditorTopBar({
         <span className="sr-only">Resume name</span>
         <input
           value={title}
+          // config-literal-ok: meta.title maxLength is a schema constant (DESIGN 3.1), not a settings key
           maxLength={200}
           onChange={(e) => onTitleChange(e.target.value)}
           onBlur={onTitleBlur}

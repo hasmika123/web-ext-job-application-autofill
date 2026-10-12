@@ -15,6 +15,7 @@ export interface ThumbSrc {
 type Imported = string | { src: string; width?: number; height?: number };
 
 const asSrc = (img: Imported): ThumbSrc =>
+  // config-literal-ok: fallback pixel size of the bundled thumbnail PNGs (art dimensions, not resume.thumb.width)
   typeof img === "string" ? { src: img, width: 240, height: 340 } : { src: img.src, width: img.width ?? 240, height: img.height ?? 340 };
 
 const THUMBS: Record<string, ThumbSrc> = {

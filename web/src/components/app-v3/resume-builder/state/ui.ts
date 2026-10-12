@@ -55,12 +55,19 @@ export type UiAction =
 
 /* ── Layout model (DESIGN §10.1) ─────────────────────────────────────────────────── */
 
+// config-literal-ok: viewport breakpoints and sheet widths are layout geometry (DESIGN 10.1), not tunables
 export const PHONE_MAX = 768; //   < 768        phone: everything fullscreen
+// config-literal-ok: layout geometry (DESIGN 10.1)
 export const TABLET_MAX = 1024; // 768-1023     tablet: both sheets overlay, the rail collapses
+// config-literal-ok: layout geometry (DESIGN 10.1)
 export const DESKTOP_MAX = 1280; // 1024-1279   desktop: left may push, right overlays the rail
+// config-literal-ok: layout geometry (DESIGN 10.1)
 export const LEFT_SHEET_WIDTH = 400;
+// config-literal-ok: layout geometry (DESIGN 10.1)
 export const RIGHT_SHEET_WIDTH = 520;
+// config-literal-ok: layout geometry (DESIGN 10.1)
 export const RAIL_WIDTH = 360;
+// config-literal-ok: layout geometry (DESIGN 10.1)
 export const MIN_CENTRE = 560;
 
 export function viewportFor(width: number): Viewport {
@@ -88,6 +95,7 @@ export function computeLayout(width: number, leftOpen: boolean): BuilderLayout {
   return { leftMode, rightMode, viewport, width };
 }
 
+// config-literal-ok: assumed viewport width before measurement (layout geometry)
 const DEFAULT_WIDTH = 1440;
 
 export function initialUiState(overrides: Partial<Pick<UiState, "leftPanel" | "railTab">> = {}): UiState {

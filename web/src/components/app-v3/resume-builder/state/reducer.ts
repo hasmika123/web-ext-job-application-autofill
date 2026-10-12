@@ -13,8 +13,11 @@ import type { EditorAction, EditorState, ItemTextField, SaveStatus } from "./typ
 
 export const MAX_ITEMS = 40;
 export const MAX_BULLETS = 12;
+// config-literal-ok: mirrors settings keys resume.doc.limits.bulletChars / summaryChars (defaults); R2.1 ("limits clamp") threads the live config into the reducer
 export const MAX_BULLET_CHARS = 600;
+// config-literal-ok: resume.doc.limits.summaryChars default; see above
 export const MAX_SUMMARY_CHARS = 2000;
+// config-literal-ok: short-field maxLength is a schema constant (DESIGN 3.1), not a settings key
 export const MAX_SHORT_CHARS = 200;
 
 export interface InitialEditorInput {

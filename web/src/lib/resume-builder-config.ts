@@ -4,8 +4,9 @@
  * `GET /api/profile/resume-builder/config` evaluates every tunable (limits, score weights, template
  * switches, feature flags, the plan and the resume cap) from the API's `ResumeBuilderSettings`.
  * This file is the ONLY web reader of it and the only place a builder limit may be written as a
- * number: an ESLint rule for `components/app-v3/resume-builder/**` forbids numeric literals >= 100
- * anywhere else. Read `config.limits.bulletChars`, never `600`.
+ * number: the ESLint rule `resume-builder/no-config-literal` forbids numeric literals >= 100 in
+ * `components/app-v3/resume-builder/**` unless the line carries `// config-literal-ok: <reason>`
+ * (layout/art sizes, unit conversions, schema constants). Read `config.limits.bulletChars`, never `600`.
  *
  * `DEFAULT_BUILDER_CONFIG` repeats the API's declared defaults and is used when the API cannot be
  * reached (the editor still opens; the server re-validates every save with its own settings).

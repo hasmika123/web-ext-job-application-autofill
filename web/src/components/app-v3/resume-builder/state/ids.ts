@@ -11,6 +11,7 @@ export function newId(prefix: IdPrefix): string {
   if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
     crypto.getRandomValues(bytes);
   } else {
+    // config-literal-ok: 256 is the byte range (random byte), not a limit
     for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
   let out = `${prefix}_`;
