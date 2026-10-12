@@ -8017,7 +8017,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_3",
+        "operationId" : "get_4",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -9404,7 +9404,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_4",
+        "operationId" : "get_5",
         "responses" : {
           "200" : {
             "description" : "OK",

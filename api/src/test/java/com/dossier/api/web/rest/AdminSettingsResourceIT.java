@@ -21,6 +21,7 @@ import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ai.AiRuntimeSettings;
 import com.dossier.api.service.ai.AiTask;
+import com.dossier.api.service.settings.SettingDefinitions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -155,7 +156,8 @@ class AdminSettingsResourceIT {
     void theListFiltersByAreaAndSearch() throws Exception {
         String byArea = send(get(BASE).param("area", "jobs"), ADMIN_USER, null).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         JsonNode items = mapper.readTree(byArea).get("items");
-        assertThat(items).hasSize(5);
+        // every registered key of the area (U4.0 added the jobs.search.* keys after A5.1 first pinned five)
+        assertThat(items).hasSize((int) SettingDefinitions.all().stream().filter(k -> "jobs".equals(k.area())).count());
         items.forEach(i -> assertThat(i.get("area").asText()).isEqualTo("jobs"));
         assertThat(mapper.readTree(byArea).get("areas").size()).as("the rail keeps every area").isGreaterThan(8);
 
