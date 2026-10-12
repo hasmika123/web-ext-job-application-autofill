@@ -3,6 +3,7 @@ package com.dossier.api.service.ai;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.AiMeteringService;
 import com.dossier.api.service.ai.AiRuntimeSettings.Route;
+import com.dossier.api.service.privacy.SensitivePatterns;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
@@ -25,6 +26,11 @@ import org.slf4j.LoggerFactory;
  *   <li><b>Ledger</b> - every failed attempt writes a failure row (its own transaction); a success is stamped with
  *       the provider and latency, and the calling service records it as before.</li>
  * </ul>
+ *
+ * <p><b>Never-collected values stop here.</b> Every prompt and resume text passes {@link SensitivePatterns#redact}
+ * on its way to an adapter (an SSN, a bank number, a date of birth ... becomes {@code [removed]}), so no flow - however
+ * its service built the prompt - can send one to a provider. A PDF handed over as a file cannot be read here; that
+ * input is the one the provider itself sees.
  *
  * <p>Provider text never leaves here unscrubbed: error messages pass the registry's {@link AiKeyScrubber}.
  */
@@ -101,7 +107,9 @@ public class AiRouter implements AiProvider {
         Route route = runtime.route(task);
         String m = isBlank(model) ? route.model() : model.trim();
         int cap = maxOutputTokens > 0 ? maxOutputTokens : route.maxOutputTokens();
-        return execute(task, route, m, (adapter, mm) -> adapter.generate(task, mm, question, context, cap));
+        String q = guard(task, question);
+        String c = guard(task, context);
+        return execute(task, route, m, (adapter, mm) -> adapter.generate(task, mm, q, c, cap));
     }
 
     @Override
@@ -109,7 +117,8 @@ public class AiRouter implements AiProvider {
         Route route = runtime.route(AiTask.PARSE);
         String m = isBlank(model) ? route.model() : model.trim();
         int cap = route.maxOutputTokens();
-        return execute(AiTask.PARSE, route, m, (adapter, mm) -> adapter.parseResume(mm, text, fileBase64, fileMimeType, cap));
+        String t = guard(AiTask.PARSE, text);
+        return execute(AiTask.PARSE, route, m, (adapter, mm) -> adapter.parseResume(mm, t, fileBase64, fileMimeType, cap));
     }
 
     // ---- the call -----------------------------------------------------------
@@ -219,6 +228,20 @@ public class AiRouter implements AiProvider {
     }
 
     // ---- helpers ------------------------------------------------------------
+
+    /** The text with any never-collected value replaced by {@code [removed]}; counted when something was removed. */
+    private String guard(AiTask task, String text) {
+        if (text == null || text.isEmpty()) return text;
+        String clean = SensitivePatterns.redact(text);
+        if (!clean.equals(text)) {
+            try {
+                meters.counter("ai.input.redacted", "task", task.wire()).increment();
+            } catch (RuntimeException e) {
+                // metrics must never break a call
+            }
+        }
+        return clean;
+    }
 
     private void count(AiTask task, String provider, String outcome) {
         try {

@@ -894,7 +894,7 @@
       "id": "I1.14",
       "epic": "I1",
       "title": "End-to-end proof on Gemini: api-local demo launcher reading gitignored api/.env.ai.local, AiRouteSwitchIT (admin change → next user call → ledger), web/scripts/ai-smoke.mjs (skips without a key), DEPLOY.md §10",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API",
