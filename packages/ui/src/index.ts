@@ -37,7 +37,7 @@ export { default as Meter } from "./primitives/Meter";
 export type { MeterProps } from "./primitives/Meter";
 
 export { default as Tabs, TabList, Tab, TabPanel } from "./primitives/Tabs";
-export type { TabsProps } from "./primitives/Tabs";
+export type { TabsProps, TabsVariant } from "./primitives/Tabs";
 
 export { ToastProvider, useToast } from "./primitives/Toast";
 export type { ToastOptions, ToastVariant } from "./primitives/Toast";

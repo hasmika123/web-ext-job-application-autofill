@@ -611,7 +611,7 @@
       "id": "R2.10",
       "epic": "R2",
       "title": "Editor shell to the boards — full-bleed layout, top bar (actions, Save, Download ▾, status copy), section tabs, left/right `SideSheet` wiring, right rail tabs",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web"

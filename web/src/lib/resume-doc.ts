@@ -229,6 +229,40 @@ export async function exportPdf(resumeId: number): Promise<ExportPdfResult> {
   return { kind: "error", status: res.status, code: p.code, message };
 }
 
+export type ExportTextResult =
+  | { kind: "ok"; blob: Blob; fileName: string }
+  | { kind: "error"; status: number; message: string };
+
+/**
+ * `GET /api/resumes/:id/export?format=txt`: the document as plain text (what an ATS reads), made
+ * from the SAVED document, so flush the editor's autosave first. Never throws.
+ */
+export async function exportText(resumeId: number): Promise<ExportTextResult> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/resumes/${resumeId}/export?format=txt`, { cache: "no-store" });
+  } catch {
+    return { kind: "error", status: 0, message: "Couldn't reach the server." };
+  }
+  if (res.ok) {
+    return {
+      kind: "ok",
+      blob: await res.blob(),
+      fileName: fileNameFromDisposition(res.headers.get("content-disposition"), `resume-${resumeId}.txt`),
+    };
+  }
+  const p = (await readJson<Problem>(res)) ?? {};
+  const message =
+    res.status === 401
+      ? "Your session expired - please sign in again."
+      : res.status === 404
+        ? "That resume is no longer there."
+        : res.status === 429
+          ? "Too many downloads - try again in a moment."
+          : (p.error ?? "Couldn't make the text file. Please try again.");
+  return { kind: "error", status: res.status, message };
+}
+
 /** Saves a blob through a temporary link (the browser's normal download). */
 export function saveBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);

@@ -1,41 +1,105 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { cn, useToast } from "@kiwiply/ui";
-import { exportPdf, putDoc, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { useRouter } from "next/navigation";
+import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, useToast } from "@kiwiply/ui";
+import type { ResumeSectionKind } from "@kiwiply/ui";
+import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import { exportPdf, exportText, putDoc, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
 import EditorTopBar from "./EditorTopBar";
-import PreviewPane from "./PreviewPane";
+import RailStrip from "./RailStrip";
+import RightRail from "./RightRail";
 import SectionEditor from "./SectionEditor";
-import SectionsRail, { sectionTitle } from "./SectionsRail";
+import SectionTabs from "./SectionTabs";
+import AddSectionPanel from "./panels/AddSectionPanel";
+import PickTemplatePanel from "./panels/PickTemplatePanel";
+import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
+import PanelPlaceholder from "./panels/PanelPlaceholder";
+import SwapSectionPanel from "./panels/SwapSectionPanel";
+import TailorPanel from "./panels/TailorPanel";
+import { BASICS_BLOCK_ID, blockId, sectionTitle } from "./sectionTitle";
 import { createAutosave, type Autosave } from "./state/autosave";
-import { canRedoEdit, canUndoEdit, currentDoc, editorReducer, hasUnsaved, initEditorState, saveStatus } from "./state/reducer";
+import { currentDoc, editorReducer, hasUnsaved, initEditorState, saveStatus } from "./state/reducer";
+import {
+  LEFT_SHEET_WIDTH,
+  RAIL_STRIP_WIDTH,
+  RAIL_WIDTH,
+  RIGHT_SHEET_WIDTH,
+  useUiState,
+  type LeftPanel,
+  type PhoneTab,
+  type RailTab,
+  type RightView,
+} from "./state/ui";
+import { useBuilderLayout } from "./useBuilderLayout";
 
-type PhoneTab = "edit" | "preview";
+/** A resume with nothing in it opens Add Section once (DESIGN 10.3). */
+function isEmptyDoc(doc: ResumeDocDTO["doc"]): boolean {
+  return doc.sections.every((s) => s.items.length === 0);
+}
+
+const PHONE_TABS: ReadonlyArray<{ value: PhoneTab; label: string }> = [
+  { value: "edit", label: "Edit" },
+  { value: "layout", label: "Layout" },
+  { value: "insights", label: "Insights" },
+  { value: "preview", label: "Preview" },
+];
+
+export interface ResumeEditorProps {
+  initial: ResumeDocDTO;
+  plan: "FREE" | "PRO";
+  /** The builder settings (limits, switches, plan, AI): read on the server, never hard-coded here. */
+  config: ResumeBuilderConfig;
+  /** The AI meter's words (`describeAiUsage`, computed on the server) or null. */
+  aiUsageLine?: { headline: string; detail: string } | null;
+  /** When the Common Profile last changed; the sync banner (R3.x) compares it to `meta.profileSyncedAt`. */
+  profileUpdatedAt?: string | null;
+  /** The job this resume targets: always null until R5.6. */
+  jobTarget?: null;
+  /** Open AI suggestion cards: always empty until R4.1. */
+  openProposals?: ReadonlyArray<{ id: string }>;
+}
 
 /**
- * The Resume Builder editor (R0.5 skeleton). A client island over one reducer (`state/reducer`):
- * Sections rail, the active section's editor, and a live preview, with autosave (`state/autosave`,
- * `PUT /api/resumes/:id/doc` + `If-Match`) and undo/redo. Phone: Edit / Preview bottom tabs.
+ * The Resume Builder editor shell, to the v3 boards (DESIGN 10.1): a full-bleed top bar, a dynamic LEFT
+ * side-nav (`SideSheet`: Add Section / Pick Template / Swap Section / Tailor to Job), the document
+ * with its section tabs, the RIGHT rail (Insights / AI Suggestions / Job Match, collapsing to a 56 px
+ * strip while the left sheet is open and short of room: rail collapse, DECISIONS #28) and a right
+ * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
+ * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO; plan: "FREE" | "PRO" }) {
+export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [] }: ResumeEditorProps) {
   const resumeId = initial.resumeId;
   const initialVersion = initial.docVersion;
+  const router = useRouter();
+  const toast = useToast();
   const [state, dispatch] = useReducer(editorReducer, initial, (dto) =>
     initEditorState({ doc: dto.doc, templateId: dto.templateId, theme: dto.theme, docVersion: dto.docVersion }),
   );
   const doc = currentDoc(state);
 
-  const [activeId, setActiveId] = useState(() => (doc.sections.find((s) => s.kind === "EXPERIENCE") ?? doc.sections[0])?.id ?? "");
-  const [tab, setTab] = useState<PhoneTab>("edit");
+  const [ui, uiDispatch] = useUiState({ openAdd: isEmptyDoc(initial.doc) });
+  const gridRef = useRef<HTMLDivElement>(null);
+  useBuilderLayout(gridRef, uiDispatch);
+  const { layout } = ui;
+  const phone = layout.viewport === "phone";
+  const compact = phone || layout.viewport === "tablet";
+
   const [now, setNow] = useState(() => Date.now());
+  const [loadedAt] = useState(() => {
+    const t = initial.updatedAt ? Date.parse(initial.updatedAt) : Number.NaN;
+    return Number.isFinite(t) ? t : null;
+  });
   const autosave = useRef<Autosave | null>(null);
-  const toast = useToast();
   const [exporting, setExporting] = useState(false);
   const latestRev = useRef(state.rev);
+  const conflicted = useRef(false);
   useEffect(() => {
     latestRev.current = state.rev;
-  }, [state.rev]);
+    conflicted.current = state.phase === "conflict";
+  }, [state.rev, state.phase]);
 
   /* ── autosave controller: one per resume ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -81,14 +145,14 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
     return () => document.removeEventListener("visibilitychange", onHide);
   }, []);
 
-  /* ── "Saved · N min ago" stays honest ────────────────────────────────────────────────── */
+  /* ── "Saved N minutes ago" stays honest ──────────────────────────────────────────────── */
   useEffect(() => {
     // config-literal-ok: repaint tick for the "Saved N min ago" label (display only), not a builder timing
     const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
 
-  /* ── Ctrl/⌘ Z, Shift Ctrl/⌘ Z (and Ctrl Y) ─────────────────────────────────────────── */
+  /* ── Ctrl/⌘ Z, Shift Ctrl/⌘ Z (and Ctrl Y): undo/redo live on the keys (not the bar) ────── */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || state.phase === "conflict") return;
@@ -105,22 +169,152 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
     return () => document.removeEventListener("keydown", onKey);
   }, [state.phase]);
 
-  const active = useMemo(() => doc.sections.find((s) => s.id === activeId) ?? doc.sections[0], [doc.sections, activeId]);
   const status = saveStatus(state);
 
-  /**
-   * Export PDF: the server prints the SAVED document, so save first, and refuse (with a reason) if the
-   * latest edits could not be saved - a PDF that silently lacks them would be worse than no PDF.
-   */
-  const exportNow = async () => {
+  /* ── panels: open / switch / close, the buttons' refs, where focus returns ───────────── */
+  const addRef = useRef<HTMLButtonElement>(null);
+  const templateRef = useRef<HTMLButtonElement>(null);
+  const swapRef = useRef<HTMLButtonElement>(null);
+  const tailorRef = useRef<HTMLButtonElement>(null);
+  const panelRefs = useMemo(() => ({ add: addRef, template: templateRef, swap: swapRef, tailor: tailorRef }), []);
+  const layoutTabRef = useRef<HTMLButtonElement>(null);
+  const insightsTabRef = useRef<HTMLButtonElement>(null);
+  const previewTabRef = useRef<HTMLButtonElement>(null);
+  const downloadRef = useRef<HTMLSpanElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
+  const [addFocusKind, setAddFocusKind] = useState<ResumeSectionKind | null>(null);
+
+  // The sheet keeps its panel's title while it slides out.
+  const [shownPanel, setShownPanel] = useState<LeftPanel>("add");
+  if (ui.leftPanel && ui.leftPanel !== shownPanel) setShownPanel(ui.leftPanel);
+  const [shownView, setShownView] = useState<RightView>("print");
+  if (ui.rightView && ui.rightView !== shownView) setShownView(ui.rightView);
+
+  // On a phone the Layout sheet is open only on the Layout tab (a remembered panel does not open by itself).
+  const leftOpen = ui.leftPanel !== null && (!phone || ui.phoneTab === "layout");
+  const rightOpen = ui.rightView !== null;
+  const railSheetOpen = compact && ui.phoneTab === "insights";
+
+  const returnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (phone) returnFocus.current = layoutTabRef.current;
+    else if (ui.leftPanel) returnFocus.current = panelRefs[ui.leftPanel].current;
+  }, [phone, ui.leftPanel, panelRefs]);
+  const railReturnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    railReturnFocus.current = insightsTabRef.current;
+  }, [phone]);
+  const rightReturnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    rightReturnFocus.current = previewTabRef.current;
+  }, [phone]);
+
+  const togglePanel = useCallback((panel: LeftPanel) => uiDispatch({ type: "panel/toggle", panel }), [uiDispatch]);
+  const openPanel = useCallback(
+    (panel: LeftPanel) => {
+      if (ui.leftPanel !== panel) uiDispatch({ type: "panel/toggle", panel });
+      if (compact) {
+        uiDispatch({ type: "rightView/close" });
+        uiDispatch({ type: "phone/tab", tab: "layout" });
+      }
+    },
+    [ui.leftPanel, compact, uiDispatch],
+  );
+  const closeLeft = useCallback(() => {
+    uiDispatch({ type: "panel/close" });
+    if (compact) uiDispatch({ type: "phone/tab", tab: "edit" });
+  }, [compact, uiDispatch]);
+  const closeRight = useCallback(() => {
+    uiDispatch({ type: "rightView/close" });
+    if (compact) uiDispatch({ type: "phone/tab", tab: "edit" });
+  }, [compact, uiDispatch]);
+  const closeRailSheet = useCallback(() => uiDispatch({ type: "phone/tab", tab: "edit" }), [uiDispatch]);
+  const closeAll = useCallback(() => {
+    uiDispatch({ type: "panel/close" });
+    uiDispatch({ type: "rightView/close" });
+    uiDispatch({ type: "phone/tab", tab: "edit" });
+  }, [uiDispatch]);
+
+  /** The bottom tab bar (phone) / Insights bar (tablet): one sheet at a time, the open tab closes. */
+  const selectPhoneTab = (picked: PhoneTab) => {
+    const tab = picked === ui.phoneTab ? "edit" : picked;
+    if (tab === "layout") {
+      if (!ui.leftPanel) uiDispatch({ type: "panel/toggle", panel: "add" });
+      uiDispatch({ type: "rightView/close" });
+    } else if (tab === "preview") {
+      uiDispatch({ type: "panel/close" });
+      if (!ui.rightView) uiDispatch({ type: "rightView/toggle", view: "print" });
+    } else {
+      uiDispatch({ type: "panel/close" });
+      uiDispatch({ type: "rightView/close" });
+    }
+    uiDispatch({ type: "phone/tab", tab });
+  };
+
+  const openAddFor = useCallback(
+    (kind: ResumeSectionKind | null) => {
+      setAddFocusKind(kind);
+      openPanel("add");
+    },
+    [openPanel],
+  );
+
+  /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu (desktop and tablet). */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || phone) return;
+      const digit = /^Digit([1-4])$/.exec(e.code)?.[1] ?? (/^[1-4]$/.test(e.key) ? e.key : null);
+      if (digit) {
+        const panel = PANEL_ORDER[Number(digit) - 1];
+        if (panel === "tailor" && !config.features.tailor) return;
+        e.preventDefault();
+        togglePanel(panel);
+      } else if (e.code === "KeyD" || e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        downloadRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"]')?.click();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [phone, config.features.tailor, togglePanel]);
+
+  /* Phone/tablet: one history entry per open sheet so the Back button closes it. */
+  const modalOpen = compact && (leftOpen || railSheetOpen || rightOpen);
+  const pushed = useRef(false);
+  useEffect(() => {
+    if (modalOpen && !pushed.current) {
+      pushed.current = true;
+      window.history.pushState({ ...(window.history.state as object | null), rbSheet: true }, "");
+    } else if (!modalOpen && pushed.current) {
+      pushed.current = false;
+      if ((window.history.state as { rbSheet?: boolean } | null)?.rbSheet) window.history.back();
+    }
+  }, [modalOpen]);
+  useEffect(() => {
+    const onPop = () => {
+      if (!pushed.current) return;
+      pushed.current = false;
+      closeAll();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [closeAll]);
+
+  /* ── exports: both need the SAVED document, so save first and refuse if that fails ───── */
+  const savedFirst = async (what: string): Promise<boolean> => {
+    await autosave.current?.flush();
+    if ((autosave.current?.savedRev ?? 0) < latestRev.current) {
+      toast({ title: `Couldn't ${what} yet`, description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
+      return false;
+    }
+    return true;
+  };
+
+  const downloadPdf = async () => {
     if (exporting) return;
     setExporting(true);
     try {
-      await autosave.current?.flush();
-      if ((autosave.current?.savedRev ?? 0) < latestRev.current) {
-        toast({ title: "Couldn't export yet", description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
-        return;
-      }
+      if (!(await savedFirst("export"))) return;
       const res = await exportPdf(resumeId);
       if (res.kind === "error") {
         toast({ title: "Couldn't make the PDF", description: res.message, variant: "error" });
@@ -142,6 +336,31 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
     }
   };
 
+  const downloadText = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      if (!(await savedFirst("download"))) return;
+      const res = await exportText(resumeId);
+      if (res.kind === "error") {
+        toast({ title: "Couldn't make the text file", description: res.message, variant: "error" });
+        return;
+      }
+      saveBlob(res.blob, res.fileName);
+      toast({ title: "Text file ready", description: "Plain text, the way an ATS reads your resume.", variant: "success" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  /* ✕: save what can be saved, then leave; the unsaved guard asks only when something is still not saved. */
+  const closeEditor = async () => {
+    await autosave.current?.flush();
+    const stillUnsaved = (autosave.current?.savedRev ?? 0) < latestRev.current || conflicted.current;
+    if (stillUnsaved && !window.confirm("Your latest changes aren't saved. Leave anyway?")) return;
+    router.push("/resume-builder");
+  };
+
   const keepMine = () => {
     const c = state.conflict;
     if (!c) return;
@@ -155,80 +374,254 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
     autosave.current?.reset(c.serverVersion, state.rev + 1);
   };
 
+  /* ── layout numbers ──────────────────────────────────────────────────────────────────── */
+  const railTrack = layout.railCollapsed ? RAIL_STRIP_WIDTH : RAIL_WIDTH;
+  const leftPush = leftOpen && layout.leftMode === "push";
+  const rightPush = rightOpen && layout.rightMode === "push";
+  const suggestionCount = openProposals.length;
+  const onRailTab = (tab: RailTab) => uiDispatch({ type: "rail/tab", tab });
+
+  const meta = PANEL_META[shownPanel];
+  const leftBody = (
+    <>
+      {phone && (
+        <ChoiceGroup
+          aria-label="Layout panels"
+          className="mb-4"
+          options={PANEL_ORDER.filter((p) => p !== "tailor" || config.features.tailor).map((p) => ({ value: p, label: PANEL_META[p].title }))}
+          value={shownPanel}
+          onChange={(v) => openPanel(v as LeftPanel)}
+        />
+      )}
+      {shownPanel === "add" && <AddSectionPanel focusKind={addFocusKind} />}
+      {shownPanel === "template" && <PickTemplatePanel />}
+      {shownPanel === "swap" && <SwapSectionPanel />}
+      {shownPanel === "tailor" && <TailorPanel />}
+    </>
+  );
+
+  const rightTitle = phone ? "Preview" : shownView === "pdf" ? "PDF view" : "Print layout";
+
+  const rail = (
+    <RightRail
+      tab={ui.railTab}
+      onTab={onRailTab}
+      config={config}
+      aiUsageLine={aiUsageLine}
+      suggestionCount={suggestionCount}
+      onTailor={() => openPanel("tailor")}
+    />
+  );
+
   return (
-    <div data-plan={plan} className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 pb-20 md:pb-0">
+    <div data-plan={plan} className="flex h-dvh min-h-0 flex-col bg-v2-canvas">
       <EditorTopBar
-        title={doc.meta.title}
-        onTitleChange={(title) => dispatch({ type: "title/edit", title, at: Date.now() })}
-        onTitleBlur={() => {
-          if (!doc.meta.title.trim()) dispatch({ type: "title/edit", title: "Untitled resume", at: Date.now() });
-        }}
         status={status}
-        savedAt={state.savedAt}
-        now={Math.max(now, state.savedAt ?? 0)}
+        savedAt={state.savedAt ?? loadedAt}
+        now={Math.max(now, state.savedAt ?? loadedAt ?? 0)}
         error={state.error}
-        canUndo={canUndoEdit(state)}
-        canRedo={canRedoEdit(state)}
-        onUndo={() => dispatch({ type: "history/undo" })}
-        onRedo={() => dispatch({ type: "history/redo" })}
-        onExport={exportNow}
+        leftPanel={ui.leftPanel}
+        onTogglePanel={togglePanel}
+        panelRefs={panelRefs}
+        showTailor={config.features.tailor}
+        onDownloadPdf={downloadPdf}
+        onDownloadText={downloadText}
         exporting={exporting}
         exportDisabled={state.phase === "conflict"}
+        downloadRef={downloadRef}
+        onClose={closeEditor}
       />
 
-      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-[200px_minmax(0,1fr)_minmax(0,1fr)]">
-        <SectionsRail
-          sections={doc.sections}
-          activeId={active?.id ?? ""}
-          onSelect={setActiveId}
-          className={cn("md:col-span-2 xl:col-span-1", tab === "preview" && "max-md:hidden")}
-        />
+      <div
+        ref={gridRef}
+        data-rail={layout.railCollapsed ? "collapsed" : "full"}
+        data-viewport={layout.viewport}
+        style={{ "--rb-rail": `${railTrack}px` } as CSSProperties}
+        className="grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)_0px_auto] pt-4 lg:grid-cols-[auto_minmax(0,1fr)_var(--rb-rail)_auto]"
+      >
+        {/* left side-nav */}
+        <div className={cn("col-start-1 row-start-1 min-h-0 transition-[padding] duration-200", leftPush && "pb-4 pl-4")}>
+          <SideSheet
+            id="rb-left-sheet"
+            side="left"
+            mode={layout.leftMode}
+            open={leftOpen}
+            width={LEFT_SHEET_WIDTH}
+            title={meta.title}
+            description={meta.description}
+            icon={meta.icon}
+            onClose={closeLeft}
+            returnFocusTo={returnFocus}
+          >
+            {leftBody}
+          </SideSheet>
+        </div>
 
-        <section
+        {/* the document */}
+        <main
+          ref={scrollRef}
           aria-label="Editor"
-          className={cn(
-            "min-w-0 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-5",
-            tab === "preview" && "max-md:hidden",
-          )}
+          className="col-start-2 row-start-1 min-h-0 min-w-0 overflow-y-auto px-4 pb-4 max-md:pb-24 md:max-lg:pb-20"
         >
-          {active ? (
-            <>
-              <h2 className="mb-3 font-display text-[18px] font-extrabold tracking-tight text-ink">{sectionTitle(active)}</h2>
-              <SectionEditor key={active.id} section={active} dispatch={dispatch} />
-            </>
-          ) : (
-            <p className="text-[13.5px] text-ink-soft">This resume has no sections yet.</p>
-          )}
-        </section>
+          <div className="mx-auto flex max-w-[880px] flex-col gap-4">
+            {/* Interim rename field until the resume header bar (R3.9) and the canvas name block (R2.1). */}
+            <label className="flex items-center gap-3 rounded-2xl border border-v2-line/70 bg-paper px-4 py-2 shadow-v2-soft">
+              <span className="flex-none text-[12.5px] font-semibold text-ink-soft">Resume name</span>
+              <input
+                value={doc.meta.title}
+                // config-literal-ok: meta.title maxLength is a schema constant (DESIGN 3.1), not a settings key
+                maxLength={200}
+                onChange={(e) => dispatch({ type: "title/edit", title: e.target.value, at: Date.now() })}
+                onBlur={() => {
+                  if (!doc.meta.title.trim()) dispatch({ type: "title/edit", title: "Untitled resume", at: Date.now() });
+                }}
+                placeholder="Untitled resume"
+                className="min-h-11 min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 font-display text-[16px] font-bold text-ink outline-none hover:border-line focus:border-accent focus:bg-paper"
+              />
+            </label>
 
-        <PreviewPane
-          doc={doc}
-          theme={state.theme}
-          templateId={state.templateId}
-          className={cn("md:sticky md:top-36", tab === "edit" && "max-md:hidden")}
-        />
+            <SectionTabs
+              sections={doc.sections}
+              activeId={ui.activeSectionId}
+              onActiveChange={(id) => uiDispatch({ type: "section/active", id })}
+              scrollRootRef={scrollRef}
+              onAddSection={openAddFor}
+              className="sticky top-0 z-10 rounded-2xl border shadow-v2-soft"
+            />
+
+            {/* Placeholder blocks (the R0 section editors) until the document canvas, R2.1. */}
+            <div className="flex flex-col gap-8 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-6">
+              <section id={BASICS_BLOCK_ID} aria-label="Personal info" className="rb-block scroll-mt-20">
+                <h2 className="font-display text-[26px] font-extrabold tracking-tight text-ink">{doc.basics.name?.trim() || "Your name"}</h2>
+                {doc.basics.headline?.trim() && <p className="text-[15px] text-ink-soft">{doc.basics.headline}</p>}
+                <p className="mt-2 text-[13px] text-ink-soft">
+                  {[doc.basics.location, doc.basics.phone, doc.basics.email].filter(Boolean).join("  ·  ") || "No contact details yet."}
+                </p>
+                <p className="mt-2 text-[12.5px] text-muted">Editing your header arrives with the document canvas.</p>
+              </section>
+
+              {doc.sections.length === 0 && <p className="text-[13.5px] text-ink-soft">This resume has no sections yet.</p>}
+              {doc.sections.map((s) => (
+                <section key={s.id} id={blockId(s.id)} aria-labelledby={`${blockId(s.id)}-h`} className="rb-block scroll-mt-20">
+                  <h2
+                    id={`${blockId(s.id)}-h`}
+                    className="mb-3 flex items-center gap-2 font-display text-[16px] font-extrabold uppercase tracking-wide text-ink"
+                  >
+                    {sectionTitle(s)}
+                    {s.hidden && <span className="rounded bg-paper-2 px-1.5 py-0.5 text-[10.5px] font-semibold normal-case tracking-normal text-ink-soft">Hidden</span>}
+                  </h2>
+                  <SectionEditor section={s} dispatch={dispatch} />
+                </section>
+              ))}
+            </div>
+          </div>
+        </main>
+
+        {/* right rail, or its 56 px strip while the left sheet is open and short of room */}
+        <div className="col-start-3 row-start-1 hidden min-h-0 lg:block">
+          <div className="h-full overflow-y-auto pb-4 pr-4" style={{ width: railTrack }}>
+            {layout.railCollapsed ? (
+              <div className="pr-0.5" data-rail-collapsed>
+                <RailStrip
+                  config={config}
+                  suggestionCount={suggestionCount}
+                  activeTab={ui.railTab}
+                  onExpand={(tab) => uiDispatch({ type: "rail/expand", tab })}
+                />
+              </div>
+            ) : (
+              rail
+            )}
+          </div>
+        </div>
+
+        {/* right side-nav: Print layout / PDF view (R3.8), also the phone Preview sheet */}
+        <div className={cn("col-start-4 row-start-1 min-h-0 transition-[padding] duration-200", rightPush && "pb-4 pr-4")}>
+          <SideSheet
+            id="rb-right-sheet"
+            side="right"
+            mode={layout.rightMode}
+            open={rightOpen}
+            width={RIGHT_SHEET_WIDTH}
+            title={rightTitle}
+            description="Arrives with the print and PDF views"
+            icon={<FileTextIcon className="h-5 w-5" />}
+            onClose={closeRight}
+            returnFocusTo={rightReturnFocus}
+          >
+            {phone && (
+              <ChoiceGroup
+                aria-label="Preview type"
+                className="mb-4"
+                options={[
+                  { value: "print", label: "Print layout" },
+                  { value: "pdf", label: "PDF view" },
+                ]}
+                value={shownView}
+                onChange={(v) => uiDispatch({ type: "rightView/toggle", view: v as RightView })}
+              />
+            )}
+            <PanelPlaceholder panel="preview" comingIn="R3.8" />
+          </SideSheet>
+        </div>
       </div>
 
+      {/* phone / tablet: the rail lives in a sheet (Insights tab / bar) */}
+      <SideSheet
+        id="rb-rail-sheet"
+        side="right"
+        mode={phone ? "fullscreen" : "overlay"}
+        open={railSheetOpen}
+        width={RAIL_WIDTH}
+        title="Insights"
+        description="Your score, suggestions and job match"
+        icon={<ChartIcon className="h-5 w-5" />}
+        onClose={closeRailSheet}
+        returnFocusTo={railReturnFocus}
+      >
+        {rail}
+      </SideSheet>
+
+      {/* phone: Edit · Layout · Insights · Preview (DESIGN 10.9) */}
       <div
         role="tablist"
-        aria-label="Edit or preview"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 border-t border-line/70 bg-paper/95 backdrop-blur md:hidden"
+        aria-label="Editor views"
+        className="fixed inset-x-0 bottom-0 z-30 grid h-14 grid-cols-4 border-t border-line/70 bg-paper md:hidden"
       >
-        {(["edit", "preview"] as const).map((t) => (
+        {PHONE_TABS.map((t) => {
+          const selected = ui.phoneTab === t.value;
+          return (
+            <button
+              key={t.value}
+              ref={t.value === "layout" ? layoutTabRef : t.value === "insights" ? insightsTabRef : t.value === "preview" ? previewTabRef : undefined}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => selectPhoneTab(t.value)}
+              className={cn(
+                "min-h-11 text-[13px] font-semibold transition-colors",
+                selected ? "border-t-2 border-accent-deep text-ink" : "border-t-2 border-transparent text-ink-soft",
+              )}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* tablet: the rail collapses to one Insights bar */}
+      <div className="fixed inset-x-0 bottom-0 z-30 hidden h-14 items-center justify-center border-t border-line/70 bg-paper md:flex lg:hidden">
+        <Tooltip content="Score, suggestions and job match" side="top">
           <button
-            key={t}
             type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={cn(
-              "min-h-14 text-[14px] font-semibold capitalize transition-colors",
-              tab === t ? "border-t-2 border-accent text-ink" : "border-t-2 border-transparent text-ink-soft",
-            )}
+            aria-expanded={railSheetOpen}
+            aria-controls="rb-rail-sheet"
+            onClick={() => selectPhoneTab("insights")}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-[14px] font-semibold text-ink hover:bg-paper-2"
           >
-            {t}
+            <ChartIcon className="h-4 w-4" /> Insights
           </button>
-        ))}
+        </Tooltip>
       </div>
 
       <ConflictDialog open={state.phase === "conflict"} onKeepMine={keepMine} onTakeTheirs={takeTheirs} />

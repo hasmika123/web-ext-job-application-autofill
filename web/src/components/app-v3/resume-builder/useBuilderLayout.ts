@@ -6,9 +6,11 @@ import type { UiAction } from "./state/ui";
 
 /**
  * Feeds the editor grid's width into the UI reducer (`layout/set`), which derives
- * `layout.{leftMode, rightMode, viewport}` from it (DESIGN §10.1 "space-aware push": a sheet pushes
- * only while the centre column keeps >= 560 px, below 768 everything is fullscreen). Observes the
- * element with a `ResizeObserver`; falls back to `window` resize where there is none.
+ * `layout.{leftMode, rightMode, viewport, railCollapsed}` from it (DESIGN §10.1 "space-aware push":
+ * a sheet pushes only while the centre column keeps >= 560 px, and on desktop >= 1024 the left
+ * sheet first collapses the right rail to a 56 px strip to make room - rail collapse, DECISIONS #28;
+ * below 768 everything is fullscreen). Observes the element with a `ResizeObserver`; falls back to
+ * `window` resize where there is none. The derivation itself lives in `state/ui.ts` (`computeLayout`).
  *
  *   const gridRef = useRef<HTMLDivElement>(null);
  *   const [ui, dispatch] = useUiState();
