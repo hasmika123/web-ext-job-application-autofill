@@ -312,7 +312,7 @@
       "id": "R1.1",
       "epic": "R1",
       "title": "Profile items API — CRUD, reorder, import (seed from default resume), completeness",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API"
