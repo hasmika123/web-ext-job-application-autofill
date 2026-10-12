@@ -83,7 +83,7 @@ export function createOrgsMock({ DEMO_ORG, orgsEnabled, json, withBody, subOf, f
       timezone: o.timezone ?? "UTC", billingEmail: null, settings: null, createdAt: new Date(Date.now() - 40 * 86_400_000).toISOString(), closedAt: null,
       createdBy: DEMO_ORG.owner, demo: true, members,
       groups: DEMO_ORG.groups.map((g) => ({ id: g.id, name: g.name, kind: g.kind, sortOrder: g.sortOrder })),
-      audit: [],
+      audit: [{ id: 1, at: new Date(Date.now() - 40 * 86_400_000).toISOString(), actor: DEMO_ORG.owner, role: "OWNER", action: "ORG_CREATE", details: "type=BOOTCAMP (demo seed)" }],
     });
     // ---- the fixtures' orgs ----
     for (const f of fixtures) {
@@ -258,6 +258,78 @@ export function createOrgsMock({ DEMO_ORG, orgsEnabled, json, withBody, subOf, f
     o.status = "ACTIVE";
     audit(o, m, "BILLING_DEV_ACTIVATED", `status DRAFT -> ACTIVE (billing off)`);
     return ok(res, detail(o, m));
+  });
+
+  // ---- the dashboard: checklist + overview (O2.7) -------------------------------------------------------------------
+  const count = (o, role, status) => o.members.filter((m) => m.role === role && m.status === status).length;
+  on("GET", "/onboarding", "org.settings.manage", (req, res, o) => {
+    const admins = count(o, "ADMIN", "ACTIVE");
+    const adminsInvited = count(o, "ADMIN", "INVITED");
+    const people = count(o, "MEMBER", "ACTIVE");
+    const peopleInvited = count(o, "MEMBER", "INVITED");
+    const row = (key, done, c = null, total = null, href = "/org", optional = false) => ({ key, done, count: c, total, href, available: key === "activate" || key === "groups", optional });
+    const items = [
+      row("activate", o.status === "ACTIVE" || o.status === "PAST_DUE", null, null, "/org/billing"),
+      row("groups", o.groups.length >= 1, o.groups.length),
+      row("profile", !!o.website, null, null, "/org/settings"),
+      row("admins", admins >= 1, admins, admins + adminsInvited, "/org/team"),
+      row("invite", people >= 1, people, people + peopleInvited, "/org/team"),
+      row("plans", false, null, null, "/org/billing"),
+      row("owners", false, null, null, "/org/team"),
+      row("domain", false, 0, null, "/org/settings", true),
+    ];
+    const required = items.filter((i) => !i.optional);
+    const done = required.filter((i) => i.done).length;
+    return ok(res, { items, done, total: required.length, complete: done === required.length });
+  });
+
+  /** The demo org's applications, derived like DemoOrgSeeder's (2 to 6 per active member, statuses cycling) so the mock dashboard has the same shape as the real stack's. */
+  const PIPE = ["APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED"];
+  const SEED_STATUSES = ["APPLIED", "SAVED", "INTERVIEW", "APPLIED", "REJECTED", "OFFER", "DRAFT"];
+  function demoApplications(o) {
+    const counts = Object.fromEntries(PIPE.map((s) => [s, 0]));
+    let submitted30d = 0;
+    let placed = 0;
+    let index = 0;
+    for (const m of o.members) {
+      if (m.role !== "MEMBER" || m.status !== "ACTIVE" || m.login === DEMO_ORG.jobSeeker.login) continue;
+      const shares = m.scope === "SUMMARY" || m.scope === "FULL";
+      const n = 2 + ((index * 3) % 5);
+      let accepted = false;
+      for (let i = 0; i < n && shares; i++) {
+        const status = SEED_STATUSES[(index + i) % SEED_STATUSES.length];
+        if (status in counts) counts[status]++;
+        if (status !== "SAVED" && status !== "DRAFT" && 4 + i * 5 + index - 1 <= 30) submitted30d++;
+        if (status === "OFFER" && (index + i) % 2 === 0) accepted = true;
+      }
+      if (accepted) placed++;
+      index++;
+    }
+    return { counts, submitted30d, placed };
+  }
+  on("GET", "/overview", "reports.view", (req, res, o, m) => {
+    const sharing = o.members.filter((x) => x.role === "MEMBER" && x.status === "ACTIVE" && (x.scope === "SUMMARY" || x.scope === "FULL")).length;
+    const apps = o.demo && sharing > 0 && (m.role === "OWNER" || m.role === "ADMIN" || m.role === "FINANCE") ? demoApplications(o) : { counts: Object.fromEntries(PIPE.map((s) => [s, 0])), submitted30d: 0, placed: 0 };
+    const seats = o.members.filter((x) => ["ACTIVE", "INVITED", "SUSPENDED"].includes(x.status)).length;
+    const mayAudit = can(m, "audit.view");
+    const finance = m.role === "FINANCE";
+    const recent = (mayAudit ? o.audit : [])
+      .filter((e) => !finance || /^(BILLING_|OPS_)/.test(e.action))
+      .slice(0, 8)
+      .map((e) => ({ id: e.id, at: e.at, action: e.action, targetType: "ORG", mine: e.actor === m.login }));
+    return ok(res, {
+      seats: { total: seats, active: liveSeats(o), invited: count(o, "MEMBER", "INVITED") + count(o, "ADMIN", "INVITED") + count(o, "STAFF", "INVITED"), sharing: ["OWNER", "ADMIN", "FINANCE"].includes(m.role) ? sharing : 0 },
+      groups: o.groups.length,
+      applications: {
+        submitted30d: apps.submitted30d,
+        interviewing: apps.counts.INTERVIEW,
+        offers: apps.counts.OFFER,
+        placedMembers: apps.placed,
+        upcomingInterviews: 0,
+        pipeline: PIPE.map((s) => ({ stage: s, count: apps.counts[s] })),
+      },
+      recent,
+    });
   });
 
   /** The request handler: true when it answered. */

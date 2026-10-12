@@ -369,6 +369,10 @@ public class DemoOrgSeeder {
                 a.setUpdatedAt(created);
                 a.setSubmissionConfirmed(false);
             }
+            if (status == ApplicationStatus.OFFER && (index + i) % 2 == 0) { // some offers were accepted, so the dashboard's "placed" is not zero
+                a.setOutcome("ACCEPTED");
+                a.setAcceptedAt(created.plus(12, ChronoUnit.DAYS));
+            }
             applications.save(a);
         }
         return count;

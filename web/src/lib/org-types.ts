@@ -110,3 +110,48 @@ export interface OrgBilling {
   items: unknown[];
   invoices: unknown[];
 }
+
+/** One row of the activation checklist (`GET /api/orgs/{id}/onboarding`, onboarding-invites.md section 5). */
+export interface OnboardingItem {
+  key: "activate" | "groups" | "profile" | "admins" | "invite" | "plans" | "owners" | "domain";
+  done: boolean;
+  /** The live number behind the row ("38" of 60 joined), null when it has none. */
+  count: number | null;
+  total: number | null;
+  href: string;
+  /** The action it points at exists in this build; false rows are shown as "soon", never as a dead link. */
+  available: boolean;
+  /** Optional rows do not count towards completion. */
+  optional: boolean;
+}
+
+export interface OrgOnboarding {
+  items: OnboardingItem[];
+  done: number;
+  total: number;
+  complete: boolean;
+}
+
+/** `GET /api/orgs/{id}/overview`: seat counts and the progress of the members who share (never an employer, a title or a document). */
+export interface OrgOverview {
+  seats: { total: number; active: number; invited: number; sharing: number };
+  groups: number;
+  applications: {
+    submitted30d: number;
+    interviewing: number;
+    offers: number;
+    placedMembers: number;
+    upcomingInterviews: number;
+    pipeline: { stage: string; count: number }[];
+  };
+  recent: { id: number; at: string; action: string; targetType: string; mine: boolean }[];
+}
+
+/** `GET /api/orgs/{id}/groups`. */
+export interface OrgGroup {
+  id: number;
+  name: string;
+  kind: "DEPARTMENT" | "COHORT" | "TEAM";
+  sortOrder: number;
+  memberCount: number;
+}

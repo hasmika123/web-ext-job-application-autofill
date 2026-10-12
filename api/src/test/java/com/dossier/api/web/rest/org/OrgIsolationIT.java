@@ -17,6 +17,9 @@ import com.dossier.api.domain.org.OrgInviteBatch;
 import com.dossier.api.domain.org.OrgJoinCode;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.org.Organization;
+import com.dossier.api.domain.Application;
+import com.dossier.api.domain.enumeration.ApplicationStatus;
+import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.DataShareEventRepository;
 import com.dossier.api.repository.org.DataShareRepository;
@@ -26,6 +29,7 @@ import com.dossier.api.repository.org.OrgGroupRepository;
 import com.dossier.api.repository.org.OrgInviteBatchRepository;
 import com.dossier.api.repository.org.OrgJoinCodeRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.repository.org.OrgOverviewRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.org.DataShareService;
 import com.dossier.api.service.org.DataShareService.ShareContext;
@@ -118,6 +122,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/billing", Case.read()),
         // E2E-O4.0: the legitimate call needs a DRAFT org, so the legit loop below puts the world's org back to DRAFT first.
         Map.entry("POST /api/orgs/{orgId}/activate", Case.write(null, 200, OrgAuditService.BILLING_DEV_ACTIVATED)),
+        Map.entry("GET /api/orgs/{orgId}/onboarding", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/overview", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/groups", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/groups", Case.write("{\"name\":\"Hijack\"}", 201, OrgAuditService.GROUP_CREATE)),
         Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
@@ -139,6 +145,8 @@ class OrgIsolationIT {
     @Autowired private OrgAuditEventRepository audit;
     @Autowired private DataShareRepository shares;
     @Autowired private DataShareEventRepository shareEvents;
+    @Autowired private ApplicationRepository applications;
+    @Autowired private OrgOverviewRepository overviewRepository;
     @Autowired private DataShareService dataShare;
     @Autowired private OrgResumeSharing resumeSharing;
 
@@ -210,6 +218,17 @@ class OrgIsolationIT {
 
             // The member shares a summary with their org: one data_share row and its event.
             dataShare.grant(me(member), ShareScope.SUMMARY, null, OrgShareConsent.CURRENT, ShareContext.EMPTY);
+            // ...and has one applied-for job, so the dashboard aggregates have something of this org's to count (and to not leak).
+            Application app = new Application();
+            app.setUser(users.findById(member.getUserId()).orElseThrow());
+            app.setCompany(prefix + " employer");
+            app.setRoleTitle("Designer");
+            app.setStatus(ApplicationStatus.APPLIED);
+            app.setCreatedAt(Instant.now());
+            app.setUpdatedAt(Instant.now());
+            app.setAppliedAt(Instant.now());
+            app.setArchived(false);
+            applications.save(app);
             em.flush();
         }
 
@@ -517,6 +536,18 @@ class OrgIsolationIT {
             assertThat(shareEvents.findByOrgIdAndMemberLoginOrderByIdAsc(B, "alpha-member")).isEmpty();
             assertThat(shareEvents.findByOrgIdAndMemberLoginOrderByIdAsc(A, "alpha-member")).hasSize(1);
             assertThat(shareEvents.countByOrgId(B)).isEqualTo(1);
+        }));
+        checks.put("OrgOverviewRepository", new RepoCheck(Set.of("stageCounts", "sharingMembers", "placedMembers", "upcomingInterviews"), () -> {
+            long all = OrgOverviewRepository.ALL_OWNERS;
+            Instant since = Instant.now().minusSeconds(86_400L * 30);
+            // each world has exactly one sharing member with exactly one APPLIED application: a leak would make it two
+            assertThat(overviewRepository.sharingMembers(A, all)).isEqualTo(1);
+            assertThat(overviewRepository.sharingMembers(B, all)).isEqualTo(1);
+            assertThat(overviewRepository.sharingMembers(B, a.staff.getId())).as("A's support owner looks after nobody in B").isZero();
+            assertThat(overviewRepository.stageCounts(B, all, since)).hasSize(1).allSatisfy(row -> assertThat(((Number) row[1]).longValue()).isEqualTo(1));
+            assertThat(overviewRepository.stageCounts(A, all, since)).hasSize(1).allSatisfy(row -> assertThat(((Number) row[1]).longValue()).isEqualTo(1));
+            assertThat(overviewRepository.placedMembers(B, all)).isZero();
+            assertThat(overviewRepository.upcomingInterviews(B, all, Instant.now())).isZero();
         }));
         return checks;
     }
