@@ -270,8 +270,13 @@ first in every template; the Swap Section panel lists it with a disabled handle 
 ### 3.5 Projections (algorithm unchanged + v2 rules)
 - `project.ts` ⇔ `ResumeDocumentProjector.java` → `StructuredResume` (six keys). INTERESTS and CUSTOM
   are not projected; summary `list` projects as the lines joined by `"\n"`; marks ignored.
-- `text.ts` ⇔ `ResumeDocumentText.java`: summary `list` → `- ` / `1. ` prefixed lines; `listStyle:
-  "number"` → `1. ` bullets; links per §3.3; INTERESTS → one line `Interest, Interest, …`.
+- `text.ts` ⇔ `ResumeDocumentText.java`: summary `list` → `- ` / `N. ` prefixed lines; `listStyle:
+  "number"` → `N. ` bullets; links per §3.3; INTERESTS → one line `Interest, Interest, …`.
+  **Numbered lists count per list block:** a list block is one summary item with `list: "number"`, or one item's
+  `bullets` with `listStyle: "number"`; its non-empty lines are numbered `1. `, `2. `, `3. ` … in order (an empty
+  line is skipped and consumes no number) and the next list block restarts at `1. `. Bullet lists keep the `- `
+  marker. (R2.7 first rendered a literal `1. ` on every line; fixed in `rb2.7-fix`. The template HTML does not
+  render `listStyle` yet, so only the two text renderers and `full-v2.txt` change.)
 - Golden fixtures gain `full-v2.{json,structured.json,txt,hash.txt}` in both trees (byte-identical).
 
 ### 3.6 Migration v1 → v2

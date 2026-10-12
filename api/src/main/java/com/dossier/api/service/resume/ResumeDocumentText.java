@@ -36,8 +36,8 @@ import java.util.Locale;
  *
  * Hidden items are skipped. Items that render no line are skipped. Per kind, one item renders:
  *   SUMMARY        the text line. With list = "bullet" / "number" (v2): the text is split on "\n" and
- *                  every non-empty line (oneLine'd) is its own line prefixed "- " / "1. " (the
- *                  literal "1. " on every line, not a counter).
+ *                  every non-empty line (oneLine'd) is its own line prefixed "- " / "1. ", "2. ", "3. " ...
+ *                  (a numbered list counts per list block: here, this one summary item).
  *   INTERESTS      the whole section is ONE line: every visible item's text (oneLine'd, empties
  *                  dropped) joined with ", ". Items are not separated by blank lines.
  *   EXPERIENCE     join(DOT, join(EM, title, org), location, dates), then "- " + bullet per bullet.
@@ -54,8 +54,9 @@ import java.util.Locale;
  *                 : (start and end both non-empty ? start + EN + end : start + end)
  * (dates are the stored YYYY / YYYY-MM strings, untouched. Only EXPERIENCE/CUSTOM/EDUCATION have
  *  dates; for the other kinds "current" is ignored.)
- * Bullets (EXPERIENCE / EDUCATION / PROJECTS / CUSTOM) are "- " prefixed, or "1. " when the item has
- * listStyle = "number". Inline marks are otherwise ignored (plain text), EXCEPT links: after the end
+ * Bullets (EXPERIENCE / EDUCATION / PROJECTS / CUSTOM) are "- " prefixed, or "1. ", "2. ", "3. " ... when the
+ * item has listStyle = "number" (the item's non-empty bullets are one list block: they count from 1 and the
+ * next item's list restarts at 1). Inline marks are otherwise ignored (plain text), EXCEPT links: after the end
  * of every link mark (t = "a") whose covered text (trimWs'd) is not already its href, " (" + trimWs(href)
  * + ")" is inserted; this is done on the RAW text using the mark offsets, before oneLine() collapses
  * whitespace. Malformed / out-of-range marks are ignored. Applies to the summary, bullets and
@@ -162,10 +163,11 @@ public final class ResumeDocumentText {
     }
 
     private static void bullets(List<String> lines, JsonNode item) {
-        String marker = marker(ResumeDocument.str(item, "listStyle"));
+        boolean numbered = ResumeDocument.str(item, "listStyle").equals("number");
+        int n = 0;
         for (JsonNode b : ResumeDocument.list(item, "bullets")) {
             String t = marked(b);
-            if (!t.isEmpty()) lines.add(marker + t);
+            if (!t.isEmpty()) lines.add(marker(numbered, ++n) + t);
         }
     }
 
@@ -177,16 +179,17 @@ public final class ResumeDocumentText {
             add(lines, ResumeDocument.oneLine(text));
             return;
         }
-        String marker = marker(list);
+        boolean numbered = list.equals("number");
+        int n = 0;
         for (String line : text.split("\n", -1)) {
             String t = ResumeDocument.oneLine(line);
-            if (!t.isEmpty()) lines.add(marker + t);
+            if (!t.isEmpty()) lines.add(marker(numbered, ++n) + t);
         }
     }
 
-    /** {@code "number"} -> "1. " (the literal prefix on every line); anything else -> "- ". */
-    private static String marker(String style) {
-        return style.equals("number") ? "1. " : "- ";
+    /** A numbered list counts "1. ", "2. ", "3. " ... per list block (the n-th non-empty line of one bullets list / one list summary); otherwise "- ". */
+    private static String marker(boolean numbered, int n) {
+        return numbered ? n + ". " : "- ";
     }
 
     /** {@code node.text} with link suffixes, as a single cleaned line. */

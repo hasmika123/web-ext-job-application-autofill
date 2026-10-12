@@ -7,8 +7,9 @@
  * - Header: name, headline, contacts (email | phone | location | links); empty lines omitted.
  * - Sections in document order, skipping hidden ones and ones with no body line: blank line (only if
  *   something precedes), TITLE (section title or the kind's default, upper-cased), then the body.
- * - v2: a summary with `list` renders one "- " / "1. " prefixed line per non-empty "\n" line (the literal
- *   "1. " on every line, not a counter); bullets are "1. " when the item has `listStyle: "number"`;
+ * - v2: a summary with `list` renders one "- " / "1. " prefixed line per non-empty "\n" line; a numbered
+ *   list counts "1. ", "2. ", "3. " ... per list block (one summary item, or one item's bullets) and
+ *   restarts at 1 for the next list; bullets are numbered when the item has `listStyle: "number"`;
  *   after the end of every link mark whose text is not already its URL, " (<href>)" is inserted;
  *   INTERESTS is one line "A, B, C". Other marks are ignored (plain text).
  * - Items of EXPERIENCE / EDUCATION / PROJECTS / CUSTOM are separated by a blank line.
@@ -112,10 +113,11 @@ function itemLines(it: Json, kind: SectionKind): string[] {
 }
 
 function bullets(lines: string[], item: Json): void {
-  const mark = marker(str(item, "listStyle"));
+  const numbered = str(item, "listStyle") === "number";
+  let n = 0;
   for (const b of list(item, "bullets")) {
     const t = isObject(b) ? marked(b) : "";
-    if (t) lines.push(mark + t);
+    if (t) lines.push(marker(numbered, ++n) + t);
   }
 }
 
@@ -126,16 +128,17 @@ function summary(lines: string[], it: Json): void {
     add(lines, oneLine(text));
     return;
   }
-  const mark = marker(str(it, "list"));
+  const numbered = str(it, "list") === "number";
+  let n = 0;
   for (const line of text.split("\n")) {
     const t = oneLine(line);
-    if (t) lines.push(mark + t);
+    if (t) lines.push(marker(numbered, ++n) + t);
   }
 }
 
-/** `"number"` -> "1. " (the literal prefix on every line); anything else -> "- ". */
-function marker(style: string): string {
-  return style === "number" ? "1. " : "- ";
+/** A numbered list counts "1. ", "2. ", "3. " ... per list block (the n-th non-empty line of one bullets list / one list summary); otherwise "- ". */
+function marker(numbered: boolean, n: number): string {
+  return numbered ? `${n}. ` : "- ";
 }
 
 /** `node.text` with link suffixes, as a single cleaned line. */

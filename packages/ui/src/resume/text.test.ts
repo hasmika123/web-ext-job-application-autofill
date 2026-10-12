@@ -29,7 +29,26 @@ describe("text.ts reproduces the Java plain-text export byte for byte", () => {
 });
 
 describe("text.ts v2 rules (twin of ResumeDocumentTextTest)", () => {
-  it("summary lists and numbered bullets use the literal prefixes", () => {
+  it("a numbered list counts per list block and restarts for each separate list", () => {
+    const doc = {
+      sections: [
+        { kind: "SUMMARY", items: [{ text: "a\n\nb\nc", list: "number" }] },
+        {
+          kind: "EXPERIENCE",
+          items: [
+            { title: "A", listStyle: "number", bullets: [{ text: "p" }, { text: "" }, { text: "q" }, { text: "r" }] },
+            { title: "B", listStyle: "number", bullets: [{ text: "s" }, { text: "t" }] },
+            { title: "C", listStyle: "bullet", bullets: [{ text: "u" }, { text: "v" }] },
+          ],
+        },
+      ],
+    };
+    expect(renderText(doc)).toBe(
+      "SUMMARY\n1. a\n2. b\n3. c\n\nEXPERIENCE\nA\n1. p\n2. q\n3. r\n\nB\n1. s\n2. t\n\nC\n- u\n- v\n",
+    );
+  });
+
+  it("summary lists and numbered bullets use their prefixes", () => {
     const doc = {
       sections: [
         { kind: "SUMMARY", items: [{ text: "a\n\n  b  \nc", list: "bullet" }] },
@@ -37,8 +56,8 @@ describe("text.ts v2 rules (twin of ResumeDocumentTextTest)", () => {
         { kind: "PROJECTS", items: [{ title: "P", listStyle: "bullet", bullets: [{ text: "r" }] }] },
       ],
     };
-    expect(renderText(doc)).toBe("SUMMARY\n- a\n- b\n- c\n\nX\nT\n1. p\n1. q\n\nPROJECTS\nP\n- r\n");
-    expect(renderText({ sections: [{ kind: "SUMMARY", items: [{ text: "a\nb", list: "number" }] }] })).toBe("SUMMARY\n1. a\n1. b\n");
+    expect(renderText(doc)).toBe("SUMMARY\n- a\n- b\n- c\n\nX\nT\n1. p\n2. q\n\nPROJECTS\nP\n- r\n");
+    expect(renderText({ sections: [{ kind: "SUMMARY", items: [{ text: "a\nb", list: "number" }] }] })).toBe("SUMMARY\n1. a\n2. b\n");
     expect(renderText({ sections: [{ kind: "SUMMARY", items: [{ text: "a\nb" }] }] })).toBe("SUMMARY\na b\n");
   });
 

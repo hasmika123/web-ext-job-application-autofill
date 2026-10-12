@@ -16,15 +16,28 @@ class ResumeDocumentTextTest {
     }
 
     @Test
-    void summaryListsAndNumberedBulletsUseTheLiteralPrefixes() {
+    void aNumberedListCountsPerListBlockAndRestartsForEachSeparateList() {
+        JsonNode doc = ResumeDocument.parse(
+            "{\"sections\":[{\"kind\":\"SUMMARY\",\"items\":[{\"text\":\"a\\n\\nb\\nc\",\"list\":\"number\"}]},"
+                + "{\"kind\":\"EXPERIENCE\",\"items\":["
+                + "{\"title\":\"A\",\"listStyle\":\"number\",\"bullets\":[{\"text\":\"p\"},{\"text\":\"\"},{\"text\":\"q\"},{\"text\":\"r\"}]},"
+                + "{\"title\":\"B\",\"listStyle\":\"number\",\"bullets\":[{\"text\":\"s\"},{\"text\":\"t\"}]},"
+                + "{\"title\":\"C\",\"listStyle\":\"bullet\",\"bullets\":[{\"text\":\"u\"},{\"text\":\"v\"}]}]}]}"
+        );
+        assertThat(ResumeDocumentText.render(doc))
+            .isEqualTo("SUMMARY\n1. a\n2. b\n3. c\n\nEXPERIENCE\nA\n1. p\n2. q\n3. r\n\nB\n1. s\n2. t\n\nC\n- u\n- v\n");
+    }
+
+    @Test
+    void summaryListsAndNumberedBulletsUseTheirPrefixes() {
         JsonNode doc = ResumeDocument.parse(
             "{\"sections\":[{\"kind\":\"SUMMARY\",\"items\":[{\"text\":\"a\\n\\n  b  \\nc\",\"list\":\"bullet\"}]},"
                 + "{\"kind\":\"CUSTOM\",\"title\":\"X\",\"items\":[{\"title\":\"T\",\"listStyle\":\"number\",\"bullets\":[{\"text\":\"p\"},{\"text\":\"q\"}]}]},"
                 + "{\"kind\":\"PROJECTS\",\"items\":[{\"title\":\"P\",\"listStyle\":\"bullet\",\"bullets\":[{\"text\":\"r\"}]}]}]}"
         );
-        assertThat(ResumeDocumentText.render(doc)).isEqualTo("SUMMARY\n- a\n- b\n- c\n\nX\nT\n1. p\n1. q\n\nPROJECTS\nP\n- r\n");
+        assertThat(ResumeDocumentText.render(doc)).isEqualTo("SUMMARY\n- a\n- b\n- c\n\nX\nT\n1. p\n2. q\n\nPROJECTS\nP\n- r\n");
         JsonNode numbered = ResumeDocument.parse("{\"sections\":[{\"kind\":\"SUMMARY\",\"items\":[{\"text\":\"a\\nb\",\"list\":\"number\"}]}]}");
-        assertThat(ResumeDocumentText.render(numbered)).isEqualTo("SUMMARY\n1. a\n1. b\n");
+        assertThat(ResumeDocumentText.render(numbered)).isEqualTo("SUMMARY\n1. a\n2. b\n");
         JsonNode plain = ResumeDocument.parse("{\"sections\":[{\"kind\":\"SUMMARY\",\"items\":[{\"text\":\"a\\nb\"}]}]}");
         assertThat(ResumeDocumentText.render(plain)).isEqualTo("SUMMARY\na b\n");
     }
