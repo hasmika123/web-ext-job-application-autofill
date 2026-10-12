@@ -2,6 +2,7 @@ import { BarChartIcon, CrownIcon, EyeIcon, UserIcon, UsersIcon } from "@kiwiply/
 import { Donut, InitialsAvatar } from "@/components/app-v2/common";
 import UsersTable, { type AdminUser } from "@/components/admin/UsersTable";
 import { AdminHero, AdminPanel, AdminStatTiles, HBarList, LegendList, SampleTag } from "../common";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until A1.3 removes it (ADMIN-E2E-PLAN 3.5)
 import { RECENT_ACCOUNT_ACTIONS, ROLE_DISTRIBUTION, USERS_TILE_EXTRAS as X, USER_SEGMENTS } from "../sample-data";
 
 const ROLE_ICON = { crown: <CrownIcon size={16} />, users: <UsersIcon size={16} />, eye: <EyeIcon size={16} />, user: <UserIcon size={16} /> };
@@ -39,10 +40,10 @@ export default function UsersPage({
 
       <AdminStatTiles
         stats={[
-          { label: "Total users", value: error ? "n/a" : total.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue", delta: X.total.delta, caption: "vs last 30 days", sparkline: X.total.spark },
-          { label: "Active users (7d)", value: active7d === undefined ? "n/a" : active7d.toLocaleString("en-US"), icon: <BarChartIcon size={26} />, tone: "green", delta: X.active.delta, caption: "vs previous 7 days", sparkline: X.active.spark },
-          { label: "Pending invites", value: X.pending.value, icon: <UserIcon size={26} />, tone: "amber", delta: X.pending.delta, caption: "sample data", sparkline: X.pending.spark },
-          { label: "Suspended users", value: X.suspended.value, icon: <UserIcon size={26} />, tone: "coral", delta: X.suspended.delta, caption: "sample data", sparkline: X.suspended.spark },
+          { label: "Total users", value: error ? "n/a" : total.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "blue" },
+          { label: "Active users (7d)", value: active7d === undefined ? "n/a" : active7d.toLocaleString("en-US"), icon: <BarChartIcon size={26} />, tone: "green" },
+          { label: "Pending invites", value: X.pending.value, icon: <UserIcon size={26} />, tone: "amber" },
+          { label: "Suspended users", value: X.suspended.value, icon: <UserIcon size={26} />, tone: "coral" },
         ]}
       />
 

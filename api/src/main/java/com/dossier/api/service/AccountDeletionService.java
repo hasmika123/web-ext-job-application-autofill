@@ -68,6 +68,7 @@ public class AccountDeletionService {
     private final ResumeBuilderDataService resumeBuilderDataService;
     private final OrgMembershipPrivacyService orgMembershipPrivacyService;
     private final TrackerDataService trackerDataService;
+    private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -94,7 +95,8 @@ public class AccountDeletionService {
         CustomerNoteRepository customerNoteRepository,
         ResumeBuilderDataService resumeBuilderDataService,
         OrgMembershipPrivacyService orgMembershipPrivacyService,
-        TrackerDataService trackerDataService
+        TrackerDataService trackerDataService,
+        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -121,6 +123,7 @@ public class AccountDeletionService {
         this.resumeBuilderDataService = resumeBuilderDataService;
         this.orgMembershipPrivacyService = orgMembershipPrivacyService;
         this.trackerDataService = trackerDataService;
+        this.jobSearchDataService = jobSearchDataService;
     }
 
     /**
@@ -211,6 +214,7 @@ public class AccountDeletionService {
                 jobFitService.deleteAllForUser(id);
                 resumeTailorService.deleteAllForUser(id);
                 jobMatchService.deleteAllForUser(id);
+                jobSearchDataService.deleteAllForUser(id);
                 inboxService.deleteAllForUser(id);
                 notificationService.deleteAllForUser(id);
                 orgMembershipPrivacyService.eraseFor(id, login); // org seats are anonymised before the user row goes (tenant-model.md section 6)
@@ -258,6 +262,7 @@ public class AccountDeletionService {
         jobFitService.deleteAllForUser(userId);
         resumeTailorService.deleteAllForUser(userId);
         jobMatchService.deleteAllForUser(userId);
+        jobSearchDataService.deleteAllForUser(userId);
         inboxService.deleteAllForUser(userId);
         notificationService.deleteAllForUser(userId);
         orgMembershipPrivacyService.eraseFor(userId, login);

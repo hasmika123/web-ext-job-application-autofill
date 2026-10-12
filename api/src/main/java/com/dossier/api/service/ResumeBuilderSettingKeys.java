@@ -46,8 +46,66 @@ public final class ResumeBuilderSettingKeys {
         Double max,
         List<String> allowed,
         String description,
-        Predicate<JsonNode> jsonCheck
-    ) {}
+        Predicate<JsonNode> jsonCheck,
+        String area,
+        AdminSettingsWriter.Risk risk
+    ) {
+        /**
+         * {@code area} is the key's first dotted segment and {@code risk} is {@link #defaultRisk} when not given
+         * (ADMIN-E2E-PLAN 2.1), so every declaration written before A5.1 compiles and behaves unchanged.
+         */
+        public Key {
+            if (area == null || area.isBlank()) area = areaOf(key);
+            if (risk == null) risk = defaultRisk(key, type);
+        }
+
+        public Key(
+            String key,
+            Type type,
+            String defaultValue,
+            Double min,
+            Double max,
+            List<String> allowed,
+            String description,
+            Predicate<JsonNode> jsonCheck
+        ) {
+            this(key, type, defaultValue, min, max, allowed, description, jsonCheck, null, null);
+        }
+
+        /** A declaration with an explicit risk (the area is derived). */
+        public Key(
+            String key,
+            Type type,
+            String defaultValue,
+            Double min,
+            Double max,
+            List<String> allowed,
+            String description,
+            Predicate<JsonNode> jsonCheck,
+            AdminSettingsWriter.Risk risk
+        ) {
+            this(key, type, defaultValue, min, max, allowed, description, jsonCheck, null, risk);
+        }
+
+        /** The first dotted segment of {@code key} ({@code tracker.list.maxSize} is in {@code tracker}). */
+        public static String areaOf(String key) {
+            int dot = key.indexOf('.');
+            return dot < 0 ? key : key.substring(0, dot);
+        }
+
+        /**
+         * HIGH for every {@code *.enabled} kill switch and every cap/cost key (a segment named {@code cap}, {@code caps}
+         * or {@code cost}); MEDIUM otherwise. A HIGH switch needs a reason only when it is turned OFF
+         * (see {@code SettingDefinitions.riskOf}).
+         */
+        public static AdminSettingsWriter.Risk defaultRisk(String key, Type type) {
+            if (type == Type.BOOL && key.endsWith(".enabled")) return AdminSettingsWriter.Risk.HIGH;
+            for (String seg : key.split("[._]")) {
+                if (seg.equals("cap") || seg.equals("caps") || seg.equals("cost")) return AdminSettingsWriter.Risk.HIGH;
+            }
+            return AdminSettingsWriter.Risk.MEDIUM;
+        }
+    }
 
     // ---- feature switches ---------------------------------------------------
     public static final String FEATURE_BUILDER = "feature.resume_builder.enabled";
@@ -213,6 +271,33 @@ public final class ResumeBuilderSettingKeys {
     public static final String TRACKER_INTERVIEWS_DEFAULT_RANGE_DAYS = "tracker.interviews.defaultRangeDays";
     public static final String TRACKER_INTERVIEWS_MAX_RANGE_DAYS = "tracker.interviews.maxRangeDays";
     public static final String TRACKER_INTERVIEWS_LIST_MAX = "tracker.interviews.listMax";
+
+    // ---- Analytics (E2E U12.1) ---------------------------------------------
+    public static final String ANALYTICS_DEFAULT_RANGE_DAYS = "analytics.defaultRangeDays";
+    public static final String ANALYTICS_MAX_RANGE_DAYS = "analytics.maxRangeDays";
+    public static final String ANALYTICS_MONTHLY_FROM_DAYS = "analytics.monthlyFromDays";
+    public static final String ANALYTICS_TOP_COMPANIES = "analytics.topCompanies";
+
+    // ---- Job search (E2E U4.0, docs/design/user/job-search-matching.md section 5/6) --------------------
+    public static final String JOBS_SEARCH_DEFAULT_SIZE = "jobs.search.defaultSize";
+    public static final String JOBS_SEARCH_MAX_SIZE = "jobs.search.maxSize";
+    public static final String JOBS_SEARCH_MAX_QUERY_CHARS = "jobs.search.maxQueryChars";
+    public static final String JOBS_SEARCH_MAX_RESULTS = "jobs.search.maxResults";
+    public static final String JOBS_SEARCH_RANK_POOL = "jobs.search.rankPool";
+    public static final String JOBS_SEARCH_MAX_FILTER_CHARS = "jobs.search.maxFilterChars";
+    public static final String JOBS_SEARCH_FT_MIN_TOKEN = "jobs.search.ftMinToken";
+    public static final String JOBS_SEARCH_POSTED_DAYS = "jobs.search.postedDays";
+    public static final String JOBS_SEARCH_RELAX_BELOW = "jobs.search.relaxBelow";
+    public static final String JOBS_SEARCH_RELAXATIONS_MAX = "jobs.search.relaxationsMax";
+    public static final String JOBS_RANK_WEIGHT_RELEVANCE = "jobs.rank.weight.relevance";
+    public static final String JOBS_RANK_WEIGHT_RECENCY = "jobs.rank.weight.recency";
+    public static final String JOBS_RANK_WEIGHT_PREFERENCE = "jobs.rank.weight.preference";
+    public static final String JOBS_RANK_RECENCY_HOURS = "jobs.rank.recencyHours";
+    public static final String JOBS_DETAIL_DESCRIPTION_MAX_CHARS = "jobs.detail.descriptionMaxChars";
+    public static final String JOBS_DETAIL_SIMILAR_MAX = "jobs.detail.similarMax";
+    public static final String JOBS_SUGGEST_MAX = "jobs.suggest.max";
+    public static final String JOBS_SUGGEST_MIN_CHARS = "jobs.suggest.minChars";
+    public static final String JOBS_SUGGEST_CACHE_SECONDS = "jobs.suggest.cacheSeconds";
 
     // ---- Notifications (E2E-U7.0, docs/design/user/alerts-notifications.md) ---
     public static final String NOTIFY_DEFAULTS = "notifications.defaults";
@@ -566,6 +651,40 @@ public final class ResumeBuilderSettingKeys {
         integer(k, RATE_EXPORT_PER_MIN, 10, 10, 1000, "Exports per user per minute.");
         integer(k, RATE_PUBLIC_PER_MIN, 60, 10, 1000, "Public share-link requests per IP per minute.");
 
+        // Analytics (E2E U12.1).
+        integer(k, ANALYTICS_DEFAULT_RANGE_DAYS, 30, 7, 365, "Days the analytics page covers when the request names no range.");
+        integer(k, ANALYTICS_MAX_RANGE_DAYS, 365, 30, 730, "Longest range (days) one analytics request may ask for; a bigger range is clamped to it.");
+        integer(k, ANALYTICS_MONTHLY_FROM_DAYS, 180, 30, 730, "Ranges longer than this many days chart one bar per month instead of per week.");
+        integer(k, ANALYTICS_TOP_COMPANIES, 5, 3, 20, "Companies listed in the analytics response-rate-by-company card.");
+
+        // Job search (E2E U4.0).
+        integer(k, JOBS_SEARCH_DEFAULT_SIZE, 20, 5, 30, "Jobs per page when the search names no size.");
+        integer(k, JOBS_SEARCH_MAX_SIZE, 30, 10, 50, "Largest jobs page the server returns; a bigger size is clamped to it.");
+        integer(k, JOBS_SEARCH_MAX_QUERY_CHARS, 120, 20, 500, "Longest job search text; longer is refused (400 QUERY_TOO_LONG).");
+        integer(k, JOBS_SEARCH_MAX_RESULTS, 1000, 100, 5000, "Most results one search can page through; past it the page says to narrow the search.");
+        integer(k, JOBS_SEARCH_RANK_POOL, 300, 50, 2000, "Matching postings the best-match ranking scores in Java before slicing a page.");
+        integer(k, JOBS_SEARCH_MAX_FILTER_CHARS, 80, 20, 200, "Longest location or company filter text; longer is refused (422 JOB_SEARCH_INVALID).");
+        integer(k, JOBS_SEARCH_FT_MIN_TOKEN, 3, 1, 8, "Shortest word the FULLTEXT index holds (InnoDB innodb_ft_min_token_size); shorter words are matched with LIKE.");
+        k.add(
+            json(
+                JOBS_SEARCH_POSTED_DAYS,
+                "[1,3,7,14,30]",
+                "The 'posted within' choices (days), smallest first; also the posted-date facet buckets.",
+                n -> n.isArray() && n.size() >= 1 && n.size() <= 8 && java.util.stream.StreamSupport.stream(n.spliterator(), false).allMatch(x -> x.isInt() && x.asInt() >= 1 && x.asInt() <= 365)
+            )
+        );
+        integer(k, JOBS_SEARCH_RELAX_BELOW, 5, 0, 50, "A search with fewer results than this offers cheaper searches (0 turns it off).");
+        integer(k, JOBS_SEARCH_RELAXATIONS_MAX, 3, 0, 5, "Most 'try this instead' searches offered with their counts.");
+        decimal(k, JOBS_RANK_WEIGHT_RELEVANCE, "0.45", 0, 1, "Best-match ranking: weight of how well the text matches the search.");
+        decimal(k, JOBS_RANK_WEIGHT_RECENCY, "0.20", 0, 1, "Best-match ranking: weight of how recently the job was posted.");
+        decimal(k, JOBS_RANK_WEIGHT_PREFERENCE, "0.25", 0, 1, "Best-match ranking: weight of how well the job fits the person's titles, place and work preference.");
+        integer(k, JOBS_RANK_RECENCY_HOURS, 72, 6, 720, "Best-match ranking: a job's recency score falls to about a third after this many hours.");
+        integer(k, JOBS_DETAIL_DESCRIPTION_MAX_CHARS, 20000, 1000, 100000, "Longest job description the detail endpoint returns (cut at a word).");
+        integer(k, JOBS_DETAIL_SIMILAR_MAX, 5, 0, 20, "Similar jobs listed with a job's detail.");
+        integer(k, JOBS_SUGGEST_MAX, 8, 3, 20, "Titles the search box offers as you type.");
+        integer(k, JOBS_SUGGEST_MIN_CHARS, 2, 1, 5, "Letters typed before the search box offers titles.");
+        integer(k, JOBS_SUGGEST_CACHE_SECONDS, 60, 0, 3600, "How long one set of title suggestions is reused (0 = never).");
+
         // Applications tracker (APP-E2E U6.x).
         integer(k, TRACKER_LIST_DEFAULT_SIZE, 20, 5, 50, "Applications per page when the request names no size.");
         integer(k, TRACKER_LIST_MAX_SIZE, 50, 10, 200, "Largest applications page the server returns; a bigger size is clamped to it.");
@@ -604,7 +723,9 @@ public final class ResumeBuilderSettingKeys {
     public static Key find(String key) {
         String canonical = canonical(key);
         Key found = BY_KEY.get(canonical);
-        return found != null ? found : com.dossier.api.service.ai.AiSettingKeys.find(canonical);
+        if (found != null) return found;
+        Key ai = com.dossier.api.service.ai.AiSettingKeys.find(canonical);
+        return ai != null ? ai : com.dossier.api.service.settings.AdminSettingKeys.find(canonical);
     }
 
     /** The declaration for {@code key}; unknown keys are a programming error. */

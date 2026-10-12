@@ -145,6 +145,7 @@ export function useAiOps() {
             : "No task routes here right now.",
         confirmLabel: "Turn off",
         forceLabel: "Turn off anyway",
+        forceCode: "AI_PROVIDER_IN_USE",
         run: (reason, force) =>
           sendProvider(p, { enabled: false, reason, ...(force ? { force: true } : {}) }, key, { enabled: undoValue(p.enabled) }, `${p.label} turned off`, false),
       });

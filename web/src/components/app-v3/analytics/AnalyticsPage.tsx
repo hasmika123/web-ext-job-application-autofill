@@ -1,57 +1,93 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { CalendarIcon, ChartIcon, EmptyState, FileTextIcon, TrendingUpIcon, TrophyIcon, useToast } from "@kiwiply/ui";
-import {
-  BarGroupChart,
-  Donut,
-  FilterSelect,
-  Progress,
-  SectionCard,
-  StatTile,
-  UnderlineTabs,
-} from "@/components/app-v2/common";
-import { HeroBand } from "@/components/app-v2/common";
-import { AN_TABS, type AnalyticsData } from "../sample-data";
-import { useSamples } from "../SamplesProvider";
+import { CalendarIcon, EmptyState, ErrorState, FileTextIcon, MailIcon, Skeleton, TrendingUpIcon, TrophyIcon } from "@kiwiply/ui";
+import { BarGroupChart, Donut, FilterSelect, HeroBand, Progress, SectionCard, StatTile, UnderlineTabs } from "@/components/app-v2/common";
+import { ANALYTICS_RANGES, getAnalytics, type Analytics } from "@/lib/job-analytics";
+import { appliedDelta, barGroups, chartScale, companyPct, funnelRows, isQuiet, responseNote, statusSegments } from "./compute";
 
-const PERIODS = ["Last 7 days", "Last 30 days", "Last 90 days"];
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "applications", label: "Applications" },
+  { id: "interviews", label: "Interviews" },
+  { id: "offers", label: "Offers" },
+];
+const DEFAULT_PERIOD = ANALYTICS_RANGES[0].label;
+const SERIES = [
+  { label: "Applied", tone: "blue" as const },
+  { label: "Interviews", tone: "green" as const },
+  { label: "Offers", tone: "violet" as const },
+];
 
-/** Round the chart ceiling up to a multiple of 10 so the y ticks stay readable. */
-function chartScale(groups: { values: number[] }[]) {
-  const top = Math.max(0, ...groups.flatMap((g) => g.values));
-  const max = Math.max(10, Math.ceil(top / 10) * 10);
-  return { max, ticks: [0, max / 2, max] };
-}
+type Loaded = { kind: "error"; message: string } | { kind: "ready"; data: Analytics };
 
-const num = (s: string) => Number.parseInt(s, 10) || 0;
-const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
+const hero = <HeroBand title="Your Job Search Analytics" subtitle="Track your progress and insights." mascot="mascot-apps" note="Look at that progress!" />;
 
 /**
- * Analytics (APP-V3-SPEC 2.12). `data` is real when the account has submitted applications
- * (`data.real`); with none it is `null` (an honest empty state) or, for a demo account on a sample-enabled
- * build, the board's sample (computed in `analytics/compute.ts`). The tabs filter which cards show.
- * "Skills in demand" has no API yet, so it is drawn only from `samples()` (U0.5).
+ * Analytics (APP-E2E U12.1) on the account's own history: every number comes from `GET /api/analytics`, which counts
+ * each application once, at the first time it reached a stage. The period select is real (30 days / 90 days / a year)
+ * and refetches in the browser's time zone. An account that has never applied sees an honest empty state; one that has,
+ * but not in this period, sees zeros and a quiet-period note, never a made-up chart.
  */
-export default function AnalyticsPage({ data }: { data: AnalyticsData | null }) {
-  const toast = useToast();
-  const sample = useSamples();
-  const skillRows = sample("AN_SKILLS");
+export default function AnalyticsPage() {
   const [tab, setTab] = useState("overview");
-  const [period, setPeriod] = useState("Last 30 days");
+  const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  const [attempt, setAttempt] = useState(0);
+  const days = (ANALYTICS_RANGES.find((r) => r.label === period) ?? ANALYTICS_RANGES[0]).days;
+  // One request per (period, attempt); the answer is kept with its key, so "loading" is simply "not answered yet".
+  const key = `${days}#${attempt}`;
+  const [done, setDone] = useState<{ key: string; value: Loaded } | null>(null);
+  const [last, setLast] = useState<Analytics | null>(null);
+  const state: { kind: "loading" } | Loaded = done?.key === key ? done.value : { kind: "loading" };
 
+  useEffect(() => {
+    let live = true;
+    void getAnalytics(days).then((r) => {
+      if (!live) return;
+      if (r.kind === "ok") setLast(r.data);
+      setDone({ key, value: r.kind === "ok" ? { kind: "ready", data: r.data } : { kind: "error", message: r.message } });
+    });
+    return () => {
+      live = false;
+    };
+  }, [days, key]);
+
+  if (state.kind === "error") {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        {hero}
+        <ErrorState what="your analytics" description={state.message} onRetry={() => setAttempt((a) => a + 1)} />
+      </div>
+    );
+  }
+
+  // While a new period loads, keep the previous numbers on screen (no flash); only the very first load is a skeleton.
+  const data = state.kind === "ready" ? state.data : last;
   if (!data) {
     return (
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
-        <HeroBand title="Your Job Search Analytics" subtitle="Track your progress and insights." mascot="mascot-apps" note="Look at that progress!" />
+        {hero}
+        <div role="status" aria-busy="true" aria-label="Loading analytics" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-[88px] rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data.real) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        {hero}
         <EmptyState
           mascot
           title="No analytics yet"
-          description="Charts appear once you have submitted applications."
+          description="Charts appear once you have applied to a job. Save one, apply, and we count it here."
           action={
-            <Link href="/jobs" className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
+            <Link href="/jobs" className="inline-flex h-11 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
               Find jobs
             </Link>
           }
@@ -60,83 +96,67 @@ export default function AnalyticsPage({ data }: { data: AnalyticsData | null }) 
     );
   }
 
-  const { max, ticks } = chartScale(data.overTime);
-  const statusTotal = data.status.reduce((s, x) => s + x.value, 0);
-  const apps = num(data.stats.applications.value);
-  const interviews = num(data.stats.interviews.value);
-  const offers = num(data.stats.offers.value);
+  const groups = barGroups(data.overTime, data.granularity);
+  const { max, ticks } = chartScale(groups);
+  const periodWord = days === 365 ? "year" : `${days} days`; // config-literal-ok: wording for the select's "Last year" option
+  const stale = state.kind === "loading";
 
   const overTime = (
-    <SectionCard
-      title="Applications over time"
-      headerExtra={
-        <FilterSelect
-          label="Time period"
-          options={PERIODS}
-          value={period}
-          onChange={(v) => {
-            if (v === "Last 30 days") setPeriod(v);
-            else toast({ title: "Coming soon", description: "Other time ranges arrive with the next analytics update." });
-          }}
-          className="w-[150px]"
-        />
-      }
-    >
-      <BarGroupChart
-        groups={data.overTime}
-        series={[
-          { label: "Applied", tone: "blue" },
-          { label: "Interviews", tone: "green" },
-          { label: "Offers", tone: "violet" },
-        ]}
-        max={max}
-        yTicks={ticks}
-      />
+    <SectionCard title="Applications over time" subtitle={data.granularity === "month" ? "By month" : "By week"}>
+      {isQuiet(data.overTime) ? (
+        <EmptyState variant="inline" title="A quiet stretch" description={`Nothing moved in the last ${periodWord}.`} />
+      ) : (
+        <BarGroupChart groups={groups} series={SERIES} max={max} yTicks={ticks} />
+      )}
     </SectionCard>
   );
 
   const responseByCompany = (
     <SectionCard title="Response rate by company">
-      <ul className="space-y-3.5">
-        {data.responseByCompany.map((c) => (
-          <li key={c.name} className="flex items-center gap-3">
-            <span className="w-24 flex-none truncate text-[13.5px] font-medium text-v2-navy">{c.name}</span>
-            <Progress value={c.pct} tone="blue" label={`${c.name} response rate`} className="h-2.5" />
-            <span className="w-10 flex-none text-right text-[13px] font-semibold tabular-nums text-v2-navy">{c.pct}%</span>
-          </li>
-        ))}
-      </ul>
+      {!data.inboxSeen ? (
+        <EmptyState
+          variant="inline"
+          title="Connect your inbox"
+          description="Replies are spotted in your own Gmail, so we can show which companies write back."
+          action={
+            <Link href="/settings" className="inline-flex items-center gap-1.5 text-[13px] font-bold text-v2-blue-ink hover:underline">
+              <MailIcon aria-hidden className="h-4 w-4" />
+              Set up inbox
+            </Link>
+          }
+        />
+      ) : data.responseByCompany.length === 0 ? (
+        <EmptyState variant="inline" title="Nothing to compare" description={`No applications sent in the last ${periodWord}.`} />
+      ) : (
+        <ul className="space-y-3.5">
+          {data.responseByCompany.map((c) => (
+            <li key={c.company} className="flex items-center gap-3">
+              <span className="w-24 flex-none truncate text-[13.5px] font-medium text-v2-navy sm:w-28">{c.company}</span>
+              <Progress value={companyPct(c.applied, c.replied)} tone="blue" label={`${c.company} response rate`} className="h-2.5" />
+              <span className="w-12 flex-none text-right text-[13px] font-semibold tabular-nums text-v2-navy">
+                {c.replied}/{c.applied}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </SectionCard>
   );
 
   const statusBreakdown = (
-    <SectionCard title="Status breakdown">
-      <Donut segments={data.status} centerValue={statusTotal} centerLabel="Total" />
-    </SectionCard>
-  );
-
-  const skills = (
-    <SectionCard title="Skills in demand" subtitle="Across jobs like the ones you apply to">
-      <ul className="space-y-3.5">
-        {skillRows.map((s) => (
-          <li key={s.name} className="flex items-center gap-3">
-            <span className="w-24 flex-none truncate text-[13.5px] font-medium text-v2-navy">{s.name}</span>
-            <Progress value={s.pct} tone="green" label={`${s.name} demand`} className="h-2.5" />
-            <span className="w-10 flex-none text-right text-[13px] font-semibold tabular-nums text-v2-navy">{s.pct}%</span>
-          </li>
-        ))}
-      </ul>
+    <SectionCard title="Status breakdown" subtitle={`Applications you touched in the last ${periodWord}`}>
+      {data.byStatus.length === 0 ? (
+        <EmptyState variant="inline" title="Nothing to show" description={`No application changed in the last ${periodWord}.`} />
+      ) : (
+        <Donut segments={statusSegments(data.byStatus)} centerValue={data.byStatus.reduce((s, x) => s + x.count, 0)} centerLabel="Total" />
+      )}
     </SectionCard>
   );
 
   const funnel = (
-    <SectionCard title="Conversion funnel" subtitle="How far your applications get">
+    <SectionCard title="Conversion funnel" subtitle="How far this period's applications get">
       <ul className="space-y-3.5">
-        {[
-          { label: "Applications", value: 100, note: `${apps}`, tone: "blue" as const },
-          { label: "Interviews", value: pct(interviews, apps), note: `${interviews} (${pct(interviews, apps)}%)`, tone: "green" as const },
-          { label: "Offers", value: pct(offers, apps), note: `${offers} (${pct(offers, apps)}%)`, tone: "violet" as const },
-        ].map((r) => (
+        {funnelRows(data.stats).map((r) => (
           <li key={r.label} className="flex items-center gap-3">
             <span className="w-24 flex-none truncate text-[13.5px] font-medium text-v2-navy">{r.label}</span>
             <Progress value={r.value} tone={r.tone} label={r.label} className="h-2.5" />
@@ -151,30 +171,26 @@ export default function AnalyticsPage({ data }: { data: AnalyticsData | null }) 
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
-      <HeroBand title="Your Job Search Analytics" subtitle="Track your progress and insights." mascot="mascot-apps" note="Look at that progress!" />
+      {hero}
 
-      <div className="rounded-2xl border border-v2-line bg-white shadow-v2-soft">
-        <UnderlineTabs padded counts="pill" ariaLabel="Analytics sections" value={tab} onChange={setTab} className="border-b-0 px-2 sm:px-4" tabs={AN_TABS} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 rounded-2xl border border-v2-line bg-white shadow-v2-soft sm:flex-1">
+          <UnderlineTabs padded counts="pill" ariaLabel="Analytics sections" value={tab} onChange={setTab} className="border-b-0 px-2 sm:px-4" tabs={TABS} />
+        </div>
+        <FilterSelect label="Time period" options={ANALYTICS_RANGES.map((r) => r.label)} value={period} onChange={setPeriod} className="w-full sm:w-[160px]" />
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 lg:grid-cols-4">
-        <StatTile tone="blue" icon={<FileTextIcon className="h-5 w-5" />} value={data.stats.applications.value} label="Applications" delta={data.stats.applications.delta} />
-        <StatTile tone="green" icon={<CalendarIcon className="h-5 w-5" />} value={data.stats.interviews.value} label="Interviews" delta={data.stats.interviews.delta} />
-        <StatTile tone="violet" icon={<TrophyIcon className="h-5 w-5" />} value={data.stats.offers.value} label="Offers" delta={data.stats.offers.delta} />
-        <StatTile tone="amber" icon={<TrendingUpIcon className="h-5 w-5" />} value={data.stats.response.value} label="Response rate" delta={data.stats.response.delta} />
+      <div className={stale ? "grid grid-cols-2 gap-2.5 opacity-70 transition-opacity sm:gap-3.5 lg:grid-cols-4" : "grid grid-cols-2 gap-2.5 sm:gap-3.5 lg:grid-cols-4"} aria-busy={stale}>
+        <StatTile tone="blue" icon={<FileTextIcon className="h-5 w-5" />} value={data.stats.applied} label="Applications" delta={appliedDelta(data.stats)} />
+        <StatTile tone="amber" icon={<TrendingUpIcon className="h-5 w-5" />} value={data.stats.replies} label="Replies" sublabel={responseNote(data.stats)} />
+        <StatTile tone="green" icon={<CalendarIcon className="h-5 w-5" />} value={data.stats.interviews} label="Interviews" />
+        <StatTile tone="violet" icon={<TrophyIcon className="h-5 w-5" />} value={data.stats.offers} label="Offers" />
       </div>
 
-      {tab === "overview" && grid([<div key="a">{overTime}</div>, <div key="b">{responseByCompany}</div>, <div key="c">{statusBreakdown}</div>, ...(skillRows.length > 0 ? [<div key="d">{skills}</div>] : [])])}
+      {tab === "overview" && grid([<div key="a">{overTime}</div>, <div key="b">{responseByCompany}</div>, <div key="c">{statusBreakdown}</div>, <div key="f">{funnel}</div>])}
       {tab === "applications" && grid([<div key="a">{overTime}</div>, <div key="c">{statusBreakdown}</div>])}
       {tab === "interviews" && grid([<div key="b">{responseByCompany}</div>, <div key="f">{funnel}</div>])}
       {tab === "offers" && grid([<div key="f">{funnel}</div>, <div key="c">{statusBreakdown}</div>])}
-
-      {!data.real && (
-        <p className="flex items-center gap-2 text-[12.5px] text-v2-muted">
-          <ChartIcon aria-hidden className="h-4 w-4 flex-none" />
-          Example numbers. Your own charts appear once you have submitted applications.
-        </p>
-      )}
     </div>
   );
 }

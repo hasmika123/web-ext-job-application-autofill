@@ -17,6 +17,7 @@ import {
 } from "@kiwiply/ui";
 import { DataTable, FilterSelect, IconTile, Progress, StatusChip, type DataColumn, type Tone } from "@/components/app-v2/common";
 import { AdminHero, AdminPanel, AdminStatTiles, BarLineChart, PersonCell, SampleTag } from "../common";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until A4.1 removes it (ADMIN-E2E-PLAN 3.5)
 import {
   AI_ALERTS,
   AI_SEVERITY_TONE,
@@ -164,10 +165,10 @@ export default function AiUsagePage({ data }: { data: AiUsageView | null }) {
 
       <AdminStatTiles
         stats={[
-          { label: "Total AI requests", value: totalCalls.toLocaleString("en-US"), icon: <AiIcon size={26} />, tone: "blue", delta: X.requests.delta, caption: "vs last 30 days", sparkline: X.requests.spark },
-          { label: "Active AI users", value: data.userCount.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "green", delta: X.users.delta, caption: "vs last 30 days", sparkline: X.users.spark },
-          { label: "Tokens used", value: X.tokens.value, icon: <SparklesIcon size={26} />, tone: "amber", delta: X.tokens.delta, caption: "sample data", sparkline: X.tokens.spark },
-          { label: "Estimated AI cost", value: usd(data.totalCostMicros), icon: <DollarIcon size={26} />, tone: "violet", delta: X.cost.delta, caption: "vs last 30 days", sparkline: X.cost.spark },
+          { label: "Total AI requests", value: totalCalls.toLocaleString("en-US"), icon: <AiIcon size={26} />, tone: "blue" },
+          { label: "Active AI users", value: data.userCount.toLocaleString("en-US"), icon: <UsersIcon size={26} />, tone: "green" },
+          { label: "Tokens used", value: X.tokens.value, icon: <SparklesIcon size={26} />, tone: "amber" },
+          { label: "Estimated AI cost", value: usd(data.totalCostMicros), icon: <DollarIcon size={26} />, tone: "violet" },
         ]}
       />
 

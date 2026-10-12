@@ -9,7 +9,8 @@ import { AdminHero, AdminPanel, AdminStatTiles, LegendList, PersonCell, SampleTa
 import { BUG_STATUS_TABS } from "./constants";
 import { spreadLabels } from "../email/chart-labels";
 import StatusFilterLinks from "../email/StatusFilterLinks";
-import { BUG_TILE_EXTRAS as X, CRASH_MAX, CRASH_TREND, CRASH_X, CRASH_Y, SEVERITY, TOP_ISSUES } from "./sample-data";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until A8.2 removes it (ADMIN-E2E-PLAN 3.5)
+import { CRASH_MAX, CRASH_TREND, CRASH_X, CRASH_Y, SEVERITY, TOP_ISSUES } from "./sample-data";
 
 export interface BugReport {
   id: number;
@@ -80,10 +81,10 @@ export default function BugReportsPage({
 
       <AdminStatTiles
         stats={[
-          { label: "New reports", value: n(counts.NEW ?? 0), icon: <BugIcon size={26} />, tone: "coral", delta: X.new.delta, caption: "trend is sample", sparkline: X.new.spark },
-          { label: "Open issues", value: n((counts.NEW ?? 0) + (counts.TRIAGED ?? 0)), icon: <ClipboardIcon size={26} />, tone: "amber", delta: X.open.delta, caption: "trend is sample", sparkline: X.open.spark },
-          { label: "In progress", value: n(counts.IN_PROGRESS ?? 0), icon: <RefreshIcon size={26} />, tone: "violet", delta: X.progress.delta, caption: "trend is sample", sparkline: X.progress.spark },
-          { label: "Resolved", value: n(counts.RESOLVED ?? 0), icon: <CheckCircleIcon size={26} />, tone: "green", delta: X.resolved.delta, caption: "trend is sample", sparkline: X.resolved.spark },
+          { label: "New reports", value: n(counts.NEW ?? 0), icon: <BugIcon size={26} />, tone: "coral" },
+          { label: "Open issues", value: n((counts.NEW ?? 0) + (counts.TRIAGED ?? 0)), icon: <ClipboardIcon size={26} />, tone: "amber" },
+          { label: "In progress", value: n(counts.IN_PROGRESS ?? 0), icon: <RefreshIcon size={26} />, tone: "violet" },
+          { label: "Resolved", value: n(counts.RESOLVED ?? 0), icon: <CheckCircleIcon size={26} />, tone: "green" },
         ]}
       />
 

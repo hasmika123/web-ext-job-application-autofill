@@ -1,18 +1,13 @@
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
-import path from "node:path";
+import { noOverflow, shot, signInAdmin } from "../fixtures/admin";
 
 /**
  * Admin AI providers & routing (I1.12 / I1.13) against the mock API's static, read-only `/api/admin/ai/*` fixture.
  * The page's first paint comes from the fixture; writes go through the BFF, and the mock refuses them with a friendly
  * 403, so each write journey intercepts the browser's request and answers like the real API would.
- * Set AI_ADMIN_SHOTS=<dir> to also save screenshots.
+ * Sign-in, the overflow check and the screenshots are the admin fixtures (`e2e/fixtures/admin.ts`, E2E-A15.0);
+ * set ADMIN_SHOTS=<dir> (or the old AI_ADMIN_SHOTS) to also save screenshots.
  */
-const SHOTS = process.env.AI_ADMIN_SHOTS;
-const shot = async (page: Page, name: string) => {
-  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: true });
-};
-
 const R = (value: unknown, source = "default", envDefault: unknown = null) => ({ value, source, envDefault, codeDefault: value });
 const routeJson = (task: string, label: string, over: Record<string, unknown> = {}) => ({
   task,
@@ -28,14 +23,8 @@ const routeJson = (task: string, label: string, over: Record<string, unknown> = 
 });
 
 test.beforeEach(async ({ page }) => {
-  const res = await page.context().request.post("/api/auth/demo", { data: { login: "demo-admin" } });
-  expect(res.ok(), "demo-admin sign-in").toBeTruthy();
+  await signInAdmin(page);
 });
-
-async function noOverflow(page: Page) {
-  const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
-  expect(o.sw, "horizontal overflow").toBeLessThanOrEqual(o.iw + 1);
-}
 
 test.describe("at 1440px", () => {
   test.use({ viewport: { width: 1440, height: 900 } });

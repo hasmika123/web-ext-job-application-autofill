@@ -31,6 +31,11 @@ Concretely:
   (`variant="page" | "inline"`, `mascot`). Their web-side partners are `useAutosave` (`web/src/lib/autosave.ts`),
   `undoToast` (`undo-toast.ts`) and `useListQuery` (`list-query.ts`); the lint rule
   `kiwiply/icon-button-needs-label` keeps every icon-only control named.
+- **The admin kit's shared bits** (E2E-A15.0, `docs/ADMIN-E2E-PLAN.md` section 3.6): `deltaOf(value, previous)` +
+  `DeltaChip` (the "↑ 12%" chip is *computed* from a real previous value and is `null` when there is none, so no tile
+  ever shows an invented trend), `Textarea` (`Input`'s multi-line sibling) and `useMediaQuery` (a media query that
+  follows live, for the one decision CSS cannot make: Dialog on a desktop, BottomSheet on a phone). The admin
+  composites built on them (`AdminTable`, `AdminFilterBar`, `ReasonSheet`, ...) live in `web/src/components/admin-v3/common`.
 - **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`
   (13.3 — one resume against one job, shown the same in the drawer and on the board) and
   `AtsReport` (13.5 — a resume's ATS score, what to fix first, and keyword coverage for a job).

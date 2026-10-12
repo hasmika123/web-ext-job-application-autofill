@@ -20,6 +20,7 @@ import {
 import { Button, useToast } from "@/components/ui";
 import { DataTable, Donut, FilterSelect, KebabMenu, Pagination, SearchInput, StatusChip, TONE, type Tone } from "@/components/app-v2/common";
 import { AdminHero, AdminPanel, AdminStatTiles, HBarList, LegendList, PersonCell, SampleTag } from "../common";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until A12.2 removes it (ADMIN-E2E-PLAN 3.5)
 import { AUDIT_TILES as T, COMPLIANCE } from "./sample-data";
 
 export interface AuditEvent {
@@ -182,10 +183,10 @@ export default function AuditPage({
 
       <AdminStatTiles
         stats={[
-          { label: "Total events", value: error ? "n/a" : total.toLocaleString("en-US"), icon: <FileTextIcon size={26} />, tone: "blue", delta: T.total.delta, caption: "trend is sample", sparkline: T.total.spark },
-          { label: "High-risk actions", value: T.highRisk.value, icon: <ShieldIcon size={26} />, tone: "coral", delta: T.highRisk.delta, caption: "sample data", sparkline: T.highRisk.spark },
-          { label: "Exports", value: T.exports.value, icon: <DownloadIcon size={26} />, tone: "amber", delta: T.exports.delta, caption: "sample data", sparkline: T.exports.spark },
-          { label: "Access reviews", value: T.reviews.value, icon: <UsersIcon size={26} />, tone: "violet", delta: T.reviews.delta, caption: "sample data", sparkline: T.reviews.spark },
+          { label: "Total events", value: error ? "n/a" : total.toLocaleString("en-US"), icon: <FileTextIcon size={26} />, tone: "blue" },
+          { label: "High-risk actions", value: T.highRisk.value, icon: <ShieldIcon size={26} />, tone: "coral" },
+          { label: "Exports", value: T.exports.value, icon: <DownloadIcon size={26} />, tone: "amber" },
+          { label: "Access reviews", value: T.reviews.value, icon: <UsersIcon size={26} />, tone: "violet" },
         ]}
       />
 
