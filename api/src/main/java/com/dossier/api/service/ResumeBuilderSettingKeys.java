@@ -46,8 +46,66 @@ public final class ResumeBuilderSettingKeys {
         Double max,
         List<String> allowed,
         String description,
-        Predicate<JsonNode> jsonCheck
-    ) {}
+        Predicate<JsonNode> jsonCheck,
+        String area,
+        AdminSettingsWriter.Risk risk
+    ) {
+        /**
+         * {@code area} is the key's first dotted segment and {@code risk} is {@link #defaultRisk} when not given
+         * (ADMIN-E2E-PLAN 2.1), so every declaration written before A5.1 compiles and behaves unchanged.
+         */
+        public Key {
+            if (area == null || area.isBlank()) area = areaOf(key);
+            if (risk == null) risk = defaultRisk(key, type);
+        }
+
+        public Key(
+            String key,
+            Type type,
+            String defaultValue,
+            Double min,
+            Double max,
+            List<String> allowed,
+            String description,
+            Predicate<JsonNode> jsonCheck
+        ) {
+            this(key, type, defaultValue, min, max, allowed, description, jsonCheck, null, null);
+        }
+
+        /** A declaration with an explicit risk (the area is derived). */
+        public Key(
+            String key,
+            Type type,
+            String defaultValue,
+            Double min,
+            Double max,
+            List<String> allowed,
+            String description,
+            Predicate<JsonNode> jsonCheck,
+            AdminSettingsWriter.Risk risk
+        ) {
+            this(key, type, defaultValue, min, max, allowed, description, jsonCheck, null, risk);
+        }
+
+        /** The first dotted segment of {@code key} ({@code tracker.list.maxSize} is in {@code tracker}). */
+        public static String areaOf(String key) {
+            int dot = key.indexOf('.');
+            return dot < 0 ? key : key.substring(0, dot);
+        }
+
+        /**
+         * HIGH for every {@code *.enabled} kill switch and every cap/cost key (a segment named {@code cap}, {@code caps}
+         * or {@code cost}); MEDIUM otherwise. A HIGH switch needs a reason only when it is turned OFF
+         * (see {@code SettingDefinitions.riskOf}).
+         */
+        public static AdminSettingsWriter.Risk defaultRisk(String key, Type type) {
+            if (type == Type.BOOL && key.endsWith(".enabled")) return AdminSettingsWriter.Risk.HIGH;
+            for (String seg : key.split("[._]")) {
+                if (seg.equals("cap") || seg.equals("caps") || seg.equals("cost")) return AdminSettingsWriter.Risk.HIGH;
+            }
+            return AdminSettingsWriter.Risk.MEDIUM;
+        }
+    }
 
     // ---- feature switches ---------------------------------------------------
     public static final String FEATURE_BUILDER = "feature.resume_builder.enabled";
@@ -561,7 +619,9 @@ public final class ResumeBuilderSettingKeys {
     public static Key find(String key) {
         String canonical = canonical(key);
         Key found = BY_KEY.get(canonical);
-        return found != null ? found : com.dossier.api.service.ai.AiSettingKeys.find(canonical);
+        if (found != null) return found;
+        Key ai = com.dossier.api.service.ai.AiSettingKeys.find(canonical);
+        return ai != null ? ai : com.dossier.api.service.settings.AdminSettingKeys.find(canonical);
     }
 
     /** The declaration for {@code key}; unknown keys are a programming error. */

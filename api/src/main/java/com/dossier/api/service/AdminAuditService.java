@@ -57,6 +57,10 @@ public class AdminAuditService {
     // Admin AI config (I1.9 / I1.11): one row per runtime AI setting write, one per provider test.
     public static final String TARGET_AI_SETTING = "AI_SETTING";
     public static final String AI_CONFIG_CHANGE = "AI_CONFIG_CHANGE";
+    // Generic runtime settings (A5.1): one row per setting write through /api/admin/settings (set, reset or revert).
+    // The AI page keeps AI_CONFIG_CHANGE; both write the same app_setting rows.
+    public static final String TARGET_SETTING = "SETTING";
+    public static final String SETTING_CHANGE = "SETTING_CHANGE";
     public static final String TARGET_AI_PROVIDER = "AI_PROVIDER";
     public static final String AI_PROVIDER_TEST = "AI_PROVIDER_TEST";
 
