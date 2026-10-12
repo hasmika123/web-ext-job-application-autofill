@@ -54,7 +54,7 @@ class OrgRepositoryContractTest {
     void theOrgRepositoriesAreFound() throws Exception {
         assertThat(orgRepositories()).extracting(Class::getSimpleName).contains(
             "OrganizationRepository", "OrgMemberRepository", "OrgGroupRepository", "OrgInviteBatchRepository",
-            "OrgJoinCodeRepository", "OrgDomainRepository", "OrgAuditEventRepository"
+            "OrgJoinCodeRepository", "OrgDomainRepository", "OrgAuditEventRepository", "DataShareRepository", "DataShareEventRepository"
         );
     }
 

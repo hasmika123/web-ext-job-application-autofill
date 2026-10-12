@@ -1299,7 +1299,7 @@
       "id": "O6.1",
       "epic": "O6",
       "title": "data_share + data_share_event tables, ShareField enum, ShareMatrixTest (doc ↔ code)",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
