@@ -13,7 +13,8 @@
     "./styles/animations.css": "./styles/animations.css",
     "./styles/theme-v2.css": "./styles/theme-v2.css",
     "./styles/resume.css": "./styles/resume.css",
-    "./fonts/*": "./fonts/*"
+    "./fonts/*": "./fonts/*",
+    "./resume/thumbs/*": "./src/resume/thumbs/*"
   },
   "files": [
     "src",
