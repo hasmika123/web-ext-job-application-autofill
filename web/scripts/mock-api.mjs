@@ -532,6 +532,213 @@ function handleAccess(req, res, path, method) {
   return true;
 }
 
+/* ── Resume Builder AI mock (R4.1 contract, R4.2 UI; deterministic fakes, in memory) ──────────────────────────
+ * Rewrite / summary proposals with no model: the same answer for the same input, so screenshots repeat.
+ * Switches (no auth, DEV ONLY), e.g. `curl "http://127.0.0.1:<MOCK_API_PORT>/__mock/ai?plan=pro&mode=quota"`:
+ *   plan = free | pro     (the web reads it when a page renders: reload after changing it)
+ *   mode = ok (default) | quota | daily | fail | nothing | disabled | slow
+ * Proposals go stale when the document version moves, like the real content-hash check. */
+let PRO = process.env.MOCK_PRO === "1" || Number(process.env.MOCK_RESUME_LIMIT ?? FREE_RESUME_LIMIT) > FREE_RESUME_LIMIT;
+let AI_MODE = process.env.MOCK_AI_MODE ?? "ok";
+const AI_PROPOSALS = new Map(); // id -> { id, resumeId, task, mode, version, status, changes }
+let nextProposalId = 500;
+let aiUsed = 12;
+const aiUsage = (extra = {}) => ({ used: aiUsed, limit: 100, resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1)).toISOString(), economy: false, ...extra });
+
+const VERBS = { led: "Spearheaded", built: "Engineered", launched: "Shipped", drove: "Spearheaded", mentored: "Coached", owned: "Took charge of", cut: "Reduced", improved: "Raised", managed: "Directed" };
+const FORMAL = { led: "Directed", built: "Developed", launched: "Introduced", drove: "Advanced", mentored: "Advised", cut: "Reduced", improved: "Enhanced" };
+const PLAIN = { led: "Ran", built: "Made", launched: "Started", drove: "Pushed", mentored: "Helped", cut: "Lowered", improved: "Raised" };
+const swapVerb = (text, table) => {
+  const m = text.match(/^([A-Za-z]+)(\b.*)$/s);
+  const next = m && table[m[1].toLowerCase()];
+  return next ? next + m[2] : null;
+};
+const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+const noDot = (s) => s.replace(/\s+$/, "").replace(/\.$/, "");
+
+/** Up to three alternatives for one line in a mode (empty = nothing sensible to change). */
+function mockAlternatives(text, mode) {
+  const t = noDot(text.trim());
+  const dot = text.trim().endsWith(".") ? "." : "";
+  const hasNumber = /\d/.test(t);
+  if (mode === "stronger") {
+    const a = swapVerb(t, VERBS) ?? `Delivered ${lowerFirst(t)}`;
+    const out = [a + dot, `${a}, end to end${dot}`];
+    if (!hasNumber) out.push(`${a} by [add a number]${dot}`);
+    return out;
+  }
+  if (mode === "shorter") {
+    const words = t.split(/\s+/);
+    if (words.length < 4) return [];
+    return [words.slice(0, Math.max(3, Math.ceil(words.length * 0.6))).join(" ").replace(/[,;:]$/, "") + dot];
+  }
+  if (mode === "formal") {
+    const a = swapVerb(t, FORMAL);
+    return a ? [a + dot] : [];
+  }
+  if (mode === "plain") {
+    const a = swapVerb(t, PLAIN);
+    return a ? [a + dot] : [];
+  }
+  // grammar: capital letter, one space between words, a closing full stop
+  const fixed = t.replace(/\s+/g, " ").replace(/^./, (c) => c.toUpperCase()) + ".";
+  return fixed === text.trim() ? [] : [fixed];
+}
+
+/** Every rewritable line of a doc by ref: bullets, the summary item and achievements. */
+function aiLines(doc) {
+  const lines = new Map();
+  for (const s of doc.sections) {
+    if (s.hidden) continue;
+    for (const it of s.items ?? []) {
+      if (it.hidden) continue;
+      const label = s.kind === "SUMMARY" ? "Summary" : [it.title, it.org].filter(Boolean).join(" · ") || s.title || s.kind;
+      if (s.kind === "SUMMARY" || s.kind === "ACHIEVEMENTS") {
+        if (typeof it.text === "string" && it.text.trim()) lines.set(it.id, { node: it, text: it.text, section: label, formatted: (it.marks ?? []).length > 0 });
+      }
+      for (const b of it.bullets ?? []) if (typeof b.text === "string" && b.text.trim()) lines.set(b.id, { node: b, text: b.text, section: label, formatted: (b.marks ?? []).length > 0 });
+    }
+  }
+  return lines;
+}
+
+const proposalView = (p, d) => ({
+  id: p.id, task: p.task, mode: p.mode ?? undefined, stale: p.version !== d.version, createdAt: p.createdAt, changes: p.changes, suggestions: [], model: "mock-flash-lite", aiCallId: p.id + 4000,
+});
+
+function handleAi(req, res, path, method) {
+  if (path === "/__mock/ai") {
+    req.resume();
+    const q = new URL(req.url, "http://x").searchParams;
+    if (q.get("plan")) PRO = q.get("plan") === "pro";
+    if (q.get("mode")) AI_MODE = q.get("mode");
+    if (q.get("used")) aiUsed = Number(q.get("used"));
+    json(res, 200, { pro: PRO, mode: AI_MODE, used: aiUsed });
+    return true;
+  }
+  const m = path.match(/^\/api\/profile\/resumes\/(\d+)\/ai\/(rewrite|summary|proposals)$/);
+  const a = path.match(/^\/api\/profile\/ai\/proposals\/(\d+)\/(apply|dismiss)$/);
+  if (!m && !a) return false;
+  if (!subOf(req)) {
+    req.resume();
+    json(res, 401, { error: "Unauthorized" });
+    return true;
+  }
+  if (!PRO) {
+    req.resume();
+    json(res, 402, { status: 402, code: "PRO_REQUIRED", title: "PRO_REQUIRED", message: "AI rewriting is part of Kiwiply Pro" });
+    return true;
+  }
+
+  if (m) {
+    const id = Number(m[1]);
+    const d = DOCS.get(id);
+    if (!d) {
+      req.resume();
+      json(res, 404, { status: 404, title: "Not Found" });
+      return true;
+    }
+    if (m[2] === "proposals" && method === "GET") {
+      req.resume();
+      json(res, 200, [...AI_PROPOSALS.values()].filter((p) => p.resumeId === id && p.status === "OPEN").reverse().map((p) => proposalView(p, d)));
+      return true;
+    }
+    if (method !== "POST") {
+      req.resume();
+      json(res, 405, { error: "Method not allowed" });
+      return true;
+    }
+    withBody(req, (b) => {
+      if (b.consent !== true) return json(res, 200, { status: "consentRequired", usage: aiUsage() });
+      if (AI_MODE === "disabled") return json(res, 200, { status: "disabled" });
+      if (AI_MODE === "quota") return json(res, 200, { status: "quotaExceeded", usage: aiUsage({ used: 100 }) });
+      if (AI_MODE === "daily") return json(res, 200, { status: "quotaExceeded", cap: "daily", usage: { used: 40, limit: 40, resetsAt: new Date(Date.now() + 86_400_000).toISOString(), economy: false } });
+      if (AI_MODE === "fail") return json(res, 502, { status: "error", error: "Couldn't reach Kiwiply AI right now - try again." });
+      const respond = () => {
+        const lines = aiLines(d.doc);
+        const changes = [];
+        const mode = m[2] === "rewrite" ? String(b.mode ?? "stronger") : null;
+        if (m[2] === "rewrite") {
+          if (!["stronger", "shorter", "formal", "plain", "grammar"].includes(mode)) return json(res, 400, { code: "INVALID_MODE", message: "mode must be one of formal, grammar, plain, shorter, stronger" });
+          const refs = Array.isArray(b.refs) ? b.refs : [];
+          if (refs.length === 0 || refs.length > 12 || refs.some((r) => !lines.has(r))) return json(res, 400, { code: "INVALID_REFS", message: "Pick up to 12 lines of this resume" });
+          for (const ref of refs) {
+            const line = lines.get(ref);
+            const alts = mockAlternatives(line.text, mode);
+            if (alts.length === 0) continue;
+            changes.push({
+              ref, section: line.section, before: line.text, after: alts[0], ...(alts.length > 1 ? { alternatives: alts } : {}),
+              reason: { stronger: "Opens with a strong verb and keeps your facts", shorter: "Same facts in fewer words", formal: "A more professional tone", plain: "Simpler words", grammar: "Fixed capitalisation and punctuation" }[mode],
+              sources: [ref], formatted: line.formatted,
+            });
+          }
+        } else {
+          const sum = d.doc.sections.find((s) => s.kind === "SUMMARY")?.items?.[0];
+          const base = sum?.text?.trim() || "Product designer";
+          changes.push({
+            ref: "summary", section: "Summary", before: sum?.text ?? "",
+            after: `${noDot(base)}, shipping design systems used by teams.`, alternatives: [`${noDot(base)}, shipping design systems used by teams.`, `${noDot(base)} focused on clear, measurable outcomes.`],
+            reason: "Drafted from what your resume already says", sources: [], formatted: false,
+          });
+        }
+        if (changes.length === 0) return json(res, 200, { status: "nothingToChange", usage: aiUsage(), dropped: 0 });
+        aiUsed = Math.min(99, aiUsed + 1);
+        const p = { id: nextProposalId++, resumeId: id, task: m[2] === "rewrite" ? "rewrite" : "summary", mode, version: d.version, status: "OPEN", createdAt: new Date().toISOString(), changes };
+        AI_PROPOSALS.set(p.id, p);
+        json(res, 200, { status: "ok", proposal: proposalView(p, d), usage: aiUsage() });
+      };
+      if (AI_MODE === "slow") setTimeout(respond, 2500);
+      else respond();
+    });
+    return true;
+  }
+
+  const pid = Number(a[1]);
+  const p = AI_PROPOSALS.get(pid);
+  if (!p) {
+    req.resume();
+    json(res, 404, { status: 404, title: "Not Found" });
+    return true;
+  }
+  if (a[2] === "dismiss") {
+    req.resume();
+    if (p.status === "OPEN") p.status = "DISMISSED";
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+  withBody(req, (b) => {
+    const d = DOCS.get(p.resumeId);
+    if (p.status !== "OPEN") return problem(res, 409, "PROPOSAL_CLOSED", { message: "This suggestion was already used or dismissed" });
+    const keep = Array.isArray(b.keep) ? b.keep : [];
+    if (keep.length === 0) return problem(res, 400, "KEEP_EMPTY", { message: "Keep at least one change" });
+    if (!d || p.version !== d.version) return problem(res, 409, "PROPOSAL_STALE", { message: "Your resume changed since this suggestion was made", serverVersion: d?.version });
+    const texts = new Map();
+    for (const ref of keep) {
+      const c = p.changes.find((x) => x.ref === ref);
+      if (!c) return problem(res, 400, "UNKNOWN_REF", { message: `That change is not in this suggestion: ${ref}` });
+      const alts = c.alternatives ?? [c.after];
+      const idx = Number(b.alternatives?.[ref] ?? 0);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= alts.length) return problem(res, 400, "BAD_ALTERNATIVE", { message: `No alternative ${idx} for ${ref}` });
+      if (alts[idx].toLowerCase().includes("[add a number]")) return problem(res, 422, "PLACEHOLDER_REMAINS", { message: "Replace [add a number] with a real number before applying", ref });
+      texts.set(ref, alts[idx]);
+    }
+    const lines = aiLines(d.doc);
+    for (const [ref, text] of texts) {
+      const node = ref === "summary" ? d.doc.sections.find((s) => s.kind === "SUMMARY")?.items?.[0] : lines.get(ref)?.node;
+      if (!node) return problem(res, 409, "PROPOSAL_STALE", { message: "That line is no longer in your resume" });
+      node.text = text;
+      delete node.marks;
+      node.src = "ai";
+    }
+    p.status = "APPLIED";
+    d.version += 1;
+    d.updatedAt = new Date().toISOString();
+    withEtag(res, 200, docDto(p.resumeId), d.version);
+  });
+  return true;
+}
+
 /* ── My Resumes + "New resume" start chooser mock (R2.6; in memory) ──────────────────────────────── */
 // MOCK_RESUME_LIMIT is the plan's live-resume cap (default 3 = Free, which the seeded demo is already over, so
 // the cap prompt shows); start with MOCK_RESUME_LIMIT=25 to try the four chooser sources.
@@ -549,7 +756,7 @@ const capProblem = (res) =>
 
 /** The builder settings the web reads (`GET /api/profile/resume-builder/config`), with the live resume count. */
 function builderConfig() {
-  const pro = RESUME_LIMIT > FREE_RESUME_LIMIT;
+  const pro = PRO; // MOCK_PRO=1 / MOCK_RESUME_LIMIT>3 / GET /__mock/ai?plan=pro
   return {
     templates: { enabled: ["modern"], default: "modern", overrides: {}, popular: ["modern"] },
     limits: { sections: 20, items: 40, bullets: 12, bulletChars: 600, summaryChars: 2000, marks: 64, docBytes: 262144 },
@@ -571,7 +778,7 @@ function builderConfig() {
     ai: { suggestAutoRefresh: false, suggestStaleMinutes: 10, rewriteMaxRefs: 12 },
     plan: pro ? "PRO" : "FREE",
     aiAllowed: pro,
-    resumes: { count: liveCount(), max: RESUME_LIMIT },
+    resumes: { count: liveCount(), max: pro ? Math.max(RESUME_LIMIT, 25) : RESUME_LIMIT },
     profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200, bioValueMaxChars: 500, bioSummaryMaxChars: 2000, setupPromptBelowPercent: 40, uploadMaxBytes: 10485760 },
     pdf: { waitMs: 30000, viewAutoRefresh: false },
     share: { maxLinks: 3 },
@@ -1240,6 +1447,7 @@ const server = http.createServer((req, res) => {
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
+  if (handleAi(req, res, path, method)) return;
   if (handleMeta(req, res, path, method)) return;
   if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
@@ -1401,7 +1609,7 @@ const server = http.createServer((req, res) => {
       hasCustomer: false,
     });
   if (path === "/api/ai/usage")
-    return json(res, 200, { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
+    return json(res, 200, PRO ? { metered: "budget", ...aiUsage() } : { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
   if (path === "/api/profile") return json(res, 200, { payload: JSON.stringify(BIO) });
   // R1.6: where each saved bio value came from (the real API keeps this off GET /api/profile). The demo says "parsed" for names, "user" for the rest.
   if (path === "/api/profile/provenance")

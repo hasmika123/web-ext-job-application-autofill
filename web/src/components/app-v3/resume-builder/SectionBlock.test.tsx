@@ -138,21 +138,37 @@ describe("SectionBlock", () => {
   });
 
   describe("the Summary block", () => {
-    it("hosts the mark toolbar slot (buttons from the template) and the Rewrite stub", () => {
-      render(<CanvasHarness doc={doc()} caps={DESIGN_FREE} />);
+    it("hosts the mark toolbar slot (buttons from the template) and the Rewrite with AI button (R4.2)", () => {
+      render(<CanvasHarness doc={doc()} caps={DESIGN_FREE} aiAllowed />);
       const slot = block("s_sum").querySelector("[data-slot='mark-toolbar']")!;
       expect(slot.getAttribute("data-buttons")).toBe("b,i,u,bullet,number,a");
-      const rewrite = within(block("s_sum")).getByRole("button", { name: /Rewrite with AI/ }) as HTMLButtonElement;
-      expect(rewrite.disabled).toBe(true);
+      const rewrite = within(block("s_sum")).getByRole("button", { name: "Rewrite with AI: Summary" });
+      expect(rewrite).toBeTruthy();
     });
 
-    it("an ATS template offers only bold; Free shows the lock, a plan with AI the plain stub", () => {
+    it("an ATS template offers only bold; Free shows the lock with a way to Pro, a plan with AI the mode menu", () => {
       const { unmount } = render(<CanvasHarness doc={doc()} caps={ATS_STRICT} aiAllowed={false} />);
       expect(block("s_sum").querySelector("[data-slot='mark-toolbar']")!.getAttribute("data-buttons")).toBe("b");
-      expect(within(block("s_sum")).getByRole("button", { name: /Rewrite with AI/ }).getAttribute("title")).toMatch(/part of Pro/);
+      expect(within(block("s_sum")).getByRole("button", { name: "Rewrite with AI: Summary (Pro)" }).getAttribute("title")).toMatch(/part of Pro/);
       unmount();
       render(<CanvasHarness doc={doc()} aiAllowed />);
-      expect(within(block("s_sum")).getByRole("button", { name: /Rewrite with AI/ }).getAttribute("title")).toMatch(/coming soon/);
+      fireEvent.click(within(block("s_sum")).getByRole("button", { name: "Rewrite with AI: Summary" }));
+      expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toHaveLength(5);
+    });
+
+    it("an empty summary keeps the button, turned off with the reason", () => {
+      const d = doc();
+      d.sections[0] = { ...d.sections[0], items: [] } as typeof d.sections[0];
+      render(<CanvasHarness doc={d} aiAllowed />);
+      const rewrite = within(block("s_sum")).getByRole("button", { name: /Rewrite with AI: Summary/ }) as HTMLButtonElement;
+      expect(rewrite.disabled).toBe(true);
+      expect(rewrite.title).toMatch(/Write a few words first/);
+    });
+
+    it("the bulleted sections carry the button too; skills, languages and interests do not", () => {
+      render(<CanvasHarness doc={doc()} aiAllowed />);
+      expect(within(block("s_exp")).getByRole("button", { name: "Rewrite with AI: Experience" })).toBeTruthy();
+      expect(within(block("s_skl")).queryByRole("button", { name: /Rewrite with AI/ })).toBeNull();
     });
 
     it("edits the summary and counts against the config's limit", () => {

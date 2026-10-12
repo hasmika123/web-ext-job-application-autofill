@@ -133,6 +133,8 @@ export type EditorAction =
   | { type: "list/set"; sectionId: string; itemId?: string; style: ResumeListStyle | null; at: number }
   /** AI apply / sync apply: replaces one text and clears its marks (so one undo reverts it). */
   | { type: "text/replace"; ref: TextRef; text: string; at: number }
+  /** AI apply (R4.2): several lines at once, one history entry; `src` marks where the texts came from (default "user"). */
+  | { type: "text/replaceMany"; items: Array<{ ref: TextRef; text: string }>; src?: "user" | "ai"; at: number }
   | { type: "bullet/edit"; sectionId: string; itemId: string; bulletId: string; text: string; marks?: ResumeMark[]; format?: boolean; at: number }
   | { type: "bullet/move"; sectionId: string; itemId: string; bulletId: string; to: number; at: number }
   /** Appends an empty bullet to an item (the "Add bullet" button). */

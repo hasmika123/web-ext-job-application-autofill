@@ -1526,7 +1526,7 @@
       "id": "R4.2",
       "epic": "R4",
       "title": "Diff UI — `ProposalDiff` + `DiffText` + `AiDisclosure`, \"Rewrite with AI\" on section headers and per bullet, modes, lock states, fit/grammar modes",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web",

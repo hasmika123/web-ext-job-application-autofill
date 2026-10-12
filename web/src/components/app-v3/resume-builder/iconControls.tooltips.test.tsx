@@ -108,6 +108,14 @@ describe("tooltips on every icon-only control", () => {
     vi.useRealTimers();
   });
 
+  it.each([true, false])("Rewrite with AI (R4.2): the per-bullet control has a name and a tooltip (AI allowed: %s)", (aiAllowed) => {
+    render(<CanvasHarness doc={testDoc()} caps={DESIGN_FREE} aiAllowed={aiAllowed} />);
+    const found = expectNamedWithTooltip(document.body, 12);
+    const bullets = found.filter((e) => /^Rewrite bullet \d+ with AI/.test(nameOf(e)));
+    expect(bullets.length).toBeGreaterThan(0);
+    expect(bullets.map(nameOf).every((n) => (aiAllowed ? !n.endsWith("(Pro)") : n.endsWith("(Pro)")))).toBe(true);
+  });
+
   it("MarkToolbar: B, I, U, lists and link, with shortcut hints", () => {
     render(
       <MarkToolbar
