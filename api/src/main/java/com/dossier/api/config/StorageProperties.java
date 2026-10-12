@@ -3,9 +3,10 @@ package com.dossier.api.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Configuration for the S3-compatible blob store that holds resume files.
- * In production this points at Cloudflare R2; in dev/tests it points at MinIO.
- * Endpoint, bucket and credentials are config (env-overridable), never constants.
+ * Configuration for the {@code FileStorage} seam that holds every uploaded/built file.
+ * {@code driver} picks the implementation: {@code local} (default; files under {@code local.root})
+ * or {@code s3} (endpoint/bucket/credentials below). The S3 keys are unchanged, so production
+ * switches drivers by configuration alone. Never constants, never committed keys.
  *
  * Bound under `dossier.*` (NOT `application.*`): JHipster owns `application.*` via
  * its own {@code ApplicationProperties} with {@code ignoreUnknownFields=false}, so
@@ -13,6 +14,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "dossier.storage")
 public class StorageProperties {
+
+    /** Which FileStorage driver is active: {@code local} (default) or {@code s3}. */
+    private String driver = "local";
+
+    private final Local local = new Local();
 
     /** S3 endpoint. R2: https://&lt;account&gt;.r2.cloudflarestorage.com; MinIO: http://host:port. */
     private String endpoint = "";
@@ -28,6 +34,36 @@ public class StorageProperties {
 
     /** R2 and MinIO both work with path-style addressing; keep it on. */
     private boolean pathStyleAccess = true;
+
+    public String getDriver() {
+        return driver;
+    }
+
+    public void setDriver(String driver) {
+        this.driver = driver;
+    }
+
+    public Local getLocal() {
+        return local;
+    }
+
+    /** Settings for the local-filesystem driver. */
+    public static class Local {
+
+        /**
+         * Directory that holds the files. Created (0700) on first use. Default is under the user's
+         * home so dev works with zero setup; production sets {@code /srv/uploads} (a Docker volume).
+         */
+        private String root = System.getProperty("user.home", ".") + "/.dossier/uploads";
+
+        public String getRoot() {
+            return root;
+        }
+
+        public void setRoot(String root) {
+            this.root = root;
+        }
+    }
 
     public String getEndpoint() {
         return endpoint;

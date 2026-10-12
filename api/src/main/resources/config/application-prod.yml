@@ -162,6 +162,10 @@ application:
 # ===================================================================
 dossier:
   storage:
+    driver: ${DOSSIER_STORAGE_DRIVER:local}
+    local:
+      root: ${DOSSIER_STORAGE_LOCAL_ROOT:/srv/uploads}
+    # The keys below apply only when driver=s3 (ignored under local).
     # AWS S3 (private bucket). Leave the endpoint EMPTY so the SDK uses the default AWS
     # endpoint for the region; set it only for an S3-compatible store (MinIO/R2). region,
     # bucket and credentials come from the environment. path-style-access is FALSE for AWS

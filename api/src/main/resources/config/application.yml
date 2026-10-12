@@ -259,9 +259,15 @@ dossier:
     enabled: ${DEMO_ENABLED:false}
     password: ${DEMO_PASSWORD:kiwiply-demo}
     create-accounts: ${DEMO_CREATE_ACCOUNTS:true}
-  # S3-compatible resume blob store. In prod these come from env (Cloudflare R2);
-  # dev/tests override the endpoint + credentials (MinIO). Never commit real keys.
+  # File storage seam (FileStorage): every uploaded / built file goes through it.
+  #   driver=local (default) -> files under local.root, no cloud account or credentials needed.
+  #   driver=s3              -> an S3-compatible bucket, configured by the keys below. Switching is
+  #                             config-only (DOSSIER_STORAGE_DRIVER=s3). Never commit real keys.
   storage:
+    driver: ${DOSSIER_STORAGE_DRIVER:local}
+    local:
+      # Dev default: ~/.dossier/uploads (created 0700). Prod sets /srv/uploads (a Docker volume).
+      root: ${DOSSIER_STORAGE_LOCAL_ROOT:${user.home}/.dossier/uploads}
     endpoint: ${STORAGE_ENDPOINT:}
     region: ${STORAGE_REGION:auto}
     bucket: ${STORAGE_BUCKET:dossier-resumes}

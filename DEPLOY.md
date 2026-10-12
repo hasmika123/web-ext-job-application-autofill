@@ -33,7 +33,21 @@ extension ─https─> Caddy ─┘                                          └
   ```
 - This repo on the box (`git clone …`).
 
-## 1. AWS S3 (private bucket)
+## 1. File storage (local disk by default; AWS S3 optional)
+Every uploaded or built file (resumes, application attachments, built-resume PDFs) goes through the
+API's `FileStorage` seam. The default driver is **local disk**: files live in the `uploads` Docker volume,
+mounted at `/srv/uploads` in the `api` container. It needs **no cloud account and no new `.env` secrets**
+(`DOSSIER_STORAGE_DRIVER` defaults to `local`; `S3_*` are optional).
+
+- The volume is **user data**, not covered by the MySQL dump (`backup-db.sh`). Back it up too, and never
+  run `docker compose down -v` (it deletes the volume). Plain `up -d` / `pull` / recreate keep it.
+- Files written by the old S3 driver stay in the bucket. With `driver=local` those older resumes are not
+  served (the download returns 404 `FILE_MISSING`); to keep serving them, set `DOSSIER_STORAGE_DRIVER=s3`
+  with the S3 values. Moving files between drivers is a separate story (P5.4).
+- Local dev: files go to `~/.dossier/uploads` (override with `DOSSIER_STORAGE_LOCAL_ROOT`); to exercise
+  the S3 driver against MinIO, set `DOSSIER_STORAGE_DRIVER=s3`.
+
+### 1.1 Switching to AWS S3 (optional, config only)
 1. Create a **private** bucket (e.g. `dossier-resumes`) in your region (e.g. `us-east-1`).
    Leave "Block all public access" ON — downloads are proxied through the API.
 2. Create an IAM user with programmatic keys and this least-privilege policy (replace the

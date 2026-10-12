@@ -1,5 +1,6 @@
 package com.dossier.api.service;
 
+import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.Bio;
@@ -100,7 +101,7 @@ public class DemoAccountService {
     private final BioRepository bioRepository;
     private final AiAnswerRepository aiAnswerRepository;
     private final FieldCacheRepository fieldCacheRepository;
-    private final ResumeStorageService storageService;
+    private final FileStorage storageService;
     private final RefreshTokenService refreshTokenService;
     private final ProfileSuggestionService profileSuggestionService;
     private final ResumeMatchService resumeMatchService;
@@ -127,7 +128,7 @@ public class DemoAccountService {
         BioRepository bioRepository,
         AiAnswerRepository aiAnswerRepository,
         FieldCacheRepository fieldCacheRepository,
-        ResumeStorageService storageService,
+        FileStorage storageService,
         RefreshTokenService refreshTokenService,
         ProfileSuggestionService profileSuggestionService,
         ResumeMatchService resumeMatchService,

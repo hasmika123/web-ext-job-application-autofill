@@ -110,6 +110,11 @@ dossier:
     enabled: false
     password: test-demo-password
     create-accounts: false
+  # Uploads go through the local-filesystem FileStorage driver (the default) into a throwaway dir.
+  storage:
+    driver: local
+    local:
+      root: ${java.io.tmpdir}/dossier-test-uploads
 management:
   health:
     mail:

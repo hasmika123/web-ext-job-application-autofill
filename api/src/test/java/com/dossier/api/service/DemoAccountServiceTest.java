@@ -1,5 +1,6 @@
 package com.dossier.api.service;
 
+import com.dossier.api.service.storage.FileStorage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -72,7 +73,7 @@ class DemoAccountServiceTest {
             bioRepository,
             mock(AiAnswerRepository.class),
             mock(FieldCacheRepository.class),
-            mock(ResumeStorageService.class),
+            mock(FileStorage.class),
             refreshTokenService,
             mock(ProfileSuggestionService.class),
             mock(ResumeMatchService.class),

@@ -2,6 +2,7 @@ package com.dossier.api;
 
 import static com.tngtech.archunit.base.DescribedPredicate.alwaysTrue;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
 import com.tngtech.archunit.core.importer.ImportOption.DoNotIncludeTests;
@@ -35,4 +36,14 @@ class TechnicalStructureTest {
             com.dossier.api.config.Constants.class,
             com.dossier.api.config.ApplicationProperties.class
         ));
+
+    // The FileStorage seam: only the S3 driver may touch the AWS SDK; everything else (resources,
+    // services, R0.6 PDF export) goes through FileStorage and never learns which driver is active.
+    @ArchTest
+    static final ArchRule awsSdkIsOnlyUsedByTheS3StorageDriver = noClasses()
+        .that()
+        .resideOutsideOfPackage("..service.storage.s3..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("software.amazon.awssdk..");
 }

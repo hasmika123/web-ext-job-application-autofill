@@ -4,8 +4,9 @@ import com.dossier.api.domain.Application;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.DemoGuard;
-import com.dossier.api.service.ResumeStorageService;
-import com.dossier.api.service.ResumeStorageService.StoredFile;
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.FileStorage.StoredFile;
+import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,13 +33,13 @@ public class ApplicationAttachmentResource {
     private static final String PREFIX = "application-attachments";
 
     private final ApplicationRepository applicationRepository;
-    private final ResumeStorageService storageService;
+    private final FileStorage storageService;
 
     private final DemoGuard demoGuard;
 
     public ApplicationAttachmentResource(
         ApplicationRepository applicationRepository,
-        ResumeStorageService storageService,
+        FileStorage storageService,
         DemoGuard demoGuard
     ) {
         this.applicationRepository = applicationRepository;
@@ -55,7 +56,7 @@ public class ApplicationAttachmentResource {
         }
         Application app = ownedOr404(id);
         Long userId = app.getUser() != null ? app.getUser().getId() : null;
-        // Replace any previously stored attachment so we don't orphan bytes in S3.
+        // Replace any previously stored attachment so we don't orphan stored bytes.
         String previousKey = app.getAttachmentObjectKey();
         String key = storageService.objectKeyFor(PREFIX, userId, app.getId(), file.getOriginalFilename());
         storageService.store(key, file.getBytes(), file.getContentType());
@@ -77,7 +78,12 @@ public class ApplicationAttachmentResource {
         if (key == null || key.isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No attachment for this application");
         }
-        StoredFile stored = storageService.load(key);
+        StoredFile stored;
+        try {
+            stored = storageService.load(key);
+        } catch (StorageObjectNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "FILE_MISSING");
+        }
         MediaType contentType = stored.contentType() != null
             ? MediaType.parseMediaType(stored.contentType())
             : MediaType.APPLICATION_OCTET_STREAM;

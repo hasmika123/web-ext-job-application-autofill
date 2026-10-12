@@ -1,5 +1,6 @@
 package com.dossier.api.service;
 
+import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
@@ -65,7 +66,7 @@ public class ProfileService {
     private final ApplicationRepository applicationRepository;
     private final BioMapper bioMapper;
     private final ResumeMapper resumeMapper;
-    private final ResumeStorageService storageService;
+    private final FileStorage storageService;
     private final EntitlementService entitlementService;
     private final ResumeDocRepository resumeDocRepository;
     private final ResumeDocVersionRepository resumeDocVersionRepository;
@@ -78,7 +79,7 @@ public class ProfileService {
         ApplicationRepository applicationRepository,
         BioMapper bioMapper,
         ResumeMapper resumeMapper,
-        ResumeStorageService storageService,
+        FileStorage storageService,
         EntitlementService entitlementService,
         ResumeDocRepository resumeDocRepository,
         ResumeDocVersionRepository resumeDocVersionRepository,

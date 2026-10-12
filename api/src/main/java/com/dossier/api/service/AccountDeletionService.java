@@ -1,5 +1,7 @@
 package com.dossier.api.service;
 
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.Subscription;
 import com.dossier.api.domain.User;
@@ -45,7 +47,7 @@ public class AccountDeletionService {
     private final ApplicationRepository applicationRepository;
     private final AiAnswerRepository aiAnswerRepository;
     private final FieldCacheRepository fieldCacheRepository;
-    private final ResumeStorageService storageService;
+    private final FileStorage storageService;
     private final UserService userService;
     private final UserRepository userRepository;
     private final RefreshTokenService refreshTokenService;
@@ -70,7 +72,7 @@ public class AccountDeletionService {
         ApplicationRepository applicationRepository,
         AiAnswerRepository aiAnswerRepository,
         FieldCacheRepository fieldCacheRepository,
-        ResumeStorageService storageService,
+        FileStorage storageService,
         UserService userService,
         UserRepository userRepository,
         RefreshTokenService refreshTokenService,
@@ -180,7 +182,9 @@ public class AccountDeletionService {
         // Child rows first (FK user_id), then the user.
         resumeRepository.deleteAll(resumes);
         bioRepository.deleteAll(bioRepository.findByUserIsCurrentUser());
-        applicationRepository.deleteAll(applicationRepository.findByUserIsCurrentUser());
+        List<Application> applications = applicationRepository.findByUserIsCurrentUser();
+        deleteAttachmentBlobs(applications);
+        applicationRepository.deleteAll(applications);
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserIsCurrentUser());
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserIsCurrentUser());
         // Refresh tokens are keyed by user id (the FK also cascades on user delete, but
@@ -228,7 +232,9 @@ public class AccountDeletionService {
 
         resumeRepository.deleteAll(resumes);
         bioRepository.deleteAll(bioRepository.findByUserId(userId));
-        applicationRepository.deleteAll(applicationRepository.findByUserId(userId));
+        List<Application> applications = applicationRepository.findByUserId(userId);
+        deleteAttachmentBlobs(applications);
+        applicationRepository.deleteAll(applications);
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserId(userId));
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
         refreshTokenService.deleteAllForUser(userId);
@@ -244,5 +250,15 @@ public class AccountDeletionService {
         userService.deleteUser(login);
 
         LOG.info("Admin deleted account and all data for user: {}", login);
+    }
+
+    /** Application attachments are files too: remove their bytes via the storage seam before the rows go. */
+    private void deleteAttachmentBlobs(List<Application> applications) {
+        for (Application application : applications) {
+            String key = application.getAttachmentObjectKey();
+            if (key != null && !key.isBlank()) {
+                storageService.delete(key);
+            }
+        }
     }
 }
