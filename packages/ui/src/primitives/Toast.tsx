@@ -21,6 +21,8 @@ export interface ToastOptions {
   variant?: ToastVariant;
   /** Auto-dismiss after N ms (default 4000). Pass 0 to require manual dismiss. */
   duration?: number;
+  /** A text button in the toast (e.g. "Undo"). Clicking runs `onClick`, then dismisses the toast. */
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToastItem extends ToastOptions {
@@ -97,6 +99,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {t.title != null && <p className="font-semibold">{t.title}</p>}
               {t.description != null && <div className="text-[13px] text-ink-soft">{t.description}</div>}
             </div>
+            {t.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  t.action?.onClick();
+                  dismiss(t.id);
+                }}
+                className="flex-none rounded-md px-2 py-1 text-[13px] font-bold text-accent-deep transition-colors hover:bg-accent-soft max-sm:min-h-11"
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => dismiss(t.id)}

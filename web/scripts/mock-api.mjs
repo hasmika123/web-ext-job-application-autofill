@@ -7,7 +7,8 @@
  *
  * It answers just the endpoints the signed-in pages call, with realistic fixed data, and refuses every
  * write the way the real API does for a demo session (403 DEMO_READ_ONLY), EXCEPT the Resume Builder
- * document endpoints (below), which are writable in memory so the editor can be exercised. Nothing is persisted.
+ * document endpoints and the Common Profile item endpoints (below), which are writable in memory so the
+ * editor and /profiles can be exercised. Nothing is persisted.
  * It lives outside `src/`, so it is never part of the Next bundle, and it refuses to start when
  * NODE_ENV=production.
  */
@@ -367,6 +368,143 @@ function handleBuilder(req, res, path, method) {
   return true;
 }
 
+/* ── Common Profile items mock (R1.1 contract; in memory, writable like the builder) ─────────────── */
+// Seeded the way the real API does it on first read: from the default resume (provenance PARSED).
+const bullet = (text) => ({ text, src: "parsed" });
+let nextItemId = 1;
+const ITEMS = [
+  { section: "EXPERIENCE", data: { title: "Senior Product Designer", org: "Northwind", location: "Remote", start: "2021-03", current: true, bullets: [bullet("Led the redesign of onboarding, lifting activation 18%."), bullet("Built the design system used by 40 engineers.")] } },
+  { section: "EXPERIENCE", data: { title: "Product Designer", org: "Contoso", location: "Austin, TX", start: "2018-06", end: "2021-02", bullets: [bullet("Shipped the first mobile app.")] } },
+  { section: "EDUCATION", data: { school: "NID Ahmedabad", degree: "B.Des", field: "Industrial Design", start: "2012", end: "2016" } },
+  { section: "SKILL", data: { group: "Design", skills: ["Figma", "Design systems", "User research"] } },
+  { section: "PROJECT", data: { title: "Open-source icon set", bullets: [bullet("1.2k stars on GitHub.")] } },
+  { section: "LANGUAGE", data: { name: "English", level: "Fluent" } },
+].map((s, i) => ({ id: nextItemId++, section: s.section, position: i, data: s.data, provenance: "PARSED", sourceResumeId: 1, hidden: false, updatedAt: ago(40) }));
+
+const SENSITIVE_SSN = /(?<![A-Za-z0-9])\d{3}-\d{2}-\d{4}(?![A-Za-z0-9])/;
+/** First string in `value` that looks like an SSN, as a dotted path (the real check is SensitivePatterns). */
+function findSensitive(value, path) {
+  if (typeof value === "string") return SENSITIVE_SSN.test(value) ? path : null;
+  if (Array.isArray(value)) {
+    for (const [i, v] of value.entries()) {
+      const hit = findSensitive(v, `${path}[${i}]`);
+      if (hit) return hit;
+    }
+  } else if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) {
+      const hit = findSensitive(v, `${path}.${k}`);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+function completeness() {
+  const filled = (k) => typeof BIO[k] === "string" && BIO[k].trim() !== "";
+  const live = ITEMS;
+  const skillNames = new Set(live.filter((i) => i.section === "SKILL").flatMap((i) => i.data.skills ?? []).map((s) => String(s).toLowerCase()));
+  const defs = [
+    ["identity", 15, "Complete your name, email and phone", "personal", filled("firstName") && filled("lastName") && filled("email") && filled("phone")],
+    ["location", 5, "Add your city and country", "personal", filled("city") && filled("country")],
+    ["headline", 5, "Add a headline", "personal", filled("headline")],
+    ["summary", 10, "Write a short summary", "personal", filled("summary")],
+    ["experience", 25, "Add a role with two or more bullet points", "work", live.some((i) => i.section === "EXPERIENCE" && (i.data.bullets ?? []).filter((b) => b.text?.trim()).length >= 2)],
+    ["education", 10, "Add your education", "education", live.some((i) => i.section === "EDUCATION")],
+    ["skills", 15, "Add at least five skills", "skills", skillNames.size >= 5],
+    ["links", 5, "Add a link (LinkedIn, GitHub or a website)", "personal", filled("linkedin") || filled("github") || filled("website")],
+    ["preferences", 10, "Answer two job-preference questions", "preferences", ["authorizedToWork", "desiredSalary", "workPreference", "noticePeriod"].filter(filled).length >= 2],
+  ];
+  const parts = {};
+  let score = 0;
+  let best = null;
+  for (const [key, weight, label, tab, done] of defs) {
+    parts[key] = { weight, done };
+    if (done) score += weight;
+    else if (!best || weight > best.weight) best = { key, weight, label, tab };
+  }
+  return { score, parts, nextAction: best ? { key: best.key, label: best.label, href: `/profiles?tab=${best.tab}` } : null };
+}
+
+/** Handles /api/profile/items/**, /api/profile/completeness; returns true when answered. */
+function handleProfileItems(req, res, path, method) {
+  const m = path.match(/^\/api\/profile\/items(?:\/(reorder|import|\d+))?$/);
+  if (!m && path !== "/api/profile/completeness") return false;
+  if (!subOf(req)) {
+    req.resume();
+    json(res, 401, { error: "Unauthorized" });
+    return true;
+  }
+  if (path === "/api/profile/completeness" && method === "GET") {
+    req.resume();
+    json(res, 200, completeness());
+    return true;
+  }
+  const arg = m?.[1];
+  if (!arg && method === "GET") {
+    req.resume();
+    const section = new URL(req.url ?? "/", "http://localhost").searchParams.get("section");
+    json(res, 200, ITEMS.filter((i) => !section || i.section === section).sort((a, b) => a.section.localeCompare(b.section) || a.position - b.position));
+    return true;
+  }
+  if (!arg && method === "POST") {
+    withBody(req, (b) => {
+      const data = b.dataJson ?? b.data;
+      if (!b.section || !data || typeof data !== "object" || Array.isArray(data)) return problem(res, 422, "ITEM_INVALID", { path: "dataJson", message: "must be a JSON object" });
+      if (JSON.stringify(data).length > 16384) return problem(res, 413, "ITEM_TOO_LARGE", { path: "dataJson", maxBytes: 16384 });
+      const hit = findSensitive(data, "dataJson");
+      if (hit) return problem(res, 422, "SENSITIVE_CONTENT", { path: hit, class: "SSN_ITIN" });
+      const pos = ITEMS.filter((i) => i.section === b.section).length;
+      const item = { id: nextItemId++, section: b.section, position: pos, data, provenance: b.provenance ?? "USER", sourceResumeId: null, hidden: false, updatedAt: new Date().toISOString() };
+      ITEMS.push(item);
+      json(res, 201, item);
+    });
+    return true;
+  }
+  if (arg === "reorder" && method === "POST") {
+    withBody(req, (b) => {
+      (b.ids ?? []).forEach((id, i) => {
+        const it = ITEMS.find((x) => x.id === id && x.section === b.section);
+        if (it) it.position = i;
+      });
+      res.writeHead(204);
+      res.end();
+    });
+    return true;
+  }
+  if (arg && /^\d+$/.test(arg)) {
+    const idx = ITEMS.findIndex((i) => i.id === Number(arg));
+    if (method === "DELETE") {
+      req.resume();
+      if (idx < 0) return json(res, 404, { status: 404, title: "Not Found" }), true;
+      ITEMS.splice(idx, 1);
+      res.writeHead(204);
+      res.end();
+      return true;
+    }
+    if (method === "PUT") {
+      withBody(req, (b) => {
+        if (idx < 0) return json(res, 404, { status: 404, title: "Not Found" });
+        const item = ITEMS[idx];
+        const data = b.dataJson ?? b.data;
+        if (data !== undefined) {
+          if (!data || typeof data !== "object" || Array.isArray(data)) return problem(res, 422, "ITEM_INVALID", { path: "dataJson", message: "must be a JSON object" });
+          const hit = findSensitive(data, "dataJson");
+          if (hit) return problem(res, 422, "SENSITIVE_CONTENT", { path: hit, class: "SSN_ITIN" });
+          item.data = data;
+        }
+        if (typeof b.hidden === "boolean") item.hidden = b.hidden;
+        if (b.provenance) item.provenance = b.provenance;
+        item.updatedAt = new Date().toISOString();
+        json(res, 200, item);
+      });
+      return true;
+    }
+  }
+  req.resume();
+  json(res, 405, { error: "Method not allowed" });
+  return true;
+}
+
 const server = http.createServer((req, res) => {
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
   const method = req.method ?? "GET";
@@ -405,6 +543,7 @@ const server = http.createServer((req, res) => {
   // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
   if (handleBuilder(req, res, path, method)) return;
+  if (handleProfileItems(req, res, path, method)) return;
 
   req.resume(); // other bodies are ignored
   const sub = subOf(req);

@@ -344,7 +344,7 @@
       "id": "R1.2",
       "epic": "R1",
       "title": "`/profiles` hub — real tabs: Experience, Education, Skills, Projects, More (certs/langs/awards/custom) with inline item cards",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web",

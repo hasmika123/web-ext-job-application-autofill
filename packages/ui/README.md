@@ -21,7 +21,7 @@ Concretely:
   `<svg>`** outside this package (the one exception: `web/src/app/opengraph-image.tsx`,
   which `next/og` requires to be self-contained).
 - **Primitives** → `src/primitives/`. Button, IconButton, Input, Select, Field, Card, Badge
-  (+ Pill/Tag), Switch, ChoiceGroup, Meter, Tabs, Toast (`ToastProvider`/`useToast`), Skeleton, Spinner,
+  (+ Pill/Tag), Switch, ChoiceGroup, ChipInput (strings as chips: skills), SourceChip (provenance label: "From your resume" ...), Meter, Tabs, Toast (`ToastProvider`/`useToast`, optional `action` button such as Undo), Skeleton, Spinner,
   EmptyState, Dialog, SidePanel, SideSheet (left/right slide-in: push / overlay / fullscreen; the Resume Builder's two side-navs), Tooltip, Menu, Brand marks. Export new ones from
   `src/index.ts`.
 - **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`

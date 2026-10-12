@@ -42,6 +42,12 @@ export type { TabsProps } from "./primitives/Tabs";
 export { ToastProvider, useToast } from "./primitives/Toast";
 export type { ToastOptions, ToastVariant } from "./primitives/Toast";
 
+export { default as ChipInput } from "./primitives/ChipInput";
+export type { ChipInputProps } from "./primitives/ChipInput";
+
+export { default as SourceChip, SOURCE_LABELS, sourceKind } from "./primitives/SourceChip";
+export type { SourceChipProps, SourceKind } from "./primitives/SourceChip";
+
 export { default as Skeleton } from "./primitives/Skeleton";
 export { default as Spinner } from "./primitives/Spinner";
 export type { SpinnerProps } from "./primitives/Spinner";
