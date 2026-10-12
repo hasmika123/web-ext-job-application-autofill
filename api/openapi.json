@@ -1716,6 +1716,140 @@
         }
       }
     },
+    "/api/admin/settings/{key}" : {
+      "get" : {
+        "tags" : [ "admin-settings-resource" ],
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "name" : "key",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SettingItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "admin-settings-resource" ],
+        "operationId" : "put",
+        "parameters" : [ {
+          "name" : "key",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SettingItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "admin-settings-resource" ],
+        "operationId" : "reset",
+        "parameters" : [ {
+          "name" : "key",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "reason",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SettingItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "admin-settings-resource" ],
+        "operationId" : "patch",
+        "parameters" : [ {
+          "name" : "key",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SettingItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/job-sources/{id}" : {
       "put" : {
         "tags" : [ "admin-job-source-resource" ],
@@ -1793,7 +1927,7 @@
     "/api/admin/bug-reports/{id}" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "get_1",
+        "operationId" : "get_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -6023,10 +6157,46 @@
         }
       }
     },
+    "/api/admin/settings/{key}/revert" : {
+      "post" : {
+        "tags" : [ "admin-settings-resource" ],
+        "operationId" : "revert",
+        "parameters" : [ {
+          "name" : "key",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RevertRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SettingItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/settings/demo/reset" : {
       "post" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "reset",
+        "operationId" : "reset_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6581,7 +6751,7 @@
         "tags" : [ "onboarding" ],
         "summary" : "Set the persona / act on the dashboard card",
         "description" : "persona: a string sets it, null clears it, absent leaves it (422 PERSONA_INVALID). card.action: SNOOZE, DISMISS or RESET.",
-        "operationId" : "patch",
+        "operationId" : "patch_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -6612,7 +6782,7 @@
     "/api/orgs/{orgId}" : {
       "get" : {
         "tags" : [ "org-resource" ],
-        "operationId" : "get_2",
+        "operationId" : "get_3",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6628,7 +6798,7 @@
       },
       "patch" : {
         "tags" : [ "org-resource" ],
-        "operationId" : "patch_1",
+        "operationId" : "patch_2",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -9161,6 +9331,76 @@
         }
       }
     },
+    "/api/admin/settings" : {
+      "get" : {
+        "tags" : [ "admin-settings-resource" ],
+        "operationId" : "list_8",
+        "parameters" : [ {
+          "name" : "area",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SettingsView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings/{key}/history" : {
+      "get" : {
+        "tags" : [ "admin-settings-resource" ],
+        "operationId" : "history",
+        "parameters" : [ {
+          "name" : "key",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/HistoryRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
@@ -9201,7 +9441,7 @@
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -9283,7 +9523,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -9391,7 +9631,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -9569,7 +9809,7 @@
     "/api/admin/ai/config/history" : {
       "get" : {
         "tags" : [ "admin-ai-config-resource" ],
-        "operationId" : "history",
+        "operationId" : "history_1",
         "parameters" : [ {
           "name" : "key",
           "in" : "query",
@@ -10727,6 +10967,69 @@
           }
         },
         "required" : [ "login" ]
+      },
+      "SetRequest" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SettingItem" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "area" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "risk" : {
+            "type" : "string"
+          },
+          "reasonRule" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "value" : { },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "db", "env", "default" ]
+          },
+          "envDefault" : { },
+          "codeDefault" : { },
+          "min" : {
+            "type" : "number"
+          },
+          "max" : {
+            "type" : "number"
+          },
+          "allowed" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "updatedBy" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastReason" : {
+            "type" : "string"
+          }
+        }
       },
       "EnabledRequest" : {
         "type" : "object",
@@ -12377,6 +12680,18 @@
           }
         },
         "required" : [ "activated", "login" ]
+      },
+      "RevertRequest" : {
+        "type" : "object",
+        "properties" : {
+          "historyId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
       },
       "AddRequest" : {
         "type" : "object",
@@ -14439,6 +14754,67 @@
           }
         }
       },
+      "AreaSummary" : {
+        "type" : "object",
+        "properties" : {
+          "area" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "highCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "SettingsView" : {
+        "type" : "object",
+        "properties" : {
+          "areas" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AreaSummary"
+            }
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SettingItem"
+            }
+          }
+        }
+      },
+      "HistoryRow" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "oldValue" : {
+            "type" : "string"
+          },
+          "newValue" : {
+            "type" : "string"
+          },
+          "actorLogin" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "Stats" : {
         "type" : "object",
         "properties" : {
@@ -14783,34 +15159,6 @@
           }
         }
       },
-      "HistoryRow" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "key" : {
-            "type" : "string"
-          },
-          "oldValue" : {
-            "type" : "string"
-          },
-          "newValue" : {
-            "type" : "string"
-          },
-          "actorLogin" : {
-            "type" : "string"
-          },
-          "reason" : {
-            "type" : "string"
-          },
-          "changedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
       "CallRow" : {
         "type" : "object",
         "properties" : {
@@ -15004,6 +15352,14 @@
           "percentOfProBudget" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "ReasonRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
           }
         }
       }

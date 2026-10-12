@@ -78,7 +78,24 @@ public class AdminSettingsWriter {
         }
         String cleanReason = reason == null || reason.isBlank() ? null : abbreviate(reason.trim(), 500);
         if (risk == Risk.HIGH && cleanReason == null) throw AiConfigException.reasonRequired(k.key());
+        return persist(k, newValue, cleanReason, AdminAuditService.AI_CONFIG_CHANGE, AdminAuditService.TARGET_AI_SETTING, "");
+    }
 
+    /**
+     * The generic write path (A5.1): the caller ({@code SettingsService}) has already validated {@code newValueOrNull}
+     * against {@code k} and enforced the reason rule, with the generic {@code SETTING_*} refusals. This persists the
+     * row, appends the history row, records {@code auditAction} on {@code targetType}, and drops the cache - the same
+     * steps as {@link #write}, in the caller's transaction.
+     *
+     * @param auditDetailsPrefix text put before {@code old=... new=...} in the audit details (area, risk, revert marker)
+     */
+    @Transactional
+    public WriteResult writeValidated(Key k, String newValueOrNull, String cleanReason, String auditAction, String targetType, String auditDetailsPrefix) {
+        String newValue = newValueOrNull == null ? null : newValueOrNull.trim();
+        return persist(k, newValue, cleanReason, auditAction, targetType, auditDetailsPrefix);
+    }
+
+    private WriteResult persist(Key k, String newValue, String cleanReason, String auditAction, String targetType, String detailsPrefix) {
         String old = repository.findById(k.key()).map(AppSetting::getValue).orElse(null);
         if (Objects.equals(old, newValue)) return new WriteResult(false, old, newValue);
 
@@ -91,11 +108,11 @@ public class AdminSettingsWriter {
         }
         history.save(new AppSettingHistory(k.key(), old, newValue, actor, cleanReason, now));
         audit.record(
-            AdminAuditService.AI_CONFIG_CHANGE,
-            AdminAuditService.TARGET_AI_SETTING,
+            auditAction,
+            targetType,
             k.key(),
             cleanReason,
-            "old=" + abbreviate(old, DETAIL_VALUE_MAX) + " new=" + abbreviate(newValue, DETAIL_VALUE_MAX)
+            detailsPrefix + "old=" + abbreviate(old, DETAIL_VALUE_MAX) + " new=" + abbreviate(newValue, DETAIL_VALUE_MAX)
         );
         // Drop the cache now (this thread reads its own write) and again once the change is committed, so a
         // concurrent reader that re-filled the cache from the old rows mid-transaction doesn't keep them for a minute.

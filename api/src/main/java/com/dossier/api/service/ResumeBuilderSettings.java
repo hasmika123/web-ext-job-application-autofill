@@ -4,6 +4,7 @@ import com.dossier.api.domain.AppSetting;
 import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.service.ResumeBuilderSettingKeys.Key;
 import com.dossier.api.service.ai.AiSettingKeys;
+import com.dossier.api.service.settings.AdminSettingKeys;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
@@ -189,8 +190,9 @@ public class ResumeBuilderSettings {
                     return Double.isFinite(v) && inBounds(k, v);
                 }
                 case STRING, ENUM -> {
-                    if (raw.isBlank()) return AiSettingKeys.allowsBlank(k);
+                    if (raw.isBlank()) return AiSettingKeys.allowsBlank(k) || AdminSettingKeys.allowsBlank(k);
                     if (AiSettingKeys.shapeError(k, raw) != null) return false;
+                    if (AdminSettingKeys.shapeError(k, raw) != null) return false;
                     return k.allowed() == null || k.allowed().contains(raw);
                 }
                 case JSON -> {

@@ -36,7 +36,14 @@ regenerates `master-roadmap.html`; commit both). One story = one commit (`admin-
 `admin-e2e`. Add one line under **Log** in `PROGRESS.md` per story, as the e2e-u* entries do.
 
 **Build progress (update as stories land).**
-- *(none yet)*
+- **A5.1 done (API only)** — settings registry + `SettingsService` + `/api/admin/settings` (list / PUT·PATCH / DELETE /
+  history / revert). Built on `resume-builder` @ `ebfad7a`, one commit `admin-a5.1: …`. The web Settings home is **A5.8**
+  (separate agent): the contract is in the PROGRESS.md log entry for A5.1 and `api/openapi.json`. Facts for A5.8 / later
+  stories: `ResumeBuilderSettings` was **not** renamed (no Java type alias exists; `SettingsService` in
+  `api/service/settings` wraps it and adds the env layer + provenance), the `Key` record gained `area` + `risk`, new keys
+  live in `AdminSettingKeys` (descriptions say "Not enforced yet" until the story that reads them ships — remove that
+  sentence there), generic writes audit as `SETTING_CHANGE` with `area=… risk=…` in `details` until A12.2 adds real
+  columns, and `AdminSettingsWriter.writeValidated` is the shared persist step (the AI path still uses `write`).
 
 ## Key facts an implementer must not rediscover
 
