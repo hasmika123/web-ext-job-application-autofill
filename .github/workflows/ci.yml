@@ -68,6 +68,7 @@ jobs:
       # Workspace-aware install at the repo root (resolves @kiwiply/ui for web).
       - run: npm ci
       - run: npm test --workspace web # sync parser-core + tsc --noEmit + eslint
+      - run: node --test scripts/dev/api-local.test.mjs # the local API launcher (I1.14): env-file parsing, names-only logging
       - run: npm run build --workspace web # strongest gate: next build (standalone)
 
   web-e2e:

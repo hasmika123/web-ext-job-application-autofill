@@ -6,6 +6,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "web"],
       "port": 3000
+    },
+    {
+      "name": "api-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev/api-local.mjs"],
+      "port": 8080
+    },
+    {
+      "name": "api-local-stub",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev/api-local.mjs", "--stub"],
+      "port": 8080
     }
   ]
 }

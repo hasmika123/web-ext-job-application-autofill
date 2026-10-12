@@ -55,6 +55,25 @@ class AiRouterTest {
         if (model != null) fake.put("ai.route." + task + ".fallback_model", model);
     }
 
+    // ---- never-collected values stop at the router (I1.14) ---------------------
+
+    @Test
+    void aNeverCollectedValueIsStrippedBeforeAnyAdapterSeesIt() {
+        router.generate(AiTask.DRAFT, null, "Why us? My SSN is 123-45-6789, use it.", "Lives in Austin. Passport number: X1234567");
+        router.parseResume(null, "Ada Lovelace\nSSN 123-45-6789\nBackend engineer", null, null);
+        assertThat(gemini.prompts).hasSize(2);
+        assertThat(gemini.prompts).noneMatch(p -> p.contains("123-45-6789") || p.contains("X1234567"));
+        assertThat(gemini.prompts.get(0)).contains("[removed]").contains("Why us?");
+        assertThat(gemini.prompts.get(1)).contains("[removed]").contains("Backend engineer");
+    }
+
+    @Test
+    void anOrdinaryPromptReachesTheAdapterUntouched() {
+        String prompt = "Reduced p99 latency by 40% across 12 services; phone 555-0100; ZIP 78701-1234.";
+        router.generate(AiTask.REWRITE, null, prompt, "");
+        assertThat(gemini.prompts.get(0)).startsWith(prompt);
+    }
+
     // ---- routing ------------------------------------------------------------
 
     @Test

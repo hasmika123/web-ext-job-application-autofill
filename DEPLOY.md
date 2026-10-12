@@ -545,6 +545,81 @@ ceiling for rewrite and summary), `resume.rate.aiPerMin` (20 calls a user a minu
 Every call is metered like the rest (`ai_call`, tasks `rewrite` / `summary`); a repeated request is answered
 from its stored proposal and costs nothing. A Free user always gets `402 PRO_REQUIRED`.
 
+### 10.2 Runtime routing from `/admin/ai/providers`
+
+Which model answers each task is an **admin setting**, not a redeploy (design: `docs/AI-ADMIN-CONFIG-DESIGN.md`).
+Open `/admin/ai/providers` (admins only): provider cards with **Test connection**, a routing table (provider,
+model, fallback, max tokens, on/off per task), per-model prices, the **Server AI** switch and a recent-calls panel
+read from the `ai_call` ledger. Every control autosaves; turning something off asks for a reason; every change is
+written to `app_setting_history` and audited as `AI_CONFIG_CHANGE`.
+
+- **What is env and what is runtime.** The **key** is env only (`DOSSIER_AI_API_KEY`; the page shows "Key present"
+  and the variable's *name*, never a value, and you cannot type, view or test-type a key there). Everything else
+  (models, routes, fallback, base URL, timeout, prices, economy model, soft cap, kill switches) resolves
+  **runtime row > env > code default**, and an edit applies on the very next call with no restart (the settings
+  snapshot is dropped on write; a second API instance would see it within 60 s). "Reset" on a field deletes the
+  runtime row and falls back to env.
+- **The env master rule.** `DOSSIER_AI_ENABLED=false` is a deployment master: runtime settings can only *lower*
+  it. With it false the page shows an amber note and the Server AI switch is disabled; nothing an admin session
+  does can turn server AI on in a deployment whose operator turned it off.
+- **Rotate or add a key:** edit `.env` on the box, then recreate the API (step 3 above). Not from the page.
+- **Never-collected values** (SSN/ITIN, bank routing or account numbers, tax ids, passport/visa numbers, date of
+  birth) are stripped from every prompt and resume text in `AiRouter` before any provider is called. A PDF sent as
+  a file cannot be read there, so the provider itself sees that input.
+
+### 10.3 Prove it: the stub run (CI-safe) and the live Gemini pass
+
+`web/scripts/ai-smoke.mjs` exercises every server-side AI flow through the real web routes and reads the
+`ai_call` ledger the way the admin page does: parse, rewrite + apply, summary, suggestions + apply/dismiss,
+job-fit, resume-match, tailor + apply, the two ATS scores, the extension's paste-a-JD fit/match and
+draft / pick / map / enrich, daily job matches; then Test connection, the route switch (change a model, the next
+call uses it, reset) and the kill switch. Each flow checks the response shape, a new ledger row (provider, model,
+success, latency, cost), the meter, the truth checks (no invented numbers or employers), that a Free user gets
+`402 PRO_REQUIRED` (parse is the free exception) and that a never-collected value never reaches the provider.
+Inbox reading is reported SKIP: its AI step only runs in the IMAP poller on a connected mailbox.
+
+The **stub** (`ai-stub` Spring profile, `StubAiProvider`) answers every task deterministically with no key, no
+network and no cost. It refuses to start next to the `prod` profile, and the Gemini card then reads "Google
+Gemini (stub)". A local stack on free ports (never the demo's):
+
+```bash
+docker run --rm -d --name ai-proof-mysql -e MYSQL_ROOT_PASSWORD=aiproof -e MYSQL_DATABASE=dossierApi -p 127.0.0.1:34511:3306 mysql:9.2.0 mysqld --lower_case_table_names=1 --skip-mysqlx --character_set_server=utf8mb4 --explicit_defaults_for_timestamp
+# the API with the stub (plus your usual SPRING_DATASOURCE_*, SERVER_PORT, DOSSIER_STORAGE_LOCAL_ROOT)
+SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:34511/dossierApi?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true' SPRING_DATASOURCE_PASSWORD=aiproof SERVER_PORT=18281 node scripts/dev/api-local.mjs --stub
+# the web
+cd web && DOSSIER_API_URL=http://127.0.0.1:18281 npx next dev -p 13311
+# the smoke, in a second shell (AI_ADMIN_* = a dev admin, the seeded `admin` on a local dev API; AI_MYSQL_* only for the ATS scores + job matches)
+cd web && AI_API=http://127.0.0.1:18281 AI_WEB=http://127.0.0.1:13311 AI_ADMIN_USER=admin AI_ADMIN_PASS=... AI_MYSQL_CONTAINER=ai-proof-mysql AI_MYSQL_PASSWORD=aiproof node scripts/ai-smoke.mjs --stub
+```
+
+On first use the script registers and admin-activates two throwaway users (a "Pro" one through an admin AI-budget
+override, and a Free one) and keeps their logins in the gitignored `web/.env.ai-smoke`; it never prints a
+password. The web allows 10 sign-ins per 5 minutes per IP and the script uses 3, so back-to-back runs wait. It
+refuses `NODE_ENV=production`, any non-local host unless `AI_ALLOW_REMOTE=1`, a `--stub` run against a stack that
+talks to real Gemini, and a `--live` run against a stub. Exit 0 only when no row FAILs (SKIP rows are fine).
+
+**The live pass on the demo (real Gemini; you run this).** Put the key where only the API reads it:
+
+1. Create `api/.env.ai.local` (gitignored by `.env.*`):
+   ```
+   DOSSIER_AI_ENABLED=true
+   DOSSIER_AI_PROVIDER=gemini
+   DOSSIER_AI_API_KEY=<your AIza... key>
+   ```
+2. Restart the demo API **through the launcher**, so the file is loaded into the API's environment only (it prints
+   the variable *names*, never the values). Stop the old demo API first, keep the demo's own datasource env as you
+   started it before, and do not pass `--stub`: `SERVER_PORT=18181 node scripts/dev/api-local.mjs`.
+3. Run the live pass. The script never reads `api/.env.ai.local`: it only asks the API whether a key is present,
+   and prints `SKIP: no Gemini key (DOSSIER_AI_API_KEY) — put it in api/.env.ai.local` and exits 0 if not.
+   ```bash
+   cd web && AI_API=http://127.0.0.1:18181 AI_WEB=http://127.0.0.1:13211 AI_ADMIN_USER=<dev admin> AI_ADMIN_PASS=<its password> node scripts/ai-smoke.mjs --live
+   ```
+   Add `AI_MYSQL_CONTAINER=rb-demo-mysql AI_MYSQL_PASSWORD=<that container's root password>` to also run the two ATS
+   scores and the daily job matches (they need a real Pro subscription row, which the script writes and removes).
+   If `web/.env.rb-smoke` exists, its throwaway account is the Pro user (its resumes and applications are cleared
+   first). Cost guard: about 25 small calls on Flash-Lite, a few cents at most; the ledger total is printed at the
+   end, and the Pro user's budget override is 100 cents.
+
 ## 11. Billing (Phase 12, Stripe) — ⚠️ sandbox ready, NOT live yet
 
 > **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API

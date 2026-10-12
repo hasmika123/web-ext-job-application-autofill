@@ -20,6 +20,8 @@ public class FakeAdapter implements AiProvider {
     public int inputTokens = 9;
     public int outputTokens = 1;
     public final List<Call> calls = new ArrayList<>();
+    /** The text each call carried (question + context, or the resume text of a parse) - to prove what reached a provider. */
+    public final List<String> prompts = new ArrayList<>();
 
     public FakeAdapter(String id) {
         this.id = id;
@@ -48,6 +50,7 @@ public class FakeAdapter implements AiProvider {
     @Override
     public AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) {
         calls.add(new Call(task, model, maxOutputTokens, false, false));
+        prompts.add(question + "\n" + context);
         if (failure != null) throw failure;
         return new AiResult(text, model + "-001", inputTokens, 0, outputTokens);
     }
@@ -66,6 +69,7 @@ public class FakeAdapter implements AiProvider {
     public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType, int maxOutputTokens) {
         boolean file = fileBase64 != null && !fileBase64.isBlank();
         calls.add(new Call(AiTask.PARSE, model, maxOutputTokens, true, file));
+        prompts.add(text == null ? "" : text);
         if (file && fileFailure != null) throw fileFailure;
         if (failure != null) throw failure;
         return new AiResult("{\"experience\":[]}", model + "-001", inputTokens, 0, outputTokens);
