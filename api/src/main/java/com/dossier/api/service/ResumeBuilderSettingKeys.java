@@ -159,6 +159,24 @@ public final class ResumeBuilderSettingKeys {
     public static final String ORG_LIMIT_CREATED_PER_USER = "org.limits.createdPerUser";
     /** How many groups (departments, cohorts, teams) one organization may have. */
     public static final String ORG_LIMIT_GROUPS_PER_ORG = "org.limits.groupsPerOrg";
+    /** Emails one invite call may carry (422 ORG_LIMIT_REACHED over it). */
+    public static final String ORG_INVITE_MAX_PER_BATCH = "org.invite.maxPerBatch";
+    /** Invite emails one organization may send in 24 hours, first sends and re-sends together. */
+    public static final String ORG_INVITE_DAILY_CAP = "org.invite.daily_cap";
+    /** Days an invite link stays valid; a re-send starts the clock again. */
+    public static final String ORG_INVITE_EXPIRY_DAYS = "org.invite.expiryDays";
+    /** Re-sends of one invite in a rolling week. */
+    public static final String ORG_INVITE_RESENDS_PER_WEEK = "org.invite.resendsPerWeek";
+    /** Admins that may be invited to an organization that has not been activated yet. */
+    public static final String ORG_INVITE_DRAFT_ADMIN_CAP = "org.invite.draftAdminCap";
+    /** Characters in a join code (the column holds 8). */
+    public static final String ORG_JOIN_CODE_LENGTH = "org.join.codeLength";
+    /** Days a join code works unless the admin picks another. */
+    public static final String ORG_JOIN_CODE_TTL_DAYS = "org.join.codeTtlDays";
+    /** Public join lookups per visitor per minute (previews and accepts). */
+    public static final String ORG_JOIN_RATE_PER_MIN = "org.join.ratePerMin";
+    /** Join lookups per visitor per minute that found nothing: stops anyone walking the code space. */
+    public static final String ORG_JOIN_MISS_PER_MIN = "org.join.missPerMin";
 
     // ---- Onboarding v2 (R1.8, ONBOARDING-V2-DESIGN 11) ----------------------
     public static final String FEATURE_ONBOARDING_V2 = "feature.onboarding_v2.enabled";
@@ -469,6 +487,15 @@ public final class ResumeBuilderSettingKeys {
         bool(k, FEATURE_ORGS, false, "Organization features (/api/orgs/**, /org). OFF in production. When no value is stored here the dossier.orgs.enabled property decides (ORGS_ENABLED; on in dev, CI and the demo).");
         integer(k, ORG_LIMIT_CREATED_PER_USER, 3, 1, 100, "Organizations one person may create (closed ones count).");
         integer(k, ORG_LIMIT_GROUPS_PER_ORG, 50, 1, 500, "Groups (departments, cohorts, teams) per organization.");
+        integer(k, ORG_INVITE_MAX_PER_BATCH, 200, 1, 500, "Emails in one invite call.");
+        integer(k, ORG_INVITE_DAILY_CAP, 1000, 10, 10000, "Invite emails one organization may send in 24 hours (sends and re-sends).");
+        integer(k, ORG_INVITE_EXPIRY_DAYS, 14, 1, 90, "Days an emailed invite link works.");
+        integer(k, ORG_INVITE_RESENDS_PER_WEEK, 3, 1, 20, "Re-sends of one invite per week.");
+        integer(k, ORG_INVITE_DRAFT_ADMIN_CAP, 3, 1, 10, "Admins that may be invited before the organization is activated.");
+        integer(k, ORG_JOIN_CODE_LENGTH, 8, 6, 8, "Characters in a join code.");
+        integer(k, ORG_JOIN_CODE_TTL_DAYS, 30, 1, 365, "Days a join code works unless the admin picks another.");
+        integer(k, ORG_JOIN_RATE_PER_MIN, 60, 10, 1000, "Public join lookups per visitor per minute.");
+        integer(k, ORG_JOIN_MISS_PER_MIN, 10, 3, 100, "Join lookups per visitor per minute that found nothing.");
 
         // Onboarding v2 (DESIGN 11). The existing profile.setup.promptBelowPercent above is the card's finished-user threshold.
         bool(k, FEATURE_ONBOARDING_V2, true, "Onboarding v2: the dashboard 'Finish your profile' card and the /welcome redirect (the flow itself is always on).");

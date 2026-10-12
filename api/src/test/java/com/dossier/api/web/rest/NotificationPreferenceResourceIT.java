@@ -91,7 +91,7 @@ class NotificationPreferenceResourceIT {
             .andExpect(jsonPath("$.emailEnabled").value(true))
             .andExpect(jsonPath("$.quietDefaults.start").value("22:00"))
             .andExpect(jsonPath("$.quietDefaults.end").value("08:00"))
-            .andExpect(jsonPath("$.kinds.length()").value(6))
+            .andExpect(jsonPath("$.kinds.length()").value(7))
             .andExpect(jsonPath("$.kinds[?(@.kind == 'BILLING')].locked").value(true))
             .andExpect(jsonPath("$.kinds[?(@.kind == 'BILLING')].lockedWhy").isNotEmpty())
             .andExpect(jsonPath("$.kinds[?(@.kind == 'SYSTEM')].locked").value(false));

@@ -36,6 +36,9 @@
     "name" : "job-fit",
     "description" : "One resume against one job: match, missing keywords, red flags (Pro)."
   }, {
+    "name" : "org-members",
+    "description" : "Seats of an organization: invites, and the consent-scoped list."
+  }, {
     "name" : "inbox",
     "description" : "Connect a dedicated Gmail so applications update themselves (Pro)."
   }, {
@@ -77,6 +80,9 @@
   }, {
     "name" : "account-deletion",
     "description" : "Self-service GDPR/CCPA account and data deletion."
+  }, {
+    "name" : "org-join",
+    "description" : "Join an organization from an invite or a join code."
   }, {
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
@@ -3951,6 +3957,65 @@
         }
       }
     },
+    "/api/orgs/{orgId}/members/{memberId}/resend" : {
+      "post" : {
+        "tags" : [ "org-members" ],
+        "summary" : "Send an invite again",
+        "description" : "Rotates the one-time link (the old one stops working) and emails the new one. Limited per invite per week.",
+        "operationId" : "resend",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Invited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/invite" : {
+      "post" : {
+        "tags" : [ "org-members" ],
+        "summary" : "Invite people by email",
+        "description" : "Up to the configured number of addresses per call. Returns who was invited, which entries were refused and which addresses already hold a seat. 409 SEAT_STATE while the org is not active (admins only before then), 422 ORG_LIMIT_REACHED over a configured cap.",
+        "operationId" : "invite",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrgInviteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgInviteResultDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/groups" : {
       "get" : {
         "tags" : [ "org-group-resource" ],
@@ -4128,6 +4193,108 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/join/{token}/accept" : {
+      "post" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Accept an emailed invite",
+        "description" : "Signed in. Becomes a member and records the consent choice (NONE or SUMMARY) with the text version. 409 ALREADY_MEMBER, INVITE_EXPIRED or SEAT_STATE.",
+        "operationId" : "acceptInvite",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JoinAcceptRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/join/code/{code}" : {
+      "get" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Preview a shared join link",
+        "description" : "No authentication. 404 for an unknown or revoked code, 409 INVITE_EXPIRED when it has expired or has no places left.",
+        "operationId" : "previewCode",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Join with a shared code",
+        "description" : "Signed in. Same as accepting an invite, for a join link a cohort shares. Members only.",
+        "operationId" : "acceptCode",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JoinAcceptRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
           }
         }
       }
@@ -7491,6 +7658,34 @@
                   "items" : {
                     "$ref" : "#/components/schemas/OrgMineDTO"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/join/{token}" : {
+      "get" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Preview an emailed invite",
+        "description" : "No authentication. 404 for anything that is not a live invite, 409 INVITE_EXPIRED once it has run out, 429 over the rate limit.",
+        "operationId" : "previewInvite",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
                 }
               }
             }
@@ -11337,6 +11532,90 @@
           }
         }
       },
+      "Invited" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "OWNER", "ADMIN", "STAFF", "MEMBER", "MARKETER", "FINANCE", "COACH" ]
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "OrgInviteRequest" : {
+        "type" : "object",
+        "properties" : {
+          "emails" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "OWNER", "ADMIN", "STAFF", "MEMBER", "MARKETER", "FINANCE", "COACH" ]
+          },
+          "groupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "supportOwnerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Invalid" : {
+        "type" : "object",
+        "properties" : {
+          "entry" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OrgInviteResultDTO" : {
+        "type" : "object",
+        "properties" : {
+          "batchId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "invited" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Invited"
+            }
+          },
+          "invalid" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Invalid"
+            }
+          },
+          "alreadyMember" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "OrgGroupRequest" : {
         "type" : "object",
         "properties" : {
@@ -11392,6 +11671,18 @@
             "type" : "string"
           },
           "source" : {
+            "type" : "string"
+          }
+        }
+      },
+      "JoinAcceptRequest" : {
+        "type" : "object",
+        "properties" : {
+          "shareScope" : {
+            "type" : "string",
+            "enum" : [ "NONE", "SUMMARY", "FULL" ]
+          },
+          "consentVersion" : {
             "type" : "string"
           }
         }

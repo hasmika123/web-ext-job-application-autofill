@@ -1,5 +1,7 @@
 package com.dossier.api.service.org;
 
+import com.dossier.api.domain.enumeration.ShareScope;
+import com.dossier.api.service.dto.org.OrgConsentDTO;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +27,18 @@ public class OrgShareConsent {
     private static final Pattern VERSION = Pattern.compile("org-share/v[0-9]{1,3}");
 
     private final Map<String, Optional<String>> cache = new ConcurrentHashMap<>();
+
+    /**
+     * What the join screen shows (consent-data-sharing.md section 5.1): the current text version, the scope the org proposes
+     * (clamped to the two the join screen offers), the matrix of what each scope shows and the text itself. FULL is never an
+     * option here.
+     */
+    public OrgConsentDTO view(String proposedScope) {
+        ShareScope proposed = "NONE".equals(proposedScope) ? ShareScope.NONE : ShareScope.SUMMARY;
+        java.util.List<OrgConsentDTO.Row> rows = new java.util.ArrayList<>();
+        for (ShareField f : ShareField.values()) rows.add(new OrgConsentDTO.Row(f.name(), f.docLabel(), f.minScope()));
+        return new OrgConsentDTO(CURRENT, proposed, java.util.List.of(ShareScope.SUMMARY, ShareScope.NONE), rows, text(CURRENT).orElse(""));
+    }
 
     /** True when {@code version} names a text that ships with this build. */
     public boolean isKnown(String version) {

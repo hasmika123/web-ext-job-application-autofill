@@ -55,6 +55,13 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   `GET /api/applications/activity` and `GET /api/interviews`. Deferred: reminders (U7.1), inbox-proposed
   interviews (I9.9), bulk select / swipe (U6.5), manual email linking (U6.6).
 
+- Lane D (org join / consent / team / settings), built on `2e92c48`: **O2.2 done** (`e2e-o2.2`, API): `OrgInviteService`
+  (invite + resend), `OrgJoinService` (previews + accept by token or code), `OrgJoinCodeService` (create only; O2.4 owns the
+  endpoints), `OrgMemberResource` (`POST /api/orgs/{id}/members/invite`, `.../{m}/resend`), `JoinResource` (public previews,
+  accepts), `JoinRateLimiter`, mail `orgInviteEmail.html`; migration `20261014010000_org_invites`; nine `org.invite.* / org.join.*`
+  settings keys; new notification kind `ORG_INVITE_ACCEPTED`. Invite mail goes through `MailService` (the invitee may have no
+  account, `publish` needs a user id); the inviter's notice goes through `NotificationService.publish`.
+
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),
 pushed on `app-e2e`.

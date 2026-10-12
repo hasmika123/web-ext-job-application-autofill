@@ -118,7 +118,9 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/groups", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/groups", Case.write("{\"name\":\"Hijack\"}", 201, OrgAuditService.GROUP_CREATE)),
         Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
-        Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE))
+        Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE)),
+        Map.entry("POST /api/orgs/{orgId}/members/invite", Case.write("{\"emails\":[\"newcomer@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -147,7 +149,7 @@ class OrgIsolationIT {
     private final class World {
         final String p;
         final Organization org;
-        final OrgMember owner, admin, staff, member, marketer, finance, suspended, invited, left;
+        final OrgMember owner, admin, staff, member, marketer, finance, suspended, invited, left, pending;
         final OrgGroup group;
         final OrgInviteBatch batch;
         final OrgJoinCode code;
@@ -170,6 +172,16 @@ class OrgIsolationIT {
             } else {
                 admin = staff = marketer = finance = suspended = invited = left = null;
             }
+
+            OrgMember p = new OrgMember(); // a person invited by email who has not answered: owns a (hashed) token
+            p.setOrgId(org.getId());
+            p.setRole(OrgRole.MEMBER);
+            p.setStatus(OrgMemberStatus.INVITED);
+            p.setInviteEmail(prefix + "-pending@example.org");
+            p.setInviteTokenHash(com.dossier.api.service.org.InviteTokens.hash(com.dossier.api.service.org.InviteTokens.newToken()));
+            p.setInviteExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofDays(14)));
+            p.setInviteSentAt(java.time.Instant.now());
+            pending = members.saveAndFlush(p);
 
             OrgGroup g = new OrgGroup();
             g.setOrgId(org.getId());
@@ -223,11 +235,12 @@ class OrgIsolationIT {
             Map<String, String> ids = new LinkedHashMap<>();
             ids.put("orgId", String.valueOf(org.getId()));
             ids.put("groupId", String.valueOf(group.getId()));
+            ids.put("memberId", String.valueOf(pending.getId()));
             return ids;
         }
 
         List<OrgMember> everySeat() {
-            return Arrays.asList(owner, admin, staff, member, marketer, finance, suspended, invited, left).stream().filter(java.util.Objects::nonNull).toList();
+            return Arrays.asList(owner, admin, staff, member, marketer, finance, suspended, invited, left, pending).stream().filter(java.util.Objects::nonNull).toList();
         }
     }
 
@@ -302,7 +315,7 @@ class OrgIsolationIT {
         for (OrgGroup g : groups.findByOrgIdOrderBySortOrderAscNameAsc(w.org.getId())) s.append("group:").append(g.getId()).append('|').append(g.getName()).append('|').append(g.getKind()).append('|').append(g.getSortOrder()).append('\n');
         for (OrgMember m : w.everySeat()) {
             OrgMember row = members.findByOrgIdAndId(w.org.getId(), m.getId()).orElseThrow();
-            s.append("seat:").append(row.getId()).append('|').append(row.getRole()).append('|').append(row.getStatus()).append('|').append(row.getGroupId()).append('|').append(row.getDisplayLabel()).append('|').append(row.getSupportOwnerMemberId()).append('\n');
+            s.append("seat:").append(row.getId()).append('|').append(row.getRole()).append('|').append(row.getStatus()).append('|').append(row.getGroupId()).append('|').append(row.getDisplayLabel()).append('|').append(row.getSupportOwnerMemberId()).append('|').append(row.getInviteTokenHash()).append('|').append(row.getInviteSentAt()).append('|').append(row.getInviteResendCount()).append('\n');
             s.append("share:").append(shares.findByOrgIdAndMemberId(w.org.getId(), m.getId()).map(d -> d.getScope() + "|" + d.getFullToMemberId() + "|" + d.getUpdatedAt()).orElse("none")).append('\n');
         }
         s.append("batches:").append(batches.findByOrgIdOrderByCreatedAtDesc(w.org.getId()).size()).append('\n');
@@ -462,7 +475,7 @@ class OrgIsolationIT {
             assertThat(orgs.findByOrgId(B).orElseThrow().getId()).isNotEqualTo(A);
             assertThat(orgs.countByCreatedByUserId(a.owner.getUserId())).as("scoped by the creating person").isZero(); // fixtures set no creator
         }));
-        checks.put("OrgMemberRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdAndUserIdAndStatusIn", "findByOrgIdAndInviteEmailAndStatusIn", "countByOrgIdAndStatus", "countByOrgIdAndRoleAndStatus", "countByOrgIdAndGroupIdAndStatusIn", "countByOrgIdAndStatusIn"), () -> {
+        checks.put("OrgMemberRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdAndUserIdAndStatusIn", "findByOrgIdAndInviteEmailAndStatusIn", "countByOrgIdAndStatus", "countByOrgIdAndRoleAndStatus", "countByOrgIdAndGroupIdAndStatusIn", "countByOrgIdAndStatusIn", "countByOrgIdAndRoleAndStatusIn", "countByOrgIdAndInviteSentAtAfter", "countByOrgIdAndInviteBatchId", "findByInviteTokenHash"), () -> {
             assertThat(members.findByOrgIdAndId(B, a.owner.getId())).isEmpty();
             assertThat(members.findByOrgIdAndId(B, a.member.getId())).isEmpty();
             assertThat(members.findByOrgIdAndUserIdAndStatusIn(B, a.member.getUserId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.SUSPENDED))).isEmpty();
@@ -470,7 +483,20 @@ class OrgIsolationIT {
             assertThat(members.countByOrgIdAndStatus(B, OrgMemberStatus.ACTIVE)).as("only B's two ACTIVE seats").isEqualTo(2);
             assertThat(members.countByOrgIdAndRoleAndStatus(B, OrgRole.MARKETER, OrgMemberStatus.ACTIVE)).as("A's marketer is not B's").isZero();
             assertThat(members.countByOrgIdAndGroupIdAndStatusIn(B, a.group.getId(), OrgMemberStatus.LIVE)).isZero();
-            assertThat(members.countByOrgIdAndStatusIn(B, List.of(OrgMemberStatus.SUSPENDED, OrgMemberStatus.INVITED, OrgMemberStatus.LEFT))).as("A's odd seats are not B's").isZero();
+            assertThat(members.countByOrgIdAndStatusIn(B, List.of(OrgMemberStatus.SUSPENDED, OrgMemberStatus.INVITED, OrgMemberStatus.LEFT))).as("A's odd seats are not B's").isEqualTo(1); // B's own pending invite only
+            assertThat(members.countByOrgIdAndRoleAndStatusIn(B, OrgRole.ADMIN, OrgMemberStatus.LIVE)).as("A's admins and the suspended / invited ones are not B's").isZero();
+            assertThat(members.countByOrgIdAndInviteSentAtAfter(B, java.time.Instant.now().minus(java.time.Duration.ofDays(1)))).as("only B's own pending invite counts toward B's daily cap").isEqualTo(1);
+            assertThat(members.countByOrgIdAndInviteBatchId(B, 0L)).isZero();
+            // the one finder that names no org: a token finds the seat it was minted for, whose own orgId is the tenant
+            String tokenOfA = com.dossier.api.service.org.InviteTokens.newToken();
+            OrgMember pendingA = members.findByOrgIdAndId(A, a.pending.getId()).orElseThrow();
+            String keptHash = pendingA.getInviteTokenHash();
+            pendingA.setInviteTokenHash(com.dossier.api.service.org.InviteTokens.hash(tokenOfA));
+            members.saveAndFlush(pendingA);
+            assertThat(members.findByInviteTokenHash(com.dossier.api.service.org.InviteTokens.hash(tokenOfA)).orElseThrow().getOrgId()).as("a token opens exactly its own org").isEqualTo(A);
+            assertThat(members.findByInviteTokenHash(com.dossier.api.service.org.InviteTokens.hash("x".repeat(32)))).isEmpty();
+            pendingA.setInviteTokenHash(keptHash);
+            members.saveAndFlush(pendingA);
         }));
         checks.put("OrgGroupRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdOrderBySortOrderAscNameAsc", "existsByOrgIdAndName", "countByOrgId", "deleteByOrgIdAndId"), () -> {
             assertThat(groups.findByOrgIdAndId(B, a.group.getId())).isEmpty();
@@ -480,11 +506,15 @@ class OrgIsolationIT {
             assertThat(groups.deleteByOrgIdAndId(B, a.group.getId())).as("a delete naming B and A's group row removes nothing").isZero();
             assertThat(groups.findByOrgIdAndId(A, a.group.getId())).isPresent();
         }));
-        checks.put("OrgInviteBatchRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdOrderByCreatedAtDesc"), () -> {
+        checks.put("OrgInviteBatchRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdOrderByCreatedAtDesc", "incrementAccepted"), () -> {
+            assertThat(batches.incrementAccepted(B, a.batch.getId())).as("counting a join through B for A's batch changes nothing").isZero();
             assertThat(batches.findByOrgIdAndId(B, a.batch.getId())).isEmpty();
             assertThat(batches.findByOrgIdOrderByCreatedAtDesc(B)).extracting(OrgInviteBatch::getId).doesNotContain(a.batch.getId());
         }));
-        checks.put("OrgJoinCodeRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdOrderByCreatedAtDesc"), () -> {
+        checks.put("OrgJoinCodeRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdOrderByCreatedAtDesc", "findByCode", "redeem"), () -> {
+            assertThat(codes.redeem(B, a.code.getId(), java.time.Instant.now())).as("redeeming A's code through B takes no place").isZero();
+            assertThat(codes.findByCode(a.code.getCode()).orElseThrow().getOrgId()).as("a code opens exactly its own org").isEqualTo(A);
+            assertThat(codes.findByCode("ZZZZZZZZ")).isEmpty();
             assertThat(codes.findByOrgIdAndId(B, a.code.getId())).isEmpty();
             assertThat(codes.findByOrgIdOrderByCreatedAtDesc(B)).extracting(OrgJoinCode::getId).doesNotContain(a.code.getId());
         }));

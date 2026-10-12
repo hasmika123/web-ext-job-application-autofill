@@ -96,7 +96,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     /** Trust the proxy's first X-Forwarded-For hop (Caddy sets it); fall back to the socket. */
-    static String clientIp(HttpServletRequest request) {
+    public static String clientIp(HttpServletRequest request) {
         String xff = request.getHeader("X-Forwarded-For");
         if (xff != null && !xff.isBlank()) {
             int comma = xff.indexOf(',');
