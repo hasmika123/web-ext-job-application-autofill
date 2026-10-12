@@ -159,8 +159,11 @@ export async function getDoc(resumeId: number): Promise<FetchDocResult> {
 
 /** What a `PATCH …/doc/template` or `…/doc/theme` answered: the new version, or why not. */
 export type PatchResult =
-  /** `version` = the response's ETag (the `If-Match` of the next content save). */
-  | { kind: "ok"; version: number }
+  /**
+   * `version` = the response's ETag (the `If-Match` of the next content save); `theme` = the theme the
+   * server stored (a template switch may have applied the new template's defaults, R3.4).
+   */
+  | { kind: "ok"; version: number; theme?: Partial<ResumeTheme> }
   /** 422: the value was refused (unknown/disabled template, theme out of bounds). */
   | { kind: "invalid"; message: string }
   | { kind: "error"; message: string };
@@ -175,7 +178,7 @@ async function patchPresentation(path: string, body: unknown): Promise<PatchResu
   if (res.ok) {
     const dto = await readJson<ResumeDocDTO>(res);
     const version = parseEtag(res.headers.get("etag")) ?? dto?.docVersion;
-    return typeof version === "number" ? { kind: "ok", version } : { kind: "error", message: "The server's answer was incomplete." };
+    return typeof version === "number" ? { kind: "ok", version, ...(dto?.theme ? { theme: dto.theme } : {}) } : { kind: "error", message: "The server's answer was incomplete." };
   }
   const p = (await readJson<Problem>(res)) ?? {};
   if (res.status === 422) return { kind: "invalid", message: p.message && p.message !== "error.resumeDoc" ? p.message : (p.detail ?? "That isn't allowed.") };
@@ -184,9 +187,13 @@ async function patchPresentation(path: string, body: unknown): Promise<PatchResu
   return { kind: "error", message: p.error ?? "Couldn't save that change." };
 }
 
-/** `PATCH /api/resumes/:id/doc/template` (never touches the content; bumps the version). Never throws. */
-export function patchTemplate(resumeId: number, templateId: string): Promise<PatchResult> {
-  return patchPresentation(`/api/resumes/${resumeId}/doc/template`, { templateId });
+/**
+ * `PATCH /api/resumes/:id/doc/template` (never touches the content; bumps the version). The server applies the
+ * new template's theme defaults to the keys the user never touched; `theme` stores that exact theme instead
+ * (the undo / redo of a switch restores template and theme in one request). Never throws.
+ */
+export function patchTemplate(resumeId: number, templateId: string, theme?: Partial<ResumeTheme> | null): Promise<PatchResult> {
+  return patchPresentation(`/api/resumes/${resumeId}/doc/template`, theme ? { templateId, theme } : { templateId });
 }
 
 /** `PATCH /api/resumes/:id/doc/theme` (Customize Template; never touches the content; bumps the version). Never throws. */

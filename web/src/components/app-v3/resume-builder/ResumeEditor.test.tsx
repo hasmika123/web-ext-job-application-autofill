@@ -5,7 +5,7 @@ import type { CheckpointResult, ExportPdfResult, ExportTextResult, PatchResult, 
 import { testDoc } from "./state/test-doc";
 
 const putDoc = vi.fn<(id: number, version: number, body: { doc: ReturnType<typeof testDoc> }) => Promise<SaveResult>>();
-const patchTemplate = vi.fn<(id: number, templateId: string) => Promise<PatchResult>>();
+const patchTemplate = vi.fn<(id: number, templateId: string, theme?: Record<string, unknown>) => Promise<PatchResult>>();
 const patchTheme = vi.fn<(id: number, theme: Record<string, unknown>) => Promise<PatchResult>>();
 const exportPdf = vi.fn<(id: number) => Promise<ExportPdfResult>>();
 const exportText = vi.fn<(id: number) => Promise<ExportTextResult>>();
@@ -18,7 +18,7 @@ const waitForStoredPdf = vi.fn<(id: number, opts: { waitMs: number; pollMs?: num
 vi.mock("@/lib/resume-doc", async (orig) => ({
   ...(await orig<typeof import("@/lib/resume-doc")>()),
   putDoc: (...a: Parameters<typeof putDoc>) => putDoc(...a),
-  patchTemplate: (id: number, t: string) => patchTemplate(id, t),
+  patchTemplate: (id: number, t: string, th?: Record<string, unknown>) => patchTemplate(id, t, th),
   patchTheme: (id: number, t: Record<string, unknown>) => patchTheme(id, t),
   exportPdf: (id: number) => exportPdf(id),
   exportText: (id: number) => exportText(id),

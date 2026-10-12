@@ -17,6 +17,19 @@ export async function getProfileItems(): Promise<ProfileItem[] | null> {
   }
 }
 
+/** `bio.meta_json.provenance` (`key -> parsed | user | learned`): the source chips on the profile fields. `{}` when unknown. */
+export async function getBioProvenance(): Promise<Record<string, string>> {
+  try {
+    const res = await serverApiFetch("/api/profile/provenance");
+    if (!res.ok) return {};
+    const body: unknown = await res.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) return {};
+    return Object.fromEntries(Object.entries(body).filter(([, v]) => typeof v === "string")) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
 export async function getCompleteness(): Promise<Completeness | null> {
   try {
     const res = await serverApiFetch("/api/profile/completeness");

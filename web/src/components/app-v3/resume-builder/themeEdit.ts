@@ -4,9 +4,9 @@
  * No React. The palette, the allowed fonts and which controls are on all come from the caller
  * (admin config + the template's capabilities); nothing here decides a limit.
  */
-import { FONT_STACKS, applyCapabilities, clampStep, sanitizeTheme } from "@kiwiply/ui";
+import { FONT_STACKS, applyCapabilities, clampStep, hiddenContent, hiddenNotice, sanitizeTheme } from "@kiwiply/ui";
 import type { CSSProperties } from "react";
-import type { DateStyle, FontPair, ResumeSpacing, ResumeTheme, TemplateCapabilities, TemplateMeta } from "@kiwiply/ui";
+import type { DateStyle, FontPair, HiddenItem, ResumeDocument, ResumeSpacing, ResumeTheme, TemplateCapabilities, TemplateMeta } from "@kiwiply/ui";
 
 type Theme = Partial<ResumeTheme>;
 
@@ -102,6 +102,52 @@ export function themeAfterSwitch(current: Theme | null, to: TemplateMeta): Theme
     }
   }
   return changed ? (next as Theme) : null;
+}
+
+/** What the theme keys are called in the "what changes" note. */
+const THEME_KEY_LABELS: Record<string, string> = {
+  accent: "accent colour",
+  fontPair: "font",
+  spacing: "spacing",
+  pageSize: "page size",
+  dateStyle: "date style",
+  showPhoto: "photo",
+};
+
+/** The theme keys a switch to `to` sets because the user never touched them (and that actually change). */
+export function defaultedKeys(current: Theme | null, to: TemplateMeta): string[] {
+  const next = themeAfterSwitch(current, to);
+  if (!next) return [];
+  const base = storedTheme(current) as Record<string, unknown>;
+  // in the order the labels are listed (not the order a template happened to declare its defaults)
+  return Object.keys(THEME_KEY_LABELS).filter((k) => k in (to.defaults ?? {}) && (next as Record<string, unknown>)[k] !== base[k]);
+}
+
+/** "Accent colour and font are now Classic's defaults." - the "what changes" half of the switch toast. */
+export function themeChangeNote(keys: readonly string[], templateName: string): string | null {
+  const names = keys.map((k) => THEME_KEY_LABELS[k] ?? k);
+  if (names.length === 0) return null;
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)} ${names.length === 1 ? "is" : "are"} now ${templateName}'s default - change ${names.length === 1 ? "it" : "them"} in Customize Template.`;
+}
+
+/**
+ * Everything a switch to `to` does to what the user sees, computed ONE way for both the Pick Template card's
+ * "Hides: ..." line (before the click) and the switch toast (after it), so the two can never disagree
+ * (R3.4, DESIGN 6.5): the theme the switch lands on, what the new template hides of this document in that
+ * theme (`hiddenContent`), the toast sentence, and the theme keys that were defaulted.
+ */
+export interface SwitchPreview {
+  theme: Theme | null;
+  hidden: HiddenItem[];
+  notice: string | null;
+  defaulted: string[];
+}
+
+export function previewSwitch(doc: ResumeDocument, current: Theme | null, to: TemplateMeta, caps: TemplateCapabilities): SwitchPreview {
+  const theme = themeAfterSwitch(current, to) ?? current;
+  const hidden = hiddenContent(doc, sanitizeTheme(theme), caps);
+  return { theme, hidden, notice: hiddenNotice(hidden, caps), defaulted: defaultedKeys(current, to) };
 }
 
 /**

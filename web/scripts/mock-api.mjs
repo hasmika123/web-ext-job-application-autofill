@@ -406,6 +406,7 @@ function handleBuilder(req, res, path, method) {
     withBody(req, (b) => {
       if (b.templateId !== "modern") return problem(res, 422, "DOC_INVALID", { path: "$.templateId", message: "unknown template" });
       d.templateId = b.templateId;
+      if (b.theme && typeof b.theme === "object") d.theme = b.theme; // R3.4: an undo / redo restores the exact theme (the real API applies template defaults otherwise)
       d.version += 1;
       d.updatedAt = new Date().toISOString();
       withEtag(res, 200, docDto(id), d.version);
@@ -1402,6 +1403,9 @@ const server = http.createServer((req, res) => {
   if (path === "/api/ai/usage")
     return json(res, 200, { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
   if (path === "/api/profile") return json(res, 200, { payload: JSON.stringify(BIO) });
+  // R1.6: where each saved bio value came from (the real API keeps this off GET /api/profile). The demo says "parsed" for names, "user" for the rest.
+  if (path === "/api/profile/provenance")
+    return json(res, 200, Object.fromEntries(Object.keys(BIO).filter((k) => typeof BIO[k] === "string").map((k) => [k, k === "firstName" || k === "lastName" ? "parsed" : "user"])));
   if (path === "/api/profile/applications") return json(res, 200, APPLICATIONS);
   if (path === "/api/profile/resumes") return json(res, 200, RESUMES.map(listRow));
   if (path === "/api/profile/suggestions") return json(res, 200, []);

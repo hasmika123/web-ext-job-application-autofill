@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -32,6 +33,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.ProfileService;
 import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.resume.ResumeDocumentValidator;
+import com.dossier.api.service.resume.TemplateThemeDefaults;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -44,6 +46,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,6 +94,10 @@ class ResumeDocResourceIT {
 
     @Autowired
     private ResumeBuilderSettings settings;
+
+    /** No shipped template declares theme defaults yet; the R3.4 tests stub them. Unstubbed it answers null (= none). */
+    @MockitoBean
+    private TemplateThemeDefaults templateDefaults;
 
     @AfterEach
     void dropSettingsCache() {
@@ -742,6 +749,93 @@ class ResumeDocResourceIT {
         mockMvc
             .perform(patch("/api/profile/resumes/" + id + "/doc/template").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isUnprocessableEntity());
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(jsonPath("$.templateId").value("classic"));
+    }
+
+    // ---- template switch safety net (R3.4) --------------------------------------
+
+    private void setThemeJson(Long id, String themeJson) throws Exception {
+        mockMvc
+            .perform(patch("/api/profile/resumes/" + id + "/doc/theme").contentType(MediaType.APPLICATION_JSON).content("{\"theme\":" + themeJson + "}"))
+            .andExpect(status().isOk());
+    }
+
+    private JsonNode patchTemplate(Long id, String body) throws Exception {
+        String res = mockMvc
+            .perform(patch("/api/profile/resumes/" + id + "/doc/template").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        return json(res);
+    }
+
+    @Test
+    void aSwitchAppliesTheTemplateDefaultsToUntouchedThemeKeysOnly() throws Exception {
+        enableTemplates("modern", "classic");
+        ObjectNode defaults = om.createObjectNode().put("accent", "#7c3aed").put("fontPair", "source-serif").put("spacing", "compact");
+        when(templateDefaults.defaultsFor("classic")).thenReturn(defaults);
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        setThemeJson(id, "{\"accent\":\"#2563eb\",\"fontPair\":\"inter\",\"spacing\":\"normal\",\"_touched\":[\"accent\"]}");
+
+        JsonNode switched = patchTemplate(id, "{\"templateId\":\"classic\"}");
+
+        assertThat(switched.at("/templateId").asText()).isEqualTo("classic");
+        assertThat(switched.at("/theme/accent").asText()).as("touched key kept").isEqualTo("#2563eb");
+        assertThat(switched.at("/theme/fontPair").asText()).as("untouched key defaulted").isEqualTo("source-serif");
+        assertThat(switched.at("/theme/spacing").asText()).isEqualTo("compact");
+        assertThat(switched.at("/theme/_touched").get(0).asText()).isEqualTo("accent");
+        // and it is stored, not just returned
+        ResumeDoc stored = resumeDocRepository.findById(id).orElseThrow();
+        assertThat(om.readTree(stored.getThemeJson()).at("/fontPair").asText()).isEqualTo("source-serif");
+    }
+
+    @Test
+    void aSwitchWritesATemplateSwitchVersionRowWithTheNewThemeAndQueuesThePdfAtOnce() throws Exception {
+        enableTemplates("modern", "classic");
+        when(templateDefaults.defaultsFor("classic")).thenReturn(om.createObjectNode().put("fontPair", "georgia-arial"));
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        long rowsBefore = resumeDocVersionRepository.count();
+
+        patchTemplate(id, "{\"templateId\":\"classic\"}");
+
+        var latest = resumeDocVersionRepository.findFirstByResumeIdAndUserIdOrderByVersionNoDesc(id, user().getId()).orElseThrow();
+        assertThat(resumeDocVersionRepository.count()).isEqualTo(rowsBefore + 1);
+        assertThat(latest.getReason()).isEqualTo("TEMPLATE_SWITCH");
+        assertThat(latest.getTemplateId()).isEqualTo("classic");
+        assertThat(latest.getThemeJson()).contains("georgia-arial");
+        ResumeDoc d = resumeDocRepository.findById(id).orElseThrow();
+        assertThat(d.getPdfStatus()).isEqualTo("PENDING");
+        assertThat(d.getPdfNextAttemptAt()).as("a switch is a checkpoint: no settle delay").isBeforeOrEqualTo(Instant.now());
+    }
+
+    @Test
+    void anExplicitThemeRestoresTemplateAndThemeVerbatimWithoutApplyingDefaults() throws Exception {
+        enableTemplates("modern", "classic");
+        when(templateDefaults.defaultsFor("modern")).thenReturn(om.createObjectNode().put("accent", "#16a34a"));
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        setThemeJson(id, "{\"accent\":\"#ec4899\"}");
+        patchTemplate(id, "{\"templateId\":\"classic\"}");
+
+        // undo: back to modern with the theme the user had before, not modern's defaults
+        JsonNode back = patchTemplate(id, "{\"templateId\":\"modern\",\"theme\":{\"accent\":\"#ec4899\"}}");
+
+        assertThat(back.at("/templateId").asText()).isEqualTo("modern");
+        assertThat(back.at("/theme/accent").asText()).isEqualTo("#ec4899");
+    }
+
+    @Test
+    void aSwitchWithNoDefaultsLeavesTheThemeAndAnInvalidExplicitThemeIsRefused() throws Exception {
+        enableTemplates("modern", "classic");
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        setThemeJson(id, "{\"accent\":\"#2563eb\"}");
+
+        assertThat(patchTemplate(id, "{\"templateId\":\"classic\"}").at("/theme/accent").asText()).isEqualTo("#2563eb");
+
+        mockMvc
+            .perform(patch("/api/profile/resumes/" + id + "/doc/template").contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":\"modern\",\"theme\":{\"accent\":\"red\"}}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value("THEME_INVALID"));
         mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(jsonPath("$.templateId").value("classic"));
     }
 

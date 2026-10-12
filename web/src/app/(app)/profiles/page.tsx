@@ -6,7 +6,7 @@ import type { Resume } from "@/components/ResumeList";
 import ProfilesPage from "@/components/app-v3/profiles/ProfilesPage";
 import { tabFromParam } from "@/components/app-v3/profiles/tabs";
 import { deriveProfile } from "@/components/app-v3/profiles/derive";
-import { getCompleteness, getProfileItems } from "@/lib/profile-items-server";
+import { getBioProvenance, getCompleteness, getProfileItems } from "@/lib/profile-items-server";
 import { getBuilderConfig } from "@/lib/resume-builder-config";
 
 export const metadata: Metadata = { title: "My Profiles" };
@@ -19,19 +19,21 @@ export const metadata: Metadata = { title: "My Profiles" };
  */
 export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   const { tab } = await searchParams;
-  const [accRes, bioRes, resRes, items, completeness, config] = await Promise.all([
+  const [accRes, bioRes, resRes, items, completeness, config, bioProvenanceRes] = await Promise.all([
     serverApiFetch("/api/account"),
     serverApiFetch("/api/profile"),
     serverApiFetch("/api/profile/resumes"),
     getProfileItems(),
     getCompleteness(),
     getBuilderConfig(),
+    getBioProvenance(), // where each saved bio value came from: the source chips (R1.6)
   ]);
   if (accRes.status === 401 || accRes.status === 403) redirect("/login");
   const account = accRes.ok ? await accRes.json().catch(() => null) : null;
   const resumes: Resume[] = resRes.ok ? (((await resRes.json().catch(() => [])) as Resume[]) ?? []) : [];
 
   let bio: Bio = {};
+  const bioProvenance = bioProvenanceRes;
   if (bioRes.ok) {
     const dto = (await bioRes.json().catch(() => null)) as { payload?: string } | null;
     if (dto?.payload) {
@@ -48,6 +50,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
     <ProfilesPage
       profile={deriveProfile(account, bio, resumes, items ?? [])}
       bio={bio}
+      bioProvenance={bioProvenance}
       items={items ?? []}
       itemsLoaded={items !== null}
       completeness={completeness}
