@@ -26,6 +26,7 @@ import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.ProfileItemRepository;
 import com.dossier.api.repository.ResumeDocRepository;
+import com.dossier.api.repository.ResumeDocVersionRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.ProfileService;
@@ -74,6 +75,9 @@ class ResumeDocResourceIT {
 
     @Autowired
     private ResumeDocRepository resumeDocRepository;
+
+    @Autowired
+    private ResumeDocVersionRepository resumeDocVersionRepository;
 
     @Autowired
     private ProfileItemRepository profileItemRepository;
@@ -630,6 +634,57 @@ class ResumeDocResourceIT {
         mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(jsonPath("$.templateId").value("classic"));
     }
 
+    // ---- theme (Customize Template, R2.4) ----------------------------------------
+
+    private org.springframework.test.web.servlet.ResultActions patchTheme(Long id, String body) throws Exception {
+        return mockMvc.perform(patch("/api/profile/resumes/" + id + "/doc/theme").contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    @Test
+    void themePatchStoresTheBoundedThemeBumpsTheEtagAndWritesNoVersionRowOrProfileVersion() throws Exception {
+        Long id = createBuilt("{\"label\":\"Mine\"}").at("/resume/id").asLong();
+        String profileVersion = version();
+        long versionRows = resumeDocVersionRepository.count();
+        String before = etagOf(id);
+
+        patchTheme(id, "{\"theme\":{\"accent\":\"#16a34a\",\"fontPair\":\"georgia-arial\",\"spacing\":\"spacious\",\"size\":99,\"density\":9,\"fit\":{\"mode\":\"auto\",\"target\":2,\"step\":0},\"_touched\":[\"accent\"],\"evil\":1}}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.theme.accent").value("#16a34a"))
+            .andExpect(jsonPath("$.theme.fontPair").value("georgia-arial"))
+            .andExpect(jsonPath("$.theme.spacing").value("spacious"))
+            .andExpect(jsonPath("$.theme.fit.target").value(2))
+            .andExpect(jsonPath("$.theme.size").doesNotExist())
+            .andExpect(jsonPath("$.theme.evil").doesNotExist())
+            .andExpect(jsonPath("$.docVersion").value(2))
+            .andExpect(header().string(HttpHeaders.ETAG, "\"2\""));
+
+        assertThat(before).isEqualTo("\"1\"");
+        assertThat(resumeDocVersionRepository.count()).as("no version row").isEqualTo(versionRows);
+        assertThat(version()).as("ProfileVersion unchanged").isEqualTo(profileVersion);
+        // the next content save must use the new ETag; the old one is stale, and the theme survives a save that omits it
+        putDoc(id, before, putBody(doc("Mine", "x"))).andExpect(status().isConflict());
+        putDoc(id, "\"2\"", putBody(doc("Mine", "x"))).andExpect(status().isOk()).andExpect(jsonPath("$.theme.accent").value("#16a34a"));
+    }
+
+    @Test
+    void themePatchRefusesOutOfBoundsValuesAndLeavesTheStoredThemeAlone() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        patchTheme(id, "{\"theme\":{\"accent\":\"#2563eb\"}}").andExpect(status().isOk());
+
+        patchTheme(id, "{\"theme\":{\"accent\":\"javascript:alert(1)\"}}")
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value("THEME_INVALID"))
+            .andExpect(jsonPath("$.path").value("$.theme.accent"));
+        patchTheme(id, "{\"theme\":{\"fit\":{\"target\":3}}}").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.path").value("$.theme.fit.target"));
+        patchTheme(id, "{\"theme\":{\"fontPair\":\"comic-sans\"}}").andExpect(status().isUnprocessableEntity());
+        patchTheme(id, "{}").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("THEME_INVALID"));
+        patchTheme(id, "{\"theme\":\"x\"}").andExpect(status().isUnprocessableEntity());
+        // over 8 KB
+        patchTheme(id, "{\"theme\":{\"pad\":\"" + "x".repeat(9000) + "\"}}").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.path").value("$.theme"));
+
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(jsonPath("$.theme.accent").value("#2563eb")).andExpect(jsonPath("$.docVersion").value(2));
+    }
+
     @Test
     void aKnownButDisabledTemplateIsRejectedOnSwitchAndOnCreate() throws Exception {
         // Default setting: only Modern is enabled, so "classic" exists but cannot be picked.
@@ -707,6 +762,9 @@ class ResumeDocResourceIT {
         putDoc(theirs, null, putBody(doc("Hacked", "x"))).andExpect(status().isNotFound());
         mockMvc
             .perform(patch(base + "/doc/template").contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":\"classic\"}"))
+            .andExpect(status().isNotFound());
+        mockMvc
+            .perform(patch(base + "/doc/theme").contentType(MediaType.APPLICATION_JSON).content("{\"theme\":{\"accent\":\"#ff0000\"}}"))
             .andExpect(status().isNotFound());
 
         ResumeDoc untouched = resumeDocRepository.findById(theirs).orElseThrow();

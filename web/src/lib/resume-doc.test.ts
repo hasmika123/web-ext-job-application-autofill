@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBuilt, exportPdf, fileNameFromDisposition, getDoc, ifMatch, parseEtag, pdfOutOfDate, putDoc } from "./resume-doc";
+import { createBuilt, exportPdf, fileNameFromDisposition, getDoc, ifMatch, parseEtag, patchTemplate, patchTheme, pdfOutOfDate, putDoc } from "./resume-doc";
 import type { ResumeDocument } from "@kiwiply/ui";
 
 const doc = { schema: 2, meta: { title: "t" }, basics: {}, sections: [] } as ResumeDocument;
@@ -143,6 +143,45 @@ describe("exportPdf", () => {
   it("parses the download name", () => {
     expect(fileNameFromDisposition('attachment; filename="a b.pdf"', "x.pdf")).toBe("a b.pdf");
     expect(fileNameFromDisposition(null, "x.pdf")).toBe("x.pdf");
+  });
+});
+
+describe("patchTemplate / patchTheme", () => {
+  it("PATCHes the template route with {templateId} and returns the ETag version", async () => {
+    const f = stubFetch(json(200, { templateId: "classic", docVersion: 8 }, { etag: '"8"' }));
+    expect(await patchTemplate(42, "classic")).toEqual({ kind: "ok", version: 8 });
+    expect(f).toHaveBeenCalledWith("/api/resumes/42/doc/template", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ templateId: "classic" }) }));
+  });
+
+  it("PATCHes the theme route with {theme}; no If-Match is sent", async () => {
+    const f = stubFetch(json(200, { docVersion: 5 }, { etag: '"5"' }));
+    expect(await patchTheme(42, { accent: "#16a34a" })).toEqual({ kind: "ok", version: 5 });
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/resumes/42/doc/theme");
+    expect(init.body).toBe(JSON.stringify({ theme: { accent: "#16a34a" } }));
+    expect((init.headers as Record<string, string>)["if-match"]).toBeUndefined();
+  });
+
+  it("falls back to docVersion when there is no ETag header, and distrusts an answer with neither", async () => {
+    stubFetch(json(200, { docVersion: 9 }));
+    expect(await patchTheme(1, {})).toEqual({ kind: "ok", version: 9 });
+    stubFetch(json(200, {}));
+    expect((await patchTheme(1, {})).kind).toBe("error");
+  });
+
+  it("maps a 422 to invalid with the server's message, and everything else to a plain error", async () => {
+    stubFetch(json(422, { code: "THEME_INVALID", path: "$.theme.accent", message: "must be a #rgb or #rrggbb colour" }));
+    expect(await patchTheme(1, { accent: "red" })).toEqual({ kind: "invalid", message: "must be a #rgb or #rrggbb colour" });
+    stubFetch(json(422, { message: "error.resumeDoc", detail: "template 'x' is not enabled" }));
+    expect(await patchTemplate(1, "x")).toEqual({ kind: "invalid", message: "template 'x' is not enabled" });
+    stubFetch(json(404, {}));
+    expect(await patchTheme(1, {})).toMatchObject({ kind: "error", message: expect.stringContaining("no longer there") });
+    stubFetch(json(401, {}));
+    expect(await patchTemplate(1, "x")).toMatchObject({ kind: "error", message: expect.stringContaining("session expired") });
+    stubFetch(json(500, { error: "boom" }));
+    expect(await patchTheme(1, {})).toEqual({ kind: "error", message: "boom" });
+    stubFetch(new Error("offline"));
+    expect(await patchTemplate(1, "x")).toEqual({ kind: "error", message: "Couldn't reach the server." });
   });
 });
 

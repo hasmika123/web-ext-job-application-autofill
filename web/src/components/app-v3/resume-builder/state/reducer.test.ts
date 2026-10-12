@@ -273,3 +273,39 @@ describe("save lifecycle", () => {
     });
   });
 });
+
+describe("presentation (template + theme, R2.4)", () => {
+  it("presentation/set changes the template and theme without touching the document, rev or undo history", () => {
+    const s = testState();
+    const next = editorReducer(s, { type: "presentation/set", templateId: "classic", theme: { accent: "#16a34a" } });
+    expect(next.templateId).toBe("classic");
+    expect(next.theme).toEqual({ accent: "#16a34a" });
+    expect(currentDoc(next)).toBe(currentDoc(s));
+    expect(next.rev).toBe(s.rev);
+    expect(hasUnsaved(next)).toBe(false);
+    expect(canUndoEdit(next)).toBe(false);
+  });
+
+  it("leaves what is not mentioned alone, and an identical value is a no-op", () => {
+    const s = testState({ theme: { accent: "#2563eb" } });
+    const themeOnly = editorReducer(s, { type: "presentation/set", theme: { accent: "#16a34a" } });
+    expect(themeOnly.templateId).toBe("modern");
+    const tplOnly = editorReducer(s, { type: "presentation/set", templateId: "classic" });
+    expect(tplOnly.theme).toBe(s.theme);
+    expect(editorReducer(s, { type: "presentation/set", templateId: "modern" })).toBe(s);
+    expect(editorReducer(s, { type: "presentation/set", theme: s.theme })).toBe(s);
+  });
+
+  it("a null theme is a real value (back to the template's defaults)", () => {
+    const s = testState({ theme: { accent: "#2563eb" } });
+    expect(editorReducer(s, { type: "presentation/set", theme: null }).theme).toBeNull();
+  });
+
+  it("presentation/version adopts the PATCH's ETag without marking anything unsaved", () => {
+    const s = testState({ docVersion: 3 });
+    const next = editorReducer(s, { type: "presentation/version", version: 4 });
+    expect(next.docVersion).toBe(4);
+    expect(hasUnsaved(next)).toBe(false);
+    expect(editorReducer(next, { type: "presentation/version", version: 4 })).toBe(next);
+  });
+});

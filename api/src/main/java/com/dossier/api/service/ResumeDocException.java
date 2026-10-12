@@ -12,6 +12,7 @@ import java.util.Map;
  * <ul>
  *   <li>{@code DOC_INVALID} (422) - the document or theme failed validation; {@code path} and
  *       {@code message} name the first problem.</li>
+ *   <li>{@code THEME_INVALID} (422) - the {@code PATCH /doc/theme} body failed validation (same body shape).</li>
  *   <li>{@code DOC_TOO_LARGE} (413) - the document is over the size limit.</li>
  *   <li>{@code IF_MATCH_REQUIRED} (428) - a save without an {@code If-Match} header.</li>
  *   <li>{@code DOC_VERSION_CONFLICT} (409) - the document moved since the client loaded it;
@@ -23,6 +24,7 @@ public class ResumeDocException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     public static final String CODE_DOC_INVALID = "DOC_INVALID";
+    public static final String CODE_THEME_INVALID = "THEME_INVALID";
     public static final String CODE_DOC_TOO_LARGE = "DOC_TOO_LARGE";
     public static final String CODE_IF_MATCH_REQUIRED = "IF_MATCH_REQUIRED";
     public static final String CODE_DOC_VERSION_CONFLICT = "DOC_VERSION_CONFLICT";
@@ -40,6 +42,11 @@ public class ResumeDocException extends RuntimeException {
 
     public static ResumeDocException invalid(String path, String message) {
         return new ResumeDocException(422, CODE_DOC_INVALID, path + ": " + message, Map.of("path", path, "message", message));
+    }
+
+    /** {@code PATCH /doc/theme} refused a theme value (R2.4); the body has the same shape as {@code DOC_INVALID}. */
+    public static ResumeDocException themeInvalid(String path, String message) {
+        return new ResumeDocException(422, CODE_THEME_INVALID, path + ": " + message, Map.of("path", path, "message", message));
     }
 
     public static ResumeDocException tooLarge(String message) {
