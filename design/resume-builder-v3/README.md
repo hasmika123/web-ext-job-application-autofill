@@ -23,3 +23,5 @@ Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real u
   the clicked button is highlighted (one at a time — the green button on each board), clicking another button
   switches the panel, and the panel's ✕ or clicking the active button again closes it; the document then uses
   the freed width.
+- **Print layout + PDF view + Download:** the editor offers a print-layout view and a PDF view (plus
+  download); both open in a **right-side pane that slides in and closes out**.
