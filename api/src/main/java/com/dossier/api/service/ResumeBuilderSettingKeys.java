@@ -482,7 +482,7 @@ public final class ResumeBuilderSettingKeys {
         // Applications tracker (APP-E2E U6.x).
         integer(k, TRACKER_LIST_DEFAULT_SIZE, 20, 5, 50, "Applications per page when the request names no size.");
         integer(k, TRACKER_LIST_MAX_SIZE, 50, 10, 200, "Largest applications page the server returns; a bigger size is clamped to it.");
-        integer(k, TRACKER_SEARCH_MAX_CHARS, 120, 20, 500, "Longest applications search text; longer is cut.");
+        integer(k, TRACKER_SEARCH_MAX_CHARS, 120, 20, 500, "Longest applications search text; longer is refused (400 QUERY_TOO_LONG).");
         integer(k, TRACKER_GHOSTED_AFTER_DAYS, 21, 7, 90, "An applied or in-review application with no event for this many days shows as ghosted (derived, never stored).");
         integer(k, TRACKER_DETAIL_EVENTS_MAX, 50, 10, 200, "Timeline events returned with one application's detail.");
         integer(k, TRACKER_ACTIVITY_DEFAULT_DAYS, 30, 7, 365, "Days of tracker activity the dashboard bars cover when the request names none.");

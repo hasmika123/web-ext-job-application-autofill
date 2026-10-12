@@ -87,7 +87,11 @@ public final class TrackerDTOs {
     /** An inbox reading that would have moved this application, but it is archived (shown in the Emails tab). */
     public record Suggestion(Long inboxMessageId, ApplicationStatus to, String subject, Instant sentAt) {}
 
-    /** The paged list: the shared list contract, with the per-tab counts in {@code summary}. */
+    /**
+     * OpenAPI-only name for {@code ListPage<ApplicationDTO>} (the shared list shape, with the per-tab counts in
+     * {@code summary}): springdoc cannot see the type argument through {@code ResponseEntity<?>}. Never instantiated;
+     * the endpoint returns the shared {@link ListPage}.
+     */
     public record ApplicationListPage(List<ApplicationDTO> items, long total, int page, int size, Map<String, Long> summary) {}
 
     /**

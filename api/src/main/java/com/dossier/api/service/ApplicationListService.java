@@ -10,7 +10,8 @@ import com.dossier.api.repository.InboxMessageRepository;
 import com.dossier.api.repository.InterviewRepository;
 import com.dossier.api.service.dto.ApplicationDTO;
 import com.dossier.api.service.dto.TrackerDTOs.ApplicationDetailDTO;
-import com.dossier.api.service.dto.TrackerDTOs.ApplicationListPage;
+import com.dossier.api.service.dto.ListPage;
+import com.dossier.api.service.dto.ListQuery;
 import com.dossier.api.service.dto.TrackerDTOs.InterviewDTO;
 import com.dossier.api.service.dto.TrackerDTOs.NoteDTO;
 import com.dossier.api.service.dto.TrackerDTOs.Suggestion;
@@ -58,6 +59,9 @@ public class ApplicationListService {
 
     /** The fields {@code sort} may name (SORT_INVALID otherwise). */
     public static final List<String> SORTABLE = List.of("updatedAt", "createdAt", "appliedAt", "lastEventAt", "nextActionAt", "company", "roleTitle", "status");
+
+    /** Sort when the request names none: most recently touched first. */
+    private static final String DEFAULT_SORT = "updatedAt,desc";
 
     /** The summary's keys, in display order. */
     static final List<String> SUMMARY_KEYS = List.of("ALL", "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN", "GHOSTED", "ARCHIVED");
@@ -119,7 +123,7 @@ public class ApplicationListService {
 
     // ---- the list -----------------------------------------------------------
 
-    public ApplicationListPage list(Query query) {
+    public ListPage<ApplicationDTO> list(Query query) {
         User user = trackerUsers.current();
         Filter f = parse(query);
         Instant now = Instant.now(clock);
@@ -139,7 +143,7 @@ public class ApplicationListService {
         Page<Application> page = applications.findAll(spec, PageRequest.of(f.page(), f.size(), f.sort()));
 
         List<ApplicationDTO> items = enrich(page.getContent(), user, now);
-        return new ApplicationListPage(items, page.getTotalElements(), f.page(), f.size(), summary(user.getId(), f.q(), f.company(), ghostCutoff));
+        return new ListPage<>(items, page.getTotalElements(), f.page(), f.size(), summary(user.getId(), f.q(), f.company(), ghostCutoff));
     }
 
     /** Tab counts: respect the search text and company, never the status or archived filters of the page itself. */
@@ -231,8 +235,6 @@ public class ApplicationListService {
                 }
             }
         }
-        int maxChars = settings.getInt(ResumeBuilderSettingKeys.TRACKER_SEARCH_MAX_CHARS);
-        String q = clean(query.q(), maxChars);
         String company = clean(query.company(), 200);
 
         String archived = query.archived() == null || query.archived().isBlank() ? "false" : query.archived().trim().toLowerCase(Locale.ROOT);
@@ -240,12 +242,21 @@ public class ApplicationListService {
             throw TrackerException.invalid("archived", "use true, false or all");
         }
 
+        // Paging, sort whitelist and search text go through the shared list contract (SORT_INVALID, QUERY_TOO_LONG).
         int max = settings.getInt(ResumeBuilderSettingKeys.TRACKER_LIST_MAX_SIZE);
         int defaultSize = Math.min(settings.getInt(ResumeBuilderSettingKeys.TRACKER_LIST_DEFAULT_SIZE), max);
-        int size = query.size() == null || query.size() < 1 ? defaultSize : Math.min(query.size(), max);
-        int page = query.page() == null || query.page() < 0 ? 0 : query.page();
+        int maxChars = settings.getInt(ResumeBuilderSettingKeys.TRACKER_SEARCH_MAX_CHARS);
+        ListQuery lq = ListQuery.parse(
+            query.page(),
+            query.size() == null || query.size() < 1 ? null : query.size(),
+            query.sort(),
+            query.q(),
+            SORTABLE,
+            DEFAULT_SORT,
+            new ListQuery.Limits(defaultSize, max, maxChars)
+        );
 
-        return new Filter(statuses, q, company, archived, Boolean.TRUE.equals(query.ghosted()), sort(query.sort()), page, size);
+        return new Filter(statuses, lq.q(), company, archived, Boolean.TRUE.equals(query.ghosted()), sort(lq), lq.page(), lq.size());
     }
 
     private static String clean(String s, int max) {
@@ -255,24 +266,9 @@ public class ApplicationListService {
         return t.isEmpty() ? null : t;
     }
 
-    /** {@code field[,asc|desc]}, field whitelisted ({@link #SORTABLE}); the id breaks ties so paging is stable. */
-    static Sort sort(String raw) {
-        String field = "updatedAt";
-        Sort.Direction dir = Sort.Direction.DESC;
-        if (raw != null && !raw.isBlank()) {
-            String[] parts = raw.split(",");
-            field = parts[0].trim();
-            if (!SORTABLE.contains(field) || parts.length > 2) throw TrackerException.sortInvalid(raw, SORTABLE);
-            if (parts.length == 2) {
-                String d = parts[1].trim().toLowerCase(Locale.ROOT);
-                if (d.equals("asc")) dir = Sort.Direction.ASC;
-                else if (d.equals("desc")) dir = Sort.Direction.DESC;
-                else throw TrackerException.sortInvalid(raw, SORTABLE);
-            } else {
-                dir = Sort.Direction.ASC; // "company" alone reads naturally as A to Z
-            }
-        }
-        return Sort.by(new Sort.Order(dir, field), new Sort.Order(Sort.Direction.DESC, "id"));
+    /** The parsed sort; the id breaks ties so paging is stable. */
+    static Sort sort(ListQuery lq) {
+        return Sort.by(new Sort.Order(lq.direction(), lq.sortField()), new Sort.Order(Sort.Direction.DESC, "id"));
     }
 
     // ---- derived fields -----------------------------------------------------

@@ -114,7 +114,9 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     }
     const archived = (q.get("archived") ?? "false").toLowerCase();
     if (!["true", "false", "all"].includes(archived)) return invalid(res, "archived", "use true, false or all");
-    const text = (q.get("q") ?? "").trim().slice(0, 120).toLowerCase();
+    const rawText = (q.get("q") ?? "").trim();
+    if (rawText.length > 120) return problem(res, 400, "QUERY_TOO_LONG", { max: 120 });
+    const text = rawText.toLowerCase();
     const company = (q.get("company") ?? "").trim().toLowerCase();
 
     let field = "updatedAt";
