@@ -30,6 +30,8 @@ export interface CanvasContextValue {
   canRedo: boolean;
   /** The plan has builder AI (the Summary "Rewrite with AI" button is a lock when not). */
   aiAllowed: boolean;
+  /** The Swap Section panel is open: item rows show a drag grip and can be dragged (same `item/move`). */
+  reorder: boolean;
 }
 
 const Ctx = createContext<CanvasContextValue | null>(null);

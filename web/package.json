@@ -17,6 +17,9 @@
     "test": "node scripts/sync-parser-core.mjs && tsc --noEmit && eslint . && npm run test:unit"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@kiwiply/ui": "*",
     "mammoth": "^1.12.0",
     "next": "16.2.9",

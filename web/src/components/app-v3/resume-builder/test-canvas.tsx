@@ -14,6 +14,7 @@ export function CanvasHarness({
   aiAllowed = false,
   limits = DEFAULT_BUILDER_CONFIG.limits,
   onAddSection = () => {},
+  reorder = false,
 }: {
   doc: ResumeDocument;
   caps?: TemplateCapabilities;
@@ -21,6 +22,7 @@ export function CanvasHarness({
   aiAllowed?: boolean;
   limits?: DocLimits;
   onAddSection?: () => void;
+  reorder?: boolean;
 }) {
   const [state, dispatch] = useReducer(editorReducer, undefined, () => initEditorState({ doc, templateId: "modern", theme: null, docVersion: 1, limits }));
   return (
@@ -35,6 +37,7 @@ export function CanvasHarness({
         canRedo={canRedoEdit(state)}
         aiAllowed={aiAllowed}
         onAddSection={onAddSection}
+        reorder={reorder}
       />
       <output data-testid="doc">{JSON.stringify(currentDoc(state))}</output>
     </ToastProvider>

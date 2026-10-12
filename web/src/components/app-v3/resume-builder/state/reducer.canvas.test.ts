@@ -160,6 +160,22 @@ describe("sections", () => {
   });
 });
 
+describe("moves are single history entries", () => {
+  it("one undo reverts a section move and one reverts an item move; redo re-applies", () => {
+    const base = sink();
+    let s = run(base, { type: "section/move", sectionId: "s_edu", to: 0, at }, { type: "item/move", sectionId: "s_exp", itemId: "i_exp00002", to: 0, at: at + 5000 });
+    expect(currentDoc(s).sections[0].id).toBe("s_edu");
+    expect(sec(s, "s_exp").items.map((i) => (i as { id: string }).id)).toEqual(["i_exp00002", "i_exp00001"]);
+    s = run(s, { type: "history/undo" });
+    expect(sec(s, "s_exp").items.map((i) => (i as { id: string }).id)).toEqual(["i_exp00001", "i_exp00002"]);
+    expect(currentDoc(s).sections[0].id).toBe("s_edu"); // the section move is still in
+    s = run(s, { type: "history/undo" });
+    expect(currentDoc(s)).toEqual(currentDoc(base));
+    s = run(s, { type: "history/redo" });
+    expect(currentDoc(s).sections[0].id).toBe("s_edu");
+  });
+});
+
 describe("items", () => {
   it("adds a kind-aware item: timelines on top, the rest at the end; SUMMARY adds nothing", () => {
     let s = run(

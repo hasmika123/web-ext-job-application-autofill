@@ -732,7 +732,7 @@
       "id": "R2.2",
       "epic": "R2",
       "title": "Swap Section panel — `@dnd-kit` drag of sections and items (pointer/touch/keyboard), ↑ ↓ everywhere, canvas grips",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"

@@ -20,6 +20,8 @@ import AutoTextarea from "./AutoTextarea";
 import { useCanvas, useField } from "./canvasContext";
 import { PILL_BUTTON } from "./canvasStyles";
 import ItemRow from "./ItemRow";
+import SortableItem from "./SortableItem";
+import { SortableGroup } from "@/components/common/SortableList";
 import { KIND_META } from "./sectionKinds";
 import { blockId } from "./sectionTitle";
 import { nowMs } from "./state/clock";
@@ -278,8 +280,9 @@ function SummaryBody({ section }: { section: Extract<ResumeSection, { kind: "SUM
 }
 
 function ItemList({ section, items }: { section: ResumeSection; items: unknown[] }) {
-  const { requestFocus, dispatch } = useCanvas();
+  const { requestFocus, dispatch, reorder } = useCanvas();
   const meta = KIND_META[section.kind];
+  const ids = (items as Array<{ id: string }>).map((it) => it.id);
 
   if (items.length === 0) {
     return (
@@ -300,9 +303,13 @@ function ItemList({ section, items }: { section: ResumeSection; items: unknown[]
 
   return (
     <div className={cn("flex flex-col", meta.timeline && "relative before:absolute before:bottom-5 before:left-[3px] before:top-6 before:w-px before:bg-line")}>
-      {items.map((item, i) => (
-        <ItemRow key={(item as { id: string }).id} section={section} item={item} index={i} count={items.length} />
-      ))}
+      <SortableGroup group={section.id} ids={ids}>
+        {items.map((item, i) => (
+          <SortableItem key={(item as { id: string }).id} id={(item as { id: string }).id} sectionId={section.id} reorder={reorder}>
+            <ItemRow section={section} item={item} index={i} count={items.length} />
+          </SortableItem>
+        ))}
+      </SortableGroup>
     </div>
   );
 }

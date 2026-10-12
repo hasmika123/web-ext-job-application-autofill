@@ -625,6 +625,17 @@ export const HelpCircleIcon = makeIcon("HelpCircleIcon", {
   ),
 });
 
+/** A circled "i" - tip and info boxes. */
+export const InfoIcon = makeIcon("InfoIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M12 11v5.2" />
+      <path d="M12 7.6h.01" />
+    </>
+  ),
+});
+
 export const BuildingIcon = makeIcon("BuildingIcon", {
   node: (
     <>
