@@ -1,4 +1,4 @@
-import type { Application } from "@/components/ApplicationBoard";
+import type { Application } from "@/lib/applications";
 import { statusKeyOf } from "@/components/app-v2/applications/mapping";
 import type { AppStatusKey } from "@/components/app-v2/sample-data";
 import type { Tone } from "@/components/app-v2/common";

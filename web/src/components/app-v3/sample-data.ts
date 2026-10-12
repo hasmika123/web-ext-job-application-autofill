@@ -5,7 +5,7 @@
  * Real data (name, applications, resumes, Pro matches, profile, account, billing) is merged over
  * this in the pages; when a real list is empty the sample rows render so the page matches the board.
  */
-import type { SampleJob, WorkMode, AppStatusKey } from "@/components/app-v2/sample-data";
+import type { SampleJob, WorkMode } from "@/components/app-v2/sample-data";
 import type { Tone } from "@/components/app-v2/common";
 
 /* ═══ Dashboard + Job Search ═══ */
@@ -262,37 +262,7 @@ export const GOOGLE_V3_DETAIL: V3Detail = {
 };
 
 
-/* ═══ Applications, My Profiles, Saved Jobs, Settings ═══ */
-
-/* ── 2.3 Applications ───────────────────────────────────────────────────────────────────────── */
-
-export interface V3ApplicationSample {
-  id: string;
-  title: string;
-  company: string;
-  sub: string;
-  status: AppStatusKey;
-  appliedOn: string;
-  nextStep: string;
-  nextStepDetail?: string;
-  href?: string | null;
-}
-
-export const V3_APPLICATION_ROWS: V3ApplicationSample[] = [
-  { id: "a3-1", title: "Software Engineer", company: "Google", sub: "Full-time · Mountain View, CA", status: "interview", appliedOn: "Oct 8, 2026", nextStep: "Oct 10, 10:00 AM", nextStepDetail: "Video Interview" },
-  { id: "a3-2", title: "Frontend Developer", company: "Microsoft", sub: "Full-time · Redmond, WA", status: "in-review", appliedOn: "Oct 6, 2026", nextStep: "—" },
-  { id: "a3-3", title: "SDE II", company: "Amazon", sub: "Full-time · Seattle, WA", status: "applied", appliedOn: "Oct 3, 2026", nextStep: "—" },
-  { id: "a3-4", title: "Product Engineer", company: "Microsoft", sub: "Full-time · Remote", status: "applied", appliedOn: "Oct 2, 2026", nextStep: "—" },
-  { id: "a3-5", title: "Frontend Engineer", company: "Meta", sub: "Full-time · Remote", status: "rejected", appliedOn: "Oct 1, 2026", nextStep: "—" },
-  { id: "a3-6", title: "Full Stack Developer", company: "Netflix", sub: "Full-time · Los Gatos, CA", status: "in-review", appliedOn: "Sep 28, 2026", nextStep: "—" },
-  { id: "a3-7", title: "Software Engineer", company: "Uber", sub: "Full-time · San Francisco, CA", status: "interview", appliedOn: "Sep 25, 2026", nextStep: "Oct 12, 3:00 PM", nextStepDetail: "Technical" },
-  { id: "a3-8", title: "Frontend Developer", company: "Shopify", sub: "Full-time · Remote", status: "applied", appliedOn: "Sep 22, 2026", nextStep: "—" },
-  { id: "a3-9", title: "Software Engineer", company: "Tesla", sub: "Full-time · Palo Alto, CA", status: "offer", appliedOn: "Sep 20, 2026", nextStep: "Review offer" },
-  { id: "a3-10", title: "Backend Engineer", company: "Stripe", sub: "Full-time · Remote", status: "applied", appliedOn: "Sep 18, 2026", nextStep: "—" },
-];
-
-/** Tab counts as drawn on the board (used only with the sample rows). */
-export const V3_APPLICATION_SAMPLE_COUNTS = { all: 42, applied: 18, "in-review": 10, interview: 8, offer: 5, rejected: 1 } as const;
+/* ═══ My Profiles, Saved Jobs, Settings ═══ */
 
 /* ── 2.4 My Profiles ────────────────────────────────────────────────────────────────────────── */
 

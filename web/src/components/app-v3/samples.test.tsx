@@ -17,7 +17,6 @@ vi.mock("@/components/app-v2/common", async (orig) => {
 
 import AlertsPage from "./alerts/AlertsPage";
 import AnalyticsPage from "./analytics/AnalyticsPage";
-import ApplicationsV3Page from "./applications/ApplicationsV3Page";
 import AssistantPage from "./assistant/AssistantPage";
 import DashboardPage from "./home/DashboardPage";
 import ExplorePage from "./explore/ExplorePage";
@@ -82,7 +81,6 @@ const PAGES: { name: string; node: () => ReactNode; sampleText: string | RegExp 
   { name: "Interview prep", node: () => <InterviewPrepPage />, sampleText: /Common Question Sets/ },
   { name: "Saved jobs", node: () => <SavedV3Page />, sampleText: S.V3_SAVED_JOBS[0].title },
   { name: "Assistant", node: () => <AssistantPage firstName="Jo" />, sampleText: /Recent chats/ },
-  { name: "Applications", node: () => <ApplicationsV3Page rows={[]} />, sampleText: S.V3_APPLICATION_ROWS[0].title },
   { name: "Jobs", node: () => <JobsPage realJobs={null} />, sampleText: /jobs found/ },
   { name: "Analytics", node: () => <AnalyticsPage data={null} />, sampleText: /Conversion funnel|Applications over time/ },
 ];

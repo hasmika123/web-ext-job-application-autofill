@@ -147,7 +147,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     return json(res, 200, { items: rows.slice(page * size, page * size + size).map(enrich), total: rows.length, page, size, summary });
   }
 
-  function activity(res, url) {
+  function activity(res, url, empty = false) {
     let days = Number(url.searchParams.get("days"));
     days = Number.isFinite(days) && days >= 1 ? Math.min(Math.floor(days), LIMITS.activityMax) : LIMITS.activityDefault;
     const tz = url.searchParams.get("tz") || "UTC";
@@ -159,7 +159,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     }
     const counts = new Map();
     for (let d = days - 1; d >= 0; d--) counts.set(fmt.format(new Date(Date.now() - d * DAY)), 0);
-    for (const e of EVENTS) {
+    for (const e of empty ? [] : EVENTS) {
       const day = fmt.format(new Date(e.createdAt));
       if (counts.has(day)) counts.set(day, counts.get(day) + 1);
     }
@@ -303,7 +303,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     return null;
   }
 
-  function range(res, url) {
+  function range(res, url, empty = false) {
     const q = url.searchParams;
     const bound = (s, end) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Date.parse(`${s}T00:00:00Z`) + (end ? DAY : 0);
@@ -318,7 +318,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     if (to - from > LIMITS.rangeMax * DAY) return invalid(res, "to", `the range is at most ${LIMITS.rangeMax} days`);
     const outcome = q.get("outcome") ? q.get("outcome").toUpperCase() : null;
     if (outcome && !OUTCOMES.includes(outcome)) return invalid(res, "outcome", "use PENDING, PASSED, REJECTED or NO_SHOW");
-    const rows = INTERVIEWS.filter((i) => when(i.startsAt) >= from && when(i.startsAt) < to && (!outcome || i.outcome === outcome)).sort((a, b) => when(a.startsAt) - when(b.startsAt) || a.id - b.id);
+    const rows = (empty ? [] : INTERVIEWS).filter((i) => when(i.startsAt) >= from && when(i.startsAt) < to && (!outcome || i.outcome === outcome)).sort((a, b) => when(a.startsAt) - when(b.startsAt) || a.id - b.id);
     return json(res, 200, rows.map(interviewDto));
   }
 
@@ -371,7 +371,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     respond((b) => {
       // ---- the cross-application interview feed
       if (isInterviewFeed) {
-        if (!feed[1]) return range(res, url);
+        if (!feed[1]) return range(res, url, isEmpty(req));
         const i = INTERVIEWS.find((x) => x.id === Number(feed[1]));
         if (!i) return notFound(res);
         res.writeHead(200, { "content-type": "text/calendar;charset=UTF-8", "content-disposition": `attachment; filename="interview-${i.id}.ics"` });
@@ -379,9 +379,9 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
       }
       // ---- applications
       if (path === "/api/profile/applications") return list(res, url, isEmpty(req));
-      if (arg === "activity") return activity(res, url);
+      if (arg === "activity") return activity(res, url, isEmpty(req));
       if (arg === "bulk") return bulk(res, b);
-      const a = byId(arg);
+      const a = isEmpty(req) ? null : byId(arg); // a brand-new account owns no application
       if (!a) return notFound(res);
       if (!sub) {
         if (method === "GET") return detail(res, a);

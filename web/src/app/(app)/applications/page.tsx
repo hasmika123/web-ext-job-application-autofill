@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
-import { serverApiFetch } from "@/lib/api";
-import type { Application } from "@/components/ApplicationBoard";
 import ApplicationsV3Page from "@/components/app-v3/applications/ApplicationsV3Page";
-import { mapApplications } from "@/components/app-v2/applications/mapping";
+import { getPlan } from "@/lib/billing";
 
 export const metadata: Metadata = { title: "My Applications" };
 
 /**
- * My Applications (app v3, spec 2.3). The real `/api/profile/applications` list is mapped onto the
- * table by the v2 mapper; with no applications yet the page renders the board's sample rows.
+ * My Applications (app v3, U6.3). The list itself is read in the browser through `useListQuery` (real paging, filters,
+ * search and tab counts from the list v2 endpoint), so this page only knows two things: whether the plan includes
+ * the Pro "resume fit" check, and which application `?app=<id>` asks to open (the board's old deep link, kept for
+ * the extension's and emails' links).
  */
-export default async function Page() {
-  const res = await serverApiFetch("/api/profile/applications");
-  const apps: Application[] = res.ok ? (((await res.json().catch(() => [])) as Application[]) ?? []) : [];
-  return <ApplicationsV3Page rows={mapApplications(apps)} />;
+export default async function Page({ searchParams }: { searchParams: Promise<{ app?: string | string[] }> }) {
+  const { app } = await searchParams;
+  const raw = Array.isArray(app) ? app[0] : app;
+  const initialOpenId = raw && /^\d+$/.test(raw) ? Number(raw) : null;
+  const plan = await getPlan();
+  return <ApplicationsV3Page initialOpenId={initialOpenId} isPro={plan.plan === "PRO"} />;
 }

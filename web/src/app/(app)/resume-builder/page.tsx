@@ -5,7 +5,7 @@ import { getBuilderConfig } from "@/lib/resume-builder-config";
 import { getCompleteness, getProfileItems } from "@/lib/profile-items-server";
 import { summarizeProfile } from "@/components/app-v3/resume-builder/new-resume/model";
 import type { Resume } from "@/components/ResumeList";
-import type { Application } from "@/components/ApplicationBoard";
+import type { Application } from "@/lib/applications";
 import ResumeList from "@/components/app-v3/resume-builder/ResumeList";
 
 export const metadata: Metadata = { title: "Resume Builder" };

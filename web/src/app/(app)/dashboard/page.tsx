@@ -3,7 +3,7 @@ import { serverApiFetch } from "@/lib/api";
 import { parseBioPayload } from "@/lib/profile-options";
 import { getOnboardingStatus } from "@/lib/onboarding/server";
 import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
-import type { Application } from "@/components/ApplicationBoard";
+import type { Application } from "@/lib/applications";
 import { loadJobs } from "@/components/app-v2/jobs/data";
 import DashboardPage from "@/components/app-v3/home/DashboardPage";
 import FinishProfileCard from "@/components/app-v3/profiles/setup/FinishProfileCard";
