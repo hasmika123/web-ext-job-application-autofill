@@ -43,6 +43,8 @@ export default function SectionTab({
   const rows = api.bySection(section);
   const def = SECTION_DEFS[section];
   const addDisabled = atCap || loadFailed;
+  // The three career lists fill from a resume through the setup wizard (R1.4); the rest point at the builder.
+  const fromResume = section === "EXPERIENCE" || section === "EDUCATION" || section === "PROJECT";
 
   return (
     <section aria-label={title} className="rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-5">
@@ -93,8 +95,8 @@ export default function SectionTab({
       {rows.length === 0 && !adding && !loadFailed ? (
         <p className="mt-4 text-[13.5px] text-v2-ink-soft">
           {empty}{" "}
-          <Link href="/resume-builder" className="font-semibold text-v2-blue hover:underline max-sm:inline-flex max-sm:min-h-11 max-sm:items-center">
-            Go to Resume Builder
+          <Link href={fromResume ? "/profiles/setup" : "/resume-builder"} className="font-semibold text-v2-blue hover:underline max-sm:inline-flex max-sm:min-h-11 max-sm:items-center">
+            {fromResume ? "Set up from a resume" : "Go to Resume Builder"}
           </Link>
         </p>
       ) : (

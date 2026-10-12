@@ -393,7 +393,7 @@
       "id": "R1.4",
       "epic": "R1",
       "title": "Onboarding wizard — `/profiles/setup` path picker, Upload + Paste steps, card-by-card review, finish",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web",
