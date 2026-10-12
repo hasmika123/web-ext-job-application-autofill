@@ -183,7 +183,7 @@
       "id": "O1.4",
       "epic": "O1",
       "title": "org_audit_event + OrgAuditService with action constants",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API"
