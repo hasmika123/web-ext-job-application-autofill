@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
-  ArrowRightIcon,
-  BellIcon,
   BookmarkOutlineIcon,
   CalendarIcon,
-  ChevronRightIcon,
   CheckCircleIcon,
   ClipboardIcon,
   FileTextIcon,
@@ -20,34 +17,30 @@ import {
   CompanyTile,
   Donut,
   HeroBand,
-  IconTile,
   ProgressRing,
   QuickActionTiles,
   SectionCard,
   StatTile,
   StatusChip,
   TONE,
-  type Tone,
 } from "@/components/app-v2/common";
 import { SaveButton } from "@/components/app-v2/jobs/JobBits";
 import type { SampleJob } from "@/components/app-v2/sample-data";
-import type { DashRecent, DashStat } from "@/components/app-v3/sample-data";
+import type { Tone } from "@/components/app-v2/common";
+import { statusLabel, statusTone } from "@/lib/applications";
+import type { DashRecent, DashStat } from "./compute";
 import Greeting from "./Greeting";
 import ActivityCard from "./ActivityCard";
+import UpcomingInterviews from "./UpcomingInterviews";
 
 export interface DashboardProps {
   firstName: string;
   stats: DashStat[];
-  activity: Record<string, { label: string; values: number[] }[]>;
   status: { label: string; value: number; tone: Tone }[];
   total: number;
   recent: DashRecent[];
   recommended: { id: string; title: string; company: string; score: number; real?: SampleJob["real"] }[];
   profile: { pct: number; checks: { id: string; label: string; done: boolean }[] };
-  /** AI insights, upcoming interviews and job alerts: no API yet, so these are `[]` for a real account (U0.5). */
-  insights: { text: string; href: string }[];
-  interviews: { company: string; title: string; when: string }[];
-  alerts: { title: string; count: number; ago: string }[];
   /** Slot under the hero (the "learned while applying" suggestions card). */
   children?: ReactNode;
 }
@@ -59,14 +52,6 @@ const STAT_ICON: Record<DashStat["id"], ReactNode> = {
   saved: <BookmarkOutlineIcon size={22} />,
 };
 
-const CHIP_TONE: Record<string, Tone> = {
-  Applied: "blue",
-  "Under Review": "amber",
-  Interview: "green",
-  Offer: "violet",
-  Rejected: "coral",
-};
-
 const QUICK = [
   { id: "jobs", label: "Find Jobs", icon: <SearchIcon size={22} />, href: "/jobs" },
   { id: "resume", label: "Update Resume", icon: <FileTextIcon size={22} />, href: "/resume-builder" },
@@ -75,11 +60,11 @@ const QUICK = [
 ];
 
 /**
- * Dashboard (APP-V3-SPEC 2.1). Four rows under the hero: stat tiles, three cards (activity, status,
- * AI insights), three cards (recent applications, recommended, profile strength) and three more
- * (interviews, alerts, quick actions). Three-up from `xl`, two-up from `md`, one column on phones.
- * Every number follows real data. Insights, interviews and alerts have no API yet: a real account gets `[]` and
- * an honest empty state (U0.5); only a demo account on a sample-enabled build sees the board's rows.
+ * Dashboard (APP-V3-SPEC 2.1, U3.1). Under the hero: the four stat tiles; activity (a real per-day feed) beside the
+ * status donut; recent applications, recommended jobs and profile strength; upcoming interviews, job alerts and quick
+ * actions. Three-up from `xl`, two-up from `md`, one column on phones. Every number is the account's own: the tiles
+ * and the donut come from the list summary, activity and interviews from their feeds. Where a source does not exist
+ * yet (job alerts) the card is an honest empty state with a next step, never a sample row.
  */
 /** The one low-key action link of an inline empty state. */
 function EmptyLink({ href, children }: { href: string; children: ReactNode }) {
@@ -120,49 +105,13 @@ export default function DashboardPage(p: DashboardProps) {
       </div>
 
       <div className={grid}>
-        {noApplications ? (
-          <SectionCard title="Application Activity">
-            <EmptyState
-              variant="inline"
-              title="No activity yet"
-              description="Applications you submit show up here."
-              action={<EmptyLink href="/jobs">Find jobs</EmptyLink>}
-            />
-          </SectionCard>
-        ) : (
-          <ActivityCard periods={p.activity} />
-        )}
+        <ActivityCard hasApplications={!noApplications} className="md:col-span-2 xl:col-span-2" />
 
-        <SectionCard title="Application Status">
+        <SectionCard title="Application Status" className="md:col-span-2 xl:col-span-1">
           {noApplications ? (
             <EmptyState variant="inline" title="No applications yet" description="Your statuses will be counted here." />
           ) : (
             <Donut segments={p.status} centerValue={p.total} centerLabel="Total" size={132} />
-          )}
-        </SectionCard>
-
-        <SectionCard
-          title="AI Insights"
-          icon={<SparklesIcon size={18} className="text-v2-green" />}
-          className={cn("bg-v2-lime-soft/60", third)}
-        >
-          {p.insights.length === 0 ? (
-            <EmptyState variant="inline" title="No insights yet" description="They appear as you apply." />
-          ) : (
-          <ul className="space-y-2">
-            {p.insights.map((i) => (
-              <li key={i.text}>
-                <Link
-                  href={i.href}
-                  className="flex items-center gap-3 rounded-xl bg-paper/70 px-3 py-3 text-[13.5px] font-medium leading-snug text-ink transition-colors hover:bg-paper"
-                >
-                  <CheckCircleIcon className="h-5 w-5 flex-none text-v2-green" />
-                  <span className="min-w-0 flex-1">{i.text}</span>
-                  <ChevronRightIcon size={16} className="flex-none text-v2-muted" />
-                </Link>
-              </li>
-            ))}
-          </ul>
           )}
         </SectionCard>
       </div>
@@ -174,16 +123,18 @@ export default function DashboardPage(p: DashboardProps) {
           ) : (
             <ul className="divide-y divide-v2-line/60">
               {p.recent.map((r) => (
-                <li key={r.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                  <CompanyTile name={r.company} size={38} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] font-bold text-ink">{r.company}</span>
-                    <span className="block truncate text-[12.5px] text-v2-muted">{r.title}</span>
-                  </span>
-                  <StatusChip tone={CHIP_TONE[r.status] ?? "slate"} dot className="hidden sm:inline-flex">
-                    {r.status}
-                  </StatusChip>
-                  <span className="w-[44px] flex-none text-right text-[12.5px] text-v2-muted">{r.date}</span>
+                <li key={r.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <Link href={`/applications?app=${r.id}`} className="flex items-center gap-3 rounded-lg hover:bg-paper-2/60">
+                    <CompanyTile name={r.company} size={38} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13.5px] font-bold text-ink">{r.company}</span>
+                      <span className="block truncate text-[12.5px] text-v2-muted">{r.title}</span>
+                    </span>
+                    <StatusChip tone={statusTone(r.status)} dot className="hidden sm:inline-flex">
+                      {statusLabel(r.status)}
+                    </StatusChip>
+                    <span className="w-[44px] flex-none text-right text-[12.5px] text-v2-muted">{r.date}</span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -194,19 +145,19 @@ export default function DashboardPage(p: DashboardProps) {
           {p.recommended.length === 0 ? (
             <EmptyState variant="inline" title="No recommendations yet" description="Finish your profile to get matches." action={<EmptyLink href="/profiles">Open profile</EmptyLink>} />
           ) : (
-          <ul className="divide-y divide-v2-line/60">
-            {p.recommended.map((j) => (
-              <li key={j.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                <CompanyTile name={j.company} size={38} />
-                <Link href={`/jobs?job=${encodeURIComponent(j.id)}`} className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-bold text-ink hover:underline">{j.title}</span>
-                  <span className="block truncate text-[12.5px] text-v2-muted">{j.company}</span>
-                </Link>
-                <span className="flex-none text-[12.5px] font-bold text-v2-green-ink">{j.score}% Match</span>
-                <SaveButton job={{ id: j.id, title: j.title, company: j.company, real: j.real }} className="-mr-1" />
-              </li>
-            ))}
-          </ul>
+            <ul className="divide-y divide-v2-line/60">
+              {p.recommended.map((j) => (
+                <li key={j.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <CompanyTile name={j.company} size={38} />
+                  <Link href={`/jobs?job=${encodeURIComponent(j.id)}`} className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-bold text-ink hover:underline">{j.title}</span>
+                    <span className="block truncate text-[12.5px] text-v2-muted">{j.company}</span>
+                  </Link>
+                  <span className="flex-none text-[12.5px] font-bold text-v2-green-ink">{j.score}% Match</span>
+                  <SaveButton job={{ id: j.id, title: j.title, company: j.company, real: j.real }} className="-mr-1" />
+                </li>
+              ))}
+            </ul>
           )}
         </SectionCard>
 
@@ -237,49 +188,16 @@ export default function DashboardPage(p: DashboardProps) {
       </div>
 
       <div className={grid}>
-        <SectionCard title="Upcoming Interviews" action={{ label: "View all", href: "/interview-prep" }}>
-          {p.interviews.length === 0 ? (
-            <EmptyState variant="inline" title="No interviews scheduled" action={<EmptyLink href="/interview-prep">Practice for one</EmptyLink>} />
-          ) : (
-          <ul className="divide-y divide-v2-line/60">
-            {p.interviews.map((i) => (
-              <li key={i.company} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                <CompanyTile name={i.company} size={38} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-bold text-ink">{i.company}</span>
-                  <span className="block truncate text-[12.5px] text-v2-muted">
-                    {i.title} · {i.when}
-                  </span>
-                </span>
-                <Link href="/interview-prep" className="inline-flex flex-none items-center gap-1 text-[12.5px] font-bold text-v2-blue-ink hover:underline">
-                  Prep
-                  <ArrowRightIcon size={13} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-          )}
-        </SectionCard>
+        <UpcomingInterviews />
 
         <SectionCard title="Job Alerts" action={{ label: "Manage", href: "/alerts" }}>
-          {p.alerts.length === 0 ? (
-            <EmptyState variant="inline" title="No job alerts yet" action={<EmptyLink href="/alerts">Set one up</EmptyLink>} />
-          ) : (
-          <ul className="divide-y divide-v2-line/60">
-            {p.alerts.map((a) => (
-              <li key={a.title} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                <IconTile tone="blue" className="h-[38px] w-[38px]">
-                  <BellIcon size={17} />
-                </IconTile>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-bold text-ink">{a.title}</span>
-                  <span className="block text-[12.5px] text-v2-muted">{a.count} new</span>
-                </span>
-                <span className="flex-none text-[12.5px] text-v2-muted">{a.ago}</span>
-              </li>
-            ))}
-          </ul>
-          )}
+          {/* Alerts have no data source yet (U7.2): an honest empty state, with the one next step. */}
+          <EmptyState
+            variant="inline"
+            title="No job alerts yet"
+            description="Get a nudge when a new job matches what you want."
+            action={<EmptyLink href="/alerts">Create your first alert</EmptyLink>}
+          />
         </SectionCard>
 
         <SectionCard title="Quick Actions" icon={<ClipboardIcon size={18} className="text-v2-blue" />} className={third}>

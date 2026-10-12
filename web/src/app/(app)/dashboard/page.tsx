@@ -3,7 +3,7 @@ import { serverApiFetch } from "@/lib/api";
 import { parseBioPayload } from "@/lib/profile-options";
 import { getOnboardingStatus } from "@/lib/onboarding/server";
 import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
-import type { Application } from "@/components/ApplicationBoard";
+import { SUBMITTED_STATUSES, asListPage, statusCsv } from "@/lib/applications";
 import { loadJobs } from "@/components/app-v2/jobs/data";
 import DashboardPage from "@/components/app-v3/home/DashboardPage";
 import FinishProfileCard from "@/components/app-v3/profiles/setup/FinishProfileCard";
@@ -14,21 +14,24 @@ import { onboardingSettings } from "@/lib/onboarding-card";
 import ProfileProgressCard from "@/components/app-v3/profiles/setup/ProfileProgressCard";
 import { getCompleteness } from "@/lib/profile-items-server";
 import { computeDashboard, computeProfile } from "@/components/app-v3/home/compute";
-import { samples } from "@/components/app-v3/samples";
-import { samplesEnabled } from "@/lib/samples";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
+/** How many recent applications the card lists. */
+const RECENT_COUNT = 5;
+
 /**
- * Dashboard (app v3, spec 2.1): the authed landing page (post-login redirect target). Real where an API
- * exists (first name, applications, Pro matches, profile); where one does not yet, a real account gets an honest
- * empty state and only a demo account on a sample-enabled build gets the board's rows (`samples()`, U0.5).
- * Session gate + shell live in the `(app)` layout.
+ * Dashboard (app v3, spec 2.1, U3.1): the authed landing page (post-login redirect target). Every number is the
+ * account's own: the tiles and the status donut come from the applications list summary (list v2), the recent list
+ * from its newest submitted rows, activity and upcoming interviews from their feeds (read in the browser, in the
+ * viewer's time zone). Where a source does not exist yet (job alerts) the card is an honest empty state; there is
+ * no sample data on this page at all. Session gate + shell live in the `(app)` layout.
  */
 export default async function Page() {
   const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData, completeness, builderConfig, onboardingStatus] = await Promise.all([
     serverApiFetch("/api/account"),
-    serverApiFetch("/api/profile/applications"),
+    // List v2: one page of the newest submitted applications, and `summary` = the counts behind the tiles and the donut.
+    serverApiFetch(`/api/profile/applications?size=${RECENT_COUNT}&sort=updatedAt,desc&status=${statusCsv(SUBMITTED_STATUSES)}`),
     serverApiFetch("/api/profile"),
     serverApiFetch("/api/profile/resumes"),
     // Answers learned while applying, awaiting the user's decision. Best-effort: no card on failure.
@@ -46,7 +49,8 @@ export default async function Page() {
   const account = accountRes.ok
     ? ((await accountRes.json().catch(() => null)) as { login?: string; email?: string; firstName?: string } | null)
     : null;
-  const apps: Application[] = appsRes.ok ? (((await appsRes.json().catch(() => [])) as Application[]) ?? []) : [];
+  // `asListPage` also reads a failed or legacy answer as an empty page: the page then shows zeros, never someone else's numbers.
+  const apps = asListPage(appsRes.ok ? await appsRes.json().catch(() => null) : null);
   const resumes: unknown[] = resumesRes.ok ? (((await resumesRes.json().catch(() => [])) as unknown[]) ?? []) : [];
   const suggestions: Suggestion[] = suggestionsRes?.ok ? ((await suggestionsRes.json().catch(() => [])) as Suggestion[]) : [];
 
@@ -54,17 +58,13 @@ export default async function Page() {
   // v2): a new account simply sees the "Let's get you job-ready" card below.
   const bio = profileRes.ok ? parseBioPayload(await profileRes.json().catch(() => null)) : {};
 
-  const real = apps.some((a) => a.status !== "SAVED" && !a.archived);
-  const n = computeDashboard(apps);
+  const n = computeDashboard(apps.summary, apps.items);
 
   const firstName = account?.firstName || account?.login || account?.email?.split("@")[0] || "there";
-  // The sample gate: real accounts never see a fake row. `showSample` = this demo account has no real applications yet.
-  const sampleOn = samplesEnabled(account?.login);
-  const showSample = !real && sampleOn;
+  // Matches exist for Pro accounts; everyone else sees the empty state that says how to get them.
   const recommended = jobsData.real
     ? jobsData.jobs.slice(0, 3).map((j) => ({ id: j.id, title: j.title, company: j.company, score: j.score, real: j.real }))
-    : samples("DASH_RECOMMENDED", sampleOn);
-  const sampleStatus = samples("DASH_STATUS", showSample);
+    : [];
 
   // `feature.onboarding_v2.enabled` (R1.8) switches the card; its timings and the mascot flair come from `config.onboarding`
   // (an API without the group falls back to the declared defaults).
@@ -73,20 +73,12 @@ export default async function Page() {
   return (
     <DashboardPage
       firstName={firstName}
-      stats={showSample ? samples("DASH_STATS", true) : n.stats}
-      activity={showSample ? (samples("DASH_ACTIVITY_PERIODS", true) ?? n.activity) : n.activity}
-      status={showSample ? sampleStatus : n.status}
-      total={showSample ? sampleStatus.reduce((s, x) => s + x.value, 0) : n.total}
-      recent={showSample ? samples("DASH_RECENT", true) : n.recent}
+      stats={n.stats}
+      status={n.status}
+      total={n.total}
+      recent={n.recent}
       recommended={recommended}
-      insights={samples("DASH_INSIGHTS", sampleOn)}
-      interviews={samples("DASH_INTERVIEWS", sampleOn)}
-      alerts={samples("DASH_ALERTS", sampleOn)}
-      profile={computeProfile(
-        profileRes.ok ? bio : null,
-        resumes.length,
-        sampleOn ? { pct: samples("DASH_PROFILE_PCT", true) ?? 0, checks: samples("DASH_PROFILE_CHECKS", true) } : null,
-      )}
+      profile={computeProfile(profileRes.ok ? bio : null, resumes.length)}
     >
       {onboarding.enabled && (
       <FinishProfileCard

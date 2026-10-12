@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
-import type { Application } from "@/components/ApplicationBoard";
+import type { Application } from "@/lib/applications";
 import AnalyticsPage from "@/components/app-v3/analytics/AnalyticsPage";
 import { computeAnalytics } from "@/components/app-v3/analytics/compute";
 import { samples } from "@/components/app-v3/samples";

@@ -3,7 +3,7 @@ import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
 import ResumesWorkspace from "@/components/ResumesWorkspace";
 import { type Resume } from "@/components/ResumeList";
-import type { Application } from "@/components/ApplicationBoard";
+import type { Application } from "@/lib/applications";
 
 export const metadata: Metadata = { title: "Resumes" };
 

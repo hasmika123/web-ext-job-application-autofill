@@ -1,65 +1,124 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookmarkIcon, CheckCircleIcon, EmptyState, LayoutGridIcon, MenuIcon, cn, useToast } from "@kiwiply/ui";
-import { CompanyTile, KebabMenu, SearchInput, UnderlineTabs } from "../../app-v2/common";
-import type { V3SavedJob, V3SavedState } from "../sample-data";
-import { useSamples } from "../SamplesProvider";
-import { HeroBand } from "@/components/app-v2/common";
+import { Button, EmptyState, ErrorState, LayoutGridIcon, ListSkeleton, MenuIcon, cn, useToast } from "@kiwiply/ui";
+import { HeroBand, Pagination, SearchInput, UnderlineTabs } from "@/components/app-v2/common";
+import { SUBMITTED_STATUSES, TRACKER_PAGE_SIZE, asListPage, patchApplication, statusCsv, type Application } from "@/lib/applications";
+import { useListQuery, type Filters } from "@/lib/list-query";
+import { undoToast } from "@/lib/undo-toast";
+import SavedCard, { type SavedTab } from "./SavedCard";
 
-type TabKey = "all" | "recent" | "to-apply" | "applied" | "not-interested";
+/** What each tab asks the list for. To apply = SAVED; Applied = every submitted status; Not interested = archived SAVED. */
+const TAB_FILTERS: Record<SavedTab, { status: string; archived?: string }> = {
+  "to-apply": { status: "SAVED" },
+  applied: { status: statusCsv(SUBMITTED_STATUSES) },
+  "not-interested": { status: "SAVED", archived: "true" },
+};
 
-const RECENT_DAYS = 14;
+const csv = (v: Filters[string]): string => (Array.isArray(v) ? v.join(",") : (v ?? ""));
+
+/** Which tab the list's filters describe (the URL is the source of truth, so a refresh lands on the same tab). */
+export function savedTabOf(filters: Filters): SavedTab {
+  if (csv(filters.archived) === "true") return "not-interested";
+  return csv(filters.status).includes("APPLIED") ? "applied" : "to-apply";
+}
+
+/** The count behind the Not interested tab: archived SAVED applications are not in the list's summary, so one tiny query. */
+function useNotInterestedCount(refreshKey: unknown): [number | null, (delta: number) => void] {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetch("/api/applications?status=SAVED&archived=true&size=1&page=0", { headers: { accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (live && body) setCount(asListPage(body).total);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [refreshKey]);
+  return [count, (delta) => setCount((c) => (c === null ? c : Math.max(0, c + delta)))];
+}
+
+const EMPTY: Record<SavedTab, { title: string; description: string; cta?: { label: string; href: string } }> = {
+  "to-apply": {
+    title: "Nothing saved yet",
+    description: "Tap the bookmark on a job you like and it waits here, on your phone and your laptop.",
+    cta: { label: "Find jobs", href: "/jobs" },
+  },
+  applied: {
+    title: "No applications yet",
+    description: "Once you apply, the job moves here so you can see how it is going.",
+    cta: { label: "Open My Applications", href: "/applications" },
+  },
+  "not-interested": {
+    title: "Nothing set aside",
+    description: "Jobs you remove from your saved list wait here in case you change your mind.",
+  },
+};
 
 /**
- * Saved Jobs (APP-V3-SPEC section 2.10). Its rows are the board's sample (+ client state, the v2 behaviour) until
- * U5.1 reads the real SAVED applications; the gate (`samples()`, U0.5) means a real account sees an honest empty
- * state instead. Search, the list/grid toggle, "Remove" and moving a job between To Apply / Applied / Not
- * Interested work locally and the tab counts follow. Rows keep the board's order (newest saved first).
+ * Saved Jobs (APP-V3-SPEC 2.10, U5.1) on the real SAVED applications. Saving on a phone shows up on the laptop
+ * because it is the same list the extension and the board use. Tabs: To apply (SAVED), Applied (what has been sent),
+ * Not interested (removed from the list, archived, so Undo and "put back" are always possible). Search, paging and
+ * the counts are the server's (list v2); nothing here is sample data.
  */
 export default function SavedV3Page() {
   const toast = useToast();
   const router = useRouter();
-  const sample = useSamples();
-  const savedJobs = useMemo(() => sample("V3_SAVED_JOBS"), [sample]);
-  const [tab, setTab] = useState<TabKey>("all");
-  const [query, setQuery] = useState("");
+  const list = useListQuery<Application>("/api/applications", {
+    size: TRACKER_PAGE_SIZE,
+    sort: "createdAt,desc",
+    filters: { status: TAB_FILTERS["to-apply"].status, archived: undefined },
+  });
   const [view, setView] = useState<"list" | "grid">("list");
-  const [removed, setRemoved] = useState<Set<string>>(new Set());
-  const [overrides, setOverrides] = useState<Record<string, V3SavedState>>({});
+  const [mountedAt] = useState(() => Date.now());
+  const [notInterested, bumpNotInterested] = useNotInterestedCount(list.data);
 
-  const live = useMemo(
-    () => savedJobs.filter((j) => !removed.has(j.id)).map((j) => ({ ...j, state: overrides[j.id] ?? j.state })),
-    [savedJobs, removed, overrides],
+  const tab = savedTabOf(list.filters);
+  const summary = list.summary;
+  const submitted = summary ? SUBMITTED_STATUSES.reduce((n, s) => n + (summary[s] ?? 0), 0) : undefined;
+  const counts: Record<SavedTab, number | undefined> = { "to-apply": summary?.SAVED, applied: submitted, "not-interested": notInterested ?? undefined };
+
+  const setTab = (next: string) => {
+    const f = TAB_FILTERS[next as SavedTab];
+    if (!f) return;
+    list.setFilter("status", f.status);
+    list.setFilter("archived", f.archived);
+  };
+
+  const { optimistic, refetch } = list;
+
+  /** Move a saved job to another place: it leaves this tab at once, a refusal puts it back, Undo reverses the move. */
+  const move = useCallback(
+    async (job: Application, change: { status?: "APPLIED" | "SAVED"; archived?: boolean }, undoChange: typeof change, messages: { done: string; description?: string; fail: string }, tabDelta: number) => {
+      const rollback = optimistic(job.id, null);
+      const r = await patchApplication(job.id, change);
+      if (r.kind === "error") {
+        rollback();
+        toast({ title: messages.fail, description: r.message, variant: "error" });
+        return;
+      }
+      if (tabDelta !== 0) bumpNotInterested(tabDelta);
+      refetch();
+      undoToast(toast, {
+        title: messages.done,
+        description: messages.description ?? `${job.roleTitle} at ${job.company}`,
+        onUndo: () => {
+          if (tabDelta !== 0) bumpNotInterested(-tabDelta);
+          void patchApplication(job.id, undoChange).then(() => refetch());
+        },
+      });
+    },
+    [optimistic, refetch, toast, bumpNotInterested],
   );
 
-  const counts: Record<TabKey, number | undefined> = {
-    all: live.length,
-    recent: undefined,
-    "to-apply": live.filter((j) => j.state === "to-apply").length,
-    applied: live.filter((j) => j.state === "applied").length,
-    "not-interested": live.filter((j) => j.state === "not-interested").length,
-  };
-
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return live.filter(
-      (j) =>
-        (tab === "all" || (tab === "recent" ? j.savedDaysAgo <= RECENT_DAYS : j.state === tab)) &&
-        (!q || `${j.title} ${j.company} ${j.location} ${j.tags.join(" ")}`.toLowerCase().includes(q)),
-    );
-  }, [live, tab, query]);
-
-  const remove = (j: V3SavedJob) => {
-    setRemoved((prev) => new Set(prev).add(j.id));
-    toast({ title: "Removed from saved jobs", description: `${j.title} at ${j.company}` });
-  };
-  const move = (j: V3SavedJob, state: V3SavedState) => setOverrides((prev) => ({ ...prev, [j.id]: state }));
-
   const hero = (
-    <HeroBand mascotHeight={124}
+    <HeroBand
+      mascotHeight={124}
       title="Saved Jobs"
       subtitle="Keep track of opportunities you're interested in."
       mascot="mascot-heart"
@@ -67,23 +126,10 @@ export default function SavedV3Page() {
     />
   );
 
-  if (savedJobs.length === 0) {
-    return (
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
-        {hero}
-        <EmptyState
-          mascot
-          title="No saved jobs yet"
-          description="Jobs you save show up here."
-          action={
-            <Link href="/jobs" className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
-              Find jobs
-            </Link>
-          }
-        />
-      </div>
-    );
-  }
+  const pages = Math.max(1, Math.ceil(list.total / Math.max(1, list.size)));
+  const empty = EMPTY[tab];
+  const from = list.total === 0 ? 0 : list.page * list.size + 1;
+  const to = Math.min(list.total, from + list.items.length - 1);
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
@@ -95,14 +141,12 @@ export default function SavedV3Page() {
           counts="paren"
           ariaLabel="Saved jobs views"
           value={tab}
-          onChange={(v) => setTab(v as TabKey)}
+          onChange={setTab}
           className="px-2 sm:px-4"
           tabs={[
-            { value: "all", label: "All", count: counts.all },
-            { value: "recent", label: "Recently Saved" },
-            { value: "to-apply", label: "To Apply", count: counts["to-apply"] },
-            { value: "applied", label: "Applied", count: counts.applied },
-            { value: "not-interested", label: "Not Interested", count: counts["not-interested"] },
+            { id: "to-apply", label: "To apply", count: counts["to-apply"] },
+            { id: "applied", label: "Applied", count: counts.applied },
+            { id: "not-interested", label: "Not interested", count: counts["not-interested"] },
           ]}
         />
 
@@ -110,9 +154,9 @@ export default function SavedV3Page() {
           <SearchInput
             size="sm"
             aria-label="Search saved jobs"
-            placeholder="Search saved jobs..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search saved jobs…"
+            value={list.q}
+            onChange={(e) => list.setQuery(e.target.value)}
             className="h-10 w-full bg-white sm:w-64"
           />
           <div className="ml-auto flex overflow-hidden rounded-xl border border-v2-line">
@@ -128,10 +172,7 @@ export default function SavedV3Page() {
                 aria-label={label}
                 aria-pressed={view === key}
                 onClick={() => setView(key)}
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center",
-                  view === key ? "bg-v2-blue-soft text-v2-blue" : "bg-white text-v2-ink-soft hover:bg-[#F1F5FB]",
-                )}
+                className={cn("flex h-10 w-10 items-center justify-center", view === key ? "bg-v2-blue-soft text-v2-blue" : "bg-white text-v2-ink-soft hover:bg-[#F1F5FB]")}
               >
                 {icon}
               </button>
@@ -139,75 +180,71 @@ export default function SavedV3Page() {
           </div>
         </div>
 
-        {rows.length === 0 ? (
-          <p className="px-4 pb-10 pt-6 text-center text-[14px] text-v2-ink-soft">No saved jobs match these filters.</p>
-        ) : (
-          <ul className={cn("px-3 pb-3 sm:px-4 sm:pb-4", view === "grid" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "divide-y divide-v2-line/70")}>
-            {rows.map((j) => (
-              <li
-                key={j.id}
-                className={cn(
-                  "flex flex-col gap-3 py-4 md:flex-row md:items-center md:gap-4",
-                  view === "grid" && "rounded-2xl border border-v2-line p-4 md:flex-col md:items-stretch",
+        <div className="px-3 pb-3 sm:px-4 sm:pb-4" aria-busy={list.isFetching}>
+          {list.isLoading ? (
+            <ListSkeleton label="Loading your saved jobs" count={4} />
+          ) : list.error && !list.data ? (
+            <ErrorState what="your saved jobs" description={list.error.message} requestId={list.error.requestId} onRetry={refetch} />
+          ) : list.items.length === 0 ? (
+            list.q ? (
+              <EmptyState
+                variant="inline"
+                title={`Nothing matches "${list.q}"`}
+                description="Try a different word, or clear the search."
+                action={
+                  <Button size="sm" variant="ghost" onClick={() => list.setQuery("")} className="min-h-10">
+                    Clear search
+                  </Button>
+                }
+                className="py-10"
+              />
+            ) : (
+              <EmptyState
+                mascot
+                title={empty.title}
+                description={empty.description}
+                action={
+                  empty.cta ? (
+                    <Link href={empty.cta.href} className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
+                      {empty.cta.label}
+                    </Link>
+                  ) : undefined
+                }
+              />
+            )
+          ) : (
+            <>
+              <ul className={cn(view === "grid" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "divide-y divide-v2-line/70")}>
+                {list.items.map((job) => (
+                  <SavedCard
+                    key={job.id}
+                    job={job}
+                    tab={tab}
+                    view={view}
+                    now={mountedAt}
+                    onOpen={() => router.push(`/applications?app=${job.id}`)}
+                    onMarkApplied={() =>
+                      void move(job, { status: "APPLIED" }, { status: "SAVED" }, { done: "Marked as applied. Fingers crossed!", fail: "Couldn't mark that as applied" }, 0)
+                    }
+                    onRemove={() =>
+                      void move(job, { archived: true }, { archived: false }, { done: "Removed from saved jobs", fail: "Couldn't remove that" }, 1)
+                    }
+                    onRestore={() =>
+                      void move(job, { archived: false }, { archived: true }, { done: "Back in your To apply list", fail: "Couldn't put that back" }, -1)
+                    }
+                  />
+                ))}
+              </ul>
+              <div className="mt-3 border-t border-v2-line/70 pt-3">
+                {pages > 1 ? (
+                  <Pagination page={list.page + 1} pages={pages} summary={`Showing ${from}–${to} of ${list.total}`} onPageChange={(p) => list.setPage(p - 1)} />
+                ) : (
+                  <p className="text-[13px] text-v2-muted">{`Showing ${from}–${to} of ${list.total}`}</p>
                 )}
-              >
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <CompanyTile name={j.company} size={46} />
-                  <div className="min-w-0">
-                    <h3 className="text-[15px] font-bold leading-snug tracking-normal text-v2-navy">{j.title}</h3>
-                    <p className="mt-0.5 text-[13px] text-v2-ink-soft">
-                      {j.company} {"·"} {j.location} {"·"} {j.mode}
-                      {j.salary && (
-                        <>
-                          {" "}
-                          {"·"} {j.salary}
-                        </>
-                      )}
-                    </p>
-                    <ul className="mt-2 flex flex-wrap gap-1.5">
-                      {j.tags.map((t) => (
-                        <li key={t} className="rounded-md bg-v2-blue-soft px-2 py-0.5 text-[12px] font-medium text-v2-blue">
-                          {t}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:flex-nowrap">
-                  <p className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12.5px] leading-tight text-v2-muted md:w-[128px]">
-                    <BookmarkIcon className="h-3.5 w-3.5 flex-none text-v2-blue" /> Saved {j.savedLabel}
-                  </p>
-                  <div className="ml-auto flex items-center gap-1.5 md:ml-0">
-                    {j.state === "applied" ? (
-                      <span className="inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-xl bg-v2-green-soft px-4 text-[13.5px] font-bold text-v2-green-ink">
-                        <CheckCircleIcon className="h-4 w-4" /> Applied
-                      </span>
-                    ) : (
-                      // The sample ids don't exist in the Job Search sample set, so this goes to the list.
-                      <Link
-                        href="/jobs"
-                        className="inline-flex h-10 items-center whitespace-nowrap rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95"
-                      >
-                        Apply
-                      </Link>
-                    )}
-                    <KebabMenu
-                      label={`More actions for ${j.title} at ${j.company}`}
-                      items={[
-                        { label: "View job", onSelect: () => router.push("/jobs") },
-                        ...(j.state !== "applied" ? [{ label: "Mark as applied", onSelect: () => move(j, "applied") }] : []),
-                        ...(j.state !== "to-apply" ? [{ label: "Move to To Apply", onSelect: () => move(j, "to-apply") }] : []),
-                        ...(j.state !== "not-interested" ? [{ label: "Not interested", onSelect: () => move(j, "not-interested") }] : []),
-                        { separator: true },
-                        { label: "Remove from saved", danger: true, onSelect: () => remove(j) },
-                      ]}
-                    />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+              </div>
+            </>
+          )}
+        </div>
       </section>
     </div>
   );

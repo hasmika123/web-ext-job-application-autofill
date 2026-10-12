@@ -71,6 +71,18 @@ describe("useListQuery", () => {
     expect(result.current.isFetching).toBe(false);
   });
 
+  it("keeps a URL parameter it does not own (a page's ?app= deep link)", async () => {
+    window.history.replaceState(null, "", "/applications?app=12");
+    const fetcher = vi.fn(async () => jsonResponse(page([])));
+    const { result } = renderHook(() => useListQuery<Row>("/api/x", { filters: { status: undefined }, fetcher: fetcher as unknown as typeof fetch }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    act(() => result.current.setFilter("status", "APPLIED"));
+    await waitFor(() => expect(window.location.search).toContain("status=APPLIED"));
+    expect(new URLSearchParams(window.location.search).get("app")).toBe("12");
+    act(() => result.current.setFilter("status", undefined));
+    await waitFor(() => expect(window.location.search).toBe("?app=12"));
+  });
+
   it("syncs the query into the URL and reads it back on mount", async () => {
     const fetcher = vi.fn(async () => jsonResponse(page([])));
     const { result, unmount } = renderHook(() => useListQuery<Row>("/api/x", { filters: { status: undefined }, fetcher: fetcher as unknown as typeof fetch }));

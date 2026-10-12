@@ -194,7 +194,10 @@ export function useListQuery<T>(path: string, options: ListQueryOptions = {}): L
   // Mirror the state into the URL.
   useEffect(() => {
     if (!syncUrl || !urlRead) return;
-    const params = buildUrlParams(state, defaults.current);
+    // Keep any parameter the list does not own (a page's `?app=12` deep link): drop only the keys this hook manages.
+    const params = new URLSearchParams(window.location.search);
+    for (const key of [...RESERVED, ...Object.keys(state.filters), ...filterKeys.current]) params.delete(key);
+    for (const [k, v] of buildUrlParams(state, defaults.current)) params.set(k, v);
     const qs = params.toString();
     const url = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
     if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {

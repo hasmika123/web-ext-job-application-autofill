@@ -1,4 +1,4 @@
-import type { Application } from "@/components/ApplicationBoard";
+import type { Application } from "@/lib/applications";
 import { statusKeyOf } from "@/components/app-v2/applications/mapping";
 import type { AnalyticsData } from "../sample-data";
 
