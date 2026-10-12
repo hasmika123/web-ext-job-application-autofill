@@ -19,3 +19,7 @@ Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real u
 - **The selected template drives the editor:** with an ATS-friendly template selected, the editor constrains its
   input elements (e.g. no photo, only allowed text marks, ATS-safe fonts, standard headings) so the result stays
   ATS-safe. Switching templates is lossless — unsupported content is kept but hidden, with a notice.
+- **The left pane is dynamic:** it opens from the top-bar buttons (Add Section, Pick Template, Swap Section),
+  the clicked button is highlighted (one at a time — the green button on each board), clicking another button
+  switches the panel, and the panel's ✕ or clicking the active button again closes it; the document then uses
+  the freed width.
