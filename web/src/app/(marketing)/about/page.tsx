@@ -11,7 +11,7 @@ import Testimonials from "@/components/marketing/about/Testimonials";
 import AboutCta from "@/components/marketing/about/AboutCta";
 
 export const metadata: Metadata = {
-  title: "About Kiwiply",
+  title: "About",
   description:
     "Kiwiply was created to make job searching simpler, faster, and more personal, using AI to match you with the right opportunities and help you every step of the way.",
   alternates: { canonical: "/about" },

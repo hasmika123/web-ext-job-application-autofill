@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 // File-based metadata: Next serves this as the site's OpenGraph/Twitter card.
-export const alt = "Kiwiply — Find jobs. Apply faster. Get hired.";
+export const alt = "Kiwiply | Find jobs. Apply faster. Get hired.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

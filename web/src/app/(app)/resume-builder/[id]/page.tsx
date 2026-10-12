@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { describeAiUsage, getAiUsage } from "@/lib/ai-usage";
 import { serverApiFetch } from "@/lib/api";
@@ -8,7 +9,28 @@ import { parseEtag, type ResumeDocDTO } from "@/lib/resume-doc";
 import type { ResumeMeta } from "@/lib/resume-meta";
 import ResumeEditor from "@/components/app-v3/resume-builder/ResumeEditor";
 
-export const metadata: Metadata = { title: "Edit resume" };
+/**
+ * The document, fetched once per request: `generateMetadata` (the tab title) and the page share this, so naming the
+ * tab after the resume costs no second API call. Parses the body here because a `Response` can only be read once.
+ */
+const loadDoc = cache(async (id: string) => {
+  const res = await serverApiFetch(`/api/profile/resumes/${id}/doc`);
+  const dto = res.ok ? ((await res.json()) as ResumeDocDTO) : null;
+  return { status: res.status, ok: res.ok, etag: res.headers.get("etag"), dto };
+});
+
+/** The tab reads "Kiwiply | <resume name>" (root template); falls back to "Edit resume" when it cannot be read. */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  if (!/^\d+$/.test(id)) return { title: "Edit resume" };
+  try {
+    const { dto } = await loadDoc(id);
+    const name = dto?.label?.trim();
+    return { title: name || "Edit resume" };
+  } catch {
+    return { title: "Edit resume" };
+  }
+}
 
 /** When the Common Profile last changed (`GET /api/profile` → `updatedAt`); null when unknown. Never throws. */
 async function getProfileUpdatedAt(): Promise<string | null> {
@@ -60,7 +82,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (!/^\d+$/.test(id)) notFound();
 
   const [docRes, plan, config, aiUsage, profileUpdatedAt, meta, primaryResumeId] = await Promise.all([
-    serverApiFetch(`/api/profile/resumes/${id}/doc`),
+    loadDoc(id),
     getPlan(),
     getBuilderConfig(),
     getAiUsage(),
@@ -72,9 +94,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (docRes.status === 404 || docRes.status === 400) notFound();
   if (!docRes.ok) throw new Error(`Couldn't load the resume (${docRes.status}).`);
 
-  const dto = (await docRes.json()) as ResumeDocDTO;
+  const dto = docRes.dto as ResumeDocDTO;
   // The ETag is the version of record; the body carries the same number.
-  const docVersion = parseEtag(docRes.headers.get("etag")) ?? dto.docVersion;
+  const docVersion = parseEtag(docRes.etag) ?? dto.docVersion;
   const aiUsageLine = aiUsage ? describeAiUsage(aiUsage) : null;
 
   return (
