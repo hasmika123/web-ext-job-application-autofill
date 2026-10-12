@@ -25,3 +25,8 @@ Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real u
   the freed width.
 - **Print layout + PDF view + Download:** the editor offers a print-layout view and a PDF view (plus
   download); both open in a **right-side pane that slides in and closes out**.
+- **Save = DB + PDF:** every save updates the database and (re)generates the PDF, stored through the
+  configured `FileStorage` (local now, S3 by config). Design keeps it affordable (async, coalesced, settled).
+- **Resume metadata:** every resume (built or uploaded) has a name, created / last-modified times, and
+  settings — is primary, visibility, and who can see it (private by default; org marketer/coach by consent;
+  specific people; share link) — with an audit of views.
