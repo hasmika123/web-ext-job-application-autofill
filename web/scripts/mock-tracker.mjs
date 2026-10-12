@@ -417,7 +417,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
 
   // ---- the router ------------------------------------------------------------------------------------------------------
   /** Handles the tracker endpoints; returns true when the request was answered. */
-  return function handleTracker(req, res, path, method) {
+  const handleTracker = function handleTracker(req, res, path, method) {
     if (path === "/api/profile/analytics" && method === "GET") {
       req.resume();
       if (!subOf(req)) return json(res, 401, { error: "Unauthorized" }), true;
@@ -540,4 +540,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     });
     return true;
   };
+  /** Lets the other mocks (job search saving a job) write into the same timeline. */
+  handleTracker.record = record;
+  return handleTracker;
 }

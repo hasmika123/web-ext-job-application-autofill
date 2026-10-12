@@ -14,6 +14,7 @@
  */
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
+import { createJobsMock } from "./mock-jobs.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -210,6 +211,8 @@ const withBody = (req, cb) => {
 
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
+/* ── Job search mock (APP-E2E U4.0: search, suggest, detail, save, hide; scripts/mock-jobs.mjs) ── */
+const handleJobs = createJobsMock({ json, withBody, subOf, APPLICATIONS, recordEvent: handleTracker.record, isEmptyAccount });
 
 /* ── Resume Builder mock (R0.3 contract; in memory) ──────────────────────────────────────────── */
 const DOCS = new Map(); // resume id -> { doc, templateId, theme, version, updatedAt }
@@ -1839,6 +1842,7 @@ const server = http.createServer((req, res) => {
   if (handleProfileItems(req, res, path, method)) return;
   if (handleOnboarding(req, res, path, method)) return;
   if (handleTracker(req, res, path, method)) return;
+  if (handleJobs(req, res, path, method)) return;
   if (handleNotificationPrefs(req, res, path, method)) return;
 
   // The setup flow's profile writes (Onboarding v2 R1.10 / R1.11): `PUT /api/profile` replaces the in-memory bio, so the

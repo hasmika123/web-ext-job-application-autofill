@@ -57,6 +57,13 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   **U12.1 done** (`e2e-u12.1`, lane B, API + web): `GET /api/profile/analytics?range&tz` (`ProfileAnalyticsService`, "first
   became X" over `application_event`; cohort response rate; `analytics.*` settings), BFF `app/api/analytics`, `lib/job-analytics.ts`,
   `/analytics` fetches in the browser with a real period select; `AN_SAMPLE` / `AN_SKILLS` deleted, "Skills in demand" removed.
+  **E2E-U4.0 done** (`e2e-u4.0`, lane A, API + mock): `/api/jobs/{search,suggest,{id},{id}/save,{id}/feedback}` over the posting
+  store (`job_posting.search_text` + FULLTEXT, `job_feedback`, `jobs.*` settings, `JobQueryParser` / `JobRanker`, `DemoJobSeeder`
+  for demo accounts, `scripts/mock-jobs.mjs`). **U4.3 is paused as a WIP commit** (BFF `app/api/jobs/**`, `lib/jobs.ts`,
+  `FilterPanel`, `FilterSheet`, a new `JobRow` and `JobDetail` are written; `JobsPage.tsx` still imports the old sample code, so
+  `tsc` fails until it is rewritten on `useListQuery("/api/jobs/search")` and `V3_JOBS` / `JOBS_SAMPLE_TOTAL` / `GOOGLE_V3_DETAIL` /
+  `JOB_*`, `components/app-v3/jobs/{filter.ts,FilterRail.tsx}` and `JobBits.SaveButton` are removed; the dashboard "Recommended"
+  card should read `search?sort=best&size=3`). U4.5 and U4.8 are not started.
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),

@@ -86,6 +86,7 @@ class DemoAccountServiceTest {
             mock(AiUsageRepository.class),
             mock(AiCallRepository.class),
             mock(TrackerDataService.class),
+            mock(com.dossier.api.service.jobs.DemoJobSeeder.class),
             mock(DemoOrgSeeder.class),
             mapper,
             password,

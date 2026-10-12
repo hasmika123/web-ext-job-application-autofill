@@ -36,6 +36,7 @@ public class AccountExportService {
     private final ResumeBuilderDataService resumeBuilderDataService;
     private final OrgMembershipPrivacyService orgMembershipPrivacyService;
     private final TrackerDataService trackerDataService;
+    private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
 
     public AccountExportService(
         UserService userService,
@@ -50,7 +51,8 @@ public class AccountExportService {
         NotificationPreferenceService notificationPreferenceService,
         ResumeBuilderDataService resumeBuilderDataService,
         OrgMembershipPrivacyService orgMembershipPrivacyService,
-        TrackerDataService trackerDataService
+        TrackerDataService trackerDataService,
+        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -65,6 +67,7 @@ public class AccountExportService {
         this.resumeBuilderDataService = resumeBuilderDataService;
         this.orgMembershipPrivacyService = orgMembershipPrivacyService;
         this.trackerDataService = trackerDataService;
+        this.jobSearchDataService = jobSearchDataService;
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -88,6 +91,8 @@ public class AccountExportService {
         out.put("applications", applicationSyncService.listApplications());
         // APP-E2E U6.1: the tracker's memory - timeline events, notes and interviews.
         out.putAll(trackerDataService.exportForUser(u.getId()));
+        // E2E-U4.0: what the user hid in job search.
+        out.putAll(jobSearchDataService.exportForUser(u.getId()));
         out.put("fieldCache", fieldCacheSyncService.list());
         // Resume Builder (R0.1): the Common Profile's structured items and the built documents.
         out.put("profileItems", resumeBuilderDataService.exportProfileItems(u.getId()));

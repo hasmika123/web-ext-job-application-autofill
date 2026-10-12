@@ -114,6 +114,7 @@ public class DemoAccountService {
     private final AiUsageRepository aiUsageRepository;
     private final AiCallRepository aiCallRepository;
     private final TrackerDataService trackerData;
+    private final com.dossier.api.service.jobs.DemoJobSeeder jobSeeder;
     private final DemoOrgSeeder orgSeeder;
     private final ObjectMapper objectMapper;
 
@@ -143,6 +144,7 @@ public class DemoAccountService {
         AiUsageRepository aiUsageRepository,
         AiCallRepository aiCallRepository,
         TrackerDataService trackerData,
+        com.dossier.api.service.jobs.DemoJobSeeder jobSeeder,
         DemoOrgSeeder orgSeeder,
         ObjectMapper objectMapper,
         @Value("${dossier.demo.password:kiwiply-demo}") String demoPassword,
@@ -169,6 +171,7 @@ public class DemoAccountService {
         this.aiUsageRepository = aiUsageRepository;
         this.aiCallRepository = aiCallRepository;
         this.trackerData = trackerData;
+        this.jobSeeder = jobSeeder;
         this.orgSeeder = orgSeeder;
         this.objectMapper = objectMapper;
         // A blank DEMO_PASSWORD (the production default) means "no usable password": a random one per boot,
@@ -230,6 +233,7 @@ public class DemoAccountService {
             resetData();
         }
         seedOrg(); // idempotent and cheap once seeded; refuses unless the demo and org features are on and this is not prod
+        jobSeeder.seedIfStale(); // one count when the store already has live postings
     }
 
     /** The demo organization (O1.8): {@code demo-bootcamp}, owned by {@code demo-org}, with {@code demo} as a member. */
@@ -312,6 +316,7 @@ public class DemoAccountService {
             wipe(userRepository.findOneByLogin(account.login()).orElseThrow());
         }
         seed(userRepository.findOneByLogin(LOGIN_JOB_SEEKER).orElseThrow());
+        jobSeeder.seedIfStale(); // postings for the demo to search when no board read has run here
         seedOrg();
         LOG.info("Demo data reset: {} applications seeded for '{}'", SEEDED_APPLICATIONS, LOGIN_JOB_SEEKER);
     }
@@ -337,6 +342,7 @@ public class DemoAccountService {
         jobFitService.deleteAllForUser(id);
         resumeTailorService.deleteAllForUser(id);
         jobMatchService.deleteAllForUser(id);
+        jobSeeder.wipeUser(id);
         inboxService.deleteAllForUser(id);
         notificationService.deleteAllForUser(id);
         aiUsageRepository.deleteByLoginValue(user.getLogin());

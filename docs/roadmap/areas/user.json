@@ -3589,7 +3589,7 @@
       "tech": "packages/ui/src/primitives/{SaveStatusChip,BottomSheet,ListSkeleton,ErrorState}.tsx; web/src/lib/{autosave,undo-toast,list-query}.ts; api service/dto/{ListPage,ListQuery}.java. Spec: docs/APP-E2E-PLAN.md §2.3–§2.4."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "evidence": [
