@@ -41,6 +41,10 @@ promote a batch.
   continuation point (last commit, first commands, first task). Never leave a handoff in a
   sub-project folder.
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
+- **We never collect sensitive PII** (user decision 2026-10-11, product-wide): no SSN/ITIN, bank
+  account or routing numbers, tax IDs, passport/visa/I-9/document numbers, or date of birth — not
+  asked for, accepted, extracted from uploads, learned by the extension, sent to AI, or stored.
+  Cards go to Stripe directly and never touch us; Stripe tax-ID collection stays off.
 - **One design system: `@kiwiply/ui` (`packages/ui`).** All shared visuals — icons,
   primitives (Button/Badge/Card/…), tokens — live there; web + extension import them
   (web's `@/components/ui` files are thin re-exports). Never inline an `<svg>` icon or
