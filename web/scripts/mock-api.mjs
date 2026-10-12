@@ -184,7 +184,7 @@ const FREE_RESUME_LIMIT = 3;
 
 const docId = (p) => `${p}_${Math.random().toString(36).slice(2, 10).padEnd(8, "0")}`;
 const seedDoc = (title) => ({
-  schema: 1,
+  schema: 2,
   meta: { title, target: null, language: "en" },
   basics: { name: "Priya Sharma", headline: "Product Designer", email: "demo@kiwiply.com", location: "Austin, TX", links: [] },
   sections: [
@@ -235,7 +235,7 @@ function docDto(id) {
   const r = RESUMES.find((x) => x.id === id);
   return {
     resumeId: id, label: r?.label ?? d.doc.meta.title, kind: "BUILT", doc: d.doc, templateId: d.templateId, theme: d.theme,
-    docVersion: d.version, contentHash: `mock-${d.version}`, profileSyncedAt: null, exportedAt: d.exportedAt ?? null, exportedHash: d.exportedHash ?? null, updatedAt: d.updatedAt,
+    schemaVersion: 2, docVersion: d.version, contentHash: `mock-${d.version}`, profileSyncedAt: null, exportedAt: d.exportedAt ?? null, exportedHash: d.exportedHash ?? null, updatedAt: d.updatedAt,
   };
 }
 const withEtag = (res, status, body, version) => {

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBuilt, exportPdf, fileNameFromDisposition, getDoc, ifMatch, parseEtag, pdfOutOfDate, putDoc } from "./resume-doc";
 import type { ResumeDocument } from "@kiwiply/ui";
 
-const doc = { schema: 1, meta: { title: "t" }, basics: {}, sections: [] } as ResumeDocument;
+const doc = { schema: 2, meta: { title: "t" }, basics: {}, sections: [] } as ResumeDocument;
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 

@@ -32,6 +32,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  *
  * Mapping:
  *   summary    = trimmed text of the first visible SUMMARY item whose trimmed text is non-empty, else "".
+ *                When that item has list = "bullet" or "number", its lines (split on "\n") are each
+ *                trimmed with trimWs, empty lines dropped, and joined with "\n".
  *   skills     = every visible SKILLS item's skills[], flattened in order, each trimmed, empties dropped,
  *                no de-duplication.
  *   experience = visible EXPERIENCE items: company=org, title, location, startDate=start,
@@ -43,7 +45,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  *   languages  = visible LANGUAGES items: name, proficiency=level. Skipped when name is empty.
  *   projects   = visible PROJECTS items: name=title, bullets. Skipped when title is empty and there are
  *                no bullets.
- * CERTIFICATIONS, ACHIEVEMENTS and CUSTOM sections have no slot in StructuredResume and are not projected.
+ * CERTIFICATIONS, ACHIEVEMENTS, INTERESTS and CUSTOM sections have no slot in StructuredResume and are
+ * not projected. Marks (bold / italic / underline / link ranges), photo, list styles are never read, so a
+ * formatting-only edit leaves parsed_json - and therefore ProfileVersion - unchanged.
  *
  * Serialisation: ResumeDocumentJson. parsed_json is the compact form (JSON.stringify(x)); golden
  * fixtures use the 2-space form plus ONE trailing "\n" (JSON.stringify(x, null, 2) + "\n").
@@ -146,9 +150,22 @@ public final class ResumeDocumentProjector {
         for (JsonNode s : ResumeDocument.visibleSections(doc, Kind.SUMMARY)) {
             for (JsonNode item : ResumeDocument.visibleItems(s)) {
                 String t = ResumeDocument.str(item, "text");
-                if (!t.isEmpty()) return t;
+                if (t.isEmpty()) continue;
+                return ResumeDocument.isListed(item, "list") ? listLines(t) : t;
             }
         }
         return "";
+    }
+
+    /** A list summary projects as its trimmed, non-empty lines joined by "\n" (marks are never read). */
+    private static String listLines(String text) {
+        StringBuilder sb = new StringBuilder();
+        for (String line : text.split("\n", -1)) {
+            String l = ResumeDocument.trimWs(line);
+            if (l.isEmpty()) continue;
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(l);
+        }
+        return sb.toString();
     }
 }

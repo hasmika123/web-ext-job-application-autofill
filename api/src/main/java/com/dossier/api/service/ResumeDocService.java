@@ -21,6 +21,7 @@ import com.dossier.api.service.resume.ResumeDocumentJson;
 import com.dossier.api.service.resume.ResumeDocumentProjector;
 import com.dossier.api.service.resume.ResumeDocumentSeeder;
 import com.dossier.api.service.resume.ResumeDocumentText;
+import com.dossier.api.service.resume.ResumeDocumentUpgrader;
 import com.dossier.api.service.resume.ResumeDocumentValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -57,6 +58,8 @@ public class ResumeDocService {
     public static final Set<String> KNOWN_TEMPLATE_IDS = Set.of("modern", "classic", "compact");
 
     public static final String DEFAULT_TEMPLATE_ID = "modern";
+    /** Photo keys are {@code resume-photos/<userId>/...} (DESIGN 5.3); a save may only echo a key under its owner's prefix. */
+    private static final String PHOTO_KEY_PREFIX = "resume-photos/";
     private static final String DEFAULT_TITLE = "My resume";
     /** The theme is a small style object (colors, font, spacing); anything bigger is a mistake. */
     private static final int MAX_THEME_BYTES = 8 * 1024;
@@ -168,10 +171,21 @@ public class ResumeDocService {
         if (body == null || !body.isObject()) {
             throw ResumeDocException.invalid("$", "body must be an object {doc, theme?}");
         }
-        JsonNode doc = body.get("doc");
-        ResumeDocumentValidator.validate(doc, limits()).ifPresent(v -> {
+        // A v1 document is accepted and stored as v2 (DESIGN 3.6): upgrade first, then validate as v2.
+        JsonNode doc = ResumeDocumentUpgrader.upgrade(body.get("doc"));
+        // meta.tailoredFrom is server-written: a save may echo the stored value, never introduce, change or drop it.
+        JsonNode storedTailoredFrom = tailoredFromOf(ResumeDocumentUpgrader.upgrade(parseQuietly(d.getDocJson())));
+        JsonNode incomingTailoredFrom = tailoredFromOf(doc);
+        boolean tailoredFromUnchanged = canonicalOrNull(storedTailoredFrom).equals(canonicalOrNull(incomingTailoredFrom));
+        ResumeDocumentValidator.Options options = ResumeDocumentValidator.Options.DEFAULTS.withAllowTailoredFrom(
+            tailoredFromUnchanged && storedTailoredFrom != null
+        ).withPhotoKeyPrefix(PHOTO_KEY_PREFIX + d.getUser().getId() + "/").withLimits(limits());
+        ResumeDocumentValidator.validate(doc, options).ifPresent(v -> {
             throw v.tooLarge() ? ResumeDocException.tooLarge(v.message()) : ResumeDocException.invalid(v.path(), v.message());
         });
+        if (!tailoredFromUnchanged) {
+            throw ResumeDocException.invalid("$.meta.tailoredFrom", "is set by the server and cannot be changed by a save");
+        }
         JsonNode theme = body.get("theme");
         if (theme != null && !theme.isNull()) {
             if (!theme.isObject()) throw ResumeDocException.invalid("$.theme", "must be an object");
@@ -229,19 +243,22 @@ public class ResumeDocService {
     /** The document limits from the settings seam (resume.doc.limits.*, DESIGN 15.2). */
     private ResumeDocumentValidator.Limits limits() {
         return new ResumeDocumentValidator.Limits(
-            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_DOC_BYTES),
             settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_SECTIONS),
             settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_ITEMS),
             settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_BULLETS),
             settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_BULLET_CHARS),
             settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_SUMMARY_CHARS),
-            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_MARKS)
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_MARKS),
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_DOC_BYTES)
         );
     }
 
     /** Writes a validated document and everything derived from it onto the entity and its resume. */
     private void applyContent(ResumeDoc d, Resume resume, JsonNode doc, Instant now) {
         d.setDocJson(ResumeDocumentJson.write(doc, 0));
+        d.setSchemaVersion(ResumeDocument.SCHEMA_VERSION);
+        JsonNode photoKey = doc.path("basics").path("photo").get("key");
+        d.setPhotoKey(photoKey != null && photoKey.isTextual() ? photoKey.textValue() : null);
         d.setContentHash(ResumeDocumentCanonical.contentHash(doc));
         d.setUpdatedAt(now);
         resume.setParsedJson(ResumeDocumentProjector.toStructuredJson(doc));
@@ -257,7 +274,21 @@ public class ResumeDocService {
     }
 
     private ResumeDocException conflict(ResumeDoc d) {
-        return ResumeDocException.conflict(d.getDocVersion(), parseQuietly(d.getDocJson()));
+        return ResumeDocException.conflict(d.getDocVersion(), storedDoc(d));
+    }
+
+    /** The stored document as the current schema: a v1 row is upgraded in memory, never rewritten by a read. */
+    private static JsonNode storedDoc(ResumeDoc d) {
+        return ResumeDocumentUpgrader.upgrade(parseQuietly(d.getDocJson()));
+    }
+
+    private static JsonNode tailoredFromOf(JsonNode doc) {
+        JsonNode tf = doc == null ? null : doc.path("meta").get("tailoredFrom");
+        return tf == null || tf.isNull() ? null : tf;
+    }
+
+    private static String canonicalOrNull(JsonNode n) {
+        return n == null ? "null" : ResumeDocumentCanonical.canonicalJson(n);
     }
 
     /** {@code "7"}, {@code 7} and {@code W/"7"} all mean version 7; anything else is {@code null}. */
@@ -277,7 +308,8 @@ public class ResumeDocService {
         dto.setResumeId(d.getResumeId());
         dto.setLabel(resume.getLabel());
         dto.setKind(resume.getKind());
-        dto.setDoc(parseQuietly(d.getDocJson()));
+        dto.setDoc(storedDoc(d));
+        dto.setSchemaVersion(ResumeDocument.SCHEMA_VERSION);
         dto.setTemplateId(d.getTemplateId());
         dto.setTheme(parseQuietly(d.getThemeJson()));
         dto.setDocVersion(d.getDocVersion());

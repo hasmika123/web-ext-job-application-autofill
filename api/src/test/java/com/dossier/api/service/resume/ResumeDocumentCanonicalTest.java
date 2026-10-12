@@ -10,11 +10,38 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ResumeDocumentCanonicalTest {
 
     @ParameterizedTest
-    @ValueSource(strings = { "full", "sparse" })
+    @ValueSource(strings = { "full", "sparse", "full-v2" })
     void hashMatchesTheGoldenValue(String name) {
         // The golden value was computed independently with Node (sorted keys, JSON.stringify, sha256).
         assertThat(ResumeDocumentCanonical.contentHash(Fixtures.doc(name + ".json")))
             .isEqualTo(Fixtures.text(name + ".hash.txt").trim());
+    }
+
+    @Test
+    void marksAreSortedByStartEndThenTypeAndOnlyUnderTheMarksKey() {
+        JsonNode shuffled = ResumeDocument.parse(
+            "{\"marks\":[{\"t\":\"u\",\"e\":9,\"s\":4},{\"s\":0,\"e\":5,\"t\":\"i\"},{\"s\":0,\"e\":5,\"t\":\"b\"},{\"s\":0,\"e\":2,\"t\":\"u\"}],\"other\":[3,1,2]}"
+        );
+        assertThat(ResumeDocumentCanonical.canonicalJson(shuffled)).isEqualTo(
+            "{\"marks\":[{\"e\":2,\"s\":0,\"t\":\"u\"},{\"e\":5,\"s\":0,\"t\":\"b\"},{\"e\":5,\"s\":0,\"t\":\"i\"},{\"e\":9,\"s\":4,\"t\":\"u\"}],\"other\":[3,1,2]}"
+        );
+        // a "marks" array that is not a well-formed mark list keeps its order
+        JsonNode odd = ResumeDocument.parse("{\"marks\":[{\"s\":2,\"e\":3},{\"s\":1,\"e\":2,\"t\":\"b\"}]}");
+        assertThat(ResumeDocumentCanonical.canonicalJson(odd)).isEqualTo("{\"marks\":[{\"e\":3,\"s\":2},{\"e\":2,\"s\":1,\"t\":\"b\"}]}");
+    }
+
+    @Test
+    void theOrderMarksWereAddedInNeverMovesTheHash() {
+        JsonNode a = Fixtures.doc("full-v2.json");
+        JsonNode b = Fixtures.doc("full-v2.json");
+        com.fasterxml.jackson.databind.node.ArrayNode marks = (com.fasterxml.jackson.databind.node.ArrayNode) b.at("/sections/0/items/0/marks");
+        java.util.List<JsonNode> reversed = new java.util.ArrayList<>();
+        marks.forEach(reversed::add);
+        java.util.Collections.reverse(reversed);
+        marks.removeAll();
+        reversed.forEach(marks::add);
+        assertThat(ResumeDocumentJson.write(a, 0)).isNotEqualTo(ResumeDocumentJson.write(b, 0));
+        assertThat(ResumeDocumentCanonical.contentHash(b)).isEqualTo(ResumeDocumentCanonical.contentHash(a));
     }
 
     @Test

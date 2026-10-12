@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.Map;
  *   <li>Every string <em>value</em> is trimmed with {@link ResumeDocument#trimWs} (keys are untouched).</li>
  *   <li>Every object's keys are sorted ascending by UTF-16 code unit (Java {@code String.compareTo},
  *       JavaScript's default {@code Array.sort}), recursively. Array order is preserved.</li>
+ *   <li>Every array under the key {@code marks} whose elements are all {@code {s, e, t}} objects is
+ *       sorted by (s, e, t) - ints ascending, then {@code t} by UTF-16 code unit. Other arrays keep their order.</li>
  *   <li>Nulls, booleans and integers are kept as they are; nothing is dropped or defaulted.</li>
  *   <li>Serialised compactly (no whitespace) by {@link ResumeDocumentJson}, UTF-8, no trailing newline.</li>
  * </ol>
@@ -69,7 +72,10 @@ public final class ResumeDocumentCanonical {
             for (Iterator<Map.Entry<String, JsonNode>> it = n.fields(); it.hasNext();) keys.add(it.next().getKey());
             Collections.sort(keys);
             ObjectNode out = f.objectNode();
-            for (String k : keys) out.set(k, canon(n.get(k)));
+            for (String k : keys) {
+                JsonNode child = canon(n.get(k));
+                out.set(k, k.equals("marks") ? sortMarks(child) : child);
+            }
             return out;
         }
         if (n.isArray()) {
@@ -78,5 +84,28 @@ public final class ResumeDocumentCanonical {
             return out;
         }
         return n;
+    }
+
+    /**
+     * A {@code marks} array (inline formatting ranges) is sorted by {@code (s, e, t)} so two documents
+     * that differ only in the order their marks were added hash identically. Anything that is not a
+     * well-formed mark list (not an array, or an element lacking integer s / e or string t) is left as is.
+     */
+    private static JsonNode sortMarks(JsonNode marks) {
+        if (!marks.isArray()) return marks;
+        List<JsonNode> list = new ArrayList<>();
+        for (JsonNode m : marks) {
+            if (!m.isObject() || !m.path("s").isInt() || !m.path("e").isInt() || !m.path("t").isTextual()) return marks;
+            list.add(m);
+        }
+        list.sort(
+            Comparator
+                .<JsonNode>comparingInt(m -> m.get("s").intValue())
+                .thenComparingInt(m -> m.get("e").intValue())
+                .thenComparing(m -> m.get("t").textValue())
+        );
+        ArrayNode out = JsonNodeFactory.instance.arrayNode();
+        list.forEach(out::add);
+        return out;
     }
 }

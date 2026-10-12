@@ -7,10 +7,14 @@
  * - Header: name, headline, contacts (email | phone | location | links); empty lines omitted.
  * - Sections in document order, skipping hidden ones and ones with no body line: blank line (only if
  *   something precedes), TITLE (section title or the kind's default, upper-cased), then the body.
+ * - v2: a summary with `list` renders one "- " / "1. " prefixed line per non-empty "\n" line (the literal
+ *   "1. " on every line, not a counter); bullets are "1. " when the item has `listStyle: "number"`;
+ *   after the end of every link mark whose text is not already its URL, " (<href>)" is inserted;
+ *   INTERESTS is one line "A, B, C". Other marks are ignored (plain text).
  * - Items of EXPERIENCE / EDUCATION / PROJECTS / CUSTOM are separated by a blank line.
  * - The text ends with exactly one "\n" when non-empty; an empty document renders "".
  */
-import { flag, isObject, list, one, oneLine, parseKind, visibleItems, visibleSections, get, type Json } from "./doc";
+import { flag, isListed, isObject, list, one, oneLine, parseKind, str, trimWs, visibleItems, visibleSections, get, type Json } from "./doc";
 import { DEFAULT_SECTION_TITLES, type SectionKind } from "./types";
 
 const EM = " — ";
@@ -45,6 +49,10 @@ export function renderText(doc: Json): string {
 }
 
 function bodyOf(section: Json, kind: SectionKind): string[] {
+  if (kind === "INTERESTS") {
+    const line = join(", ", visibleItems(section).map((it) => one(it, "text")));
+    return line ? [line] : [];
+  }
   const block = kind === "EXPERIENCE" || kind === "EDUCATION" || kind === "PROJECTS" || kind === "CUSTOM";
   const body: string[] = [];
   for (const item of visibleItems(section)) {
@@ -60,7 +68,10 @@ function itemLines(it: Json, kind: SectionKind): string[] {
   const lines: string[] = [];
   switch (kind) {
     case "SUMMARY":
-      add(lines, one(it, "text"));
+      summary(lines, it);
+      break;
+    case "INTERESTS":
+      add(lines, one(it, "text")); // bodyOf() normally joins the whole section onto one line
       break;
     case "EXPERIENCE":
     case "CUSTOM":
@@ -92,7 +103,7 @@ function itemLines(it: Json, kind: SectionKind): string[] {
       add(lines, join(EM, one(it, "name"), one(it, "level")));
       break;
     case "ACHIEVEMENTS": {
-      const line = join(DOT, one(it, "text"), one(it, "date"));
+      const line = join(DOT, marked(it), one(it, "date"));
       if (line) lines.push("- " + line);
       break;
     }
@@ -101,11 +112,68 @@ function itemLines(it: Json, kind: SectionKind): string[] {
 }
 
 function bullets(lines: string[], item: Json): void {
+  const mark = marker(str(item, "listStyle"));
   for (const b of list(item, "bullets")) {
-    const t = isObject(b) ? one(b, "text") : "";
-    if (t) lines.push("- " + t);
+    const t = isObject(b) ? marked(b) : "";
+    if (t) lines.push(mark + t);
   }
 }
+
+/** SUMMARY: one line, or - when `list` is set - one marker-prefixed line per non-empty "\n" line. */
+function summary(lines: string[], it: Json): void {
+  const text = withLinks(it);
+  if (!isListed(it, "list")) {
+    add(lines, oneLine(text));
+    return;
+  }
+  const mark = marker(str(it, "list"));
+  for (const line of text.split("\n")) {
+    const t = oneLine(line);
+    if (t) lines.push(mark + t);
+  }
+}
+
+/** `"number"` -> "1. " (the literal prefix on every line); anything else -> "- ". */
+function marker(style: string): string {
+  return style === "number" ? "1. " : "- ";
+}
+
+/** `node.text` with link suffixes, as a single cleaned line. */
+function marked(node: Json): string {
+  return oneLine(withLinks(node));
+}
+
+/**
+ * `node.text` (raw, uncleaned) with " (<href>)" inserted right after the end of every link mark
+ * (`t === "a"`) whose covered text (trimmed) is not already its href. Offsets are UTF-16 units into the
+ * raw text, so this runs before whitespace is collapsed. Malformed or out-of-range marks are ignored
+ * (this never throws); other mark types are plain text. Twin of `ResumeDocumentText.withLinks`.
+ */
+export function withLinks(node: Json): string {
+  const t = get(node, "text");
+  const raw = typeof t === "string" ? t : "";
+  const links: Array<{ e: number; href: string }> = [];
+  for (const m of list(node, "marks")) {
+    if (!isObject(m)) continue;
+    const { s, e, t: type, href } = m;
+    if (!isInt32(s) || !isInt32(e) || typeof type !== "string" || type !== "a" || typeof href !== "string") continue;
+    if (s < 0 || s >= e || e > raw.length) continue;
+    const url = trimWs(href);
+    if (!url || trimWs(raw.slice(s, e)) === url) continue;
+    links.push({ e, href: url });
+  }
+  if (links.length === 0) return raw;
+  links.sort((a, b) => a.e - b.e); // stable, like the Java List.sort
+  let out = "";
+  let at = 0;
+  for (const l of links) {
+    out += raw.slice(at, l.e) + " (" + l.href + ")";
+    at = l.e;
+  }
+  return out + raw.slice(at);
+}
+
+const isInt32 = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= -2147483648 && n <= 2147483647;
 
 function dates(it: Json): string {
   const start = one(it, "start");

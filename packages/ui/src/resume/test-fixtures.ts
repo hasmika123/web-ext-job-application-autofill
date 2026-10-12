@@ -10,8 +10,12 @@ export function fixtureText(name: string): string {
   return readFileSync(join(dir, name), "utf8");
 }
 
-export function fixtureDoc(name: "full" | "sparse"): ResumeDocument {
+export type FixtureName = "full" | "sparse" | "full-v2" | "full-v1-upgraded" | "caps-doc";
+
+/** The parsed fixture as stored (`full` and `sparse` are schema 1; the rest are schema 2). */
+export function fixtureDoc(name: FixtureName): ResumeDocument {
   return JSON.parse(fixtureText(`${name}.json`)) as ResumeDocument;
 }
 
-export const FIXTURES = ["full", "sparse"] as const;
+/** The fixtures that have `.txt`, `.structured.json` and `.hash.txt` goldens (v1: full, sparse; v2: full-v2). */
+export const FIXTURES = ["full", "sparse", "full-v2"] as const;

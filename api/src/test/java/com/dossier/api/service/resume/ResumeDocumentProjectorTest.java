@@ -10,10 +10,45 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ResumeDocumentProjectorTest {
 
     @ParameterizedTest
-    @ValueSource(strings = { "full", "sparse" })
+    @ValueSource(strings = { "full", "sparse", "full-v2" })
     void matchesGoldenFile(String name) {
         JsonNode doc = Fixtures.doc(name + ".json");
         assertThat(ResumeDocumentProjector.toStructuredPretty(doc)).isEqualTo(Fixtures.text(name + ".structured.json"));
+    }
+
+    @Test
+    void v2ContentOutsideTheSixSlotsAndAllFormattingNeverReachesTheProjection() {
+        JsonNode doc = Fixtures.doc("full-v2.json");
+        String projected = ResumeDocumentProjector.toStructuredJson(doc);
+        assertThat(projected).doesNotContain("Chess").doesNotContain("Trail").doesNotContain("resume-photos");
+
+        // strip every mark, list setting and the photo: a formatting-only change must not move parsed_json
+        com.fasterxml.jackson.databind.node.ObjectNode plain = (com.fasterxml.jackson.databind.node.ObjectNode) doc.deepCopy();
+        stripFormatting(plain);
+        assertThat(ResumeDocumentProjector.toStructuredJson(plain)).isEqualTo(projected);
+    }
+
+    @Test
+    void aListSummaryProjectsAsItsTrimmedNonEmptyLines() {
+        JsonNode doc = ResumeDocument.parse(
+            "{\"sections\":[{\"kind\":\"SUMMARY\",\"items\":[{\"text\":\"  one \\n\\n  two\\r\\n \\nthree  \",\"list\":\"number\"}]}]}"
+        );
+        assertThat(ResumeDocumentProjector.toStructured(doc).get("summary").textValue()).isEqualTo("one\ntwo\nthree");
+        JsonNode plain = ResumeDocument.parse("{\"sections\":[{\"kind\":\"SUMMARY\",\"items\":[{\"text\":\"  one \\n\\n  two  \"}]}]}");
+        assertThat(ResumeDocumentProjector.toStructured(plain).get("summary").textValue()).isEqualTo("one \n\n  two");
+    }
+
+    private static void stripFormatting(JsonNode n) {
+        if (n.isObject()) {
+            com.fasterxml.jackson.databind.node.ObjectNode o = (com.fasterxml.jackson.databind.node.ObjectNode) n;
+            o.remove("marks");
+            o.remove("list");
+            o.remove("listStyle");
+            o.remove("photo");
+            o.elements().forEachRemaining(ResumeDocumentProjectorTest::stripFormatting);
+        } else if (n.isArray()) {
+            n.elements().forEachRemaining(ResumeDocumentProjectorTest::stripFormatting);
+        }
     }
 
     @Test

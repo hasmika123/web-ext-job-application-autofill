@@ -48,6 +48,11 @@ const eslintConfig = defineConfig([
       "**/state/history.ts",
       "**/state/ids.ts",
       "**/state/reducer.ts",
+      // Geometry, not tunables: ui.ts holds the DESIGN 10.1 viewport breakpoints and sheet widths (R2.9);
+      // ResumesHero and templateThumbs size art assets in pixels (the My Resumes list shell predates the rule).
+      "**/state/ui.ts",
+      "**/list/ResumesHero.tsx",
+      "**/list/templateThumbs.ts",
     ],
     rules: {
       "no-restricted-syntax": [

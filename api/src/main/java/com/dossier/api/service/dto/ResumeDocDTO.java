@@ -7,7 +7,7 @@ import java.time.Instant;
 
 /**
  * The builder document of a resume as the web editor sees it (Resume Builder DESIGN 6.2).
- * {@code doc} is the canonical {@code ResumeDocument} (schema v1) and {@code theme} the free-form
+ * {@code doc} is the canonical {@code ResumeDocument} (schema v2) and {@code theme} the free-form
  * theme object, both as JSON values rather than strings. The same {@code docVersion} travels in
  * the {@code ETag} header.
  */
@@ -17,8 +17,11 @@ public class ResumeDocDTO {
     private String label;
     private ResumeKind kind;
 
-    @Schema(type = "object", description = "The ResumeDocument (schema v1).")
+    @Schema(type = "object", description = "The ResumeDocument (schema v2; a stored v1 document is upgraded on read).")
     private JsonNode doc;
+
+    @Schema(description = "The schema of 'doc' - always 2 (the current ResumeDocument schema).")
+    private int schemaVersion = 2;
 
     private String templateId;
 
@@ -62,6 +65,14 @@ public class ResumeDocDTO {
 
     public void setDoc(JsonNode doc) {
         this.doc = doc;
+    }
+
+    public int getSchemaVersion() {
+        return schemaVersion;
+    }
+
+    public void setSchemaVersion(int schemaVersion) {
+        this.schemaVersion = schemaVersion;
     }
 
     public String getTemplateId() {

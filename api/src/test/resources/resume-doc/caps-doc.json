@@ -1,0 +1,206 @@
+{
+  "schema": 2,
+  "meta": {
+    "title": "Capabilities fixture",
+    "target": "Product Manager",
+    "language": "en",
+    "profileSyncedAt": null,
+    "originalFileKey": null
+  },
+  "basics": {
+    "name": "Casey Rivera",
+    "headline": "Product Manager",
+    "email": "casey@example.com",
+    "phone": "+1 202 555 0143",
+    "location": "Austin, TX",
+    "links": [
+      {
+        "label": "Portfolio",
+        "url": "https://casey.example.com"
+      }
+    ],
+    "photo": {
+      "key": "resume-photos/42/9-1c2d3e4f-bbbb-photo.jpg",
+      "updatedAt": "2026-10-12T09:00:00Z"
+    }
+  },
+  "sections": [
+    {
+      "id": "s_summary",
+      "kind": "SUMMARY",
+      "title": null,
+      "items": [
+        {
+          "id": "i_sum0001",
+          "text": "Product leader who ships.\nObsessed with clarity.",
+          "list": "bullet",
+          "marks": [
+            {
+              "s": 0,
+              "e": 14,
+              "t": "b"
+            },
+            {
+              "s": 40,
+              "e": 47,
+              "t": "i"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_experience",
+      "kind": "EXPERIENCE",
+      "title": "Where I've worked",
+      "items": [
+        {
+          "id": "i_exp00001",
+          "title": "Group Product Manager",
+          "org": "Northwind",
+          "location": "Remote",
+          "start": "2020-03",
+          "end": null,
+          "current": true,
+          "listStyle": "number",
+          "bullets": [
+            {
+              "id": "b_exp10001",
+              "text": "Grew revenue 3x after launching the self-serve plan (details in the case study).",
+              "marks": [
+                {
+                  "s": 68,
+                  "e": 78,
+                  "t": "a",
+                  "href": "https://casey.example.com/case-study"
+                }
+              ]
+            },
+            {
+              "id": "b_exp10002",
+              "text": "Built and led a team of eight product managers."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_skills",
+      "kind": "SKILLS",
+      "title": "Skills",
+      "items": [
+        {
+          "id": "i_skl00001",
+          "group": "Languages",
+          "skills": [
+            "Languages one",
+            "Languages two"
+          ]
+        },
+        {
+          "id": "i_skl00002",
+          "group": "Cloud",
+          "skills": [
+            "Cloud one",
+            "Cloud two"
+          ]
+        },
+        {
+          "id": "i_skl00003",
+          "group": "Data",
+          "skills": [
+            "Data one",
+            "Data two"
+          ]
+        },
+        {
+          "id": "i_skl00004",
+          "group": "Tools",
+          "skills": [
+            "Tools one",
+            "Tools two"
+          ]
+        },
+        {
+          "id": "i_skl00005",
+          "group": "Practices",
+          "skills": [
+            "Practices one",
+            "Practices two"
+          ]
+        },
+        {
+          "id": "i_skl00006",
+          "group": "Methods",
+          "skills": [
+            "Methods one",
+            "Methods two"
+          ]
+        },
+        {
+          "id": "i_skl00007",
+          "group": "Leadership",
+          "skills": [
+            "Leadership one",
+            "Leadership two"
+          ]
+        },
+        {
+          "id": "i_skl00008",
+          "group": "Domains",
+          "skills": [
+            "Domains one",
+            "Domains two"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_volunteer",
+      "kind": "CUSTOM",
+      "title": "Volunteering & Impact!",
+      "items": [
+        {
+          "id": "i_cus00001",
+          "title": "Mentor",
+          "org": "Code.org",
+          "bullets": [
+            {
+              "id": "b_cus10001",
+              "text": "Coached first-time programmers."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_awards01",
+      "kind": "CUSTOM",
+      "title": "Awards",
+      "items": [
+        {
+          "id": "i_cus00002",
+          "title": "Product of the Year",
+          "org": "ProductCon",
+          "start": "2023",
+          "bullets": []
+        }
+      ]
+    },
+    {
+      "id": "s_interests",
+      "kind": "INTERESTS",
+      "title": "Interests",
+      "items": [
+        {
+          "id": "i_int00001",
+          "text": "Rock climbing"
+        },
+        {
+          "id": "i_int00002",
+          "text": "Specialty coffee"
+        }
+      ]
+    }
+  ]
+}

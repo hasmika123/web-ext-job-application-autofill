@@ -1,5 +1,5 @@
 /**
- * The Resume Builder contract (DESIGN sections 3.3 and 4), mirrored in Java by
+ * The Resume Builder contract (DESIGN sections 3 and 4), mirrored in Java by
  * `com.dossier.api.service.resume.*`. Pure types and constants - no runtime deps - so the web editor,
  * the templates, the PDF route and the tests all agree on one shape.
  *
@@ -10,7 +10,7 @@ import type { ReactElement } from "react";
 
 export type { StructuredResume } from "../parser-core-types";
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** Section kinds in the order the design lists them. */
 export const SECTION_KINDS = [
@@ -22,6 +22,7 @@ export const SECTION_KINDS = [
   "CERTIFICATIONS",
   "LANGUAGES",
   "ACHIEVEMENTS",
+  "INTERESTS",
   "CUSTOM",
 ] as const;
 export type SectionKind = (typeof SECTION_KINDS)[number];
@@ -36,6 +37,7 @@ export const DEFAULT_SECTION_TITLES: Record<SectionKind, string> = {
   CERTIFICATIONS: "Certifications",
   LANGUAGES: "Languages",
   ACHIEVEMENTS: "Achievements",
+  INTERESTS: "Interests",
   CUSTOM: "Additional Information",
 };
 
@@ -45,15 +47,52 @@ export type Src = "parsed" | "user" | "ai" | "learned";
 /** `YYYY` or `YYYY-MM`, or empty/null. */
 export type DocDate = string | null;
 
+/** Inline formatting: bold, italic, underline, link. */
+export const MARK_TYPES = ["b", "i", "u", "a"] as const;
+export type MarkType = (typeof MARK_TYPES)[number];
+
+/**
+ * An inline mark: a range of the plain `text` it sits next to (`s` inclusive, `e` exclusive, UTF-16
+ * code units, `0 <= s < e <= text.length`). The text is the single source of truth - a mark never
+ * changes what the text says. Two marks of the same `t` never overlap; `href` is present iff `t === "a"`.
+ */
+export interface Mark {
+  s: number;
+  e: number;
+  t: MarkType;
+  /** `http(s)://` or `mailto:` only. */
+  href?: string;
+}
+
+/** A list setting: bullets or `1.` numbering (`null`/absent = plain). */
+export type ListStyle = "bullet" | "number";
+
 export interface Bullet {
   id: string;
   text: string;
   src?: Src;
+  marks?: Mark[];
 }
 
 export interface DocLink {
   label?: string | null;
   url?: string | null;
+}
+
+/** The job a tailored copy was made for. Server-written (a save may only echo it). */
+export interface JobRef {
+  source: "application" | "saved_job" | "pasted" | "extension";
+  applicationId?: number | null;
+  title: string;
+  company: string;
+  /** sha256 of the normalised JD text, lowercase hex. */
+  jdHash: string;
+}
+
+export interface TailoredFrom {
+  resumeId: number;
+  job: JobRef;
+  createdAt?: string;
 }
 
 export interface DocMeta {
@@ -62,6 +101,14 @@ export interface DocMeta {
   language?: string | null;
   profileSyncedAt?: string | null;
   originalFileKey?: string | null;
+  /** Server-written; a PUT may not introduce, change or drop it. */
+  tailoredFrom?: TailoredFrom | null;
+}
+
+/** The profile photo. `key` is a `FileStorage` key the server set; the client only echoes it. */
+export interface DocPhoto {
+  key: string;
+  updatedAt?: string;
 }
 
 export interface DocBasics {
@@ -71,7 +118,7 @@ export interface DocBasics {
   phone?: string | null;
   location?: string | null;
   links?: DocLink[];
-  photoKey?: string | null;
+  photo?: DocPhoto | null;
 }
 
 interface ItemBase {
@@ -85,6 +132,10 @@ interface ItemBase {
 export interface SummaryItem extends ItemBase {
   text?: string | null;
   src?: Src;
+  marks?: Mark[];
+  /** Renders each 
+ line of the text as a list item. */
+  list?: ListStyle | null;
 }
 export interface ExperienceItem extends ItemBase {
   title?: string | null;
@@ -94,6 +145,7 @@ export interface ExperienceItem extends ItemBase {
   end?: DocDate;
   current?: boolean;
   bullets?: Bullet[];
+  listStyle?: ListStyle | null;
 }
 export interface EducationItem extends ItemBase {
   school?: string | null;
@@ -104,6 +156,7 @@ export interface EducationItem extends ItemBase {
   end?: DocDate;
   gpa?: string | null;
   bullets?: Bullet[];
+  listStyle?: ListStyle | null;
 }
 export interface SkillsItem extends ItemBase {
   group?: string | null;
@@ -112,7 +165,10 @@ export interface SkillsItem extends ItemBase {
 export interface ProjectItem extends ItemBase {
   title?: string | null;
   url?: string | null;
+  start?: DocDate;
+  end?: DocDate;
   bullets?: Bullet[];
+  listStyle?: ListStyle | null;
 }
 export interface CertificationItem extends ItemBase {
   title?: string | null;
@@ -127,6 +183,11 @@ export interface LanguageItem extends ItemBase {
 export interface AchievementItem extends ItemBase {
   text?: string | null;
   date?: DocDate;
+  marks?: Mark[];
+}
+/** One interest, at most 80 characters; the section renders as a comma list. */
+export interface InterestsItem extends ItemBase {
+  text?: string | null;
 }
 /** CUSTOM items have the same shape as EXPERIENCE items. */
 export type CustomItem = ExperienceItem;
@@ -148,14 +209,27 @@ export type Section =
   | SectionBase<"CERTIFICATIONS", CertificationItem>
   | SectionBase<"LANGUAGES", LanguageItem>
   | SectionBase<"ACHIEVEMENTS", AchievementItem>
+  | SectionBase<"INTERESTS", InterestsItem>
   | SectionBase<"CUSTOM", CustomItem>;
 
 export interface ResumeDocument {
-  schema: 1;
+  schema: 2;
   meta: DocMeta;
   basics: DocBasics;
   sections: Section[];
 }
+
+/**
+ * A stored v1 document: the same shape but `schema: 1` and the photo as a bare `basics.photoKey`.
+ * `upgradeDocument` turns it into a {@link ResumeDocument}.
+ */
+export type ResumeDocumentV1 = Omit<ResumeDocument, "schema" | "basics"> & {
+  schema: 1;
+  basics: Omit<DocBasics, "photo"> & { photoKey?: string | null };
+};
+
+/** What a read or a PUT may carry: schema 1 or 2 in, always schema 2 out (DESIGN 3.6). */
+export type ResumeDocumentAnySchema = ResumeDocumentV1 | ResumeDocument;
 
 /* The projection output is the `StructuredResume` the ResumeUpload form already uses (re-exported below). */
 

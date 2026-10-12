@@ -5,7 +5,7 @@ import type { EditorState } from "./types";
 
 export function testDoc(): ResumeDocument {
   return {
-    schema: 1,
+    schema: 2,
     meta: { title: "Backend SWE" },
     basics: { name: "Priya Sharma", headline: "Software Engineer" },
     sections: [

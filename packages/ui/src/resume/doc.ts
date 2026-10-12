@@ -51,6 +51,12 @@ export function flag(node: Json, field: string): boolean {
   return get(node, field) === true;
 }
 
+/** True when `node[field]` is the string `"bullet"` or `"number"` (a list setting). */
+export function isListed(node: Json, field: string): boolean {
+  const v = get(node, field);
+  return v === "bullet" || v === "number";
+}
+
 export function isHidden(node: Json): boolean {
   return flag(node, "hidden");
 }

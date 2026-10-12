@@ -26,20 +26,20 @@ class ResumeDocumentValidatorLimitsTest {
             }
             s.append("]}");
         }
-        return ResumeDocument.parse("{\"schema\":1,\"meta\":{\"title\":\"T\"},\"basics\":{},\"sections\":[" + s + "]}");
+        return ResumeDocument.parse("{\"schema\":2,\"meta\":{\"title\":\"T\"},\"basics\":{},\"sections\":[" + s + "]}");
     }
 
     @org.junit.jupiter.api.Test
     void defaultsAreTheR0Constants() {
         assertThat(Limits.DEFAULTS)
-            .isEqualTo(new Limits(ResumeDocumentValidator.MAX_BYTES, 20, 40, 12, 600, 2000, 64));
+            .isEqualTo(new Limits(20, 40, 12, 600, 2000, 64, ResumeDocumentValidator.MAX_BYTES));
         assertThat(ResumeDocumentValidator.validate(doc(3, 12, 600))).isEmpty();
         assertThat(ResumeDocumentValidator.validate(doc(3, 12, 600), Limits.DEFAULTS)).isEmpty();
     }
 
     @org.junit.jupiter.api.Test
     void tighterLimitsRefuseWhatTheDefaultsAccept() {
-        Limits tight = new Limits(ResumeDocumentValidator.MAX_BYTES, 2, 40, 3, 50, 2000, 64);
+        Limits tight = new Limits(2, 40, 3, 50, 2000, 64, ResumeDocumentValidator.MAX_BYTES);
 
         assertThat(ResumeDocumentValidator.validate(doc(3, 1, 10), tight).orElseThrow().path()).isEqualTo("$.sections");
         assertThat(ResumeDocumentValidator.validate(doc(1, 4, 10), tight).orElseThrow().path()).isEqualTo("$.sections[0].items[0].bullets");
@@ -49,7 +49,7 @@ class ResumeDocumentValidatorLimitsTest {
 
     @org.junit.jupiter.api.Test
     void aSmallerByteLimitIsATooLargeViolation() {
-        Limits tiny = new Limits(200, 20, 40, 12, 600, 2000, 64);
+        Limits tiny = new Limits(20, 40, 12, 600, 2000, 64, 200);
         var v = ResumeDocumentValidator.validate(doc(3, 3, 100), tiny).orElseThrow();
         assertThat(v.tooLarge()).isTrue();
         assertThat(v.path()).isEqualTo("$");

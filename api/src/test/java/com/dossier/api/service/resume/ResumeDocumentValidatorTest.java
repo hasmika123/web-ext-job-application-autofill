@@ -2,6 +2,8 @@ package com.dossier.api.service.resume;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dossier.api.service.resume.ResumeDocumentValidator.Limits;
+import com.dossier.api.service.resume.ResumeDocumentValidator.Options;
 import com.dossier.api.service.resume.ResumeDocumentValidator.Violation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -19,15 +21,28 @@ class ResumeDocumentValidatorTest {
 
     // ---------------------------------------------------------------- fixtures
 
+    /** The owner whose photo prefix the v2 fixtures use. */
+    private static final Options OWNER_42 = Options.DEFAULTS.withPhotoKeyPrefix("resume-photos/42/");
+
+    @ParameterizedTest
+    @ValueSource(strings = { "full-v2.json", "full-v1-upgraded.json", "caps-doc.json" })
+    void validV2FixturesPass(String name) {
+        assertThat(ResumeDocumentValidator.validate(Fixtures.doc(name), OWNER_42)).isEmpty();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "full.json", "sparse.json" })
-    void validFixturesPass(String name) {
-        assertThat(ResumeDocumentValidator.validate(Fixtures.doc(name))).isEmpty();
+    void v1FixturesPassOnceUpgradedButNotRaw(String name) {
+        JsonNode v1 = Fixtures.doc(name);
+        Violation raw = ResumeDocumentValidator.validate(v1).orElseThrow();
+        assertThat(raw.path()).isEqualTo("$.schema");
+        assertThat(raw.message()).isEqualTo("must be 2");
+        assertThat(ResumeDocumentValidator.validate(ResumeDocumentUpgrader.upgrade(v1))).isEmpty();
     }
 
     static Stream<Arguments> invalidFixtures() {
         return Stream.of(
-            Arguments.of("invalid-schema-version.json", "$.schema", "must be 1"),
+            Arguments.of("invalid-schema-version.json", "$.schema", "must be 2"),
             Arguments.of("invalid-missing-sections.json", "$.sections", "must be an array"),
             Arguments.of("invalid-unknown-kind.json", "$.sections[1].kind", "unknown section kind 'HOBBIES'"),
             Arguments.of("invalid-duplicate-kind.json", "$.sections[1].kind", "duplicate section kind EXPERIENCE (only CUSTOM may repeat)"),
@@ -54,7 +69,7 @@ class ResumeDocumentValidatorTest {
 
     private static ObjectNode base() {
         return (ObjectNode) ResumeDocument.parse(
-            "{\"schema\":1,\"meta\":{\"title\":\"T\"},\"basics\":{\"name\":\"N\"},\"sections\":[]}"
+            "{\"schema\":2,\"meta\":{\"title\":\"T\"},\"basics\":{\"name\":\"N\"},\"sections\":[]}"
         );
     }
 
@@ -295,7 +310,7 @@ class ResumeDocumentValidatorTest {
         assertThat(ResumeDocumentValidator.validate(noBasics).orElseThrow().path()).isEqualTo("$.basics");
 
         ObjectNode strSchema = base();
-        strSchema.put("schema", "1");
+        strSchema.put("schema", "2");
         assertThat(ResumeDocumentValidator.validate(strSchema).orElseThrow().path()).isEqualTo("$.schema");
 
         ObjectNode badLang = base();
@@ -323,7 +338,7 @@ class ResumeDocumentValidatorTest {
     @Test
     void duplicateKeysAreRejectedAtParseTime() {
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
-            ResumeDocument.parse("{\"schema\":1,\"schema\":1}")
+            ResumeDocument.parse("{\"schema\":2,\"schema\":2}")
         );
     }
 
@@ -335,5 +350,255 @@ class ResumeDocumentValidatorTest {
         JsonNode node = doc;
         Violation v = ResumeDocumentValidator.validate(node).orElseThrow();
         assertThat(v.tooLarge()).isTrue();
+    }
+
+    // ---------------------------------------------------------------- v2: marks
+
+    private static ObjectNode summarySection(String text, String marksJson) {
+        ObjectNode s = section("s_summary", "SUMMARY");
+        ObjectNode item = ((ArrayNode) s.get("items")).addObject();
+        item.put("id", id("i", 1));
+        item.put("text", text);
+        if (marksJson != null) item.set("marks", ResumeDocument.parse(marksJson));
+        return s;
+    }
+
+    private static Optional<Violation> withMarks(String text, String marksJson) {
+        return withSection(summarySection(text, marksJson));
+    }
+
+    @Test
+    void validMarksOfEveryTypeAreAccepted() {
+        assertThat(
+            withMarks("Hello bold italic under link", "[{\"s\":6,\"e\":10,\"t\":\"b\"},{\"s\":11,\"e\":17,\"t\":\"i\"},{\"s\":18,\"e\":23,\"t\":\"u\"},{\"s\":24,\"e\":28,\"t\":\"a\",\"href\":\"https://x.dev/a\"}]")
+        ).isEmpty();
+    }
+
+    @Test
+    void differentTypesMayOverlapAndSameTypeMayTouch() {
+        assertThat(withMarks("0123456789", "[{\"s\":0,\"e\":6,\"t\":\"b\"},{\"s\":3,\"e\":9,\"t\":\"i\"},{\"s\":6,\"e\":10,\"t\":\"b\"}]")).isEmpty();
+    }
+
+    @Test
+    void sameTypeMarksMustNotOverlap() {
+        Violation v = withMarks("0123456789", "[{\"s\":0,\"e\":6,\"t\":\"b\"},{\"s\":5,\"e\":9,\"t\":\"b\"}]").orElseThrow();
+        assertThat(v.path()).isEqualTo("$.sections[0].items[0].marks[1]");
+        assertThat(v.message()).isEqualTo("overlaps another mark of the same type");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "[{\"s\":-1,\"e\":3,\"t\":\"b\"}]",
+        "[{\"s\":3,\"e\":3,\"t\":\"b\"}]",
+        "[{\"s\":4,\"e\":3,\"t\":\"b\"}]",
+        "[{\"s\":0,\"e\":11,\"t\":\"b\"}]",
+        "[{\"s\":0,\"e\":1.5,\"t\":\"b\"}]",
+        "[{\"s\":0,\"e\":3,\"t\":\"x\"}]",
+        "[{\"s\":0,\"e\":3}]",
+        "[5]",
+    })
+    void malformedOrOutOfRangeMarksAreRejected(String marks) {
+        Violation v = withMarks("0123456789", marks).orElseThrow();
+        assertThat(v.path()).startsWith("$.sections[0].items[0].marks[0]");
+    }
+
+    @Test
+    void marksCountUtf16UnitsNotCodePoints() {
+        // "😀" is 2 UTF-16 units: the text has length 3, so e = 3 is fine and e = 4 is not.
+        assertThat(withMarks("😀a", "[{\"s\":0,\"e\":3,\"t\":\"b\"}]")).isEmpty();
+        assertThat(withMarks("😀a", "[{\"s\":0,\"e\":4,\"t\":\"b\"}]")).isPresent();
+    }
+
+    @Test
+    void linkMarksNeedAnHttpHttpsOrMailtoHref() {
+        for (String ok : new String[] { "http://a.dev", "https://a.dev/x?y=1", "mailto:a@b.dev", "  https://a.dev " }) {
+            assertThat(withMarks("0123456789", "[{\"s\":0,\"e\":3,\"t\":\"a\",\"href\":\"" + ok + "\"}]")).as(ok).isEmpty();
+        }
+        for (String bad : new String[] { "javascript:alert(1)", "ftp://a.dev", "//a.dev", "a.dev", "data:text/html,x", "" }) {
+            Violation v = withMarks("0123456789", "[{\"s\":0,\"e\":3,\"t\":\"a\",\"href\":\"" + bad + "\"}]").orElseThrow();
+            assertThat(v.path()).as(bad).isEqualTo("$.sections[0].items[0].marks[0].href");
+        }
+        assertThat(withMarks("0123456789", "[{\"s\":0,\"e\":3,\"t\":\"a\"}]").orElseThrow().path()).endsWith(".href");
+    }
+
+    @Test
+    void hrefIsOnlyAllowedOnLinkMarks() {
+        Violation v = withMarks("0123456789", "[{\"s\":0,\"e\":3,\"t\":\"b\",\"href\":\"https://a.dev\"}]").orElseThrow();
+        assertThat(v.path()).isEqualTo("$.sections[0].items[0].marks[0].href");
+    }
+
+    @Test
+    void marksPerTextBoundaryIsInjectedFromTheLimits() {
+        StringBuilder marks = new StringBuilder("[");
+        for (int i = 0; i < 65; i++) marks.append(i > 0 ? "," : "").append("{\"s\":").append(i).append(",\"e\":").append(i + 1).append(",\"t\":\"b\"}");
+        String text = "x".repeat(100);
+        // 65 touching same-type marks: over the default 64...
+        Violation v = withMarks(text, marks + "]").orElseThrow();
+        assertThat(v.path()).isEqualTo("$.sections[0].items[0].marks");
+        assertThat(v.message()).isEqualTo("at most 64 marks per text");
+        // ...and fine when the settings seam raises the limit
+        Options roomy = Options.DEFAULTS.withLimits(new Limits(20, 40, 12, 600, 2000, 100, 256 * 1024));
+        ObjectNode doc = base();
+        ((ArrayNode) doc.get("sections")).add(summarySection(text, marks + "]"));
+        assertThat(ResumeDocumentValidator.validate(doc, roomy)).isEmpty();
+    }
+
+    @Test
+    void marksOnBulletsAndAchievementsAreValidatedToo() {
+        ObjectNode s = section("s_experience", "EXPERIENCE");
+        ObjectNode item = experienceItem(1, 1);
+        ((ObjectNode) item.get("bullets").get(0)).set("marks", ResumeDocument.parse("[{\"s\":0,\"e\":99,\"t\":\"b\"}]"));
+        ((ArrayNode) s.get("items")).add(item);
+        assertThat(withSection(s).orElseThrow().path()).isEqualTo("$.sections[0].items[0].bullets[0].marks[0].e");
+
+        ObjectNode a = section("s_achieve1", "ACHIEVEMENTS");
+        ObjectNode ach = ((ArrayNode) a.get("items")).addObject();
+        ach.put("id", id("i", 7));
+        ach.put("text", "Won");
+        ach.set("marks", ResumeDocument.parse("[{\"s\":0,\"e\":3,\"t\":\"i\"}]"));
+        assertThat(withSection(a)).isEmpty();
+        ach.set("marks", ResumeDocument.parse("[{\"s\":0,\"e\":4,\"t\":\"i\"}]"));
+        assertThat(withSection(a).orElseThrow().path()).isEqualTo("$.sections[0].items[0].marks[0].e");
+    }
+
+    // ---------------------------------------------------------------- v2: lists, interests, projects
+
+    @Test
+    void listAndListStyleAcceptBulletNumberOrNull() {
+        for (String ok : new String[] { "\"bullet\"", "\"number\"", "null" }) {
+            ObjectNode s = summarySection("hi", null);
+            ((ObjectNode) s.get("items").get(0)).set("list", ResumeDocument.parse(ok));
+            assertThat(withSection(s)).as(ok).isEmpty();
+        }
+        ObjectNode bad = summarySection("hi", null);
+        ((ObjectNode) bad.get("items").get(0)).put("list", "roman");
+        assertThat(withSection(bad).orElseThrow().path()).isEqualTo("$.sections[0].items[0].list");
+
+        ObjectNode e = section("s_experience", "EXPERIENCE");
+        ObjectNode item = experienceItem(1, 1);
+        item.put("listStyle", "number");
+        ((ArrayNode) e.get("items")).add(item);
+        assertThat(withSection(e)).isEmpty();
+        item.put("listStyle", "dots");
+        assertThat(withSection(e).orElseThrow().path()).isEqualTo("$.sections[0].items[0].listStyle");
+    }
+
+    @Test
+    void interestsItemsAreAtMost80Characters() {
+        ObjectNode s = section("s_interests", "INTERESTS");
+        ObjectNode item = ((ArrayNode) s.get("items")).addObject();
+        item.put("id", id("i", 1));
+        item.put("text", "y".repeat(80));
+        assertThat(withSection(s)).isEmpty();
+        item.put("text", "y".repeat(81));
+        Violation v = withSection(s).orElseThrow();
+        assertThat(v.path()).isEqualTo("$.sections[0].items[0].text");
+        assertThat(v.message()).isEqualTo("must be at most 80 characters");
+    }
+
+    @Test
+    void projectsMayCarryDates() {
+        ObjectNode s = section("s_projects", "PROJECTS");
+        ObjectNode item = ((ArrayNode) s.get("items")).addObject();
+        item.put("id", id("i", 1));
+        item.put("start", "2021-02");
+        item.put("end", "2022");
+        assertThat(withSection(s)).isEmpty();
+        item.put("end", "last year");
+        assertThat(withSection(s).orElseThrow().path()).isEqualTo("$.sections[0].items[0].end");
+    }
+
+    // ---------------------------------------------------------------- v2: photo
+
+    private static ObjectNode withPhoto(String key) {
+        ObjectNode doc = base();
+        ((ObjectNode) doc.get("basics")).set("photo", ResumeDocument.parse("{\"key\":\"" + key + "\",\"updatedAt\":\"2026-10-12T09:00:00Z\"}"));
+        return doc;
+    }
+
+    @Test
+    void photoKeyMustStartWithTheOwnersPrefix() {
+        Options owner = Options.DEFAULTS.withPhotoKeyPrefix("resume-photos/42/");
+        assertThat(ResumeDocumentValidator.validate(withPhoto("resume-photos/42/7-abc-photo.jpg"), owner)).isEmpty();
+
+        Violation other = ResumeDocumentValidator.validate(withPhoto("resume-photos/43/7-abc-photo.jpg"), owner).orElseThrow();
+        assertThat(other.path()).isEqualTo("$.basics.photo.key");
+        assertThat(other.message()).isEqualTo("must start with resume-photos/42/");
+        // 4 is a prefix of 42 only as a string: the trailing slash is part of the prefix
+        assertThat(ResumeDocumentValidator.validate(withPhoto("resume-photos/4/7-abc-photo.jpg"), owner)).isPresent();
+        assertThat(ResumeDocumentValidator.validate(withPhoto("../resume-photos/42/x.jpg"), owner)).isPresent();
+    }
+
+    @Test
+    void aCallerWithoutAnOwnerMayNotSetAPhoto() {
+        Violation v = ResumeDocumentValidator.validate(withPhoto("resume-photos/42/x.jpg")).orElseThrow();
+        assertThat(v.path()).isEqualTo("$.basics.photo.key");
+        assertThat(v.message()).isEqualTo("is set by the server");
+    }
+
+    @Test
+    void photoNullAndAbsentAreFine() {
+        ObjectNode doc = base();
+        assertThat(ResumeDocumentValidator.validate(doc)).isEmpty();
+        ((ObjectNode) doc.get("basics")).putNull("photo");
+        assertThat(ResumeDocumentValidator.validate(doc)).isEmpty();
+        ((ObjectNode) doc.get("basics")).put("photo", "resume-photos/42/x.jpg");
+        assertThat(ResumeDocumentValidator.validate(doc).orElseThrow().path()).isEqualTo("$.basics.photo");
+    }
+
+    // ---------------------------------------------------------------- v2: tailoredFrom
+
+    private static final String TAILORED =
+        "{\"resumeId\":9,\"job\":{\"source\":\"pasted\",\"applicationId\":null,\"title\":\"PM\",\"company\":\"Stripe\",\"jdHash\":\""
+        + "a".repeat(64)
+        + "\"},\"createdAt\":\"2026-10-12T09:00:00Z\"}";
+
+    @Test
+    void tailoredFromIsServerOnly() {
+        ObjectNode doc = base();
+        ((ObjectNode) doc.get("meta")).set("tailoredFrom", ResumeDocument.parse(TAILORED));
+
+        Violation refused = ResumeDocumentValidator.validate(doc).orElseThrow();
+        assertThat(refused.path()).isEqualTo("$.meta.tailoredFrom");
+        assertThat(ResumeDocumentValidator.validate(doc, new Options(false))).isPresent();
+
+        assertThat(ResumeDocumentValidator.validate(doc, new Options(true))).isEmpty();
+
+        ((ObjectNode) doc.get("meta")).putNull("tailoredFrom");
+        assertThat(ResumeDocumentValidator.validate(doc)).as("null is the same as absent").isEmpty();
+    }
+
+    @Test
+    void tailoredFromShapeIsCheckedWhenAllowed() {
+        for (String bad : new String[] {
+            "{\"resumeId\":\"9\",\"job\":{}}",
+            "{\"resumeId\":9}",
+            "{\"resumeId\":9,\"job\":{\"source\":\"scraped\",\"title\":\"t\",\"company\":\"c\",\"jdHash\":\"" + "a".repeat(64) + "\"}}",
+            "{\"resumeId\":9,\"job\":{\"source\":\"pasted\",\"title\":\"t\",\"company\":\"c\",\"jdHash\":\"XYZ\"}}",
+            "[]",
+        }) {
+            ObjectNode doc = base();
+            ((ObjectNode) doc.get("meta")).set("tailoredFrom", ResumeDocument.parse(bad));
+            Violation v = ResumeDocumentValidator.validate(doc, new Options(true)).orElseThrow();
+            assertThat(v.path()).as(bad).startsWith("$.meta.tailoredFrom");
+        }
+    }
+
+    // ---------------------------------------------------------------- v2: injected limits
+
+    @Test
+    void documentLimitsComeFromTheOptionsAndDefaultToTheR0Constants() {
+        assertThat(Limits.DEFAULTS).isEqualTo(new Limits(20, 40, 12, 600, 2000, 64, 256 * 1024));
+
+        Options tight = Options.DEFAULTS.withLimits(new Limits(1, 1, 1, 10, 10, 1, 256 * 1024));
+        ObjectNode s = section("s_experience", "EXPERIENCE");
+        ObjectNode item = experienceItem(1, 2);
+        ((ArrayNode) s.get("items")).add(item);
+        ObjectNode doc = base();
+        ((ArrayNode) doc.get("sections")).add(s);
+        Violation v = ResumeDocumentValidator.validate(doc, tight).orElseThrow();
+        assertThat(v.path()).isEqualTo("$.sections[0].items[0].bullets");
+        assertThat(v.message()).isEqualTo("at most 1 bullets per item");
+        assertThat(ResumeDocumentValidator.validate(doc)).isEmpty();
     }
 }
