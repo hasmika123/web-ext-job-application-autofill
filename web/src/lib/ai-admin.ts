@@ -3,16 +3,12 @@
  * `/api/admin/ai/**`, the browser-side fetch helper that talks to the Next BFF, and the small money / time
  * formatters the page shares. Keys never appear here: the API reports only "present" and the NAME of the env var.
  */
+import { SOURCE_LABEL, adminFetchIn } from "@/lib/admin-client";
+import type { AdminFail, AdminHistoryRow, AdminResult, Resolved, Source } from "@/lib/admin-client";
 
-export type Source = "db" | "env" | "default";
-
-/** A resolved setting: the effective value, where it came from, and the two fallbacks under it. */
-export interface Resolved<T> {
-  value: T;
-  source: Source;
-  envDefault: T | null;
-  codeDefault: T;
-}
+/** `Source` / `Resolved` / `SOURCE_LABEL` moved to the admin kit's client (every settings-style page shares them). */
+export { SOURCE_LABEL };
+export type { Resolved, Source };
 
 export interface LastProbe {
   at: string;
@@ -104,15 +100,8 @@ export interface AiCallsView {
   nextBefore: number | null;
 }
 
-export interface AiHistoryRow {
-  id: number;
-  key: string;
-  oldValue: string | null;
-  newValue: string | null;
-  actorLogin: string | null;
-  reason: string | null;
-  changedAt: string;
-}
+/** One row of the settings change history (the shape every admin page shares: `AdminHistoryRow`). */
+export type AiHistoryRow = AdminHistoryRow;
 
 export interface AiTestResult {
   ok: boolean;
@@ -126,43 +115,12 @@ export interface AiTestResult {
 
 /* ── Calling the BFF (browser side) ─────────────────────────────────────────────── */
 
-export interface AiFail {
-  ok: false;
-  status: number;
-  /** The API's machine code (AI_PROVIDER_IN_USE ...) when it sent one. */
-  code: string | null;
-  /** The API's human message, shown inline. */
-  error: string;
-  /** Everything else the API attached (tasks, retryAfterSeconds, min, max ...). */
-  extra: Record<string, unknown>;
-}
-export type AiResult<T> = { ok: true; data: T } | AiFail;
+/** The AI page's names for the admin kit's types (`lib/admin-client.ts`, E2E-A15.0). */
+export type AiFail = AdminFail;
+export type AiResult<T> = AdminResult<T>;
 
 /** One call to `/api/admin/ai/...`; never throws. A network failure is a 0-status fail. */
-export async function aiFetch<T>(method: string, path: string, body?: unknown): Promise<AiResult<T>> {
-  try {
-    const res = await fetch(`/api/admin/ai${path}`, {
-      method,
-      headers: body === undefined ? undefined : { "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      cache: "no-store",
-    });
-    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok) {
-      const { error, code, ...extra } = data;
-      return {
-        ok: false,
-        status: res.status,
-        code: typeof code === "string" ? code : null,
-        error: typeof error === "string" && error ? error : "That didn't work.",
-        extra,
-      };
-    }
-    return { ok: true, data: data as T };
-  } catch {
-    return { ok: false, status: 0, code: null, error: "Couldn't reach the server.", extra: {} };
-  }
-}
+export const aiFetch = adminFetchIn("/ai");
 
 /* ── Formatting ─────────────────────────────────────────────────────────────────── */
 
@@ -206,8 +164,6 @@ export const MODEL_ID_MESSAGE = "Not a model id (letters, digits, . _ : / -).";
 export function isModelId(s: string): boolean {
   return MODEL_ID_RE.test(s) && !s.includes("..");
 }
-
-export const SOURCE_LABEL: Record<Source, string> = { db: "Admin", env: "Env", default: "Default" };
 
 /** The lowest source a group of settings comes from: any db row makes the group "Admin". */
 export function groupSource(...rs: Resolved<unknown>[]): Source {

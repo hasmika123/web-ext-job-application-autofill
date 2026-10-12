@@ -22,7 +22,8 @@ import {
 } from "@kiwiply/ui";
 import { FilterSelect, StatusChip } from "@/components/app-v2/common";
 import { AdminHero, AdminLinkTile, AdminPanel, AdminStatTiles, BarLineChart, LivePill, SampleTag } from "../common";
-import { GROWTH_ACTIVE, GROWTH_SIGNUPS, GROWTH_X, OVERVIEW_TILE_EXTRAS as X, PLATFORM_HEALTH } from "../sample-data";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until E2E-A11.0 removes it (ADMIN-E2E-PLAN 3.5)
+import { GROWTH_ACTIVE, GROWTH_SIGNUPS, GROWTH_X, PLATFORM_HEALTH } from "../sample-data";
 
 export interface OverviewKpis {
   totalUsers: number;
@@ -72,10 +73,10 @@ export default function OverviewPage({ kpis }: { kpis: OverviewKpis | null }) {
 
       <AdminStatTiles
         stats={[
-          { label: "Total users", value: n(kpis?.totalUsers, (v) => v.toLocaleString("en-US")), icon: <UsersIcon size={26} />, tone: "blue", delta: X.totalUsers.delta, caption: X.totalUsers.caption, sparkline: X.totalUsers.spark },
-          { label: "Activation rate", value: n(kpis?.activationRatePct, (v) => `${v}%`), icon: <BarChartIcon size={26} />, tone: "green", delta: X.activation.delta, caption: X.activation.caption, sparkline: X.activation.spark },
-          { label: "Signups (7d)", value: n(kpis?.signups7d), icon: <UserIcon size={26} />, tone: "amber", delta: X.signups.delta, caption: X.signups.caption, sparkline: X.signups.spark },
-          { label: "Active (7d)", value: n(kpis?.activeUsers7d), icon: <TrendingUpIcon size={26} />, tone: "violet", delta: X.active.delta, caption: X.active.caption, sparkline: X.active.spark },
+          { label: "Total users", value: n(kpis?.totalUsers, (v) => v.toLocaleString("en-US")), icon: <UsersIcon size={26} />, tone: "blue" },
+          { label: "Activation rate", value: n(kpis?.activationRatePct, (v) => `${v}%`), icon: <BarChartIcon size={26} />, tone: "green" },
+          { label: "Signups (7d)", value: n(kpis?.signups7d), icon: <UserIcon size={26} />, tone: "amber" },
+          { label: "Active (7d)", value: n(kpis?.activeUsers7d), icon: <TrendingUpIcon size={26} />, tone: "violet" },
         ]}
       />
 

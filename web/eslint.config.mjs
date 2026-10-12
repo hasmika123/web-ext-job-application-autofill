@@ -85,6 +85,28 @@ const eslintConfig = defineConfig([
     plugins: { kiwiply },
     rules: { "kiwiply/icon-button-needs-label": "error" },
   },
+  // The admin console shows real numbers or none (ADMIN-E2E-PLAN section 3.5, D-7; E2E-A15.0): an admin page
+  // component never imports a `sample-data` module. The pages that still do carry a per-file
+  //   // eslint-disable-next-line no-restricted-imports -- ... until <story> removes it
+  // naming the story that deletes their sample file; that story removes the comment with the import. A new page
+  // that imports a sample constant, or a converted page that grows one back, fails the build here.
+  {
+    files: ["src/components/admin-v3/**/*.{ts,tsx}", "src/components/admin-shell/**/*.{ts,tsx}", "src/components/admin/**/*.{ts,tsx}", "src/app/(admin)/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/sample-data", "**/sample-data.*"],
+              message:
+                "Admin pages never import sample data (ADMIN-E2E-PLAN 3.5): render the real number from an endpoint, or remove the panel. A page not yet converted carries an eslint-disable naming the story that removes it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // next/og images must be self-contained (no imports resolve in the OG runtime).
   {
     files: ["src/app/opengraph-image.tsx"],

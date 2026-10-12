@@ -22,11 +22,45 @@
  * AdminTabs      { tabs: {id,label,icon?}[], value, onChange }  full-width pill tab bar card (client)
  *
  * Tone = "blue"|"green"|"amber"|"violet"|"teal"|"coral"|"pink"|"lime"|"slate" (from app-v2/common).
- * Sample numbers belong in `../sample-data.ts` with a SAMPLE comment.
+ * An admin page component never imports a `sample-data.ts` (ESLint `no-restricted-imports`; the pages not yet
+ * converted carry a per-file `eslint-disable` naming the story that removes it).
+ *
+ * ── The page kit (E2E-A15.0; docs/ADMIN-E2E-PLAN.md section 3.6): what every page story imports ──────────────────────
+ * AdminStatTiles { stats: AdminStat[] }  AdminStat = { label, value, icon, tone, caption?, delta?: { value:number, previous?:number|null,
+ *                  mode?:"relative"|"points", lowerIsBetter?, label? } }  the delta chip is COMPUTED and absent without `previous`
+ * AdminFilterBar { list (a useListQuery result), search?: {placeholder?,label?}|false, filters?: {name,label,options:{value,label}[],allLabel?}[],
+ *                  actions? }  search + dropdowns bound to the list: server-driven, URL-synced, debounced; "Clear filters" while any is set
+ * AdminTable<T>  { list, columns: (DataColumn + sub?)[], rowKey, label, what, empty?, onRowClick?, rowActions?, details?, sheetTitle? }
+ *                  skeleton -> rows -> empty -> error, Pagination wired; cards + details BottomSheet below `md`
+ * ReasonSheet    { spec: ReasonSpec|null, onClose }   ReasonSpec = { title, body, confirmLabel, tone?, placeholder?, forceLabel?/forceCode?, run(reason,force) }
+ *                  reason 10-500 chars; Dialog from `md`, BottomSheet below
+ * ConfirmTypedSheet { spec: ConfirmTypedSpec|null, onClose }   ReasonSpec + { expected, expectedLabel? }: type the login/name AND give a reason
+ * HistoryDrawer  { open, onClose, load(limit), returnFocusTo?, id?, title?, description?, formatKey?, empty*?, what? }  who changed what and why
+ * useAdminSave() / <AdminSaveProvider fetcher?>  save({ key, row, method, path, body, optimistic?, onSaved?, undoTitle?, undo? }) -> optimistic + ✓ + undo + inline
+ *                  error, serialised per row; shown(key, actual) busy(key) error(key) flash askReason(spec) askConfirmTyped(spec)
+ * Tick { k }  FieldError { k, local? }  SourceTag  AutosaveInput  LabeledField   the autosave controls (read useAdminSave)
+ * AttentionBadge { count, label, tone? }  nav count pill; nothing for 0 / null
+ * useNarrow() / useWide()  phone (< md) / wide (>= xl) switches for the decisions CSS cannot make
+ * Client side: `adminFetch` (lib/admin-client.ts).  BFF side: `forward`/`passthrough`/`readObject`/`onlyFields` (lib/admin-proxy.ts).
  */
 export { default as AdminHero } from "./AdminHero";
 export { default as AdminStatTiles } from "./AdminStatTiles";
-export type { AdminStat } from "./AdminStatTiles";
+export type { AdminStat, StatDelta } from "./AdminStatTiles";
+export { default as AdminFilterBar, clearFilters, hasActiveFilters, SEARCH_DEBOUNCE_MS } from "./AdminFilterBar";
+export type { AdminFilterBarProps, FilterDef, FilterableList } from "./AdminFilterBar";
+export { default as AdminTable } from "./AdminTable";
+export type { AdminColumn, AdminTableProps } from "./AdminTable";
+export { default as ReasonSheet, REASON_MIN, REASON_MAX, reasonOk, reasonProblem } from "./ReasonSheet";
+export type { ReasonSpec } from "./ReasonSheet";
+export { default as ConfirmTypedSheet } from "./ConfirmTypedSheet";
+export type { ConfirmTypedSpec } from "./ConfirmTypedSheet";
+export { default as HistoryDrawer } from "./HistoryDrawer";
+export type { HistoryDrawerProps, HistoryLoader } from "./HistoryDrawer";
+export { AdminSaveProvider, AdminSaveContext, useAdminSave, useAdminSaveEngine } from "./useAdminSave";
+export type { AdminSave, AdminSaveOutcome, AdminSaveRequest, AdminFetcher } from "./useAdminSave";
+export { Tick, FieldError, SourceTag, AutosaveInput, LabeledField } from "./controls";
+export { default as AttentionBadge } from "./AttentionBadge";
+export { useNarrow, useWide } from "./useNarrow";
 export { default as AdminPanel } from "./AdminPanel";
 export { default as AdminLinkTile } from "./AdminLinkTile";
 export { default as PersonCell } from "./PersonCell";

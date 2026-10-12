@@ -22,7 +22,8 @@ import type { JobSource, JobSourcesView } from "@/components/admin/JobSourcesPan
 import { AdminHero, AdminLinkTile, AdminPanel, AdminStatTiles, BarLineChart, LegendList, SampleTag, StatusDot } from "../common";
 import ActionTile from "./ActionTile";
 import MiniBars from "./MiniBars";
-import { PERF_IMPORTED, PERF_SUCCESS, PERF_X, SOURCES_TILE_EXTRAS as X, SYNC_HISTORY, SYNC_X } from "./sample-data";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until A6.5 removes it (ADMIN-E2E-PLAN 3.5)
+import { PERF_IMPORTED, PERF_SUCCESS, PERF_X, SYNC_HISTORY, SYNC_X } from "./sample-data";
 
 const ATS_LABEL: Record<JobSource["ats"], string> = { greenhouse: "Greenhouse", lever: "Lever", ashby: "Ashby" };
 const ATS_TONE = { greenhouse: "green", lever: "blue", ashby: "violet" } as const;
@@ -218,10 +219,10 @@ export default function JobSourcesBoard({ initial }: { initial: JobSourcesView }
 
       <AdminStatTiles
         stats={[
-          { label: "Active sources", value: `${enabled}`, icon: <BoardIcon size={26} />, tone: "blue", caption: `of ${data.sources.length} sources`, delta: X.active.delta, sparkline: X.active.spark },
-          { label: "Failed sources", value: String(failing.length), icon: <AlertIcon size={26} />, tone: "coral", caption: "last read failed", delta: X.failed.delta, sparkline: X.failed.spark },
-          { label: "Jobs, last 48 h", value: data.freshPostings.toLocaleString("en-US"), icon: <FileTextIcon size={26} />, tone: "green", caption: "vs yesterday", delta: X.fresh.delta, sparkline: X.fresh.spark },
-          { label: "Sync success rate", value: successPct === null ? "n/a" : `${successPct}%`, icon: <BarChartIcon size={26} />, tone: "violet", caption: "last run", delta: X.success.delta, sparkline: X.success.spark },
+          { label: "Active sources", value: `${enabled}`, icon: <BoardIcon size={26} />, tone: "blue", caption: `of ${data.sources.length} sources` },
+          { label: "Failed sources", value: String(failing.length), icon: <AlertIcon size={26} />, tone: "coral", caption: "last read failed" },
+          { label: "Jobs, last 48 h", value: data.freshPostings.toLocaleString("en-US"), icon: <FileTextIcon size={26} />, tone: "green" },
+          { label: "Sync success rate", value: successPct === null ? "n/a" : `${successPct}%`, icon: <BarChartIcon size={26} />, tone: "violet", caption: "last run" },
         ]}
       />
 
