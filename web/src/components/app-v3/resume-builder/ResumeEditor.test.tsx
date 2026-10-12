@@ -247,10 +247,9 @@ describe("ResumeEditor", () => {
       expect(document.activeElement).toBe(pick);
     });
 
-    it("shows each panel's shell with its header and the story it waits for", () => {
+    it("shows each panel with its header (the ones still to come name the story they wait for)", () => {
       renderEditor();
       const cases: Array<[string, string]> = [
-        ["Add Section", "R2.12"],
         ["Pick Template", "R2.4"],
         ["Swap Section", "R2.2"],
         ["Tailor to Job", "R5.8"],
@@ -296,6 +295,16 @@ describe("ResumeEditor", () => {
       fireEvent.click(screen.getByRole("tab", { name: "Education" }));
       expect(pressed()).toEqual(["Add Section"]);
       expect(leftSheet().querySelector("[data-focus-kind]")?.getAttribute("data-focus-kind")).toBe("EDUCATION");
+    });
+
+    it("Add Section adds the section to the document and the row flips to Already added", () => {
+      renderEditor();
+      fireEvent.click(panelButton("Add Section"));
+      const before = document.querySelectorAll(".rb-block").length;
+      fireEvent.click(within(leftSheet()).getByRole("button", { name: "Add Languages to resume" }));
+      expect(document.querySelectorAll(".rb-block").length).toBe(before + 1);
+      expect(leftSheet().querySelector('[data-row="LANGUAGES"]')?.getAttribute("data-state")).toBe("added");
+      expect(leftSheet().getAttribute("data-state")).toBe("open"); // a pushed sheet stays open for the next one
     });
 
     it("the rail's Job Match 'Tailor to Job' button opens the Tailor panel", () => {
