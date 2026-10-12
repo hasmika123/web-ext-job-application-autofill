@@ -29,6 +29,16 @@ section, move **Current focus**, add a Log line, and update the "Last commit" li
 reviews; **Sonnet agents implement**, one story each, strict file ownership, never `git add -A`
 while others work. Agents open their own browser tab for checks and reset it.
 
+## ⚠️ Before this branch is ever promoted to `main` (production)
+- **Storage driver (P5.1):** prod's resumes uploaded since the 2026-09-17 rebuild live in **S3**. The
+  new default `DOSSIER_STORAGE_DRIVER=local` would make every one of them 404. Before the deploy,
+  either set `DOSSIER_STORAGE_DRIVER=s3` in the box's `.env` (keeps serving them; S3_* values
+  unchanged) or run the S3→local copy (plat P5.4) first. Also add the new `uploads` volume to the
+  nightly backup — it is not in the MySQL dump — and never `docker compose down -v`.
+- **Two Reacts:** `web` pins react 19.2.4 while the hoisted root copy (what `@kiwiply/ui` resolves) is
+  19.2.7; `web/vitest.config.ts` aliases around it. Align the versions before promotion.
+- `api/openapi.json` is stale (~8k lines of drift); regenerate it in its own commit.
+
 ## Key facts an implementer must not rediscover
 - The extension reads `bio.payload` (flat keys) and `resume.parsedJson` (`StructuredResume`) via
   `job-autofill/src/lib/tracking.js`; `ProfileVersion` hashes them. The builder **must keep
