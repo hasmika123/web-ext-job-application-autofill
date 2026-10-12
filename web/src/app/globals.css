@@ -120,3 +120,33 @@ html { --u: calc(100cqw / 1088); }
     cursor: not-allowed;
   }
 }
+
+/* Resume Builder: the green flash on an item or section that was just moved (Swap Section, DECISIONS #31).
+ * ~1.2 s; `FLASH_MS` in app-v3/resume-builder/moveLink.ts clears the attribute at the same moment. Under
+ * prefers-reduced-motion there is no fade: the outline just stays for the same time. */
+@keyframes rb-flash {
+  from {
+    background-color: color-mix(in srgb, var(--color-v2-green) 28%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-v2-green) 70%, transparent);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+[data-flash="true"] {
+  outline: 2px solid var(--color-v2-green);
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-flash="true"] {
+    outline: none;
+    animation: rb-flash 1.2s ease-out both;
+  }
+}
+/* The canvas item whose Swap Section row is hovered or focused. */
+[data-link="true"] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-v2-green) 45%, transparent);
+  border-radius: 0.75rem;
+}

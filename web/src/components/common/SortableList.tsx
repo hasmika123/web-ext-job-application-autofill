@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import type { Announcements, CollisionDetection, DragEndEvent, KeyboardCoordinateGetter, Modifier, UniqueIdentifier } from "@dnd-kit/core";
+import type { Announcements, CollisionDetection, DragEndEvent, DragStartEvent, KeyboardCoordinateGetter, Modifier, UniqueIdentifier } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@kiwiply/ui";
@@ -47,6 +47,10 @@ export interface SortableRootProps {
   /** What a row is called aloud ("Work Experience"). */
   label: (id: string, group: string) => string;
   onMove: (move: SortableMove) => void;
+  /** What a group is called aloud ("Experience"): the drop is announced "Moved X to position 2 of 3 in Experience". Optional. */
+  groupLabel?: (group: string) => string | undefined;
+  /** A row was picked up (`id`, its group) or put down / cancelled (`null`). */
+  onCarry?: (id: string | null, group: string | null) => void;
   children: ReactNode;
 }
 
@@ -94,7 +98,7 @@ const sameGroupCoordinates: KeyboardCoordinateGetter = (event, { context: { acti
   return rect ? { x: rect.left, y: rect.top } : undefined;
 };
 
-export function SortableRoot({ groups, label, onMove, children }: SortableRootProps) {
+export function SortableRoot({ groups, label, onMove, groupLabel, onCarry, children }: SortableRootProps) {
   const dndId = useId();
   const [carrying, setCarrying] = useState(false);
   // Escape cancels the drag (the sensor listens on the document); mark it handled first, in the capture
@@ -122,6 +126,13 @@ export function SortableRoot({ groups, label, onMove, children }: SortableRootPr
     [groups],
   );
   const nameOf = useCallback((id: UniqueIdentifier, group: string | null) => label(String(id), group ?? ""), [label]);
+  const inGroup = useCallback(
+    (group: string | null): string => {
+      const name = group ? groupLabel?.(group) : undefined;
+      return name ? ` in ${name}` : "";
+    },
+    [groupLabel],
+  );
 
   const announcements = useMemo<Announcements>(
     () => ({
@@ -131,25 +142,30 @@ export function SortableRoot({ groups, label, onMove, children }: SortableRootPr
       },
       onDragOver: ({ active, over }) => {
         const g = groupOf(active);
-        return over && over.id !== active.id && groupOf(over) === g ? `${nameOf(active.id, g)} moved to ${where(over.id, g)}.` : undefined;
+        return over && over.id !== active.id && groupOf(over) === g ? `${nameOf(active.id, g)} moved to ${where(over.id, g)}${inGroup(g)}.` : undefined;
       },
       onDragEnd: ({ active, over }) => {
         const g = groupOf(active);
-        return over && groupOf(over) === g
-          ? `Dropped ${nameOf(active.id, g)} at ${where(over.id, g)}.`
-          : `Dropped ${nameOf(active.id, g)}. It stays where it was, ${where(active.id, g)}.`;
+        if (!over || groupOf(over) !== g) return `Dropped ${nameOf(active.id, g)}. It stays where it was, ${where(active.id, g)}${inGroup(g)}.`;
+        return over.id === active.id
+          ? `Dropped ${nameOf(active.id, g)} at ${where(over.id, g)}${inGroup(g)}.`
+          : `Moved ${nameOf(active.id, g)} to ${where(over.id, g)}${inGroup(g)}.`;
       },
       onDragCancel: ({ active }) => {
         const g = groupOf(active);
         return `Cancelled. ${nameOf(active.id, g)} is back at ${where(active.id, g)}.`;
       },
     }),
-    [nameOf, where],
+    [nameOf, where, inGroup],
   );
 
-  const onDragStart = () => setCarrying(true);
+  const onDragStart = ({ active }: DragStartEvent) => {
+    setCarrying(true);
+    onCarry?.(String(active.id), groupOf(active));
+  };
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setCarrying(false);
+    onCarry?.(null, null);
     const group = groupOf(active);
     if (!over || !group || groupOf(over) !== group || active.id === over.id) return;
     const ids = groups[group] ?? [];
@@ -173,7 +189,10 @@ export function SortableRoot({ groups, label, onMove, children }: SortableRootPr
       }}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onDragCancel={() => setCarrying(false)}
+      onDragCancel={() => {
+        setCarrying(false);
+        onCarry?.(null, null);
+      }}
     >
       {children}
     </DndContext>

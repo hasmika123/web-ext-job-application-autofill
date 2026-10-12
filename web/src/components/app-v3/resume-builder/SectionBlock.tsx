@@ -18,11 +18,12 @@ import {
 } from "@kiwiply/ui";
 import type { MenuEntry, ResumeMark, ResumeSection } from "@kiwiply/ui";
 import { useCanvas, useField } from "./canvasContext";
-import { PILL_BUTTON } from "./canvasStyles";
+import { LINK_TARGET, PILL_BUTTON } from "./canvasStyles";
 import ItemRow from "./ItemRow";
 import { ScopedMarkToolbar } from "./MarkToolbar";
 import MarkedTextarea from "./MarkedTextarea";
 import { MarkScope } from "./markScope";
+import { moveLink, useLinkTarget } from "./moveLink";
 import SortableItem from "./SortableItem";
 import { SortableGroup } from "@/components/common/SortableList";
 import { KIND_META } from "./sectionKinds";
@@ -82,7 +83,12 @@ function SectionBlockInner({ section, index, count }: { section: ResumeSection; 
     requestFocus({ field: `${itemId}.${meta.firstField}` });
     dispatch({ type: "item/add", sectionId: section.id, itemId, bulletId: newId("b"), at: nowMs() });
   };
-  const move = (to: number) => dispatch({ type: "section/move", sectionId: section.id, to, at: nowMs() });
+  const move = (to: number) => {
+    dispatch({ type: "section/move", sectionId: section.id, to, at: nowMs() });
+    // the canvas follows the move: scroll to the section and flash it (the panel row flashes too)
+    moveLink.moved(section.id, `Moved ${heading} to position ${to + 1} of ${count}.`);
+  };
+  const link = useLinkTarget(section.id, "canvas");
   const hide = (hidden: boolean) => dispatch({ type: "section/hide", sectionId: section.id, hidden, at: nowMs() });
   const remove = () => {
     dispatch({ type: "section/remove", sectionId: section.id, at: nowMs() });
@@ -157,7 +163,7 @@ function SectionBlockInner({ section, index, count }: { section: ResumeSection; 
   /* a hidden section: the header only */
   if (section.hidden) {
     return (
-      <section {...blockField} id={dom} aria-label={`${heading} (hidden)`} className="rb-block scroll-mt-20 rounded-xl bg-paper-2/70 px-3 py-2">
+      <section {...blockField} {...link} id={dom} aria-label={`${heading} (hidden)`} className={cn("rb-block scroll-mt-20 rounded-xl bg-paper-2/70 px-3 py-2", LINK_TARGET)}>
         <div className="flex items-center gap-2.5">
           {iconTile}
           <h2 className="min-w-0 truncate font-display text-[15px] font-bold uppercase tracking-wide text-ink-soft">{heading}</h2>
@@ -183,9 +189,10 @@ function SectionBlockInner({ section, index, count }: { section: ResumeSection; 
   return (
     <section
       {...blockField}
+      {...link}
       id={dom}
       aria-labelledby={`${dom}-h`}
-      className="rb-block scroll-mt-20 rounded-xl aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-danger/40"
+      className={cn("rb-block scroll-mt-20 rounded-xl aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-danger/40", LINK_TARGET)}
     >
       <header className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-2">
         {iconTile}

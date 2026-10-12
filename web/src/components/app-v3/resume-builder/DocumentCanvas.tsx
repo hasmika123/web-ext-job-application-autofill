@@ -7,6 +7,7 @@ import type { ResumeDocument, ResumeTheme, TemplateCapabilities } from "@kiwiply
 import { CanvasProvider, type FocusRequest } from "./canvasContext";
 import CanvasReorder from "./CanvasReorder";
 import HeaderBlock from "./HeaderBlock";
+import { useMoveAnnouncement } from "./moveLink";
 import SectionBlock from "./SectionBlock";
 import type { DocLimits, EditorAction } from "./state/types";
 import { canvasThemeStyle } from "./themeEdit";
@@ -82,6 +83,10 @@ export default function DocumentCanvas({
     el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
   }, [errorField]);
 
+  // A move made with the canvas's own arrows / menus is announced here ("Moved X to position 2 of 3 in Experience");
+  // while the Swap Section panel is open it has the live region, so this one stays quiet.
+  const moved = useMoveAnnouncement();
+
   const controls = useMemo(() => controlStates(doc, caps), [doc, caps]);
   const value = useMemo(
     () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, reorder }),
@@ -111,11 +116,15 @@ export default function DocumentCanvas({
           </div>
         )}
 
-        <CanvasReorder doc={doc} dispatch={dispatch}>
+        <CanvasReorder doc={doc} caps={caps} dispatch={dispatch}>
           {doc.sections.map((section, i) => (
             <SectionBlock key={section.id} section={section} index={i} count={doc.sections.length} />
           ))}
         </CanvasReorder>
+
+        <p role="status" aria-live="polite" data-move-status className="sr-only">
+          {reorder ? "" : moved}
+        </p>
       </div>
     </CanvasProvider>
   );

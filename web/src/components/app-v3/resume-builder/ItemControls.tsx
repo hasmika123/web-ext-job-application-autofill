@@ -9,6 +9,7 @@ import {
   PencilIcon,
   TrashIcon,
   cn,
+  headingFor,
   iconButtonClass,
   useToast,
 } from "@kiwiply/ui";
@@ -18,6 +19,8 @@ import { useItemGrip } from "./itemGrip";
 import { KIND_META } from "./sectionKinds";
 import { nowMs } from "./state/clock";
 import { newId } from "./state/ids";
+import { itemLabel } from "./state/itemLabel";
+import { moveLink } from "./moveLink";
 
 /** A loosely typed view of any item: the canvas reads fields by name and the reducer owns the shapes. */
 export type AnyItem = Record<string, unknown> & { id: string; hidden?: boolean; bullets?: Array<{ id: string; text: string }> };
@@ -28,22 +31,8 @@ export const fieldText = (it: AnyItem, key: string): string => {
   return typeof v === "string" ? v : "";
 };
 
-/** What an item is called in labels and toasts ("Senior Engineer · Acme", else "Experience 2"). */
-export function itemHeading(section: ResumeSection, it: AnyItem, index: number): string {
-  const parts =
-    section.kind === "EDUCATION"
-      ? [fieldText(it, "degree"), fieldText(it, "school")]
-      : section.kind === "SKILLS"
-        ? [fieldText(it, "group")]
-        : section.kind === "LANGUAGES"
-          ? [fieldText(it, "name")]
-          : section.kind === "ACHIEVEMENTS" || section.kind === "INTERESTS"
-            ? [fieldText(it, "text")]
-            : [fieldText(it, "title"), fieldText(it, "org")];
-  const text = parts.map((p) => p.trim()).filter(Boolean).join(" · ");
-  const clipped = text.length > 40 ? `${text.slice(0, 40)}...` : text; // config-literal-ok: label length, not a limit
-  return clipped || `${KIND_META[section.kind].singular} ${index + 1}`;
-}
+/** What an item is called in labels, toasts and announcements ("Senior Engineer · Acme", else "Untitled role 1"): `itemLabel`, so the canvas and the Swap Section panel agree. */
+export const itemHeading = (section: ResumeSection, it: AnyItem, index: number): string => itemLabel(section.kind, it, index).name;
 
 /**
  * The right-hand controls of an item row (DESIGN 10.5): edit (focus the first field), move down,
@@ -65,13 +54,18 @@ export function ItemControls({
   heading: string;
   rowRef: RefObject<HTMLElement | null>;
 }) {
-  const { dispatch, limits } = useCanvas();
+  const { dispatch, limits, caps } = useCanvas();
   const toast = useToast();
+  const sectionName = headingFor(section, section.kind, caps);
   const grip = useItemGrip();
   const meta = KIND_META[section.kind];
   const base = { sectionId: section.id, itemId: item.id } as const;
 
-  const move = (to: number) => dispatch({ type: "item/move", ...base, to, at: nowMs() });
+  const move = (to: number) => {
+    dispatch({ type: "item/move", ...base, to, at: nowMs() });
+    // the canvas follows the move: scroll to the item and flash it (the panel row flashes too); announce it by its label
+    moveLink.moved(item.id, `Moved ${heading} to position ${to + 1} of ${count}${sectionName ? ` in ${sectionName}` : ""}.`);
+  };
   const duplicate = () =>
     dispatch({ type: "item/duplicate", ...base, newItemId: newId("i"), newBulletIds: (item.bullets ?? []).map(() => newId("b")), at: nowMs() });
   const hide = () => dispatch({ type: "item/hide", ...base, hidden: true, at: nowMs() });

@@ -1261,6 +1261,33 @@ from, to}` (one history entry; `resume_section_reordered` event). Each row's ⋮
 (the no-DnD path). Footer tip box (green): **"Tip:** Drag any section or subsection to reorder your
 resume. Changes update instantly." Capability: sections ∉ `caps.sections` greyed, handle disabled.
 
+**User feedback 2026-10-12 (DECISIONS #31) — the rows say what the item is, and the canvas follows.**
+The first build listed "Experience 1 / 2 / 3" while the canvas showed "Software Engineer · Acme Inc.", so
+nobody could tell which row was which. Now:
+1. **Item rows are named by their own content**, one pure function `itemLabel(kind, item, index)` →
+   `{ primary, secondary, name, text, empty }` (`state/itemLabel.ts`, unit-tested for every kind). EXPERIENCE
+   (and CUSTOM): title over `org · date range` ("Acme Inc. · Mar 2022 – Mar 2024", "Present" when current);
+   EDUCATION: "degree in field" over `school · dates`; PROJECTS: name over `role · dates`; CERTIFICATIONS: name
+   over `issuer · date`; LANGUAGES: language over level; SKILLS: group over its first skills; ACHIEVEMENTS /
+   INTERESTS / SUMMARY / any bullet-only item: the first non-empty line, cut at ~40 characters with "…".
+   **Empty fallback:** the primary field empty → the next non-empty one (org, school, first bullet); all empty →
+   "Untitled role|degree|project|… n" in muted italic, never the bare "Experience 1". The row truncates with
+   CSS; the full text is its `title` tooltip and its accessible name (`role=group`). `name`
+   ("Software Engineer · Acme Inc.", no dates) is what is said aloud: grip / ⋮ / arrow `aria-label`s on the
+   panel **and** the canvas (`itemHeading` is `itemLabel(...).name`) and the drag announcements
+   ("Moved Software Engineer · Acme Inc. to position 2 of 3 in Experience."). Labels follow typing live.
+2. **Panel ↔ canvas link** (`moveLink.ts`, a small keyed store; the panel and the canvas are siblings).
+   Hover or keyboard focus on a row → the matching canvas item/section gets a soft green ring (`data-link`;
+   no scroll on hover). Focus, click or drag start → the canvas scrolls it into view (smooth; instant under
+   `prefers-reduced-motion`) and the ring stays for the whole drag. **After any move** — drop, keyboard drag,
+   panel ⋮ Move up/down, canvas ↑ ↓ buttons, canvas ⋮ Move up/down, canvas drag — the moved item or section
+   scrolls into view in the canvas and **flashes** green for 1.2 s (`data-flash`, the `rb-flash` keyframes in
+   `globals.css`; a static outline under reduced motion), and its panel row flashes too when the panel is
+   open. The move is announced with the label: the panel's polite status line (buttons) or the drag's own
+   live region (drags); with the panel closed the canvas has its own status line. The flash time is
+   `FLASH_MS` (`// config-literal-ok: UI animation timing` — the builder config has no UI-timing group).
+   Unchanged: keyboard DnD, Esc cancels, one undo step per move, autosave.
+
 ### 10.3.4 Tailor to Job panel (board shows the button only — designed here)
 Header: sparkle tile · **Tailor to Job** · "Pick the job this resume is for" · ✕. Body: a `Tabs` of
 sources — **Tracked application** (list from `GET /api/profile/applications`, search box, rows: company

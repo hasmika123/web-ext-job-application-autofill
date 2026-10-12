@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Dispatch } from "react";
+import { useMemo } from "react";
+import { useState } from "react";
+import type { Dispatch, FocusEvent, ReactNode, SyntheticEvent } from "react";
 import {
   ChevronDownIcon,
   DragHandle,
@@ -17,14 +18,17 @@ import {
 import type { MenuEntry, ResumeDocument, ResumeSection, TemplateCapabilities } from "@kiwiply/ui";
 import { SortableGroup, SortableRoot, SortableRow, type SortableMove } from "@/components/common/SortableList";
 import { track } from "@/lib/analytics";
-import { itemHeading, type AnyItem } from "../ItemControls";
+import type { AnyItem } from "../ItemControls";
+import { moveLink, useLinkTarget, useMoveAnnouncement } from "../moveLink";
 import { KIND_META } from "../sectionKinds";
 import { nowMs } from "../state/clock";
+import { itemLabel, type ItemLabel } from "../state/itemLabel";
 import type { EditorAction } from "../state/types";
 
 /** The group key of a section's items in the one `SortableRoot`. */
 const SECTIONS = "sections";
-const itemsGroup = (sectionId: string): string => `items:${sectionId}`;
+const ITEMS_PREFIX = "items:";
+const itemsGroup = (sectionId: string): string => `${ITEMS_PREFIX}${sectionId}`;
 
 /** Sections the board shows open at first (the two timelines); the rest start collapsed. */
 const OPEN_AT_FIRST: ReadonlySet<ResumeSection["kind"]> = new Set(["EXPERIENCE", "EDUCATION"]);
@@ -34,9 +38,45 @@ function drawnByTemplate(section: ResumeSection, caps: TemplateCapabilities): bo
   return section.kind === "CUSTOM" ? caps.custom !== "none" : caps.sections.includes(section.kind);
 }
 
-/** "Moved Work Experience up, position 2 of 9." for the status line (buttons have no drag announcements). */
-const movedLine = (name: string, from: number, to: number, count: number): string =>
-  `Moved ${name} ${to < from ? "up" : "down"}, position ${to + 1} of ${count}.`;
+/** "Moved Software Engineer · Acme to position 2 of 3 in Experience." for the status line (buttons have no drag announcements). */
+const movedLine = (name: string, to: number, count: number, inSection?: string): string =>
+  `Moved ${name} to position ${to + 1} of ${count}${inSection ? ` in ${inSection}` : ""}.`;
+
+/**
+ * One row of the panel (a section or an item) as a link target to the canvas (`moveLink.ts`): hovering or
+ * focusing it rings the matching item in the document, focusing or clicking it scrolls the document there,
+ * and it flashes when that item moves (from here or from the canvas).
+ */
+function LinkedRow({ id, className, attrs, label, children }: { id: string; className: string; attrs: Record<string, string | undefined>; label?: string; children: ReactNode }) {
+  const link = useLinkTarget(id, "panel");
+  // A section's row holds its items' rows: an event belongs to the innermost row it came from.
+  const mine = (e: SyntheticEvent<HTMLDivElement>): boolean => (e.target as Element).closest("[data-link-id]") === e.currentTarget;
+  // The row's menu button and chevron do not scroll the document: the menu closes on any scroll, and the move
+  // itself scrolls to the item once it is made.
+  const quiet = (e: SyntheticEvent<HTMLDivElement>): boolean => (e.target as Element).closest("[aria-haspopup], [aria-expanded]") !== null;
+  return (
+    <div
+      {...link}
+      {...attrs}
+      role={label ? "group" : undefined}
+      aria-label={label}
+      className={className}
+      onPointerOver={(e) => mine(e) && moveLink.highlight(id)}
+      onPointerLeave={() => moveLink.highlight(null)}
+      onFocus={(e) => {
+        if (!mine(e)) return;
+        moveLink.highlight(id);
+        if (!quiet(e)) moveLink.reveal(id);
+      }}
+      onBlur={(e: FocusEvent<HTMLDivElement>) => {
+        if (mine(e) && !e.currentTarget.contains(e.relatedTarget)) moveLink.highlight(null);
+      }}
+      onClick={(e) => mine(e) && !quiet(e) && moveLink.reveal(id)}
+    >
+      {children}
+    </div>
+  );
+}
 
 export interface SwapSectionPanelProps {
   doc: ResumeDocument;
@@ -53,7 +93,7 @@ export interface SwapSectionPanelProps {
  */
 export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPanelProps) {
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(doc.sections.filter((s) => OPEN_AT_FIRST.has(s.kind) && s.items.length > 0).map((s) => s.id)));
-  const [status, setStatus] = useState("");
+  const status = useMoveAnnouncement();
 
   const toggle = (id: string) =>
     setOpen((cur) => {
@@ -68,22 +108,32 @@ export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPan
     return g;
   }, [doc.sections]);
 
-  const names = useMemo(() => {
-    const m = new Map<string, string>();
+  // What each row is called: a section by its title, an item by its own content ("Software Engineer · Acme Inc."), live as the user types.
+  const { names, labels } = useMemo(() => {
+    const n = new Map<string, string>();
+    const l = new Map<string, ItemLabel>();
     for (const s of doc.sections) {
-      m.set(s.id, headingFor(s, s.kind, caps));
-      (s.items as AnyItem[]).forEach((it, i) => m.set(it.id, itemHeading(s, it, i)));
+      n.set(s.id, headingFor(s, s.kind, caps));
+      (s.items as AnyItem[]).forEach((it, i) => {
+        const label = itemLabel(s.kind, it, i);
+        l.set(it.id, label);
+        n.set(it.id, label.name);
+      });
     }
-    return m;
+    return { names: n, labels: l };
   }, [doc.sections, caps]);
 
+  // After every move the canvas scrolls to the item and flashes it, and so does its row here; a drag is
+  // announced by the drag's own live region, the menu by the status line.
   const moveSection = (id: string, to: number, via: "drag" | "buttons") => {
     dispatch({ type: "section/move", sectionId: id, to, at: nowMs() });
     track("resume_section_reordered", { via });
+    moveLink.moved(id, via === "buttons" ? movedLine(names.get(id) ?? "Section", to, doc.sections.length) : undefined);
   };
   const moveItem = (section: ResumeSection, itemId: string, to: number, via: "drag" | "buttons") => {
     dispatch({ type: "item/move", sectionId: section.id, itemId, to, at: nowMs() });
     track("resume_item_reordered", { kind: section.kind.toLowerCase(), via });
+    moveLink.moved(itemId, via === "buttons" ? movedLine(names.get(itemId) ?? "Item", to, section.items.length, names.get(section.id)) : undefined);
   };
 
   const onDrop = ({ group, id, to }: SortableMove) => {
@@ -94,20 +144,14 @@ export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPan
 
   const sectionMenu = (s: ResumeSection, i: number): MenuEntry[] => {
     const count = doc.sections.length;
-    const go = (to: number) => {
-      moveSection(s.id, to, "buttons");
-      setStatus(movedLine(names.get(s.id) ?? "Section", i, to, count));
-    };
+    const go = (to: number) => moveSection(s.id, to, "buttons");
     return [
       { label: "Move up", onSelect: () => go(i - 1), disabled: i === 0 },
       { label: "Move down", onSelect: () => go(i + 1), disabled: i >= count - 1 },
     ];
   };
   const itemMenu = (s: ResumeSection, itemId: string, i: number, count: number): MenuEntry[] => {
-    const go = (to: number) => {
-      moveItem(s, itemId, to, "buttons");
-      setStatus(movedLine(names.get(itemId) ?? "Item", i, to, count));
-    };
+    const go = (to: number) => moveItem(s, itemId, to, "buttons");
     return [
       { label: "Move up", onSelect: () => go(i - 1), disabled: i === 0 },
       { label: "Move down", onSelect: () => go(i + 1), disabled: i >= count - 1 },
@@ -118,7 +162,13 @@ export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPan
     <div data-panel="swap" className="flex flex-col gap-3">
       <p className="text-[12.5px] leading-snug text-muted">Rearrange your resume structure. Changes update in the resume inline.</p>
 
-      <SortableRoot groups={groups} label={(id) => names.get(id) ?? "row"} onMove={onDrop}>
+      <SortableRoot
+        groups={groups}
+        label={(id) => names.get(id) ?? "row"}
+        groupLabel={(group) => (group === SECTIONS ? undefined : names.get(group.slice(ITEMS_PREFIX.length)))}
+        onMove={onDrop}
+        onCarry={(id) => moveLink.carry(id)}
+      >
         <ul aria-label="Sections" className="flex flex-col gap-2">
           {/* Personal Information is the header, not a section: it is always first and cannot be moved. */}
           <li data-pinned className="flex min-h-12 items-center gap-1.5 rounded-xl bg-paper-2/70 px-2 py-1.5">
@@ -140,9 +190,9 @@ export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPan
               return (
                 <SortableRow key={section.id} as="li" id={section.id} group={SECTIONS} disabled={!drawn} className="list-none">
                   {(row) => (
-                    <div
-                      data-section={section.id}
-                      data-greyed={drawn ? undefined : "true"}
+                    <LinkedRow
+                      id={section.id}
+                      attrs={{ "data-section": section.id, "data-greyed": drawn ? undefined : "true" }}
                       className={cn("rounded-xl bg-paper-2/70", row.isDragging && "bg-paper ring-1 ring-v2-line", !drawn && "opacity-60")}
                     >
                       <div className="flex min-h-12 items-center gap-1.5 px-2 py-1.5">
@@ -185,16 +235,23 @@ export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPan
                         <SortableGroup group={itemsGroup(section.id)} ids={groups[itemsGroup(section.id)]}>
                           <ul aria-label={`${title} entries`} className="ml-6 flex flex-col gap-1.5 border-l border-dashed border-line pb-2 pl-3 pr-2">
                             {items.map((item, j) => {
-                              const name = names.get(item.id) ?? "";
+                              const label = labels.get(item.id) ?? itemLabel(section.kind, item, j);
+                              const name = label.name;
                               return (
                                 <SortableRow key={item.id} as="li" id={item.id} group={itemsGroup(section.id)} disabled={!drawn} className="list-none">
                                   {(r) => (
-                                    <div
-                                      data-item={item.id}
+                                    <LinkedRow
+                                      id={item.id}
+                                      label={label.text}
+                                      attrs={{ "data-item": item.id }}
                                       className={cn("flex min-h-11 items-center gap-1.5 rounded-lg bg-paper px-2 py-1", r.isDragging && "ring-1 ring-v2-line")}
                                     >
                                       <Icon className="h-4 w-4 flex-none text-v2-green-ink" />
-                                      <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">{name}</span>
+                                      {/* the item's own content, not "Experience 1": the title over the company and dates; the whole text on hover */}
+                                      <span className="flex min-w-0 flex-1 flex-col" title={label.text}>
+                                        <span className={cn("truncate text-[13.5px] leading-snug", label.empty ? "italic text-muted" : "font-medium text-ink")}>{label.primary}</span>
+                                        {label.secondary && <span className="truncate text-[12px] leading-snug text-muted">{label.secondary}</span>}
+                                      </span>
                                       {item.hidden && (
                                         <span className="flex-none rounded bg-paper-2 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-ink-soft">Hidden</span>
                                       )}
@@ -212,7 +269,7 @@ export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPan
                                         {...r.handleProps}
                                         disabled={!drawn}
                                       />
-                                    </div>
+                                    </LinkedRow>
                                   )}
                                 </SortableRow>
                               );
@@ -220,7 +277,7 @@ export default function SwapSectionPanel({ doc, caps, dispatch }: SwapSectionPan
                           </ul>
                         </SortableGroup>
                       )}
-                    </div>
+                    </LinkedRow>
                   )}
                 </SortableRow>
               );

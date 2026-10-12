@@ -14,3 +14,6 @@ export const PILL_BUTTON =
   "inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-v2-line bg-paper px-3 text-[13px] font-semibold text-v2-green-ink " +
   "transition-colors hover:bg-v2-green-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent " +
   "disabled:pointer-events-none disabled:opacity-50 max-sm:min-h-11";
+
+/** Room for the sticky section tabs when a moved / revealed item or section is scrolled to (the ring itself is `[data-link]` / `[data-flash]` in globals.css). */
+export const LINK_TARGET = "scroll-mt-24";
