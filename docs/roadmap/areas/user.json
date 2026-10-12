@@ -3551,7 +3551,7 @@
       "benchmark": "G22 — Huntr application packets (Pro); ours is free because the parts already exist"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [
         "U0.2"

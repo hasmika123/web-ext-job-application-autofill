@@ -48,10 +48,10 @@ export interface SideSheetProps {
   className?: string;
 }
 
-const FOCUSABLE =
+export const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-const EASE = "cubic-bezier(.2,.8,.2,1)";
+export const EASE = "cubic-bezier(.2,.8,.2,1)";
 export const SIDE_SHEET_MS = 200;
 export const SIDE_SHEET_REDUCED_MS = 80;
 
@@ -71,7 +71,7 @@ function reducedSnapshot() {
 }
 
 /** `prefers-reduced-motion: reduce`, live (false on the server). */
-function usePrefersReducedMotion(): boolean {
+export function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReduced, reducedSnapshot, () => false);
 }
 
@@ -80,7 +80,7 @@ function usePrefersReducedMotion(): boolean {
  * `shown` flips true two frames after mounting (so the entrance transition has a start state).
  * A sheet that is open on first render skips the entrance.
  */
-function usePresence(open: boolean, ms: number) {
+export function usePresence(open: boolean, ms: number) {
   const [state, setState] = useState({ mounted: open, shown: open });
 
   if (open && !state.mounted) setState({ mounted: true, shown: false });
