@@ -24,6 +24,13 @@ Concretely:
   (+ Pill/Tag), Switch, ChoiceGroup, ChipInput (strings as chips: skills), SourceChip (provenance label: "From your resume" ...), Meter, Tabs, Toast (`ToastProvider`/`useToast`, optional `action` button such as Undo), Skeleton, Spinner,
   EmptyState, Dialog, SidePanel, SideSheet (left/right slide-in: push / overlay / fullscreen; the Resume Builder's two side-navs), Tooltip, DragHandle (the grip button of a sortable row), Menu, Popover (a floating panel for switches / links / rows: the Menu's sibling), Brand marks. Export new ones from
   `src/index.ts`.
+- **The page kit** (E2E-U0.0, `docs/APP-E2E-PLAN.md` section 2.3): the pieces every page story imports instead of
+  hand-rolling: `SaveStatusChip` (+ `SaveStatus`), `BottomSheet` (SideSheet's phone sibling: 70 % / full snap,
+  drag the grip down to close, Esc, focus trap, body scroll lock), `ListSkeleton` / `TileSkeleton` /
+  `TableSkeleton`, `ErrorState` ("Couldn't load X" + Retry + request id) and `EmptyState`
+  (`variant="page" | "inline"`, `mascot`). Their web-side partners are `useAutosave` (`web/src/lib/autosave.ts`),
+  `undoToast` (`undo-toast.ts`) and `useListQuery` (`list-query.ts`); the lint rule
+  `kiwiply/icon-button-needs-label` keeps every icon-only control named.
 - **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`
   (13.3 — one resume against one job, shown the same in the drawer and on the board) and
   `AtsReport` (13.5 — a resume's ATS score, what to fix first, and keyword coverage for a job).

@@ -14,20 +14,16 @@ import { onboardingSettings } from "@/lib/onboarding-card";
 import ProfileProgressCard from "@/components/app-v3/profiles/setup/ProfileProgressCard";
 import { getCompleteness } from "@/lib/profile-items-server";
 import { computeDashboard, computeProfile } from "@/components/app-v3/home/compute";
-import {
-  DASH_ACTIVITY_PERIODS,
-  DASH_RECENT,
-  DASH_RECOMMENDED,
-  DASH_STATS,
-  DASH_STATUS,
-} from "@/components/app-v3/sample-data";
+import { samples } from "@/components/app-v3/samples";
+import { samplesEnabled } from "@/lib/samples";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 /**
  * Dashboard (app v3, spec 2.1): the authed landing page (post-login redirect target). Real where an API
- * exists (first name, applications, Pro matches, profile), otherwise the board's SAMPLE data from
- * `app-v3/sample-data.ts`. Session gate + shell live in the `(app)` layout.
+ * exists (first name, applications, Pro matches, profile); where one does not yet, a real account gets an honest
+ * empty state and only a demo account on a sample-enabled build gets the board's rows (`samples()`, U0.5).
+ * Session gate + shell live in the `(app)` layout.
  */
 export default async function Page() {
   const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData, completeness, builderConfig, onboardingStatus] = await Promise.all([
@@ -62,9 +58,13 @@ export default async function Page() {
   const n = computeDashboard(apps);
 
   const firstName = account?.firstName || account?.login || account?.email?.split("@")[0] || "there";
+  // The sample gate: real accounts never see a fake row. `showSample` = this demo account has no real applications yet.
+  const sampleOn = samplesEnabled(account?.login);
+  const showSample = !real && sampleOn;
   const recommended = jobsData.real
     ? jobsData.jobs.slice(0, 3).map((j) => ({ id: j.id, title: j.title, company: j.company, score: j.score, real: j.real }))
-    : DASH_RECOMMENDED;
+    : samples("DASH_RECOMMENDED", sampleOn);
+  const sampleStatus = samples("DASH_STATUS", showSample);
 
   // `feature.onboarding_v2.enabled` (R1.8) switches the card; its timings and the mascot flair come from `config.onboarding`
   // (an API without the group falls back to the declared defaults).
@@ -73,13 +73,20 @@ export default async function Page() {
   return (
     <DashboardPage
       firstName={firstName}
-      stats={real ? n.stats : DASH_STATS}
-      activity={real ? n.activity : DASH_ACTIVITY_PERIODS}
-      status={real ? n.status : DASH_STATUS}
-      total={real ? n.total : DASH_STATUS.reduce((s, x) => s + x.value, 0)}
-      recent={real ? n.recent : DASH_RECENT}
+      stats={showSample ? samples("DASH_STATS", true) : n.stats}
+      activity={showSample ? (samples("DASH_ACTIVITY_PERIODS", true) ?? n.activity) : n.activity}
+      status={showSample ? sampleStatus : n.status}
+      total={showSample ? sampleStatus.reduce((s, x) => s + x.value, 0) : n.total}
+      recent={showSample ? samples("DASH_RECENT", true) : n.recent}
       recommended={recommended}
-      profile={computeProfile(profileRes.ok ? bio : null, resumes.length)}
+      insights={samples("DASH_INSIGHTS", sampleOn)}
+      interviews={samples("DASH_INTERVIEWS", sampleOn)}
+      alerts={samples("DASH_ALERTS", sampleOn)}
+      profile={computeProfile(
+        profileRes.ok ? bio : null,
+        resumes.length,
+        sampleOn ? { pct: samples("DASH_PROFILE_PCT", true) ?? 0, checks: samples("DASH_PROFILE_CHECKS", true) } : null,
+      )}
     >
       {onboarding.enabled && (
       <FinishProfileCard

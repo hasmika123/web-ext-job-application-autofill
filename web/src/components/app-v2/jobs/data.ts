@@ -1,9 +1,9 @@
 import { serverApiFetch } from "@/lib/api";
-import { SAMPLE_JOBS, type SampleJob } from "@/components/app-v2/sample-data";
+import type { SampleJob } from "@/components/app-v2/sample-data";
 import { matchToJob, type ApiMatch } from "./job-utils";
 
 export interface JobsData {
-  /** The list the pages draw (real matches when the user has them, otherwise the sample rows). */
+  /** The user's real daily matches; `[]` when there are none (a sample list is the pages' business: `samples()`, U0.5). */
   jobs: SampleJob[];
   /** True when `jobs` are the user's real daily matches. */
   real: boolean;
@@ -18,9 +18,10 @@ interface MatchesPayload {
 
 /**
  * Jobs for Home / Job Search / Job detail. Pro accounts get their real daily matches
- * (`/api/profile/job-matches`); everyone else, and Pro accounts with an empty list, get the board's
- * sample rows so the page looks like the board (APP-V2-SPEC section 1.3). The endpoint answers with
- * an error for Free, which just means "no real matches". Never throws.
+ * (`/api/profile/job-matches`); everyone else, and Pro accounts with an empty list, get `real: false` and no
+ * jobs: the page decides what to show (an honest empty state; the board's sample rows only for a demo
+ * account on a sample-enabled build). The endpoint answers with an error for Free, which just means "no real
+ * matches". Never throws.
  */
 export async function loadJobs(): Promise<JobsData> {
   try {
@@ -36,10 +37,10 @@ export async function loadJobs(): Promise<JobsData> {
           matchEnabled: data?.setting?.enabled,
         };
       }
-      return { jobs: SAMPLE_JOBS, real: false, matchEnabled: data?.setting?.enabled };
+      return { jobs: [], real: false, matchEnabled: data?.setting?.enabled };
     }
   } catch {
-    // the sample rows are fine
+    // no matches is fine
   }
-  return { jobs: SAMPLE_JOBS, real: false };
+  return { jobs: [], real: false };
 }

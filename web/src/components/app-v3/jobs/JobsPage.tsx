@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRightIcon, SearchIcon, SlidersIcon, SparklesIcon, cn } from "@kiwiply/ui";
+import { ArrowRightIcon, EmptyState, SearchIcon, SlidersIcon, SparklesIcon, cn } from "@kiwiply/ui";
 import { FilterSelect, HeroBand, Pagination, PromptChip } from "@/components/app-v2/common";
-import { JOBS_PAGE_SIZE, JOBS_SAMPLE_TOTAL, V3_JOBS, type JobType, type V3Job } from "@/components/app-v3/sample-data";
+import { JOBS_PAGE_SIZE, type JobType, type V3Job } from "@/components/app-v3/sample-data";
+import { useSamples } from "@/components/app-v3/SamplesProvider";
 import type { SampleJob } from "@/components/app-v2/sample-data";
 import FilterRail from "./FilterRail";
 import JobRow from "./JobRow";
@@ -22,8 +23,8 @@ const CHIPS: { label: string; type?: JobType }[] = [
 /**
  * Job Search (APP-V3-SPEC 2.2): hero with search + quick chips, filter rail, result list with the
  * "N jobs found" header, sort and pagination, and the right-hand detail panel. Pro accounts see their
- * real daily matches (`realJobs`); everyone else sees the board's SAMPLE rows (30 of them standing in
- * for the headline "1,234 jobs"). Below `xl` the filter rail folds behind a Filters button; below
+ * real daily matches (`realJobs`); everyone else sees an honest empty state, except a demo account on a
+ * sample-enabled build, which sees the board's SAMPLE rows (`samples()`, U0.5). Below `xl` the filter rail folds behind a Filters button; below
  * `md` the detail panel replaces the list.
  */
 export default function JobsPage({
@@ -36,8 +37,11 @@ export default function JobsPage({
   initialQuery?: string;
   initialSelectedId?: string | null;
 }) {
+  const sample = useSamples();
   const real = !!realJobs && realJobs.length > 0;
-  const pool: V3Job[] = useMemo(() => (real ? realJobs!.map(realToV3) : V3_JOBS), [real, realJobs]);
+  const sampleJobs = useMemo(() => sample("V3_JOBS"), [sample]);
+  const sampleTotal = sample("JOBS_SAMPLE_TOTAL");
+  const pool: V3Job[] = useMemo(() => (real ? realJobs!.map(realToV3) : sampleJobs), [real, realJobs, sampleJobs]);
   const facets = useMemo(() => companyFacets(pool), [pool]);
 
   // Real matches have no job-type facet worth defaulting; start with nothing ticked.
@@ -57,8 +61,8 @@ export default function JobsPage({
   const pages = Math.max(1, Math.ceil(results.length / JOBS_PAGE_SIZE));
   const cur = Math.min(page, pages);
   const rows = results.slice((cur - 1) * JOBS_PAGE_SIZE, cur * JOBS_PAGE_SIZE);
-  const untouched = !real && isDefault(filters, initialQuery.trim());
-  const total = untouched ? JOBS_SAMPLE_TOTAL : results.length;
+  const untouched = !real && sampleTotal !== null && isDefault(filters, initialQuery.trim());
+  const total = untouched ? sampleTotal : results.length;
   const selected = selectedId ? (pool.find((j) => j.id === selectedId) ?? null) : null;
 
   const change = (f: Filters) => {
@@ -157,6 +161,18 @@ export default function JobsPage({
         </div>
       </HeroBand>
 
+      {pool.length === 0 ? (
+        <EmptyState
+          mascot
+          title="No jobs to show yet"
+          description="Daily matches land here once your profile and resume are ready."
+          action={
+            <Link href="/profiles" className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
+              Open your profile
+            </Link>
+          }
+        />
+      ) : (
       <div className="grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)]">
         <div className="hidden xl:block">{rail}</div>
 
@@ -228,6 +244,7 @@ export default function JobsPage({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

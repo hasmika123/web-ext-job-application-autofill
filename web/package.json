@@ -14,6 +14,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
+    "test:e2e": "playwright test",
     "test": "node scripts/sync-parser-core.mjs && tsc --noEmit && eslint . && npm run test:unit"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^20",

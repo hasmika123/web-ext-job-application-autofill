@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import kiwiply from "./eslint-rules/kiwiply.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -76,6 +77,13 @@ const eslintConfig = defineConfig([
       },
     },
     rules: { "resume-builder/no-config-literal": "error" },
+  },
+  // Every icon-only control has an accessible name (E2E-U0.0, DECISIONS #32). Rule: web/eslint-rules/kiwiply.mjs.
+  {
+    files: ["src/**/*.tsx"],
+    ignores: ["**/*.test.tsx"],
+    plugins: { kiwiply },
+    rules: { "kiwiply/icon-button-needs-label": "error" },
   },
   // next/og images must be self-contained (no imports resolve in the OG runtime).
   {

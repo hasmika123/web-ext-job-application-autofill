@@ -250,7 +250,7 @@
       "id": "U0.5",
       "epic": "U0",
       "title": "Remove sample-data fallbacks behind a single flag",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "web"
@@ -3171,7 +3171,7 @@
       "id": "U19.3",
       "epic": "U19",
       "title": "Test infrastructure: vitest + Playwright for web, mock API fixtures, CI jobs",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"
@@ -3551,7 +3551,7 @@
       "benchmark": "G22 — Huntr application packets (Pro); ours is free because the parts already exist"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [
         "U0.2"

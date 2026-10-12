@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { CalendarIcon, ChartIcon, FileTextIcon, TrendingUpIcon, TrophyIcon, useToast } from "@kiwiply/ui";
+import Link from "next/link";
+import { CalendarIcon, ChartIcon, EmptyState, FileTextIcon, TrendingUpIcon, TrophyIcon, useToast } from "@kiwiply/ui";
 import {
   BarGroupChart,
   Donut,
@@ -13,7 +14,8 @@ import {
   UnderlineTabs,
 } from "@/components/app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import { AN_SKILLS, AN_TABS, type AnalyticsData } from "../sample-data";
+import { AN_TABS, type AnalyticsData } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 
 const PERIODS = ["Last 7 days", "Last 30 days", "Last 90 days"];
 
@@ -29,13 +31,34 @@ const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
 /**
  * Analytics (APP-V3-SPEC 2.12). `data` is real when the account has submitted applications
- * (`data.real`), the board's sample otherwise (computed in `analytics/compute.ts`). The tabs filter
- * which cards show. "Skills in demand" is always sample.
+ * (`data.real`); with none it is `null` (an honest empty state) or, for a demo account on a sample-enabled
+ * build, the board's sample (computed in `analytics/compute.ts`). The tabs filter which cards show.
+ * "Skills in demand" has no API yet, so it is drawn only from `samples()` (U0.5).
  */
-export default function AnalyticsPage({ data }: { data: AnalyticsData }) {
+export default function AnalyticsPage({ data }: { data: AnalyticsData | null }) {
   const toast = useToast();
+  const sample = useSamples();
+  const skillRows = sample("AN_SKILLS");
   const [tab, setTab] = useState("overview");
   const [period, setPeriod] = useState("Last 30 days");
+
+  if (!data) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        <HeroBand title="Your Job Search Analytics" subtitle="Track your progress and insights." mascot="mascot-apps" note="Look at that progress!" />
+        <EmptyState
+          mascot
+          title="No analytics yet"
+          description="Charts appear once you have submitted applications."
+          action={
+            <Link href="/jobs" className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
+              Find jobs
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   const { max, ticks } = chartScale(data.overTime);
   const statusTotal = data.status.reduce((s, x) => s + x.value, 0);
@@ -95,7 +118,7 @@ export default function AnalyticsPage({ data }: { data: AnalyticsData }) {
   const skills = (
     <SectionCard title="Skills in demand" subtitle="Across jobs like the ones you apply to">
       <ul className="space-y-3.5">
-        {AN_SKILLS.map((s) => (
+        {skillRows.map((s) => (
           <li key={s.name} className="flex items-center gap-3">
             <span className="w-24 flex-none truncate text-[13.5px] font-medium text-v2-navy">{s.name}</span>
             <Progress value={s.pct} tone="green" label={`${s.name} demand`} className="h-2.5" />
@@ -141,7 +164,7 @@ export default function AnalyticsPage({ data }: { data: AnalyticsData }) {
         <StatTile tone="amber" icon={<TrendingUpIcon className="h-5 w-5" />} value={data.stats.response.value} label="Response rate" delta={data.stats.response.delta} />
       </div>
 
-      {tab === "overview" && grid([<div key="a">{overTime}</div>, <div key="b">{responseByCompany}</div>, <div key="c">{statusBreakdown}</div>, <div key="d">{skills}</div>])}
+      {tab === "overview" && grid([<div key="a">{overTime}</div>, <div key="b">{responseByCompany}</div>, <div key="c">{statusBreakdown}</div>, ...(skillRows.length > 0 ? [<div key="d">{skills}</div>] : [])])}
       {tab === "applications" && grid([<div key="a">{overTime}</div>, <div key="c">{statusBreakdown}</div>])}
       {tab === "interviews" && grid([<div key="b">{responseByCompany}</div>, <div key="f">{funnel}</div>])}
       {tab === "offers" && grid([<div key="f">{funnel}</div>, <div key="c">{statusBreakdown}</div>])}

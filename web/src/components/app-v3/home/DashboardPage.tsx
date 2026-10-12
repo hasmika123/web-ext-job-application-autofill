@@ -13,6 +13,7 @@ import {
   SearchIcon,
   SparklesIcon,
   TrophyIcon,
+  EmptyState,
   cn,
 } from "@kiwiply/ui";
 import {
@@ -30,13 +31,7 @@ import {
 } from "@/components/app-v2/common";
 import { SaveButton } from "@/components/app-v2/jobs/JobBits";
 import type { SampleJob } from "@/components/app-v2/sample-data";
-import {
-  DASH_ALERTS,
-  DASH_INSIGHTS,
-  DASH_INTERVIEWS,
-  type DashRecent,
-  type DashStat,
-} from "@/components/app-v3/sample-data";
+import type { DashRecent, DashStat } from "@/components/app-v3/sample-data";
 import Greeting from "./Greeting";
 import ActivityCard from "./ActivityCard";
 
@@ -49,6 +44,10 @@ export interface DashboardProps {
   recent: DashRecent[];
   recommended: { id: string; title: string; company: string; score: number; real?: SampleJob["real"] }[];
   profile: { pct: number; checks: { id: string; label: string; done: boolean }[] };
+  /** AI insights, upcoming interviews and job alerts: no API yet, so these are `[]` for a real account (U0.5). */
+  insights: { text: string; href: string }[];
+  interviews: { company: string; title: string; when: string }[];
+  alerts: { title: string; count: number; ago: string }[];
   /** Slot under the hero (the "learned while applying" suggestions card). */
   children?: ReactNode;
 }
@@ -79,9 +78,20 @@ const QUICK = [
  * Dashboard (APP-V3-SPEC 2.1). Four rows under the hero: stat tiles, three cards (activity, status,
  * AI insights), three cards (recent applications, recommended, profile strength) and three more
  * (interviews, alerts, quick actions). Three-up from `xl`, two-up from `md`, one column on phones.
- * Upcoming interviews and job alerts are SAMPLE rows (no API yet); the rest follows real data.
+ * Every number follows real data. Insights, interviews and alerts have no API yet: a real account gets `[]` and
+ * an honest empty state (U0.5); only a demo account on a sample-enabled build sees the board's rows.
  */
+/** The one low-key action link of an inline empty state. */
+function EmptyLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="text-[13px] font-bold text-v2-blue-ink hover:underline">
+      {children}
+    </Link>
+  );
+}
+
 export default function DashboardPage(p: DashboardProps) {
+  const noApplications = p.total === 0;
   const grid = "grid gap-4 md:grid-cols-2 xl:grid-cols-3";
   const third = "md:col-span-2 xl:col-span-1";
   return (
@@ -110,10 +120,25 @@ export default function DashboardPage(p: DashboardProps) {
       </div>
 
       <div className={grid}>
-        <ActivityCard periods={p.activity} />
+        {noApplications ? (
+          <SectionCard title="Application Activity">
+            <EmptyState
+              variant="inline"
+              title="No activity yet"
+              description="Applications you submit show up here."
+              action={<EmptyLink href="/jobs">Find jobs</EmptyLink>}
+            />
+          </SectionCard>
+        ) : (
+          <ActivityCard periods={p.activity} />
+        )}
 
         <SectionCard title="Application Status">
-          <Donut segments={p.status} centerValue={p.total} centerLabel="Total" size={132} />
+          {noApplications ? (
+            <EmptyState variant="inline" title="No applications yet" description="Your statuses will be counted here." />
+          ) : (
+            <Donut segments={p.status} centerValue={p.total} centerLabel="Total" size={132} />
+          )}
         </SectionCard>
 
         <SectionCard
@@ -121,8 +146,11 @@ export default function DashboardPage(p: DashboardProps) {
           icon={<SparklesIcon size={18} className="text-v2-green" />}
           className={cn("bg-v2-lime-soft/60", third)}
         >
+          {p.insights.length === 0 ? (
+            <EmptyState variant="inline" title="No insights yet" description="They appear as you apply." />
+          ) : (
           <ul className="space-y-2">
-            {DASH_INSIGHTS.map((i) => (
+            {p.insights.map((i) => (
               <li key={i.text}>
                 <Link
                   href={i.href}
@@ -135,13 +163,14 @@ export default function DashboardPage(p: DashboardProps) {
               </li>
             ))}
           </ul>
+          )}
         </SectionCard>
       </div>
 
       <div className={grid}>
         <SectionCard title="Recent Applications" action={{ label: "View All", href: "/applications" }}>
           {p.recent.length === 0 ? (
-            <p className="py-6 text-center text-[13.5px] text-v2-muted">No applications yet. Find a job to get started.</p>
+            <EmptyState variant="inline" title="No applications yet" action={<EmptyLink href="/jobs">Find a job</EmptyLink>} />
           ) : (
             <ul className="divide-y divide-v2-line/60">
               {p.recent.map((r) => (
@@ -162,6 +191,9 @@ export default function DashboardPage(p: DashboardProps) {
         </SectionCard>
 
         <SectionCard title="Recommended for You" action={{ label: "See all", href: "/jobs" }}>
+          {p.recommended.length === 0 ? (
+            <EmptyState variant="inline" title="No recommendations yet" description="Finish your profile to get matches." action={<EmptyLink href="/profiles">Open profile</EmptyLink>} />
+          ) : (
           <ul className="divide-y divide-v2-line/60">
             {p.recommended.map((j) => (
               <li key={j.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
@@ -175,6 +207,7 @@ export default function DashboardPage(p: DashboardProps) {
               </li>
             ))}
           </ul>
+          )}
         </SectionCard>
 
         <SectionCard title="Profile Strength" action={{ label: "Improve", href: "/profiles" }} className={third}>
@@ -205,8 +238,11 @@ export default function DashboardPage(p: DashboardProps) {
 
       <div className={grid}>
         <SectionCard title="Upcoming Interviews" action={{ label: "View all", href: "/interview-prep" }}>
+          {p.interviews.length === 0 ? (
+            <EmptyState variant="inline" title="No interviews scheduled" action={<EmptyLink href="/interview-prep">Practice for one</EmptyLink>} />
+          ) : (
           <ul className="divide-y divide-v2-line/60">
-            {DASH_INTERVIEWS.map((i) => (
+            {p.interviews.map((i) => (
               <li key={i.company} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                 <CompanyTile name={i.company} size={38} />
                 <span className="min-w-0 flex-1">
@@ -222,11 +258,15 @@ export default function DashboardPage(p: DashboardProps) {
               </li>
             ))}
           </ul>
+          )}
         </SectionCard>
 
         <SectionCard title="Job Alerts" action={{ label: "Manage", href: "/alerts" }}>
+          {p.alerts.length === 0 ? (
+            <EmptyState variant="inline" title="No job alerts yet" action={<EmptyLink href="/alerts">Set one up</EmptyLink>} />
+          ) : (
           <ul className="divide-y divide-v2-line/60">
-            {DASH_ALERTS.map((a) => (
+            {p.alerts.map((a) => (
               <li key={a.title} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                 <IconTile tone="blue" className="h-[38px] w-[38px]">
                   <BellIcon size={17} />
@@ -239,6 +279,7 @@ export default function DashboardPage(p: DashboardProps) {
               </li>
             ))}
           </ul>
+          )}
         </SectionCard>
 
         <SectionCard title="Quick Actions" icon={<ClipboardIcon size={18} className="text-v2-blue" />} className={third}>

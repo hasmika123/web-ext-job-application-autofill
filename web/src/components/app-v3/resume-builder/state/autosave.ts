@@ -1,223 +1,27 @@
 /**
- * The autosave controller (DESIGN 3.2 / 7.2): framework-free so it can be driven by fake timers.
- *
- * - **Debounce**: a save fires `delayMs` (800) after the *last* change.
- * - **Serialised**: one request in flight; a change made meanwhile is saved right after, never in
- *   parallel (parallel PUTs with the same `If-Match` would 409 each other).
- * - **`If-Match`**: the controller owns the document version. It sends it, and on success adopts the
- *   version the server returned, so the next save is sent against the new ETag.
- * - **409**: autosave *pauses* and reports the server's copy (`onConflict`). The UI asks the user;
- *   `resume({version})` (keep mine) saves against the server's version, `reset(...)` (take theirs)
- *   adopts the server document and drops the pending save.
- * - **Hold** (R2.4): the template / theme PATCHes bump the same `doc_version`, so they run between
- *   `hold()` (no new save starts; an in-flight one finishes) and `release(version)` (adopt the version the
- *   PATCH returned, then save whatever is pending). A content PUT can then never carry a stale `If-Match`.
- * - **Network / 5xx**: retry with backoff (`retryDelaysMs`, the last value repeats) and report
- *   `onRetrying`. A new edit during the wait restarts the normal debounce but keeps the backoff.
- * - **422 / 401 / 413 ...**: not retried by timer (retrying cannot fix them); reported via
- *   `onFailed`, and the *next edit* tries again.
+ * The Resume Builder's autosave controller (DESIGN 3.2 / 7.2) now lives in `@/lib/autosave` as a generic
+ * controller (E2E-U0.0) so every page can use it; this file is the document-typed shim the editor keeps importing.
+ * Behaviour is unchanged: see `@/lib/autosave` for the debounce / If-Match / 409 / backoff contract and
+ * `./autosave.test.ts` for its tests.
  */
 import type { ResumeDocument } from "@kiwiply/ui";
-import type { SaveResult } from "@/lib/resume-doc";
+import {
+  AUTOSAVE_DELAY_MS,
+  RETRY_DELAYS_MS,
+  createAutosave as createGenericAutosave,
+  type Autosave as GenericAutosave,
+  type AutosaveEvents as GenericAutosaveEvents,
+  type AutosaveOptions as GenericAutosaveOptions,
+  type Snapshot as GenericSnapshot,
+} from "@/lib/autosave";
 
-// config-literal-ok: autosave debounce and backoff are fixed by DESIGN 8.5 / 10.15 ("800 ms, as built"); no settings key exists for them in DESIGN 15.2
-export const AUTOSAVE_DELAY_MS = 800;
-// config-literal-ok: backoff ladder, same reason as above
-export const RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 4000, 8000, 15000];
+export { AUTOSAVE_DELAY_MS, RETRY_DELAYS_MS };
 
-export interface Snapshot {
-  doc: ResumeDocument;
-  /** Monotonic revision of the document; larger = newer. */
-  rev: number;
-}
-
-export interface AutosaveEvents {
-  onSaving?(rev: number): void;
-  onSaved?(rev: number, version: number): void;
-  onRetrying?(attempt: number, delayMs: number): void;
-  onConflict?(serverVersion: number, doc: ResumeDocument): void;
-  /** `path` is the validator's JSON path on a 422 (the canvas rings that field); absent for other failures. */
-  onFailed?(message: string, path?: string): void;
-}
-
-export interface AutosaveOptions extends AutosaveEvents {
-  /** Performs one save. Must not throw (a thrown error is treated as a network failure). */
-  save(req: { doc: ResumeDocument; version: number }): Promise<SaveResult>;
-  /** The version the server had when the document was loaded. */
-  version: number;
-  /** The revision the server already has (nothing to save until a snapshot with a larger one). */
-  rev?: number;
-  delayMs?: number;
-  retryDelaysMs?: readonly number[];
-}
-
-export interface Autosave {
-  /** Report the latest document. Cheap; call on every change. */
-  schedule(snapshot: Snapshot): void;
-  /** Save now (cancels the debounce) and resolve when nothing is in flight. */
-  flush(): Promise<void>;
-  /** After "keep mine": continue against `version` (the server's) and save the latest snapshot. */
-  resume(version: number): void;
-  /** After "take theirs": adopt the server's `version`/`rev` as saved and forget anything pending. */
-  reset(version: number, rev: number): void;
-  /** Stop starting saves and wait for the one in flight (a PATCH is about to bump the version). Pair with `release`. */
-  hold(): Promise<void>;
-  /** End a `hold`: adopt `version` (what the PATCH returned) when given, then save what is pending. */
-  release(version?: number): void;
-  /** Stop all timers; later calls are ignored. */
-  dispose(): void;
-  readonly version: number;
-  readonly savedRev: number;
-  readonly paused: boolean;
-}
+export type Snapshot = GenericSnapshot<ResumeDocument>;
+export type AutosaveEvents = GenericAutosaveEvents<ResumeDocument>;
+export type AutosaveOptions = GenericAutosaveOptions<ResumeDocument>;
+export type Autosave = GenericAutosave<ResumeDocument>;
 
 export function createAutosave(opts: AutosaveOptions): Autosave {
-  const delayMs = opts.delayMs ?? AUTOSAVE_DELAY_MS;
-  const retryDelays = opts.retryDelaysMs?.length ? opts.retryDelaysMs : RETRY_DELAYS_MS;
-
-  let version = opts.version;
-  let savedRev = opts.rev ?? 0;
-  let latest: Snapshot | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let current: Promise<void> | null = null;
-  let paused = false;
-  let holds = 0;
-  let disposed = false;
-  let attempt = 0;
-
-  const clear = () => {
-    if (timer !== null) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  };
-
-  const arm = (ms: number) => {
-    clear();
-    timer = setTimeout(() => {
-      timer = null;
-      void run();
-    }, ms);
-  };
-
-  const dirty = () => latest !== null && latest.rev > savedRev;
-
-  /** One save of the latest snapshot; chains itself while edits keep arriving and nothing is armed. */
-  function run(): Promise<void> {
-    if (disposed || paused || holds > 0 || current || !dirty()) return current ?? Promise.resolve();
-    const snap = latest as Snapshot;
-    opts.onSaving?.(snap.rev);
-
-    current = (async () => {
-      let result: SaveResult;
-      try {
-        result = await opts.save({ doc: snap.doc, version });
-      } catch {
-        result = { kind: "network" };
-      }
-      current = null;
-      if (disposed) return;
-
-      switch (result.kind) {
-        case "ok":
-          version = result.version;
-          savedRev = Math.max(savedRev, snap.rev);
-          attempt = 0;
-          opts.onSaved?.(snap.rev, version);
-          // Edits that arrived while this request was in flight: save them next, unless a debounce is already armed.
-          if (timer === null && dirty() && !paused && holds === 0) await run();
-          return;
-        case "conflict":
-          paused = true;
-          clear();
-          opts.onConflict?.(result.serverVersion, result.doc);
-          return;
-        case "invalid":
-          attempt = 0;
-          opts.onFailed?.(`${result.path}: ${result.message}`, result.path);
-          return;
-        case "fatal":
-          attempt = 0;
-          opts.onFailed?.(result.message);
-          return;
-        case "network": {
-          const delay = retryDelays[Math.min(attempt, retryDelays.length - 1)];
-          attempt += 1;
-          opts.onRetrying?.(attempt, delay);
-          arm(delay);
-          return;
-        }
-      }
-    })();
-    return current;
-  }
-
-  return {
-    schedule(snapshot) {
-      if (disposed) return;
-      latest = snapshot;
-      if (paused) return;
-      if (!dirty()) {
-        clear();
-        return;
-      }
-      arm(delayMs);
-    },
-
-    async flush() {
-      if (disposed) return;
-      clear();
-      if (current) await current;
-      await run();
-    },
-
-    resume(nextVersion) {
-      if (disposed) return;
-      version = nextVersion;
-      paused = false;
-      attempt = 0;
-      if (dirty()) {
-        clear();
-        void run();
-      }
-    },
-
-    reset(nextVersion, rev) {
-      if (disposed) return;
-      version = nextVersion;
-      savedRev = rev;
-      paused = false;
-      attempt = 0;
-      clear();
-    },
-
-    async hold() {
-      if (disposed) return;
-      holds += 1;
-      clear();
-      if (current) await current;
-    },
-
-    release(nextVersion) {
-      if (disposed) return;
-      holds = Math.max(0, holds - 1);
-      if (typeof nextVersion === "number" && !paused) version = nextVersion;
-      if (holds === 0 && !paused && dirty()) arm(delayMs);
-    },
-
-    dispose() {
-      disposed = true;
-      clear();
-    },
-
-    get version() {
-      return version;
-    },
-    get savedRev() {
-      return savedRev;
-    },
-    get paused() {
-      return paused;
-    },
-  };
+  return createGenericAutosave<ResumeDocument>(opts);
 }

@@ -1,6 +1,6 @@
 import type { Application } from "@/components/ApplicationBoard";
 import { statusKeyOf } from "@/components/app-v2/applications/mapping";
-import { AN_SAMPLE, type AnalyticsData } from "../sample-data";
+import type { AnalyticsData } from "../sample-data";
 
 const DAY = 86_400_000;
 const SUBMITTED = new Set(["APPLIED", "INTERVIEW", "OFFER", "REJECTED"]);
@@ -14,8 +14,9 @@ const when = (a: Application): number => {
 const label = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 /**
- * Real analytics from `/api/profile/applications`. With no submitted applications yet the board's
- * sample numbers are returned instead (so the page looks like the board; `real: false`).
+ * Real analytics from `/api/profile/applications`. With no submitted applications yet there is nothing to
+ * chart: `null` (the page shows an honest empty state), or `sample` when the caller passes the board's example
+ * numbers (a demo account on a sample-enabled build only, U0.5; `real: false`).
  *
  * Definitions: Applications = submitted ones (APPLIED/INTERVIEW/OFFER/REJECTED, not archived);
  * Interviews = reached INTERVIEW or OFFER; Response rate = any employer reply (interview, offer or
@@ -23,9 +24,9 @@ const label = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: 
  * weekly chart buckets each application by its applied date and counts it under the stage it
  * currently has.
  */
-export function computeAnalytics(apps: Application[], now = Date.now()): AnalyticsData {
+export function computeAnalytics(apps: Application[], now = Date.now(), sample: AnalyticsData | null = null): AnalyticsData | null {
   const live = apps.filter((a) => !a.archived && SUBMITTED.has(a.status));
-  if (live.length === 0) return AN_SAMPLE;
+  if (live.length === 0) return sample;
 
   const applied = live.length;
   const interviews = live.filter((a) => a.status === "INTERVIEW" || a.status === "OFFER").length;
@@ -84,7 +85,7 @@ export function computeAnalytics(apps: Application[], now = Date.now()): Analyti
       response: { value: `${Math.round((responded / applied) * 100)}%` },
     },
     overTime,
-    responseByCompany: responseByCompany.length > 0 ? responseByCompany : AN_SAMPLE.responseByCompany,
+    responseByCompany,
     status,
   };
 }

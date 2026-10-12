@@ -6,6 +6,7 @@ import {
   BriefcaseIcon,
   CheckIcon,
   ChatIcon,
+  EmptyState,
   ClockIcon,
   GearIcon,
   SparklesIcon,
@@ -17,19 +18,8 @@ import {
 import { AppArt, FilterSelect, IconTile, ProgressRing, SectionCard, StatusChip, UnderlineTabs } from "@/components/app-v2/common";
 import type { Tone } from "@/components/app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import {
-  IP_COMPANIES,
-  IP_MODES,
-  IP_MORE_QUESTIONS,
-  IP_MOCK_TYPES,
-  IP_POPULAR_QUESTIONS,
-  IP_PROGRESS,
-  IP_QUESTION_FILTERS,
-  IP_QUESTION_SETS,
-  IP_RECENT_SESSIONS,
-  IP_ROLES,
-  IP_TABS,
-} from "../sample-data";
+import { IP_COMPANIES, IP_MODES, IP_QUESTION_FILTERS, IP_ROLES, IP_TABS } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 
 const MODE_ICON: Record<string, React.ReactNode> = {
   quick: <ClockIcon className="h-5 w-5" />,
@@ -53,12 +43,20 @@ function scoreTone(score: number): Tone {
 }
 
 /**
- * Interview Prep (APP-V3-SPEC 2.8). All sample data with client state (tabs, selected mode, role /
- * company, question filter). Nothing is recorded or scored for real yet, so every "Start" /
- * "Practice" says "Coming soon".
+ * Interview Prep (APP-V3-SPEC 2.8). Its question sets, sessions and progress are SAMPLE data with client state
+ * (tabs, selected mode, role / company, question filter) until U9.x builds them, so only a demo account on a
+ * sample-enabled build sees them (`samples()`, U0.5); a real account sees an honest empty state. Nothing is
+ * recorded or scored for real yet, so every "Start" / "Practice" says "Coming soon".
  */
 export default function InterviewPrepPage() {
   const toast = useToast();
+  const sample = useSamples();
+  const questionSets = sample("IP_QUESTION_SETS");
+  const popularQuestions = sample("IP_POPULAR_QUESTIONS");
+  const moreQuestions = sample("IP_MORE_QUESTIONS");
+  const mockTypes = sample("IP_MOCK_TYPES");
+  const recentSessions = sample("IP_RECENT_SESSIONS");
+  const progress = sample("IP_PROGRESS");
   const soon = () => toast({ title: "Coming soon" });
   const [tab, setTab] = useState("practice");
   const [mode, setMode] = useState(IP_MODES[0].id);
@@ -66,7 +64,7 @@ export default function InterviewPrepPage() {
   const [company, setCompany] = useState("Google");
   const [filter, setFilter] = useState("All");
 
-  const allQuestions = [...IP_POPULAR_QUESTIONS, ...IP_MORE_QUESTIONS];
+  const allQuestions = [...popularQuestions, ...moreQuestions];
   const shown = filter === "All" ? allQuestions : allQuestions.filter((q) => q.category === filter);
 
   const questionList = (items: { text: string; category?: string }[]) => (
@@ -82,6 +80,15 @@ export default function InterviewPrepPage() {
       ))}
     </ul>
   );
+
+  if (allQuestions.length + questionSets.length + mockTypes.length + recentSessions.length === 0 && !progress) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        <HeroBand title="Interview Preparation" subtitle="Practice, learn, and build confidence." mascot="calendar-note" />
+        <EmptyState mascot title="Nothing to practice yet" description="Question sets and your practice sessions show up here." />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
@@ -143,7 +150,7 @@ export default function InterviewPrepPage() {
 
               <SectionCard title="Common Question Sets">
                 <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {IP_QUESTION_SETS.map((s) => (
+                  {questionSets.map((s) => (
                     <li key={s.title}>
                       <button
                         type="button"
@@ -166,7 +173,7 @@ export default function InterviewPrepPage() {
               </SectionCard>
 
               <SectionCard title="Popular questions" action={{ label: "View all", onClick: () => setTab("questions") }}>
-                {questionList(IP_POPULAR_QUESTIONS.map((q) => ({ text: q.text })))}
+                {questionList(popularQuestions.map((q) => ({ text: q.text })))}
               </SectionCard>
             </>
           )}
@@ -197,7 +204,7 @@ export default function InterviewPrepPage() {
           {tab === "mock" && (
             <SectionCard title="Mock interviews" subtitle="Simulate a full round with an AI interviewer.">
               <ul className="divide-y divide-v2-line/70">
-                {IP_MOCK_TYPES.map((m) => (
+                {mockTypes.map((m) => (
                   <li key={m.title} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                     <IconTile tone={m.tone}>
                       <ChatIcon className="h-5 w-5" />
@@ -219,7 +226,7 @@ export default function InterviewPrepPage() {
           {tab === "sessions" && (
             <SectionCard title="My sessions" subtitle="Scores from your recent practice.">
               <ul className="divide-y divide-v2-line/70">
-                {IP_RECENT_SESSIONS.map((s) => (
+                {recentSessions.map((s) => (
                   <li key={s.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14.5px] font-bold text-v2-navy">{s.title}</span>
@@ -248,9 +255,10 @@ export default function InterviewPrepPage() {
             </button>
           </section>
 
+          {recentSessions.length > 0 && (
           <SectionCard title="Recent Practice Sessions" action={{ label: "View all", onClick: () => setTab("sessions") }}>
             <ul className="space-y-3">
-              {IP_RECENT_SESSIONS.map((s) => (
+              {recentSessions.map((s) => (
                 <li key={s.id} className="flex items-center gap-3">
                   <ProgressRing value={s.score} tone={scoreTone(s.score)} size={46} label={`${s.score} percent`}>
                     <span className="text-[11.5px] font-extrabold text-v2-navy">{s.score}%</span>
@@ -263,14 +271,16 @@ export default function InterviewPrepPage() {
               ))}
             </ul>
           </SectionCard>
+          )}
 
+          {progress && (
           <SectionCard title="Your Progress">
             <div className="flex items-center gap-4">
-              <ProgressRing value={IP_PROGRESS.pct} tone="green" size={92} thickness={9} label={`${IP_PROGRESS.pct} percent`}>
-                <span className="font-display text-[22px] font-extrabold text-v2-navy">{IP_PROGRESS.pct}%</span>
+              <ProgressRing value={progress.pct} tone="green" size={92} thickness={9} label={`${progress.pct} percent`}>
+                <span className="font-display text-[22px] font-extrabold text-v2-navy">{progress.pct}%</span>
               </ProgressRing>
               <ul className="min-w-0 flex-1 space-y-2">
-                {IP_PROGRESS.stats.map((s) => (
+                {progress.stats.map((s) => (
                   <li key={s.label} className="flex items-baseline gap-2 text-[13px] text-v2-ink-soft">
                     <span className="w-7 text-right font-display text-[16px] font-extrabold tabular-nums text-v2-navy">{s.value}</span>
                     {s.label}
@@ -279,6 +289,7 @@ export default function InterviewPrepPage() {
               </ul>
             </div>
           </SectionCard>
+          )}
         </aside>
       </div>
     </div>

@@ -66,6 +66,19 @@ export type { SpinnerProps } from "./primitives/Spinner";
 export { default as EmptyState } from "./primitives/EmptyState";
 export type { EmptyStateProps } from "./primitives/EmptyState";
 
+/* ── The page kit (E2E-U0.0): the pieces every page story shares ─────────────────────── */
+export { default as SaveStatusChip, savedAgo, statusLabel, chipTone, OFFLINE_LABEL } from "./primitives/SaveStatusChip";
+export type { SaveStatus, ChipTone } from "./primitives/SaveStatusChip";
+
+export { default as BottomSheet, snapAfterDrag, SNAP_DRAG_PX, SNAP_PARTIAL_RATIO } from "./primitives/BottomSheet";
+export type { BottomSheetProps, BottomSheetSnap } from "./primitives/BottomSheet";
+
+export { default as ListSkeleton, TileSkeleton, TableSkeleton } from "./primitives/ListSkeleton";
+export type { ListSkeletonProps, TableSkeletonProps } from "./primitives/ListSkeleton";
+
+export { default as ErrorState } from "./primitives/ErrorState";
+export type { ErrorStateProps } from "./primitives/ErrorState";
+
 export { default as Dialog } from "./primitives/Dialog";
 export type { DialogProps } from "./primitives/Dialog";
 

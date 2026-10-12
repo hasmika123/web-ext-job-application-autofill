@@ -1,19 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRightIcon, ChevronRightIcon, FileTextIcon, cn, useToast } from "@kiwiply/ui";
+import { ArrowRightIcon, ChevronRightIcon, EmptyState, FileTextIcon, cn, useToast } from "@kiwiply/ui";
 import { CompanyTile, IconTile, SectionCard, UnderlineTabs } from "@/components/app-v2/common";
 import { TONE } from "@/components/app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import { EX_COMPANIES, EX_PATHS, EX_RESOURCES, EX_ROLES, EX_TABS } from "../sample-data";
+import { EX_TABS } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 
 /**
  * Explore (APP-V3-SPEC 2.11). All four sections sit on one page; the tabs scroll to their section
- * (the richest-variant rule). Sample data. Company / role / resource clicks say "Coming soon" until
- * the browse flows ship (the Learning route is itself a coming-soon page).
+ * (the richest-variant rule). The companies, roles, paths and resources are SAMPLE content until U11.1-U11.3 build
+ * them from real data, so only a demo account on a sample-enabled build sees them (`samples()`, U0.5); a real
+ * account sees an honest empty state. Company / role / resource clicks say "Coming soon" until the browse flows ship.
  */
 export default function ExplorePage() {
   const toast = useToast();
+  const sample = useSamples();
+  const companies = sample("EX_COMPANIES");
+  const roles = sample("EX_ROLES");
+  const paths = sample("EX_PATHS");
+  const resources = sample("EX_RESOURCES");
   const soon = () => toast({ title: "Coming soon" });
   const [tab, setTab] = useState(EX_TABS[0].id);
 
@@ -21,6 +28,15 @@ export default function ExplorePage() {
     setTab(id);
     document.getElementById(`explore-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  if (companies.length + roles.length + paths.length + resources.length === 0) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        <HeroBand title="Explore" subtitle="Discover companies, roles, and career resources." mascot="mascot-binoculars" note="So much to discover!" />
+        <EmptyState mascot title="Nothing to explore yet" description="Companies and roles appear here as jobs come in." />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
@@ -33,7 +49,7 @@ export default function ExplorePage() {
       <section id="explore-companies" className="scroll-mt-24">
         <SectionCard title="Popular Companies" action={{ label: "View all", onClick: soon }}>
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
-            {EX_COMPANIES.map((c) => (
+            {companies.map((c) => (
               <li key={c.name}>
                 <button
                   type="button"
@@ -53,7 +69,7 @@ export default function ExplorePage() {
       <section id="explore-roles" className="scroll-mt-24">
         <SectionCard title="Trending Roles" action={{ label: "View all", onClick: soon }}>
           <ul className="flex flex-wrap gap-2.5">
-            {EX_ROLES.map((r) => (
+            {roles.map((r) => (
               <li key={r}>
                 <button
                   type="button"
@@ -71,7 +87,7 @@ export default function ExplorePage() {
       <section id="explore-career-paths" className="scroll-mt-24">
         <SectionCard title="Career Paths">
           <ul className="grid gap-4 lg:grid-cols-2">
-            {EX_PATHS.map((p) => (
+            {paths.map((p) => (
               <li key={p.title} className={cn("rounded-2xl p-4", TONE[p.tone].soft)}>
                 <p className={cn("text-[12.5px] font-bold uppercase tracking-wide", TONE[p.tone].ink)}>{p.title}</p>
                 <ol className="mt-3 flex flex-wrap items-center gap-2">
@@ -91,7 +107,7 @@ export default function ExplorePage() {
       <section id="explore-resources" className="scroll-mt-24">
         <SectionCard title="Resources">
           <ul className="divide-y divide-v2-line/70">
-            {EX_RESOURCES.map((r) => (
+            {resources.map((r) => (
               <li key={r.title} className="py-3 first:pt-0 last:pb-0">
                 <button type="button" onClick={soon} className="flex w-full items-center gap-3 text-left">
                   <IconTile tone="blue">

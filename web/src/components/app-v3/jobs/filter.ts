@@ -1,6 +1,6 @@
 import type { SampleJob } from "@/components/app-v2/sample-data";
+import { samples } from "@/components/app-v3/samples";
 import {
-  GOOGLE_V3_DETAIL,
   JOB_COMPANIES,
   type JobLevel,
   type JobType,
@@ -113,8 +113,10 @@ export function detailV3(job: V3Job): V3Detail {
       reviews: { rating: "", count: "", quote: "" },
     };
   }
-  if (job.id === "google-swe") return GOOGLE_V3_DETAIL;
-  const g = GOOGLE_V3_DETAIL;
+  // A non-real job here IS a sample job (a real account's pool has none), so the gate is open for it by construction.
+  const g = samples("GOOGLE_V3_DETAIL", true);
+  if (!g) throw new Error("unreachable: sample detail missing");
+  if (job.id === "google-swe") return g;
   const swap = (s: string) => s.replace(/Google/g, job.company);
   return {
     about: `Join ${job.company} as a ${job.title} and build products people rely on every day. You'll work with experienced teammates, own meaningful pieces of the roadmap and grow quickly.`,
