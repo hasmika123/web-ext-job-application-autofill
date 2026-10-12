@@ -2,6 +2,7 @@ package com.dossier.api.service.resume;
 
 import com.dossier.api.domain.ProfileItem;
 import com.dossier.api.domain.enumeration.ProfileSection;
+import com.dossier.api.domain.enumeration.Provenance;
 import com.dossier.api.service.resume.ResumeDocument.Kind;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -13,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,6 +59,107 @@ public final class ResumeDocumentSeeder {
      */
     public static ObjectNode seed(String title, String target, JsonNode bio, List<ProfileItem> items, Instant now) {
         return new ResumeDocumentSeeder().build(title, target, bio, items, now);
+    }
+
+    /**
+     * What the user left ticked in the upload review (R2.6, DESIGN 9.10 {@code KeepMask}): indexes into the
+     * structured arrays, plus whether the skills and the summary are kept. A {@code null} list keeps every
+     * entry of that section; {@code skills} / {@code summary} default to kept.
+     */
+    public record KeepMask(Set<Integer> experience, Set<Integer> education, Set<Integer> projects, Boolean skills, Boolean summary) {
+        public static final KeepMask ALL = new KeepMask(null, null, null, null, null);
+
+        public static boolean has(Set<Integer> kept, int index) {
+            return kept == null || kept.contains(index);
+        }
+
+        public boolean keepsSkills() {
+            return !Boolean.FALSE.equals(skills);
+        }
+
+        public boolean keepsSummary() {
+            return !Boolean.FALSE.equals(summary);
+        }
+    }
+
+    /**
+     * The first document of a resume made from an uploaded file (R2.6): the parsed {@code StructuredResume}
+     * becomes experience / education / skills / projects / languages sections (through
+     * {@link ProfileSeed#fromStructured}, so a section looks exactly as it would after a profile import) plus
+     * a Summary section. The header comes from the file's bio, but the user's own bio wins wherever it has a
+     * value. Items the user unticked ({@code keep}) are left out. Bullets carry {@code src: "parsed"}.
+     *
+     * @param structured the parsed resume ({@code summary, skills, experience, education, languages, projects})
+     * @param fileBio    header fields read from the file ({@code firstName, email, ...}); may be {@code null}
+     * @param userBio    the account's own bio payload; may be {@code null}
+     */
+    public static ObjectNode fromStructured(
+        String title,
+        String target,
+        JsonNode structured,
+        JsonNode fileBio,
+        JsonNode userBio,
+        KeepMask keep,
+        Instant now
+    ) {
+        KeepMask mask = keep == null ? KeepMask.ALL : keep;
+        ObjectNode kept = F.objectNode();
+        kept.set("experience", keepIndexes(structured, "experience", mask.experience()));
+        kept.set("education", keepIndexes(structured, "education", mask.education()));
+        kept.set("projects", keepIndexes(structured, "projects", mask.projects()));
+        kept.set("languages", structured != null && structured.path("languages").isArray() ? structured.get("languages") : F.arrayNode());
+        kept.set("skills", mask.keepsSkills() && structured != null && structured.path("skills").isArray() ? structured.get("skills") : F.arrayNode());
+
+        List<ProfileItem> items = new ArrayList<>();
+        for (ProfileSeed.Seeded s : ProfileSeed.fromStructured(kept)) {
+            ProfileItem row = new ProfileItem();
+            row.setSection(s.section());
+            row.setDataJson(s.data().toString());
+            row.setProvenance(Provenance.PARSED);
+            row.setHidden(false);
+            items.add(row);
+        }
+
+        ObjectNode merged = F.objectNode();
+        if (fileBio != null && fileBio.isObject()) merged.setAll((ObjectNode) fileBio.deepCopy());
+        if (userBio != null && userBio.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> it = userBio.fields();
+            while (it.hasNext()) {
+                Map.Entry<String, JsonNode> e = it.next();
+                JsonNode v = e.getValue();
+                if (v != null && v.isTextual() && !v.textValue().isBlank()) merged.set(e.getKey(), v); // the user's own bio wins
+            }
+        }
+        ObjectNode doc = new ResumeDocumentSeeder().build(title, target, merged, items, now);
+
+        String summary = structured == null || !mask.keepsSummary() ? "" : clip(ResumeDocument.trimWs(ResumeDocument.str(structured, "summary")), ResumeDocumentValidator.MAX_SUMMARY);
+        if (!summary.isEmpty()) {
+            ArrayNode sections = (ArrayNode) doc.get("sections");
+            ObjectNode s = F.objectNode();
+            Set<String> used = new HashSet<>();
+            s.put("id", ResumeDocumentIds.newId('s', used));
+            s.put("kind", Kind.SUMMARY.name());
+            s.put("title", Kind.SUMMARY.defaultTitle());
+            s.put("hidden", false);
+            ObjectNode it = s.putArray("items").addObject();
+            it.put("id", ResumeDocumentIds.newId('i', used));
+            it.put("text", summary);
+            it.put("src", "parsed");
+            sections.insert(0, s);
+        }
+        return doc;
+    }
+
+    /** {@code structured[field]} with only the entries at the kept indexes (all when {@code kept} is null). */
+    private static ArrayNode keepIndexes(JsonNode structured, String field, Set<Integer> kept) {
+        ArrayNode out = F.arrayNode();
+        if (structured == null) return out;
+        JsonNode arr = structured.get(field);
+        if (arr == null || !arr.isArray()) return out;
+        for (int i = 0; i < arr.size(); i++) {
+            if (KeepMask.has(kept, i)) out.add(arr.get(i));
+        }
+        return out;
     }
 
     private ObjectNode build(String title, String target, JsonNode bio, List<ProfileItem> items, Instant now) {

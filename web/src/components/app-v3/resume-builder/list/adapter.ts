@@ -11,7 +11,10 @@
  *  - modifiedAt: the DTO's `updatedAt`; rows that predate it have none, so `createdAt`, else null.
  *  - tags: the resume's own tags. Only an API from before R3.9 (no `tags` field at all) falls back to the
  *    kind ("Built" / "Uploaded").
- *  - target: the role the resume aims at (searchable; the card has no slot for it yet).
+ *  - target: the role the resume aims at (searchable; the card shows it as the first tag).
+ *  - type: Tailored (role TAILORED) / Built / Uploaded - mutually exclusive, the Type filter's three values.
+ *  - score: the Resume Score badge (R2.5 adds `ResumeDTO.score`; read as optional here so either merge order works).
+ *    A number is clamped to 0-100 and rounded; anything else is null (no badge, sorts last).
  *  - atsFriendly: only when the template registry marks the resume's template ATS-safe; unknown for
  *    uploads (no template) so the chip is not shown.
  *  - pdfState: BUILT resumes only. The API's PDF job state wins (R3.7: PENDING/RUNNING/STALE -> updating, FAILED ->
@@ -50,10 +53,18 @@ export interface ResumeCardModel {
   pdfState: PdfState;
   /** Built in the Resume Builder (opens the editor) or an uploaded file. */
   kind: "BUILT" | "UPLOADED";
+  type: ResumeType;
+  /** The Resume Score, 0-100, or null when the API does not report one. */
+  score: number | null;
+  /** ISO timestamp of the last stored PDF, or null. */
+  exportedAt: string | null;
 }
 
-/** A DTO as the list receives it. */
-export type ResumeDto = Resume;
+/** The Type filter's buckets. */
+export type ResumeType = "Built" | "Uploaded" | "Tailored";
+
+/** A DTO as the list receives it (`score` is R2.5's addition, optional so either merge order works). */
+export type ResumeDto = Resume & { score?: number | null };
 
 const blank = (s?: string | null) => (typeof s === "string" && s.trim() !== "" ? s : null);
 
@@ -87,6 +98,10 @@ export function toCardModel(r: ResumeDto): ResumeCardModel {
     atsFriendly,
     pdfState: pdfStateOf(r, kind),
     kind,
+    type: r.role === "TAILORED" ? "Tailored" : kind === "BUILT" ? "Built" : "Uploaded",
+    // config-literal-ok: a score is a percentage, 0-100 by definition
+    score: typeof r.score === "number" && Number.isFinite(r.score) ? Math.min(100, Math.max(0, Math.round(r.score))) : null,
+    exportedAt: blank(r.exportedAt),
   };
 }
 

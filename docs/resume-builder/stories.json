@@ -834,7 +834,7 @@
       "id": "R2.6",
       "epic": "R2",
       "title": "\"My Resumes\" page to the board (tabs with counts, status/sort/view, cards, Popular Templates, Quick Tips) + \"New resume\" start chooser + source/import/duplicate endpoints",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web",

@@ -105,6 +105,30 @@ describe("createBuilt", () => {
     stubFetch(new Error("offline"));
     expect((await createBuilt({})).kind).toBe("error");
   });
+
+  it("sends the source, label and target to the API as given", async () => {
+    const f = stubFetch(json(201, { resume: { id: 5 }, doc: { resumeId: 5 } }));
+    await createBuilt({ source: { kind: "copy", fromResumeId: 9 }, label: "X (copy)", target: "Dev", templateId: "modern" });
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/resumes/built");
+    expect(JSON.parse(init.body as string)).toEqual({ source: { kind: "copy", fromResumeId: 9 }, label: "X (copy)", target: "Dev", templateId: "modern" });
+  });
+
+  it("maps 422 SENSITIVE_CONTENT to a sensitive result that names where", async () => {
+    stubFetch(json(422, { code: "SENSITIVE_CONTENT", path: "structured.experience[1].bullets[0]", message: "We never store a Social Security number - please remove it" }));
+    expect(await createBuilt({})).toEqual({
+      kind: "sensitive",
+      path: "structured.experience[1].bullets[0]",
+      message: "We never store a Social Security number - please remove it",
+    });
+  });
+
+  it("maps other 422s (DOC_INVALID) and a missing copy source", async () => {
+    stubFetch(json(422, { code: "DOC_INVALID", path: "$.source.structured", message: "is required for an upload" }));
+    expect(await createBuilt({})).toEqual({ kind: "invalid", path: "$.source.structured", message: "is required for an upload" });
+    stubFetch(json(404, { error: "x" }));
+    expect(await createBuilt({})).toEqual({ kind: "error", message: "That resume is no longer there." });
+  });
 });
 
 describe("exportPdf", () => {

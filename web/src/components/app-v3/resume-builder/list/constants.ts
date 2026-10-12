@@ -3,7 +3,7 @@
  * One file so the copy can change without touching a component.
  */
 
-/** "Quick Tips" card: the board's four lines. */
+/** "Quick Tips" card: the board's four lines. The live copy is the `resume.list.quickTips` setting (`config.list.quickTips`); this is the fallback when the API cannot be reached. */
 export const QUICK_TIPS: readonly string[] = [
   "Create different resumes for different roles",
   "Tailor your resume for each job application",
@@ -29,17 +29,21 @@ export const TAB_ORDER: readonly TabId[] = ["all", "active", "drafts", "archived
 export const STATUS_FILTERS = ["All Status", "Primary", "Active", "Draft", "Archived"] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
-export const SORTS = ["Last Modified", "Date Created", "Name (A-Z)"] as const;
+/** The Type group of the status menu (DESIGN 10.17): mutually exclusive buckets of a resume. */
+export const TYPE_FILTERS = ["Built", "Uploaded", "Tailored"] as const;
+export type TypeFilter = (typeof TYPE_FILTERS)[number] | "All Types";
+
+export const SORTS = ["Last Modified", "Date Created", "Name (A-Z)", "Score", "Last Exported"] as const;
 export type SortKey = (typeof SORTS)[number];
 export const DEFAULT_SORT: SortKey = "Last Modified";
 
 export type ViewMode = "grid" | "list";
-export const VIEW_STORAGE_KEY = "kiwiply.resumes.view";
+export const VIEW_STORAGE_KEY = "rb.list.view";
 
 /** What each tab says when it has nothing in it. */
 export const TAB_EMPTY: Record<TabId, { title: string; body: string }> = {
-  all: { title: "No resumes yet", body: "A new resume starts from your profile, so most of it is already written." },
-  active: { title: "No active resumes", body: "Resumes you are using for applications show up here." },
+  all: { title: "No resumes yet", body: "Start from your profile, an uploaded resume, a copy or a blank page." },
+  active: { title: "No active resumes", body: "Finish a draft with Save and it shows up here." },
   drafts: { title: "No drafts yet", body: "Resumes you are still working on will show up here." },
   archived: { title: "Nothing archived", body: "Archived resumes are kept here, out of your way." },
 };

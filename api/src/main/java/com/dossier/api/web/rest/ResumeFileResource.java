@@ -4,6 +4,7 @@ import com.dossier.api.domain.Resume;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
 import com.dossier.api.service.storage.StorageObjectNotFoundException;
@@ -36,8 +37,10 @@ public class ResumeFileResource {
     private final FileStorage storageService;
 
     private final DemoGuard demoGuard;
+    private final ResumeDocService resumeDocService;
 
-    public ResumeFileResource(ResumeRepository resumeRepository, FileStorage storageService, DemoGuard demoGuard) {
+    public ResumeFileResource(ResumeRepository resumeRepository, FileStorage storageService, DemoGuard demoGuard, ResumeDocService resumeDocService) {
+        this.resumeDocService = resumeDocService;
         this.resumeRepository = resumeRepository;
         this.storageService = storageService;
         this.demoGuard = demoGuard;
@@ -51,6 +54,21 @@ public class ResumeFileResource {
         }
         Resume resume = ownedResumeOr404(id);
         Long userId = resume.getUser() != null ? resume.getUser().getId() : null;
+        // A resume built from an uploaded file (R2.6): this file is the user's original, kept apart from the
+        // generated PDF (which owns the resume's own file slot and replaces what is in it).
+        if (resumeDocService.wantsOriginal(resume)) {
+            String originalKey = storageService.objectKeyFor("resume-originals", userId, resume.getId(), file.getOriginalFilename());
+            storageService.store(originalKey, file.getBytes(), file.getContentType());
+            try {
+                resumeDocService.noteOriginalFile(id, originalKey);
+            } catch (RuntimeException e) {
+                storageService.delete(originalKey);
+                throw e;
+            }
+            return ResponseEntity.ok()
+                .headers(HeaderUtil.createAlert("dossierApi", "resume.fileUploaded", id.toString()))
+                .build();
+        }
         // Replace any previously stored object so we don't orphan stored bytes.
         String previousKey = resume.getr2ObjectKey();
         String key = storageService.objectKeyFor(userId, resume.getId(), file.getOriginalFilename());

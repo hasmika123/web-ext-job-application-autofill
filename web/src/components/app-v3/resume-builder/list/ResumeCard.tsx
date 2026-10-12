@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArchiveIcon,
   CalendarIcon,
@@ -10,7 +11,10 @@ import {
   CopyIcon,
   EyeIcon,
   FileTextIcon,
+  LayersIcon,
+  LockIcon,
   PencilIcon,
+  RestoreIcon,
   SparklesIcon,
   StarIcon,
   TrashIcon,
@@ -20,6 +24,7 @@ import type { ReactNode } from "react";
 import { KebabMenu, StatusChip, type Tone } from "@/components/app-v2/common";
 import { formatDate, type DateDisplay } from "@/lib/dates";
 import type { ResumeCardModel } from "./adapter";
+import type { CardActions } from "./actions";
 import type { ViewMode } from "./constants";
 import { thumbFor } from "./templateThumbs";
 
@@ -61,14 +66,23 @@ export interface ResumeCardProps {
   display: DateDisplay;
   /** Opens the existing "manage resumes" side panel (uploaded files are edited there). */
   onManage: () => void;
-  /** Unbuilt controls: `soon("Duplicate")` returns the click handler that shows "Coming soon". */
-  soon: (what: string) => () => void;
+  actions: CardActions;
+  /** Rename and Delete ask first, in dialogs the page owns. */
+  onRename: (m: ResumeCardModel) => void;
+  onDelete: (m: ResumeCardModel) => void;
+  /** The plan has builder AI (`config.aiAllowed`); without it the AI action is a lock that leads to the plans. */
+  aiAllowed: boolean;
+  /** Scores from here up read as good (green): `config.score.passThreshold` as a percentage. */
+  goodScore: number;
 }
 
-export default function ResumeCard({ model: m, layout, display, onManage, soon }: ResumeCardProps) {
+export default function ResumeCard({ model: m, layout, display, onManage, actions, onRename, onDelete, aiAllowed, goodScore }: ResumeCardProps) {
+  const router = useRouter();
   const chip = statusChip(m);
   const list = layout === "list";
   const built = m.kind === "BUILT";
+  const archived = m.status === "Archived";
+  const busy = actions.busyId === m.id;
 
   const chips = (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -76,6 +90,11 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
         {chip.icon}
         {chip.label}
       </StatusChip>
+      {m.score !== null && (
+        <StatusChip tone={m.score >= goodScore ? "green" : "amber"} className="rounded-md px-2 py-1 text-[12px]">
+          {`${m.score}% score`}
+        </StatusChip>
+      )}
       {m.pdfState === "outOfDate" && (
         <StatusChip tone="amber" dot className="rounded-md px-2 py-1">
           PDF out of date
@@ -97,17 +116,26 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
   const menu = (
     <KebabMenu
       label={`More actions for ${m.name}`}
-      items={[
-        // Real: uploaded + built resumes can still be archived / deleted / re-uploaded from the side panel.
-        { label: "Manage resume", icon: <FileTextIcon size={15} />, onSelect: onManage },
-        { separator: true },
-        // DESIGN-PENDING (R-list): rename / set primary / archive / delete. The API now has PATCH /api/profile/resumes/{id}/meta
-        // (R3.9); the BFF route `/api/resumes/[id]/meta` and these menu items are wired by the list-actions story.
-        { label: "Rename", icon: <PencilIcon size={15} />, onSelect: soon("Renaming from the list") },
-        { label: "Set as Primary", icon: <StarIcon size={15} />, onSelect: soon("Setting a primary resume from the list") },
-        { label: m.status === "Archived" ? "Restore" : "Archive", icon: <ArchiveIcon size={15} />, onSelect: soon("Archiving from the list") },
-        { label: "Delete", icon: <TrashIcon size={15} />, onSelect: soon("Deleting from the list"), danger: true },
-      ]}
+      items={
+        archived
+          ? // Archived cards offer Unarchive and Delete only (DESIGN 10.17).
+            [
+              { label: "Unarchive", icon: <RestoreIcon size={15} />, onSelect: () => void actions.restore(m) },
+              { label: "Delete", icon: <TrashIcon size={15} />, onSelect: () => onDelete(m), danger: true },
+            ]
+          : [
+              built
+                ? { label: "Open", icon: <PencilIcon size={15} />, onSelect: () => router.push(`/resume-builder/${m.id}`) }
+                : { label: "Manage resume", icon: <FileTextIcon size={15} />, onSelect: onManage },
+              ...(built ? [] : [{ label: "Open in builder", icon: <LayersIcon size={15} />, onSelect: () => void actions.openInBuilder(m) }]),
+              { label: "Duplicate", icon: <CopyIcon size={15} />, onSelect: () => void actions.duplicate(m) },
+              { separator: true as const },
+              { label: "Rename", icon: <PencilIcon size={15} />, onSelect: () => onRename(m) },
+              ...(m.isPrimary ? [] : [{ label: "Set as Primary", icon: <StarIcon size={15} />, onSelect: () => void actions.setPrimary(m) }]),
+              { label: "Archive", icon: <ArchiveIcon size={15} />, onSelect: () => void actions.archive(m) },
+              { label: "Delete", icon: <TrashIcon size={15} />, onSelect: () => onDelete(m), danger: true },
+            ]
+      }
     />
   );
 
@@ -128,8 +156,11 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
     </ul>
   );
 
-  const tags = (m.tags.length > 0 || m.atsFriendly) && (
+  const hasTags = m.target !== null || m.tags.length > 0 || m.atsFriendly || m.type === "Tailored";
+  const tags = hasTags && (
     <ul className="flex flex-wrap gap-1.5" aria-label="Tags">
+      {m.target && <li className="rounded-md bg-v2-blue-soft px-2 py-1 text-[12px] font-semibold leading-none text-v2-blue-ink">{m.target}</li>}
+      {m.type === "Tailored" && <li className="rounded-md bg-v2-amber-soft px-2 py-1 text-[12px] font-medium leading-none text-v2-amber-ink">Tailored</li>}
       {m.tags.map((t) => (
         <li key={t} className="rounded-md bg-v2-blue-soft/70 px-2 py-1 text-[12px] font-medium leading-none text-v2-blue-ink">
           {t}
@@ -139,7 +170,7 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
     </ul>
   );
 
-  const actions = (
+  const actionRow = (
     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
       {built ? (
         <Link href={`/resume-builder/${m.id}`} className={ICON_BTN} aria-label={`Edit ${m.name}`} title="Edit">
@@ -150,22 +181,37 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
           <PencilIcon size={16} />
         </button>
       )}
-      {/* DESIGN-PENDING (R-list): duplicate / view / AI have no behaviour until the resume metadata + start-chooser designs land. */}
-      <button type="button" onClick={soon("Duplicating a resume")} className={ICON_BTN} aria-label={`Duplicate ${m.name}`} title="Duplicate">
-        <CopyIcon size={16} />
-      </button>
-      <button type="button" onClick={soon("Viewing a resume")} className={ICON_BTN} aria-label={`View ${m.name}`} title="View">
-        <EyeIcon size={16} />
-      </button>
-      <button type="button" onClick={soon("AI tools for a resume")} className={cn(ICON_BTN, "text-v2-violet")} aria-label={`AI tools for ${m.name}`} title="AI">
-        <SparklesIcon size={16} />
-      </button>
+      {!archived && (
+        <button type="button" onClick={() => void actions.duplicate(m)} disabled={busy} className={ICON_BTN} aria-label={`Duplicate ${m.name}`} title="Duplicate">
+          <CopyIcon size={16} />
+        </button>
+      )}
+      {built ? (
+        <Link href={`/resume-builder/${m.id}?view=pdf`} className={ICON_BTN} aria-label={`View ${m.name}`} title="View">
+          <EyeIcon size={16} />
+        </Link>
+      ) : (
+        // An uploaded file is its own PDF/DOCX: View opens the stored file.
+        <a href={`/api/resumes/${m.id}/file`} target="_blank" rel="noreferrer" className={ICON_BTN} aria-label={`View ${m.name}`} title="View">
+          <EyeIcon size={16} />
+        </a>
+      )}
+      {built &&
+        (aiAllowed ? (
+          <Link href={`/resume-builder/${m.id}?tab=ai`} className={cn(ICON_BTN, "text-v2-violet")} aria-label={`AI tools for ${m.name}`} title="AI">
+            <SparklesIcon size={16} />
+          </Link>
+        ) : (
+          <Link href="/pricing" className={cn(ICON_BTN, "text-v2-muted")} aria-label={`AI tools for ${m.name} (Pro)`} title="AI suggestions are part of Pro">
+            <LockIcon size={16} />
+          </Link>
+        ))}
     </div>
   );
 
   if (list) {
     return (
-      <li data-resume-id={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-v2-line/70 bg-paper p-3 shadow-v2-soft sm:p-3.5">
+      <li data-resume-id={m.id} data-archived={archived || undefined} className={cn("flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-v2-line/70 bg-paper p-3 shadow-v2-soft sm:p-3.5", archived && "opacity-70", busy && "pointer-events-none opacity-60")}>
         <Thumbnail m={m} className="h-[68px] w-12" />
         <div className="min-w-[10rem] flex-1 space-y-1.5">
           <h3 className="truncate text-[15px] font-bold text-ink">{m.name}</h3>
@@ -174,7 +220,7 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
         <div className="hidden md:block">{dates}</div>
         <div className="hidden min-w-0 max-w-[14rem] lg:block">{tags}</div>
         <div className="ml-auto flex items-center gap-2">
-          {actions}
+          {actionRow}
           {menu}
         </div>
       </li>
@@ -182,8 +228,8 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
   }
 
   return (
-    <li data-resume-id={m.id} className="flex min-w-0 gap-3.5 rounded-2xl border border-v2-line/70 bg-paper p-3.5 shadow-v2-soft">
-      <Thumbnail m={m} className="h-[150px] w-[100px] sm:h-[190px] sm:w-[134px]" />
+    <li data-resume-id={m.id} data-archived={archived || undefined} className={cn("flex min-w-0 gap-3.5 rounded-2xl border border-v2-line/70 bg-paper p-3.5 shadow-v2-soft", archived && "opacity-70", busy && "pointer-events-none opacity-60")}>
+      <Thumbnail m={m} className="h-[104px] w-[72px] sm:h-[190px] sm:w-[134px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
         <div className="flex items-start justify-between gap-1">
           {chips}
@@ -192,7 +238,7 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
         <h3 className="line-clamp-2 text-[17px] font-bold leading-snug text-ink">{m.name}</h3>
         {dates}
         {tags}
-        <div className="mt-auto pt-1">{actions}</div>
+        <div className="mt-auto pt-1">{actionRow}</div>
       </div>
     </li>
   );

@@ -40,7 +40,8 @@ public class ResumeBuilderConfigService {
             new ResumeBuilderConfigDTO.Templates(
                 strings(TEMPLATES_ENABLED),
                 s.getString(TEMPLATES_DEFAULT),
-                s.getJson(TEMPLATES_OVERRIDES, JsonNode.class)
+                s.getJson(TEMPLATES_OVERRIDES, JsonNode.class),
+                strings(TEMPLATES_POPULAR)
             ),
             new ResumeBuilderConfigDTO.Limits(
                 s.getInt(DOC_LIMIT_SECTIONS),
@@ -87,7 +88,8 @@ public class ResumeBuilderConfigService {
                 s.getInt(PROFILE_ITEM_MAX_BYTES),
                 s.getInt(PROFILE_ITEMS_MAX_PER_USER),
                 s.getInt(PROFILE_IMPORT_MAX_ITEMS)
-            )
+            ),
+            new ResumeBuilderConfigDTO.Lists(strings(LIST_QUICK_TIPS), s.getInt(LIST_VIRTUALIZE_ABOVE))
         );
     }
 
