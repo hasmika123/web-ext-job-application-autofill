@@ -58,6 +58,9 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   **E2E-O4.0 done** (`e2e-o4.0`): `OrgBillingResource` + `OrgActivationService` (`POST /api/orgs/{id}/activate` only with `dossier.orgs.dev-activate=true`
   AND Stripe off, OWNER only, else the generic 404; `GET .../billing` skeleton), `BillingPage` real (status card + "not connected" / "Set up billing"),
   `DraftBanner`, BFF `api/orgs/{route,[orgId]/billing,[orgId]/activate}`, `lib/org-api.ts`. Env: `ORGS_DEV_ACTIVATE` (prod never sets it).
+  **O2.1 done** (`e2e-o2.1`): `components/org-v2/new/{CreateOrgFlow,Step1,Step2,Step3,create-logic}.tsx` at `(org-flow)/org/new`; creates on the end of screen 2,
+  sets `kiwiply_org` to the new org, draft in sessionStorage; the 16+ attestation is web-only (no API field). Owed to a later story: the Stripe pay screen
+  (O4.1) and the `/org/welcome` return page (O2.8).
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),

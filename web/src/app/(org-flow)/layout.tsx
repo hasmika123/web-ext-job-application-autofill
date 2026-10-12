@@ -11,5 +11,5 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
  */
 export default async function OrgFlowLayout({ children }: { children: React.ReactNode }) {
   await requireOrgSession();
-  return <div className={ORG_THEME_CLASS}>{children}</div>;
+  return <div className={`${ORG_THEME_CLASS} bg-v2-canvas`}>{children}</div>;
 }

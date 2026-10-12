@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { STATE } from "../fixtures/accounts";
-import { expectNoHorizontalScroll } from "../fixtures/audit";
+import { expectNoHorizontalScroll, expectNoWordPerLineHeadings, expectNotOverlapped } from "../fixtures/audit";
 
 /**
  * The org console opens (O1.6, O1.7, E2E-O4.0, O2.1, O2.7): the gate sends each membership shape where it belongs, the
@@ -149,6 +149,92 @@ test.describe("billing-off activation", () => {
     await page.goto("/org");
     await expect(page.locator("[data-draft-banner]")).toHaveCount(0);
     await expect(page.locator("header").getByText("Active")).toBeVisible();
+  });
+});
+
+test.describe("the create flow (phone)", () => {
+  test.use({ storageState: STATE["org.creator"], viewport: { width: 390, height: 844 } });
+  test.beforeEach(async ({ request }) => {
+    await request.post(`${MOCK}/mock/orgs/reset`);
+  });
+
+  test("name and type, about your people, activate: a live workspace in three screens, no sideways scroll, nothing covering the button", async ({ page }) => {
+    await page.goto("/org"); // no org: the gate sends us here
+    await expect(page).toHaveURL(/\/org\/new$/);
+    await expect(page.getByRole("heading", { name: "What's your organization?" })).toBeVisible();
+    await expectNoHorizontalScroll(page, "screen 1");
+    await expectNoWordPerLineHeadings(page, "screen 1");
+
+    await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
+    await page.getByRole("button", { name: "Continue" }).click(); // an empty first try names what is missing
+    await expect(page.getByText("Add your organization's name.")).toBeVisible();
+
+    await page.getByLabel("Organization name").fill("Acme Bootcamp");
+    await expect(page.getByText("acme-bootcamp", { exact: true })).toBeVisible(); // the derived address
+    await page.getByRole("radio", { name: "Bootcamp" }).click();
+    await expectNotOverlapped(page.getByRole("button", { name: "Continue" }), "Continue on screen 1");
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    await expect(page.getByRole("heading", { name: "About your people" })).toBeVisible();
+    await expectNoHorizontalScroll(page, "screen 2");
+    await page.getByRole("radio", { name: "51–200" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("Please confirm this to continue.")).toBeVisible(); // a bootcamp asserts 16+
+    await page.getByLabel("Everyone we invite is 16 or older.").check();
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    await expect(page.getByRole("heading", { name: "Acme Bootcamp is ready" })).toBeVisible();
+    await expectNoHorizontalScroll(page, "screen 3");
+    await expect(page.locator("body")).not.toContainText(/\$\d/); // no price is typed into a screen
+    await expectNotOverlapped(page.getByRole("button", { name: "Activate workspace (dev)" }), "Activate on screen 3");
+    await page.getByRole("button", { name: "Activate workspace (dev)" }).click();
+
+    await expect(page).toHaveURL(/\/org$/);
+    await expect(page.getByRole("button", { name: /Current: Acme Bootcamp/ })).toBeVisible();
+    await expect(page.locator("[data-draft-banner]")).toHaveCount(0);
+  });
+
+  test("a taken address comes back to screen 1 with a suggestion, one tap to use it", async ({ page }) => {
+    await page.goto("/org/new");
+    await page.getByLabel("Organization name").fill("Zephyr Academy"); // zephyr-academy is Zephyr Academy's address in the fixture
+    await page.getByRole("radio", { name: "Company" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("radio", { name: "1–50", exact: true }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("That address is taken.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What's your organization?" })).toBeVisible();
+    await page.getByRole("button", { name: "Use zephyr-academy-2" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { name: "Zephyr Academy is ready" })).toBeVisible();
+  });
+
+  test("what was typed survives a reload, and 'Skip for now' lands in the draft console with the pay banner", async ({ page }) => {
+    await page.goto("/org/new");
+    await page.getByLabel("Organization name").fill("Lakeview Collective");
+    await page.getByRole("radio", { name: "Company" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("radio", { name: "201–500" }).click();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "About your people" })).toBeVisible(); // still on screen 2
+    await page.getByRole("button", { name: "Back" }).click();
+    await expect(page.getByLabel("Organization name")).toHaveValue("Lakeview Collective");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("radio", { name: "201–500" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Skip for now, explore my workspace" }).click();
+    await expect(page).toHaveURL(/\/org$/);
+    await expect(page.locator("[data-draft-banner]")).toContainText("This workspace is a draft");
+  });
+});
+
+test.describe("the create flow (narrowest phone)", () => {
+  test.use({ storageState: STATE["org.none"], viewport: { width: 360, height: 740 } });
+  test("360 px: headings do not wrap a word per line and nothing scrolls sideways", async ({ page }) => {
+    await page.goto("/org/new");
+    await expect(page.getByRole("heading", { name: "What's your organization?" })).toBeVisible();
+    await expectNoHorizontalScroll(page, "/org/new at 360");
+    await expectNoWordPerLineHeadings(page, "/org/new at 360");
   });
 });
 

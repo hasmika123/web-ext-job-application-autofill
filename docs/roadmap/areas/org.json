@@ -331,7 +331,7 @@
       "id": "O2.1",
       "epic": "O2",
       "title": "/org/new — three-screen create flow (name+type → about you → pay) at 390px",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"
