@@ -26,7 +26,9 @@ public interface OrgMemberRepository extends Repository<OrgMember, Long> {
 
     long countByOrgIdAndRoleAndStatus(Long orgId, OrgRole role, OrgMemberStatus status);
 
-    long countByOrgIdAndGroupId(Long orgId, Long groupId);
+    long countByOrgIdAndGroupIdAndStatusIn(Long orgId, Long groupId, Collection<OrgMemberStatus> statuses);
+
+    long countByOrgIdAndStatusIn(Long orgId, Collection<OrgMemberStatus> statuses);
 
     /** Every row (any status) that names this user, across organizations: the "my orgs" list and erasure. */
     @Query("select m from OrgMember m where m.userId = :userId order by m.id")

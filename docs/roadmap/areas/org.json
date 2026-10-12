@@ -153,7 +153,7 @@
       "id": "O1.3",
       "epic": "O1",
       "title": "Org endpoints — POST /api/orgs (DRAFT), GET /mine, GET/PATCH /{orgId}, POST /close, groups CRUD",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

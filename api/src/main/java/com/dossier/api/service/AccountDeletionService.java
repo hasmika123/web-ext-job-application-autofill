@@ -19,6 +19,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.billing.StripeGateway;
 import com.dossier.api.service.inbox.InboxService;
+import com.dossier.api.service.org.OrgMembershipPrivacyService;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +66,7 @@ public class AccountDeletionService {
     private final StripeEventRepository stripeEventRepository;
     private final CustomerNoteRepository customerNoteRepository;
     private final ResumeBuilderDataService resumeBuilderDataService;
+    private final OrgMembershipPrivacyService orgMembershipPrivacyService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -89,7 +91,8 @@ public class AccountDeletionService {
         NotificationService notificationService,
         StripeEventRepository stripeEventRepository,
         CustomerNoteRepository customerNoteRepository,
-        ResumeBuilderDataService resumeBuilderDataService
+        ResumeBuilderDataService resumeBuilderDataService,
+        OrgMembershipPrivacyService orgMembershipPrivacyService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -114,6 +117,7 @@ public class AccountDeletionService {
         this.stripeEventRepository = stripeEventRepository;
         this.customerNoteRepository = customerNoteRepository;
         this.resumeBuilderDataService = resumeBuilderDataService;
+        this.orgMembershipPrivacyService = orgMembershipPrivacyService;
     }
 
     /**
@@ -204,6 +208,7 @@ public class AccountDeletionService {
                 jobMatchService.deleteAllForUser(id);
                 inboxService.deleteAllForUser(id);
                 notificationService.deleteAllForUser(id);
+                orgMembershipPrivacyService.eraseFor(id, login); // org seats are anonymised before the user row goes (tenant-model.md section 6)
                 forgetAiUsage(login);
                 endBilling(id);
             });
@@ -249,6 +254,7 @@ public class AccountDeletionService {
         jobMatchService.deleteAllForUser(userId);
         inboxService.deleteAllForUser(userId);
         notificationService.deleteAllForUser(userId);
+        orgMembershipPrivacyService.eraseFor(userId, login);
         forgetAiUsage(login);
         endBilling(userId);
         userService.deleteUser(login);
