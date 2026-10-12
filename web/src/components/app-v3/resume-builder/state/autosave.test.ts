@@ -196,7 +196,7 @@ describe("autosave: failures", () => {
     const { a, save, events } = setup([{ kind: "invalid", path: "$.sections[1].items[0].start", message: "must be YYYY or YYYY-MM" }, ok(2)]);
     a.schedule(snap(1));
     await tick(AUTOSAVE_DELAY_MS);
-    expect(events.onFailed).toHaveBeenCalledWith("$.sections[1].items[0].start: must be YYYY or YYYY-MM");
+    expect(events.onFailed).toHaveBeenCalledWith("$.sections[1].items[0].start: must be YYYY or YYYY-MM", "$.sections[1].items[0].start");
     await tick(60_000);
     expect(save).toHaveBeenCalledTimes(1); // no retry timer
 
@@ -232,5 +232,64 @@ describe("autosave: flush and dispose", () => {
     a.schedule(snap(2));
     await tick(5000);
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe("autosave: hold / release (a template or theme PATCH bumps the version)", () => {
+  it("holds new saves, adopts the PATCH's version on release, then saves with it", async () => {
+    const { a, save } = setup([ok(5)]);
+    await a.hold();
+    a.schedule(snap(1));
+    await tick(AUTOSAVE_DELAY_MS * 3);
+    expect(save).not.toHaveBeenCalled(); // held: no PUT can carry the version the PATCH makes stale
+
+    a.release(4); // the PATCH answered ETag "4"
+    expect(a.version).toBe(4);
+    await tick(AUTOSAVE_DELAY_MS);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0][0].version).toBe(4);
+    expect(a.version).toBe(5);
+  });
+
+  it("hold waits for the save in flight, so the PATCH starts from the version that save returned", async () => {
+    let finish: (r: SaveResult) => void = () => {};
+    const { a, save } = setup([() => new Promise<SaveResult>((r) => (finish = r))]);
+    a.schedule(snap(1));
+    await tick(AUTOSAVE_DELAY_MS);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    let held = false;
+    void a.hold().then(() => (held = true));
+    await tick(0);
+    expect(held).toBe(false);
+    finish(ok(2));
+    await tick(0);
+    expect(held).toBe(true);
+    expect(a.version).toBe(2);
+    a.release();
+  });
+
+  it("release without a version keeps the current one, and nested holds release together", async () => {
+    const { a, save } = setup([ok(2)]);
+    await a.hold();
+    await a.hold();
+    a.schedule(snap(1));
+    a.release();
+    await tick(AUTOSAVE_DELAY_MS * 2);
+    expect(save).not.toHaveBeenCalled(); // one hold is still open
+    a.release(7);
+    await tick(AUTOSAVE_DELAY_MS);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0][0].version).toBe(7);
+  });
+
+  it("flush while held does not save; nothing pending means release is quiet", async () => {
+    const { a, save } = setup([]);
+    await a.hold();
+    a.schedule(snap(1));
+    await a.flush();
+    expect(save).not.toHaveBeenCalled();
+    a.release();
+    a.dispose();
   });
 });

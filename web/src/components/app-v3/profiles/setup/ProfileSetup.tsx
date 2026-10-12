@@ -9,7 +9,7 @@ import { track } from "@/lib/analytics";
 import { notifyExtension } from "@/lib/extension-signal";
 import { fetchCompleteness, ItemApiError } from "@/lib/profile-items";
 import { ONBOARDED_KEY } from "@/lib/profile-options";
-import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import {
   buildImportBody,
   identityConflicts,

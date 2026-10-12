@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Button, ChartIcon, LockIcon, SparklesIcon, TargetIcon, Tab, TabList, TabPanel, Tabs, cn } from "@kiwiply/ui";
-import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import type { RailTab } from "./state/ui";
 
 /** The rail's three tabs, in board order; `RailStrip` shows the same three as icons. */

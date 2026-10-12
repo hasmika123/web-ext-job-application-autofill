@@ -27,6 +27,7 @@ import com.dossier.api.service.resume.ResumeDocumentUpgrader;
 import com.dossier.api.service.resume.ResumeDocumentValidator;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
+import com.dossier.api.service.resume.ResumeThemeValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.time.Instant;
@@ -247,6 +248,29 @@ public class ResumeDocService {
         markPdfPending(d, true); // a template switch is a checkpoint: no settle delay
         resumeDocRepository.saveAndFlush(d);
         versionService.record(d, ResumeDocVersionService.TEMPLATE_SWITCH, null, currentLogin());
+        return toDto(d, d.getResume());
+    }
+
+    /**
+     * Replace the presentation (Customize Template: accent, font, spacing, page length; DESIGN 4, R2.4).
+     * {@code body = {theme}}. Like the template switch it needs no If-Match (it never reads or writes the
+     * typed content), bumps {@code doc_version} (the response's ETag is what the editor sends next),
+     * writes no version row and leaves {@link ProfileVersion} where it was: only {@code theme_json} changes.
+     * The theme is validated and re-written by {@link ResumeThemeValidator} (bounded fields only, 422
+     * {@code THEME_INVALID}).
+     */
+    public ResumeDocDTO setTheme(Long resumeId, JsonNode body) {
+        ResumeDoc d = ownedDoc(resumeId);
+        if (body == null || !body.isObject() || !body.hasNonNull("theme")) {
+            throw ResumeDocException.themeInvalid("$.theme", "body must be an object {theme}");
+        }
+        d.setThemeJson(ResumeDocumentJson.write(ResumeThemeValidator.sanitize(body.get("theme")), 0));
+        d.setUpdatedAt(Instant.now());
+        d.getResume().setUpdatedAt(d.getUpdatedAt());
+        d.getResume().setUpdatedByLogin(currentLogin());
+        // A theme change alters the render (DESIGN 8.5): a settled save, so the usual settle delay applies.
+        markPdfPending(d, false);
+        resumeDocRepository.saveAndFlush(d);
         return toDto(d, d.getResume());
     }
 

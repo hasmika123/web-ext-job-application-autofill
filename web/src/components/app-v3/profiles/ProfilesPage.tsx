@@ -6,7 +6,7 @@ import BioEditor, { type Bio } from "@/components/BioEditor";
 import { UnderlineTabs } from "../../app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
 import { fetchCompleteness, type Completeness, type ProfileItem } from "@/lib/profile-items";
-import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import OverviewTab from "./OverviewTab";
 import { PROFILE_TABS, tabFromHref, type ProfileTabKey } from "./tabs";
 import SectionTab from "./SectionTab";

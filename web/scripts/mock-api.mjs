@@ -209,7 +209,36 @@ const seedDoc = (title) => ({
   ],
 });
 
-DOCS.set(3, { doc: seedDoc("Product Manager"), templateId: "modern", theme: null, version: 2, updatedAt: ago(3) });
+/** A resume with every section kind, for trying the editor's canvas (R2.1): resume 3. */
+const seedFullDoc = (title) => {
+  const doc = seedDoc(title);
+  doc.basics.phone = "(650) 123-4567";
+  doc.basics.links = [
+    { label: "LinkedIn", url: "linkedin.com/in/priyasharma" },
+    { label: "Website", url: "priyasharma.dev" },
+    { label: "GitHub", url: "github.com/priyasharma" },
+  ];
+  const sections = doc.sections;
+  sections[1].items.push({
+    id: docId("i"), title: "Product Designer", org: "Contoso", location: "Austin, TX", start: "2018-06", end: "2021-02",
+    bullets: [
+      { id: docId("b"), text: "Launched 2 AI-driven features used by 10M+ people worldwide.", src: "parsed" },
+      { id: docId("b"), text: "Drove a 25% increase in engagement through product experiments.", src: "parsed" },
+    ],
+  });
+  sections[2].items[0].gpa = "3.8/4.0";
+  sections.push(
+    { id: "s_projects", kind: "PROJECTS", title: "Projects", items: [{ id: docId("i"), title: "Open-source icon set", url: "github.com/priyasharma/icons", start: "2022", end: "2023", bullets: [{ id: docId("b"), text: "1.2k stars, used by 30 teams.", src: "user" }] }] },
+    { id: "s_certs", kind: "CERTIFICATIONS", title: "Certifications", items: [{ id: docId("i"), title: "Google UX Design", org: "Google", date: "2020-05", url: "" }] },
+    { id: "s_langs", kind: "LANGUAGES", title: "Languages", items: [{ id: docId("i"), name: "English", level: "Fluent" }, { id: docId("i"), name: "Hindi", level: "Native" }] },
+    { id: "s_ach", kind: "ACHIEVEMENTS", title: "Achievements", items: [{ id: docId("i"), text: "Design Excellence award, 2023", date: "2023-11" }] },
+    { id: "s_int", kind: "INTERESTS", title: "Interests", items: [{ id: docId("i"), text: "Typography" }, { id: docId("i"), text: "Trail running" }] },
+    { id: "s_custom", kind: "CUSTOM", title: "Volunteering", items: [{ id: docId("i"), title: "Mentor", org: "ADPList", start: "2021", end: null, current: true, bullets: [{ id: docId("b"), text: "Mentored 40 early-career designers.", src: "user" }] }] },
+  );
+  return doc;
+};
+
+DOCS.set(3, { doc: seedFullDoc("Product Manager"), templateId: "modern", theme: null, version: 2, updatedAt: ago(3) });
 DOCS.set(4, { doc: seedDoc("Frontend Developer"), templateId: "modern", theme: null, version: 3, updatedAt: ago(9), exportedHash: "stale-hash", exportedAt: ago(12) });
 
 /** The first validation problem (path + message), mirroring the server's date rule and limits. */
@@ -249,7 +278,7 @@ const problem = (res, status, code, extra = {}) => json(res, status, { status, c
 function handleBuilder(req, res, path, method) {
   const isBuilder =
     path === "/api/profile/resumes/built" ||
-    /^\/api\/profile\/resumes\/\d+\/(doc(\/template)?|export-recorded)$/.test(path) ||
+    /^\/api\/profile\/resumes\/\d+\/(doc(\/template|\/theme)?|export-recorded)$/.test(path) ||
     /^\/api\/resumes\/\d+\/file$/.test(path) ||
     /^\/mock\/resumes\/\d+\/edit-elsewhere$/.test(path);
   if (!isBuilder) return false;
@@ -356,6 +385,27 @@ function handleBuilder(req, res, path, method) {
     withBody(req, (b) => {
       if (b.templateId !== "modern") return problem(res, 422, "DOC_INVALID", { path: "$.templateId", message: "unknown template" });
       d.templateId = b.templateId;
+      d.version += 1;
+      d.updatedAt = new Date().toISOString();
+      withEtag(res, 200, docDto(id), d.version);
+    });
+    return true;
+  }
+
+  // Customize Template (R2.4): bounded fields only, derived numbers dropped; no If-Match, bumps the version.
+  if (method === "PATCH" && path.endsWith("/doc/theme")) {
+    withBody(req, (b) => {
+      const t = b.theme;
+      const bad = (p, message) => problem(res, 422, "THEME_INVALID", { path: p, message });
+      if (!t || typeof t !== "object" || Array.isArray(t)) return bad("$.theme", "must be an object");
+      const oneOf = (k, allowed) => t[k] == null || allowed.includes(t[k]);
+      if (t.accent != null && !(typeof t.accent === "string" && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(t.accent))) return bad("$.theme.accent", "must be a #rgb or #rrggbb colour");
+      if (!oneOf("fontPair", ["inter", "source-serif", "georgia-arial"])) return bad("$.theme.fontPair", "unknown font pair");
+      if (!oneOf("spacing", ["compact", "normal", "spacious"])) return bad("$.theme.spacing", "unknown spacing");
+      if (t.fit != null && (typeof t.fit !== "object" || ![undefined, null, 1, 2].includes(t.fit.target))) return bad("$.theme.fit.target", "must be 1 or 2");
+      const stored = { ...t };
+      for (const derived of ["size", "density", "margin"]) delete stored[derived];
+      d.theme = stored;
       d.version += 1;
       d.updatedAt = new Date().toISOString();
       withEtag(res, 200, docDto(id), d.version);

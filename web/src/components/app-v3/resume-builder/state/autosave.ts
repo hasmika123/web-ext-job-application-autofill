@@ -9,6 +9,9 @@
  * - **409**: autosave *pauses* and reports the server's copy (`onConflict`). The UI asks the user;
  *   `resume({version})` (keep mine) saves against the server's version, `reset(...)` (take theirs)
  *   adopts the server document and drops the pending save.
+ * - **Hold** (R2.4): the template / theme PATCHes bump the same `doc_version`, so they run between
+ *   `hold()` (no new save starts; an in-flight one finishes) and `release(version)` (adopt the version the
+ *   PATCH returned, then save whatever is pending). A content PUT can then never carry a stale `If-Match`.
  * - **Network / 5xx**: retry with backoff (`retryDelaysMs`, the last value repeats) and report
  *   `onRetrying`. A new edit during the wait restarts the normal debounce but keeps the backoff.
  * - **422 / 401 / 413 ...**: not retried by timer (retrying cannot fix them); reported via
@@ -33,7 +36,8 @@ export interface AutosaveEvents {
   onSaved?(rev: number, version: number): void;
   onRetrying?(attempt: number, delayMs: number): void;
   onConflict?(serverVersion: number, doc: ResumeDocument): void;
-  onFailed?(message: string): void;
+  /** `path` is the validator's JSON path on a 422 (the canvas rings that field); absent for other failures. */
+  onFailed?(message: string, path?: string): void;
 }
 
 export interface AutosaveOptions extends AutosaveEvents {
@@ -56,6 +60,10 @@ export interface Autosave {
   resume(version: number): void;
   /** After "take theirs": adopt the server's `version`/`rev` as saved and forget anything pending. */
   reset(version: number, rev: number): void;
+  /** Stop starting saves and wait for the one in flight (a PATCH is about to bump the version). Pair with `release`. */
+  hold(): Promise<void>;
+  /** End a `hold`: adopt `version` (what the PATCH returned) when given, then save what is pending. */
+  release(version?: number): void;
   /** Stop all timers; later calls are ignored. */
   dispose(): void;
   readonly version: number;
@@ -73,6 +81,7 @@ export function createAutosave(opts: AutosaveOptions): Autosave {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let current: Promise<void> | null = null;
   let paused = false;
+  let holds = 0;
   let disposed = false;
   let attempt = 0;
 
@@ -95,7 +104,7 @@ export function createAutosave(opts: AutosaveOptions): Autosave {
 
   /** One save of the latest snapshot; chains itself while edits keep arriving and nothing is armed. */
   function run(): Promise<void> {
-    if (disposed || paused || current || !dirty()) return current ?? Promise.resolve();
+    if (disposed || paused || holds > 0 || current || !dirty()) return current ?? Promise.resolve();
     const snap = latest as Snapshot;
     opts.onSaving?.(snap.rev);
 
@@ -116,7 +125,7 @@ export function createAutosave(opts: AutosaveOptions): Autosave {
           attempt = 0;
           opts.onSaved?.(snap.rev, version);
           // Edits that arrived while this request was in flight: save them next, unless a debounce is already armed.
-          if (timer === null && dirty() && !paused) await run();
+          if (timer === null && dirty() && !paused && holds === 0) await run();
           return;
         case "conflict":
           paused = true;
@@ -125,7 +134,7 @@ export function createAutosave(opts: AutosaveOptions): Autosave {
           return;
         case "invalid":
           attempt = 0;
-          opts.onFailed?.(`${result.path}: ${result.message}`);
+          opts.onFailed?.(`${result.path}: ${result.message}`, result.path);
           return;
         case "fatal":
           attempt = 0;
@@ -180,6 +189,20 @@ export function createAutosave(opts: AutosaveOptions): Autosave {
       paused = false;
       attempt = 0;
       clear();
+    },
+
+    async hold() {
+      if (disposed) return;
+      holds += 1;
+      clear();
+      if (current) await current;
+    },
+
+    release(nextVersion) {
+      if (disposed) return;
+      holds = Math.max(0, holds - 1);
+      if (typeof nextVersion === "number" && !paused) version = nextVersion;
+      if (holds === 0 && !paused && dirty()) arm(delayMs);
     },
 
     dispose() {

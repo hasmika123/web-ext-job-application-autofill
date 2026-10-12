@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, useToast } from "@kiwiply/ui";
+import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, resolveCapabilities, useToast } from "@kiwiply/ui";
 import type { ResumeSectionKind } from "@kiwiply/ui";
-import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import { exportPdf, exportText, putDoc, requestPdfNow, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
+import DocumentCanvas from "./DocumentCanvas";
 import EditorTopBar from "./EditorTopBar";
+import HiddenContentBar from "./HiddenContentBar";
 import RailStrip from "./RailStrip";
 import RightRail from "./RightRail";
-import SectionEditor from "./SectionEditor";
 import SectionTabs from "./SectionTabs";
 import AddSectionPanel from "./panels/AddSectionPanel";
 import PickTemplatePanel from "./panels/PickTemplatePanel";
@@ -19,9 +20,9 @@ import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
 import PanelPlaceholder from "./panels/PanelPlaceholder";
 import SwapSectionPanel from "./panels/SwapSectionPanel";
 import TailorPanel from "./panels/TailorPanel";
-import { BASICS_BLOCK_ID, blockId, sectionTitle } from "./sectionTitle";
 import { createAutosave, type Autosave } from "./state/autosave";
-import { currentDoc, editorReducer, hasUnsaved, initEditorState, saveStatus } from "./state/reducer";
+import { fieldIdForPath } from "./state/paths";
+import { canRedoEdit, canUndoEdit, currentDoc, editorReducer, hasUnsaved, initEditorState, saveStatus } from "./state/reducer";
 import {
   LEFT_SHEET_WIDTH,
   RAIL_STRIP_WIDTH,
@@ -35,6 +36,7 @@ import {
 } from "./state/ui";
 import { usePdfStatus } from "./usePdfStatus";
 import { useBuilderLayout } from "./useBuilderLayout";
+import { usePresentation } from "./usePresentation";
 
 /** A resume with nothing in it opens Add Section once (DESIGN 10.3). */
 function isEmptyDoc(doc: ResumeDocDTO["doc"]): boolean {
@@ -77,9 +79,12 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   const router = useRouter();
   const toast = useToast();
   const [state, dispatch] = useReducer(editorReducer, initial, (dto) =>
-    initEditorState({ doc: dto.doc, templateId: dto.templateId, theme: dto.theme, docVersion: dto.docVersion }),
+    initEditorState({ doc: dto.doc, templateId: dto.templateId, theme: dto.theme, docVersion: dto.docVersion, limits: config.limits }),
   );
   const doc = currentDoc(state);
+  // What the template can show decides what the canvas offers (DESIGN 6.4); the 422 ring names the field the server refused.
+  const caps = useMemo(() => resolveCapabilities(state.templateId, config.templates.overrides), [state.templateId, config.templates.overrides]);
+  const errorField = state.errorPath ? fieldIdForPath(doc, state.errorPath) : null;
 
   const [ui, uiDispatch] = useUiState({ openAdd: isEmptyDoc(initial.doc) });
   const gridRef = useRef<HTMLDivElement>(null);
@@ -112,7 +117,10 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       onSaved: (rev, version) => dispatch({ type: "save/ok", rev, version, at: Date.now() }),
       onRetrying: () => dispatch({ type: "save/retrying" }),
       onConflict: (serverVersion, serverDoc) => dispatch({ type: "save/conflict", serverVersion, doc: serverDoc }),
-      onFailed: (message) => dispatch({ type: "save/failed", message }),
+      onFailed: (message, path) => {
+        dispatch({ type: "save/failed", message, path });
+        if (path) toast({ title: `Couldn't save: ${message.replace(/^\$[^:]*:\s*/, "")}`, variant: "error" });
+      },
     });
     autosave.current = a;
     return () => {
@@ -122,7 +130,16 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       a.dispose();
       autosave.current = null;
     };
-  }, [resumeId, initialVersion]);
+  }, [resumeId, initialVersion, toast]);
+
+  /* ── template + theme (R2.4): optimistic, saved by PATCH, the autosave held around each ─── */
+  // A saved template / theme changes the render, so the server re-queues the PDF just like after a content save (R3.7 x R2.4).
+  const [presentationSavedAt, setPresentationSavedAt] = useState<number | null>(null);
+  const presentationDispatch = useCallback((a: Parameters<typeof dispatch>[0]) => {
+    if (a.type === "presentation/version") setPresentationSavedAt(Date.now());
+    dispatch(a);
+  }, []);
+  const presentation = usePresentation({ resumeId, autosave, templateId: state.templateId, theme: state.theme, doc, config, dispatch: presentationDispatch });
 
   // Every change of the document tells the controller; it debounces and serialises.
   useEffect(() => {
@@ -160,7 +177,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   }, [resumeId]);
 
   // The stored PDF's state for the top bar: "PDF updating…" after a save, "couldn't be made · Retry" on failure.
-  const { pdf, retry: retryPdf, refresh: refreshPdf } = usePdfStatus(resumeId, initial.pdf, state.savedAt);
+  const { pdf, retry: retryPdf, refresh: refreshPdf } = usePdfStatus(resumeId, initial.pdf, Math.max(state.savedAt ?? 0, presentationSavedAt ?? 0) || null);
 
   /* ── "Saved N minutes ago" stays honest ──────────────────────────────────────────────── */
   useEffect(() => {
@@ -319,6 +336,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
 
   /* ── exports: both need the SAVED document, so save first and refuse if that fails ───── */
   const savedFirst = async (what: string): Promise<boolean> => {
+    await presentation.flush(); // a theme still in its 500 ms debounce is part of "what's saved"
     await autosave.current?.flush();
     if ((autosave.current?.savedRev ?? 0) < latestRev.current) {
       toast({ title: `Couldn't ${what} yet`, description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
@@ -373,6 +391,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
 
   /* ✕: save what can be saved, then leave; the unsaved guard asks only when something is still not saved. */
   const closeEditor = async () => {
+    await presentation.flush();
     await autosave.current?.flush();
     const stillUnsaved = (autosave.current?.savedRev ?? 0) < latestRev.current || conflicted.current;
     if (stillUnsaved && !window.confirm("Your latest changes aren't saved. Leave anyway?")) return;
@@ -412,7 +431,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         />
       )}
       {shownPanel === "add" && <AddSectionPanel focusKind={addFocusKind} />}
-      {shownPanel === "template" && <PickTemplatePanel />}
+      {shownPanel === "template" && (
+        <PickTemplatePanel doc={doc} templateId={state.templateId} theme={state.theme} config={config} controls={presentation} disabled={state.phase === "conflict"} />
+      )}
       {shownPanel === "swap" && <SwapSectionPanel />}
       {shownPanel === "tailor" && <TailorPanel />}
     </>
@@ -484,7 +505,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
           className="col-start-2 row-start-1 min-h-0 min-w-0 overflow-y-auto px-4 pb-4 max-md:pb-24 md:max-lg:pb-20"
         >
           <div className="mx-auto flex max-w-[880px] flex-col gap-4">
-            {/* Interim rename field until the resume header bar (R3.9) and the canvas name block (R2.1). */}
+            {/* Interim rename field until the resume header bar (R3.9). */}
             <label className="flex items-center gap-3 rounded-2xl border border-v2-line/70 bg-paper px-4 py-2 shadow-v2-soft">
               <span className="flex-none text-[12.5px] font-semibold text-ink-soft">Resume name</span>
               <input
@@ -509,31 +530,20 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               className="sticky top-0 z-10 rounded-2xl border shadow-v2-soft"
             />
 
-            {/* Placeholder blocks (the R0 section editors) until the document canvas, R2.1. */}
-            <div className="flex flex-col gap-8 rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft sm:p-6">
-              <section id={BASICS_BLOCK_ID} aria-label="Personal info" className="rb-block scroll-mt-20">
-                <h2 className="font-display text-[26px] font-extrabold tracking-tight text-ink">{doc.basics.name?.trim() || "Your name"}</h2>
-                {doc.basics.headline?.trim() && <p className="text-[15px] text-ink-soft">{doc.basics.headline}</p>}
-                <p className="mt-2 text-[13px] text-ink-soft">
-                  {[doc.basics.location, doc.basics.phone, doc.basics.email].filter(Boolean).join("  ·  ") || "No contact details yet."}
-                </p>
-                <p className="mt-2 text-[12.5px] text-muted">Editing your header arrives with the document canvas.</p>
-              </section>
+            <HiddenContentBar doc={doc} theme={state.theme} caps={caps} />
 
-              {doc.sections.length === 0 && <p className="text-[13.5px] text-ink-soft">This resume has no sections yet.</p>}
-              {doc.sections.map((s) => (
-                <section key={s.id} id={blockId(s.id)} aria-labelledby={`${blockId(s.id)}-h`} className="rb-block scroll-mt-20">
-                  <h2
-                    id={`${blockId(s.id)}-h`}
-                    className="mb-3 flex items-center gap-2 font-display text-[16px] font-extrabold uppercase tracking-wide text-ink"
-                  >
-                    {sectionTitle(s)}
-                    {s.hidden && <span className="rounded bg-paper-2 px-1.5 py-0.5 text-[10.5px] font-semibold normal-case tracking-normal text-ink-soft">Hidden</span>}
-                  </h2>
-                  <SectionEditor section={s} dispatch={dispatch} />
-                </section>
-              ))}
-            </div>
+            <DocumentCanvas
+              doc={doc}
+              caps={caps}
+              theme={state.theme}
+              limits={state.limits}
+              dispatch={dispatch}
+              errorField={errorField}
+              canUndo={canUndoEdit(state)}
+              canRedo={canRedoEdit(state)}
+              aiAllowed={config.aiAllowed}
+              onAddSection={() => openAddFor("SUMMARY")}
+            />
           </div>
         </main>
 

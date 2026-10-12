@@ -4,13 +4,18 @@ import { forwardRef, useCallback, useLayoutEffect, useRef } from "react";
 import type { TextareaHTMLAttributes } from "react";
 import { cn, inputClass } from "@kiwiply/ui";
 
+export interface AutoTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  /** Skip the boxed input skin (the canvas draws its own: text that becomes a field on hover / focus). */
+  bare?: boolean;
+}
+
 /**
  * A textarea that grows with its content (a bullet is "a single-line autosizing textarea",
  * DESIGN 3.2). Styled with the design system's `inputClass`. The parent keeps `value` and gets
  * every change; the height follows `value` (also after undo/redo, which change it from outside).
  */
-const AutoTextarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function AutoTextarea(
-  { className, value, rows = 1, ...props },
+const AutoTextarea = forwardRef<HTMLTextAreaElement, AutoTextareaProps>(function AutoTextarea(
+  { className, value, rows = 1, bare = false, ...props },
   forwardedRef,
 ) {
   const local = useRef<HTMLTextAreaElement | null>(null);
@@ -32,7 +37,7 @@ const AutoTextarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTML
     if (el.scrollHeight > 0) el.style.height = `${el.scrollHeight}px`;
   }, [value]);
 
-  return <textarea ref={setRef} rows={rows} value={value} className={cn(inputClass, "resize-none overflow-hidden leading-snug", className)} {...props} />;
+  return <textarea ref={setRef} rows={rows} value={value} className={cn(bare ? "" : inputClass, "resize-none overflow-hidden leading-snug", className)} {...props} />;
 });
 
 export default AutoTextarea;

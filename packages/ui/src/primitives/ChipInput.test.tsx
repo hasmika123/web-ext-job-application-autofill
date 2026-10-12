@@ -66,6 +66,17 @@ describe("ChipInput", () => {
   });
 });
 
+describe("ChipInput count", () => {
+  it("describes the box with 'n of max' when there is a cap, and not otherwise", () => {
+    const { rerender } = render(<ChipInput label="Skills" value={["a", "b"]} onChange={() => {}} maxChips={40} />);
+    const id = box().getAttribute("aria-describedby");
+    expect(id).toBeTruthy();
+    expect(document.getElementById(id!)?.textContent).toBe("2 of 40");
+    rerender(<ChipInput label="Skills" value={["a"]} onChange={() => {}} />);
+    expect(box().getAttribute("aria-describedby")).toBeNull();
+  });
+});
+
 describe("SourceChip", () => {
   it("shows the plain-language source for either casing and nothing for unknown values", () => {
     const { rerender } = render(<SourceChip provenance="PARSED" />);

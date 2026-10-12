@@ -1,7 +1,7 @@
 "use client";
 
 import { Tooltip, cn } from "@kiwiply/ui";
-import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import { railIcon, visibleRailTabs } from "./RightRail";
 import type { RailTab } from "./state/ui";
 
