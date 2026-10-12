@@ -120,7 +120,7 @@ dossier:
   storage:
     driver: local
     local:
-      root: ${java.io.tmpdir}/dossier-test-uploads
+      root: ${dossier.test.uploads-root:${java.io.tmpdir}/dossier-test-uploads}
 management:
   health:
     mail:

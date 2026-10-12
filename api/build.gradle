@@ -182,5 +182,10 @@ task cleanResources(type: Delete) {
 }
 
 
+// Each checkout (worktree) gets its own upload root for tests, so parallel runs never delete each other's files.
+tasks.withType(Test).configureEach {
+    systemProperty('dossier.test.uploads-root', layout.buildDirectory.dir('test-uploads').get().asFile.absolutePath)
+}
+
 compileJava.dependsOn processResources
 processResources.dependsOn bootBuildInfo
