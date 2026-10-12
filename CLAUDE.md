@@ -41,6 +41,10 @@ promote a batch.
   continuation point (last commit, first commands, first task). Never leave a handoff in a
   sub-project folder.
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
+- **We never collect sensitive PII** (user decision 2026-10-11, product-wide): no SSN/ITIN, bank
+  account or routing numbers, tax IDs, passport/visa/I-9/document numbers, or date of birth — not
+  asked for, accepted, extracted from uploads, learned by the extension, sent to AI, or stored.
+  Cards go to Stripe directly and never touch us; Stripe tax-ID collection stays off.
 - **One design system: `@kiwiply/ui` (`packages/ui`).** All shared visuals — icons,
   primitives (Button/Badge/Card/…), tokens — live there; web + extension import them
   (web's `@/components/ui` files are thin re-exports). Never inline an `<svg>` icon or
@@ -164,6 +168,10 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
     freely** (Pro, Autopilot, AI Interview Practice, services), priced **above** individual prices.
   - **No packages yet:** prices, limits and future bundles live in the catalog and change from
     admin, not code.
+  - **Everything is admin-configured (user decision 2026-10-11):** every feature's on/off switch,
+    price, limit, cap and default is driven by config from the app admin settings page (catalog,
+    settings registry, feature flags) — never hard-coded. Code ships safe defaults; admin decides.
+    Example: Consultancy Ops/timesheets pricing is set later in admin, not in a story.
   - **Consultancy Marketer (Phase 22):** prepares everything for 4–5 consultants (resumes, job
     banks with a resume per job, recruiter mail matched to each consultant's board) but **never
     submits and never signs in as a consultant**. The consultant consents, approves

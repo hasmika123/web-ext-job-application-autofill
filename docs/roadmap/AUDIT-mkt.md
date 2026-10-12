@@ -1,0 +1,117 @@
+# AUDIT — area `mkt` (marketing site & growth)
+
+Written 2026-10-11 against `version2` (`f679549`). Method: every route under
+`web/src/app/(marketing)/**`, the root SEO convention files, the newsletter/inquiry plumbing, the
+store listing, and every place marketing copy makes a claim about the product. State legend:
+**real** = shipped and backed by real data/behaviour · **partial** = page exists but copy, data or
+plumbing is placeholder/missing · **missing** = no page, no code. Evidence paths are repo-relative.
+
+Companion: `docs/roadmap/PLAN-mkt.md`, `docs/roadmap/areas/mkt.json`, `docs/design/mkt/*.md`.
+
+## 0. What is real underneath (reusable foundation)
+
+| Capability | Evidence | Notes |
+|---|---|---|
+| Marketing route group with scoped "Kiwiply Bright" theme, header/footer, signed-in header state | `web/src/app/(marketing)/layout.tsx`, `components/marketing/{MarketingHeader,MarketingFooter,ChromeGate}.tsx`, `packages/ui/styles/theme-v2.css` | `/v3` opts out of the shared chrome via `ChromeGate` |
+| Landing v2 (exact-board mode) with hero carousel, mocks, sections | `(marketing)/page.tsx`, `components/marketing/{HeroCarousel,HeroArt,hero-slides}.tsx`, `sections/*`, `mocks/*` | Spec `web/LANDING-V2-SPEC.md` §13 |
+| Alternate landing `/v3` with its own header/footer, FAQ accordion, stats band | `(marketing)/v3/page.tsx`, `components/marketing/v3/*` | Unindexed (`NON_INDEXABLE_PATHS`), awaiting the user's pick |
+| `/about`, `/organizations` | `(marketing)/about/page.tsx`, `components/marketing/about/*`, `(marketing)/organizations/page.tsx`, `components/marketing/organizations/*` | Per-page `metadata` set |
+| `/pricing` as a real page (plans + services + pop-ups + Stripe buttons), catalog in code | `(marketing)/pricing/page.tsx`, `components/pricing/PricingSections.tsx`, `web/src/lib/catalog.ts` (`FREE/PRO/AUTOPILOT/CONSULTANCY`, `COMPARE`, `EXPERT_SERVICES`, `PER_PERSON`) | Phase 15.5/15.6 done; Phase 18 moves the catalog to the DB (admin A3.1) |
+| `/contact` with topic preselect → `sales_inquiry` → admin Inquiries queue | `(marketing)/contact/page.tsx`, `components/pricing/ContactForm.tsx`, `web/src/app/api/inquiries/route.ts`, Liquibase `20261005010000_sales_inquiry.xml` | Admin A8.3 is done |
+| `/privacy`, `/terms` with anchors (`#cookies`) | `(marketing)/privacy/page.tsx`, `(marketing)/terms/page.tsx` | Lawyer review = Phase 15.2 (trust area) |
+| Newsletter double opt-in + one-click unsubscribe (no login) | `api/.../NewsletterResource.java` (`/api/newsletter/{subscribe,confirm,unsubscribe}`), `NewsletterService.java`, `EmailSubscriber.java`, `web/src/app/api/newsletter/*`, `web/src/app/newsletter/{confirm,unsubscribe}` | No sends beyond the confirmation; admin list A7.1 partial |
+| SEO convention files: robots, sitemap (7 URLs, hand-maintained `lastmod`), `metadataBase`, OG image, title template | `web/src/app/robots.ts`, `sitemap.ts`, `layout.tsx`, `opengraph-image.tsx`, `web/src/lib/site.ts` | No JSON-LD, no canonical per page, no `llms.txt`, no 404 page |
+| GA4 behind equal-weight cookie consent, dark by default | `web/src/components/CookieConsent.tsx`, `web/src/lib/analytics.ts` (`NEXT_PUBLIC_ANALYTICS_ENABLED`) | Nothing first-party; no UTM/referrer capture; no funnel |
+| Honest support matrix as data (works today vs roadmap), no third-party logo files | `components/marketing/partners-data.ts` (`WORKS_TODAY`, `ON_THE_ROADMAP`), `TrustStrip.tsx` | The only "claims as data" pattern on the site |
+| Placeholder files isolated and labelled | `components/marketing/placeholder-data.ts`, `about/placeholder-data.ts`, `organizations/placeholder-data.ts`, `v3/placeholder-data.ts` | Each carries a `PLACEHOLDER … replace before version2 is promoted` header |
+| Store listing copy + CWS policy lessons (keyword stuffing rejection) | `job-autofill/STORE-LISTING.md`, `job-autofill/PRIVACY.md`, `BROWSERS.md`, `AUTOFILL-QA.md` | Listing names no vendor; "verified on a live form" rule |
+| Demo video hook (hidden until a URL exists) | `web/src/lib/site.ts` `DEMO_VIDEO_URL = null` | |
+| Board-extracted artwork + mascots in place | `web/public/v2/*.png`, `web/public/v2/README.md` | Real renders still owed by the user |
+
+Not present anywhere: `/help` · blog/guides/free tools/resume examples · referral, creator, affiliate
+or campus programs · public changelog · press/brand page · `/extension` install page with browser
+detection · 404 page · JSON-LD · UTM/first-touch capture · marketing funnel · lifecycle email
+(welcome series, win-back) · comparison pages · honest-claims register as a document · link checker,
+Lighthouse or axe for marketing routes · `llms.txt`.
+
+## 1. Route-by-route
+
+| Route | State | Real today | Placeholder / missing | Evidence | Gaps → stories |
+|---|---|---|---|---|---|
+| `/` | **partial** | hero carousel (4 slides), trust strip from real support matrix, pillars, inbox/matches/resumes/dashboard sections, how-it-works, individuals, organizations teaser, value band (honest, no numbers), final CTA | `SuccessStories` renders **fabricated testimonials** (`TESTIMONIALS`: "Priya S.", "Jason T.", "Maya K." with "5x more jobs"); hero slide copy is board copy (exact-board mode) — e.g. "on autopilot" headline is allowed only as the plan name; no demo video; no conversion events | `(marketing)/page.tsx`, `sections/SuccessStories.tsx`, `placeholder-data.ts:27`, `hero-slides.tsx` | M0.2, M1.1–M1.5 |
+| `/v3` | **partial (unindexed)** | own header/footer, FAQ (5 Qs, native `<details>`), pillars, steps, support strip from real data | **fabricated stats band** ("1M+ Jobs Aggregated · 200K+ Applications Sent · 75K+ Interviews Scheduled · 68% …"), fabricated stories (`V3_STORIES`), phone mock lists Google/Amazon/Microsoft roles, "Our users get hired at amazing companies" wordmarks | `(marketing)/v3/page.tsx`, `v3/placeholder-data.ts`, `v3/V3StatsBand.tsx`, `v3/V3Companies.tsx`, `APP-V2-SPEC.md` §7 | M0.2, M1.1 (decide `/` vs `/v3`) |
+| `/about` | **partial** | hero, values, mission, who-we-serve, different, guides, promise, story, CTA | `ABOUT_TESTIMONIALS` fabricated ("Sarah Kim", "Marcus Lee", "Priya Shah"); story section must stay "built 2026, in beta" | `(marketing)/about/page.tsx`, `about/Testimonials.tsx`, `about/placeholder-data.ts` | M0.2 |
+| `/organizations` | **partial** | hero, features (now vs coming chips), how-it-works from `CONSULTANCY_STEPS`, visibility, reporting, CTA band | `OVERVIEW`/`MOBILE_STRIP`/`TEAM_ROWS` are invented numbers ("248 organizations", "86 placements", "96% placement support"); org audit found claims (ATS sync, SSO, 2FA/AES-256) that locked decisions exclude — owned by O14 | `organizations/placeholder-data.ts`, `OrgStatsMock.tsx`, `OrgReporting.tsx`; `docs/roadmap/AUDIT-org.md` | M0.2 (numbers), O14.* (claims) |
+| `/pricing` | **real** | Free/Pro/Autopilot/Consultancy cards, "What's included" pop-ups, services, per-person menu, Contact-us routing, plan-aware Pro button | no full comparison table on the page (`COMPARE` exists in `catalog.ts` but limits like AI budget $3/mo, 3 matches/day are not all surfaced), "no refunds, cancel anytime" not stated plainly on the page, no Offer JSON-LD, no org cost calculator | `(marketing)/pricing/page.tsx`, `components/pricing/PricingSections.tsx`, `lib/catalog.ts:178` | M2.1–M2.5 |
+| `/contact` | **real** | form → `POST /api/inquiries`, topic preselect, info tiles | "Browse our Help Center" is a `mailto:`; "Frequently asked questions" links to **`/v3#faq`** (an unindexed page with its own chrome); "Response time: two business days" is a promise nobody measures | `(marketing)/contact/page.tsx:31-39` | M4.1, M4.4, M0.3 |
+| `/privacy`, `/terms` | **real** | sections, `#cookies`, analytics disclosure matches `CookieConsent` | will need updates for events/referrals (U14.5 owns) | `(marketing)/privacy/page.tsx:304-330` | U14.5, T-area |
+| `/help` | **missing** | — | footer "Browser Extension Help" → `/signup`; contact → mailto | `nav.ts:140` | M4.* (critical) |
+| Footer | **partial** | columns render; items without a destination show a "Soon" chip (never a dead link) | "Careers", "Press", "Status" → `/contact`; "Accessibility" → `/contact`; "Do Not Sell or Share…" → `/privacy` (no CCPA mechanism); "Application Tracker" → `/dashboard` (auth-gated); `SOCIAL_LINKS` all `#`; `BROWSER_TILES` lists **Brave, Opera, Safari** — Safari is deferred (`BROWSERS.md`), Brave/Opera never tested | `nav.ts:93-199`, `job-autofill/BROWSERS.md` | M0.3, M0.5 |
+| `/sitemap.xml`, `/robots.txt` | **real** | 7 URLs, disjoint disallow list | hand-maintained `lastmod`; `/help`, guides, tools will outgrow the array | `sitemap.ts`, `robots.ts`, `site.ts` | M3.3 |
+| OG/Twitter | **real** | one generated image for the whole site | no per-page OG images; `twitter.card` only | `opengraph-image.tsx` | M3.2 |
+| 404 | **missing** | Next default | — | — | M3.7 |
+| `/extension` (install page) | **missing** | the CWS link lives only in the header/footer CTAs → `/signup` | no browser detection, no Firefox/Edge store links, no "send to laptop" on phones | `nav.ts`, `BROWSERS.md` | M10.2, M1.6 |
+| `/changelog`, `/press`, `/students`, `/campus`, `/compare/*`, `/tools/*`, `/guides/*`, `/blog` | **missing** | — | the footer already promises Blog · Career Guides · Resume Examples · Interview Questions · Company Reviews · Job Search Tips · API as "Soon" | `nav.ts:134-143` | M5.*, M7.*, M9.3 |
+
+## 2. Cross-cutting gaps
+
+| Topic | State | Evidence | Stories |
+|---|---|---|---|
+| **Honest-claims register** (one list of what we say vs what ships) | missing as a document; rules scattered across `LANDING-V2-SPEC.md` §1/§13, `STORE-LISTING.md`, placeholder headers, `partners-data.ts`; `git log --grep honest` shows two commits (`ec0a4b2`, `5bfaa1a`) fixing claims by hand | — | M0.1 (critical), M0.4 lint |
+| Fabricated social proof live on four pages | partial (isolated in placeholder files, but rendered) | `placeholder-data.ts`, `about/placeholder-data.ts`, `organizations/placeholder-data.ts`, `v3/placeholder-data.ts` | M0.2 |
+| Two landing pages with different nav trees and copy | partial | `/` (carousel) vs `/v3` (board), `ChromeGate` | M1.1 |
+| Conversion instrumentation (CTA clicks, signup start, install, first fill) | missing | `analytics.ts` only exposes `track()`; nothing calls it on marketing routes | M1.5, M8.* |
+| First-touch attribution (UTM, referrer, landing path) at signup | missing | `web/src/app/api/auth/signup/route.ts` carries no attribution; admin A11.6 planned the charts | M8.1 |
+| Marketing funnel definitions + admin tiles | missing | `AUDIT-admin.md` (A11.1 partial: KPIs on sample) | M8.2, M8.3 |
+| SEO structured data, per-page canonical/OG, `llms.txt`, 404/redirect registry | missing | `layout.tsx` (only `metadataBase`), no `app/not-found.tsx` | M3.* |
+| Performance/a11y/link checks for marketing routes in CI | missing | `.github/workflows/ci.yml` runs tsc/eslint/build only; `web/package.json` `test` = `tsc + eslint` | M11.* |
+| Content engine (guides, tools, examples, company pages, comparisons) | missing | footer "Soon" chips | M5.* (critical) |
+| Referral / creator / affiliate / campus | missing | U16.4 (user area) plans the in-app referral link; nothing in API | M6.*, M7.* (critical) |
+| Lifecycle email (welcome series, product updates, win-back) | missing (only activation + billing + interview/offer mail exist) | `NotificationService`, `NewsletterService` (confirmation only) | M9.* |
+| Store listings: AMO/Edge links on site, screenshots from the real UI, review prompt | partial | `STORE-LISTING.md` (copy ready), `publish-extension.yml` | M10.* |
+| Demo video / real product footage | missing | `DEMO_VIDEO_URL = null` | M1.3 |
+
+## 3. Honest status counts for the stories in `areas/mkt.json`
+
+`done` = shipped with real behaviour and tests (pricing page, contact → inquiries, newsletter double
+opt-in, robots/sitemap/OG baseline, store-listing copy); `partial` = page or data exists but copy is
+placeholder, destination is wrong, or plumbing is half there (landing, about, organizations, footer,
+`/v3`, GA4 consent); `not_started` = everything else. Counts are in `PLAN-mkt.md` §0.
+
+## 4. Competitive benchmark (checked 2026-10-11)
+
+Scope: marketing site, SEO content engine, programs (referral/affiliate/student), pricing page and
+the complaints that show up in public reviews. Third-party review sites that sell a competing
+product (LoopCV, Resumly, JobShinobi, FastApply, ResumeHog) are marked *(competitor-authored)*;
+their numbers are indicative, not verified. Teal's own pages (`tealhq.com/tools`, `/pricing`)
+returned 403 to our fetcher, so Teal data is third-party only.
+
+| Product | What it does best (marketing/growth) | Pricing (as published or reported) | Public complaints | Kiwiply: beat / match / don't copy |
+|---|---|---|---|---|
+| **Simplify** — [simplify.jobs](https://simplify.jobs/) · [referrals help](https://help.simplify.jobs/en/articles/2284984-simplify-referrals) · [CWS listing](https://chrome.google.com/webstore/detail/simplify-copilot-autofill/pbanhockgagggenencehbnadejlgchfc) | Free-forever autofill + tracker + matching as the hook; programmatic **jobs + companies directories** ("millions of openings", "100,000+ company career sites"), student/new-grad landing pages, blog, Help Center, ships an `llms.txt`; referral programme pays **bounties on hires** (interview milestones), no subscription needed | Core free; Simplify+ reported ≈ $19.99/wk · $39.99/mo · $89.99/3 mo, **shown only in-app, no public pricing page** ([Resumly, competitor-authored](https://resumly.ai/answers/simplify-jobs-review), [LoopCV, competitor-authored](https://www.loopcv.pro/directory/simplify/)) | Small Trustpilot sample 3.0/5 (9 reviews, ~67 % one-star) ([Trustpilot UK](https://uk.trustpilot.com/review/simplify.jobs)); privacy worries in reviews; weekly plan annualises badly | **Beat:** public, plain pricing with every limit; honest "you submit" everywhere. **Match:** companies/jobs directories from our posting store (M5.6), student pages (M7.4), `llms.txt` (M3.4), a Help Center. **Don't copy:** hidden pricing, hire-bounty referrals (needs employer side we don't have) |
+| **Teal** — [pricing via ToolRadar](https://toolradar.com/tools/teal-hq/pricing) · [FrontDesk review](https://frontdeskreview.com/software/resume-builders/teal.md) · [CWS listing](https://chrome.google.com/webstore/detail/teal-free-job-search-cont/opafjjlpbiaicbbgifbejoochmmeikep) · [referral codes](https://referralcodes.com/shop/teal-hq-referral-codes) · [affiliate (LinkClicky)](https://linkclicky.com/affiliate-program/teal/) | The **free ATS resume score** as the top-of-funnel hook, huge resume-examples/templates library, a free tracker extension (≈200K CWS users, 4.9★ ≈3K ratings per the listing snapshot); referral codes ($5/$9 rewards, 1-week trial per third-party listing); ShareASale affiliate ($20/lead reported) | Free plan; Teal+ **$13/wk · $29/mo · $79/90 days**, no annual | Weekly plan annualises to ≈ $676; charges after cancellation reported (11/93 one-star on Trustpilot, March 2026, [Resumly, competitor-authored](https://resumly.ai/alternatives/teal-alternatives)); AI bullets "need human editing", AI inserted job-description lines (work authorization) into resumes | **Beat:** no weekly churn-bait plan (locked), no refunds stated plainly, cancel keeps the paid period. **Match:** free resume score as a public tool (M5.3), resume examples hub (M5.5 with R7). **Don't copy:** the weekly plan, AI copy that pads resumes |
+| **Huntr** — [resume examples](https://huntr.co/resume-examples) · [affiliate program](https://huntr.co/affiliate-program) · [affiliate terms](https://huntr.co/affiliate-program/terms) · [Rewardful case study](https://rewardful.com/case-studies/huntr) · [billing FAQ](https://help.huntr.co/en/articles/10827983-billing-faq-troubleshooting) | The deepest **SEO content engine** in the set: "3,500+ resume examples & guides" organised by title, industry, company and level, each linking a free tool (`/product/resume-checker`, `/resume-keyword-scanner`, `/job-description-keyword-finder` …); affiliate **30 % of the first 3 months**, 30-day cookie, no self-referral, no paid ads, 100+ affiliates | Free (tracker capped ~100 jobs); Pro ≈ **$40/mo · $90/3 mo · $160/6 mo** ([JobShinobi, competitor-authored](https://jobshinobi.com/compare/best-job-application-tracker-app-2026)) | Cancel ≠ refund (own FAQ); overdue-invoice collection after cancel; support hard to reach when cancelling | **Beat:** our cancel copy is one sentence and true. **Match:** programmatic examples hub + per-tool landing pages (M5.*), an affiliate programme with the same guardrails (M7.2). **Don't copy:** collecting overdue invoices after a cancel |
+| **Jobscan** — [resume checker](https://www.jobscan.co/resume-checker) · [cancellation policy](https://www.jobscan.co/cancellation-policy) · [affiliates](https://www.jobscan.co/affiliates) · [partnerships](https://www.jobscan.co/partnerships) · [Semrush overview](https://ja.semrush.com/website/jobscan.co/overview) · [Trustpilot](https://uk.trustpilot.com/review/jobscan.co) | The **free scan as lead magnet** ("Get Your Free Resume Score"), a learning centre + ATS guides owning "ats resume checker" (≈215K monthly searches; ≈1.8M visits/mo per Semrush, June 2025); affiliate 15 % via Impact; a separate partnerships track for job boards and career centres | Free (few scans/mo); Premium **$49.95/mo · $89.95/3 mo**; trial exists | Refunds only within 2 days of a period **and** a 3.5 % fee; "still charged after cancelling three times" reviews; headline claims ("Land 3X More Interviews", "98 % of Fortune 500") inconsistent on the same page | **Beat:** honest headline (no 3X), no trial trap, no refund fee. **Match:** own the "how to apply on Workday/Greenhouse/…" guides — we have the real DOM knowledge they don't (M5.2); career-centre partnerships (M7.4). **Don't copy:** 3.5 % refund fee, unsubstantiated stats |
+| **Rezi** — [resume examples](https://www.rezi.ai/resume-examples) · [affiliate FAQ](https://intercom.help/rezihelp/en/articles/12347631-rezi-affiliate-faq) · [pricing via ToolRadar](https://toolradar.com/tools/rezi/pricing) | A tools hub (`/tools/resume-checker`, `/cover-letter-generator`, `/ai-interview-practice`, even a `/resume-mcp`), 300+ examples in 21 categories, SOC 2 badge, **30-day money-back**; affiliate **30 % for 12 months**, 90-day last-click, FTC disclosure required, no self-referral | Free (1 resume, 3 PDF downloads); Pro **$29/mo**; Lifetime **$149** | Counters like "4,510,834 job seekers helped", "join the millions" are unaudited; templates "get past any ATS" is a marketing assertion | **Beat:** no invented counters — only live numbers above a threshold (M1.7). **Match:** a `/tools` hub with one page per free tool (M5.1/M5.3), an affiliate programme with disclosure rules (M7.2). **Don't copy:** lifetime deals (margin floor), "any ATS" promises |
+| **JobRight** — [jobright.ai](https://jobright.ai/) · [Trustpilot](https://trustpilot.com/review/jobright.ai) · [Resumly review (competitor-authored)](https://resumly.ai/answers/jobright-review) · [ResumeHog review (competitor-authored)](https://resumehog.com/blog/posts/jobright-ai-review-2026-is-this-job-search-copilot-worth-it.html) | Programmatic **job pages by title/location/work model**, H1B and entry-level lists, "Insider Connections" (alumni/referrers), very active blog incl. competitor reviews; aggressive social proof ("3,000,000 trusted users", "3x interviews", "80 % time saved", Product Hunt/"featured by OpenAI" badges); Trustpilot ≈ 4.6–4.8 (≈1.8K reviews) | Free credits reset daily; Turbo reported **$39.99/mo** (was $29.99), $17.99/wk, $89.99/3 mo — pricing **404s publicly**, shown after login | ~72 % of one-star reviews cite billing (charged after cancel, buried cancel, no renewal email) per competitor analysis; AI resume "inserted skills they don't have"; auto-apply agent "effectively beta" | **Beat:** no fabricated metrics, cancel in one click with a renewal email (B/U15), AI that never invents experience (I-area guardrail). **Match:** programmatic job/company pages from `job_posting` (M5.6), competitor comparison pages (M5.8). **Don't copy:** hidden pricing, "No.1 choice for 80 %" style claims |
+| **Careerflow** — [LoopCV review (competitor-authored)](https://blog.loopcv.pro/careerflow-review/amp/) · [Capterra](https://www.capterra.com/p/10015230/Careerflow-ai/) · [Scoutify review](https://scoutify.com/blog/careerflow-review) | The **free LinkedIn optimizer** as the hook (praised as "flawless" on Capterra, 95 % positive of 20 reviews), tracker + extension free | Free (tracker 10–15 jobs, 1 resume); paid tiers reported anywhere from $12–$44.99/mo depending on source — inconsistent | "Limited plan allows only one review"; buyers expecting auto-apply | **Match:** nothing specific — LinkedIn optimizer was ruled out (ROADMAP cross-check). **Learn:** one unmistakable free hook per audience |
+| **LazyApply / JobCopilot** (auto-submit bots) — [LoopCV review (competitor-authored)](https://blog.loopcv.pro/lazyapply-review/) · [Interview Guys review](https://blog.theinterviewguys.com/?p=10535) · [Hiration](https://www.hiration.com/blog/ai-auto-apply-bots/) · [ResumeHog (competitor-authored)](https://resumehog.com/blog/posts/auto-apply-bots-reviewed-lazyapply-vs-jobcopilot-in-june-2026.html) | Volume promise ("apply to 1,000 jobs") sells; annual tiers $99–$999 | LazyApply Trustpilot ≈ 2.2–2.4/5 (56 % one-star); bots fail name fields, answer visa/salary wrong; refunds "extremely difficult"; a Reddit account of 14,000 auto-applies ending in ATS spam flags; LinkedIn plugin blacklists | **Deliberately not copy.** Our "you submit, never ticks attestations" is the trust asset (ROADMAP cross-check). **Beat:** make "safe autopilot" the headline differentiator on `/pricing` and the Autopilot slide, and publish a plain "why we never auto-submit" page (M1.2) |
+
+**What the benchmark says about the plan**
+
+1. Everybody gives autofill + tracking away and monetises AI and matching; the *marketing* battle is
+   fought on (a) one unmistakable free hook per audience, (b) a programmatic SEO engine (examples,
+   tools, jobs/companies, guides), and (c) programmes (affiliate 15–30 %, referral credits, campus
+   partnerships). Kiwiply has none of (b) or (c) yet and its hook ("the inbox that updates the
+   board", "the profile that builds itself") is not on the landing page as the hook.
+2. The most common public complaint across six products is **billing** (hidden prices, charges after
+   cancel, refund fees). Our locked rules — public prices, no trial, no weekly plan, cancel keeps the
+   paid period, "no refunds, cancel anytime" stated plainly — are a marketing asset if the pricing
+   page says them out loud (M2.2).
+3. The second complaint is **AI that pads or invents**. "AI drafts, you decide; it never adds
+   experience you don't have" belongs in the register and on the page (M0.1, I-area guardrail).
+4. Unique SEO content only we can write: how each ATS's application form really works (we capture the
+   DOM), what questions applications actually ask (learned-answer labels, aggregated), which ATS a
+   company uses (job sources). That is M5.2/M5.4/M5.6 and nobody in the table has it.
+5. Nobody is honest about numbers. Live, thresholded counters from real tables (`fill_event`,
+   `application`, `job_posting`) are both more credible and cheaper than copywriting (M1.7).

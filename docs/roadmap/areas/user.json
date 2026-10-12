@@ -453,13 +453,14 @@
         "web"
       ],
       "deps": [
-        "U1.5"
+        "U1.5",
+        "A5.1"
       ],
       "story": "As a user I want to change my email safely and to sign in by emailed link when I lost my passkey so that I'm never locked out.",
       "genz": "Recovery without support tickets.",
       "ac": [
         "email_change_request with hashed confirm/revert tokens; old address gets a 7-day revert link; change applies on confirm",
-        "One-time magic sign-in link (15 min) from /login 'Email me a link'; rate 3/hour",
+        "One-time magic sign-in link (15 min) from /login 'Email me a link'; rate setting `ratelimit.magic_link.per_hour` (default 3)",
         "Both flows emit SECURITY notifications"
       ],
       "tests": [
@@ -662,7 +663,8 @@
       "tech": "web/src/components/onboarding/* (new flow), api JobPreferenceResource (U4.5)",
       "evidence": [],
       "design": "docs/design/user/onboarding-activation.md",
-      "critical": true
+      "critical": true,
+      "benchmark": "No competitor onboarding ends in 3 real jobs in 5 screens; Simplify starts with a long profile, the builders with a form"
     },
     {
       "id": "U2.4",
@@ -703,12 +705,13 @@
       ],
       "deps": [
         "U2.3",
-        "U4.2"
+        "U4.2",
+        "A5.1"
       ],
       "story": "As a new user I want to see three real jobs for my picks before I finish onboarding so that I know Kiwiply works.",
       "genz": "The 'aha' inside the first minute.",
       "ac": [
-        "GET /api/jobs/instant?limit=3 → best 3 ≤ 72 h honouring job_preference (JobSearchService, rules only)",
+        "GET /api/jobs/instant → the best setting `jobs.instant_matches` (default 3) postings no older than setting `jobs.instant_max_age_hours` (default 72) honouring job_preference (JobSearchService, rules only)",
         "Cards with Save; fewer than 3 shows what exists + reassurance",
         "Event activated{path:jobs} on first render; user.activated_at set"
       ],
@@ -758,13 +761,14 @@
         "API"
       ],
       "deps": [
-        "U2.2"
+        "U2.2",
+        "A5.1"
       ],
       "story": "As a phone user I want a checklist that remembers what I skipped and an email with the Chrome link so that autofill is waiting on my laptop.",
       "genz": "Phone-first users still get the full product later without hunting.",
       "ac": [
         "Checklist card: resume, Tier-A answers (/welcome), extension, inbox (Pro) — each one tap, disappears when done",
-        "POST /api/account/send-extension-link (3/day) + Brevo template",
+        "POST /api/account/send-extension-link (setting `ratelimit.install_link.per_day`, default 3) + Brevo template",
         "Desktop shows 'Add to Chrome' when no extension is detected (extension-signal ping)"
       ],
       "tests": [
@@ -773,7 +777,13 @@
       "tech": "app-v3/home, api AccountResource, web/src/lib/extension-signal.ts",
       "evidence": [],
       "design": "docs/design/user/onboarding-activation.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "E12.4",
+        "M1.8",
+        "N2.5"
+      ],
+      "benchmark": "G9 — Simplify's test autofill; first value < 60 s after install"
     },
     {
       "id": "U2.8",
@@ -928,13 +938,14 @@
       ],
       "deps": [
         "U6.1",
-        "U13.1"
+        "U13.1",
+        "A5.1"
       ],
       "story": "As a user I want one clear suggestion (prep for Thursday, follow up with Microsoft, finish your resume, 2 jobs expire today) so that I never wonder what to do.",
       "genz": "Decision fatigue is the enemy; one card, one button.",
       "ac": [
-        "Rules ranked: interview within 48 h > inbox suggestion pending > ghosted follow-up > profile completeness < 60% > matches unseen > goal behind",
-        "Deterministic, server-side GET /api/profile/next-action; dismiss for 24 h",
+        "Rules ranked: interview within 48 h > inbox suggestion pending > ghosted follow-up > profile completeness below setting `user.next_action.completeness_pct` (default 60) > matches unseen > goal behind",
+        "Deterministic, server-side GET /api/profile/next-action; dismiss for setting `user.next_action.dismiss_hours` (default 24)",
         "Pro: the AI Insights card can ask the assistant for a one-liner (U8), otherwise hidden"
       ],
       "tests": [
@@ -1040,12 +1051,13 @@
         "API"
       ],
       "deps": [
-        "U4.1"
+        "U4.1",
+        "A5.1"
       ],
       "story": "As a user I want to search jobs by text and filters and get a ranked, explainable list in under 200 ms so that finding jobs feels instant.",
       "genz": "Speed and relevance beat a bigger index.",
       "ac": [
-        "GET /api/jobs/search per design §5 (params, facets, relaxations, 1 000 cap), GET /api/jobs/{id} (410 when purged), POST /api/jobs/{id}/save (one path with JobMatchService.save)",
+        "GET /api/jobs/search per design §5 (params, facets, relaxations, result cap from setting `jobs.search_result_cap`, default 1 000), GET /api/jobs/{id} (410 when purged), POST /api/jobs/{id}/save (one path with JobMatchService.save)",
         "Ranker per §6 with ?explain=1 for admins; short-token fallback; p95 < 200 ms at 100 k rows (measured in the IT)",
         "Web BFF routes"
       ],
@@ -1077,7 +1089,8 @@
         "Phone: chips row, Filters bottom sheet with counts, SwipeRow save/hide with undo, detail BottomSheet with Apply/Save/Score",
         "Desktop: rail + list + right panel as drawn",
         "Relaxation suggestions and 'Create an alert' on empty; 'via <aggregator>' attribution",
-        "Events search, job_opened, job_saved, job_hidden"
+        "Events search, job_opened, job_saved, job_hidden",
+        "Cards render the S3.5 'Check this one' shield chip with reasons when ≥ 2 scam rules fire (G15)"
       ],
       "tests": [
         "Playwright 390/1440 on the mock API (mock gains /api/jobs/search)"
@@ -1088,7 +1101,11 @@
         "web/src/components/app-v2/jobs/data.ts"
       ],
       "design": "docs/design/user/job-search-matching.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "S3.5"
+      ],
+      "benchmark": "G15 — nobody in the matrix flags job scams on cards; 69 % of Gen Z apply without checking (Barclays)"
     },
     {
       "id": "U4.4",
@@ -1135,7 +1152,8 @@
       "ac": [
         "job_preference table + GET/PUT /api/profile/job-preferences with limits; MatchPreferences.from(bio, resume, explicit) override",
         "Settings panel (replaces 'Coming soon') with chips; 'Reset learned' clears learned_json",
-        "Nightly prefilter uses it"
+        "Nightly prefilter uses it",
+        "Preferences include work authorisation / sponsorship need (needs sponsorship · no · unknown); the search filter applies the I9.8 posting tag and cards show it (G13)"
       ],
       "tests": [
         "JobPreferenceResourceIT; MatchPreferencesTest override"
@@ -1145,12 +1163,16 @@
         "web/src/components/app-v3/settings/panels.tsx:34"
       ],
       "design": "docs/design/user/job-search-matching.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.8"
+      ],
+      "benchmark": "G13 — Jobright's H1B/sponsorship filter is its wedge with international students"
     },
     {
       "id": "U4.6",
       "epic": "U4",
-      "title": "Feedback loop (👍/👎/hide/hide company) + Free daily matches (rules) + 10–20 Pro matches",
+      "title": "Feedback loop (👍/👎/hide/hide company) + Free daily matches (rules) + Pro matches — counts from the catalog",
       "status": "not_started",
       "size": "M",
       "owners": [
@@ -1159,13 +1181,15 @@
       ],
       "deps": [
         "U4.2",
-        "U7.1"
+        "U7.1",
+        "B1.2",
+        "A5.1"
       ],
       "story": "As a user I want my reactions to improve what I see, and a daily set of matches on every plan (3 on Free, 10–20 scored on Pro).",
       "genz": "Swipe to teach it; it gets better fast.",
       "ac": [
         "job_feedback table + endpoints; nightly learned_json rollup; hard exclusions in ranker and prefilter",
-        "JobMatchScheduler: Free users get top 3 rules-ranked (model='rules'); Pro target 10–20 with up to 50 candidates",
+        "JobMatchScheduler: Free users get the top entitlement `matches.per_day` rules-ranked (catalog default Free 3, model='rules'); Pro target entitlement `matches.per_day` (catalog default 10–20) with up to setting `jobs.candidates_per_user` (default 50) candidates",
         "Daily matches notification kind DAILY_MATCHES (Pro email at digest time via U7)"
       ],
       "tests": [
@@ -1187,13 +1211,15 @@
         "web"
       ],
       "deps": [
-        "U4.2"
+        "U4.2",
+        "A5.1"
       ],
       "story": "As a Pro user I want to tap Score on any job and get match % + missing keywords so that I apply where I fit.",
       "genz": "A ring, a reason, one tap.",
       "ac": [
-        "POST /api/jobs/{id}/score via JobFitService, cached in job_fit by hash, daily cap 30 (setting), 402 AI_BUDGET surfaces 'resets <date>'",
-        "Cards show match from job_match or job_fit; never on Free"
+        "POST /api/jobs/{id}/score via JobFitService, cached in job_fit by hash, daily cap setting `ai.cap.fit.daily` (default 30), 402 AI_BUDGET surfaces 'resets <date>'",
+        "Cards show match from job_match or job_fit; never on Free",
+        "Free: every search/match card shows the deterministic 0–100 rules score with its top 3 reasons from the I5.3 explainability contract — no AI call, no credit; Pro layers the AI score on top (G12; decision D18)"
       ],
       "tests": [
         "JobScoreIT cache hit no second call; cap"
@@ -1203,7 +1229,12 @@
         "api/src/main/java/com/dossier/api/service/JobFitService.java"
       ],
       "design": "docs/design/user/job-search-matching.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I4.3",
+        "I5.3"
+      ],
+      "benchmark": "G12 — Jobright free matching score, Teal 10 free credits, LinkedIn Job Match free summary"
     },
     {
       "id": "U4.8",
@@ -1302,12 +1333,13 @@
       ],
       "deps": [
         "U7.1",
-        "U4.1"
+        "U4.1",
+        "A5.1"
       ],
       "story": "As a user I want a nudge when a saved job is about to expire or has sat for 7 days so that I don't miss it.",
       "genz": "Gentle, batched into the digest.",
       "ac": [
-        "Nightly job emits STALE_NUDGE (digest-only) for SAVED ≥ 7 d and 'expires soon' when the posting expired_at is set",
+        "Nightly job emits STALE_NUDGE (digest-only) for SAVED older than setting `notify.saved_stale_days` (default 7) and 'expires soon' when the posting expired_at is set",
         "Max one nudge per application"
       ],
       "tests": [
@@ -1364,7 +1396,8 @@
       "ac": [
         "Liquibase additive tables + application columns; enum values added; backfill CREATED/STATUS events",
         "ApplicationService writes an event on every create/PATCH/sync/inbox change (source tagged); inbox forward-only rule unchanged",
-        "Extension payloads unchanged (sync tests green)"
+        "Extension payloads unchanged (sync tests green)",
+        "application gains resume_id (resume used at fill) and a job description snapshot (text, captured_at, source URL) written by E4.6 / N1.3 (G4); statuses add GHOSTED (G16)"
       ],
       "tests": [
         "ApplicationEventIT; ApplicationSyncResourceIT regression; MailClassifier IN_REVIEW mapping"
@@ -1375,7 +1408,13 @@
         "api/src/main/java/com/dossier/api/domain/enumeration/ApplicationStatus.java"
       ],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "E4.6",
+        "N1.2",
+        "I9.10"
+      ],
+      "benchmark": "G4 — Teal, Simplify, Huntr store the JD at save/apply time"
     },
     {
       "id": "U6.2",
@@ -1422,7 +1461,8 @@
       "ac": [
         "BottomSheet (phone) / right panel (desktop) with tabs Timeline · Notes · Emails · Resume · Interview",
         "Timeline from application_event with source icons; notes CRUD (pinned); next action + date",
-        "Status picker sheet (not a blind advance); undo toasts"
+        "Status picker sheet (not a blind advance); undo toasts",
+        "Resume tab shows the resume version used and the JD snapshot captured at save/fill, readable without re-fetching (G4); 'Packet' link to U6.11 (G22)"
       ],
       "tests": [
         "Playwright 390/1440 open, note, status"
@@ -1433,12 +1473,17 @@
         "web/src/components/board/ResumeFit.tsx"
       ],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "E4.6",
+        "U6.11"
+      ],
+      "benchmark": "G4/G22 — Huntr application packets; Teal JD snapshot"
     },
     {
       "id": "U6.4",
       "epic": "U6",
-      "title": "Interviews: CRUD, .ics / Google Calendar, 24h + 1h reminders, outcome",
+      "title": "Interviews: CRUD, .ics / Google Calendar, reminders at setting `notify.interview_reminder_hours` (default 24 h + 1 h), outcome",
       "status": "not_started",
       "size": "M",
       "owners": [
@@ -1447,14 +1492,16 @@
       ],
       "deps": [
         "U6.3",
-        "U7.1"
+        "U7.1",
+        "A5.1"
       ],
       "story": "As a user I want to log an interview (or accept one parsed from mail), export it to my calendar and get reminded, then record how it went.",
       "genz": "Reminders where they live (push + calendar), not another inbox.",
       "ac": [
         "interview endpoints per design; GET …/ics with VTIMEZONE; Google Calendar URL client-side",
-        "INTERVIEW_REMINDER via the U7 engine (24 h email, 1 h push), idempotent",
-        "Inbox interview mail proposes an interview row (date parsed when confident) — accept in the Emails tab"
+        "INTERVIEW_REMINDER via the U7 engine at setting `notify.interview_reminder_hours` (default 24 h email, 1 h push), idempotent",
+        "Inbox interview mail proposes an interview row (date parsed when confident) — accept in the Emails tab",
+        "Proposed interview rows from I9.9 (date/time parsed from inbox mail) appear as 'Confirm interview?' cards; confirm creates the row + .ics, decline discards (G19)"
       ],
       "tests": [
         "InterviewResourceIT CRUD/ics/reminders; parser date extraction fixtures"
@@ -1462,7 +1509,11 @@
       "tech": "api InterviewResource/Service, InboxParser; web detail sheet Interview tab",
       "evidence": [],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.9"
+      ],
+      "benchmark": "G19 — no competitor has the inbox; interview extraction from mail is unique"
     },
     {
       "id": "U6.5",
@@ -1490,7 +1541,8 @@
       "tech": "app-v3/applications, parser-core job meta",
       "evidence": [],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "benchmark": "Teal and Huntr set the kanban / phone-card bar; swipe status + bulk select is parity"
     },
     {
       "id": "U6.6",
@@ -1562,13 +1614,15 @@
       ],
       "deps": [
         "U6.1",
-        "U7.1"
+        "U7.1",
+        "A5.1"
       ],
       "story": "As a user I want a nudge when an application has had no reply for 14 days with a follow-up suggestion.",
       "genz": "Momentum reminders, in the digest.",
       "ac": [
-        "Nightly STALE_NUDGE per ghosted application (once; again after 14 more days); next_action_at due → in-app",
-        "Settings kind toggle"
+        "Nightly STALE_NUDGE per ghosted application (once; again after setting `notify.stale_nudge_repeat_days`, default 14); next_action_at due → in-app",
+        "Settings kind toggle",
+        "GHOSTED suggestion after N days without any event, N = per-ATS/company median from I9.10, else setting `tracker.ghosted_default_days` (default 14); one tap sets GHOSTED or schedules a follow-up; the card says 'most companies on <ATS> replied within N days' (G16)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -1577,7 +1631,11 @@
       "tech": "api scheduled job; NotificationService",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.10"
+      ],
+      "benchmark": "G16 — 48–53 % of applications go unanswered (Criteria); Teal/Huntr only have manual reminders"
     },
     {
       "id": "U6.9",
@@ -1615,12 +1673,14 @@
       "owners": [
         "API"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "story": "As the platform I want one engine every feature calls so that channels, quiet hours, dedupe and plan rules are applied consistently.",
       "genz": "Notification etiquette by construction.",
       "ac": [
         "notification alter (dedupe_key UNIQUE, payload, channel states, scheduled_for, group_key); notification_preference; digest_run",
-        "NotificationKind enum with defaults/locked kinds; PreferenceResolver; DeferredSender; DigestScheduler (local-time); per-user daily caps",
+        "NotificationKind enum with defaults/locked kinds; PreferenceResolver; DeferredSender; DigestScheduler (local-time); per-user daily caps from setting `notify.daily_cap` (default per channel, engine default)",
         "14.6 behaviour preserved (interview/offer email) — tests unchanged"
       ],
       "tests": [
@@ -1646,14 +1706,16 @@
       ],
       "deps": [
         "U7.1",
-        "U4.2"
+        "U4.2",
+        "B1.2",
+        "A5.1"
       ],
       "story": "As a user I want to save a search as an alert (instant/daily/weekly, app/email/push) and be told about new matches.",
       "genz": "Set it and get pinged — the main reason to come back.",
       "ac": [
-        "job_alert + job_alert_hit; endpoints incl. preview counts and 402 ALERT_LIMIT (Free 2 / Pro 15)",
+        "job_alert + job_alert_hit; endpoints incl. preview counts and 402 ALERT_LIMIT from entitlement `alerts.max` (catalog default Free 2 · Pro 15)",
         "AlertEvaluator after each ingest run: hits once per posting; IMMEDIATE publishes grouped ALERT_HITS; DAILY/WEEKLY roll into the digest",
-        "Alerts page wired (create from search, pause, edit, hits list); 30-day-no-hits nudge"
+        "Alerts page wired (create from search, pause, edit, hits list); no-hits nudge after setting `notify.alert_no_hits_days` (default 30)"
       ],
       "tests": [
         "AlertEvaluatorIT; AlertResourceIT caps; Playwright create from an empty search"
@@ -1691,7 +1753,13 @@
       "tech": "app-v3/settings/panels.tsx, api NotificationPreferenceResource",
       "evidence": [],
       "design": "docs/design/user/alerts-notifications.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "N4.5"
+      ],
+      "supersedes": [
+        "A7.7"
+      ]
     },
     {
       "id": "U7.4",
@@ -1705,13 +1773,14 @@
       ],
       "deps": [
         "U7.1",
-        "U17.1"
+        "U17.1",
+        "A5.1"
       ],
       "story": "As a user I want push notifications for alerts and interviews on my phone without an app store app.",
       "genz": "Free-tier real-time channel; iOS via the installed PWA.",
       "ac": [
         "push_subscription table; POST/DELETE subscriptions; GET vapid; PushSender with 410/404 disable",
-        "Pre-prompt sheet after creating an alert / second save; 'Not now' snoozes 14 d; never on load",
+        "Pre-prompt sheet after creating an alert / second save; 'Not now' snoozes setting `notify.push_prompt_snooze_days` (default 14); never on load",
         "Settings 'This device: push on/off'; iOS guidance"
       ],
       "tests": [
@@ -1787,13 +1856,15 @@
       "owners": [
         "API"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "story": "As the platform I want a bounded server-side agent loop over typed tools so that the assistant is grounded, safe and metered.",
       "genz": "The chat must be fast, true and cheap.",
       "ac": [
         "Tables assistant_thread/message/memory/daily; AiTask ASSISTANT + ASSISTANT_SUMMARY in the ledger",
         "GeminiAiProvider.generateWithTools; loop ≤ 4 rounds; read tools per design §2.1; untrusted wrapper; output ≤ 700 tokens",
-        "AiBudgetService + daily cap (setting) + kill switch; SSE endpoint"
+        "AiBudgetService + daily cap setting `ai.cap.assistant.daily` (default 40) + kill switch `ai.feature.chat.enabled`; SSE endpoint"
       ],
       "tests": [
         "AssistantServiceTest with a fake provider; ToolRegistryIT foreign ids 404; AssistantResourceIT 402/429/503 + frame order"
@@ -1804,7 +1875,12 @@
         "api/src/main/java/com/dossier/api/service/AiBudgetService.java"
       ],
       "design": "docs/design/user/ai-assistant.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "I9.1",
+        "I0.3",
+        "I9.6"
+      ]
     },
     {
       "id": "U8.2",
@@ -1877,12 +1953,13 @@
         "web"
       ],
       "deps": [
-        "U8.3"
+        "U8.3",
+        "A5.1"
       ],
       "story": "As a user I want to see, edit and delete what the assistant remembers and know what it sends, with chats purged after 90 days.",
       "genz": "Honest privacy in one screen.",
       "ac": [
-        "remember() tool (confirm) → assistant_memory; Settings › Privacy › AI assistant lists/edits/deletes; purge job 90 d; DSAR + delete cascade",
+        "remember() tool (confirm) → assistant_memory; Settings › Privacy › AI assistant lists/edits/deletes; purge job after setting `ai.assistant_memory_retention_days` (default 90); DSAR + delete cascade",
         "Privacy policy paragraph (U14.5)"
       ],
       "tests": [
@@ -2004,7 +2081,10 @@
       "tech": "api service/interview/*, reuse assistant loop pieces; web Practice tab",
       "evidence": [],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "I9.2"
+      ]
     },
     {
       "id": "U9.4",
@@ -2022,7 +2102,8 @@
       "story": "As a user I want 'Prep for Google · Thursday' to open prep with the company, role and posting context.",
       "genz": "Zero setup.",
       "ac": [
-        "/interview-prep?application= pre-selects role/company and shows the posting's requirement bullets"
+        "/interview-prep?application= pre-selects role/company and shows the posting's requirement bullets",
+        "'Prep for this' from an application opens the I9.11 JD-driven set tagged by the posting's skills — Free gets the bank subset, Pro the generated role-specific questions (G26)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2031,7 +2112,11 @@
       "tech": "web",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.11"
+      ],
+      "benchmark": "G26 — Big Interview bank by role, Final Round mock"
     },
     {
       "id": "U10.1",
@@ -2048,7 +2133,8 @@
       "story": "As the platform I want inbox mail grouped into threads with direction so that Messages can show conversations.",
       "genz": "Threads, not a mail dump.",
       "ac": [
-        "inbox_message.thread_key + index; GET /api/profile/messages (threads) and /{threadKey}; attachments listed by name only"
+        "inbox_message.thread_key + index; GET /api/profile/messages (threads) and /{threadKey}; attachments listed by name only",
+        "Mail bodies pass through SensitivePatterns redaction before persistence (recruiter mail sometimes asks for SSN/DOB/bank details — the values, if present, are replaced by [removed]); headers unchanged; attachments still never stored"
       ],
       "tests": [
         "MailThreadIT grouping + Sent direction"
@@ -2056,7 +2142,10 @@
       "tech": "api service/inbox/InboxMailService, InboxSyncService",
       "evidence": [],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "T1.1"
+      ]
     },
     {
       "id": "U10.2",
@@ -2107,7 +2196,8 @@
       "ac": [
         "GET /api/companies?q&sort (aggregated from job_posting by company_key, with ATS platform, locations, count); GET /api/companies/{key}/jobs",
         "Follow = create a job_alert {company}",
-        "Tiles from initials (no logos scraped)"
+        "Tiles from initials (no logos scraped)",
+        "Company card shows the ATS used, open roles from the posting store and our median reply time (I9.10) — never Glassdoor-style reviews (G18)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2118,7 +2208,13 @@
         "web/src/components/app-v3/explore/ExplorePage.tsx:12"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.10",
+        "M5.6",
+        "U6.10"
+      ],
+      "benchmark": "G18 — Teal / Jobright company insights"
     },
     {
       "id": "U11.2",
@@ -2201,7 +2297,8 @@
         "web/src/components/app-v3/analytics/compute.ts:17"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "benchmark": "Huntr Pro analytics, Simplify/Teal partial; response rate by resume/ATS is parity — the inbox-fed version is unique"
     },
     {
       "id": "U12.2",
@@ -2286,7 +2383,11 @@
         "api/src/main/java/com/dossier/api/web/rest/ProfileSuggestionResource.java"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "U13.4",
+        "E6.5"
+      ]
     },
     {
       "id": "U13.3",
@@ -2361,7 +2462,8 @@
       "genz": "Honest privacy builds the trust that makes them share a resume.",
       "ac": [
         "Panel sections: Data we store (counts + links), AI (parse consent, assistant memory, 'what is sent'), Product analytics switch (U18.4), Support access grant (9.C3; A-area endpoint), Export (exists), Delete (exists, step-up)",
-        "Every switch is backed by an API; no decorative toggles"
+        "Every switch is backed by an API; no decorative toggles",
+        "Panel opens with the T7.2 nutrition label and states the three defaults — never used to train models (T1.6), never sold, never shown to employers — each linked to its policy clause (G31)"
       ],
       "tests": [
         "Playwright panel; API switches persisted"
@@ -2371,7 +2473,14 @@
         "web/src/app/(app)/settings/page.tsx:154"
       ],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "T7.2",
+        "T1.6",
+        "I5.4",
+        "E10.4"
+      ],
+      "benchmark": "G31 — Yoodli charges for training exclusion; Simplify states it; we state and enforce it by default"
     },
     {
       "id": "U14.3",
@@ -2384,12 +2493,13 @@
         "API"
       ],
       "deps": [
-        "U0.3"
+        "U0.3",
+        "A5.1"
       ],
       "story": "As a user I want to set an avatar, how I'm addressed, my timezone and theme.",
       "genz": "Identity and comfort.",
       "ac": [
-        "Avatar to S3 (≤ 2 MB, cropped client-side) via a Next-proxied upload; preferredName; tz + locale saved to user; theme (U0.3)"
+        "Avatar to S3 (max setting `uploads.avatar_max_bytes`, default 2 MB; cropped client-side) via a Next-proxied upload; preferredName; tz + locale saved to user; theme (U0.3)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2424,7 +2534,10 @@
         "api/src/main/java/com/dossier/api/web/rest/BugReportResource.java"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "S1.6"
+      ]
     },
     {
       "id": "U14.5",
@@ -2515,12 +2628,15 @@
         "web",
         "API"
       ],
-      "deps": [],
+      "deps": [
+        "B5.1"
+      ],
       "story": "As a subscriber I want to see my limits and where I stand, when I renew or lapse, and get to receipts.",
       "genz": "No surprises on money.",
       "ac": [
         "GET /api/billing/me extended with limits {resumes, alerts} + usage; past_due banner with 'update card' (portal); cancels-on date; receipts via portal",
-        "Free: what's included + compare"
+        "Free: what's included + compare",
+        "Cancel completes in-app in ≤ 2 taps via B5.1 (no portal detour) with undo until period end (B5.2); the panel shows the money block (monthly/quarterly only, no trial, no refunds, keep what you paid for) (G29)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2532,7 +2648,13 @@
         "api/src/main/java/com/dossier/api/service/EntitlementService.java"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "B5.2",
+        "B8.4",
+        "M2.2"
+      ],
+      "benchmark": "G29 — billing/cancellation is the #1 one-star theme at Teal, Simplify, Jobright, Resume.io, Final Round"
     },
     {
       "id": "U15.3",
@@ -2558,7 +2680,11 @@
       "tech": "api BillingWebhookResource → NotificationService",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "B4.2",
+        "B11.3"
+      ]
     },
     {
       "id": "U15.4",
@@ -2619,7 +2745,7 @@
     {
       "id": "U16.2",
       "epic": "U16",
-      "title": "Streak that forgives (activity days, 1 freeze/week)",
+      "title": "Streak that forgives (activity days, setting `engage.streak_freezes_per_week`, default 1)",
       "status": "not_started",
       "size": "S",
       "owners": [
@@ -2627,12 +2753,13 @@
         "web"
       ],
       "deps": [
-        "U18.1"
+        "U18.1",
+        "A5.1"
       ],
       "story": "As a user I want a streak for days I did anything useful, with one free miss a week, so that momentum is encouraged without anxiety.",
       "genz": "Duolingo-style but kind: freezes, no guilt pushes.",
       "ac": [
-        "Derived nightly from product_event (any 'useful' event); freeze auto-applied; shown only ≥ 2 days; no push for a streak at risk (decision)"
+        "Derived nightly from product_event (any 'useful' event); freeze auto-applied; shown only from setting `engage.streak_min_days_shown` (default 2); no push for a streak at risk (decision)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2661,7 +2788,8 @@
       "genz": "Shareable moments; no PII on the card (counts only).",
       "ac": [
         "WEEKLY_RECAP via the engine at the user's local Sunday 17:00; email template; /recap/[week] page",
-        "Share card rendered server-side (next/og) with counts only; share sheet (Web Share API)"
+        "Share card rendered server-side (next/og) with counts only; share sheet (Web Share API)",
+        "Share card renders in the M6.5 formats (1080×1920 + square), counts only by default — no company names unless opted in (G35)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2670,12 +2798,17 @@
       "tech": "api WeeklyRecapJob; web recap route + opengraph image",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "M6.5",
+        "N1.6"
+      ],
+      "benchmark": "G35 — Gen Z discovery is TikTok/Instagram-first; Handshake badges"
     },
     {
       "id": "U16.4",
       "epic": "U16",
-      "title": "Referral link + reward (one month of Pro for both after the friend's first week active)",
+      "title": "Referral link + reward (reward and qualifying window from referral settings — defaults one month of Pro for both after 7 active days)",
       "status": "not_started",
       "size": "M",
       "owners": [
@@ -2684,13 +2817,16 @@
       ],
       "deps": [
         "U18.1",
-        "U2.9"
+        "U2.9",
+        "B7.5",
+        "M6.1",
+        "A5.1"
       ],
       "story": "As a user I want to invite friends with a link and both get a month of Pro when they activate.",
       "genz": "Social growth loop; reward that costs us only AI budget margin.",
       "ac": [
-        "referral table (code, inviter, invitee, status, rewarded_at); /r/<code> landing sets a cookie; attribution at signup; reward = ADMIN_COMP-style grant (18.1) after invitee activated ≥ 7 d; fraud rules (same device/IP hash, disposable email)",
-        "Margin: comp months count against the 80% floor report (A-area)",
+        "referral table (code, inviter, invitee, status, rewarded_at); /r/<code> landing sets a cookie; attribution at signup; reward = ADMIN_COMP-style grant (18.1) after the invitee has been active for setting `referral.qualify_active_days` (default 7); fraud rules (same device/IP hash, disposable email)",
+        "Margin: comp months count against the margin-floor report (A-area; floor from setting `catalog.margin_floor_subscription_pct`, default 80, hard minimum 80)",
         "Share sheet + copy link; events"
       ],
       "tests": [
@@ -2699,7 +2835,12 @@
       "tech": "api referral package + EntitlementService grants; web settings/dashboard",
       "evidence": [],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "B7.5",
+        "M6.1"
+      ],
+      "benchmark": "G37 — Kickresume vouchers; reward mechanics owned by B7.5 (grant + budget cap), codes/landing by M6.1"
     },
     {
       "id": "U17.1",
@@ -2723,7 +2864,12 @@
       "tech": "web/public/{manifest.webmanifest,sw.js}, web/src/app/{offline,sw.js}/..., web/src/lib/pwa.ts",
       "evidence": [],
       "design": "docs/design/user/pwa-push.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "N1.1",
+        "N0.2"
+      ],
+      "benchmark": "G14 — Simplify iOS, Jobright app, Kickresume app; PWA + share target (N1) is our parity path"
     },
     {
       "id": "U17.2",
@@ -2833,7 +2979,14 @@
         "web/src/lib/analytics.ts (GA4 only)"
       ],
       "design": "docs/design/user/analytics-events.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "M1.6",
+        "E8.1"
+      ],
+      "supersedes": [
+        "A11.2"
+      ]
     },
     {
       "id": "U18.2",
@@ -2865,14 +3018,15 @@
     {
       "id": "U18.3",
       "epic": "U18",
-      "title": "Nightly rollups, funnel definitions, 180-day purge",
+      "title": "Nightly rollups, funnel definitions, purge after setting `analytics.event_retention_days` (default 180)",
       "status": "not_started",
       "size": "M",
       "owners": [
         "API"
       ],
       "deps": [
-        "U18.1"
+        "U18.1",
+        "A5.1"
       ],
       "story": "As the admin I want daily aggregates and funnels computed so that dashboards are fast and raw data is short-lived.",
       "genz": "Short retention by default.",
@@ -2885,7 +3039,13 @@
       "tech": "api analytics/RollupJob",
       "evidence": [],
       "design": "docs/design/user/analytics-events.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "A11.3"
+      ],
+      "supersedes": [
+        "M8.2"
+      ]
     },
     {
       "id": "U18.4",
@@ -3019,7 +3179,11 @@
         "web/package.json scripts (tsc + eslint only)"
       ],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "A15.1",
+        "T4.2"
+      ]
     },
     {
       "id": "U19.4",
@@ -3124,7 +3288,11 @@
         "PROGRESS.md Phase 3, Phase 11"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "N1.3",
+        "E4.6"
+      ]
     },
     {
       "id": "U20.3",
@@ -3152,7 +3320,12 @@
       "tech": "web/src/lib/extension-signal.ts, job-autofill background message",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "E5.7",
+        "E12.2"
+      ],
+      "benchmark": "G5 — Simplify / Jobright 'already applied' badges"
     },
     {
       "id": "U20.4",
@@ -3207,6 +3380,162 @@
       ],
       "design": null,
       "critical": false
+    },
+    {
+      "id": "U13.4",
+      "epic": "U13",
+      "title": "My Answers bank: /settings/answers lists every learned answer with provenance; edit, delete, 'use everywhere' (G7)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U13.2"
+      ],
+      "relates": [
+        "E6.5",
+        "N3.1",
+        "E7.4",
+        "U13.2",
+        "E10.7"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to see every answer Kiwiply learned while I applied — the question, my answer and where it was learned — and fix or delete any of them, so that the long tail of application questions is mine to control.",
+      "genz": "Your answers, in one list, editable — not a black box that fills things you forgot you typed.",
+      "ac": [
+        "GET/PATCH/DELETE /api/me/answers over the field-cache twin + learned answers: question label, canonical field (if resolved), answer, learned_at, source host (ATS family only, never the full URL)",
+        "/settings/answers (390px first): search, grouped by canonical field vs free-text; inline edit with undo; delete is immediate and propagates to the extension mirror on the next pull (U20.5 signal)",
+        "'Use everywhere' promotes a free-text answer into a profile suggestion (U13.2 path) with the keep/discard confirmation on the web",
+        "Answers learned by Autopilot ask-and-remember (E7.4) carry source=AUTOPILOT; minors default (T2.4) unaffected — answers are user data, never shared with orgs",
+        "Answers matching the never-collected classes can never appear here: filtered at capture by E10.7 and again at read by the shared SensitivePatterns check; a stray hit is deleted server-side and counted"
+      ],
+      "tests": [
+        "AnswerBankResourceIT (list/edit/delete, propagation flag)",
+        "Playwright 390/1440: edit, delete, use-everywhere",
+        "extension sync test: deleted answer absent after pull"
+      ],
+      "tech": "api FieldCacheSyncResource + a read model over field_cache/learned answers; web/src/app/(app)/settings/answers; extension src/lib/field-cache.js honours server deletes (tombstones)",
+      "evidence": [
+        "job-autofill/src/lib/field-cache.js",
+        "job-autofill/src/content/profile-learn.js"
+      ],
+      "design": null,
+      "critical": false,
+      "benchmark": "G7 — Simplify 'pre-written responses', Huntr packets; our provenance (where it was learned) is the differentiator"
+    },
+    {
+      "id": "U13.5",
+      "epic": "U13",
+      "title": "LinkedIn profile checklist from the pasted import (paste-only, never the LinkedIn DOM) — P2, pending decision (G23)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "R1.4"
+      ],
+      "relates": [
+        "I9.4",
+        "R1.4"
+      ],
+      "supersedes": [],
+      "story": "As a user I want a checklist score of my LinkedIn headline, About and experience built from the profile text I pasted, so that I can fix the obvious gaps without Kiwiply ever reading my LinkedIn page.",
+      "genz": "Careerflow's free wedge, done the honest way: you paste, we score, nothing touches linkedin.com.",
+      "ac": [
+        "Deterministic checklist (headline length and keywords, About present and ≥ 3 sentences, each role has ≥ 1 outcome bullet with a number, skills ≥ 10, photo/banner self-reported) scored 0–100 with per-item fix hints — Free, no AI call",
+        "Input is only the R1.4 paste import or the profile items; no linkedin.com host permission, no DOM read (decision §G.2 of COMPETITIVE-GAPS.md, recommended paste-only)",
+        "Pro: \"Rewrite this section\" uses the REWRITE task (I9.4) with provenance chips; output is copy-to-clipboard, never posted",
+        "Story stays not_started until the user confirms the paste-only decision (RECONCILIATION.md D19)"
+      ],
+      "tests": [
+        "vitest checklist scorer on 10 fixture profiles",
+        "component test for hints + Pro gate"
+      ],
+      "tech": "packages/ui or web lib linkedin-checklist.ts (pure function); reuse R1.4 paste parser output",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "benchmark": "G23 — Careerflow free LinkedIn optimizer (reads the live page: LinkedIn-ToS grey zone); Big Interview Accelerator adds LinkedIn optimisation"
+    },
+    {
+      "id": "U6.10",
+      "epic": "U6",
+      "title": "Contacts attached to applications and companies (manual CRM: name, role, how we met, last touch) — no scraping, no enrichment (G17)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.3"
+      ],
+      "relates": [
+        "U11.1",
+        "T1.2",
+        "U6.5"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to note the recruiter or referrer on an application or company and when I last spoke to them, so that follow-ups are not lost in a notes field.",
+      "genz": "A people list that is yours — typed by you, never scraped from LinkedIn.",
+      "ac": [
+        "contact table (user-owned: name, role, company_id?, email/phone optional, how_met, last_touch_at, notes) + application_contact link; CRUD endpoints; included in the DSAR export and erased with the account (T1.2/T1.3)",
+        "Detail sheet (U6.3) gains a People tab; company page (U11.1) lists contacts; 'Log a touch' sets last_touch_at and writes an application_event",
+        "No import from LinkedIn, no email enrichment, no auto-creation from inbox mail (a 'Add from this email' button pre-fills name only, user confirms)",
+        "Phone: add/edit in a bottom sheet; 44px targets"
+      ],
+      "tests": [
+        "ContactResourceIT (ownership, DSAR inclusion, erase)",
+        "Playwright add contact + log touch"
+      ],
+      "tech": "api domain/Contact + ApplicationContact; web/src/components/app-v3/applications/PeopleTab.tsx",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "benchmark": "G17 — Huntr unlimited contacts, Careerflow networking tracker (both P2 parity; ours stays manual by the no-scraping rule)"
+    },
+    {
+      "id": "U6.11",
+      "epic": "U6",
+      "title": "Application packet view: resume version + cover letter + answers used per application, 'Download packet' (PDF + TXT) (G22)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.3",
+        "E4.6",
+        "R5.3",
+        "U13.4"
+      ],
+      "relates": [
+        "R5.5",
+        "E5.9",
+        "U6.3"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to open an application and see exactly what I sent — which resume version, which cover letter and which answers — and download it as one packet, so that interview prep and follow-ups start from the truth.",
+      "genz": "Receipts for every application; 'what did I even send them?' answered in one tap.",
+      "ac": [
+        "Packet tab on the detail sheet: resume version (resume_id from U6.1 → R3.1 version), cover letter (R5.3 link), answers used on this fill (fill_event meta + learned answers, from U13.4), JD snapshot (E4.6)",
+        "'Download packet' streams a ZIP via the FileStorage seam (P5.3): resume PDF, cover-letter PDF/TXT, answers.txt, posting.txt; audited as an export",
+        "Missing parts shown honestly (\"no cover letter was attached\"); never reconstructs what was not captured"
+      ],
+      "tests": [
+        "PacketResourceIT (zip contents, ownership)",
+        "Playwright packet tab + download"
+      ],
+      "tech": "api ApplicationPacketService; web PacketTab.tsx; reuse R0.6 pdf and P5.3 streaming",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "benchmark": "G22 — Huntr application packets (Pro); ours is free because the parts already exist"
     }
   ]
 }

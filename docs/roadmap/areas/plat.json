@@ -1,0 +1,1796 @@
+{
+  "area": "plat",
+  "name": "Platform, DevOps & reliability",
+  "prefix": "P",
+  "kind": "cross-cutting",
+  "updated": "2026-10-12",
+  "summary": "Everything that keeps kiwiply.com up and its data safe on one shared self-managed box: backups that actually run and restore, external monitoring with a public status page, pinned zero-downtime deploys with one-variable rollback, a staging stack, the FileStorage seam (local first, S3 by config), hardening and supply-chain gates, and the rehearsed move to our own server.",
+  "epics": [
+    {
+      "id": "P0",
+      "name": "Backups, restore & recovery",
+      "goal": "A backup exists only if Healthchecks says it ran: nightly encrypted dumps + 15-minute binlog shipping to a no-delete bucket, files backed up once they live on disk, and restore drills (weekly, monthly PITR, quarterly fresh box) with a published RPO/RTO.",
+      "priority": "P0"
+    },
+    {
+      "id": "P1",
+      "name": "Monitoring, alerting & public status",
+      "goal": "Someone is told within minutes when the site, the API, a backup or the box fails — by a monitor that does not live on the box — and users can see it on status.kiwiply.com.",
+      "priority": "P0"
+    },
+    {
+      "id": "P2",
+      "name": "Deploy pipeline, rollback & CI",
+      "goal": "Production runs a pinned image SHA, deploys roll without downtime behind the shared edge Caddy, rollback is one variable, migrations are expand/contract by lint, and CI cannot be used to reach the box with arbitrary commands.",
+      "priority": "P0"
+    },
+    {
+      "id": "P3",
+      "name": "Environments & configuration",
+      "goal": "One local compose, a staging stack on the shared box deployed from develop, synthetic data only, and a typed env schema so a missing or misspelled variable fails fast instead of silently.",
+      "priority": "P1"
+    },
+    {
+      "id": "P4",
+      "name": "Security hardening & supply chain",
+      "goal": "Headers, actuator exposure, rate limits keyed on the real client IP, container and host hardening, dependency/image/secret scanning, a secrets rotation calendar and a disclosure path — the controls a reviewer or a security-minded user can verify.",
+      "priority": "P0"
+    },
+    {
+      "id": "P5",
+      "name": "FileStorage seam (local first, S3 by config)",
+      "goal": "All file bytes go through one FileStorage interface with a local-filesystem driver now and the S3 driver selected by configuration later; disk becomes user data, so it is inventoried, limited, backed up and swept for orphans.",
+      "priority": "P0"
+    },
+    {
+      "id": "P6",
+      "name": "Capacity, performance & the own-server move",
+      "goal": "Resource limits so we cannot take BeeCompete down, a measured capacity baseline, MySQL hygiene, and the rehearsed migration to our own server before Phase 21.",
+      "priority": "P1"
+    },
+    {
+      "id": "P7",
+      "name": "Incident response, runbooks & trust facts",
+      "goal": "Runbooks per alert, a lightweight incident process with public postmortems, a dependency-outage matrix in code, and a /trust page whose every line is backed by a done story.",
+      "priority": "P1"
+    }
+  ],
+  "stories": [
+    {
+      "id": "P0.0",
+      "epic": "P0",
+      "title": "Backup + restore-drill scripts with the CI 'Ops scripts' job (15.1a)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "ops"
+      ],
+      "deps": [],
+      "relates": [
+        "P0.1"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want tested backup and restore scripts so that 15.1c is an install, not a build.",
+      "genz": "Nothing visible — but a lost account is the one thing this audience never forgives.",
+      "ac": [
+        "backup-db.sh dumps with --single-transaction, refuses cut-short dumps, uploads daily/ + monthly/ with sha256, keeps 3 locally, pings Healthchecks",
+        "verify-restore.sh restores the newest dump into a throwaway container and checks sha256, age, tables, row counts",
+        "CI runs shellcheck + the scripts against a real MySQL"
+      ],
+      "tests": [
+        "scripts/ops/test/ops.test.sh (fake docker + REAL_DOCKER=1 round trip)"
+      ],
+      "tech": "scripts/ops/{backup-db.sh,verify-restore.sh,lib.sh,kiwiply-ops.cron}, scripts/ops/aws/{backup-user-policy,lifecycle}.json, .github/workflows/ci.yml 'ops' job",
+      "evidence": [
+        "scripts/ops/backup-db.sh",
+        "scripts/ops/verify-restore.sh",
+        ".github/workflows/ci.yml:116-126",
+        "DEPLOY.md §5.1-§5.3"
+      ],
+      "design": "docs/design/plat/backup-restore-pitr.md",
+      "critical": false
+    },
+    {
+      "id": "P0.1",
+      "epic": "P0",
+      "title": "15.1c go-live: bucket, IAM user, Healthchecks, cron installed, first dump, first drill, evidence log",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P0.0"
+      ],
+      "relates": [
+        "A10.1"
+      ],
+      "supersedes": [
+        "A10.1"
+      ],
+      "story": "As the operator I want the nightly backup and the weekly drill actually running on the box so that production has a finite RPO for the first time.",
+      "genz": "Trust is the feature; a product that can lose your applications is not 'the best'.",
+      "ac": [
+        "kiwiply-db-backups bucket (versioned, SSE-S3, lifecycle from scripts/ops/aws/lifecycle.json) and the kiwiply-backup IAM user with the no-delete inline policy exist; keys in the password manager first, then the box .env",
+        "Healthchecks checks kiwiply-backup (1 d / 2 h grace) and kiwiply-restore-drill (7 d / 6 h) exist and the scripts ping them",
+        "/etc/cron.d/kiwiply-ops installed; first backup-db.sh and verify-restore.sh run by hand end green",
+        "DEPLOY.md gains §5.4 'Evidence log' with date, dump size, drill result, measured restore time",
+        "A deliberately skipped night produces a Healthchecks alert email (tested once)"
+      ],
+      "tests": [
+        "Human runbook; evidence row in DEPLOY.md §5.4; Healthchecks shows two green checks"
+      ],
+      "tech": "Requires develop → main promotion so the scripts are on the box (DEPLOY.md §13). Human steps per DEPLOY.md §5.1–§5.2; A10.1 is the admin-page half that reads these checks.",
+      "evidence": [
+        "DEPLOY.md §5.1-§5.3",
+        "MIGRATION.md §8",
+        "PROGRESS.md:1166-1168"
+      ],
+      "design": "docs/design/plat/backup-restore-pitr.md",
+      "critical": true,
+      "benchmark": "Teal promises deletion within 30 days and encryption at rest; none of the four competitors publishes backup or drill evidence — we will (P7.3)."
+    },
+    {
+      "id": "P0.2",
+      "epic": "P0",
+      "title": "Binlog shipping every 15 minutes + --source-data dumps (RPO ≤ 15 min)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want continuous binlog capture shipped off-box so that a restore loses minutes, not a day.",
+      "genz": "An outage that rolls back a day of applications is a TikTok story; minutes is forgivable.",
+      "ac": [
+        "mysql runs with --log-bin --binlog_format=ROW --sync_binlog=1 --binlog_expire_logs_seconds=1209600 (compose command)",
+        "scripts/ops/ship-binlogs.sh uploads closed binlogs + the active log's new bytes to s3://…/binlog/<host>/ with an index.json; idempotent and restartable",
+        "backup-db.sh adds --source-data=2 so the dump carries its binlog coordinates",
+        "ship-binlogs.sh --list --until <ts> prints the exact replay list",
+        "Healthchecks kiwiply-binlog (15 min / 10 min grace); cron entry in kiwiply-ops.cron"
+      ],
+      "tests": [
+        "ops.test.sh: ship against a real MySQL, write rows, assert upload names and index continuity; simulate a gap and assert the listing reports it"
+      ],
+      "tech": "docker-compose.prod.yml mysql command; scripts/ops/ship-binlogs.sh; lifecycle.json gains binlog/ 14 d",
+      "evidence": [
+        "docker-compose.prod.yml:19",
+        "scripts/ops/backup-db.sh:60-66"
+      ],
+      "design": "docs/design/plat/backup-restore-pitr.md",
+      "critical": true,
+      "benchmark": "PITR via binlog shipping is the lean-team norm (oneuptime.com MySQL PITR guide, checked 2026-10-11)."
+    },
+    {
+      "id": "P0.3",
+      "epic": "P0",
+      "title": "Client-side encryption of dumps and binlogs with age; drill proves the private key",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want backups unreadable without a key held only in the password manager so that a leaked AWS credential does not leak every user's data.",
+      "genz": "Privacy they can verify later on /trust: 'backups are encrypted with a key we keep offline'.",
+      "ac": [
+        "backup-db.sh and ship-binlogs.sh pipe through age -r <pubkey from scripts/ops/aws/backup.age.pub>",
+        "verify-restore.sh and verify-pitr.sh decrypt with AGE_SECRET_KEY from .env (the box holds a copy; the password manager holds the escrow); a missing/wrong key fails the drill loudly",
+        "DEPLOY.md §5.3 restore steps updated"
+      ],
+      "tests": [
+        "ops.test.sh round-trip with a throwaway age key; wrong key → drill FAIL ping"
+      ],
+      "tech": "age binary installed via scripts/ops/install-tools.sh (sha256-pinned); keys never in the repo except the public one",
+      "evidence": [
+        "scripts/ops/backup-db.sh",
+        "scripts/ops/verify-restore.sh"
+      ],
+      "design": "docs/design/plat/backup-restore-pitr.md",
+      "critical": false
+    },
+    {
+      "id": "P0.4",
+      "epic": "P0",
+      "title": "Monthly PITR drill (base + binlog replay to a timestamp) with measured RTO in the evidence log",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P0.2",
+        "P0.3"
+      ],
+      "relates": [
+        "A10.3"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want the whole restore chain rehearsed monthly and timed so that the RTO we publish is a measurement.",
+      "genz": "'Last restore test: 3 days ago, 14 minutes' is the kind of receipt this audience screenshots.",
+      "ac": [
+        "scripts/ops/verify-pitr.sh restores the newest base into a throwaway container (mem_limit 512m, --network none), replays binlogs to now−1h, asserts a row written after T is absent and append-only table counts match live within tolerance, records rto_seconds",
+        "Healthchecks kiwiply-pitr-drill (31 d / 1 d); cron on the 1st at 05:30 UTC",
+        "The drill writes drill-status.json (date, result, rto_seconds, dump_age_h) to s3://…/evidence/ for P7.3",
+        "A gap in the chain reports the last recoverable timestamp instead of a bare failure"
+      ],
+      "tests": [
+        "ops.test.sh: replay-to-timestamp fixture; gap fixture; drill-status.json schema"
+      ],
+      "tech": "scripts/ops/verify-pitr.sh; DEPLOY.md §5.4 row per run; A10.3 polls the check",
+      "evidence": [
+        "scripts/ops/verify-restore.sh",
+        "docs/design/admin/observability-backup-incident.md D3"
+      ],
+      "design": "docs/design/plat/backup-restore-pitr.md",
+      "critical": true
+    },
+    {
+      "id": "P0.5",
+      "epic": "P0",
+      "title": "Nightly backup of the uploads volume with a manifest (files are user data now)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [
+        "P5.1",
+        "P0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want resume and built-PDF files backed up off-box once they live on local disk so that the local-first storage decision does not reintroduce the 2026-09 loss.",
+      "genz": "Their resume is the artefact they spent the most time on; losing it is losing them.",
+      "ac": [
+        "scripts/ops/backup-files.sh syncs /srv/uploads to s3://kiwiply-db-backups/files/ (put-only key; no deletes possible) nightly 03:40 UTC and writes files/manifest-<date>.txt (path, size, sha256)",
+        "--restore <date> mode restores a manifest's files into the volume",
+        "Healthchecks kiwiply-files (1 d / 2 h); lifecycle keeps manifests 90 d",
+        "verify-restore.sh cross-checks a sample of storage_object rows against the latest manifest"
+      ],
+      "tests": [
+        "ops.test.sh: sync to a fake S3 dir, manifest sha256 verified, restore round trip"
+      ],
+      "tech": "Uses the uploads named volume from P5.1; manifest format shared with the P5.5 sweep",
+      "evidence": [
+        "docs/RESUME-BUILDER-DECISIONS.md:29"
+      ],
+      "design": "docs/design/plat/backup-restore-pitr.md",
+      "critical": true
+    },
+    {
+      "id": "P0.6",
+      "epic": "P0",
+      "title": "Quarterly fresh-box rebuild drill from password manager + S3 only; S3 Object Lock; secrets fingerprint parity",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P0.4",
+        "P4.6"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want to prove, quarterly, that a brand-new server can be running production from escrowed secrets and S3 alone so that the next lost VPS is a two-hour event.",
+      "genz": "Resilience nobody sees until the day it matters.",
+      "ac": [
+        "Runbook: throwaway VPS → MIGRATION.md §9.1 → restore base + binlogs → 04-verify.sh green → destroy; timed; row in DEPLOY.md §5.4",
+        "Object Lock (governance, 30 d) on daily/ and binlog/ — decision recorded",
+        "secrets-fingerprint.sh output on the box matches the password-manager note (manual compare, checklist item); the drill fails if .env lacks any REQUIRED schema var"
+      ],
+      "tests": [
+        "Human drill with timings; ops.test.sh covers secrets-fingerprint.sh prints no secret values"
+      ],
+      "tech": "MIGRATION.md §9.1 is the script; P3.4 env schema supplies the REQUIRED list",
+      "evidence": [
+        "MIGRATION.md §9",
+        "DEPLOY.md §12"
+      ],
+      "design": "docs/design/plat/backup-restore-pitr.md",
+      "critical": false
+    },
+    {
+      "id": "P1.0",
+      "epic": "P1",
+      "title": "Server-error email digest (15.1b)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "A10.4"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want new server errors emailed to me grouped and counted so that production is not silent.",
+      "genz": "—",
+      "ac": [
+        "ERROR log events are collected and emailed at most every 15 min, each kind once with count, sample and stack top",
+        "Recipient DOSSIER_ERROR_DIGEST_TO else ADMIN_EMAIL; ignore list by logger prefix"
+      ],
+      "tests": [
+        "API unit tests for ErrorDigestService grouping and interval"
+      ],
+      "tech": "api/src/main/java/com/dossier/api/service/ops/*",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/ops/ErrorDigestService.java",
+        "DEPLOY.md §5.2"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    },
+    {
+      "id": "P1.1",
+      "epic": "P1",
+      "title": "External uptime monitors (paid plan) on web, API health, readiness, TLS, DNS",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops"
+      ],
+      "deps": [],
+      "relates": [
+        "P0.1",
+        "A10.3"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want a monitor that does not live on the box to tell me when kiwiply.com or the API is down so that a dead server is noticed in minutes, not weeks.",
+      "genz": "Being told 'we were down for 40 minutes and here is why' beats discovering it on Reddit.",
+      "ac": [
+        "Monitors: https://kiwiply.com/ (200 + keyword), https://api.kiwiply.com/management/health (keyword \"status\":\"UP\"), /management/health/readiness, TLS expiry both hosts, DNS A records; API at 1-min interval",
+        "Alerts to email now; push added in P1.3",
+        "Plan is paid or explicitly licensed for commercial use (UptimeRobot free is 'hobby and non-profit')",
+        "Monitor account credentials in the password manager; read API key for A10.3"
+      ],
+      "tests": [
+        "Pause the API container for 3 minutes on staging (P3.2) or during a maintenance window and confirm the alert arrives"
+      ],
+      "tech": "Human setup; DEPLOY.md §5.2 updated with the monitor list",
+      "evidence": [
+        "MIGRATION.md §8 ('Set up uptime monitoring — still OWED')",
+        "DEPLOY.md §5.2"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": true,
+      "benchmark": "UptimeRobot free = 50 monitors/5-min/1 status page, 'good for hobby and non-profit'; Solo ~$12/mo (uptimerobot.com/pricing, 2026-10-11)."
+    },
+    {
+      "id": "P1.2",
+      "epic": "P1",
+      "title": "Public status page status.kiwiply.com with user-meaningful components, linked from footer and drawer",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops",
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "P1.1"
+      ],
+      "relates": [
+        "A10.5",
+        "A5.4",
+        "S7.4"
+      ],
+      "supersedes": [
+        "S7.2"
+      ],
+      "story": "As a user I want to check status.kiwiply.com when something feels broken so that I know whether it is me or Kiwiply.",
+      "genz": "Every app they use has one; a missing status page reads as 'two people and a laptop'.",
+      "ac": [
+        "Hosted by the monitor vendor on status.kiwiply.com (CNAME); components: Web app, Extension sync & autofill API, Sign-in & email, Job matches, Billing — each driven by a monitor (P1.1/P1.7), not by hand",
+        "Incident posts (P7.2) appear with plain-language updates and a history page",
+        "Web footer and the extension drawer's 'can't reach Kiwiply' state link to it",
+        "A10.5 'Declare incident' instructions name the status page as the public channel"
+      ],
+      "tests": [
+        "Web snapshot test for the footer link; extension jsdom test for the error-state link; manual: pause API on staging → component turns red within 2 min"
+      ],
+      "tech": "Vendor status page + Cloudflare CNAME; web/src/components footer; job-autofill drawer error state (ext area supplies the copy)",
+      "evidence": [
+        "docs/design/admin/observability-backup-incident.md D7"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": true,
+      "benchmark": "G32. Simplify runs status.simplify.jobs on incident.io with Website / Job Search / Copilot components and 90-day uptime (99.96–100 %); Teal, Huntr, Jobscan have none (checked 2026-10-11). Amendment to G32: status is driven by external monitors; A10 reads them, it does not source them."
+    },
+    {
+      "id": "P1.3",
+      "epic": "P1",
+      "title": "Alert routing for a team of one: severities, push channel, quiet hours, daily 'all quiet' line",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [
+        "P1.1"
+      ],
+      "relates": [
+        "A10.3"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want SEV1 alerts to reach my phone even at night and everything else to wait for the morning so that I respond to what matters and do not learn to ignore alerts.",
+      "genz": "Fast fixes come from an operator who is paged for the right things.",
+      "ac": [
+        "ntfy.sh (or Pushover) topic wired into the monitor, Healthchecks and the digest; SEV1 bypasses quiet hours; SEV2 push 08–23 local else morning email; SEV3 email only",
+        "The digest sends a 09:00 UTC 'all quiet' line daily even with zero errors",
+        "Severity matrix in docs/design/plat/monitoring-alerting-status-page.md §2 is mirrored in Healthchecks check descriptions and runbook keys"
+      ],
+      "tests": [
+        "ErrorDigestService: daily heartbeat mail test; severity tagging unit test; manual: trigger a SEV1 on staging"
+      ],
+      "tech": "service/ops/ErrorDigestService (heartbeat + severity header), monitor/Healthchecks integrations (human)",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/ops/ErrorDigestService.java"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    },
+    {
+      "id": "P1.4",
+      "epic": "P1",
+      "title": "SLOs (99.5 % / p95 800 ms / backup freshness) with error budget and thresholds feeding A10.3 metrics",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "ops"
+      ],
+      "deps": [
+        "P1.1"
+      ],
+      "relates": [
+        "A10.3"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want written SLOs and an error-budget rule so that 'is it reliable enough?' has an answer and deploy freezes are a rule, not a mood.",
+      "genz": "Published targets are a promise; Gen Z reads the fine print on /trust.",
+      "ac": [
+        "SLO doc section with targets, measurement source and the budget rule (feature deploys freeze when the 30-day budget is spent)",
+        "A10.3's request_metric_minute thresholds (5xx > 2 %/5 min, p95 > 1.5 s/10 min) are the SEV2 triggers; canary route excluded from rollups",
+        "/trust shows availability only after two months of data"
+      ],
+      "tests": [
+        "RequestMetricFilterTest excludes /api/ops/canary; doc reviewed"
+      ],
+      "tech": "docs/design/plat/monitoring-alerting-status-page.md D4; A10.3 implementation",
+      "evidence": [
+        "docs/design/admin/observability-backup-incident.md D4"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    },
+    {
+      "id": "P1.5",
+      "epic": "P1",
+      "title": "Log rotation on every container + JSON logs in prod",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "A10.4"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want logs capped and structured so that the disk never fills silently and errors can be grouped by field.",
+      "genz": "—",
+      "ac": [
+        "docker-compose.prod.yml: logging json-file max-size 20m, max-file 5 on mysql, api, web (and caddy for standalone)",
+        "application-prod.yml: jhipster.logging.use-json-format=true; fields include traceId, route, hashed userId",
+        "Digest grouping keys on logger + message template, unchanged"
+      ],
+      "tests": [
+        "docker compose config asserts the logging block in CI; ErrorDigest tests pass with JSON encoder"
+      ],
+      "tech": "docker-compose.prod.yml; api/src/main/resources/config/application-prod.yml; LoggingConfiguration (JHipster)",
+      "evidence": [
+        "docker-compose.prod.yml (no logging: block)",
+        "application-prod.yml:159"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    },
+    {
+      "id": "P1.6",
+      "epic": "P1",
+      "title": "host-guard.sh: disk, memory, swap, container restarts, cert days → Healthchecks with reasons",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P1.1"
+      ],
+      "relates": [
+        "A10.3"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want the box to tell me before the disk or memory runs out so that MySQL and BeeCompete never die of our logs or uploads.",
+      "genz": "—",
+      "ac": [
+        "scripts/ops/host-guard.sh every 5 min: df on /var/lib/docker and the uploads volume, free mem, swap used, RestartCount per container, cert days-left; thresholds 85/90 % disk, 90 % mem, swap > 2 GB/10 min, cert < 14 d",
+        "Breach → Healthchecks 'kiwiply-host' /fail with the reason in the body; recovery → success ping",
+        "Numbers written to /run/kiwiply/host-stats.json for A10.3's HostStats bean"
+      ],
+      "tests": [
+        "ops.test.sh with fake df/free/docker outputs → correct /fail bodies and the JSON schema"
+      ],
+      "tech": "scripts/ops/host-guard.sh + kiwiply-ops.cron; A10.3 reads the JSON",
+      "evidence": [
+        "DEPLOY.md §13.1 (memory tight)",
+        "docs/design/admin/observability-backup-incident.md D9"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    },
+    {
+      "id": "P1.7",
+      "epic": "P1",
+      "title": "Synthetic canary user + GET /api/ops/canary (auth, DB write, mail, storage) watched externally",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "ops"
+      ],
+      "deps": [
+        "P1.1"
+      ],
+      "relates": [
+        "A10.3"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want one probe that signs in, writes a row, checks mail and storage so that 'health is UP' can never hide a broken sign-in.",
+      "genz": "The thing they actually do — sign in and sync — is what gets measured.",
+      "ac": [
+        "Canary user bootstrapped from env (CANARY_PASSWORD_HASH), is_canary flag excludes it from analytics, billing, emails and admin counts",
+        "GET /api/ops/canary runs auth → GET /api/profile/version → transactional application insert+delete → mail transport test → storage stat; returns {ok, ms, steps} with no internals; 503 on failure; rate-limited 2/s",
+        "External monitor keyword-checks \"ok\":true at 1-min; drives the 'Extension sync & autofill API' status component",
+        "Excluded from request_metric_minute and the digest"
+      ],
+      "tests": [
+        "CanaryResourceIT: ok path; each failing step reported by name; rate limit; canary cannot log in via /login UI (non-loopback)"
+      ],
+      "tech": "api web/rest/ops/CanaryResource, service/ops/CanaryService; SecurityConfiguration permitAll for the route",
+      "evidence": [
+        "scripts/migrate/04-verify.sh (manual equivalent)"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": true
+    },
+    {
+      "id": "P2.0",
+      "epic": "P2",
+      "title": "CI (extension, web, web-docker smoke, ops, API IT) + GHCR build + SSH deploy on merge to main — baseline",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a builder I want every PR tested and every merge to main deployed so that shipping is automatic.",
+      "genz": "—",
+      "ac": [
+        "ci.yml runs five jobs with per-SHA concurrency on pushes",
+        "deploy.yml builds api+web, pushes :latest and :sha, SSHes to the box and runs compose pull/up with the shared-edge overlay"
+      ],
+      "tests": [
+        "The workflows themselves; web-docker runtime smoke"
+      ],
+      "tech": ".github/workflows/{ci,deploy}.yml",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/deploy.yml",
+        "DEPLOY.md §7"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": false
+    },
+    {
+      "id": "P2.1",
+      "epic": "P2",
+      "title": "SHA-pinned deploys via deploy.env; rollback = workflow input or rollback.sh",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.0"
+      ],
+      "relates": [
+        "A10.4"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want production to run a named image SHA so that rollback is rewriting one value, not retagging four images from memory at 3 a.m.",
+      "genz": "Fast, boring rollbacks mean fewer broken evenings for users.",
+      "ac": [
+        "docker-compose.prod.yml uses image: …:${IMAGE_TAG:-latest}; the box has deploy.env (IMAGE_TAG, DEPLOYED_AT, DEPLOYED_BY) and deploy.env.prev",
+        "deploy.yml workflow_dispatch input image_tag (default HEAD sha) writes deploy.env then pulls/ups; the run records the sha to the A10.4 deployments hook when it exists",
+        "scripts/ops/rollback.sh swaps deploy.env with .prev and ups; documented in DEPLOY.md §13.3 replacing the manual retag",
+        "GHCR retention keeps :sha tags 90 days"
+      ],
+      "tests": [
+        "ops.test.sh: deploy.env writing and rollback swap; CI: docker compose config with IMAGE_TAG set"
+      ],
+      "tech": ".github/workflows/deploy.yml, docker-compose.prod.yml, scripts/ops/rollback.sh",
+      "evidence": [
+        "docker-compose.prod.yml:32,136",
+        "DEPLOY.md §13.3"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": true,
+      "benchmark": "Lean-team practice: SHA-tag every build, read the running tag from one file (servercompass.app production-grade checklist, 2026-10-11)."
+    },
+    {
+      "id": "P2.2",
+      "epic": "P2",
+      "title": "Post-deploy verification in the pipeline (04-verify + canary) with automatic rollback",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.1",
+        "P1.7"
+      ],
+      "relates": [
+        "A10.4"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want a deploy that fails its smoke test to roll itself back so that a bad merge is a red run, not an outage.",
+      "genz": "—",
+      "ac": [
+        "After up/rollout the runner runs scripts/migrate/04-verify.sh kiwiply.com and scripts/ops/canary.sh (sign-in + version + account)",
+        "Any failure → ssh rollback → run red → digest HIGH with the failing step",
+        "Deploy marker POSTed to /api/admin/deployments with status ok|rolled_back"
+      ],
+      "tests": [
+        "Staging rehearsal: deploy an image whose canary fails on purpose (CANARY_FORCE_FAIL=1) → automatic rollback observed"
+      ],
+      "tech": ".github/workflows/deploy.yml verify job; scripts/ops/canary.sh",
+      "evidence": [
+        "scripts/migrate/04-verify.sh"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": false
+    },
+    {
+      "id": "P2.3",
+      "epic": "P2",
+      "title": "Pre-deploy DB snapshot + Liquibase expand/contract lint in CI",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [
+        "P0.1",
+        "P2.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a builder I want destructive migrations blocked unless they are the contract step of an earlier expand so that rollback is always an image swap.",
+      "genz": "—",
+      "ac": [
+        "deploy runs backup-db.sh --tag pre-deploy-<sha> before changing anything (predeploy/ prefix, 7-day lifecycle)",
+        "scripts/ci/liquibase-lint.mjs fails a PR whose new changesets dropColumn/dropTable/renameColumn/renameTable/narrow modifyDataType without a <!-- contract-of: <id> --> comment naming an expand changeset from ≥ 1 release earlier",
+        "CLAUDE.md-level rule written in docs/design/plat/deploy-pipeline-rollback.md D5 and referenced from api/README.md"
+      ],
+      "tests": [
+        "liquibase-lint.test.mjs fixtures: each forbidden op, the escape, an additive changelog"
+      ],
+      "tech": "scripts/ci/liquibase-lint.mjs; ci.yml job; deploy.yml step",
+      "evidence": [
+        "DEPLOY.md §13.1 (the 13.1b rename made rollback a dump restore)",
+        "api/src/main/resources/config/liquibase/changelog/"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": false
+    },
+    {
+      "id": "P2.4",
+      "epic": "P2",
+      "title": "Container healthchecks + docker rollout: zero-downtime rolling deploys behind the shared edge Caddy",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.1",
+        "P6.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want deploys to be invisible so that the drawer never fails mid-application because a release went out.",
+      "genz": "They apply at 11 pm; a 45-second API restart at 11 pm is a lost application.",
+      "ac": [
+        "api healthcheck = readiness (db included), start_period 90 s; web healthcheck GET / 200; web depends_on api service_healthy",
+        "docker-rollout installed sha256-pinned via scripts/ops/install-tools.sh; deploy uses docker rollout api then web with -t 180",
+        "Acceptance test: curl loop from the runner during a web+api roll on staging reports 0 non-2xx",
+        "DEPLOY.md documents memory doubling during the roll and the P6.1 limits"
+      ],
+      "tests": [
+        "CI rollout-smoke job rolls the web image under a curl loop; staging rehearsal for api"
+      ],
+      "tech": "docker-compose.prod.yml healthchecks; scripts/ops/deploy-entry.sh; edge Caddy resolves dossier-api/dossier-web aliases per dial (Docker DNS round-robin) — no Caddyfile change",
+      "evidence": [
+        "docker-compose.prod.yml:22-26,146-147",
+        "application.yml health probes"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": true,
+      "benchmark": "docker-rollout (MIT): scale 2×, wait for healthcheck, remove old; needs no container_name/ports — already true (github.com/Wowu/docker-rollout, 2026-10-11)."
+    },
+    {
+      "id": "P2.5",
+      "epic": "P2",
+      "title": "Drop root: kiwiply deploy user, checkout under /srv/kiwiply, forced-command SSH key (deploy <sha> | rollback)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.1"
+      ],
+      "relates": [
+        "A9.1"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want the CI key to be able to do exactly two things so that a leaked secret cannot run arbitrary commands as root on a box that also hosts another business.",
+      "genz": "—",
+      "ac": [
+        "User kiwiply (docker group, no sudo); checkout at /srv/kiwiply/app; .env 0600; backups dir 0700",
+        "authorized_keys entry with command=\"/srv/kiwiply/bin/deploy-entry\",no-pty,no-port-forwarding,no-agent-forwarding; deploy-entry accepts only deploy <40-hex> and rollback; the checkout is fetched + checked out --detach <sha> (never on a branch)",
+        "GitHub secrets VPS_USER/DEPLOY_PATH updated; one successful deploy from the new path; /root checkout removed",
+        "Read-only GHCR pull token on the box so packages can go private"
+      ],
+      "tests": [
+        "ops.test.sh: deploy-entry rejects other verbs/args; staging deploy via the new user"
+      ],
+      "tech": "scripts/ops/deploy-entry.sh, scripts/ops/host-harden.sh (first run), DEPLOY.md §7.1 rewritten",
+      "evidence": [
+        "DEPLOY.md §7.1 ('VPS_USER=root is a known compromise')",
+        "MIGRATION.md §10.4"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": true
+    },
+    {
+      "id": "P2.6",
+      "epic": "P2",
+      "title": "CI hardening: least-privilege permissions, SHA-pinned actions, Dependabot, production environment gate, required checks",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.0"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a builder I want CI that cannot be hijacked by a dependency or a stray PR so that the deploy path is as trustworthy as the code review.",
+      "genz": "—",
+      "ac": [
+        "Every workflow has top-level permissions: contents: read and job-level grants; third-party actions pinned to full SHAs with version comments",
+        ".github/dependabot.yml for github-actions, npm (root workspace, grouped weekly), gradle, docker",
+        "deploy.yml uses environment: production (required reviewer for workflow_dispatch) — replaces DEPLOY_ENABLED and its snapshot trap (DEPLOY.md §7.3)",
+        "Branch protection on main and develop: required checks extension, web, web-docker, ops, api (+ liquibase-lint, gitleaks when they exist); documented in DEPLOY.md §7"
+      ],
+      "tests": [
+        "A PR from a fork cannot reach secrets (no pull_request_target); Dependabot opens its first grouped PRs"
+      ],
+      "tech": ".github/workflows/*.yml, .github/dependabot.yml, repo settings (human)",
+      "evidence": [
+        ".github/workflows/ci.yml (no permissions block; actions by tag)",
+        "DEPLOY.md §7.3"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": false
+    },
+    {
+      "id": "P2.7",
+      "epic": "P2",
+      "title": "Extension release pipeline: CWS + Firefox AMO + Edge from one tag, GitHub Release with generated notes",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "ops",
+        "extension"
+      ],
+      "deps": [
+        "P2.0"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want one ext-v* tag to publish to every store so that Firefox and Edge users get the same release the same day.",
+      "genz": "Firefox and Edge students exist; same-day parity says 'we care'.",
+      "ac": [
+        "publish-extension.yml adds AMO (web-ext sign / AMO API, secrets AMO_JWT_ISSUER/SECRET, variable PUBLISH_FIREFOX) and Edge Partner Center (PUBLISH_EDGE) steps, each flag-gated, each uploading the right build (WXT firefox-mv3 output for AMO)",
+        "A GitHub Release is created for the tag with the zips attached and notes generated from commits since the previous ext-v* tag",
+        "Chrome staged-rollout % remains a manual CWS step, documented",
+        "DEPLOY.md §8 updated"
+      ],
+      "tests": [
+        "Workflow dry run with PUBLISH_* unset produces three artifacts; the manifest-limit check runs per browser build"
+      ],
+      "tech": ".github/workflows/publish-extension.yml; job-autofill/wxt.config.ts firefox build; .github/scripts/check-manifest-limits.mjs",
+      "evidence": [
+        ".github/workflows/publish-extension.yml",
+        "job-autofill/BROWSERS.md"
+      ],
+      "design": "docs/design/plat/deploy-pipeline-rollback.md",
+      "critical": false,
+      "benchmark": "G11 (ext area owns the Firefox/Safari listing work; this story is the pipeline). Simplify and Teal ship Chrome + Firefox + Edge."
+    },
+    {
+      "id": "P3.1",
+      "epic": "P3",
+      "title": "One local compose (MySQL + MinIO + Mailpit) replacing the three JHipster docker files; dev docs",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a builder I want `docker compose -f docker-compose.dev.yml up` to give me everything the API needs so that local setup is one command and matches prod's images.",
+      "genz": "—",
+      "ac": [
+        "docker-compose.dev.yml: mysql:9.2.0 (same flags as prod), minio, mailpit (SMTP 1025 / UI 8025); api/README.md and DEPLOY.md §11.1 point at it",
+        "application-dev.yml mail host defaults to mailpit; storage driver local by default (P5.1), minio only when DOSSIER_STORAGE_DRIVER=s3",
+        "Old api/src/main/docker/{mysql,minio}.yml kept one release with a deprecation comment"
+      ],
+      "tests": [
+        "CI: docker compose -f docker-compose.dev.yml config validates"
+      ],
+      "tech": "docker-compose.dev.yml at the repo root; application-dev.yml",
+      "evidence": [
+        "api/src/main/docker/mysql.yml",
+        "api/src/main/docker/minio.yml",
+        "DEPLOY.md §11.1 A"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": false
+    },
+    {
+      "id": "P3.2",
+      "epic": "P3",
+      "title": "Staging stack on the shared box (dossier-staging) deployed from develop on every push",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.1",
+        "P6.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a builder I want develop running at staging.kiwiply.com so that a 50-PR promotion is rehearsed, not reviewed.",
+      "genz": "Fewer surprises on the night a release lands.",
+      "ac": [
+        "docker-compose.staging.yml overlay: project dossier-staging, aliases dossier-staging-web/-api, mem_limit api 384m / web 192m / mysql 256m, -Xmx256m, jobs/inbox cron off, DEMO_ENABLED=true, own volumes, own .env (password manager)",
+        "Edge Caddyfile site blocks for staging.kiwiply.com + api-staging.kiwiply.com with basic auth and noindex (one-time human step with the box owner, MIGRATION.md §10.2 pattern)",
+        "deploy.yml matrix {staging: develop, production: main} with separate environments; staging deploy has no reviewer gate",
+        "host-guard rule: staging is stopped first under memory pressure (runbook memory-pressure step 1)"
+      ],
+      "tests": [
+        "First deploy green; 04-verify.sh staging.kiwiply.com passes; a broken develop breaks staging only"
+      ],
+      "tech": "docker-compose.staging.yml, .github/workflows/deploy.yml, DEPLOY.md new §14 'Staging'",
+      "evidence": [
+        "MIGRATION.md §10 (BeeCompete runs staging-web on the same box)",
+        "DEPLOY.md §13.1 memory numbers"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": true
+    },
+    {
+      "id": "P3.3",
+      "epic": "P3",
+      "title": "Synthetic staging seed (200 users / 2 000 applications / 50 resumes) and weekly reset — never a prod copy",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [
+        "P3.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a tester I want staging full of realistic fake data so that pages and jobs behave like prod without any real person's data leaving prod.",
+      "genz": "Their resume never ends up on a test server.",
+      "ac": [
+        "scripts/ops/seed/seed-staging.sql generated by scripts/ops/seed/gen.mjs (deterministic faker, no real names/companies' emails)",
+        "scripts/ops/staging-reset.sh: stop api, restore seed, clear uploads volume, start; cron Sunday 06:00 UTC; Healthchecks kiwiply-staging-reset",
+        "Demo accounts present (DEMO_ENABLED=true)"
+      ],
+      "tests": [
+        "ops.test.sh dry-run of staging-reset.sh; gen.mjs output validates against the Liquibase schema in CI (load into a Testcontainers MySQL)"
+      ],
+      "tech": "scripts/ops/seed/*, DemoResource seed reused",
+      "evidence": [
+        "api DemoResource / DEPLOY.md §12.1"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": false
+    },
+    {
+      "id": "P3.4",
+      "epic": "P3",
+      "title": "Typed env schema with boot-time fail-fast check and CI parity (.env.example ↔ compose ↔ schema)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web",
+        "ops"
+      ],
+      "deps": [],
+      "relates": [
+        "A5.2"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want a misspelled or missing variable to stop the API at boot with a readable table so that config drift is never silent again.",
+      "genz": "—",
+      "ac": [
+        "api config/env-schema.yml lists every variable: required per env, type, default, secret flag, introducing story",
+        "EnvSchemaCheck runs before Liquibase: prod exits on missing required or unknown DOSSIER_* (escape hatch DOSSIER_ENV_SCHEMA_STRICT=false logged as a system event); logs a table with secrets masked as sha256 fingerprints",
+        "CI job env-schema fails when .env.example, docker-compose.prod.yml and the schema disagree",
+        "web/scripts/check-env.mjs validates NEXT_PUBLIC_* and DOSSIER_API_URL at build"
+      ],
+      "tests": [
+        "EnvSchemaCheckTest (missing/unknown/masking/escape hatch); env-schema job fixtures"
+      ],
+      "tech": "api config/EnvSchemaCheck.java (ApplicationRunner, highest precedence), scripts/ci/env-schema.mjs",
+      "evidence": [
+        "docker-compose.prod.yml:68-71 (vars 'never passed through before')",
+        ".env.example"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": false
+    },
+    {
+      "id": "P3.5",
+      "epic": "P3",
+      "title": "X-Kiwiply-Env response header + maintenance-mode hook consumed from A5.6",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "P3.2"
+      ],
+      "relates": [
+        "A5.6"
+      ],
+      "supersedes": [],
+      "story": "As a tester I want the extension to refuse to sync to staging unless pointed there on purpose so that test data never mixes with real.",
+      "genz": "—",
+      "ac": [
+        "API and web send X-Kiwiply-Env: prod|staging; the extension aborts sync when the header disagrees with its configured apiBase environment",
+        "ops.maintenance (A5.6) → API returns 503 MAINTENANCE on writes, web shows the banner; on our own box the edge serves a static page when /srv/kiwiply/maintenance exists"
+      ],
+      "tests": [
+        "Extension jsdom test for the header mismatch; API IT for 503 under the flag"
+      ],
+      "tech": "Spring filter; Next proxy.ts; job-autofill src/lib/tracking.js (TrackingProvider seam)",
+      "evidence": [
+        "job-autofill/src/lib/tracking.js"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": false
+    },
+    {
+      "id": "P4.1",
+      "epic": "P4",
+      "title": "Security headers on web and API; nonce-based CSP rolled out report-only then enforced",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "U1.1"
+      ],
+      "supersedes": [
+        "T5.2"
+      ],
+      "story": "As a user I want the web app protected against injected scripts and clickjacking so that my session and resume cannot be stolen by a page bug.",
+      "genz": "Security they can check with a browser extension or securityheaders.com — and will.",
+      "ac": [
+        "Web: HSTS (2 y, preload), CSP with per-request nonce (script-src 'self' 'nonce-…' accounts.google.com; connect-src self + api.kiwiply.com; frame-src Google/Stripe; frame-ancestors 'none'; base-uri; form-action), Referrer-Policy, Permissions-Policy, nosniff, X-Frame-Options",
+        "CSP_MODE=report|enforce runtime env; report-only for two weeks with POST /api/csp-report (rate-limited, WARN kinds in the digest); enforce after 7 clean days",
+        "API: HSTS, nosniff, frame-ancestors 'none', Referrer-Policy no-referrer, Cache-Control no-store on /api/**",
+        "securityheaders.com grade A on both hosts recorded in DEPLOY.md"
+      ],
+      "tests": [
+        "SecurityHeadersIT; web headers.test.ts (nonce present, mode switch); manual Google sign-in + Stripe checkout under enforce on staging"
+      ],
+      "tech": "web/next.config.ts headers(), web/src/proxy.ts nonce, api SecurityConfiguration headers(); api CspReportResource",
+      "evidence": [
+        "web/next.config.ts (no headers)",
+        "api/src/main/java/com/dossier/api/config/SecurityConfiguration.java (no headers())"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": true
+    },
+    {
+      "id": "P4.2",
+      "epic": "P4",
+      "title": "Actuator diet: /info admin-only and git mode simple; drop env/configprops/threaddump/logfile/prometheus from prod",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "A0.2",
+        "A10.6"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want the public API to reveal nothing about its build or configuration so that an attacker learns nothing from /management.",
+      "genz": "—",
+      "ac": [
+        "Prod exposure list: health, info, loggers, jhimetrics, liquibase, caches",
+        "/management/info requires ROLE_ADMIN; info.git.mode simple; /management/prometheus permitAll removed",
+        "Anonymous /management/health returns {\"status\":\"UP\"} only (show-details when_authorized kept)",
+        "04-verify.sh and the external monitor keep working"
+      ],
+      "tests": [
+        "ActuatorExposureIT: env 404, info 401 anonymous / 200 admin, health anonymous = status only"
+      ],
+      "tech": "application.yml management.endpoints.web.exposure (prod override in application-prod.yml), SecurityConfiguration:68-72",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/config/SecurityConfiguration.java:68-72",
+        "api/src/main/resources/config/application.yml:27-56"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": false
+    },
+    {
+      "id": "P4.3",
+      "epic": "P4",
+      "title": "Trusted proxies in prod + API rate limiter on, keyed on the real client IP, with per-user AI buckets",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "P3.2",
+        "A5.1"
+      ],
+      "relates": [
+        "A0.2",
+        "U1.1"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want /api/authenticate and the AI routes rate-limited at the API itself so that the extension's direct origin is not an unlimited brute-force target.",
+      "genz": "—",
+      "ac": [
+        "server.forward-headers-strategy=framework with tomcat remoteip trusted-proxies = the web_edge subnet; getRemoteAddr() is the client IP; a client-supplied X-Forwarded-For from an untrusted peer is ignored",
+        "RATE_LIMIT_ENABLED defaults true in prod; rules from settings `ratelimit.*` (A5.2; defaults: authenticate 10/5 min, register 5/h, reset 5/h, extension/session 20/h, POST /api/ai/** 60/min per JWT subject, canary 2/s global)",
+        "429s counted in request_metric_minute; boot logs the resolved-IP distribution for the first 100 requests",
+        "Rolled out on staging first; prod after one week without a false positive"
+      ],
+      "tests": [
+        "RateLimitFilterIT with trusted vs untrusted peers; per-user AI bucket; canary asserts its IP ≠ proxy"
+      ],
+      "tech": "application-prod.yml server.forward-headers-strategy + server.tomcat.remoteip.*; RateLimitFilter rules + JWT-keyed bucket",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/filter/RateLimitFilter.java:98-100",
+        "application.yml:245-251",
+        "application-dev.yml:65"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": true
+    },
+    {
+      "id": "P4.4",
+      "epic": "P4",
+      "title": "Container + host hardening: no-new-privileges, cap_drop, read_only + tmpfs, pids_limit, digest-pinned bases, host-harden.sh --check",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.5"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want our containers unable to escalate or write where they should not, and the host's SSH/firewall/updates verified, so that a compromise stays small on a shared box.",
+      "genz": "—",
+      "ac": [
+        "docker-compose.prod.yml: security_opt no-new-privileges, cap_drop ALL, read_only + tmpfs for web and api (uploads rw), pids_limit 512; base images pinned by digest in both Dockerfiles (Dependabot bumps)",
+        "scripts/ops/host-harden.sh --check reports sshd (no password, no root), ufw state, unattended-upgrades, docker log-opts, .env modes, fail2ban; --apply only on our own box; on the shared box findings become requests to the owner (runbook)",
+        "web-docker and new api-docker CI smokes pass under read_only"
+      ],
+      "tests": [
+        "CI smokes; ops.test.sh host-harden --check against fixture outputs"
+      ],
+      "tech": "docker-compose.prod.yml, api/Dockerfile, web/Dockerfile, scripts/ops/host-harden.sh",
+      "evidence": [
+        "api/Dockerfile",
+        "web/Dockerfile",
+        "docker-compose.prod.yml"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": false
+    },
+    {
+      "id": "P4.5",
+      "epic": "P4",
+      "title": "Supply chain: Dependabot groups, npm audit, Gradle dependency-check, Trivy on images, SBOM + provenance, gitleaks, CodeQL/Semgrep",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P2.6"
+      ],
+      "relates": [
+        "P2.6"
+      ],
+      "supersedes": [
+        "T5.3"
+      ],
+      "story": "As a builder I want known-vulnerable dependencies, images and committed secrets caught on the PR so that we never ship them by accident.",
+      "genz": "—",
+      "ac": [
+        "ci.yml: npm audit --audit-level=high --omit=dev for web and job-autofill; gradle dependencyCheckAnalyze with a suppression file (expiring entries); Trivy CRITICAL,HIGH ignore-unfixed on both images (new api-docker job); gitleaks; CodeQL (JS/TS + Java) or Semgrep OSS if the repo is private",
+        "deploy.yml build-push-action provenance: true, sbom: true",
+        "Two-week warn-only period, then all PR-blocking; fixtures in scripts/ci/fixtures prove each gate fails on a known-bad input"
+      ],
+      "tests": [
+        "Gate fixtures (known-bad lockfile, a fake secret, a vulnerable base) each produce a red job"
+      ],
+      "tech": ".github/workflows/ci.yml, api/build.gradle (dependency-check plugin), .gitleaks.toml, .pre-commit-config.yaml",
+      "evidence": [
+        ".github/ (no dependabot.yml, no scanning jobs)"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": false
+    },
+    {
+      "id": "P4.6",
+      "epic": "P4",
+      "title": "Secrets hygiene: fingerprint script, rotation calendar runbook, JWT dual-key rotation without mass sign-out",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "ops"
+      ],
+      "deps": [],
+      "relates": [
+        "A9.1"
+      ],
+      "supersedes": [
+        "T5.7"
+      ],
+      "story": "As the operator I want every secret escrowed, fingerprinted and rotated on a schedule so that the 2026-09-17 class of loss cannot recur and a leaked key has a short life.",
+      "genz": "—",
+      "ac": [
+        "scripts/ops/secrets-fingerprint.sh prints sha256-prefix per secret in .env (never values); the same fingerprints appear in the EnvSchemaCheck boot table",
+        "docs/runbooks/rotate-secrets.md with the calendar: CI key quarterly, storage/backup IAM yearly, Brevo yearly, JWT yearly, inbox key per DEPLOY §12, Stripe on compromise; each rotation = password-manager edit + system event",
+        "jhipster.security.authentication.jwt.previous-base64-secret accepted for 24 h by TokenProvider so refresh tokens roll over",
+        "EnvSchemaCheck asserts ADMIN_PASSWORD_HASH is a 60-char bcrypt (the $$ gotcha)"
+      ],
+      "tests": [
+        "TokenProviderDualKeyTest; ops.test.sh fingerprint prints no fixture values"
+      ],
+      "tech": "api security/jwt/TokenProvider, config/SecurityJwtConfiguration; scripts/ops/secrets-fingerprint.sh",
+      "evidence": [
+        "DEPLOY.md §2.1, §11, §12",
+        "CLAUDE.md ('Prod data was lost 2026-09-17')"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": false
+    },
+    {
+      "id": "P4.7",
+      "epic": "P4",
+      "title": "/.well-known/security.txt, security@ routing and a coordinated-disclosure policy page",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "ops"
+      ],
+      "deps": [],
+      "relates": [
+        "A9.7",
+        "T5.1"
+      ],
+      "supersedes": [],
+      "story": "As a security researcher I want a published way to report a vulnerability so that I do not post it on Twitter instead.",
+      "genz": "A disclosure policy is table stakes for the audience that reads CRXPlorer risk scores.",
+      "ac": [
+        "web serves /.well-known/security.txt per RFC 9116 (Contact, Expires ≤ 1 y, Canonical, Policy, Preferred-Languages); CI fails when Expires is within 60 days",
+        "security@kiwiply.com routed via Cloudflare Email Routing like support@; triage = SEV2 in the alert matrix",
+        "/security-policy page (trust area writes the words: safe harbour, 90-day coordinated disclosure, no bounty yet, acknowledgements)"
+      ],
+      "tests": [
+        "web route test for security.txt content-type and fields; CI expiry check"
+      ],
+      "tech": "web/public/.well-known/security.txt (or route), scripts/ci/security-txt-check.mjs",
+      "evidence": [
+        "DEPLOY.md §9.1 (email routing pattern)"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": false,
+      "benchmark": "None of Simplify, Teal, Huntr or Jobscan publishes a security.txt or disclosure policy (checked 2026-10-11)."
+    },
+    {
+      "id": "P4.8",
+      "epic": "P4",
+      "title": "DNS/TLS posture: CAA, DNSSEC, HSTS preload submission, orange-cloud decision with the box owner",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P4.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want the domain hard to hijack or mis-issue for so that the trust page's claims hold at the DNS layer too.",
+      "genz": "—",
+      "ac": [
+        "CAA 0 issue \"letsencrypt.org\"; DNSSEC enabled at Cloudflare; both verified by 04-verify.sh",
+        "HSTS preload submitted after one month of enforced HSTS",
+        "Written decision on Cloudflare proxy (orange-cloud): adopt with DNS-01 and Full (strict) only if the edge Caddy owner agrees; otherwise stay grey with the reasoning in DEPLOY.md"
+      ],
+      "tests": [
+        "04-verify.sh gains CAA/DNSSEC checks"
+      ],
+      "tech": "Cloudflare DNS (human), scripts/migrate/04-verify.sh",
+      "evidence": [
+        "DEPLOY.md §9.1",
+        "MIGRATION.md §0 (grey-cloud for ACME)"
+      ],
+      "design": "docs/design/plat/security-hardening-supply-chain.md",
+      "critical": false
+    },
+    {
+      "id": "P5.0",
+      "epic": "P5",
+      "title": "S3 resume storage baseline (AWS SDK v2, proxied downloads, MinIO in dev/tests)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want my uploaded resume stored privately so that only the API can serve it back to me.",
+      "genz": "—",
+      "ac": [
+        "ResumeStorageService interface with an S3 implementation; keys namespaced per user; private bucket; downloads proxied through the API"
+      ],
+      "tests": [
+        "S3ResumeStorageServiceIT (MinIO)"
+      ],
+      "tech": "api service/ResumeStorageService, service/S3ResumeStorageService, config/StorageConfiguration",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/S3ResumeStorageService.java",
+        "api/src/main/java/com/dossier/api/config/StorageConfiguration.java"
+      ],
+      "design": "docs/design/plat/file-storage-seam.md",
+      "critical": false
+    },
+    {
+      "id": "P5.1",
+      "epic": "P5",
+      "title": "FileStorage interface + LocalFileStorage driver + DOSSIER_STORAGE_DRIVER=local + uploads volume (S3 behind the same seam)",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API",
+        "ops"
+      ],
+      "deps": [
+        "P5.0"
+      ],
+      "relates": [
+        "R0.6"
+      ],
+      "supersedes": [],
+      "story": "As a builder I want one FileStorage seam with a local driver as the default so that R0.6 and every upload path never touch S3 directly and the driver is a config choice.",
+      "genz": "—",
+      "ac": [
+        "service/storage/FileStorage (objectKeyFor, store, load, open, stat, exists, delete, list); S3FileStorage (renamed) and LocalFileStorage selected by dossier.storage.driver (default local); S3Client bean only under s3",
+        "LocalFileStorage: root /srv/uploads, atomic temp-write + fsync + move, .meta sidecar, traversal guard, 0700",
+        "docker-compose.prod.yml: uploads named volume mounted into api; S3_* vars no longer required",
+        "ArchUnit: awssdk imported only under service.storage.s3; existing resume/attachment resources pass against local; existing S3 rows keep working (driver column backfill in P5.5 — until then S3 keys are detected by prefix)"
+      ],
+      "tests": [
+        "LocalFileStorageTest (atomic write, traversal variants, sidecar, 0700), S3FileStorageIT, ResumeFileResourceIT + ApplicationAttachmentResourceIT under local, ArchUnit rule"
+      ],
+      "tech": "api service/storage/*, config/StorageConfiguration, application*.yml, docker-compose.prod.yml volumes",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/ResumeStorageService.java",
+        "docs/RESUME-BUILDER-DECISIONS.md:29"
+      ],
+      "design": "docs/design/plat/file-storage-seam.md",
+      "critical": true
+    },
+    {
+      "id": "P5.2",
+      "epic": "P5",
+      "title": "Disk as user data: min-free guard (507 STORAGE_FULL), volume threshold in host-guard, at-rest statement",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "ops"
+      ],
+      "deps": [
+        "P5.1",
+        "P1.6",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want uploads to stop before the disk is full so that MySQL on the same disk never starves and users get a clear message.",
+      "genz": "A clear 'storage full, try again shortly' beats a 500.",
+      "ac": [
+        "setting `storage.min_free_bytes` (default 1 GB; env default dossier.storage.local.min-free-bytes) → store throws StorageFullException → 507 STORAGE_FULL with user copy in the upload components",
+        "host-guard watches the uploads volume at 80 %",
+        "/trust wording for at-rest encryption on the shared box ('host disk not encrypted; LUKS on our own server') supplied to P7.3"
+      ],
+      "tests": [
+        "LocalFileStorageTest min-free; web upload component renders the 507 copy"
+      ],
+      "tech": "LocalFileStorage, ResumeFileResource/ApplicationAttachmentResource error mapping, packages/ui ResumeUpload copy slot",
+      "evidence": [
+        "api ResumeFileResource",
+        "packages/ui ResumeUpload"
+      ],
+      "design": "docs/design/plat/file-storage-seam.md",
+      "critical": false
+    },
+    {
+      "id": "P5.3",
+      "epic": "P5",
+      "title": "Content sniffing, size limits, streaming downloads with ETag and Range at the seam",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "P5.1",
+        "A5.1"
+      ],
+      "relates": [
+        "R3.3"
+      ],
+      "supersedes": [],
+      "story": "As a user I want my PDF preview to load fast and seek on my phone, and I want Kiwiply to refuse files that are not what they claim.",
+      "genz": "Phone PDF viewers need Range requests; a resume that will not scroll is a bounce.",
+      "ac": [
+        "store() enforces setting `storage.max_upload_bytes` (default 10 MB), computes sha256, and sniffs magic numbers for pdf/docx (and png/jpeg for attachments); declared type mismatch → 415 UNSUPPORTED_FILE; over size → 413 FILE_TOO_LARGE",
+        "Downloads stream from open() with ETag, Content-Length, Cache-Control private, Content-Disposition attachment, nosniff; Range → 206 for PDFs",
+        "Missing object → 404 FILE_MISSING and the ledger row marked (P5.5) instead of a 500"
+      ],
+      "tests": [
+        "FileStorageSniffTest (PDF/DOCX ok, PNG-named-PDF rejected, size guard), ResumeFileResourceIT Range/ETag/304"
+      ],
+      "tech": "service/storage/ContentSniffer, resources use open() + ResourceRegion",
+      "evidence": [
+        "api ResumeFileResource (load() whole file today)"
+      ],
+      "design": "docs/design/plat/file-storage-seam.md",
+      "critical": false
+    },
+    {
+      "id": "P5.4",
+      "epic": "P5",
+      "title": "Driver migration job (local ↔ s3) with sha256 verification and dual-read mode",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "ops"
+      ],
+      "deps": [
+        "P5.5"
+      ],
+      "relates": [
+        "A10.2"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want to move files between local disk and S3 with verification and no downtime so that 'S3 later by config' is actually one config change.",
+      "genz": "—",
+      "ac": [
+        "Job storage.migrate (A10.2 registry, run-now) copies every ledger object to the target driver, verifies sha256, sets migrated_at; resumable",
+        "dossier.storage.driver=dual-read serves reads from target with source fallback while writes go to target; the sweep reports unmigrated count; flip to the target driver when zero",
+        "Exercised local→MinIO on staging before prod ever needs it; runbook in DEPLOY.md"
+      ],
+      "tests": [
+        "StorageMigrateIT (local→MinIO, interrupted + resumed, sha mismatch retried), dual-read fallback test"
+      ],
+      "tech": "service/storage/StorageMigrateJob, DualReadFileStorage decorator",
+      "evidence": [
+        "docs/RESUME-BUILDER-DECISIONS.md:29"
+      ],
+      "design": "docs/design/plat/file-storage-seam.md",
+      "critical": false
+    },
+    {
+      "id": "P5.5",
+      "epic": "P5",
+      "title": "storage_object ledger (inventory, quotas, deletion) + weekly orphan sweep + first orphan report",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "P5.1",
+        "A5.1"
+      ],
+      "relates": [
+        "A10.2",
+        "S1.6"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want every stored file inventoried in the database so that blobs without rows (the 2026-09 orphans) and rows without blobs are found, reported and cleaned.",
+      "genz": "Account deletion that provably removes every file is a trust feature.",
+      "ac": [
+        "Liquibase: storage_object (key PK, driver, size, sha256, content_type, owner_user_id, ref_type, ref_id, created_at, migrated_at, deleted_at, missing_at); backfill from resume/attachment rows",
+        "Every store inserts, every delete soft-deletes; account deletion deletes by owner; DSAR export lists the user's files",
+        "storage.sweep weekly: driver objects without live rows → report, delete after setting `storage.orphan_grace_days` (default 30) in report; rows whose object is missing → missing_at + report; .tmp litter > 1 h removed",
+        "First run produces the S3 pre-2026-09 orphan report for the user's decision"
+      ],
+      "tests": [
+        "StorageLedgerIT, StorageSweepTest (both orphan directions, grace, litter), AccountDeletion IT covers files"
+      ],
+      "tech": "Liquibase changelog, service/storage/StorageLedger, StorageSweepJob in the A10.2 registry",
+      "evidence": [
+        "DEPLOY.md §5 ('orphaned objects, which is exactly what happened')"
+      ],
+      "design": "docs/design/plat/file-storage-seam.md",
+      "critical": true
+    },
+    {
+      "id": "P6.1",
+      "epic": "P6",
+      "title": "Resource limits on every container (mem_limit, cpus, pids) so Kiwiply cannot take BeeCompete down",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want hard limits on our containers so that a memory leak in our API degrades Kiwiply, not the other business on the box.",
+      "genz": "—",
+      "ac": [
+        "prod: api mem_limit 768m (-Xmx512m) cpus 1.5, web 256m, mysql 640m with innodb_buffer_pool_size=256M; documented in DEPLOY.md with the box's totals",
+        "docker stats after a week shows no OOM kills (RestartCount 0 via host-guard)",
+        "docker rollout memory peak documented (two api replicas for ~60 s)"
+      ],
+      "tests": [
+        "docker compose config asserts limits in CI; one-week observation note in DEPLOY.md"
+      ],
+      "tech": "docker-compose.prod.yml deploy/resources or mem_limit (compose v2 non-swarm)",
+      "evidence": [
+        "DEPLOY.md §13.1 ('Memory is tight')"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": true
+    },
+    {
+      "id": "P6.2",
+      "epic": "P6",
+      "title": "k6 capacity baseline against staging (extension traffic mix) + nightly regression at 0.2×",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [
+        "P3.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want to know how many active users the current box handles and to catch a 30 % p95 regression before users do.",
+      "genz": "Speed is the feature on a phone and in a drawer that opens on every job page.",
+      "ac": [
+        "scripts/perf/baseline.js models per-1 000-user traffic: version checks, syncs, profile reads, matches, inbox polls; committed baseline-<date>.json with p50/p95 per route, CPU, RSS",
+        "Nightly CI job runs at 0.2× against staging; fails on > 30 % p95 regression vs baseline",
+        "Capacity number ('box handles ~N active users at p95 < 800 ms') written in DEPLOY.md"
+      ],
+      "tests": [
+        "The k6 script runs at 0.05× as a PR smoke against the PR's web image"
+      ],
+      "tech": "scripts/perf/*, .github/workflows/perf.yml (schedule)",
+      "evidence": [
+        "docs/design/plat/environments-staging-capacity.md D6"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": false
+    },
+    {
+      "id": "P6.3",
+      "epic": "P6",
+      "title": "Own-server move (rehearsed on staging first): LUKS data disk, our own edge Caddy, base + binlog cutover, DNS TTL 60 s — before Phase 21",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P0.4",
+        "P3.2",
+        "P6.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want Kiwiply on a server it does not share so that capacity, security and deploys stop being negotiated with another business.",
+      "genz": "—",
+      "ac": [
+        "Provider chosen (open question); 4 vCPU / 8 GB / NVMe + separate encrypted data volume; Ubuntu 24.04; host-harden.sh --apply",
+        "Rehearsal: MIGRATION.md §2 against staging data on a throwaway VPS, timed; then the real move per MIGRATION.md §0–§7 with the DB moved by base + binlog replay (write freeze in minutes)",
+        "docker-compose.prod.yml runs standalone (no overlay); edge Caddyfile in this repo; CI retargeted; old box's containers stopped and its edge site blocks removed with the owner",
+        "04-verify.sh green; status page shows the maintenance window; evidence row in DEPLOY.md"
+      ],
+      "tests": [
+        "Rehearsal timings; post-move canary + k6 baseline re-run"
+      ],
+      "tech": "MIGRATION.md (update for binlog cutover), scripts/migrate/*",
+      "evidence": [
+        "ROADMAP.md:1241 ('move off the shared BeeCompete box … before Phase 21 ships')",
+        "MIGRATION.md"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": true
+    },
+    {
+      "id": "P6.4",
+      "epic": "P6",
+      "title": "Capacity model doc (Autopilot, ingest, inbox, matches per 1 000 users) re-run quarterly",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P6.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want a written model of what each feature costs the box so that Phase 19 Autopilot and Phase 21 Organizations are sized before they ship.",
+      "genz": "—",
+      "ac": [
+        "docs/design/plat/environments-staging-capacity.md D6 table filled with measured numbers; quarterly re-run checklist in docs/runbooks/README.md",
+        "Autopilot (entitlement `autopilot.apps_per_day`, catalog default 30) and ingest growth (6 ATS + aggregator) modelled with headroom"
+      ],
+      "tests": [
+        "Doc review against k6 output"
+      ],
+      "tech": "Doc + k6 results",
+      "evidence": [
+        "ROADMAP.md Phase 19/21"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": false
+    },
+    {
+      "id": "P6.5",
+      "epic": "P6",
+      "title": "MySQL hygiene: slow query log, performance_schema, monthly unused-index review, durability flags",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops",
+        "API"
+      ],
+      "deps": [
+        "P0.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want slow queries visible and durability settings explicit so that performance problems are found before they are incidents.",
+      "genz": "—",
+      "ac": [
+        "mysql command: slow_query_log=1, long_query_time=0.5, log to the volume with rotation; performance_schema on; innodb_flush_log_at_trx_commit=1 stated",
+        "docs/runbooks/README.md monthly item: sys.schema_unused_indexes + top slow queries reviewed; findings become API stories",
+        "Hikari pool documented (10) with the rule for replicas"
+      ],
+      "tests": [
+        "docker compose config; a seeded slow query appears in the log on staging"
+      ],
+      "tech": "docker-compose.prod.yml mysql command; runbook",
+      "evidence": [
+        "docker-compose.prod.yml:19"
+      ],
+      "design": "docs/design/plat/environments-staging-capacity.md",
+      "critical": false
+    },
+    {
+      "id": "P7.1",
+      "epic": "P7",
+      "title": "docs/runbooks/: one file per alert key with Symptom · Check · Fix · Verify · Escalate, plus the index",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P1.3"
+      ],
+      "relates": [
+        "A10.5"
+      ],
+      "supersedes": [],
+      "story": "As the operator (or whoever covers for me) I want copy-paste runbooks for every alert so that 3 a.m. fixes are procedures, not improvisation.",
+      "genz": "—",
+      "ac": [
+        "docs/runbooks/README.md (index, severity ladder, alert→runbook map, monthly/quarterly checklists) + files: backup-missed, binlog-gap, restore, files-volume-full, disk-full, memory-pressure, box-unreachable, edge-caddy-down (coordination with the BeeCompete owner; we never restart it), cert-expiring, deploy-failed, rollback, canary-failing, ghcr-pull-failed, provider-down, mail-provider-down, ai-provider-down, stripe-webhook-failing, rotate-inbox-key, rotate-secrets, break-glass",
+        "Each runbook's commands verified once on staging; A10.5 links runbooks by key"
+      ],
+      "tests": [
+        "Markdown lint; a CI check that every key in the alert matrix has a file"
+      ],
+      "tech": "docs/runbooks/*.md; scripts/ci/runbook-index-check.mjs",
+      "evidence": [
+        "docs/design/admin/observability-backup-incident.md D8",
+        "DEPLOY.md §7.3, §13.3"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    },
+    {
+      "id": "P7.2",
+      "epic": "P7",
+      "title": "Incident process: severities, 15-min first update, postmortem template, public history, quarterly game day",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "ops"
+      ],
+      "deps": [
+        "P1.2",
+        "P7.1"
+      ],
+      "relates": [
+        "A10.5",
+        "T5.5"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to be told what broke, when it was fixed and what changed so that an outage builds trust instead of eroding it.",
+      "genz": "Blameless public postmortems are the reliability equivalent of 'we read the comments'.",
+      "ac": [
+        "docs/runbooks/README.md §Incidents: SEV ladder, first public update ≤ 15 min, hourly cadence, resolve note, postmortem ≤ 5 working days for SEV1/2 via docs/runbooks/_postmortem-template.md",
+        "Postmortems for user-visible incidents are published on the status page history",
+        "Quarterly game day (kill the API container at a planned time; measure detect→page→fix) logged in DEPLOY.md §5.4"
+      ],
+      "tests": [
+        "First game day performed and logged"
+      ],
+      "tech": "Docs + status page",
+      "evidence": [
+        "docs/design/admin/observability-backup-incident.md D7"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    },
+    {
+      "id": "P7.3",
+      "epic": "P7",
+      "title": "/trust facts: RPO/RTO, last restore drill (auto from drill-status.json), uptime link, security practices, honest 'not yet' list",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "ops"
+      ],
+      "deps": [
+        "P0.4",
+        "P1.2",
+        "T5.1"
+      ],
+      "relates": [
+        "T1.5",
+        "U14.5"
+      ],
+      "supersedes": [],
+      "story": "As a cautious user I want to see what Kiwiply actually does to protect my data, with dates, so that I can decide to upload my resume.",
+      "genz": "Receipts over reassurance: dates, numbers and 'not yet' beat 'bank-grade security'.",
+      "ac": [
+        "Page (route owned by marketing/trust; facts owned here) shows: backup cadence + encryption + no-delete key, last drill date/result/RTO read from s3://…/evidence/drill-status.json at ISR (stale > 45 d renders 'drill overdue', never hides), status link, headers/hardening summary, subprocessor link (A9.7), deletion window, backup expiry, and a 'not yet' list (SOC 2, pen test, bug bounty, host disk encryption on the shared box)",
+        "Every claim maps to a done story id in a comment next to it; CI lint fails if a referenced story is not done in areas/plat.json"
+      ],
+      "tests": [
+        "web route test for stale-drill rendering; scripts/ci/trust-claims-check.mjs against plat.json"
+      ],
+      "tech": "web (marketing) page + fetch of the evidence JSON; scripts/ci/trust-claims-check.mjs",
+      "evidence": [
+        "AUDIT-plat.md §3 (competitors publish nothing of this)"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": true,
+      "benchmark": "Beats Simplify (status page only), Teal (policy claims only), Huntr and Jobscan (nothing) — checked 2026-10-11."
+    },
+    {
+      "id": "P7.4",
+      "epic": "P7",
+      "title": "Dependency outage matrix in code: timeouts, retries and degraded modes for Gemini, Brevo, IMAP, S3, Stripe, job boards",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "A7.1",
+        "A6.1"
+      ],
+      "supersedes": [],
+      "story": "As a user I want a provider outage to turn into a clear 'AI is resting' or 'email delayed' message, never a hung request or a 500.",
+      "genz": "Honest degraded states feel like a product that respects their time.",
+      "ac": [
+        "Every outbound RestClient/JavaMail/IMAP/S3 call has connect + read timeouts (≤ 10 s AI, ≤ 5 s others) and a documented retry policy (Brevo 3× over 30 min via the mail queue; IMAP skip-poll; S3 none; Stripe none — webhooks are Stripe's retries; job boards per-board skip)",
+        "Each failure maps to a distinct error code the surfaces already render (AI_UNAVAILABLE 503, MAIL_DELAYED, STORAGE_UNAVAILABLE 503)",
+        "No new resilience library without asking; a small Retry helper in service/ops"
+      ],
+      "tests": [
+        "WireMock/MockServer ITs per provider: timeout → the mapped code, retries counted, no request thread hangs > timeout"
+      ],
+      "tech": "api service/ai/*, service/mail, service/inbox, service/storage, service/jobs; RestClient builders in config",
+      "evidence": [
+        "DEPLOY.md §11.1 F ('a mail failure must never fail a webhook')"
+      ],
+      "design": "docs/design/plat/monitoring-alerting-status-page.md",
+      "critical": false
+    }
+  ]
+}

@@ -1,0 +1,2054 @@
+{
+  "area": "sup",
+  "name": "Support, help & community",
+  "prefix": "S",
+  "kind": "cross-cutting",
+  "updated": "2026-10-11",
+  "epics": [
+    {
+      "id": "S1",
+      "name": "Help center (/help) and help content",
+      "goal": "A searchable help center shipped with the product (Markdown in the repo, one guide per ATS, billing stated plainly) that every surface links to instead of a mailto.",
+      "priority": "P0"
+    },
+    {
+      "id": "S2",
+      "name": "Support conversations (tickets) with a visible reply",
+      "goal": "Every bug, question, billing or scam report becomes a ticket the user can see, the team answers in-product, and an SLA is measured.",
+      "priority": "P0"
+    },
+    {
+      "id": "S3",
+      "name": "Job-scam safety centre",
+      "goal": "Learn, check and get warned: a public safety hub, a local rule-based 'Is this legit?' checker, warnings inside the application page, risk flags on postings, one-tap reporting and a blocklist.",
+      "priority": "P0"
+    },
+    {
+      "id": "S4",
+      "name": "Extension in-page help and site reports",
+      "goal": "The drawer can say 'help me' and 'this site didn't fill' with consented diagnostics, and shows the fix when it ships.",
+      "priority": "P0"
+    },
+    {
+      "id": "S5",
+      "name": "Feedback loops, feature requests, what's new",
+      "goal": "One feedback event for every thumbs, a public voted request board, a changelog that closes the loop, tiny CSAT/NPS and the store-review prompt.",
+      "priority": "P1"
+    },
+    {
+      "id": "S6",
+      "name": "AI help assistant (grounded in help content)",
+      "goal": "Retrieval-first help answers with no model call on Free, Pro answers on a platform support budget, one-tap escalation with the transcript.",
+      "priority": "P1"
+    },
+    {
+      "id": "S7",
+      "name": "Status page and incident communication",
+      "goal": "A public /status with per-ATS autofill state, human-written incidents, scoped banners in the app and the drawer, and subscriptions.",
+      "priority": "P1"
+    },
+    {
+      "id": "S8",
+      "name": "Community",
+      "goal": "A small moderated Discord with an 'is this legit?' bot and product bridges; explicitly not a support channel; kill criteria defined.",
+      "priority": "P2"
+    },
+    {
+      "id": "S9",
+      "name": "Support operations and knowledge",
+      "goal": "Metrics, tags, SUPPORT-role scoping, knowledge-gap reports and runbooks so a small team answers fast and the help center grows from real questions.",
+      "priority": "P1"
+    },
+    {
+      "id": "S10",
+      "name": "Support policies, accessibility and localisation readiness",
+      "goal": "Published support policy and SLA, accessible support surfaces, help content ready for a second language, org-aware routing.",
+      "priority": "P1"
+    }
+  ],
+  "stories": [
+    {
+      "id": "S1.1",
+      "epic": "S1",
+      "title": "/help route, Markdown renderer, build-time validation, six seed articles",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "M5.1"
+      ],
+      "supersedes": [
+        "M4.1"
+      ],
+      "story": "As a stuck user I want a help center at /help so that the answer to 'how do I…' is one search away instead of an email.",
+      "genz": "Self-serve first; nobody under 30 wants to email support to learn where a button is.",
+      "ac": [
+        "web/content/help/<category>/<slug>.md with validated front-matter (title, summary, category, tags, audience, ats?, plan, updated, related[]); a bad file fails npm run build -w web",
+        "scripts/build-help-index.mjs renders Markdown (headings, lists, links, code, images, callouts; raw HTML rejected) into a build artefact included by outputFileTracingIncludes for next start",
+        "Routes /help, /help/c/[category], /help/a/[slug] render in the marketing layout at 390px with a 16px gutter; unknown slug → 404",
+        "Six seed articles: install-the-extension, first-autofill, site-didnt-fill, cancel-anytime-no-refunds, what-we-store, job-scams (link to /safety placeholder)",
+        "Every article ends with 'Was this helpful?' (inert until S1.4) and 'Still stuck? Message us' (→ /contact until S2.3)"
+      ],
+      "tests": [
+        "scripts/build-help-index.test.mjs: front-matter validation, slug uniqueness, raw-HTML rejection, relative links resolve",
+        "web render test for /help/a/[slug] (200 known, 404 unknown)",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(marketing)/help/{page,c/[category]/page,a/[slug]/page}.tsx; web/scripts/build-help-index.mjs wired like scripts/sync-parser-core.mjs in web/package.json 'test'/'build'; renderer in web/src/lib/help/markdown.ts (no new deps)",
+      "evidence": [
+        "web/src/app/(marketing)/contact/page.tsx:34 (HELP_HREF = mailto)",
+        "web/src/components/marketing/nav.ts:126 ('Browser Extension Help' → /signup)"
+      ],
+      "design": "docs/design/sup/help-center.md",
+      "critical": true,
+      "benchmark": "G33 (/help with ATS guides). Huntr task-level articles (help.huntr.co); Simplify 14 collections/58 articles (help.simplify.jobs)."
+    },
+    {
+      "id": "S1.2",
+      "epic": "S1",
+      "title": "Build-time search index, /help?q= search, and GET /api/help/index for the extension",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "S1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want to type 'workday dropdown' and see the right article so that I don't browse categories.",
+      "genz": "Search box first, like every app they use.",
+      "ac": [
+        "help-index.json (slug, title, summary, tags, stemmed tokens) emitted at build; client search = token match with prefix + tag boost, results in < 50 ms for 300 articles",
+        "/help?q= deep link renders results server-side (shareable); zero results shows 'Message us' with the query pre-filled",
+        "GET /api/help/index?ats= (web route, cached 1 h, CDN-cacheable) returns ≤ 50 entries filtered by ats tag for the drawer",
+        "Search miss events posted to /api/help/events (no-op until S1.4)"
+      ],
+      "tests": [
+        "unit: ranking (exact title > prefix > tag > body), stemming, ats filter",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/lib/help/search.ts; web/src/app/api/help/index/route.ts; index emitted by scripts/build-help-index.mjs",
+      "evidence": [],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false,
+      "benchmark": "Simplify 'Ask AI' search; Huntr Intercom search."
+    },
+    {
+      "id": "S1.3",
+      "epic": "S1",
+      "title": "Launch content pass: ~40 articles incl. one per supported ATS, plain-language billing, landing FAQ migrated",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S1.1"
+      ],
+      "relates": [
+        "E1.6",
+        "M5.2"
+      ],
+      "supersedes": [
+        "M4.2",
+        "M4.6"
+      ],
+      "story": "As a user I want real answers for my ATS, my plan and my data so that the help center is useful on day one.",
+      "genz": "≤ 120 words before the first step, a GIF per extension task, phone screenshots first, grade-7 reading level.",
+      "ac": [
+        "Categories: getting-started (3), autofill (one per adapter in job-autofill: workday, greenhouse, lever, ashby, generic + 'site didn't fill', 'review before submit', 'EEO questions'), resumes (4), jobs (5), billing (4), privacy-safety (3)",
+        "billing/cancel-anytime-no-refunds.md states the locked policy in the first sentence: monthly or quarterly, no trial, cancel anytime, access to period end, no refunds",
+        "ATS articles use captured real DOM screenshots (CLAUDE.md rule) and say what is NOT filled",
+        "The five landing FAQs (V3Faq.tsx) become articles; the FAQ section links to them",
+        "DONE today: five FAQ entries exist on the landing page; REMAINING: everything else"
+      ],
+      "tests": [
+        "build validation passes for all files; link checker finds no dead related[]",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/content/help/**; web/src/components/marketing/v3/V3Faq.tsx links to slugs; screenshots under web/public/help/",
+      "evidence": [
+        "web/src/components/marketing/v3/V3Faq.tsx:8-30 (5 FAQs)",
+        "job-autofill/README.md:196 (Workday/iCIMS caveats to document)"
+      ],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false,
+      "benchmark": "G33, G29 (billing honesty in one screenshot-able block). Teal's cancel article; Huntr billing FAQ."
+    },
+    {
+      "id": "S1.4",
+      "epic": "S1",
+      "title": "Article stats, 👍/👎 on articles, search-miss log and admin help stats",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S1.2",
+        "S5.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [
+        "M4.4"
+      ],
+      "story": "As the team I want to know which articles help and what people search for and don't find so that the help center improves from real use.",
+      "genz": "Their thumbs actually change the docs.",
+      "ac": [
+        "Liquibase: help_article_stat (slug PK, views, helpful_up, helpful_down, last_viewed_at), help_search_miss (query ≤ 200 chars scrubbed, from_surface, hits, created_at)",
+        "POST /api/help/events (batch; types view|search|miss; anonymous; BFF rate setting `ratelimit.help_events.per_hour`, default 60 per IP) + daily rollup job",
+        "Article 👍/👎 uses feedback_event target_type=help_article via the ThumbsFeedback primitive",
+        "GET /api/admin/help/stats: top viewed, lowest helpful ratio (min setting `support.help.min_votes`, default 20), top misses, stale (not updated for setting `support.help.stale_days`, default 90)"
+      ],
+      "tests": [
+        "HelpEventResourceIT (batch accepted, scrubbed, rollup counts)",
+        "HelpStatServiceTest (ratio floors)",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api web/rest/HelpEventResource.java, service/HelpStatService.java, new liquibase changelog; web/src/app/api/help/events/route.ts",
+      "evidence": [],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false
+    },
+    {
+      "id": "S1.5",
+      "epic": "S1",
+      "title": "Fill-accuracy table and permissions explainer hosted on /help (data owned by ext/mkt/trust)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S1.1"
+      ],
+      "relates": [
+        "U20.1",
+        "E1.6",
+        "T6.2"
+      ],
+      "supersedes": [],
+      "story": "As a cautious installer I want to see measured fill accuracy per ATS and exactly which permissions the extension needs so that I trust it before installing.",
+      "genz": "Receipts, not claims.",
+      "ac": [
+        "/help/a/fill-accuracy renders a table from job-autofill/test/fixtures/accuracy.json (produced by the ext-area harness, G2) with the date and fixture count; shows 'not measured yet' rows honestly",
+        "/help/a/permissions lists every manifest permission and host from job-autofill/wxt.config.ts with the reason; a CI check fails the web build if the manifest host list drifts from the page's JSON (G30)",
+        "Both are linked from the store listing text (job-autofill/STORE-LISTING.md) and the install page"
+      ],
+      "tests": [
+        "scripts/check-permissions-page.test.mjs (drift detection)",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/content/help/getting-started/{fill-accuracy,permissions}.md generated from JSON at build; web/scripts/check-permissions-page.mjs reads job-autofill/wxt.config.ts",
+      "evidence": [
+        "job-autofill/wxt.config.ts (host_permissions)",
+        "job-autofill/STORE-LISTING.md:132"
+      ],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false,
+      "benchmark": "G2 (public fill-accuracy), G30 (permissions explainer). Simplify's CRXPlorer 'medium risk' rating is the bar to beat."
+    },
+    {
+      "id": "S1.6",
+      "epic": "S1",
+      "title": "In-app Help sheet: contextual articles per route, My requests, What's new, Status, keyboard shortcuts",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "S1.2",
+        "S2.2"
+      ],
+      "relates": [
+        "U14.4"
+      ],
+      "supersedes": [
+        "M4.3",
+        "U14.4"
+      ],
+      "story": "As a signed-in user I want help that knows which page I'm on and shows my open requests so that I never leave the app to get unstuck.",
+      "genz": "Help that doesn't bounce to email (U14.4's words).",
+      "ac": [
+        "Settings → Help & Support becomes a bottom sheet on phones / panel on desktop: search, five contextual articles from a route→tags map (web/src/lib/help-context.ts), My requests (S2.2), What's new (S5.4), Status (S7.2), keyboard shortcuts, app version",
+        "A '?' entry in the app shell 'More' sheet (U0.1) opens the same sheet from any route",
+        "DONE today: a card with Contact/Privacy/Terms links; REMAINING: everything above"
+      ],
+      "tests": [
+        "help-context map unit test (every app route has ≥ 3 tags)",
+        "render test for the sheet at 390px",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(app)/settings/page.tsx:193-203 (help card) → components/app-v3/help/HelpSheet.tsx; packages/ui Sheet primitive (U0.2) if present",
+      "evidence": [
+        "web/src/app/(app)/settings/page.tsx:193-203",
+        "web/src/components/app-v3/settings/SettingsV3Page.tsx:15"
+      ],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false
+    },
+    {
+      "id": "S1.7",
+      "epic": "S1",
+      "title": "Switch every help link to /help (contact page, footer, store listing, extension options, PRIVACY.md)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "S1.1",
+        "P1.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want 'Help Center' to open a help center so that no link in the product is a dead end or a mailto.",
+      "genz": "Dead links read as a dead product.",
+      "ac": [
+        "contact page HELP_HREF → /help; footer 'Browser Extension Help' → /help/c/autofill; footer 'Status' → /status; 'Careers'/'Press' stop pointing at /contact unless a page exists (render as Soon chips)",
+        "job-autofill options Feedback tab gains 'Help center' and 'My requests' links; STORE-LISTING.md support site → https://kiwiply.com/help; PRIVACY.md contact section links /help",
+        "Extension version bumped (CLAUDE.md ritual)"
+      ],
+      "tests": [
+        "nav.ts link test (no href to /contact for Status/Help)",
+        "npm test -w web green (tsc + eslint)",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "web/src/components/marketing/nav.ts, web/src/app/(marketing)/contact/page.tsx, job-autofill/entrypoints/options/OptionsApp.tsx, job-autofill/STORE-LISTING.md, job-autofill/PRIVACY.md",
+      "evidence": [
+        "web/src/components/marketing/nav.ts:105-131",
+        "web/src/app/(marketing)/contact/page.tsx:34-36"
+      ],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false
+    },
+    {
+      "id": "S2.1",
+      "epic": "S2",
+      "title": "Ticket model + create/list/get API + legacy bug-report adapter",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want anything I report to have an id and a status so that it can't vanish into a mailbox.",
+      "genz": "A ticket number is the receipt; silence is the number-one complaint about every competitor.",
+      "ac": [
+        "Liquibase: support_ticket (public_id KW-XXXXXX, kind, status, priority, subject, source, plan_at_create, help_slug, ats, diagnostics JSON, SLA columns, resolution, csat, access_token_hash), support_message (author USER|STAFF|SYSTEM, internal flag), support_attachment, support_macro",
+        "POST /api/support/tickets (auth optional; anonymous requires email and mails a signed magic link /support/t/{token}); first_response_due_at from settings `support.sla_business_days.{pro,free,report}` (defaults Pro/Autopilot 1, Free 2, SITE_REPORT/SCAM_REPORT 1 for all)",
+        "GET /api/support/tickets (mine), GET /api/support/tickets/{publicId} (owner or valid token; others 404; internal notes excluded), POST .../messages (reopens RESOLVED within setting `support.reopen_window_days`, default 14)",
+        "POST /api/bug-reports becomes an adapter creating a kind=BUG ticket (extension 0.65 keeps working); bug_report table untouched",
+        "State machine per design §3 incl. auto-resolve after setting `support.auto_resolve_days` (default 7) silent days with a nudge email on day `support.auto_resolve_nudge_day` (default 5)"
+      ],
+      "tests": [
+        "SupportTicketServiceTest (state machine, SLA by plan/kind, reopen window, auto-resolve)",
+        "SupportTicketResourceIT (anonymous needs email; token read/reply; cross-user 404; legacy adapter)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api domain/SupportTicket.java, service/SupportTicketService.java, web/rest/SupportTicketResource.java; BugReportResource.java delegates; MailService.sendEmail for the magic link",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/BugReportResource.java",
+        "api/src/main/resources/config/liquibase/changelog/20260629000300_bug_report.xml"
+      ],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": true,
+      "benchmark": "Simplify Trustpilot 2.9/5: 'you can't take 9 days and then not fix anything'; Jobscan ComplaintsBoard 0% resolution."
+    },
+    {
+      "id": "S2.2",
+      "epic": "S2",
+      "title": "My requests list + ticket thread UI (390px) + anonymous magic-link thread page",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S2.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want to see my requests, their status and the team's replies in the app so that I know what's happening.",
+      "genz": "Status visible like a food-delivery order.",
+      "ac": [
+        "/settings/help?t= and the Help sheet list tickets (status chip, due-by text, unread dot); thread view shows messages, 'What we attached' diagnostics summary, reply box, resolved card with CSAT (S5.5)",
+        "/support/t/[token] renders the same thread for anonymous reporters (read + reply only)",
+        "SLA copy: 'We reply within N business days — usually faster'; after the first reply shows the actual time"
+      ],
+      "tests": [
+        "render tests: list, thread, token page (expired token → friendly error)",
+        "Playwright 390px: open ticket → reply → appears",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/app-v3/help/{RequestsList,TicketThread}.tsx; web/src/app/support/t/[token]/page.tsx; BFF routes under web/src/app/api/support/*",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S2.3",
+      "epic": "S2",
+      "title": "Contact page: 'Help & support' path creates a ticket, sales topics stay inquiries",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "S2.1"
+      ],
+      "relates": [
+        "A8.3",
+        "O14.1"
+      ],
+      "supersedes": [],
+      "story": "As someone with an account problem I want the contact page to open a support request, not a sales lead, so that the right people see it with the right urgency.",
+      "genz": "Being treated as a lead when you need help is a tell.",
+      "ac": [
+        "Contact form topic list splits into Help (QUESTION, BILLING, ACCOUNT, BUG → support ticket) and Sales (existing SalesInquiryService topics → inquiry); default from ?topic=",
+        "Help submissions show the public id and the SLA; sales submissions unchanged (A8.3)",
+        "'Response time: two business days' card replaced by the per-plan SLA text from S10.1",
+        "DONE today: form + BFF + inquiry queue; REMAINING: the support branch"
+      ],
+      "tests": [
+        "ContactForm unit test routes kinds correctly",
+        "SalesInquiryResourceIT unchanged",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/pricing/ContactForm.tsx, web/src/lib/catalog.ts (topic groups), web/src/app/(marketing)/contact/page.tsx:26-31",
+      "evidence": [
+        "web/src/components/pricing/ContactForm.tsx",
+        "api/src/main/java/com/dossier/api/service/SalesInquiryService.java:38-49 (TOPICS)"
+      ],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S2.4",
+      "epic": "S2",
+      "title": "Screenshot attachments through the FileStorage seam",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.1",
+        "A5.1"
+      ],
+      "relates": [
+        "R0.6",
+        "T1.1"
+      ],
+      "supersedes": [],
+      "story": "As a reporter I want to attach a screenshot so that I don't have to describe a broken dropdown in words.",
+      "genz": "A screenshot is the native language of a bug report.",
+      "ac": [
+        "POST /api/support/tickets/{publicId}/attachments (Next-proxied, Option A): image/* only, up to setting `uploads.support_attachment_max_bytes` (default 2 MB), EXIF stripped server-side, stored via FileStorage (local driver now, S3 later), key on support_attachment",
+        "Thread renders thumbnails; staff see full size; attachments deleted on account deletion (S2.7)",
+        "Upload failure never blocks ticket creation (message says 'screenshot didn't upload')",
+        "No OCR or content extraction of screenshots; attachments are never sent to AI; the sheet says \"do not include documents or ID numbers\"; staff can delete an attachment that visibly contains one (audited)"
+      ],
+      "tests": [
+        "SupportAttachmentIT (type/size rejection, EXIF stripped, owner-only read)",
+        "npm test -w web green (tsc + eslint)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api service/storage/FileStorage (R0.6 seam), web/rest/SupportAttachmentResource.java; web BFF multipart proxy like resume upload",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S2.5",
+      "epic": "S2",
+      "title": "Replace the floating bug widget with a 'Message us' sheet (app/admin) and a footer link (marketing); fix phone overlap",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "S2.1",
+        "S2.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want one 'Message us' entry that creates a tracked request so that reporting feels like a conversation, not a form into the void.",
+      "genz": "The draggable bug blob covers content on phones; a sheet from Help is calmer.",
+      "ac": [
+        "New TicketSheet (kind chips Bug/Question/Billing/Account/Idea/Scam, subject, body, screenshot, consent 'attach page + version' with a 'what we attach' popover) used by Help sheet, contact page and the drawer-less fallback",
+        "BugReportWidget removed from (app) and (admin) layouts; marketing keeps a small footer 'Report a problem' link to the sheet; nothing floats over content at 390px",
+        "Submitted tickets show the public id and appear in My requests immediately",
+        "DONE today: floating widget + BFF; REMAINING: sheet, removal, overlap fix"
+      ],
+      "tests": [
+        "TicketSheet validation + consent payload unit tests",
+        "Playwright 390px: no fixed element overlaps the bottom tab bar",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/BugReportWidget.tsx → components/support/TicketSheet.tsx; web/src/app/layout.tsx:63 mount removed; packages/ui Sheet",
+      "evidence": [
+        "web/src/components/BugReportWidget.tsx",
+        "web/src/app/layout.tsx:63",
+        "docs/HANDOFF-ROADMAP.md §6 (floats over content on phones)"
+      ],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S2.6",
+      "epic": "S2",
+      "title": "Admin reply, macros, fan-out (in-app notification, email, extension unread) and first-response stamping",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.1"
+      ],
+      "relates": [
+        "A8.1",
+        "S9.2",
+        "A8.5",
+        "A1.7"
+      ],
+      "supersedes": [],
+      "story": "As support I want to answer from the queue with a macro and have the user get it in-app and by email so that replies are fast and tracked.",
+      "genz": "The reply arrives where they are; email is the backup, not the channel.",
+      "ac": [
+        "POST /api/admin/support/tickets/{id}/reply {body, macroId?, internal}: stamps first_responded_at on the first external STAFF message, writes support_message, notification (kind SUPPORT_REPLY, link to the thread), email via MailService template support-reply with subject [KW-…] Re: …, and sets supportUnread for the extension poll",
+        "PUT .../tickets/{id}: status, priority, assignee, tags, resolution (+resolution_ref 'Fixed in 0.66'); audited SUPPORT_TICKET_UPDATE / SUPPORT_REPLY",
+        "GET /api/admin/support/tickets?status&kind&assignee&overdue sorted by first_response_due_at; macros CRUD with {{firstName}}/{{publicId}}",
+        "Admin Bug reports and Inquiries pages gain a 'Tickets' queue tab (A8.5 swipe list reused when it lands); email failure is logged as a SYSTEM message and retried once",
+        "DONE today: queues with status/notes + audit; REMAINING: reply, macros, fan-out, SLA stamp"
+      ],
+      "tests": [
+        "SupportReplyIT (first_responded_at once; internal note never emailed; audit rows; notification row)",
+        "MacroRenderTest",
+        "web admin render test for the queue and reply sheet",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api web/rest/AdminSupportTicketResource.java, service/SupportTicketService.java, NotificationService (existing table 20260923030000_notifications.xml), AdminAuditService constants; web/src/components/admin-v3/support/*",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/AdminBugReportResource.java",
+        "api/src/main/java/com/dossier/api/service/AdminAuditService.java:42-46",
+        "api/src/main/java/com/dossier/api/service/MailService.java:55"
+      ],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": true,
+      "benchmark": "Jobscan replies to 21–46% of negative reviews; Huntr offers chat or email — we answer in-product with a measured first-response time."
+    },
+    {
+      "id": "S2.7",
+      "epic": "S2",
+      "title": "Privacy cascade: tickets in DSAR export, anonymised on deletion, retention jobs (also fixes bug_report/sales_inquiry)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "S2.1",
+        "A5.1"
+      ],
+      "relates": [
+        "U14.2"
+      ],
+      "supersedes": [],
+      "story": "As a user deleting my account I want my support history to go with it so that 'delete my data' is true.",
+      "genz": "Honest privacy is the trust that unlocks a resume upload (user plan's words).",
+      "ac": [
+        "AccountExportResource includes tickets + messages (not internal notes) + attachment list; AccountDeletionResource nulls user_id/email on support_ticket, bug_report and sales_inquiry, deletes attachments immediately, purges message bodies after setting `support.retention.message_body_days` (default 90, within T1.4 bounds)",
+        "Scheduled job: CLOSED tickets purged at setting `support.retention.closed_ticket_months` (default 24); help_search_miss purged at `support.retention.search_miss_months` (default 12); metrics tables keep aggregates only",
+        "Privacy policy paragraph drafted for the trust area's review (web/privacy)"
+      ],
+      "tests": [
+        "SupportPrivacyIT (export includes; deletion anonymises all three tables; attachments gone)",
+        "RetentionJobTest",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api service/AccountDeletionService (existing AccountDeletionResource), AccountExportResource, new SupportRetentionJob",
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20261005010000_sales_inquiry.xml (no user cascade)",
+        "api/src/main/java/com/dossier/api/web/rest/AccountDeletionResource.java"
+      ],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S2.8",
+      "epic": "S2",
+      "title": "Inbound email → ticket via Brevo inbound parsing (optional, behind a flag)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "S2.6"
+      ],
+      "relates": [
+        "A7.1"
+      ],
+      "supersedes": [],
+      "story": "As support I want replies to the support-reply email to land on the ticket so that users can answer from their inbox.",
+      "genz": "Reply where the mail arrived; but this is optional because in-app is the primary path.",
+      "ac": [
+        "POST /api/webhooks/brevo/inbound (signed secret) parses the [KW-…] subject tag, appends a USER message to the matching ticket when the sender matches the ticket email, otherwise creates a kind=QUESTION ticket; attachments ignored (locked: never store attachments from mail); HTML stripped",
+        "Flag support.inbound_email.enabled (A5.1) default off; spam: unknown senders rate-limited and marked for review",
+        "Does not touch the user Inbox feature (locked IMAP decision) — a separate support mailbox only"
+      ],
+      "tests": [
+        "InboundMailParserTest (subject tag, quoted-reply stripping, sender mismatch → new ticket)",
+        "BrevoInboundWebhookIT (signature required)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api web/rest/BrevoInboundWebhookResource.java, service/InboundSupportMailService.java; application-prod.yml brevo.inbound-secret",
+      "evidence": [
+        "api/src/main/resources/config/application-prod.yml:288 (brevo block)"
+      ],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S3.1",
+      "epic": "S3",
+      "title": "@kiwiply/scam-rules: signal catalogue, scorer, scrubber and a 60-fixture corpus (shared by web, extension, API port)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ui",
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the product I want one deterministic rules module that scores a message or posting for scam signals so that every surface warns the same way with no AI.",
+      "genz": "Protection that is identical on Free — safety is not a paid feature.",
+      "ac": [
+        "packages/scam-rules (plain ES module, zero deps) exporting score(text, {url?, knownDomains?}) → {band, score, signals:[{id, weight, evidence, explain, types[]}], types[]}; signals.json is the single catalogue (ids/weights/regex/explanations) per design §2",
+        "Bands: 0–2 Looks normal · 3–5 Be careful · ≥ 6 Likely a scam; ATS/vendor domain allowlist suppresses domain_mismatch",
+        "scrub(text) removes emails, phones, card/SSN-like patterns; used before any storage",
+        "Fixture corpus: 30 scam + 30 legitimate samples (rewritten from public FTC/IC3/university examples); precision ≥ 0.9 on Likely, recall ≥ 0.8",
+        "Copied into the extension build like parser-core (engine stays dep-free)"
+      ],
+      "tests": [
+        "packages/scam-rules/test: corpus thresholds, per-signal unit tests, scrubber, allowlist",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "packages/scam-rules/{index.js,signals.json,allowlist.json,scrub.js}; job-autofill/scripts copy step mirrors web/scripts/sync-parser-core.mjs",
+      "evidence": [],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": true,
+      "benchmark": "G15. LinkedIn Safety Pulse 2026 red flags (sensitive-info requests 59%, upfront fees 56%, off-platform 38%); Handshake/UW/USC lists."
+    },
+    {
+      "id": "S3.2",
+      "epic": "S3",
+      "title": "/safety hub: nine scam-type pages and the 'Is this legit?' checker (client-side)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a job seeker I want to paste a recruiter message and see in seconds whether it looks like a scam, and learn the patterns, so that I don't lose money or my identity.",
+      "genz": "Gen Z: 32% victims vs Gen X 17%, and 32% ignore warning signs (LinkedIn 2026) — the checker is the friend who reads the message with you.",
+      "ac": [
+        "/safety (marketing layout, public, no sign-in): checker first (textarea + URL, 'checked on your device — nothing is sent'), nine type pages /safety/<type> from web/content/safety/*.md, the 'It happened — what now' entry (S3.8), live aggregate count placeholder",
+        "Result view: band, each triggered signal with evidence snippet + plain explanation, matched types, next steps, [Report this] (S3.3), [Not a scam? Tell us] feedback, Pro-only [Explain for me] placeholder (S6.2)",
+        "Nothing pasted leaves the device unless Report is tapped; no analytics on the text",
+        "Linked from /help privacy-safety, the footer and the job cards (S3.5)"
+      ],
+      "tests": [
+        "render + interaction tests at 390px (paste → result)",
+        "content build validation for safety/*.md",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(marketing)/safety/{page,[type]/page}.tsx; web/src/components/safety/{Checker,ResultCard}.tsx importing packages/scam-rules; content in web/content/safety/",
+      "evidence": [],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": true,
+      "benchmark": "G15. Handshake 'How to Spot and Report Scams' article; Indeed 'Spam vs scam'; nobody has a personal checker."
+    },
+    {
+      "id": "S3.3",
+      "epic": "S3",
+      "title": "Report a scam: scam_report + SCAM_REPORT ticket, admin Safety queue with outcomes",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.1",
+        "S3.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As someone who spotted or fell for a scam I want to report it in one tap and get a reply so that it stops happening to others and I know what to do.",
+      "genz": "Only ~4.8% of victims report (FTC) — reporting must be shame-free and fast.",
+      "ac": [
+        "Liquibase scam_report (ticket_id, type, channel, source_url, company_claimed, contact_domain, contact_phone_hash, evidence_text scrubbed ≤ 5000, checker_score, signals JSON, money_lost, shared_sensitive, outcome, reviewed_by/at)",
+        "POST /api/safety/reports (auth optional, BFF rate setting `ratelimit.safety_reports.per_hour`, default 10 per IP) creates the row + a SCAM_REPORT ticket (SLA from `support.sla_business_days.report`, default 1 for everyone); response shows the 'what now' checklist tailored by money_lost/shared_sensitive",
+        "Admin Safety queue: list by outcome, set outcome CONFIRMED|LIKELY|NOT_SCAM|UNCLEAR, propose blocklist entry; audited SAFETY_REPORT_REVIEW",
+        "Report entry points: checker result, /safety pages, job card chip (S3.5), extension banner (S3.4), Messages chip (S3.7)"
+      ],
+      "tests": [
+        "ScamReportResourceIT (anonymous needs email; scrubbing; ticket created; admin review audited)",
+        "web report sheet validation",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api domain/ScamReport.java, web/rest/{ScamReportResource,AdminScamReportResource}.java; web/src/components/safety/ReportSheet.tsx; admin-v3/safety/*",
+      "evidence": [],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": false
+    },
+    {
+      "id": "S3.4",
+      "epic": "S3",
+      "title": "Extension 'Heads up' banner before the first fill (SSN/bank before offer, payment, domain mismatch)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "S3.1",
+        "A5.5"
+      ],
+      "relates": [
+        "U20.1"
+      ],
+      "supersedes": [],
+      "story": "As a user about to autofill I want a warning when the form asks for my SSN or bank details before any offer, or the employer domain doesn't match, so that I stop before handing my identity to a fake job.",
+      "genz": "The one warning no job board can give: we see the actual form.",
+      "ac": [
+        "Content script runs scam-rules locally on visible page text + form labels + URL before the first fill; fires only for sensitive_early, payment_request, domain_mismatch at ≥ 'Be careful'; once per host per remote-config `ext.scam_banner.cooldown_hours` (default 24); never on allowlisted ATS domains; snoozable",
+        "Drawer banner: 'Heads up — …' with reasons, [Why?] (→ /safety/<type>), [Report] (S3.3 via the seam), [Continue]; never blocks filling, never auto-submits (CLAUDE.md)",
+        "Engine assertion: no profile key for SSN/bank/ID exists and the mapper never fills inputs whose labels match those patterns (test)",
+        "Owned jointly with the ext area (adapters); rules + copy owned here; version bump"
+      ],
+      "tests": [
+        "job-autofill/test/scam_banner.test.js (fires on SSN-before-offer fixture, not on Workday fixture, once per host/day, snooze)",
+        "field_mapper test: SSN/bank labels never mapped",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "job-autofill/src (new scam_guard.js IIFE on JAF using the copied scam-rules), entrypoints/content.ts hook before fill, entrypoints/panel/HomeView.tsx banner, tracking.js createTicket",
+      "evidence": [
+        "job-autofill/entrypoints/panel/HomeView.tsx:135 (onFill)",
+        "job-autofill/src/lib/tracking.js:544"
+      ],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": true,
+      "benchmark": "G15. Nobody in the matrix warns inside the application form."
+    },
+    {
+      "id": "S3.5",
+      "epic": "S3",
+      "title": "Posting-level risk flags in the job store (Java port of signals.json), excluded from matches, shield chip with reasons on cards",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S3.1",
+        "U4.1"
+      ],
+      "relates": [
+        "U4.1",
+        "U4.6",
+        "U4.3"
+      ],
+      "supersedes": [],
+      "story": "As a job seeker I want risky postings flagged on the card with reasons so that I check before I apply.",
+      "genz": "Cards show 'check this one' — a nudge, not a block.",
+      "ac": [
+        "job_posting.risk_flags JSON (pay_to_apply, freemail_contact, offplatform_contact, duplicate_company_mismatch, sensitive_early) computed at ingest by ScamSignals.java generated from packages/scam-rules/signals.json; contract test proves JS and Java agree on the 60-fixture corpus",
+        "Postings with ≥ 2 flags are excluded from matches (U4.6) and shown in search with a shield chip 'Check this one' + reasons + link to /safety (G15 AC)",
+        "GET /api/jobs/search exposes risk_flags; admin job-sources page shows flagged counts per source (A6)"
+      ],
+      "tests": [
+        "ScamSignalsContractTest (corpus parity)",
+        "JobIngestIT (flags set, excluded from matches)",
+        "web JobRow chip render test",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api service/jobs/ScamSignals.java (+ generator script scripts/gen-scam-signals-java.mjs), liquibase additive column on job_posting (U4.1 schema); web components/app-v3/jobs/JobRow.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": false,
+      "benchmark": "G15: 'Cards show check this one with reasons when ≥2 rules fire'."
+    },
+    {
+      "id": "S3.6",
+      "epic": "S3",
+      "title": "Scam blocklist (domains/phones/templates) with admin confirmation, auto-propose rule, hashed feed to the extension via remote config",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "extension"
+      ],
+      "deps": [
+        "S3.3"
+      ],
+      "relates": [
+        "A5.1",
+        "A5.3"
+      ],
+      "supersedes": [],
+      "story": "As the safety owner I want confirmed scam domains and numbers to strengthen warnings for everyone without publishing a public blame list.",
+      "genz": "The community's reports protect the next person, quietly.",
+      "ac": [
+        "Liquibase scam_blocklist (kind, value, value_hash, source, confidence, added_by, expires_at; UNIQUE kind+hash); admin CRUD audited; CONFIRMED report with a domain/phone proposes an entry; two distinct reporters with no NOT_SCAM review auto-propose at confidence 2",
+        "Extension receives a bloom filter (≤ 50 KB, daily) in the existing remote-config payload; local check only; raises domain_mismatch weight to 'Likely' on a hit; never sends the page to the server",
+        "Never rendered as a public list (trust area owns the defamation review)"
+      ],
+      "tests": [
+        "BlocklistServiceTest (auto-propose rule, uniqueness, expiry)",
+        "extension bloom_filter.test.js (false-positive rate < 1% on 10k)",
+        "cd api && ./gradlew test green",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "api domain/ScamBlocklist.java, service/ScamBlocklistService.java, ConfigResource remote-config payload (A5); job-autofill/src/scam_guard.js bloom check",
+      "evidence": [],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": false
+    },
+    {
+      "id": "S3.7",
+      "epic": "S3",
+      "title": "Inbox SCAM_SUSPECT label on recruiter mail (Pro) with 'Check this message'",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S3.1",
+        "U10.1"
+      ],
+      "relates": [
+        "U10.1"
+      ],
+      "supersedes": [],
+      "story": "As a Pro user with my Gmail connected I want suspicious recruiter mail flagged in Messages so that the scam attempt is caught where it arrives.",
+      "genz": "90% of scam messages push to private messaging (LinkedIn) — the inbox is where it starts.",
+      "ac": [
+        "Inbox classifier runs ScamSignals.java on job-classified mail (subject + body text already stored); score ≥ 3 sets label SCAM_SUSPECT (additive column on inbox message rows)",
+        "Messages (U10) shows a chip + 'Check this message' opening the checker pre-filled (client-side); one-tap Report (S3.3)",
+        "No mail is ever moved/deleted/sent (locked)"
+      ],
+      "tests": [
+        "InboxScamLabelTest on fixture mails",
+        "web chip render test",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api service/inbox/* classifier hook; liquibase additive column on inbox message table (20260923010000_inbox_messages.xml family); web components/app-v3/messages/*",
+      "evidence": [],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": false
+    },
+    {
+      "id": "S3.8",
+      "epic": "S3",
+      "title": "'It happened — what now' localised checklist and shareable safety cards",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S3.2"
+      ],
+      "relates": [
+        "U16.3",
+        "M6.5"
+      ],
+      "supersedes": [],
+      "story": "As someone who just realised they were scammed I want a calm step-by-step checklist with the right links for my country so that I limit the damage in the next ten minutes.",
+      "genz": "One tap per step (tel:/https), checkboxes saved locally, no login, no judgement.",
+      "ac": [
+        "/safety/what-now?lost=1&shared=1: ordered steps (stop contact → bank → freeze credit → passwords → report to authority → report to us → tell someone) with country-specific links for US, UK, CA, AU, IN and an EU fallback; country from browser locale, overridable, never stored",
+        "Share cards (1080×1920 and 1080×1080) for each scam type with the three checks and the /safety link; no personal data (G35 pattern)",
+        "Linked from the checker result, the report confirmation and the extension banner"
+      ],
+      "tests": [
+        "locale → country mapping unit test",
+        "render tests for checklist and cards",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(marketing)/safety/what-now/page.tsx; web/src/lib/safety/authorities.ts; share cards via next/og route like opengraph-image.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/scam-safety-centre.md",
+      "critical": false,
+      "benchmark": "Indeed 'I may have been scammed — what can I do' (9 steps, US-only)."
+    },
+    {
+      "id": "S4.1",
+      "epic": "S4",
+      "title": "Drawer '?' HelpSheet: articles per adapter, search, bundled offline fallback; options Feedback tab links to help",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "S1.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user with the drawer open on Workday I want a '?' that shows the Workday guide so that I fix the problem without leaving the page.",
+      "genz": "Help where the problem is, not in a settings tab.",
+      "ac": [
+        "Header '?' IconButton opens HelpSheet inside the drawer: top 3 articles for the current adapter from GET /api/help/index?ats= (cached 1 h in chrome.storage.session), search box filtering the fetched index, [This site didn't fill] (S4.2, inert until then), [Open help center ↗]",
+        "Offline/failed fetch: bundled list of 10 slugs+titles; the fill is never blocked",
+        "Options Feedback tab gains Help center + My requests links; version bump",
+        "DONE today: options Feedback tab with bug/idea form; REMAINING: everything in the drawer"
+      ],
+      "tests": [
+        "job-autofill/test/help_sheet.test.js (ats filter, fallback, cache TTL)",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "job-autofill/entrypoints/panel/{HomeView.tsx:205-225 header, HelpSheet.tsx}; src/lib/tracking.js helpIndex(); job-autofill/src/config/help-fallback.json",
+      "evidence": [
+        "job-autofill/entrypoints/panel/HomeView.tsx:219-224",
+        "job-autofill/entrypoints/options/OptionsApp.tsx:398-446"
+      ],
+      "design": "docs/design/sup/extension-help-site-reports.md",
+      "critical": true,
+      "benchmark": "G33 AC: 'linked from the drawer's Something didn't fill?'."
+    },
+    {
+      "id": "S4.2",
+      "epic": "S4",
+      "title": "'This site didn't fill' one-tap report with consented diagnostics (fill_event id, adapter, hashed labels) and an offline queue",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "S2.1",
+        "S4.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user whose fill failed I want to report it in one tap with the technical details attached so that it gets fixed without me describing DOM.",
+      "genz": "Simplify's loudest complaint ('extension can't scan the page', '9 days and nothing fixed') answered with a measured backlog.",
+      "ac": [
+        "ReportSheet creates a SITE_REPORT ticket via JAF.tracking.createTicket with diagnostics {host, ats, adapter, extVersion, browser, fillEventId, labels:[{h (sha256 + per-install salt), type, required}], stepIndex, url_hash}; never values, page text or URL path; consent switch per report with a 'what we send' preview",
+        "Offline/5xx: reportQueue (≤ 5) retried on the next profile pull, max 3 attempts",
+        "API: source=extension, per-install limit setting `ratelimit.site_report.per_day` (default 20); fill_event.report_ticket_id set; admin GET /api/admin/support/site-reports?ats groups by (ats, adapter, label-fingerprint prefix)",
+        "submitBugReport becomes an alias that creates a kind=BUG ticket; version bump"
+      ],
+      "tests": [
+        "job-autofill/test/site_report.test.js (payload shape, salt hashing, consent-off minimal payload, queue retry)",
+        "tracking.test.js createTicket",
+        "SiteReportGroupingTest",
+        "cd job-autofill && npm test green",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "job-autofill/src/lib/tracking.js (createTicket, listTickets), src/site_report.js (fingerprint), entrypoints/panel/ReportSheet.tsx; api SupportTicketService SITE_REPORT branch, liquibase additive fill_event.report_ticket_id",
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20260922000000_fill_event.xml",
+        "job-autofill/src/lib/tracking.js:544-549"
+      ],
+      "design": "docs/design/sup/extension-help-site-reports.md",
+      "critical": true,
+      "benchmark": "Simplify Trustpilot (2.9/5) extension complaints; Huntr 'Saving jobs and using Autofill' troubleshooting article."
+    },
+    {
+      "id": "S4.3",
+      "epic": "S4",
+      "title": "'Did this fill work? 👍/👎' after each fill (once per host per remote-config `ext.fill_feedback.cooldown_hours`, default 24), 👎 opens the report sheet",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "S5.1",
+        "S4.2",
+        "A5.5"
+      ],
+      "relates": [
+        "U20.1"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to rate a fill in one tap so that the team knows which sites work without me filing anything.",
+      "genz": "Instant feedback, zero friction.",
+      "ac": [
+        "After the fill summary: two 44 px buttons; posts feedback_event {targetType: fill, targetId: fill_event.id, vote, reason?} through the seam; shown at most once per host per `ext.fill_feedback.cooldown_hours` (fillFeedbackSeen)",
+        "👎 opens ReportSheet pre-filled; 👍 shows 'Thanks' and, after the 3rd 👍, hands off to the review prompt (S5.6)",
+        "Admin per-ATS satisfaction = 👍 ratio next to the fill_event numbers"
+      ],
+      "tests": [
+        "job-autofill/test/fill_feedback.test.js (once per host/day, payload)",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "job-autofill/entrypoints/panel/HomeView.tsx fill summary; src/lib/tracking.js sendFeedback(); api FeedbackResource (S5.1)",
+      "evidence": [],
+      "design": "docs/design/sup/extension-help-site-reports.md",
+      "critical": false,
+      "benchmark": "G3 (fill report after every fill) — this is the feedback half; ext owns the field list."
+    },
+    {
+      "id": "S4.4",
+      "epic": "S4",
+      "title": "Per-ATS public autofill status fed by site-report rate and the adapter kill switch",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S4.2",
+        "A10.5"
+      ],
+      "relates": [
+        "A5.5",
+        "E1.6",
+        "E1.5"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to see 'Workday: degraded since Oct 9 — fix shipping in 0.66' before I file a report so that I know it's known.",
+      "genz": "Transparency beats ten identical tickets.",
+      "ac": [
+        "Status components autofill:<adapter> computed per design status-incidents §2: kill switch off → MAINTENANCE; site reports > 3× 7-day median (min 10) → DEGRADED; incident overrides",
+        "/status autofill group lists every adapter with state and the active incident link; HelpSheet shows the same state for the current adapter",
+        "Site-report spike raises an admin alert (A10 channel when present, else email to support@)"
+      ],
+      "tests": [
+        "StatusStateTest autofill rules",
+        "StatusResourceIT snapshot includes adapters",
+        "npm test -w web green (tsc + eslint)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api service/status/StatusSnapshotJob.java; web /status page; job-autofill HelpSheet reads remote config state",
+      "evidence": [],
+      "design": "docs/design/sup/status-incidents.md",
+      "critical": false,
+      "benchmark": "G2 (published per-ATS numbers) — the live counterpart of the accuracy table."
+    },
+    {
+      "id": "S4.5",
+      "epic": "S4",
+      "title": "Support unread dot and 'fixed in version' close-out card in the drawer",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "S2.6"
+      ],
+      "relates": [
+        "U20.3"
+      ],
+      "supersedes": [],
+      "story": "As a user who reported a site I want the drawer to tell me when it's fixed and prompt the update so that the loop closes where I reported it.",
+      "genz": "'You asked, we fixed it' is the retention moment.",
+      "ac": [
+        "GET /api/profile/version adds supportUnread and supportCards[≤ 3] {ticketId, publicId, text, link}; a SITE_REPORT resolved FIXED_IN_VERSION produces a card with the store update link",
+        "Drawer: dot on '?', card above the fill summary, dismiss persists per ticket; opening marks the ticket read",
+        "Version bump"
+      ],
+      "tests": [
+        "ProfileVersionIT (fields additive, cards capped)",
+        "job-autofill/test/support_cards.test.js",
+        "cd job-autofill && npm test green",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api ProfileResource version endpoint (ProfileVersion DTO additive), SupportTicketService.cardsFor(user); job-autofill src/lib/sync (version poll) + panel/HomeView.tsx",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/ProfileResource.java (GET /api/profile/version carries the plan)"
+      ],
+      "design": "docs/design/sup/extension-help-site-reports.md",
+      "critical": false
+    },
+    {
+      "id": "S5.1",
+      "epic": "S5",
+      "title": "feedback_event table, POST /api/feedback, and the ThumbsFeedback primitive in @kiwiply/ui",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "ui",
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U4.6"
+      ],
+      "supersedes": [],
+      "story": "As the product I want one way to record a thumbs up/down on anything so that every surface asks the same question and the data lands in one place.",
+      "genz": "Two big buttons, a reason chip, done.",
+      "ac": [
+        "Liquibase feedback_event (user_id or anon_key, target_type, target_id, vote, reason, comment ≤ 500 scrubbed, surface, plan, version; unique per actor+target) ; POST /api/feedback upserts (second tap flips); BFF 120/h/IP; anon_key = random cookie",
+        "packages/ui ThumbsFeedback: 44 px targets, aria-pressed, reason chips on 👎 per target type, 'Thanks' state, tokens only (no inline svg)",
+        "GET /api/admin/feedback/summary?targetType&days: up/down ratio, top reasons by version/plan",
+        "U4.6 match feedback may reuse the table (target_type=match) — coordination note, no change to U4.6 here"
+      ],
+      "tests": [
+        "FeedbackResourceIT (upsert flip, anon vs user uniqueness, scrub, limits)",
+        "packages/ui ThumbsFeedback render + a11y test",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api domain/FeedbackEvent.java, web/rest/FeedbackResource.java; packages/ui/src/ThumbsFeedback.tsx; web/src/app/api/feedback/route.ts",
+      "evidence": [],
+      "design": "docs/design/sup/feedback-and-changelog.md",
+      "critical": true
+    },
+    {
+      "id": "S5.2",
+      "epic": "S5",
+      "title": "👍/👎 on AI outputs (drafts in the extension, tailor/fit on the web, help answers) with an admin per-task quality view",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "web",
+        "API"
+      ],
+      "deps": [
+        "S5.1"
+      ],
+      "relates": [
+        "A4.3",
+        "I3.7"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to tell Kiwiply when an AI draft was wrong so that drafts get better and the team sees cost per good answer.",
+      "genz": "Their thumbs tune the AI they pay for.",
+      "ac": [
+        "Extension: ThumbsFeedback after every AI draft/pick result (target ai_draft = ai_call id returned by the API — additive field on the draft response); web: after tailor and fit results; help answers (S6)",
+        "Reasons: wrong_facts · tone · too_long · generic · other",
+        "Admin AI cost view (A4) joins ai_call to feedback_event for '$ per 👍' per task",
+        "Version bump"
+      ],
+      "tests": [
+        "job-autofill/test/ai_feedback.test.js",
+        "AiCallFeedbackJoinTest",
+        "cd job-autofill && npm test green",
+        "npm test -w web green (tsc + eslint)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api AiDraft/Tailor/Fit responses add aiCallId; service/ai/* unchanged otherwise; job-autofill panel draft result; web components/resumes tailor/fit results",
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20260922020000_ai_call.xml"
+      ],
+      "design": "docs/design/sup/feedback-and-changelog.md",
+      "critical": false
+    },
+    {
+      "id": "S5.3",
+      "epic": "S5",
+      "title": "Public feature-request board /feedback with one vote per account, statuses, admin merge; IDEA tickets dual-write",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.1",
+        "S5.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want to see what others asked for, vote, and watch it move to Shipped so that feedback feels heard.",
+      "genz": "Public and honest beats a black-box 'Idea' form.",
+      "ac": [
+        "Liquibase feature_request (slug, title, body, author, status CONSIDERING|PLANNED|IN_PROGRESS|SHIPPED|NOT_PLANNED, votes, merged_into_id, changelog_slug, ticket_id) + feature_vote (PK request+user)",
+        "/feedback: tabs Top/New/Planned/Shipped, vote toggle (accounts activated for at least setting `support.feedback_vote_min_account_hours`, default 24), submit sheet (also creates a kind=IDEA ticket so the author gets a reply); no comments at launch; no author names shown",
+        "Admin: status, merge (votes carried), link changelog entry; audited FEATURE_REQUEST_UPDATE; board shows no sample rows",
+        "Existing IDEA bug_report rows are not migrated (legacy tab in admin)"
+      ],
+      "tests": [
+        "FeatureRequestResourceIT (vote once, merge, status audit, activation rule)",
+        "web board render + vote toggle tests at 390px",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api domain/{FeatureRequest,FeatureVote}.java, web/rest/{FeatureRequestResource,AdminFeatureRequestResource}.java; web/src/app/(marketing)/feedback/page.tsx, components/feedback/*",
+      "evidence": [],
+      "design": "docs/design/sup/feedback-and-changelog.md",
+      "critical": false,
+      "benchmark": "Simplify public Feedback site + Roadmap (Featurebase)."
+    },
+    {
+      "id": "S5.4",
+      "epic": "S5",
+      "title": "Changelog in the repo, /changelog, in-app 'What's new' sheet with unseen dot, extension bundled release card",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "S1.1"
+      ],
+      "relates": [
+        "E0.3"
+      ],
+      "supersedes": [
+        "M9.3"
+      ],
+      "story": "As a user I want to see what changed and which requests it closed so that updates feel like answers.",
+      "genz": "'You asked: #184' next to the fix is the whole point.",
+      "ac": [
+        "web/content/changelog/<date>-<version>.md with front-matter (surface, version, highlights[], requests[]); build validates request ids exist; /changelog renders newest first with surface chips",
+        "GET /api/changelog/unseen + POST seen (user_seen.changelog_seen_at); Help sheet and bell show a 'What's new' entry once per release",
+        "Extension: on version change show a one-time card from bundled notes (job-autofill/src/config/whats-new.json written in the version-bump ritual); no network",
+        "Shipped feature requests link their changelog entry; CLAUDE.md version-bump ritual gains 'add a changelog entry' (doc change only)"
+      ],
+      "tests": [
+        "changelog build test (front-matter, request ids)",
+        "job-autofill/test/whats_new.test.js (once per version)",
+        "npm test -w web green (tsc + eslint)",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "web/content/changelog/**, web/src/app/(marketing)/changelog/page.tsx, components/app-v3/help/WhatsNew.tsx; api web/rest/ChangelogResource.java (unseen/seen only); job-autofill panel card",
+      "evidence": [],
+      "design": "docs/design/sup/feedback-and-changelog.md",
+      "critical": false
+    },
+    {
+      "id": "S5.5",
+      "epic": "S5",
+      "title": "CSAT after ticket resolution and a one-question NPS pulse (at most one per setting `support.nps_interval_days`, default 90; sticky dismiss)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.6",
+        "S5.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the team I want to know whether support actually helped and how people feel about Kiwiply, with the lightest possible ask.",
+      "genz": "One tap, never on the first session, never during a fill.",
+      "ac": [
+        "POST /api/support/tickets/{publicId}/csat {score 1–3, comment?} once; thread shows 😞 😐 😀 after RESOLVED; email reply includes the same three links (signed)",
+        "NPS: in-app card 0–10 + optional 'why', shown when user_seen.nps_asked_at is null or older than `support.nps_interval_days`, never for demo accounts or below setting `support.nps_min_sessions` (default 3) sessions; dismiss stores the date",
+        "Admin: CSAT by kind/assignee/week; NPS trend and verbatims (scrubbed) in the support metrics view (S9.1)"
+      ],
+      "tests": [
+        "CsatIT (once, token path)",
+        "NpsEligibilityTest",
+        "web render tests",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api SupportTicketResource csat endpoint, web/rest/NpsResource.java, user_seen table; web components/app-v3/help/{CsatRow,NpsCard}.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/feedback-and-changelog.md",
+      "critical": false
+    },
+    {
+      "id": "S5.6",
+      "epic": "S5",
+      "title": "In-product store-review prompt after the 3rd successful fill, once per 90 days, never after an undo",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "S4.3"
+      ],
+      "relates": [
+        "E5.8"
+      ],
+      "supersedes": [],
+      "story": "As a happy user I want to be asked to rate the extension at the right moment so that the store rating reflects people who use it.",
+      "genz": "Ask once, when it just worked; never nag.",
+      "ac": [
+        "Trigger: third fill with 👍 (or not undone) in the install's lifetime; shown ≤ 1 per 90 days (review_prompted_at in storage); dismiss is sticky; links to the Chrome/Edge/Firefox listing by browser",
+        "Never shown after a 👎 or an undo in the same session; never on allowlisted test pages (/try)",
+        "Version bump"
+      ],
+      "tests": [
+        "job-autofill/test/review_prompt.test.js (3rd fill, 90-day cool-down, undo suppresses, store link per browser)",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "job-autofill/entrypoints/panel/HomeView.tsx + src/review_prompt.js (pure helpers for tests); store URLs in src/config/stores.json",
+      "evidence": [],
+      "design": "docs/design/sup/feedback-and-changelog.md",
+      "critical": false,
+      "benchmark": "G10 (owned with ext/mkt). Store ratings of 4.8–4.9★ are the entry ticket."
+    },
+    {
+      "id": "S6.1",
+      "epic": "S6",
+      "title": "Retrieval and answer cards on /help with no model call (build-time embeddings, thresholds, fallback index)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "S1.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want to type a question and get the right article's answer card instantly so that most questions never need a human or a model.",
+      "genz": "Free users get the same instant answer — no paywall on help.",
+      "ac": [
+        "scripts/build-help-index.mjs with HELP_EMBED=1 chunks articles by H2 and writes help-embeddings.json via the AI gateway's embedding provider; build fails on a release build if an article hash ≠ its embedding hash; without the env the token index backs the same interface",
+        "POST /api/help/ask returns mode=card (cosine ≥ 0.78: top article summary + link) or mode=unknown (< 0.60) with the ticket sheet offer; never calls a chat model in this story",
+        "/help search box and the Help sheet 'Ask' field use it; 👍/👎 via S5.1 (target help_answer)",
+        "Sensitive-topic routing (scam, harassment, crisis) to the safety hub / resources article before any lookup"
+      ],
+      "tests": [
+        "HelpRetrievalTest (bands, fallback parity on 20 fixtures)",
+        "HelpAskResourceIT (no model provider invoked)",
+        "npm test -w web green (tsc + eslint)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api web/rest/HelpAskResource.java, service/help/HelpRetrievalService.java (in-process cosine over < 1000 vectors); web/scripts/build-help-index.mjs; route_overrides.json",
+      "evidence": [],
+      "design": "docs/design/sup/ai-help-assistant.md",
+      "critical": true,
+      "benchmark": "Simplify 'Ask AI' search."
+    },
+    {
+      "id": "S6.2",
+      "epic": "S6",
+      "title": "AiTask.HELP behind the gateway with a platform support budget, Pro answers over SSE, escalation with transcript, kill switch",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S6.1",
+        "S2.1",
+        "A5.1",
+        "A5.3"
+      ],
+      "relates": [
+        "A4.3",
+        "U8.1"
+      ],
+      "supersedes": [],
+      "story": "As a Pro user I want a grounded, cited answer to a how-to question and a one-tap hand-off to a human with everything I already tried.",
+      "genz": "Conversational help, honest 'I don't have that', never a made-up price.",
+      "ac": [
+        "AiTask.HELP metered in ai_call but charged to a platform budget (settings `help.ai.monthly_cap_usd` (default 50) and `help.ai.free_daily_cap` (default 0 = Free never calls the model, honouring the locked rule)); A4.3 kill switch returns mode=unknown",
+        "Prompt per design §2: policy facts generated from catalog at build, ≤ 5 chunks, user plan/surface, ≤ 256 output tokens, economy model; answer cites slugs rendered as chips; conversation memory 4 turns, 1 h TTL, keyed by random conversationId",
+        "POST /api/help/ask/{conversationId}/escalate creates a QUESTION ticket with the transcript and cites",
+        "Questions stored 30 days scrubbed, not linked to the user unless escalated; flag `flag.help_ai` (A5.3, default off) gates the model path for a beta cohort"
+      ],
+      "tests": [
+        "HelpAskResourceIT (Free+cap 0 ⇒ no model; Pro ⇒ ≤ 5 sources; unknown path; escalate ticket; kill switch; budget cap)",
+        "HelpPromptTest (facts sheet numbers match catalog)",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api service/ai/AiTask.java (+HELP), AiPolicy.java budget source, service/help/HelpAssistantService.java; web SSE client reused from U8 transport; web/src/lib/help/facts.ts generated from web/src/lib/catalog.ts",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/ai/AiTask.java:14-36",
+        "api/src/main/java/com/dossier/api/service/ai/AiPolicy.java"
+      ],
+      "design": "docs/design/sup/ai-help-assistant.md",
+      "critical": true
+    },
+    {
+      "id": "S6.3",
+      "epic": "S6",
+      "title": "Drawer 'Ask Kiwiply Help' (Pro, non-streaming); Free gets answer cards",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "S6.2",
+        "S4.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a Pro user on an ATS page I want to ask 'why is this dropdown empty?' in the drawer and get a grounded answer.",
+      "genz": "Ask in place; the answer links the fix.",
+      "ac": [
+        "HelpSheet 'Ask' field → JAF.tracking.helpAsk({q, surface: extension, route: ats}) → one JSON reply (no SSE in the content script); cites rendered as article rows; Free sees cards/unknown only, never a paywall",
+        "'Message the team' escalates with the transcript; version bump"
+      ],
+      "tests": [
+        "job-autofill/test/help_ask.test.js (Free card path, Pro answer render, escalate payload)",
+        "cd job-autofill && npm test green"
+      ],
+      "tech": "job-autofill/src/lib/tracking.js helpAsk(), entrypoints/panel/HelpSheet.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/ai-help-assistant.md",
+      "critical": false
+    },
+    {
+      "id": "S6.4",
+      "epic": "S6",
+      "title": "Help-eval suite as a CI gate, admin AI-help spend/quality view, 👎 reasons feed knowledge gaps",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S6.2",
+        "I3.7"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the owner I want proof the help bot never invents prices and a view of what it costs so that it stays cheaper than a ticket.",
+      "genz": "Trust is measured, not assumed.",
+      "ac": [
+        "help-eval fixtures: 40 policy Qs (numbers must come from the facts sheet), 20 how-to Qs (cites ⊆ index), 10 out-of-scope (must answer unknown); offline run against recorded answers in CI (npm run help:eval); live run manual",
+        "GET /api/admin/help/ai: spend MTD vs cap, questions/day, card-vs-model ratio, 👎 reasons; lowest-rated questions listed for S9.3"
+      ],
+      "tests": [
+        "help-eval harness tests itself on 3 fixtures",
+        "AdminHelpAiResourceIT",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/scripts/help-eval.mjs + fixtures under web/content/help-eval/; api AdminHelpAiResource.java; admin-v3/support/AiHelpPanel.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/ai-help-assistant.md",
+      "critical": false
+    },
+    {
+      "id": "S7.1",
+      "epic": "S7",
+      "title": "Incident model and admin declare/update/resolve with components, severity and next-update time",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "A10.5"
+      ],
+      "supersedes": [],
+      "story": "As support I want to declare 'Workday autofill degraded' in one form and update it so that every user surface says the same thing.",
+      "genz": "Human words, timestamps, 'next update at' — honesty on a schedule.",
+      "ac": [
+        "Liquibase status_component (seeded: web, api, extension-sync, inbox, jobs, email, billing, autofill:<adapter>…), incident, incident_update, status_daily",
+        "POST/PUT /api/admin/status/incidents: title, severity MINOR|MAJOR|CRITICAL, components[], status INVESTIGATING|IDENTIFIED|MONITORING|RESOLVED, update body, next_update_at; audited INCIDENT_UPDATE; overdue next_update_at raises an admin alert",
+        "PUT /api/admin/status/components/{key} manual override with expiry; StatusSnapshotJob recomputes state every minute into app_setting status.snapshot per design §2",
+        "Admin page: active incidents, declare sheet (390px), history"
+      ],
+      "tests": [
+        "StatusStateTest (precedence manual > incident > probe > autofill)",
+        "AdminStatusResourceIT (audit, overdue alert)",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api domain/{StatusComponent,Incident,IncidentUpdate}.java, service/status/*, web/rest/AdminStatusResource.java; web admin-v3/status/*",
+      "evidence": [],
+      "design": "docs/design/sup/status-incidents.md",
+      "critical": true,
+      "benchmark": "G32 (public status page; plat owns A10 monitors). SaaS norm none of the small competitors meet."
+    },
+    {
+      "id": "S7.2",
+      "epic": "S7",
+      "title": "Public /status page with components, 90-day history, incident timelines, RSS/JSON feed; works when the API is down",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "S7.1"
+      ],
+      "relates": [
+        "A10.1",
+        "P1.2"
+      ],
+      "supersedes": [],
+      "story": "As a user I want a status page that tells me whether it's me or Kiwiply so that I don't file a ticket for an outage.",
+      "genz": "Status pages are table stakes for anything they pay for.",
+      "ac": [
+        "GET /api/status (public, cached 60 s) + /status page pre-rendered with the last snapshot (ISR) showing 'Last updated N min ago'; if the API is unreachable the page still renders the cached snapshot and a static notice",
+        "Groups Core / Autofill (per adapter, S4.4) / Data & comms; 90-day bars from status_daily; incident pages /status/i/[slug] with timeline + post-mortem; feed.rss and feed.json",
+        "Footer 'Status' → /status; uptime percentages shown only once probe data exists (never hard-coded)"
+      ],
+      "tests": [
+        "StatusResourceIT (snapshot shape, feed)",
+        "web render tests with fixture snapshot incl. API-down fallback",
+        "Playwright 390px",
+        "npm test -w web green (tsc + eslint)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "web/src/app/(marketing)/status/{page,i/[slug]/page}.tsx with fetch cache + fallback; api web/rest/StatusResource.java",
+      "evidence": [
+        "web/src/components/marketing/nav.ts:131 ('Status' → /contact)"
+      ],
+      "design": "docs/design/sup/status-incidents.md",
+      "critical": false
+    },
+    {
+      "id": "S7.3",
+      "epic": "S7",
+      "title": "Incident banners in the app and the extension drawer via remote config, scoped by adapter, snoozable",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "A10.5"
+      ],
+      "relates": [
+        "A5.1",
+        "A5.3",
+        "A5.4"
+      ],
+      "supersedes": [],
+      "story": "As a user mid-application I want to know right now that Workday autofill is degraded so that I review fields instead of trusting the fill.",
+      "genz": "Tell them before they notice.",
+      "ac": [
+        "Active incidents publish banners[] {id, scope: all|adapter, text, link, until} into the extension remote-config payload and GET /api/status; the drawer shows at most one matching the current adapter, snooze 24 h; the app shell shows a dismissible banner for scope=all",
+        "No new permissions; version bump"
+      ],
+      "tests": [
+        "job-autofill/test/remote_banner.test.js (scope filter, snooze, expiry)",
+        "web banner render test",
+        "cd job-autofill && npm test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api ConfigResource remote-config payload; job-autofill entrypoints/background.ts fetch + panel banner; web components/app-shell/IncidentBanner.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/status-incidents.md",
+      "critical": false
+    },
+    {
+      "id": "S7.4",
+      "epic": "S7",
+      "title": "Subscribe to status updates (email double opt-in per component) and a post-incident summary template",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "P1.2"
+      ],
+      "relates": [
+        "A7.1",
+        "P1.2"
+      ],
+      "supersedes": [],
+      "story": "As a power user I want an email when autofill breaks and when it's fixed so that I don't keep checking.",
+      "genz": "Opt-in, per component, one-click unsubscribe.",
+      "ac": [
+        "POST /api/status/subscribe {email, components[]} → Brevo double opt-in list 'status'; incident updates send one email per update to matching subscribers; unsubscribe link in every mail",
+        "Post-incident template (what happened, impact, what we changed) rendered on the incident page when filled"
+      ],
+      "tests": [
+        "StatusSubscribeIT (double opt-in, unsubscribe)",
+        "npm test -w web green (tsc + eslint)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api service/status/StatusNotifier.java using BrevoContactService + MailService; web subscribe sheet",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/BrevoContactService.java"
+      ],
+      "design": "docs/design/sup/status-incidents.md",
+      "critical": false
+    },
+    {
+      "id": "S8.1",
+      "epic": "S8",
+      "title": "Community decision, Discord launch kit (structure, code of conduct, moderation playbook, 16+ gate) and /community page",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S3.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a job seeker I want a small moderated place to ask 'is this legit?' and share wins so that I'm not alone in the search.",
+      "genz": "Discord is where they already are; moderation and DM-off defaults make it safe.",
+      "ac": [
+        "web/content/support-playbooks/community.md: channel map, roles, rules (16+, no recruiter job posts, no DMs for 7 days), report flow, scam-poster handling, kill criteria (< 100 WAU or > 3 h/week moderation at 90 days ⇒ archive)",
+        "/community page: what it is, rules, 'Join on Discord', 'account help happens in the app' pointer; linked from Help sheet and footer",
+        "Server created by the user (owner account), bot invites prepared; Discord named as a separate controller on the page"
+      ],
+      "tests": [
+        "render test for /community",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(marketing)/community/page.tsx; web/content/support-playbooks/community.md",
+      "evidence": [],
+      "design": "docs/design/sup/community.md",
+      "critical": false,
+      "benchmark": "Reddit r/jobs / r/Scams answer 'is this legit?' in minutes; Teal's 'community' is a marketing line."
+    },
+    {
+      "id": "S8.2",
+      "epic": "S8",
+      "title": "#is-this-legit Discord bot running scam-rules, no storage, fails closed",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S8.1",
+        "S3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a member I want to paste a message in #is-this-legit and get the same score card as the website so that the community answer is instant and consistent.",
+      "genz": "The bot answers in seconds; humans add the context.",
+      "ac": [
+        "scripts/discord-legit-bot.mjs (≤ 200 lines, message-content intent limited to one channel) replies with band + top 3 signals + /safety link; stores nothing; silent on error",
+        "One container in docker-compose.prod.yml behind the shared edge (plat deploys; never our own Caddy); token via env only"
+      ],
+      "tests": [
+        "scripts/discord-legit-bot.test.mjs (channel filter, reply format from fixtures, no persistence)"
+      ],
+      "tech": "scripts/discord-legit-bot.mjs importing packages/scam-rules; docker-compose.prod.yml service entry (plat area reviews)",
+      "evidence": [],
+      "design": "docs/design/sup/community.md",
+      "critical": false
+    },
+    {
+      "id": "S8.3",
+      "epic": "S8",
+      "title": "Campus ambassadors and monthly office hours (program kit, Discord role, recorded sessions on /help)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S8.1"
+      ],
+      "relates": [
+        "U16.4",
+        "M7.3"
+      ],
+      "supersedes": [],
+      "story": "As a student ambassador I want a kit and a role so that I can run a campus channel without inventing the rules.",
+      "genz": "Peer-led beats brand-led on campus.",
+      "ac": [
+        "Ambassador kit page (what they do, what they never do: no account access, no promises about pricing), application via a ticket kind QUESTION tagged ambassador, Discord role + #campus-<school> template",
+        "Monthly office hours: schedule on /community, recording + notes posted as a help article",
+        "Student discount itself is G34 (mkt/pay decision) — not built here"
+      ],
+      "tests": [
+        "render tests",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(marketing)/community/ambassadors/page.tsx; content in web/content/support-playbooks/ambassadors.md",
+      "evidence": [],
+      "design": "docs/design/sup/community.md",
+      "critical": false,
+      "benchmark": "G34 (campus channel) — program side only."
+    },
+    {
+      "id": "S8.4",
+      "epic": "S8",
+      "title": "Community ↔ product bridges: changelog webhook posts, feedback board links, #help redirect bot, staff rota",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S8.1",
+        "S5.4"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the team I want shipped changes to post themselves and support to stay in tickets so that the community adds value without becoming a second queue.",
+      "genz": "Announcements where they hang out; account help stays private.",
+      "ac": [
+        "On changelog publish, a Discord webhook posts highlights to #announcements (env-configured URL; no-op when blank)",
+        "#help pinned bot message redirects account/billing/bug questions to the in-app ticket sheet; daily 20-minute staff pass documented in the playbook; no SLA promised in Discord"
+      ],
+      "tests": [
+        "ChangelogWebhookTest (no-op when blank, payload shape)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api service/ChangelogWebhookService.java (or web build step posting on deploy); bot script extension",
+      "evidence": [],
+      "design": "docs/design/sup/community.md",
+      "critical": false
+    },
+    {
+      "id": "S9.1",
+      "epic": "S9",
+      "title": "Support metrics: first-response p50/p90 by plan and kind, open by kind, CSAT, deflection, SLA-breach alert",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.6",
+        "A5.1"
+      ],
+      "relates": [
+        "S9.2",
+        "A8.4"
+      ],
+      "supersedes": [],
+      "story": "As the owner I want to see whether we meet the published SLA and what support costs per 1 000 users so that the promise on the policy page is true.",
+      "genz": "The SLA they see is the SLA we measure.",
+      "ac": [
+        "GET /api/admin/support/metrics?days: first-response p50/p90 by plan/kind, open by kind/age, CSAT by kind/assignee, tickets per 1 000 MAU, top tags, overdue list",
+        "SLA breach (overdue beyond setting `support.sla_breach_alert_hours`, default 4) posts to the A10 alert channel when present, else emails support@; admin dashboard tile",
+        "Replaces any sample numbers on the admin bug/inquiry pages that A8.2/A8.4 haven't already made real"
+      ],
+      "tests": [
+        "SupportMetricsServiceTest (percentiles, business-day math)",
+        "AdminSupportMetricsIT",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api service/SupportMetricsService.java, AdminSupportMetricsResource.java; web admin-v3/support/MetricsPanel.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S9.2",
+      "epic": "S9",
+      "title": "Tags, saved views, bulk actions and user-timeline linking for tickets; per-ATS tag from diagnostics",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.6"
+      ],
+      "relates": [
+        "A1.7",
+        "A8.5"
+      ],
+      "supersedes": [
+        "A8.2"
+      ],
+      "story": "As support I want to tag, filter and bulk-resolve tickets and jump to the user's timeline so that triage is minutes, not an afternoon.",
+      "genz": "Fast triage = fast replies.",
+      "ac": [
+        "tags JSON editable with suggestions; auto-tags from diagnostics (ats:<adapter>, version:<ext>) and from kind; saved views (mine, overdue, site reports by ATS, scams unreviewed)",
+        "Bulk: assign to me, resolve with macro, tag; audited per ticket",
+        "Ticket detail links the A1.7 user timeline; the timeline includes tickets (A1.7's merge adds support_ticket — coordination note)"
+      ],
+      "tests": [
+        "AdminSupportTicketResourceIT (bulk audit rows, auto-tags)",
+        "npm test -w web green (tsc + eslint)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api AdminSupportTicketResource.java bulk endpoints; web admin-v3/support/{Queue,SavedViews}.tsx reusing A8.5 QueueCard when present",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S9.3",
+      "epic": "S9",
+      "title": "Knowledge-gap report: search misses, low-helpful articles, 👎 help answers, clustered ticket subjects, stale articles → article backlog",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S1.4",
+        "A5.1"
+      ],
+      "relates": [
+        "S9.2"
+      ],
+      "supersedes": [],
+      "story": "As the help writer I want a weekly list of what people asked that the help center couldn't answer so that the next articles are the right ones.",
+      "genz": "Docs that grow from real questions stay useful.",
+      "ac": [
+        "GET /api/admin/help/gaps: top search misses (setting `support.help.miss_window_days`, default 30), articles with helpful ratio below setting `support.help.low_helpful_pct` (default 40) with at least `support.help.min_votes` (default 20), 👎 help answers by reason (when S6.4 exists), ticket subjects clustered by normalised prefix (same approach as A8.2 group_key), stale articles (not updated for `support.help.stale_days`, default 90)",
+        "Admin page with 'create article task' → opens a kind=IDEA ticket tagged docs (no new tracker)",
+        "Weekly digest email to the docs owner (template)"
+      ],
+      "tests": [
+        "KnowledgeGapServiceTest (clustering, thresholds)",
+        "AdminHelpGapsIT",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api service/help/KnowledgeGapService.java, AdminHelpGapsResource.java; web admin-v3/support/GapsPanel.tsx",
+      "evidence": [],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false
+    },
+    {
+      "id": "S9.4",
+      "epic": "S9",
+      "title": "SUPPORT staff role scoping for tickets and help stats; audit of anonymous-thread reads",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "A0.3",
+        "S2.1"
+      ],
+      "relates": [
+        "A0.3",
+        "A1.5"
+      ],
+      "supersedes": [],
+      "story": "As the owner I want support staff to see tickets and help data but never billing details or resume files so that least privilege holds.",
+      "genz": "The person answering can't see more than they need.",
+      "ac": [
+        "Permission map (A0.3) gains SUPPORT_TICKETS_READ/WRITE, HELP_STATS_READ, SAFETY_REVIEW; SUPPORT role has these and nothing from billing/AI budgets/PII exports",
+        "Reading a ticket whose reporter is anonymous (email only) writes a USER_PII_VIEW LOW audit row; 'view as' remains A1.5",
+        "Ticket DTOs for SUPPORT omit email domain-level info beyond what is needed to reply"
+      ],
+      "tests": [
+        "SupportRoleIT (403 on billing endpoints; ticket read allowed; audit row)",
+        "cd api && ./gradlew test green"
+      ],
+      "tech": "api security/Permissions (A0.3), AdminSupportTicketResource @PreAuthorize, AdminAuditService",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S9.5",
+      "epic": "S9",
+      "title": "Support runbooks as admin-only playbooks (refund script, account recovery, extension debugging, scam triage, engineering escalation)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a new support teammate I want the five scripts we actually use so that replies are consistent and honest from day one.",
+      "genz": "The 'no refunds, cancel anytime' reply is kind, clear and the same every time.",
+      "ac": [
+        "web/content/support-playbooks/*.md rendered at /admin/playbooks (ADMIN/SUPPORT only, same renderer as /help): refunds (none — script + what we can do: fix, extend on our error via A2.4 comps), account recovery (resend verification, change email A1.4), extension debugging checklist (version, adapter, site report), scam triage (outcomes, blocklist), engineering escalation (ticket → GitHub issue link convention)",
+        "Macros (S2.6) seeded from the playbooks"
+      ],
+      "tests": [
+        "build validation; admin route 403 for users",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(admin)/admin/playbooks/[slug]/page.tsx; content under web/content/support-playbooks/",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    },
+    {
+      "id": "S10.1",
+      "epic": "S10",
+      "title": "Published support policy: channels, hours, SLA by plan, what we never do, languages — on /help and the contact page",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S1.1",
+        "S2.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want to know how support works and how fast before I pay so that there are no surprises.",
+      "genz": "State it plainly; competitors' one-star reviews are about surprises.",
+      "ac": [
+        "/help/a/how-support-works: in-app tickets (primary), email fallback, hours, first-response targets from settings `support.sla_business_days.*` (defaults Pro/Autopilot 1, Free 2, site/scam reports 1), languages (English; Spanish pilot when S10.3 lands), what we never do (ask for passwords, auto-submit, move money, read your resume files without consent), 'no refunds, cancel anytime' link",
+        "Contact page and ticket sheet read the same copy from one source — the evaluated config (`support.sla_business_days.*` via GET /api/config/public, A5.9) rendered by web/src/lib/support-policy.ts, never a constants file — so numbers never drift; the policy numbers are the ones S9.1 measures"
+      ],
+      "tests": [
+        "unit: policy constants used by sheet and page",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/content/help/getting-started/how-support-works.md generated/validated against web/src/lib/support-policy.ts",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false,
+      "benchmark": "Jobscan/Simplify complaints about silence and refund surprises; Huntr's written (hedged) policy."
+    },
+    {
+      "id": "S10.2",
+      "epic": "S10",
+      "title": "Accessibility of every support surface (sheets, checker, thread, status) with axe in CI",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "S1.1",
+        "S2.2"
+      ],
+      "relates": [
+        "U19.1"
+      ],
+      "supersedes": [],
+      "story": "As a screen-reader or keyboard user I want help, reporting and safety tools to work fully so that support is not the least accessible part of the product.",
+      "genz": "Accessibility is a baseline expectation, not a setting.",
+      "ac": [
+        "Focus trap + Escape on every sheet; 44 px targets; aria-live for ticket status/CSAT thanks; reduced-motion respected; checker result readable in order; status page colour + text (never colour alone)",
+        "axe (U19.1 harness) runs on /help, /help/a/[slug], /safety, /status, the ticket thread and the Help sheet with zero serious violations"
+      ],
+      "tests": [
+        "axe CI job over the listed routes",
+        "keyboard Playwright pass",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web Playwright + @axe-core/playwright (U19.3 infra); packages/ui Sheet/ThumbsFeedback a11y props",
+      "evidence": [],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false
+    },
+    {
+      "id": "S10.3",
+      "epic": "S10",
+      "title": "Help and safety content i18n readiness (locale folders, fallback, hreflang) with a Spanish pilot of the top 10 + safety hub",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "S1.4"
+      ],
+      "relates": [
+        "U19.4"
+      ],
+      "supersedes": [],
+      "story": "As a Spanish-speaking job seeker in the US I want the safety hub and the top help articles in Spanish so that the most vulnerable audience isn't left out.",
+      "genz": "Scam targeting is heaviest on new-to-market and immigrant job seekers (FTC).",
+      "ac": [
+        "web/content/help/<locale>/ and safety/<locale>/ with fallback to en; /help/es/... routes; hreflang tags; build validates every es file has an en twin",
+        "Pilot: the 10 most-viewed articles (from S1.4 stats) + the nine safety pages + what-now in Spanish (human-reviewed; machine draft allowed)",
+        "UI chrome strings for help/safety/status extracted (U19 string extraction convention)"
+      ],
+      "tests": [
+        "build validation for locale twins",
+        "route tests for fallback",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/scripts/build-help-index.mjs locale support; web/src/app/(marketing)/help/[locale]? routing per U19.4 convention",
+      "evidence": [],
+      "design": "docs/design/sup/help-center.md",
+      "critical": false
+    },
+    {
+      "id": "S10.4",
+      "epic": "S10",
+      "title": "Org-aware support routing: member tickets carry org id (consent-scoped), org admin contact path with priority, STAFF sees counts only",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S2.1",
+        "O1.1"
+      ],
+      "relates": [
+        "O5.4",
+        "O13.1"
+      ],
+      "supersedes": [],
+      "story": "As an org admin I want a priority support path for my organisation while my members' tickets stay private so that support respects the consent model.",
+      "genz": "Your school can't read your support thread.",
+      "ac": [
+        "support_ticket.org_id NULL additive, set from the member's active org at create; org admin 'Contact support' creates a kind=QUESTION ticket with priority 1 and tag org:<id>",
+        "Org dashboard shows only counts of open member tickets (never subjects/bodies); STAFF role (O5.4) sees counts for their members only; platform support sees all",
+        "Metrics (S9.1) split by org for the owner"
+      ],
+      "tests": [
+        "OrgSupportScopeIT (org admin cannot read member ticket 404; counts only; priority set)",
+        "cd api && ./gradlew test green",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api SupportTicketService org hook (O1.1 tenant model), AdminSupportTicketResource org filter; web (org) settings contact sheet",
+      "evidence": [],
+      "design": "docs/design/sup/support-tickets.md",
+      "critical": false
+    }
+  ]
+}

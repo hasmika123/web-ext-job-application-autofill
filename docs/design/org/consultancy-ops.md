@@ -1,122 +1,190 @@
 # Consultancy Ops add-on — timesheets and finances, the 23.0 outcome (stories O11.*)
 
-> Status: design, 2026-10-11 — this document **is** the Phase 23.0 brainstorm outcome, proposed as
-> the locked spec; the user confirms the four open points in `PLAN-org.md`. Locked boundaries from
-> `ROADMAP.md` Phase 23: record money, never move it; no bank numbers/SSNs/tax IDs; finance visible to
-> OWNER/ADMIN/FINANCE only; not tax/legal advice; everything exports; no AI; attachments 5 MB / 2 GB per org.
-> Price (proposed, confirm): **$99 per org per month + $4 per active consultant per month**.
+> Status: **LOCKED 2026-10-11 — D1 (org add-on only), D2 (priced later in admin), D7 (OCR optional,
+> off by default) and D10 (O11 stays P2) decided by the user; D3–D6, D8, D9, D11, D12 = recommended
+> defaults, user may override** (task 23.0; answers recorded in `docs/roadmap/PROPOSAL-timesheets.md`).
+> **Timesheets are the first slice and have their own in-depth design: `timesheets.md`** (UX, state
+> machine, tables, API, OCR, flags, reminders, export, tests, competitive). This file keeps the add-on-wide
+> decisions and the money side (placements/rates, invoices, payments, expenses, profit) that follows
+> timesheets.
+> Locked boundaries from `ROADMAP.md` Phase 23 and `CLAUDE.md`: record money, never move it; no bank
+> numbers/SSNs/tax IDs; finance visible to OWNER/ADMIN/FINANCE only; not tax/legal advice; everything
+> exports; Marketer never submits or signs in as a consultant. **Everything else is admin-configured**
+> (user decision 2026-10-11): attachment size / count / org storage, OCR on-off and its budget, the scan
+> budget, retention minimum, reminder times, flag tolerances and the prices are catalog values or
+> settings with the defaults named below — never code constants.
+> Price: **set later from the admin catalog** (items `ops-addon-base` per org per month +
+> `ops-addon-consultant` per active consultant per month; no number is locked here — the "$99 + $4" draft
+> in the proposal is a worked example for the margin guard). Pilot orgs run free behind an admin switch.
+
+## 0. Changelog vs the first draft (2026-10-11, same day)
+
+| # | changed | was | now | why |
+|---|---|---|---|---|
+| C1 | Build order | placements → timesheets → invoices → profit, all P2 | **timesheets first** (O11.1, O11.2-lite, O11.3, O11.14, O11.10–O11.13, O11.4), then rates/invoices/payments/profit; O11 **stays P2** (decision D10) — the order is expressed as story deps, not priority | user: "time sheets will be next step"; D10 answered 2026-10-11 |
+| C2 | OCR | "No AI, no OCR of timesheets" | **optional, budgeted OCR of the client-approved proof, off by default** (decision D7: entitlement `ops.ocr` default off, `ops_settings.ocr_enabled` default false; budget entitlement `ops.ai_budget_cents_per_consultant`, default 50 ¢ per active consultant per period, pooled; suggestion only, never auto-applied) | the double-entry pain is the #1 thing to beat (`timesheets.md` §0, §15) |
+| C15 | Numbers | caps, budgets, prices and times written as constants | **every number is a setting, entitlement or catalog value with a default** (user decision 2026-10-11: everything is admin-configured); pricing not set in the roadmap (D2) | `CLAUDE.md` Expansion rule; `runtime-settings-feature-flags.md` §9 |
+| C3 | Attachments | "served via short-lived presigned URLs (existing S3 pattern)" | **through the `FileStorage` seam, local driver first, proxied downloads, no presigned URLs** | `docs/design/plat/file-storage-seam.md` D1/§5 (Option A locked) |
+| C4 | Timesheet tables | `ops_timesheet`, `ops_timesheet_entry`, `ops_timesheet_attachment` here | moved to `timesheets.md` §5 with day kinds, flags, proof state, events, holidays, `ops_settings`, `ops_placement_rate` | depth |
+| C5 | Settings | `showPayToConsultant` etc. in `organization.settings_json` | dedicated `ops_settings` row | typed, FINANCE-gated, many fields |
+| C6 | Rates | `bill_rate_minor`/`pay_rate_minor` columns on `ops_placement` | `ops_placement_rate` with `effective_from`, both nullable in v0 | mid-placement rate changes; timesheets must work before finance fills money |
+| C7 | Timesheet states | `DRAFT → SUBMITTED → APPROVED \| REJECTED` + `supersedes_id` | `DRAFT → SUBMITTED → APPROVED → SUPERSEDED`; reject returns to DRAFT with the comment; `locked_reason=INVOICED`; corrections of invoiced sheets flag the invoice `needs_reissue` | corrections after invoicing are real; blocking them hides errors |
+| C8 | Marketer | "sees nothing financial" | sees **presence only** for paired consultants (placement client + submitted/missing), never minutes/rates/proof | bench-vs-placed is their job; hours are not (decision D6) |
+| C9 | Consent | not addressed | first-run information screen, versioned text, `ops_consent_event`; `data_share` scope does not gate timesheets | `timesheets.md` §8 |
+| C10 | Reminders | Mon consultants / Wed approvers | same, plus quiet hours, O13.3 daily cap, idempotency per week, consultant Friday opt-in, never to marketers | etiquette rules already locked for orgs |
+| C11 | Export | CSV/PDF "export everything" | layouts `GENERIC`, `PAYROLL`, `BY_CLIENT`, `PDF_PACK` with proof pages; consultant self-export | payroll/invoicing hand-off is the point (decision D5) |
+| C12 | Retention | 7 years after the org closes | 7 years from `week_start` / money record date, org can only lengthen; purge only when org CLOSED or placement ended > 7 y | simpler and defensible |
+| C14 | PII boundary | "no bank numbers/SSNs/tax IDs" stored; attachments "not scanned" | **never collected** — extended to ITIN, routing/account numbers, passport/visa/I-9/I-94/document numbers, DOB, consultant home address; no field anywhere; every free-text field validated; export column deny-list; proof uploads scanned for identifiers **before storage and refused**; `OpsNeverCollectedTest` build gate (O11.14) | user rule restated 2026-10-11: "we don't take any of those" — product-wide, not only Ops |
+| C13 | Pilot path | add-on gated by catalog entitlement (Phase 18) | v0 gate `organization.settings_json.opsPilot` set by platform admin, free pilot, migrated to a comped grant when O3.2 lands | Phase 18 must not block timesheets |
 
 ## 1. Scope decisions (23.0)
 
-1. **In:** placements (consultant × end client × optional vendor chain × dates × bill rate × pay
-   rate × pay-type *label*), weekly timesheets with approve/reject and an optional client-approved
-   attachment, client invoice **records** generated from approved hours (PDF, not sent), payments
-   received/made and expenses **recorded by hand**, a profit view, CSV/PDF export, reminders.
+1. **In, in this order:** (a) **timesheets** — placements-lite, weekly sheets with proof upload, flags,
+   one-tap approval, reminders, exports, optional OCR (`timesheets.md`); (b) **rates** per placement with
+   effective dates (bill, pay, pay-type label); (c) **client invoice records** generated from approved
+   hours (PDF, never sent by us); (d) **payments** received/made and **expenses**, recorded by hand;
+   (e) **profit view** and finance exports.
 2. **Out (now and until a new brainstorm):** sending invoices by email, payroll, payments to anyone,
-   bank/ACH details, tax forms (W-2/1099 generation), QuickBooks/Gusto sync, multi-currency per
-   placement (one currency per org), approvals beyond one step.
-3. **Roles:** `FINANCE` role added (`tenant-model.md` §4). Consultants see only their own hours and
-   — only if `settings.showPayToConsultant=true` — their own pay rate and pay totals. Marketers see
-   nothing financial unless also `FINANCE`. Bill rates and profit are never visible to consultants.
-4. **Retention 7 years** for `ops_*` money records after the org closes (configurable upward, not
-   below 7); timesheet attachments 7 years too (they support invoices). Erasing a consultant's
-   account anonymises the person (`ERASED` membership) but keeps the hours/amounts under "Former
-   consultant #id" — a financial record of the org, not profile data of the person (GDPR Art. 17(3)(b)).
-5. **No AI**, no OCR of timesheets, no bank feeds: ~95 % margin stands; the guard treats the price
-   as Stripe-only cost.
+   bank/ACH details, tax forms (W-2/1099), QuickBooks/Gusto sync (exports are shaped so a later sync is a
+   mapping, not a redesign), multi-currency per placement (one currency per org), approval chains, client
+   or vendor logins/links (decision D4), auto-apply of OCR results.
+3. **Roles:** `FINANCE` role added (`tenant-model.md` §4). Consultants see only their own hours, proof,
+   flags and timeline, and — only if `ops_settings.show_pay_to_consultant=true` — their own pay rate and
+   pay totals. Marketers see presence only. Bill rates, vendor chains, margins and profit are never
+   visible to consultants or marketers.
+4. **Retention 7 years** (C12). Erasing a consultant anonymises the person (`ERASED` membership) and keeps
+   hours/amounts under "Former consultant #id" (GDPR Art. 17(3)(b)).
+5. **AI:** only the OCR of proof files — **optional and off by default** (D7) — bounded by entitlement
+   `ops.ai_budget_cents_per_consultant` (default 50) pooled per org, through the AI gateway with the Ops
+   grant as budget owner; plus the mandatory, platform-paid identifier scan (setting
+   `ai.budget.ops_scan_cents_per_consultant`, default 25). No AI anywhere in money records.
 6. **Disclaimer** on every finance screen and export footer: "Records you entered. Not tax, legal or
-   accounting advice." Lawyer wording to confirm with 20.5.
-7. **Money as integer minor units + one org currency**; hours as minutes; rates as minor units per
-   hour. No floats anywhere.
+   accounting advice." Lawyer wording confirmed with 20.5.
+7. **Money as integer minor units + one org currency**; hours as minutes; rates as minor units per hour.
+   No floats anywhere. Pay amounts for PTO/SICK/HOLIDAY minutes are **not** computed by us (the org's
+   policy); only WORK minutes × rate.
+8. **Zero-setup:** no projects, cost codes, templates or approval rules. A placement is consultant +
+   client + start date; everything else is optional.
 
-## 2. Data model (`20261011070000_ops.xml`, all tables `org_id` first, FINANCE-gated)
+## 2. Data model
+
+Timesheet-slice tables (`ops_settings`, `ops_client`, `ops_vendor`, `ops_placement`, `ops_placement_rate`,
+`ops_timesheet`, `ops_timesheet_entry`, `ops_timesheet_attachment`, `ops_timesheet_event`, `ops_holiday`,
+`ops_storage_usage`, `ops_consent_event`, `ops_member_pref`): **`timesheets.md` §5**, changelog
+`20261011070000_ops_timesheets.xml`.
+
+Money-slice tables (`20261011080000_ops_money.xml`, all `org_id` first, FINANCE-gated):
 
 | table | columns |
 |---|---|
-| `ops_client` | id, org_id, name, contact_name, contact_email (business contact only), address_text, payment_terms_days INT (30), notes, archived_at |
-| `ops_vendor` | id, org_id, name, notes (the middle layer in C2C chains; optional) |
-| `ops_placement` | id, org_id, consultant_member_id, client_id, vendor_id NULL, title, start_date, end_date NULL, bill_rate_minor INT (per hour, what the client pays), pay_rate_minor INT (what the consultant gets), pay_type_label VARCHAR(10) (W2\|1099\|C2C\|OTHER — label only), hours_per_week_expected INT NULL, status (ACTIVE\|ENDED\|ON_HOLD), notes, created_at |
-| `ops_timesheet` | id, org_id, placement_id, consultant_member_id, week_start DATE (org's week start, Monday default), status (DRAFT\|SUBMITTED\|APPROVED\|REJECTED), total_minutes INT, submitted_at, decided_at, decided_by_member_id, decision_comment VARCHAR(500), unique (placement_id, week_start) |
-| `ops_timesheet_entry` | id, timesheet_id, day DATE, minutes INT (0–1440), note VARCHAR(200) |
-| `ops_timesheet_attachment` | id, timesheet_id, s3_key, file_name, bytes (≤5 MB), content_type (pdf/png/jpg), uploaded_by_member_id, created_at |
-| `ops_invoice` | id, org_id, client_id, number VARCHAR(30) (org prefix + sequence), status (DRAFT\|ISSUED\|PARTIALLY_PAID\|PAID\|VOID), issue_date, due_date, currency, subtotal_minor, tax_minor (entered, not computed), total_minor, paid_minor, pdf_key, notes, created_at |
-| `ops_invoice_line` | id, invoice_id, placement_id, timesheet_id NULL, description, minutes, rate_minor, amount_minor |
-| `ops_payment` | id, org_id, direction (IN\|OUT), counterparty_kind (CLIENT\|CONSULTANT\|VENDOR\|OTHER), counterparty_id NULL, invoice_id NULL, placement_id NULL, amount_minor, paid_on DATE, method_label VARCHAR(30) (free label: "ACH", "check"), reference VARCHAR(80) (a memo, never an account number — validated), notes |
-| `ops_expense` | id, org_id, placement_id NULL, consultant_member_id NULL, category VARCHAR(30), amount_minor, spent_on, receipt_key NULL (≤5 MB), notes |
-| `ops_storage_usage` | org_id PK, bytes BIGINT (cap 2 GB enforced on upload) |
+| `ops_client` additions | `address_text VARCHAR(300)`, `payment_terms_days INT DEFAULT 30`, `invoice_email VARCHAR(254)` (business contact; for the org's own sending, we never send) |
+| `ops_invoice` | id, org_id, client_id, number VARCHAR(30) (org prefix + sequence), status (DRAFT\|ISSUED\|PARTIALLY_PAID\|PAID\|VOID), issue_date, due_date, currency, subtotal_minor, tax_minor (entered, not computed), total_minor, paid_minor (derived), pdf_key (FileStorage), needs_reissue BOOLEAN DEFAULT false (set when a referenced timesheet is superseded), notes, created_at |
+| `ops_invoice_line` | id, invoice_id, placement_id, timesheet_id NULL, description, minutes, rate_minor (the `ops_placement_rate` in force for `week_start`), amount_minor, proof_note VARCHAR(120) NULL ("approved 2026-10-10 by J. Lee", from `ocr_json` when present) |
+| `ops_payment` | id, org_id, direction (IN\|OUT), counterparty_kind (CLIENT\|CONSULTANT\|VENDOR\|OTHER), counterparty_id NULL, invoice_id NULL, placement_id NULL, amount_minor, paid_on DATE, method_label VARCHAR(30) ("ACH", "check" — a label), reference VARCHAR(80) (memo; sensitive-text validated), notes |
+| `ops_expense` | id, org_id, placement_id NULL, consultant_member_id NULL, category VARCHAR(30), amount_minor, spent_on, receipt_key NULL (FileStorage, ≤ 5 MB, counts toward the 2 GB), notes |
 
-Validation that protects the boundary: any free-text field rejects strings matching SSN
-(`\b\d{3}-\d{2}-\d{4}\b`), EIN (`\b\d{2}-\d{7}\b`), IBAN, or 9+ consecutive digits with a message
-"Don't store account or tax numbers here." Attachments are not scanned (we are not reading them).
+### 2.1 Never collected (product-wide rule; the add-on's hard boundary)
+
+| class | examples | rule across placements, consultants, approvers, clients/vendors, attachments, exports, OCR |
+|---|---|---|
+| Government identifiers | SSN, ITIN, EIN, personal tax ids | no column anywhere; `@NoSensitiveText` on every String field (422 `SENSITIVE_TEXT`); OCR/scan schemas cannot carry them |
+| Bank details | account, routing/ABA, IBAN/SWIFT, card numbers | no column; `ops_payment.reference` is a validated memo, `method_label` an enum |
+| Immigration / identity documents | passport, visa, I-94, I-9, driver's licence, national id, permits | no column; `pay_type_label` is an enum (W2/1099/C2C/OTHER); keyword+number rule in the validator |
+| Date of birth / age | DOB, born | no column; keyword+date rule |
+| Consultant home address | | no field; `ops_client.address_text` is the client's **business** address |
+| Proof files / receipts carrying any of the above | printed SSN, bank line on a vendor template | scanned **before storage** (text layer locally; images via a closed classify-only model schema, platform-paid) and **refused** with a specific message; sha256 of refused bytes cached 90 days; no override — `timesheets.md` §5.13 |
+| Exports | payroll / invoicing CSV, PDF packs | column deny-list enforced by test; people identified by display name + member id only |
+
+Client and vendor records hold **business name, one business contact (name, email), business address,
+payment terms, rates** — nothing about a person's identity. Enforced at build time by
+`OpsNeverCollectedTest` (schema column deny-list, DTO reflection, export registry, OCR/scan schemas,
+enum-only labels) — story O11.14. Validator detail: `timesheets.md` §5.12.
 
 ## 3. State machines
 
-Timesheet: `DRAFT → SUBMITTED → APPROVED | REJECTED(→ DRAFT with comment)`; APPROVED timesheets are
-immutable; a correction = a new timesheet row for the same week with `supersedes_id` (added column) and
-the invoice line points at the newest. Reminder: Monday 09:00 org-local to consultants with a
-missing previous week (one push/email, respects quiet hours); Wednesday to approvers with pending.
+Timesheet: `timesheets.md` §4 (`DRAFT → SUBMITTED → APPROVED → SUPERSEDED`; reject → DRAFT with comment;
+withdraw; corrections supersede; `locked_reason=INVOICED`).
 
-Invoice: `DRAFT → ISSUED → PARTIALLY_PAID → PAID`; `VOID` from DRAFT/ISSUED. `paid_minor` is the sum
-of `ops_payment IN` rows linked to it (derived, recomputed on write). "Issued" means the org marked it
-sent — Kiwiply never sends it; the PDF is downloaded and sent by the org.
+Invoice: `DRAFT → ISSUED → PARTIALLY_PAID → PAID`; `VOID` from DRAFT/ISSUED. `paid_minor` = Σ linked
+`ops_payment IN` rows (recomputed on write). "Issued" means the org marked it sent — Kiwiply never sends;
+the PDF is downloaded and sent by the org. A superseded timesheet on an ISSUED invoice sets
+`needs_reissue=true` and shows the delta; finance voids and regenerates (the new invoice carries
+"replaces ACME-0007").
+
+Reminders: `timesheets.md` §9.
 
 ## 4. Profit view (FINANCE)
-Per consultant / client / month: `billed = Σ approved minutes × bill_rate` (or issued invoice
-lines), `paid_to_consultant = Σ approved minutes × pay_rate` (expected) vs `Σ ops_payment OUT`
-(actual), `expenses`, `gross = billed − paid − expenses`, `margin % = gross ÷ billed`, `outstanding =
-Σ issued − paid`, `unapproved_hours`. Computed on read with indexes `(org_id, placement_id,
-week_start)`; orgs here are small (≤ hundreds of consultants).
+Per consultant / client / month: `billed = Σ approved WORK minutes × bill rate in force` (or issued
+invoice lines), `pay_expected = Σ approved WORK minutes × pay rate in force`, `pay_actual = Σ ops_payment
+OUT`, `expenses`, `gross = billed − pay_expected − expenses`, `margin % = gross ÷ billed`, `outstanding =
+Σ issued − paid`, `unapproved_hours`, `unproofed_hours` (approved with `PROOF_WAIVED`). Computed on read
+with the `(org_id, placement_id, week_start)` index; orgs are small (≤ hundreds of consultants).
 
-## 5. API (all under `/api/orgs/{id}/ops/**`, permission `ops.*`)
+## 5. API
+
+Timesheet slice: `timesheets.md` §6 (`/api/orgs/{id}/ops/settings|holidays|clients|placements|timesheets|
+export/timesheets|presence`).
+
+Money slice (all under `/api/orgs/{id}/ops/**`, `@OrgPermissionRequired(ops.finance)`):
 ```
-clients, vendors, placements: CRUD (OWNER/ADMIN/FINANCE)
-GET  /ops/timesheets?week&status&consultantId        (consultant: own only)
-POST /ops/timesheets {placementId, weekStart, entries[]} ; PUT /{id} (DRAFT only) ; POST /{id}/submit
-POST /ops/timesheets/{id}/approve | /reject {comment}  (ADMIN/FINANCE)
-POST /ops/timesheets/{id}/attachments (multipart ≤5 MB; 2 GB org cap → 413 OPS_STORAGE_CAP)
-POST /ops/invoices/generate {clientId, from, to} → DRAFT from approved, uninvoiced timesheets ; PATCH ; POST /{id}/issue ; /void ; GET /{id}/pdf
-POST /ops/payments ; GET ?direction&from&to
-POST /ops/expenses ; GET
+POST /ops/invoices/generate {clientId, from, to} → DRAFT from approved, uninvoiced sheets (locks them) ; PATCH ; POST /{id}/issue ; /void ; GET /{id}/pdf
+POST /ops/payments ; GET ?direction&from&to&counterpartyKind
+POST /ops/expenses ; GET ; receipts via FileStorage (same limits as proofs)
 GET  /ops/profit?by=consultant|client|month&from&to
-POST /ops/export {what: timesheets|invoices|payments|expenses|profit, from, to} → CSV (audited OPS_EXPORT)
-GET  /ops/settings ; PATCH {weekStart, currency, invoicePrefix, showPayToConsultant, retentionYears≥7}
+POST /ops/export {what: invoices|payments|expenses|profit, from, to} → CSV (audited OPS_EXPORT)
 ```
 
 ## 6. Flows (390 px)
 
+Consultant week view, proof upload, approver inbox and history: `timesheets.md` §3. Finance screens:
+
 ```
-Consultant · log hours                      Finance · approvals
+Finance · Ops home                          Invoice · draft
 ┌──────────────────────────────┐           ┌──────────────────────────────┐
-│ Week of Oct 6 · Acme Corp    │           │ Pending (4)                  │
-│ Mon  8h  Tue  8h  Wed  8h    │           │ Aarav · Acme · 40h  [✓][✗]   │
-│ Thu  8h  Fri  6h  Sat  –     │           │ Sneha · Globex · 38h [✓][✗]  │
-│ Total 38h                    │           │ …                            │
-│ [📎 Add client-approved sheet]│          │ Unapproved hours: 156h       │
-│ [ Submit for approval ]      │           │ Outstanding invoices: $18,400│
-│ (Your pay: hidden by org)    │           │ Not tax or legal advice.     │
-└──────────────────────────────┘           └──────────────────────────────┘
+│ Pending sheets  4  ▸         │           │ ACME-0008 · Acme Corp · DRAFT│
+│ Unapproved hours 156 h       │           │ Oct 1 – Oct 31              │
+│ Unproofed hours   8 h  ⚠     │           │ Aarav M · 160.0 h × $85 … $13,600│
+│ Outstanding    $18,400 (3)   │           │ Sneha K · 152.0 h × $90 … $13,680│
+│ Needs reissue  ACME-0007 ⚠   │           │ Subtotal          $27,280   │
+│ This month                   │           │ Tax (entered)     $0        │
+│  billed  $41,200             │           │ Total             $27,280   │
+│  pay     $29,600             │           │ 2 proofs attached · 0 flags │
+│  gross   $11,600 · 28 %      │           │ [ Download PDF ] [ Mark issued ]│
+│ [Export ▾]                   │           │ Records you entered. Not tax,│
+│ Records you entered. Not tax,│           │ legal or accounting advice. │
+│ legal or accounting advice.  │           └──────────────────────────────┘
+└──────────────────────────────┘
 ```
-Hours entry uses big +/− steppers in 15-minute steps (thumb friendly), copies last week with one tap.
 
 ## 7. Billing of the add-on
-Catalog rows: `ops-addon-base` ($99/org/month, `SEAT`-kind with quantity 1) and
-`ops-addon-consultant` ($4/active consultant/month). "Active consultant" = a consultant member with
-≥1 `ops_placement.status=ACTIVE` during the period; `OrgSeatReconciler` sets the quantity nightly
-(this is the one place quantity is derived, documented in `billing.md` §3.3). Entitlement keys:
-`ops.enabled`, `ops.storage_bytes_max=2147483648`, `ops.attachment_bytes_max=5242880`.
+**Decision D2 (user, 2026-10-11): priced later from the admin catalog — no price is locked here.** Catalog
+items, shape only: `ops-addon-base` (per org per month, `SEAT` kind with quantity 1) and
+`ops-addon-consultant` (per active consultant per month). "Active consultant" = a consultant member with
+≥ 1 `ops_placement.status=ACTIVE` during the period; `OrgSeatReconciler` sets the quantity nightly
+(the one place quantity is derived, `billing.md` §3.3). Entitlement keys and catalog defaults: `ops.enabled`,
+`ops.ocr` (default off, D7), `ops.ai_budget_cents_per_consultant` (default 50), `ops.storage_bytes_max`
+(default 2 GB), `ops.attachment_bytes_max` (default 5 MB). Margin: the guard runs at publish against the
+price admin enters — base line fee-only; consultant line worst case = OCR budget + scan budget + fee share
+(`fee-model-and-margin-guard.md`); the proposal's "$99 + $4" is a worked example that clears the floor, not a
+value. Pilot orgs: free via the admin switch (`flag.ops_timesheets` + `opsPilot`), later a comped grant (C13).
 
 ## 8. Privacy & security
-- FINANCE rows are the most sensitive org data: every read of `/ops/profit`, `/ops/payments`, invoices
-  is audited (`OPS_READ_FINANCE`, daily-collapsed per actor), every export audited per file.
-- Consultant pay visibility is an org setting defaulting **off**; when on, the consultant sees only
-  their own pay rate/totals, never bill rates.
-- Attachments served via short-lived presigned URLs (existing S3 pattern for resumes).
-- No fields for SSN/EIN/bank exist; free text validated (§2); the UI never asks.
-- Erasure: §1.4.
+- FINANCE rows are the most sensitive org data: every read of `/ops/profit`, `/ops/payments`, invoices is
+  audited (`OPS_READ_FINANCE`, daily-collapsed per actor), every export audited per file.
+- Consultant pay visibility is an org setting defaulting **off**; when on, the consultant sees only their
+  own pay rate/totals, never bill rates.
+- Attachments, receipts, invoice PDFs and export files live behind `FileStorage` (local driver, proxied,
+  `Content-Disposition: attachment`, sniffed at the seam); no presigned URLs.
+- Never collected (§2.1): no fields for SSN/ITIN, EIN/tax ids, bank/routing numbers, passport/visa/
+  document numbers, DOB or home address exist; free text validated; proof files and receipts refused
+  before storage when they carry one; exports have no such columns; the UI never asks.
+- Consultant first-run information screen and erasure: `timesheets.md` §8.
+- External parties (client managers, vendors) never get a login or a link (D4).
 
 ## 9. Tests
-`OpsRoleMatrixTest` (consultant sees own only; marketer nothing; FINANCE all), `TimesheetStateTest`
-(immutability after approval, supersedes), `InvoiceGenerateTest` (approved+uninvoiced only, totals in
-minor units), `PaidDerivationTest`, `ProfitViewTest` (fixture book), `SensitiveTextValidatorTest`
-(SSN/EIN/IBAN rejected), `StorageCapTest`, `OpsQuantityReconcilerTest` (active consultants count),
-web: steppers at 390 px, approvals list, disclaimer present on every finance screen and PDF footer.
+Timesheet slice: `timesheets.md` §14. Money slice: `InvoiceGenerateTest` (approved+uninvoiced only,
+rate in force per week, totals in minor units, locks sheets), `NeedsReissueTest` (supersede →
+flag → void/regenerate), `PaidDerivationTest`, `ProfitViewTest` (fixture book incl. unproofed hours),
+`SensitiveTextValidatorTest` (SSN/EIN/IBAN rejected on every field), `OpsQuantityReconcilerTest`
+(active consultants count), `OpsFinanceAuditTest` (reads collapsed daily, exports per file), web:
+finance home and invoice draft at 390 px, disclaimer present on every finance screen and PDF footer.

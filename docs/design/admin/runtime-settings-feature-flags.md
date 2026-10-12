@@ -99,3 +99,43 @@ Only ADMIN/OPS can ACT; FINANCE/SUPPORT can VIEW. `/api/config/client` is public
 │ ┃ [ Turn off ]  [ Cancel ]   │  <- then re-auth sheet (HIGH)
 └──────────────────────────────┘
 ```
+
+## 9. Feature registry — everything is admin-configured (user decision 2026-10-11; stories A5.7–A5.9)
+
+**Rule (CLAUDE.md, Expansion):** every feature's on/off switch, price, limit, cap, quota and default is
+driven by config from the app admin settings page — never hard-coded. Code ships safe defaults; admin
+decides. The settings registry (§1–§2), the flags (D4), the catalog (`catalog-margin-entitlements.md`) and
+the extension remote config (D6) are the four stores; the **feature registry** binds them per feature.
+
+| # | Decision |
+|---|---|
+| D8 | **One `FeatureDefinition` per feature** (closed, typed, in code): `key` (`<area>.<feature>`), area, description, **global switch** = setting `feature.<key>.enabled` (default from the story), **per-plan default** = the catalog entitlement (`FeatureKey`, B1.1), **per-org override** = `entitlement_grant` rows (ORG_ASSIGNMENT / ADMIN_COMP), **numeric limits** = settings (`<area>.<key>`) or entitlements with bounds, risk level. A gate that names an unregistered key fails `FeatureRegistryTest` (ArchUnit) — same pattern as `ShareMatrixTest`. |
+| D9 | **Evaluation order** in `FeatureGate.require(key)` / `limit(key)`: global switch → flag (D4: deny > allow > pct > on) → plan entitlement (`EntitlementService`, still the only entitlement source of truth; Stripe webhooks the only writer of subscription grants) → org override → user control (consent / per-feature switch). Errors carry the key: `402 PLAN_REQUIRED {feature}`, `503 FEATURE_PAUSED {feature}`. |
+| D10 | **Key naming across the roadmap.** Stories phrase every tunable as **setting `` `<area>.<key>` (default X) ``**, **entitlement `` `<key>` (catalog default …) ``**, **remote-config `` `ext.<key>` ``** or **flag `` `flag.<name>` ``**. Areas used: `ai`, `jobs`, `notify`, `tracker`, `user`, `engage`, `referral`, `analytics`, `uploads`, `storage`, `ratelimit`, `email`, `security`, `admin`, `support`, `help`, `mkt`, `public`, `seo`, `org`, `org.ops`, `services`, `catalog`, `billing`, `handoff`, `mob`, `builder`, `plat`, `ext`. The registry's **initial key list is generated from those mentions** (`docs/roadmap/areas/*.json`, `docs/resume-builder/stories.json`); `RoadmapSettingsParityTest` fails when a mentioned key is missing or a default disagrees. |
+| D11 | **Prices are catalog values, never constants.** The CLAUDE.md prices (Pro $19.99 / $49.99 → $24.99 / $54.99 at Launch 2, Autopilot $39.99 / $99.99) are the **initial catalog seed** (B1.1, A3.1); every later price (Student, Lite, top-up, org items, services, Consultancy Ops) is created as a product and priced from the admin Catalog page (A3.4) behind the margin guard. |
+| D12 | **Constants that stay hard** (rules, not settings): no auto-submit / no CAPTCHA bypass; the never-collected PII classes; the margin floors' **hard minimums** (80 % / 20 % — the floor itself is a setting that cannot go below them); the Autopilot ceilings (30 / day, 300 / period — `autopilot.apps_per_*` may be lowered, never raised, and the extension treats them as hard maxima remote config cannot lift); retention and notice **floors** (7 y financial records, 3 y billing consent, 30 / 45-day DSAR SLAs, 14-day material-change notice, 30-day price-change notice); security rules (lockout ladders, token TTLs, HMAC windows, CSP); k-anonymity minimums; UI/a11y constants (44 px, 390 px, 16 px) and engineering/test budgets (p95, Lighthouse, bundle sizes, CI thresholds); ops cron times on the box. |
+| D13 | **One settings page** (A5.8): `/admin/settings` grouped by area, a Features tab showing global switch · per-plan matrix · per-org overrides · limits inline, search, history + revert; HIGH changes need a reason + re-auth. |
+| D14 | **Every surface reads the evaluated config** (A5.9): `GET /api/config/me` (auth) and `/api/config/public`; web `useConfig()`, extension `JAF.config`, API `FeatureGate`. CI lint (`no-hardcoded-gate`, ArchUnit) refuses plan-name comparisons and numeric limits outside the config module. |
+
+Evaluation sketch:
+
+```
+FeatureGate.require("ai.server")           // 402 PLAN_REQUIRED {feature:"ai.server", upgrade{...}}
+FeatureGate.limit("matches.per_day")       // 3 on Free, 20 on Pro; org override wins if higher; admin comp highest
+settings.getInt("notify.mobile_daily_cap") // 3 unless an admin changed the row (bounds 1–10)
+flags.isOn("flag.ops_timesheets", login)   // off by default; pilot cohort via the allow list
+```
+
+Registry additions implied by the roadmap sweep (each with the story's default as the env default):
+`feature.*.enabled`, `ai.cap.<feature>.daily`, `ai.cap.draft.per_fill`, `ai.cap.call_cost_micros`,
+`ai.free_parse_reserved_pct`, `ai.answer_cache_ttl_days`, `ai.assistant_memory_retention_days`,
+`ai.sample_retention_days`, `ai.alert.feedback_spike_pct`, `ai.budget.ops_scan_cents_per_consultant`,
+`jobs.instant_matches`, `jobs.instant_max_age_hours`, `jobs.search_result_cap`, `notify.*`, `tracker.*`,
+`user.next_action.*`, `engage.streak_*`, `referral.*`, `analytics.*`, `uploads.*`, `storage.*`, `ratelimit.*`,
+`email.send_cap_alert_pct`, `security.event_retention_days`, `security.ip_block_hours`, `admin.*`, `support.*`,
+`help.ai.*`, `mkt.*`, `public.stats_floor.*`, `public.ats_check.max_bytes`, `seo.index.*`, `org.*`, `org.ops.*`,
+`services.*`, `catalog.margin_floor_*_pct` (hard minimums 80 / 20), `catalog.cap_hit_alert_pct`, `catalog.promo.*`,
+`catalog.org_price_premium_warn_pct`, `billing.*`, `handoff.expiry_days`, `mob.review_prompt.interval_days`,
+`builder.version_retention_auto`, `plat.alert.*`, `ext.*` (remote config, clamped); flags `flag.ats_check`,
+`flag.help_ai`, `flag.matches_semantic`, `flag.ops_timesheets`, `flag.referrals`, `flag.review_prompt`,
+`flag.share_resolve`.
