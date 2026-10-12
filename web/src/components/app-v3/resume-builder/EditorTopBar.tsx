@@ -17,7 +17,7 @@ import {
 import type { MenuEntry } from "@kiwiply/ui";
 import BrandLogo from "@/components/marketing/BrandLogo";
 import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
-import type { LeftPanel } from "./state/ui";
+import type { LeftPanel, RightView } from "./state/ui";
 import type { SaveStatus } from "./state/types";
 
 /**
@@ -73,6 +73,9 @@ export default function EditorTopBar({
   exporting = false,
   exportDisabled = false,
   downloadRef,
+  rightView = null,
+  onToggleView,
+  printLayout = true,
   onClose,
 }: {
   status: SaveStatus;
@@ -90,13 +93,27 @@ export default function EditorTopBar({
   exportDisabled?: boolean;
   /** Wraps the Download menu so `Alt+D` can open it. */
   downloadRef?: RefObject<HTMLSpanElement | null>;
+  /** The open right-sheet view (Print layout / PDF view): the Download button shows it as pressed. */
+  rightView?: RightView | null;
+  /** Download ▾ → Print layout toggles the right sheet (DESIGN 10.8). */
+  onToggleView?: (view: RightView) => void;
+  /** `features.printLayout` from the builder config. */
+  printLayout?: boolean;
   onClose: () => void;
 }) {
   const bad = status === "retrying" || status === "conflict" || status === "error";
   const busy = exporting || exportDisabled;
 
   const downloadItems: MenuEntry[] = [
-    { label: <>Print layout{SOON}</>, icon: <FileTextIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
+    ...(printLayout
+      ? [
+          {
+            label: <>Print layout{rightView === "print" && <span className="ml-2 text-[11px] font-medium text-muted">Open</span>}</>,
+            icon: <FileTextIcon className="h-4 w-4" />,
+            onSelect: () => onToggleView?.("print"),
+          } satisfies MenuEntry,
+        ]
+      : []),
     { label: <>PDF view{SOON}</>, icon: <FileTextIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
     { separator: true },
     { label: "Download PDF", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadPdf, disabled: busy },
@@ -187,8 +204,9 @@ export default function EditorTopBar({
                 size="sm"
                 aria-label="Download"
                 aria-busy={exporting}
+                aria-pressed={rightView !== null}
                 title="Download (Alt+D)"
-                className="min-h-11 gap-2 px-3 text-[14px]"
+                className={cn("min-h-11 gap-2 px-3 text-[14px]", rightView !== null && "ring-2 ring-accent-deep ring-offset-2 ring-offset-paper")}
               >
                 {exporting ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : <DownloadIcon className="h-5 w-5" />}
                 <span className="hidden lg:inline">{exporting ? "Preparing…" : "Download"}</span>

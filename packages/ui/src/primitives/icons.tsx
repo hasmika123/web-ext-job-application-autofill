@@ -801,6 +801,21 @@ export const PlusIcon = makeIcon("PlusIcon", {
   node: <path d="M12 5v14M5 12h14" />,
 });
 
+export const MinusIcon = makeIcon("MinusIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M5 12h14" />,
+});
+
+export const PrinterIcon = makeIcon("PrinterIcon", {
+  node: (
+    <>
+      <path d="M6 9V3h12v6" />
+      <rect x="3" y="9" width="18" height="9" rx="2" />
+      <path d="M7 14h10v7H7z" />
+    </>
+  ),
+});
+
 export const ArrowUpRightIcon = makeIcon("ArrowUpRightIcon", {
   strokeWidth: 2.2,
   node: <path d="M7 17L17 7M8 7h9v9" />,

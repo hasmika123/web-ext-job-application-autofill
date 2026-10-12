@@ -33,8 +33,12 @@ function Host(props: Partial<SideSheetProps> & { startOpen?: boolean }) {
         returnFocusTo={btn}
         {...rest}
       >
-        <button>first control</button>
-        <input aria-label="second control" />
+        {rest.children ?? (
+          <>
+            <button>first control</button>
+            <input aria-label="second control" />
+          </>
+        )}
       </SideSheet>
     </div>
   );
@@ -70,6 +74,18 @@ describe("SideSheet", () => {
       expect(all[all.length - 1]).toBe(close);
       unmount();
     }
+  });
+
+  it("skips controls inside an inert subtree (a picture of a page) when picking the first control", () => {
+    render(
+      <Host mode="overlay">
+        <div inert>
+          <a href="mailto:a@b.c">drawn link</a>
+        </div>
+        <button>real control</button>
+      </Host>,
+    );
+    expect(document.activeElement).toBe(screen.getByText("real control"));
   });
 
   it("moves focus in when it opens after mount", () => {

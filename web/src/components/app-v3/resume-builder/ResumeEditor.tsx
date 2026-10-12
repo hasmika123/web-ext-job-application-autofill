@@ -20,6 +20,7 @@ import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
 import PanelPlaceholder from "./panels/PanelPlaceholder";
 import SwapSectionPanel from "./panels/SwapSectionPanel";
 import TailorPanel from "./panels/TailorPanel";
+import PrintLayoutView from "./views/PrintLayoutView";
 import { BASICS_BLOCK_ID, blockId, sectionTitle } from "./sectionTitle";
 import { createAutosave, type Autosave } from "./state/autosave";
 import { currentDoc, editorReducer, hasUnsaved, initEditorState, saveStatus } from "./state/reducer";
@@ -211,9 +212,10 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   useEffect(() => {
     railReturnFocus.current = insightsTabRef.current;
   }, [phone]);
+  // The right sheet hands focus back to what opened it: the Preview tab on a phone, else the Download button.
   const rightReturnFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    rightReturnFocus.current = previewTabRef.current;
+    rightReturnFocus.current = phone ? previewTabRef.current : (downloadRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"] button') ?? null);
   }, [phone]);
 
   const togglePanel = useCallback((panel: LeftPanel) => uiDispatch({ type: "panel/toggle", panel }), [uiDispatch]);
@@ -235,6 +237,22 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     uiDispatch({ type: "rightView/close" });
     if (compact) uiDispatch({ type: "phone/tab", tab: "edit" });
   }, [compact, uiDispatch]);
+  /** Download ▾ → Print layout / Alt+P: open the view, or close it when it is the open one (one right view at a time). */
+  const toggleView = useCallback(
+    (view: RightView) => {
+      if (view === "print" && !config.features.printLayout) return;
+      if (ui.rightView === view) {
+        closeRight();
+        return;
+      }
+      if (compact) {
+        uiDispatch({ type: "panel/close" });
+        uiDispatch({ type: "phone/tab", tab: "preview" });
+      }
+      uiDispatch({ type: "rightView/toggle", view });
+    },
+    [config.features.printLayout, ui.rightView, compact, closeRight, uiDispatch],
+  );
   const closeRailSheet = useCallback(() => uiDispatch({ type: "phone/tab", tab: "edit" }), [uiDispatch]);
   const closeAll = useCallback(() => {
     uiDispatch({ type: "panel/close" });
@@ -266,7 +284,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     [openPanel],
   );
 
-  /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu (desktop and tablet). */
+  /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu, Alt+P toggles Print layout (desktop and tablet). */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.metaKey || phone) return;
@@ -279,11 +297,14 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       } else if (e.code === "KeyD" || e.key.toLowerCase() === "d") {
         e.preventDefault();
         downloadRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"]')?.click();
+      } else if (e.code === "KeyP" || e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        toggleView("print");
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [phone, config.features.tailor, togglePanel]);
+  }, [phone, config.features.tailor, togglePanel, toggleView]);
 
   /* Phone/tablet: one history entry per open sheet so the Back button closes it. */
   const modalOpen = compact && (leftOpen || railSheetOpen || rightOpen);
@@ -412,6 +433,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   );
 
   const rightTitle = phone ? "Preview" : shownView === "pdf" ? "PDF view" : "Print layout";
+  const rightDescription = shownView === "pdf" ? "Arrives with the PDF view" : "See how your resume paginates on paper";
 
   const rail = (
     <RightRail
@@ -440,6 +462,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         exporting={exporting}
         exportDisabled={state.phase === "conflict"}
         downloadRef={downloadRef}
+        rightView={ui.rightView}
+        onToggleView={toggleView}
+        printLayout={config.features.printLayout}
         onClose={closeEditor}
       />
 
@@ -560,7 +585,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
             open={rightOpen}
             width={RIGHT_SHEET_WIDTH}
             title={rightTitle}
-            description="Arrives with the print and PDF views"
+            description={rightDescription}
             icon={<FileTextIcon className="h-5 w-5" />}
             onClose={closeRight}
             returnFocusTo={rightReturnFocus}
@@ -577,7 +602,21 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
                 onChange={(v) => uiDispatch({ type: "rightView/toggle", view: v as RightView })}
               />
             )}
-            <PanelPlaceholder panel="preview" comingIn="R3.8" />
+            {shownView === "print" ? (
+              <PrintLayoutView
+                doc={doc}
+                theme={state.theme}
+                templateId={state.templateId}
+                caps={caps}
+                controls={presentation}
+                onDownloadPdf={downloadPdf}
+                exporting={exporting}
+                disabled={state.phase === "conflict"}
+                zoomable={phone}
+              />
+            ) : (
+              <PanelPlaceholder panel="preview" comingIn="R3.3" />
+            )}
           </SideSheet>
         </div>
       </div>

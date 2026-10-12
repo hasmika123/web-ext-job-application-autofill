@@ -132,16 +132,36 @@ describe("EditorTopBar", () => {
   });
 
   it("the Download menu: items, disabled states and handlers", () => {
-    const p = bar();
+    const p = bar({ onToggleView: vi.fn() });
     const trigger = screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON")!;
     fireEvent.click(trigger);
     const items = screen.getAllByRole("menuitem");
     const names = items.map((i) => i.textContent);
-    expect(names).toEqual(["Print layoutComing soon", "PDF viewComing soon", "Download PDF", "Download plain text (.txt)", "Download DOCXComing soon"]);
-    expect(items.map((i) => (i as HTMLButtonElement).disabled)).toEqual([true, true, false, false, true]);
+    expect(names).toEqual(["Print layout", "PDF viewComing soon", "Download PDF", "Download plain text (.txt)", "Download DOCXComing soon"]);
+    expect(items.map((i) => (i as HTMLButtonElement).disabled)).toEqual([false, true, false, false, true]);
     fireEvent.click(items[3]);
     expect(p.onDownloadText).toHaveBeenCalledTimes(1);
     expect(p.onDownloadPdf).not.toHaveBeenCalled();
+  });
+
+  it("Print layout toggles the right view; the Download button is pressed while a view is open", () => {
+    const p = bar({ onToggleView: vi.fn(), rightView: "print" });
+    const trigger = screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON")!;
+    expect(trigger.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(trigger);
+    const print = screen.getByRole("menuitem", { name: /Print layout/ });
+    expect(print.textContent).toContain("Open");
+    fireEvent.click(print);
+    expect(p.onToggleView).toHaveBeenCalledWith("print");
+    cleanup();
+    bar({ onToggleView: vi.fn() });
+    expect(screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON")!.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("the Print layout item is left out when the feature is off", () => {
+    bar({ printLayout: false });
+    fireEvent.click(screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON")!);
+    expect(screen.queryByRole("menuitem", { name: /Print layout/ })).toBeNull();
   });
 
   it("disables the two downloads while exporting or in conflict", () => {
