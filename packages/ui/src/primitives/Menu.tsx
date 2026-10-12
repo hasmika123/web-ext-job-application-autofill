@@ -247,7 +247,7 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
                     "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors " +
                       "focus:outline-none focus-visible:bg-paper-2 disabled:pointer-events-none disabled:opacity-50",
                     entry.danger
-                      ? "text-danger hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]"
+                      ? "text-danger-text hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]"
                       : "text-ink hover:bg-paper-2",
                   )}
                 >

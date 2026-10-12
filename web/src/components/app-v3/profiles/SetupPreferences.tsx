@@ -87,7 +87,7 @@ export default function SetupPreferences({ persona: initial }: { persona: Person
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-2 text-[13px] font-medium text-danger">
+        <p role="alert" className="mt-2 text-[13px] font-medium text-danger-text">
           {error}
         </p>
       )}

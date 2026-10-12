@@ -96,7 +96,7 @@ export default function SaveStatusPill({ status, reason, onRetry, className }: {
             "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[12.5px] font-medium",
             visible.tone === "calm" && "text-v2-muted",
             visible.tone === "warn" && "rounded-full border border-v2-amber/60 bg-v2-amber-soft px-2.5 py-1 font-semibold text-v2-amber-ink",
-            visible.tone === "error" && "rounded-full border border-danger/40 bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)] px-2.5 py-1 font-semibold text-danger",
+            visible.tone === "error" && "rounded-full border border-danger/40 bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)] px-2.5 py-1 font-semibold text-danger-text",
           )}
         >
           {visible.text === SAVING_LABEL ? (

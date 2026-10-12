@@ -67,7 +67,7 @@ export default function DateField({
         onBlur={() => setDraft(null)}
       />
       {invalid && (
-        <span id={hintId} role="alert" className="px-1.5 text-[11px] text-danger">
+        <span id={hintId} role="alert" className="px-1.5 text-[11px] text-danger-text">
           Try Mar 2022 or 2022
         </span>
       )}

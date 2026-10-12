@@ -258,7 +258,7 @@ export default function DemoSideTab({ demo: demoProp, current }: { demo?: DemoIn
           })}
         </ul>
         {error && (
-          <p role="alert" className="mt-3 text-[13px] font-medium text-danger">
+          <p role="alert" className="mt-3 text-[13px] font-medium text-danger-text">
             {error}
           </p>
         )}

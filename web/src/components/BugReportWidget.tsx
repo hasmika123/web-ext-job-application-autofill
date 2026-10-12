@@ -283,7 +283,7 @@ export default function BugReportWidget() {
                   <span>Include this page&apos;s address and my browser info to help us debug.</span>
                 </label>
 
-                {error && <p role="alert" className="mb-3 text-sm font-medium text-danger">{error}</p>}
+                {error && <p role="alert" className="mb-3 text-sm font-medium text-danger-text">{error}</p>}
 
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setOpen(false)} className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper-2">

@@ -273,7 +273,7 @@ export default function FreshFlow({
       )}
       <div className="mt-5">{control}</div>
       {error && (
-        <p id={errId} role="alert" className="mt-3 text-[14px] font-medium text-danger">
+        <p id={errId} role="alert" className="mt-3 text-[14px] font-medium text-danger-text">
           {error}
         </p>
       )}

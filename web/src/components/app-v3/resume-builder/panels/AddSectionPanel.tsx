@@ -238,7 +238,7 @@ export default function AddSectionPanel({ doc, caps, limits, dispatch, focusKind
                       Add
                     </button>
                   </div>
-                  <p id="rb-add-custom-hint" className={cn("text-[12px]", touched && titleError ? "text-danger" : "text-muted")}>
+                  <p id="rb-add-custom-hint" className={cn("text-[12px]", touched && titleError ? "text-danger-text" : "text-muted")}>
                     {touched && titleError ? titleError : pattern ? PLAIN_HEADING_HINT : "Name it anything, like Volunteering or Publications"}
                   </p>
                 </form>

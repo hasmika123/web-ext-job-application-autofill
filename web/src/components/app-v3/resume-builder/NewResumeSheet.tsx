@@ -250,7 +250,7 @@ function Chooser({
     step === "start" ? (
       <div className="flex flex-col gap-3" onKeyDown={(e) => e.key === "Enter" && e.target instanceof HTMLElement && e.target.getAttribute("role") === "radio" && goName()}>
         {error && (
-          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/5 px-3 py-2 text-[13.5px] text-danger">
+          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/5 px-3 py-2 text-[13.5px] text-danger-text">
             {error}
           </p>
         )}
@@ -304,7 +304,7 @@ function Chooser({
     ) : (
       <div className="flex flex-col gap-4">
         {error && (
-          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/5 px-3 py-2 text-[13.5px] text-danger">
+          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/5 px-3 py-2 text-[13.5px] text-danger-text">
             {error}
           </p>
         )}
@@ -553,7 +553,7 @@ function UploadPanel({
         </p>
       )}
       {state.phase === "error" && (
-        <p role="alert" className="mt-3 text-[13.5px] font-medium text-danger">
+        <p role="alert" className="mt-3 text-[13.5px] font-medium text-danger-text">
           {state.message}
         </p>
       )}
@@ -576,7 +576,7 @@ function ReviewGroup({ title, empty, children }: { title: string; empty: boolean
 function ReviewRow({ label, checked, onChange, flagged }: { label: string; checked: boolean; onChange: () => void; flagged?: boolean }) {
   return (
     <li>
-      <label className={cn("flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-1.5 text-[13.5px] max-sm:min-h-11", flagged ? "bg-danger/10 text-danger" : "text-v2-navy")}>
+      <label className={cn("flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-1.5 text-[13.5px] max-sm:min-h-11", flagged ? "bg-danger/10 text-danger-text" : "text-v2-navy")}>
         <input type="checkbox" checked={checked} onChange={onChange} className="h-4 w-4 flex-none accent-[var(--color-accent)]" />
         <span className="min-w-0 truncate">{label}</span>
         {flagged && <span className="flex-none text-[12px] font-bold">Has a value we never collect</span>}

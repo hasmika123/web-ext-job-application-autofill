@@ -72,7 +72,7 @@ export default function LinkPopover({
         }}
       />
       {bad && (
-        <p id={errId} role="alert" className="mt-1 text-[12px] text-danger">
+        <p id={errId} role="alert" className="mt-1 text-[12px] text-danger-text">
           {LINK_ERROR}
         </p>
       )}

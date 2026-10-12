@@ -89,7 +89,7 @@ export default function SaveStatusChip({
         // a loud message gets a row of its own on a phone, so it is read in full instead of squeezed beside the title
         failing && "max-sm:order-last max-sm:basis-full max-sm:justify-center",
         tone === "warn" && "rounded-full border border-v2-amber/60 bg-v2-amber-soft px-2.5 py-1 font-semibold text-v2-amber-ink",
-        tone === "error" && "rounded-full border border-danger/40 bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)] px-2.5 py-1 font-semibold text-danger",
+        tone === "error" && "rounded-full border border-danger/40 bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)] px-2.5 py-1 font-semibold text-danger-text",
         className,
       )}
     >

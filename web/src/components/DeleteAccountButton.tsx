@@ -42,7 +42,7 @@ export default function DeleteAccountButton() {
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-danger/40 bg-paper p-5">
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-danger">Danger zone</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-danger-text">Danger zone</h3>
         <p className="mt-1 text-sm text-muted">
           Permanently delete your account and all your data — resumes, profile, and everything else.
           This can&apos;t be undone.
@@ -52,7 +52,7 @@ export default function DeleteAccountButton() {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="self-start rounded-full border border-danger/40 px-4 py-2 text-sm font-semibold text-danger transition-colors hover:bg-danger/5"
+          className="self-start rounded-full border border-danger/40 px-4 py-2 text-sm font-semibold text-danger-text transition-colors hover:bg-danger/5"
         >
           Delete account
         </button>
@@ -86,7 +86,7 @@ export default function DeleteAccountButton() {
             </button>
           </div>
           {error && (
-            <p role="alert" className="text-sm font-medium text-danger">
+            <p role="alert" className="text-sm font-medium text-danger-text">
               {error}
             </p>
           )}

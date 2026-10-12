@@ -30,6 +30,7 @@
   --color-v2-teal-soft: #E3F6F4;
   --color-v2-coral: #F05252;
   --color-v2-coral-soft: #FFECEC;
+  --color-v2-danger-text: #B42318; /* error TEXT: 6.6:1 on white, 6.0 on paper-2, 5.8 on coral-soft, 5.0 on a 16% coral tint (coral #F05252 is 3.5:1) */
   --color-v2-amber: #F5A623;
   --color-v2-amber-soft: #FFF4E0;
   --color-v2-pink: #E040A0;
@@ -60,7 +61,8 @@
 
   --color-ok: var(--color-v2-green);
   --color-warn: var(--color-v2-amber);
-  --color-danger: var(--color-v2-coral);
+  --color-danger: var(--color-v2-coral); /* bright coral: icons, borders, fills. NOT text (3.5:1 on white) */
+  --color-danger-text: var(--color-v2-danger-text);
 
   --shadow: var(--shadow-v2-card);
   --shadow-lg: var(--shadow-v2-float);

@@ -85,7 +85,7 @@ export default function ViewsSheet({
         </p>
       )}
       {state.status === "error" && (
-        <p role="alert" className="py-6 text-[13.5px] text-danger">
+        <p role="alert" className="py-6 text-[13.5px] text-danger-text">
           {state.message}
         </p>
       )}

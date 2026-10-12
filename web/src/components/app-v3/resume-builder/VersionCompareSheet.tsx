@@ -99,7 +99,7 @@ export default function VersionCompareSheet({
         </p>
       )}
       {loaded.status === "error" && (
-        <p role="alert" className="py-6 text-[13.5px] text-danger">
+        <p role="alert" className="py-6 text-[13.5px] text-danger-text">
           {loaded.message}
         </p>
       )}

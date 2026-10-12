@@ -87,7 +87,7 @@ export default function NewsletterSignup({ tone = "light" }: { tone?: "light" | 
         </button>
       </div>
       {error ? (
-        <p role="alert" className={dark ? "text-[12px] text-[#FF9C9C]" : "text-[12px] text-danger"}>
+        <p role="alert" className={dark ? "text-[12px] text-[#FF9C9C]" : "text-[12px] text-danger-text"}>
           {error}
         </p>
       ) : (

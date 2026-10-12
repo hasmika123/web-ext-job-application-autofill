@@ -450,7 +450,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
           className="mb-1"
         />
         {detailsError && (
-          <p role="alert" className="mt-2 text-[13px] text-danger">
+          <p role="alert" className="mt-2 text-[13px] text-danger-text">
             Couldn&apos;t save: {detailsError}
           </p>
         )}
@@ -481,7 +481,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
           {summaryText}
         </p>
         {accessError && (
-          <p role="alert" className="mt-2 text-[13px] text-danger">
+          <p role="alert" className="mt-2 text-[13px] text-danger-text">
             {accessError}{" "}
             <button type="button" className={LINK_BTN} onClick={() => void loadAccess()}>
               Try again
@@ -658,7 +658,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
                     </Field>
                     <Switch label="Allow PDF download" checked={linkDownload} onCheckedChange={setLinkDownloadAllowed} />
                     {linkError && (
-                      <p role="alert" className="text-[13px] text-danger">
+                      <p role="alert" className="text-[13px] text-danger-text">
                         {linkError}
                       </p>
                     )}
@@ -750,7 +750,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
 
       {/* 5. Danger */}
       <section aria-labelledby="rb-set-danger" className={cn(CARD, "border-danger/30")}>
-        <h3 id="rb-set-danger" className={cn(H3, "mb-1 text-danger")}>
+        <h3 id="rb-set-danger" className={cn(H3, "mb-1 text-danger-text")}>
           Danger zone
         </h3>
         <p className={cn(SUBTLE, "mb-3")}>Archiving keeps everything and hides the resume from your active list. Deleting removes it for good.</p>
@@ -763,7 +763,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
           </Button>
         </div>
         {dangerError && (
-          <p role="alert" className="mt-3 text-[13px] text-danger">
+          <p role="alert" className="mt-3 text-[13px] text-danger-text">
             {dangerError}
           </p>
         )}

@@ -86,7 +86,7 @@ export function SaveJobDialog({
           </label>
         ))}
         {error && (
-          <p role="alert" className="text-[12.5px] font-medium text-danger">
+          <p role="alert" className="text-[12.5px] font-medium text-danger-text">
             {error}
           </p>
         )}

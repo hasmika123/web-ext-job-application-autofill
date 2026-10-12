@@ -138,7 +138,7 @@ export default function PrefsFlow({
       </div>
 
       {error && (
-        <p role="alert" className="mt-4 text-[14px] font-medium text-danger">
+        <p role="alert" className="mt-4 text-[14px] font-medium text-danger-text">
           {error}
         </p>
       )}

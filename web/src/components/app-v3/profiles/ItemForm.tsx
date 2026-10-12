@@ -140,7 +140,7 @@ export default function ItemForm({
                 </button>
                 <p className="mt-1 text-[12px] text-v2-muted">Press Enter for the next bullet.</p>
                 {errors[f.key] && (
-                  <p role="alert" className="mt-1.5 text-[12.5px] font-medium text-danger">
+                  <p role="alert" className="mt-1.5 text-[12.5px] font-medium text-danger-text">
                     {errors[f.key]}
                   </p>
                 )}
@@ -180,7 +180,7 @@ export default function ItemForm({
       </div>
 
       {errors._ && (
-        <p role="alert" className="mb-3 text-[13px] font-medium text-danger">
+        <p role="alert" className="mb-3 text-[13px] font-medium text-danger-text">
           {errors._}
         </p>
       )}

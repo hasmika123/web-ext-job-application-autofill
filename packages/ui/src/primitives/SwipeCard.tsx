@@ -122,7 +122,7 @@ export default function SwipeCard({
           style={{ opacity: progress }}
           className={cn(
             "pointer-events-none absolute top-3 rounded-full border-2 px-3 py-1 text-[13px] font-extrabold uppercase tracking-wide",
-            dx > 0 ? "right-3 border-accent bg-accent-soft text-accent-deep" : "left-3 border-danger bg-paper text-danger",
+            dx > 0 ? "right-3 border-accent bg-accent-soft text-accent-deep" : "left-3 border-danger bg-paper text-danger-text",
           )}
         >
           {hint}
