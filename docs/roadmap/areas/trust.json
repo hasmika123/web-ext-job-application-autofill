@@ -1,0 +1,581 @@
+{
+  "area": "trust",
+  "name": "Trust, legal & compliance",
+  "prefix": "T",
+  "kind": "cross-cutting",
+  "updated": "2026-10-11",
+  "summary": "Privacy operations, minors and age rules, AI-in-hiring law, accessibility, the security program, store data-use compliance, the lawyer-review register and a trust centre that shows the user the facts — so a job seeker who hands Kiwiply their whole application history can see exactly who sees it, that nobody applies for them, and that they can take it all and leave in two taps.",
+  "epics": [
+    { "id": "T0", "name": "Legal foundation & lawyer review", "goal": "Versioned policies with a plain-language changelog, recorded acceptance on every surface, material-change prompts, and one register of every document and question that needs a lawyer (entity: AutomoraLab LLC; PL.1 still open).", "priority": "P0" },
+    { "id": "T1", "name": "Privacy operations: data map, export, deletion, retention, subprocessors", "goal": "A data map that is code, a complete asynchronous export, enumerated erasure with a completeness test, a published retention table, a named subprocessor list with signed DPAs, an AI provider on a no-training tier, and GPC honoured.", "priority": "P0" },
+    { "id": "T2", "name": "Minors & age assurance", "goal": "A neutral 16+ age screen that stores no birth date, under-age handling that works, school/bootcamp org assertions, and high-privacy defaults for 16–17-year-olds.", "priority": "P0" },
+    { "id": "T3", "name": "AI-in-hiring law & algorithmic transparency", "goal": "An AI feature register as code, disclosure and 'why' on every AI output, a sensitive-field firewall that is a test, attestations never ticked, provenance on every output, and the counsel memo on EU AI Act / NYC LL144 / CPPA ADMT.", "priority": "P0" },
+    { "id": "T4", "name": "Accessibility program (WCAG 2.2 AA)", "goal": "One CI gate for every surface, an accessibility contract in @kiwiply/ui, scheduled manual screen-reader audits, an accessible extension drawer, a public statement and an ACR for org procurement.", "priority": "P0" },
+    { "id": "T5", "name": "Security program", "goal": "security.txt and a disclosure policy with safe harbour, HTTP hardening on web/API, supply-chain scanning, a public /security page, an incident and breach-notification runbook, an external pen test, secrets rotation, extension hardening and a SOC 2 readiness path.", "priority": "P0" },
+    { "id": "T6", "name": "Store data-use compliance", "goal": "The extension passes the 2026 Chrome Web Store Limited Use bar: every destination justified by the single purpose, third-party analytics gone, one source of truth for CWS/AMO/Edge with a CI drift check, a public permissions explainer and a per-fill 'what left this page' panel.", "priority": "P1" },
+    { "id": "T7", "name": "Trust centre & transparency", "goal": "A /trust hub rendered from live facts, a privacy nutrition label at signup and in Settings, a personal data-access ledger ('who looked at my data'), a trust-claims register with evidence, and an annual transparency report.", "priority": "P1" },
+    { "id": "T8", "name": "Regulatory watch & compliance checks", "goal": "A quarterly regulatory watch with owners and dates, and a bundle of doc-sync tests in CI so the policy can never promise less than the code does.", "priority": "P1" }
+  ],
+  "stories": [
+    {
+      "id": "T0.1", "epic": "T0", "title": "Lawyer-review register + counsel brief (L1–L15)", "status": "not_started", "size": "S", "owners": ["web"], "deps": [], "relates": ["A9.6", "O14.5", "O9.10"], "supersedes": [],
+      "story": "As the owner I want one dated register of every document and legal question (terms, billing, privacy, AI data use, minors, DPAs, VDP, org/services terms, accessibility, breach matrix, claims, trademark) with priority and status so that the lawyer review is a scoped engagement, not a vague deferral.",
+      "genz": "Honest privacy starts with knowing what we have not had checked yet — and saying so.",
+      "ac": ["docs/design/trust/legal-review-register.md §5 lists every item with priority, status and the file it concerns", "A counsel brief section names the inputs to send (locked decisions, /privacy, /terms, PRIVACY.md, data map, AI register, subprocessor list)", "PROGRESS.md PL.1 points at the register as its checklist"],
+      "tests": ["Docs only — reviewed at the 15.4 launch checklist; T8.1 re-reviews quarterly"],
+      "tech": "docs/design/trust/legal-review-register.md; PROGRESS.md PL.1 line; ROADMAP.md 15.2 pointer",
+      "evidence": ["PROGRESS.md:136 (PL.1 lawyer review deferred)", "ROADMAP.md:952 (15.2 Legal)", "web/src/app/(marketing)/terms/page.tsx:24 (no governing law)"],
+      "design": "docs/design/trust/legal-review-register.md", "critical": true
+    },
+    {
+      "id": "T0.2", "epic": "T0", "title": "Record terms/privacy acceptance at signup, /connect and org join", "status": "partial", "size": "M", "owners": ["API", "web", "extension"], "deps": [], "relates": ["A9.6", "O6.2", "U1.3", "U1.8"], "supersedes": [],
+      "story": "As the platform I want every acceptance of a document version recorded with surface, version and time so that the billing and AI terms rest on evidence, not a copy line.",
+      "genz": "They expect 'you agreed on 3 Oct, here is what you agreed to' to be a real record.",
+      "ac": ["legal_acceptance gains surface/locale/ip_hash/user_agent_hash (additive to A9.6); POST /api/account/accept-terms {kind, version, surface}; stale version → 409", "Signup (password, passkey, Google, Apple) posts the version it rendered; POST /api/extension/session accepts an optional acceptedTerms map recorded as EXT_CONNECT; org join (O6.2) records ORG_JOIN", "Acceptance history is in the export; erased users keep login-only rows", "AuthScreen.tsx shows the version and effective date next to the links"],
+      "tests": ["LegalAcceptanceIT (surfaces, stale 409, erasure keeps login only)", "ExtensionSessionAcceptanceIT", "Playwright: signup shows version"],
+      "tech": "api web/rest/AccountResource + LegalAcceptanceService; web/src/components/auth/AuthScreen.tsx:454; web/src/app/api/auth/signup/route.ts; job-autofill/src/lib/tracking.js (session payload); Liquibase additive on legal_acceptance",
+      "evidence": ["web/src/components/auth/AuthScreen.tsx:454 (copy only, nothing recorded)", "docs/design/admin/security-compliance-operations.md D7"],
+      "design": "docs/design/trust/legal-review-register.md", "critical": true
+    },
+    {
+      "id": "T0.3", "epic": "T0", "title": "Versioned policy content in the repo + plain-language changelog page", "status": "partial", "size": "M", "owners": ["web"], "deps": [], "relates": ["A9.6", "U14.5"], "supersedes": [],
+      "story": "As a user I want to read what changed in the privacy policy in plain words, with dates and old versions, so that an update never feels like a trick.",
+      "genz": "'What changed' in three bullets is the only policy text most of them will read — make it true.",
+      "ac": ["web/content/legal/{privacy,terms,cookies}/<version>.md with front-matter version/effective_at/material/summary; /privacy and /terms render the current version; /privacy/changes and /terms/changes list all versions with summaries", "The current JSX text is migrated 1:1 as version 2026.1; the AI-tasks and subprocessor sections become generated blocks (T3.1, T1.5)", "A9.6 legal_document.body_url points at these files; LegalContentSyncTest asserts DB rows match front-matter"],
+      "tests": ["LegalContentSyncTest", "Playwright: /privacy/changes lists versions; links resolve at 390 px"],
+      "tech": "web/content/legal/**, web/src/app/(marketing)/{privacy,terms}/page.tsx (markdown renderer, no new dep: use the existing MDX-free approach — a small markdown-to-React helper), api legal_document seed",
+      "evidence": ["web/src/app/(marketing)/privacy/page.tsx:29 (UPDATED const only)", "web/src/app/(marketing)/terms/page.tsx:681 (continuing use = acceptance)"],
+      "design": "docs/design/trust/legal-review-register.md", "critical": false
+    },
+    {
+      "id": "T0.4", "epic": "T0", "title": "Material-change notice: email 14 days ahead, web re-acceptance sheet, extension one-line link", "status": "not_started", "size": "M", "owners": ["API", "web", "extension"], "deps": ["T0.2", "T0.3"], "relates": ["A9.6", "A5.4", "U7.1"], "supersedes": [],
+      "story": "As a user I want to be told before a material change takes effect and to agree explicitly (or export and leave) so that nothing changes under me.",
+      "genz": "No 'by continuing you agree'; a sheet with the three changes and one honest button.",
+      "ac": ["GET /api/legal/pending; (app) layout mounts LegalPromptSheet for material versions past effective_at; 'I agree' or 'Export my data and leave' (T1.2 → DELETE)", "Brevo transactional notice 14 days before effective_at (no tracking pixels); publish refuses material versions with effective_at < now + 14 d", "Extension drawer shows a one-line 'Terms updated — review' link; never blocks a fill", "Account read-only (no fills, no AI) until accepted or deleted"],
+      "tests": ["LegalPromptIT (pending list, read-only gate)", "Playwright sheet at 390 px", "extension drawer line test"],
+      "tech": "web/src/app/(app)/layout.tsx, components/legal/LegalPromptSheet.tsx, api LegalResource + MailService template, job-autofill/entrypoints/panel (one-line banner reading /api/legal/pending)",
+      "evidence": ["docs/design/admin/security-compliance-operations.md §5 (drawer never blocks)"],
+      "design": "docs/design/trust/legal-review-register.md", "critical": false
+    },
+    {
+      "id": "T0.5", "epic": "T0", "title": "Post-review copy landing: governing law, disputes, statutory carve-outs, AI-parsing disclosure, children paragraph", "status": "blocked", "size": "S", "owners": ["web"], "deps": ["T0.1", "T0.3"], "relates": ["U14.5"], "supersedes": [],
+      "story": "As the owner I want the lawyer's edits landed as a new material version so that the terms have a real governing-law clause and the policy says what counsel confirmed.",
+      "genz": "Plain language survives the lawyer — that is the brief.",
+      "ac": ["New version files with the reviewed text; summary bullets written in plain language; published via A9.6 with a 14-day lead", "Sections added: governing law/disputes, sensitive data (EEO), transfers (SCCs), state-law rights + 'Your Privacy Choices', children, retention table link", "PROGRESS.md PL.1 checked"],
+      "tests": ["LegalContentSyncTest green; Playwright changes page shows the new version"],
+      "tech": "web/content/legal/**; blocked on counsel (register L1–L5)",
+      "evidence": ["web/src/app/(marketing)/terms/page.tsx:24-26"],
+      "design": "docs/design/trust/legal-review-register.md", "critical": false
+    },
+    {
+      "id": "T0.6", "epic": "T0", "title": "Org terms, DPA and services terms hooks (versioned, accepted on org create / order)", "status": "not_started", "size": "S", "owners": ["web", "API"], "deps": ["T0.2", "T0.3"], "relates": ["O14.5", "O9.10", "O2.1"], "supersedes": [],
+      "story": "As an org admin or a services client I want the org terms/DPA and the services terms versioned and accepted the same way as the user terms so that every contract has a record.",
+      "genz": "Schools and bootcamps ask for the DPA on day one; have it versioned, not emailed.",
+      "ac": ["kinds ORG_TERMS, DPA, SERVICE_TERMS in legal content; acceptance surfaces ORG_CREATE (O2.1) and SERVICE_ORDER (O9.2) recorded with the org/order id", "Public /legal/dpa page from the content file; 16+ assertion text lives here", "Counsel items L8/L9 tracked in the register"],
+      "tests": ["LegalAcceptanceIT extended for org/service kinds"],
+      "tech": "web/content/legal/{org-terms,dpa,service-terms}, api LegalAcceptanceService (entity ref column)",
+      "evidence": ["docs/design/org/consent-data-sharing.md §7 (controller roles)"],
+      "design": "docs/design/trust/legal-review-register.md", "critical": false
+    },
+    {
+      "id": "T1.0", "epic": "T1", "title": "Privacy baseline — existing (JSON export, self/admin erasure, inbox retention, cookie banner, PRIVACY.md, 16+ terms)", "status": "done", "size": "M", "owners": ["API", "web", "extension"], "deps": [], "relates": ["U14.6", "A1.1"], "supersedes": [],
+      "story": "As a user I can download a JSON copy of my data and delete my account and data myself; the web asks before analytics cookies; the extension's store disclosure is specific.",
+      "genz": "Baseline.",
+      "ac": ["Exists and is live (1.11, 9.X.2, 14.7, PL.1 partial)"],
+      "tests": ["AccountExportResourceIT, AccountDeletionResourceIT, InboxRetentionTest"],
+      "tech": "api/.../service/AccountExportService.java, AccountDeletionService.java, service/inbox/InboxRetention.java; web/src/components/CookieConsent.tsx; job-autofill/PRIVACY.md",
+      "evidence": ["api/src/main/java/com/dossier/api/service/AccountDeletionService.java", "api/src/main/java/com/dossier/api/service/AccountExportService.java", "web/src/components/CookieConsent.tsx", "job-autofill/PRIVACY.md"],
+      "design": null, "critical": false
+    },
+    {
+      "id": "T1.1", "epic": "T1", "title": "Data map as code: DataClass enum, DataMapTest, generated RoPA + retention table", "status": "not_started", "size": "M", "owners": ["API"], "deps": [], "relates": ["A9.5", "A1.8"], "supersedes": [],
+      "story": "As the platform I want every class of personal data declared once — tables, purpose, legal basis, retention, recipients, export section, erasure strategy — with a test that no table escapes it, so that export, erasure, retention and the policy all read the same truth.",
+      "genz": "'What we store' can be generated, so it is never out of date.",
+      "ac": ["api/.../privacy/DataClass.java + RetentionClass.java with the catalogue in privacy-ops.md §1", "DataMapTest walks JPA entities for user_id/login/email/user columns and fails on unclaimed tables or any dob/birth_* column", "scripts/gen-data-map.mjs writes docs/design/trust/DATA-MAP.generated.md (Art. 30 record + retention table); CI fails if stale"],
+      "tests": ["DataMapTest", "gen-data-map staleness check in CI"],
+      "tech": "api/src/main/java/com/dossier/api/privacy/{DataClass,RetentionClass}.java, api/src/test/.../DataMapTest.java, scripts/gen-data-map.mjs",
+      "evidence": ["api/src/main/java/com/dossier/api/service/AccountDeletionService.java (hand-maintained list of repos)"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": true
+    },
+    {
+      "id": "T1.2", "epic": "T1", "title": "DSAR export v2: complete, asynchronous ZIP with files, 7-day signed link, email-request path", "status": "partial", "size": "M", "owners": ["API", "web"], "deps": ["T1.1"], "relates": ["A9.4", "O6.5", "U18.4", "U1.5"], "supersedes": [],
+      "story": "As a user I want one download with everything — profile, resume files, applications and attachments, AI reports, matches, mail we read, events, acceptances — so that leaving or checking is one tap.",
+      "genz": "Portability is a feeling: the ZIP has to open and make sense.",
+      "ac": ["POST /api/account/export → 202 (step-up; one open request); job builds the ZIP per privacy-ops.md §3 (every DataClass with an export section); stored under exports/ with a 7-day lifecycle; emailed signed link", "GET /api/account/export?format=json keeps the synchronous shape and gains the missing sections (AI reports, matches/feedback, legal acceptances, org memberships)", "Admin execute (A9.4) and the email-request script call the same service", "Settings › Privacy › Your data shows request state and last export"],
+      "tests": ["ExportCompletenessIT (every DataClass present; resume bytes; link expiry)", "ExportJobIT (failure → FAILED, never partial)", "Playwright Your-data panel"],
+      "tech": "api service/privacy/ExportJob, AccountExportService (extend), FileStorage seam (local now, S3 later — R0.6 decision), web app-v3/settings/panels.tsx (Privacy panel)",
+      "evidence": ["api/src/main/java/com/dossier/api/service/AccountExportService.java (JSON, no files, no AI reports)"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": true
+    },
+    {
+      "id": "T1.3", "epic": "T1", "title": "Deletion completeness: enumerated erasure, downstream purge, 24 h undo window, deletion receipt", "status": "partial", "size": "M", "owners": ["API", "web"], "deps": ["T1.1"], "relates": ["A1.1", "A1.2", "O4.9", "O6.5", "U1.5"], "supersedes": [],
+      "story": "As a user I want 'delete my account' to mean every row and file, including the ones in Brevo and the S3 version history, and a receipt that says what survives, so that leaving is clean.",
+      "genz": "They will test it: delete, then ask what you still have. The receipt answers before they ask.",
+      "ac": ["AccountDeletionService iterates DataClass strategies (DELETE/ANONYMISE/KEEP_LEGAL); closes known gaps: ai_quota_override, Brevo contact + email_subscriber, bug_report/sales_inquiry emails, refresh_token, admin_mfa_challenge, S3 noncurrent versions (lifecycle 1 d), privacy_request rows", "ErasureCompletenessIT builds a user with a row in every DataClass and asserts zero references after purge; KEEP_LEGAL rows carry the login only", "DELETE /api/account deactivates now (sessions revoked, Stripe cancelled now), purges after 24 h unless the emailed cancel link is used; deleted_user_login tombstone (400 d) feeds purge-on-restore", "Deletion receipt email once; policy wording updated (T0.3)"],
+      "tests": ["ErasureCompletenessIT", "DeletionWindowIT", "BrevoErasureQueueTest (API down → queued, retried)"],
+      "tech": "api service/AccountDeletionService.java (refactor onto DataClass), service/privacy/ErasureJob, BrevoContactService.delete, S3ResumeStorageService (version delete), Liquibase deleted_user_login + pending_external_erasure",
+      "evidence": ["api/src/main/java/com/dossier/api/service/AccountDeletionService.java", "docs/HANDOFF-ROADMAP.md §5 (ai_quota_override survives)"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": true
+    },
+    {
+      "id": "T1.4", "epic": "T1", "title": "Retention catalogue + retention job for every class (tokens, challenges, exports, logs, security events) + public table", "status": "partial", "size": "M", "owners": ["API", "web"], "deps": ["T1.1"], "relates": ["A9.5", "A10.2", "U18.3"], "supersedes": [],
+      "story": "As a user I want to see how long each kind of data is kept and know that a job actually deletes it, so that 'we keep it while your account is active' is specific.",
+      "genz": "A retention table beats a paragraph.",
+      "ac": ["RetentionJob runs nightly per RetentionClass (bounds from the enum; admin overrides from A9.5 within bounds); retention_run rows (A9.5)", "New purges: refresh_token expired, admin_mfa_challenge, export files, privacy_request completed > 400 d, security events 400 d, product_event 180 d (U18.3), fill_event 400 d", "GET /api/legal/retention public; /privacy#retention and /trust render it"],
+      "tests": ["RetentionJobTest per class", "RetentionCatalogueTest (bounds; every class referenced)"],
+      "tech": "api service/privacy/RetentionJob (replaces InboxRetention's single case), AdminRetentionResource (A9.5), web legal content block",
+      "evidence": ["api/src/main/java/com/dossier/api/service/inbox/InboxRetention.java", "docs/roadmap/AUDIT-admin.md:38 (no purge of refresh_token / admin_mfa_challenge)"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": false
+    },
+    {
+      "id": "T1.5", "epic": "T1", "title": "Subprocessor register, public page, DPA tracker (AWS, Brevo, Stripe, Google, Cloudflare, aggregator) + coverage test", "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["T1.1"], "relates": ["A9.7"], "supersedes": [],
+      "story": "As a user I want to see exactly which companies receive my data, for what, where, and whether a data-processing agreement is signed, so that 'infrastructure providers' becomes names.",
+      "genz": "Simplify names its providers; we name ours and the DPA status.",
+      "ac": ["subprocessor seed per admin D8 with purpose, data categories (DataClass refs), region, dpa_status/date, url; public GET /api/legal/subprocessors + /legal/subprocessors page; 'last updated'", "SubprocessorCoverageTest: every DataClass recipient exists in the seed and vice versa", "DPA tracker in the register (L6): AWS (confirm incorporated), Brevo (sign), Stripe (confirm), Google (after T1.6), Cloudflare (confirm none needed), aggregator (when chosen); adding a provider that receives resume content is a material version (T0.4)"],
+      "tests": ["SubprocessorCoverageTest", "SubprocessorsPublicIT (no admin fields leak)"],
+      "tech": "api Liquibase subprocessor seed (A9.7 table), LegalResource; web /legal/subprocessors page",
+      "evidence": ["web/src/app/(marketing)/privacy/page.tsx:204-214 (unnamed 'infrastructure providers')", "ROADMAP.md:954 (DPAs with Brevo + AWS S3 open)"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": true, "benchmark": "G31; Simplify names PostHog/Google/Meta and provider categories; Teal names OpenAI/Stripe/GA/Impact.com"
+    },
+    {
+      "id": "T1.6", "epic": "T1", "title": "AI provider on a no-training tier with a DPA (Gemini paid API / Vertex) + policy and options copy update", "status": "not_started", "size": "M", "owners": ["API", "web", "extension"], "deps": [], "relates": ["A4.3", "U14.5"], "supersedes": [],
+      "story": "As a user I want my resume and questions sent to an AI provider that is contractually barred from training on them, so that 'never used to train models' is true for the provider too, not only for Kiwiply.",
+      "genz": "'Google may use what we send it' is the sentence that loses them. Remove the reason for it.",
+      "ac": ["GeminiAiProvider configured against the paid Gemini API (or Vertex AI) with a signed DPA; DOSSIER_AI_PROVIDER_TRAINING=false asserted at boot and in CI (startup fails if true outside dev)", "/privacy AI section, PRIVACY.md and OptionsApp.tsx consent copy drop the free-tier/human-review sentence; T3.1 register provider field = no-training", "AiBudgetService per-call costs reflect the paid tier; the Free plan's parse call is costed; margin note in PLAN-trust §4 confirmed by the pay area", "Material version published (T0.4)"],
+      "tests": ["AiProviderConfigTest (training flag false, DPA url present)", "existing AI ITs green on the new config"],
+      "tech": "api service/ai/GeminiAiProvider.java, AiPolicy (pricing table), application.yml dossier.ai.*; web legal content; job-autofill/entrypoints/options/OptionsApp.tsx:336-342. Tier choice (Gemini paid API vs Vertex AI) is an open question for the user and the ai area",
+      "evidence": ["web/src/app/(marketing)/privacy/page.tsx:131-133 (free tier; Google may use inputs)", "job-autofill/entrypoints/options/OptionsApp.tsx:337"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": true, "benchmark": "G31; Simplify: 'enterprise or no-training configurations'; Yoodli: training exclusion is paid-only — we make it the default for everyone"
+    },
+    {
+      "id": "T1.7", "epic": "T1", "title": "Global Privacy Control honoured, consent mirrored server-side, cookie table, 'Your Privacy Choices' link", "status": "partial", "size": "S", "owners": ["web", "API"], "deps": [], "relates": ["U18.4", "U14.2"], "supersedes": [],
+      "story": "As a user I want my browser's privacy signal respected and my cookie choice to follow my account so that I never answer the banner twice or get analytics after saying no.",
+      "genz": "GPC is on by default in the browsers they use; honour it silently.",
+      "ac": ["CookieConsent reads navigator.globalPrivacyControl / Sec-GPC → DENIED without a banner; recorded as source GPC", "PUT /api/account/preferences {analyticsConsent}; signed-in users' choice mirrors to the server and wins over localStorage; U18 events respect it", "Cookie table rendered from web/src/lib/cookies-registry.ts into the cookies policy content; footer 'Your Privacy Choices' link to Settings › Privacy (or the banner when signed out)"],
+      "tests": ["GpcIT / Playwright with the GPC header: no banner, no gtag", "unit: registry → table"],
+      "tech": "web/src/components/CookieConsent.tsx, web/src/lib/analytics.ts, web/src/lib/cookies-registry.ts, api user_preference column",
+      "evidence": ["web/src/components/CookieConsent.tsx (localStorage only, no GPC)"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": false, "benchmark": "Simplify honours GPC and offers a 'Your Privacy Choices' page"
+    },
+    {
+      "id": "T1.8", "epic": "T1", "title": "Email-sourced privacy requests: privacy@ intake, identity verification script, 30/45-day SLA templates", "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["T1.2", "T1.3"], "relates": ["A9.4", "A8.3"], "supersedes": [],
+      "story": "As a person without an account (or who lost access) I want an email request to be verified and answered within the legal deadline so that rights are real for everyone, not only signed-in users.",
+      "genz": "No forms that go nowhere; a reply with a date.",
+      "ac": ["privacy@kiwiply.com routes to the inquiries queue with category PRIVACY → creates privacy_request(source=EMAIL, due by region hint: 30 d GDPR / 45 d CCPA)", "Verification: one-time link to the account email, or inquiry/newsletter record match for non-users; never ID documents", "Templates: acknowledgement, verification, completion, refusal (with reasons); execute uses T1.2/T1.3 services", "Admin page shows due dates (A9.4)"],
+      "tests": ["PrivacyRequestEmailIT (create → verify → execute; overdue flag)"],
+      "tech": "api SalesInquiryService (category), PrivacyRequestService (A9.4), MailService templates; DEPLOY.md mail routing note",
+      "evidence": ["docs/design/admin/security-compliance-operations.md D5"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": false
+    },
+    {
+      "id": "T1.9", "epic": "T1", "title": "Backups and logs inside the privacy promise: purge-on-restore, 30-day statement, IP hashing in logs", "status": "not_started", "size": "S", "owners": ["API"], "deps": ["T1.3"], "relates": ["A10.1", "A10.6"], "supersedes": [],
+      "story": "As a user I want to know that erased data does not live on in backups and logs forever, so that deletion is honest end to end.",
+      "genz": "'Up to 30 days in backups' is a sentence they can accept; silence is not.",
+      "ac": ["verify-restore.sh (15.1) re-runs erasure for deleted_user_login tombstones after each restore; documented in DEPLOY.md", "Backup retention 30 daily + 12 monthly stated in the policy; monthly dumps restore-only", "API/web access logs: IP kept 14 d raw, then hashed; error digests redact emails; login_attempt/security_event store ip_hash + country only"],
+      "tests": ["restore-drill script asserts tombstoned logins absent", "LogRedactionTest"],
+      "tech": "scripts/verify-restore.sh, api logging config (logback masking), DEPLOY.md §5",
+      "evidence": ["ROADMAP.md Phase 15.1 (backups plan; never ran)"],
+      "design": "docs/design/trust/privacy-ops.md", "critical": false, "benchmark": "Teal: 'deleted or anonymized within 30 days, backups follow a separate schedule'"
+    },
+    {
+      "id": "T2.1", "epic": "T2", "title": "Neutral age screen at signup/SSO/connect (16+), no birth date stored, under-16 refusal", "status": "partial", "size": "M", "owners": ["API", "web", "extension"], "deps": [], "relates": ["U1.3", "U1.8", "U2.2", "U20.1"], "supersedes": [],
+      "story": "As the platform I want a COPPA-style neutral age question that stores only 'confirmed' and 'under 18' so that the 16+ rule is enforced without collecting a birth date.",
+      "genz": "One question, no default, no lecture — and we don't keep the year.",
+      "ac": ["POST /api/register + birthYear → 400 AGE_REQUIRED / 403 UNDERAGE (no account, email not retained beyond a 24 h hashed rate-limit key); jhi_user.age_confirmed_at/age_method/under_18 (additive)", "Existing and SSO accounts without age_confirmed_at are gated once (POST /api/account/age-gate) by the (app) layout and by /connect before minting the extension token", "Year picker with no default and no visible threshold; refusal screen copy per the design; demo accounts seeded adult", "DataMapTest forbids dob/birth_* columns"],
+      "tests": ["AgeGateIT (15/16/18/missing; existing account gated once)", "Playwright signup at 390 px (no default year; refusal)"],
+      "tech": "api UserService.registerUser + AccountResource, web/src/components/auth/AuthScreen.tsx + onboarding, web/src/app/connect/page.tsx, Liquibase additive",
+      "evidence": ["web/src/app/(marketing)/terms/page.tsx:75 (16+ copy only)", "api/src/main/java/com/dossier/api/domain/User.java (no age field)"],
+      "design": "docs/design/trust/minors-age-assurance.md", "critical": true, "benchmark": "Simplify and Huntr are 18+ by policy with no screen; Teal states no minimum"
+    },
+    {
+      "id": "T2.2", "epic": "T2", "title": "Under-age report handling: queue reason, suspend-on-receipt, verification without documents, 5-day erasure", "status": "not_started", "size": "S", "owners": ["API"], "deps": ["T1.3", "T1.8"], "relates": ["A9.4", "A9.3"], "supersedes": [],
+      "story": "As support I want a report that an account holder is under 16 to suspend the account, verify with the reporter, and erase within five business days so that actual knowledge is acted on.",
+      "genz": "A parent should get a straight answer and a deletion, not a form loop.",
+      "ac": ["privacy_request reason UNDERAGE; block action (A9.3) on receipt; runbook in minors-age-assurance.md §4; never collects ID documents", "Erasure via T1.3 path; receipt to the reporter says only 'deleted'; metrics on the admin privacy page"],
+      "tests": ["UnderageRequestIT (suspend → verify → erase; timers)"],
+      "tech": "api PrivacyRequestService (A9.4), AdminUserActionService.block (A9.3), MailService templates",
+      "evidence": [],
+      "design": "docs/design/trust/minors-age-assurance.md", "critical": false
+    },
+    {
+      "id": "T2.3", "epic": "T2", "title": "School/bootcamp org 16+ assertion, CSV import rejects age columns, join-time age gate", "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["T2.1"], "relates": ["O2.1", "O2.5", "O6.7", "O1.1"], "supersedes": [],
+      "story": "As an org admin of a school or bootcamp I assert that everyone I invite is 16 or older, and the join flow still checks, so that the org model never relies on the org alone.",
+      "genz": "Students don't have to show a school their age; the org signs for it and we still ask neutrally.",
+      "ac": ["POST /api/orgs for SCHOOL|BOOTCAMP requires ageAssertion=true; organization.age_assertion_by/at recorded; typed sentence in /org/new (O2.1)", "CSV import (O2.5) rejects any dob/age/birth column with a plain message; invite email states 16+", "Join (O2.3) runs the T2.1 gate; a refused joiner shows the org 'Could not join (age)' with no detail"],
+      "tests": ["OrgAgeAssertionIT", "CsvImportAgeColumnTest", "Playwright join refusal at 390 px"],
+      "tech": "api OrgResource/OrgInviteService (O-area files, additive), web (org)/new flow copy",
+      "evidence": ["docs/design/org/consent-data-sharing.md D6"],
+      "design": "docs/design/trust/minors-age-assurance.md", "critical": false
+    },
+    {
+      "id": "T2.4", "epic": "T2", "title": "High-privacy defaults for 16–17 (MinorDefaults map): analytics off, no nudges/share/geolocation/public profile/assistant memory by default", "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["T2.1"], "relates": ["U18.4", "U16.1", "U16.2", "U16.4", "U2.3", "U13.3", "U8.4", "U7.4"], "supersedes": [],
+      "story": "As a 16- or 17-year-old I want the privacy-friendly setting to be the default everywhere, with an explanation when I switch one on, so that the product treats me as the law treats me.",
+      "genz": "The Children's Code posture, done as product: off by default, your choice to turn on, no pressure.",
+      "ac": ["One MinorDefaults map (API) read by preferences creation when under_18=true: analyticsConsent DENIED (no banner), product events limited to the activation funnel, newsletter opt-in hidden, referral/share cards hidden, streak/goal nudges off, push pre-prompt only after a self-created alert, no 'Use my location', public profile unavailable, assistant memory off", "Settings shows each switch with 'Off because you told us you're under 18 — turn on if you want'; nothing auto-flips at 18", "GET /api/account exposes under18 for the web; events never carry the flag"],
+      "tests": ["UnderageDefaultsTest (every default from the map)", "Playwright: minor account sees no banner/share cards; switches carry the copy"],
+      "tech": "api service/privacy/MinorDefaults + UserPreferenceService; web app-v3/settings panels, onboarding, engagement components",
+      "evidence": [],
+      "design": "docs/design/trust/minors-age-assurance.md", "critical": true, "benchmark": "No competitor in the matrix has an under-18 posture; a parent-/school-facing trust story (COMPETITIVE-LANDSCAPE §'Gen Z' note)"
+    },
+    {
+      "id": "T2.5", "epic": "T2", "title": "Age rules in copy after counsel: children paragraph, per-country wording, COPPA/Children's Code position", "status": "blocked", "size": "S", "owners": ["web"], "deps": ["T0.1", "T2.1"], "relates": ["T0.5"], "supersedes": [],
+      "story": "As the owner I want the minors position confirmed by counsel and landed in the policy and terms so that the 16+ rule and the under-18 defaults are stated correctly.",
+      "genz": "Say it plainly: who can use Kiwiply, and what is different if you're 16 or 17.",
+      "ac": ["Children paragraph in /privacy; terms wording for 'age of digital consent'; store listing age fields aligned", "Register L5 closed with the answers to minors-age-assurance.md §6"],
+      "tests": ["LegalContentSyncTest green"],
+      "tech": "web/content/legal/**; blocked on counsel",
+      "evidence": [],
+      "design": "docs/design/trust/minors-age-assurance.md", "critical": false
+    },
+    {
+      "id": "T3.1", "epic": "T3", "title": "AI feature register as code (AiFeature enum) + doc-sync test + generated policy section", "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": [], "relates": ["A4.1", "U14.5"], "supersedes": [],
+      "story": "As the platform I want every user-visible AI feature declared once with purpose, inputs, outputs, decision impact, human review, plan and default, so that the policy, the options copy and the disclosure component can never disagree with the code.",
+      "genz": "'What was sent' on every AI answer comes from the same list the lawyers read.",
+      "ac": ["api/.../ai/AiFeature.java per ai-hiring-law-transparency.md §2 mapping every AiTask; AiPolicy.isDisabled treats unknown features as disabled", "AiFeatureDocSyncTest renders the enum to a table and diffs it against the privacy content's AI section (T0.3) and the design doc §2", "GET /api/trust/summary exposes the register (public, no internals)"],
+      "tests": ["AiFeatureDocSyncTest", "AiFeatureCoverageTest (every AiTask mapped)"],
+      "tech": "api service/ai/{AiFeature,AiTask,AiPolicy}.java, web legal content generated block",
+      "evidence": ["api/src/main/java/com/dossier/api/service/ai/AiTask.java", "web/src/app/(marketing)/privacy/page.tsx:129-202 (hand-written per-feature prose)"],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": true
+    },
+    {
+      "id": "T3.2", "epic": "T3", "title": "AiDisclosure component + structured 'why' on every AI output (drafts, fit/match, tailor, inbox-driven status)", "status": "partial", "size": "M", "owners": ["ui", "web", "extension", "API"], "deps": ["T3.1"], "relates": ["U4.7", "U4.2", "R4.2", "R5.2", "U6.3", "U8.2"], "supersedes": [],
+      "story": "As a user I want every AI output labelled, with 'what was sent', the model, and the reasons behind a score, so that I can trust or discard it knowingly.",
+      "genz": "A badge and a 'Why?' — the honest version of the AI sparkle.",
+      "ac": ["@kiwiply/ui AiDisclosure (badge, Why sheet: inputs from the register, model/provider line, call id); used by the drawer drafts, web fit/match/tailor, assistant answers, and the tracker timeline for inbox-driven changes ('rule: …' or 'AI', one-tap revert)", "FIT/MATCH/ranker responses carry reasons[]; a score without a reason is not rendered (ExplanationPresentIT)", "Extension options consent copy generated from the register text"],
+      "tests": ["ExplanationPresentIT", "InboxChangeRevertIT", "vitest AiDisclosure a11y", "Playwright at 390 px on draft/fit/tailor"],
+      "tech": "packages/ui/src/AiDisclosure.tsx, job-autofill/entrypoints/panel (draft card), web app-v3/jobs/JobDetail, resume-builder AI panel (R4.2), applications timeline (U6.3)",
+      "evidence": ["job-autofill/entrypoints/options/OptionsApp.tsx:336-342 (disclosure copy exists in options only)", "api/src/main/java/com/dossier/api/service/JobFitService.java"],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": false, "benchmark": "Jobright shows scores without inputs; Simplify states human review in policy only"
+    },
+    {
+      "id": "T3.3", "epic": "T3", "title": "Sensitive-field firewall test: EEO/DOB/protected attributes never reach AI inputs, suggestions, org DTOs, telemetry, ranker, events", "status": "partial", "size": "S", "owners": ["API", "extension"], "deps": [], "relates": ["O6.1", "U4.2", "U13.2", "U18.1"], "supersedes": [],
+      "story": "As the platform I want the promise 'self-identification answers never leave your form' to be a failing test, not a code comment, so that a refactor cannot break it silently.",
+      "genz": "The one promise that matters most to people who answer the EEO questions honestly.",
+      "ac": ["SensitiveField set (gender, ethnicity, race, veteranStatus, disabilityStatus, DOB/birthYear, sexualOrientation, religion, health, union, photo; work-authorisation document numbers) in API and extension (src/config/rules.js SENSITIVE_FIELDS)", "SensitiveFirewallTest builds a profile with every key set and asserts absence in: AiInputs digests, AiDraftService context, profile-suggestion capture, ShareField/MemberSummaryDTO, fill_event payload, JobRanker/JobPrefilter features, product events, assistant tool outputs", "Extension unit test for the suggestion filter and the fill telemetry vocabulary"],
+      "tests": ["SensitiveFirewallTest (API)", "sensitiveFields.test.js (extension)"],
+      "tech": "api service/AiInputs.java, AiDraftService, ProfileSuggestionService, service/jobs/JobRanker, FillTelemetryService; job-autofill/src/config/rules.js, src/lib/suggestions",
+      "evidence": ["api/src/main/java/com/dossier/api/service/AiInputs.java", "job-autofill/PRIVACY.md (suggestions never take EEO)", "web/src/components/onboarding/Onboarding.tsx:60-69"],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": true
+    },
+    {
+      "id": "T3.4", "epic": "T3", "title": "Attestation guard: certify/consent/signature fields never ticked; fixture-tested; inherited by Autopilot and Marketer act-for", "status": "partial", "size": "S", "owners": ["extension"], "deps": [], "relates": ["O10.10", "U20.4"], "supersedes": [],
+      "story": "As a user I want Kiwiply to leave every 'I certify', 'I agree to the background check', signature and date-signed field to me, on every ATS, so that the attestation is mine in fact and in law.",
+      "genz": "The line between 'helped me apply' and 'applied as me'.",
+      "ac": ["isAttestation(label, type) rule in the engine (certify/attest/acknowledge/agree/signature/date signed/consent) with real captured fixtures for Workday, Greenhouse, iCIMS, Taleo; such fields are listed in the review overlay as 'yours to tick'", "Unknown checkboxes are never ticked (default preserved); AttestationGuardTest + NoSubmitSurfaceTest cover Autopilot (19.x) and act-for (O10) paths", "Engine version + rules version bumped per the ritual"],
+      "tests": ["AttestationGuardTest with fixtures", "existing no-submit tests green"],
+      "tech": "job-autofill/src/config/rules.js, src/lib/fill engine (checkbox handling), src/tests; docs/design/org/marketer-workspace.md §6 reference",
+      "evidence": ["CLAUDE.md (no auto-submit, Autopilot never ticks attestation boxes)", "docs/design/org/consent-data-sharing.md D8"],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": false, "benchmark": "LazyApply/Massive/Sonara tick and submit; Simplify Autopilot has no review step (COMPETITIVE-LANDSCAPE)"
+    },
+    {
+      "id": "T3.5", "epic": "T3", "title": "Regulatory position memo for counsel: EU AI Act (Annex III 4(a), Art. 50), NYC LL144, CPPA ADMT, Colorado SB26-189, GDPR Art. 22/9", "status": "blocked", "size": "S", "owners": ["API"], "deps": ["T0.1", "T3.1"], "relates": ["O10.1"], "supersedes": [],
+      "story": "As the owner I want a written position on which AI rules reach a candidate-side tool (and the consultancy Marketer) with counsel's answers so that the register, logs and disclosures are built for the right obligations.",
+      "genz": "We don't guess at the law; we write down the question and get it answered.",
+      "ac": ["ai-hiring-law-transparency.md §0 and §5 sent with the register; answers recorded with dates; stories created in the owning areas for any obligation confirmed", "Statement on /trust: scores and rankings are never sold to employers"],
+      "tests": ["Docs only; T8.1 revisits each quarter (Annex III date 2027-12-02; CPPA 2027-01-01)"],
+      "tech": "docs/design/trust/ai-hiring-law-transparency.md; blocked on counsel (L4)",
+      "evidence": [],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": false
+    },
+    {
+      "id": "T3.6", "epic": "T3", "title": "Fairness check for matching/ranking (no protected features; opt-in aggregate distribution check, k ≥ 100) — P2", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["T3.3", "U4.6"], "relates": ["U4.2", "T7.5"], "supersedes": [],
+      "story": "As the platform I want to verify, in aggregate and with consent, that match scores and daily-match counts do not differ by self-identified group, so that the transparency report can say so with numbers.",
+      "genz": "Fairness as a published number, not a value statement.",
+      "ac": ["Separate 'help check fairness' switch (off by default; hidden for minors) next to EEO self-ID; quarterly job computes score/count distributions per group with k ≥ 100 per cell, else suppressed", "No per-user effect; results stored as aggregates only; summary in the transparency report"],
+      "tests": ["FairnessJobTest (suppression; no protected attribute in ranker features — static check)"],
+      "tech": "api service/jobs/FairnessReportJob, settings switch, report table",
+      "evidence": [],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": false
+    },
+    {
+      "id": "T3.7", "epic": "T3", "title": "Provenance: ai_call.feature + prompt_version; every persisted AI output stores its ai_call id; shown in export and disclosure", "status": "partial", "size": "S", "owners": ["API"], "deps": ["T3.1"], "relates": ["A4.2", "T1.2"], "supersedes": [],
+      "story": "As a user I want to know which model produced a draft, score or status change and when, so that 'why did this change?' is always answerable.",
+      "genz": "Receipts for the AI, too.",
+      "ac": ["ai_call gains feature, prompt_version (additive); ai_answer, resume_match, job_fit, tailor proposal, job_match, inbox classification rows store ai_call_id", "Export ai.json lists task/model/cost/time per call (never prompts); AiDisclosure shows the call id"],
+      "tests": ["ProvenanceIT"],
+      "tech": "api service/ai/* (ledger), domain rows (additive columns), AccountExportService",
+      "evidence": ["api/src/main/java/com/dossier/api/service/AiMeteringService.java (ledger exists without feature/prompt version)"],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": false
+    },
+    {
+      "id": "T3.8", "epic": "T3", "title": "Interview-integrity statement: 'we never help you cheat live' on Interview Prep, pricing and /trust; AI practice is text-only, never a live copilot", "status": "not_started", "size": "S", "owners": ["web"], "deps": [], "relates": ["U9.3", "T7.4"], "supersedes": [],
+      "story": "As a user I want Kiwiply to say plainly that its interview prep is practice, not a live-interview cheat tool, so that I know what I am buying and employers know what the brand stands for.",
+      "genz": "Final Round's reputation is the warning; practice tools (Yoodli, Big Interview) are the trusted ones.",
+      "ac": ["Copy block on /interview-prep, /pricing (Pro/Autopilot cards) and /trust: no real-time answer feeding, no screen/audio capture during interviews, text practice only", "Claims-register entry (T7.4) with evidence: no live-capture permissions in the extension manifest (check-data-use.mjs), U9.3 design", "Honest-claims register (mkt) references the same id"],
+      "tests": ["Playwright copy present; check-data-use.mjs asserts no tabCapture/desktopCapture/audio permissions"],
+      "tech": "web app-v3/interview-prep, components/pricing, /trust page; job-autofill/scripts/check-data-use.mjs",
+      "evidence": ["docs/roadmap/COMPETITIVE-GAPS.md G27"],
+      "design": "docs/design/trust/trust-center-transparency.md", "critical": false, "benchmark": "G27; Final Round (live cheat) is reputationally toxic; Yoodli/Big Interview (practice) are trusted"
+    },
+    {
+      "id": "T3.9", "epic": "T3", "title": "Sensitive-data rules for work-authorisation / immigration status fields (consultant profile): categories only, never document numbers, person-owned, FULL-scope only — review + firewall extension", "status": "not_started", "size": "S", "owners": ["API"], "deps": ["T3.3"], "relates": ["O10.3", "O10.4", "O6.1"], "supersedes": [],
+      "story": "As a consultant I want my work-authorisation status to stay a category I set myself, shown to a paired marketer only while I share FULL, with reminders sent to me and never a visa or document number stored, so that the bench-sales habit of holding immigration data does not enter Kiwiply.",
+      "genz": "The market expects visa data in a CRM; we keep it a category you own.",
+      "ac": ["Allowed values: an enum of status categories + optional expiry month; DataMapTest forbids columns named visa_number/i94/passport/ssn/document_number; SensitiveField adds the document-number class", "Visibility: consultant-owned, FULL-scope only (ShareField min scope FULL), expiry reminder to the consultant only (U7), never to the org; the org CSV export never includes it", "Legal basis: consent, withdrawable; policy sentence in the org DPA (T0.6)"],
+      "tests": ["SensitiveFirewallTest extended", "ShareMatrixTest row for the field", "DataMapTest forbidden columns"],
+      "tech": "api profile item type (R1.1) or bio key; ShareField enum (O6.1); docs/design/org/consent-data-sharing.md §3 row",
+      "evidence": ["docs/roadmap/COMPETITIVE-GAPS.md G41", "docs/design/org/consent-data-sharing.md §3"],
+      "design": "docs/design/trust/ai-hiring-law-transparency.md", "critical": false, "benchmark": "G41; bench-sales CRMs hold visa numbers and expiry alerts vendor-side — we hold a self-declared category, person-side"
+    },
+    {
+      "id": "T4.1", "epic": "T4", "title": "Accessibility statement page (/accessibility): conformance status, known issues with dates, testing method, feedback channel", "status": "not_started", "size": "S", "owners": ["web"], "deps": [], "relates": ["T0.3", "U14.4"], "supersedes": [],
+      "story": "As a user with a disability I want to know what works, what doesn't yet, and how to reach a human who can help, so that I can decide whether Kiwiply works for me.",
+      "genz": "Say 'partially conformant' and list the issues — that is more credible than a badge.",
+      "ac": ["Versioned content file (T0.3 pattern) rendering the design §3 layout; known issues with target dates come from the a11y baseline file (T4.2)", "accessibility@kiwiply.com → support queue category A11Y with a 5-business-day SLA (A8.4)", "Footer link on marketing and app shells; EN 301 549 mapping section; no EAA applicability claim until counsel (L11)"],
+      "tests": ["Playwright: page renders issues from the baseline; link in footers"],
+      "tech": "web/content/legal/accessibility/<version>.md, web/src/app/(marketing)/accessibility/page.tsx, web/a11y-baseline.json",
+      "evidence": ["docs/HANDOFF-V2.md §6 (keyboard/screen-reader never verified)"],
+      "design": "docs/design/trust/accessibility-program.md", "critical": false
+    },
+    {
+      "id": "T4.2", "epic": "T4", "title": "Automated a11y gate in CI for web, ui, org, admin and the extension panel (axe + jsx-a11y + Lighthouse ≥ 95) with an expiring baseline", "status": "not_started", "size": "M", "owners": ["web", "ui", "extension"], "deps": [], "relates": ["U19.1", "U19.3", "O15.3", "A15.3", "A15.1", "R6.5"], "supersedes": [],
+      "story": "As a builder I want one definition of 'accessible enough to merge' that runs on every surface so that the four areas' accessibility stories are measured the same way.",
+      "genz": "Accessibility is a CI status, not a sprint.",
+      "ac": ["@axe-core/playwright project `a11y` over the route list in accessibility-program.md §1 at 390/1440, light + dark; serious/critical fail, moderate reported; baseline web/a11y-baseline.json entries carry an expiry", "eslint-plugin-jsx-a11y strict on web, packages/ui, job-autofill/entrypoints", "Lighthouse accessibility ≥ 95 on 10 routes via lhci; extension panel.html/options.html loaded in an extension context and axe'd", "Shared helper packages/ui/test/a11y.ts; report-only for one week then enforced"],
+      "tests": ["The gate itself; a seeded violation branch fails"],
+      "tech": ".github/workflows/ci.yml, web/playwright.config (U19.3), packages/ui/test/a11y.ts, job-autofill test runner",
+      "evidence": ["web/package.json (no axe/jsx-a11y)", ".github/workflows/ci.yml (tsc/eslint/build only)"],
+      "design": "docs/design/trust/accessibility-program.md", "critical": true
+    },
+    {
+      "id": "T4.3", "epic": "T4", "title": "@kiwiply/ui accessibility contract: focus ring, 44 px targets, contrast token test, reduced motion, forced-colors, live regions, IconButton label required", "status": "not_started", "size": "M", "owners": ["ui"], "deps": [], "relates": ["U0.2", "U0.3"], "supersedes": [],
+      "story": "As a builder I want the design system to make the accessible thing the only thing, so that pages inherit conformance instead of re-implementing it.",
+      "genz": "Big targets and visible focus are also what thumbs want.",
+      "ac": ["Primitives guarantee 3 px focus-visible ring ≥ 3:1, 44 × 44 targets, prefers-reduced-motion in every animation, forced-colors safe styles, a Toast live region", "contrast.test.ts computes every text/background token pair in light and dark ≥ 4.5:1 (UI ≥ 3:1)", "IconButton requires `label` at the type level; BottomSheet/SwipeRow (U0.2) ship keyboard fallbacks", "packages/ui/README.md documents the contract"],
+      "tests": ["contrast.test.ts", "type test for IconButton", "vitest a11y attributes on primitives"],
+      "tech": "packages/ui/src/primitives/*, packages/ui/styles/theme-v2.css, packages/ui/test/contrast.test.ts",
+      "evidence": ["packages/ui/src (27 files with aria/reduced-motion work, unverified)"],
+      "design": "docs/design/trust/accessibility-program.md", "critical": false
+    },
+    {
+      "id": "T4.4", "epic": "T4", "title": "Manual screen-reader + keyboard audit of six journeys (NVDA/Chrome, VoiceOver/iOS, 200 % zoom) with findings filed to areas", "status": "not_started", "size": "M", "owners": ["web", "extension"], "deps": ["T4.2"], "relates": ["U19.1", "O15.3", "A15.3", "R6.2"], "supersedes": [],
+      "story": "As a screen-reader user I want sign-up, search/save, tracker update, resume upload/review, billing and extension connect/fill to work end to end, so that the product is usable, not merely lint-clean.",
+      "genz": "Automated checks catch a third of the issues; the rest need a person.",
+      "ac": ["Audit script per journey in docs/design/trust/accessibility-program.md §D5 executed and recorded (date, tester, tools); findings become stories tagged a11y in the owning area with severities", "Launch checklist 15.4 gains 'no open serious a11y issue on the six journeys'; re-audit each half-year"],
+      "tests": ["Playwright keyboard journeys (Tab-order snapshots, Esc closes sheets, focus returns) added as regression for fixed findings"],
+      "tech": "docs/design/trust/a11y-audits/<date>.md; web/e2e/a11y-keyboard.spec.ts",
+      "evidence": [],
+      "design": "docs/design/trust/accessibility-program.md", "critical": false
+    },
+    {
+      "id": "T4.5", "epic": "T4", "title": "Extension drawer accessibility: labelled dialog, focus in/out, Esc, keyboard command, fill results announced, overlay contrast", "status": "not_started", "size": "M", "owners": ["extension"], "deps": ["T4.3"], "relates": ["U20.3"], "supersedes": [],
+      "story": "As a keyboard or screen-reader user I want to open the drawer, run a fill, hear what was filled and what needs me, and get back to the page, so that autofill is not sighted-only.",
+      "genz": "'Filled 14 of 16; 2 need you' read aloud is the same honesty the overlay shows.",
+      "ac": ["Injected iframe is role=dialog with a name; focus moves in on open and returns on close; Esc closes; Alt+Shift+K opens (commands API); no focus trap on the ATS page", "aria-live polite announcements for fill results and errors; overlay badges ≥ 3:1 and never the only indicator (the drawer lists them)", "Tested against captured Workday modal DOM (its own focus handling)"],
+      "tests": ["drawer-a11y.test (role, focus, live text)", "axe on panel.html (T4.2)"],
+      "tech": "job-autofill/entrypoints/background.ts (commands), entrypoints/panel/*, src/lib/overlay, wxt.config.ts commands key",
+      "evidence": ["job-autofill/ARCHITECTURE.md (drawer injected as iframe)"],
+      "design": "docs/design/trust/accessibility-program.md", "critical": false
+    },
+    {
+      "id": "T4.6", "epic": "T4", "title": "ACR (VPAT-style conformance report) for org procurement + a11y issue SLA", "status": "not_started", "size": "S", "owners": ["web"], "deps": ["T4.4"], "relates": ["O14.2", "O14.5"], "supersedes": [],
+      "story": "As a university or bootcamp buyer I want a conformance report I can file with procurement, so that accessibility is not the reason a deal stalls.",
+      "genz": "Schools ask for the VPAT before the price.",
+      "ac": ["ACR generated from the statement + latest audit (WCAG 2.2 table: Supports/Partially/Does not); PDF on /accessibility and linked from /organizations", "Issue SLA: serious a11y bugs fixed within 30 days or listed as known issues with a date"],
+      "tests": ["Docs/PDF; link check"],
+      "tech": "docs/design/trust/acr/<date>.md → PDF via the R0.6 sidecar; web link",
+      "evidence": [],
+      "design": "docs/design/trust/accessibility-program.md", "critical": false
+    },
+    {
+      "id": "T5.1", "epic": "T5", "title": "security.txt (RFC 9116) on web + API, vulnerability disclosure policy page with safe harbour, security@ triage route", "status": "not_started", "size": "S", "owners": ["web", "API"], "deps": [], "relates": ["A8.4", "A8.3"], "supersedes": [],
+      "story": "As a security researcher I want a published contact, scope, timelines and a safe-harbour statement so that reporting a bug to Kiwiply is safe and gets a reply.",
+      "genz": "A product that invites bug reports is one that expects to be tested.",
+      "ac": ["/.well-known/security.txt on kiwiply.com and api.kiwiply.com (Contact, Policy, Expires 12 mo, Preferred-Languages, Canonical); SecurityTxtTest fails 30 days before expiry", "/security/disclosure per security-program.md §2 (interim safe-harbour wording, counsel L7 to confirm; 'no bounty' stated); ack 2 business days, triage 7, fix targets by severity", "security@kiwiply.com → inquiries queue category SECURITY paging the admin (A8.4 SLA)"],
+      "tests": ["SecurityTxtTest", "Playwright policy page"],
+      "tech": "web/public/.well-known/security.txt, api static resource or controller, web/content/legal/vdp, DEPLOY.md mail routing",
+      "evidence": ["web/public (no .well-known)", "no SECURITY.md in repo"],
+      "design": "docs/design/trust/security-program.md", "critical": true, "benchmark": "No competitor in the matrix publishes a disclosure policy; SaaS norm (RFC 9116)"
+    },
+    {
+      "id": "T5.2", "epic": "T5", "title": "HTTP security headers: nonce CSP (report-only → enforce), HSTS, frame-ancestors, Referrer-Policy, Permissions-Policy, COOP on web; API headers + CORS allow-list; CSP report endpoint", "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": [], "relates": ["U1.1", "U1.7", "A0.2"], "supersedes": [],
+      "story": "As the platform I want every response hardened against injection, framing and leakage so that the first question on any security questionnaire has a good answer.",
+      "genz": "Invisible, and the thing a pen test finds first when missing.",
+      "ac": ["web next.config.ts headers() + proxy.ts nonce: CSP per security-program.md D3 (Google sign-in, Stripe, GA-after-consent allow-listed), HSTS preload-ready, Referrer-Policy, Permissions-Policy, X-Content-Type-Options, COOP; report-only for one week via POST /api/csp-report (rate-limited, 7-day retention) then enforced", "API SecurityConfiguration.headers(): HSTS, nosniff, frame-ancestors 'none', Cache-Control no-store on /api/**; CORS allow-list = kiwiply.com + extension origin", "No change to the shared edge Caddy (locked); note in DEPLOY.md"],
+      "tests": ["SecurityHeadersIT (API)", "Playwright response-header assertions (web)", "CspReportIT"],
+      "tech": "web/next.config.ts, web/src/proxy.ts, web/src/lib/csp.ts, api config/SecurityConfiguration.java, web/rest/CspReportResource",
+      "evidence": ["web/next.config.ts (no headers)", "Caddyfile (encode + reverse_proxy only)", "api/src/main/java/com/dossier/api/config/SecurityConfiguration.java (defaults only)"],
+      "design": "docs/design/trust/security-program.md", "critical": true
+    },
+    {
+      "id": "T5.3", "epic": "T5", "title": "Supply-chain scanning: Dependabot (npm, Gradle, Actions), npm audit + OWASP dependency-check gates, gitleaks, CodeQL, pinned action SHAs, built-extension URL diff", "status": "not_started", "size": "M", "owners": ["web", "API", "extension"], "deps": [], "relates": ["A10.4"], "supersedes": [],
+      "story": "As the platform I want vulnerable dependencies, leaked secrets and unexpected network destinations caught in CI so that the supply chain is watched without a person remembering to.",
+      "genz": "Boring and automatic is the point.",
+      "ac": [".github/dependabot.yml (weekly, grouped) for the npm workspace root, api Gradle, GitHub Actions; actions pinned by SHA", "CI gates: npm audit --audit-level=high, Gradle dependency-check with a dated allow-list, gitleaks on push, CodeQL (JS/TS, Java) weekly", "Extension publish workflow lists every host permission and remote URL found in the built bundle and fails on any host not in PRIVACY.md front-matter (T6.2)"],
+      "tests": ["Seeded vulnerable-dep and leaked-secret fixture branches fail", "bundle URL diff on a fixture"],
+      "tech": ".github/dependabot.yml, .github/workflows/{ci,publish-extension}.yml, api/build.gradle (dependency-check plugin), job-autofill/scripts/check-data-use.mjs",
+      "evidence": [".github/workflows (no scanning)", ".github/dependabot.yml absent"],
+      "design": "docs/design/trust/security-program.md", "critical": false
+    },
+    {
+      "id": "T5.4", "epic": "T5", "title": "Public /security page: controls we have, dates, what we don't claim, how to report", "status": "not_started", "size": "S", "owners": ["web"], "deps": ["T5.1", "T5.2"], "relates": ["T7.1", "O13.5"], "supersedes": [],
+      "story": "As a user or org buyer I want a plain page of the security measures Kiwiply actually runs, with dates, so that trust is earned by specifics rather than a lock icon.",
+      "genz": "'Encrypted at rest (resume files and mail passwords)' beats 'bank-level security'.",
+      "ac": ["Versioned content (T0.3): TLS, encryption at rest (S3 SSE-S3, AES-256-GCM app passwords), bcrypt, 15-min tokens + rotating refresh, staff MFA, no log-in-as, audited access, backups + restore drills (A10.1 evidence date), disclosure policy, pen test date (T5.6), scanning in CI", "Explicit 'no SOC 2 report yet' line until T5.8 changes it; updated with each pen test", "Claims-register ids for each sentence (T7.4)"],
+      "tests": ["Playwright page + links", "ClaimsRegisterTest"],
+      "tech": "web/content/legal/security/<version>.md, web/src/app/(marketing)/security/page.tsx",
+      "evidence": ["docs/roadmap/AUDIT-org.md (org security page claims 2FA/AES-256 that don't exist — O13.5 fixes the org side)"],
+      "design": "docs/design/trust/security-program.md", "critical": false, "benchmark": "Careerflow puts 'encrypted at rest' in an FAQ; Teal says 'regular security assessments' — we say what and when"
+    },
+    {
+      "id": "T5.5", "epic": "T5", "title": "Incident response + breach-notification runbook (GDPR 72 h, UK, US state, CCPA, orgs 48 h, stores) and a first tabletop", "status": "not_started", "size": "M", "owners": ["API"], "deps": [], "relates": ["A10.5", "A5.3", "A5.4", "A5.5"], "supersedes": [],
+      "story": "As the owner I want a written, rehearsed procedure for a security incident — who leads, how we contain, whom we tell and by when — so that the first real incident is not the first run.",
+      "genz": "Telling people fast is the trust move; the runbook makes fast possible.",
+      "ac": ["DEPLOY.md incident section per security-program.md §3–§4: severity levels, roles, containment steps (revoke families, rotate secret, feature-flag off, pull extension version), evidence preservation, notification matrix with deadlines (counsel L12 confirms), post-mortem template", "A10.5 incident tool fields match the runbook; /trust shows incidents (T7.1)", "One tabletop exercise run and logged (date, scenario: leaked API key; findings as stories)"],
+      "tests": ["Docs + tabletop log; A10.5 ITs unchanged"],
+      "tech": "DEPLOY.md, docs/design/trust/security-program.md, docs/design/trust/incidents/<date>-tabletop.md",
+      "evidence": ["DEPLOY.md (no incident procedure)"],
+      "design": "docs/design/trust/security-program.md", "critical": false
+    },
+    {
+      "id": "T5.6", "epic": "T5", "title": "External penetration test (web, API, extension) + remediation tracker with severity SLAs + re-test", "status": "not_started", "size": "M", "owners": ["API", "web", "extension"], "deps": ["T5.2", "A0.2", "U1.1"], "relates": ["O1.5"], "supersedes": [],
+      "story": "As the owner I want an independent test of the web app, API and extension after the known auth gaps are closed, with findings fixed on a schedule, so that 'we test our security' is a fact with a date.",
+      "genz": "A date on /security is worth more than an adjective.",
+      "ac": ["Scope per security-program.md D6 (auth/BFF/billing/DSAR/org isolation; JWT/refresh/402/IMAP secrets/admin; extension messaging, externally_connectable, hostile ATS pages, token storage)", "Findings as stories with SLAs (critical 7 d, high 30 d, medium 90 d); re-test letter; summary + date on /security", "Budget: a boutique engagement sized for the stack; user approves the vendor"],
+      "tests": ["Regression tests added per finding"],
+      "tech": "docs/design/trust/pentest/<date>.md (summary only; report private)",
+      "evidence": [],
+      "design": "docs/design/trust/security-program.md", "critical": false
+    },
+    {
+      "id": "T5.7", "epic": "T5", "title": "Secrets custody and rotation calendar (JWT dual-key, SecretBox re-encrypt job, Stripe webhook, Brevo, DB, S3 IAM) + break-glass", "status": "not_started", "size": "S", "owners": ["API"], "deps": [], "relates": ["A0.4", "A10.1"], "supersedes": [],
+      "story": "As the platform I want every secret to have an owner, a rotation period and a tested rotation path so that a leak is a scheduled procedure, not a crisis.",
+      "genz": "Rotations that are rehearsed are rotations that happen.",
+      "ac": ["Calendar in DEPLOY.md per security-program.md D7; JWT accepts a previous key for 24 h (dual-key window); SecretBox key rotation job re-encrypts inbox credentials with a versioned key id (already versioned per ROADMAP 14.2)", "S3 IAM least-privilege checked (app RW own prefix; backup user no Delete); GitHub secrets write-only confirmed; .env custody in the password manager stated", "One rotation of each secret performed in staging-equivalent (local compose) and logged"],
+      "tests": ["JwtDualKeyIT", "SecretBoxRotationTest"],
+      "tech": "api security/jwt config, service/inbox/SecretBox, DEPLOY.md",
+      "evidence": ["ROADMAP.md:905 (SecretBox versioned)", "CLAUDE.md (.env in a password manager)"],
+      "design": "docs/design/trust/security-program.md", "critical": false
+    },
+    {
+      "id": "T5.8", "epic": "T5", "title": "SOC 2 readiness: policy set in docs/security, evidence collection, Type I go/no-go — P2", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["T5.5", "T5.7", "A0.6", "A10.1"], "relates": ["O13.5"], "supersedes": [],
+      "story": "As the owner I want the policies and evidence a SOC 2 Type I would need written as we go, so that the first org deal that asks is a decision, not a six-month scramble.",
+      "genz": "Procurement checkboxes, prepared in advance.",
+      "ac": ["docs/security/{access-control,change-management,vendor-management,incident-response,bcp-backup,data-classification,acceptable-use}.md, each one page, reviewed yearly", "Evidence map: control → where the evidence lives (CI logs, access reviews A0.6, drill logs A10.1, audit log)", "Go/no-go note for a Type I with cost and timing; /security wording changes only after the policies exist"],
+      "tests": ["Docs; a checklist test that every policy file exists and has a review date within 12 months"],
+      "tech": "docs/security/*.md, scripts/check-policies.mjs",
+      "evidence": [],
+      "design": "docs/design/trust/security-program.md", "critical": false
+    },
+    {
+      "id": "T5.9", "epic": "T5", "title": "Extension hardening: MV3 CSP kept, externally_connectable prod test, drawer message-origin checks, token storage rule, store 2FA + two owners, release SHA in notes", "status": "partial", "size": "S", "owners": ["extension"], "deps": [], "relates": ["U20.1", "A5.5"], "supersedes": [],
+      "story": "As a user I want the extension itself to be hard to abuse — no remote code, no foreign-origin messages, tokens only in extension storage, releases I can verify — so that the thing with my profile in it is as careful as the server.",
+      "genz": "The extension holds the whole profile; it gets the same scrutiny as the API.",
+      "ac": ["Tests: production manifest has no localhost origins (extend check-manifest-limits.mjs), drawer ignores messages whose origin is not the extension's, tokens never written to page localStorage", "Store developer accounts with 2FA and two owners (user action, logged in DEPLOY.md); publish workflow records the zip SHA-256 in the release notes", "ARCHITECTURE.md security section documents the rules"],
+      "tests": ["ExternallyConnectableTest", "DrawerOriginTest", "token-storage grep test"],
+      "tech": "job-autofill/.github/scripts/check-manifest-limits.mjs, entrypoints/panel messaging, src/lib/storage.js, ARCHITECTURE.md, DEPLOY.md §8",
+      "evidence": ["job-autofill/wxt.config.ts (externally_connectable derived from manifest; dev origins dropped in production)"],
+      "design": "docs/design/trust/security-program.md", "critical": false
+    },
+    {
+      "id": "T6.1", "epic": "T6", "title": "CWS 2026 Limited-Use conformance: destination/permission inventory, GA4-in-extension decision (drop → first-party unlinked, opt-out), first-run disclosure card", "status": "partial", "size": "M", "owners": ["extension", "API"], "deps": [], "relates": ["U20.4", "A11.2", "A5.5"], "supersedes": [],
+      "story": "As the extension's publisher I want every byte that leaves the page justified by the single purpose and disclosed in the product, so that the listing survives the 2026 Limited-Use enforcement and users see the same facts the store does.",
+      "genz": "They read the permissions tab; the honest version wins the install.",
+      "ac": ["Inventory per store-data-use-compliance.md D2; decision recorded (user): remove www.google-analytics.com host permission and the GA4 network path, route track() to the first-party unlinked event endpoint (U20.4), keep the Settings opt-out and the Firefox optional technicalAndInteraction", "First-run card in the drawer (three lines + policy link) shown once; Options 'Privacy' section mirrors PRIVACY.md headings", "Version bump; CWS/AMO privacy answers updated from the same text (T6.4)"],
+      "tests": ["analytics.test.js (no third-party network; opt-out stops the first-party path)", "firstRunCard.test"],
+      "tech": "job-autofill/src/lib/analytics.js, wxt.config.ts host_permissions, entrypoints/panel (first-run card), entrypoints/options/OptionsApp.tsx:376-382, PRIVACY.md",
+      "evidence": ["job-autofill/wxt.config.ts (www.google-analytics.com host permission)", "job-autofill/PRIVACY.md 'Anonymous usage analytics'"],
+      "design": "docs/design/trust/store-data-use-compliance.md", "critical": true, "benchmark": "G30; CWS policy update enforced 2026-08-01; Simplify requests <all_urls> + cookies + webRequest (CRXPlorer medium / chrome-stats very high risk) — our 15 scoped hosts + activeTab are the contrast"
+    },
+    {
+      "id": "T6.2", "epic": "T6", "title": "Permissions explainer page + one source of truth: PRIVACY.md front-matter ↔ manifest ↔ built bundle URLs ↔ /privacy with a CI drift check", "status": "not_started", "size": "S", "owners": ["extension", "web"], "deps": ["T6.1"], "relates": ["T5.3", "T0.3"], "supersedes": [],
+      "story": "As a user I want a page that lists every permission and host the extension asks for and why — and I want it to be impossible for that page to drift from the manifest — so that 'why does it need this?' has a checkable answer.",
+      "genz": "'Why we don't ask for <all_urls>' is a feature page for this audience.",
+      "ac": ["PRIVACY.md front-matter (destinations, permissions, dataCategories, amoRequired/Optional, cws certifications) per the design §1; scripts/check-data-use.mjs in CI asserts manifest permissions/hosts ↔ front-matter ↔ bundle URLs ↔ web /privacy extension section (T0.3 generated block) ↔ Firefox data_collection_permissions", "/help/permissions (or /trust/permissions) renders the table from the same front-matter with the reason per row and the 'no <all_urls>, no cookies, no webRequest' contrast", "Listing privacy tab text generated into STORE-LISTING.md"],
+      "tests": ["check-data-use.mjs on fixtures (drift fails)", "Playwright page renders every manifest host"],
+      "tech": "job-autofill/PRIVACY.md, job-autofill/scripts/check-data-use.mjs, .github/workflows/{ci,publish-extension}.yml, web content block + page",
+      "evidence": ["job-autofill/PRIVACY.md 'Permission justifications' (hand table)", "job-autofill/wxt.config.ts"],
+      "design": "docs/design/trust/store-data-use-compliance.md", "critical": true, "benchmark": "G30 — the exact host list published with a CI check that fails on drift"
+    },
+    {
+      "id": "T6.3", "epic": "T6", "title": "'What left this page' per-fill transparency panel in the drawer (counts, suggestions, AI calls, sync — from the real event envelope)", "status": "not_started", "size": "M", "owners": ["extension"], "deps": ["T6.1", "U20.4"], "relates": ["U20.4", "T3.2"], "supersedes": [],
+      "story": "As a user I want to see, after each fill, exactly what was sent off this page and what was not, so that the privacy policy is something I can watch happen.",
+      "genz": "The feature nobody else has: receipts per page.",
+      "ac": ["Panel renders from the recorded outbound envelope for the current fill (never separate bookkeeping): sync, quality counts (numbers only), suggestions (field names), AI calls (feature + provider), save-a-job capture; opt-outs show 'off'", "Link to Settings and to the permissions page (T6.2); screenshot used in store listings", "Reduced-motion safe; accessible (T4.5)"],
+      "tests": ["panel-what-left.test with a fixture fill", "axe on the panel"],
+      "tech": "job-autofill/entrypoints/panel (new section), src/lib/tracking.js (envelope recorder), src/lib/telemetry.js",
+      "evidence": ["job-autofill/src/lib/tracking.js (the one network seam — the recorder hooks here)"],
+      "design": "docs/design/trust/store-data-use-compliance.md", "critical": false, "benchmark": "Simplify fills silently and collects form values; no competitor shows per-page outbound data"
+    },
+    {
+      "id": "T6.4", "epic": "T6", "title": "Store listings (CWS, AMO, Edge) privacy sections generated from one source; practice-change notice flow", "status": "not_started", "size": "S", "owners": ["extension"], "deps": ["T6.2", "T0.4"], "relates": ["A5.5"], "supersedes": [],
+      "story": "As the publisher I want the three stores' privacy sections to be copies of one generated text, and a practice change to reach users before it takes effect, so that disclosures never diverge.",
+      "genz": "Same words everywhere, dated.",
+      "ac": ["STORE-LISTING.md privacy sections (CWS practices answers, AMO description block, Edge) generated by the script; publish workflow fails if STORE-LISTING.md is stale", "A front-matter change that adds a destination or data category requires a material legal version (T0.4) and shows the in-extension one-line notice before the new behaviour activates (remote-config gate A5.5)"],
+      "tests": ["gen-store-listing staleness check", "notice gating test"],
+      "tech": "job-autofill/scripts/gen-store-listing.mjs, STORE-LISTING.md, entrypoints/panel notice, remote config read",
+      "evidence": ["job-autofill/wxt.config.ts (description must match STORE-LISTING.md — same pattern)"],
+      "design": "docs/design/trust/store-data-use-compliance.md", "critical": false
+    },
+    {
+      "id": "T7.1", "epic": "T7", "title": "/trust hub rendered from live facts (legal versions, subprocessors, retention, AI register, security, accessibility, incidents, status link)", "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": ["T0.3", "T1.5", "T3.1"], "relates": ["A9.7", "A9.5", "A10.5", "T5.4", "T4.1"], "supersedes": [],
+      "story": "As a user I want one page that shows the current facts about my data, with dates, so that trust is something I can check rather than something I am asked for.",
+      "genz": "Three promises at the top; the evidence below.",
+      "ac": ["GET /api/trust/summary (public) per trust-center-transparency.md §1; page per §2 at 390 px; sections degrade to static content with a 'manually maintained' note until their tables exist — never a fake count", "Incidents: 'none in the last 90 days' or the list from A10.5; link to the public status page when the plat area ships it (G32)", "Footer link on every shell"],
+      "tests": ["TrustSummaryIT (no admin fields; counts match)", "Playwright page + links at 390 px"],
+      "tech": "api web/rest/TrustResource, web/src/app/(marketing)/trust/page.tsx",
+      "evidence": [],
+      "design": "docs/design/trust/trust-center-transparency.md", "critical": false, "benchmark": "G31/G32; none of the small competitors have a trust centre or status page"
+    },
+    {
+      "id": "T7.2", "epic": "T7", "title": "Privacy nutrition label (We store · Who sees it · Never) at signup, onboarding and Settings › Privacy, generated from the data map", "status": "partial", "size": "M", "owners": ["ui", "web"], "deps": ["T1.1"], "relates": ["U14.2", "U2.3"], "supersedes": [],
+      "story": "As a new user I want a card that says what Kiwiply stores, who can see it, and what it will never do, before I upload a resume, so that the upload is an informed choice.",
+      "genz": "The label is the policy they will actually read.",
+      "ac": ["@kiwiply/ui NutritionLabel fed by the data map (rows: Profile, Resumes, Applications, Inbox mail, AI reports, Usage counts; columns per the design D2; 'Never: advertisers, employers without your action, model training, data brokers')", "Shown under the signup form, once in onboarding before the resume step (U2.4), and permanently in Settings › Privacy (U14.2 renders it); 'Who looked at my data' link (T7.3)", "Copy ids in the claims register (T7.4)"],
+      "tests": ["vitest render from a fixture data map", "Playwright at 390 px on signup/settings"],
+      "tech": "packages/ui/src/NutritionLabel.tsx, web/src/components/auth/AuthScreen.tsx, onboarding, app-v3/settings/panels.tsx",
+      "evidence": ["web/src/components/app-v3/settings/panels.tsx (Privacy panel 'Coming soon')"],
+      "design": "docs/design/trust/trust-center-transparency.md", "critical": true, "benchmark": "G31 — 'never trained, never sold, never shown to employers' stated where the resume is uploaded, not only in the policy"
+    },
+    {
+      "id": "T7.3", "epic": "T7", "title": "Personal data-access ledger: 'Who looked at my data' (admin PII views with reasons, org FULL reads, support sessions, AI calls, exports, deletions, acceptances)", "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["T3.7"], "relates": ["A12.3", "A1.5", "O6.1", "O1.4", "T1.2"], "supersedes": [],
+      "story": "As a user I want to see every time a person or a model looked at my data, with the reason, so that 'admins only see metadata' is evidence I can check.",
+      "genz": "The receipt nobody else gives.",
+      "ac": ["GET /api/account/access-log?cursor=&kinds= joining admin_audit_event (target = me, PII-view actions with reason), org_audit_event SHARE_READ_FULL, support_session (A1.5), ai_call (feature/model/time only), privacy_request, legal_acceptance; actors rendered as roles/org names; another user's rows never appear", "Settings › Privacy › Who looked at my data list at 390 px with empty state 'Nobody but you'; sections for sources not yet built say so truthfully", "Entries are in the export"],
+      "tests": ["AccessLogIT (each source contributes; isolation; paging)", "Playwright list + empty state"],
+      "tech": "api web/rest/AccountAccessLogResource + read model over existing tables, web app-v3/settings/privacy",
+      "evidence": ["docs/roadmap/AUDIT-admin.md:27 (reason never non-null today)", "docs/design/org/consent-data-sharing.md D5"],
+      "design": "docs/design/trust/trust-center-transparency.md", "critical": true, "benchmark": "No competitor exposes access logs to the person; LinkedIn's training opt-out scandal is the counter-example"
+    },
+    {
+      "id": "T7.4", "epic": "T7", "title": "Trust-claims register (claim → evidence: test, decision, policy section) consumed by the marketing honest-claims lint", "status": "not_started", "size": "S", "owners": ["web"], "deps": [], "relates": ["T3.8", "T5.4", "T7.2"], "supersedes": [],
+      "story": "As the owner I want every trust claim on any page tied to a test or a decision so that we never publish a promise we can't prove.",
+      "genz": "No '40× more interviews'; every sentence has a receipt.",
+      "ac": ["docs/design/trust/CLAIMS.md + web/content/trust-claims.json: never auto-submit (NoSubmitSurfaceTest), never sell (policy + CSP connect-src has no ad hosts), never train (T1.6 flag), count-only telemetry (vocabulary test), EEO firewall (SensitiveFirewallTest), read-only inbox (InboxReadOnlyTest: no STORE/MOVE/EXPUNGE), delete everything (ErasureCompletenessIT), no live interview help (T3.8), scoped permissions (check-data-use.mjs)", "ClaimsRegisterTest: every evidence reference exists in the repo; mkt's honest-claims lint (G36) references claim ids", "InboxReadOnlyTest added if missing"],
+      "tests": ["ClaimsRegisterTest", "InboxReadOnlyTest"],
+      "tech": "docs/design/trust/CLAIMS.md, web/content/trust-claims.json, api/src/test/.../InboxReadOnlyTest.java",
+      "evidence": ["docs/roadmap/COMPETITIVE-GAPS.md G36"],
+      "design": "docs/design/trust/trust-center-transparency.md", "critical": false, "benchmark": "G31/G36 — competitors' unverifiable claims ('62 % land an interview'); Simplify states, we evidence"
+    },
+    {
+      "id": "T7.5", "epic": "T7", "title": "Annual transparency report (privacy requests, government requests, incidents, uptime, provider changes, audits, fairness summary) — P2", "status": "not_started", "size": "S", "owners": ["web", "API"], "deps": ["T1.8", "T5.5", "T7.1"], "relates": ["A9.4", "A10.3", "A10.5", "T3.6"], "supersedes": [],
+      "story": "As a user I want a yearly report with the numbers behind the promises so that trust compounds over time.",
+      "genz": "Publishing 'zero government requests' is a habit worth starting early.",
+      "ac": ["First report 12 months after Launch 1; sections per the design D5 with numbers from the A9.4 queue, A10.5 incidents, A10.3 uptime, T1.6 provider changes, T4.4 audits, T3.6 summary", "Published on /trust as versioned content"],
+      "tests": ["Docs; numbers reproduced by a script from the tables"],
+      "tech": "scripts/gen-transparency-report.mjs, web/content/legal/transparency/<year>.md",
+      "evidence": [],
+      "design": "docs/design/trust/trust-center-transparency.md", "critical": false
+    },
+    {
+      "id": "T8.1", "epic": "T8", "title": "Quarterly regulatory watch log with owners and dates (EU AI Act 2027-12-02, CPPA ADMT 2027-01-01, Colorado SB26-189, state privacy laws, COPPA, store policies, EAA)", "status": "not_started", "size": "S", "owners": ["web"], "deps": ["T0.1"], "relates": ["T3.5", "T2.5"], "supersedes": [],
+      "story": "As the owner I want a dated log of the rules that touch Kiwiply and what changed each quarter so that deadlines are met before they are news.",
+      "genz": "A calendar beats a scramble.",
+      "ac": ["docs/design/trust/REGULATORY-WATCH.md: one row per regime (status, our position, next date, owner, last reviewed); reviewed quarterly and at each launch gate; changes become stories in the owning areas", "Store policy changes (CWS, AMO, Edge) included"],
+      "tests": ["Docs; a CI reminder check fails if 'last reviewed' is older than 120 days"],
+      "tech": "docs/design/trust/REGULATORY-WATCH.md, scripts/check-policies.mjs (shared with T5.8)",
+      "evidence": ["docs/roadmap/AUDIT-trust.md §3 (platform rules row)"],
+      "design": null, "critical": false
+    },
+    {
+      "id": "T8.2", "epic": "T8", "title": "Compliance doc-sync test bundle in CI (data map, AI register, subprocessors, retention, manifest/permissions, legal content, claims) as one job", "status": "not_started", "size": "S", "owners": ["API", "web", "extension"], "deps": ["T1.1", "T3.1", "T6.2", "T7.4"], "relates": ["A15.1", "U19.3"], "supersedes": [],
+      "story": "As a builder I want one CI job named 'compliance' that runs every doc-sync test so that a policy can never promise less than the code does — or more.",
+      "genz": "The policy is tested like the code.",
+      "ac": ["ci.yml job `compliance` runs DataMapTest, AiFeatureDocSyncTest, SubprocessorCoverageTest, RetentionCatalogueTest, LegalContentSyncTest, ClaimsRegisterTest, check-data-use.mjs, gen-data-map staleness, SecurityTxtTest; required for merge into develop", "A short docs/roadmap/COMPLIANCE-CHECKS.md lists what each check guarantees"],
+      "tests": ["The job itself; a seeded drift (remove a subprocessor row) fails"],
+      "tech": ".github/workflows/ci.yml, docs/roadmap/COMPLIANCE-CHECKS.md",
+      "evidence": [".github/workflows/ci.yml"],
+      "design": null, "critical": false
+    }
+  ]
+}
