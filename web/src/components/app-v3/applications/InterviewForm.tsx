@@ -206,7 +206,7 @@ export default function InterviewForm({
             ))}
           </div>
           {outcomeError && (
-            <p role="alert" className="mt-1.5 text-[12.5px] font-medium text-danger">
+            <p role="alert" className="mt-1.5 text-[12.5px] font-medium text-danger-text">
               {outcomeError}
             </p>
           )}
