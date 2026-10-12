@@ -71,4 +71,21 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
         "or a.jobUrl like '%lever.co%' or a.jobUrl like '%ashbyhq.com%'"
     )
     List<Object[]> findJobBoardLinks();
+
+    /** Which of these postings the user already tracks (not archived): the "saved" flag on a search result. */
+    @Query(
+        "select a.postingId from Application a where a.user.id = :userId and a.postingId in :postingIds " +
+        "and (a.archived is null or a.archived = false)"
+    )
+    List<Long> trackedPostingIds(@Param("userId") Long userId, @Param("postingIds") java.util.Collection<Long> postingIds);
+
+    /** Whether the user ever tracked this posting (a purged posting then answers 410, not 404). */
+    boolean existsByUserIdAndPostingId(Long userId, Long postingId);
+
+    /** The user's SAVED, not-archived applications for a posting: hiding the job puts these away. */
+    @Query(
+        "select a from Application a where a.user.id = :userId and a.postingId = :postingId and a.status = " +
+        "com.dossier.api.domain.enumeration.ApplicationStatus.SAVED and (a.archived is null or a.archived = false)"
+    )
+    List<Application> savedForPosting(@Param("userId") Long userId, @Param("postingId") Long postingId);
 }

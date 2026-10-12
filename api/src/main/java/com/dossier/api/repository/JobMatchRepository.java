@@ -24,5 +24,11 @@ public interface JobMatchRepository extends JpaRepository<JobMatch, Long> {
 
     Optional<JobMatch> findOneByIdAndUserId(Long id, Long userId);
 
+    Optional<JobMatch> findOneByUserIdAndPostingId(Long userId, Long postingId);
+
+    /** The nightly scores of these postings for the user (search results show them to Pro): rows of {@code [postingId, score, reason]}. */
+    @Query("select m.posting.id, m.score, m.reason from JobMatch m where m.user.id = :userId and m.posting.id in :postingIds and m.score >= :minScore")
+    List<Object[]> scoresFor(@Param("userId") Long userId, @Param("postingIds") java.util.Collection<Long> postingIds, @Param("minScore") int minScore);
+
     List<JobMatch> findByUserId(Long userId);
 }

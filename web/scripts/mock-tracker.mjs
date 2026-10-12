@@ -6,6 +6,7 @@
  *   GET    /api/profile/applications            plain array without query; with page|size|sort|q|status|company|
  *                                                archived|ghosted -> {items, total, page, size, summary}
  *   GET    /api/profile/applications/activity   [{day, count}] (dense, oldest first)
+ *   GET    /api/profile/analytics               {range, granularity, real, stats, overTime, byStatus, inboxSeen, responseByCompany}
  *   GET    /api/profile/applications/:id        detail: events, notes, interviews, mailCount, suggestions
  *   PATCH  /api/profile/applications/:id        status | nextAction | nextActionAt | starred | archived | resumeId | outcome
  *   POST   /api/profile/applications/bulk       {ids, action, status?} -> {done, failed}
@@ -164,6 +165,84 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
       if (counts.has(day)) counts.set(day, counts.get(day) + 1);
     }
     return json(res, 200, [...counts].map(([day, count]) => ({ day, count })));
+  }
+
+  // ---- analytics (U12.1): the same "first became X" rule as ProfileAnalyticsService ---------------------------------------
+  const APPLIED_OR_LATER = ["APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED"];
+  const REPLIED = ["IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED"];
+  const firstAt = (a, stages) => {
+    const ts = EVENTS.filter((e) => e.applicationId === a.id && stages.includes(e.toStatus)).map((e) => when(e.createdAt));
+    if (ts.length) return Math.min(...ts);
+    return stages.includes(a.status) ? when(a.appliedAt ?? a.updatedAt ?? a.createdAt) : null;
+  };
+
+  function analytics(res, url, empty = false) {
+    const q = url.searchParams;
+    const rawRange = q.get("range") === null ? 30 : Number(q.get("range"));
+    const range = Math.max(7, Math.min(Number.isFinite(rawRange) ? Math.floor(rawRange) : 30, 365));
+    const tz = q.get("tz") || "UTC";
+    let dayOf;
+    try {
+      const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+      dayOf = (t) => fmt.format(new Date(t));
+    } catch {
+      return invalid(res, "tz", "not a time zone name (use an IANA name like America/New_York)");
+    }
+    const monthly = range > 180;
+    const now = Date.now();
+    const from = Date.parse(`${dayOf(now - (range - 1) * DAY)}T00:00:00Z`); // day starts, close enough for the mock
+    const prevFrom = from - range * DAY;
+    const live = (empty ? [] : APPLICATIONS).filter((a) => !a.archived);
+    const reached = live.map((a) => ({ a, applied: firstAt(a, APPLIED_OR_LATER), replied: firstAt(a, REPLIED), interviewed: firstAt(a, ["INTERVIEW", "OFFER"]), offered: firstAt(a, ["OFFER"]) }));
+    const inW = (t) => t !== null && t >= from && t <= now;
+    const real = reached.some((r) => r.applied !== null);
+    const cohort = reached.filter((r) => inW(r.applied));
+    const bucketKey = (t) => {
+      const d = new Date(`${dayOf(t)}T00:00:00Z`);
+      if (monthly) d.setUTCDate(1);
+      else d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+      return d.toISOString().slice(0, 10);
+    };
+    const buckets = new Map();
+    for (let t = Date.parse(`${bucketKey(from)}T00:00:00Z`); t <= now; ) {
+      const start = new Date(t).toISOString().slice(0, 10);
+      buckets.set(start, { start, applied: 0, interviews: 0, offers: 0 });
+      const d = new Date(t);
+      if (monthly) d.setUTCMonth(d.getUTCMonth() + 1);
+      else d.setUTCDate(d.getUTCDate() + 7);
+      t = d.getTime();
+    }
+    for (const r of reached) {
+      for (const [k, slot] of [["applied", "applied"], ["interviewed", "interviews"], ["offered", "offers"]]) if (inW(r[k])) buckets.get(bucketKey(r[k]))[slot] += 1;
+    }
+    const byStatus = STATUSES.map((s) => ({ status: s, label: words(s), count: live.filter((a) => a.status === s && when(a.lastEventAt ?? a.updatedAt ?? a.createdAt) >= from).length })).filter((s) => s.count > 0);
+    const inboxSeen = EVENTS.some((e) => e.source === "INBOX" && e.toStatus && live.some((a) => a.id === e.applicationId));
+    const perCompany = new Map();
+    if (inboxSeen) {
+      for (const r of cohort) {
+        const c = perCompany.get(r.a.company.toLowerCase()) ?? { company: r.a.company, applied: 0, replied: 0 };
+        c.applied += 1;
+        if (r.replied !== null) c.replied += 1;
+        perCompany.set(r.a.company.toLowerCase(), c);
+      }
+    }
+    return json(res, 200, {
+      range,
+      granularity: monthly ? "month" : "week",
+      real,
+      stats: {
+        applied: cohort.length,
+        appliedPrev: reached.filter((r) => r.applied !== null && r.applied >= prevFrom && r.applied < from).length,
+        replies: reached.filter((r) => inW(r.replied)).length,
+        interviews: reached.filter((r) => inW(r.interviewed)).length,
+        offers: reached.filter((r) => inW(r.offered)).length,
+        responseRate: cohort.length ? Math.round((100 * cohort.filter((r) => r.replied !== null).length) / cohort.length) : null,
+      },
+      overTime: [...buckets.values()],
+      byStatus,
+      inboxSeen,
+      responseByCompany: [...perCompany.values()].sort((x, y) => y.applied - x.applied || y.replied - x.replied || x.company.localeCompare(y.company)).slice(0, 5),
+    });
   }
 
   // ---- detail, patch, bulk -----------------------------------------------------------------------------------------
@@ -338,7 +417,13 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
 
   // ---- the router ------------------------------------------------------------------------------------------------------
   /** Handles the tracker endpoints; returns true when the request was answered. */
-  return function handleTracker(req, res, path, method) {
+  const handleTracker = function handleTracker(req, res, path, method) {
+    if (path === "/api/profile/analytics" && method === "GET") {
+      req.resume();
+      if (!subOf(req)) return json(res, 401, { error: "Unauthorized" }), true;
+      analytics(res, new URL(req.url ?? "/", "http://localhost"), isEmpty(req));
+      return true;
+    }
     const feed = path.match(/^\/api\/profile\/interviews(?:\/(\d+)\/ics)?$/); // the cross-application interview list / .ics
     const m = feed ? null : path.match(/^\/api\/profile\/applications(?:\/(activity|bulk|\d+)(?:\/(notes|interviews)(?:\/(\d+)(?:\/(outcome))?)?)?)?$/);
     if (!feed && !m) return false;
@@ -455,4 +540,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     });
     return true;
   };
+  /** Lets the other mocks (job search saving a job) write into the same timeline. */
+  handleTracker.record = record;
+  return handleTracker;
 }

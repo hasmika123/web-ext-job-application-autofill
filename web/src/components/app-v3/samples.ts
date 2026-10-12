@@ -39,9 +39,6 @@ const REGISTRY = {
   EX_ROLES: S.EX_ROLES,
   EX_PATHS: S.EX_PATHS,
   EX_RESOURCES: S.EX_RESOURCES,
-  // Analytics
-  AN_SAMPLE: S.AN_SAMPLE,
-  AN_SKILLS: S.AN_SKILLS,
 };
 
 type Registry = typeof REGISTRY;

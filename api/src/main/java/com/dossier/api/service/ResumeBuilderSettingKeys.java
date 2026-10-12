@@ -214,6 +214,33 @@ public final class ResumeBuilderSettingKeys {
     public static final String TRACKER_INTERVIEWS_MAX_RANGE_DAYS = "tracker.interviews.maxRangeDays";
     public static final String TRACKER_INTERVIEWS_LIST_MAX = "tracker.interviews.listMax";
 
+    // ---- Analytics (E2E U12.1) ---------------------------------------------
+    public static final String ANALYTICS_DEFAULT_RANGE_DAYS = "analytics.defaultRangeDays";
+    public static final String ANALYTICS_MAX_RANGE_DAYS = "analytics.maxRangeDays";
+    public static final String ANALYTICS_MONTHLY_FROM_DAYS = "analytics.monthlyFromDays";
+    public static final String ANALYTICS_TOP_COMPANIES = "analytics.topCompanies";
+
+    // ---- Job search (E2E U4.0, docs/design/user/job-search-matching.md section 5/6) --------------------
+    public static final String JOBS_SEARCH_DEFAULT_SIZE = "jobs.search.defaultSize";
+    public static final String JOBS_SEARCH_MAX_SIZE = "jobs.search.maxSize";
+    public static final String JOBS_SEARCH_MAX_QUERY_CHARS = "jobs.search.maxQueryChars";
+    public static final String JOBS_SEARCH_MAX_RESULTS = "jobs.search.maxResults";
+    public static final String JOBS_SEARCH_RANK_POOL = "jobs.search.rankPool";
+    public static final String JOBS_SEARCH_MAX_FILTER_CHARS = "jobs.search.maxFilterChars";
+    public static final String JOBS_SEARCH_FT_MIN_TOKEN = "jobs.search.ftMinToken";
+    public static final String JOBS_SEARCH_POSTED_DAYS = "jobs.search.postedDays";
+    public static final String JOBS_SEARCH_RELAX_BELOW = "jobs.search.relaxBelow";
+    public static final String JOBS_SEARCH_RELAXATIONS_MAX = "jobs.search.relaxationsMax";
+    public static final String JOBS_RANK_WEIGHT_RELEVANCE = "jobs.rank.weight.relevance";
+    public static final String JOBS_RANK_WEIGHT_RECENCY = "jobs.rank.weight.recency";
+    public static final String JOBS_RANK_WEIGHT_PREFERENCE = "jobs.rank.weight.preference";
+    public static final String JOBS_RANK_RECENCY_HOURS = "jobs.rank.recencyHours";
+    public static final String JOBS_DETAIL_DESCRIPTION_MAX_CHARS = "jobs.detail.descriptionMaxChars";
+    public static final String JOBS_DETAIL_SIMILAR_MAX = "jobs.detail.similarMax";
+    public static final String JOBS_SUGGEST_MAX = "jobs.suggest.max";
+    public static final String JOBS_SUGGEST_MIN_CHARS = "jobs.suggest.minChars";
+    public static final String JOBS_SUGGEST_CACHE_SECONDS = "jobs.suggest.cacheSeconds";
+
     // ---- Notifications (E2E-U7.0, docs/design/user/alerts-notifications.md) ---
     public static final String NOTIFY_DEFAULTS = "notifications.defaults";
     public static final String NOTIFY_EMAIL_ENABLED = "notifications.email.enabled";
@@ -565,6 +592,40 @@ public final class ResumeBuilderSettingKeys {
         integer(k, RATE_AI_PER_MIN, 20, 10, 1000, "AI calls per user per minute.");
         integer(k, RATE_EXPORT_PER_MIN, 10, 10, 1000, "Exports per user per minute.");
         integer(k, RATE_PUBLIC_PER_MIN, 60, 10, 1000, "Public share-link requests per IP per minute.");
+
+        // Analytics (E2E U12.1).
+        integer(k, ANALYTICS_DEFAULT_RANGE_DAYS, 30, 7, 365, "Days the analytics page covers when the request names no range.");
+        integer(k, ANALYTICS_MAX_RANGE_DAYS, 365, 30, 730, "Longest range (days) one analytics request may ask for; a bigger range is clamped to it.");
+        integer(k, ANALYTICS_MONTHLY_FROM_DAYS, 180, 30, 730, "Ranges longer than this many days chart one bar per month instead of per week.");
+        integer(k, ANALYTICS_TOP_COMPANIES, 5, 3, 20, "Companies listed in the analytics response-rate-by-company card.");
+
+        // Job search (E2E U4.0).
+        integer(k, JOBS_SEARCH_DEFAULT_SIZE, 20, 5, 30, "Jobs per page when the search names no size.");
+        integer(k, JOBS_SEARCH_MAX_SIZE, 30, 10, 50, "Largest jobs page the server returns; a bigger size is clamped to it.");
+        integer(k, JOBS_SEARCH_MAX_QUERY_CHARS, 120, 20, 500, "Longest job search text; longer is refused (400 QUERY_TOO_LONG).");
+        integer(k, JOBS_SEARCH_MAX_RESULTS, 1000, 100, 5000, "Most results one search can page through; past it the page says to narrow the search.");
+        integer(k, JOBS_SEARCH_RANK_POOL, 300, 50, 2000, "Matching postings the best-match ranking scores in Java before slicing a page.");
+        integer(k, JOBS_SEARCH_MAX_FILTER_CHARS, 80, 20, 200, "Longest location or company filter text; longer is refused (422 JOB_SEARCH_INVALID).");
+        integer(k, JOBS_SEARCH_FT_MIN_TOKEN, 3, 1, 8, "Shortest word the FULLTEXT index holds (InnoDB innodb_ft_min_token_size); shorter words are matched with LIKE.");
+        k.add(
+            json(
+                JOBS_SEARCH_POSTED_DAYS,
+                "[1,3,7,14,30]",
+                "The 'posted within' choices (days), smallest first; also the posted-date facet buckets.",
+                n -> n.isArray() && n.size() >= 1 && n.size() <= 8 && java.util.stream.StreamSupport.stream(n.spliterator(), false).allMatch(x -> x.isInt() && x.asInt() >= 1 && x.asInt() <= 365)
+            )
+        );
+        integer(k, JOBS_SEARCH_RELAX_BELOW, 5, 0, 50, "A search with fewer results than this offers cheaper searches (0 turns it off).");
+        integer(k, JOBS_SEARCH_RELAXATIONS_MAX, 3, 0, 5, "Most 'try this instead' searches offered with their counts.");
+        decimal(k, JOBS_RANK_WEIGHT_RELEVANCE, "0.45", 0, 1, "Best-match ranking: weight of how well the text matches the search.");
+        decimal(k, JOBS_RANK_WEIGHT_RECENCY, "0.20", 0, 1, "Best-match ranking: weight of how recently the job was posted.");
+        decimal(k, JOBS_RANK_WEIGHT_PREFERENCE, "0.25", 0, 1, "Best-match ranking: weight of how well the job fits the person's titles, place and work preference.");
+        integer(k, JOBS_RANK_RECENCY_HOURS, 72, 6, 720, "Best-match ranking: a job's recency score falls to about a third after this many hours.");
+        integer(k, JOBS_DETAIL_DESCRIPTION_MAX_CHARS, 20000, 1000, 100000, "Longest job description the detail endpoint returns (cut at a word).");
+        integer(k, JOBS_DETAIL_SIMILAR_MAX, 5, 0, 20, "Similar jobs listed with a job's detail.");
+        integer(k, JOBS_SUGGEST_MAX, 8, 3, 20, "Titles the search box offers as you type.");
+        integer(k, JOBS_SUGGEST_MIN_CHARS, 2, 1, 5, "Letters typed before the search box offers titles.");
+        integer(k, JOBS_SUGGEST_CACHE_SECONDS, 60, 0, 3600, "How long one set of title suggestions is reused (0 = never).");
 
         // Applications tracker (APP-E2E U6.x).
         integer(k, TRACKER_LIST_DEFAULT_SIZE, 20, 5, 50, "Applications per page when the request names no size.");
