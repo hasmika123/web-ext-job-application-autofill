@@ -360,6 +360,38 @@ describe("lists and replaced text", () => {
   });
 });
 
+describe("text/replaceMany (AI apply, R4.2)", () => {
+  const items = [
+    { ref: { sectionId: "s_exp", itemId: "i_exp00001", bulletId: "b_aaaaaaaa" }, text: "Drove the migration" },
+    { ref: { sectionId: "s_exp", itemId: "i_exp00001", bulletId: "b_bbbbbbbb" }, text: "Cut latency 40%" },
+    { ref: { sectionId: "s_sum", itemId: "i_sum0001" }, text: "Staff engineer." },
+  ];
+
+  it("replaces every line in ONE history step, clears their marks and tags them as AI text", () => {
+    const s = run(sink(), { type: "text/replaceMany", items, src: "ai", at });
+    const bullets = sec(s, "s_exp").items[0].bullets;
+    expect(bullets[0]).toMatchObject({ text: "Drove the migration", src: "ai" });
+    expect("marks" in bullets[0]).toBe(false);
+    expect(bullets[1]).toMatchObject({ text: "Cut latency 40%", src: "ai" });
+    expect(sec(s, "s_sum").items[0]).toMatchObject({ text: "Staff engineer.", src: "ai" });
+    expect(s.rev).toBe(1);
+    const undone = run(s, { type: "history/undo" });
+    expect(sec(undone, "s_exp").items[0].bullets[0]).toMatchObject({ text: "Led migration", marks: [{ s: 0, e: 3, t: "b" }] });
+    expect(sec(undone, "s_sum").items[0].text).toBe("Engineer.");
+    expect(canUndoEdit(run(undone, { type: "history/undo" }))).toBe(false); // the whole rewrite was one step
+  });
+
+  it("without a src the lines read as the person's own", () => {
+    const s = run(sink(), { type: "text/replaceMany", items: items.slice(0, 1), at });
+    expect(sec(s, "s_exp").items[0].bullets[0]).toMatchObject({ src: "user" });
+  });
+
+  it("changes nothing (no history entry) when no line is found", () => {
+    const s = sink();
+    expect(run(s, { type: "text/replaceMany", items: [{ ref: { sectionId: "s_exp", itemId: "nope", bulletId: "x" }, text: "x" }], src: "ai", at }).rev).toBe(0);
+  });
+});
+
 describe("one history entry per structural action", () => {
   it("every structural action undoes in a single step", () => {
     const actions: EditorAction[] = [

@@ -3,6 +3,7 @@
 import type { FocusEvent, KeyboardEvent } from "react";
 import { PlusIcon, allowedMarks } from "@kiwiply/ui";
 import type { ResumeBullet, ResumeListStyle, ResumeMark } from "@kiwiply/ui";
+import RewriteMenu from "./ai/RewriteMenu";
 import { useCanvas, useField } from "./canvasContext";
 import { ScopedMarkToolbar } from "./MarkToolbar";
 import MarkedTextarea from "./MarkedTextarea";
@@ -36,7 +37,7 @@ function Bullets({
   bullets: ResumeBullet[];
   listStyle?: ResumeListStyle | null;
 }) {
-  const { dispatch, limits, requestFocus } = useCanvas();
+  const { dispatch, limits, requestFocus, aiAllowed, ai } = useCanvas();
   const scope = useMarkScope();
 
   const addBullet = () => {
@@ -108,6 +109,17 @@ function Bullets({
               onKeyDown={(e) => onKeyDown(e, b, i)}
               onText={(text, marks, format) => dispatch({ type: "bullet/edit", sectionId, itemId, bulletId: b.id, text, marks, format, at: nowMs() })}
             />
+            {/* "Rewrite this bullet" (R4.2): one line, any mode; Free sees the lock. An empty bullet has nothing to rewrite. */}
+            {b.text.trim() !== "" && (
+              <RewriteMenu
+                variant="bullet"
+                locked={!aiAllowed}
+                subject={`bullet ${i + 1}`}
+                className="mt-0.5 flex-none"
+                onPick={(mode) => ai.start({ refs: [b.id], scope: "This bullet", from: "bullet" }, mode)}
+                onLockedClick={() => ai.onLocked("bullet")}
+              />
+            )}
           </li>
         ))}
       </ul>

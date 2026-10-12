@@ -1,9 +1,13 @@
 "use client";
 
 import type { RefObject } from "react";
-import { ArrowRightIcon, CheckCircleIcon, LightbulbIcon, SideSheet } from "@kiwiply/ui";
+import Link from "next/link";
+import { ArrowRightIcon, CheckCircleIcon, LightbulbIcon, LockIcon, SideSheet, SparklesIcon } from "@kiwiply/ui";
 import type { ResumeScoreGroupId, ResumeScoreReport } from "@kiwiply/ui";
 import { RIGHT_SHEET_WIDTH, type SheetMode } from "./state/ui";
+
+const TRIM_CLASS =
+  "mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-v2-green-soft px-3 text-[12.5px] font-semibold text-v2-green-ink hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-sm:min-h-11";
 
 /** The failing, applicable rules of a report, grouped in checklist order (heaviest rule first), optionally for one group. */
 export function tipGroups(report: ResumeScoreReport, only: ResumeScoreGroupId | null = null) {
@@ -29,6 +33,7 @@ export default function TipsSheet({
   only,
   onClose,
   onGoTo,
+  trim = null,
   returnFocusTo,
 }: {
   open: boolean;
@@ -39,6 +44,8 @@ export default function TipsSheet({
   onClose: () => void;
   /** A tip's target ref: a `data-field` id, or `add:<KIND>`. */
   onGoTo: (ref: string) => void;
+  /** AI "Trim the longest bullets" on the page-count tip: `allowed` false = the Pro lock (R4.2). Null = no such button. */
+  trim?: { allowed: boolean; onTrim: () => void; onLocked: () => void } | null;
   returnFocusTo?: RefObject<HTMLElement | null>;
 }) {
   const groups = tipGroups(report, only);
@@ -71,7 +78,23 @@ export default function TipsSheet({
               <ul className="flex flex-col gap-2">
                 {tips.map((tip) => (
                   <li key={tip.id} data-rule={tip.id} className="flex items-start gap-3 rounded-xl border border-v2-line/70 bg-paper p-3">
-                    <p className="min-w-0 flex-1 text-[13.5px] leading-snug text-ink">{tip.message}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13.5px] leading-snug text-ink">{tip.message}</p>
+                      {/* The page-count tip: AI can shorten the longest bullets (R4.2, the former R4.4); Free sees the lock. */}
+                      {tip.id === "F4" && trim && trim.allowed && (
+                        <button type="button" data-trim-longest onClick={trim.onTrim} className={TRIM_CLASS}>
+                          <SparklesIcon className="h-3.5 w-3.5" />
+                          Trim the longest bullets
+                        </button>
+                      )}
+                      {tip.id === "F4" && trim && !trim.allowed && (
+                        <Link href="/pricing" data-trim-longest onClick={trim.onLocked} className={TRIM_CLASS}>
+                          <LockIcon className="h-3.5 w-3.5" />
+                          Trim the longest bullets
+                          <span className="rounded bg-v2-violet-soft px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-v2-violet-ink">Pro</span>
+                        </Link>
+                      )}
+                    </div>
                     {tip.target && (
                       <button
                         type="button"

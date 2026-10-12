@@ -3,6 +3,7 @@
 import { createContext, useContext } from "react";
 import type { Dispatch } from "react";
 import type { EditorControls, TemplateCapabilities } from "@kiwiply/ui";
+import type { CanvasAi } from "./ai/types";
 import type { DocLimits, EditorAction } from "./state/types";
 
 /** Where to put the caret once the next render has the field in the DOM. */
@@ -30,6 +31,8 @@ export interface CanvasContextValue {
   canRedo: boolean;
   /** The plan has builder AI (the Summary "Rewrite with AI" button is a lock when not). */
   aiAllowed: boolean;
+  /** Rewrite with AI (R4.2): how the section header and bullet buttons start the flow. */
+  ai: CanvasAi;
   /** The Swap Section panel is open: item rows show a drag grip and can be dragged (same `item/move`). */
   reorder: boolean;
 }

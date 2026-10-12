@@ -4,11 +4,9 @@ import { useState } from "react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  LockIcon,
   Menu,
   MoreVerticalIcon,
   PlusIcon,
-  SparklesIcon,
   TrashIcon,
   allowedMarks,
   cn,
@@ -17,6 +15,8 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import type { MenuEntry, ResumeMark, ResumeSection } from "@kiwiply/ui";
+import { linesOfSection, longestFirst } from "./ai/aiRefs";
+import RewriteMenu from "./ai/RewriteMenu";
 import { useCanvas, useField } from "./canvasContext";
 import { LINK_TARGET, PILL_BUTTON } from "./canvasStyles";
 import ItemRow from "./ItemRow";
@@ -50,7 +50,7 @@ export default function SectionBlock(props: { section: ResumeSection; index: num
 }
 
 function SectionBlockInner({ section, index, count }: { section: ResumeSection; index: number; count: number }) {
-  const { dispatch, caps, controls, limits, canUndo, canRedo, requestFocus, aiAllowed } = useCanvas();
+  const { dispatch, caps, controls, limits, canUndo, canRedo, requestFocus } = useCanvas();
   const toast = useToast();
   const meta = KIND_META[section.kind];
   const Icon = meta.icon;
@@ -207,10 +207,12 @@ function SectionBlockInner({ section, index, count }: { section: ResumeSection; 
             <div data-slot={MARK_TOOLBAR_SLOT} data-buttons={controls.toolbar.join(",")} className="flex min-h-8 flex-none items-center">
               <ScopedMarkToolbar />
             </div>
-            <RewriteWithAi locked={!aiAllowed} />
+            <SectionRewrite section={section} scope="Summary" />
             <span className="flex-1" />
           </>
         )}
+
+        {section.kind !== "SUMMARY" && REWRITABLE.has(section.kind) && <SectionRewrite section={section} scope={heading} />}
 
         {meta.addLabel && (
           <button type="button" onClick={addItem} disabled={items.length >= limits.items} className={PILL_BUTTON} title={items.length >= limits.items ? `At most ${limits.items} entries` : undefined}>
@@ -260,19 +262,29 @@ function SectionBlockInner({ section, index, count }: { section: ResumeSection; 
   );
 }
 
-/** "Rewrite with AI": the stub R4.2 fills in. Free shows the lock variant (DESIGN 13.7), Pro a disabled button. */
-function RewriteWithAi({ locked }: { locked: boolean }) {
-  const Icon = locked ? LockIcon : SparklesIcon;
+/** The kinds whose text AI can rewrite: the summary, the bulleted sections and achievements (DESIGN 13.4). */
+const REWRITABLE: ReadonlySet<ResumeSection["kind"]> = new Set(["SUMMARY", "EXPERIENCE", "EDUCATION", "PROJECTS", "CUSTOM", "ACHIEVEMENTS"]);
+
+/**
+ * "Rewrite with AI" in a block header (R4.2, DESIGN 13.4): Pro picks a mode and the block's lines (up to
+ * `config.ai.rewriteMaxRefs`, the longest first) go to the diff sheet; Free sees the lock with the Pro chip (13.7).
+ */
+function SectionRewrite({ section, scope }: { section: ResumeSection; scope: string }) {
+  const { aiAllowed, ai } = useCanvas();
+  const lines = linesOfSection(section);
+  const sent = longestFirst(lines, ai.maxRefs);
+  const empty = lines.length === 0 ? (section.kind === "SUMMARY" ? "Write a few words first, then AI can rewrite them" : "Add a line first, then AI can rewrite it") : undefined;
   return (
-    <button
-      type="button"
-      disabled
-      aria-disabled="true"
-      title={locked ? "Rewrite with AI is part of Pro" : "Rewrite with AI is coming soon"}
-      className="inline-flex min-h-8 flex-none items-center gap-1.5 rounded-lg bg-v2-green-soft px-3 text-[13px] font-semibold text-v2-green-ink opacity-70 max-sm:min-h-11"
-    >
-      <Icon className="h-3.5 w-3.5" /> Rewrite with AI
-    </button>
+    <RewriteMenu
+      locked={!aiAllowed}
+      variant="section"
+      subject={scope}
+      disabledHint={empty}
+      onPick={(mode) =>
+        ai.start({ refs: sent.map((l) => l.ref), scope: lines.length > sent.length ? `${scope}: the ${sent.length} longest of ${lines.length} lines` : scope, from: "section" }, mode)
+      }
+      onLockedClick={() => ai.onLocked("section")}
+    />
   );
 }
 

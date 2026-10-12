@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Dispatch } from "react";
 import { controlStates } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities } from "@kiwiply/ui";
+import { NO_AI, type CanvasAi } from "./ai/types";
 import { CanvasProvider, type FocusRequest } from "./canvasContext";
 import CanvasReorder from "./CanvasReorder";
 import HeaderBlock from "./HeaderBlock";
@@ -32,6 +33,7 @@ export default function DocumentCanvas({
   canUndo,
   canRedo,
   aiAllowed,
+  ai = NO_AI,
   onAddSection,
   reorder = false,
 }: {
@@ -47,6 +49,8 @@ export default function DocumentCanvas({
   canRedo: boolean;
   /** The plan has builder AI (the Summary's "Rewrite with AI" is a lock when not). */
   aiAllowed: boolean;
+  /** Starts the Rewrite with AI flow (R4.2); absent = buttons that do nothing (isolated canvas tests). */
+  ai?: CanvasAi;
   /** "Start with a summary" on an empty resume opens the Add Section panel. */
   onAddSection: () => void;
   /** The Swap Section panel is open: item rows get a drag grip (R2.2). */
@@ -89,8 +93,8 @@ export default function DocumentCanvas({
 
   const controls = useMemo(() => controlStates(doc, caps), [doc, caps]);
   const value = useMemo(
-    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, reorder }),
-    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, reorder],
+    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, ai, reorder }),
+    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, ai, reorder],
   );
 
   return (

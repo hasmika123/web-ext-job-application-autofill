@@ -444,6 +444,10 @@ function applyEdit(doc: ResumeDocument, a: EditAction, limits: DocLimits): Resum
     case "text/replace":
       return replaceText(doc, a.ref, a.text, limits);
 
+    /* AI apply (R4.2): every kept line in ONE history entry, so a single Undo takes the whole rewrite back. */
+    case "text/replaceMany":
+      return a.items.reduce((acc, it) => replaceText(acc, it.ref, it.text, limits, a.src ?? "user"), doc);
+
     /* ── bullets ────────────────────────────────────────────────────────────────────── */
     case "bullet/edit": {
       const text = clamp(a.text, limits.bulletChars);
@@ -505,18 +509,18 @@ function applyEdit(doc: ResumeDocument, a: EditAction, limits: DocLimits): Resum
 }
 
 /** `text/replace`: one bullet, or the item's own `text` (summary / achievement / interest); its marks are cleared. */
-function replaceText(doc: ResumeDocument, ref: TextRef, text: string, limits: DocLimits): ResumeDocument {
+function replaceText(doc: ResumeDocument, ref: TextRef, text: string, limits: DocLimits, src: "user" | "ai" = "user"): ResumeDocument {
   if (ref.bulletId) {
     const value = clamp(text, limits.bulletChars);
     return mapBullets(doc, ref.sectionId, ref.itemId, (bs) => {
       const i = bs.findIndex((b) => b.id === ref.bulletId);
       if (i < 0) return bs;
-      return bs.map((b, j) => (j === i ? withMarks({ ...b, text: value, src: "user" as const }, undefined) : b));
+      return bs.map((b, j) => (j === i ? withMarks({ ...b, text: value, src }, undefined) : b));
     });
   }
   return mapItem(doc, ref.sectionId, ref.itemId, (it, section) => {
     const value = clamp(text, section.kind === "SUMMARY" ? limits.summaryChars : maxFor("text", section.kind, limits));
-    return withMarks({ ...it, text: value, ...(section.kind === "SUMMARY" ? { src: "user" } : {}) }, undefined);
+    return withMarks({ ...it, text: value, ...(section.kind === "SUMMARY" ? { src } : {}) }, undefined);
   });
 }
 
