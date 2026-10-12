@@ -144,10 +144,10 @@
     },
     {
       "id": "O2.5", "epic": "O2", "title": "CSV / paste import with validation, 20% rule, pre-assign column, org_invite_batch",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O2.2", "O3.2"],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O2.2", "O3.2"], "relates": ["T1.1", "T2.3"],
       "story": "As an admin with a roster, I want to import a CSV and see exactly which rows failed so that onboarding 200 people takes minutes.",
       "genz": "Drag a file, see a live preview with red rows you can fix inline — no 'upload failed' mystery.",
-      "ac": ["POST /members/import multipart ≤2,000 rows; columns email (req), name, group, support_owner_email, plan; 422 with row numbers; >20% invalid aborts unless force=true.", "Creates org_invite_batch; team page shows 'x of y joined' per batch.", "plan column pre-assigns items (PENDING_ACCEPT)."],
+      "ac": ["POST /members/import multipart ≤2,000 rows; columns email (req), name, group, support_owner_email, plan; 422 with row numbers; >20% invalid aborts unless force=true.", "Creates org_invite_batch; team page shows 'x of y joined' per batch.", "plan column pre-assigns items (PENDING_ACCEPT).", "Import refuses any column whose header or values match the never-collected deny-list (SSN/ITIN, bank/routing, tax IDs, passport/visa/document numbers, DOB/birth date — generalising T2.3's age-column rule): the whole file is rejected with the offending column named and nothing is stored"],
       "tests": ["CsvImportTest fixtures (BOM, quotes, duplicates, invalid plan).", "Web: preview table with errors in a live region."],
       "tech": "OrgImportService (OpenCSV already available? else Java built-in parsing), web components/org-v2/team/ImportSheet.tsx.",
       "evidence": [], "design": "docs/design/org/onboarding-invites.md", "critical": false
@@ -205,7 +205,7 @@
 
     {
       "id": "O3.1", "epic": "O3", "title": "Org product/price seeds in the catalog (Pro $24.99, Autopilot $49.99, AI Interview $9.99, Marketer $29.99, Setup $499, Ops rows)",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": [],
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": [], "relates": ["B1.1"],
       "story": "As the catalog, I want the org rows so that assignments and Stripe items have something to point at.",
       "genz": "Prices live in data so they can change without a release — and the pricing page always tells the truth.",
       "ac": ["Seeds product/product_price (audience ORG, interval MONTH / ONE_TIME) and product_entitlement rows per ROADMAP tables incl. marketer keys (org.marketer, consultants.max=10, assignments.open_max=100, ai.budget_cents_per_period=400).", "Requires Phase 18.1 tables (admin area); if absent, this story blocks and says so."],
@@ -255,7 +255,7 @@
     },
     {
       "id": "O3.6", "epic": "O3", "title": "Margin guard rules for org/service prices — per-invoice Stripe allocation, +25% warning, coaching payout $78",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O3.1"],
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O3.1"], "relates": ["B2.1", "B2.2"],
       "story": "As the admin publishing a price, I want the guard to compute org and service margins the way we actually get charged.",
       "genz": "Fair prices that keep the lights on — the guard is why we can promise no sudden hikes.",
       "ac": ["MarginGuard implements billing.md §7 and services-marketplace.md §7 tables; refuses <80%/<20% without override reason; +25% org/individual relation is a warning."],
@@ -265,11 +265,11 @@
     },
 
     {
-      "id": "O4.1", "epic": "O4", "title": "Org Stripe customer + setup-fee Checkout (payment mode, Stripe Tax, tax-id collection) via StripeGateway",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O1.3", "O3.1"],
+      "id": "O4.1", "epic": "O4", "title": "Org Stripe customer + setup-fee Checkout (payment mode, Stripe Tax, no tax-ID collection) via StripeGateway",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O1.3", "O3.1"], "relates": ["T1.1"],
       "story": "As an OWNER, I want to pay the $499 with a card or Apple Pay so that the workspace activates without a sales cycle.",
       "genz": "Apple Pay in 20 seconds; a receipt in the inbox; the org is live.",
-      "ac": ["POST /api/orgs/{id}/billing/setup-fee {CARD} creates the org customer (metadata kiwiply_scope=org, org_id) if missing, then a Checkout session mode=payment with client_reference_id org:{id}; org → PENDING_SETUP_FEE.", "New StripeGateway methods: createOrgCustomer, createOneTimeCheckout; only StripeGatewayImpl imports com.stripe.", "Billing off → 503 BILLING_DISABLED unless dossier.orgs.dev-activate."],
+      "ac": ["POST /api/orgs/{id}/billing/setup-fee {CARD} creates the org customer (metadata kiwiply_scope=org, org_id) if missing, then a Checkout session mode=payment with client_reference_id org:{id}; org → PENDING_SETUP_FEE.", "New StripeGateway methods: createOrgCustomer, createOneTimeCheckout; only StripeGatewayImpl imports com.stripe.", "Billing off → 503 BILLING_DISABLED unless dossier.orgs.dev-activate.", "tax_id_collection disabled and no custom_fields asking for an identifier on the session; Stripe Tax computes from the billing address only; card details exist only on Stripe-hosted pages — Kiwiply never collects tax, bank or identity numbers (user rule, RECONCILIATION.md §0.5)"],
       "tests": ["Gateway stub tests; state transition test; disabled-billing path."],
       "tech": "service/billing/StripeGateway.java (+Impl), service/org/OrgBillingService.java.",
       "evidence": [], "design": "docs/design/org/billing.md", "critical": true
@@ -325,11 +325,11 @@
       "evidence": ["web/src/components/org-v2/billing/BillingPage.tsx ← INVOICES/USAGE/SUBSCRIPTION_DETAILS sample"], "design": "docs/design/org/billing.md", "critical": false
     },
     {
-      "id": "O4.7", "epic": "O4", "title": "Payment method & tax ID via Stripe Portal (invoice-customer config) + billing contacts",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O4.6"],
+      "id": "O4.7", "epic": "O4", "title": "Payment method via Stripe Portal (invoice-customer config, tax-ID collection disabled) + billing contacts",
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O4.6"], "relates": ["T1.1"],
       "story": "As a FINANCE user, I want to update the card, tax ID and who gets invoices without emailing support.",
       "genz": "Stripe's portal does the secure bits; we never see or store card numbers.",
-      "ac": ["POST /billing/portal returns a portal session for the org customer (cancel disabled in the portal config).", "Billing contacts CRUD (members or plain emails) stored on the org; invoice emails cc them."],
+      "ac": ["POST /billing/portal returns a portal session for the org customer (cancel disabled in the portal config).", "Billing contacts CRUD (members or plain emails) stored on the org; invoice emails cc them.", "Portal configuration: customer_update.allowed_updates excludes tax_id; the invoice-customer config does not enable tax-ID collection; Kiwiply stores no tax identifiers of any kind. Nuance for the user: whatever a customer types into Stripe-hosted pages is held by Stripe under its own terms, never by us"],
       "tests": ["Portal permission test (OWNER/ADMIN/FINANCE only)."],
       "tech": "StripeGateway.createPortalSession reused with the org customer; org_billing_contact table (small, in org_billing changelog).",
       "evidence": [], "design": "docs/design/org/billing.md", "critical": false
@@ -498,7 +498,7 @@
     },
     {
       "id": "O6.6", "epic": "O6", "title": "Placement declaration — 'Did you accept? 🎉' on OFFER, application.outcome/accepted_at, share card",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O6.1"],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O6.1"], "relates": ["M6.5"],
       "story": "As a member who got the job, I want to mark it and celebrate — and my org sees 'placed' only because I said so.",
       "genz": "The share card is the social moment; the org metric is a side effect of the user's joy, not surveillance.",
       "ac": ["Additive columns on application (outcome, accepted_at, applied_at, status_changed_at); PATCH endpoint; user-app prompt on OFFER; share-card image endpoint.", "Org sees placed + date at SUMMARY; employer only at FULL."],
@@ -610,7 +610,7 @@
     },
     {
       "id": "O8.2", "epic": "O8", "title": "Shared jobs — org curates job links for members/groups; members see 'From your org' in Jobs (org_job_share)",
-      "status": "partial", "size": "L", "owners": ["API", "web"], "deps": ["O5.3", "O6.1"],
+      "status": "partial", "size": "L", "owners": ["API", "web"], "deps": ["O5.3", "O6.1"], "relates": ["O8.6"],
       "story": "As a career centre, I want to share employer partner roles with a cohort so that students see them in their own job list.",
       "genz": "Jobs arrive where students already look, tagged 'From your school', dismissible — never auto-applied.",
       "ac": ["org_job_share table (org, group?, job_url/hash, captured JobCapture fields, note, shared_by, created_at); POST from pasted links; members' jobs list shows them with a tag (U-area jobs page hook).", "Opportunities page becomes 'Shared jobs' with saves/applies counts (SUMMARY-level counts only); sample OPPORTUNITIES/TOP_HIRING/PIPELINE_DONUT removed."],
@@ -633,10 +633,11 @@
       "status": "partial", "size": "M", "owners": ["API", "web"], "deps": ["O7.3", "O9.8"],
       "story": "As staff, I want to see who has no resume or a weak ATS band and offer help — not edit their resume.",
       "genz": "Nobody rewrites your resume without you; the org can only offer help you accept.",
-      "ac": ["Per-member readiness from SUMMARY fields; 'No resume' / 'Needs work' filters; buttons: Offer expert review (O9.8), Copy nudge; 'Bulk Tailor', 'Generate Suggestions', 'Upload Resume' for others removed; sample EMPLOYEE_RESUMES/RESUME_SUGGESTIONS removed."],
+      "ac": ["Per-member readiness from SUMMARY fields; 'No resume' / 'Needs work' filters; buttons: Offer expert review (O9.8), Copy nudge; 'Bulk Tailor', 'Generate Suggestions', 'Upload Resume' for others removed; sample EMPLOYEE_RESUMES/RESUME_SUGGESTIONS removed.", "Readiness overview adds an ATS-score band histogram for the cohort vs all users, k ≥ 5 suppression via O7.3; bands only — never per-member scores to non-FULL viewers (G42)"],
       "tests": ["Scope tests; web fixtures."],
       "tech": "web/src/components/org-v2/resumes/ResumesPage.tsx.",
-      "evidence": ["web/src/components/org-v2/resumes/ResumesPage.tsx (sample + bulk AI tools)"], "design": "docs/design/org/consent-data-sharing.md", "critical": false
+      "evidence": ["web/src/components/org-v2/resumes/ResumesPage.tsx (sample + bulk AI tools)"], "design": "docs/design/org/consent-data-sharing.md", "critical": false,
+      "benchmark": "G42 — VMock template scoring, Handshake advisor summaries; ours is tied to real applications"
     },
     {
       "id": "O8.5", "epic": "O8", "title": "Delete sample-data.ts and the exact-board copy that no longer applies; update APP-V2-SPEC §5–6 pointer",
@@ -667,7 +668,8 @@
       "ac": ["Discount from catalog when has('ai.server') and no org; consent_version stored; client_reference_id svc:{id}; webhook → PAID (idempotent pipeline).", "Buy sheet in the user app per §6."],
       "tests": ["DiscountTest; webhook routing; abandoned checkout → CANCELLED after 24h."],
       "tech": "ServiceOrderResource, ServiceOrderService; StripeGateway.createOneTimeCheckout (O4.1) reused.",
-      "evidence": [], "design": "docs/design/org/services-marketplace.md", "critical": true
+      "evidence": [], "design": "docs/design/org/services-marketplace.md", "critical": true,
+      "benchmark": "G28 — Rezi monthly expert review on Pro / $8 à la carte; publish the turnaround (O9.3 SLAs) on the services page"
     },
     {
       "id": "O9.3", "epic": "O9", "title": "Order state machine, SLAs, timers (accept 12h, auto-complete 5d, dispute 7d, close +14d)",
@@ -691,7 +693,7 @@
     },
     {
       "id": "O9.5", "epic": "O9", "title": "Admin services console — expert vetting, ranked matching suggestions, assign/auto-assign flag, disputes, refunds via StripeGateway.refund",
-      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O9.3"],
+      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O9.3"], "supersedes": ["A13.1", "A13.2"],
       "story": "As the ops admin, I want to match orders in one tap and resolve disputes with a recorded reason.",
       "genz": "Fast matching keeps the 48-hour promise real.",
       "ac": ["ExpertMatcher.rank per §4; admin endpoints; refund requires reason, audited, cancels payout; auto-assign per product flag."],
@@ -701,7 +703,7 @@
     },
     {
       "id": "O9.6", "epic": "O9", "title": "Payout ledger — monthly expert_payout rows, APPROVED/PAID with external reference; record only",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O9.3"],
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O9.3"], "relates": ["B9.3"], "supersedes": ["A13.3"],
       "story": "As finance, I want to see what we owe each expert and record when we paid them.",
       "genz": "Experts see their earnings and payout status in-app — no chasing.",
       "ac": ["Ledger per §2; expert sees own; admin marks PAID with reference; refunds adjust."],
@@ -772,7 +774,7 @@
     },
     {
       "id": "O10.3", "epic": "O10", "title": "Marketer workspace shell — consultant switcher, board read view, notes",
-      "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": ["O10.2"],
+      "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": ["O10.2"], "relates": ["O10.12"],
       "story": "As a marketer, I want to flip between my five consultants and see each one's board.",
       "genz": "A segmented control and a switcher sheet — fast on a phone between recruiter calls.",
       "ac": ["/org/marketer routes with nav for MARKETER; GET board (FULL, audited); shared notes on applications/assignments."],
@@ -792,7 +794,7 @@
     },
     {
       "id": "O10.5", "epic": "O10", "title": "Job bank — paste links/matches → job_assignment batch with default/override resume, caps, one notification",
-      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O10.4"],
+      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O10.4"], "relates": ["O10.11"],
       "story": "As a marketer, I want to line up 40 jobs for a consultant with the right resume on each, in one batch.",
       "genz": "A checklist with resume pickers, assigned in one tap, one notification — not 40 pings.",
       "ac": ["Tables per marketer-workspace.md §2; JobCapture on paste; open cap 100 → 409; batch creates ASSIGNED rows; consultant gets one Notification per batch."],
@@ -863,20 +865,20 @@
     },
     {
       "id": "O11.2", "epic": "O11", "title": "Clients, vendors, placements CRUD (rates in minor units, pay-type label only)",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O11.1"],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O11.1"], "relates": ["T1.1"],
       "story": "As finance, I want to record who is placed where, at what bill and pay rate.",
       "genz": "Simple forms, no tax IDs asked — ever.",
-      "ac": ["Tables per consultancy-ops.md §2; sensitive-text validator on free text; consultants cannot see bill rates."],
+      "ac": ["Tables per consultancy-ops.md §2; sensitive-text validator on free text; consultants cannot see bill rates.", "Clients, vendors and placements carry name, address, contact and rates only — never EIN/VAT/tax IDs, bank/routing numbers or SSNs; the sensitive-text validator is the shared SensitivePatterns (T1.1) and rejects such values in every free-text field with 422 SENSITIVE_CONTENT"],
       "tests": ["Validator; role visibility."],
       "tech": "OpsPlacementResource; web ops pages.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": true
     },
     {
       "id": "O11.3", "epic": "O11", "title": "Timesheets — weekly entry with steppers, submit, approve/reject with comment, attachments ≤5MB / 2GB org cap, supersede",
-      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O11.2"],
+      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O11.2"], "relates": ["T1.1"],
       "story": "As a consultant, I want to log my week in under a minute on my phone; as finance, approve in a tap.",
       "genz": "Big +/− steppers, copy last week, done. Approvals as a swipeable list.",
-      "ac": ["State machine per §3; immutability after approval; attachments via presigned S3; cap 413 OPS_STORAGE_CAP."],
+      "ac": ["State machine per §3; immutability after approval; attachments via presigned S3; cap 413 OPS_STORAGE_CAP.", "Attachments: image/PDF only, no OCR or content extraction; the server runs SensitivePatterns over the PDF text layer and rejects the upload (422 SENSITIVE_CONTENT) rather than storing a file carrying SSN/ITIN, bank/routing, tax-ID, passport/visa/document numbers or DOB"],
       "tests": ["TimesheetStateTest; StorageCapTest; consultant own-only."],
       "tech": "OpsTimesheetResource; web ops/timesheets.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
@@ -893,10 +895,10 @@
     },
     {
       "id": "O11.5", "epic": "O11", "title": "Invoice records — generate from approved hours, issue/void, PDF with disclaimer footer",
-      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O11.3"],
+      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O11.3"], "relates": ["T1.1"],
       "story": "As finance, I want client invoices generated from approved hours as records I download and send myself.",
       "genz": "We never send it for you — it stays your document.",
-      "ac": ["Generate DRAFT from approved+uninvoiced timesheets; ISSUED/VOID; PDF via the resume-builder Chromium sidecar (R0.6) with disclaimer footer; paid_minor derived from payments."],
+      "ac": ["Generate DRAFT from approved+uninvoiced timesheets; ISSUED/VOID; PDF via the resume-builder Chromium sidecar (R0.6) with disclaimer footer; paid_minor derived from payments.", "Invoice records and PDFs carry no tax IDs and no bank/routing numbers: payment instructions are a free-text line the org types that must pass SensitivePatterns; the disclaimer footer says Kiwiply never holds bank or tax identifiers"],
       "tests": ["InvoiceGenerateTest; PaidDerivationTest; PDF footer present."],
       "tech": "OpsInvoiceService; PDF sidecar reuse.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
@@ -1015,7 +1017,7 @@
     },
     {
       "id": "O13.3", "epic": "O13", "title": "Org notification kinds + delivery (Notification rows for members/admins, batched daily digest email job)",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O1.3"],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O1.3"], "relates": ["U7.1"],
       "story": "As a member, I want to hear from my org through Kiwiply at most once a day unless it is urgent.",
       "genz": "Notification etiquette as a system rule, not per-feature goodwill.",
       "ac": ["Kinds ORG_ACTIVE, INVITE_ACCEPTED (batched), INVITES_EXPIRING, SHARE_REVOKED, BILLING_*, ORG_ITEM_GRANTED, ORG_COVERS_YOUR_PLAN, ORG_PAUSED, ORG_GET_STARTED; digest job; at most one org email/day/member."],
@@ -1069,10 +1071,11 @@
       "status": "partial", "size": "M", "owners": ["web"], "deps": ["O2.1"],
       "story": "As a buyer, I want to understand what my team gets and start now.",
       "genz": "Lead with 'your people keep their accounts and choose what you see' — that is the differentiator buyers' students will thank them for.",
-      "ac": ["Feature cards match shipped/P0 scope (remove 'Application automation', 'Email & response tracking' org claims, 'Approval rules'); add consent/visibility section; CTA to /org/new and demo; PLACEHOLDER numbers removed or sourced."],
+      "ac": ["Feature cards match shipped/P0 scope (remove 'Application automation', 'Email & response tracking' org claims, 'Approval rules'); add consent/visibility section; CTA to /org/new and demo; PLACEHOLDER numbers removed or sourced.", "Contrast line with bench-sales norms: 'your consultants see everything the marketer does; nobody submits for them', linking to the consent-screen preview (G44)"],
       "tests": ["Content/links tests; Lighthouse ≥95."],
       "tech": "web/src/components/marketing/organizations/*, placeholder-data.ts.",
-      "evidence": ["web/src/components/marketing/organizations/OrgFeatures.tsx (12 cards, several not planned)", "placeholder-data.ts (PLACEHOLDER)"], "design": "docs/design/org/onboarding-invites.md", "critical": false
+      "evidence": ["web/src/components/marketing/organizations/OrgFeatures.tsx (12 cards, several not planned)", "placeholder-data.ts (PLACEHOLDER)"], "design": "docs/design/org/onboarding-invites.md", "critical": false,
+      "benchmark": "G44 — bench-sales CRMs (Conrep, StaffSync360) are vendor-side with no consultant consent"
     },
     {
       "id": "O14.3", "epic": "O14", "title": "Price calculator — people × items + setup fee, monthly total, on /organizations and /pricing",
@@ -1086,7 +1089,7 @@
     },
     {
       "id": "O14.4", "epic": "O14", "title": "Admin: orgs list/status + inquiry → 'create org for them' link (audited)",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O1.3"],
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O1.3"], "relates": ["A14.1"],
       "story": "As the platform admin, I want to see orgs and convert an inquiry into a DRAFT org invite for the buyer.",
       "genz": "Shorter path from 'interested' to 'live'.",
       "ac": ["Admin console orgs page (coordinate with A area); inquiry action creates DRAFT org + OWNER invite email; audited."],
@@ -1164,6 +1167,50 @@
       "tests": ["Lighthouse CI step; cache unit test."],
       "tech": "Next server components + streaming; OrgMetricReadService cache.",
       "evidence": [], "design": "docs/design/org/analytics.md", "critical": false
+    },
+    {
+      "id": "O10.11", "epic": "O10", "title": "Duplicate-submission guard across consultants and vendors — same posting assigned twice in one org, or the same consultant submitted to the same employer within N days (G39)",
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O10.5", "O10.8"], "relates": ["E11.2", "O10.10"], "supersedes": [],
+      "story": "As a marketer I want a warning when a job I am assigning is already assigned or applied in my org, with who and when, so that two consultants never collide on one posting.",
+      "genz": "The thing bench-sales CRMs sell — done with the consultant able to see it too.",
+      "ac": ["JobAssignmentService.checkDuplicate(orgId, normalized_url, consultantId) → {assignedTo, assignedAt, appliedAt} from job_assignment + consented APPLIED rows (FULL scope only; SUMMARY members contribute counts, never names)", "Bank UI shows 'Already assigned to Priya on 3 Oct' / 'Rahul applied here 12 days ago' with Continue anyway (reason required) or Skip; employer-level rule uses org setting duplicate_window_days (default 30)", "Every override writes org_audit_event DUPLICATE_OVERRIDE; the consultant sees the warning on their Assigned list too"],
+      "tests": ["DuplicateGuardTest (same posting, same employer, window edges, SUMMARY suppression)", "web bank warning render test"],
+      "tech": "api service/org/JobAssignmentService; normalized_url from N1.2 resolver; web org bank components",
+      "evidence": [], "design": "docs/design/org/marketer-workspace.md", "critical": false,
+      "benchmark": "G39 — Conrep / StaffSync360 'track every submission to prevent duplicates'"
+    },
+    {
+      "id": "O10.12", "epic": "O10", "title": "Bench availability + aging — consultant-declared available-from date; marketer sees days-on-bench for FULL-paired consultants; reminders go to the consultant (G40)",
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O10.3", "O6.2"], "relates": ["O11.2", "O7.7"], "supersedes": [],
+      "story": "As a consultant I want to set when I am available; as a marketer I want to see who has been waiting longest, so that the bench is worked in the right order without anyone being tracked behind their back.",
+      "genz": "You say when you are free; nobody infers it from your inbox.",
+      "ac": ["consultant_availability (available_from, status AVAILABLE|PLACED|UNAVAILABLE, updated_at) owned by the person in /settings/organizations; ShareField AVAILABILITY added to the consent matrix (O6.1) — FULL only", "Marketer workspace: Bench view sorted by days-on-bench (today − available_from), aging bands 0–14 / 15–30 / 31+; placements (O11.2) set PLACED automatically", "Reminders (O13.3) to the consultant at 30 and 60 days on bench — never to the org admin; k-anonymity rules (O7.3) apply to any aggregate"],
+      "tests": ["ShareMatrixTest extended", "AvailabilityAgingTest (bands, PLACED auto-set)", "Playwright consultant sets availability → marketer sees it; revoke hides it"],
+      "tech": "api domain/org/ConsultantAvailability; web org/marketer/BenchView.tsx + user settings organizations panel",
+      "evidence": [], "design": "docs/design/org/marketer-workspace.md", "critical": false,
+      "benchmark": "G40 — bench-sales aging dashboards (vendor-side, no consent); ours is consultant-declared"
+    },
+    {
+      "id": "O10.13", "epic": "O10", "title": "Work-authorisation status on the consultant profile (self-declared categories only, consent-gated, expiry reminder to the consultant) — P2, pending decision (G41)",
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["T3.9", "O10.3"], "relates": ["O6.1", "T3.3", "O10.12"], "supersedes": [],
+      "story": "As a consultant I can optionally declare my work-authorisation category and its expiry so that my marketer only pitches me for jobs I can take — without Kiwiply ever holding a document number.",
+      "genz": "A category, not a document; yours to delete; the reminder comes to you.",
+      "ac": ["Field work_auth {category enum per T3.9, expires_on optional}; never a document number, never a free-text field; stored on the person, shown to the marketer only under FULL (ShareField WORK_AUTH)", "Expiry reminder 90/30 days before to the consultant only; the org never receives it; the sensitive-field firewall test (T3.3) extended so the category never reaches AI inputs, telemetry or org exports", "Stays not_started until the user confirms (RECONCILIATION.md D29)"],
+      "tests": ["ShareMatrixTest + SensitiveFieldFirewallTest extended", "reminder scheduling test"],
+      "tech": "api domain/org/ConsultantProfile; web settings panel + marketer consultant header chip",
+      "evidence": [], "design": "docs/design/org/consent-data-sharing.md", "critical": false,
+      "benchmark": "G41 — bench-sales visa filters / expiry alerts; T3.9 sets the rules"
+    },
+    {
+      "id": "O8.6", "epic": "O8", "title": "Org-curated practice sets — an org publishes its own interview questions/guides; members see them in Interview Prep tagged 'From your org'; no member data flows back (G43)",
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O8.2", "U9.1"], "relates": ["U9.1", "I9.11", "O8.2"], "supersedes": [],
+      "story": "As a bootcamp admin I want to publish our interview question set to members so that they practise what we teach, without seeing how any member did.",
+      "genz": "Your school's questions inside the practice you already use — and your answers stay yours.",
+      "ac": ["org_practice_set (title, questions[], tags, published_at, group_id?) CRUD for OWNER/ADMIN/STAFF; markdown questions with optional model answers", "Members see sets in U9 Questions tab under 'From your org' (same pattern as O8.2 shared jobs); practice sessions on them are user-private — the org sees only 'published / N members can see it'", "Unpublish removes the set from members immediately; leaving the org removes access"],
+      "tests": ["PracticeSetResourceIT (roles, visibility, no results leak)", "Playwright publish → member sees → unpublish"],
+      "tech": "api domain/org/OrgPracticeSet; web org/practice page + U9 integration",
+      "evidence": [], "design": "docs/design/org/consent-data-sharing.md", "critical": false,
+      "benchmark": "G43 — Big Interview / Yoodli team assignments, Handshake content; ours never reports member results back"
     }
   ]
 }

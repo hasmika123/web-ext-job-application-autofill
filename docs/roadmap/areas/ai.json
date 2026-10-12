@@ -96,14 +96,13 @@
     },
     {
       "id": "I0.8", "epic": "I0", "title": "Org-funded budgets via BudgetResolver (entitlement grants, marketer attribution)",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I0.3", "O3.3"], "relates": ["O3.3", "O10.4", "A3.2"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I0.3", "O3.3"], "relates": ["O3.3", "O10.4", "B1.2"], "supersedes": [],
       "story": "As an org member I want my AI to run on the org's grant so that 'Pro via Acme' includes AI without a personal card.",
       "genz": "Your school pays; you still see the same honest meter.",
       "ac": ["BudgetResolver: personal plan → admin override → org grant → service product budget", "ai_call.org_id set when an org budget pays; marketer-on-behalf uses the marketer's budget", "Meter copy shows 'via Acme' when applicable"],
       "tests": ["BudgetResolverTest; AiResourceIT org case"],
       "tech": "service/ai/budget/BudgetResolver.java over EntitlementService.resolve",
-      "evidence": ["api/src/main/java/com/dossier/api/service/EntitlementService.java", "docs/design/org/billing.md"],
-      "design": "docs/design/ai/ai-gateway-metering-budgets.md", "critical": false
+      "evidence": ["api/src/main/java/com/dossier/api/service/EntitlementService.java", "docs/design/org/billing.md"], "design": "docs/design/ai/ai-gateway-metering-budgets.md", "critical": false
     },
     {
       "id": "I0.9", "epic": "I0", "title": "AiDataErasure: deletion + DSAR for every AI table (override, control, caches, spend, feedback)",
@@ -208,14 +207,13 @@
     },
     {
       "id": "I1.8", "epic": "I1", "title": "Provider data-retention posture verified and surfaced (paid tier, no-training) + consent copy corrected",
-      "status": "not_started", "size": "S", "owners": ["API", "web", "extension"], "deps": [], "relates": ["U14.5", "A9.7"], "supersedes": [],
+      "status": "not_started", "size": "S", "owners": ["API", "web", "extension"], "deps": [], "relates": ["U14.5", "A9.7", "T1.6"], "supersedes": [],
       "story": "As a user I want to know whether my resume trains someone's model so that consent is informed.",
       "genz": "'Never used to train' on the first screen, and true.",
       "ac": ["Decision record: both providers on API/paid tiers with no training on inputs; retention windows documented", "Admin status card shows provider tier per provider", "Options and web consent copy drop the 'free tier may train' sentence once verified (I-Q3)"],
       "tests": ["Copy snapshot tests; status card IT"],
       "tech": "docs/design/ai/model-routing-providers.md §8; OptionsApp.tsx; AiResource status",
-      "evidence": ["job-autofill/entrypoints/options/OptionsApp.tsx", "api/src/main/java/com/dossier/api/service/ai/GeminiAiProvider.java"],
-      "design": "docs/design/ai/fairness-explainability.md", "critical": false,
+      "evidence": ["job-autofill/entrypoints/options/OptionsApp.tsx", "api/src/main/java/com/dossier/api/service/ai/GeminiAiProvider.java"], "design": "docs/design/ai/fairness-explainability.md", "critical": false,
       "benchmark": "G31 — training exclusion stated and enforced (Yoodli makes it paid-only)."
     },
 
@@ -277,14 +275,13 @@
     },
     {
       "id": "I2.6", "epic": "I2", "title": "Opt-in 'Help improve Kiwiply AI' samples: redacted, 30-day expiry, admin review, synthetic promotion",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I0.4", "I3.7"], "relates": ["A9.5", "U14.2", "T1.2"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I0.4", "I3.7"], "relates": ["T1.4", "U14.2", "T1.2"], "supersedes": [],
       "story": "As a user who opts in I want my 👎 to actually improve the product without my resume ending up in a repo.",
       "genz": "Off by default; one switch; expires.",
       "ac": ["user setting ai_improve_opt_in default false; ai_sample rows only when on and task ≠ Free parse", "Redaction via the DSAR redactor; expiry job 30 d", "/admin/ai/samples: SUPPORT view, OPS promote → judge-assisted paraphrase into a synthetic case"],
       "tests": ["AiSampleRedactionTest; AiSampleResourceIT (opt-in off → nothing); expiry job test"],
       "tech": "domain/AiSample, settings panel switch, admin page",
-      "evidence": ["api/src/main/java/com/dossier/api/service/AccountExportService.java"],
-      "design": "docs/design/ai/prompt-registry-evals.md", "critical": false
+      "evidence": ["api/src/main/java/com/dossier/api/service/AccountExportService.java"], "design": "docs/design/ai/prompt-registry-evals.md", "critical": false
     },
     {
       "id": "I2.7", "epic": "I2", "title": "Prompt change process: CODEOWNERS for prompts/, PR template with eval table, prompt diff script",
@@ -325,11 +322,10 @@
       "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I2.1"], "relates": ["U8.1", "T1.1"], "supersedes": [],
       "story": "As the platform I want third-party text treated as data everywhere so that a job description cannot steer the model.",
       "genz": "—",
-      "ac": ["Untrusted.of(raw, kind) with the pattern list and caps from the design §2", "Registry refuses prompts whose untrusted slots bypass it; DRAFT page context wrapped (server + extension)", "Metric ai.untrusted.stripped{kind}"],
+      "ac": ["Untrusted.of(raw, kind) with the pattern list and caps from the design §2", "Registry refuses prompts whose untrusted slots bypass it; DRAFT page context wrapped (server + extension)", "Metric ai.untrusted.stripped{kind}", "SensitivePatterns redaction step (T1.1 library) runs on every untrusted slot before caps — SSN/ITIN, bank/routing, tax IDs, passport/visa/document numbers and DOB values are replaced by [removed] in JD, mail, page text, postings and tool results; metric ai.sensitive.redacted{kind}"],
       "tests": ["UntrustedTest every pattern + unicode tricks; PromptRegistryTest refusal"],
       "tech": "service/ai/guard/Untrusted.java; AiInputs.cleanJobDescription delegates",
-      "evidence": ["api/src/main/java/com/dossier/api/service/AiInputs.java", "job-autofill/src/background/service-worker.js"],
-      "design": "docs/design/ai/guardrails-truth-checks.md", "critical": false
+      "evidence": ["api/src/main/java/com/dossier/api/service/AiInputs.java", "job-autofill/src/background/service-worker.js"], "design": "docs/design/ai/guardrails-truth-checks.md", "critical": false
     },
     {
       "id": "I3.4", "epic": "I3", "title": "AiOutputValidator in the gateway: schema, bounds, banned content, instruction echoes; rejected outputs ledgered",
@@ -367,14 +363,13 @@
     },
     {
       "id": "I3.7", "epic": "I3", "title": "'Report this answer' 👍/👎 with reasons on every AI output → ai_feedback; weekly 👎 rate per prompt version",
-      "status": "not_started", "size": "M", "owners": ["API", "ui", "web", "extension"], "deps": ["I0.4"], "relates": ["A4.4", "U4.6"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API", "ui", "web", "extension"], "deps": ["I0.4"], "relates": ["A4.4", "U4.6", "S5.1"], "supersedes": ["S5.2"],
       "story": "As a user I want to flag a wrong answer in one tap so that it gets fixed and I can see where it came from.",
       "genz": "Thumbs are the review form.",
       "ac": ["POST /api/ai/feedback {requestId, verdict, reason}; AiFeedback ui component (44 px) on tailor, fit, draft, matches, assistant, interview", "👎 Wrong fact expands sources[]", "/admin/ai shows 👎 rate per task/prompt version; > 8 % → ai_alert FEEDBACK_SPIKE"],
       "tests": ["AiFeedbackResourceIT; ui snapshot; alert rule test"],
       "tech": "domain/AiFeedback, packages/ui/src/ai/AiFeedback.tsx",
-      "evidence": ["docs/design/admin/ai-cost-governance.md"],
-      "design": "docs/design/ai/guardrails-truth-checks.md", "critical": false
+      "evidence": ["docs/design/admin/ai-cost-governance.md"], "design": "docs/design/ai/guardrails-truth-checks.md", "critical": false
     },
     {
       "id": "I3.8", "epic": "I3", "title": "Provenance chips: every AI change carries sources[]; ui ProvenanceChip renders 'from: Role 2 · bullet 3'",
@@ -413,14 +408,13 @@
     },
     {
       "id": "I4.3", "epic": "I4", "title": "Free daily matches on rules + vectors with deterministic reasons (3/day, no LLM); Pro 10–20 with LLM reasons",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I4.2"], "relates": ["U4.6", "U2.5"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I4.2"], "relates": ["U4.6", "U2.5", "U4.7"], "supersedes": [],
       "story": "As a Free user I want three real matches a day with honest reasons so that the product is useful before I pay.",
       "genz": "Free is not a demo.",
       "ac": ["Free: pipeline steps 1–3, top 3, reasons from rules; zero ai_call rows", "Pro: step 4 on the economy model, ≥ 60 shown, max 20", "Cards render reasons[] (fairness contract)"],
       "tests": ["MatchPipelineTest free path no provider call; JobMatchResourceIT Free/Pro"],
       "tech": "JobMatchService + MatchPipeline modes",
-      "evidence": ["api/src/main/java/com/dossier/api/web/rest/JobMatchResource.java"],
-      "design": "docs/design/ai/embeddings-matching.md", "critical": false,
+      "evidence": ["api/src/main/java/com/dossier/api/web/rest/JobMatchResource.java"], "design": "docs/design/ai/embeddings-matching.md", "critical": false,
       "benchmark": "G12 — Jobright/Teal offer free matching; ours explains every card without an AI call."
     },
     {
@@ -471,14 +465,13 @@
 
     {
       "id": "I5.1", "epic": "I5", "title": "AiInputAllowlist: protected data structurally excluded from every prompt, proven by a rendered-prompt test",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I2.1"], "relates": ["U8.1", "T1.2"], "supersedes": [],
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I2.1"], "relates": ["U8.1", "T1.2", "T1.1"], "supersedes": [],
       "story": "As a user I want certainty that my EEO answers, age, address and contact never reach a model so that the privacy promise is a test, not a sentence.",
       "genz": "Proof, not promises.",
-      "ac": ["AiInputAllowlist.card() is the only ProfileCard constructor; NEVER list from the design §2", "Test renders every registry prompt with a fully-populated profile and asserts no NEVER value appears", "New BioDTO keys in neither list fail the build"],
+      "ac": ["AiInputAllowlist.card() is the only ProfileCard constructor; NEVER list from the design §2", "Test renders every registry prompt with a fully-populated profile and asserts no NEVER value appears", "New BioDTO keys in neither list fail the build", "The NEVER list includes the never-collected classes; the rendered-prompt test additionally feeds SensitivePatterns fixtures through every free-text slot (resume text, JD, mail) and asserts none survive"],
       "tests": ["AiInputAllowlistTest"],
       "tech": "service/ai/guard/AiInputAllowlist.java; JobFitService.FACT_KEYS folded in",
-      "evidence": ["api/src/main/java/com/dossier/api/service/JobFitService.java"],
-      "design": "docs/design/ai/fairness-explainability.md", "critical": true
+      "evidence": ["api/src/main/java/com/dossier/api/service/JobFitService.java"], "design": "docs/design/ai/fairness-explainability.md", "critical": true
     },
     {
       "id": "I5.2", "epic": "I5", "title": "Bias evals in the harness: paired personas across FIT, MATCH, JOBS, TAILOR, DRAFT with tolerances and BIAS_DRIFT alert",
@@ -505,14 +498,13 @@
     },
     {
       "id": "I5.4", "epic": "I5", "title": "/ai transparency page (generated from registry metadata), 'Made with Kiwiply AI' chip, Settings › Kiwiply AI per-feature switches",
-      "status": "not_started", "size": "M", "owners": ["web", "ui", "API"], "deps": ["I2.1"], "relates": ["U14.2", "U14.5", "T1.2", "M2.1"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["web", "ui", "API"], "deps": ["I2.1"], "relates": ["U14.2", "U14.5", "T1.2", "M2.1", "T3.1"], "supersedes": [],
       "story": "As a user I want one page that says what each AI feature sends, where, for how long, and how to turn it off so that I can decide once.",
       "genz": "'Never trained on, never sold, never shown to employers' — first screen.",
       "ac": ["Prompt records carry dataSent, tier, defaultOn; /ai renders the table from them at build time", "AiChip on every AI output surface; per-feature switches persisted on user settings and honoured by the gateway (feature off → 200 status disabledByUser)", "Footer sentences verbatim from the design §5; policy paragraph (U14.5) matches"],
       "tests": ["TransparencyPageTest rows == registry; Playwright switches persist; gateway honours user switches"],
       "tech": "web/src/app/(marketing)/ai/page.tsx, settings panel, user_setting columns",
-      "evidence": ["web/src/app/(app)/settings/page.tsx"],
-      "design": "docs/design/ai/fairness-explainability.md", "critical": false,
+      "evidence": ["web/src/app/(app)/settings/page.tsx"], "design": "docs/design/ai/fairness-explainability.md", "critical": false,
       "benchmark": "G31."
     },
     {
@@ -652,14 +644,13 @@
     },
     {
       "id": "I7.4", "epic": "I7", "title": "Per-feature unit economics: avg cost per paying user per feature per period → admin catalog margin view",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I0.4", "A4.2"], "relates": ["A4.1", "A3.3", "A16.1"], "supersedes": [],
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I0.4", "A4.2"], "relates": ["A4.1", "B2.1", "A16.1"], "supersedes": [],
       "story": "As the owner I want actual AI cost per feature next to the worst-case budget so that pricing decisions use data.",
       "genz": "—",
       "ac": ["Query over ai_daily_rollup by feature × plan; endpoint feeds A2.8/A3.3 views", "Median and p95 per user per period"],
       "tests": ["Rollup query test on a fixture day"],
       "tech": "AdminAiResource overview extension",
-      "evidence": ["docs/design/admin/ai-cost-governance.md"],
-      "design": null, "critical": false
+      "evidence": ["docs/design/admin/ai-cost-governance.md"], "design": null, "critical": false
     },
     {
       "id": "I7.5", "epic": "I7", "title": "Token-based input caps per task (count endpoint / estimator) replacing character caps; per-call cost ceiling",
@@ -834,14 +825,13 @@
     },
     {
       "id": "I9.10", "epic": "I9", "title": "Expected-response timeline + GHOSTED suggestion (G16): per-ATS/company median reply days from inbox events (statistics, no LLM)",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": [], "relates": ["U6.8", "U12.1"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": [], "relates": ["U6.8", "U12.1", "U6.1", "U11.1"], "supersedes": [],
       "story": "As a user I want to know 'most Greenhouse companies replied within 12 days' and get a one-tap 'mark as ghosted / follow up' after that.",
       "genz": "Closure, with data.",
       "ac": ["Nightly stat: median/p75 days-to-first-reply by ATS and by company (k ≥ 5, else ATS-level) from application events + inbox classifications", "Applications past p75 with no event → GHOSTED suggestion; one tap sets status or schedules U6.8 follow-up", "Timeline shown on the application detail; no model call"],
       "tests": ["ReplyStatsTest; suggestion job test"],
       "tech": "service/ReplyTimelineService.java",
-      "evidence": ["api/src/main/java/com/dossier/api/service/ApplicationQueryService.java"],
-      "design": null, "critical": false,
+      "evidence": ["api/src/main/java/com/dossier/api/service/ApplicationQueryService.java"], "design": null, "critical": false,
       "benchmark": "G16 — 48–53 % of applications go unanswered (Criteria); nobody shows expected timelines."
     },
     {
@@ -858,14 +848,13 @@
     },
     {
       "id": "I9.12", "epic": "I9", "title": "Autopilot ask-and-remember (G8): unknown required question → ask once in the drawer → learned answer reused across the run and synced",
-      "status": "not_started", "size": "M", "owners": ["extension", "API"], "deps": ["I6.2", "I3.5"], "relates": ["E6.1", "U13.2"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["extension", "API"], "deps": ["I6.2", "I3.5"], "relates": ["E6.1", "U13.2", "E7.4"], "supersedes": [],
       "story": "As an Autopilot user I want to answer a new question once and have every later application in the run pre-answered so that review is fast.",
       "genz": "Answer once; it remembers.",
       "ac": ["NEEDS_YOU reason unknown_question shows the question in the drawer; free-text offers 'Draft with Kiwiply' (server, Pro) via JAF.ai with flags/sources", "Answer stored as a learned answer (provenance autopilot) and in a run-scoped map keyed by normalised question; identical later questions pre-answered without an AI call", "Never fills attestation/consent/certification boxes (19.2 rule) — test list"],
       "tests": ["Extension run-map test; NoAttestationFillTest; API learned-answer provenance test"],
       "tech": "job-autofill src/lib/ai.js questionKey, autopilot orchestrator (E area), field_cache provenance",
-      "evidence": ["ROADMAP.md Phase 19.3", "api/src/main/java/com/dossier/api/service/FieldCacheSyncService.java"],
-      "design": "docs/design/ai/byo-key-extension.md", "critical": false,
+      "evidence": ["ROADMAP.md Phase 19.3", "api/src/main/java/com/dossier/api/service/FieldCacheSyncService.java"], "design": "docs/design/ai/byo-key-extension.md", "critical": false,
       "benchmark": "G8 — Simplify Autopilot roadmap 'will pause and ask, and save your answers'."
     }
   ]

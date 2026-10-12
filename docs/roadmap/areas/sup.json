@@ -77,8 +77,12 @@
         "web"
       ],
       "deps": [],
-      "relates": [],
-      "supersedes": [],
+      "relates": [
+        "M5.1"
+      ],
+      "supersedes": [
+        "M4.1"
+      ],
       "story": "As a stuck user I want a help center at /help so that the answer to 'how do I…' is one search away instead of an email.",
       "genz": "Self-serve first; nobody under 30 wants to email support to learn where a button is.",
       "ac": [
@@ -147,8 +151,14 @@
       "deps": [
         "S1.1"
       ],
-      "relates": [],
-      "supersedes": [],
+      "relates": [
+        "E1.6",
+        "M5.2"
+      ],
+      "supersedes": [
+        "M4.2",
+        "M4.6"
+      ],
       "story": "As a user I want real answers for my ATS, my plan and my data so that the help center is useful on day one.",
       "genz": "≤ 120 words before the first step, a GIF per extension task, phone screenshots first, grade-7 reading level.",
       "ac": [
@@ -186,7 +196,9 @@
         "S5.1"
       ],
       "relates": [],
-      "supersedes": [],
+      "supersedes": [
+        "M4.4"
+      ],
       "story": "As the team I want to know which articles help and what people search for and don't find so that the help center improves from real use.",
       "genz": "Their thumbs actually change the docs.",
       "ac": [
@@ -219,7 +231,9 @@
         "S1.1"
       ],
       "relates": [
-        "U20.1"
+        "U20.1",
+        "E1.6",
+        "T6.2"
       ],
       "supersedes": [],
       "story": "As a cautious installer I want to see measured fill accuracy per ATS and exactly which permissions the extension needs so that I trust it before installing.",
@@ -259,7 +273,10 @@
       "relates": [
         "U14.4"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "M4.3",
+        "U14.4"
+      ],
       "story": "As a signed-in user I want help that knows which page I'm on and shows my open requests so that I never leave the app to get unstuck.",
       "genz": "Help that doesn't bounce to email (U14.4's words).",
       "ac": [
@@ -292,7 +309,7 @@
       ],
       "deps": [
         "S1.1",
-        "S7.2"
+        "P1.2"
       ],
       "relates": [],
       "supersedes": [],
@@ -435,7 +452,8 @@
         "S2.1"
       ],
       "relates": [
-        "R0.6"
+        "R0.6",
+        "T1.1"
       ],
       "supersedes": [],
       "story": "As a reporter I want to attach a screenshot so that I don't have to describe a broken dropdown in words.",
@@ -443,7 +461,8 @@
       "ac": [
         "POST /api/support/tickets/{publicId}/attachments (Next-proxied, Option A): image/* only, ≤ 2 MB, EXIF stripped server-side, stored via FileStorage (local driver now, S3 later), key on support_attachment",
         "Thread renders thumbnails; staff see full size; attachments deleted on account deletion (S2.7)",
-        "Upload failure never blocks ticket creation (message says 'screenshot didn't upload')"
+        "Upload failure never blocks ticket creation (message says 'screenshot didn't upload')",
+        "No OCR or content extraction of screenshots; attachments are never sent to AI; the sheet says \"do not include documents or ID numbers\"; staff can delete an attachment that visibly contains one (audited)"
       ],
       "tests": [
         "SupportAttachmentIT (type/size rejection, EXIF stripped, owner-only read)",
@@ -508,7 +527,7 @@
       ],
       "relates": [
         "A8.1",
-        "A8.2",
+        "S9.2",
         "A8.5",
         "A1.7"
       ],
@@ -873,7 +892,8 @@
         "S3.2"
       ],
       "relates": [
-        "U16.3"
+        "U16.3",
+        "M6.5"
       ],
       "supersedes": [],
       "story": "As someone who just realised they were scammed I want a calm step-by-step checklist with the right links for my country so that I limit the damage in the next ten minutes.",
@@ -1016,10 +1036,12 @@
       ],
       "deps": [
         "S4.2",
-        "S7.1"
+        "A10.5"
       ],
       "relates": [
-        "A5.5"
+        "A5.5",
+        "E1.6",
+        "E1.5"
       ],
       "supersedes": [],
       "story": "As a user I want to see 'Workday: degraded since Oct 9 — fix shipping in 0.66' before I file a report so that I know it's known.",
@@ -1128,7 +1150,8 @@
         "S5.1"
       ],
       "relates": [
-        "A4.3"
+        "A4.3",
+        "I3.7"
       ],
       "supersedes": [],
       "story": "As a user I want to tell Kiwiply when an AI draft was wrong so that drafts get better and the team sees cost per good answer.",
@@ -1202,8 +1225,12 @@
       "deps": [
         "S1.1"
       ],
-      "relates": [],
-      "supersedes": [],
+      "relates": [
+        "E0.3"
+      ],
+      "supersedes": [
+        "M9.3"
+      ],
       "story": "As a user I want to see what changed and which requests it closed so that updates feel like answers.",
       "genz": "'You asked: #184' next to the fix is the whole point.",
       "ac": [
@@ -1270,7 +1297,9 @@
       "deps": [
         "S4.3"
       ],
-      "relates": [],
+      "relates": [
+        "E5.8"
+      ],
       "supersedes": [],
       "story": "As a happy user I want to be asked to rate the extension at the right moment so that the store rating reflects people who use it.",
       "genz": "Ask once, when it just worked; never nag.",
@@ -1407,7 +1436,7 @@
       ],
       "deps": [
         "S6.2",
-        "S5.2"
+        "I3.7"
       ],
       "relates": [],
       "supersedes": [],
@@ -1477,7 +1506,8 @@
         "S7.1"
       ],
       "relates": [
-        "A10.1"
+        "A10.1",
+        "P1.2"
       ],
       "supersedes": [],
       "story": "As a user I want a status page that tells me whether it's me or Kiwiply so that I don't file a ticket for an outage.",
@@ -1513,11 +1543,12 @@
         "API"
       ],
       "deps": [
-        "S7.1"
+        "A10.5"
       ],
       "relates": [
         "A5.1",
-        "A5.3"
+        "A5.3",
+        "A5.4"
       ],
       "supersedes": [],
       "story": "As a user mid-application I want to know right now that Workday autofill is degraded so that I review fields instead of trusting the fill.",
@@ -1548,10 +1579,11 @@
         "web"
       ],
       "deps": [
-        "S7.2"
+        "P1.2"
       ],
       "relates": [
-        "A7.1"
+        "A7.1",
+        "P1.2"
       ],
       "supersedes": [],
       "story": "As a power user I want an email when autofill breaks and when it's fixed so that I don't keep checking.",
@@ -1645,7 +1677,8 @@
         "S8.1"
       ],
       "relates": [
-        "U16.4"
+        "U16.4",
+        "M7.3"
       ],
       "supersedes": [],
       "story": "As a student ambassador I want a kit and a role so that I can run a campus channel without inventing the rules.",
@@ -1710,7 +1743,7 @@
         "S2.6"
       ],
       "relates": [
-        "A8.2",
+        "S9.2",
         "A8.4"
       ],
       "supersedes": [],
@@ -1749,7 +1782,9 @@
         "A1.7",
         "A8.5"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "A8.2"
+      ],
       "story": "As support I want to tag, filter and bulk-resolve tickets and jump to the user's timeline so that triage is minutes, not an afternoon.",
       "genz": "Fast triage = fast replies.",
       "ac": [
@@ -1781,7 +1816,7 @@
         "S1.4"
       ],
       "relates": [
-        "A8.2"
+        "S9.2"
       ],
       "supersedes": [],
       "story": "As the help writer I want a weekly list of what people asked that the help center couldn't answer so that the next articles are the right ones.",

@@ -150,21 +150,14 @@
       "design": "docs/design/mob/share-target-and-handoff.md", "critical": true
     },
     {
-      "id": "N1.3", "epic": "N1", "title": "Share save → SAVED application with source_detail, normalized_url dedupe, description snapshot, undo; 'already in your tracker' state", "status": "not_started", "size": "S", "owners": ["API", "web"],
-      "deps": ["N1.2"], "relates": ["U5.1", "U6.1", "U20.2"], "supersedes": [],
+      "id": "N1.3", "epic": "N1", "title": "Share save → SAVED application with source_detail, normalized_url dedupe, description snapshot, undo; 'already in your tracker' state", "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["N1.2"], "relates": ["U5.1", "U6.1", "U20.2"], "supersedes": [],
       "story": "As a phone user I want a shared job to land in my tracker exactly once, with the description kept, so that the laptop and the resume tools can use it later.",
       "genz": "No duplicates, no 'where did it go' — it is in Saved before they switch back to TikTok.",
-      "benchmark": "G4: the JD text and resume id live on the application row; Teal/Simplify store the JD at save time.",
-      "ac": [
-        "Liquibase: application + source_detail, normalized_url (index), description_text (MEDIUMTEXT, ≤ 20 KB) — additive; ApplicationSyncResource upsert dedupes on normalized_url as well as externalJobId/jobUrl",
-        "POST /api/applications from /share writes status SAVED, source 'web', source_detail PHONE_SHARE|PHONE_PASTE|IOS_SHORTCUT, posting_id when resolved",
-        "Duplicate → sheet shows 'Already in your tracker (Applied 3 Oct)' with Open instead of Save",
-        "Undo within 8 s deletes the row (hard delete of a just-created SAVED row only)",
-        "Extension mirror sees the row on its next pull (sync signal 'changed' sent after save)"
-      ],
+      "ac": ["Liquibase: application + source_detail, normalized_url (index), description_text (MEDIUMTEXT, ≤ 20 KB) — additive; ApplicationSyncResource upsert dedupes on normalized_url as well as externalJobId/jobUrl", "POST /api/applications from /share writes status SAVED, source 'web', source_detail PHONE_SHARE|PHONE_PASTE|IOS_SHORTCUT, posting_id when resolved", "Duplicate → sheet shows 'Already in your tracker (Applied 3 Oct)' with Open instead of Save", "Undo within 8 s deletes the row (hard delete of a just-created SAVED row only)", "Extension mirror sees the row on its next pull (sync signal 'changed' sent after save)"],
       "tests": ["ApplicationShareIT: dedupe by normalized_url, source_detail stored, description cap, undo path; extension pull includes the row (ApplicationSyncResource list)", "Playwright: duplicate share shows the tracker state"],
-      "tech": "api Liquibase 2026101xxxxx_application_share.xml, ApplicationSyncResource.java:40-63, web/src/components/share/SaveSheet.tsx, web/src/lib/extension-signal.ts", "evidence": ["job-autofill/src/lib/app-tracking.js:56-71 (buildApplication, source)", "api/.../ApplicationSyncResource.java (upsert dedupe on externalJobId/jobUrl)"],
-      "design": "docs/design/mob/share-target-and-handoff.md", "critical": true
+      "tech": "api Liquibase 2026101xxxxx_application_share.xml, ApplicationSyncResource.java:40-63, web/src/components/share/SaveSheet.tsx, web/src/lib/extension-signal.ts",
+      "evidence": ["job-autofill/src/lib/app-tracking.js:56-71 (buildApplication, source)", "api/.../ApplicationSyncResource.java (upsert dedupe on externalJobId/jobUrl)"], "design": "docs/design/mob/share-target-and-handoff.md", "critical": true,
+      "benchmark": "G4: the JD text and resume id live on the application row; Teal/Simplify store the JD at save time."
     },
     {
       "id": "N1.4", "epic": "N1", "title": "iOS capture path: 'Paste a link' on Saved, foreground paste chip, downloadable 'Save to Kiwiply' Shortcut + help page", "status": "not_started", "size": "M", "owners": ["web"],
@@ -198,19 +191,14 @@
       "design": "docs/design/mob/mobile-push-offline.md", "critical": false
     },
     {
-      "id": "N1.6", "epic": "N1", "title": "Share OUT: navigator.share for a job (to a friend, with referral) and for recap/outcome cards in social formats", "status": "not_started", "size": "S", "owners": ["web"],
-      "deps": [], "relates": ["U16.3", "U16.4", "O6.6"], "supersedes": [],
+      "id": "N1.6", "epic": "N1", "title": "Share OUT: navigator.share for a job (to a friend, with referral) and for recap/outcome cards in social formats", "status": "not_started", "size": "S", "owners": ["web"], "deps": [], "relates": ["U16.3", "U16.4", "O6.6", "M6.5"], "supersedes": [],
       "story": "As a phone user I want to send a job or my weekly card to a friend with the system share sheet so that Kiwiply spreads the way the audience shares everything else.",
       "genz": "Growth is a share sheet, not a 'copy link' button.",
-      "benchmark": "G35 (shareable outcome cards for TikTok/Instagram, U/M): this story is the phone delivery of U16.3's card — files via navigator.share, 1080×1920 and square, counts not company names by default.",
-      "ac": [
-        "Job card/sheet 'Share' → navigator.share({title, text, url: posting URL + ?ref=<referral code when U16.4 exists>}); fallback copy-link toast",
-        "Recap/outcome card (U16.3) 'Share image' → navigator.share({files:[png]}) in 1080×1920 and 1080×1080; no personal data by default, opt-in to company names",
-        "Events share_out {kind: job|card, platformHint}"
-      ],
+      "ac": ["Job card/sheet 'Share' → navigator.share({title, text, url: posting URL + ?ref=<referral code when U16.4 exists>}); fallback copy-link toast", "Recap/outcome card (U16.3) 'Share image' → navigator.share({files:[png]}) in 1080×1920 and 1080×1080; no personal data by default, opt-in to company names", "Events share_out {kind: job|card, platformHint}"],
       "tests": ["vitest: share payload builder; fallback when navigator.share is absent", "Playwright iPhone: share button invokes a stubbed navigator.share with files"],
-      "tech": "web/src/lib/share.ts (shareOut), app-v3 job card + recap card components", "evidence": ["docs/roadmap/areas/user.json U16.3 (shareable card) — social sizes/privacy default not specified"],
-      "design": null, "critical": false
+      "tech": "web/src/lib/share.ts (shareOut), app-v3 job card + recap card components",
+      "evidence": ["docs/roadmap/areas/user.json U16.3 (shareable card) — social sizes/privacy default not specified"], "design": null, "critical": false,
+      "benchmark": "G35 (shareable outcome cards for TikTok/Instagram, U/M): this story is the phone delivery of U16.3's card — files via navigator.share, 1080×1920 and square, counts not company names by default."
     },
 
     {
@@ -307,20 +295,14 @@
     },
 
     {
-      "id": "N3.1", "epic": "N3", "title": "'My answers' copy sheet on the phone: grouped profile values + learned answers, one-tap copy, 'I applied' in one tap", "status": "not_started", "size": "M", "owners": ["web"],
-      "deps": [], "relates": ["U13.2", "U6.2", "U2.8"], "supersedes": [],
+      "id": "N3.1", "epic": "N3", "title": "'My answers' copy sheet on the phone: grouped profile values + learned answers, one-tap copy, 'I applied' in one tap", "status": "not_started", "size": "M", "owners": ["web"], "deps": [], "relates": ["U13.2", "U6.2", "U2.8", "U13.4"], "supersedes": [],
       "story": "As an iPhone user applying on my phone I want every answer I would have autofilled one tap away so that a mobile application takes minutes, not the 80 % longer Glassdoor measured.",
       "genz": "Honest assist beats fake autofill; copy-paste with big targets is what they do already — we just remove the hunting.",
-      "benchmark": "G7 (My Answers bank, U) is the web editor of learned answers; this is its phone-apply twin. Teal/Huntr mobile apps are tracker-only; none offers an answers sheet.",
-      "ac": [
-        "/answers page and a bottom sheet from any job row: groups Contact · Links · Work · Eligibility · EEO (collapsed, optional) · Learned · Resume, keyed by the same canonical field map the extension fills (contract test imports job-autofill/src/lib/field-map.js)",
-        "Each value: label, value, [Copy] with a 'copied ✓' state; clipboard fallback via a select-all field; no values in events (answer_copied {group} only)",
-        "Header states 'No autofill on iPhone yet — copy in one tap'; Android Firefox users see the drawer hint (N3.2) instead",
-        "[I applied to this job] → PATCH status APPLIED with source_detail PHONE_MANUAL; hand-off row (if any) → DONE"
-      ],
+      "ac": ["/answers page and a bottom sheet from any job row: groups Contact · Links · Work · Eligibility · EEO (collapsed, optional) · Learned · Resume, keyed by the same canonical field map the extension fills (contract test imports job-autofill/src/lib/field-map.js)", "Each value: label, value, [Copy] with a 'copied ✓' state; clipboard fallback via a select-all field; no values in events (answer_copied {group} only)", "Header states 'No autofill on iPhone yet — copy in one tap'; Android Firefox users see the drawer hint (N3.2) instead", "[I applied to this job] → PATCH status APPLIED with source_detail PHONE_MANUAL; hand-off row (if any) → DONE"],
       "tests": ["vitest contract: groups cover every field-map key that has a bio.payload source; copy fallback", "Playwright iPhone (clipboard-read permission): copy email → clipboard; I applied moves the row"],
-      "tech": "web/src/app/(app)/answers/page.tsx, web/src/components/app-v3/answers/AnswersSheet.tsx, web/src/lib/answers.ts (reads /api/profile, /api/profile/suggestions, /api/profile/resumes)", "evidence": ["job-autofill/src/lib/field-map.js (canonical keys)", "api/.../ProfileSuggestionResource (learned answers)"],
-      "design": "docs/design/mob/phone-apply-assist.md", "critical": true
+      "tech": "web/src/app/(app)/answers/page.tsx, web/src/components/app-v3/answers/AnswersSheet.tsx, web/src/lib/answers.ts (reads /api/profile, /api/profile/suggestions, /api/profile/resumes)",
+      "evidence": ["job-autofill/src/lib/field-map.js (canonical keys)", "api/.../ProfileSuggestionResource (learned answers)"], "design": "docs/design/mob/phone-apply-assist.md", "critical": true,
+      "benchmark": "G7 (My Answers bank, U) is the web editor of learned answers; this is its phone-apply twin. Teal/Huntr mobile apps are tracker-only; none offers an answers sheet."
     },
     {
       "id": "N3.2", "epic": "N3", "title": "Firefox for Android experiment: responsive drawer (≤480px bottom sheet), real-device smoke on 3 ATS pages, go/no-go recorded", "status": "not_started", "size": "M", "owners": ["extension"],
@@ -562,38 +544,25 @@
       "design": "docs/design/mob/platform-decision.md", "critical": false
     },
     {
-      "id": "N6.6", "epic": "N6", "title": "Store listings: privacy labels/data safety, review notes (4.2 evidence), screenshots per storefront, age rating, in-app review prompt policy", "status": "not_started", "size": "M", "owners": ["web"],
-      "deps": ["N6.2", "N7.3"], "relates": [], "supersedes": [],
+      "id": "N6.6", "epic": "N6", "title": "Store listings: privacy labels/data safety, review notes (4.2 evidence), screenshots per storefront, age rating, in-app review prompt policy", "status": "not_started", "size": "M", "owners": ["web"], "deps": ["N6.2", "N7.3"], "relates": ["E5.8"], "supersedes": [],
       "story": "As the owner I want the store submissions to be honest and pass review so that the shell ships without a rejection loop.",
       "genz": "They read privacy labels; honesty is visible there.",
-      "benchmark": "G10 (in-product review prompt, E/M): applies to the shell only — a PWA has no store rating. Prompt once after the 3rd successful hand-off or save, 90-day cool-down, never after an error.",
-      "ac": [
-        "Apple privacy nutrition labels + Play Data safety filled from the T-area privacy register (email, name, profile, resumes, inbox metadata (Pro), diagnostics); 'data not linked' not claimed",
-        "Review notes: Share Extension, native push, biometrics, widget, universal links; demo account for reviewers (DEMO_ENABLED server config)",
-        "Screenshots without prices outside the US storefront; age rating 4+/Everyone; account deletion reachable in-app (exists on the web)",
-        "In-app review prompt (SKStoreReviewController / In-App Review API) ≤ 1 per 90 days after a successful save/hand-off; dismiss sticky"
-      ],
+      "ac": ["Apple privacy nutrition labels + Play Data safety filled from the T-area privacy register (email, name, profile, resumes, inbox metadata (Pro), diagnostics); 'data not linked' not claimed", "Review notes: Share Extension, native push, biometrics, widget, universal links; demo account for reviewers (DEMO_ENABLED server config)", "Screenshots without prices outside the US storefront; age rating 4+/Everyone; account deletion reachable in-app (exists on the web)", "In-app review prompt (SKStoreReviewController / In-App Review API) ≤ 1 per 90 days after a successful save/hand-off; dismiss sticky"],
       "tests": ["Checklist reviewed with the trust area; vitest for the review-prompt gating logic"],
-      "tech": "mobile-shell/*, docs/design/mob/store-payments.md §3", "evidence": ["api/.../AccountDeletionResource (in-app deletion exists)"],
-      "design": "docs/design/mob/store-payments.md", "critical": false
+      "tech": "mobile-shell/*, docs/design/mob/store-payments.md §3",
+      "evidence": ["api/.../AccountDeletionResource (in-app deletion exists)"], "design": "docs/design/mob/store-payments.md", "critical": false,
+      "benchmark": "G10 (in-product review prompt, E/M): applies to the shell only — a PWA has no store rating. Prompt once after the 3rd successful hand-off or save, 90-day cool-down, never after an error."
     },
 
     {
-      "id": "N7.1", "epic": "N7", "title": "purchaseSurface() resolver (web | pwa | shell-linkout | shell-status-only) + GET /api/mobile/config; billing UI branches once", "status": "not_started", "size": "M", "owners": ["web", "API"],
-      "deps": [], "relates": ["U15.1", "U15.2", "A5.1", "A3.3"], "supersedes": [],
+      "id": "N7.1", "epic": "N7", "title": "purchaseSurface() resolver (web | pwa | shell-linkout | shell-status-only) + GET /api/mobile/config; billing UI branches once", "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": [], "relates": ["U15.1", "U15.2", "A5.1", "B2.1", "B11.2"], "supersedes": [],
       "story": "As the owner I want one function to decide whether a surface may show prices and a checkout so that Stripe stays the only truth and no shell ever sells through IAP.",
       "genz": "Published prices everywhere we are allowed; no store-only pricing games.",
-      "benchmark": "Teal/Simplify/JobRight one-star themes are billing surprises; we keep one price list and one checkout. Apple US link-out lawful since May 2025 (status under appeal); Google Play external links since 2025-10-29.",
-      "ac": [
-        "web/src/lib/purchase-surface.ts: inputs displayMode, shell {platform, storefront}, rules from GET /api/mobile/config {linkoutStorefronts:['US'], …}; unknown storefront → status-only",
-        "UpgradeSheet (U15.1), PlanCard, /pricing and the Settings billing panel branch on purchaseSurface() only; PWA = identical to web",
-        "Status-only copy has no price, no button, no 'Upgrade' verb; link-out copy 'Continue on kiwiply.com' opens the system browser",
-        "A3.3 margin calculator gains a per-surface fee column (Play external-links fee) so the guard can reject a surface",
-        "purchaseSurface recorded as an event prop on upgrade_sheet_shown"
-      ],
+      "ac": ["web/src/lib/purchase-surface.ts: inputs displayMode, shell {platform, storefront}, rules from GET /api/mobile/config {linkoutStorefronts:['US'], …}; unknown storefront → status-only", "UpgradeSheet (U15.1), PlanCard, /pricing and the Settings billing panel branch on purchaseSurface() only; PWA = identical to web", "Status-only copy has no price, no button, no 'Upgrade' verb; link-out copy 'Continue on kiwiply.com' opens the system browser", "A3.3 margin calculator gains a per-surface fee column (Play external-links fee) so the guard can reject a surface", "purchaseSurface recorded as an event prop on upgrade_sheet_shown"],
       "tests": ["vitest 12-case matrix + copy snapshots; MobileConfigResourceIT (setting → payload, default [])", "Playwright: PWA shows prices; shell UA non-US → status-only; shell UA US → link-out"],
-      "tech": "web/src/lib/purchase-surface.ts, web/src/components/billing/*, web/src/components/pricing/*, api web/rest/MobileConfigResource.java", "evidence": ["api/.../BillingResource, EntitlementService (unchanged)", "web/src/lib/billing.ts"],
-      "design": "docs/design/mob/store-payments.md", "critical": true
+      "tech": "web/src/lib/purchase-surface.ts, web/src/components/billing/*, web/src/components/pricing/*, api web/rest/MobileConfigResource.java",
+      "evidence": ["api/.../BillingResource, EntitlementService (unchanged)", "web/src/lib/billing.ts"], "design": "docs/design/mob/store-payments.md", "critical": true,
+      "benchmark": "Teal/Simplify/JobRight one-star themes are billing surprises; we keep one price list and one checkout. Apple US link-out lawful since May 2025 (status under appeal); Google Play external links since 2025-10-29."
     },
     {
       "id": "N7.2", "epic": "N7", "title": "Link-out checkout from the shell (US): system browser → Stripe Checkout → universal link back → SuccessPoller", "status": "not_started", "size": "M", "owners": ["web"],
@@ -610,18 +579,13 @@
       "design": "docs/design/mob/store-payments.md", "critical": false
     },
     {
-      "id": "N7.3", "epic": "N7", "title": "Store-compliance checklist + lawyer-review items (Apple 3.1.1/3.1.3 US carve-out, Play external-links enrolment + fee reporting, privacy labels) with quarterly re-check", "status": "not_started", "size": "S", "owners": ["web"],
-      "deps": ["N7.1"], "relates": ["A9.6", "A9.7"], "supersedes": [],
+      "id": "N7.3", "epic": "N7", "title": "Store-compliance checklist + lawyer-review items (Apple 3.1.1/3.1.3 US carve-out, Play external-links enrolment + fee reporting, privacy labels) with quarterly re-check", "status": "not_started", "size": "S", "owners": ["web"], "deps": ["N7.1"], "relates": ["T0.2", "T1.5"], "supersedes": [],
       "story": "As the owner I want the legal position written down with dates and owners so that a court decision becomes a config flip, not a scramble.",
       "genz": "Boring, but it is what keeps the prices honest.",
-      "ac": [
-        "docs/design/mob/store-payments.md §3 items tracked in PROGRESS.md with ⚖ marks handed to the trust area's lawyer list; quarterly calendar reminder recorded",
-        "Google external-content-links program enrolment + fee reporting owner named before any US Android link-out; Apple current guideline text pasted with the date checked",
-        "linkoutStorefronts is a runtime setting; a flip to [] is tested to make the shell status-only worldwide"
-      ],
+      "ac": ["docs/design/mob/store-payments.md §3 items tracked in PROGRESS.md with ⚖ marks handed to the trust area's lawyer list; quarterly calendar reminder recorded", "Google external-content-links program enrolment + fee reporting owner named before any US Android link-out; Apple current guideline text pasted with the date checked", "linkoutStorefronts is a runtime setting; a flip to [] is tested to make the shell status-only worldwide"],
       "tests": ["API IT: setting flip → /api/mobile/config → purchaseSurface status-only (vitest)"],
-      "tech": "docs, PROGRESS.md, runtime settings", "evidence": ["AUDIT-mob.md §4 platform facts (Epic/Apple, Google Play dates)"],
-      "design": "docs/design/mob/store-payments.md", "critical": false
+      "tech": "docs, PROGRESS.md, runtime settings",
+      "evidence": ["AUDIT-mob.md §4 platform facts (Epic/Apple, Google Play dates)"], "design": "docs/design/mob/store-payments.md", "critical": false
     },
 
     {

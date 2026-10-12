@@ -17,24 +17,22 @@
   ],
   "stories": [
     {
-      "id": "P0.0", "epic": "P0", "title": "Backup + restore-drill scripts with the CI 'Ops scripts' job (15.1a)", "status": "done", "size": "S", "owners": ["ops"], "deps": [], "relates": ["A10.1"], "supersedes": [],
+      "id": "P0.0", "epic": "P0", "title": "Backup + restore-drill scripts with the CI 'Ops scripts' job (15.1a)", "status": "done", "size": "S", "owners": ["ops"], "deps": [], "relates": ["P0.1"], "supersedes": [],
       "story": "As the operator I want tested backup and restore scripts so that 15.1c is an install, not a build.",
       "genz": "Nothing visible — but a lost account is the one thing this audience never forgives.",
       "ac": ["backup-db.sh dumps with --single-transaction, refuses cut-short dumps, uploads daily/ + monthly/ with sha256, keeps 3 locally, pings Healthchecks", "verify-restore.sh restores the newest dump into a throwaway container and checks sha256, age, tables, row counts", "CI runs shellcheck + the scripts against a real MySQL"],
       "tests": ["scripts/ops/test/ops.test.sh (fake docker + REAL_DOCKER=1 round trip)"],
       "tech": "scripts/ops/{backup-db.sh,verify-restore.sh,lib.sh,kiwiply-ops.cron}, scripts/ops/aws/{backup-user-policy,lifecycle}.json, .github/workflows/ci.yml 'ops' job",
-      "evidence": ["scripts/ops/backup-db.sh", "scripts/ops/verify-restore.sh", ".github/workflows/ci.yml:116-126", "DEPLOY.md §5.1-§5.3"],
-      "design": "docs/design/plat/backup-restore-pitr.md", "critical": false
+      "evidence": ["scripts/ops/backup-db.sh", "scripts/ops/verify-restore.sh", ".github/workflows/ci.yml:116-126", "DEPLOY.md §5.1-§5.3"], "design": "docs/design/plat/backup-restore-pitr.md", "critical": false
     },
     {
-      "id": "P0.1", "epic": "P0", "title": "15.1c go-live: bucket, IAM user, Healthchecks, cron installed, first dump, first drill, evidence log", "status": "not_started", "size": "M", "owners": ["ops"], "deps": ["P0.0"], "relates": ["A10.1"], "supersedes": [],
+      "id": "P0.1", "epic": "P0", "title": "15.1c go-live: bucket, IAM user, Healthchecks, cron installed, first dump, first drill, evidence log", "status": "not_started", "size": "M", "owners": ["ops"], "deps": ["P0.0"], "relates": ["A10.1"], "supersedes": ["A10.1"],
       "story": "As the operator I want the nightly backup and the weekly drill actually running on the box so that production has a finite RPO for the first time.",
       "genz": "Trust is the feature; a product that can lose your applications is not 'the best'.",
       "ac": ["kiwiply-db-backups bucket (versioned, SSE-S3, lifecycle from scripts/ops/aws/lifecycle.json) and the kiwiply-backup IAM user with the no-delete inline policy exist; keys in the password manager first, then the box .env", "Healthchecks checks kiwiply-backup (1 d / 2 h grace) and kiwiply-restore-drill (7 d / 6 h) exist and the scripts ping them", "/etc/cron.d/kiwiply-ops installed; first backup-db.sh and verify-restore.sh run by hand end green", "DEPLOY.md gains §5.4 'Evidence log' with date, dump size, drill result, measured restore time", "A deliberately skipped night produces a Healthchecks alert email (tested once)"],
       "tests": ["Human runbook; evidence row in DEPLOY.md §5.4; Healthchecks shows two green checks"],
       "tech": "Requires develop → main promotion so the scripts are on the box (DEPLOY.md §13). Human steps per DEPLOY.md §5.1–§5.2; A10.1 is the admin-page half that reads these checks.",
-      "evidence": ["DEPLOY.md §5.1-§5.3", "MIGRATION.md §8", "PROGRESS.md:1166-1168"],
-      "design": "docs/design/plat/backup-restore-pitr.md", "critical": true,
+      "evidence": ["DEPLOY.md §5.1-§5.3", "MIGRATION.md §8", "PROGRESS.md:1166-1168"], "design": "docs/design/plat/backup-restore-pitr.md", "critical": true,
       "benchmark": "Teal promises deletion within 30 days and encryption at rest; none of the four competitors publishes backup or drill evidence — we will (P7.3)."
     },
     {
@@ -100,25 +98,23 @@
       "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": false
     },
     {
-      "id": "P1.1", "epic": "P1", "title": "External uptime monitors (paid plan) on web, API health, readiness, TLS, DNS", "status": "not_started", "size": "S", "owners": ["ops"], "deps": [], "relates": ["A10.1", "A10.3"], "supersedes": [],
+      "id": "P1.1", "epic": "P1", "title": "External uptime monitors (paid plan) on web, API health, readiness, TLS, DNS", "status": "not_started", "size": "S", "owners": ["ops"], "deps": [], "relates": ["P0.1", "A10.3"], "supersedes": [],
       "story": "As the operator I want a monitor that does not live on the box to tell me when kiwiply.com or the API is down so that a dead server is noticed in minutes, not weeks.",
       "genz": "Being told 'we were down for 40 minutes and here is why' beats discovering it on Reddit.",
       "ac": ["Monitors: https://kiwiply.com/ (200 + keyword), https://api.kiwiply.com/management/health (keyword \"status\":\"UP\"), /management/health/readiness, TLS expiry both hosts, DNS A records; API at 1-min interval", "Alerts to email now; push added in P1.3", "Plan is paid or explicitly licensed for commercial use (UptimeRobot free is 'hobby and non-profit')", "Monitor account credentials in the password manager; read API key for A10.3"],
       "tests": ["Pause the API container for 3 minutes on staging (P3.2) or during a maintenance window and confirm the alert arrives"],
       "tech": "Human setup; DEPLOY.md §5.2 updated with the monitor list",
-      "evidence": ["MIGRATION.md §8 ('Set up uptime monitoring — still OWED')", "DEPLOY.md §5.2"],
-      "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": true,
+      "evidence": ["MIGRATION.md §8 ('Set up uptime monitoring — still OWED')", "DEPLOY.md §5.2"], "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": true,
       "benchmark": "UptimeRobot free = 50 monitors/5-min/1 status page, 'good for hobby and non-profit'; Solo ~$12/mo (uptimerobot.com/pricing, 2026-10-11)."
     },
     {
-      "id": "P1.2", "epic": "P1", "title": "Public status page status.kiwiply.com with user-meaningful components, linked from footer and drawer", "status": "not_started", "size": "M", "owners": ["ops", "web", "extension"], "deps": ["P1.1"], "relates": ["A10.5", "A5.4"], "supersedes": [],
+      "id": "P1.2", "epic": "P1", "title": "Public status page status.kiwiply.com with user-meaningful components, linked from footer and drawer", "status": "not_started", "size": "M", "owners": ["ops", "web", "extension"], "deps": ["P1.1"], "relates": ["A10.5", "A5.4", "S7.4"], "supersedes": ["S7.2"],
       "story": "As a user I want to check status.kiwiply.com when something feels broken so that I know whether it is me or Kiwiply.",
       "genz": "Every app they use has one; a missing status page reads as 'two people and a laptop'.",
       "ac": ["Hosted by the monitor vendor on status.kiwiply.com (CNAME); components: Web app, Extension sync & autofill API, Sign-in & email, Job matches, Billing — each driven by a monitor (P1.1/P1.7), not by hand", "Incident posts (P7.2) appear with plain-language updates and a history page", "Web footer and the extension drawer's 'can't reach Kiwiply' state link to it", "A10.5 'Declare incident' instructions name the status page as the public channel"],
       "tests": ["Web snapshot test for the footer link; extension jsdom test for the error-state link; manual: pause API on staging → component turns red within 2 min"],
       "tech": "Vendor status page + Cloudflare CNAME; web/src/components footer; job-autofill drawer error state (ext area supplies the copy)",
-      "evidence": ["docs/design/admin/observability-backup-incident.md D7"],
-      "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": true,
+      "evidence": ["docs/design/admin/observability-backup-incident.md D7"], "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": true,
       "benchmark": "G32. Simplify runs status.simplify.jobs on incident.io with Website / Job Search / Copilot components and 90-day uptime (99.96–100 %); Teal, Huntr, Jobscan have none (checked 2026-10-11). Amendment to G32: status is driven by external monitors; A10 reads them, it does not source them."
     },
     {
@@ -308,14 +304,13 @@
     },
 
     {
-      "id": "P4.1", "epic": "P4", "title": "Security headers on web and API; nonce-based CSP rolled out report-only then enforced", "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": [], "relates": ["U1.1"], "supersedes": [],
+      "id": "P4.1", "epic": "P4", "title": "Security headers on web and API; nonce-based CSP rolled out report-only then enforced", "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": [], "relates": ["U1.1"], "supersedes": ["T5.2"],
       "story": "As a user I want the web app protected against injected scripts and clickjacking so that my session and resume cannot be stolen by a page bug.",
       "genz": "Security they can check with a browser extension or securityheaders.com — and will.",
       "ac": ["Web: HSTS (2 y, preload), CSP with per-request nonce (script-src 'self' 'nonce-…' accounts.google.com; connect-src self + api.kiwiply.com; frame-src Google/Stripe; frame-ancestors 'none'; base-uri; form-action), Referrer-Policy, Permissions-Policy, nosniff, X-Frame-Options", "CSP_MODE=report|enforce runtime env; report-only for two weeks with POST /api/csp-report (rate-limited, WARN kinds in the digest); enforce after 7 clean days", "API: HSTS, nosniff, frame-ancestors 'none', Referrer-Policy no-referrer, Cache-Control no-store on /api/**", "securityheaders.com grade A on both hosts recorded in DEPLOY.md"],
       "tests": ["SecurityHeadersIT; web headers.test.ts (nonce present, mode switch); manual Google sign-in + Stripe checkout under enforce on staging"],
       "tech": "web/next.config.ts headers(), web/src/proxy.ts nonce, api SecurityConfiguration headers(); api CspReportResource",
-      "evidence": ["web/next.config.ts (no headers)", "api/src/main/java/com/dossier/api/config/SecurityConfiguration.java (no headers())"],
-      "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": true
+      "evidence": ["web/next.config.ts (no headers)", "api/src/main/java/com/dossier/api/config/SecurityConfiguration.java (no headers())"], "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": true
     },
     {
       "id": "P4.2", "epic": "P4", "title": "Actuator diet: /info admin-only and git mode simple; drop env/configprops/threaddump/logfile/prometheus from prod", "status": "not_started", "size": "S", "owners": ["API"], "deps": [], "relates": ["A0.2", "A10.6"], "supersedes": [],
@@ -348,34 +343,31 @@
       "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false
     },
     {
-      "id": "P4.5", "epic": "P4", "title": "Supply chain: Dependabot groups, npm audit, Gradle dependency-check, Trivy on images, SBOM + provenance, gitleaks, CodeQL/Semgrep", "status": "not_started", "size": "M", "owners": ["ops"], "deps": ["P2.6"], "relates": [], "supersedes": [],
+      "id": "P4.5", "epic": "P4", "title": "Supply chain: Dependabot groups, npm audit, Gradle dependency-check, Trivy on images, SBOM + provenance, gitleaks, CodeQL/Semgrep", "status": "not_started", "size": "M", "owners": ["ops"], "deps": ["P2.6"], "relates": ["P2.6"], "supersedes": ["T5.3"],
       "story": "As a builder I want known-vulnerable dependencies, images and committed secrets caught on the PR so that we never ship them by accident.",
       "genz": "—",
       "ac": ["ci.yml: npm audit --audit-level=high --omit=dev for web and job-autofill; gradle dependencyCheckAnalyze with a suppression file (expiring entries); Trivy CRITICAL,HIGH ignore-unfixed on both images (new api-docker job); gitleaks; CodeQL (JS/TS + Java) or Semgrep OSS if the repo is private", "deploy.yml build-push-action provenance: true, sbom: true", "Two-week warn-only period, then all PR-blocking; fixtures in scripts/ci/fixtures prove each gate fails on a known-bad input"],
       "tests": ["Gate fixtures (known-bad lockfile, a fake secret, a vulnerable base) each produce a red job"],
       "tech": ".github/workflows/ci.yml, api/build.gradle (dependency-check plugin), .gitleaks.toml, .pre-commit-config.yaml",
-      "evidence": [".github/ (no dependabot.yml, no scanning jobs)"],
-      "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false
+      "evidence": [".github/ (no dependabot.yml, no scanning jobs)"], "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false
     },
     {
-      "id": "P4.6", "epic": "P4", "title": "Secrets hygiene: fingerprint script, rotation calendar runbook, JWT dual-key rotation without mass sign-out", "status": "not_started", "size": "M", "owners": ["API", "ops"], "deps": [], "relates": ["A9.1"], "supersedes": [],
+      "id": "P4.6", "epic": "P4", "title": "Secrets hygiene: fingerprint script, rotation calendar runbook, JWT dual-key rotation without mass sign-out", "status": "not_started", "size": "M", "owners": ["API", "ops"], "deps": [], "relates": ["A9.1"], "supersedes": ["T5.7"],
       "story": "As the operator I want every secret escrowed, fingerprinted and rotated on a schedule so that the 2026-09-17 class of loss cannot recur and a leaked key has a short life.",
       "genz": "—",
       "ac": ["scripts/ops/secrets-fingerprint.sh prints sha256-prefix per secret in .env (never values); the same fingerprints appear in the EnvSchemaCheck boot table", "docs/runbooks/rotate-secrets.md with the calendar: CI key quarterly, storage/backup IAM yearly, Brevo yearly, JWT yearly, inbox key per DEPLOY §12, Stripe on compromise; each rotation = password-manager edit + system event", "jhipster.security.authentication.jwt.previous-base64-secret accepted for 24 h by TokenProvider so refresh tokens roll over", "EnvSchemaCheck asserts ADMIN_PASSWORD_HASH is a 60-char bcrypt (the $$ gotcha)"],
       "tests": ["TokenProviderDualKeyTest; ops.test.sh fingerprint prints no fixture values"],
       "tech": "api security/jwt/TokenProvider, config/SecurityJwtConfiguration; scripts/ops/secrets-fingerprint.sh",
-      "evidence": ["DEPLOY.md §2.1, §11, §12", "CLAUDE.md ('Prod data was lost 2026-09-17')"],
-      "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false
+      "evidence": ["DEPLOY.md §2.1, §11, §12", "CLAUDE.md ('Prod data was lost 2026-09-17')"], "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false
     },
     {
-      "id": "P4.7", "epic": "P4", "title": "/.well-known/security.txt, security@ routing and a coordinated-disclosure policy page", "status": "not_started", "size": "S", "owners": ["web", "ops"], "deps": [], "relates": ["A9.7"], "supersedes": [],
+      "id": "P4.7", "epic": "P4", "title": "/.well-known/security.txt, security@ routing and a coordinated-disclosure policy page", "status": "not_started", "size": "S", "owners": ["web", "ops"], "deps": [], "relates": ["A9.7", "T5.1"], "supersedes": [],
       "story": "As a security researcher I want a published way to report a vulnerability so that I do not post it on Twitter instead.",
       "genz": "A disclosure policy is table stakes for the audience that reads CRXPlorer risk scores.",
       "ac": ["web serves /.well-known/security.txt per RFC 9116 (Contact, Expires ≤ 1 y, Canonical, Policy, Preferred-Languages); CI fails when Expires is within 60 days", "security@kiwiply.com routed via Cloudflare Email Routing like support@; triage = SEV2 in the alert matrix", "/security-policy page (trust area writes the words: safe harbour, 90-day coordinated disclosure, no bounty yet, acknowledgements)"],
       "tests": ["web route test for security.txt content-type and fields; CI expiry check"],
       "tech": "web/public/.well-known/security.txt (or route), scripts/ci/security-txt-check.mjs",
-      "evidence": ["DEPLOY.md §9.1 (email routing pattern)"],
-      "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false,
+      "evidence": ["DEPLOY.md §9.1 (email routing pattern)"], "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false,
       "benchmark": "None of Simplify, Teal, Huntr or Jobscan publishes a security.txt or disclosure policy (checked 2026-10-11)."
     },
     {
@@ -440,14 +432,13 @@
       "design": "docs/design/plat/file-storage-seam.md", "critical": false
     },
     {
-      "id": "P5.5", "epic": "P5", "title": "storage_object ledger (inventory, quotas, deletion) + weekly orphan sweep + first orphan report", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P5.1"], "relates": ["A10.2", "U14.4"], "supersedes": [],
+      "id": "P5.5", "epic": "P5", "title": "storage_object ledger (inventory, quotas, deletion) + weekly orphan sweep + first orphan report", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P5.1"], "relates": ["A10.2", "S1.6"], "supersedes": [],
       "story": "As the operator I want every stored file inventoried in the database so that blobs without rows (the 2026-09 orphans) and rows without blobs are found, reported and cleaned.",
       "genz": "Account deletion that provably removes every file is a trust feature.",
       "ac": ["Liquibase: storage_object (key PK, driver, size, sha256, content_type, owner_user_id, ref_type, ref_id, created_at, migrated_at, deleted_at, missing_at); backfill from resume/attachment rows", "Every store inserts, every delete soft-deletes; account deletion deletes by owner; DSAR export lists the user's files", "storage.sweep weekly: driver objects without live rows → report, delete after 30 d in report; rows whose object is missing → missing_at + report; .tmp litter > 1 h removed", "First run produces the S3 pre-2026-09 orphan report for the user's decision"],
       "tests": ["StorageLedgerIT, StorageSweepTest (both orphan directions, grace, litter), AccountDeletion IT covers files"],
       "tech": "Liquibase changelog, service/storage/StorageLedger, StorageSweepJob in the A10.2 registry",
-      "evidence": ["DEPLOY.md §5 ('orphaned objects, which is exactly what happened')"],
-      "design": "docs/design/plat/file-storage-seam.md", "critical": true
+      "evidence": ["DEPLOY.md §5 ('orphaned objects, which is exactly what happened')"], "design": "docs/design/plat/file-storage-seam.md", "critical": true
     },
 
     {
@@ -512,24 +503,22 @@
       "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": false
     },
     {
-      "id": "P7.2", "epic": "P7", "title": "Incident process: severities, 15-min first update, postmortem template, public history, quarterly game day", "status": "not_started", "size": "S", "owners": ["ops"], "deps": ["P1.2", "P7.1"], "relates": ["A10.5"], "supersedes": [],
+      "id": "P7.2", "epic": "P7", "title": "Incident process: severities, 15-min first update, postmortem template, public history, quarterly game day", "status": "not_started", "size": "S", "owners": ["ops"], "deps": ["P1.2", "P7.1"], "relates": ["A10.5", "T5.5"], "supersedes": [],
       "story": "As a user I want to be told what broke, when it was fixed and what changed so that an outage builds trust instead of eroding it.",
       "genz": "Blameless public postmortems are the reliability equivalent of 'we read the comments'.",
       "ac": ["docs/runbooks/README.md §Incidents: SEV ladder, first public update ≤ 15 min, hourly cadence, resolve note, postmortem ≤ 5 working days for SEV1/2 via docs/runbooks/_postmortem-template.md", "Postmortems for user-visible incidents are published on the status page history", "Quarterly game day (kill the API container at a planned time; measure detect→page→fix) logged in DEPLOY.md §5.4"],
       "tests": ["First game day performed and logged"],
       "tech": "Docs + status page",
-      "evidence": ["docs/design/admin/observability-backup-incident.md D7"],
-      "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": false
+      "evidence": ["docs/design/admin/observability-backup-incident.md D7"], "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": false
     },
     {
-      "id": "P7.3", "epic": "P7", "title": "/trust facts: RPO/RTO, last restore drill (auto from drill-status.json), uptime link, security practices, honest 'not yet' list", "status": "not_started", "size": "M", "owners": ["web", "ops"], "deps": ["P0.4", "P1.2", "P4.7"], "relates": ["A9.7", "U14.5"], "supersedes": [],
+      "id": "P7.3", "epic": "P7", "title": "/trust facts: RPO/RTO, last restore drill (auto from drill-status.json), uptime link, security practices, honest 'not yet' list", "status": "not_started", "size": "M", "owners": ["web", "ops"], "deps": ["P0.4", "P1.2", "T5.1"], "relates": ["T1.5", "U14.5"], "supersedes": [],
       "story": "As a cautious user I want to see what Kiwiply actually does to protect my data, with dates, so that I can decide to upload my resume.",
       "genz": "Receipts over reassurance: dates, numbers and 'not yet' beat 'bank-grade security'.",
       "ac": ["Page (route owned by marketing/trust; facts owned here) shows: backup cadence + encryption + no-delete key, last drill date/result/RTO read from s3://…/evidence/drill-status.json at ISR (stale > 45 d renders 'drill overdue', never hides), status link, headers/hardening summary, subprocessor link (A9.7), deletion window, backup expiry, and a 'not yet' list (SOC 2, pen test, bug bounty, host disk encryption on the shared box)", "Every claim maps to a done story id in a comment next to it; CI lint fails if a referenced story is not done in areas/plat.json"],
       "tests": ["web route test for stale-drill rendering; scripts/ci/trust-claims-check.mjs against plat.json"],
       "tech": "web (marketing) page + fetch of the evidence JSON; scripts/ci/trust-claims-check.mjs",
-      "evidence": ["AUDIT-plat.md §3 (competitors publish nothing of this)"],
-      "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": true,
+      "evidence": ["AUDIT-plat.md §3 (competitors publish nothing of this)"], "design": "docs/design/plat/monitoring-alerting-status-page.md", "critical": true,
       "benchmark": "Beats Simplify (status page only), Teal (policy claims only), Huntr and Jobscan (nothing) — checked 2026-10-11."
     },
     {

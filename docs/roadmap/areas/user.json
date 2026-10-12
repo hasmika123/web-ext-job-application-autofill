@@ -662,7 +662,8 @@
       "tech": "web/src/components/onboarding/* (new flow), api JobPreferenceResource (U4.5)",
       "evidence": [],
       "design": "docs/design/user/onboarding-activation.md",
-      "critical": true
+      "critical": true,
+      "benchmark": "No competitor onboarding ends in 3 real jobs in 5 screens; Simplify starts with a long profile, the builders with a form"
     },
     {
       "id": "U2.4",
@@ -773,7 +774,13 @@
       "tech": "app-v3/home, api AccountResource, web/src/lib/extension-signal.ts",
       "evidence": [],
       "design": "docs/design/user/onboarding-activation.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "E12.4",
+        "M1.8",
+        "N2.5"
+      ],
+      "benchmark": "G9 — Simplify's test autofill; first value < 60 s after install"
     },
     {
       "id": "U2.8",
@@ -1077,7 +1084,8 @@
         "Phone: chips row, Filters bottom sheet with counts, SwipeRow save/hide with undo, detail BottomSheet with Apply/Save/Score",
         "Desktop: rail + list + right panel as drawn",
         "Relaxation suggestions and 'Create an alert' on empty; 'via <aggregator>' attribution",
-        "Events search, job_opened, job_saved, job_hidden"
+        "Events search, job_opened, job_saved, job_hidden",
+        "Cards render the S3.5 'Check this one' shield chip with reasons when ≥ 2 scam rules fire (G15)"
       ],
       "tests": [
         "Playwright 390/1440 on the mock API (mock gains /api/jobs/search)"
@@ -1088,7 +1096,11 @@
         "web/src/components/app-v2/jobs/data.ts"
       ],
       "design": "docs/design/user/job-search-matching.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "S3.5"
+      ],
+      "benchmark": "G15 — nobody in the matrix flags job scams on cards; 69 % of Gen Z apply without checking (Barclays)"
     },
     {
       "id": "U4.4",
@@ -1135,7 +1147,8 @@
       "ac": [
         "job_preference table + GET/PUT /api/profile/job-preferences with limits; MatchPreferences.from(bio, resume, explicit) override",
         "Settings panel (replaces 'Coming soon') with chips; 'Reset learned' clears learned_json",
-        "Nightly prefilter uses it"
+        "Nightly prefilter uses it",
+        "Preferences include work authorisation / sponsorship need (needs sponsorship · no · unknown); the search filter applies the I9.8 posting tag and cards show it (G13)"
       ],
       "tests": [
         "JobPreferenceResourceIT; MatchPreferencesTest override"
@@ -1145,7 +1158,11 @@
         "web/src/components/app-v3/settings/panels.tsx:34"
       ],
       "design": "docs/design/user/job-search-matching.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.8"
+      ],
+      "benchmark": "G13 — Jobright's H1B/sponsorship filter is its wedge with international students"
     },
     {
       "id": "U4.6",
@@ -1193,7 +1210,8 @@
       "genz": "A ring, a reason, one tap.",
       "ac": [
         "POST /api/jobs/{id}/score via JobFitService, cached in job_fit by hash, daily cap 30 (setting), 402 AI_BUDGET surfaces 'resets <date>'",
-        "Cards show match from job_match or job_fit; never on Free"
+        "Cards show match from job_match or job_fit; never on Free",
+        "Free: every search/match card shows the deterministic 0–100 rules score with its top 3 reasons from the I5.3 explainability contract — no AI call, no credit; Pro layers the AI score on top (G12; decision D18)"
       ],
       "tests": [
         "JobScoreIT cache hit no second call; cap"
@@ -1203,7 +1221,12 @@
         "api/src/main/java/com/dossier/api/service/JobFitService.java"
       ],
       "design": "docs/design/user/job-search-matching.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I4.3",
+        "I5.3"
+      ],
+      "benchmark": "G12 — Jobright free matching score, Teal 10 free credits, LinkedIn Job Match free summary"
     },
     {
       "id": "U4.8",
@@ -1364,7 +1387,8 @@
       "ac": [
         "Liquibase additive tables + application columns; enum values added; backfill CREATED/STATUS events",
         "ApplicationService writes an event on every create/PATCH/sync/inbox change (source tagged); inbox forward-only rule unchanged",
-        "Extension payloads unchanged (sync tests green)"
+        "Extension payloads unchanged (sync tests green)",
+        "application gains resume_id (resume used at fill) and a job description snapshot (text, captured_at, source URL) written by E4.6 / N1.3 (G4); statuses add GHOSTED (G16)"
       ],
       "tests": [
         "ApplicationEventIT; ApplicationSyncResourceIT regression; MailClassifier IN_REVIEW mapping"
@@ -1375,7 +1399,13 @@
         "api/src/main/java/com/dossier/api/domain/enumeration/ApplicationStatus.java"
       ],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "E4.6",
+        "N1.2",
+        "I9.10"
+      ],
+      "benchmark": "G4 — Teal, Simplify, Huntr store the JD at save/apply time"
     },
     {
       "id": "U6.2",
@@ -1422,7 +1452,8 @@
       "ac": [
         "BottomSheet (phone) / right panel (desktop) with tabs Timeline · Notes · Emails · Resume · Interview",
         "Timeline from application_event with source icons; notes CRUD (pinned); next action + date",
-        "Status picker sheet (not a blind advance); undo toasts"
+        "Status picker sheet (not a blind advance); undo toasts",
+        "Resume tab shows the resume version used and the JD snapshot captured at save/fill, readable without re-fetching (G4); 'Packet' link to U6.11 (G22)"
       ],
       "tests": [
         "Playwright 390/1440 open, note, status"
@@ -1433,7 +1464,12 @@
         "web/src/components/board/ResumeFit.tsx"
       ],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "E4.6",
+        "U6.11"
+      ],
+      "benchmark": "G4/G22 — Huntr application packets; Teal JD snapshot"
     },
     {
       "id": "U6.4",
@@ -1454,7 +1490,8 @@
       "ac": [
         "interview endpoints per design; GET …/ics with VTIMEZONE; Google Calendar URL client-side",
         "INTERVIEW_REMINDER via the U7 engine (24 h email, 1 h push), idempotent",
-        "Inbox interview mail proposes an interview row (date parsed when confident) — accept in the Emails tab"
+        "Inbox interview mail proposes an interview row (date parsed when confident) — accept in the Emails tab",
+        "Proposed interview rows from I9.9 (date/time parsed from inbox mail) appear as 'Confirm interview?' cards; confirm creates the row + .ics, decline discards (G19)"
       ],
       "tests": [
         "InterviewResourceIT CRUD/ics/reminders; parser date extraction fixtures"
@@ -1462,7 +1499,11 @@
       "tech": "api InterviewResource/Service, InboxParser; web detail sheet Interview tab",
       "evidence": [],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.9"
+      ],
+      "benchmark": "G19 — no competitor has the inbox; interview extraction from mail is unique"
     },
     {
       "id": "U6.5",
@@ -1490,7 +1531,8 @@
       "tech": "app-v3/applications, parser-core job meta",
       "evidence": [],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "benchmark": "Teal and Huntr set the kanban / phone-card bar; swipe status + bulk select is parity"
     },
     {
       "id": "U6.6",
@@ -1568,7 +1610,8 @@
       "genz": "Momentum reminders, in the digest.",
       "ac": [
         "Nightly STALE_NUDGE per ghosted application (once; again after 14 more days); next_action_at due → in-app",
-        "Settings kind toggle"
+        "Settings kind toggle",
+        "GHOSTED suggestion after N days without any event, N = per-ATS/company median from I9.10 (default 14); one tap sets GHOSTED or schedules a follow-up; the card says 'most companies on <ATS> replied within N days' (G16)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -1577,7 +1620,11 @@
       "tech": "api scheduled job; NotificationService",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.10"
+      ],
+      "benchmark": "G16 — 48–53 % of applications go unanswered (Criteria); Teal/Huntr only have manual reminders"
     },
     {
       "id": "U6.9",
@@ -1691,7 +1738,13 @@
       "tech": "app-v3/settings/panels.tsx, api NotificationPreferenceResource",
       "evidence": [],
       "design": "docs/design/user/alerts-notifications.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "N4.5"
+      ],
+      "supersedes": [
+        "A7.7"
+      ]
     },
     {
       "id": "U7.4",
@@ -1804,7 +1857,12 @@
         "api/src/main/java/com/dossier/api/service/AiBudgetService.java"
       ],
       "design": "docs/design/user/ai-assistant.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "I9.1",
+        "I0.3",
+        "I9.6"
+      ]
     },
     {
       "id": "U8.2",
@@ -2004,7 +2062,10 @@
       "tech": "api service/interview/*, reuse assistant loop pieces; web Practice tab",
       "evidence": [],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "I9.2"
+      ]
     },
     {
       "id": "U9.4",
@@ -2022,7 +2083,8 @@
       "story": "As a user I want 'Prep for Google · Thursday' to open prep with the company, role and posting context.",
       "genz": "Zero setup.",
       "ac": [
-        "/interview-prep?application= pre-selects role/company and shows the posting's requirement bullets"
+        "/interview-prep?application= pre-selects role/company and shows the posting's requirement bullets",
+        "'Prep for this' from an application opens the I9.11 JD-driven set tagged by the posting's skills — Free gets the bank subset, Pro the generated role-specific questions (G26)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2031,7 +2093,11 @@
       "tech": "web",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.11"
+      ],
+      "benchmark": "G26 — Big Interview bank by role, Final Round mock"
     },
     {
       "id": "U10.1",
@@ -2048,7 +2114,8 @@
       "story": "As the platform I want inbox mail grouped into threads with direction so that Messages can show conversations.",
       "genz": "Threads, not a mail dump.",
       "ac": [
-        "inbox_message.thread_key + index; GET /api/profile/messages (threads) and /{threadKey}; attachments listed by name only"
+        "inbox_message.thread_key + index; GET /api/profile/messages (threads) and /{threadKey}; attachments listed by name only",
+        "Mail bodies pass through SensitivePatterns redaction before persistence (recruiter mail sometimes asks for SSN/DOB/bank details — the values, if present, are replaced by [removed]); headers unchanged; attachments still never stored"
       ],
       "tests": [
         "MailThreadIT grouping + Sent direction"
@@ -2056,7 +2123,10 @@
       "tech": "api service/inbox/InboxMailService, InboxSyncService",
       "evidence": [],
       "design": "docs/design/user/applications-inbox.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "T1.1"
+      ]
     },
     {
       "id": "U10.2",
@@ -2107,7 +2177,8 @@
       "ac": [
         "GET /api/companies?q&sort (aggregated from job_posting by company_key, with ATS platform, locations, count); GET /api/companies/{key}/jobs",
         "Follow = create a job_alert {company}",
-        "Tiles from initials (no logos scraped)"
+        "Tiles from initials (no logos scraped)",
+        "Company card shows the ATS used, open roles from the posting store and our median reply time (I9.10) — never Glassdoor-style reviews (G18)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2118,7 +2189,13 @@
         "web/src/components/app-v3/explore/ExplorePage.tsx:12"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "I9.10",
+        "M5.6",
+        "U6.10"
+      ],
+      "benchmark": "G18 — Teal / Jobright company insights"
     },
     {
       "id": "U11.2",
@@ -2201,7 +2278,8 @@
         "web/src/components/app-v3/analytics/compute.ts:17"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "benchmark": "Huntr Pro analytics, Simplify/Teal partial; response rate by resume/ATS is parity — the inbox-fed version is unique"
     },
     {
       "id": "U12.2",
@@ -2286,7 +2364,11 @@
         "api/src/main/java/com/dossier/api/web/rest/ProfileSuggestionResource.java"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "U13.4",
+        "E6.5"
+      ]
     },
     {
       "id": "U13.3",
@@ -2361,7 +2443,8 @@
       "genz": "Honest privacy builds the trust that makes them share a resume.",
       "ac": [
         "Panel sections: Data we store (counts + links), AI (parse consent, assistant memory, 'what is sent'), Product analytics switch (U18.4), Support access grant (9.C3; A-area endpoint), Export (exists), Delete (exists, step-up)",
-        "Every switch is backed by an API; no decorative toggles"
+        "Every switch is backed by an API; no decorative toggles",
+        "Panel opens with the T7.2 nutrition label and states the three defaults — never used to train models (T1.6), never sold, never shown to employers — each linked to its policy clause (G31)"
       ],
       "tests": [
         "Playwright panel; API switches persisted"
@@ -2371,7 +2454,14 @@
         "web/src/app/(app)/settings/page.tsx:154"
       ],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "T7.2",
+        "T1.6",
+        "I5.4",
+        "E10.4"
+      ],
+      "benchmark": "G31 — Yoodli charges for training exclusion; Simplify states it; we state and enforce it by default"
     },
     {
       "id": "U14.3",
@@ -2424,7 +2514,10 @@
         "api/src/main/java/com/dossier/api/web/rest/BugReportResource.java"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "S1.6"
+      ]
     },
     {
       "id": "U14.5",
@@ -2515,12 +2608,15 @@
         "web",
         "API"
       ],
-      "deps": [],
+      "deps": [
+        "B5.1"
+      ],
       "story": "As a subscriber I want to see my limits and where I stand, when I renew or lapse, and get to receipts.",
       "genz": "No surprises on money.",
       "ac": [
         "GET /api/billing/me extended with limits {resumes, alerts} + usage; past_due banner with 'update card' (portal); cancels-on date; receipts via portal",
-        "Free: what's included + compare"
+        "Free: what's included + compare",
+        "Cancel completes in-app in ≤ 2 taps via B5.1 (no portal detour) with undo until period end (B5.2); the panel shows the money block (monthly/quarterly only, no trial, no refunds, keep what you paid for) (G29)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2532,7 +2628,13 @@
         "api/src/main/java/com/dossier/api/service/EntitlementService.java"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "B5.2",
+        "B8.4",
+        "M2.2"
+      ],
+      "benchmark": "G29 — billing/cancellation is the #1 one-star theme at Teal, Simplify, Jobright, Resume.io, Final Round"
     },
     {
       "id": "U15.3",
@@ -2558,7 +2660,11 @@
       "tech": "api BillingWebhookResource → NotificationService",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "B4.2",
+        "B11.3"
+      ]
     },
     {
       "id": "U15.4",
@@ -2661,7 +2767,8 @@
       "genz": "Shareable moments; no PII on the card (counts only).",
       "ac": [
         "WEEKLY_RECAP via the engine at the user's local Sunday 17:00; email template; /recap/[week] page",
-        "Share card rendered server-side (next/og) with counts only; share sheet (Web Share API)"
+        "Share card rendered server-side (next/og) with counts only; share sheet (Web Share API)",
+        "Share card renders in the M6.5 formats (1080×1920 + square), counts only by default — no company names unless opted in (G35)"
       ],
       "tests": [
         "unit tests for the new logic",
@@ -2670,7 +2777,12 @@
       "tech": "api WeeklyRecapJob; web recap route + opengraph image",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "M6.5",
+        "N1.6"
+      ],
+      "benchmark": "G35 — Gen Z discovery is TikTok/Instagram-first; Handshake badges"
     },
     {
       "id": "U16.4",
@@ -2684,7 +2796,9 @@
       ],
       "deps": [
         "U18.1",
-        "U2.9"
+        "U2.9",
+        "B7.5",
+        "M6.1"
       ],
       "story": "As a user I want to invite friends with a link and both get a month of Pro when they activate.",
       "genz": "Social growth loop; reward that costs us only AI budget margin.",
@@ -2699,7 +2813,12 @@
       "tech": "api referral package + EntitlementService grants; web settings/dashboard",
       "evidence": [],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "B7.5",
+        "M6.1"
+      ],
+      "benchmark": "G37 — Kickresume vouchers; reward mechanics owned by B7.5 (grant + budget cap), codes/landing by M6.1"
     },
     {
       "id": "U17.1",
@@ -2723,7 +2842,12 @@
       "tech": "web/public/{manifest.webmanifest,sw.js}, web/src/app/{offline,sw.js}/..., web/src/lib/pwa.ts",
       "evidence": [],
       "design": "docs/design/user/pwa-push.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "N1.1",
+        "N0.2"
+      ],
+      "benchmark": "G14 — Simplify iOS, Jobright app, Kickresume app; PWA + share target (N1) is our parity path"
     },
     {
       "id": "U17.2",
@@ -2833,7 +2957,14 @@
         "web/src/lib/analytics.ts (GA4 only)"
       ],
       "design": "docs/design/user/analytics-events.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "M1.6",
+        "E8.1"
+      ],
+      "supersedes": [
+        "A11.2"
+      ]
     },
     {
       "id": "U18.2",
@@ -2885,7 +3016,13 @@
       "tech": "api analytics/RollupJob",
       "evidence": [],
       "design": "docs/design/user/analytics-events.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "A11.3"
+      ],
+      "supersedes": [
+        "M8.2"
+      ]
     },
     {
       "id": "U18.4",
@@ -3019,7 +3156,11 @@
         "web/package.json scripts (tsc + eslint only)"
       ],
       "design": null,
-      "critical": true
+      "critical": true,
+      "relates": [
+        "A15.1",
+        "T4.2"
+      ]
     },
     {
       "id": "U19.4",
@@ -3124,7 +3265,11 @@
         "PROGRESS.md Phase 3, Phase 11"
       ],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "N1.3",
+        "E4.6"
+      ]
     },
     {
       "id": "U20.3",
@@ -3152,7 +3297,12 @@
       "tech": "web/src/lib/extension-signal.ts, job-autofill background message",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "E5.7",
+        "E12.2"
+      ],
+      "benchmark": "G5 — Simplify / Jobright 'already applied' badges"
     },
     {
       "id": "U20.4",
@@ -3207,6 +3357,162 @@
       ],
       "design": null,
       "critical": false
+    },
+    {
+      "id": "U13.4",
+      "epic": "U13",
+      "title": "My Answers bank: /settings/answers lists every learned answer with provenance; edit, delete, 'use everywhere' (G7)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U13.2"
+      ],
+      "relates": [
+        "E6.5",
+        "N3.1",
+        "E7.4",
+        "U13.2",
+        "E10.7"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to see every answer Kiwiply learned while I applied — the question, my answer and where it was learned — and fix or delete any of them, so that the long tail of application questions is mine to control.",
+      "genz": "Your answers, in one list, editable — not a black box that fills things you forgot you typed.",
+      "ac": [
+        "GET/PATCH/DELETE /api/me/answers over the field-cache twin + learned answers: question label, canonical field (if resolved), answer, learned_at, source host (ATS family only, never the full URL)",
+        "/settings/answers (390px first): search, grouped by canonical field vs free-text; inline edit with undo; delete is immediate and propagates to the extension mirror on the next pull (U20.5 signal)",
+        "'Use everywhere' promotes a free-text answer into a profile suggestion (U13.2 path) with the keep/discard confirmation on the web",
+        "Answers learned by Autopilot ask-and-remember (E7.4) carry source=AUTOPILOT; minors default (T2.4) unaffected — answers are user data, never shared with orgs",
+        "Answers matching the never-collected classes can never appear here: filtered at capture by E10.7 and again at read by the shared SensitivePatterns check; a stray hit is deleted server-side and counted"
+      ],
+      "tests": [
+        "AnswerBankResourceIT (list/edit/delete, propagation flag)",
+        "Playwright 390/1440: edit, delete, use-everywhere",
+        "extension sync test: deleted answer absent after pull"
+      ],
+      "tech": "api FieldCacheSyncResource + a read model over field_cache/learned answers; web/src/app/(app)/settings/answers; extension src/lib/field-cache.js honours server deletes (tombstones)",
+      "evidence": [
+        "job-autofill/src/lib/field-cache.js",
+        "job-autofill/src/content/profile-learn.js"
+      ],
+      "design": null,
+      "critical": false,
+      "benchmark": "G7 — Simplify 'pre-written responses', Huntr packets; our provenance (where it was learned) is the differentiator"
+    },
+    {
+      "id": "U13.5",
+      "epic": "U13",
+      "title": "LinkedIn profile checklist from the pasted import (paste-only, never the LinkedIn DOM) — P2, pending decision (G23)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "R1.4"
+      ],
+      "relates": [
+        "I9.4",
+        "R1.4"
+      ],
+      "supersedes": [],
+      "story": "As a user I want a checklist score of my LinkedIn headline, About and experience built from the profile text I pasted, so that I can fix the obvious gaps without Kiwiply ever reading my LinkedIn page.",
+      "genz": "Careerflow's free wedge, done the honest way: you paste, we score, nothing touches linkedin.com.",
+      "ac": [
+        "Deterministic checklist (headline length and keywords, About present and ≥ 3 sentences, each role has ≥ 1 outcome bullet with a number, skills ≥ 10, photo/banner self-reported) scored 0–100 with per-item fix hints — Free, no AI call",
+        "Input is only the R1.4 paste import or the profile items; no linkedin.com host permission, no DOM read (decision §G.2 of COMPETITIVE-GAPS.md, recommended paste-only)",
+        "Pro: \"Rewrite this section\" uses the REWRITE task (I9.4) with provenance chips; output is copy-to-clipboard, never posted",
+        "Story stays not_started until the user confirms the paste-only decision (RECONCILIATION.md D19)"
+      ],
+      "tests": [
+        "vitest checklist scorer on 10 fixture profiles",
+        "component test for hints + Pro gate"
+      ],
+      "tech": "packages/ui or web lib linkedin-checklist.ts (pure function); reuse R1.4 paste parser output",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "benchmark": "G23 — Careerflow free LinkedIn optimizer (reads the live page: LinkedIn-ToS grey zone); Big Interview Accelerator adds LinkedIn optimisation"
+    },
+    {
+      "id": "U6.10",
+      "epic": "U6",
+      "title": "Contacts attached to applications and companies (manual CRM: name, role, how we met, last touch) — no scraping, no enrichment (G17)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.3"
+      ],
+      "relates": [
+        "U11.1",
+        "T1.2",
+        "U6.5"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to note the recruiter or referrer on an application or company and when I last spoke to them, so that follow-ups are not lost in a notes field.",
+      "genz": "A people list that is yours — typed by you, never scraped from LinkedIn.",
+      "ac": [
+        "contact table (user-owned: name, role, company_id?, email/phone optional, how_met, last_touch_at, notes) + application_contact link; CRUD endpoints; included in the DSAR export and erased with the account (T1.2/T1.3)",
+        "Detail sheet (U6.3) gains a People tab; company page (U11.1) lists contacts; 'Log a touch' sets last_touch_at and writes an application_event",
+        "No import from LinkedIn, no email enrichment, no auto-creation from inbox mail (a 'Add from this email' button pre-fills name only, user confirms)",
+        "Phone: add/edit in a bottom sheet; 44px targets"
+      ],
+      "tests": [
+        "ContactResourceIT (ownership, DSAR inclusion, erase)",
+        "Playwright add contact + log touch"
+      ],
+      "tech": "api domain/Contact + ApplicationContact; web/src/components/app-v3/applications/PeopleTab.tsx",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "benchmark": "G17 — Huntr unlimited contacts, Careerflow networking tracker (both P2 parity; ours stays manual by the no-scraping rule)"
+    },
+    {
+      "id": "U6.11",
+      "epic": "U6",
+      "title": "Application packet view: resume version + cover letter + answers used per application, 'Download packet' (PDF + TXT) (G22)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.3",
+        "E4.6",
+        "R5.3",
+        "U13.4"
+      ],
+      "relates": [
+        "R5.5",
+        "E5.9",
+        "U6.3"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to open an application and see exactly what I sent — which resume version, which cover letter and which answers — and download it as one packet, so that interview prep and follow-ups start from the truth.",
+      "genz": "Receipts for every application; 'what did I even send them?' answered in one tap.",
+      "ac": [
+        "Packet tab on the detail sheet: resume version (resume_id from U6.1 → R3.1 version), cover letter (R5.3 link), answers used on this fill (fill_event meta + learned answers, from U13.4), JD snapshot (E4.6)",
+        "'Download packet' streams a ZIP via the FileStorage seam (P5.3): resume PDF, cover-letter PDF/TXT, answers.txt, posting.txt; audited as an export",
+        "Missing parts shown honestly (\"no cover letter was attached\"); never reconstructs what was not captured"
+      ],
+      "tests": [
+        "PacketResourceIT (zip contents, ownership)",
+        "Playwright packet tab + download"
+      ],
+      "tech": "api ApplicationPacketService; web PacketTab.tsx; reuse R0.6 pdf and P5.3 streaming",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "benchmark": "G22 — Huntr application packets (Pro); ours is free because the parts already exist"
     }
   ]
 }

@@ -295,6 +295,20 @@ As a user, I want to edit every section so that the resume is complete.
 - Deps: R0.3. Size S. Owner ext.
 - Tests: extension `npm test` suites (mirror mapping test extended).
 
+### R3.6 Parse check — "How an ATS sees it": deterministic PDF text extraction vs the document, lost fields listed with fix hints (Free) (G20)
+- AC: the export dialog (R3.3) gains a "Parse check" tab: the exported PDF is run through a
+  deterministic extractor (pdf text layer → section/field heuristics, shared with the Free public
+  check M5.3; no AI call, Free) and shown side by side with the `ResumeDocument` projection; lost or
+  garbled fields (missing dates, merged columns, skills not found, contact unparsed) are listed with a
+  one-line fix hint (e.g. "move Languages out of the sidebar"); every launch template must pass with
+  zero lost fields on the fixture docs (R2.3 gate); `parse_check` event with the lost-field count.
+- Deps: R3.3, R0.6. Size M. Owner API + web.
+- Tests: `ParseCheckServiceTest` on the three launch templates × 5 fixture docs (zero lost fields);
+  component test for the lost-fields list and hints.
+- Benchmark: ATS Verification ($5 one-time), Jobscan; Enhancv two-column templates fail ATS parsing
+  (`docs/roadmap/COMPETITIVE-LANDSCAPE.md` §2.3). Added by the reconciliation pass
+  (`docs/roadmap/RECONCILIATION.md`, gap G20).
+
 ---
 
 ## R4 — AI assist (Pro)
@@ -429,9 +443,9 @@ Each R7 story is written when scheduled; sizes S–M except R7.2 (M) and R7.3 (M
 | R0 Foundations (walking skeleton) | 7 |
 | R1 Common Profile builder | 6 |
 | R2 Editor + preview + templates | 6 |
-| R3 Switching, versions, import, export | 5 |
+| R3 Switching, versions, import, export | 6 |
 | R4 AI assist | 5 |
 | R5 Tailoring, ATS, cover letter, hand-off | 5 |
 | R6 Polish / mobile / a11y / perf | 5 |
 | R7 Growth | 6 |
-| **Total** | **45** |
+| **Total** | **46** |

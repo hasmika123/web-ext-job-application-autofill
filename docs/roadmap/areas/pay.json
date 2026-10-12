@@ -212,7 +212,7 @@
       ],
       "deps": [],
       "relates": [
-        "A2.2"
+        "B10.1"
       ],
       "supersedes": [],
       "genz": "The scary path tested before anyone's card is on it.",
@@ -451,7 +451,7 @@
       ],
       "relates": [
         "A3.4",
-        "M"
+        "M2.3"
       ],
       "supersedes": [],
       "genz": "Published prices. Always.",
@@ -701,7 +701,9 @@
       "deps": [
         "B1.5"
       ],
-      "relates": [],
+      "relates": [
+        "T1.1"
+      ],
       "supersedes": [],
       "genz": "Apple Pay, done, back to the job.",
       "tests": [
@@ -722,7 +724,8 @@
       "ac": [
         "POST /api/billing/checkout {product, interval, returnTo} (old {plan} body accepted one release); 404 UNKNOWN_PRICE for draft/retired; Pro→Autopilot returns {switch:true} (B3.4)",
         "Session: consent_collection.terms_of_service=required + custom_text with the today/renews/noRefund lines; payment_method_reuse_agreement; allow_promotion_codes from product_price.accepts_promos; EU/UK withdrawal custom_field unticked and required; cancel_url=returnTo",
-        "Stripe-side receipt emails off (B3.5 sends ours)"
+        "Stripe-side receipt emails off (B3.5 sends ours)",
+        "Individual checkout: tax_id_collection disabled, no custom_fields asking for identifiers; card details only on Stripe-hosted pages (never a Kiwiply form)"
       ],
       "tech": "BillingService.startCheckout; StripeGatewayImpl.createCheckoutSession(CheckoutSpec); web/src/app/api/billing/checkout/route.ts",
       "benchmark": "Huntr/Rezi/Jobscan all sell every tier by checkout; Kiwiply's Autopilot is \"Contact us\" today (G29 adjacent)",
@@ -738,9 +741,8 @@
         "B3.1"
       ],
       "relates": [
-        "A9.6",
-        "A9.5",
-        "T"
+        "T0.2",
+        "T1.4"
       ],
       "supersedes": [],
       "genz": "We can show you exactly what you agreed to.",
@@ -759,7 +761,8 @@
       "ac": [
         "Table per checkout-upgrade-cancel-flows.md §3; written in the webhook transaction; terms_version from the legal-versions table",
         "Retention 3 years after the subscription ends via the A9.5 job; AccountExportResource gains billing.consents[]",
-        "Admin customer timeline shows \"Accepted terms vN on …\""
+        "Admin customer timeline shows \"Accepted terms vN on …\"",
+        "billing_consent stores versions, timestamps and IP hash only — never card, bank or identity data"
       ],
       "tech": "StripeWebhookEvent gains consent + custom_fields; BillingConsent entity",
       "epic": "B3"
@@ -885,7 +888,7 @@
         "B1.4"
       ],
       "relates": [
-        "E",
+        "E5.11",
         "U20.3"
       ],
       "supersedes": [],
@@ -955,7 +958,7 @@
         "U7.1"
       ],
       "relates": [
-        "U15.3",
+        "B11.3",
         "U7.1"
       ],
       "supersedes": [],
@@ -1097,7 +1100,7 @@
       "deps": [],
       "relates": [
         "U15.2",
-        "M"
+        "M2.2"
       ],
       "supersedes": [],
       "genz": "Cancel is as easy as subscribe — and you get a number.",
@@ -1171,7 +1174,9 @@
         "A2.6",
         "U18.1"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "A2.6"
+      ],
       "genz": "Ask after, never before.",
       "tests": [
         "BillingResourceIT reason PATCH",
@@ -1205,7 +1210,9 @@
       "relates": [
         "A2.7"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "A2.7"
+      ],
       "genz": "One email. Then we leave you alone.",
       "tests": [
         "WinbackJobTest"
@@ -1265,7 +1272,7 @@
       "deps": [],
       "relates": [
         "A5.1",
-        "T"
+        "T0.1"
       ],
       "supersedes": [],
       "genz": "—",
@@ -1302,7 +1309,8 @@
         "B4.1"
       ],
       "relates": [
-        "U15.2"
+        "U15.2",
+        "T1.1"
       ],
       "supersedes": [],
       "genz": "Receipts without emailing support.",
@@ -1321,7 +1329,8 @@
       "ac": [
         "List ≤ 36 invoices: number, status, amount, period, PDF; a stored PDF URL older than 24 h is refreshed via gateway.retrieveInvoice",
         "Portal flow \"invoices\" link; Stripe re-renders with updated customer details",
-        "U1.6 email change updates the Stripe customer email"
+        "U1.6 email change updates the Stripe customer email",
+        "Portal \"invoices\" flow configured without tax-ID updates; invoice mirror stores number, status, amounts, period and PDF URL only"
       ],
       "tech": "InvoiceResource; StripeGateway.retrieveInvoice/updateCustomerEmail",
       "epic": "B6"
@@ -1337,8 +1346,8 @@
         "B3.1"
       ],
       "relates": [
-        "T",
-        "A9.6",
+        "T0.1",
+        "T0.2",
         "A2.3"
       ],
       "supersedes": [],
@@ -1374,7 +1383,7 @@
         "B3.2"
       ],
       "relates": [
-        "A9.5",
+        "T1.4",
         "A9.4"
       ],
       "supersedes": [],
@@ -1412,7 +1421,9 @@
       "relates": [
         "A2.5"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "A2.5"
+      ],
       "genz": "—",
       "tests": [
         "PromoCodeServiceTest",
@@ -1449,11 +1460,13 @@
         "B2.1"
       ],
       "relates": [
-        "M",
+        "M7.4",
         "A8.3",
         "U16.4"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "M7.1"
+      ],
       "genz": "Student price that is a real product, not a coupon with an asterisk.",
       "tests": [
         "StudentVerificationIT",
@@ -1555,9 +1568,13 @@
       ],
       "relates": [
         "U16.4",
-        "A9.3"
+        "A9.3",
+        "M6.1",
+        "M6.3"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "M6.2"
+      ],
       "genz": "Bring a friend, both get a month — no card games.",
       "tests": [
         "ReferralServiceTest",
@@ -1822,8 +1839,7 @@
       ],
       "relates": [
         "O9.6",
-        "O9.10",
-        "A13.3"
+        "O9.10"
       ],
       "supersedes": [],
       "genz": "—",
@@ -1891,7 +1907,9 @@
         "A2.2",
         "A10.2"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "A2.2"
+      ],
       "genz": "Your plan is right even when the internet hiccups.",
       "tests": [
         "StripeReconcilerTest matrix with FakeStripeGateway"
@@ -1923,7 +1941,7 @@
         "B4.1"
       ],
       "relates": [
-        "A2.2",
+        "B10.1",
         "A12.1"
       ],
       "supersedes": [],
@@ -2028,7 +2046,7 @@
       ],
       "relates": [
         "U18.2",
-        "A11.2"
+        "U18.1"
       ],
       "supersedes": [],
       "genz": "—",
@@ -2090,9 +2108,9 @@
       ],
       "deps": [],
       "relates": [
-        "N",
-        "E",
-        "M"
+        "N7.1",
+        "E5.11",
+        "M2.3"
       ],
       "supersedes": [],
       "genz": "Pay on the web, use everywhere.",
@@ -2129,7 +2147,9 @@
         "U15.3",
         "U7.3"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "U15.3"
+      ],
       "genz": "—",
       "tests": [
         "NotificationPolicyTest billing kinds"

@@ -87,7 +87,9 @@
         "web"
       ],
       "deps": [],
-      "relates": [],
+      "relates": [
+        "T7.4"
+      ],
       "supersedes": [],
       "evidence": [
         "web/LANDING-V2-SPEC.md §1 and §13",
@@ -262,7 +264,9 @@
         "extension"
       ],
       "deps": [],
-      "relates": [],
+      "relates": [
+        "E1.6"
+      ],
       "supersedes": [],
       "evidence": [
         "job-autofill/AUTOFILL-QA.md (manual verification only today)",
@@ -297,7 +301,10 @@
       "deps": [
         "M0.1"
       ],
-      "relates": [],
+      "relates": [
+        "T3.8",
+        "T1.6"
+      ],
       "supersedes": [],
       "evidence": [
         "docs/roadmap/COMPETITIVE-GAPS.md G27, G31",
@@ -564,7 +571,9 @@
       ],
       "deps": [],
       "relates": [
-        "U2.7"
+        "U2.7",
+        "N0.6",
+        "N2.5"
       ],
       "supersedes": [],
       "evidence": [
@@ -598,7 +607,9 @@
         "extension"
       ],
       "deps": [],
-      "relates": [],
+      "relates": [
+        "E12.4"
+      ],
       "supersedes": [],
       "evidence": [
         "docs/roadmap/COMPETITIVE-GAPS.md G9",
@@ -734,7 +745,9 @@
       ],
       "relates": [
         "U15.2",
-        "U15.3"
+        "B11.3",
+        "B5.1",
+        "B0.4"
       ],
       "supersedes": [],
       "evidence": [
@@ -863,7 +876,7 @@
       "deps": [],
       "relates": [
         "U15.1",
-        "A3.1"
+        "B1.1"
       ],
       "supersedes": [],
       "evidence": [
@@ -1140,7 +1153,9 @@
       "deps": [
         "M5.1"
       ],
-      "relates": [],
+      "relates": [
+        "S1.1"
+      ],
       "supersedes": [],
       "evidence": [
         "web/src/app/(marketing)/contact/page.tsx:31 (HELP_HREF mailto)",
@@ -1175,7 +1190,9 @@
         "M4.1",
         "M10.3"
       ],
-      "relates": [],
+      "relates": [
+        "S1.3"
+      ],
       "supersedes": [],
       "evidence": [
         "job-autofill/STORE-LISTING.md",
@@ -1208,7 +1225,10 @@
       "deps": [
         "M4.1"
       ],
-      "relates": [],
+      "relates": [
+        "S1.6",
+        "S4.1"
+      ],
       "supersedes": [],
       "evidence": [
         "job-autofill/ARCHITECTURE.md (panel drawer)",
@@ -1242,7 +1262,9 @@
       "deps": [
         "M4.1"
       ],
-      "relates": [],
+      "relates": [
+        "S1.4"
+      ],
       "supersedes": [],
       "evidence": [
         "docs/design/mkt/help-center.md §2-3"
@@ -1274,7 +1296,9 @@
       "deps": [
         "M4.1"
       ],
-      "relates": [],
+      "relates": [
+        "T6.2"
+      ],
       "supersedes": [],
       "evidence": [
         "job-autofill/wxt.config.ts",
@@ -1308,7 +1332,9 @@
         "M4.1",
         "M0.6"
       ],
-      "relates": [],
+      "relates": [
+        "S1.3"
+      ],
       "supersedes": [],
       "evidence": [
         "job-autofill/AUTOFILL-QA.md",
@@ -1370,7 +1396,9 @@
       "deps": [
         "M3.1"
       ],
-      "relates": [],
+      "relates": [
+        "S1.1"
+      ],
       "supersedes": [],
       "evidence": [
         "web/src/components/marketing/nav.ts:134-143 (Blog/Guides 'Soon')"
@@ -1403,7 +1431,9 @@
       "deps": [
         "M5.1"
       ],
-      "relates": [],
+      "relates": [
+        "S1.3"
+      ],
       "supersedes": [],
       "evidence": [
         "job-autofill/src/config/rules.js",
@@ -1637,7 +1667,7 @@
       ],
       "deps": [
         "M5.1",
-        "M9.3"
+        "S5.4"
       ],
       "relates": [],
       "supersedes": [],
@@ -1671,7 +1701,8 @@
       "deps": [],
       "relates": [
         "U16.4",
-        "M8.1"
+        "M8.1",
+        "B7.5"
       ],
       "supersedes": [],
       "evidence": [
@@ -1708,7 +1739,8 @@
       ],
       "relates": [
         "U7.1",
-        "U18.3"
+        "U18.3",
+        "B7.5"
       ],
       "supersedes": [],
       "evidence": [
@@ -1741,9 +1773,11 @@
         "web"
       ],
       "deps": [
-        "M6.2"
+        "B7.5"
       ],
-      "relates": [],
+      "relates": [
+        "B7.5"
+      ],
       "supersedes": [],
       "evidence": [
         "docs/design/mkt/referral-program.md §5"
@@ -1811,7 +1845,9 @@
       "deps": [],
       "relates": [
         "U16.3",
-        "O6.6"
+        "O6.6",
+        "N1.6",
+        "S3.8"
       ],
       "supersedes": [],
       "evidence": [
@@ -1845,7 +1881,8 @@
       "deps": [],
       "relates": [
         "A3.1",
-        "A2.5"
+        "A2.5",
+        "B7.2"
       ],
       "supersedes": [],
       "evidence": [
@@ -1912,10 +1949,12 @@
       ],
       "deps": [
         "M7.2",
-        "M6.2"
+        "B7.5"
       ],
       "relates": [],
-      "supersedes": [],
+      "supersedes": [
+        "S8.3"
+      ],
       "evidence": [
         "docs/design/mkt/campus-creator-programs.md §0, §3"
       ],
@@ -2047,7 +2086,9 @@
       "relates": [
         "A11.6"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "A11.6"
+      ],
       "evidence": [
         "web/src/app/api/auth/signup/route.ts (no attribution)",
         "docs/roadmap/areas/admin.json A11.6"
@@ -2110,7 +2151,7 @@
         "API"
       ],
       "deps": [
-        "M8.2"
+        "U18.3"
       ],
       "relates": [
         "A11.1"
@@ -2207,7 +2248,7 @@
         "extension"
       ],
       "deps": [
-        "M8.2"
+        "U18.3"
       ],
       "relates": [
         "U20.1"
@@ -2301,7 +2342,9 @@
         "web"
       ],
       "deps": [],
-      "relates": [],
+      "relates": [
+        "S5.4"
+      ],
       "supersedes": [],
       "evidence": [
         "PROGRESS.md Log",
@@ -2332,7 +2375,7 @@
         "web"
       ],
       "deps": [
-        "M9.3"
+        "S5.4"
       ],
       "relates": [
         "A7.6"
@@ -2365,7 +2408,7 @@
       ],
       "deps": [],
       "relates": [
-        "A2.7",
+        "B5.4",
         "U7.3"
       ],
       "supersedes": [],
@@ -2455,7 +2498,7 @@
       ],
       "deps": [
         "M0.1",
-        "M4.5"
+        "T6.2"
       ],
       "relates": [],
       "supersedes": [],
@@ -2551,7 +2594,9 @@
         "extension"
       ],
       "deps": [],
-      "relates": [],
+      "relates": [
+        "E5.8"
+      ],
       "supersedes": [],
       "evidence": [
         "job-autofill/src/lib/analytics.js",
@@ -2704,7 +2749,7 @@
       ],
       "deps": [],
       "relates": [
-        "A10.1"
+        "P0.1"
       ],
       "supersedes": [],
       "evidence": [

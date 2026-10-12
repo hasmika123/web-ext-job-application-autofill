@@ -414,9 +414,14 @@
         "E1.1"
       ],
       "relates": [
-        "G2"
+        "G2",
+        "S4.4",
+        "S1.3"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "M0.6",
+        "S1.5"
+      ],
       "story": "As a visitor I want to see the measured fill rate per ATS and when it was measured so that the claim is checkable.",
       "genz": "Numbers with a date beat 'works everywhere'.",
       "ac": [
@@ -1299,7 +1304,9 @@
       "relates": [
         "G4",
         "U6.3",
-        "R5.1"
+        "R5.1",
+        "N1.2",
+        "U6.1"
       ],
       "supersedes": [],
       "story": "As a user I want the job description as it was when I applied, and the resume I used, kept with the application so that tailoring, fit and interview prep read the snapshot later.",
@@ -1515,7 +1522,9 @@
       "relates": [
         "U19.1"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "T4.5"
+      ],
       "story": "As a screen-reader or keyboard user I want the review overlay and the drawer fully usable.",
       "genz": "Accessibility is a baseline for this audience, not a bonus.",
       "ac": [
@@ -1611,9 +1620,14 @@
         "E8.1"
       ],
       "relates": [
-        "G10"
+        "G10",
+        "N6.6",
+        "S4.3"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "M10.5",
+        "S5.6"
+      ],
       "story": "As a happy user I want a polite, once-only nudge to rate the extension so that the listing reflects real experience.",
       "genz": "Ask once, never nag.",
       "ac": [
@@ -1648,7 +1662,8 @@
         "G21",
         "R5.1",
         "R5.3",
-        "R5.5"
+        "R5.5",
+        "U6.11"
       ],
       "supersedes": [],
       "story": "As a Pro user on an ATS page I want one tap to tailor my resume to this posting, attach it and paste a cover letter so that the best application takes a minute.",
@@ -1738,7 +1753,9 @@
         "E8.4"
       ],
       "relates": [
-        "G6"
+        "G6",
+        "T1.6",
+        "I1.2"
       ],
       "supersedes": [],
       "story": "As a Pro user I want the AI mapper, picks and drafts to just work after one clear consent so that I get what I pay for without finding three switches.",
@@ -1870,11 +1887,13 @@
         "extension"
       ],
       "deps": [
-        "U13.2"
+        "U13.2",
+        "U13.4"
       ],
       "relates": [
         "G7",
-        "U13.2"
+        "U13.2",
+        "U13.4"
       ],
       "supersedes": [],
       "story": "As a user I want to see which learned answer will fill a question and switch it off for this site so that the library is mine.",
@@ -1962,7 +1981,8 @@
         "E1.1"
       ],
       "relates": [
-        "E10.2"
+        "E10.2",
+        "E10.7"
       ],
       "supersedes": [],
       "story": "As a user I want Autopilot to stop at anything that must be me — attestation, sign-in, CAPTCHA, submit — so that nothing is ever asserted or sent in my name.",
@@ -2027,9 +2047,13 @@
       ],
       "relates": [
         "G8",
-        "G7"
+        "G7",
+        "I3.5",
+        "U13.4"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "I9.12"
+      ],
       "story": "As an Autopilot subscriber I want an unknown question asked once and reused for the rest of the run so that I answer each new question one time, not thirty.",
       "genz": "Ask once, remember forever (with consent).",
       "ac": [
@@ -2152,11 +2176,11 @@
         "API"
       ],
       "deps": [
-        "A11.2"
+        "U18.1"
       ],
       "relates": [
         "U20.4",
-        "A11.2",
+        "U18.1",
         "U18.2"
       ],
       "supersedes": [],
@@ -2610,7 +2634,8 @@
       ],
       "deps": [],
       "relates": [
-        "G30"
+        "G30",
+        "T6.2"
       ],
       "supersedes": [],
       "story": "As a visitor I want the exact permission and host list with reasons, and as a maintainer I want CI to fail when they drift.",
@@ -2645,7 +2670,9 @@
         "U14.2",
         "G31"
       ],
-      "supersedes": [],
+      "supersedes": [
+        "T6.3"
+      ],
       "story": "As a user I want to see what left my browser today (fills counted, suggestions sent, AI calls, config fetched) so that privacy claims are checkable on my own device.",
       "genz": "Show, don't tell.",
       "ac": [
@@ -2891,11 +2918,13 @@
         "web"
       ],
       "deps": [
-        "E12.2"
+        "E12.2",
+        "M1.8"
       ],
       "relates": [
         "G9",
-        "U2.7"
+        "U2.7",
+        "M1.8"
       ],
       "supersedes": [],
       "story": "As a new user I want to see the fill work on a safe practice form right after installing so that the first real application isn't the first test.",
@@ -2942,6 +2971,52 @@
       ],
       "design": null,
       "critical": false
+    },
+    {
+      "id": "E10.7",
+      "epic": "E10",
+      "title": "Never-collected field classes in the engine: SSN/ITIN, bank/routing, tax-ID, passport/visa/document-number and DOB fields are never learned, cached, synced, autofilled from memory, drafted by AI or sent in telemetry",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "T1.1",
+        "T3.3",
+        "S3.4",
+        "E3.7",
+        "U13.4",
+        "E7.2",
+        "S4.2"
+      ],
+      "supersedes": [],
+      "story": "As a user I want the extension to leave identity and money fields entirely to me so that nothing I type into an SSN, bank or passport box is ever remembered, synced, suggested back or sent anywhere.",
+      "genz": "Some boxes are yours alone. We say 'you type this one' and look away.",
+      "ac": [
+        "Canonical schema gains a NEVER class with label matchers (ssn, social security, itin, tax id, ein, vat, routing, account number, iban, passport, visa number, i-9, date of birth, dob, birth date) plus the shared SensitivePatterns value-shape detector (T1.1); a field is NEVER if either matches",
+        "NEVER fields: skipped by fill with an overlay row \"you type this one\" (never a value, never a checkbox); excluded from field-cache writes (local, cross-site twin and server sync), from profile-learn / suggestions, from AI draft / pick / mapper context, from fill-telemetry labels and from S4.2 diagnostics; the S3.4 heads-up banner fires when such a field appears before an offer",
+        "One-time migration on upgrade purges existing cache entries whose label or value matches; the purge count is logged locally only. The server FieldCacheSync endpoint rejects entries matching the name patterns (defence in depth)",
+        "Autopilot (E7.x) parks the item NEEDS_YOU with reason sensitive_field instead of filling; the attestation guard (T3.4) is unchanged",
+        "Fixtures with SSN / bank / DOB fields assert zero cache writes, zero suggestion captures, zero AI calls and zero telemetry labels; ruleset version bump + extension version bump"
+      ],
+      "tests": [
+        "test/never_fields.test.js (matchers, value shapes, cache purge, sync filter)",
+        "fixture run with a synthetic payroll-style form",
+        "Autopilot guard test",
+        "FieldCacheSyncResourceIT rejects deny-list labels"
+      ],
+      "tech": "src/lib/schema.js (NEVER class), src/config/rules.js SENSITIVE_FIELDS extended, src/lib/field-cache.js, src/content/profile-learn.js, src/content/assist.js + field-mapper.js, src/lib/fill-telemetry.js; api FieldCacheSyncResource; shared SensitivePatterns package",
+      "evidence": [
+        "job-autofill/src/lib/field-cache.js",
+        "job-autofill/src/content/profile-learn.js",
+        "job-autofill/src/config/rules.js"
+      ],
+      "design": null,
+      "critical": true,
+      "benchmark": "User rule (2026-10-11): Kiwiply never collects these values anywhere. Competitors (Simplify, Huntr) remember whatever you type; LazyApply/Massive require Gmail and bulk-fill forms blind."
     }
   ]
 }
