@@ -40,12 +40,20 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   **U6.4 done, API half** (`e2e-u6.4`): interviews CRUD + outcome + date-range feed + `.ics` (`InterviewService`,
   `IcsCalendar`, `InterviewResource`), BFF `app/api/interviews/**` + `app/api/applications/[id]/interviews/**`,
   `web/src/lib/interviews.ts` (fetchers, `icsHref`, `googleCalendarUrl`, `needsOutcome`), mock in `mock-tracker.mjs`.
-  **Owed by U6.3** (the detail sheet, not built): the Interview tab / `components/app-v3/applications/InterviewForm.tsx`
-  (autosave per field via `updateInterview`, outcome chips, "Add to calendar"), the status picker with `IN_REVIEW` /
-  `WITHDRAWN`, notes tab on `POST/PUT/DELETE /api/applications/[id]/notes`, `?app=<id>` deep link, and deleting
-  `V3_APPLICATION_ROWS` / `V3_APPLICATION_SAMPLE_COUNTS`. All its BFF routes and mock routes already exist.
-  U3.1 reads `GET /api/applications/activity` and `GET /api/interviews`. Deferred: reminders (U7.1), inbox-proposed
-  interviews (I9.9).
+  **U6.3 done** (`e2e-u6.3`, lane B, web only): `/applications` is the real list v2 (`useListQuery`, paging, search, sort,
+  summary-count tabs) and opens `ApplicationDetail` (right `SideSheet` / phone `BottomSheet`, `?app=<id>`): status picker
+  with undo, next step, notes, interviews (`InterviewForm.tsx`, `.ics` + Google link, outcome chips), emails and resume
+  tabs. Shared pieces for the next stories: `lib/applications.ts` (the `Application` type moved here, status model,
+  fetchers), `lib/tracker-client.ts` (`call`, `toAutosave`), `lib/datetime-local.ts`,
+  `components/app-v3/applications/AutosaveChip.tsx`. `ApplicationBoard.tsx` is deleted.
+  **U5.1 done** (`e2e-u5.1`, web only): `/saved` is list v2 filtered to SAVED (tabs To apply / Applied / Not interested =
+  archived SAVED), `SavedCard` with Apply = `jobUrl`, mark applied, remove (archive) and put back, all with Undo; no
+  expired-posting badge yet (no freshness field). **U3.1 done** (`e2e-u3.1`, web only): the dashboard has no sample at
+  all: tiles + donut from the list `summary`, `ActivityCard` (activity feed, real 7/30/90 select), `UpcomingInterviews`
+  (interview feed + "How did it go?" chips), AI Insights removed, Job Alerts an honest empty state until U7.2. Lane B
+  still owes U12.1 and E2E-U14.0. U3.1 reads
+  `GET /api/applications/activity` and `GET /api/interviews`. Deferred: reminders (U7.1), inbox-proposed
+  interviews (I9.9), bulk select / swipe (U6.5), manual email linking (U6.6).
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),

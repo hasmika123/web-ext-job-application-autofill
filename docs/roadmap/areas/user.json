@@ -848,7 +848,7 @@
       "id": "U3.1",
       "epic": "U3",
       "title": "Real stat tiles, activity chart and status donut (no sample)",
-      "status": "partial",
+      "status": "done",
       "size": "S",
       "owners": [
         "web"
@@ -1303,7 +1303,7 @@
       "id": "U5.1",
       "epic": "U5",
       "title": "Saved Jobs page on real SAVED applications with states",
-      "status": "partial",
+      "status": "done",
       "size": "M",
       "owners": [
         "web",
@@ -1455,7 +1455,7 @@
       "id": "U6.3",
       "epic": "U6",
       "title": "Detail sheet/panel: timeline, notes, next action",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"
@@ -3623,7 +3623,7 @@
       "tech": "web/rest/JobSearchResource.java, service/jobs/{JobSearchService,JobRanker,JobQueryParser}.java, repository/JobPostingSearchRepository.java. U4.2 extends this endpoint (ranker v2), never replaces it."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "evidence": [
@@ -3657,7 +3657,7 @@
       "tech": "service/NotificationService.java, service/NotificationPreferenceService.java, web/rest/NotificationPreferenceResource.java, web app/api/notification-preferences/route.ts, components/app-v3/settings/NotificationsPanel.tsx"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "evidence": [
