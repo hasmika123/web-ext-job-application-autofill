@@ -68,6 +68,11 @@ public class AiPricing {
         }
     }
 
+    /** The model names priced by default, in declaration order - the starting model list of the Gemini provider. */
+    public static java.util.List<String> defaultModelIds() {
+        return java.util.List.copyOf(defaults().keySet());
+    }
+
     private static Map<String, Rate> defaults() {
         Map<String, Rate> m = new LinkedHashMap<>();
         m.put("gemini-2.5-flash-lite", new Rate(0.10, 0.01, 0.40));

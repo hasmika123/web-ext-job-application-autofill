@@ -187,7 +187,10 @@ public final class ResumeBuilderSettingKeys {
         "resume.photo.enabled",
         FEATURE_PHOTO,
         "builder.version_retention_auto",
-        VERSIONS_RETENTION_AUTO
+        VERSIONS_RETENTION_AUTO,
+        // AI admin config (I1.9): the rewrite ceiling is now one of the per-task route settings.
+        AI_OUTPUT_TOKENS_REWRITE,
+        "ai.route.rewrite.max_output_tokens"
     );
 
     // Defaults that more than one place needs (the ones DESIGN 15.2 spells out in prose).
@@ -383,7 +386,6 @@ public final class ResumeBuilderSettingKeys {
         integer(k, AI_CAP_TAILOR_DAILY, 30, 1, 500, "Daily cap on Tailor to Job calls per user.");
         integer(k, AI_CAP_COVER_DAILY, 10, 1, 500, "Daily cap on cover letter calls per user.");
         integer(k, AI_CAP_FIT_DAILY, 60, 1, 500, "Daily cap on keyword placement calls per user.");
-        integer(k, AI_OUTPUT_TOKENS_REWRITE, 3000, 256, 8192, "Output token ceiling for the builder's REWRITE and SUMMARY tasks.");
 
         // PDF (R0.6 limits and the R3.7 async pipeline).
         integer(k, PDF_TIMEOUT_MS, 20000, 5000, 60000, "Chromium render timeout.");
@@ -477,7 +479,9 @@ public final class ResumeBuilderSettingKeys {
 
     /** The declaration for {@code key} (an alias resolves to its canonical key); null when unknown. */
     public static Key find(String key) {
-        return BY_KEY.get(canonical(key));
+        String canonical = canonical(key);
+        Key found = BY_KEY.get(canonical);
+        return found != null ? found : com.dossier.api.service.ai.AiSettingKeys.find(canonical);
     }
 
     /** The declaration for {@code key}; unknown keys are a programming error. */

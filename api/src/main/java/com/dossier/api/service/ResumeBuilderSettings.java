@@ -3,6 +3,7 @@ package com.dossier.api.service;
 import com.dossier.api.domain.AppSetting;
 import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.service.ResumeBuilderSettingKeys.Key;
+import com.dossier.api.service.ai.AiSettingKeys;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
@@ -10,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -90,6 +92,32 @@ public class ResumeBuilderSettings {
         }
     }
 
+    /**
+     * The stored value of {@code key} when a row exists AND is valid for the key, else empty. Unlike the typed
+     * getters this does not fall back to the declared default, so a caller with a middle layer (the AI settings'
+     * env defaults) can tell "the admin set this" from "nothing stored". An undeclared key is empty.
+     */
+    public Optional<String> stored(String key) {
+        Key k = ResumeBuilderSettingKeys.find(key);
+        if (k == null) return Optional.empty();
+        String raw = snapshot().values().get(k.key());
+        if (raw == null) return Optional.empty();
+        if (isValid(k, raw)) return Optional.of(raw);
+        if (warned.add(k.key() + "=" + raw)) {
+            LOG.warn("Setting {} has an invalid stored value ({}); ignoring the row", k.key(), raw.length() > 80 ? raw.substring(0, 80) + "..." : raw);
+        }
+        return Optional.empty();
+    }
+
+    /** Every VALID stored row whose key starts with {@code prefix} (key to value) - how the AI price rows are enumerated. */
+    public Map<String, String> storedWithPrefix(String prefix) {
+        Map<String, String> out = new HashMap<>();
+        for (String key : snapshot().values().keySet()) {
+            if (key.startsWith(prefix)) stored(key).ifPresent(v -> out.put(key, v));
+        }
+        return out;
+    }
+
     /** Drop the cache so the next read sees the table as it is now (call after writing a setting). */
     public void invalidate() {
         snapshot = null;
@@ -135,7 +163,7 @@ public class ResumeBuilderSettings {
     }
 
     /** Whether {@code raw} is an acceptable value for {@code k}: parses, within bounds, allowed, shaped. */
-    static boolean isValid(Key k, String raw, ObjectMapper mapper) {
+    public static boolean isValid(Key k, String raw, ObjectMapper mapper) {
         try {
             switch (k.type()) {
                 case BOOL -> {
@@ -150,7 +178,8 @@ public class ResumeBuilderSettings {
                     return Double.isFinite(v) && inBounds(k, v);
                 }
                 case STRING, ENUM -> {
-                    if (raw.isBlank()) return false;
+                    if (raw.isBlank()) return AiSettingKeys.allowsBlank(k);
+                    if (AiSettingKeys.shapeError(k, raw) != null) return false;
                     return k.allowed() == null || k.allowed().contains(raw);
                 }
                 case JSON -> {

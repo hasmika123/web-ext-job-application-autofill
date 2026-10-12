@@ -109,6 +109,10 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
         if (ex instanceof com.dossier.api.service.ResumeDocException docEx) return (ProblemDetailWithCause) new ResumeDocProblemException(
             docEx
         ).getBody();
+        // Admin AI config (I1.9) — a refused AI setting/provider operation; status + code + extras from the service.
+        if (ex instanceof com.dossier.api.service.AiConfigException aiEx) return (ProblemDetailWithCause) new AiConfigProblemException(
+            aiEx
+        ).getBody();
         // Org tenant model (O1.x) — a refused organization operation, incl. the generic 404 for a foreign org.
         if (ex instanceof com.dossier.api.service.org.OrgException orgEx) return (ProblemDetailWithCause) new OrgProblemException(
             orgEx

@@ -1,5 +1,6 @@
 package com.dossier.api.config;
 
+import com.dossier.api.service.ai.AiEnv;
 import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
 import com.dossier.api.service.ai.AiResult;
@@ -22,6 +23,12 @@ import org.springframework.context.annotation.Configuration;
 public class AiConfiguration {
 
     private static final Logger LOG = LoggerFactory.getLogger(AiConfiguration.class);
+
+    /** The deployment-level AI values the service layer may read (never the key). */
+    @Bean
+    public AiEnv aiEnv(AiProperties props) {
+        return new AiEnv(props.isEnabled(), props.getProvider(), props.getBaseUrl(), props.getModel(), props.getMaxOutputTokens(), props.getParseMaxOutputTokens());
+    }
 
     @Bean
     public AiProvider aiProvider(AiProperties props) {
