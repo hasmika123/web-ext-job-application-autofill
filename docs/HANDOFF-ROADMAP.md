@@ -4,59 +4,48 @@ Written 2026-10-11 at the end of a long session. Read after root `CLAUDE.md`. Co
 `docs/HANDOFF-V2.md` (the `version2` app work), `docs/HANDOFF-RESUME-BUILDER.md` (resume builder),
 `docs/roadmap/README.md` (how the roadmap generator works).
 
-## 0. START HERE — the exact continuation point
+## 0. START HERE — the exact continuation point (updated 2026-10-11, end of session 2)
 
-**Branch (updated 2026-10-11, user decision): everything is now on `version2`, and the new work is LOCAL ONLY (not pushed).**
-`version2` is **10 commits ahead of `origin/version2`** (`git status -sb` shows `[ahead 10]`): it holds the app work
-(pushed up to `2c5212b`) plus the Resume Builder design/stories/HTML (`docs/RESUME-BUILDER-*.md`, `docs/resume-builder/`),
-the product roadmap (`docs/roadmap/`, `docs/design/{user,org,admin}/`) and this handoff. **Do not push** until the user
-says so. The earlier stacked branches still exist and are already pushed to origin, unchanged: `resume-builder`
-(`a810371`) and `product-roadmap` (`3e8a687`, same content as local `version2` HEAD); the user has not asked to delete them.
-Resume Builder implementation work stays local until the user says otherwise.
+**Everything is LOCAL ONLY — do not push until the user says so.** Two local branches carry the work:
 
-Promotion (`develop` → `main` = production deploy) is the user's call only (root `CLAUDE.md` → Branching).
+- **`version2`** — app v3 + the **whole-product roadmap, now complete**: 12 areas, 144 epics, **893 stories**,
+  0 dangling refs (`node docs/roadmap/build-master-roadmap.mjs --list`). Since session 1 it gained: the
+  competitive landscape (`docs/roadmap/COMPETITIVE-{LANDSCAPE,GAPS}.md`, 22 competitors, 44 gaps), the eight
+  cross-cutting areas (ext, mkt, plat, ai, mob, pay, trust, sup — `AUDIT-/PLAN-<key>.md`, `areas/<key>.json`,
+  `docs/design/<key>/`), the generator for all 12 areas (grouped home, all-epics view, benchmark + relates),
+  **`docs/roadmap/RECONCILIATION.md`** (gap coverage, 47 dedupes, "Already built" per area, never-collected
+  rule, admin-configured sweep, **whole-product build order first 25**, **65 consolidated user decisions**),
+  and the timesheets 23.0 spec (`docs/design/org/timesheets.md`, `PROPOSAL-timesheets.md` APPLIED).
+- **`resume-builder`** — the **Resume Builder walking skeleton is DONE** (rb0.1–rb0.7 + p5.1 FileStorage seam),
+  14/14 end-to-end smoke against real Spring + MySQL + Chromium sidecar. Next story **R1.1** — see
+  `docs/HANDOFF-RESUME-BUILDER.md` START HERE (incl. its **promotion checklist**: storage driver must stay
+  `s3` in prod until P5.4, `uploads` volume backup, chromium sidecar, React 19.2.4 vs 19.2.7, stale openapi.json).
+  It branches from `version2`@`f679549`; merge `version2` into it (docs only, no conflicts expected) before a PR.
+
+**User decisions recorded 2026-10-11 (also in root `CLAUDE.md` + memory):**
+- **Model policy:** Fable for design/epics/stories/roadmap analysis + competitor benchmarks; Sonnet builds.
+  (Supersedes session 1's "stop using Fable".)
+- **We never collect sensitive PII** — no SSN/ITIN, bank/routing, tax IDs, passport/visa/document numbers, DOB;
+  not asked, accepted, extracted, learned, sent to AI or stored. Stripe holds cards; Stripe tax-ID collection off.
+- **Everything is admin-configured** — every feature switch, price, limit and default comes from the app admin
+  settings (catalog + settings registry A5.1 + flags A5.3 + feature registry A5.7); stories name a setting key +
+  default instead of a constant. A5 is now P0 and in the build order's top 10.
+- **Timesheets (Consultancy Ops, O11):** org add-on only · priced later in admin · OCR optional, off by default ·
+  **O11 stays P2**. Other 23.0 defaults applied, user may override.
+
+**Next, in order (ask the user which):** (1) answer the top decisions in `RECONCILIATION.md` — esp. **the 80 %
+margin floor fails at current Stripe fees** (Pro $19.99 = 79.9 % worst case; ~76 % with Managed Payments), Gemini
+free-tier/no-training, GA4 in the extension vs CWS Limited Use, 16+ vs 18+; (2) continue Resume Builder at R1.1;
+(3) start the whole-product build order (P0.1 backups go-live needs a `develop`→`main` promotion — user only).
 
 ```bash
-git checkout version2
-npm ci                                  # at the ROOT (npm workspaces)
-# view the roadmap page
-npx --yes serve docs/roadmap -l 5056    # then open http://localhost:5056/master-roadmap.html
-# run the app with demo accounts (mock API, no DB). 8080 may be taken on this machine, so:
-MOCK_API_PORT=8081 npm run dev:demo -w web   # http://localhost:3000/login -> left "Demo accounts" tab
+git checkout version2 && npm ci        # ROOT (npm workspaces)
+node docs/roadmap/build-master-roadmap.mjs --list
+npx --yes serve docs/roadmap -l 5056   # http://localhost:5056/master-roadmap.html
+MOCK_API_PORT=8081 npm run dev:demo -w web   # 8080 is taken on this machine
 ```
 
-**The task in flight:** finish the roadmap by planning the **8 cross-cutting areas** below, then
-regenerate the master roadmap page, then start building stories (first: Resume Builder R0.1).
-
-### 0.1 Eight areas still to plan (nothing written yet)
-
-The user chose all eight. Eight Fable designers were launched and **all failed on a usage-limit error
-before writing any file** (nothing to salvage). The user then said **"stop using Fable — use Sonnet"**,
-so relaunch them on **Sonnet** (`Agent` with `model: "sonnet"`, `subagent_type: "general-purpose"`,
-background). A first relaunch attempt errored at the tool level (empty error, probably the same limit
-window) — just retry later. The brief every designer follows is
-`roadmap-brief.txt` in the session scratchpad; its content is reproduced in §3 so it survives.
-
-| key | prefix | Area | Owns (in short) |
-|---|---|---|---|
-| `ext` | E | Browser extension & application tracking engine | `job-autofill/**`, ATS adapters + DOM-fixture harness, capture/submit detection (never auto-submit), store policies, Firefox/Edge, telemetry |
-| `mkt` | M | Marketing site & growth | `(marketing)` pages, SEO, honest-claims register, referral/creator/campus programs, funnels, `/help` (missing) |
-| `plat` | P | Platform, DevOps & reliability | deploy/CI, environments (no staging), **backups never ran**, monitoring, hardening, `FileStorage` seam (local now, S3 later), capacity |
-| `ai` | I | AI platform | model routing, prompt registry + evals, guardrails, embeddings, fairness/explainability, shared metering/budgets |
-| `mob` | N | Mobile app & PWA | PWA + native decision, share-target / send-to-laptop, offline/push, store payment rules |
-| `pay` | B | Payments, plans & billing engine | catalog + entitlements + margin guard, tax, regional pricing, discounts, dunning/cancel |
-| `trust` | T | Trust, legal & compliance | privacy ops, **minors/age rules**, AI-in-hiring law, accessibility, security program, lawyer-review list |
-| `sup` | S | Support, help & community | help center, in-app/AI support, **job-scam safety centre**, feedback, community |
-
-Each designer writes **only its own files**: `docs/roadmap/AUDIT-<key>.md`, `PLAN-<key>.md`,
-`docs/roadmap/areas/<key>.json` (schema in §3, set `"kind":"cross-cutting"`), `docs/design/<key>/*.md`.
-Existing stories they overlap are referenced via the optional `relates` / `supersedes` fields (no edits to
-other areas' files; reconciliation is a later pass).
-
-**After the 8 land — generator update (small Sonnet task):** `docs/roadmap/build-master-roadmap.mjs` has a
-hard-coded `AREAS` list of four (`user`, `org`, `admin`, `resume`). Add the eight, group the home page
-into **Dashboards / Cross-cutting / Resume Builder**, add an **"All epics" flat view** (61 epics today →
-more after), then `node docs/roadmap/build-master-roadmap.mjs` and commit `master-roadmap.html`.
+> Session 1 notes on the eight-area relaunch and the generator update are done and removed; §3 keeps the designer brief.
 
 ## 1. What exists on the roadmap today
 
