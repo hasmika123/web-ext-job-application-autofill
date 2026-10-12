@@ -17,6 +17,11 @@
  *                                              PDF_BROWSER_URL=ws://... of the chromium sidecar)
  *   RB_STORAGE_ROOT   the API's dossier.storage.local.root (to prove the PDF landed on disk)
  *
+ * The second half ("overnight flow") covers the four ways to start a resume, Save -> stored PDF on disk, cached
+ * downloads, reload, rename / primary, share link + revoke, Duplicate and Download original. It needs the web
+ * started with RESUME_PDF_WORKER=1 and DOSSIER_INTERNAL_TOKEN (same value on the API), and the API's
+ * JHIPSTER_MAIL_BASEURL set to the web origin so share links carry a usable URL.
+ *
  * Usage: RB_STORAGE_ROOT=<dir> node scripts/rb-smoke.mjs
  * Exit code 0 only when every row passes.
  */
@@ -158,6 +163,19 @@ await step("sign in through the web", async () => {
 });
 if (!bearer) finish();
 
+// The account is a throwaway and the Free plan keeps 3 resumes: start every run from an empty list so a
+// reused account (web/.env.rb-smoke) behaves like a fresh one.
+await step("clean slate: delete the throwaway account's resumes from earlier runs", async () => {
+  const res = await api("GET", "/api/profile/resumes");
+  must(res.ok, `GET /api/profile/resumes -> ${res.status}`);
+  const all = await res.json();
+  for (const r of all) {
+    const d = await web("DELETE", `/api/resumes/${r.id}`);
+    must(d.status === 200 || d.status === 204, `delete ${r.id} -> ${d.status}`);
+  }
+  return `${all.length} removed`;
+});
+
 const profileVersion = async () => {
   const res = await api("GET", "/api/profile/version");
   must(res.ok, `GET /api/profile/version -> ${res.status}`);
@@ -291,15 +309,275 @@ await step("file exists under the local storage root", async () => {
   return `${bytes.length} bytes, identical to the download`;
 });
 
-await step("exportedHash == contentHash", async () => {
+await step("exportedHash == renderHash, PDF READY (R3.7: the stored hash is the render hash)", async () => {
   const res = await web("GET", `/api/resumes/${resumeId}/doc`);
   must(res.status === 200, `-> ${res.status}`);
   const dto = await res.json();
   must(dto.exportedHash, "exportedHash is null");
-  must(dto.exportedHash === dto.contentHash, `exportedHash ${dto.exportedHash} != contentHash ${dto.contentHash}`);
+  must(dto.exportedHash === dto.renderHash, `exportedHash ${dto.exportedHash} != renderHash ${dto.renderHash}`);
+  must(dto.pdf?.status === "READY", `pdf ${dto.pdf?.status}`);
   must(dto.contentHash === putHash, "contentHash moved since the PUT");
-  return String(dto.contentHash).slice(0, 8);
+  return String(dto.renderHash).slice(0, 8);
 });
+
+/* ── the overnight flow (R2.6 + R3.3 + R3.9 + R3.10 + R3.11 integration) ─────────────────────────────
+ * Four ways to start (profile / scratch / upload / copy), an edit, Save (checkpoint) -> the stored PDF
+ * goes READY on disk, cached downloads (PDF + TXT), a reload that returns the saved content and the READY
+ * PDF, rename / primary through the metadata, a share link that opens publicly and 404s once revoked,
+ * and the header menu's Duplicate + Download original. All over HTTP against the real stack. */
+const STRUCTURED = {
+  summary: "Backend engineer who ships reliable payment services.",
+  skills: ["Java", "SQL", "Kubernetes"],
+  experience: [
+    { company: "Acme", title: "Engineer", location: "NYC", startDate: "Jan 2020", endDate: "Present", current: true, bullets: ["Built the billing service", "Cut p99 latency by 40%"] },
+    { company: "Globex", title: "Intern", location: "", startDate: "2018", endDate: "2019", current: false, bullets: ["Learned a lot"] },
+  ],
+  education: [{ school: "MIT", degree: "BS", field: "CS", startDate: "2014", endDate: "2018", gpa: "", location: "" }],
+  languages: [],
+  projects: [],
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const json = async (res) => {
+  const t = await res.text();
+  try {
+    return JSON.parse(t);
+  } catch {
+    return { _raw: t.slice(0, 200) };
+  }
+};
+
+async function waitPdf(id, want = "READY", ms = 90_000) {
+  const t0 = Date.now();
+  let last;
+  while (Date.now() - t0 < ms) {
+    const res = await web("GET", `/api/resumes/${id}/doc/pdf-status`);
+    last = await json(res);
+    if (last.status === want) return last;
+    if (last.status === "FAILED") throw new Error(`pdf FAILED: ${last.error}`);
+    await sleep(1000);
+  }
+  throw new Error(`pdf never ${want} (last ${last?.status})`);
+}
+
+async function createBuilt(body) {
+  const res = await web("POST", "/api/resumes/built", { body });
+  const dto = await json(res);
+  return { status: res.status, dto, id: dto.resume?.id };
+}
+
+async function listRow(id) {
+  const res = await api("GET", "/api/profile/resumes");
+  return (await res.json()).find((x) => x.id === id);
+}
+
+/** edit the summary text of a doc and PUT it; returns { etag, text }. */
+async function editSummary(id, text) {
+  const g = await web("GET", `/api/resumes/${id}/doc`);
+  const et = g.headers.get("etag");
+  const dto = await g.json();
+  const d = structuredClone(dto.doc);
+  let s = d.sections.find((x) => x.kind === "SUMMARY");
+  if (!s) {
+    s = { id: "s_rbov0001", kind: "SUMMARY", title: "Summary", items: [] };
+    d.sections.unshift(s);
+  }
+  s.items = [{ id: s.items[0]?.id ?? "i_rbov0001", text, src: "user" }];
+  const put = await web("PUT", `/api/resumes/${id}/doc`, { body: { doc: d }, headers: { "if-match": et } });
+  must(put.status === 200, `PUT -> ${put.status} ${(await put.text()).slice(0, 200)}`);
+  return put.headers.get("etag");
+}
+
+const summaryOf = (doc) => doc.sections.find((x) => x.kind === "SUMMARY")?.items?.[0]?.text;
+
+/** edit -> Save -> READY PDF on disk == cached download; TXT; reload. */
+async function saveAndProve(label, id) {
+  const text = `overnight ${label} ${Date.now()}`;
+  await step(`${label}: edit (PUT) + Save checkpoint`, async () => {
+    await editSummary(id, text);
+    const cp = await web("POST", `/api/resumes/${id}/doc/checkpoint`, { body: {} });
+    const body = await json(cp);
+    must(cp.status === 200, `checkpoint -> ${cp.status} ${JSON.stringify(body).slice(0, 200)}`);
+    must(typeof body.versionNo === "number", "no versionNo");
+    return `v${body.versionNo} ${body.reason}, pdf ${body.pdf?.status}`;
+  });
+  let key;
+  await step(`${label}: stored PDF READY, file in local storage`, async () => {
+    const st = await waitPdf(id);
+    const row = await listRow(id);
+    key = row?.r2ObjectKey;
+    must(key, "r2ObjectKey not set");
+    const file = path.join(STORAGE_ROOT, ...key.split("/"));
+    must(existsSync(file), `missing ${file}`);
+    const bytes = readFileSync(file);
+    must(bytes.subarray(0, 5).toString("latin1") === "%PDF-", "stored file is not a PDF");
+    return `${st.status}, ${bytes.length} bytes at ${key.split("/").slice(-1)[0]}`;
+  });
+  await step(`${label}: cached export PDF (no re-render) + TXT`, async () => {
+    const res = await web("GET", `/api/resumes/${id}/export?format=pdf&cached=1`);
+    must(res.status === 200, `pdf -> ${res.status}`);
+    must(res.headers.get("x-resume-pdf-cached") === "1", "not served from the stored PDF (x-resume-pdf-cached != 1)");
+    const bytes = Buffer.from(await res.arrayBuffer());
+    const disk = readFileSync(path.join(STORAGE_ROOT, ...key.split("/")));
+    must(bytes.equals(disk), "download differs from the stored file");
+    const tx = await web("GET", `/api/resumes/${id}/export?format=txt`);
+    must(tx.status === 200, `txt -> ${tx.status}`);
+    const t = await tx.text();
+    must(t.includes(text), "txt lacks the edited summary");
+    return `${bytes.length} bytes pdf, ${t.length} chars txt`;
+  });
+  await step(`${label}: reload returns the saved content + READY PDF`, async () => {
+    const res = await web("GET", `/api/resumes/${id}/doc`);
+    must(res.status === 200, `-> ${res.status}`);
+    const dto = await res.json();
+    must(summaryOf(dto.doc) === text, `summary is "${summaryOf(dto.doc)}"`);
+    must(dto.pdf?.status === "READY", `pdf ${dto.pdf?.status}`);
+    must(dto.exportedHash && dto.exportedHash === dto.renderHash, "exportedHash != renderHash after Save (the stored PDF is not this render)");
+    return `docVersion ${dto.docVersion}`;
+  });
+  return text;
+}
+
+// 1. profile
+let pid;
+await step("create via source=profile", async () => {
+  const r = await createBuilt({ source: { kind: "profile" }, label: "overnight profile", templateId: "modern" });
+  must(r.status === 201, `-> ${r.status} ${JSON.stringify(r.dto).slice(0, 200)}`);
+  pid = r.id;
+  must(r.dto.doc?.doc?.sections !== undefined, "no document");
+  return `resume ${pid}`;
+});
+let profileText;
+if (pid) profileText = await saveAndProve("profile", pid);
+
+// meta: rename + primary, share link
+if (pid) {
+  await step("rename + set primary through meta, reload shows both", async () => {
+    const rn = await web("PATCH", `/api/resumes/${pid}/meta`, { body: { name: "Overnight Primary" } });
+    must(rn.status === 200, `rename -> ${rn.status} ${(await rn.text()).slice(0, 200)}`);
+    const pr = await web("PATCH", `/api/resumes/${pid}/meta`, { body: { primary: true } });
+    must(pr.status === 200, `primary -> ${pr.status}`);
+    const m = await json(await web("GET", `/api/resumes/${pid}/meta`));
+    must(m.name === "Overnight Primary", `name ${m.name}`);
+    must(m.primary === true, "not primary");
+    const dto = await (await web("GET", `/api/resumes/${pid}/doc`)).json();
+    must(dto.doc.meta.title === "Overnight Primary", `doc title ${dto.doc.meta.title}`);
+    must(dto.pdf?.status === "READY", `a rename must not stale the PDF (${dto.pdf?.status})`);
+    return "name + primary persisted, PDF still READY";
+  });
+  let link;
+  await step("share link opens publicly, then 404 after revoke", async () => {
+    const mk = await web("POST", `/api/resumes/${pid}/access/link`, { body: { label: "smoke", allowDownload: true } });
+    const g = await json(mk);
+    must(mk.status === 201, `create -> ${mk.status} ${JSON.stringify(g).slice(0, 200)}`);
+    link = g;
+    const token = /\/r\/([A-Za-z0-9]+)/.exec(g.url ?? "")?.[1];
+    must(token, `no token in url ${g.url}`);
+    const pub = await fetch(`${WEB}/r/${token}`);
+    must(pub.status === 200, `public page -> ${pub.status}`);
+    const html = await pub.text();
+    must(html.includes(profileText), "public page lacks the saved summary");
+    const pp = await fetch(`${WEB}/r/${token}/pdf`);
+    must(pp.status === 200 && (await pp.arrayBuffer()).byteLength > 1000, `public pdf -> ${pp.status}`);
+    const rv = await web("DELETE", `/api/resumes/${pid}/access/${g.id}`);
+    must(rv.status === 200 || rv.status === 204, `revoke -> ${rv.status}`);
+    const gone = await fetch(`${WEB}/r/${token}`);
+    must(gone.status === 404, `after revoke -> ${gone.status}`);
+    return `open 200 (page + pdf), revoked -> 404`;
+  });
+}
+
+// 2. copy (from the profile resume)
+if (pid) {
+  let cid;
+  await step("create via source=copy", async () => {
+    const r = await createBuilt({ source: { kind: "copy", fromResumeId: pid } });
+    must(r.status === 201, `-> ${r.status} ${JSON.stringify(r.dto).slice(0, 200)}`);
+    cid = r.id;
+    must(cid !== pid, "same id");
+    must(summaryOf(r.dto.doc.doc) === profileText, "copy lacks the source's summary");
+    return `resume ${cid} copied from ${pid}`;
+  });
+  if (cid) {
+    await saveAndProve("copy", cid);
+    await step("delete the copy (frees a slot)", async () => {
+      const d = await web("DELETE", `/api/resumes/${cid}`);
+      must(d.status === 200 || d.status === 204, `-> ${d.status}`);
+    });
+  }
+}
+
+// 3. scratch
+{
+  let sid;
+  await step("create via source=scratch", async () => {
+    const r = await createBuilt({ source: { kind: "scratch" }, label: "overnight scratch" });
+    must(r.status === 201, `-> ${r.status} ${JSON.stringify(r.dto).slice(0, 200)}`);
+    sid = r.id;
+    must((r.dto.doc.doc.sections ?? []).length === 0, `scratch should be empty, has ${(r.dto.doc.doc.sections ?? []).length} sections`);
+    return `resume ${sid}, empty`;
+  });
+  if (sid) {
+    await saveAndProve("scratch", sid);
+    await step("delete the scratch resume (frees a slot)", async () => {
+      const d = await web("DELETE", `/api/resumes/${sid}`);
+      must(d.status === 200 || d.status === 204, `-> ${d.status}`);
+    });
+  }
+}
+
+// 4. upload (parsed structure) + the original file kept aside
+let uid;
+await step("create via source=upload (parsed structure)", async () => {
+  const r = await createBuilt({ source: { kind: "upload", fileName: "Ada CV.txt", structured: STRUCTURED, bio: { firstName: "Ada", email: "ada@example.test" } } });
+  must(r.status === 201, `-> ${r.status} ${JSON.stringify(r.dto).slice(0, 200)}`);
+  uid = r.id;
+  const kinds = r.dto.doc.doc.sections.map((s) => s.kind);
+  must(kinds.includes("EXPERIENCE") && kinds.includes("EDUCATION"), `sections ${kinds}`);
+  must(r.dto.resume.label === "Ada CV", `label ${r.dto.resume.label}`);
+  return `resume ${uid}: ${kinds.join(", ")}`;
+});
+if (uid) {
+  await step("upload: attach the original file; meta.hasOriginal + Download original", async () => {
+    const before = await json(await web("GET", `/api/resumes/${uid}/meta`));
+    must(before.hasOriginal === false, `hasOriginal before = ${before.hasOriginal}`);
+    const fd = new FormData();
+    fd.append("file", new Blob(["Ada Lovelace - resume text fixture"], { type: "text/plain" }), "Ada CV.txt");
+    const up = await fetch(`${WEB}/api/resumes/${uid}/file`, { method: "POST", headers: { cookie: jar.header() }, body: fd });
+    must(up.status === 200 || up.status === 201 || up.status === 204, `attach -> ${up.status} ${(await up.text()).slice(0, 200)}`);
+    const after = await json(await web("GET", `/api/resumes/${uid}/meta`));
+    must(after.hasOriginal === true, `hasOriginal after = ${after.hasOriginal}`);
+    const dl = await web("GET", `/api/resumes/${uid}/original`);
+    must(dl.status === 200, `original -> ${dl.status}`);
+    must((await dl.text()).includes("Ada Lovelace"), "original bytes differ");
+    return "hasOriginal false -> true, original downloads";
+  });
+  await saveAndProve("upload", uid);
+}
+
+// 5. header menu Duplicate (plan cap, then success)
+if (uid) {
+  await step("Duplicate at the Free cap -> 402 RESUME_LIMIT", async () => {
+    const live = (await (await api("GET", "/api/profile/resumes")).json()).filter((x) => !x.archived).length;
+    must(live >= 3, `expected 3 live resumes to hit the cap, have ${live}`);
+    const res = await web("POST", `/api/resumes/${uid}/doc/duplicate`, { body: {} });
+    const b = await json(res);
+    must(res.status === 402 && b.code === "RESUME_LIMIT", `-> ${res.status} ${JSON.stringify(b).slice(0, 160)}`);
+    return `${live} live, refused: ${b.plan} limit ${b.limit}`;
+  });
+  await step("Duplicate after freeing a slot -> a copy named '(copy)'", async () => {
+    const del = await web("DELETE", `/api/resumes/${resumeId}`); // the R0 smoke resume
+    must(del.status === 200 || del.status === 204, `delete -> ${del.status}`);
+    const res = await web("POST", `/api/resumes/${uid}/doc/duplicate`, { body: {} });
+    const b = await json(res);
+    must(res.status === 201 || res.status === 200, `-> ${res.status} ${JSON.stringify(b).slice(0, 160)}`);
+    must(/\(copy\)$/.test(b.resume?.label ?? ""), `label ${b.resume?.label}`);
+    const d = await web("DELETE", `/api/resumes/${b.resume.id}`);
+    must(d.status === 200 || d.status === 204, `cleanup -> ${d.status}`);
+    return `copy ${b.resume.id} "${b.resume.label}"`;
+  });
+}
+
 
 finish();
 
