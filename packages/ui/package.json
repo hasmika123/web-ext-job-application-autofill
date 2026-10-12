@@ -13,6 +13,7 @@
     "./styles/animations.css": "./styles/animations.css",
     "./styles/theme-v2.css": "./styles/theme-v2.css",
     "./styles/resume.css": "./styles/resume.css",
+    "./styles/resume-print.css": "./styles/resume-print.css",
     "./fonts/*": "./fonts/*",
     "./resume/thumbs/*": "./src/resume/thumbs/*"
   },

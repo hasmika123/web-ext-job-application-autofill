@@ -1050,7 +1050,7 @@
       "id": "R3.8",
       "epic": "R3",
       "title": "Print layout view — right side-nav with client-side pagination, page boxes, over-target banner + Fit to one page, Print button with print stylesheet",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web",
