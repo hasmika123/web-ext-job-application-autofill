@@ -30,8 +30,11 @@ Written 2026-10-11 at the end of a long session. Read after root `CLAUDE.md`. Co
 - **Everything is admin-configured** — every feature switch, price, limit and default comes from the app admin
   settings (catalog + settings registry A5.1 + flags A5.3 + feature registry A5.7); stories name a setting key +
   default instead of a constant. A5 is now P0 and in the build order's top 10.
-- **Timesheets (Consultancy Ops, O11):** org add-on only · priced later in admin · OCR optional, off by default ·
-  **O11 stays P2**. Other 23.0 defaults applied, user may override.
+- **Timesheets (Consultancy Ops):** org add-on only · priced later in admin · OCR optional, off by default ·
+  **stays P2**. Other 23.0 defaults applied, user may override. **Promoted the same day to product area H**
+  (`docs/timesheets/stories.json`, `docs/TIMESHEETS-DESIGN.md`, `docs/HANDOFF-TIMESHEETS.md`); the org epic was removed
+  from `org.json`, old → new ids in DESIGN §13. The generator's "Products" group (Resume Builder + Timesheets)
+  is a follow-up wiring task.
 
 **Next, in order (ask the user which):** (1) answer the top decisions in `RECONCILIATION.md` — esp. **the 80 %
 margin floor fails at current Stripe fees** (Pro $19.99 = 79.9 % worst case; ~76 % with Managed Payments), Gemini

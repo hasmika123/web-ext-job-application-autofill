@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Generates master-roadmap.html (self-contained drill-down) from the twelve plan sources
-// (user, org, admin, ext, mkt, plat, ai, mob, pay, trust, sup + Resume Builder).
+// Generates master-roadmap.html (self-contained drill-down) from the thirteen plan sources
+// (user, org, admin, ext, mkt, plat, ai, mob, pay, trust, sup + the Resume Builder and Timesheets products).
 //   node docs/roadmap/build-master-roadmap.mjs                    regenerate
 //   node docs/roadmap/build-master-roadmap.mjs --set U1.2=done,R0.1=in_progress   (any prefix)
 //   node docs/roadmap/build-master-roadmap.mjs --list             counts per area + dangling-id warnings
@@ -16,19 +16,18 @@ const STATUSES = ['not_started', 'in_progress', 'in_review', 'partial', 'done', 
 const WEIGHT = { S: 1, M: 2, L: 3 };
 const CREDIT = { done: 1, in_review: 0.75, partial: 0.5, in_progress: 0.25, not_started: 0, blocked: 0 };
 
-// group: dashboards | cross | addons | resume (home-page sections). name = short label; the JSON's own long
+// group: dashboards | cross | products (home-page sections; a SPOTLIGHTS entry's group must be one of these keys). name = short label; the JSON's own long
 // title is kept as fullName. prefix/kind come from each JSON when present (config is the fallback).
 const GROUPS = [
   { key: 'dashboards', title: 'Dashboards', blurb: 'The three signed-in surfaces people actually use: the job seeker, the organization and the Kiwiply team.' },
   { key: 'cross', title: 'Cross-cutting', blurb: 'The engines and foundations under every dashboard: extension, growth, reliability, AI, mobile, billing, trust and support.' },
-  { key: 'addons', title: 'Add-ons', blurb: 'Optional extras that live inside an area but deserve their own front door. Their stories stay in that area and are counted there once.' },
-  { key: 'resume', title: 'Resume Builder', blurb: 'The guided builder that sits on the common profile.' },
+  { key: 'products', title: 'Products', blurb: 'Standalone products built on the shared platform.' },
 ];
 const AREAS = [
   { key: 'user', group: 'dashboards', prefix: 'U', name: 'User dashboard', file: path.join(AREAS_DIR, 'user.json'), plan: 'PLAN-user.md', audit: 'AUDIT-user.md',
     summary: 'Everything a job seeker touches after signing in: the board, applications, inbox matches, profile, resumes and settings, built phone-first so it feels native on a 390px screen.' },
   { key: 'org', group: 'dashboards', prefix: 'O', name: 'Organization dashboard', file: path.join(AREAS_DIR, 'org.json'), plan: 'PLAN-org.md', audit: 'AUDIT-org.md',
-    summary: 'The workspace for consultancies and teams: members and seats, per-person items, consultant boards, marketer-prepared resumes and job banks, billing and setup, and the Consultancy Ops add-on with timesheets.' },
+    summary: 'The workspace for consultancies and teams: members and seats, per-person items, consultant boards, marketer-prepared resumes and job banks, billing and setup. Timesheets and Consultancy Ops now live in the Timesheets product.' },
   { key: 'admin', group: 'dashboards', prefix: 'A', name: 'App admin dashboard', file: path.join(AREAS_DIR, 'admin.json'), plan: 'PLAN-admin.md', audit: 'AUDIT-admin.md',
     summary: 'The internal console for running Kiwiply: plan and price catalog with the margin guard, users and orgs, AI quotas, services queue, support tools and system health.' },
   { key: 'ext', group: 'cross', prefix: 'E', name: 'Browser extension', file: path.join(AREAS_DIR, 'ext.json'), plan: 'PLAN-ext.md', audit: 'AUDIT-ext.md',
@@ -47,19 +46,22 @@ const AREAS = [
     summary: 'Privacy operations, minors and age rules, AI-in-hiring law, accessibility and the security program, plus a trust centre that shows the user exactly who sees their data. Includes the list of items that need a lawyer.' },
   { key: 'sup', group: 'cross', prefix: 'S', name: 'Support & community', file: path.join(AREAS_DIR, 'sup.json'), plan: 'PLAN-sup.md', audit: 'AUDIT-sup.md',
     summary: 'Help that answers inside the product: a help center, tickets the user can follow, an AI help assistant, a job-scam safety centre, feedback and changelog, a status page and a community.' },
-  { key: 'resume', group: 'resume', prefix: 'R', name: 'Resume Builder', file: path.join(here, '..', 'resume-builder', 'stories.json'), plan: null, audit: null, resume: true,
+  { key: 'resume', group: 'products', prefix: 'R', name: 'Resume Builder', file: path.join(here, '..', 'resume-builder', 'stories.json'), plan: null, audit: null, resume: true,
     docs: [['Design', '../RESUME-BUILDER-DESIGN.md'], ['Decisions', '../RESUME-BUILDER-DECISIONS.md'], ['Stories', '../RESUME-BUILDER-STORIES.md']],
     summary: 'A guided resume builder on top of one common profile: edit once, switch templates, version history, export, then Pro AI assist, job tailoring and ATS match.' },
+  { key: 'timesheets', group: 'products', prefix: 'H', name: 'Timesheets', file: path.join(here, '..', 'timesheets', 'stories.json'), plan: null, audit: null,
+    docs: [['Design', '../TIMESHEETS-DESIGN.md'], ['Decisions', '../TIMESHEETS-DECISIONS.md'], ['Stories', '../TIMESHEETS-STORIES.md']],
+    summary: 'An Organization add-on for consultancies: phone-first weekly timesheets, client-approved proof with a never-collected scan, one-tap approval, exports, then invoice, payment and profit records. It records money and never moves it, and is priced in admin (P2).' },
 ];
-// Spotlight epics: home-page cards (group 'addons') that surface selected epics of an area whose
-// stories are already counted there. Stats are computed from epicIds only and never add to the overall
-// totals. Add another add-on by appending one entry. epicIds resolve across all areas.
-const SPOTLIGHTS = [
-  { key: 'ops', group: 'addons', badge: 'CO', name: 'Consultancy Ops & Timesheets', epicIds: ['O11'], areaKey: 'org',
-    summary: 'An optional Organization add-on for consultancies: weekly timesheets filled on the phone, client-approved proof, one-tap approval, exports, then invoice, payment and profit records. It records money and never moves it, never collects SSNs, bank or tax IDs, and is priced later in admin.' },
-];
+// Spotlight epics: optional home-page cards that surface selected epics of an area whose stories are
+// already counted there. Stats are computed from epicIds only and never add to the overall totals.
+// Currently EMPTY (the old 'ops' spotlight became the Timesheets product, area H). To add one, append
+//   { key, group: '<a GROUPS key>', badge: 'XX', name, summary, epicIds: ['O11'], areaKey: 'org' }
+// epicIds resolve across all areas; the card renders at the top of its group's section.
+const SPOTLIGHTS = [];
 // Shared market documents linked from the home page and every area page.
 const GLOBAL_DOCS = [['Competitive landscape', 'COMPETITIVE-LANDSCAPE.md'], ['Competitive gaps', 'COMPETITIVE-GAPS.md']];
+// Fallback epic priorities for the Resume Builder only; a `priority` on an epic in the JSON always wins.
 const RESUME_PRIORITY = { R0: 'P0', R1: 'P0', R2: 'P0', R3: 'P1', R4: 'P1', R5: 'P1', R6: 'P1', R7: 'P2' };
 
 const str = (v) => (v == null ? '' : String(v));
@@ -118,7 +120,7 @@ function loadArea(a) {
   const d = r.data;
   base.updated = str(d.updated);
   // keep the short area name from AREAS (the plan JSON carries a long title, kept as fullName);
-  // the curated summary wins over a JSON `summary` so all twelve read in one voice
+  // the curated summary wins over a JSON `summary` so all thirteen read in one voice
   base.summary = a.summary || str(d.summary);
   if (d.name && str(d.name) !== a.name) base.fullName = str(d.name);
   if (d.prefix) base.prefix = str(d.prefix);
@@ -325,7 +327,7 @@ h1{font-size:clamp(24px,4vw,34px);line-height:1.15;font-weight:800;letter-spacin
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.fade{animation:none}.ring .fg{transition:none}}
 .abox{position:relative;border-radius:20px;padding:20px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
-.abox.user{background:var(--lilac-soft)}.abox.org{background:var(--blue-soft)}.abox.admin{background:var(--sand-soft)}.abox.resume{background:var(--lime-soft)}
+.abox.user{background:var(--lilac-soft)}.abox.org{background:var(--blue-soft)}.abox.admin{background:var(--sand-soft)}.abox.resume{background:var(--lime-soft)}.abox.timesheets{background:var(--blue-soft)}
 .abox.g-cross{background:var(--card);border-left:6px solid var(--lime)}
 .abox.addon{background:var(--card);border-left:6px solid var(--focus)}
 .abox.addon .pfx{width:auto;min-width:26px;padding:0 6px}
@@ -354,7 +356,7 @@ h1{font-size:clamp(24px,4vw,34px);line-height:1.15;font-weight:800;letter-spacin
 .nu b{color:var(--accent-text)}.nu span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .nu:hover{border-color:var(--ink)}
 .ahead{display:flex;flex-wrap:wrap;gap:16px;align-items:center;border-radius:20px;padding:18px 20px;border:1px solid var(--line);box-shadow:var(--shadow)}
-.ahead.user{background:var(--lilac-soft)}.ahead.org{background:var(--blue-soft)}.ahead.admin{background:var(--sand-soft)}.ahead.resume{background:var(--lime-soft)}
+.ahead.user{background:var(--lilac-soft)}.ahead.org{background:var(--blue-soft)}.ahead.admin{background:var(--sand-soft)}.ahead.resume{background:var(--lime-soft)}.ahead.timesheets{background:var(--blue-soft)}
 .ahead.g-cross{background:var(--card);border-left:6px solid var(--lime)}
 .ahead .t{flex:1 1 300px;min-width:0}
 .ahead .links{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:13px}
@@ -594,7 +596,7 @@ function renderTop(){
   var t=$("top");t.textContent="";
   var d=el("div","t");
   add(d,el("div","eyebrow","Kiwiply product roadmap"),el("h1",null,"The big app roadmap"),
-    el("p","sub",plural(live.length,"area")+" in three groups plus add-ons. Open one to see its feature boxes, open a feature to see its stories, open a story for the details. Or list every feature box in one place."));
+    el("p","sub",plural(live.length,"area")+" in "+plural(DATA.groups.length,"group")+". Open one to see its feature boxes, open a feature to see its stories, open a story for the details. Or list every feature box in one place."));
   var m=el("div","meta");
   var done=live.reduce(function(n,a){return n+a.counts.done},0),total=live.reduce(function(n,a){return n+a.stories.length},0);
   add(m,el("span",null,done+" of "+total+" stories done"),
@@ -688,6 +690,7 @@ function areaGrid(m,list){
     b.appendChild(hd);
     b.appendChild(el("p","sum",a.summary));
     if(!a.pending){b.appendChild(counts(a));b.appendChild(p0line(a))}
+    if(a.docs&&a.docs.length){var dl=el("div","refbar");dl.style.margin="0";dl.appendChild(docLinks(a.docs));b.appendChild(dl)}
     var open=el("button","btn"+(a.pending?"":" primary"),a.pending?"Plan being written":"Open",{type:"button","data-k":"area-"+a.key});
     if(a.pending)open.disabled=true;else open.addEventListener("click",function(){noScroll=true;go(href(a.key))});
     open.style.alignSelf="flex-start";b.appendChild(open);

@@ -30,7 +30,7 @@ a finished-looking facade**, and the first job is the model, not the pages.
 | O10 | Consultancy Marketer | P1 | Phase 22; needs O6 (FULL scope), O3/O4 (seats), the resume builder (`R0.1`, `R0.3`) and Phase 19 Autopilot for the queue path. The no-submit guarantee is structural and tested. |
 | O15 | Mobile, a11y, performance, QA | P1 | Bottom tabs, cards, skeletons, dark mode, Playwright e2e in CI — runs alongside O5–O8, not after. |
 | O12 | Integrations (honest) | P2 | Replace fiction with what is buildable without OAuth: Slack webhook, ICS, outbound webhooks, API key. |
-| O11 | Consultancy Ops add-on | P2 | Phase 23; `consultancy-ops.md` is the proposed 23.0 outcome. Record money, never move it. |
+| — | Timesheets & Consultancy Ops | P2 | **Promoted to product area H on 2026-10-11** (`docs/TIMESHEETS-DESIGN.md`, `docs/timesheets/stories.json`); its deps on O1.x/O2.x/O6.x/O13.x stay in this area. Record money, never move it. |
 
 ## 3. Recommended build order — the walking skeleton (first 10 stories)
 
@@ -64,7 +64,7 @@ billing (O4), web onboarding (O2.1/O2.3/O2.8), services (O9.1–O9.3), docs/term
 - `docs/design/org/analytics.md` — metric definitions as code, rollups, k-anonymity, dashboard/analytics wireframes.
 - `docs/design/org/services-marketplace.md` — expert/order/payout model, state machine, matching, margins, expert-view limits.
 - `docs/design/org/marketer-workspace.md` — pairing, marketer-made resumes with approval, job bank, marketer inbox, the structural no-submit guarantee.
-- `docs/design/org/consultancy-ops.md` — the proposed Phase 23.0 locked spec (scope, FINANCE role, retention, tables, pricing).
+- `docs/TIMESHEETS-DESIGN.md` — Timesheets & Consultancy Ops, now product area H (`docs/design/org/consultancy-ops.md` and `timesheets.md` are pointers to it).
 - `docs/design/org/integrations.md` — honest inventory and the OAuth-free integrations we will build.
 
 ## 5. Top risks

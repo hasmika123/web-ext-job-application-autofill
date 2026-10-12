@@ -28,6 +28,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 📄 **Resume Builder + Common Profile is designed (branch `resume-builder`, 2026-10-11)** — see the
 > *Resume Builder* section below (its own Current focus: **R1.1 Profile items API**) and `docs/HANDOFF-RESUME-BUILDER.md`.
 >
+> ⏱ **Timesheets & Consultancy Ops is designed as its own product area H (2026-10-11, on `version2`; build branch
+> `timesheets` not yet cut)** — see the *Timesheets* section below (its own Current focus: **H0.1 Schema v0**, not
+> started — P2, org add-on; blocked on the org model O1.x) and `docs/HANDOFF-TIMESHEETS.md`.
+>
 > 🌱 **The app v2 + enterprise admin work lives on the `version2` branch and awaits the user's review
 > (landing v2 V2.0–V2.6, app0–app2, auth, org1–org2, landing v3 `/v3` and the appqa pass, all done
 > 2026-10-11).** It covers the signed-in app redesign (`/dashboard`, `/jobs`, `/saved`, `/ai-apply`,
@@ -1316,6 +1320,8 @@ focused Claude Code session.
   need at least Pro.
 
 ## Phase 23 — Consultancy Ops add-on: timesheets + finances (optional; after 22)
+> **2026-10-11:** 23.0 is done and the whole phase now lives in the *Timesheets* product section below
+> (product area H, `docs/TIMESHEETS-DESIGN.md`). The tasks under this heading are superseded by H0–H8.
 - [ ] **23.0 Brainstorm → locked spec** *(must come first).* Timesheets, placements (bill/pay
   rates), invoices, payments, expenses, the profit view, the `FINANCE` role, retention, the legal
   check, the final price (proposed $99 per org + $4 per active consultant per month).
@@ -1440,7 +1446,42 @@ focused Claude Code session.
 
 ---
 
+## Timesheets & Consultancy Ops (product area H; build branch `timesheets`, off `version2` — not yet cut)
+> Design 2026-10-11: `docs/TIMESHEETS-DESIGN.md` (the design), `docs/TIMESHEETS-STORIES.md` (42 stories,
+> H0–H8, rendered from `docs/timesheets/stories.json` — the status source of truth), `docs/TIMESHEETS-DECISIONS.md`
+> (decided: D1 org add-on only · D2 priced later in admin · D7 OCR off by default · D10 **P2**; vetoable defaults),
+> on-ramp `docs/HANDOFF-TIMESHEETS.md`. Promoted from the org area's Consultancy Ops epic (ROADMAP Phase 23) to a
+> product area like the Resume Builder; old → new ids in DESIGN §13. Commit prefix `ts<epic>.<n>:`; one story per
+> commit. Locked by the design: record money, never move it · never collected (no SSN/bank/tax/document numbers or
+> DOB anywhere; proof files refused before storage; `OpsNeverCollectedTest` build gate) · every number a setting
+> with a default · weekly sheets per placement, minutes in storage · approved sheets immutable, corrections supersede
+> · one-step approval, no external approvers · OCR optional and off · all files through `FileStorage`, no presigned
+> URLs · the consultant surface at `/timesheets` in the user app, everything else under `/org/ops/*`.
+>
+> **Current focus (this product): H0.1 Schema v0** — **not started — P2, org add-on.** Blocked on the org
+> walking skeleton (O1.1 → O1.5, O2.2, O6.1 in `docs/roadmap/areas/org.json`) and A5.1/A5.3; do not start before
+> `OrgIsolationIT` is green. Then H0.2 → H0.5 (the ★ five), then H0.6–H0.7 to close the walking skeleton
+> (gate → placement → one sheet submitted and approved → one CSV → smoke).
+- [ ] **H0 Walking skeleton** — H0.1 schema v0 · H0.2 FINANCE + gate + settings · H0.3 placements-lite · H0.4 weekly
+  sheet core v0 · H0.5 week view + inbox v0 (390 px) · H0.6 GENERIC CSV v0 · H0.7 smoke + handoff.
+- [ ] **H1 Placements, clients & rates** — vendors + effective-dated rates · holidays + lifecycle · placements UI ·
+  marketer presence.
+- [ ] **H2 Weekly entry, phone-first** — day kinds + prefill + copy-last-week · flags engine · withdraw / correct /
+  locks · week view full UX + PWA · submit-for + self-recorded.
+- [ ] **H3 Proof & the never-collected gate** — `@NoSensitiveText` + `OpsNeverCollectedTest` · proof via FileStorage ·
+  identifier scan + refusal · optional OCR (off) · proof UX · approver inbox full.
+- [ ] **H4 Reminders & notifications** — OPS_TS_* kinds · reminder job (quiet hours, cap, idempotent) · consultant prefs.
+- [ ] **H5 Exports** — async jobs + GENERIC/PAYROLL · BY_CLIENT + PDF pack (Chromium sidecar) · export UI + Disclaimer.
+- [ ] **H6 Money records (record only)** — money schema · invoice records · payments + expenses · profit view · finance UI.
+- [ ] **H7 Billing, retention, erasure & admin** — catalog items (no price) + derived quantity · retention + erasure ·
+  Admin › Ops page + settings keys · audit completeness.
+- [ ] **H8 Pilot, onboarding & growth** — first-run screen · demo consultancy · pilot metrics · zero-setup onboarding ·
+  post-pilot bucket (crop helper, provider presets, OCR auto-read).
+
+---
+
 ## Log
+- 2026-10-11 · **design: Timesheets promoted to a product area (H)** · The user asked for timesheets to be a product-level feature like the Resume Builder. Removed the Consultancy Ops epic and its fourteen stories from `docs/roadmap/areas/org.json` (foundation deps O1.x/O2.x/O6.x/O13.x stay there) and re-planned them as product area **H** in `docs/timesheets/stories.json` (9 epics H0–H8, 42 stories, 75 pts, every epic P2 per D10; ★ H0.1–H0.5; walking skeleton H0.1–H0.7 = gate → placement → one sheet submitted/approved → CSV → smoke). Wrote `docs/TIMESHEETS-DESIGN.md` (absorbs `docs/design/org/timesheets.md` + `consultancy-ops.md`, which are now pointers; §13 = old→new id map), `docs/TIMESHEETS-STORIES.md`, `docs/TIMESHEETS-DECISIONS.md`, `docs/HANDOFF-TIMESHEETS.md`; re-pointed RECONCILIATION, PROPOSAL-timesheets, PLAN/AUDIT-org, competitive docs, tenant-model, trust.json T1.1, org.json O4.8/O10.12. Validation: 13 files, 921 stories, 152 epics, 0 dangling ids, 0 cycles, 0 old-id tokens in JSON. Generator wiring (Products group, drop the Add-ons spotlight) is a follow-up. No product code.
 - 2026-10-12 · **rb-ux: Notion-style autosave feedback — status chip, inline ticks, undo toasts, Save version in the Version menu (+ tooltips on every icon-only control)** · User decision (DECISIONS #32, "i go with genZ and like other apps like notion style"): no Save button anywhere. One `SaveStatusChip` next to "Resume Builder" at every width (Saving… / Saved ✓ / Saved N minutes ago; loud amber "Not saved — retrying" and "Offline — changes will save when you're back" with Retry; `useOnline`). The top-bar Save + Save ▾ are gone; **Version ▾ → Save version…** (header, also ⋮ for the phone) opens an inline name field (default "Version N · Oct 12") and goes through the editor's `checkpointDoc` (named checkpoint + PDF now); Ctrl/⌘+S saves a version with the default name and toasts "Version N saved". New `SavedTick` + `useSavedFlash` in `@kiwiply/ui`: a ~1 s ✓ beside the edited field (after autosave settles), the header chips (rename, type, visibility, primary, recruiters, version) and the Add Section / Pick Template buttons. Undo toasts replace confirms for visibility (Private with no grants, organization on/off), primary (hands primary back; the page now passes `primaryResumeId`), recruiter links on, archive, template switch; confirms stay for delete, recruiter links off, Private with specific people, remove everyone, restore. `useLeaveGuard`: `beforeunload` + a confirm on client-side link clicks while unsaved. Tooltip pass: `@kiwiply/ui` `Tooltip` rebuilt (400 ms hover or keyboard focus, Esc, never on touch, portal so the rail's scroll box no longer clips it — that was the missing rail-strip tooltips) and applied to every icon-only control of the editor and the list (top bar, `RailStrip` incl. "AI Suggestions (4)", section/item controls and grips, mark toolbar, rename pencil, sheet ✕, chip ✕, card actions, view toggle, `KebabMenu`). Not built: a "Rename" action on the Ctrl+S toast (no version-rename endpoint). Web only; API untouched.
 - 2026-10-12 · **rb4.1: `ResumeAiService` + `AiTruthChecks` (I3.2 shape) + new `AiTask`s + prompts-as-records + rewrite/summary endpoints + apply/dismiss** · The one checked-proposal service for the builder's Pro AI. `AiTask` gains `REWRITE/SUMMARY/SUGGEST/COVER/TRANSLATE` (`isResumeBuilder()`, not reachable via `fromWire`); `AiProvider.generate(.., maxOutputTokens)` (default method; Gemini applies it and asks for JSON for the builder tasks); `AiPolicy.models` keys documented in DEPLOY.md 10.1 + env wiring (`DOSSIER_AI_MODEL_REWRITE/SUMMARY/SUGGEST/COVER/TRANSLATE`). `service/ai/guard/AiTruthChecks` (`Violation(kind, token, sentence)`, `check(output, Sources, Profile)`, `flag`, `checkReason`; profiles REWRITE / SUMMARY / TAILOR / COVER / TRANSLATE) extracted from `ResumeTailorService.acceptable/numbers` (which now delegates; behaviour-identical TAILOR profile, tests moved) and extended: numbers normalised (`1,200` = `1.2k`, `[add a number]` allowed once per rewrite alternative), month+year dates, capitalised entities against the source with an alias file (`ai/tool-aliases.txt`) + Jaro-Winkler 0.92, hiring company / promises / identity claims, length caps from settings, `SensitivePatterns` on the output, instruction echo. `service/ai/prompts/Prompt` (I2.1 record shape) + `ResumePrompts` (`rewrite.bullets`, `summary.generate`, `resume.suggest`, `keywords.place`, `translate.doc`, `cover.letter`, all v1; the three invariants in every system prompt; `{{jd|untrusted}}` renders through `AiInputs.untrusted`). `AiInputs` is public and gains digest v2 (`resumeDigestV2`: refs by document id, basics reduced to the headline, hidden and marks stripped, `forModel` redaction + delimiter stripping). `service/ai/engines/ResumeAiService`: `rewrite(resumeId, refs, mode, consent)`, `summary(resumeId, tone, consent)`, `apply(pid, keep, alternatives)`, `dismiss(pid)`, `openProposals(resumeId)`; one private `callModel` = switch (`ai.feature.resume.enabled`) -> `AiBudgetService.decide` (402 `PRO_REQUIRED` for Free; override outranks the plan) -> consent -> cache (OPEN proposal, key `sha256(task|mode|promptVersion|contentHash|refs|jdHash|tone|language)`, served free even when the budget is spent) -> `ai.cap.resume.daily` (counted on `ai_call`, `quotaExceeded` + `cap: daily`) and `resume.rate.aiPerMin` (429 `RATE_LIMITED`) -> render -> `AiProvider.generate` (`ai.output_tokens_max.rewrite`) -> `AiMeteringService.record` for every call incl. the one JSON retry -> truth checks (violating alternative/change dropped, counters `ai.truth.checked/dropped{task}`; all dropped -> `nothingToChange`) -> `resume_ai_proposal` (ai_call_id kept, open ones trimmed to 200). `ResumeDocService.applyAiTexts` (text replaced by ref, marks cleared, `src: ai`, summary section created when missing, version rows: previous state kept + `AI_APPLY`, 409 `PROPOSAL_STALE`); apply also 409 `PROPOSAL_CLOSED`, 400 `KEEP_EMPTY/UNKNOWN_REF/BAD_ALTERNATIVE`, 422 `PLACEHOLDER_REMAINS`. `ResumeAiResource`: `POST /api/profile/resumes/{id}/ai/{rewrite,summary}`, `GET .../ai/proposals`, `POST /api/profile/ai/proposals/{pid}/{apply,dismiss}`. BFF: `app/api/resumes/[id]/ai/{rewrite,summary,proposals}`, `app/api/ai/proposals/[pid]/{apply,dismiss}` (+ `lib/resume-ai-proxy.ts`). Tests: api `AiTruthChecksTest` (17), `PromptInvariantsTest` (6), `ResumeAiServiceTest` (28), `ResumeAiResourceIT` (15), `GeminiAiProviderTest` (+2); web `ai.routes.test.ts` (9).
 - 2026-10-12 · **rb2.2-ux: Swap Section panel shows item content and the canvas follows every move (user feedback, DECISIONS #31)** · `state/itemLabel.ts` is the one `itemLabel(kind, item, index)` -> `{primary, secondary, name, text, empty}` (title over company · dates, "Present", empty fields fall back to the next field, then muted-italic "Untitled role n"; unit-tested for every kind) behind the panel rows, `itemHeading` and so every canvas grip / menu / arrow `aria-label`. New `moveLink.ts` (module-level keyed store + `useLinkTarget`): hover / focus on a panel row rings the canvas item (`data-link`), focus / click / drag start scrolls it into view, and after ANY move (panel menu, drag, keyboard drag, canvas arrows, canvas menu, canvas drag; items and sections) the canvas item scrolls into view and flashes green 1.2 s with its panel row (`rb-flash` in `globals.css`, static outline under reduced motion); the move is announced by label (panel status line, drag live region via the new `SortableRoot` `groupLabel` / `onCarry`, canvas status line when the panel is closed). Drop announcement is now "Moved X to position n of m in Experience."

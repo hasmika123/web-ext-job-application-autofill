@@ -1,6 +1,6 @@
 > **Roadmap + Resume Builder (2026-10-11, local `version2` + `resume-builder`): start from
 > [`HANDOFF-ROADMAP.md`](HANDOFF-ROADMAP.md)** — exact continuation point (roadmap complete: 893 stories + RECONCILIATION.md;
-> Resume Builder skeleton done on `resume-builder`), decisions, open questions. App work on `version2`: see `HANDOFF-V2.md`.
+> Resume Builder skeleton done on `resume-builder`; Timesheets designed as product area H — `HANDOFF-TIMESHEETS.md`), decisions, open questions. App work on `version2`: see `HANDOFF-V2.md`.
 
 # HANDOFF.md — start here in a new chat
 

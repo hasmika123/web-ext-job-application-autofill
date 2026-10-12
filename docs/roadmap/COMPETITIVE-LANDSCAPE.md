@@ -305,7 +305,7 @@ the roadmap (story ids in `COMPETITIVE-GAPS.md`).
 | Human services (review, rewrite, coaching) | ○ | ○ | ○ | ○ | ○ | ◐ perks | ○ | ◐ Rezi expert review | ◐ coaching | ● advisors | ○ | ○ | ● O9 / Phase 20 |
 | Org / cohort dashboard with member consent | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ◐ Rezi Enterprise | ◐ Team | ● (no consent model) | ● (no consent) | ○ | ● O1–O8 consent-scoped |
 | Consultancy marketer workspace (job bank, approved resumes, no-submit) | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ◐ (vendor-side, submits for them) | ○ | ● O10 |
-| Timesheets / placements / invoices (record-only) | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ● | ○ | ● O11 |
+| Timesheets / placements / invoices (record-only) | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ● | ○ | ● H (Timesheets product) |
 | BYO AI key on Free | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ○ | ● | ● keep |
 | Published prices, no weekly plan, no trial-trap | ○ | ○ (404) | ○ | ○ (weekly) | ● | ○ (weekly) | ● | ◐ | ○ | n/a | n/a | ● | ● + make it loud (M/B) |
 | Scoped host permissions (no `<all_urls>`) | ○ | ? | ○ | ? | ? | ? | n/a | n/a | n/a | n/a | n/a | ● 15 ATS hosts + activeTab | ● publish it (T/E) |
