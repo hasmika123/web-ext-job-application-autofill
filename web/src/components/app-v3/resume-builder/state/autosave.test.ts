@@ -196,7 +196,7 @@ describe("autosave: failures", () => {
     const { a, save, events } = setup([{ kind: "invalid", path: "$.sections[1].items[0].start", message: "must be YYYY or YYYY-MM" }, ok(2)]);
     a.schedule(snap(1));
     await tick(AUTOSAVE_DELAY_MS);
-    expect(events.onFailed).toHaveBeenCalledWith("$.sections[1].items[0].start: must be YYYY or YYYY-MM");
+    expect(events.onFailed).toHaveBeenCalledWith("$.sections[1].items[0].start: must be YYYY or YYYY-MM", "$.sections[1].items[0].start");
     await tick(60_000);
     expect(save).toHaveBeenCalledTimes(1); // no retry timer
 

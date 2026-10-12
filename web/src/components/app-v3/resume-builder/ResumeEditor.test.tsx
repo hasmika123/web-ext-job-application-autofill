@@ -124,6 +124,26 @@ describe("ResumeEditor", () => {
     expect(statusText()).toContain("Saved 3 hours ago");
   });
 
+  it("a 422 toasts the reason and rings the field the server named, until the next edit", async () => {
+    putDoc.mockResolvedValue({ kind: "invalid", path: "$.sections[1].items[0].bullets[0].text", message: "must be at most 600 characters" });
+    renderEditor();
+    fireEvent.change(bullet(), { target: { value: "x" } });
+    await flush(800);
+    expect(screen.getByText("Couldn't save: must be at most 600 characters")).toBeTruthy();
+    expect(bullet().getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(bullet(), { target: { value: "xy" } });
+    expect(bullet().getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("limits and template capabilities come from the config: no photo slot under the ATS template", () => {
+    renderEditor();
+    expect(screen.queryByRole("button", { name: /Add photo/ })).toBeNull();
+    expect(bullet().maxLength).toBe(DEFAULT_BUILDER_CONFIG.limits.bulletChars);
+    cleanup();
+    renderEditor({ ...DEFAULT_BUILDER_CONFIG, limits: { ...DEFAULT_BUILDER_CONFIG.limits, bulletChars: 55 } });
+    expect(bullet().maxLength).toBe(55);
+  });
+
   it("shows 'Not saved — retrying' on a network failure and recovers", async () => {
     putDoc.mockResolvedValueOnce({ kind: "network" }).mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
     renderEditor();

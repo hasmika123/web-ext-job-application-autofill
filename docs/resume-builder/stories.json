@@ -644,7 +644,7 @@
       "id": "R2.1",
       "epic": "R2",
       "title": "Document canvas — header block, every section kind, item rows, reducer actions (basics/section/item/skills/move), empty states",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web"
