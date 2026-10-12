@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ArrowRightIcon, Button, ChipInput, PlusIcon, XIcon, cn } from "@kiwiply/ui";
 import type { Language } from "@/lib/profile-setup/draft";
 import { MAX_SKILL_CHARS } from "@/lib/profile-setup/draft";
+import { useReaction, useSceneLine } from "./delight/useCompanionLines";
 import { SkipButton, StepFooter, StepHeading } from "./parts";
 
 /** Fewer than this and the hint appears (not a blocker, DESIGN 5.7). */
@@ -40,6 +42,15 @@ export default function SkillsStep({
 }) {
   const have = new Set(skills.map((s) => s.toLowerCase()));
   const offered = suggestions.filter((s) => !have.has(s.toLowerCase()));
+
+  // The companion (R1.14): cheers when the person's own tapping gets the list to five; a list that arrives with five does not.
+  const react = useReaction();
+  useSceneLine("laptop", "skills.idle");
+  const prevCount = useRef(skills.length);
+  useEffect(() => {
+    if (prevCount.current < SKILLS_HINT_BELOW && skills.length >= SKILLS_HINT_BELOW) react("cheer", "skills.five");
+    prevCount.current = skills.length;
+  }, [skills.length, react]);
 
   return (
     <div>

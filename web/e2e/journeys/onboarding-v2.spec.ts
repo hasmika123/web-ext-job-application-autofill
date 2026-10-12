@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { STATE } from "../fixtures/accounts";
-import { auditScreen, expectNoHorizontalScroll, expectNotOverlapped } from "../fixtures/audit";
+import { auditScreen, expectNoHorizontalScroll, expectNoWordPerLineHeadings, expectNotOverlapped } from "../fixtures/audit";
 
 /**
  * Onboarding v2 (R1.12): the whole first run against the mock API, as a brand-new account, at a phone (390) and a desktop
@@ -446,3 +446,253 @@ test.describe("reduced motion", () => {
     await expect(page.locator("[data-confetti]")).toHaveCount(0);
   });
 });
+
+/** Delight layer (R1.14): on the review screen the mascot companion is a column at xl and a head in the heading row below it. */
+async function toReview(page: Page) {
+  await fresh(page);
+  await page.goto("/profiles/setup");
+  await expect(h1(page)).toContainText("job-ready");
+  await page.getByRole("radio", { name: /Experienced/ }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await pasteResume(page);
+}
+
+for (const vp of [
+  { name: "390", width: 390, height: 844 },
+  { name: "360", width: 360, height: 640 },
+  { name: "810", width: 810, height: 800 },
+  { name: "1440", width: 1440, height: 900 },
+] as const) {
+  test.describe(`delight companion at ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+    const wide = vp.width >= 1280;
+    const mid = !wide && vp.width >= 768;
+
+    test("review: the dock sits right of the column with no sideways scroll; on a phone the head is in the heading row and the sticky bar is untouched", async ({ page }) => {
+      await toReview(page);
+      const dock = page.getByTestId("companion-dock");
+      const head = page.getByTestId("companion-head");
+      const midCompanion = page.getByTestId("companion-mid");
+      const caption = page.getByTestId("companion-caption");
+      const keep = page.getByRole("button", { name: /^Keep/ }).first();
+      const column = (await page.getByTestId("onboarding-shell").boundingBox())!;
+
+      // decorative: hidden from assistive tech and from the pointer
+      await expect(dock).toHaveAttribute("aria-hidden", "true");
+      expect(await dock.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe("none");
+
+      if (wide) {
+        await expect(dock).toBeVisible();
+        await expect(head).toBeHidden();
+        await expect(midCompanion).toBeHidden();
+        await expect(caption).toBeHidden();
+        const box = (await dock.boundingBox())!;
+        expect(box.x, "the dock starts right of the 560 px column").toBeGreaterThanOrEqual(column.x + column.width);
+        expect(box.x + box.width, "and fits inside the window").toBeLessThanOrEqual(vp.width);
+        expect(box.width).toBeLessThanOrEqual(200.5);
+        await expect(dock).toContainText(/\S/); // a line in the bubble
+      } else if (mid) {
+        // 768-1279: a 104 px mascot with its own tinted bubble in the heading row, and the line is not also a grey subtitle
+        await expect(dock).toBeHidden();
+        await expect(head).toBeHidden();
+        await expect(caption).toBeHidden();
+        await expect(midCompanion).toBeVisible();
+        await expect(midCompanion).toContainText(/\S/);
+        await expect(midCompanion.locator("[data-speech-bubble]")).toHaveAttribute("data-tone", "tint");
+        const m = (await midCompanion.boundingBox())!;
+        const title = (await h1(page).boundingBox())!;
+        const counter = (await page.getByTestId("card-counter").boundingBox())!;
+        expect(m.height, "a medium mascot").toBeGreaterThanOrEqual(96);
+        expect(m.x, "right of the title column").toBeGreaterThanOrEqual(title.x + title.width - 1);
+        expect(m.x + m.width, "inside the 560 px column and the window").toBeLessThanOrEqual(Math.min(vp.width, column.x + column.width) + 1);
+        expect(m.x, "clear of the counter").toBeGreaterThanOrEqual(counter.x + counter.width - 1);
+        const top = (await page.getByRole("link", { name: /Exit setup/ }).boundingBox())!;
+        expect(m.y, "below the top bar (Back, Saved, ⋯, ✕)").toBeGreaterThan(top.y + top.height);
+        await expectNotOverlapped(keep, "review: Keep with the mid companion showing");
+      } else {
+        await expect(dock).toBeHidden();
+        await expect(midCompanion).toBeHidden();
+        await expect(head).toBeVisible();
+        await expect(caption).toBeVisible();
+        const h = (await head.boundingBox())!;
+        const title = (await h1(page).boundingBox())!;
+        expect(h.width, "a 44 px head").toBeCloseTo(44, 0);
+        expect(h.y, "in the heading row: level with the title, not below it").toBeLessThan(title.y + title.height);
+        expect(h.x, "at the end of the row").toBeGreaterThan(vp.width / 2);
+        const footer = (await page.getByTestId("step-footer").boundingBox())!;
+        expect(h.y + h.height, "the head is far above the sticky bar").toBeLessThan(footer.y);
+        await expectNotOverlapped(keep, "review: Keep with the head showing");
+      }
+      await expectNoHorizontalScroll(page, "review with the companion");
+      await expectNoWordPerLineHeadings(page, "review with the companion");
+      await auditScreen(page, "review with the companion", keep);
+
+      // honest highlights (R1.16): card 1 has a real figure ("18%"), so its one chip is the number rule, on that bullet
+      const chip = page.locator("[data-highlight]");
+      await expect(chip).toHaveCount(1);
+      await expect(chip).toHaveAttribute("data-highlight", "number");
+      await expect(chip).toHaveText("Numbers stand out to recruiters");
+      await expect(page.locator("li").filter({ has: chip })).toContainText("lifting activation 18%");
+      await expect(page.getByTestId("number-tip")).toHaveCount(0);
+      await expect(chip, "the chip is real text for a screen reader").not.toHaveAttribute("aria-hidden", "true");
+
+      // a Keep: the companion reacts, nothing moves, nothing is announced twice
+      const before = (await h1(page).boundingBox())!;
+      await keep.click();
+      await expect(page.getByTestId("card-counter")).toHaveText("2 / 4");
+      const react = wide ? dock : mid ? midCompanion : head;
+      await expect(react).toHaveAttribute("data-react", "cheer");
+      await expect(page.getByRole("status").filter({ hasText: /^Kept / })).toHaveCount(1);
+      const after = (await h1(page).boundingBox())!;
+      expect(Math.abs(after.y - before.y) + Math.abs(after.height - before.height), "the heading row does not move when the companion reacts").toBeLessThanOrEqual(1);
+      await expectNoHorizontalScroll(page, "review after a Keep");
+
+      // card 2 has no figure: a result chip on "Cut checkout drop-off..." and the gentle tip, together
+      await expect(chip).toHaveCount(1);
+      await expect(chip).toHaveAttribute("data-highlight", "outcome");
+      await expect(page.locator("li").filter({ has: chip })).toContainText("Cut checkout drop-off");
+      await expect(page.getByTestId("number-tip")).toBeVisible();
+      await expectNoHorizontalScroll(page, "review card with a chip and the tip");
+      await auditScreen(page, "review card 2 with a chip and the tip", page.getByRole("button", { name: /^Keep/ }).first());
+    });
+  });
+}
+
+/**
+ * The review as a game (R1.15), at a phone, a mid laptop and a desktop, with motion welcome and with reduced motion: ghosts, the
+ * stamp during a drag, a keyboard-only review, the "in a row" badge, no layout shift, nothing over the sticky bar or a toast, axe.
+ */
+for (const vp of [
+  { name: "390", width: 390, height: 844 },
+  { name: "810", width: 810, height: 800 },
+  { name: "1440", width: 1440, height: 900 },
+] as const) {
+  for (const motion of ["no-preference", "reduce"] as const) {
+    test.describe(`review as a game at ${vp.name}, motion ${motion}`, () => {
+      test.use({ viewport: { width: vp.width, height: vp.height }, reducedMotion: motion, hasTouch: vp.width < 500 });
+      const phone = vp.width < 640;
+
+      test("ghosts, the stamp, the combo badge, five decisions without a layout shift, the keyboard, axe", async ({ page }) => {
+        await page.addInitScript(() => {
+          const w = window as unknown as { __shifts?: number[] };
+          w.__shifts = [];
+          try {
+            // Only shifts of the review itself count: the bug-report button and the undo toast are fixed-position and move for their own
+            // reasons (a toast leaving after 4 s), which are not this screen's doing. Shifts right after a tap or key are the input's.
+            new PerformanceObserver((list) => {
+              type Src = { node?: Element | null };
+              for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean; sources?: Src[] }[]) {
+                if (e.hadRecentInput) continue;
+                const mine = (e.sources ?? []).some((src) => src.node?.closest?.("[data-testid=onboarding-shell]") && getComputedStyle(src.node).position !== "fixed");
+                if (mine) w.__shifts!.push(e.value);
+              }
+            }).observe({ type: "layout-shift", buffered: true });
+          } catch {
+            /* layout-shift is not observable here */
+          }
+        });
+        await toReview(page);
+        const keep = page.getByRole("button", { name: /^Keep/ }).first();
+        const counter = page.getByTestId("card-counter");
+
+        // the pile: two ghosts under the first card, hidden from assistive tech, with nothing inside
+        await expect(page.locator("[data-ghost]")).toHaveCount(2);
+        await expect(page.locator("[data-ghost]").first()).toHaveAttribute("aria-hidden", "true");
+        expect(await page.locator("[data-ghost]").evaluateAll((els) => els.map((e) => e.textContent))).toEqual(["", ""]);
+        // the legend is for a keyboard: from sm up only
+        if (phone) await expect(page.getByTestId("key-legend")).toBeHidden();
+        else await expect(page.getByTestId("key-legend")).toBeVisible();
+        await auditScreen(page, "review with a pile of cards", keep);
+
+        const title = (await h1(page).boundingBox())!;
+
+        if (phone) {
+          // a drag shows the stamp, tracking the finger; a short one lets go and decides nothing
+          const card = page.getByRole("group", { name: /Senior Product Designer/ });
+          const box = (await card.boundingBox())!;
+          const cdp = await page.context().newCDPSession(page);
+          const y = Math.round(box.y + box.height / 2);
+          const x0 = Math.round(box.x + 40);
+          // A finger: down, a run of small moves a frame apart, up (the browser treats a jump of 50 px as a fling).
+          const finger = async (to: number[], end = true) => {
+            await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x0, y, id: 1 }] });
+            for (const dx of to) {
+              await page.waitForTimeout(16);
+              await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x0 + dx, y: y + (dx % 2), id: 1 }] });
+            }
+            if (end) await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          };
+          await finger([4, 10, 20, 30, 45, 60, 80], false);
+          const stamp = page.locator("[data-stamp]");
+          await expect(stamp).toBeVisible();
+          await expect(stamp).toHaveText(/Keep/i);
+          expect(Number(await stamp.evaluate((el) => getComputedStyle(el).opacity))).toBeGreaterThan(0.15);
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await expect(counter).toHaveText("1 / 4");
+          await expect(stamp).toHaveCount(0);
+          // a long swipe keeps and flies the card off
+          await page.waitForTimeout(300);
+          await finger([4, 10, 20, 40, 60, 90, 120, 150, 180]);
+          await expect(counter).toHaveText("2 / 4");
+          await cdp.detach();
+        } else {
+          await keep.click();
+          await expect(counter).toHaveText("2 / 4");
+        }
+
+        // the card that left is a picture only: not announced, not clickable, gone after 240 ms
+        const layer = page.locator("[data-card-stack] > [data-fling]");
+        // (read in one go, without waiting: a fly-off is 240 ms, 120 ms under reduced motion, and may already be over)
+        for (const l of await layer.evaluateAll((els) => els.map((el) => ({ hidden: el.getAttribute("aria-hidden"), events: getComputedStyle(el).pointerEvents, cls: el.className })))) {
+          expect(l.hidden).toBe("true");
+          expect(l.events).toBe("none");
+          if (motion === "reduce") expect(l.cls).not.toContain("kiwi-fling");
+        }
+        await expect(layer).toHaveCount(0, { timeout: 3000 });
+
+        // keyboard only from here: → keeps, ← skips, Z takes the last one back, E opens the editor
+        await page.keyboard.press("ArrowRight");
+        await expect(counter).toHaveText("3 / 4");
+        await page.keyboard.press("ArrowRight"); // 3 Keeps in a row (the first was the swipe or the click)
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await expect(page.getByTestId("card-counter")).toHaveAttribute("aria-label", /Card 4 of 4/);
+        const badge = page.locator("[data-combo]");
+        await expect(badge).toBeVisible();
+        await expect(badge).toContainText("in a row");
+        await expect(badge).toHaveAttribute("aria-hidden", "true");
+        await expectNoHorizontalScroll(page, "review with the combo badge");
+        const b = (await badge.boundingBox())!;
+        expect(b.x, "the badge is inside the window").toBeGreaterThanOrEqual(0);
+        expect(b.x + b.width, "and not past its right edge").toBeLessThanOrEqual(vp.width);
+        await expectNotOverlapped(page.getByRole("button", { name: /^Keep/ }).first(), "review: Keep with the badge showing");
+
+        await page.keyboard.press("z"); // back onto card 3, undecided
+        await expect(page.getByTestId("card-counter")).toHaveAttribute("aria-label", /Card 3 of 4/);
+        await page.keyboard.press("ArrowLeft"); // a Skip: the badge fades away, the toast must not cover Keep
+        await expect(page.getByTestId("card-counter")).toHaveAttribute("aria-label", /Card 4 of 4/);
+        await expect(badge).toHaveCount(0, { timeout: 3000 });
+        await expectNotOverlapped(page.getByRole("button", { name: /^Keep/ }).first(), "review: Keep with the undo toast showing");
+        await expectNotOverlapped(page.getByRole("button", { name: "Skip", exact: true }), "review: Skip with the undo toast showing");
+
+        // E opens the editor; keys typed into a field do not decide anything
+        await page.keyboard.press("e");
+        const field = page.getByLabel(/School/); // the last card is the education one
+        await expect(field).toBeVisible();
+        await field.click();
+        await page.keyboard.press("ArrowRight");
+        await page.keyboard.type("ez");
+        await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
+        await page.getByRole("button", { name: "Cancel" }).click();
+        await expect(page.getByTestId("card-counter")).toHaveAttribute("aria-label", /Card 4 of 4/);
+
+        // five decisions in all (keep, keep, keep, undo + skip, then the last): the page never shifted by itself
+        await page.keyboard.press("ArrowRight");
+        await expect(h1(page)).toHaveText("Nice. Here's what we'll add.");
+        const shifts = await page.evaluate(() => (window as unknown as { __shifts?: number[] }).__shifts ?? []);
+        expect(Math.max(0, ...shifts), `a layout shift on the review (${JSON.stringify(shifts)})`).toBeLessThanOrEqual(0.01);
+        expect(title.y).toBeGreaterThan(0);
+        await auditScreen(page, "recap after the game", primary(page));
+      });
+    });
+  }
+}

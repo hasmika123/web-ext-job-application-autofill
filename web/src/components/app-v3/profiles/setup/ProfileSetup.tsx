@@ -41,7 +41,10 @@ import type { BioLimits, IdentityKey } from "@/lib/profile-setup/draft";
 import { initialFresh } from "@/lib/profile-setup/fresh";
 import { summaryLine } from "@/lib/profile-setup/summary";
 import { sensitiveMessage, type DraftLimits } from "../itemSchema";
+import { DelightProvider } from "@/lib/onboarding/delight";
 import ConflictBanner from "./ConflictBanner";
+import { CompanionProvider } from "./delight/Companion";
+import { useReaction } from "./delight/useCompanionLines";
 import FreshFlow from "./FreshFlow";
 import IdentityStep from "./IdentityStep";
 import OnboardingShell from "./OnboardingShell";
@@ -51,7 +54,7 @@ import PayoffStep, { type PayoffAction } from "./PayoffStep";
 import PrefsFlow, { prefId, valuesToWrite } from "./PrefsFlow";
 import ProfileSoFar from "./ProfileSoFar";
 import ResumeBanner from "./ResumeBanner";
-import ReviewScreen from "./ReviewScreen";
+import ReviewScreen, { type ReviewSession } from "./ReviewScreen";
 import SkillsStep from "./SkillsStep";
 import SourceStep from "./SourceStep";
 
@@ -70,18 +73,19 @@ export type { SetupEntry };
  * point: the core confirm on `you` is one `POST /api/profile/items/import` (kept entries, skills, languages, confirmed
  * identity) then one `PUT /api/profile`; the questions are written per answer.
  */
-export default function ProfileSetup({
-  bio,
-  config,
-  initialPath = null,
-  initialStep = null,
-  server = null,
-  login = "",
-  firstName = "",
-  entry = "direct",
-  returnTo = null,
-  jobsCount = null,
-}: {
+export default function ProfileSetup(props: ProfileSetupProps) {
+  // The delight layer (R1.14): one answer to "is it on, and how loud?" for every screen, and the one companion the dock and the
+  // phone heads draw. With the switch off both are inert and the DOM is the v2 DOM.
+  return (
+    <DelightProvider config={props.config}>
+      <CompanionProvider>
+        <ProfileSetupFlow {...props} />
+      </CompanionProvider>
+    </DelightProvider>
+  );
+}
+
+type ProfileSetupProps = {
   /** The profile's flat bio as the page loaded it. */
   bio: Bio;
   config: ResumeBuilderConfig;
@@ -100,8 +104,22 @@ export default function ProfileSetup({
   returnTo?: string | null;
   /** How many real daily job matches there are (the payoff's Find jobs line); null when there are none. */
   jobsCount?: number | null;
-}) {
+};
+
+function ProfileSetupFlow({
+  bio,
+  config,
+  initialPath = null,
+  initialStep = null,
+  server = null,
+  login = "",
+  firstName = "",
+  entry = "direct",
+  returnTo = null,
+  jobsCount = null,
+}: ProfileSetupProps) {
   const toast = useToast();
+  const react = useReaction();
   const ob = config.onboarding ?? DEFAULT_BUILDER_CONFIG.onboarding;
   const questions = useMemo(() => unansweredQuestions(bio), [bio]);
 
@@ -137,6 +155,8 @@ export default function ProfileSetup({
   const runStart = useRef(0);
   const answered = useRef(0);
   const wrapStarted = useRef(false);
+  /** The review's "in a row" count for this visit (R1.15): session-only, here because the recap is a separate screen. */
+  const [reviewRun, setReviewRun] = useState<ReviewSession>({ count: 0, max: 0 });
 
   const parsed = state.parsed;
   const fresh = state.path === "fresh";
@@ -227,6 +247,7 @@ export default function ProfileSetup({
     setWrapFailed(false);
     wrapStarted.current = false;
     answered.current = 0;
+    setReviewRun({ count: 0, max: 0 });
     setDirection("back");
     setSyncBusy(false);
   };
@@ -358,6 +379,7 @@ export default function ProfileSetup({
       notifyExtension("changed");
       trackOnboarding(EV.coreConfirmed, { items: items.length, merged });
       dispatch({ type: "coreConfirmed" });
+      react("cheer", "you.saved"); // the line rides over to the next screen
       completed(false);
       setDirection("forward");
       if (hasPrefQuestions) dispatch({ type: "goto", step: "prefs" });
@@ -402,6 +424,7 @@ export default function ProfileSetup({
       }
       dispatch({ type: "prefDone", key: prefId(q) });
       trackOnboarding(EV.prefAnswered, { key: prefId(q), skipped: false });
+      if (Object.keys(values).length > 0 && answered.current === 3) react("cheer", "prefs.three"); // the third answer written
     } catch {
       setError("Couldn't save that answer. Try again.");
       setSaving(false);
@@ -535,6 +558,9 @@ export default function ProfileSetup({
         removed={parsed.removed}
         skillCount={state.skills.length}
         mascot={mascot}
+        persona={state.persona}
+        combo={reviewRun}
+        onCombo={setReviewRun}
         onDecide={(id, decision) => dispatch({ type: "decide", id, decision })}
         onUndecide={(id) => dispatch({ type: "undecide", id })}
         onEdit={(id, data) => dispatch({ type: "edit", id, data })}
@@ -604,6 +630,7 @@ export default function ProfileSetup({
           persona={state.persona}
           answers={state.prefs}
           first={index === 0}
+          index={index}
           last={index === prefList.length - 1}
           hiddenLeft={showAll ? 0 : hidden.length}
           saving={saving}

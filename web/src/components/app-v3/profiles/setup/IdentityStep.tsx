@@ -3,6 +3,7 @@
 import { ArrowRightIcon, Button, ChevronDownIcon, Field, Input, inputClass } from "@kiwiply/ui";
 import type { Identity, IdentityKey } from "@/lib/profile-setup/draft";
 import type { IdentityConflict } from "@/lib/profile-setup/import";
+import { useSceneLine } from "./delight/useCompanionLines";
 import { StepFooter, StepHeading } from "./parts";
 
 const FIELDS: { key: IdentityKey; label: string; wide?: boolean; type?: string }[] = [
@@ -44,6 +45,7 @@ export default function IdentityStep({
   retry: boolean;
   error: string | null;
 }) {
+  useSceneLine(saving ? "think" : "laptop", saving ? "you.saving" : "you.idle");
   return (
     <div>
       <StepHeading title="Last check — is this you?" sub="Forms ask these on every page." />

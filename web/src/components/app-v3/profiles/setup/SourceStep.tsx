@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { Button, ChevronDownIcon, ClipboardIcon, LockIcon, SparklesIcon, Spinner, UploadIcon, cn } from "@kiwiply/ui";
 import { getAiParseConsent } from "@/lib/ai-parse-consent";
 import { formatBytesCap } from "@/lib/format-bytes";
@@ -9,8 +9,14 @@ import { sourceHeader, sourceOrder, leadsWithFresh } from "@/lib/onboarding/pers
 import type { BioLimits } from "@/lib/profile-setup/draft";
 import { NothingFoundError, parseFileForSetup, type SetupParse } from "@/lib/profile-setup/parse";
 import type { Persona } from "@/lib/profile-setup/state";
+import { useCompanionActive } from "./delight/Companion";
+import { useReaction, useSceneLine } from "./delight/useCompanionLines";
 import ParseConsent from "./ParseConsent";
 import { SkipButton, StepFooter, StepHeading, StepMascot } from "./parts";
+
+/** How long a read takes before the companion's line moves on: "Almost there…" at 8 s, "Still reading — big file." at 15 s (DELIGHT 2.5). */
+export const READ_LONG_MS = 8000; // config-literal-ok: the design's wait lines; an animation of copy, not a limit
+export const READ_LONGER_MS = 15000; // config-literal-ok: the design's wait lines
 
 /** What the file picker offers (a phone opens Files / Drive / iCloud for these). */
 export const RESUME_ACCEPT = ".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
@@ -56,13 +62,27 @@ export default function SourceStep({
   const [phone] = useState(() => isPhoneUa());
   const cap = formatBytesCap(maxBytes);
 
+  // The companion (R1.14): reading the file takes a while, so its line moves on at 8 s and 15 s (DELIGHT 2.5) and it never feels dead.
+  const companion = useCompanionActive();
+  const react = useReaction();
+  const [readFor, setReadFor] = useState(0);
+  useEffect(() => {
+    if (!busy) return;
+    const timers = [setTimeout(() => setReadFor(1), READ_LONG_MS), setTimeout(() => setReadFor(2), READ_LONGER_MS)];
+    return () => timers.forEach(clearTimeout);
+  }, [busy]);
+  const scene = busy ? { pose: "think" as const, key: readFor === 0 ? "source.reading" : readFor === 1 ? "source.reading.long" : "source.reading.longer" } : { pose: "read" as const, key: persona === "student" || persona === "first_job" ? "source.student" : "source.idle" };
+  useSceneLine(scene.pose, scene.key);
+
   async function handle(file: File) {
     setError(null);
     if (file.size > maxBytes) {
       setError(tooBig(cap));
+      react("shrug", "source.error");
       return;
     }
     setBusy(true);
+    setReadFor(0);
     onPath("upload");
     try {
       onParsed(await parse(file, getAiParseConsent(), bioLimits));
@@ -70,6 +90,7 @@ export default function SourceStep({
       // "Nothing found" and "that PDF is a scan" carry their own, more useful words; anything else is the plain line.
       setError(e instanceof NothingFoundError && e.message ? e.message : READ_ERROR);
       setBusy(false);
+      react("shrug", "source.error");
     }
   }
 
@@ -107,7 +128,7 @@ export default function SourceStep({
 
       {busy ? (
         <div role="status" className="mt-5 flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border border-v2-line/70 bg-paper p-6 text-center shadow-v2-soft sm:min-h-[240px]">
-          <StepMascot name="books" enabled={mascot} className="h-20 w-auto" />
+          <StepMascot name="books" enabled={mascot} className={cn("h-20 w-auto", companion && "xl:hidden")} />
           <p className="flex items-center gap-2 text-[15px] font-bold text-v2-navy">
             <Spinner className="h-4 w-4" role="presentation" aria-hidden /> Reading your resume…
           </p>
@@ -116,6 +137,7 @@ export default function SourceStep({
         <div
           onDragOver={phone ? undefined : (e) => {
             e.preventDefault();
+            if (!dragging) react("peek", "source.dragover"); // once as the file arrives over the zone, not per mouse move
             setDragging(true);
           }}
           onDragLeave={phone ? undefined : () => setDragging(false)}

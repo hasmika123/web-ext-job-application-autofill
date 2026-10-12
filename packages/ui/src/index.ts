@@ -66,6 +66,18 @@ export type { SwipeCardProps } from "./primitives/SwipeCard";
 
 export { default as ConfettiBurst } from "./primitives/ConfettiBurst";
 
+export { default as CardStack, FLING_MS, FLING_STILL_MS } from "./primitives/CardStack";
+export type { CardStackProps } from "./primitives/CardStack";
+
+export { default as AnimatedNumber, FLIP_MS } from "./primitives/AnimatedNumber";
+export type { AnimatedNumberProps } from "./primitives/AnimatedNumber";
+
+export { default as SparkleBurst, SPARKLE_MS } from "./primitives/SparkleBurst";
+export type { SparkleBurstProps } from "./primitives/SparkleBurst";
+
+export { default as SpeechBubble } from "./primitives/SpeechBubble";
+export type { SpeechBubbleProps } from "./primitives/SpeechBubble";
+
 export { default as Skeleton } from "./primitives/Skeleton";
 export { default as Spinner } from "./primitives/Spinner";
 export type { SpinnerProps } from "./primitives/Spinner";
