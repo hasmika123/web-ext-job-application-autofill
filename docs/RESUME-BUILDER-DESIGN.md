@@ -2264,6 +2264,7 @@ B1.2's `has(login, "builder.ai")`.
 | `ai.output_tokens_max.rewrite` etc. | INT | 3000 | 256–8192 | §13.5 |
 | `resume.pdf.timeoutMs` / `.maxConcurrent` / `.queueMax` / `.maxFitSteps` / `.waitMs` | INT | 20000 / 1 / 10 / 3 / 30000 | 5 000–60 000 / 1–4 / 1–50 / 0–7 / 5 000–120 000 | §8.5, §10.15 |
 | `resume.pdf.settleMs` / `.pollMs` / `.leaseMs` / `.backoffBaseMs` / `.backoffMaxMs` / `.maxAttempts` / `.keepPrevious` / `.viewAutoRefresh` | INT… | 15000 / 5000 / 120000 / 30000 / 900000 / 5 / 0 / false | 2 000–120 000 / 1 000–60 000 / 30 000–600 000 / 5 000–300 000 / 60 000–3 600 000 / 1–10 / 0–5 / | §8.5, §10.8 |
+| `resume.pdf.busyRetryMs` / `.statusPollMs` / `.statusWindowMs` | INT | 10000 / 5000 / 180000 | 1 000–120 000 / 1 000–60 000 / 30 000–900 000 | §8.5 (R3.7: BUSY retry delay; the editor's `pdf-status` poll cadence and window — the server hands them to the editor in `pdf.pollMs` / `pdf.pollWindowMs`) |
 | `resume.meta.shareWithOrgDefault` | BOOL | true | | §8.7 |
 | `resume.share.maxGrants` / `.maxLinks` / `.linkDefaultDays` / `.allowDownloadDefault` | INT / INT / INT / BOOL | 20 / 3 / 30 / false | 1–100 / 1–10 / 0–365 | §8.7 |
 | `resume.views.retentionDays` | INT | 180 | 30–730 | §8.7 |

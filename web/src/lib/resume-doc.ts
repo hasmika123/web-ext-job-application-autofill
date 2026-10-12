@@ -6,6 +6,25 @@
  */
 import type { ResumeDocument, ResumeTheme } from "@kiwiply/ui";
 
+/** The stored PDF's job state (DESIGN 8.5). `STALE` = READY but behind the document. */
+export type PdfStatus = "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE";
+
+/** `ResumeDocDTO.pdf` / `ResumeDTO.pdf` / `GET .../doc/pdf-status`. */
+export interface PdfInfo {
+  status: PdfStatus;
+  /** Render hash of the stored PDF. */
+  hash?: string | null;
+  generatedAt?: string | null;
+  attempts?: number;
+  error?: string | null;
+  /** Editor endpoints only: how often to ask again, and for how long after the last save (both settings). */
+  pollMs?: number | null;
+  pollWindowMs?: number | null;
+}
+
+/** The PDF is being (re)made: PENDING, RUNNING or behind the document. */
+export const pdfIsUpdating = (s: PdfStatus | undefined | null) => s === "PENDING" || s === "RUNNING" || s === "STALE";
+
 /** `ResumeDocDTO` from the API (DESIGN 6.2). */
 export interface ResumeDocDTO {
   resumeId: number;
@@ -22,6 +41,10 @@ export interface ResumeDocDTO {
   exportedAt: string | null;
   exportedHash: string | null;
   updatedAt: string | null;
+  /** What the PDF would be rendered from now (R3.7); `pdf.hash` equal to it means the stored PDF is current. */
+  renderHash?: string | null;
+  /** The stored PDF's state (R3.7). Absent on an older API. */
+  pdf?: PdfInfo | null;
 }
 
 /** The minimal slice of `ResumeDTO` the list needs after creating a resume. */
@@ -181,6 +204,8 @@ export type ExportPdfResult =
       /** The PDF was also stored on the resume (the extension can attach it). */
       stored: boolean;
       contentHash: string | null;
+      /** Served from the stored file (it was current), no render happened. */
+      cached: boolean;
     }
   | { kind: "error"; status: number; code?: string; message: string };
 
@@ -191,17 +216,14 @@ export function fileNameFromDisposition(header: string | null, fallback: string)
 }
 
 /**
- * `POST /api/resumes/:id/export {format:"pdf"}`. Makes the PDF from the SAVED document (flush the
- * editor's autosave first) and returns the bytes. Never throws.
+ * `GET /api/resumes/:id/export?format=pdf&cached=1`. Returns the PDF of the SAVED document (flush the
+ * editor's autosave first): the stored file when it is current (R3.7 - no render), otherwise the server renders
+ * it synchronously and stores it through the same path. Never throws.
  */
 export async function exportPdf(resumeId: number): Promise<ExportPdfResult> {
   let res: Response;
   try {
-    res = await fetch(`/api/resumes/${resumeId}/export`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ format: "pdf" }),
-    });
+    res = await fetch(`/api/resumes/${resumeId}/export?format=pdf&cached=1`, { cache: "no-store" });
   } catch {
     return { kind: "error", status: 0, message: "Couldn't reach the server." };
   }
@@ -214,7 +236,8 @@ export async function exportPdf(resumeId: number): Promise<ExportPdfResult> {
       pages: Number(res.headers.get("x-resume-pdf-pages")) || 1,
       fits: res.headers.get("x-resume-pdf-fits") !== "0",
       stored: res.headers.get("x-resume-pdf-stored") === "1",
-      contentHash: res.headers.get("x-resume-content-hash"),
+      contentHash: res.headers.get("x-resume-content-hash") || null,
+      cached: res.headers.get("x-resume-pdf-cached") === "1",
     };
   }
   const p = (await readJson<Problem>(res)) ?? {};
@@ -227,6 +250,33 @@ export async function exportPdf(resumeId: number): Promise<ExportPdfResult> {
           ? "Too many exports - try again in a moment."
           : (p.error ?? "Couldn't make the PDF. Please try again.");
   return { kind: "error", status: res.status, code: p.code, message };
+}
+
+/* ── async PDF pipeline (R3.7) ───────────────────────────────────────────────────────────── */
+
+/** `GET /api/resumes/:id/doc/pdf-status`; `null` on any failure (the caller just tries again later). Never throws. */
+export async function getPdfStatus(resumeId: number, signal?: AbortSignal): Promise<PdfInfo | null> {
+  try {
+    const res = await fetch(`/api/resumes/${resumeId}/doc/pdf-status`, { cache: "no-store", signal });
+    if (!res.ok) return null;
+    const body = await readJson<PdfInfo>(res);
+    return body && typeof body.status === "string" ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `POST /api/resumes/:id/doc/pdf-now`: make the PDF now instead of after the settle delay. `keepalive` lets
+ * the request outlive the page (leaving the editor). Resolves true when the server accepted it. Never throws.
+ */
+export async function requestPdfNow(resumeId: number, opts: { keepalive?: boolean } = {}): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/resumes/${resumeId}/doc/pdf-now`, { method: "POST", keepalive: opts.keepalive === true });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** Saves a blob through a temporary link (the browser's normal download). */

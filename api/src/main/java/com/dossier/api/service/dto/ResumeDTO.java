@@ -53,6 +53,10 @@ public class ResumeDTO implements Serializable {
 
     private Instant exportedAt;
 
+    // State of the stored PDF of a BUILT resume (R3.7, DESIGN 8.5): the list chips and the extension
+    // ("PDF updating - attach in a moment") read it. Not hashed by ProfileVersion.
+    private ResumePdfDTO pdf;
+
     private UserDTO user;
 
     public Long getId() {
@@ -165,6 +169,14 @@ public class ResumeDTO implements Serializable {
 
     public void setExportedAt(Instant exportedAt) {
         this.exportedAt = exportedAt;
+    }
+
+    public ResumePdfDTO getPdf() {
+        return pdf;
+    }
+
+    public void setPdf(ResumePdfDTO pdf) {
+        this.pdf = pdf;
     }
 
     public UserDTO getUser() {

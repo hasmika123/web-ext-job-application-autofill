@@ -5,6 +5,7 @@ import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.dto.BuiltResumeDTO;
 import com.dossier.api.service.dto.ResumeDocDTO;
+import com.dossier.api.service.dto.ResumePdfDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -128,6 +130,28 @@ public class ResumeDocResource {
     public ResponseEntity<Void> exportRecorded(@PathVariable("id") Long id, @RequestBody(required = false) ExportRecordedVM vm) {
         demoGuard.assertNotDemo();
         resumeDocService.recordExport(id, vm == null ? null : vm.hash());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * {@code GET /api/profile/resumes/:id/doc/pdf-status} : the stored PDF's state (R3.7). The editor polls it
+     * while the PDF is not READY; {@code pollMs} / {@code pollWindowMs} tell it how often and for how long.
+     */
+    @Operation(summary = "Get the state of a resume's stored PDF", description = "NONE | PENDING | RUNNING | READY | FAILED | STALE (READY but behind the document); 404 if not owned.")
+    @GetMapping("/{id}/doc/pdf-status")
+    public ResponseEntity<ResumePdfDTO> getPdfStatus(@PathVariable("id") Long id) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(resumeDocService.pdfStatus(id));
+    }
+
+    /**
+     * {@code POST /api/profile/resumes/:id/doc/pdf-now} : render the PDF without waiting for the settle delay
+     * (leaving the editor; Retry after FAILED). A no-op when the stored PDF is current or a render is running.
+     */
+    @Operation(summary = "Generate the resume's PDF now", description = "Queues the PDF job immediately when the stored PDF is behind the document; 204 either way, 404 if not owned.")
+    @PostMapping("/{id}/doc/pdf-now")
+    public ResponseEntity<Void> pdfNow(@PathVariable("id") Long id) {
+        demoGuard.assertNotDemo();
+        resumeDocService.requestPdfNow(id);
         return ResponseEntity.noContent().build();
     }
 

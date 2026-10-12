@@ -62,5 +62,6 @@
     <include file="config/liquibase/changelog/20261012020000_resume_builder_resume_doc.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261012030000_resume_builder_columns.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261012040000_resume_builder_v2_doc.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012050000_resume_builder_pdf_jobs.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

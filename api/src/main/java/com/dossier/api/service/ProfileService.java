@@ -18,6 +18,8 @@ import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.mapper.BioMapper;
 import com.dossier.api.service.mapper.ResumeMapper;
+import com.dossier.api.service.resume.ResumePdfState;
+import com.dossier.api.service.resume.ResumeRenderHash;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -164,6 +166,9 @@ public class ProfileService {
                 d.setContentHash(row.getContentHash());
                 d.setExportedHash(row.getExportedHash());
                 d.setExportedAt(row.getExportedAt());
+                // R3.7: the stored PDF's state (STALE is derived from the render hash), for the list chips and the extension.
+                String renderHash = ResumeRenderHash.computeFromThemeJson(row.getContentHash(), row.getTemplateId(), row.getThemeJson());
+                d.setPdf(ResumePdfState.toDto(row.getPdfStatus(), row.getExportedHash(), row.getExportedAt(), renderHash, row.getPdfAttempts(), row.getPdfError()));
             });
         return dtos;
     }

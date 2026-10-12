@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FIXTURES, fixtureDoc, fixtureText } from "./test-fixtures";
-import { canonicalJson, contentHash, writeJson } from "./json";
+import { canonicalJson, contentHash, renderHash, writeJson } from "./json";
 
 describe("writeJson", () => {
   it("matches JSON.stringify for ordinary values (compact and indented)", () => {
@@ -52,4 +52,29 @@ describe("canonical form and content hash", () => {
       expect(await contentHash(fixtureDoc(name))).toBe(fixtureText(`${name}.hash.txt`).trim());
     });
   }
+});
+
+describe("render hash (DESIGN 8.5)", () => {
+  const CONTENT = "0123456789abcdef".repeat(4);
+
+  it("matches the golden vectors Java RenderHashTest pins", async () => {
+    expect(await renderHash(CONTENT, "modern", { spacing: "normal", accent: " #16a34a " })).toBe(
+      "7d7edf32bfb8ad518debac946f80b41bc9be5a960eeea991ef5be78a70657c93",
+    );
+    expect(await renderHash(CONTENT, "classic", {})).toBe("02ef0e88814b8be4dfdaeafa136e00b28de4bb395ad6748d28b61b5a24cf2d0e");
+  });
+
+  it("an absent or null theme is {}", async () => {
+    const empty = await renderHash(CONTENT, "classic", {});
+    expect(await renderHash(CONTENT, "classic", undefined)).toBe(empty);
+    expect(await renderHash(CONTENT, "classic", null)).toBe(empty);
+  });
+
+  it("template, theme and content each move the hash; key order does not", async () => {
+    const base = await renderHash(CONTENT, "modern", { accent: "#16a34a" });
+    expect(await renderHash(CONTENT, "classic", { accent: "#16a34a" })).not.toBe(base);
+    expect(await renderHash(CONTENT, "modern", { accent: "#2563eb" })).not.toBe(base);
+    expect(await renderHash("f".repeat(64), "modern", { accent: "#16a34a" })).not.toBe(base);
+    expect(await renderHash(CONTENT, "modern", { b: 1, a: "x" })).toBe(await renderHash(CONTENT, "modern", { a: " x ", b: 1 }));
+  });
 });

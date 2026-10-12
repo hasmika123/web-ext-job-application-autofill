@@ -39,6 +39,8 @@ export interface Resume {
   contentHash?: string | null;
   exportedHash?: string | null;
   exportedAt?: string | null;
+  /** BUILT only (R3.7): the stored PDF's job state. Absent on an older API. */
+  pdf?: { status: "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE"; hash?: string | null; error?: string | null } | null;
 }
 
 function statusBadge(status?: string | null) {

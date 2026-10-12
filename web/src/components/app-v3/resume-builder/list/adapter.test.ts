@@ -70,6 +70,18 @@ describe("toCardModel", () => {
     expect(toCardModel(built({ kind: "UPLOADED", templateId: null, contentHash: "b", exportedHash: "a" })).pdfState).toBe("none");
   });
 
+  it("pdfState follows the API's PDF job state when it reports one (R3.7)", () => {
+    const withPdf = (status: "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE", over: Partial<ResumeDto> = {}) =>
+      toCardModel(built({ contentHash: "b", exportedHash: "a", pdf: { status }, ...over })).pdfState;
+    expect(withPdf("PENDING")).toBe("updating");
+    expect(withPdf("RUNNING")).toBe("updating");
+    expect(withPdf("STALE")).toBe("updating");
+    expect(withPdf("FAILED")).toBe("failed");
+    expect(withPdf("READY")).toBe("current"); // the job state wins over the legacy hash comparison
+    expect(withPdf("NONE")).toBe("none");
+    expect(withPdf("FAILED", { kind: "UPLOADED", templateId: null })).toBe("none"); // uploads never have a job
+  });
+
   it("keeps the id and kind", () => {
     const m = toCardModel(built({ id: 42 }));
     expect(m.id).toBe(42);

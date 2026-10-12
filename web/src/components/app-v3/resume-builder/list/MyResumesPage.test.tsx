@@ -134,6 +134,22 @@ describe("My Resumes: cards", () => {
     expect(within(archived).queryByText("ATS Friendly")).toBeNull();
   });
 
+  it("shows 'PDF updating…' and 'PDF failed' from the API's PDF job state (R3.7)", () => {
+    renderPage([
+      { id: 1, label: "Pending one", kind: "BUILT", templateId: "modern", archived: false, pdf: { status: "PENDING" } },
+      { id: 2, label: "Stale one", kind: "BUILT", templateId: "modern", archived: false, pdf: { status: "STALE" } },
+      { id: 3, label: "Failed one", kind: "BUILT", templateId: "modern", archived: false, pdf: { status: "FAILED" } },
+      { id: 4, label: "Ready one", kind: "BUILT", templateId: "modern", archived: false, pdf: { status: "READY" }, contentHash: "b", exportedHash: "a" },
+    ]);
+    const card = (id: number) => document.querySelector(`[data-resume-id="${id}"]`) as HTMLElement;
+    expect(within(card(1)).getByText("PDF updating…")).toBeTruthy();
+    expect(within(card(2)).getByText("PDF updating…")).toBeTruthy();
+    expect(within(card(3)).getByText("PDF failed")).toBeTruthy();
+    // READY wins over the legacy hash comparison: no "out of date" chip
+    expect(within(card(4)).queryByText("PDF out of date")).toBeNull();
+    expect(within(card(4)).queryByText("PDF updating…")).toBeNull();
+  });
+
   it("hides the Created / Modified rows the API does not provide", () => {
     renderPage();
     const first = document.querySelector('[data-resume-id="1"]') as HTMLElement;

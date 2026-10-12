@@ -105,6 +105,10 @@ services:
       - DOSSIER_JOBS_ENABLED=${DOSSIER_JOBS_ENABLED:-true}
       - DOSSIER_JOBS_FETCH_CRON=${DOSSIER_JOBS_FETCH_CRON:-0 0 2 * * *}
       - DOSSIER_JOBS_MATCH_CRON=${DOSSIER_JOBS_MATCH_CRON:-0 0 4 * * *}
+      # Service-to-service secret for /api/internal/** (the web's resume-PDF worker, Resume Builder R3.7).
+      # The SAME value is set on the web service below. Blank = the internal routes refuse everything
+      # and no PDF is generated in the background (manual "Export PDF" still works). Only in the box's .env.
+      - DOSSIER_INTERNAL_TOKEN=${DOSSIER_INTERNAL_TOKEN:-}
       # Inbox encryption key (14.2). Lives only in the box's .env and the password manager.
       - DOSSIER_INBOX_KEY=${DOSSIER_INBOX_KEY:-}
       - DOSSIER_INBOX_KEY_VERSION=${DOSSIER_INBOX_KEY_VERSION:-1}
@@ -161,6 +165,12 @@ services:
       - RESUME_PDF_MAX_CONCURRENT=${RESUME_PDF_MAX_CONCURRENT:-1}
       - RESUME_PDF_QUEUE_MAX=${RESUME_PDF_QUEUE_MAX:-10}
       - RESUME_PDF_MAX_FIT_STEPS=${RESUME_PDF_MAX_FIT_STEPS:-3}
+      # Async PDF worker (Resume Builder R3.7): this container polls the API's /api/internal queue and
+      # renders the PDFs that saves leave pending. EXACTLY ONE web container sets RESUME_PDF_WORKER=1
+      # (several would be safe - claims are leased - but only waste Chromium time). It needs the same
+      # DOSSIER_INTERNAL_TOKEN as the api service; without it the worker logs an error and does not start.
+      - RESUME_PDF_WORKER=${RESUME_PDF_WORKER:-1}
+      - DOSSIER_INTERNAL_TOKEN=${DOSSIER_INTERNAL_TOKEN:-}
     depends_on:
       - api
     networks: [internal]

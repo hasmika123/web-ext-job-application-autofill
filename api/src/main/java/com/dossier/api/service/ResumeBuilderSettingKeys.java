@@ -127,6 +127,12 @@ public final class ResumeBuilderSettingKeys {
     public static final String PDF_MAX_ATTEMPTS = "resume.pdf.maxAttempts";
     public static final String PDF_KEEP_PREVIOUS = "resume.pdf.keepPrevious";
     public static final String PDF_VIEW_AUTO_REFRESH = "resume.pdf.viewAutoRefresh";
+    /** R3.7: how long a BUSY (limiter said 503) job waits before the next claim. */
+    public static final String PDF_BUSY_RETRY_MS = "resume.pdf.busyRetryMs";
+    /** R3.7: how often the editor asks {@code pdf-status} while the PDF is not READY. */
+    public static final String PDF_STATUS_POLL_MS = "resume.pdf.statusPollMs";
+    /** R3.7: how long after the last save the editor keeps asking. */
+    public static final String PDF_STATUS_WINDOW_MS = "resume.pdf.statusWindowMs";
 
     // ---- sharing, views, thumbnails, lists ----------------------------------
     public static final String META_SHARE_WITH_ORG_DEFAULT = "resume.meta.shareWithOrgDefault";
@@ -362,6 +368,9 @@ public final class ResumeBuilderSettingKeys {
         integer(k, PDF_MAX_ATTEMPTS, 5, 1, 10, "PDF attempts before FAILED.");
         integer(k, PDF_KEEP_PREVIOUS, 0, 0, 5, "Previous PDFs kept per resume (reserved).");
         bool(k, PDF_VIEW_AUTO_REFRESH, false, "Regenerate the PDF view automatically when the document changes.");
+        integer(k, PDF_BUSY_RETRY_MS, 10000, 1000, 120000, "Wait before retrying a PDF job the renderer refused as busy (no attempt is counted).");
+        integer(k, PDF_STATUS_POLL_MS, 5000, 1000, 60000, "How often the editor checks the PDF status while it is not ready.");
+        integer(k, PDF_STATUS_WINDOW_MS, 180000, 30000, 900000, "How long after the last save the editor keeps checking the PDF status.");
 
         // Sharing, views, thumbnails, lists.
         bool(k, META_SHARE_WITH_ORG_DEFAULT, true, "New resumes are shared with the user's organisation by default.");

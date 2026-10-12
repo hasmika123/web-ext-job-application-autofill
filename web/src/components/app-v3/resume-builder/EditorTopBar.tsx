@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { ArrowLeftIcon, Button, CheckIcon, DownloadIcon, IconButton, Spinner, RedoIcon, UndoIcon, cn } from "@kiwiply/ui";
+import type { PdfInfo } from "@/lib/resume-doc";
+import PdfStatusSuffix from "./PdfStatusSuffix";
 import type { SaveStatus } from "./state/types";
 
 /** "just now" for the first minute, then whole minutes / hours. Pure, so it is testable. */
@@ -48,6 +50,8 @@ export default function EditorTopBar({
   onExport,
   exporting = false,
   exportDisabled = false,
+  pdf,
+  onPdfRetry,
 }: {
   title: string;
   onTitleChange: (v: string) => void;
@@ -63,6 +67,10 @@ export default function EditorTopBar({
   onExport?: () => void;
   exporting?: boolean;
   exportDisabled?: boolean;
+  /** The stored PDF's state (R3.7): shown as a muted suffix after the save status. */
+  pdf?: PdfInfo | null;
+  /** "Retry" in the failed-PDF suffix (asks for the PDF right now). */
+  onPdfRetry?: () => void;
 }) {
   const bad = status === "retrying" || status === "conflict" || status === "error";
   return (
@@ -97,6 +105,7 @@ export default function EditorTopBar({
         {status === "saving" ? <Spinner role="presentation" aria-hidden className="h-3.5 w-3.5" /> : status === "saved" ? <CheckIcon className="h-3.5 w-3.5 text-ok" /> : null}
         <span className="truncate">{statusLabel(status, savedAt, now, error)}</span>
       </p>
+      <PdfStatusSuffix pdf={pdf} onRetry={onPdfRetry} className="-ml-2" />
 
       <div className="flex items-center gap-0.5">
         <IconButton aria-label="Undo" title="Undo (Ctrl/⌘ Z)" disabled={!canUndo} onClick={onUndo} className="h-11 w-11 sm:h-8 sm:w-8">

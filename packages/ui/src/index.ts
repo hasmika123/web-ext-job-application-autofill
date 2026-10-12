@@ -170,7 +170,7 @@ export { toggleMark, shiftMarks, isCovered, sortMarks, isLinkHref } from "./resu
 export { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE_ID, getTemplate, hasTemplate, listTemplates } from "./resume/registry";
 export { toStructured, toStructuredJson, toStructuredPretty } from "./resume/project";
 export { renderText as renderResumeText } from "./resume/text";
-export { writeJson, canonicalJson, contentHash as resumeContentHash } from "./resume/json";
+export { writeJson, canonicalJson, contentHash as resumeContentHash, renderHash as resumeRenderHash } from "./resume/json";
 export type { WriteOptions } from "./resume/json";
 export { FIT_LADDER, MAX_FIT_STEP, PAGE_DIMENSIONS, clampStep, resolveTheme, pageCount, fitToPages } from "./resume/fit";
 export type { FitStep, FitResult } from "./resume/fit";

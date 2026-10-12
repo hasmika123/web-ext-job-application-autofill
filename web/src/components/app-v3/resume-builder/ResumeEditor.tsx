@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { cn, useToast } from "@kiwiply/ui";
-import { exportPdf, putDoc, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
+import { exportPdf, putDoc, requestPdfNow, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
 import EditorTopBar from "./EditorTopBar";
+import { usePdfStatus } from "./usePdfStatus";
 import PreviewPane from "./PreviewPane";
 import SectionEditor from "./SectionEditor";
 import SectionsRail, { sectionTitle } from "./SectionsRail";
@@ -51,6 +52,9 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
     });
     autosave.current = a;
     return () => {
+      // Leaving the editor (navigation, ✕): save what is pending, then ask for the PDF now instead of after the
+      // settle delay (R3.7). The request outlives the page (keepalive). Best effort: the next visit repairs a miss.
+      void a.flush().finally(() => void requestPdfNow(resumeId, { keepalive: true }));
       a.dispose();
       autosave.current = null;
     };
@@ -80,6 +84,19 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
     document.addEventListener("visibilitychange", onHide);
     return () => document.removeEventListener("visibilitychange", onHide);
   }, []);
+
+  // Closing the tab / reloading: the unmount path above does not run, so ask for the PDF now here (R3.7).
+  useEffect(() => {
+    const onPageHide = () => {
+      void autosave.current?.flush();
+      void requestPdfNow(resumeId, { keepalive: true });
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [resumeId]);
+
+  // The stored PDF's state for the top bar: "PDF updating…" after a save, "couldn't be made · Retry" on failure.
+  const { pdf, retry: retryPdf, refresh: refreshPdf } = usePdfStatus(resumeId, initial.pdf, state.savedAt);
 
   /* ── "Saved · N min ago" stays honest ────────────────────────────────────────────────── */
   useEffect(() => {
@@ -126,6 +143,7 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
         return;
       }
       saveBlob(res.blob, res.fileName);
+      if (res.stored) void refreshPdf();
       const pages = `${res.pages} ${res.pages === 1 ? "page" : "pages"}`;
       toast({
         title: "PDF ready",
@@ -173,6 +191,8 @@ export default function ResumeEditor({ initial, plan }: { initial: ResumeDocDTO;
         onExport={exportNow}
         exporting={exporting}
         exportDisabled={state.phase === "conflict"}
+        pdf={pdf}
+        onPdfRetry={retryPdf}
       />
 
       <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-[200px_minmax(0,1fr)_minmax(0,1fr)]">

@@ -15,6 +15,7 @@ import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.BuiltResumeDTO;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.dto.ResumeDocDTO;
+import com.dossier.api.service.dto.ResumePdfDTO;
 import com.dossier.api.service.resume.ResumeDocument;
 import com.dossier.api.service.resume.ResumeDocumentCanonical;
 import com.dossier.api.service.resume.ResumeDocumentJson;
@@ -23,6 +24,8 @@ import com.dossier.api.service.resume.ResumeDocumentSeeder;
 import com.dossier.api.service.resume.ResumeDocumentText;
 import com.dossier.api.service.resume.ResumeDocumentUpgrader;
 import com.dossier.api.service.resume.ResumeDocumentValidator;
+import com.dossier.api.service.resume.ResumePdfState;
+import com.dossier.api.service.resume.ResumeRenderHash;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.time.Instant;
@@ -130,6 +133,7 @@ public class ResumeDocService {
         d.setThemeJson("{}");
         d.setProfileSyncedAt(now);
         applyContent(d, resume, doc, now);
+        markPdfPending(d, false);
         resumeDocRepository.saveAndFlush(d);
 
         created.setKind(ResumeKind.BUILT);
@@ -143,6 +147,16 @@ public class ResumeDocService {
     @Transactional(readOnly = true)
     public ResumeDocDTO get(Long resumeId) {
         ResumeDoc d = ownedDoc(resumeId);
+        return toDto(d, d.getResume());
+    }
+
+    /**
+     * The document by resume id, with no owner check - for the PDF worker only ({@code /api/internal/**}, which
+     * is token-guarded and never reachable with a user's JWT). 404 when there is no such document.
+     */
+    @Transactional(readOnly = true)
+    public ResumeDocDTO getForWorker(Long resumeId) {
+        ResumeDoc d = resumeDocRepository.findById(resumeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume document not found"));
         return toDto(d, d.getResume());
     }
 
@@ -197,6 +211,7 @@ public class ResumeDocService {
 
         Instant now = Instant.now();
         applyContent(d, d.getResume(), doc, now);
+        markPdfPending(d, false);
         resumeDocRepository.saveAndFlush(d);
         return toDto(d, d.getResume());
     }
@@ -212,6 +227,7 @@ public class ResumeDocService {
         d.setTemplateId(templateId);
         d.setUpdatedAt(Instant.now());
         d.getResume().setUpdatedAt(d.getUpdatedAt());
+        markPdfPending(d, true); // a template switch is a checkpoint: no settle delay
         resumeDocRepository.saveAndFlush(d);
         return toDto(d, d.getResume());
     }
@@ -230,6 +246,66 @@ public class ResumeDocService {
         // A bulk update, not d.setExportedHash(..) + save: the entity's @Version would tick and the
         // editor's next autosave (If-Match: the old version) would 409 right after an export.
         resumeDocRepository.recordExport(d.getResumeId(), hash, Instant.now());
+        // A synchronous export that stored the CURRENT render leaves nothing for the worker to do.
+        if (hash.equals(renderHash(d))) {
+            resumeDocRepository.markReadyNow(d.getResumeId());
+        }
+    }
+
+    // ---- the async PDF pipeline's side of a save (R3.7, DESIGN 8.5) -----------------------------
+
+    /**
+     * The render hash of the document as stored now: {@code sha256(contentHash|templateId|canonical theme)}.
+     * The stored PDF is up to date exactly when its {@code exported_hash} equals this.
+     */
+    public static String renderHash(ResumeDoc d) {
+        return ResumeRenderHash.computeFromThemeJson(d.getContentHash(), d.getTemplateId(), d.getThemeJson());
+    }
+
+    /**
+     * Called inside every write that can change the render hash (content or theme save, template switch,
+     * and - as those stories land - photo, AI apply, restore, tailor-copy, checkpoint). If the stored PDF is
+     * not this render, the row becomes (or stays) PENDING with its next attempt {@code settleMs} away - a
+     * typing burst keeps pushing it out, so only the last state is rendered - or right now for a
+     * checkpoint ({@code immediate}). The row itself is the job; nothing else is queued. If the stored PDF
+     * already is this render (an edit was undone) the row is simply READY again.
+     */
+    public void markPdfPending(ResumeDoc d, boolean immediate) {
+        String rh = renderHash(d);
+        Instant now = Instant.now();
+        if (rh.equals(d.getExportedHash())) {
+            if (!ResumePdfState.RUNNING.equals(d.getPdfStatus()) && !ResumePdfState.READY.equals(d.getPdfStatus())) {
+                d.setPdfStatus(ResumePdfState.READY);
+                d.setPdfAttempts(0);
+                d.setPdfError(null);
+                d.setPdfNextAttemptAt(null);
+            }
+            return;
+        }
+        long delay = immediate ? 0 : settings.getInt(ResumeBuilderSettingKeys.PDF_SETTLE_MS);
+        d.setPdfStatus(ResumePdfState.PENDING);
+        d.setPdfRequestedAt(now);
+        d.setPdfNextAttemptAt(now.plusMillis(delay));
+        d.setPdfAttempts(0);
+        d.setPdfError(null);
+        d.setPdfLeaseUntil(null);
+        d.setPdfWorker(null);
+    }
+
+    /** {@code GET .../doc/pdf-status}: the stored PDF's state, with the editor's polling hints. */
+    @Transactional(readOnly = true)
+    public ResumePdfDTO pdfStatus(Long resumeId) {
+        return pdfOf(ownedDoc(resumeId));
+    }
+
+    /**
+     * {@code POST .../doc/pdf-now}: leaving the editor, or Retry after FAILED. Queues the row immediately when
+     * its stored PDF is not the current render (clearing a FAILED row's attempts); a no-op when it is current or
+     * a render is already in flight. Never bumps the document version.
+     */
+    public void requestPdfNow(Long resumeId) {
+        ResumeDoc d = ownedDoc(resumeId);
+        resumeDocRepository.requestNow(d.getResumeId(), renderHash(d), Instant.now());
     }
 
     /** The server's document for a client that lost an optimistic-lock race (the 409 body). */
@@ -318,7 +394,17 @@ public class ResumeDocService {
         dto.setExportedAt(d.getExportedAt());
         dto.setExportedHash(d.getExportedHash());
         dto.setUpdatedAt(d.getUpdatedAt());
+        dto.setRenderHash(renderHash(d));
+        dto.setPdf(pdfOf(d));
         return dto;
+    }
+
+    /** The PDF state of a row, with the editor's poll cadence and window (both settings). */
+    private ResumePdfDTO pdfOf(ResumeDoc d) {
+        ResumePdfDTO pdf = ResumePdfState.toDto(d.getPdfStatus(), d.getExportedHash(), d.getExportedAt(), renderHash(d), d.getPdfAttempts(), d.getPdfError());
+        pdf.setPollMs(settings.getInt(ResumeBuilderSettingKeys.PDF_STATUS_POLL_MS));
+        pdf.setPollWindowMs(settings.getInt(ResumeBuilderSettingKeys.PDF_STATUS_WINDOW_MS));
+        return pdf;
     }
 
     private ResumeDoc ownedDoc(Long resumeId) {

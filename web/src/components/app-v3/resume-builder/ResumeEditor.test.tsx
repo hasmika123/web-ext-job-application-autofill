@@ -1,26 +1,30 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
-import type { ExportPdfResult, ResumeDocDTO, SaveResult } from "@/lib/resume-doc";
+import type { ExportPdfResult, PdfInfo, ResumeDocDTO, SaveResult } from "@/lib/resume-doc";
 import { testDoc } from "./state/test-doc";
 
 const putDoc = vi.fn<(id: number, version: number, body: { doc: ReturnType<typeof testDoc> }) => Promise<SaveResult>>();
 const exportPdf = vi.fn<(id: number) => Promise<ExportPdfResult>>();
 const saveBlob = vi.fn();
+const requestPdfNow = vi.fn<(id: number, opts?: { keepalive?: boolean }) => Promise<boolean>>();
+const getPdfStatus = vi.fn<(id: number) => Promise<PdfInfo | null>>();
 vi.mock("@/lib/resume-doc", async (orig) => ({
   ...(await orig<typeof import("@/lib/resume-doc")>()),
   putDoc: (...a: Parameters<typeof putDoc>) => putDoc(...a),
   exportPdf: (id: number) => exportPdf(id),
   saveBlob: (...a: unknown[]) => saveBlob(...a),
+  requestPdfNow: (id: number, opts?: { keepalive?: boolean }) => requestPdfNow(id, opts),
+  getPdfStatus: (id: number) => getPdfStatus(id),
 }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
 
 import ResumeEditor from "./ResumeEditor";
 
-const renderEditor = () =>
+const renderEditor = (pdf?: PdfInfo) =>
   render(
     <ToastProvider>
-      <ResumeEditor initial={dto()} plan="FREE" />
+      <ResumeEditor initial={{ ...dto(), pdf }} plan="FREE" />
     </ToastProvider>,
   );
 
@@ -54,6 +58,8 @@ beforeEach(() => {
   putDoc.mockReset();
   exportPdf.mockReset();
   saveBlob.mockReset();
+  requestPdfNow.mockReset().mockResolvedValue(true);
+  getPdfStatus.mockReset().mockResolvedValue(null);
 });
 afterEach(() => {
   cleanup();
@@ -86,6 +92,49 @@ describe("ResumeEditor", () => {
     expect(status()).toBe("saved");
     expect(statusText()).toContain("Saved · just now");
     expect(document.querySelector(".rz-page")?.textContent).toContain("Led the migration");
+  });
+
+  describe("stored PDF status (R3.7)", () => {
+    it("shows '· PDF updating…' after a save, then clears it when the server says READY", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      getPdfStatus.mockResolvedValue({ status: "READY", pollMs: 5000, pollWindowMs: 180000 });
+      renderEditor({ status: "READY", pollMs: 5000, pollWindowMs: 180000 });
+      expect(screen.queryByText("PDF updating…")).toBeNull();
+
+      fireEvent.change(bullet(), { target: { value: "A new bullet" } });
+      await flush(800);
+      expect(screen.getByText("PDF updating…")).toBeTruthy();
+
+      await flush(5000);
+      expect(getPdfStatus).toHaveBeenCalledWith(42);
+      expect(screen.queryByText("PDF updating…")).toBeNull();
+    });
+
+    it("a failed PDF shows 'couldn't be made · Retry', and Retry asks for the PDF now", async () => {
+      renderEditor({ status: "FAILED", error: "boom", pollMs: 5000, pollWindowMs: 180000 });
+      expect(screen.getByText("PDF couldn't be made")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+      await flush(0);
+      expect(requestPdfNow).toHaveBeenCalledWith(42, undefined); // pdf-now, not keepalive: the user is staying
+      expect(screen.getByText("PDF updating…")).toBeTruthy();
+    });
+
+    it("leaving the editor flushes the save, then asks for the PDF now (keepalive)", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      const { unmount } = renderEditor({ status: "READY", pollMs: 5000, pollWindowMs: 180000 });
+      fireEvent.change(bullet(), { target: { value: "Last words" } });
+      unmount();
+      await flush(0);
+      expect(putDoc).toHaveBeenCalledTimes(1);
+      expect(requestPdfNow).toHaveBeenCalledWith(42, { keepalive: true });
+      expect(putDoc.mock.invocationCallOrder[0]).toBeLessThan(requestPdfNow.mock.invocationCallOrder[0]);
+    });
+
+    it("pagehide (closing the tab) asks for the PDF now", () => {
+      renderEditor({ status: "READY", pollMs: 5000, pollWindowMs: 180000 });
+      window.dispatchEvent(new Event("pagehide"));
+      expect(requestPdfNow).toHaveBeenCalledWith(42, { keepalive: true });
+    });
   });
 
   it("shows 'Not saved — retrying' on a network failure and recovers", async () => {
@@ -181,6 +230,7 @@ describe("ResumeEditor", () => {
       fits: true,
       stored: true,
       contentHash: "a".repeat(64),
+      cached: false,
       ...over,
     });
     const exportBtn = () => screen.getByRole("button", { name: /Export PDF|Making PDF/ }) as HTMLButtonElement;
