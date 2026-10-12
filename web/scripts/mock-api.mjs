@@ -15,6 +15,7 @@
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
 import { readFileSync } from "node:fs";
+import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
 if (process.env.NODE_ENV === "production") {
   console.error("mock-api: refusing to run with NODE_ENV=production");
@@ -1873,6 +1874,11 @@ const server = http.createServer((req, res) => {
     return json(res, 405, { error: "Method not allowed: the demo switch is controlled by server config (DEMO_ENABLED)." });
   }
 
+  // Admin AI config (I1.12): a static read-only fixture. A write gets the friendly refusal the page shows inline.
+  if (path.startsWith("/api/admin/ai/") && method !== "GET" && method !== "HEAD") {
+    return json(res, 403, { code: "DEMO_READ_ONLY", title: "Read-only", detail: "This is read-only in the mock demo — changes aren't saved." });
+  }
+
   // The real API refuses writes from a demo session. (Reads below.)
   if (method !== "GET" && method !== "HEAD") {
     return json(res, 403, { code: "DEMO_READ_ONLY", message: "This is a demo account - changes aren't saved" });
@@ -1963,6 +1969,9 @@ const server = http.createServer((req, res) => {
     // --- END admin3b mock ---
     // --- admin3b (System page): actuator sample ---
     // --- admin3b (ai / job-sources) mock endpoints: begin ---
+    if (path === "/api/admin/ai/config") return json(res, 200, aiConfigFixture());
+    if (path === "/api/admin/ai/calls") return json(res, 200, aiCallsFixture(new URL(req.url ?? "/", "http://localhost").searchParams));
+    if (path === "/api/admin/ai/config/history") return json(res, 200, aiHistoryFixture());
     if (path === "/api/admin/ai-usage")
       return json(res, 200, {
         period: new Date().toISOString().slice(0, 7), proBudgetMicros: 3_000_000, freeParsesPerMonth: 3,
