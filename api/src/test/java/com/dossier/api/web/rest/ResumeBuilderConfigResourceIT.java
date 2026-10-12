@@ -160,7 +160,48 @@ class ResumeBuilderConfigResourceIT {
             .andExpect(jsonPath("$.templates.popular[0]").value("modern"))
             .andExpect(jsonPath("$.list.quickTips.length()").value(4))
             .andExpect(jsonPath("$.list.quickTips[3]").value("Keep one primary resume for quick applications"))
-            .andExpect(jsonPath("$.list.virtualizeAbove").value(60));
+            .andExpect(jsonPath("$.list.virtualizeAbove").value(60))
+            // Onboarding v2 (R1.8)
+            .andExpect(jsonPath("$.onboarding.enabled").value(true))
+            .andExpect(jsonPath("$.onboarding.estimateMinutes").value(2))
+            .andExpect(jsonPath("$.onboarding.stepSeconds.hello").value(10))
+            .andExpect(jsonPath("$.onboarding.stepSeconds.source").value(40))
+            .andExpect(jsonPath("$.onboarding.stepSeconds.review").value(45))
+            .andExpect(jsonPath("$.onboarding.stepSeconds.skills").value(20))
+            .andExpect(jsonPath("$.onboarding.stepSeconds.you").value(15))
+            .andExpect(jsonPath("$.onboarding.stepSeconds.prefs").value(30))
+            .andExpect(jsonPath("$.onboarding.draftMaxBytes").value(262144))
+            .andExpect(jsonPath("$.onboarding.card.snoozeDays").value(3))
+            .andExpect(jsonPath("$.onboarding.card.resurfaceBelowPercent").value(20))
+            .andExpect(jsonPath("$.onboarding.card.resurfaceAfterDays").value(14))
+            .andExpect(jsonPath("$.onboarding.card.maxResurfaces").value(2))
+            .andExpect(jsonPath("$.onboarding.confetti").value(true))
+            .andExpect(jsonPath("$.onboarding.mascot").value(true))
+            .andExpect(jsonPath("$.onboarding.personaStep").value(true))
+            .andExpect(jsonPath("$.onboarding.payoffActions.length()").value(3))
+            .andExpect(jsonPath("$.onboarding.payoffActions[0]").value("build_resume"))
+            .andExpect(jsonPath("$.onboarding.payoffActions[2]").value("find_jobs"));
+    }
+
+    @Test
+    void onboardingTunablesReachTheConfig() throws Exception {
+        setting("feature.onboarding_v2.enabled", "false");
+        setting("onboarding.persona.enabled", "false");
+        setting("onboarding.estimateMinutes", "4");
+        setting("onboarding.card.snoozeDays", "7");
+        setting("onboarding.payoff.actions", "[\"find_jobs\"]");
+        setting("onboarding.draft.maxBytes", "99");
+        settings.invalidate();
+
+        mockMvc
+            .perform(get(URL))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.onboarding.enabled").value(false))
+            .andExpect(jsonPath("$.onboarding.personaStep").value(false))
+            .andExpect(jsonPath("$.onboarding.estimateMinutes").value(4))
+            .andExpect(jsonPath("$.onboarding.card.snoozeDays").value(7))
+            .andExpect(jsonPath("$.onboarding.payoffActions.length()").value(1))
+            .andExpect(jsonPath("$.onboarding.draftMaxBytes").value(262144)); // 99 is under the 64 K floor: the default stands
     }
 
     @Test

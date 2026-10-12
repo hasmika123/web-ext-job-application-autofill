@@ -2,6 +2,7 @@ package com.dossier.api.service;
 
 import com.dossier.api.domain.ProfileItem;
 import com.dossier.api.domain.ResumeDoc;
+import com.dossier.api.repository.OnboardingDraftRepository;
 import com.dossier.api.repository.ProfileItemRepository;
 import com.dossier.api.repository.ResumeAccessRepository;
 import com.dossier.api.repository.ResumeViewEventRepository;
@@ -33,6 +34,7 @@ public class ResumeBuilderDataService {
     private final ResumeAiProposalRepository resumeAiProposalRepository;
     private final ResumeAccessRepository resumeAccessRepository;
     private final ResumeViewEventRepository resumeViewEventRepository;
+    private final OnboardingDraftRepository onboardingDraftRepository;
     private final StoredFileEraser storedFileEraser;
     private final ObjectMapper om = new ObjectMapper();
 
@@ -43,8 +45,10 @@ public class ResumeBuilderDataService {
         ResumeAiProposalRepository resumeAiProposalRepository,
         ResumeAccessRepository resumeAccessRepository,
         ResumeViewEventRepository resumeViewEventRepository,
+        OnboardingDraftRepository onboardingDraftRepository,
         StoredFileEraser storedFileEraser
     ) {
+        this.onboardingDraftRepository = onboardingDraftRepository;
         this.storedFileEraser = storedFileEraser;
         this.resumeAccessRepository = resumeAccessRepository;
         this.resumeViewEventRepository = resumeViewEventRepository;
@@ -70,6 +74,36 @@ public class ResumeBuilderDataService {
         resumeDocVersionRepository.deleteAllByUserId(userId);
         resumeDocRepository.deleteAllByUserId(userId);
         profileItemRepository.deleteAllByUserId(userId);
+        deleteOnboardingDraft(userId);
+    }
+
+    /** The user's unfinished setup draft (Onboarding v2): erased with the account (the FK cascade would too; explicit like the rest). */
+    public void deleteOnboardingDraft(Long userId) {
+        onboardingDraftRepository.deleteByUserId(userId);
+    }
+
+    /**
+     * The user's setup draft for the account export, or {@code null} when there is none. It is their own unconfirmed
+     * data (the cards parsed from their resume and what they decided), so it is included; an expired row is not.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> exportOnboardingDraft(Long userId) {
+        return onboardingDraftRepository
+            .findByUserId(userId)
+            .filter(d -> d.getExpiresAt().isAfter(java.time.Instant.now()))
+            .map(d -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("step", d.getStep());
+                m.put("persona", d.getPersona());
+                m.put("stepsDone", d.getStepsDone());
+                m.put("stepsTotal", d.getStepsTotal());
+                m.put("state", json(d.getStateJson()));
+                m.put("createdAt", d.getCreatedAt());
+                m.put("updatedAt", d.getUpdatedAt());
+                m.put("expiresAt", d.getExpiresAt());
+                return m;
+            })
+            .orElse(null);
     }
 
     /**

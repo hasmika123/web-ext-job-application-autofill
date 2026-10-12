@@ -89,6 +89,20 @@ class ProfileVersionTest {
         assertThat(r.getPrimary()).isFalse();
     }
 
+    /**
+     * Onboarding v2 (R1.8): the setup draft lives in its own table and the persona / card markers in {@code bio.meta_json}, which
+     * {@code BioDTO} (the only bio input of the hash) does not carry - so neither can move the version. (The HTTP proof,
+     * with a real draft PUT, a persona PATCH and a card DISMISS, is in {@code OnboardingResourceIT}.)
+     */
+    @Test
+    void draftPutAndMetaWriteDoNotMoveTheVersion() {
+        assertThat(java.util.Arrays.stream(BioDTO.class.getDeclaredFields()).map(java.lang.reflect.Field::getName))
+            .as("the version is a function of these only")
+            .containsExactlyInAnyOrder("id", "payload", "updatedAt", "user");
+        String before = ProfileVersion.compute(bio(), List.of(resume()));
+        assertThat(ProfileVersion.compute(bio(), List.of(resume()))).isEqualTo(before);
+    }
+
     @Test
     void aChangeToWhatIsFilledMovesTheVersion() {
         String before = ProfileVersion.compute(bio(), List.of(resume()));

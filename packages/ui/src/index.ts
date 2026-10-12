@@ -90,6 +90,9 @@ export type { PageFrameProps } from "./primitives/PageFrame";
 export { default as Popover } from "./primitives/Popover";
 export type { PopoverProps, PopoverTriggerApi } from "./primitives/Popover";
 
+export { default as AiDisclosure, AI_DISCLOSURE_LINE, AI_SENT_DEFAULT, AI_CHIP_TEXT } from "./primitives/AiDisclosure";
+export type { AiDisclosureProps } from "./primitives/AiDisclosure";
+
 export { default as DiffText } from "./primitives/DiffText";
 export type { DiffTextProps, DiffPart, DiffPartType } from "./primitives/DiffText";
 

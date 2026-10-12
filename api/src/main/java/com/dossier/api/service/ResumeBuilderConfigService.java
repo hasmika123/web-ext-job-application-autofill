@@ -102,7 +102,23 @@ public class ResumeBuilderConfigService {
                 s.getInt(SHARE_LINK_DEFAULT_DAYS),
                 s.getBool(SHARE_ALLOW_DOWNLOAD_DEFAULT)
             ),
-            new ResumeBuilderConfigDTO.Versions(s.getInt(VERSIONS_RETENTION_AUTO))
+            new ResumeBuilderConfigDTO.Versions(s.getInt(VERSIONS_RETENTION_AUTO)),
+            new ResumeBuilderConfigDTO.Onboarding(
+                s.getBool(FEATURE_ONBOARDING_V2),
+                s.getInt(ONBOARDING_ESTIMATE_MINUTES),
+                s.getJson(ONBOARDING_STEP_SECONDS, JsonNode.class),
+                s.getInt(ONBOARDING_DRAFT_MAX_BYTES),
+                new ResumeBuilderConfigDTO.OnboardingCard(
+                    s.getInt(ONBOARDING_CARD_SNOOZE_DAYS),
+                    s.getInt(ONBOARDING_CARD_RESURFACE_BELOW_PERCENT),
+                    s.getInt(ONBOARDING_CARD_RESURFACE_AFTER_DAYS),
+                    s.getInt(ONBOARDING_CARD_MAX_RESURFACES)
+                ),
+                s.getBool(ONBOARDING_CONFETTI_ENABLED),
+                s.getBool(ONBOARDING_MASCOT_ENABLED),
+                s.getBool(ONBOARDING_PERSONA_ENABLED),
+                strings(ONBOARDING_PAYOFF_ACTIONS)
+            )
         );
     }
 

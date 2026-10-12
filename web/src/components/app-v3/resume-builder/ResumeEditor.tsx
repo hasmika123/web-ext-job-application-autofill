@@ -20,6 +20,10 @@ import {
   type ResumeDocDTO,
 } from "@/lib/resume-doc";
 import type { ResumeMeta } from "@/lib/resume-meta";
+import { TRIM_LONGEST_COUNT, longestBullets } from "./ai/aiRefs";
+import OpenRewriteBar from "./ai/OpenRewriteBar";
+import ProposalDiff from "./ai/ProposalDiff";
+import { useRewriteFlow } from "./ai/useRewriteFlow";
 import ConflictDialog from "./ConflictDialog";
 import DocumentCanvas from "./DocumentCanvas";
 import EditorTopBar from "./EditorTopBar";
@@ -641,6 +645,30 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     }
   };
 
+  /* Rewrite with AI (R4.2): the section / bullet buttons ask, the diff sheet reviews, Apply writes through the reducer (Undo works). */
+  const rewrite = useRewriteFlow({
+    resumeId,
+    enabled: config.aiAllowed,
+    maxRefs: config.ai.rewriteMaxRefs,
+    doc,
+    dispatch,
+    autosave,
+    latestRev,
+    ensureSaved,
+    adoptServerDoc,
+  });
+  const trimLongest = useMemo(
+    () => ({
+      allowed: config.aiAllowed,
+      onTrim: () => {
+        setTips(null);
+        rewrite.start({ refs: longestBullets(doc, TRIM_LONGEST_COUNT).map((l) => l.ref), scope: "The longest bullets", from: "tip" }, "shorter", viewTipsRef.current);
+      },
+      onLocked: () => rewrite.canvasAi.onLocked("tip"),
+    }),
+    [config.aiAllowed, doc, rewrite],
+  );
+
   /* ✕: save what can be saved, then leave; the unsaved guard asks only when something is still not saved. */
   const closeEditor = async () => {
     await presentation.flush();
@@ -814,6 +842,8 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               className="sticky top-0 z-10 rounded-2xl border shadow-v2-soft"
             />
 
+            {rewrite.pending && <OpenRewriteBar proposal={rewrite.pending} onReview={rewrite.review} onDiscard={rewrite.discardPending} />}
+
             <HiddenContentBar doc={doc} theme={state.theme} caps={caps} />
 
             <DocumentCanvas
@@ -826,6 +856,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               canUndo={canUndoEdit(state)}
               canRedo={canRedoEdit(state)}
               aiAllowed={config.aiAllowed}
+              ai={rewrite.canvasAi}
               onAddSection={() => openAddFor("SUMMARY")}
               reorder={leftOpen && ui.leftPanel === "swap"}
             />
@@ -938,7 +969,19 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         only={tips?.only ?? null}
         onClose={closeTips}
         onGoTo={goToTip}
+        trim={trimLongest}
         returnFocusTo={viewTipsRef}
+      />
+
+      {/* "Rewrite with AI": review the checked proposal change by change (DESIGN 13.3 / 13.4) */}
+      <ProposalDiff
+        {...rewrite.sheetProps}
+        phone={phone}
+        returnFocusTo={rewrite.returnFocusTo}
+        onOpenTips={() => {
+          rewrite.sheetProps.onClose();
+          openTips();
+        }}
       />
 
       {/* phone: Edit · Layout · Insights · Preview (DESIGN 10.9) */}

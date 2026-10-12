@@ -111,6 +111,64 @@ class ResumeBuilderSettingKeysParityTest {
         assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.PDF_WAIT_MS).defaultValue()).isEqualTo("30000");
     }
 
+    /**
+     * ONBOARDING-V2-DESIGN section 11 (R1.8): the 14 onboarding keys (and the existing promptBelowPercent it
+     * cites) are declared with the stated type, default and bounds.
+     */
+    @Test
+    void everyKeyOfOnboardingDesignSection11IsDeclaredWithItsStatedTypeDefaultAndBounds() throws IOException {
+        Path doc = Path.of("..", "docs", "ONBOARDING-V2-DESIGN.md");
+        if (!Files.exists(doc)) doc = Path.of("docs", "ONBOARDING-V2-DESIGN.md");
+        String text = Files.readString(doc, StandardCharsets.UTF_8);
+        int start = text.indexOf("## 11. Settings keys");
+        int end = text.indexOf("Hard constants", start);
+        assertThat(start).as("section 11 present").isGreaterThan(0);
+        assertThat(end).as("end of the section 11 table").isGreaterThan(start);
+
+        int checked = 0;
+        List<String> problems = new ArrayList<>();
+        for (String line : text.substring(start, end).split("\n")) {
+            if (!line.startsWith("| `")) continue;
+            String[] cells = line.split("\\|");
+            Matcher keyMatch = TICKED.matcher(cells[1]);
+            if (!keyMatch.find()) continue;
+            String key = keyMatch.group(1);
+            ResumeBuilderSettingKeys.Key declared = ResumeBuilderSettingKeys.find(key);
+            if (declared == null) {
+                problems.add(key + " is not declared");
+                continue;
+            }
+            checked++;
+
+            String type = cells[2].trim();
+            String expectedType = type.startsWith("JSON") ? "JSON" : type;
+            if (!declared.type().name().equals(expectedType)) problems.add(key + ": type " + declared.type() + " vs " + type);
+
+            String stated = cells[3].replace("`", "").replaceAll("\\([^)]*\\)", " ").trim();
+            if (stated.startsWith("{")) stated = stated.replaceAll("([{,])\\s*([A-Za-z]+):", "$1\"$2\":"); // {hello:10} -> {"hello":10}
+            stated = stated.replace(" ", "");
+            if (stated.matches("[0-9_]+")) stated = stated.replace("_", "");
+            if (!stated.isEmpty() && comparable(stated) && !sameValue(declared.defaultValue(), stated)) {
+                problems.add(key + ": default " + declared.defaultValue() + " vs " + stated);
+            }
+
+            Matcher bounds = Pattern.compile("^(\\d+)( ?[KM])?–(\\d+)( ?[KM])?$").matcher(cells[4].trim());
+            if (bounds.matches() && declared.type() == ResumeBuilderSettingKeys.Type.INT) {
+                double lo = scale(bounds.group(1), bounds.group(2));
+                double hi = scale(bounds.group(3), bounds.group(4));
+                if (declared.min() != lo || declared.max() != hi) problems.add(key + ": bounds " + declared.min() + ".." + declared.max() + " vs " + cells[4].trim());
+            }
+        }
+        assertThat(problems).as("DESIGN section 11 vs the declared keys").isEmpty();
+        assertThat(checked).as("keys in the section 11 table (14 onboarding + promptBelowPercent)").isEqualTo(15);
+    }
+
+    private static double scale(String number, String suffix) {
+        double n = Double.parseDouble(number);
+        if (suffix == null) return n;
+        return suffix.trim().equals("K") ? n * 1024 : n * 1024 * 1024;
+    }
+
     // ---- helpers ------------------------------------------------------------
 
     /** Splits "a / b / c" on the slashes outside brackets and braces. */

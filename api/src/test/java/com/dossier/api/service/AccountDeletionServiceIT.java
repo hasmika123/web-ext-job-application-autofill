@@ -12,6 +12,8 @@ import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ProfileSection;
 import com.dossier.api.domain.enumeration.Provenance;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.dossier.api.domain.OnboardingDraft;
+import com.dossier.api.repository.OnboardingDraftRepository;
 import com.dossier.api.repository.ProfileItemRepository;
 import com.dossier.api.repository.ResumeAiProposalRepository;
 import com.dossier.api.repository.ResumeDocRepository;
@@ -65,6 +67,9 @@ class AccountDeletionServiceIT {
 
     @Autowired
     private ResumeAiProposalRepository resumeAiProposalRepository;
+
+    @Autowired
+    private OnboardingDraftRepository onboardingDraftRepository;
 
     @Autowired
     private FileStorage storage;
@@ -133,6 +138,20 @@ class AccountDeletionServiceIT {
         proposal.setResultJson("{}");
         proposalId = resumeAiProposalRepository.saveAndFlush(proposal).getId();
 
+        // Onboarding v2: an unfinished setup draft is the user's data too.
+        OnboardingDraft draft = new OnboardingDraft();
+        draft.setUserId(user.getId());
+        draft.setV(2);
+        draft.setStep("review");
+        draft.setPersona("student");
+        draft.setStepsDone(2);
+        draft.setStepsTotal(7);
+        draft.setStateJson("{\"cursor\":2}");
+        draft.setCreatedAt(Instant.now());
+        draft.setUpdatedAt(Instant.now());
+        draft.setExpiresAt(Instant.now().plusSeconds(86400));
+        onboardingDraftRepository.saveAndFlush(draft);
+
         // One stored file under every prefix the API writes - including a replaced thumbnail no row points at -
         // plus a stranger's file that must survive.
         Long uid = user.getId();
@@ -195,6 +214,17 @@ class AccountDeletionServiceIT {
         assertThat(docs).hasSize(1);
         assertThat(docs.get(0)).containsEntry("resumeId", resumeId).containsEntry("templateId", "modern");
         assertThat(docs.get(0).get("doc").toString()).contains("schema");
+
+        Map<String, Object> onboardingDraft = (Map<String, Object>) export.get("onboardingDraft");
+        assertThat(onboardingDraft).containsEntry("step", "review").containsEntry("persona", "student").containsEntry("stepsDone", 2).containsEntry("stepsTotal", 7);
+        assertThat(onboardingDraft.get("state").toString()).contains("cursor");
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void exportHasNoOnboardingDraftOnceTheDraftIsGone() {
+        onboardingDraftRepository.deleteByUserId(user.getId());
+        assertThat(accountExportService.exportCurrentUser()).containsEntry("onboardingDraft", null);
     }
 
     private void assertBuilderRowsGone() {
@@ -203,6 +233,7 @@ class AccountDeletionServiceIT {
         assertThat(resumeDocRepository.findByResumeIdAndUserId(resumeId, user.getId())).isEmpty();
         assertThat(resumeDocVersionRepository.findById(versionId)).isEmpty();
         assertThat(resumeAiProposalRepository.findById(proposalId)).isEmpty();
+        assertThat(onboardingDraftRepository.findByUserId(user.getId())).as("the setup draft goes with the account").isEmpty();
         assertThat(resumeRepository.findById(resumeId)).isEmpty();
     }
 }

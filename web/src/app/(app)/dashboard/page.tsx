@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { serverApiFetch } from "@/lib/api";
-import { needsOnboarding, parseBioPayload } from "@/lib/profile-options";
+import { ONBOARDED_KEY, parseBioPayload } from "@/lib/profile-options";
 import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
 import type { Application } from "@/components/ApplicationBoard";
 import { loadJobs } from "@/components/app-v2/jobs/data";
 import DashboardPage from "@/components/app-v3/home/DashboardPage";
-import BuildProfileCard from "@/components/app-v3/profiles/setup/BuildProfileCard";
+import FinishProfileCard from "@/components/app-v3/profiles/setup/FinishProfileCard";
+import { Mascot } from "@/components/marketing/media";
 import { getBuilderConfig } from "@/lib/resume-builder-config";
+import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
+import { onboardingSettings } from "@/lib/onboarding-card";
 import ProfileProgressCard from "@/components/app-v3/profiles/setup/ProfileProgressCard";
 import { getCompleteness } from "@/lib/profile-items-server";
 import { computeDashboard, computeProfile } from "@/components/app-v3/home/compute";
@@ -35,7 +37,7 @@ export default async function Page() {
     // Answers learned while applying, awaiting the user's decision. Best-effort: no card on failure.
     serverApiFetch("/api/profile/suggestions").catch(() => null),
     loadJobs(),
-    // The profile strength decides whether the "Build your profile" card shows (R1.4). Null on failure: no card.
+    // The profile strength decides whether the "Finish your profile" card shows (R1.4, R1.7). Null on failure: no card.
     getCompleteness(),
     // The admin threshold under which that card shows (`profile.setup.promptBelowPercent`).
     getBuilderConfig(),
@@ -48,11 +50,9 @@ export default async function Page() {
   const resumes: unknown[] = resumesRes.ok ? (((await resumesRes.json().catch(() => [])) as unknown[]) ?? []) : [];
   const suggestions: Suggestion[] = suggestionsRes?.ok ? ((await suggestionsRes.json().catch(() => [])) as Suggestion[]) : [];
 
-  // 404 = no bio yet (brand-new account). Any other failure is NOT "no profile": never bounce
-  // someone with a full profile into onboarding because the API hiccuped.
+  // 404 = no bio yet (brand-new account). Nobody is ever redirected into onboarding from here (Onboarding
+  // v2): a new account simply sees the "Let's get you job-ready" card below.
   const bio = profileRes.ok ? parseBioPayload(await profileRes.json().catch(() => null)) : {};
-  const bioKnown = profileRes.ok || profileRes.status === 404;
-  if (bioKnown && needsOnboarding(bio)) redirect("/welcome");
 
   const real = apps.some((a) => a.status !== "SAVED" && !a.archived);
   const n = computeDashboard(apps);
@@ -61,6 +61,10 @@ export default async function Page() {
   const recommended = jobsData.real
     ? jobsData.jobs.slice(0, 3).map((j) => ({ id: j.id, title: j.title, company: j.company, score: j.score, real: j.real }))
     : DASH_RECOMMENDED;
+
+  // `feature.onboarding_v2.enabled` (R1.8) switches the card; its timings and the mascot flair come from `config.onboarding`
+  // (an API without the group falls back to the declared defaults).
+  const onboarding = builderConfig.onboarding ?? DEFAULT_BUILDER_CONFIG.onboarding;
 
   return (
     <DashboardPage
@@ -73,7 +77,18 @@ export default async function Page() {
       recommended={recommended}
       profile={computeProfile(profileRes.ok ? bio : null, resumes.length)}
     >
-      {completeness && <BuildProfileCard score={completeness.score} promptBelow={builderConfig.profile.setupPromptBelowPercent} />}
+      {onboarding.enabled && (
+      <FinishProfileCard
+        login={account?.login ?? account?.email ?? "me"}
+        onboarded={typeof bio[ONBOARDED_KEY] === "string" && bio[ONBOARDED_KEY].trim() !== ""}
+        score={completeness?.score ?? null}
+        promptBelow={builderConfig.profile.setupPromptBelowPercent}
+        bio={Object.fromEntries(Object.entries(bio).filter(([, v]) => typeof v === "string"))}
+        settings={onboardingSettings(builderConfig)}
+        mascotWave={onboarding.mascot ? <Mascot pose="wave" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}
+        mascotLaptop={onboarding.mascot ? <Mascot pose="laptop" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}
+      />
+      )}
       <ProfileProgressCard completeness={completeness} promptBelow={builderConfig.profile.setupPromptBelowPercent} />
       <SuggestionsCard initial={suggestions} />
     </DashboardPage>
