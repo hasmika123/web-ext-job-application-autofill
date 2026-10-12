@@ -14,6 +14,8 @@ vi.mock("@/lib/resume-parse", () => ({
 
 import { NothingFoundError, parseFileForSetup, parseTextForSetup } from "./parse";
 
+const BIO = { valueChars: 500, summaryChars: 2000 };
+
 const ok = (source: "ai" | "heuristic" = "ai") => ({
   structured: {
     summary: "",
@@ -40,7 +42,7 @@ describe("parseFileForSetup", () => {
       expect(opts.textOnly).toBe(true);
       return ok();
     });
-    const out = await parseFileForSetup(new File(["x"], "cv.pdf", { type: "application/pdf" }), true);
+    const out = await parseFileForSetup(new File(["x"], "cv.pdf", { type: "application/pdf" }), true, BIO);
     expect(seen).not.toContain("123-45-6789");
     expect(seen).not.toContain("04/05/1990");
     expect(seen).toContain("Led a team");
@@ -54,7 +56,7 @@ describe("parseFileForSetup", () => {
       expect(opts.prepareText("EIN: 12-3456789")).not.toContain("12-3456789");
       return ok("heuristic");
     });
-    const out = await parseFileForSetup(new File(["x"], "cv.txt"), false);
+    const out = await parseFileForSetup(new File(["x"], "cv.txt"), false, BIO);
     expect(parseResumeWithAi).not.toHaveBeenCalled();
     expect(out.source).toBe("heuristic");
     expect(out.removed).toBe(1);
@@ -62,15 +64,15 @@ describe("parseFileForSetup", () => {
 
   it("explains a PDF whose text is unreadable instead of importing nothing", async () => {
     parseResumeWithAi.mockResolvedValue({ structured: { summary: "", skills: [], experience: [], education: [], languages: [], projects: [] }, bio: {}, rawText: "", source: "heuristic", garbled: true });
-    await expect(parseFileForSetup(new File(["x"], "scan.pdf"), true)).rejects.toThrow(/scan/);
-    await expect(parseFileForSetup(new File(["x"], "scan.pdf"), true)).rejects.toBeInstanceOf(NothingFoundError);
+    await expect(parseFileForSetup(new File(["x"], "scan.pdf"), true, BIO)).rejects.toThrow(/scan/);
+    await expect(parseFileForSetup(new File(["x"], "scan.pdf"), true, BIO)).rejects.toBeInstanceOf(NothingFoundError);
   });
 });
 
 describe("parseTextForSetup", () => {
   it("redacts the pasted text before it is sent to the AI parser", async () => {
     parseTextWithAi.mockResolvedValue(ok());
-    const out = await parseTextForSetup("Acme engineer\nTax ID: 12-3456789\nPassport number: X1234567", true);
+    const out = await parseTextForSetup("Acme engineer\nTax ID: 12-3456789\nPassport number: X1234567", true, BIO);
     const sent = parseTextWithAi.mock.calls[0][0] as string;
     expect(sent).not.toContain("12-3456789");
     expect(sent).not.toContain("X1234567");
@@ -79,13 +81,13 @@ describe("parseTextForSetup", () => {
 
   it("parses locally without AI", async () => {
     parseText.mockReturnValue(ok("heuristic"));
-    await parseTextForSetup("Acme engineer", false);
+    await parseTextForSetup("Acme engineer", false, BIO);
     expect(parseTextWithAi).not.toHaveBeenCalled();
     expect(parseText).toHaveBeenCalledWith("Acme engineer");
   });
 
   it("says so when there is nothing to build from", async () => {
     parseText.mockReturnValue({ structured: { summary: "", skills: [], experience: [], education: [], languages: [], projects: [] }, bio: {}, rawText: "hi", source: "heuristic" });
-    await expect(parseTextForSetup("hi there hi there hi there hi there hi", false)).rejects.toThrow(/couldn't find/);
+    await expect(parseTextForSetup("hi there hi there hi there hi there hi", false, BIO)).rejects.toThrow(/couldn't find/);
   });
 });

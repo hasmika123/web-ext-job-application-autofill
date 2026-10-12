@@ -138,7 +138,11 @@ class ResumeBuilderConfigResourceIT {
             .andExpect(jsonPath("$.ai.rewriteMaxRefs").value(12))
             .andExpect(jsonPath("$.profile.itemMaxBytes").value(16384))
             .andExpect(jsonPath("$.profile.maxItemsPerUser").value(500))
-            .andExpect(jsonPath("$.profile.maxImportItems").value(200));
+            .andExpect(jsonPath("$.profile.maxImportItems").value(200))
+            .andExpect(jsonPath("$.profile.bioValueMaxChars").value(500))
+            .andExpect(jsonPath("$.profile.bioSummaryMaxChars").value(2000))
+            .andExpect(jsonPath("$.profile.setupPromptBelowPercent").value(40))
+            .andExpect(jsonPath("$.profile.uploadMaxBytes").value(10485760));
     }
 
     @Test

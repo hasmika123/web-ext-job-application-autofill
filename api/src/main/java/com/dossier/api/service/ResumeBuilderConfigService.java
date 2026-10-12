@@ -86,7 +86,11 @@ public class ResumeBuilderConfigService {
             new ResumeBuilderConfigDTO.Profile(
                 s.getInt(PROFILE_ITEM_MAX_BYTES),
                 s.getInt(PROFILE_ITEMS_MAX_PER_USER),
-                s.getInt(PROFILE_IMPORT_MAX_ITEMS)
+                s.getInt(PROFILE_IMPORT_MAX_ITEMS),
+                s.getInt(PROFILE_BIO_VALUE_MAX_CHARS),
+                s.getInt(PROFILE_BIO_SUMMARY_MAX_CHARS),
+                s.getInt(PROFILE_SETUP_PROMPT_BELOW_PERCENT),
+                s.getInt(PROFILE_UPLOAD_MAX_BYTES)
             )
         );
     }

@@ -64,11 +64,9 @@ public class ProfileItemService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProfileItemService.class);
 
-    // The item size, live-item count and import size limits are admin settings (profile.item.maxBytes,
-    // profile.items.maxPerUser, profile.import.maxItems - ResumeBuilderSettingKeys), read per call.
-    /** Longest bio value an import writes (the summary is the one long one). */
-    static final int MAX_BIO_VALUE = 500;
-    static final int MAX_BIO_SUMMARY = 2000;
+    // The item size, live-item count, import size and bio value limits are admin settings
+    // (profile.item.maxBytes, profile.items.maxPerUser, profile.import.maxItems,
+    // profile.bio.valueMaxChars, profile.bio.summaryMaxChars - ResumeBuilderSettingKeys), read per call.
 
     /**
      * The flat bio keys an import may write (the identity / contact / link fields a resume header
@@ -479,7 +477,9 @@ public class ProfileItemService {
             if (!v.isTextual() && !v.isNumber()) throw ProfileItemException.invalid("bio." + key, "must be text");
             String value = ResumeDocument.trimWs(v.asText());
             if (value.isEmpty()) continue;
-            int max = "summary".equals(key) ? MAX_BIO_SUMMARY : MAX_BIO_VALUE;
+            int max = settings.getInt(
+                "summary".equals(key) ? ResumeBuilderSettingKeys.PROFILE_BIO_SUMMARY_MAX_CHARS : ResumeBuilderSettingKeys.PROFILE_BIO_VALUE_MAX_CHARS
+            );
             if (value.length() > max) throw ProfileItemException.invalid("bio." + key, "is over " + max + " characters");
             SensitiveContent.check("bio." + key, key, value);
             out.put(key, value);

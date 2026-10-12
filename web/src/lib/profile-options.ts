@@ -95,3 +95,68 @@ export function parseBioPayload(dto: { payload?: string } | null): Bio {
     return {};
   }
 }
+
+// ---- "Start fresh" guided profile setup (Resume Builder R1.5) ------------------------------------
+
+/** What the person is looking for: the first question of the guided setup (chips, one pick). */
+export const FRESH_GOALS = [
+  { id: "internship", label: "An internship" },
+  { id: "first-job", label: "My first job" },
+  { id: "switch", label: "Switching to a new kind of role" },
+  { id: "same", label: "The same role at a new company" },
+] as const;
+
+export type FreshGoalId = (typeof FRESH_GOALS)[number]["id"];
+
+/** Goals for people with little or no work history: study comes before work in the guided order. */
+export const STUDY_FIRST_GOALS: readonly FreshGoalId[] = ["internship", "first-job"];
+
+/** One-tap headline starters per goal; the person can type anything instead. */
+export const HEADLINE_SUGGESTIONS: Record<FreshGoalId, string[]> = {
+  internship: ["Student seeking an internship", "Computer science student looking for a summer internship", "Business student seeking a marketing internship"],
+  "first-job": ["Recent graduate seeking an entry-level role", "Motivated graduate looking for a first role", "Entry-level candidate with customer service experience"],
+  switch: ["Career changer moving into a new field", "Experienced professional exploring a new direction", "Transferable skills, ready for a new role"],
+  same: ["Experienced professional looking for a new opportunity", "Results-driven specialist open to new roles", "Team player with a track record of delivery"],
+};
+
+/**
+ * Skill suggestions by what the headline (and the roles) talk about: a family matches when any of its
+ * keywords starts a word in the text. Curated, short and generic on purpose; they are offered as
+ * one-tap chips and nothing is added unless the person taps it.
+ */
+export const SKILL_FAMILIES: { keywords: string[]; skills: string[] }[] = [
+  { keywords: ["software", "developer", "engineer", "programmer", "computer science", "web", "frontend", "backend", "full stack"], skills: ["JavaScript", "Python", "Git", "SQL", "HTML & CSS", "REST APIs", "Problem solving", "Debugging"] },
+  { keywords: ["data", "analyst", "analytics", "statistic", "research"], skills: ["SQL", "Excel", "Python", "Data visualization", "Tableau", "Statistics", "Reporting", "Attention to detail"] },
+  { keywords: ["design", "ux", "ui", "creative", "graphic"], skills: ["Figma", "Wireframing", "Prototyping", "User research", "Adobe Creative Suite", "Typography", "Visual design"] },
+  { keywords: ["market", "social media", "content", "brand", "seo", "copywrit"], skills: ["Social media", "Content writing", "SEO", "Email marketing", "Google Analytics", "Canva", "Copywriting"] },
+  { keywords: ["sales", "account executive", "business development", "retail", "store"], skills: ["Customer relationships", "Negotiation", "CRM software", "Cold outreach", "Product knowledge", "Upselling"] },
+  { keywords: ["customer", "support", "service", "barista", "server", "cashier", "hospitality", "front desk"], skills: ["Customer service", "Communication", "Conflict resolution", "Cash handling", "Teamwork", "Time management"] },
+  { keywords: ["finance", "accountant", "accounting", "bookkeep", "audit", "bank"], skills: ["Excel", "Bookkeeping", "Financial reporting", "QuickBooks", "Budgeting", "Attention to detail"] },
+  { keywords: ["project", "product", "operations", "program", "coordinator", "administrat", "assistant"], skills: ["Project planning", "Scheduling", "Stakeholder communication", "Microsoft Office", "Organization", "Documentation"] },
+  { keywords: ["teach", "tutor", "educat", "instructor"], skills: ["Lesson planning", "Public speaking", "Mentoring", "Classroom management", "Curriculum design"] },
+  { keywords: ["nurs", "health", "caregiver", "clinic", "medical", "patient"], skills: ["Patient care", "Medical records", "Compassion", "Teamwork", "CPR", "Time management"] },
+];
+
+/** Skills that suit almost any first resume; offered when nothing in the text matches a family. */
+export const GENERAL_SKILLS = ["Communication", "Teamwork", "Problem solving", "Time management", "Microsoft Office", "Adaptability"];
+
+/**
+ * Skills to offer for some free text (the headline plus the role titles). Every family with a keyword
+ * that starts a word in the text contributes; with no match the general list is offered.
+ * Case-insensitive, de-duplicated, in family order.
+ */
+export function suggestSkills(text: string): string[] {
+  const t = text.toLowerCase();
+  const startsAWord = (kw: string) => new RegExp(`(^|[^a-z])${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(t);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (s: string) => {
+    if (!seen.has(s.toLowerCase())) {
+      seen.add(s.toLowerCase());
+      out.push(s);
+    }
+  };
+  for (const family of SKILL_FAMILIES) if (family.keywords.some(startsAWord)) family.skills.forEach(add);
+  if (out.length === 0) GENERAL_SKILLS.forEach(add);
+  return out;
+}

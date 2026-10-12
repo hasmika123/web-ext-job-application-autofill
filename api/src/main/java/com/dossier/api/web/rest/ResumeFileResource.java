@@ -4,6 +4,8 @@ import com.dossier.api.domain.Resume;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.ResumeBuilderSettingKeys;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
 import com.dossier.api.service.storage.StorageObjectNotFoundException;
@@ -36,11 +38,18 @@ public class ResumeFileResource {
     private final FileStorage storageService;
 
     private final DemoGuard demoGuard;
+    private final ResumeBuilderSettings settings;
 
-    public ResumeFileResource(ResumeRepository resumeRepository, FileStorage storageService, DemoGuard demoGuard) {
+    public ResumeFileResource(
+        ResumeRepository resumeRepository,
+        FileStorage storageService,
+        DemoGuard demoGuard,
+        ResumeBuilderSettings settings
+    ) {
         this.resumeRepository = resumeRepository;
         this.storageService = storageService;
         this.demoGuard = demoGuard;
+        this.settings = settings;
     }
 
     @PostMapping
@@ -48,6 +57,11 @@ public class ResumeFileResource {
         demoGuard.assertNotDemo();
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file provided");
+        }
+        // The same admin setting the web upload route and the setup wizard read (profile.upload.maxBytes).
+        long maxBytes = settings.getInt(ResumeBuilderSettingKeys.PROFILE_UPLOAD_MAX_BYTES);
+        if (file.getSize() > maxBytes) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "That file is over " + maxBytes + " bytes");
         }
         Resume resume = ownedResumeOr404(id);
         Long userId = resume.getUser() != null ? resume.getUser().getId() : null;

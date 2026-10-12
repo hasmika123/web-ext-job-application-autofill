@@ -67,6 +67,18 @@ public record ResumeBuilderConfigDTO(
     /** The signed-in user's live (non-archived) resume count and their plan's cap. */
     public record Resumes(int count, int max) {}
 
-    /** Common Profile limits (R1.1): one item's bytes, live items per user, items per import call. */
-    public record Profile(int itemMaxBytes, int maxItemsPerUser, int maxImportItems) {}
+    /**
+     * Common Profile limits (R1.1): one item's bytes, live items per user, items per import call; the
+     * bio value / summary character caps an import writes, the completeness percent under which the
+     * dashboard offers the setup, and the resume file upload cap in bytes (R1.4).
+     */
+    public record Profile(
+        int itemMaxBytes,
+        int maxItemsPerUser,
+        int maxImportItems,
+        int bioValueMaxChars,
+        int bioSummaryMaxChars,
+        int setupPromptBelowPercent,
+        int uploadMaxBytes
+    ) {}
 }

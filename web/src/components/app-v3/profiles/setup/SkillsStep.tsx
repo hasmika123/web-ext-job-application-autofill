@@ -15,6 +15,7 @@ export default function SkillsStep({
   languages,
   onSkills,
   onLanguages,
+  suggestionsTitle = "Suggested from your resume",
 }: {
   skills: string[];
   /** Parsed terms not in `skills` right now (removed ones and the parser's extras), in the order to show them. */
@@ -22,6 +23,8 @@ export default function SkillsStep({
   languages: Language[];
   onSkills: (next: string[]) => void;
   onLanguages: (next: Language[]) => void;
+  /** "Suggested from your resume" for a parsed one; the guided "Start fresh" path says "Suggested for you". */
+  suggestionsTitle?: string;
 }) {
   const have = new Set(skills.map((s) => s.toLowerCase()));
   const offered = suggestions.filter((s) => !have.has(s.toLowerCase()));
@@ -35,7 +38,7 @@ export default function SkillsStep({
 
       {offered.length > 0 && (
         <div className="mt-4">
-          <h3 className="text-[12.5px] font-semibold text-ink-soft">Suggested from your resume</h3>
+          <h3 className="text-[12.5px] font-semibold text-ink-soft">{suggestionsTitle}</h3>
           <ul className="mt-2 flex flex-wrap gap-2">
             {offered.map((s) => (
               <li key={s.toLowerCase()}>

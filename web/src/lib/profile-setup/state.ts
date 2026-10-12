@@ -6,17 +6,22 @@
  */
 import type { ItemData } from "@/lib/profile-items";
 import type { Candidate, Identity, Language, ParsedDraft } from "./draft";
+import { freshReducer, hasFreshAnswers, initialFresh, type FreshAction, type FreshState } from "./fresh";
 import { initialIdentity, type Decision } from "./import";
 
 export type StepKey = "path" | "input" | "cards" | "skills" | "identity" | "prefs" | "done";
-export type SetupPath = "upload" | "paste";
+export type SetupPath = "upload" | "paste" | "fresh";
+/** Where a parse came from: the AI parser, the local one, or the guided "Start fresh" answers. */
+export type ParseSource = "ai" | "heuristic" | "fresh";
 
 export interface SetupState {
   v: 1;
   step: StepKey;
   path: SetupPath | null;
   /** The parse the review is working on; null until Upload / Paste has produced one. */
-  parsed: { candidates: Candidate[]; parsedIdentity: Identity; skills: string[]; suggestions: string[]; source: "ai" | "heuristic"; removed: number } | null;
+  parsed: { candidates: Candidate[]; parsedIdentity: Identity; skills: string[]; suggestions: string[]; source: ParseSource; removed: number } | null;
+  /** The "Start fresh" answers so far; kept here so Back from the review returns to them, and a reload keeps them. */
+  fresh: FreshState | null;
   decisions: Record<string, Decision>;
   edits: Record<string, ItemData>;
   /** Index of the card on screen; equal to the number of cards when the recap is showing. */
@@ -31,7 +36,8 @@ export interface SetupState {
 
 export type Action =
   | { type: "path"; path: SetupPath }
-  | { type: "parsed"; draft: ParsedDraft; source: "ai" | "heuristic"; removed: number; existing: Record<string, unknown> }
+  | { type: "parsed"; draft: ParsedDraft; source: ParseSource; removed: number; existing: Record<string, unknown>; typed?: Identity }
+  | { type: "fresh"; action: FreshAction }
   | { type: "decide"; id: string; decision: Decision }
   | { type: "decideAll"; decision: Decision }
   | { type: "edit"; id: string; data: ItemData }
@@ -50,6 +56,7 @@ export const INITIAL_STATE: SetupState = {
   step: "path",
   path: null,
   parsed: null,
+  fresh: null,
   decisions: {},
   edits: {},
   cursor: 0,
@@ -75,10 +82,13 @@ export function reducer(state: SetupState, a: Action): SetupState {
         cursor: 0,
         skills: a.draft.skills,
         languages: a.draft.languages,
-        identity: initialIdentity(a.draft.identity, a.existing),
+        // Values the person typed themselves ("Start fresh": headline, links) go on top of what the profile has.
+        identity: { ...initialIdentity(a.draft.identity, a.existing), ...a.typed },
         imported: false,
       };
     }
+    case "fresh":
+      return { ...state, fresh: freshReducer(state.fresh ?? initialFresh(), a.action) };
     case "decide": {
       const decisions = { ...state.decisions, [a.id]: a.decision };
       const total = state.parsed?.candidates.length ?? 0;
@@ -118,6 +128,11 @@ export function reducer(state: SetupState, a: Action): SetupState {
 }
 
 // ---- step order --------------------------------------------------------------------------------
+
+/** The label of the "input" step depends on the way in: a resume, or your own answers. */
+export function stepLabel(key: StepKey, path: SetupPath | null): string {
+  return key === "input" && path === "fresh" ? "Your answers" : STEP_LABELS[key];
+}
 
 export const STEP_LABELS: Record<StepKey, string> = {
   path: "Start",
@@ -166,9 +181,14 @@ type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 const STEP_KEYS: StepKey[] = ["path", "input", "cards", "skills", "identity", "prefs", "done"];
 
-/** A stored draft worth resuming: parsed content exists and the user has not finished. */
+/**
+ * A stored draft worth resuming: parsed content exists and the user has not finished, or a "Start
+ * fresh" run has answers in it (those take a while to type, so they survive a reload mid-flow).
+ */
 export function isResumable(s: SetupState): boolean {
-  return s.parsed !== null && s.step !== "path" && s.step !== "input" && s.step !== "done";
+  if (s.step === "path" || s.step === "done") return false;
+  if (s.parsed !== null) return s.step !== "input" || s.path === "fresh";
+  return s.path === "fresh" && s.step === "input" && hasFreshAnswers(s.fresh);
 }
 
 export function saveDraft(storage: StorageLike | undefined, state: SetupState): void {
@@ -194,8 +214,9 @@ export function loadDraft(storage: StorageLike | undefined): SetupState | null {
     const raw = storage?.getItem(DRAFT_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as Partial<SetupState> | null;
-    if (!s || s.v !== 1 || !s.step || !STEP_KEYS.includes(s.step) || !s.parsed || !Array.isArray(s.parsed.candidates)) return null;
-    const merged: SetupState = { ...INITIAL_STATE, ...s, parsed: s.parsed } as SetupState;
+    if (!s || s.v !== 1 || !s.step || !STEP_KEYS.includes(s.step)) return null;
+    if (s.parsed && !Array.isArray(s.parsed.candidates)) return null;
+    const merged: SetupState = { ...INITIAL_STATE, ...s, parsed: s.parsed ?? null, fresh: s.fresh ?? null } as SetupState;
     return isResumable(merged) ? merged : null;
   } catch {
     return null;

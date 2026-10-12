@@ -66,8 +66,20 @@ export type ResumeBuilderConfig = {
   aiAllowed: boolean;
   /** Live (non-archived) resumes and the plan's cap. */
   resumes: { count: number; max: number };
-  /** Common Profile limits (R1.1): bytes per item, live items per user, items per import call. */
-  profile: { itemMaxBytes: number; maxItemsPerUser: number; maxImportItems: number };
+  /**
+   * Common Profile limits (R1.1, R1.4): bytes per item, live items per user, items per import call;
+   * characters per bio value / summary an import writes; the dashboard setup card's completeness
+   * threshold (percent); the resume file upload cap in bytes.
+   */
+  profile: {
+    itemMaxBytes: number;
+    maxItemsPerUser: number;
+    maxImportItems: number;
+    bioValueMaxChars: number;
+    bioSummaryMaxChars: number;
+    setupPromptBelowPercent: number;
+    uploadMaxBytes: number;
+  };
 };
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
@@ -106,7 +118,15 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
   plan: "FREE",
   aiAllowed: false,
   resumes: { count: 0, max: 3 },
-  profile: { itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200 },
+  profile: {
+    itemMaxBytes: 16384,
+    maxItemsPerUser: 500,
+    maxImportItems: 200,
+    bioValueMaxChars: 500,
+    bioSummaryMaxChars: 2000,
+    setupPromptBelowPercent: 40,
+    uploadMaxBytes: 10485760,
+  },
 };
 
 /**

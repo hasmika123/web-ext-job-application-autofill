@@ -53,7 +53,15 @@ describe("DEFAULT_BUILDER_CONFIG", () => {
       sections: 20, items: 40, bullets: 12, bulletChars: 600, summaryChars: 2000, marks: 64, docBytes: 262144,
     });
     expect(DEFAULT_BUILDER_CONFIG.templates.enabled).toEqual(["modern"]);
-    expect(DEFAULT_BUILDER_CONFIG.profile).toEqual({ itemMaxBytes: 16384, maxItemsPerUser: 500, maxImportItems: 200 });
+    expect(DEFAULT_BUILDER_CONFIG.profile).toEqual({
+      itemMaxBytes: 16384,
+      maxItemsPerUser: 500,
+      maxImportItems: 200,
+      bioValueMaxChars: 500,
+      bioSummaryMaxChars: 2000,
+      setupPromptBelowPercent: 40,
+      uploadMaxBytes: 10485760,
+    });
   });
 
   it("has match weights summing to 100", () => {

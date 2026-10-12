@@ -53,11 +53,90 @@ async function pasteAndRead() {
 }
 
 describe("ProfileSetup", () => {
-  it("offers the three ways in, with Start fresh not available yet", () => {
+  it("offers the three ways in, all of them available", () => {
     setup();
     expect(screen.getByRole("button", { name: /Upload a resume/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Paste text/ })).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Start fresh/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /Start fresh/ }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByText("Coming soon")).toBeNull();
+  });
+
+  it("Start fresh: answer one question at a time, land on the same review, and import the answers as the person's own", async () => {
+    setup({});
+    fireEvent.click(screen.getByRole("button", { name: /Start fresh/ }));
+    expect(screen.getByText("Answer a few questions and confirm what you told us.", { exact: false })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "What are you looking for?" })).toBeTruthy();
+
+    const next = () => fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("radio", { name: "The same role at a new company" }));
+    next();
+    fireEvent.change(screen.getByLabelText(/How would you describe yourself/), { target: { value: "Barista and shift lead" } });
+    next();
+    fireEvent.click(screen.getByRole("radio", { name: "A job or internship" }));
+    next();
+    fireEvent.change(screen.getByLabelText(/job title/), { target: { value: "Barista" } });
+    next();
+    fireEvent.change(screen.getByLabelText(/Where did you work/), { target: { value: "Blue Cafe" } });
+    next();
+    next(); // start
+    next(); // end
+    fireEvent.change(screen.getByLabelText(/What did you do/), { target: { value: "Served 80 customers a shift" } });
+    next();
+    next(); // how
+    next(); // result
+    fireEvent.click(screen.getByRole("radio", { name: "That's everything for now" }));
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Use Customer service" }));
+    next();
+    next(); // links: none
+
+    // The same card-by-card review, marked as the person's own.
+    await screen.findByText(/Work experience · 1 of 1/);
+    expect(screen.getByText("You added")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    // Skills, prefilled from the answer; suggestions are "for you", not "from your resume".
+    expect(screen.getByText("Suggested for you")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove Customer service" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    // Identity: the headline is carried over for confirmation.
+    expect((screen.getByLabelText("Headline") as HTMLInputElement).value).toBe("Barista and shift lead");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
+    expect(calls).toEqual([]); // nothing written yet
+
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+    await screen.findByText("Your profile is set up.");
+    const posts = calls.filter((c) => c.method !== "GET");
+    expect(posts.map((c) => `${c.method} ${c.url}`)).toEqual(["POST /api/profile/items/import", "PUT /api/profile"]);
+    expect(posts[0].body).toEqual({
+      items: [
+        { section: "EXPERIENCE", dataJson: { title: "Barista", org: "Blue Cafe", bullets: [{ text: "Served 80 customers a shift", src: "user" }] }, provenance: "USER" },
+        { section: "SKILL", dataJson: { group: "Skills", skills: ["Customer service"] }, provenance: "USER" },
+      ],
+    }); // no `bio`, no `provenanceBio: parsed`: nothing here was read from a resume
+    const put = JSON.parse((posts[1].body as { payload: string }).payload) as Record<string, unknown>;
+    expect(put.headline).toBe("Barista and shift lead");
+    expect(sessionStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("Start fresh keeps the answers across a reload", async () => {
+    const first = setup({});
+    fireEvent.click(screen.getByRole("button", { name: /Start fresh/ }));
+    fireEvent.click(screen.getByRole("radio", { name: "An internship" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(sessionStorage.getItem(DRAFT_KEY)).toContain("internship"); // saved as soon as there is an answer
+    first.unmount();
+
+    setup({});
+    await screen.findByText(/Picked up where you left off/);
+    expect(screen.getByRole("heading", { name: "How would you describe yourself in one line?" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("radio", { name: "An internship" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    expect(screen.getByRole("button", { name: /Upload a resume/ })).toBeTruthy();
   });
 
   it("writes nothing until Finish, then ONE import and ONE profile PUT with the confirmed values", async () => {

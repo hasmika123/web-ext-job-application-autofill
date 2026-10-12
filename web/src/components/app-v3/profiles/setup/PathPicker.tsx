@@ -5,9 +5,9 @@ import { ChevronRightIcon, ClipboardIcon, SparklesIcon, UploadIcon, cn } from "@
 import type { SetupPath } from "@/lib/profile-setup/state";
 
 /**
- * The first screen of the profile setup (DESIGN v1 2.3): three ways in. Upload and Paste lead to the
- * same card-by-card review; "Start fresh" (guided questions, no file) is built in R1.5 and shows as
- * coming soon until `freshEnabled` is on.
+ * The first screen of the profile setup (DESIGN v1 2.3): three ways in, all ending on the same
+ * card-by-card review. "Start fresh" (guided questions, no file, R1.5) is on in the wizard; a surface
+ * that cannot offer it yet leaves `freshEnabled` off and it shows as coming soon.
  */
 export default function PathPicker({
   onPick,

@@ -80,6 +80,10 @@ public final class ResumeBuilderSettingKeys {
     public static final String PROFILE_ITEM_MAX_BYTES = "profile.item.maxBytes";
     public static final String PROFILE_ITEMS_MAX_PER_USER = "profile.items.maxPerUser";
     public static final String PROFILE_IMPORT_MAX_ITEMS = "profile.import.maxItems";
+    public static final String PROFILE_BIO_VALUE_MAX_CHARS = "profile.bio.valueMaxChars";
+    public static final String PROFILE_BIO_SUMMARY_MAX_CHARS = "profile.bio.summaryMaxChars";
+    public static final String PROFILE_SETUP_PROMPT_BELOW_PERCENT = "profile.setup.promptBelowPercent";
+    public static final String PROFILE_UPLOAD_MAX_BYTES = "profile.upload.maxBytes";
 
     // ---- versions, photo ----------------------------------------------------
     public static final String VERSIONS_COALESCE_MINUTES = "resume.versions.coalesceMinutes";
@@ -276,6 +280,10 @@ public final class ResumeBuilderSettingKeys {
         integer(k, PROFILE_ITEM_MAX_BYTES, 16384, 1024, 65536, "Max serialised size of one profile item in bytes.");
         integer(k, PROFILE_ITEMS_MAX_PER_USER, 500, 50, 5000, "Max live profile items per user, all sections together.");
         integer(k, PROFILE_IMPORT_MAX_ITEMS, 200, 10, 1000, "Max items in one profile import call.");
+        integer(k, PROFILE_BIO_VALUE_MAX_CHARS, 500, 50, 2000, "Max characters of one identity / contact value a profile import writes (not the summary).");
+        integer(k, PROFILE_BIO_SUMMARY_MAX_CHARS, 2000, 200, 10000, "Max characters of the profile summary a profile import writes.");
+        integer(k, PROFILE_SETUP_PROMPT_BELOW_PERCENT, 40, 0, 100, "The dashboard 'Build your profile' card shows while profile completeness is under this percent (0 hides it).");
+        integer(k, PROFILE_UPLOAD_MAX_BYTES, 10485760, 1048576, 10485760, "Max resume file upload in bytes, in the setup wizard and the resume upload (the server's multipart transport limit is 10 MB, so that is the ceiling).");
 
         // Versions and photo.
         integer(k, VERSIONS_COALESCE_MINUTES, 10, 1, 120, "Autosaves within this many minutes share one version row.");

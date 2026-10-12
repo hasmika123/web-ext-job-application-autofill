@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Spinner, inputClass } from "@kiwiply/ui";
 import { getAiParseConsent } from "@/lib/ai-parse-consent";
+import type { BioLimits } from "@/lib/profile-setup/draft";
 import { parseTextForSetup, type SetupParse } from "@/lib/profile-setup/parse";
 import ParseConsent from "./ParseConsent";
 
@@ -18,12 +19,15 @@ const MIN_CHARS = 40;
 export default function PasteStep({
   onParsed,
   onBack,
+  bioLimits,
   parse = parseTextForSetup,
 }: {
   onParsed: (result: SetupParse) => void;
   onBack?: () => void;
+  /** `config.profile` bio caps the draft is clipped to. */
+  bioLimits: BioLimits;
   /** Test seam; defaults to the real pipeline. */
-  parse?: (text: string, ai: boolean) => Promise<SetupParse>;
+  parse?: (text: string, ai: boolean, bioLimits: BioLimits) => Promise<SetupParse>;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,7 +38,7 @@ export default function PasteStep({
     setError(null);
     setBusy(true);
     try {
-      onParsed(await parse(text, getAiParseConsent()));
+      onParsed(await parse(text, getAiParseConsent(), bioLimits));
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "We couldn't read that text. Check it and try again.");
       setBusy(false);

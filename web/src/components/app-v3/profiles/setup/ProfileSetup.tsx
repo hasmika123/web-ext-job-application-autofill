@@ -23,7 +23,7 @@ import {
 import type { SetupParse } from "@/lib/profile-setup/parse";
 import {
   INITIAL_STATE,
-  STEP_LABELS,
+  stepLabel,
   clearDraft,
   isResumable,
   keptCounts,
@@ -36,9 +36,11 @@ import {
   type SetupPath,
   type SetupState,
 } from "@/lib/profile-setup/state";
-import type { IdentityKey } from "@/lib/profile-setup/draft";
+import type { BioLimits, IdentityKey } from "@/lib/profile-setup/draft";
+import { initialFresh } from "@/lib/profile-setup/fresh";
 import { sensitiveMessage, type DraftLimits } from "../itemSchema";
 import FinishStep, { type FinishResult } from "./FinishStep";
+import FreshFlow from "./FreshFlow";
 import IdentityStep from "./IdentityStep";
 import PasteStep from "./PasteStep";
 import PathPicker from "./PathPicker";
@@ -76,9 +78,14 @@ export default function ProfileSetup({
   const ready = useRef(false);
   const lastStep = useRef<string>("");
 
+  const fresh = state.path === "fresh";
   const questions = useMemo(() => unansweredQuestions(bio), [bio]);
   const steps = stepsFor(state, questions.length > 0);
   const limits: DraftLimits = { bullets: config.limits.bullets, bulletChars: config.limits.bulletChars };
+  const bioLimits: BioLimits = useMemo(
+    () => ({ valueChars: config.profile.bioValueMaxChars, summaryChars: config.profile.bioSummaryMaxChars }),
+    [config.profile.bioValueMaxChars, config.profile.bioSummaryMaxChars],
+  );
 
   // Offer a draft left in this tab. Read after mount so the server and first client render agree.
   useEffect(() => {
@@ -116,7 +123,7 @@ export default function ProfileSetup({
 
   const onParsed = (p: SetupParse) => {
     track("profile_setup_parsed", { source: p.source, cards: p.draft.candidates.length, skills: p.draft.skills.length, removed: p.removed });
-    dispatch({ type: "parsed", draft: p.draft, source: p.source, removed: p.removed, existing: bio });
+    dispatch({ type: "parsed", draft: p.draft, source: p.source, removed: p.removed, existing: bio, typed: p.typed });
   };
 
   const pick = (path: SetupPath) => {
@@ -133,8 +140,10 @@ export default function ProfileSetup({
     setSaving(true);
     setError(null);
     try {
-      const plan = planIdentity(state.identity, parsed?.parsedIdentity ?? {}, bio);
-      const items = [...keptItems(parsed?.candidates ?? [], state.decisions, state.edits), ...skillItems(state.skills), ...languageItems(state.languages)];
+      const plan = planIdentity(state.identity, parsed?.parsedIdentity ?? {}, bio, bioLimits);
+      // What the person answered themselves is theirs ("user"); what was read out of a resume is "parsed".
+      const provenance = parsed?.source === "fresh" ? ("USER" as const) : ("PARSED" as const);
+      const items = [...keptItems(parsed?.candidates ?? [], state.decisions, state.edits, provenance), ...skillItems(state.skills, provenance), ...languageItems(state.languages, provenance)];
       let added = 0;
       if (!state.imported) {
         if (items.length > config.profile.maxImportItems) {
@@ -167,7 +176,7 @@ export default function ProfileSetup({
     } finally {
       setSaving(false);
     }
-  }, [state, parsed, bio, config.profile.maxImportItems]);
+  }, [state, parsed, bio, config.profile.maxImportItems, bioLimits]);
 
   const lastDataStep = steps[steps.length - 2];
   const onLast = state.step === lastDataStep;
@@ -208,7 +217,9 @@ export default function ProfileSetup({
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-[26px] font-extrabold text-v2-navy">Build your profile</h1>
-          <p className="mt-0.5 text-[14px] text-v2-ink-soft">Confirm what we find in your resume. Nothing is saved until you finish.</p>
+          <p className="mt-0.5 text-[14px] text-v2-ink-soft">
+            {fresh ? "Answer a few questions and confirm what you told us." : "Confirm what we find in your resume."} Nothing is saved until you finish.
+          </p>
         </div>
         {state.step !== "done" && (
           <Link href="/profiles" className="flex-none text-[13px] font-semibold text-v2-muted hover:text-ink hover:underline max-sm:flex max-sm:min-h-11 max-sm:items-center">
@@ -217,7 +228,7 @@ export default function ProfileSetup({
         )}
       </header>
 
-      <Stepper label="Profile setup progress" steps={steps.map((k) => ({ key: k, label: STEP_LABELS[k] }))} current={currentIndex} />
+      <Stepper label="Profile setup progress" steps={steps.map((k) => ({ key: k, label: stepLabel(k, state.path) }))} current={currentIndex} />
 
       {resumed && isResumable(state) && state.step !== "done" && (
         <p role="status" className="rounded-xl bg-paper-2 px-3 py-2 text-[13px] text-v2-ink-soft">
@@ -228,11 +239,21 @@ export default function ProfileSetup({
         </p>
       )}
 
-      <section aria-label={STEP_LABELS[state.step]} className={CARD}>
-        {state.step === "path" && <PathPicker onPick={pick} />}
+      <section aria-label={stepLabel(state.step, state.path)} className={CARD}>
+        {state.step === "path" && <PathPicker onPick={pick} freshEnabled onFresh={() => pick("fresh")} />}
 
-        {state.step === "input" && state.path === "upload" && <UploadStep onParsed={onParsed} onBack={() => go("path")} />}
-        {state.step === "input" && state.path === "paste" && <PasteStep onParsed={onParsed} onBack={() => go("path")} />}
+        {state.step === "input" && state.path === "upload" && <UploadStep onParsed={onParsed} onBack={() => go("path")} maxBytes={config.profile.uploadMaxBytes} bioLimits={bioLimits} />}
+        {state.step === "input" && state.path === "paste" && <PasteStep onParsed={onParsed} onBack={() => go("path")} bioLimits={bioLimits} />}
+        {state.step === "input" && fresh && (
+          <FreshFlow
+            fresh={state.fresh ?? initialFresh()}
+            dispatch={(action) => dispatch({ type: "fresh", action })}
+            bioLimits={bioLimits}
+            bulletChars={config.limits.bulletChars}
+            onDone={onParsed}
+            onBack={() => go("path")}
+          />
+        )}
 
         {state.step === "cards" && parsed && (
           <>
@@ -252,6 +273,7 @@ export default function ProfileSetup({
               onCursor={(cursor) => dispatch({ type: "cursor", cursor })}
               onKeepRemaining={() => dispatch({ type: "decideAll", decision: "keep" })}
               onDone={next}
+              provenance={parsed.source === "fresh" ? "USER" : "PARSED"}
             />
           </>
         )}
@@ -264,6 +286,7 @@ export default function ProfileSetup({
               languages={state.languages}
               onSkills={(s) => dispatch({ type: "skills", skills: s })}
               onLanguages={(l) => dispatch({ type: "languages", languages: l })}
+              suggestionsTitle={parsed.source === "fresh" ? "Suggested for you" : undefined}
             />
             {footer}
           </>

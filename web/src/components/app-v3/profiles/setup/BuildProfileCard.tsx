@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { ArrowRightIcon, Meter, SparklesIcon, buttonVariants, cn } from "@kiwiply/ui";
 
-/** Below this profile strength the dashboard offers the setup (Resume Builder R1.4). */
-export const SETUP_PROMPT_BELOW = 40;
-
 /**
- * The dashboard's "Build your profile" card: shown while the profile is under `SETUP_PROMPT_BELOW`
- * percent complete, with the meter and a link into `/profiles/setup`. A plain server-renderable card.
+ * The dashboard's "Build your profile" card: shown while the profile is under `promptBelow` percent
+ * complete (the admin setting `profile.setup.promptBelowPercent`, `config.profile.setupPromptBelowPercent`),
+ * with the meter and a link into `/profiles/setup`. A plain server-renderable card.
  */
-export default function BuildProfileCard({ score }: { score: number }) {
-  if (score >= SETUP_PROMPT_BELOW) return null;
+export default function BuildProfileCard({ score, promptBelow }: { score: number; promptBelow: number }) {
+  if (score >= promptBelow) return null;
   return (
     <section aria-label="Build your profile" className="flex flex-col gap-3 rounded-2xl border border-v2-line/70 bg-v2-lime-soft/60 p-4 shadow-v2-soft sm:flex-row sm:items-center sm:gap-5 sm:p-5">
       <span className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-paper text-v2-green">
