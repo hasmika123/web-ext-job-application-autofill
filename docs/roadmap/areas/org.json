@@ -123,7 +123,7 @@
       "id": "O1.2",
       "epic": "O1",
       "title": "OrgAccessService — role→permission matrix, require(orgId, permission), 404 for foreign orgs",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

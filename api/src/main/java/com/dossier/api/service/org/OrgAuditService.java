@@ -96,6 +96,12 @@ public class OrgAuditService {
         return record(orgId, SecurityUtils.getCurrentUserLogin().orElse(SYSTEM_ACTOR), actorRole, action, targetType, targetLogin, targetId, details, null);
     }
 
+    /** Record an action by the member the access check resolved: the org, login and role come from {@code actor}. */
+    @Transactional
+    public OrgAuditEvent record(OrgMembership actor, String action, String targetType, String targetLogin, String targetId, String details) {
+        return record(actor.orgId(), actor.login(), actor.role(), action, targetType, targetLogin, targetId, details, null);
+    }
+
     /** {@link #record(Long, OrgRole, String, String, String, String, String)} when the actor is not the signed-in caller (jobs, webhooks, erasure). */
     @Transactional
     public OrgAuditEvent record(
