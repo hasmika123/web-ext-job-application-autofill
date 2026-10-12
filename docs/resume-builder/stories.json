@@ -483,7 +483,7 @@
       "design": "docs/RESUME-BUILDER-DESIGN.md"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "star": true,
       "tech": "`web/src/app/(app)/dashboard/page.tsx`, `web/src/app/(app)/welcome/page.tsx`, `web/src/lib/profile-options.ts`, `web/src/components/app-v3/profiles/setup/FinishProfileCard.tsx` (+ `.test.tsx`), delete `BuildProfileCard.tsx` + test and `components/onboarding/Onboarding.tsx`, `web/src/components/app-v3/profiles/setup/ProfileSetup.tsx` (`?step=prefs`), `web/src/app/(app)/profiles/setup/page.tsx` (pass `step`).",
       "relates": [],
@@ -514,7 +514,7 @@
       "benchmark": "Duolingo/Notion: an invitation card, not a gate; no loss-aversion copy (DESIGN §1)."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "star": true,
       "tech": "`api/src/main/resources/config/liquibase/changelog/20261012110000_onboarding_draft.xml`, `master.xml`, `domain/OnboardingDraft.java`, `repository/OnboardingDraftRepository.java`, `service/resume/ProfileMeta.java`, `service/onboarding/{OnboardingService,AutofillCoverage,OnboardingDraftPurgeJob}.java`, `service/dto/OnboardingDTOs.java`, `web/rest/OnboardingResource.java`, `service/ResumeBuilderSettingKeys.java`, `service/ResumeBuilderSettings.java`, `service/ResumeBuilderConfigService.java`, `service/dto/ResumeBuilderConfigDTO.java`, `service/ResumeBuilderDataService.java`, `service/AccountDeletionService.java`, `service/AccountExportService.java`, `web/rest/errors/*` (new codes).",
       "relates": [],
@@ -1526,7 +1526,7 @@
       "id": "R4.2",
       "epic": "R4",
       "title": "Diff UI — `ProposalDiff` + `DiffText` + `AiDisclosure`, \"Rewrite with AI\" on section headers and per bullet, modes, lock states, fit/grammar modes",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web",
