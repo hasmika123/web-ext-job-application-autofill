@@ -925,6 +925,16 @@ export const UndoIcon = makeIcon("UndoIcon", {
   ),
 });
 
+/** Two overlapping sheets (duplicate / copy). */
+export const CopyIcon = makeIcon("CopyIcon", {
+  node: (
+    <>
+      <rect x="9" y="9" width="11" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+    </>
+  ),
+});
+
 /** Clockwise arrow (redo). */
 export const RedoIcon = makeIcon("RedoIcon", {
   strokeWidth: 2,

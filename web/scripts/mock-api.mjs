@@ -141,6 +141,10 @@ const resumeJson = (focus) =>
 const RESUMES = [
   { id: 1, kind: "UPLOADED", label: "Priya Sharma - Product Designer", status: "CONFIRMED", createdAt: ago(40), defaultResume: true, starred: true, archived: false, parsedJson: resumeJson(false) },
   { id: 2, kind: "UPLOADED", label: "Priya Sharma - Design Systems focus", status: "CONFIRMED", createdAt: ago(12), defaultResume: false, starred: false, archived: false, parsedJson: resumeJson(true) },
+  // Built resumes for the "My Resumes" board (docs are seeded below); id 4 has a stale exported PDF, id 5 is archived.
+  { id: 3, kind: "BUILT", templateId: "modern", label: "Product Manager", status: "CONFIRMED", createdAt: ago(21), defaultResume: false, starred: false, archived: false, parsedJson: "{}" },
+  { id: 4, kind: "BUILT", templateId: "modern", label: "Frontend Developer", status: "CONFIRMED", createdAt: ago(29), defaultResume: false, starred: false, archived: false, parsedJson: "{}" },
+  { id: 5, kind: "UPLOADED", label: "AI/ML Engineer", status: "CONFIRMED", createdAt: ago(60), defaultResume: false, starred: false, archived: true, parsedJson: resumeJson(false) },
 ];
 
 const BIO = {
@@ -203,6 +207,9 @@ const seedDoc = (title) => ({
     { id: "s_skills", kind: "SKILLS", title: "Skills", items: [{ id: docId("i"), group: "Design", skills: ["Figma", "Design systems", "User research"] }] },
   ],
 });
+
+DOCS.set(3, { doc: seedDoc("Product Manager"), templateId: "modern", theme: null, version: 2, updatedAt: ago(3) });
+DOCS.set(4, { doc: seedDoc("Frontend Developer"), templateId: "modern", theme: null, version: 3, updatedAt: ago(9), exportedHash: "stale-hash", exportedAt: ago(12) });
 
 /** The first validation problem (path + message), mirroring the server's date rule and limits. */
 function firstProblem(doc) {
