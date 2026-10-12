@@ -1,7 +1,7 @@
 import { useReducer } from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ATS_STRICT, DESIGN_FREE, ToastProvider } from "@kiwiply/ui";
+import { ATS_STRICT, DESIGN_FREE, TOOLTIP_DELAY_MS, ToastProvider } from "@kiwiply/ui";
 import type { ResumeDocument, TemplateCapabilities } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
@@ -81,7 +81,12 @@ describe("SwapSectionPanel", () => {
     expect(rows.firstElementChild).toBe(pinned);
     expect(within(pinned as HTMLElement).getByText("Personal Information")).toBeTruthy();
     expect((within(pinned as HTMLElement).getByRole("button") as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("Your header always comes first")).toBeTruthy();
+    // the locked grip says why in its tooltip (hover; a disabled button takes no focus)
+    vi.useFakeTimers();
+    fireEvent.pointerEnter(pinned.querySelector("[data-tooltip-trigger]")!);
+    act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS + 10));
+    expect(document.querySelector("[data-tooltip]")?.textContent).toBe("Your header always comes first");
+    vi.useRealTimers();
     expect(Array.from(rows.querySelectorAll("[data-section]")).map((e) => e.getAttribute("data-section"))).toEqual(["s_sum", "s_exp", "s_edu", "s_skl"]);
     expect(screen.getByText(/Drag any section or subsection to reorder your resume/)).toBeTruthy();
   });

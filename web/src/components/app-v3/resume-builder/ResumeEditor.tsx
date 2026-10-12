@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { ChartIcon, ChoiceGroup, FileTextIcon, GearIcon, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
+import { ChartIcon, ChoiceGroup, FileTextIcon, GearIcon, SavedTick, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useSavedFlash, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
 import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
@@ -31,6 +31,7 @@ import RightRail from "./RightRail";
 import SectionTabs from "./SectionTabs";
 import TipsSheet from "./TipsSheet";
 import { goToField } from "./goToField";
+import { defaultVersionName } from "./headerBar";
 import { useScoreReport } from "./useScoreReport";
 import AddSectionPanel from "./panels/AddSectionPanel";
 import PickTemplatePanel from "./panels/PickTemplatePanel";
@@ -53,12 +54,18 @@ import {
   type RailTab,
   type RightView,
 } from "./state/ui";
+import { useLeaveGuard } from "./useLeaveGuard";
+import { useOnline } from "./useOnline";
 import { usePdfStatus } from "./usePdfStatus";
+import { VERSION_TOAST_MS } from "./uiTiming";
 import { useBuilderLayout } from "./useBuilderLayout";
 import { usePresentation } from "./usePresentation";
 
 /** The right sheet's two document views; Resume settings (R3.12) is the third right view and has no Download entry. */
 type PreviewView = Exclude<RightView, "settings">;
+
+/** The section ids in order: when it changes between two saves, a section was added, removed or moved. */
+const sectionSignature = (d: ResumeDocDTO["doc"]): string => d.sections.map((x) => x.id).join("|");
 
 /** A resume with nothing in it opens Add Section once (DESIGN 10.3). */
 function isEmptyDoc(doc: ResumeDocDTO["doc"]): boolean {
@@ -71,10 +78,6 @@ const PHONE_TABS: ReadonlyArray<{ value: PhoneTab; label: string }> = [
   { value: "insights", label: "Insights" },
   { value: "preview", label: "Preview" },
 ];
-
-/** The Save button's "Saved" confirmation stays for 2 s (DESIGN 10.15). */
-// config-literal-ok: the confirmation flash is fixed by DESIGN 10.15 ("Saved ✓ for 2 s"), a UI beat, not a builder limit
-const SAVED_FLASH_MS = 2000;
 
 export interface ResumeEditorProps {
   initial: ResumeDocDTO;
@@ -91,6 +94,8 @@ export interface ResumeEditorProps {
   jobTarget?: null;
   /** Open AI suggestion cards: always empty until R4.1. */
   openProposals?: ReadonlyArray<{ id: string }>;
+  /** The user's current primary resume (null = unknown): lets "Set as primary" offer Undo, which restores this one. */
+  primaryResumeId?: number | null;
   /** Where to land (R2.6, the list's View / AI buttons): `?view=pdf` opens the PDF view, `?tab=ai` the AI Suggestions tab. */
   entry?: { view?: "pdf" | "settings"; tab?: "ai" };
 }
@@ -103,11 +108,17 @@ export interface ResumeEditorProps {
  * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
  * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [], entry, initialMeta = null }: ResumeEditorProps) {
+export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, openProposals = [], entry, initialMeta = null, primaryResumeId = null }: ResumeEditorProps) {
   const resumeId = initial.resumeId;
   const initialVersion = initial.docVersion;
   const router = useRouter();
   const toast = useToast();
+  const online = useOnline();
+  // The inline "saved" ticks: beside the field just edited (canvas), and on the Add Section / Pick Template buttons.
+  const canvasSaved = useSavedFlash<"canvas">();
+  const panelSaved = useSavedFlash<"section" | "template">();
+  const flashPanel = panelSaved.flash; // stable
+  const [tickAt, setTickAt] = useState<{ top: number; left: number } | null>(null);
   const [state, dispatch] = useReducer(editorReducer, initial, (dto) =>
     initEditorState({ doc: dto.doc, templateId: dto.templateId, theme: dto.theme, docVersion: dto.docVersion, limits: config.limits }),
   );
@@ -143,6 +154,28 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   const [liveMeta, setLiveMeta] = useState<ResumeMeta | null>(initialMeta);
   const autosave = useRef<Autosave | null>(null);
   const [exporting, setExporting] = useState(false);
+  // Autosave settled: tick beside the field being edited, or on Add Section when the set of sections changed.
+  const docRef = useRef(doc);
+  const savedSections = useRef(sectionSignature(doc));
+  const markSaved = () => {
+    const sig = sectionSignature(docRef.current);
+    if (sig !== savedSections.current) {
+      savedSections.current = sig;
+      panelSaved.flash("section");
+      return;
+    }
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && scrollRef.current?.contains(el) && el.matches("input, textarea")) {
+      const r = el.getBoundingClientRect();
+      setTickAt({ top: r.top + 4, left: r.right - 24 });
+      canvasSaved.flash("canvas");
+    }
+  };
+  const markSavedRef = useRef(markSaved);
+  useEffect(() => {
+    markSavedRef.current = markSaved;
+    docRef.current = doc;
+  });
   const latestRev = useRef(state.rev);
   const conflicted = useRef(false);
   useEffect(() => {
@@ -157,7 +190,10 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       rev: 0,
       save: ({ doc: d, version }) => putDoc(resumeId, version, { doc: d }),
       onSaving: () => dispatch({ type: "save/start" }),
-      onSaved: (rev, version) => dispatch({ type: "save/ok", rev, version, at: Date.now() }),
+      onSaved: (rev, version) => {
+        dispatch({ type: "save/ok", rev, version, at: Date.now() });
+        markSavedRef.current();
+      },
       onRetrying: () => dispatch({ type: "save/retrying" }),
       onConflict: (serverVersion, serverDoc) => dispatch({ type: "save/conflict", serverVersion, doc: serverDoc }),
       onFailed: (message, path) => {
@@ -179,9 +215,12 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   // A saved template / theme changes the render, so the server re-queues the PDF just like after a content save (R3.7 x R2.4).
   const [presentationSavedAt, setPresentationSavedAt] = useState<number | null>(null);
   const presentationDispatch = useCallback((a: Parameters<typeof dispatch>[0]) => {
-    if (a.type === "presentation/version") setPresentationSavedAt(Date.now());
+    if (a.type === "presentation/version") {
+      setPresentationSavedAt(Date.now());
+      flashPanel("template");
+    }
     dispatch(a);
-  }, []);
+  }, [flashPanel]);
   const presentation = usePresentation({ resumeId, autosave, templateId: state.templateId, theme: state.theme, doc, config, dispatch: presentationDispatch });
 
   // Every change of the document tells the controller; it debounces and serialises.
@@ -191,15 +230,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
 
   /* ── leaving the page: warn when unsaved, flush when the tab is hidden ───────────────── */
   const unsaved = hasUnsaved(state) || state.phase === "conflict";
-  useEffect(() => {
-    if (!unsaved) return;
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [unsaved]);
+  useLeaveGuard(unsaved);
 
   useEffect(() => {
     const onHide = () => {
@@ -496,64 +527,50 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   );
 
 
-  /* Save (DESIGN 10.15): autosave stays as built; Save flushes it, writes a checkpoint (a MANUAL / NAMED version)
-     and the server queues the PDF at once. "Saved" is honest: it reads Save only while something changed since the
-     last checkpoint, or the stored PDF is missing / stale / failed. */
-  const [saving, setSaving] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
+  /* Save a version (DECISIONS #32, DESIGN 10.15): there is no Save button. Autosave keeps the draft; a version is
+     written from the header's Version menu -> Save version... (named) or Ctrl/Cmd+S (default name). Either flushes
+     autosave, writes the checkpoint (MANUAL / NAMED) and the server queues the PDF at once. */
   const checkpointing = useRef(false);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-    },
-    [],
-  );
-  const [checkpointed, setCheckpointed] = useState(() => ({ doc, templateId: state.templateId, theme: state.theme }));
-  const current = useRef({ doc, templateId: state.templateId, theme: state.theme });
-  useEffect(() => {
-    current.current = { doc, templateId: state.templateId, theme: state.theme };
-  });
-  const dirty = doc !== checkpointed.doc || state.templateId !== checkpointed.templateId || state.theme !== checkpointed.theme;
-  const pdfNeedsSave = pdf?.status === "NONE" || pdf?.status === "FAILED" || pdf?.status === "STALE";
-  const canSave = dirty || pdfNeedsSave;
+  const [versionsStamp, setVersionsStamp] = useState(0);
   const pdfSettings = config.pdf ?? DEFAULT_BUILDER_CONFIG.pdf;
 
   const saveCheckpoint = async (name?: string): Promise<{ flushed: boolean; checkpoint: CheckpointResult | null }> => {
     if (checkpointing.current || state.phase === "conflict") return { flushed: false, checkpoint: null };
     checkpointing.current = true;
-    setSaving(true);
     try {
-      // What is on screen NOW is what this checkpoint covers; edits made while it is written stay "changed".
-      const snapshot = { ...current.current };
       if (!(await savedFirst("save"))) return { flushed: false, checkpoint: null };
       const checkpoint = await checkpointDoc(resumeId, name);
       if (checkpoint.kind === "error") {
         toast({ title: "Couldn't save a version", description: checkpoint.message, variant: "error" });
         return { flushed: true, checkpoint };
       }
-      setCheckpointed(snapshot);
       followPdf(checkpoint.pdf);
-      setJustSaved(true);
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setJustSaved(false), SAVED_FLASH_MS);
-      if (name) toast({ title: `Version '${name}' saved`, variant: "success" });
+      setVersionsStamp((n) => n + 1); // the header's Version menu and chip re-read the history
       return { flushed: true, checkpoint };
     } finally {
       checkpointing.current = false;
-      setSaving(false);
     }
   };
-  // Ctrl/⌘+S and the Save button call the latest closure.
-  const saveRef = useRef(saveCheckpoint);
+  /** Ctrl/Cmd+S: a version with the default name, and a toast that says which. */
+  const quickSave = async () => {
+    const next = (liveMeta?.version.current ?? 0) + 1;
+    const name = liveMeta ? defaultVersionName(next) : undefined;
+    const saved = await saveCheckpoint(name);
+    if (saved.checkpoint?.kind !== "ok") return;
+    const no = saved.checkpoint.versionNo || next;
+    toast({ title: `Version ${no} saved`, description: name, variant: "success", duration: VERSION_TOAST_MS });
+  };
+  /** The Version menu's named save: the toast is the header's. */
+  const saveNamedVersion = async (name?: string) => (await saveCheckpoint(name)).checkpoint;
+  const quickSaveRef = useRef(quickSave);
   useEffect(() => {
-    saveRef.current = saveCheckpoint;
+    quickSaveRef.current = quickSave;
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "s") return;
       e.preventDefault(); // the browser's own "save page" has no business here
-      void saveRef.current();
+      void quickSaveRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -729,11 +746,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         settingsInMenu={phone}
         printLayout={config.features.printLayout}
         pdfView={config.features.pdfView}
-        onSave={() => void saveCheckpoint()}
-        onSaveAsVersion={(name) => void saveCheckpoint(name)}
-        canSave={canSave}
-        saving={saving}
-        justSaved={justSaved}
+        online={online}
+        onRetrySave={() => void autosave.current?.flush()}
+        savedFlash={panelSaved}
         onClose={closeEditor}
         pdf={pdf}
         onPdfRetry={retryPdf}
@@ -781,6 +796,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               ensureSaved={ensureSaved}
               onDocReplaced={adoptServerDoc}
               onServerChange={() => void refreshPdf()}
+              onSaveVersion={saveNamedVersion}
+              versionsStamp={versionsStamp}
+              primaryResumeId={primaryResumeId}
               onTailor={() => openPanel("tailor")}
               onOpenSettings={openSettings}
               syncedMeta={liveMeta}
@@ -964,6 +982,13 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
           </button>
         </Tooltip>
       </div>
+
+      {/* the field-level "saved" tick, beside the text just edited (fades by itself; reduced motion: just goes) */}
+      {tickAt && canvasSaved.active === "canvas" && (
+        <span className="pointer-events-none fixed z-40" style={{ top: tickAt.top, left: tickAt.left }}>
+          <SavedTick flash={canvasSaved} id="canvas" />
+        </span>
+      )}
 
       <ConflictDialog open={state.phase === "conflict"} onKeepMine={keepMine} onTakeTheirs={takeTheirs} />
     </div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Button, CheckIcon, CopyIcon, Spinner, Switch, cn, useToast } from "@kiwiply/ui";
+import { Button, CheckIcon, CopyIcon, Input, Spinner, Switch, cn, useToast } from "@kiwiply/ui";
 import { formatDate, timeAgo, type DateDisplay } from "@/lib/dates";
 import {
   createLink,
@@ -271,6 +271,7 @@ export function VersionPanel({
   onLoaded,
   onCompare,
   onRestore,
+  defaultName,
   onSaveVersion,
   onAll,
 }: {
@@ -282,9 +283,22 @@ export function VersionPanel({
   onLoaded: (newest: number) => void;
   onCompare: (v: ResumeVersion) => void;
   onRestore: (v: ResumeVersion) => void;
-  onSaveVersion: () => void;
+  /** The name offered in the "Save version…" field ("Version 4 · Oct 12"). */
+  defaultName: string;
+  /** Writes the version with that name (empty = unnamed); resolves true when it was saved. */
+  onSaveVersion: (name: string) => Promise<boolean>;
   onAll: () => void;
 }) {
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    if (saving) return;
+    setSaving(true);
+    const ok = await onSaveVersion(name);
+    setSaving(false);
+    if (ok) setNaming(false);
+  };
   const [state, setState] = useState<{ status: "loading" } | { status: "error"; message: string } | { status: "ready"; rows: ResumeVersion[]; now: number }>({ status: "loading" });
 
   useEffect(() => {
@@ -313,7 +327,7 @@ export function VersionPanel({
           {state.message}
         </p>
       )}
-      {state.status === "ready" && state.rows.length === 0 && <p className="px-2.5 py-3 text-[13px] text-ink-soft">No versions yet. Use Save as version… to keep one.</p>}
+      {state.status === "ready" && state.rows.length === 0 && <p className="px-2.5 py-3 text-[13px] text-ink-soft">No versions yet. Use Save version… to keep one.</p>}
       {state.status === "ready" && (
         <ul className="max-h-[20rem] overflow-y-auto">
           {state.rows.slice(0, VERSION_MENU_ROWS).map((v) => {
@@ -341,10 +355,58 @@ export function VersionPanel({
           })}
         </ul>
       )}
+      {naming && (
+        <form
+          aria-label="Save version"
+          className="mt-1 flex flex-col gap-1.5 border-t border-line px-1 pt-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+          onKeyDown={(e) => {
+            // Esc folds the field away (the popover itself stays).
+            if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              setNaming(false);
+            }
+          }}
+        >
+          <label className="text-[12px] font-semibold text-ink" htmlFor="rb-version-inline">
+            Name this version
+          </label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="rb-version-inline"
+              value={name}
+              autoFocus
+              // config-literal-ok: a version name is at most 80 characters (ResumeDocVersionService.MAX_NAME_CHARS), a schema rule
+              maxLength={80}
+              placeholder="e.g. Before applying to Stripe"
+              onChange={(e) => setName(e.target.value)}
+              className="min-h-9 min-w-0 flex-1 text-[13px]"
+            />
+            <Button type="submit" variant="accent" size="sm" disabled={saving} aria-busy={saving} className="flex-none">
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </form>
+      )}
       <div className="mt-1 flex items-center justify-between border-t border-line px-1 pt-2">
-        <button type="button" onClick={onSaveVersion} className="rounded-md px-1.5 py-1 text-[12.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft">
-          Save as version…
-        </button>
+        {!naming ? (
+          <button
+            type="button"
+            onClick={() => {
+              setName(defaultName);
+              setNaming(true);
+            }}
+            className="rounded-md px-1.5 py-1 text-[12.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft"
+          >
+            Save version…
+          </button>
+        ) : (
+          <span />
+        )}
         <button type="button" onClick={onAll} className="rounded-md px-1.5 py-1 text-[12.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft">
           All versions
         </button>

@@ -15,6 +15,7 @@ import {
   ListIcon,
   Menu,
   PlusIcon,
+  Tooltip,
   cn,
   type MenuEntry,
 } from "@kiwiply/ui";
@@ -213,12 +214,16 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro, conf
   const sortControl = <FilterSelect label="Sort by" options={[...SORTS]} value={sort} onChange={(v) => choose(setSort, "sort")(v as SortKey)} className="w-full" />;
   const viewToggle = (
     <div role="group" aria-label="Layout" className="flex w-fit overflow-hidden rounded-[10px] border border-v2-line">
-      <button type="button" aria-pressed={view === "grid"} aria-label="Grid view" onClick={() => setView("grid")} className={cn(VIEW_BTN, view === "grid" && "bg-v2-blue-soft text-v2-blue")}>
-        <GridIcon size={16} />
-      </button>
-      <button type="button" aria-pressed={view === "list"} aria-label="List view" onClick={() => setView("list")} className={cn(VIEW_BTN, "border-l border-v2-line", view === "list" && "bg-v2-blue-soft text-v2-blue")}>
-        <ListIcon size={16} />
-      </button>
+      <Tooltip content="Grid view">
+        <button type="button" aria-pressed={view === "grid"} aria-label="Grid view" onClick={() => setView("grid")} className={cn(VIEW_BTN, view === "grid" && "bg-v2-blue-soft text-v2-blue")}>
+          <GridIcon size={16} />
+        </button>
+      </Tooltip>
+      <Tooltip content="List view">
+        <button type="button" aria-pressed={view === "list"} aria-label="List view" onClick={() => setView("list")} className={cn(VIEW_BTN, "border-l border-v2-line", view === "list" && "bg-v2-blue-soft text-v2-blue")}>
+          <ListIcon size={16} />
+        </button>
+      </Tooltip>
     </div>
   );
   const activeFilters = (status !== "All Status" ? 1 : 0) + (type !== "All Types" ? 1 : 0) + (sort !== DEFAULT_SORT ? 1 : 0);

@@ -78,8 +78,11 @@ export type { SideSheetProps } from "./primitives/SideSheet";
 export { default as DragHandle, dragHandleClass } from "./primitives/DragHandle";
 export type { DragHandleProps } from "./primitives/DragHandle";
 
-export { default as Tooltip } from "./primitives/Tooltip";
+export { default as Tooltip, TOOLTIP_DELAY_MS } from "./primitives/Tooltip";
 export type { TooltipProps, TooltipSide } from "./primitives/Tooltip";
+
+export { default as SavedTick, useSavedFlash, SAVED_TICK_MS } from "./primitives/SavedTick";
+export type { SavedTickProps, SavedFlash } from "./primitives/SavedTick";
 
 export { default as PageFrame, fitScale } from "./primitives/PageFrame";
 export type { PageFrameProps } from "./primitives/PageFrame";

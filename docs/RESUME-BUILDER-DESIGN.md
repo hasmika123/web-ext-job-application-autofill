@@ -1597,28 +1597,47 @@ the chooser`, `profile card preselected and shows counts`, `empty profile shows 
 `upload parses then shows review counts and KeepMask`, `copy lists non-archived resumes`, `name rule per
 source`, `Create posts the right source payload and navigates`, `phone renders fullscreen sheet`.
 
-### 10.15 Save and Save & Download (top bar) — reconciled with autosave
-The board's top bar gains **Save** (secondary, left of **Download ▾**; DECISIONS v2 #17). Autosave stays
-exactly as built (drafts are never lost). Semantics:
+### 10.15 Saving: autosave, the status chip, versions, Save & Download — Notion-style (DECISIONS #32)
+**There is no Save button.** (This supersedes #17's top-bar Save and its Save ▾ menu.) The editor saves by
+itself; the UI's job is to say so quietly, always, and to make mistakes reversible.
 
-| Control | Does | Status copy |
+| Control | Does | Feedback |
 |---|---|---|
-| (autosave) | DB write 800 ms after the last change; `parsed_json` projection; PDF on settle (§8.5) | "Saving…" → "Saved just now" / "Saved 2 minutes ago" |
-| **Save** (`Ctrl/⌘+S`) | flush autosave → `POST …/doc/checkpoint` (version `MANUAL`) → PDF immediately | button shows "Saved ✓" for 2 s; status "Saved just now · PDF updating…" → "Saved just now" |
-| Save ▾ (the small chevron on Save) → **Save as version…** | same with a name prompt (≤ 80) → `NAMED` | toast "Version '<name>' saved" |
-| **Download ▾** → **Save & Download PDF** | Save, then poll `pdf-status` up to `resume.pdf.waitMs` (30 000; setting); READY → download the stored file; else synchronous export (R0.6 path, also stores) → download | "Preparing your PDF…" progress in the menu button; toast as built |
-| Download ▾ → **Save & Download plain text (.txt)** / **… DOCX** | Save, then the format's export | |
+| (autosave) | DB write 800 ms after the last change; `parsed_json` projection; PDF on settle (§8.5) | the **status chip** (below) + an inline ✓ beside the edited field |
+| **Save status chip** (top bar, next to "Resume Builder", every width incl. phone) | the only save indicator | "Saving…" → "Saved ✓" → "Saved 2 minutes ago" (subtle) · **amber** "Not saved — retrying" and "Offline — changes will save when you're back", each with **Retry** (flush now) · red "Not saved — <reason>" · conflict keeps its dialog. PDF state stays a secondary text: "· PDF updating…" / "· PDF couldn't be made · Retry" |
+| **Version ▾ → Save version…** (header, §10.16; also ⋮ → Save version… for the phone overflow) | tiny inline name field (≤ 80; default "Version N · Oct 12"; placeholder "e.g. Before applying to Stripe") → flush autosave → `POST …/doc/checkpoint` (`NAMED`) → PDF immediately | toast "Version N saved"; ✓ on the Version chip; "PDF updating…" |
+| **Ctrl/⌘+S** | same with the default name | toast "Version N saved" |
+| **Download ▾** → Save & Download PDF | Save, then poll `pdf-status` up to `resume.pdf.waitMs` (30 000; setting); READY → download the stored file; else synchronous export (R0.6 path, also stores) → download | "Preparing your PDF…" in the menu button; toast as built |
+| Download ▾ → Save & Download plain text (.txt) / … DOCX | Save, then the format's export | |
 | Download ▾ → Print layout · PDF view | §10.8 (no save) | |
 
-Save is enabled when `rev > lastCheckpointRev` or the PDF is stale/failed; otherwise it reads "Saved"
-and is disabled (so it is also the honest indicator). Leaving the editor with unsaved autosave changes
-keeps the built `beforeunload` guard; leaving with saved-but-not-checkpointed changes needs no guard
-(nothing is lost) — ✕ calls `pdf-now` so the stored PDF catches up. Between autosave and Save the
-extension already sees the latest content (`parsed_json`) and the last stored PDF (possibly stale — its
-`pdf.status` tells it, R3.5). Tests (`EditorTopBar.test.tsx`, `ResumeEditor.test.tsx`): `Ctrl+S flushes
-then posts checkpoint`, `Save disabled when nothing changed since checkpoint`, `Save & Download waits for
-READY then downloads stored PDF (no POST export)`, `Save & Download falls back to synchronous export after
-waitMs`, `status shows PDF updating after Save`, `Save as version names the version`.
+**Inline ✓ (`SavedTick` in `@kiwiply/ui`).** When a change persists, a small green ✓ shows ~1 s beside what
+changed and fades (reduced motion: no fade, it appears and goes): the field being edited (after autosave
+settles), the header's chips (rename, Master/Tailored, visibility, primary, recruiter sharing, version
+save/restore), and the Add Section / Pick Template buttons (add or remove a section, a template or theme change).
+
+**Undo, not confirm.** Reversible metadata changes happen at once and offer **Undo** in a toast (8 s): visibility
+(to Private when no specific person holds a grant, and the organization on/off), Set as primary (Undo hands primary
+back to the previous one), recruiter links turned **on**, archive, template switch (R3.4). A confirm dialog is kept
+only where Undo cannot give the thing back: delete resume, recruiter links **off** (a new link has a new address),
+Private while specific people hold grants, Remove everyone, restore a version.
+
+**Leave guard.** While a save is pending, retrying or failed, closing the tab or reloading shows the browser's own
+prompt, a click on a link to another page of the app asks first (`useLeaveGuard`), and ✕ flushes then asks only if
+the save still failed. When everything is saved nothing prompts; leaving calls `pdf-now` so the stored PDF catches up.
+Between autosave and a version the extension already sees the latest content (`parsed_json`) and the last stored PDF
+(possibly stale; its `pdf.status` tells it, R3.5).
+
+**Tooltips.** Every icon-only control (top-bar panel toggles with their `Alt+n`, Download `Alt+D`, ✕, the rail
+strip incl. "AI Suggestions (4)", ↑ ↓ ⋮ delete, drag grips "Drag to reorder", the mark toolbar "Bold (Ctrl+B)", the
+rename pencil, sheet ✕, list-card actions) carries a `Tooltip` with the same words as its `aria-label`: 400 ms
+on hover or keyboard focus, Esc dismisses, never for touch, drawn in a portal so a scrolling rail cannot clip it.
+
+Tests (`EditorTopBar.test.tsx`, `ResumeEditor.test.tsx`, `ResumeHeaderBar.test.tsx`, `iconControls.tooltips.test.tsx`):
+chip state machine (saving → saved → relative time; error → loud + Retry; offline), no Save button, Version ▾ Save
+version… names the checkpoint and the PDF follows, Ctrl+S default name + toast, `SavedTick` after a header change and
+after autosave settles, Undo toasts revert visibility / primary / recruiters / archive, `beforeunload` only when dirty
+or failed, every icon-only button has an accessible name and a tooltip trigger.
 
 ### 10.16 Resume header bar (`ResumeHeaderBar`, board `editor-metadata-header.webp` — above the section tabs)
 Two rows inside the centre column's card, above `SectionTabs`:
@@ -1639,7 +1658,7 @@ Type selector menu (`GET …/lineage`):
   job, and stops following <master name>").
 
 ⋮ menu (exact order): Rename · Duplicate · Set as primary (hidden when primary) · Tailor for a job… ·
-Save as version… · Version history · Download original (only when `meta.originalFileKey`) · separator ·
+Save version… · Version history · Download original (only when `meta.originalFileKey`) · separator ·
 Resume settings… (opens the §10.12 sheet — the header bar is the quick layer, the sheet the full one;
 no gear button in the top bar) · Archive · Delete.
 
@@ -1677,8 +1696,8 @@ Hidden entirely when `features.shareLinks` is off (admin). Label: `Shared with R
 `named`" / "v6 · Auto-save · yesterday · you" / "v5 · Template switch · Oct 3 · you" / "v4 · Made by
 Rahul" (`by.label`), each with **Restore** (confirm "Restore v5? Your current content is saved as a new
 version first") and **Compare** (opens `VersionCompareSheet`: left = that version's ATS text, right =
-current, rendered with `DiffText` word diff; read-only; "Restore this version" at the bottom) · **Save as
-version…** (name prompt → `checkpoint {name}`) · **All versions** (→ `VersionsSheet`, full list with
+current, rendered with `DiffText` word diff; read-only; "Restore this version" at the bottom) · **Save
+version…** (a tiny inline name field, default "Version N · Oct 12" → `checkpoint {name}` + PDF now; DECISIONS #32) · **All versions** (→ `VersionsSheet`, full list with
 filter auto/named, retention note "Keeps the last 30 automatic versions and every named one").
 Compare is **in v1** (reuses `DiffText` + `renderText`; no new dependency; DECISIONS v2 #19).
 

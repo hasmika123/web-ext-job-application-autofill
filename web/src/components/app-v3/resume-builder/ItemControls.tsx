@@ -7,6 +7,7 @@ import {
   Menu,
   MoreVerticalIcon,
   PencilIcon,
+  Tooltip,
   TrashIcon,
   cn,
   headingFor,
@@ -86,31 +87,42 @@ export function ItemControls({
 
   return (
     <div className="flex flex-none items-center gap-0.5 self-start">
-      {grip && <DragHandle aria-label={`Drag ${heading} to reorder`} {...grip} />}
-      <button type="button" aria-label={`Edit ${heading}`} title="Edit" onClick={edit} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
-        <PencilIcon className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        aria-label={`Move ${heading} down`}
-        title="Move down"
-        disabled={index >= count - 1}
-        onClick={() => move(index + 1)}
-        className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}
-      >
-        <ArrowDownIcon className="h-4 w-4" />
-      </button>
-      <Menu
-        items={entries}
-        trigger={
-          <button type="button" aria-label={`More actions for ${heading}`} title="More" className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
-            <MoreVerticalIcon className="h-4 w-4" />
-          </button>
-        }
-      />
-      <button type="button" aria-label={`Delete ${heading}`} title="Delete" onClick={remove} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
-        <TrashIcon className="h-4 w-4" />
-      </button>
+      {grip && (
+        <Tooltip content="Drag to reorder">
+          <DragHandle aria-label={`Drag ${heading} to reorder`} {...grip} />
+        </Tooltip>
+      )}
+      <Tooltip content={`Edit ${heading}`}>
+        <button type="button" aria-label={`Edit ${heading}`} onClick={edit} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
+          <PencilIcon className="h-4 w-4" />
+        </button>
+      </Tooltip>
+      <Tooltip content={`Move ${heading} down`}>
+        <button
+          type="button"
+          aria-label={`Move ${heading} down`}
+          disabled={index >= count - 1}
+          onClick={() => move(index + 1)}
+          className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}
+        >
+          <ArrowDownIcon className="h-4 w-4" />
+        </button>
+      </Tooltip>
+      <Tooltip content={`More actions for ${heading}`}>
+        <Menu
+          items={entries}
+          trigger={
+            <button type="button" aria-label={`More actions for ${heading}`} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
+              <MoreVerticalIcon className="h-4 w-4" />
+            </button>
+          }
+        />
+      </Tooltip>
+      <Tooltip content={`Delete ${heading}`}>
+        <button type="button" aria-label={`Delete ${heading}`} onClick={remove} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -144,18 +156,19 @@ export function HiddenItemRow({
       >
         Show
       </button>
-      <button
-        type="button"
-        aria-label={`Delete ${heading}`}
-        title="Delete"
-        onClick={() => {
-          dispatch({ type: "item/remove", sectionId: section.id, itemId: item.id, at: nowMs() });
-          toast({ title: `${meta.singular} removed`, action: { label: "Undo", onClick: () => dispatch({ type: "history/undo" }) } });
-        }}
-        className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}
-      >
-        <TrashIcon className="h-4 w-4" />
-      </button>
+      <Tooltip content={`Delete ${heading}`}>
+        <button
+          type="button"
+          aria-label={`Delete ${heading}`}
+          onClick={() => {
+            dispatch({ type: "item/remove", sectionId: section.id, itemId: item.id, at: nowMs() });
+            toast({ title: `${meta.singular} removed`, action: { label: "Undo", onClick: () => dispatch({ type: "history/undo" }) } });
+          }}
+          className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      </Tooltip>
     </article>
   );
 }

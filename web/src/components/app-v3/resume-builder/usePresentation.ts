@@ -10,6 +10,7 @@ import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import type { Autosave } from "./state/autosave";
 import { createPresentationSync, type PresentationSync } from "./state/presentation";
 import type { EditorAction } from "./state/types";
+import { UNDO_TOAST_MS } from "./uiTiming";
 import { editTheme, previewSwitch, storedTheme, themeChangeNote, type ThemeChange } from "./themeEdit";
 
 export interface PresentationControls {
@@ -125,6 +126,7 @@ export function usePresentation({ resumeId, autosave, templateId, theme, doc, co
         title: notice ?? `Switched to ${meta.name}`,
         ...(change ? { description: change } : {}),
         variant: "default",
+        duration: UNDO_TOAST_MS,
         action: { label: "Undo", onClick: () => dispatch({ type: "template/undo" }) },
       });
       track("resume_template_switched", { from, to, hidden: hidden.length, defaulted: defaulted.length });

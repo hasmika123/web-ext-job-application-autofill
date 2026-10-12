@@ -9,6 +9,7 @@ import {
   MoreVerticalIcon,
   PlusIcon,
   SparklesIcon,
+  Tooltip,
   TrashIcon,
   allowedMarks,
   cn,
@@ -177,9 +178,11 @@ function SectionBlockInner({ section, index, count }: { section: ResumeSection; 
           >
             Show
           </button>
-          <button type="button" aria-label={`Delete ${heading} section`} title="Delete section" onClick={remove} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
-            <TrashIcon className="h-4 w-4" />
-          </button>
+          <Tooltip content={`Delete ${heading} section`} side="top">
+            <button type="button" aria-label={`Delete ${heading} section`} onClick={remove} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       </section>
     );
@@ -220,38 +223,44 @@ function SectionBlockInner({ section, index, count }: { section: ResumeSection; 
 
         <div className="flex flex-none items-center gap-0.5">
           <span className="inline-flex overflow-hidden rounded-lg border border-v2-line">
-            <button
-              type="button"
-              aria-label={`Move ${heading} section up`}
-              title="Move section up"
-              disabled={index === 0}
-              onClick={() => move(index - 1)}
-              className={cn(iconButtonClass, "rounded-none max-sm:h-11 max-sm:w-11")}
-            >
-              <ArrowUpIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label={`Move ${heading} section down`}
-              title="Move section down"
-              disabled={index >= count - 1}
-              onClick={() => move(index + 1)}
-              className={cn(iconButtonClass, "rounded-none border-l border-v2-line max-sm:h-11 max-sm:w-11")}
-            >
-              <ArrowDownIcon className="h-4 w-4" />
-            </button>
-          </span>
-          <Menu
-            items={menu}
-            trigger={
-              <button type="button" aria-label={`More actions for ${heading} section`} title="More" className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
-                <MoreVerticalIcon className="h-4 w-4" />
+            <Tooltip content={`Move ${heading} section up`}>
+              <button
+                type="button"
+                aria-label={`Move ${heading} section up`}
+                disabled={index === 0}
+                onClick={() => move(index - 1)}
+                className={cn(iconButtonClass, "rounded-none max-sm:h-11 max-sm:w-11")}
+              >
+                <ArrowUpIcon className="h-4 w-4" />
               </button>
-            }
-          />
-          <button type="button" aria-label={`Delete ${heading} section`} title="Delete section" onClick={remove} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
-            <TrashIcon className="h-4 w-4" />
-          </button>
+            </Tooltip>
+            <Tooltip content={`Move ${heading} section down`}>
+              <button
+                type="button"
+                aria-label={`Move ${heading} section down`}
+                disabled={index >= count - 1}
+                onClick={() => move(index + 1)}
+                className={cn(iconButtonClass, "rounded-none border-l border-v2-line max-sm:h-11 max-sm:w-11")}
+              >
+                <ArrowDownIcon className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          </span>
+          <Tooltip content={`More actions for ${heading} section`}>
+            <Menu
+              items={menu}
+              trigger={
+                <button type="button" aria-label={`More actions for ${heading} section`} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
+                  <MoreVerticalIcon className="h-4 w-4" />
+                </button>
+              }
+            />
+          </Tooltip>
+          <Tooltip content={`Delete ${heading} section`}>
+            <button type="button" aria-label={`Delete ${heading} section`} onClick={remove} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       </header>
 

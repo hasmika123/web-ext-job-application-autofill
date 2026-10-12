@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import type { ClipboardEvent, KeyboardEvent } from "react";
 import { XIcon } from "./icons";
+import Tooltip from "./Tooltip";
 import { cn } from "./cn";
 
 /**
@@ -127,18 +128,20 @@ export default function ChipInput({
               className="inline-flex items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-0 text-[13px] font-medium text-accent-deep max-sm:min-h-11"
             >
               <span className="break-all">{chip}</span>
-              <button
-                type="button"
-                aria-label={`Remove ${chip}`}
-                disabled={disabled}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  remove(i);
-                }}
-                className="grid h-6 w-6 place-items-center rounded-full hover:bg-black/10 max-sm:h-11 max-sm:w-11"
-              >
-                <XIcon size={12} aria-hidden />
-              </button>
+              <Tooltip content={`Remove ${chip}`}>
+                <button
+                  type="button"
+                  aria-label={`Remove ${chip}`}
+                  disabled={disabled}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    remove(i);
+                  }}
+                  className="grid h-6 w-6 place-items-center rounded-full hover:bg-black/10 max-sm:h-11 max-sm:w-11"
+                >
+                  <XIcon size={12} aria-hidden />
+                </button>
+              </Tooltip>
             </li>
           ))}
         </ul>

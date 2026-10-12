@@ -18,6 +18,7 @@ import {
   RestoreIcon,
   SparklesIcon,
   StarIcon,
+  Tooltip,
   TrashIcon,
   cn,
 } from "@kiwiply/ui";
@@ -139,6 +140,7 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
   );
 
   const menu = (
+    <Tooltip content={`More actions for ${m.name}`} side="top">
     <KebabMenu
       label={`More actions for ${m.name}`}
       items={
@@ -164,6 +166,7 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
             ]
       }
     />
+    </Tooltip>
   );
 
   const dates = (
@@ -199,39 +202,49 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
 
   const actionRow = (
     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-      {built ? (
-        <Link href={`/resume-builder/${m.id}`} className={ICON_BTN} aria-label={`Edit ${m.name}`} title="Edit">
-          <PencilIcon size={16} />
-        </Link>
-      ) : (
-        <button type="button" onClick={onManage} className={ICON_BTN} aria-label={`Edit ${m.name}`} title="Edit">
-          <PencilIcon size={16} />
-        </button>
-      )}
-      {!archived && (
-        <button type="button" onClick={() => void actions.duplicate(m)} disabled={busy} className={ICON_BTN} aria-label={`Duplicate ${m.name}`} title="Duplicate">
-          <CopyIcon size={16} />
-        </button>
-      )}
-      {built ? (
-        <Link href={`/resume-builder/${m.id}?view=pdf`} className={ICON_BTN} aria-label={`View ${m.name}`} title="View">
-          <EyeIcon size={16} />
-        </Link>
-      ) : (
-        // An uploaded file is its own PDF/DOCX: View opens the stored file.
-        <a href={`/api/resumes/${m.id}/file`} target="_blank" rel="noreferrer" className={ICON_BTN} aria-label={`View ${m.name}`} title="View">
-          <EyeIcon size={16} />
-        </a>
-      )}
-      {built &&
-        (aiAllowed ? (
-          <Link href={`/resume-builder/${m.id}?tab=ai`} className={cn(ICON_BTN, "text-v2-violet")} aria-label={`AI tools for ${m.name}`} title="AI">
-            <SparklesIcon size={16} />
+      <Tooltip content={`Edit ${m.name}`}>
+        {built ? (
+          <Link href={`/resume-builder/${m.id}`} className={ICON_BTN} aria-label={`Edit ${m.name}`}>
+            <PencilIcon size={16} />
           </Link>
         ) : (
-          <Link href="/pricing" className={cn(ICON_BTN, "text-v2-muted")} aria-label={`AI tools for ${m.name} (Pro)`} title="AI suggestions are part of Pro">
-            <LockIcon size={16} />
+          <button type="button" onClick={onManage} className={ICON_BTN} aria-label={`Edit ${m.name}`}>
+            <PencilIcon size={16} />
+          </button>
+        )}
+      </Tooltip>
+      {!archived && (
+        <Tooltip content={`Duplicate ${m.name}`}>
+          <button type="button" onClick={() => void actions.duplicate(m)} disabled={busy} className={ICON_BTN} aria-label={`Duplicate ${m.name}`}>
+            <CopyIcon size={16} />
+          </button>
+        </Tooltip>
+      )}
+      <Tooltip content={`View ${m.name}`}>
+        {built ? (
+          <Link href={`/resume-builder/${m.id}?view=pdf`} className={ICON_BTN} aria-label={`View ${m.name}`}>
+            <EyeIcon size={16} />
           </Link>
+        ) : (
+          // An uploaded file is its own PDF/DOCX: View opens the stored file.
+          <a href={`/api/resumes/${m.id}/file`} target="_blank" rel="noreferrer" className={ICON_BTN} aria-label={`View ${m.name}`}>
+            <EyeIcon size={16} />
+          </a>
+        )}
+      </Tooltip>
+      {built &&
+        (aiAllowed ? (
+          <Tooltip content={`AI tools for ${m.name}`}>
+            <Link href={`/resume-builder/${m.id}?tab=ai`} className={cn(ICON_BTN, "text-v2-violet")} aria-label={`AI tools for ${m.name}`}>
+              <SparklesIcon size={16} />
+            </Link>
+          </Tooltip>
+        ) : (
+          <Tooltip content="AI suggestions are part of Pro">
+            <Link href="/pricing" className={cn(ICON_BTN, "text-v2-muted")} aria-label={`AI tools for ${m.name} (Pro)`}>
+              <LockIcon size={16} />
+            </Link>
+          </Tooltip>
         ))}
     </div>
   );

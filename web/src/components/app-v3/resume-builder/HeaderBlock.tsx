@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { GlobeIcon, LinkIcon, LinkedInIcon, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, UserIcon, XIcon, cn, iconButtonClass } from "@kiwiply/ui";
+import { GlobeIcon, LinkIcon, LinkedInIcon, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, Tooltip, UserIcon, XIcon, cn, iconButtonClass } from "@kiwiply/ui";
 import type { IconProps, ResumeDocBasics, ResumeDocLink } from "@kiwiply/ui";
 import { useCanvas, useField } from "./canvasContext";
 import { GHOST, PILL_BUTTON } from "./canvasStyles";
@@ -88,15 +88,16 @@ function LinkField({ link, index }: { link: ResumeDocLink; index: number }) {
         onChange={(e) => dispatch({ type: "basics/link.edit", index, field: "url", value: e.target.value, at: nowMs() })}
         className={cn(GHOST, "min-w-0 text-[13.5px]")}
       />
-      <button
-        type="button"
-        aria-label={`Remove link ${index + 1}`}
-        title="Remove link"
-        onClick={() => dispatch({ type: "basics/link.remove", index, at: nowMs() })}
-        className={cn(iconButtonClass, "flex-none max-sm:h-11 max-sm:w-11")}
-      >
-        <XIcon className="h-3.5 w-3.5" />
-      </button>
+      <Tooltip content={`Remove link ${index + 1}`} className="flex-none">
+        <button
+          type="button"
+          aria-label={`Remove link ${index + 1}`}
+          onClick={() => dispatch({ type: "basics/link.remove", index, at: nowMs() })}
+          className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}
+        >
+          <XIcon className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

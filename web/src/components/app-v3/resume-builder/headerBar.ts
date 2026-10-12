@@ -26,6 +26,12 @@ export const recruiterLabel = (on: boolean, short = false): string => `${short ?
 /** The Version chip: "Version 3", or "No versions yet" before the first. */
 export const versionChipLabel = (current: number, short = false): string => (current <= 0 ? (short ? "No versions" : "No versions yet") : short ? `v${current}` : `Version ${current}`);
 
+/** The name a saved version gets when the user types none (Save version… field, Ctrl/Cmd+S): "Version 3 · Oct 12". */
+export function defaultVersionName(versionNo: number, at: number | Date = new Date()): string {
+  const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(at);
+  return `Version ${Math.max(1, versionNo)} · ${day}`;
+}
+
 // config-literal-ok: milliseconds in a day, a unit conversion
 const MS_PER_DAY = 86_400_000;
 

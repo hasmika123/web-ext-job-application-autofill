@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -20,15 +20,18 @@ import {
   MoreVerticalIcon,
   PencilIcon,
   Popover,
+  SavedTick,
   StarIcon,
+  Tooltip,
   UsersIcon,
   cn,
+  useSavedFlash,
   useToast,
 } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { formatDate, timeAgo } from "@/lib/dates";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
-import type { ResumeDocDTO } from "@/lib/resume-doc";
+import type { CheckpointResult, ResumeDocDTO } from "@/lib/resume-doc";
 import { duplicateResume } from "@/lib/resume-list-api";
 import {
   createCheckpoint,
@@ -49,6 +52,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import { RecruiterPanel, VersionPanel, VisibilityPanel } from "./HeaderPanels";
 import {
   UNTITLED,
+  defaultVersionName,
   modifiedTitle,
   ownerLoginOf,
   recruiterLabel,
@@ -60,6 +64,7 @@ import {
 import SyncDiffSheet from "./SyncDiffSheet";
 import VersionCompareSheet from "./VersionCompareSheet";
 import VersionsSheet from "./VersionsSheet";
+import { UNDO_TOAST_MS } from "./uiTiming";
 import type { Viewport } from "./state/ui";
 
 /** The chips of row 2 and the type pill share one look (DESIGN 10.16); `min-h-11` on touch, `min-h-9` from `sm`. */
@@ -78,7 +83,6 @@ type Pending =
   | { kind: "recruitersOff" }
   | { kind: "revokePeople" }
   | { kind: "detach" }
-  | { kind: "archive" }
   | { kind: "delete" }
   | { kind: "restore"; version: ResumeVersion };
 
@@ -102,6 +106,16 @@ export interface ResumeHeaderBarProps {
   onDocReplaced: (dto: ResumeDocDTO) => void;
   /** The server wrote something the editor's PDF status should notice (a version was saved, a restore). */
   onServerChange?: () => void;
+  /**
+   * Version ▾ -> Save version… (and the ⋮ entry): the editor flushes autosave, writes the named checkpoint and asks for
+   * the PDF now (R3.3 `checkpointDoc`). Resolves to its result, or null when nothing was written. Without it the bar
+   * writes the checkpoint itself (standalone use).
+   */
+  onSaveVersion?: (name?: string) => Promise<CheckpointResult | null>;
+  /** Bumped when the editor wrote a version itself (Ctrl/Cmd+S): the history and the chip re-read. */
+  versionsStamp?: number;
+  /** The user's primary resume right now (null = unknown): "Set as primary" can then offer Undo. */
+  primaryResumeId?: number | null;
   /** Opens the Tailor to Job panel. */
   onTailor: () => void;
   /** Opens Resume settings (R3.12): the header ⋮ entry and every "Manage in Resume settings" link. */
@@ -133,6 +147,9 @@ export default function ResumeHeaderBar({
   ensureSaved,
   onDocReplaced,
   onServerChange,
+  onSaveVersion,
+  versionsStamp = 0,
+  primaryResumeId = null,
   onTailor,
   onOpenSettings: openSettings,
   syncedMeta = null,
@@ -177,6 +194,11 @@ export default function ResumeHeaderBar({
   const [now, setNow] = useState(() => Date.now());
   const nameInput = useRef<HTMLInputElement>(null);
   const renameButton = useRef<HTMLButtonElement>(null);
+  // The inline "saved" tick beside whichever control just persisted a change (DECISIONS #32).
+  const saved = useSavedFlash<"name" | "type" | "visibility" | "primary" | "recruiters" | "version">();
+  const flash = saved.flash;
+  // Who is primary right now (starts as the server said; follows this bar's own changes), so Set as primary can be undone.
+  const [primaryId, setPrimaryId] = useState<number | null>(primaryResumeId);
 
   const ownerLogin = ownerLoginOf(meta);
   const maxLinks = config.share?.maxLinks ?? FALLBACK_MAX_LINKS;
@@ -205,6 +227,16 @@ export default function ResumeHeaderBar({
     const t = setInterval(() => setNow(Date.now()), NOW_TICK_MS);
     return () => clearInterval(t);
   }, []);
+
+  // The editor wrote a version on its own (Ctrl/Cmd+S): re-read the history and the chip, and say it stuck.
+  const stampSeen = useRef(versionsStamp);
+  useEffect(() => {
+    if (versionsStamp === stampSeen.current) return;
+    stampSeen.current = versionsStamp;
+    // Mirroring a counter the editor bumped into this bar's own reload key is this effect's whole job.
+    setReloadKey((k) => k + 1);
+    void refresh().then(() => flash("version"));
+  }, [versionsStamp, refresh, flash]);
 
   // The family, for the type menu: read when the resume has one (tailored copies, or a master with copies).
   const familyKey = meta ? `${meta.role}:${meta.lineage.children}:${meta.lineage.masterChanged}` : null;
@@ -291,7 +323,7 @@ export default function ResumeHeaderBar({
     if (!commit || !meta) return;
     const next = draft.trim() || UNTITLED;
     if (next === meta.name) return;
-    await patch({ name: next }, "Couldn't rename the resume");
+    if (await patch({ name: next }, "Couldn't rename the resume")) flash("name");
   };
   const onNameKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -305,20 +337,96 @@ export default function ResumeHeaderBar({
   };
 
   /* ── actions ──────────────────────────────────────────────────────────────────────────── */
+  /** Takes back a change by writing the earlier value (the Undo of a toast); says so on failure. */
+  const undoPatch = async (body: Record<string, unknown>, tick: "visibility" | "recruiters") => {
+    const r = await patchMeta(resumeId, body);
+    if (r.kind === "error") {
+      toast({ title: "Couldn't undo that", description: r.message, variant: "error" });
+      return;
+    }
+    setMeta(r.value);
+    flash(tick);
+  };
+
   const setPrimary = async () => {
     if (!meta || meta.primary) return;
-    if (await patch({ primary: true }, "Couldn't set the primary resume")) {
-      toast({ title: "Now your primary resume", description: "The extension attaches it by default.", variant: "success" });
+    const prev = primaryId !== null && primaryId !== resumeId ? primaryId : null;
+    if (!(await patch({ primary: true }, "Couldn't set the primary resume"))) return;
+    setPrimaryId(resumeId);
+    flash("primary");
+    toast({
+      title: "Now your primary resume",
+      description: "The extension attaches it by default.",
+      variant: "success",
+      duration: UNDO_TOAST_MS,
+      // Undo hands "primary" back to the resume that had it (a resume cannot un-primary itself: another one must take over).
+      action: prev === null ? undefined : { label: "Undo", onClick: () => void undoPrimary(prev) },
+    });
+  };
+  const undoPrimary = async (prev: number) => {
+    const r = await patchMeta(prev, { primary: true });
+    if (r.kind === "error") {
+      toast({ title: "Couldn't undo that", description: r.message, variant: "error" });
+      return;
     }
+    setPrimaryId(prev);
+    await refresh();
+    flash("primary");
+  };
+
+  /** Private, undoable when nobody else holds a grant (the grants of "Specific people" cannot be given back, so that case still asks). */
+  const makePrivate = async () => {
+    if (!meta) return;
+    const wasOrg = meta.visibility.mode === "ORG";
+    if (!(await patch({ visibility: "PRIVATE" }))) return;
+    flash("visibility");
+    toast({
+      title: "Now private",
+      description: "Only you can see this resume.",
+      variant: "success",
+      duration: UNDO_TOAST_MS,
+      action: wasOrg ? { label: "Undo", onClick: () => void undoPatch({ shareWithOrg: true }, "visibility") } : undefined,
+    });
+  };
+
+  /** Archive / unarchive: no confirm, an Undo toast (the resume goes to Archived and comes back untouched). */
+  const archive = async () => {
+    if (!meta) return;
+    const next = !meta.archived;
+    if (!(await patch({ archived: next }, next ? "Couldn't archive the resume" : "Couldn't unarchive the resume"))) return;
+    if (!next) {
+      toast({ title: "Resume unarchived", variant: "success" });
+      return;
+    }
+    toast({
+      title: "Resume archived",
+      description: `"${name}" moved to Archived.`,
+      variant: "success",
+      duration: UNDO_TOAST_MS,
+      action: {
+        label: "Undo",
+        onClick: () =>
+          void patchMeta(resumeId, { archived: false }).then((r) =>
+            r.kind === "error" ? toast({ title: "Couldn't undo that", description: r.message, variant: "error" }) : toast({ title: "Resume restored", variant: "success" }),
+          ),
+      },
+    });
+    router.push("/resume-builder");
   };
 
   const confirm = async () => {
     const p = pending;
     if (!p || !meta) return;
     if (p.kind === "private") {
-      if (await patch({ visibility: "PRIVATE" })) toast({ title: "Now private", description: "Only you can see this resume.", variant: "success" });
+      if (await patch({ visibility: "PRIVATE" })) {
+        flash("visibility");
+        toast({ title: "Now private", description: "Only you can see this resume.", variant: "success" });
+      }
     } else if (p.kind === "recruitersOff") {
-      if (await patch({ recruiterSharing: false })) toast({ title: "Recruiter links turned off", description: "Everyone with a link has lost access.", variant: "success" });
+      if (await patch({ recruiterSharing: false })) {
+        flash("recruiters");
+        toast({ title: "Recruiter links turned off", description: "Everyone with a link has lost access.", variant: "success" });
+      }
     } else if (p.kind === "revokePeople") {
       const r = await act(async () => {
         const access = await getAccess(resumeId);
@@ -334,13 +442,9 @@ export default function ResumeHeaderBar({
       const r = await act(() => detachResume(resumeId), "Couldn't make this a master");
       if (r.ok) {
         setMeta(r.value);
+        flash("type");
         toast({ title: "Now a master resume", description: "It keeps its content and job, and no longer follows its master.", variant: "success" });
       }
-    } else if (p.kind === "archive") {
-      const archive = !meta.archived;
-      const ok = await patch({ archived: archive }, archive ? "Couldn't archive the resume" : "Couldn't unarchive the resume");
-      if (ok && archive) router.push("/resume-builder");
-      else if (ok) toast({ title: "Resume unarchived", variant: "success" });
     } else if (p.kind === "delete") {
       const r = await act(() => deleteResume(resumeId), "Couldn't delete the resume");
       if (r.ok) router.push("/resume-builder");
@@ -362,23 +466,43 @@ export default function ResumeHeaderBar({
     setReloadKey((k) => k + 1);
     onServerChange?.();
     await refresh();
+    flash("version");
     toast({ title: `Restored v${v.versionNo}`, description: "What you had before is saved as its own version.", variant: "success" });
   };
 
-  const saveVersion = async () => {
-    const trimmed = versionName.trim();
+  /** Writes a named version (empty name = the server's MANUAL one). True when it was saved. */
+  const saveVersionNamed = async (raw: string): Promise<boolean> => {
+    const trimmed = raw.trim();
+    if (onSaveVersion) {
+      // The editor flushes autosave, writes the checkpoint (R3.3) and asks for the PDF now; it toasts its own failures.
+      const cp = await onSaveVersion(trimmed || undefined);
+      if (!cp || cp.kind !== "ok") return false;
+      setReloadKey((k) => k + 1);
+      onServerChange?.();
+      await refresh();
+      flash("version");
+      toast({ title: `Version ${cp.versionNo} saved`, description: trimmed || undefined, variant: "success" });
+      return true;
+    }
     if (!(await ensureSaved())) {
       toast({ title: "Couldn't save the version yet", description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
-      return;
+      return false;
     }
     const r = await act(() => createCheckpoint(resumeId, trimmed || undefined), "Couldn't save the version");
-    if (!r.ok) return;
-    setSaveVersionOpen(false);
-    setVersionName("");
+    if (!r.ok) return false;
     setReloadKey((k) => k + 1);
     onServerChange?.();
     await refresh();
+    flash("version");
     toast({ title: `Saved as v${r.value.versionNo}`, description: trimmed || undefined, variant: "success" });
+    return true;
+  };
+  /** The dialog behind the ⋮ entry (phone overflow, keyboard): same call as the Version menu's inline field. */
+  const saveVersion = async () => {
+    if (await saveVersionNamed(versionName)) {
+      setSaveVersionOpen(false);
+      setVersionName("");
+    }
   };
 
   const recruitersOn = async () => {
@@ -386,13 +510,28 @@ export default function ResumeHeaderBar({
     const r = await act(() => patchMeta(resumeId, { recruiterSharing: true }), "Couldn't create the link");
     if (r.ok) {
       setMeta(r.value);
-      toast({ title: "Link created", description: "Anyone with it can open this resume until you turn it off.", variant: "success" });
+      flash("recruiters");
+      toast({
+        title: "Link created",
+        description: "Anyone with it can open this resume until you turn it off.",
+        variant: "success",
+        duration: UNDO_TOAST_MS,
+        action: { label: "Undo", onClick: () => void undoPatch({ recruiterSharing: false }, "recruiters") },
+      });
     }
   };
 
   const toggleOrg = async () => {
     if (!meta) return;
-    await patch({ shareWithOrg: !meta.shareWithOrg });
+    const on = !meta.shareWithOrg;
+    if (!(await patch({ shareWithOrg: on }))) return;
+    flash("visibility");
+    toast({
+      title: on ? "Shared with your organization" : "No longer shared with your organization",
+      variant: "success",
+      duration: UNDO_TOAST_MS,
+      action: { label: "Undo", onClick: () => void undoPatch({ shareWithOrg: !on }, "visibility") },
+    });
   };
 
   const peopleRow = () => {
@@ -404,7 +543,8 @@ export default function ResumeHeaderBar({
   const askVisibilityPrivate = (close: () => void) => {
     close();
     if (!meta || meta.visibility.mode === "PRIVATE") return;
-    setPending({ kind: "private" });
+    if (meta.visibility.people > 0) setPending({ kind: "private" });
+    else void makePrivate();
   };
 
   /* ── derived text ─────────────────────────────────────────────────────────────────────── */
@@ -480,17 +620,30 @@ export default function ResumeHeaderBar({
     items.push({ label: "Duplicate", onSelect: () => void duplicate() });
     if (!meta.primary) items.push({ label: "Set as primary", icon: <StarIcon size={15} />, onSelect: () => void setPrimary() });
     if (config.features.tailor) items.push({ label: "Tailor for a job…", onSelect: onTailor });
-    items.push({ label: "Save as version…", onSelect: () => setSaveVersionOpen(true) });
+    items.push({
+      label: "Save version…",
+      onSelect: () => {
+        setVersionName(defaultVersionName(versionCurrent + 1));
+        setSaveVersionOpen(true);
+      },
+    });
     items.push({ label: "Version history", onSelect: () => setVersionsOpen(true) });
     if (meta.hasOriginal) items.push({ label: "Download original", icon: <DownloadIcon size={15} />, onSelect: downloadOriginal });
     items.push({ separator: true });
     items.push({ label: "Resume settings…", onSelect: openSettings });
-    items.push({ label: meta.archived ? "Unarchive" : "Archive", onSelect: () => setPending({ kind: "archive" }) });
+    items.push({ label: meta.archived ? "Unarchive" : "Archive", onSelect: () => void archive() });
     items.push({ label: "Delete", onSelect: () => setPending({ kind: "delete" }), danger: true });
     return items;
   };
 
   /* ── pieces ───────────────────────────────────────────────────────────────────────────── */
+  /** A chip with its inline "saved" tick (tucked inside the chip's corner so a scrolling row never clips it). */
+  const withTick = (id: "type" | "visibility" | "primary" | "recruiters" | "version", node: ReactNode) => (
+    <span className="relative inline-flex flex-none">
+      {node}
+      <SavedTick flash={saved} id={id} className="absolute -right-1 top-0 z-10" />
+    </span>
+  );
   const typeChip = meta && (
     <Menu
       align="start"
@@ -627,9 +780,11 @@ export default function ResumeHeaderBar({
             close();
             setPending({ kind: "restore", version: v });
           }}
-          onSaveVersion={() => {
-            close();
-            setSaveVersionOpen(true);
+          defaultName={defaultVersionName(versionCurrent + 1)}
+          onSaveVersion={async (versionLabel) => {
+            const ok = await saveVersionNamed(versionLabel);
+            if (ok) close();
+            return ok;
           }}
           onAll={() => {
             close();
@@ -659,11 +814,7 @@ export default function ResumeHeaderBar({
           ? { title: "Remove everyone?", description: `${peopleN} ${peopleN === 1 ? "person" : "people"} will no longer be able to see this resume.`, confirm: "Remove everyone", danger: true }
           : pending.kind === "detach"
             ? { title: "Make this a master?", description: `It keeps its content and job, and stops following ${meta?.lineage.masterName ?? "its master"}.`, confirm: "Make this a master" }
-            : pending.kind === "archive"
-              ? meta?.archived
-                ? { title: "Unarchive this resume?", description: `"${name}" goes back to your active resumes.`, confirm: "Unarchive" }
-                : { title: "Archive this resume?", description: `"${name}" moves to Archived. You can bring it back any time.`, confirm: "Archive" }
-              : pending.kind === "delete"
+            : pending.kind === "delete"
                 ? { title: "Delete this resume?", description: `"${name}" and its versions are deleted for good. This can't be undone.`, confirm: "Delete", danger: true }
                 : { title: `Restore v${pending.version.versionNo}?`, description: "Your current content is saved as a new version first.", confirm: "Restore" };
 
@@ -696,23 +847,28 @@ export default function ResumeHeaderBar({
           </h2>
         )}
         {!renaming && (
-          <IconButton ref={renameButton} aria-label="Rename" title="Rename" onClick={startRename} disabled={!meta} className="h-11 w-11 flex-none sm:h-9 sm:w-9">
-            <PencilIcon size={16} />
-          </IconButton>
+          <Tooltip content="Rename" side="bottom">
+            <IconButton ref={renameButton} aria-label="Rename" onClick={startRename} disabled={!meta} className="h-11 w-11 flex-none sm:h-9 sm:w-9">
+              <PencilIcon size={16} />
+            </IconButton>
+          </Tooltip>
         )}
-        {!phone && typeChip}
+        <SavedTick flash={saved} id="name" />
+        {!phone && meta && withTick("type", typeChip)}
         <span className="flex-1" />
         {meta && (
-          <Menu
-            align="end"
-            items={buildKebabItems()}
-            trigger={
-              <span data-rb-header-menu className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl text-v2-ink-soft hover:bg-paper-2 hover:text-ink sm:h-9 sm:w-9">
-                <span className="sr-only">More actions</span>
-                <MoreVerticalIcon aria-hidden size={18} />
-              </span>
-            }
-          />
+          <Tooltip content="More actions" side="bottom">
+            <Menu
+              align="end"
+              items={buildKebabItems()}
+              trigger={
+                <span data-rb-header-menu className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl text-v2-ink-soft hover:bg-paper-2 hover:text-ink sm:h-9 sm:w-9">
+                  <span className="sr-only">More actions</span>
+                  <MoreVerticalIcon aria-hidden size={18} />
+                </span>
+              }
+            />
+          </Tooltip>
         )}
       </div>
 
@@ -723,12 +879,12 @@ export default function ResumeHeaderBar({
           aria-label="Resume status"
           className={cn("mt-3 flex items-center gap-x-3 gap-y-2", scrolling ? "scroll-slim -mx-1 flex-nowrap overflow-x-auto px-1 pb-1" : "flex-wrap")}
         >
-          {phone && typeChip}
+          {phone && withTick("type", typeChip)}
           {dates}
-          {visibilityChip}
-          {primaryChip}
-          {recruiterChip}
-          <span className={scrolling ? "" : "ml-auto"}>{versionChip}</span>
+          {withTick("visibility", visibilityChip)}
+          {withTick("primary", primaryChip)}
+          {recruiterChip && withTick("recruiters", recruiterChip)}
+          <span className={scrolling ? "" : "ml-auto"}>{withTick("version", versionChip)}</span>
         </div>
       ) : (
         <p role="status" className="mt-3 text-[13px] text-muted">
@@ -798,7 +954,7 @@ export default function ResumeHeaderBar({
       <Dialog
         open={saveVersionOpen}
         onClose={() => setSaveVersionOpen(false)}
-        title="Save as version"
+        title="Save version"
         description="Keep this exact state of your resume. Named versions are never removed."
         footer={
           <>

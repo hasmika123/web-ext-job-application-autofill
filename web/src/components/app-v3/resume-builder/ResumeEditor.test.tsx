@@ -153,7 +153,7 @@ describe("ResumeEditor", () => {
     expect(screen.getByRole("tab", { name: /Job Match/ }).getAttribute("aria-selected")).toBe("true");
   });
 
-  it("types, then autosaves 800 ms later with the loaded version and shows Saved just now", async () => {
+  it("types, then autosaves 800 ms later with the loaded version  and shows Saved", async () => {
     putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
     renderEditor();
 
@@ -168,12 +168,122 @@ describe("ResumeEditor", () => {
     expect(firstBullet(putDoc.mock.calls[0][2].doc)).toBe("Led the migration");
 
     expect(status()).toBe("saved");
-    expect(statusText()).toContain("Saved just now");
+    expect(statusText()).toContain("Saved");
   });
 
   it("opens as 'Saved N hours ago' from the server's last-saved time", () => {
     renderEditor(DEFAULT_BUILDER_CONFIG, new Date(Date.now() - 3 * 3_600_000).toISOString());
     expect(statusText()).toContain("Saved 3 hours ago");
+  });
+
+  describe("autosave feedback (DECISIONS #32)", () => {
+    it("typing: Saving… then Saved ✓, and the inline tick beside the edited field appears, then fades away", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      renderEditor();
+      act(() => bullet().focus());
+      fireEvent.change(bullet(), { target: { value: "Led the migration" } });
+      expect(statusText()).toContain("Saving…");
+      expect(document.querySelector("[data-saved-tick]")).toBeNull();
+      await flush(800);
+      expect(statusText()).toContain("Saved");
+      expect(document.querySelector('[data-saved-tick="canvas"]')).not.toBeNull();
+      await flush(1100);
+      expect(document.querySelector("[data-saved-tick]")).toBeNull();
+    });
+
+    it("the status settles to a relative time as the minutes pass", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      renderEditor();
+      fireEvent.change(bullet(), { target: { value: "Led the migration" } });
+      await flush(800);
+      expect(statusText()).toContain("Saved");
+      await flush(150_000);
+      expect(statusText()).toMatch(/Saved \d+ minutes? ago/);
+    });
+
+    it("a network failure turns the chip loud amber with Retry, and Retry saves right now", async () => {
+      putDoc.mockResolvedValueOnce({ kind: "network" }).mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      renderEditor();
+      fireEvent.change(bullet(), { target: { value: "Offline-ish" } });
+      await flush(800);
+      const chip = document.querySelector("[data-save-status]")!;
+      expect(chip.getAttribute("data-save-tone")).toBe("warn");
+      expect(chip.textContent).toContain("Not saved — retrying");
+      fireEvent.click(within(chip as HTMLElement).getByRole("button", { name: "Retry" }));
+      await flush(0);
+      expect(putDoc).toHaveBeenCalledTimes(2);
+      expect(status()).toBe("saved");
+    });
+
+    it("offline: the chip says changes will save when you're back, and calms down when the network returns", () => {
+      renderEditor();
+      Object.defineProperty(window.navigator, "onLine", { value: false, configurable: true });
+      act(() => void window.dispatchEvent(new Event("offline")));
+      expect(statusText()).toContain("Offline — changes will save when you're back");
+      expect(document.querySelector("[data-save-status]")!.getAttribute("data-save-tone")).toBe("warn");
+      Object.defineProperty(window.navigator, "onLine", { value: true, configurable: true });
+      act(() => void window.dispatchEvent(new Event("online")));
+      expect(statusText()).not.toContain("Offline");
+    });
+
+    it("adding a section ticks the Add Section button once it has saved", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      renderEditor();
+      fireEvent.click(panelButton("Add Section"));
+      await flush(300);
+      fireEvent.click(screen.getByRole("button", { name: /Add Education to resume/ }));
+      await flush(800);
+      expect(document.querySelector('[data-saved-tick="section"]')).not.toBeNull();
+    });
+
+    describe("the leave guard", () => {
+      const leave = () => {
+        const e = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(e);
+        return e.defaultPrevented;
+      };
+
+      it("asks while an edit is pending, and again while the save is failing; never when everything is saved", async () => {
+        putDoc.mockResolvedValueOnce({ kind: "network" }).mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+        renderEditor();
+        expect(leave()).toBe(false); // nothing changed
+        fireEvent.change(bullet(), { target: { value: "Pending" } });
+        expect(leave()).toBe(true); // inside the debounce
+        await flush(800);
+        expect(status()).toBe("retrying");
+        expect(leave()).toBe(true); // failed once, retrying
+        await flush(1000);
+        expect(status()).toBe("saved");
+        expect(leave()).toBe(false);
+      });
+
+      it("a client-side link click asks too while unsaved (declining stays), and not when saved", async () => {
+        putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+        const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+        // what Next's <Link> would do: it only sees the click when the guard let it through
+        const reached = vi.fn((e: Event) => e.preventDefault());
+        document.addEventListener("click", reached);
+        renderEditor();
+        const click = () => {
+          reached.mockClear();
+          screen.getByRole("link", { name: "Kiwiply" }).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+          return reached.mock.calls.length === 1;
+        };
+        expect(click()).toBe(true); // saved: free to go
+        expect(confirm).not.toHaveBeenCalled();
+        fireEvent.change(bullet(), { target: { value: "Pending" } });
+        expect(click()).toBe(false); // unsaved and the user said stay
+        expect(confirm).toHaveBeenCalledTimes(1);
+        confirm.mockReturnValue(true);
+        expect(click()).toBe(true); // the user chose to leave
+        await flush(800);
+        confirm.mockClear();
+        expect(click()).toBe(true);
+        expect(confirm).not.toHaveBeenCalled();
+        document.removeEventListener("click", reached);
+        confirm.mockRestore();
+      });
+    });
   });
 
   describe("stored PDF status (R3.7)", () => {
@@ -845,50 +955,41 @@ describe("ResumeEditor", () => {
       cached: true,
       ...over,
     });
-    const saveButton = () => document.querySelector<HTMLButtonElement>("[data-save-button]")!;
     const downloadBtn = () => screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON") as HTMLButtonElement;
     const ctrlS = () => fireEvent.keyDown(document, { key: "s", code: "KeyS", ctrlKey: true });
 
-    it("opens as Saved with Save disabled when nothing changed and the PDF is fine", () => {
-      renderWithPdf({ status: "READY", hash: "h" });
-      expect(saveButton().textContent).toBe("Saved");
-      expect(saveButton().disabled).toBe(true);
-    });
-
-    it("Save is on offer while the stored PDF is missing or failed, even with no edits", () => {
+    it("has no Save button anywhere: the chip is the only save UI (DECISIONS #32)", () => {
       renderWithPdf({ status: "FAILED" });
-      expect(saveButton().textContent).toBe("Save");
-      expect(saveButton().disabled).toBe(false);
+      expect(document.querySelector("[data-save-button]")).toBeNull();
+      expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Save options" })).toBeNull();
+      expect(status()).toBe("saved");
     });
 
-    it("Ctrl+S flushes the pending edit, then posts the checkpoint", async () => {
+    it("Ctrl+S flushes the pending edit, then posts a checkpoint with the default name and toasts the version", async () => {
       putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
       renderWithPdf({ status: "READY", hash: "h" });
+      await flush(0); // the header has read its metadata (version 3 -> the next one is 4)
       fireEvent.change(bullet(), { target: { value: "Edited, then Ctrl+S" } });
-      expect(saveButton().textContent).toBe("Save");
       expect(putDoc).not.toHaveBeenCalled(); // still inside the 800 ms debounce
       ctrlS();
       await flush(0);
       expect(putDoc).toHaveBeenCalledTimes(1);
-      expect(checkpointDoc).toHaveBeenCalledWith(42, undefined);
+      expect(checkpointDoc).toHaveBeenCalledTimes(1);
+      expect(checkpointDoc.mock.calls[0][0]).toBe(42);
+      expect(checkpointDoc.mock.calls[0][1]).toMatch(/^Version 4 · [A-Z][a-z]{2} \d{1,2}$/);
       expect(putDoc.mock.invocationCallOrder[0]).toBeLessThan(checkpointDoc.mock.invocationCallOrder[0]);
+      expect(screen.getByText("Version 2 saved")).toBeTruthy(); // the number the server answered with
     });
 
-    it("the button reads Saved for 2 s, then stays disabled until something changes; the status says the PDF is updating", async () => {
+    it("after Ctrl+S the status says the PDF is updating", async () => {
       putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
       renderWithPdf({ status: "READY", hash: "h", pollMs: 5000, pollWindowMs: 20000 });
       fireEvent.change(bullet(), { target: { value: "Changed" } });
-      fireEvent.click(saveButton());
+      ctrlS();
       await flush(0);
       expect(checkpointDoc).toHaveBeenCalledTimes(1);
-      expect(saveButton().textContent).toBe("Saved");
       expect(document.querySelector('[data-pdf-status="updating"]')?.textContent).toContain("PDF updating…");
-      await flush(2000);
-      expect(saveButton().textContent).toBe("Saved");
-      expect(saveButton().disabled).toBe(true);
-      fireEvent.change(bullet(), { target: { value: "Changed again" } });
-      expect(saveButton().textContent).toBe("Save");
-      expect(saveButton().disabled).toBe(false);
     });
 
     it("does not post a checkpoint when the latest edit could not be saved", async () => {
@@ -901,17 +1002,23 @@ describe("ResumeEditor", () => {
       expect(screen.getByText("Couldn't save yet")).toBeTruthy();
     });
 
-    it("Save ▾ → Save as version… names the checkpoint", async () => {
+    it("Version ▾ → Save version… names the checkpoint, asks for the PDF now and ticks the Version chip", async () => {
       renderEditor();
-      const chevron = screen.getAllByRole("button", { name: "Save options" }).find((b) => b.tagName === "BUTTON")!;
-      fireEvent.click(chevron);
-      fireEvent.click(screen.getByRole("menuitem", { name: "Save as version…" }));
-      const dialog = screen.getByRole("dialog", { name: "Save as version" });
-      fireEvent.change(within(dialog).getByLabelText("Version name"), { target: { value: "Before the Acme call" } });
-      fireEvent.submit(dialog.querySelector("form")!);
       await flush(0);
-      expect(checkpointDoc).toHaveBeenCalledWith(42, "Before the Acme call");
-      expect(screen.getByText("Version 'Before the Acme call' saved")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /^Version 3/ }));
+      await flush(0);
+      fireEvent.click(screen.getByRole("button", { name: "Save version…" }));
+      const input = screen.getByLabelText("Name this version") as HTMLInputElement;
+      expect(input.value).toMatch(/^Version 8 · /); // the default name: one past the newest version in the history (v7)
+      expect(input.placeholder).toContain("Before applying to Stripe");
+      fireEvent.change(input, { target: { value: "Before applying to Stripe" } });
+      fireEvent.click(within(screen.getByRole("form", { name: "Save version" })).getByRole("button", { name: "Save" }));
+      await flush(0);
+      expect(checkpointDoc).toHaveBeenCalledWith(42, "Before applying to Stripe");
+      expect(screen.getByText("Version 2 saved")).toBeTruthy();
+      // the checkpoint queued the PDF: the bar follows it
+      expect(document.querySelector('[data-pdf-status="updating"]')).not.toBeNull();
+      expect(document.querySelector('[data-saved-tick="version"]')).not.toBeNull();
     });
 
     it("Save & Download PDF waits for the stored PDF, then downloads it (no second render)", async () => {
