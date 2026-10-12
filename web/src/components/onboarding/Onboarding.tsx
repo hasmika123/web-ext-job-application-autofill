@@ -3,14 +3,11 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Input, Field, Select, ChoiceGroup } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { LIMITS } from "@/lib/validate";
 import { notifyExtension } from "@/lib/extension-signal";
-import {
-  type Bio, YESNO, NOTICE, WORK_PREFERENCE, GENDERS, HISPANIC, RACES, VETERAN, DISABILITY, ONBOARDED_KEY,
-} from "@/lib/profile-options";
+import { type Bio, ONBOARDED_KEY } from "@/lib/profile-options";
+import PreferenceInputs, { ALL_PREFERENCE_KEYS, PREFERENCE_QUESTIONS } from "./preferences";
 
 /**
  * Onboarding — Tier A of the self-building profile (Phase 10.3b).
@@ -22,54 +19,8 @@ import {
  * Finishing or skipping marks the profile onboarded, and the dashboard stops sending you here.
  */
 
-type Step = {
-  title: string;
-  why: string;
-  keys: string[];
-};
-
-const STEPS: Step[] = [
-  {
-    title: "Are you legally authorized to work in the country you're applying in?",
-    why: "Nearly every application asks. Answer once and Kiwiply fills it everywhere.",
-    keys: ["authorizedToWork"],
-  },
-  {
-    title: "Will you now or in the future need visa sponsorship?",
-    why: "The usual follow-up to the question before.",
-    keys: ["requireSponsorship"],
-  },
-  {
-    title: "What salary are you looking for?",
-    why: "Used where a form asks for your expected pay. You can change it any time, or set a different number on a single application.",
-    keys: ["desiredSalary"],
-  },
-  {
-    title: "How soon could you start?",
-    why: "Your notice period — forms ask it as a start date, availability or notice.",
-    keys: ["noticePeriod"],
-  },
-  {
-    title: "How do you like to work?",
-    why: "For the work-arrangement and relocation questions.",
-    keys: ["workPreference", "willingToRelocate"],
-  },
-  {
-    title: "Voluntary self-identification",
-    why: "Optional. Many US applications ask these. Kiwiply fills them only where a form asks, and you review each one before it's written. Skipping is always fine.",
-    keys: ["gender", "ethnicity", "race", "veteranStatus", "disabilityStatus"],
-  },
-];
-
-const EEO: { key: string; label: string; options: string[] }[] = [
-  { key: "gender", label: "Gender", options: GENDERS },
-  { key: "ethnicity", label: "Hispanic / Latino?", options: HISPANIC },
-  { key: "race", label: "Race", options: RACES },
-  { key: "veteranStatus", label: "Veteran status", options: VETERAN },
-  { key: "disabilityStatus", label: "Disability status", options: DISABILITY },
-];
-
-const ALL_KEYS = STEPS.flatMap((s) => s.keys);
+const STEPS = PREFERENCE_QUESTIONS;
+const ALL_KEYS = ALL_PREFERENCE_KEYS;
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -193,48 +144,7 @@ export default function Onboarding({ initialBio, hasResume }: { initialBio: Bio;
       <p className="mt-1.5 text-[13.5px] text-muted">{s.why}</p>
 
       <div className="mt-5">
-        {s.keys[0] === "authorizedToWork" || s.keys[0] === "requireSponsorship" ? (
-          <ChoiceGroup aria-labelledby={titleId} options={YESNO} value={answers[s.keys[0]]} onChange={(v) => set(s.keys[0], v)} allowClear />
-        ) : s.keys[0] === "desiredSalary" ? (
-          <Field label="Desired salary" htmlFor="welcome-salary" hint="Write it the way you'd say it, e.g. $120,000. A number-only box gets just the number." className="mb-0 max-w-sm">
-            <Input
-              id="welcome-salary"
-              value={answers.desiredSalary}
-              maxLength={LIMITS.name}
-              placeholder="e.g. $120,000"
-              onChange={(e) => set("desiredSalary", e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void next();
-              }}
-            />
-          </Field>
-        ) : s.keys[0] === "noticePeriod" ? (
-          <ChoiceGroup aria-labelledby={titleId} options={NOTICE} value={answers.noticePeriod} onChange={(v) => set("noticePeriod", v)} allowClear />
-        ) : s.keys[0] === "workPreference" ? (
-          <div className="flex flex-col gap-5">
-            <div>
-              <div id="welcome-pref" className="mb-2 text-[12.5px] font-semibold text-ink-soft">I prefer to work</div>
-              <ChoiceGroup aria-labelledby="welcome-pref" options={WORK_PREFERENCE} value={answers.workPreference} onChange={(v) => set("workPreference", v)} allowClear />
-            </div>
-            <div>
-              <div id="welcome-relocate" className="mb-2 text-[12.5px] font-semibold text-ink-soft">Open to relocating?</div>
-              <ChoiceGroup aria-labelledby="welcome-relocate" options={YESNO} value={answers.willingToRelocate} onChange={(v) => set("willingToRelocate", v)} allowClear />
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">
-            {EEO.map((f) => (
-              <Field key={f.key} label={f.label} htmlFor={`welcome-${f.key}`} className="mb-0">
-                <Select id={`welcome-${f.key}`} aria-label={f.label} value={answers[f.key]} onChange={(v) => set(f.key, v)}>
-                  <option value="">—</option>
-                  {f.options.map((o) => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </Select>
-              </Field>
-            ))}
-          </div>
-        )}
+        <PreferenceInputs question={s} answers={answers} onChange={set} labelledBy={titleId} onEnter={() => void next()} />
       </div>
 
       {error && (

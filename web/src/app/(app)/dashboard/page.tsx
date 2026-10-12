@@ -6,6 +6,8 @@ import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
 import type { Application } from "@/components/ApplicationBoard";
 import { loadJobs } from "@/components/app-v2/jobs/data";
 import DashboardPage from "@/components/app-v3/home/DashboardPage";
+import BuildProfileCard from "@/components/app-v3/profiles/setup/BuildProfileCard";
+import { getCompleteness } from "@/lib/profile-items-server";
 import { computeDashboard, computeProfile } from "@/components/app-v3/home/compute";
 import {
   DASH_ACTIVITY_PERIODS,
@@ -23,7 +25,7 @@ export const metadata: Metadata = { title: "Dashboard" };
  * `app-v3/sample-data.ts`. Session gate + shell live in the `(app)` layout.
  */
 export default async function Page() {
-  const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData] = await Promise.all([
+  const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData, completeness] = await Promise.all([
     serverApiFetch("/api/account"),
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile"),
@@ -31,6 +33,8 @@ export default async function Page() {
     // Answers learned while applying, awaiting the user's decision. Best-effort: no card on failure.
     serverApiFetch("/api/profile/suggestions").catch(() => null),
     loadJobs(),
+    // The profile strength decides whether the "Build your profile" card shows (R1.4). Null on failure: no card.
+    getCompleteness(),
   ]);
 
   const account = accountRes.ok
@@ -65,6 +69,7 @@ export default async function Page() {
       recommended={recommended}
       profile={computeProfile(profileRes.ok ? bio : null, resumes.length)}
     >
+      {completeness && <BuildProfileCard score={completeness.score} />}
       <SuggestionsCard initial={suggestions} />
     </DashboardPage>
   );

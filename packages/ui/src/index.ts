@@ -48,6 +48,14 @@ export type { ChipInputProps } from "./primitives/ChipInput";
 export { default as SourceChip, SOURCE_LABELS, sourceKind } from "./primitives/SourceChip";
 export type { SourceChipProps, SourceKind } from "./primitives/SourceChip";
 
+export { default as Stepper } from "./primitives/Stepper";
+export type { StepperProps, StepperStep } from "./primitives/Stepper";
+
+export { default as SwipeCard } from "./primitives/SwipeCard";
+export type { SwipeCardProps } from "./primitives/SwipeCard";
+
+export { default as ConfettiBurst } from "./primitives/ConfettiBurst";
+
 export { default as Skeleton } from "./primitives/Skeleton";
 export { default as Spinner } from "./primitives/Spinner";
 export type { SpinnerProps } from "./primitives/Spinner";
