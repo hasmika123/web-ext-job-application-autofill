@@ -856,7 +856,7 @@
       "id": "I1.13",
       "epic": "I1",
       "title": "/admin/ai/providers page: pricing table, global kill switch, recent calls & errors panel, stat tiles, 390 px layout; AI-usage 'Edit limits' becomes a link",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "web"

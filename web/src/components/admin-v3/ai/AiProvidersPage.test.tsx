@@ -59,7 +59,7 @@ describe("AiProvidersPage (I1.12)", () => {
     expect(within(card).getByRole("button", { name: "Test connection" })).toBeTruthy();
     expect((within(card).getByLabelText("Google Gemini base URL") as HTMLInputElement).value).toBe("https://generativelanguage.googleapis.com/v1beta");
 
-    expect(screen.getAllByRole("row")).toHaveLength(16); // header + 15 tasks
+    expect(within(screen.getAllByRole("table")[0]).getAllByRole("row")).toHaveLength(16); // header + 15 tasks
     expect(screen.getByRole("rowheader", { name: /Resume parsing/ })).toBeTruthy();
     // the db-sourced task shows "Admin" and a Reset link; the env ones show "Env"
     expect(screen.getAllByText("Admin").length).toBeGreaterThan(0);
@@ -192,7 +192,7 @@ describe("AiProvidersPage (I1.12)", () => {
   });
 
   it("Test connection shows the result line, refreshes the status, and says why when it can't run", async () => {
-    handler = () => reply(200, { ok: true, model: "gemini-2.5-flash-lite-001", latencyMs: 412, inputTokens: 9, outputTokens: 1, costMicros: 4, error: null });
+    handler = (c) => c.url.includes("/calls") ? reply(200, calls()) : reply(200, { ok: true, model: "gemini-2.5-flash-lite-001", latencyMs: 412, inputTokens: 9, outputTokens: 1, costMicros: 4, error: null });
     mount();
     const card = screen.getByRole("article", { name: "Google Gemini" });
     fireEvent.click(within(card).getByRole("button", { name: "Test connection" }));
@@ -200,12 +200,12 @@ describe("AiProvidersPage (I1.12)", () => {
     expect(sent[0]).toMatchObject({ method: "POST", url: "/api/admin/ai/providers/gemini/test" });
     expect(within(card).getByText("Ready")).toBeTruthy();
 
-    handler = () => reply(200, { ok: false, model: "gemini-2.5-flash-lite", latencyMs: 30004, inputTokens: 0, outputTokens: 0, costMicros: 0, error: { kind: "TIMEOUT", message: "Gemini did not answer in time." } });
+    handler = (c) => c.url.includes("/calls") ? reply(200, calls()) : reply(200, { ok: false, model: "gemini-2.5-flash-lite", latencyMs: 30004, inputTokens: 0, outputTokens: 0, costMicros: 0, error: { kind: "TIMEOUT", message: "Gemini did not answer in time." } });
     fireEvent.click(within(card).getByRole("button", { name: "Test connection" }));
     expect(await within(card).findByText("✖ TIMEOUT: Gemini did not answer in time.")).toBeTruthy();
     expect(within(card).getByText("✖ Failing")).toBeTruthy();
 
-    handler = () => reply(429, { error: "Too many provider tests this hour.", code: "AI_TEST_RATE_LIMITED", retryAfterSeconds: 600 });
+    handler = (c) => c.url.includes("/calls") ? reply(200, calls()) : reply(429, { error: "Too many provider tests this hour.", code: "AI_TEST_RATE_LIMITED", retryAfterSeconds: 600 });
     fireEvent.click(within(card).getByRole("button", { name: "Test connection" }));
     expect(await within(card).findByText(/You've run 30 tests this hour — try again after /)).toBeTruthy();
   });
@@ -240,5 +240,144 @@ describe("AiProvidersPage (I1.12)", () => {
     });
     await waitFor(() => expect(sent).toHaveLength(2));
     expect(maxInFlight).toBe(1);
+  });
+});
+
+describe("AiProvidersPage (I1.13)", () => {
+  it("shows the stat tiles from the 24 h summary and the recent calls with their failures", () => {
+    mount();
+    expect(screen.getByText("1,284")).toBeTruthy();
+    expect(screen.getByText("7 (0.5%)")).toBeTruthy();
+    expect(screen.getByText("1.9 s")).toBeTruthy();
+    expect(screen.getByText("$0.4100")).toBeTruthy();
+    expect(screen.getAllByText("✖ TIMEOUT").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("sophie.lee").length).toBeGreaterThan(0);
+    expect(screen.getByText("Showing 2 of 1,284")).toBeTruthy();
+    expect(sent).toHaveLength(0); // the server's answer is the first paint: no fetch on mount
+  });
+
+  it("the Server AI switch asks for a reason before turning off, then sends it", async () => {
+    handler = () => reply(200, { enabled: R(false, "db", true) });
+    mount();
+    fireEvent.click(screen.getByRole("switch", { name: "Server AI" }));
+    const dialog = await screen.findByRole("dialog", { name: "Turn off server AI?" });
+    expect(within(dialog).getByText("Every AI feature pauses for every user until it's back on. BYO keys in the extension keep working.")).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText("Reason (required)"), { target: { value: "Provider outage" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Turn off" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ method: "PATCH", url: "/api/admin/ai/config/global", body: { enabled: false, reason: "Provider outage" } });
+    expect(await screen.findByText("Server AI turned off")).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Server AI" }).getAttribute("aria-checked")).toBe("false"));
+
+    // Undo puts it back (the old value came from env, so the row is cleared with null)
+    handler = () => reply(200, { enabled: R(true, "env", true) });
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1].body).toEqual({ enabled: null });
+  });
+
+  it("where the deployment has AI off the Server AI switch can only show off", () => {
+    mount(config({ envMasterEnabled: false }));
+    const sw = screen.getByRole("switch", { name: "Server AI" }) as HTMLButtonElement;
+    expect(sw.disabled).toBe(true);
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("a price edit saves in whole micros with all three values, shows Reset, and Undo deletes the admin row", async () => {
+    handler = (c) =>
+      c.method === "PUT"
+        ? reply(200, { model: "gemini-2.5-flash", inputPerMtokMicros: R(350000, "db"), cachedPerMtokMicros: R(30000, "db"), outputPerMtokMicros: R(2500000, "db"), custom: true, builtin: true })
+        : reply(200, { model: "gemini-2.5-flash", inputPerMtokMicros: R(300000), cachedPerMtokMicros: R(30000), outputPerMtokMicros: R(2500000), custom: false, builtin: true });
+    mount();
+    const box = screen.getByLabelText("gemini-2.5-flash input price in dollars per million tokens") as HTMLInputElement;
+    expect(box.value).toBe("0.30");
+    fireEvent.change(box, { target: { value: "0.35" } });
+    fireEvent.blur(box);
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({
+      method: "PUT",
+      url: "/api/admin/ai/prices/gemini-2.5-flash",
+      body: { inputPerMtokMicros: 350000, cachedPerMtokMicros: 30000, outputPerMtokMicros: 2500000 },
+    });
+    expect(await screen.findByText("Price updated for gemini-2.5-flash")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reset gemini-2.5-flash price to default" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]).toMatchObject({ method: "DELETE", url: "/api/admin/ai/prices/gemini-2.5-flash" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reset gemini-2.5-flash price to default" })).toBeNull());
+  });
+
+  it("a price that is not a dollar amount is refused before anything is sent", async () => {
+    mount();
+    const box = screen.getByLabelText("gemini-2.5-flash output price in dollars per million tokens");
+    fireEvent.change(box, { target: { value: "lots" } });
+    fireEvent.blur(box);
+    expect(await screen.findByText("Enter dollars per million tokens, like 0.10.")).toBeTruthy();
+    expect(sent).toHaveLength(0);
+  });
+
+  it("adds a model price (all three values) and the new row appears", async () => {
+    handler = () => reply(200, { model: "qwen3:8b", inputPerMtokMicros: R(0, "db"), cachedPerMtokMicros: R(0, "db"), outputPerMtokMicros: R(0, "db"), custom: true, builtin: false });
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Add a model price" }));
+    fireEvent.change(screen.getByLabelText("Model id"), { target: { value: "qwen3:8b" } });
+    for (const part of ["input", "cached input", "output"]) fireEvent.change(screen.getByLabelText(`New ${part} price in dollars per million tokens`), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add price" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ method: "PUT", url: "/api/admin/ai/prices/qwen3%3A8b", body: { inputPerMtokMicros: 0, cachedPerMtokMicros: 0, outputPerMtokMicros: 0 } });
+    expect(await screen.findByRole("rowheader", { name: "qwen3:8b" })).toBeTruthy();
+  });
+
+  it("Failed only re-reads the calls with failed=true and says how many of the total are shown", async () => {
+    handler = () => reply(200, calls({ rows: calls().rows.slice(1), nextBefore: null }));
+    mount();
+    fireEvent.click(screen.getByRole("switch", { name: "Failed only" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0].method).toBe("GET");
+    expect(sent[0].url).toBe("/api/admin/ai/calls?hours=24&limit=100&failed=true");
+    expect(await screen.findByText("Showing 1 of 7")).toBeTruthy();
+  });
+
+  it("the task filter is passed to the API, and an error offers Retry", async () => {
+    handler = () => reply(500, { error: "The action failed." });
+    mount();
+    await pickOption("Task", "Resume parsing");
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0].url).toBe("/api/admin/ai/calls?hours=24&limit=100&task=parse");
+    expect(await screen.findByText("Couldn't load recent calls.")).toBeTruthy();
+
+    handler = () => reply(200, calls({ rows: [], summary: { ...calls().summary, calls: 0, failed: 0 } }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("No AI calls in this window.")).toBeTruthy();
+  });
+
+  it("Load more pages with nextBefore", async () => {
+    handler = () => reply(200, calls({ rows: [calls().rows[1]], nextBefore: null }));
+    render(
+      <ToastProvider>
+        <AiProvidersPage config={config()} calls={calls({ nextBefore: 11 })} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0].url).toBe("/api/admin/ai/calls?hours=24&limit=100&before=11");
+    await waitFor(() => expect(screen.getByText("Showing 3 of 1,284")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("the change history drawer lists who changed what and why", async () => {
+    handler = () =>
+      reply(200, [
+        { id: 2, key: "ai.route.parse.enabled", oldValue: "true", newValue: "false", actorLogin: "admin", reason: "Gemini 5xx spike", changedAt: "2026-10-12T16:00:00Z" },
+        { id: 1, key: "ai.route.map.model", oldValue: null, newValue: "gemini-2.5-flash", actorLogin: "maya.chen", reason: null, changedAt: "2026-10-12T15:00:00Z" },
+      ]);
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Change history" }));
+    expect(await screen.findByText("route · parse · enabled")).toBeTruthy();
+    expect(sent[0].url).toBe("/api/admin/ai/config/history?limit=50");
+    expect(screen.getByText(/by admin · “Gemini 5xx spike”/)).toBeTruthy();
+    expect(screen.getByText("route · map · model")).toBeTruthy();
+    expect(screen.getByText("none")).toBeTruthy();
   });
 });

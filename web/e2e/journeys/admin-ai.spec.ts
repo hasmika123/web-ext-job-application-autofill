@@ -41,8 +41,15 @@ test.describe("at 1440px", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test("renders the provider card and 15 routes without a key field", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("console", (m) => {
+      if (m.type() === "error" && !/Failed to load resource/i.test(m.text())) errors.push(m.text());
+    });
+    page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("/admin/ai/providers");
     await expect(page.getByRole("heading", { level: 1, name: "AI providers & routing" })).toBeVisible();
+    await page.waitForLoadState("networkidle").catch(() => {});
+    expect(errors, "console errors (hydration mismatches included)").toEqual([]);
     const card = page.getByRole("article", { name: "Google Gemini" });
     await expect(card.getByText("Key present ✓")).toBeVisible();
     await expect(card.getByText("DOSSIER_AI_API_KEY", { exact: true })).toBeVisible();
@@ -110,6 +117,44 @@ test.describe("at 1440px", () => {
     expect(sent).toEqual({ enabled: false, reason: "Gemini 5xx spike" });
   });
 
+  test("stat tiles, pricing, recent calls and the Failed-only filter (the mock serves the filter)", async ({ page }) => {
+    await page.goto("/admin/ai/providers");
+    await expect(page.getByText("Calls · 24 h")).toBeVisible();
+    await expect(page.getByText("Spend · 24 h")).toBeVisible();
+    await expect(page.getByLabel("gemini-2.5-flash input price in dollars per million tokens")).toHaveValue("0.30");
+    await expect(page.getByText("Unpriced models are costed at the dearest Flash rate (over-counted, never free).")).toBeVisible();
+
+    const table = page.getByLabel("Recent AI calls");
+    await expect(page.getByText(/^Showing 100 of /)).toBeVisible();
+    await page.getByRole("switch", { name: "Failed only" }).click();
+    const failedRows = table.locator("tbody tr");
+    await expect(failedRows.first()).toBeVisible();
+    await expect(table.locator("td", { hasText: /^OK$/ })).toHaveCount(0);
+    await expect(page.getByText(/^Showing \d+ of \d+$/)).toBeVisible();
+    await shot(page, "calls-failed-only-1440");
+
+  });
+
+  test("the Server AI switch asks for a reason, and the history drawer opens", async ({ page }) => {
+    await page.goto("/admin/ai/providers");
+    let sent: unknown = null;
+    await page.route("**/api/admin/ai/config/global", async (route) => {
+      sent = route.request().postDataJSON();
+      await route.fulfill({ json: { enabled: R(false, "db", true) } });
+    });
+    await page.getByRole("switch", { name: "Server AI" }).click();
+    const dialog = page.getByRole("dialog", { name: "Turn off server AI?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Reason (required)").fill("Provider outage");
+    await dialog.getByRole("button", { name: "Turn off" }).click();
+    await expect(page.getByText("Server AI turned off")).toBeVisible();
+    expect(sent).toEqual({ enabled: false, reason: "Provider outage" });
+
+    await page.getByRole("button", { name: "Change history" }).click();
+    await expect(page.getByText("route · map · model")).toBeVisible();
+    await shot(page, "history-drawer-1440");
+  });
+
   test("Test connection shows latency, model, tokens and cost", async ({ page }) => {
     await page.goto("/admin/ai/providers");
     await page.route("**/api/admin/ai/providers/gemini/test", (route) =>
@@ -135,5 +180,37 @@ test.describe("at 390px", () => {
     await expect(sheet.getByLabel("Answer drafting max output tokens")).toBeVisible();
     await noOverflow(page);
     await shot(page, "route-sheet-390");
+  });
+
+  test("no horizontal scroll at 360px either", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto("/admin/ai/providers");
+    await expect(page.getByText("Recent calls & errors")).toBeVisible();
+    await noOverflow(page);
+  });
+
+  test("pricing and recent calls stay in one column; a price opens in a sheet; 44 px controls", async ({ page }) => {
+    await page.goto("/admin/ai/providers");
+    await expect(page.getByText("Recent calls & errors")).toBeVisible();
+    await noOverflow(page);
+    await shot(page, "providers-390");
+    // every visible button / input / switch that is a real tap target is at least 44 px tall (Switch tracks have a taller hit area)
+    const short = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("main button, main input, main [role=switch]")]
+        .filter((e) => {
+          const r = e.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0 || e.getAttribute("role") === "switch") return false;
+          return r.height < 43;
+        })
+        .map((e) => (e.getAttribute("aria-label") ?? e.textContent ?? "").trim().slice(0, 40)),
+    );
+    expect(short, "controls under 44 px").toEqual([]);
+
+    await page.getByRole("button", { name: "Edit gemini-2.5-flash price" }).click();
+    const sheet = page.getByRole("dialog", { name: "gemini-2.5-flash price" });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByLabel("gemini-2.5-flash input price in dollars per million tokens")).toHaveValue("0.30");
+    await noOverflow(page);
+    await shot(page, "price-sheet-390");
   });
 });

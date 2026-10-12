@@ -1,6 +1,6 @@
 "use client";
 
-import { undoValue } from "@/lib/ai-admin";
+import { pricePerMtok, undoValue } from "@/lib/ai-admin";
 import type { AiConfig, AiPriceItem, AiProviderItem, AiRouteItem, Resolved } from "@/lib/ai-admin";
 import { useAiAdmin } from "./useAiAdmin";
 import type { SaveOutcome } from "./useAiAdmin";
@@ -157,14 +157,16 @@ export function useAiOps() {
       return sendProvider(p, { [field]: value }, `provider:${p.id}:${field}`, { [field]: undoValue(prev as Resolved<unknown>) }, title, typeof value === "string" || typeof value === "number" ? String(value) : undefined);
     }
 
-    function putPrice(item: AiPriceItem, next: { input: number; cached: number; output: number }): Promise<SaveOutcome> {
-      return savePrice(item.model, next, item);
+    /** One price cell edited: `part` names the control (tick, error and the optimistic text are keyed by it). */
+    function putPrice(item: AiPriceItem, next: { input: number; cached: number; output: number }, part: "input" | "cached" | "output"): Promise<SaveOutcome> {
+      return savePrice(item.model, next, item, `price:${item.model}:${part}`, pricePerMtok(next[part]));
     }
 
-    function savePrice(model: string, next: { input: number; cached: number; output: number }, prev: AiPriceItem | null): Promise<SaveOutcome> {
+    function savePrice(model: string, next: { input: number; cached: number; output: number }, prev: AiPriceItem | null, key = `price:${model}`, optimistic?: string): Promise<SaveOutcome> {
       const path = `/prices/${encodeURIComponent(model)}`;
       return save<AiPriceItem>({
-        key: `price:${model}`,
+        key,
+        optimistic,
         row: `price:${model}`,
         method: "PUT",
         path,

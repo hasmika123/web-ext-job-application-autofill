@@ -17,7 +17,6 @@ import {
 } from "@kiwiply/ui";
 import { DataTable, FilterSelect, IconTile, Progress, StatusChip, type DataColumn, type Tone } from "@/components/app-v2/common";
 import { AdminHero, AdminPanel, AdminStatTiles, BarLineChart, PersonCell, SampleTag } from "../common";
-import { ComingSoonButton } from "./ComingSoon";
 import {
   AI_ALERTS,
   AI_SEVERITY_TONE,
@@ -250,9 +249,12 @@ export default function AiUsagePage({ data }: { data: AiUsageView | null }) {
             title="Usage limits & quota"
             description="Platform-wide AI usage and limits."
             right={
-              <ComingSoonButton what="Editing platform limits">
-                <GearIcon size={15} /> Edit limits
-              </ComingSoonButton>
+              <Link
+                href="/admin/ai/providers"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-v2-line bg-paper px-3 py-1.5 text-[13px] font-semibold text-v2-blue-ink shadow-v2-soft hover:bg-paper-2 sm:min-h-0"
+              >
+                <GearIcon size={15} /> Providers &amp; routing <ArrowRightIcon size={14} />
+              </Link>
             }
           >
             <ul className="space-y-4 text-[13px]">
