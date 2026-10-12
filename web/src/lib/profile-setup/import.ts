@@ -33,32 +33,40 @@ export interface ImportBody {
   provenanceBio?: "parsed";
 }
 
-/** The kept candidates in order, with the user's edits applied. An edited entry counts as the user's own. */
-export function keptItems(candidates: Candidate[], decisions: Record<string, Decision>, edits: Record<string, ItemData>): ImportItem[] {
+/**
+ * The kept candidates in order, with the user's edits applied. An edited entry counts as the user's own;
+ * `base` is the provenance of an untouched one (PARSED from a resume, USER for the "Start fresh" answers).
+ */
+export function keptItems(
+  candidates: Candidate[],
+  decisions: Record<string, Decision>,
+  edits: Record<string, ItemData>,
+  base: Provenance = "PARSED",
+): ImportItem[] {
   return candidates
     .filter((c) => decisions[c.id] === "keep")
     .map((c) => ({
       section: c.section,
       dataJson: edits[c.id] ?? c.data,
-      provenance: edits[c.id] ? ("USER" as const) : ("PARSED" as const),
+      provenance: edits[c.id] ? ("USER" as const) : base,
     }));
 }
 
 /** SKILL items: one row of up to 40 skills each, like the API's seeding. */
-export function skillItems(skills: string[]): ImportItem[] {
+export function skillItems(skills: string[], provenance: Provenance = "PARSED"): ImportItem[] {
   const clean = skills.map((s) => s.trim().slice(0, MAX_SKILL_CHARS)).filter(Boolean);
   const rows: ImportItem[] = [];
   for (let i = 0; i < clean.length; i += SKILLS_PER_ROW) {
-    rows.push({ section: "SKILL", dataJson: { group: SKILL_GROUP, skills: clean.slice(i, i + SKILLS_PER_ROW) }, provenance: "PARSED" });
+    rows.push({ section: "SKILL", dataJson: { group: SKILL_GROUP, skills: clean.slice(i, i + SKILLS_PER_ROW) }, provenance });
   }
   return rows;
 }
 
-export function languageItems(languages: Language[]): ImportItem[] {
+export function languageItems(languages: Language[], provenance: Provenance = "PARSED"): ImportItem[] {
   return languages.map((l) => ({
     section: "LANGUAGE",
     dataJson: l.level ? { name: l.name, level: l.level } : { name: l.name },
-    provenance: "PARSED" as const,
+    provenance,
   }));
 }
 

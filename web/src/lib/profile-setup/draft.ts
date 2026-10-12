@@ -26,7 +26,7 @@ export interface Language {
 }
 
 /** Flat bio keys the wizard confirms (identity and contact, plus the summary). All are import-allowed. */
-export const IDENTITY_KEYS = ["firstName", "lastName", "email", "phone", "city", "state", "linkedin", "github", "website", "summary"] as const;
+export const IDENTITY_KEYS = ["firstName", "lastName", "email", "phone", "city", "state", "headline", "linkedin", "github", "website", "summary"] as const;
 export type IdentityKey = (typeof IDENTITY_KEYS)[number];
 export type Identity = Partial<Record<IdentityKey, string>>;
 

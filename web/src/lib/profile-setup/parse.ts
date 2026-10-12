@@ -8,12 +8,15 @@
  */
 import { heuristicStructure } from "@/lib/parser-core";
 import { parseResume, parseResumeWithAi, parseText, parseTextWithAi, type ParsedResume } from "@/lib/resume-parse";
-import { toDraft, type BioLimits, type ParsedDraft } from "./draft";
+import { toDraft, type BioLimits, type Identity, type ParsedDraft } from "./draft";
+import type { ParseSource } from "./state";
 import { redactForParsing } from "./sensitive";
 
 export interface SetupParse {
   draft: ParsedDraft;
-  source: "ai" | "heuristic";
+  source: ParseSource;
+  /** Values the person typed themselves ("Start fresh": headline, links); written as theirs, not as parsed. */
+  typed?: Identity;
   /** Sensitive values removed from the text before parsing plus any removed from the parsed output. */
   removed: number;
 }

@@ -33,6 +33,9 @@ export type { SwitchProps } from "./primitives/Switch";
 export { default as ChoiceGroup } from "./primitives/ChoiceGroup";
 export type { ChoiceGroupProps } from "./primitives/ChoiceGroup";
 
+export { default as MonthPicker, isMonthValue } from "./primitives/MonthPicker";
+export type { MonthPickerProps } from "./primitives/MonthPicker";
+
 export { default as Meter } from "./primitives/Meter";
 export type { MeterProps } from "./primitives/Meter";
 

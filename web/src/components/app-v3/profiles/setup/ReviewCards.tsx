@@ -33,6 +33,7 @@ export default function ReviewCards({
   onCursor,
   onKeepRemaining,
   onDone,
+  provenance = "PARSED",
 }: {
   candidates: Candidate[];
   decisions: Record<string, Decision>;
@@ -45,6 +46,8 @@ export default function ReviewCards({
   onCursor: (cursor: number) => void;
   onKeepRemaining: () => void;
   onDone: () => void;
+  /** Where an untouched card came from: "PARSED" for a resume, "USER" for the guided "Start fresh" answers. */
+  provenance?: "PARSED" | "USER";
 }) {
   const total = candidates.length;
   const card = cursor < total ? candidates[cursor] : null;
@@ -124,7 +127,7 @@ export default function ReviewCards({
                 </ul>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <SourceChip provenance={edits[card.id] ? "USER" : "PARSED"} />
+                <SourceChip provenance={edits[card.id] ? "USER" : provenance} />
                 {kept && <span className="rounded-full bg-paper-2 px-2 py-[2px] text-[11px] font-semibold text-v2-muted">You chose: {kept === "keep" ? "keep" : "skip"}</span>}
               </div>
             </article>

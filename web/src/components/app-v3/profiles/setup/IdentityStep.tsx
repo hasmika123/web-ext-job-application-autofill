@@ -11,6 +11,7 @@ const FIELDS: { key: IdentityKey; label: string; wide?: boolean; type?: string }
   { key: "phone", label: "Phone", type: "tel" },
   { key: "city", label: "City" },
   { key: "state", label: "State / Province" },
+  { key: "headline", label: "Headline", wide: true },
   { key: "linkedin", label: "LinkedIn", wide: true, type: "url" },
   { key: "github", label: "GitHub", wide: true, type: "url" },
   { key: "website", label: "Website", wide: true, type: "url" },
