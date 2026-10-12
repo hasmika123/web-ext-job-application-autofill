@@ -1,7 +1,9 @@
 # PLAN — area `admin` (platform admin dashboard and business operations)
 
-Machine-readable plan: `docs/roadmap/areas/admin.json` (17 epics, 94 stories: 7 done, 7 partial, 80 not started).
+Machine-readable plan: `docs/roadmap/areas/admin.json` (17 epics, 109 stories: 7 done, 11 partial, 91 not started as of 2026-10-12).
 Audit: `docs/roadmap/AUDIT-admin.md`. Designs: `docs/design/admin/*.md` (8 docs).
+**Build plan (2026-10-12): `docs/ADMIN-E2E-PLAN.md`** — the per-route audit, the Settings home spec and the three build waves
+(18 / 20 / 23 stories) supersede the walking skeleton in §3 below; `docs/HANDOFF-ADMIN-E2E.md` is the continuation point.
 
 ## 1. Where we are
 
