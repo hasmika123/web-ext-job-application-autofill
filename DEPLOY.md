@@ -1074,6 +1074,15 @@ more than 20 s is cut off (504). These are env now and become admin settings lat
 | `RESUME_PDF_MAX_CONCURRENT` | `resume.pdf.maxConcurrent` | `1` |
 | `RESUME_PDF_QUEUE_MAX` | `resume.pdf.queueMax` | `10` |
 | `RESUME_PDF_MAX_FIT_STEPS` | `resume.pdf.maxFitSteps` | `3` |
+| `RESUME_PDF_CONNECT_TIMEOUT_MS` | `resume.pdf.connectTimeoutMs` | `30000` |
+| `RESUME_PDF_CONNECT_ATTEMPTS` | `resume.pdf.connectAttempts` | `5` |
+| `RESUME_PDF_CONNECT_BACKOFF_MS` | `resume.pdf.connectBackoffMs` | `500` |
+| `RESUME_PDF_CONNECT_BUDGET_MS` | `resume.pdf.connectBudgetMs` | `60000` |
+| `RESUME_PDF_WARMUP` | `resume.pdf.warmup` | `1` |
+
+The first connect after the sidecar starts (or sits idle) launches a COLD Chromium: ~14 s on the demo box against ~1.3 s
+warm. The connect therefore waits up to `connectTimeoutMs` per try, retries with doubling backoff, and the web server
+warms the sidecar once on boot so the first export after a deploy finds it ready.
 
 **Restart.** `restart: unless-stopped` plus a healthcheck (`curl /pressure` every 30 s, 3 strikes).
 Docker restarts a crashed container but does not restart an unhealthy one; if it shows `unhealthy`,

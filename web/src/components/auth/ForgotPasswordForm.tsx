@@ -88,7 +88,7 @@ export default function ForgotPasswordForm() {
           error={show ? emailErr : undefined}
         />
         {error && (
-          <p role="alert" className="mb-3 text-sm font-medium text-danger">
+          <p role="alert" className="mb-3 text-sm font-medium text-danger-text">
             {error}
           </p>
         )}

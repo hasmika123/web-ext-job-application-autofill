@@ -173,7 +173,7 @@ const SALARY_TAG = `${TAG_BASE} bg-paper-2 font-medium text-ink-soft`;
 const PANEL_BTN = "flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors";
 const PANEL_BTN_ACCENT = `${PANEL_BTN} border-accent text-accent-deep hover:bg-accent-soft`;
 const PANEL_BTN_NEUTRAL = `${PANEL_BTN} border-line text-ink-soft hover:bg-paper-2`;
-const PANEL_BTN_DANGER = `${PANEL_BTN} border-line text-danger hover:bg-paper-2`;
+const PANEL_BTN_DANGER = `${PANEL_BTN} border-line text-danger-text hover:bg-paper-2`;
 function companyInitial(company: string): string {
   return (company.trim()[0] ?? "•").toUpperCase();
 }
@@ -748,12 +748,12 @@ export default function ApplicationBoard({
           <button type="button" onClick={() => void bulkPatch({ starred: true })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">★ Star</button>
           <button type="button" onClick={() => void bulkPatch({ starred: false })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">☆ Unstar</button>
           <button type="button" onClick={() => void bulkPatch({ archived: true })} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-ink-soft hover:border-accent">Archive</button>
-          <button type="button" onClick={() => void bulkDelete()} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-danger hover:bg-paper-2">Delete</button>
+          <button type="button" onClick={() => void bulkDelete()} className="rounded-full border border-line bg-paper px-3 py-1.5 font-medium text-danger-text hover:bg-paper-2">Delete</button>
           <button type="button" onClick={clearPicked} className="ml-auto rounded-full px-3 py-1.5 font-medium text-muted hover:text-ink">Clear</button>
         </div>
       )}
 
-      {error && <p role="alert" className="mb-3 text-sm font-medium text-danger">{error}</p>}
+      {error && <p role="alert" className="mb-3 text-sm font-medium text-danger-text">{error}</p>}
 
       {apps.length > 0 && totalVisible === 0 ? (
         <p className="rounded-[var(--radius-lg)] border border-dashed border-line bg-paper py-12 text-center text-sm text-muted">

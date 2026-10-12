@@ -11,7 +11,7 @@ const SHEET_WIDTH = 560;
 const KIND: Record<SyncChange["kind"], { label: string; cls: string }> = {
   added: { label: "Added on master", cls: "bg-[color-mix(in_srgb,var(--color-ok)_16%,transparent)] text-accent-deep" },
   changed: { label: "Changed on master", cls: "bg-[color-mix(in_srgb,var(--color-warn)_18%,transparent)] text-ink" },
-  removed: { label: "Removed on master", cls: "bg-[color-mix(in_srgb,var(--color-danger)_14%,transparent)] text-danger" },
+  removed: { label: "Removed on master", cls: "bg-[color-mix(in_srgb,var(--color-danger)_14%,transparent)] text-danger-text" },
 };
 
 /** A change's value as the lines a person reads: a string as it is, an item as its title and bullets. */
@@ -140,13 +140,13 @@ export default function SyncDiffSheet({
         </p>
       )}
       {state.status === "error" && (
-        <p role="alert" className="py-6 text-[13.5px] text-danger">
+        <p role="alert" className="py-6 text-[13.5px] text-danger-text">
           {state.message}
         </p>
       )}
       {state.status === "ready" && changes.length === 0 && <p className="rounded-xl border border-line bg-paper-2 p-4 text-[13.5px] text-ink-soft">This resume already has everything from the master.</p>}
       {error && (
-        <p role="alert" className="mb-3 text-[13px] text-danger">
+        <p role="alert" className="mb-3 text-[13px] text-danger-text">
           {error}
         </p>
       )}

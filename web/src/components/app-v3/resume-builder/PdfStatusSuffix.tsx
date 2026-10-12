@@ -29,7 +29,7 @@ export default function PdfStatusSuffix({ pdf, onRetry, className }: { pdf: PdfI
   }
   if (status === "FAILED") {
     return (
-      <span role="status" aria-live="polite" data-pdf-status="failed" className={cn("inline-flex items-center gap-1 text-[12.5px] font-medium text-danger", className)}>
+      <span role="status" aria-live="polite" data-pdf-status="failed" className={cn("inline-flex items-center gap-1 text-[12.5px] font-medium text-danger-text", className)}>
         <span aria-hidden>·</span>
         <span>PDF couldn&apos;t be made</span>
         {onRetry && (

@@ -154,7 +154,7 @@ export function OptionsApp() {
     }
   }
 
-  const bugColor = bugStatus.kind === "ok" ? "text-accent-deep" : bugStatus.kind === "err" ? "text-danger" : "text-muted";
+  const bugColor = bugStatus.kind === "ok" ? "text-accent-deep" : bugStatus.kind === "err" ? "text-danger-text" : "text-muted";
 
   return (
     <div className="min-h-screen bg-app-bg">

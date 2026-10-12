@@ -158,7 +158,7 @@ export default function SourceStep({
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-[14px] font-medium text-danger">
+        <p role="alert" className="mt-3 text-[14px] font-medium text-danger-text">
           {error}
         </p>
       )}

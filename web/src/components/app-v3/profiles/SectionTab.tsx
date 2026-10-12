@@ -69,7 +69,7 @@ export default function SectionTab({
       </div>
 
       {loadFailed && (
-        <p role="alert" className="mt-3 text-[13px] text-danger">
+        <p role="alert" className="mt-3 text-[13px] text-danger-text">
           We couldn&apos;t load your entries. Refresh the page to try again.
         </p>
       )}

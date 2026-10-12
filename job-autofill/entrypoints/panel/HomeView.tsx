@@ -197,7 +197,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     }
   }
 
-  const statusColor = status.kind === "err" ? "text-danger" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
+  const statusColor = status.kind === "err" ? "text-danger-text" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
 
   return (
     <div className="kiwi-fade-in flex min-h-screen w-full flex-col gap-4 bg-app-bg px-4 pb-4 pt-4 font-body text-ink">

@@ -121,7 +121,7 @@ export default function ContactForm({ initialTopic }: { initialTopic: InquiryTop
         </p>
 
         {error && (
-          <p role="alert" className="mb-3 text-sm text-danger">
+          <p role="alert" className="mb-3 text-sm text-danger-text">
             {error}
           </p>
         )}

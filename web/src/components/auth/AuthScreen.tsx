@@ -162,7 +162,7 @@ function LoginForm({ next }: { next?: string }) {
             autoFocus
           />
           {error && (
-            <p role="alert" className="mb-3 text-sm font-medium text-danger">
+            <p role="alert" className="mb-3 text-sm font-medium text-danger-text">
               {error}
             </p>
           )}
@@ -224,7 +224,7 @@ function LoginForm({ next }: { next?: string }) {
           }
         />
         {error && (
-          <p role="alert" className="mb-3 text-sm font-medium text-danger">
+          <p role="alert" className="mb-3 text-sm font-medium text-danger-text">
             {error}
           </p>
         )}
@@ -433,7 +433,7 @@ function SignupForm({ next, demo }: { next?: string; demo?: DemoInfo | null }) {
           error={show("confirm") ? errs.confirm : undefined}
         />
         {error && (
-          <p role="alert" className="mb-3 text-sm font-medium text-danger">
+          <p role="alert" className="mb-3 text-sm font-medium text-danger-text">
             {error}
           </p>
         )}

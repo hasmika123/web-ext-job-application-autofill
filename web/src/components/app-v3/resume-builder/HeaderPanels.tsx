@@ -205,7 +205,7 @@ export function RecruiterPanel({
             </p>
           )}
           {error && (
-            <p role="alert" className="px-2.5 text-[13px] text-danger">
+            <p role="alert" className="px-2.5 text-[13px] text-danger-text">
               {error}
             </p>
           )}
@@ -323,7 +323,7 @@ export function VersionPanel({
         </p>
       )}
       {state.status === "error" && (
-        <p role="alert" className="px-2.5 py-3 text-[13px] text-danger">
+        <p role="alert" className="px-2.5 py-3 text-[13px] text-danger-text">
           {state.message}
         </p>
       )}

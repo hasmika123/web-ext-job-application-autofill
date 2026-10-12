@@ -185,7 +185,7 @@ export default function SkillsChips({ api, atCap, loadFailed }: { api: ProfileIt
       <p className="mt-1 text-[12.5px] text-v2-muted">Type a skill and press Enter. Group them however reads best on a resume.</p>
 
       {loadFailed && (
-        <p role="alert" className="mt-3 text-[13px] text-danger">
+        <p role="alert" className="mt-3 text-[13px] text-danger-text">
           We couldn&apos;t load your skills. Refresh the page to try again.
         </p>
       )}
@@ -236,7 +236,7 @@ export default function SkillsChips({ api, atCap, loadFailed }: { api: ProfileIt
 
       <div aria-live="polite" className="mt-3 min-h-5 text-[12.5px]">
         {notice ? (
-          <span role="alert" className="font-medium text-danger">
+          <span role="alert" className="font-medium text-danger-text">
             {notice}
           </span>
         ) : status.kind === "saving" ? (
@@ -244,7 +244,7 @@ export default function SkillsChips({ api, atCap, loadFailed }: { api: ProfileIt
         ) : status.kind === "saved" ? (
           <span className="text-v2-green-ink">All changes saved</span>
         ) : status.kind === "error" ? (
-          <span role="alert" className="font-medium text-danger">
+          <span role="alert" className="font-medium text-danger-text">
             {status.message}
           </span>
         ) : null}

@@ -45,7 +45,7 @@ export const STATUS_LABEL: Record<StatusGroup, string> = {
 /** Pill colours per group — the same token palette the bug-report and inquiry pills use. */
 export const STATUS_PILL: Record<StatusGroup, string> = {
   ACTIVE: "bg-accent text-on-accent",
-  PAST_DUE: "bg-danger/15 text-danger",
+  PAST_DUE: "bg-danger/15 text-danger-text",
   CANCELLING: "bg-brown-soft text-brown-deep",
   LAPSED: "bg-paper-2 text-ink-soft ring-1 ring-line",
 };

@@ -341,7 +341,7 @@ export default function BioEditor({
     const source = trimmed !== asString(initialBio[f.key]).trim() ? "user" : provenance?.[f.key];
     const label = f.required ? (
       <>
-        {f.label} <span className="text-danger" aria-hidden>*</span>
+        {f.label} <span className="text-danger-text" aria-hidden>*</span>
       </>
     ) : (
       f.label
@@ -448,7 +448,7 @@ export default function BioEditor({
           />
         </div>
         {parseMsg && (
-          <p className={cn("mb-4 text-[12.5px]", parseErr ? "font-medium text-danger" : "text-accent-deep")} role={parseErr ? "alert" : undefined}>
+          <p className={cn("mb-4 text-[12.5px]", parseErr ? "font-medium text-danger-text" : "text-accent-deep")} role={parseErr ? "alert" : undefined}>
             {parseMsg}
           </p>
         )}
@@ -466,7 +466,7 @@ export default function BioEditor({
         </div>
 
         <p className="mb-4 text-[12px] text-muted">
-          <span className="text-danger">*</span> Required field
+          <span className="text-danger-text">*</span> Required field
         </p>
         </>)}
 
@@ -523,7 +523,7 @@ export default function BioEditor({
               <span>Autosaves as you type</span>
             )}
           </div>
-          {error && <span role="alert" className="text-sm font-medium text-danger">{error}</span>}
+          {error && <span role="alert" className="text-sm font-medium text-danger-text">{error}</span>}
           <button
             type="button"
             onClick={() => void commit(values, skills)}
