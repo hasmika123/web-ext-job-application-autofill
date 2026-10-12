@@ -386,6 +386,7 @@ class ResumeSourcesIT {
         long id = res.at("/resume/id").asLong();
         assertThat(res.at("/doc/doc/meta/originalFileKey").isNull()).isTrue();
         mockMvc.perform(get("/api/profile/resumes/" + id + "/original")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/meta")).andExpect(status().isOk()).andExpect(jsonPath("$.hasOriginal").value(false)); // nothing to download yet
 
         MockMultipartFile file = new MockMultipartFile("file", "Ada CV.pdf", "application/pdf", "%PDF-mine".getBytes(StandardCharsets.UTF_8));
         mockMvc.perform(multipart("/api/resumes/" + id + "/file").file(file)).andExpect(status().isOk());
@@ -395,6 +396,7 @@ class ResumeSourcesIT {
         JsonNode doc = json(mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andReturn().getResponse().getContentAsString());
         String key = doc.at("/doc/meta/originalFileKey").asText();
         assertThat(key).startsWith("resume-originals/" + user().getId() + "/");
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/meta")).andExpect(status().isOk()).andExpect(jsonPath("$.hasOriginal").value(true)); // the header menu offers "Download original"
         mockMvc
             .perform(get("/api/profile/resumes/" + id + "/original"))
             .andExpect(status().isOk())

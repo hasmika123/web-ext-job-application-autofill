@@ -10,6 +10,7 @@ import {
   ChevronDownIcon,
   ClockIcon,
   Dialog,
+  DownloadIcon,
   FileTextIcon,
   IconButton,
   Input,
@@ -28,6 +29,7 @@ import type { MenuEntry } from "@kiwiply/ui";
 import { formatDate, timeAgo } from "@/lib/dates";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
 import type { ResumeDocDTO } from "@/lib/resume-doc";
+import { duplicateResume } from "@/lib/resume-list-api";
 import {
   createCheckpoint,
   deleteResume,
@@ -197,6 +199,34 @@ export default function ResumeHeaderBar({
   /* ── helpers ──────────────────────────────────────────────────────────────────────────── */
   const soon = (what: string) => () => toast({ title: "Coming soon", description: `${what} isn't available in the resume builder yet.` });
   const openSettings = onOpenSettings ?? soon("Resume settings");
+
+  /** Duplicate (same call as the list card's menu): save what is pending, copy it, open the copy; a plan cap is said, not hidden. */
+  const duplicate = async () => {
+    if (!(await ensureSaved())) {
+      toast({ title: "Couldn't duplicate yet", description: "Your latest changes aren't saved. Fix the save problem shown above, then try again.", variant: "error" });
+      return;
+    }
+    const res = await duplicateResume(resumeId);
+    if (res.kind === "ok") {
+      toast({ title: "Duplicated", description: "You're now editing the copy.", variant: "success" });
+      router.push(`/resume-builder/${res.id}`);
+    } else if (res.kind === "limit") {
+      toast({ title: "Resume limit reached", description: res.message, variant: "error" });
+    } else {
+      toast({ title: "Couldn't duplicate the resume", description: res.message, variant: "error" });
+    }
+  };
+
+  /** "Download original": the file this resume was made from, straight from the owner-scoped BFF route. */
+  const downloadOriginal = () => {
+    const a = document.createElement("a");
+    a.href = `/api/resumes/${resumeId}/original`;
+    a.download = "";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   /** Runs one server change: busy while it runs, a toast when it fails; the caller uses what comes back. */
   const act = useCallback(
@@ -427,12 +457,12 @@ export default function ResumeHeaderBar({
       items.push({ separator: true });
     }
     items.push({ label: "Rename", icon: <PencilIcon size={15} />, onSelect: startRename });
-    items.push({ label: "Duplicate", onSelect: soon("Duplicating a resume") });
+    items.push({ label: "Duplicate", onSelect: () => void duplicate() });
     if (!meta.primary) items.push({ label: "Set as primary", icon: <StarIcon size={15} />, onSelect: () => void setPrimary() });
     if (config.features.tailor) items.push({ label: "Tailor for a job…", onSelect: onTailor });
     items.push({ label: "Save as version…", onSelect: () => setSaveVersionOpen(true) });
     items.push({ label: "Version history", onSelect: () => setVersionsOpen(true) });
-    // "Download original" needs `meta.originalFileKey`, which the metadata does not carry yet: it appears when it does.
+    if (meta.hasOriginal) items.push({ label: "Download original", icon: <DownloadIcon size={15} />, onSelect: downloadOriginal });
     items.push({ separator: true });
     items.push({ label: "Resume settings…", onSelect: openSettings });
     items.push({ label: meta.archived ? "Unarchive" : "Archive", onSelect: () => setPending({ kind: "archive" }) });

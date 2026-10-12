@@ -369,6 +369,11 @@ public class ResumeDocService {
         }
     }
 
+    /** Whether the document keeps the file it was made from (so the metadata can offer "Download original"). */
+    public boolean hasOriginal(ResumeDoc d) {
+        return originalKeyOf(storedDoc(d)) != null;
+    }
+
     /** The original file for download. */
     public record StoredOriginal(byte[] content, String contentType, String fileName) {}
 

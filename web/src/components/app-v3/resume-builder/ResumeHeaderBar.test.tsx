@@ -24,6 +24,7 @@ const m = vi.hoisted(() => ({
   syncMaster: vi.fn(),
   applySyncMaster: vi.fn(),
   exportText: vi.fn(),
+  duplicateResume: vi.fn(),
   push: vi.fn(),
 }));
 vi.mock("@/lib/resume-meta", async (orig) => ({
@@ -44,6 +45,7 @@ vi.mock("@/lib/resume-meta", async (orig) => ({
   syncMaster: m.syncMaster,
   applySyncMaster: m.applySyncMaster,
 }));
+vi.mock("@/lib/resume-list-api", async (orig) => ({ ...(await orig<typeof import("@/lib/resume-list-api")>()), duplicateResume: m.duplicateResume }));
 vi.mock("@/lib/resume-doc", async (orig) => ({ ...(await orig<typeof import("@/lib/resume-doc")>()), exportText: m.exportText }));
 vi.mock("@/lib/use-date-display", () => ({ useDateDisplay: () => ({ locale: "en-US", timeZone: "UTC" }) })); // the machine's locale must not decide the text
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
@@ -163,6 +165,56 @@ describe("ResumeHeaderBar: row 1", () => {
       "Archive",
       "Delete",
     ]);
+  });
+
+  it("Duplicate saves what is pending, copies the resume and opens the copy (the list card's call)", async () => {
+    m.duplicateResume.mockResolvedValue({ kind: "ok", id: 91 });
+    renderBar();
+    await settle();
+    fireEvent.click(within(header()).getByText("More actions"));
+    fireEvent.click(menuItem("Duplicate"));
+    await waitFor(() => expect(m.push).toHaveBeenCalledWith("/resume-builder/91"));
+    expect(ensureSaved).toHaveBeenCalled();
+    expect(m.duplicateResume).toHaveBeenCalledWith(42);
+    expect(ensureSaved.mock.invocationCallOrder[0]).toBeLessThan(m.duplicateResume.mock.invocationCallOrder[0]);
+  });
+
+  it("Duplicate at the plan's resume cap says so and stays; with unsaved edits it does not copy", async () => {
+    m.duplicateResume.mockResolvedValue({ kind: "limit", plan: "FREE", message: "Free accounts keep up to 3 resumes." });
+    renderBar();
+    await settle();
+    fireEvent.click(within(header()).getByText("More actions"));
+    fireEvent.click(menuItem("Duplicate"));
+    expect(await screen.findByText("Free accounts keep up to 3 resumes.")).toBeTruthy();
+    expect(m.push).not.toHaveBeenCalled();
+
+    m.duplicateResume.mockClear();
+    ensureSaved.mockResolvedValue(false);
+    fireEvent.click(within(header()).getByText("More actions"));
+    fireEvent.click(menuItem("Duplicate"));
+    expect(await screen.findByText("Couldn't duplicate yet")).toBeTruthy();
+    expect(m.duplicateResume).not.toHaveBeenCalled();
+  });
+
+  it("Download original is offered only for a resume made from an upload, and fetches the BFF's original route", async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      expect(new URL(this.href).pathname).toBe("/api/resumes/42/original");
+    });
+    renderBar();
+    await settle();
+    fireEvent.click(within(header()).getByText("More actions"));
+    expect(menuItems().map((i) => i.textContent)).not.toContain("Download original");
+    fireEvent.keyDown(document, { key: "Escape" });
+    cleanup();
+
+    renderBar({ meta: testMeta({ hasOriginal: true }) });
+    await settle();
+    fireEvent.click(within(header()).getByText("More actions"));
+    const labels = menuItems().map((i) => i.textContent);
+    expect(labels.indexOf("Download original")).toBe(labels.indexOf("Version history") + 1);
+    fireEvent.click(menuItem("Download original"));
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
   });
 
   it("the kebab hides Set as primary on the primary resume and Tailor when tailoring is off", async () => {

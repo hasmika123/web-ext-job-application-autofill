@@ -878,6 +878,7 @@ function metaDto(id, req) {
     visibility: { mode: "PRIVATE", orgPaired: null, orgScope: null, shareWithOrg: r.shareWithOrg !== false, people: 0 },
     recruiterSharing: { on: links.length > 0, links: links.length, views: links.reduce((n, l) => n + l.viewCount, 0) },
     version: { current: latest?.versionNo ?? 0, latest: latest ? { name: latest.name, createdAt: latest.createdAt, kind: kindOf(latest.reason) } : null },
+    hasOriginal: !!d?.originalBytes,
   };
 }
 

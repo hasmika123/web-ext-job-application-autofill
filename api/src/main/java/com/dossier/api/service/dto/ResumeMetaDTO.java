@@ -39,7 +39,9 @@ public record ResumeMetaDTO(
     Lineage lineage,
     Visibility visibility,
     RecruiterSharing recruiterSharing,
-    VersionInfo version
+    VersionInfo version,
+    /** The resume was made from an uploaded file that is kept: {@code GET .../original} downloads it (R2.6; the header menu's "Download original"). */
+    boolean hasOriginal
 ) {
     /** {@code kind} UPLOADED|BUILT; {@code origin} how a built document began (PROFILE|UPLOAD|COPY|TAILOR|IMPORT), null for uploads. */
     public record Source(String kind, String origin, TailoredFrom tailoredFrom, String madeBy, boolean approvalRequired, Instant approvedAt) {}

@@ -49,6 +49,8 @@ export interface ResumeMeta {
   visibility: { mode: VisibilityMode; orgPaired: string | null; orgScope: string | null; shareWithOrg: boolean; people: number };
   recruiterSharing: { on: boolean; links: number; views: number };
   version: { current: number; latest: { name: string | null; createdAt: string; kind: string } | null };
+  /** Made from an uploaded file that is kept: `GET /api/resumes/:id/original` downloads it (R2.6). */
+  hasOriginal?: boolean;
 }
 
 /** `GET …/lineage`: the family of a resume. `self` is this resume's role. */

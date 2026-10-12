@@ -34,6 +34,7 @@ export function testMeta(overrides: Partial<ResumeMeta> = {}): ResumeMeta {
     visibility: { mode: "PRIVATE", orgPaired: null, orgScope: null, shareWithOrg: true, people: 0 },
     recruiterSharing: { on: false, links: 0, views: 0 },
     version: { current: 3, latest: { name: null, createdAt: hoursAgo(2), kind: "auto" } },
+    hasOriginal: false,
     ...overrides,
   };
 }

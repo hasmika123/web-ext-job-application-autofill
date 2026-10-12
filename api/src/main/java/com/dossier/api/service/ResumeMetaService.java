@@ -391,7 +391,8 @@ public class ResumeMetaService {
             lineage,
             visibility,
             new ResumeMetaDTO.RecruiterSharing(sharing.links() > 0, sharing.links(), sharing.linkViews()),
-            version
+            version,
+            built && docService.hasOriginal(d)
         );
     }
 
