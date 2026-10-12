@@ -949,7 +949,7 @@
       "id": "R3.11",
       "epic": "R3",
       "title": "Access control — `resume_access` grants (people, links), public `/r/[token]` page + PDF, view audit, org FULL-pairing read, shared-with-me",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API",

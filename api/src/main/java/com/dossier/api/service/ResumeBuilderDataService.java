@@ -3,6 +3,8 @@ package com.dossier.api.service;
 import com.dossier.api.domain.ProfileItem;
 import com.dossier.api.domain.ResumeDoc;
 import com.dossier.api.repository.ProfileItemRepository;
+import com.dossier.api.repository.ResumeAccessRepository;
+import com.dossier.api.repository.ResumeViewEventRepository;
 import com.dossier.api.repository.ResumeAiProposalRepository;
 import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ResumeDocVersionRepository;
@@ -28,14 +30,20 @@ public class ResumeBuilderDataService {
     private final ResumeDocRepository resumeDocRepository;
     private final ResumeDocVersionRepository resumeDocVersionRepository;
     private final ResumeAiProposalRepository resumeAiProposalRepository;
+    private final ResumeAccessRepository resumeAccessRepository;
+    private final ResumeViewEventRepository resumeViewEventRepository;
     private final ObjectMapper om = new ObjectMapper();
 
     public ResumeBuilderDataService(
         ProfileItemRepository profileItemRepository,
         ResumeDocRepository resumeDocRepository,
         ResumeDocVersionRepository resumeDocVersionRepository,
-        ResumeAiProposalRepository resumeAiProposalRepository
+        ResumeAiProposalRepository resumeAiProposalRepository,
+        ResumeAccessRepository resumeAccessRepository,
+        ResumeViewEventRepository resumeViewEventRepository
     ) {
+        this.resumeAccessRepository = resumeAccessRepository;
+        this.resumeViewEventRepository = resumeViewEventRepository;
         this.profileItemRepository = profileItemRepository;
         this.resumeDocRepository = resumeDocRepository;
         this.resumeDocVersionRepository = resumeDocVersionRepository;
@@ -44,10 +52,23 @@ public class ResumeBuilderDataService {
 
     /** Every row of the four builder tables a user owns (account deletion). */
     public void deleteAllForUser(Long userId) {
+        // Sharing (R3.11): the grants and view events of the user's own resumes (the FK cascade would do it
+        // too; explicit so the erasure is self-contained).
+        resumeViewEventRepository.deleteAllByOwner(userId);
+        resumeAccessRepository.deleteAllByOwner(userId);
         resumeAiProposalRepository.deleteAllByUserId(userId);
         resumeDocVersionRepository.deleteAllByUserId(userId);
         resumeDocRepository.deleteAllByUserId(userId);
         profileItemRepository.deleteAllByUserId(userId);
+    }
+
+    /**
+     * The sharing traces a user leaves on OTHER people's resumes (R3.11): grants made to them and views that
+     * name them. Their own resumes' rows go in {@link #deleteAllForUser}.
+     */
+    public void deleteSharingAsViewer(String login) {
+        resumeAccessRepository.deleteGrantsTo(login);
+        resumeViewEventRepository.deleteByViewer(login);
     }
 
     /** The user's live profile items, for the account export. Soft-deleted items are not included. */
@@ -64,6 +85,29 @@ public class ResumeBuilderDataService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> exportResumeDocs(Long userId) {
         return resumeDocRepository.findByUserId(userId).stream().map(this::toExport).toList();
+    }
+
+    /** The user's grants and links on their resumes (R3.11), without the link tokens. */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> exportResumeShares(Long userId) {
+        return resumeAccessRepository
+            .findByOwnerUserIdOrderByIdAsc(userId)
+            .stream()
+            .map(a -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("resumeId", a.getResumeId());
+                m.put("subjectType", a.getSubjectType());
+                m.put("subjectLogin", a.getSubjectLogin());
+                m.put("role", a.getRole());
+                m.put("label", a.getLabel());
+                m.put("allowDownload", a.isAllowDownload());
+                m.put("expiresAt", a.getExpiresAt());
+                m.put("revokedAt", a.getRevokedAt());
+                m.put("createdAt", a.getCreatedAt());
+                m.put("viewCount", a.getViewCount());
+                return m;
+            })
+            .toList();
     }
 
     private Map<String, Object> toExport(ProfileItem p) {

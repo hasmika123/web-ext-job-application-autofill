@@ -48,6 +48,7 @@ export const NON_INDEXABLE_PATHS = [
   "/v3",
   "/account/",
   "/newsletter/",
+  "/r/",
 ] as const;
 
 /**

@@ -421,6 +421,80 @@ function handleBuilder(req, res, path, method) {
   return true;
 }
 
+/* ── Resume access mock (R3.11 contract; in memory) ───────────────────────────────────────────────
+ * Links on the built resumes, the public page behind them, and an empty "shared with me". A refused
+ * link (unknown, revoked) is the same 404 as the real API's. Dev only, like the builder above. */
+const LINKS = []; // { id, resumeId, token, label, allowDownload, revokedAt, viewCount }
+let nextLinkId = 1;
+const newToken = () => {
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let t = "";
+  for (let i = 0; i < 32; i++) t += chars[Math.floor(Math.random() * chars.length)];
+  return t;
+};
+const linkDto = (l, base) => ({
+  id: l.id, subjectType: "LINK", role: "VIEW", label: l.label ?? undefined, allowDownload: l.allowDownload, expired: false,
+  createdAt: l.createdAt, viewCount: l.viewCount, url: `${base}/r/${l.token}`,
+});
+
+function handleAccess(req, res, path, method) {
+  const pub = path.match(/^\/api\/public\/resumes\/([^/]+)(\/pdf)?$/);
+  if (pub && method === "GET") {
+    req.resume();
+    const link = LINKS.find((l) => l.token === pub[1] && !l.revokedAt);
+    const d = link && DOCS.get(link.resumeId);
+    if (!link || !d) return json(res, 404, { status: 404, title: "Not Found" }), true;
+    if (pub[2]) return (link.allowDownload ? json(res, 409, { status: 409, code: "PDF_NOT_READY" }) : json(res, 404, { status: 404, title: "Not Found" })), true;
+    link.viewCount += 1;
+    const r = RESUMES.find((x) => x.id === link.resumeId);
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" });
+    res.end(JSON.stringify({ name: r?.label ?? "Resume", doc: d.doc, templateId: d.templateId, theme: d.theme, allowDownload: link.allowDownload, pdfReady: false }));
+    return true;
+  }
+  if (path === "/api/profile/resumes/shared-with-me" && method === "GET") {
+    req.resume();
+    if (!subOf(req)) return json(res, 401, { error: "Unauthorized" }), true;
+    return json(res, 200, []), true;
+  }
+  const m = path.match(/^\/api\/profile\/resumes\/(\d+)\/access(?:\/(link|\d+))?$/);
+  if (!m) return false;
+  if (!subOf(req)) {
+    req.resume();
+    return json(res, 401, { error: "Unauthorized" }), true;
+  }
+  const resumeId = Number(m[1]);
+  const webBase = process.env.MOCK_WEB_URL ?? "http://localhost:3000";
+  if (!DOCS.has(resumeId)) {
+    req.resume();
+    return json(res, 404, { status: 404, title: "Not Found" }), true;
+  }
+  if (m[2] === "link" && method === "POST") {
+    withBody(req, (b) => {
+      const l = { id: nextLinkId++, resumeId, token: newToken(), label: b.label || null, allowDownload: b.allowDownload === true, revokedAt: null, viewCount: 0, createdAt: new Date().toISOString() };
+      LINKS.push(l);
+      json(res, 201, linkDto(l, webBase));
+    });
+    return true;
+  }
+  if (m[2] && /^\d+$/.test(m[2]) && method === "DELETE") {
+    req.resume();
+    const l = LINKS.find((x) => x.id === Number(m[2]) && x.resumeId === resumeId);
+    if (!l) return json(res, 404, { status: 404, title: "Not Found" }), true;
+    l.revokedAt ??= new Date().toISOString();
+    res.writeHead(204);
+    res.end();
+    return true;
+  }
+  if (!m[2] && method === "GET") {
+    req.resume();
+    const links = LINKS.filter((l) => l.resumeId === resumeId && !l.revokedAt).map((l) => linkDto(l, webBase));
+    return json(res, 200, { org: null, grants: [], links, viewers: links.reduce((n, l) => n + l.viewCount, 0) }), true;
+  }
+  req.resume();
+  json(res, 405, { error: "Method not allowed" });
+  return true;
+}
+
 /* ── Common Profile items mock (R1.1 contract; in memory, writable like the builder) ─────────────── */
 // Seeded the way the real API does it on first read: from the default resume (provenance PARSED).
 const bullet = (text) => ({ text, src: "parsed" });
@@ -596,6 +670,7 @@ const server = http.createServer((req, res) => {
   // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
   if (handleBuilder(req, res, path, method)) return;
+  if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
 
   req.resume(); // other bodies are ignored

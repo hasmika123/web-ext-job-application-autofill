@@ -80,6 +80,8 @@ public class AccountExportService {
         // Resume Builder (R0.1): the Common Profile's structured items and the built documents.
         out.put("profileItems", resumeBuilderDataService.exportProfileItems(u.getId()));
         out.put("resumeDocs", resumeBuilderDataService.exportResumeDocs(u.getId()));
+        // R3.11: who the user shared their resumes with (never the link tokens - those are credentials).
+        out.put("resumeShares", resumeBuilderDataService.exportResumeShares(u.getId()));
         out.put("profileSuggestions", profileSuggestionService.exportCurrentUser());
         // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
         out.put("inbox", inboxService.exportCurrentUser());

@@ -167,6 +167,7 @@ public class AccountDeletionService {
         // Resume Builder rows first (R0.1): documents reference their resume, and clearing them
         // before the resumes load keeps no stale builder entity in the session.
         userRepository.findOneByLogin(login).map(User::getId).ifPresent(resumeBuilderDataService::deleteAllForUser);
+        resumeBuilderDataService.deleteSharingAsViewer(login); // grants made to this user + views that name them (R3.11)
 
         // Resume files live in object storage — delete the blobs BEFORE their rows so a
         // storage failure rolls the whole transaction back (no orphaned bytes, no
@@ -221,6 +222,7 @@ public class AccountDeletionService {
         Long userId = user.getId();
 
         resumeBuilderDataService.deleteAllForUser(userId); // before the resumes: see deleteCurrentUserAccount
+        resumeBuilderDataService.deleteSharingAsViewer(login);
 
         List<Resume> resumes = resumeRepository.findByUserId(userId);
         for (Resume resume : resumes) {
