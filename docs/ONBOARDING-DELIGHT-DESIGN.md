@@ -318,6 +318,25 @@ combo chip, recorded as #34a.
 - Companion: at 3 → `cheer` with `review.combo` ("Three in a row 🔥"); every 5th thereafter → the same.
 - Analytics: `onboarding_delight_combo{max}` once at the recap.
 
+#### 3.4a As built in R1.15 (amendments, 2026-10-12)
+
+Four things changed when the stack met real widths; the rest of §3 stands:
+
+1. **The combo badge floats on the stack's top edge** (centred, straddling the card's border, `aria-hidden`, `pointer-events-none`),
+   not in the heading row. In the wrapping row it pushed the title onto a new line on a 360 px phone the moment it appeared (the
+   very layout shift §10.2 forbids). It is amber-tinted (`v2-amber-soft` + `v2-sticky-ink`, the nearest existing tokens, AA), pops
+   on each further Keep by alternating two identical keyframes (so the number inside can flip), and fades over 200 ms on a Skip.
+2. **The fly-off distance is 140 % up to `sm`, 60 % from `sm`.** From `sm` the card sits in the 560 px column whose edges clip sideways
+   overflow (the shell must never scroll the page), so 140 % was cut off in its first 40 ms. Duration (240 ms) and easing unchanged.
+   A swipe starts from where the finger let go (`--kiwi-fling-from`), a button or key from rest.
+3. **The stamp mirrors**: `KEEP ✓` is rotated +12°, `SKIP` −12° (they sit at opposite top corners; both leaning the same way looked wrong).
+4. **`touch-action: pan-y` also on the card's inner scroll container.** A touch that starts inside a scroll container only inherits
+   `touch-action` up to it, so the swipe group's `pan-y` never reached the text and Chrome cancelled every sideways drag after ~20 px,
+   before the stamp could show (a latent R1.10 bug, found by the Playwright drag). Fixed on the card's scroller.
+
+Also as built: ← → E Z are heard from anywhere on the review, including when nothing is focused (a listener on the page for events
+whose target is the body), and focus returns to the card's title when the editor closes, so the keys keep working after an edit.
+
 ### 3.5 Haptics
 
 `tap(kind)` in `lib/onboarding/delight.ts`: `navigator.vibrate(pattern)` where `decision = 10`,

@@ -54,7 +54,7 @@ import PayoffStep, { type PayoffAction } from "./PayoffStep";
 import PrefsFlow, { prefId, valuesToWrite } from "./PrefsFlow";
 import ProfileSoFar from "./ProfileSoFar";
 import ResumeBanner from "./ResumeBanner";
-import ReviewScreen from "./ReviewScreen";
+import ReviewScreen, { type ReviewSession } from "./ReviewScreen";
 import SkillsStep from "./SkillsStep";
 import SourceStep from "./SourceStep";
 
@@ -155,6 +155,8 @@ function ProfileSetupFlow({
   const runStart = useRef(0);
   const answered = useRef(0);
   const wrapStarted = useRef(false);
+  /** The review's "in a row" count for this visit (R1.15): session-only, here because the recap is a separate screen. */
+  const [reviewRun, setReviewRun] = useState<ReviewSession>({ count: 0, max: 0 });
 
   const parsed = state.parsed;
   const fresh = state.path === "fresh";
@@ -245,6 +247,7 @@ function ProfileSetupFlow({
     setWrapFailed(false);
     wrapStarted.current = false;
     answered.current = 0;
+    setReviewRun({ count: 0, max: 0 });
     setDirection("back");
     setSyncBusy(false);
   };
@@ -556,6 +559,8 @@ function ProfileSetupFlow({
         skillCount={state.skills.length}
         mascot={mascot}
         persona={state.persona}
+        combo={reviewRun}
+        onCombo={setReviewRun}
         onDecide={(id, decision) => dispatch({ type: "decide", id, decision })}
         onUndecide={(id) => dispatch({ type: "undecide", id })}
         onEdit={(id, data) => dispatch({ type: "edit", id, data })}

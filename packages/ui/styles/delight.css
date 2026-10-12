@@ -30,7 +30,186 @@
       transform: scale(1.06);
     }
   }
+  /* The same pop under a second name: a chip that changes while it stays mounted swaps between the two to restart it. */
+  @keyframes ob-chip-pop-b {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.06);
+    }
+  }
   .ob-chip-pop {
     animation: ob-chip-pop 150ms ease-out both;
+  }
+  .ob-chip-pop-b {
+    animation: ob-chip-pop-b 150ms ease-out both;
+  }
+  /* The combo chip leaving after a Skip: a quiet 200 ms fade. */
+  @keyframes kiwi-combo-fade {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  .kiwi-combo-fade {
+    animation: kiwi-combo-fade 200ms ease-out both;
+  }
+
+  /* CardStack / SwipeCard: the fly-off (240 ms) and the spring-up of the next card (200 ms, one soft overshoot). The fling starts from
+   * `--kiwi-fling-from` (the drag offset in px, 0 for a button or a key) so a swipe leaves from where the finger let go. The layer
+   * wrapper and a SwipeCard inside it both carry the class; the inner one is switched off so only one of them moves. */
+  @keyframes kiwi-fling-right {
+    from {
+      transform: translateX(calc(var(--kiwi-fling-from, 0) * 1px)) rotate(calc(var(--kiwi-fling-from, 0) / 24 * 1deg));
+      opacity: 1;
+    }
+    to {
+      transform: translateX(140%) rotate(14deg);
+      opacity: 0;
+    }
+  }
+  @keyframes kiwi-fling-left {
+    from {
+      transform: translateX(calc(var(--kiwi-fling-from, 0) * 1px)) rotate(calc(var(--kiwi-fling-from, 0) / 24 * 1deg));
+      opacity: 1;
+    }
+    to {
+      transform: translateX(-140%) rotate(-14deg);
+      opacity: 0;
+    }
+  }
+  .kiwi-fling-right {
+    animation: kiwi-fling-right 240ms cubic-bezier(0.2, 0.8, 0.4, 1) both;
+  }
+  .kiwi-fling-left {
+    animation: kiwi-fling-left 240ms cubic-bezier(0.2, 0.8, 0.4, 1) both;
+  }
+  .kiwi-fling-right .kiwi-fling-right,
+  .kiwi-fling-right .kiwi-fling-left,
+  .kiwi-fling-left .kiwi-fling-right,
+  .kiwi-fling-left .kiwi-fling-left {
+    animation: none;
+    transform: none;
+  }
+  @keyframes kiwi-spring-up {
+    from {
+      transform: translateY(10px) scale(0.96);
+      opacity: 0.75;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  .kiwi-stack-in {
+    animation: kiwi-spring-up 200ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  }
+  /* The ghosts slide up one place with the card: the second becomes the first, a new second fades in. */
+  @keyframes kiwi-ghost-1-in {
+    from {
+      transform: translateY(20px) scale(0.92);
+      opacity: 0.45;
+    }
+    to {
+      transform: translateY(10px) scale(0.96);
+      opacity: 0.75;
+    }
+  }
+  @keyframes kiwi-ghost-2-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 0.45;
+    }
+  }
+  .kiwi-ghost-1-in {
+    animation: kiwi-ghost-1-in 200ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  }
+  .kiwi-ghost-2-in {
+    animation: kiwi-ghost-2-in 200ms ease-out both;
+  }
+
+  /* AnimatedNumber (flip): the old figure slides up and fades, the new one comes in from below. 180 ms. */
+  @keyframes kiwi-flip-out {
+    from {
+      transform: none;
+      opacity: 1;
+    }
+    to {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+  }
+  @keyframes kiwi-flip-in {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  .kiwi-flip-out {
+    animation: kiwi-flip-out 180ms ease-out both;
+  }
+  .kiwi-flip-in {
+    animation: kiwi-flip-in 180ms ease-out both;
+  }
+
+  /* The stamp snaps to full strength on a button or a key decision. */
+  .kiwi-stamp-snap {
+    transition: opacity 120ms ease-out;
+  }
+}
+
+/* From sm up the card sits in a 560 px column whose edges clip sideways overflow (the setup shell must never scroll the page), so a
+ * 140 % fling would be cut off in its first 40 ms. There it flies 60 % of its width instead: the whole 240 ms stays visible. */
+@media (prefers-reduced-motion: no-preference) and (min-width: 640px) {
+  @keyframes kiwi-fling-right-sm {
+    from {
+      transform: translateX(calc(var(--kiwi-fling-from, 0) * 1px)) rotate(calc(var(--kiwi-fling-from, 0) / 24 * 1deg));
+      opacity: 1;
+    }
+    to {
+      transform: translateX(60%) rotate(10deg);
+      opacity: 0;
+    }
+  }
+  @keyframes kiwi-fling-left-sm {
+    from {
+      transform: translateX(calc(var(--kiwi-fling-from, 0) * 1px)) rotate(calc(var(--kiwi-fling-from, 0) / 24 * 1deg));
+      opacity: 1;
+    }
+    to {
+      transform: translateX(-60%) rotate(-10deg);
+      opacity: 0;
+    }
+  }
+  .kiwi-fling-right {
+    animation-name: kiwi-fling-right-sm;
+  }
+  .kiwi-fling-left {
+    animation-name: kiwi-fling-left-sm;
+  }
+}
+
+/* Under reduced motion the next card only crossfades in (120 ms), and the ghosts, which carry "more to come", are drawn still. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes kiwi-card-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .kiwi-stack-in {
+    animation: kiwi-card-fade 120ms ease-out both;
   }
 }
