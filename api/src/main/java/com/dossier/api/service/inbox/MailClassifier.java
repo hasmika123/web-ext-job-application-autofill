@@ -21,6 +21,8 @@ public final class MailClassifier {
 
     public enum Category {
         APPLIED,
+        /** "Your application is under review": past the receipt, before any interview. */
+        IN_REVIEW,
         INTERVIEW,
         ASSESSMENT,
         REJECTED,
@@ -67,6 +69,21 @@ public final class MailClassifier {
         "we received your application|application confirmation|thanks for applying"
     );
 
+    // A receipt: the first mail after applying. Boilerplate like "our team will review your application"
+    // appears in these, so a mail that is a receipt is never read as "in review".
+    private static final Pattern RECEIPT = p(
+        "thank(s| you) for (applying|your application|your interest|submitting)|(we('ve| have)|has been) received your application|" +
+        "application (has been )?(received|submitted)|successfully (applied|submitted)|application confirmation|thanks for applying"
+    );
+    // A status update that says the application is being looked at.
+    private static final Pattern IN_REVIEW = p(
+        "(your )?application (is|has been|status( is)?:?) ?(currently |now )?(under review|in review|being reviewed|being considered)|" +
+        "(application|candidacy) status:? ?(under review|in review)|" +
+        "we('re| are) (currently |now )?(reviewing|looking at) your (application|resume|profile|candidacy)|" +
+        "(has|have) (now )?(moved|been moved) (your application )?to (the )?(review|screening) (stage|phase)|" +
+        "(the )?(hiring team|recruiting team|recruiter) (is|are) (currently )?reviewing your"
+    );
+
     // What the mail says the job is.
     private static final Pattern COMPANY_AFTER = Pattern.compile(
         "(?:applying|application|interest|applied)\\s+(?:to|at|with|for)\\s+(?:the\\s+.{3,80}?\\s+(?:position|role|opening)\\s+at\\s+)?" +
@@ -108,6 +125,8 @@ public final class MailClassifier {
         }
         if (strong.contains(Category.INTERVIEW)) return new Reading(Category.INTERVIEW, weakReject, company, role);
         if (strong.contains(Category.ASSESSMENT)) return new Reading(Category.ASSESSMENT, weakReject, company, role);
+        // "Under review" is its own stage, unless the mail is the receipt itself (which says it as boilerplate).
+        if (IN_REVIEW.matcher(text).find() && !RECEIPT.matcher(text).find()) return new Reading(Category.IN_REVIEW, weakReject, company, role);
         if (applied) return new Reading(Category.APPLIED, weakReject, company, role);
         // "Unfortunately…" with nothing else: probably a rejection in words the rules don't know.
         return new Reading(Category.OTHER, true, company, role);

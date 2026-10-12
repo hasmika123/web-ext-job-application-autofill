@@ -64,4 +64,27 @@ class MailMatcherTest {
         assertThat(MailMatcher.next(ApplicationStatus.SAVED, Category.ASSESSMENT)).isEqualTo(ApplicationStatus.APPLIED);
         assertThat(MailMatcher.next(ApplicationStatus.APPLIED, Category.ALERT)).isNull();
     }
+
+    @Test
+    void inReviewSitsBetweenAppliedAndInterview() {
+        assertThat(MailMatcher.next(ApplicationStatus.APPLIED, Category.IN_REVIEW)).isEqualTo(ApplicationStatus.IN_REVIEW);
+        assertThat(MailMatcher.next(ApplicationStatus.DRAFT, Category.IN_REVIEW)).isEqualTo(ApplicationStatus.IN_REVIEW);
+        assertThat(MailMatcher.next(ApplicationStatus.SAVED, Category.IN_REVIEW)).isEqualTo(ApplicationStatus.IN_REVIEW);
+        // forward only: an "under review" mail never pulls a later stage back
+        assertThat(MailMatcher.next(ApplicationStatus.IN_REVIEW, Category.IN_REVIEW)).isNull();
+        assertThat(MailMatcher.next(ApplicationStatus.INTERVIEW, Category.IN_REVIEW)).isNull();
+        assertThat(MailMatcher.next(ApplicationStatus.OFFER, Category.IN_REVIEW)).isNull();
+        assertThat(MailMatcher.next(ApplicationStatus.REJECTED, Category.IN_REVIEW)).isNull();
+        // an interview invite still moves an entry that is in review, and a confirmation never undoes it
+        assertThat(MailMatcher.next(ApplicationStatus.IN_REVIEW, Category.INTERVIEW)).isEqualTo(ApplicationStatus.INTERVIEW);
+        assertThat(MailMatcher.next(ApplicationStatus.IN_REVIEW, Category.APPLIED)).isNull();
+        assertThat(MailMatcher.next(ApplicationStatus.IN_REVIEW, Category.REJECTED)).isEqualTo(ApplicationStatus.REJECTED);
+    }
+
+    @Test
+    void mailNeverMovesAnApplicationOutOfWithdrawn() {
+        for (Category c : Category.values()) {
+            assertThat(MailMatcher.next(ApplicationStatus.WITHDRAWN, c)).as("%s after a withdrawal", c).isNull();
+        }
+    }
 }

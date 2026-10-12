@@ -84,6 +84,7 @@ class DemoAccountServiceTest {
             notificationService,
             mock(AiUsageRepository.class),
             mock(AiCallRepository.class),
+            mock(TrackerDataService.class),
             mapper,
             password,
             enabled

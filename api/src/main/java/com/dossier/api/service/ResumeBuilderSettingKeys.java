@@ -173,6 +173,25 @@ public final class ResumeBuilderSettingKeys {
     /** The actions the payoff screen may offer (DESIGN 5.11). */
     public static final Set<String> ONBOARDING_PAYOFF_ACTION_IDS = Set.of("build_resume", "install_extension", "find_jobs");
 
+    // ---- Applications tracker (APP-E2E U6.x; the interim seam until A5.1 adopts these keys as is) ----
+    public static final String TRACKER_LIST_DEFAULT_SIZE = "tracker.list.defaultSize";
+    public static final String TRACKER_LIST_MAX_SIZE = "tracker.list.maxSize";
+    public static final String TRACKER_SEARCH_MAX_CHARS = "tracker.search.maxChars";
+    public static final String TRACKER_GHOSTED_AFTER_DAYS = "tracker.ghostedAfterDays";
+    public static final String TRACKER_DETAIL_EVENTS_MAX = "tracker.detail.eventsMax";
+    public static final String TRACKER_ACTIVITY_DEFAULT_DAYS = "tracker.activity.defaultDays";
+    public static final String TRACKER_ACTIVITY_MAX_DAYS = "tracker.activity.maxDays";
+    public static final String TRACKER_BULK_MAX_IDS = "tracker.bulk.maxIds";
+    public static final String TRACKER_NOTE_MAX_CHARS = "tracker.note.maxChars";
+    public static final String TRACKER_NOTES_MAX_PER_APPLICATION = "tracker.notes.maxPerApplication";
+    public static final String TRACKER_INTERVIEWS_MAX_PER_APPLICATION = "tracker.interviews.maxPerApplication";
+    public static final String TRACKER_INTERVIEW_NOTES_MAX_CHARS = "tracker.interview.notesMaxChars";
+    public static final String TRACKER_INTERVIEW_MAX_DURATION_HOURS = "tracker.interview.maxDurationHours";
+    public static final String TRACKER_INTERVIEW_DEFAULT_DURATION_MINUTES = "tracker.interview.defaultDurationMinutes";
+    public static final String TRACKER_INTERVIEWS_DEFAULT_RANGE_DAYS = "tracker.interviews.defaultRangeDays";
+    public static final String TRACKER_INTERVIEWS_MAX_RANGE_DAYS = "tracker.interviews.maxRangeDays";
+    public static final String TRACKER_INTERVIEWS_LIST_MAX = "tracker.interviews.listMax";
+
     // ---- BFF rate limits ----------------------------------------------------
     public static final String RATE_DOC_WRITES_PER_MIN = "resume.rate.docWritesPerMin";
     public static final String RATE_AI_PER_MIN = "resume.rate.aiPerMin";
@@ -459,6 +478,25 @@ public final class ResumeBuilderSettingKeys {
         integer(k, RATE_AI_PER_MIN, 20, 10, 1000, "AI calls per user per minute.");
         integer(k, RATE_EXPORT_PER_MIN, 10, 10, 1000, "Exports per user per minute.");
         integer(k, RATE_PUBLIC_PER_MIN, 60, 10, 1000, "Public share-link requests per IP per minute.");
+
+        // Applications tracker (APP-E2E U6.x).
+        integer(k, TRACKER_LIST_DEFAULT_SIZE, 20, 5, 50, "Applications per page when the request names no size.");
+        integer(k, TRACKER_LIST_MAX_SIZE, 50, 10, 200, "Largest applications page the server returns; a bigger size is clamped to it.");
+        integer(k, TRACKER_SEARCH_MAX_CHARS, 120, 20, 500, "Longest applications search text; longer is refused (400 QUERY_TOO_LONG).");
+        integer(k, TRACKER_GHOSTED_AFTER_DAYS, 21, 7, 90, "An applied or in-review application with no event for this many days shows as ghosted (derived, never stored).");
+        integer(k, TRACKER_DETAIL_EVENTS_MAX, 50, 10, 200, "Timeline events returned with one application's detail.");
+        integer(k, TRACKER_ACTIVITY_DEFAULT_DAYS, 30, 7, 365, "Days of tracker activity the dashboard bars cover when the request names none.");
+        integer(k, TRACKER_ACTIVITY_MAX_DAYS, 90, 7, 365, "Most days of tracker activity one request may ask for.");
+        integer(k, TRACKER_BULK_MAX_IDS, 50, 5, 200, "Applications one bulk action may touch.");
+        integer(k, TRACKER_NOTE_MAX_CHARS, 4000, 500, 20000, "Max characters in one application note.");
+        integer(k, TRACKER_NOTES_MAX_PER_APPLICATION, 200, 10, 1000, "Max notes on one application.");
+        integer(k, TRACKER_INTERVIEWS_MAX_PER_APPLICATION, 30, 5, 200, "Max interviews logged on one application.");
+        integer(k, TRACKER_INTERVIEW_NOTES_MAX_CHARS, 4000, 500, 20000, "Max characters in an interview's notes.");
+        integer(k, TRACKER_INTERVIEW_MAX_DURATION_HOURS, 24, 1, 72, "Longest interview (end minus start) the server accepts.");
+        integer(k, TRACKER_INTERVIEW_DEFAULT_DURATION_MINUTES, 60, 15, 480, "Length of the calendar entry when an interview has no end time.");
+        integer(k, TRACKER_INTERVIEWS_DEFAULT_RANGE_DAYS, 30, 1, 366, "Days ahead the interviews list covers when the request names no range.");
+        integer(k, TRACKER_INTERVIEWS_MAX_RANGE_DAYS, 366, 7, 1830, "Widest window (days) one interviews-list request may span.");
+        integer(k, TRACKER_INTERVIEWS_LIST_MAX, 200, 20, 1000, "Most interviews one list request returns.");
 
         Map<String, Key> by = new LinkedHashMap<>();
         for (Key key : k) {
