@@ -25,6 +25,15 @@ the whole user-visible Resume Builder flow works end to end against the real sta
 **Next stories (build order):** R3.6 parse check, R3.2 pull from profile, R1.3 drag-reorder, then R4 AI assist (R4.2 diff UI next; R4.1 is the API under it), R5 tailor / job match,
 R6 hardening (phone / a11y / perf / CI), R7 extras, R8 org Resumes & Profiles. `node docs/resume-builder/build-roadmap.mjs --list` prints the live status.
 
+**New epic R1b — Onboarding v2 (designed 2026-10-12, not started).** The user reviewed the `/profiles/setup` Start
+screen and accepted nine fixes (DECISIONS #33): one flow, no `/welcome` redirect, a dismissible "Finish your profile ·
+2 min" dashboard card, a server-side resumable draft (never lost), one thin progress bar, mascot + warm copy, upload as
+the hero with a 🔒 badge, persona chip first, persona-aware questions, and an honest "~N fields" payoff. Design:
+`docs/ONBOARDING-V2-DESIGN.md` (read §0 first). Stories **R1.7 → R1.8 → R1.9 → R1.10 → R1.11 → R1.12 → R1.13** in
+`RESUME-BUILDER-STORIES.md` / `stories.json` (R1.7 ships the card + no-redirect alone and first; R1.8 API can run in
+parallel; R1.13 is the optional extension link). It keeps the R1.4/R1.5 parse + review machinery and replaces only the
+shell, the flow and where progress lives. Sub-decisions #33a–#33j are defaults the user may override.
+
 **Known gaps / not working:** the browser pane of the desktop app captures screenshots at ~800 px, so the 1440 screenshots of 2026-10-12 are low resolution;
 `next dev` does not hydrate in that pane (HMR websocket) - use `next build` + `next start`; list card menu has no Tailor entry yet (R5.9) and its Settings entry is for built resumes only (an uploaded file has no editor);
 the card thumbnail is made only by the async PDF job, by design (only the worker's browser can screenshot page 1): a synchronous export (Download with no stored PDF) marks the PDF READY without one, so that resume keeps its previous / the template's picture until its next saved render; every stored-file prefix is listed in `StorageKeys` and removed by `StoredFileEraser` on resume and account deletion - a new stored-object type must add its prefix there (`StorageKeysTest` fails otherwise);
