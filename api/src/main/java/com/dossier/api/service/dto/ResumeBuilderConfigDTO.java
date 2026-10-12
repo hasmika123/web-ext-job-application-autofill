@@ -28,7 +28,8 @@ public record ResumeBuilderConfigDTO(
     Lists list,
     Pdf pdf,
     Share share,
-    Versions versions
+    Versions versions,
+    @Schema(description = "Onboarding v2 tunables (R1.8): the dashboard card, the time estimates, the draft cap, the payoff.") Onboarding onboarding
 ) {
     public record Templates(
         List<String> enabled,
@@ -103,4 +104,25 @@ public record ResumeBuilderConfigDTO(
 
     /** Version history retention the header's All versions sheet states: automatic rows kept per resume (named ones are kept always). */
     public record Versions(int retentionAuto) {}
+
+    /**
+     * Onboarding v2 (R1.8, ONBOARDING-V2-DESIGN 9): {@code enabled} = {@code feature.onboarding_v2.enabled},
+     * {@code estimateMinutes} the "~N min" label, {@code stepSeconds} the per-step seconds behind "about N min left",
+     * {@code draftMaxBytes} the draft cap, {@code card} the dashboard card's timings, {@code confetti} / {@code mascot}
+     * the flair switches, {@code personaStep} whether the "which one's you?" step is asked, {@code payoffActions} the
+     * ordered next actions on the payoff screen.
+     */
+    public record Onboarding(
+        boolean enabled,
+        int estimateMinutes,
+        @Schema(type = "object", description = "Step key (hello, source, review, skills, you, prefs) to seconds.") JsonNode stepSeconds,
+        int draftMaxBytes,
+        OnboardingCard card,
+        boolean confetti,
+        boolean mascot,
+        boolean personaStep,
+        List<String> payoffActions
+    ) {}
+
+    public record OnboardingCard(int snoozeDays, int resurfaceBelowPercent, int resurfaceAfterDays, int maxResurfaces) {}
 }

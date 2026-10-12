@@ -96,6 +96,97 @@ public final class ProfileMeta {
         c.put("computedAt", now.toString());
     }
 
+    // ---- onboarding markers (Onboarding v2, DESIGN 8.2) ----------------------------------------
+
+    /**
+     * The card's markers. {@code resurfacedAt} is the start of the showing that last counted toward
+     * {@code resurfaceCount} (DESIGN 6: "once per showing"); it counts again only after a newer dismissal.
+     */
+    public record OnboardingCard(Instant dismissedAt, Instant snoozedUntil, int resurfaceCount, Instant resurfacedAt) {
+        public static OnboardingCard empty() {
+            return new OnboardingCard(null, null, 0, null);
+        }
+    }
+
+    /** {@code meta.onboarding}: persona (a lowercase enum name or null), start / finish times, the origin and the card markers. */
+    public record OnboardingMeta(String persona, Instant startedAt, Instant finishedAt, String source, OnboardingCard card) {
+        public static OnboardingMeta empty() {
+            return new OnboardingMeta(null, null, null, null, OnboardingCard.empty());
+        }
+
+        public OnboardingMeta withPersona(String v) {
+            return new OnboardingMeta(v, startedAt, finishedAt, source, card);
+        }
+
+        public OnboardingMeta withStarted(Instant at, String origin) {
+            return new OnboardingMeta(persona, at, finishedAt, origin, card);
+        }
+
+        public OnboardingMeta withFinishedAt(Instant at) {
+            return new OnboardingMeta(persona, startedAt, at, source, card);
+        }
+
+        public OnboardingMeta withCard(OnboardingCard c) {
+            return new OnboardingMeta(persona, startedAt, finishedAt, source, c);
+        }
+    }
+
+    public static final String ONBOARDING = "onboarding";
+
+    /** {@code meta.onboarding}, tolerant: a missing, damaged or wrongly typed value reads as empty. */
+    public static OnboardingMeta onboarding(ObjectNode meta) {
+        JsonNode o = meta.get(ONBOARDING);
+        if (!(o instanceof ObjectNode on)) return OnboardingMeta.empty();
+        JsonNode c = on.get("card");
+        OnboardingCard card = c instanceof ObjectNode cn
+            ? new OnboardingCard(instant(cn, "dismissedAt"), instant(cn, "snoozedUntil"), Math.max(0, cn.path("resurfaceCount").asInt(0)), instant(cn, "resurfacedAt"))
+            : OnboardingCard.empty();
+        return new OnboardingMeta(text(on, "persona"), instant(on, "startedAt"), instant(on, "finishedAt"), text(on, "source"), card);
+    }
+
+    /**
+     * Writes {@code value} as {@code meta.onboarding}. Only the known fields are set, so a key some later
+     * version added to the object (or to its {@code card}) survives, like every other meta key.
+     */
+    public static void putOnboarding(ObjectNode meta, OnboardingMeta value) {
+        ObjectNode on = meta.get(ONBOARDING) instanceof ObjectNode existing ? existing : meta.putObject(ONBOARDING);
+        putText(on, "persona", value.persona());
+        putInstant(on, "startedAt", value.startedAt());
+        putInstant(on, "finishedAt", value.finishedAt());
+        putText(on, "source", value.source());
+        ObjectNode card = on.get("card") instanceof ObjectNode existing ? existing : on.putObject("card");
+        OnboardingCard c = value.card() == null ? OnboardingCard.empty() : value.card();
+        putInstant(card, "dismissedAt", c.dismissedAt());
+        putInstant(card, "snoozedUntil", c.snoozedUntil());
+        card.put("resurfaceCount", c.resurfaceCount());
+        putInstant(card, "resurfacedAt", c.resurfacedAt());
+    }
+
+    private static String text(ObjectNode o, String field) {
+        JsonNode v = o.get(field);
+        return v != null && v.isTextual() && !v.textValue().isBlank() ? v.textValue() : null;
+    }
+
+    private static Instant instant(ObjectNode o, String field) {
+        String t = text(o, field);
+        if (t == null) return null;
+        try {
+            return Instant.parse(t);
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private static void putText(ObjectNode o, String field, String v) {
+        if (v == null) o.putNull(field);
+        else o.put(field, v);
+    }
+
+    private static void putInstant(ObjectNode o, String field, Instant v) {
+        if (v == null) o.putNull(field);
+        else o.put(field, v.toString());
+    }
+
     private static ObjectNode provenance(ObjectNode meta) {
         JsonNode p = meta.get(PROVENANCE);
         return p instanceof ObjectNode o ? o : meta.putObject(PROVENANCE);

@@ -82,6 +82,8 @@ public class AccountExportService {
         out.put("resumeDocs", resumeBuilderDataService.exportResumeDocs(u.getId()));
         // R3.11: who the user shared their resumes with (never the link tokens - those are credentials).
         out.put("resumeShares", resumeBuilderDataService.exportResumeShares(u.getId()));
+        // Onboarding v2: the unfinished setup draft (the user's own unconfirmed data), or null.
+        out.put("onboardingDraft", resumeBuilderDataService.exportOnboardingDraft(u.getId()));
         out.put("profileSuggestions", profileSuggestionService.exportCurrentUser());
         // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
         out.put("inbox", inboxService.exportCurrentUser());
