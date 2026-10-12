@@ -43,6 +43,11 @@ public class ProfileService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProfileService.class);
 
+    /** Provenance recorded for bio keys the user edits themselves. */
+    public static final String PROVENANCE_USER = "user";
+    /** Provenance recorded for bio keys accepted from a learned suggestion. */
+    public static final String PROVENANCE_LEARNED = "learned";
+
     /**
      * How many live resumes a Free user may keep (Phase 12.4). <b>Archived resumes don't count</b>
      * — archiving is how someone at the cap makes room, and it is also why a downgrade never
@@ -71,6 +76,7 @@ public class ProfileService {
     private final ResumeDocRepository resumeDocRepository;
     private final ResumeDocVersionRepository resumeDocVersionRepository;
     private final ResumeAiProposalRepository resumeAiProposalRepository;
+    private final ProfileItemService profileItemService;
 
     public ProfileService(
         BioRepository bioRepository,
@@ -83,7 +89,8 @@ public class ProfileService {
         EntitlementService entitlementService,
         ResumeDocRepository resumeDocRepository,
         ResumeDocVersionRepository resumeDocVersionRepository,
-        ResumeAiProposalRepository resumeAiProposalRepository
+        ResumeAiProposalRepository resumeAiProposalRepository,
+        ProfileItemService profileItemService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -96,6 +103,7 @@ public class ProfileService {
         this.resumeDocRepository = resumeDocRepository;
         this.resumeDocVersionRepository = resumeDocVersionRepository;
         this.resumeAiProposalRepository = resumeAiProposalRepository;
+        this.profileItemService = profileItemService;
     }
 
     // ---- profile (single bio per user) -------------------------------------
@@ -105,13 +113,24 @@ public class ProfileService {
         return bioRepository.findByUserIsCurrentUser().stream().findFirst().map(bioMapper::toDto);
     }
 
-    /** Create the user's bio if absent, otherwise overwrite its payload (one per user). */
+    /**
+     * Create the user's bio if absent, otherwise overwrite its payload (one per user). Every key that
+     * changed is stamped {@code meta.provenance[key] = "user"} (Resume Builder R1.1) and the cached
+     * completeness is refreshed; neither touches what the extension reads.
+     */
     public BioDTO upsertProfile(String payload) {
+        return upsertProfile(payload, PROVENANCE_USER);
+    }
+
+    /** As {@link #upsertProfile(String)} but stamping changed keys with {@code source} (e.g. {@code "learned"}). */
+    public BioDTO upsertProfile(String payload, String source) {
         User user = currentUser();
         Bio bio = bioRepository.findByUserIsCurrentUser().stream().findFirst().orElseGet(Bio::new);
+        String before = bio.getPayload();
         bio.setPayload(payload);
         bio.setUpdatedAt(Instant.now());
         bio.setUser(user);
+        profileItemService.onBioWritten(bio, before, payload, source);
         return bioMapper.toDto(bioRepository.save(bio));
     }
 

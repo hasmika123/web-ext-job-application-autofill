@@ -196,7 +196,7 @@ public class ProfileSuggestionService {
         ObjectNode bio = readBioStrict();
         bio.put(s.getFieldKey(), value);
         try {
-            profileService.upsertProfile(om.writeValueAsString(bio));
+            profileService.upsertProfile(om.writeValueAsString(bio), ProfileService.PROVENANCE_LEARNED);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Could not serialize the profile", e);
         }
