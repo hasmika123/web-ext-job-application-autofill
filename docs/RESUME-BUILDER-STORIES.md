@@ -204,6 +204,8 @@ As a user, I want the editor to look and behave like the boards — top bar with
 - Deps: R2.9, R2.0. Size L. Owner web.
 - Tests: `EditorTopBar.test.tsx` (status copy table, toggle buttons aria + one-active rule, Download menu items/disabled states, Alt shortcuts), `ResumeEditor.test.tsx` (open/switch/close/toggle panels, Esc, focus returns to the button, centre width class changes, phone tabs + Back closes sheet), `SectionTabs.test.tsx` (scroll-spy sets active, More menu lists remaining sections), `export-txt.route.test.ts`.
 
+- AC (added 2026-10-12): Rail collapse (DECISIONS #28, DESIGN §10.1): opening the left sheet on desktop ≥ 1024 collapses the right rail to a 56 px RailStrip and pushes instead of overlaying when the full rail would leave the centre < 560 px; re-expands on close; strip icon closes the left sheet and opens that rail tab. Amends R2.9 useBuilderLayout (adds layout.railCollapsed).
+
 ### ★ R2.1 Document canvas — header block, every section kind, item rows, reducer actions (basics/section/item/skills/move), empty states
 As a user, I want to edit my whole resume inline on the board's document canvas so that the resume is complete without forms.
 - AC: `DocumentCanvas.tsx` + `HeaderBlock.tsx` (name, headline, contact row with `MapPinIcon`/phone/`MailIcon`, link row with `LinkedInIcon`/`GlobeIcon`/`LinkIcon`, "+ Add link" ≤ 8, photo slot only when `caps.photo` — upload wired in R7.4, until then the slot shows "Add photo" disabled with "Coming soon") per DESIGN §10.5.

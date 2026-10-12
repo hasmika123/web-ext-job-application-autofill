@@ -1141,6 +1141,8 @@ left sheet, the right sheet **overlays** the rail; 768–1023 both sheets overla
 the rail collapses to a bottom "Insights" bar (§10.9); < 768 phone layout (§10.9). When pushing would
 drop the centre below 560 px the sheet overlays instead ("space-aware push": computed with a
 `ResizeObserver` on the grid, result in `uiState.layout`).
+**Rail collapse (user decision 2026-10-12, DECISIONS #28 — overrides the overlay fallback for the LEFT sheet on desktop ≥ 1024):** before falling back to overlay, the left sheet first collapses the right rail to a **56 px icon strip** (`RailStrip`: Insights · AI Suggestions with its count badge · Job Match; icon buttons with tooltips and `aria-label`s, ≥ 44 px hit areas) and pushes. The push condition becomes `viewport − gutters − 400 (left) − 56 (strip) ≥ 560`. The rail re-expands when the left sheet closes; clicking a strip icon closes the left sheet and opens the rail on that tab. `uiState.layout` gains `railCollapsed: boolean` (derived, not persisted). The right sheet keeps its rule (overlays the rail). Only below 1024 do sheets overlay the main area (§10.9). Named tests (R2.10): `useBuilderLayout › collapses rail and pushes left at 1280`, `› re-expands rail on left close`, `› strip icon closes left sheet and opens that rail tab`, `› pushes with full rail when there is room (no collapse)`.
+
 
 ### 10.2 Top bar (`EditorTopBar`, rebuilt to the board)
 Left → right: kiwiply mark + wordmark (link to `/dashboard`); divider; **"Resume Builder"** (the resume's
