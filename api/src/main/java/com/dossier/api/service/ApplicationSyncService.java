@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,9 +71,24 @@ public class ApplicationSyncService {
         this.eventService = eventService;
     }
 
+    /**
+     * The old, unpaged contract the extension and the data export read: every application, newest update
+     * first (it used to come back in whatever order the database chose). The tracker's own list is
+     * {@link ApplicationListService#list}.
+     */
     @Transactional(readOnly = true)
     public List<ApplicationDTO> listApplications() {
-        return applicationRepository.findByUserIsCurrentUser().stream().map(applicationMapper::toDto).toList();
+        return applicationRepository
+            .findByUserIsCurrentUser()
+            .stream()
+            .sorted(
+                Comparator.comparing(Application::getUpdatedAt, Comparator.nullsLast(Comparator.<Instant>reverseOrder())).thenComparing(
+                    Application::getId,
+                    Comparator.nullsLast(Comparator.<Long>reverseOrder())
+                )
+            )
+            .map(applicationMapper::toDto)
+            .toList();
     }
 
     /**

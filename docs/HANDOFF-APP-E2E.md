@@ -34,7 +34,10 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   statuses `IN_REVIEW` / `WITHDRAWN`; `ApplicationEventService` is the one place an event is written (create / status /
   archive / resume on the sync endpoints, inbox moves via the `StatusChanged` listener, source `EXTENSION|WEB|INBOX|SYSTEM`);
   `TrackerDataService` erases / exports / demo-seeds the three tables; `tracker.*` settings live in `ResumeBuilderSettingKeys`.
-  Next in the lane: U6.2 list v2, then U6.4 interviews (see the commits' PROGRESS lines for what is built and what U6.3 owes).
+  **U6.2 done** (`e2e-u6.2`): list v2 / detail / PATCH / notes / bulk / activity on `/api/profile/applications`
+  (`ApplicationListService`, `ApplicationPatchService`, `ApplicationNoteService`), BFF `app/api/applications/**`,
+  `web/scripts/mock-tracker.mjs`. `ApplicationListPage` stands in for E2E-U0.0's `ListPage` (same JSON; swap when it merges).
+  Next in the lane: U6.4 interviews (see the commits' PROGRESS lines for what is built and what U6.3 owes).
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),

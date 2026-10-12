@@ -603,6 +603,36 @@
       }
     },
     "/api/profile/applications/{id}" : {
+      "get" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "One application with its history",
+        "description" : "The application plus events (newest first), notes, interviews, mailCount and inbox suggestions. 404 if not owned.",
+        "operationId" : "getApplication",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApplicationDetailDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
       "put" : {
         "tags" : [ "applications-sync" ],
         "summary" : "Update an application",
@@ -650,6 +680,127 @@
         "operationId" : "deleteApplication",
         "parameters" : [ {
           "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "patch" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Change an application",
+        "description" : "Only the fields sent change; null clears nextAction, nextActionAt, resumeId and outcome. Every real change writes a timeline event (source WEB). outcome ACCEPTED sets acceptedAt, DECLINED clears it. 404 if not owned; 422 TRACKER_INVALID for a bad value, SENSITIVE_CONTENT for a never-collected value in nextAction.",
+        "operationId" : "patchApplication",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApplicationPatchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApplicationDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/applications/{id}/notes/{nid}" : {
+      "put" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Edit a note",
+        "description" : "Partial: only the fields sent change (body, pinned). 404 if the application or note is not owned.",
+        "operationId" : "updateNote",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "nid",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoteDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "delete" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Delete a note",
+        "description" : "404 if the application or note is not owned.",
+        "operationId" : "deleteNote",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "nid",
           "in" : "path",
           "required" : true,
           "schema" : {
@@ -910,7 +1061,7 @@
     "/api/applications/{id}" : {
       "get" : {
         "tags" : [ "application-resource" ],
-        "operationId" : "getApplication",
+        "operationId" : "getApplication_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -3034,18 +3185,77 @@
       "get" : {
         "tags" : [ "applications-sync" ],
         "summary" : "List my applications",
-        "description" : "All applications owned by the current user.",
+        "description" : "With none of the query parameters: every application owned by the current user as a plain array, newest update first (the extension's contract). With any of page, size, sort, q, status (comma-separated), company, archived (true|false|all, default false) or ghosted: a page {items, total, page, size, summary}; summary holds the per-tab counts ALL, DRAFT, SAVED, APPLIED, IN_REVIEW, INTERVIEW, OFFER, REJECTED, WITHDRAWN, GHOSTED, ARCHIVED (they follow q and company, not the status/archived filters). size is clamped to the server's maximum; sort is field[,asc|desc] over updatedAt, createdAt, appliedAt, lastEventAt, nextActionAt, company, roleTitle, status (400 SORT_INVALID otherwise).",
         "operationId" : "listApplications",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "company",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "archived",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "ghosted",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
         "responses" : {
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/ApplicationDTO"
-                  }
+                  "type" : "string",
+                  "oneOf" : [ {
+                    "$ref" : "#/components/schemas/ApplicationListPage"
+                  } ]
                 }
               }
             }
@@ -3162,6 +3372,48 @@
                 "schema" : {
                   "type" : "object",
                   "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/applications/{id}/notes" : {
+      "post" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Add a note",
+        "description" : "{body (required), pinned?}. 422 SENSITIVE_CONTENT for a never-collected value, TRACKER_INVALID / TRACKER_LIMIT for size and count caps; 404 if the application is not owned.",
+        "operationId" : "addNote",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoteDTO"
                 }
               }
             }
@@ -3326,6 +3578,39 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Report"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/applications/bulk" : {
+      "post" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "Bulk action on applications",
+        "description" : "action ARCHIVE | UNARCHIVE | STATUS (with status) | STAR | UNSTAR over at most the configured number of ids. Returns {done: [ids], failed: [{id, reason}]}; an id that is not yours is failed NOT_FOUND, not an error.",
+        "operationId" : "bulk",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -5372,7 +5657,7 @@
     "/api/admin/customers/{login}/notes" : {
       "post" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "addNote",
+        "operationId" : "addNote_1",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -6631,6 +6916,48 @@
                   "type" : "array",
                   "items" : {
                     "$ref" : "#/components/schemas/MailView"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/applications/activity" : {
+      "get" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "My tracker activity per day",
+        "description" : "One row per day for the last N days (default and cap are settings), oldest first, quiet days as 0: [{day: yyyy-MM-dd, count}]. Days are named in tz (an IANA zone, default UTC).",
+        "operationId" : "activity",
+        "parameters" : [ {
+          "name" : "days",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "tz",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ActivityDay"
                   }
                 }
               }
@@ -8852,6 +9179,44 @@
           }
         }
       },
+      "NoteRequest" : {
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "type" : "string"
+          },
+          "pinned" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "NoteDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "body" : {
+            "type" : "string"
+          },
+          "pinned" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "FieldCacheDTO" : {
         "type" : "object",
         "properties" : {
@@ -10059,6 +10424,55 @@
           }
         }
       },
+      "BulkRequest" : {
+        "type" : "object",
+        "properties" : {
+          "ids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN" ]
+          }
+        }
+      },
+      "BulkFailure" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BulkResult" : {
+        "type" : "object",
+        "properties" : {
+          "done" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "failed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BulkFailure"
+            }
+          }
+        }
+      },
       "TokenRequest" : {
         "type" : "object",
         "properties" : {
@@ -10351,14 +10765,6 @@
           }
         }
       },
-      "NoteRequest" : {
-        "type" : "object",
-        "properties" : {
-          "body" : {
-            "type" : "string"
-          }
-        }
-      },
       "KeyAndPasswordVM" : {
         "type" : "object",
         "properties" : {
@@ -10495,6 +10901,35 @@
           },
           "completeness" : {
             "$ref" : "#/components/schemas/CompletenessDTO"
+          }
+        }
+      },
+      "ApplicationPatchRequest" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN" ]
+          },
+          "nextAction" : {
+            "type" : "string"
+          },
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "starred" : {
+            "type" : "boolean"
+          },
+          "archived" : {
+            "type" : "boolean"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "outcome" : {
+            "type" : "string"
           }
         }
       },
@@ -11304,6 +11739,314 @@
           }
         }
       },
+      "ApplicationListPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApplicationDTO"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "summary" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "ApplicationDetailDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "company" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "roleTitle" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "jobUrl" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "location" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "jobType" : {
+            "type" : "string",
+            "enum" : [ "FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "TEMPORARY", "OTHER" ]
+          },
+          "jobMode" : {
+            "type" : "string",
+            "enum" : [ "ON_SITE", "HYBRID", "REMOTE", "OTHER" ]
+          },
+          "email" : {
+            "type" : "string",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "salary" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "starred" : {
+            "type" : "boolean"
+          },
+          "archived" : {
+            "type" : "boolean"
+          },
+          "externalJobId" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "submissionConfirmed" : {
+            "type" : "boolean"
+          },
+          "atsPlatform" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "jobDescription" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN" ]
+          },
+          "source" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "appliedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/UserDTO"
+          },
+          "resume" : {
+            "$ref" : "#/components/schemas/ResumeDTO"
+          },
+          "attachmentFilename" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "lastEventAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "nextAction" : {
+            "type" : "string",
+            "maxLength" : 160,
+            "minLength" : 0
+          },
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "acceptedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "postingId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nextStep" : {
+            "$ref" : "#/components/schemas/NextStep"
+          },
+          "ghosted" : {
+            "type" : "boolean"
+          },
+          "interviewsCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "notesCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "mailCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EventDTO"
+            }
+          },
+          "notes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NoteDTO"
+            }
+          },
+          "interviews" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InterviewDTO"
+            }
+          },
+          "suggestions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Suggestion"
+            }
+          }
+        },
+        "required" : [ "company", "createdAt", "roleTitle", "status", "updatedAt" ]
+      },
+      "EventDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "fromStatus" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN" ]
+          },
+          "toStatus" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN" ]
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "refId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "InterviewDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "company" : {
+            "type" : "string"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tz" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "interviewer" : {
+            "type" : "string"
+          },
+          "notes" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Suggestion" : {
+        "type" : "object",
+        "properties" : {
+          "inboxMessageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "to" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN" ]
+          },
+          "subject" : {
+            "type" : "string"
+          },
+          "sentAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "MailView" : {
         "type" : "object",
         "properties" : {
@@ -11338,6 +12081,18 @@
           },
           "snippet" : {
             "type" : "string"
+          }
+        }
+      },
+      "ActivityDay" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },

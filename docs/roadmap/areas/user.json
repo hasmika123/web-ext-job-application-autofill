@@ -1428,7 +1428,7 @@
       "id": "U6.2",
       "epic": "U6",
       "title": "Applications list API v2: filters, cursor paging, per-status summary, bulk actions",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
