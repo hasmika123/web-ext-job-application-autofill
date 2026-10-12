@@ -14,9 +14,9 @@ import java.util.Map;
 
 /**
  * The settings registry (ADMIN-E2E-PLAN 2.1, A5.1): the one closed list of every runtime setting an admin can see and
- * change, assembled from the three declaration sources - {@link ResumeBuilderSettingKeys} (resume builder, onboarding,
+ * change, assembled from the declaration sources - {@link ResumeBuilderSettingKeys} (resume builder, onboarding,
  * tracker, notifications, org), {@link AiSettingKeys} (the fixed AI keys plus the route and provider families for every
- * task and provider) and {@link AdminSettingKeys} (the platform keys). Each {@link Key} carries its type, default,
+ * task and provider), {@link AdminSettingKeys} (the platform keys) and {@link EnterpriseSettingKeys} (Enterprise V2). Each {@link Key} carries its type, default,
  * bounds, {@code area} and {@code risk}; unknown keys are refused, so admin changes values and never invents settings.
  *
  * <p>The open-ended {@code ai.price.<model>.*} family is not listed here (it has no fixed members); a stored price row
@@ -37,6 +37,7 @@ public final class SettingDefinitions {
             for (String field : AiSettingKeys.PROVIDER_FIELDS) all.add(AiSettingKeys.find(AiSettingKeys.providerKey(provider, field)));
         }
         all.addAll(AdminSettingKeys.all());
+        all.addAll(EnterpriseSettingKeys.all());
         Map<String, Key> by = new LinkedHashMap<>();
         for (Key k : all) {
             if (by.put(k.key(), k) != null) throw new IllegalStateException("duplicate setting key " + k.key());

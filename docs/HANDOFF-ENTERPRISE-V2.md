@@ -8,11 +8,11 @@
 
 ## START HERE
 
-**Last commit:** `enterprise-v2: phase 0 audit, architecture debate, ADRs, foundation design, phase plan` on `enterprise-v2` (see `git log --oneline -1`).
+**Build branch:** `ev2-build-p1` (cut from `enterprise-v2` at `834e2fa`; not pushed). **Last story done:** X1.1 (`ev2-x1.1: ...`; `git log --oneline -3`). **Next story:** X1.2 (tenancy schema). Design branch `enterprise-v2` is the Phase 0 design only.
 
 **First commands**
 ```bash
-git checkout enterprise-v2
+git checkout ev2-build-p1
 git log --oneline -3
 node docs/roadmap/build-master-roadmap.mjs --list | tail -4      # ent area present, 0 dangling ids
 cat docs/enterprise-v2/README.md                                  # the index and who owns what
@@ -21,7 +21,7 @@ cat docs/enterprise-v2/progress-tracker.md                        # statuses
 
 **If you are a design session (Fable):** pick your letter in `docs/enterprise-v2/README.md` (B domains/branding/login/identity/dashboards UX · C catalog/pricing/entitlements/metering/billing · D talent marketing/resumes/applications/clients/placements/HR/finance · E API specs/test plan/deployment plan/full story set). Read `00`–`08` first (they are short on purpose), then the ADRs your section names, then write only your files. Do not re-open an ADR without a superseding ADR. Write every story in the §30 format used in `07-backlog.md` §2 and add it to `docs/roadmap/areas/ent.json` by editing the generator spec, never by hand.
 
-**If you are a build session (Sonnet):** the first task is **X1.1** (enterprise flags + `EnterpriseEnabledFilter`). Build order for Phase 1: **X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.8 → X1.9 → X1.10 → X1.11 → X1.12** (X1.6/X1.7 may run in parallel with X1.3–X1.5 once X1.2 is in; X1.9 needs X1.12). Each story in `docs/enterprise-v2/07-backlog.md` §2 is build-ready (functional, UI, backend, DB, APIs, permissions, AC, tests). Loop per `CLAUDE.md`: one story → tests green → `progress-tracker.md` + `--set X1.n=…` → one commit `ent-x1.n: <subject>` → PR into `develop` (never `main`). Branch topic branches off `enterprise-v2` while the programme is private; the user decides when `enterprise-v2` merges to `develop`.
+**If you are a build session (Sonnet):** X1.1 is done (flags in `EnterpriseSettingKeys`, `EnterpriseFeatureFlag`, `EnterpriseEnabledFilter`); take the next story in order. Build order for Phase 1: **X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.8 → X1.9 → X1.10 → X1.11 → X1.12** (X1.6/X1.7 may run in parallel with X1.3–X1.5 once X1.2 is in; X1.9 needs X1.12). Each story in `docs/enterprise-v2/07-backlog.md` §2 is build-ready (functional, UI, backend, DB, APIs, permissions, AC, tests). Loop per `CLAUDE.md`: one story → tests green → `progress-tracker.md` + `--set X1.n=…` → one commit `ent-x1.n: <subject>` → PR into `develop` (never `main`). Branch topic branches off `enterprise-v2` while the programme is private; the user decides when `enterprise-v2` merges to `develop`.
 
 ## What was done this session (Phase 0)
 - Audited the real code at `ce30edc` (after merging `32046a8`), the three merging branches and the two parked org branches; wrote the reuse matrix, the subscription audit and the infra audit (`01-existing-system-audit.md`).

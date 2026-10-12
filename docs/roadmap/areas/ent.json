@@ -130,7 +130,7 @@
       "id": "X1.1",
       "epic": "X1",
       "title": "Enterprise feature flags in the settings registry + EnterpriseEnabledFilter (second 404 wall)",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API"

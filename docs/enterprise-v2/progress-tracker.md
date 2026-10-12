@@ -16,7 +16,7 @@
 
 | Story | Status | Owner | Evidence | Notes |
 |---|---|---|---|---|
-| X1.1 Enterprise flags + EnterpriseEnabledFilter | Not Started | Sonnet (API) | — | first task; see HANDOFF START HERE |
+| X1.1 Enterprise flags + EnterpriseEnabledFilter | Completed | Sonnet (API) | `service/settings/EnterpriseSettingKeys`, `service/ent/EnterpriseFeatureFlag`, `config/EnterpriseEnabledFilter` (+ `OrgWebConfiguration`, per-org wall in `OrgPermissionInterceptor`); tests `EnterpriseFeatureFlagTest` (12), `EnterpriseEnabledFilterTest` (6), `EnterpriseEnabledFilterIT` (4), `OrgPermissionInterceptorTest` (+4), `SettingDefinitionsTest` (+3); commit `ev2-x1.1` | allow list is exclusive and `on:false` is a kill switch (Log) |
 | X1.2 Tenancy schema | Not Started | Sonnet (API) | — | additive changelog `*_ent_tenancy.xml` |
 | X1.3 TenantResolver + public tenant + ask endpoint | Not Started | Sonnet (API) | — | |
 | X1.4 Web host resolution + (tenant) group + tenant-404 | Not Started | Sonnet (Web) | — | |
@@ -55,3 +55,4 @@ here when a story is specified; never add a row without an id in `ent.json`.
 
 ## Log
 - 2026-10-12 — Phase 0 complete on `enterprise-v2` (Fable). Roadmap area `ent` registered, 109 stories, 0 dangling ids.
+- 2026-10-12 — X1.1 Completed on `ev2-build-p1` (Sonnet). `flag.enterprise` + six sub-flags + hosts/domains/billing keys in the registry (`EnterpriseSettingKeys`); `EnterpriseFeatureFlag` (`on:false` kills > deny > exclusive allow list > pct > on; fails closed); `EnterpriseEnabledFilter` (404 for `/api/public/tenant`, `/api/ent/**`, `/api/orgs/*/enterprise/**`); per-org wall in `OrgPermissionInterceptor`.

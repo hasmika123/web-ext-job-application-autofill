@@ -163,6 +163,71 @@ class SettingDefinitionsTest {
     }
 
     @Test
+    void theEnterpriseFlagsAreOffJsonFlagsWithOrgIdLists() {
+        List<Key> flags = SettingDefinitions.all().stream().filter(k -> k.key().equals("flag.enterprise") || k.key().startsWith("flag.enterprise.")).toList();
+        assertThat(flags).extracting(Key::key).containsExactlyInAnyOrder(
+            "flag.enterprise", "flag.enterprise.domains", "flag.enterprise.roles", "flag.enterprise.billing", "flag.enterprise.marketing",
+            "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces"
+        );
+        for (Key k : flags) {
+            assertThat(k.type()).as(k.key()).isEqualTo(Type.JSON);
+            assertThat(SettingDefinitions.typeName(k)).as(k.key()).isEqualTo("FLAG");
+            assertThat(k.risk()).as(k.key()).isIn(Risk.HIGH, Risk.MEDIUM);
+            assertThat(k.defaultValue()).as("fails closed: %s", k.key()).isEqualTo(AdminSettingKeys.FLAG_OFF);
+            assertThat(SettingDefinitions.reasonRule(k)).as(k.key()).isEqualTo(k.risk() == Risk.HIGH ? "required" : "optional");
+        }
+        assertThat(key("flag.enterprise").risk()).isEqualTo(Risk.HIGH);
+        Key master = key("flag.enterprise");
+        assertValid(master, "{\"on\":true,\"allow\":[12,\"13\"],\"deny\":[7]}", true);
+        assertValid(master, "{\"on\":true,\"pct\":25}", true);
+        assertValid(master, "{\"on\":false}", true);
+        assertValid(master, "{\"pct\":25}", false); // on is required
+        assertValid(master, "{\"on\":true,\"allow\":[\"acme\"]}", false); // org ids, not logins
+        assertValid(master, "{\"on\":true,\"allow\":[0]}", false);
+        assertValid(master, "{\"on\":true,\"allow\":[-3]}", false);
+        assertValid(master, "{\"on\":true,\"allow\":[1.5]}", false);
+        assertValid(master, "{\"on\":true,\"pct\":101}", false);
+        assertValid(master, "{\"on\":true,\"extra\":1}", false);
+        assertValid(master, "[true]", false);
+        StringBuilder many = new StringBuilder("{\"on\":true,\"allow\":[");
+        for (int i = 1; i <= 51; i++) many.append(i == 1 ? "" : ",").append(i);
+        assertValid(master, many.append("]}").toString(), false);
+    }
+
+    @Test
+    void theEnterpriseTenancyKeysExistWithTheirDefaults() {
+        Key hosts = key("enterprise.hosts.platform");
+        assertThat(hosts.type()).isEqualTo(Type.JSON);
+        assertThat(hosts.risk()).isEqualTo(Risk.HIGH);
+        assertThat(hosts.defaultValue()).isEqualTo("[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\",\"localhost\"]");
+        assertValid(hosts, "[\"kiwiply.com\",\"localhost\"]", true);
+        assertValid(hosts, "[]", false);
+        assertValid(hosts, "[\"Kiwiply.com\"]", false); // lower-case only
+        assertValid(hosts, "[\"kiwiply.com/path\"]", false);
+        assertValid(hosts, "[\"-bad.com\"]", false);
+        assertValid(hosts, "\"kiwiply.com\"", false);
+        assertKey("enterprise.domains.subdomains_per_day", "20", 1, 500, Risk.MEDIUM);
+        assertKey("enterprise.domains.recheck_hours", "24", 1, 168, Risk.LOW);
+        assertKey("enterprise.domains.grace_hours_before_suspend", "72", 1, 720, Risk.MEDIUM);
+        assertKey("enterprise.quote.ttl_minutes", "15", 1, 240, Risk.MEDIUM);
+        assertKey("enterprise.usage.retention_months", "24", 3, 84, Risk.LOW);
+        assertKey("org.consent.request_cooldown_days", "7", 1, 90, Risk.LOW);
+        assertThat(key("org.invite.require_email_match").defaultValue()).isEqualTo("true");
+        assertThat(key("enterprise.billing.mode_default").defaultValue()).isEqualTo("SUBSCRIPTION_ITEMS");
+        assertThat(key("enterprise.billing.mode_default").allowed()).containsExactly("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE");
+    }
+
+    @Test
+    void noEnterpriseKeyIsDeclaredInAnotherRegistryToo() {
+        for (Key k : EnterpriseSettingKeys.all()) {
+            assertThat(ResumeBuilderSettingKeys.all()).extracting(Key::key).doesNotContain(k.key());
+            assertThat(AdminSettingKeys.find(k.key())).as(k.key()).isNull();
+            assertThat(SettingDefinitions.find(k.key())).isSameAs(k);
+            assertThat(ResumeBuilderSettingKeys.find(k.key())).isSameAs(k); // so ResumeBuilderSettings can read it
+        }
+    }
+
+    @Test
     void theExtensionAndOpsStringsHaveTheirShapes() {
         assertValid(key("ext.min_version"), "1.4.0", true);
         assertValid(key("ext.min_version"), "1.4", false);
