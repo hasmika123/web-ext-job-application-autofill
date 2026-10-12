@@ -1,13 +1,11 @@
 /**
- * The dashboard's "Finish your profile" card, the parts that are not React (Onboarding v2, R1.7,
- * DESIGN 6): the show rule, "n of total done" from the local v1 draft, and the snooze / dismiss memory.
- *
- * Interim by design: the card's memory lives in `localStorage` and "in progress" is read from the
- * `sessionStorage` setup draft. R1.8 adds the server status (`GET /api/profile/onboarding`) and R1.9
- * switches the card to it and migrates the local value once; until then this file is the only owner.
+ * The dashboard's "Finish your profile" card, the parts that are not React (Onboarding v2, R1.7 / R1.9,
+ * DESIGN 6). Since R1.9 the card reads the server: `GET /api/profile/onboarding` evaluates `card.show` /
+ * `card.state` and the draft's "n of total done" (the dashboard page passes it in), and snooze / dismiss go through
+ * `PATCH`. What is left here is the card's tunables from the builder config, the time estimate, and the one-shot
+ * migration of the R1.7 `localStorage` snooze / dismiss memory (DECISIONS #33e).
  */
 import { DEFAULT_BUILDER_CONFIG, type ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
-import { stepsFor, type SetupState, type StepKey } from "@/lib/profile-setup/state";
 
 /**
  * The card's three tunables (DESIGN 11): `onboarding.estimateMinutes`, `onboarding.card.snoozeDays`,
@@ -30,89 +28,72 @@ export function onboardingSettings(config: { onboarding?: ResumeBuilderConfig["o
 /** The API's declared defaults, for tests and for when the API is unreachable. */
 export const ONBOARDING_DEFAULTS: OnboardingSettings = onboardingSettings(DEFAULT_BUILDER_CONFIG);
 
-/** localStorage key of the snooze / dismiss memory (temporary: R1.9 moves it to the server). */
+/** localStorage key of the R1.7 snooze / dismiss memory (read once and removed: the server owns it now). */
 export const CARD_KEY = "kiwiply.onboarding.card.v1";
 /** sessionStorage flag so `onboarding_card_shown` fires once per session. */
 export const CARD_SHOWN_KEY = "kiwiply.onboarding.card.shown.v1";
 
-const DAY_MS = 24 * 60 * 60 * 1000; // config-literal-ok: unit conversion
 const MINUTE = 60; // config-literal-ok: unit conversion
 
 export type CardMemory = { snoozedUntil?: string; dismissedAt?: string };
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 /**
- * DESIGN 6 with what exists today: hidden once the person has finished onboarding AND the profile is at or
- * above `promptBelow` (`profile.setup.promptBelowPercent`). An unknown score (the API hiccuped) hides the
- * card; it never nags on a failure.
+ * R1.7 kept the card's snooze / dismiss in `localStorage`, per login. R1.9 moves it to the server: this reads this
+ * login's remembered value (null when there is none). The caller sends it to the server only when the server has none of
+ * its own, then calls {@link dropLegacyCardMemory}, so it is migrated at most once and never lost on a failed send.
  */
-export function shouldShowCard(input: { onboarded: boolean; score: number | null; promptBelow: number }): boolean {
-  if (input.score === null) return false;
-  return !(input.onboarded && input.score >= input.promptBelow);
-}
-
-/** The remembered snooze / dismiss for this login (keyed so two accounts on one browser do not share it). */
-export function readCardMemory(storage: StorageLike | undefined, login: string): CardMemory {
+export function readLegacyCardMemory(storage: StorageLike | undefined, login: string): CardMemory | null {
   try {
     const raw = storage?.getItem(CARD_KEY);
-    if (!raw) return {};
+    if (!raw) return null;
     const all = JSON.parse(raw) as Record<string, CardMemory> | null;
-    const mine = all && typeof all === "object" ? all[login] : null;
-    return mine && typeof mine === "object" ? mine : {};
-  } catch {
-    return {};
-  }
-}
-
-export function writeCardMemory(storage: StorageLike | undefined, login: string, memory: CardMemory): void {
-  try {
-    if (!storage) return;
-    let all: Record<string, CardMemory> = {};
-    try {
-      const parsed = JSON.parse(storage.getItem(CARD_KEY) ?? "{}") as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) all = parsed as Record<string, CardMemory>;
-    } catch {
-      // unreadable value: start again
+    if (!all || typeof all !== "object" || Array.isArray(all)) {
+      storage?.removeItem(CARD_KEY);
+      return null;
     }
-    all[login] = memory;
-    storage.setItem(CARD_KEY, JSON.stringify(all));
+    const mine = all[login];
+    return mine && typeof mine === "object" ? mine : null;
   } catch {
-    // private mode / quota: the card just comes back next visit
+    return null;
   }
 }
 
-export function snoozeUntil(now: number, days: number): string {
-  return new Date(now + days * DAY_MS).toISOString();
+/** Remove this login's remembered value (the whole key once nobody's is left). */
+export function dropLegacyCardMemory(storage: StorageLike | undefined, login: string): void {
+  try {
+    const raw = storage?.getItem(CARD_KEY);
+    if (!raw) return;
+    const all = JSON.parse(raw) as Record<string, CardMemory> | null;
+    if (!all || typeof all !== "object" || Array.isArray(all)) {
+      storage?.removeItem(CARD_KEY);
+      return;
+    }
+    delete all[login];
+    if (Object.keys(all).length === 0) storage?.removeItem(CARD_KEY);
+    else storage?.setItem(CARD_KEY, JSON.stringify(all));
+  } catch {
+    // ignore
+  }
 }
 
-/** True while the card should stay hidden: dismissed, or snoozed and the snooze has not run out. */
-export function isCardHidden(memory: CardMemory, now: number): boolean {
+/** True while the remembered snooze has not run out, or the card was dismissed. */
+export function isLegacyMemoryActive(memory: CardMemory, now: number): boolean {
   if (memory.dismissedAt) return true;
-  if (memory.snoozedUntil) {
-    const until = Date.parse(memory.snoozedUntil);
-    return Number.isFinite(until) && until > now;
-  }
-  return false;
+  const until = memory.snoozedUntil ? Date.parse(memory.snoozedUntil) : NaN;
+  return Number.isFinite(until) && until > now;
 }
 
-// v1 draft steps -> the v2 step names the time estimates are keyed by (DESIGN 3.1).
-const V2_STEP: Partial<Record<StepKey, string>> = { path: "hello", input: "source", cards: "review", skills: "skills", identity: "you", prefs: "prefs" };
+// The v2 step names in flow order (DESIGN 3.1); the time estimates are keyed by them.
+const FLOW: string[] = ["hello", "source", "review", "skills", "you", "prefs"];
 
-export type CardProgress = { stepsDone: number; stepsTotal: number; secondsLeft: number };
-
-/** "3 of 6 done" and the time still to go, from the local v1 draft the way DESIGN 6 words it. */
-export function draftProgress(
-  draft: Pick<SetupState, "step" | "parsed">,
-  hasPrefQuestions: boolean,
-  stepSeconds: Record<string, number>,
-): CardProgress {
-  const steps = stepsFor(draft, hasPrefQuestions);
-  const at = Math.max(0, steps.indexOf(draft.step));
-  const secondsLeft = steps.slice(at).reduce((sum, k) => sum + (stepSeconds[V2_STEP[k] ?? ""] ?? 0), 0);
-  return { stepsDone: at, stepsTotal: steps.length, secondsLeft };
+/** Seconds still to go from the draft's current step on (the steps behind it are done, so it only ever goes down). */
+export function secondsLeft(step: string, stepSeconds: Record<string, number>): number {
+  const at = Math.max(0, FLOW.indexOf(step));
+  return FLOW.slice(at).reduce((sum, k) => sum + (stepSeconds[k] ?? 0), 0);
 }
 
 /** "about 2 min left" / "< 1 min left" (DESIGN 5.0: computed from the remaining steps, so it only goes down). */
-export function minutesLeftLabel(secondsLeft: number): string {
-  return secondsLeft < MINUTE ? "< 1 min left" : `about ${Math.ceil(secondsLeft / MINUTE)} min left`;
+export function minutesLeftLabel(secondsLeftValue: number): string {
+  return secondsLeftValue < MINUTE ? "< 1 min left" : `about ${Math.ceil(secondsLeftValue / MINUTE)} min left`;
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BuildingIcon, ChevronDownIcon, GearIcon, SignOutIcon, UserIcon, cn } from "@kiwiply/ui";
 import { notifyExtension } from "@/lib/extension-signal";
+import { clearOnboardingMirror } from "@/lib/onboarding/mirror";
 import DemoBadge from "@/components/demo/DemoBadge";
 import { DEMO_NOTE } from "@/lib/demo";
 
@@ -52,6 +53,7 @@ export default function AccountMenu({
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       notifyExtension("signedOut"); // the extension drops its own session at once (11.1)
+      clearOnboardingMirror(); // a half-built profile on this device is not for the next person to see (Onboarding v2 R1.9)
       router.push("/login");
       router.refresh();
     } finally {

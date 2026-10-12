@@ -11,7 +11,7 @@ import {
   skillItems,
 } from "./import";
 import { cleanParsedString, redactForParsing, removedNotice, stripMarker } from "./sensitive";
-import { DRAFT_KEY, INITIAL_STATE, clearDraft, keptCounts, loadDraft, nextStep, prevStep, reducer, saveDraft, stepsFor } from "./state";
+import { INITIAL_STATE, keptCounts, nextStep, prevStep, reducer, stepsFor } from "./state";
 
 /** The bio caps `config.profile` carries (the API defaults). */
 const BIO: BioLimits = { valueChars: 500, summaryChars: 2000 };
@@ -193,7 +193,7 @@ describe("reducer and steps", () => {
   const parsedState = reducer(INITIAL_STATE, { type: "parsed", draft, source: "ai", removed: 2, existing: {} });
 
   it("parsing lands on the review, or on skills when there are no cards", () => {
-    expect(parsedState.step).toBe("cards");
+    expect(parsedState.step).toBe("review");
     expect(parsedState.skills).toEqual(draft.skills);
     expect(reducer(INITIAL_STATE, { type: "parsed", draft: { ...draft, candidates: [] }, source: "heuristic", removed: 0, existing: {} }).step).toBe("skills");
   });
@@ -216,41 +216,9 @@ describe("reducer and steps", () => {
   });
 
   it("the steps follow what is there: no review without cards, no preferences when answered", () => {
-    expect(stepsFor(parsedState, true)).toEqual(["path", "input", "cards", "skills", "identity", "prefs", "done"]);
-    expect(stepsFor({ parsed: null }, false)).toEqual(["path", "input", "skills", "identity", "done"]);
-    expect(nextStep({ ...parsedState, step: "identity" }, false)).toBe("done");
-    expect(prevStep({ ...parsedState, step: "skills" }, false)).toBe("cards");
-  });
-});
-
-describe("abandon-safe draft", () => {
-  const store = () => {
-    const m = new Map<string, string>();
-    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), m };
-  };
-  const parsedState = reducer(INITIAL_STATE, { type: "parsed", draft: toDraft(structured, bio, [], BIO), source: "ai", removed: 0, existing: {} });
-
-  it("round-trips a state worth resuming and holds only parsed content", () => {
-    const s = store();
-    saveDraft(s, parsedState);
-    const raw = s.m.get(DRAFT_KEY) ?? "";
-    expect(raw).toContain("Senior Engineer");
-    expect(loadDraft(s)).toEqual(parsedState);
-  });
-  it("does not keep a draft before anything is parsed, nor after finishing", () => {
-    const s = store();
-    saveDraft(s, { ...INITIAL_STATE, step: "input", path: "paste" });
-    expect(s.m.has(DRAFT_KEY)).toBe(false);
-    saveDraft(s, parsedState);
-    clearDraft(s);
-    expect(loadDraft(s)).toBeNull();
-  });
-  it("ignores a corrupt or foreign draft", () => {
-    const s = store();
-    s.setItem(DRAFT_KEY, "{nope");
-    expect(loadDraft(s)).toBeNull();
-    s.setItem(DRAFT_KEY, JSON.stringify({ v: 2, step: "cards" }));
-    expect(loadDraft(s)).toBeNull();
-    expect(loadDraft(undefined)).toBeNull();
+    expect(stepsFor(parsedState, true)).toEqual(["hello", "source", "review", "skills", "you", "prefs", "done"]);
+    expect(stepsFor({ parsed: null }, false)).toEqual(["hello", "source", "skills", "you", "done"]);
+    expect(nextStep({ ...parsedState, step: "you" }, false)).toBe("done");
+    expect(prevStep({ ...parsedState, step: "skills" }, false)).toBe("review");
   });
 });

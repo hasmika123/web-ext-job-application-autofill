@@ -3,76 +3,75 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, IconButton, Menu, MoreHorizontalIcon, Meter, Tooltip, buttonVariants, cn, useToast } from "@kiwiply/ui";
-import { unansweredQuestions } from "@/components/onboarding/preferences";
 import { track } from "@/lib/analytics";
+import { patchOnboarding, type CardAction, type OnboardingStatus } from "@/lib/onboarding/api";
 import {
   CARD_SHOWN_KEY,
   ONBOARDING_DEFAULTS,
-  draftProgress,
-  isCardHidden,
+  isLegacyMemoryActive,
   minutesLeftLabel,
-  readCardMemory,
-  shouldShowCard,
-  snoozeUntil,
-  writeCardMemory,
-  type CardProgress,
+  secondsLeft,
+  dropLegacyCardMemory,
+  readLegacyCardMemory,
   type OnboardingSettings,
 } from "@/lib/onboarding-card";
-import { loadDraft } from "@/lib/profile-setup/state";
-
-type View = { state: "not_started" } | ({ state: "in_progress" } & CardProgress);
 
 /**
- * The dashboard's friendly "Let's get you job-ready" card (Onboarding v2 R1.7, DESIGN 6): an invitation, never
- * a gate. Not started: mascot-wave, "Start". In progress (a setup draft exists in this tab): mascot-laptop,
- * "n of total done", a meter and "Continue". The ⋯ menu snoozes it for `onboarding.card.snoozeDays` or hides
- * it for good; both are remembered in `localStorage` per login until R1.9 moves them to the server.
+ * The dashboard's friendly "Let's get you job-ready" card (Onboarding v2 R1.7 / R1.9, DESIGN 6): an invitation, never
+ * a gate. Not started: mascot-wave, "Start". In progress (a setup draft exists on the server, from any device):
+ * mascot-laptop, "n of total done", a meter and "Continue". The ⋯ menu snoozes it for `onboarding.card.snoozeDays` or
+ * hides it for good.
+ *
+ * The server decides (`status.card.show` / `.state` / the draft's `stepsDone` / `stepsTotal`, from
+ * `GET /api/profile/onboarding`; the dashboard page loads it), and snooze / dismiss are `PATCH` calls. The R1.7 values
+ * kept in `localStorage` are migrated once on the first load: sent to the server when it has none, then removed.
  *
  * The mascots are server components (`Mascot` checks the file on disk), so the dashboard page renders them
- * and hands them in as slots. Everything that reads browser storage waits for mount, so server and first
- * client render agree (nothing shows until then).
+ * and hands them in as slots.
  */
 export default function FinishProfileCard({
   login,
-  onboarded,
-  score,
-  promptBelow,
-  bio,
+  status,
   settings = ONBOARDING_DEFAULTS,
   mascotWave,
   mascotLaptop,
 }: {
-  /** Whoever is signed in; the snooze / dismiss memory is kept per login. */
+  /** Whoever is signed in; only the one-time migration of the R1.7 browser memory is keyed by it. */
   login: string;
-  /** `bio.onboardedAt` is set (the person finished or skipped the old onboarding). */
-  onboarded: boolean;
-  /** Profile completeness, null when the API could not say. */
-  score: number | null;
-  /** `config.profile.setupPromptBelowPercent` (admin setting `profile.setup.promptBelowPercent`). */
-  promptBelow: number;
-  /** The profile's string values: which application questions are still unanswered decides whether the flow has that step. */
-  bio: Record<string, unknown>;
+  /** `GET /api/profile/onboarding`; null when the API could not say (the card never nags on a failure). */
+  status: OnboardingStatus | null;
   settings?: OnboardingSettings;
   mascotWave?: ReactNode;
   mascotLaptop?: ReactNode;
 }) {
   const toast = useToast();
-  const eligible = shouldShowCard({ onboarded, score, promptBelow });
-  const [view, setView] = useState<View | null>(null);
-  const hasPrefQuestions = unansweredQuestions(bio).length > 0;
+  const [hidden, setHidden] = useState(false);
+  const show = status !== null && status.card.show && !hidden;
+  const draft = status?.draft ?? null;
+  const inProgress = status?.card.state === "IN_PROGRESS" && draft !== null;
+  const serverHasMarker = !!(status?.card.dismissedAt || status?.card.snoozedUntil);
 
-  // Browser storage is only readable after mount.
+  // The R1.7 memory: carried to the server once (only when it has no marker of its own), then gone for good.
   useEffect(() => {
-    if (!eligible) return;
-    if (isCardHidden(readCardMemory(window.localStorage, login), Date.now())) return;
-    const draft = loadDraft(window.sessionStorage);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- storage only exists on the client
-    setView(draft ? { state: "in_progress", ...draftProgress(draft, hasPrefQuestions, settings.stepSeconds) } : { state: "not_started" });
-  }, [eligible, login, hasPrefQuestions, settings.stepSeconds]);
+    if (status === null) return;
+    const memory = readLegacyCardMemory(window.localStorage, login);
+    if (!memory) return;
+    if (serverHasMarker || !isLegacyMemoryActive(memory, Date.now())) {
+      dropLegacyCardMemory(window.localStorage, login);
+      return;
+    }
+    const action: CardAction = memory.dismissedAt ? "DISMISS" : "SNOOZE";
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the browser memory only exists on the client
+    setHidden(true);
+    patchOnboarding({ card: { action } })
+      .then(() => dropLegacyCardMemory(window.localStorage, login))
+      // not sent: the card comes back and the remembered value stays, so the next visit tries again
+      .catch(() => setHidden(false));
+  }, [status, login, serverHasMarker]);
 
   // Once per session, however many times the dashboard renders.
   useEffect(() => {
-    if (!view) return;
+    if (!show || status === null) return;
     try {
       if (window.sessionStorage.getItem(CARD_SHOWN_KEY)) return;
       window.sessionStorage.setItem(CARD_SHOWN_KEY, "1");
@@ -80,29 +79,32 @@ export default function FinishProfileCard({
       // storage blocked: the event may repeat, never break the card
     }
     track("onboarding_card_shown", {
-      state: view.state,
-      stepsDone: view.state === "in_progress" ? view.stepsDone : 0,
-      stepsTotal: view.state === "in_progress" ? view.stepsTotal : 0,
-      resurfaced: false,
+      state: inProgress ? "in_progress" : "not_started",
+      stepsDone: inProgress ? draft.stepsDone : 0,
+      stepsTotal: inProgress ? draft.stepsTotal : 0,
+      resurfaced: status.card.resurfaced,
     });
-  }, [view]);
+  }, [show, status, inProgress, draft]);
 
-  if (!view) return null;
+  if (!show || status === null) return null;
 
-  const snooze = () => {
-    writeCardMemory(window.localStorage, login, { snoozedUntil: snoozeUntil(Date.now(), settings.snoozeDays) });
-    track("onboarding_dismissed", { action: "snooze" });
-    toast({ title: `Okay — we'll bring it back in ${settings.snoozeDays} ${settings.snoozeDays === 1 ? "day" : "days"}.` });
-    setView(null);
+  const act = (action: "SNOOZE" | "DISMISS") => {
+    setHidden(true);
+    track("onboarding_dismissed", { action: action === "SNOOZE" ? "snooze" : "dismiss" });
+    patchOnboarding({ card: { action } })
+      .then(() =>
+        toast(
+          action === "SNOOZE"
+            ? { title: `Okay — we'll bring it back in ${settings.snoozeDays} ${settings.snoozeDays === 1 ? "day" : "days"}.` }
+            : { title: "Got it. You can set up anytime from My Profiles." },
+        ),
+      )
+      .catch(() => {
+        setHidden(false);
+        toast({ title: "Couldn't do that. Try again in a moment.", variant: "error" });
+      });
   };
-  const dismiss = () => {
-    writeCardMemory(window.localStorage, login, { dismissedAt: new Date().toISOString() });
-    track("onboarding_dismissed", { action: "dismiss" });
-    toast({ title: "Got it. You can set up anytime from My Profiles." });
-    setView(null);
-  };
 
-  const inProgress = view.state === "in_progress";
   const minutes = settings.estimateMinutes;
   return (
     <section aria-label="Set up your profile" className="relative flex items-center gap-3 rounded-2xl border border-v2-line/70 bg-v2-lime-soft/60 p-4 shadow-v2-soft sm:gap-5 sm:p-5">
@@ -110,12 +112,15 @@ export default function FinishProfileCard({
       <div className="min-w-0 flex-1 pr-9">
         <h2 className="text-[15px] font-extrabold text-v2-navy">{inProgress ? "Finish your profile" : "Let's get you job-ready"}</h2>
         <p className="mt-0.5 text-[13.5px] text-v2-navy/80">
-          {view.state === "in_progress"
-            ? `${view.stepsDone} of ${view.stepsTotal} done · ${minutesLeftLabel(view.secondsLeft)}`
+          {inProgress
+            ? `${draft.stepsDone} of ${draft.stepsTotal} done · ${minutesLeftLabel(secondsLeft(draft.step, settings.stepSeconds))}`
             : `Drop in a resume, confirm a few cards, done. About ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`}
         </p>
-        {view.state === "in_progress" && (
-          <Meter value={view.stepsDone} max={view.stepsTotal} label="Setup progress" valueText={`${view.stepsDone} of ${view.stepsTotal} steps done`} neutral className="mt-2.5 max-w-xs" />
+        {status.card.resurfaced && (
+          <p className="mt-1 text-[13px] text-v2-navy/80">Your profile is {status.completeness.score}% — forms will ask for the rest.</p>
+        )}
+        {inProgress && (
+          <Meter value={draft.stepsDone} max={draft.stepsTotal} label="Setup progress" valueText={`${draft.stepsDone} of ${draft.stepsTotal} steps done`} neutral className="mt-2.5 max-w-xs" />
         )}
         <Link href="/profiles/setup" className={cn(buttonVariants("accent"), "mt-3 max-sm:min-h-11 max-sm:w-full")}>
           {inProgress ? "Continue" : "Start"} <ArrowRightIcon size={15} aria-hidden />
@@ -129,8 +134,8 @@ export default function FinishProfileCard({
             </IconButton>
           }
           items={[
-            { label: "Remind me in a few days", onSelect: snooze },
-            { label: "Don't show this again", onSelect: dismiss },
+            { label: "Remind me in a few days", onSelect: () => act("SNOOZE") },
+            { label: "Don't show this again", onSelect: () => act("DISMISS") },
           ]}
         />
       </Tooltip>
