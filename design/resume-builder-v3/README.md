@@ -39,3 +39,15 @@ Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real u
   rename pencil, a **"Master Resume" ▾** type selector, kebab menu; second row: **Created Oct 2, 2026**,
   **Last modified 2 hours ago**, **Private ▾** (visibility), **★ Primary Resume** (green, toggle),
   **Shared with Recruiters: Off ▾**, **Version 3 ▾** (version history). Swap Section panel open on the left.
+- **`user-my-resumes.webp` — user dashboard "My Resumes" page** (`/resume-builder` list; layout only): hero with
+  "+ New Resume"; tabs All / Active / Drafts / Archived with counts; search, All Status ▾, Last Modified ▾ sort,
+  grid/list toggle; cards = template thumbnail + status chip (Primary / Active / Draft / Archived), name, Created /
+  Modified dates, tags (role, level, "ATS Friendly"), actions edit / duplicate / view / AI, ⋮ menu; "Popular
+  Templates" strip (names are placeholders, not template specs) with View all; "Quick Tips" card; sidebar promo.
+- **`org-resumes-profiles.webp` — org admin dashboard "Resumes & Profiles" page** (`/org/resumes`; layout
+  only): org switcher; stats Total Resumes / New this month / Shortlisted; tabs All / Active / Shortlisted /
+  Archived; Save View, View: Grid ▾; filters Role, Skills, Experience, Education, Location, Status, More Filters;
+  person cards = photo, status chip, star, name, title, location, years, degree, date, skill chips +N, actions
+  view / download / print / assign, select checkbox for bulk. Nav labels on this board (Candidates, Interview
+  Pipeline, Post a Job) are layout reference only — the org model is consultancies/schools with consent-scoped
+  access, not an employer ATS.
