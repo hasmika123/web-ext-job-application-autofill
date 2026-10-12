@@ -211,7 +211,7 @@
       "id": "O1.5",
       "epic": "O1",
       "title": "OrgIsolationIT — route-discovered cross-tenant test (ROADMAP 21.0 gate)",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
