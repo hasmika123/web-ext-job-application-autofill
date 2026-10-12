@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore }
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import { cn } from "./cn";
 import { XIcon } from "./icons";
+import Tooltip from "./Tooltip";
 
 /**
  * SideSheet — ONE accessible slide-in for both of the Resume Builder's side-navs (DESIGN v2 §10.3).
@@ -246,15 +247,17 @@ export default function SideSheet({
       )}
 
       {/* Last in DOM order on purpose (first focus lands on the panel's first control); drawn top-right. */}
-      <button
-        type="button"
-        data-sheet-close
-        onClick={() => onClose()}
-        aria-label={`Close ${title}`}
-        className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        <XIcon className="h-4 w-4" />
-      </button>
+      <Tooltip content={`Close ${title}`} side="left" className="absolute right-3 top-3">
+        <button
+          type="button"
+          data-sheet-close
+          onClick={() => onClose()}
+          aria-label={`Close ${title}`}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          <XIcon className="h-4 w-4" />
+        </button>
+      </Tooltip>
     </>
   );
 

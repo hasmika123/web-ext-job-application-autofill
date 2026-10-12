@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { BoldIcon, ItalicIcon, LinkIcon, ListIcon, ListOrderedIcon, UnderlineIcon, clearMark, cn, isCovered, markAt, toggleMark } from "@kiwiply/ui";
+import { BoldIcon, ItalicIcon, LinkIcon, ListIcon, ListOrderedIcon, Tooltip, UnderlineIcon, clearMark, cn, isCovered, markAt, toggleMark } from "@kiwiply/ui";
 import type { ResumeListStyle, ResumeMark, ToolbarButton } from "@kiwiply/ui";
 import { useCanvas } from "./canvasContext";
 import LinkPopover from "./LinkPopover";
@@ -133,30 +133,30 @@ export default function MarkToolbar({
           const on = pressed(b);
           const off = inert(b);
           return (
-            <button
-              key={b}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              type="button"
-              aria-label={label}
-              aria-pressed={on}
-              aria-disabled={off || undefined}
-              aria-haspopup={b === "a" ? "dialog" : undefined}
-              aria-expanded={b === "a" ? !!pop : undefined}
-              title={hint ? `${label} (${hint})` : label}
-              tabIndex={i === stop ? 0 : -1}
-              onFocus={() => setStop(i)}
-              onMouseDown={keepFocus}
-              onClick={() => press(b)}
-              className={cn(
-                "inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink",
-                "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent aria-disabled:opacity-40 aria-disabled:hover:bg-transparent max-sm:h-11 max-sm:w-11",
-                on && "bg-v2-green-soft text-v2-green-ink hover:bg-v2-green-soft",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-            </button>
+            <Tooltip key={b} content={hint ? `${label} (${hint})` : label}>
+              <button
+                ref={(el) => {
+                  refs.current[i] = el;
+                }}
+                type="button"
+                aria-label={label}
+                aria-pressed={on}
+                aria-disabled={off || undefined}
+                aria-haspopup={b === "a" ? "dialog" : undefined}
+                aria-expanded={b === "a" ? !!pop : undefined}
+                tabIndex={i === stop ? 0 : -1}
+                onFocus={() => setStop(i)}
+                onMouseDown={keepFocus}
+                onClick={() => press(b)}
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink",
+                  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent aria-disabled:opacity-40 aria-disabled:hover:bg-transparent max-sm:h-11 max-sm:w-11",
+                  on && "bg-v2-green-soft text-v2-green-ink hover:bg-v2-green-soft",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            </Tooltip>
           );
         })}
       </div>

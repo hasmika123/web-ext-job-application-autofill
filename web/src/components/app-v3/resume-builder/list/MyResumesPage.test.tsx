@@ -263,7 +263,7 @@ describe("My Resumes: cards", () => {
     renderPage([{ ...resumes()[0] }], cfg({ aiAllowed: false }));
     const lock = within(card(1)).getByRole("link", { name: "AI tools for Software Engineer (Pro)" });
     expect(lock.getAttribute("href")).toBe("/pricing");
-    expect(lock.getAttribute("title")).toBe("AI suggestions are part of Pro");
+    expect(lock.closest("[data-tooltip-trigger]")).not.toBeNull(); // the lock explains itself in a tooltip
   });
 
   it("View on an uploaded file opens the stored file, and it has no AI action", () => {

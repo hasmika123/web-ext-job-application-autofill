@@ -52,6 +52,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
 
 import ResumeHeaderBar from "./ResumeHeaderBar";
+import type { ComponentProps } from "react";
 
 const ok = <T,>(value: T) => ({ kind: "ok" as const, value });
 const ensureSaved = vi.fn<() => Promise<boolean>>();
@@ -64,7 +65,8 @@ function renderBar({
   lineage = testLineage(),
   viewport = "wide" as Viewport,
   config = DEFAULT_BUILDER_CONFIG as ResumeBuilderConfig,
-}: { meta?: ResumeMeta; lineage?: ResumeLineage; viewport?: Viewport; config?: ResumeBuilderConfig } = {}) {
+  props = {},
+}: { meta?: ResumeMeta; lineage?: ResumeLineage; viewport?: Viewport; config?: ResumeBuilderConfig; props?: Partial<ComponentProps<typeof ResumeHeaderBar>> } = {}) {
   m.getMeta.mockResolvedValue(ok(meta));
   m.getLineage.mockResolvedValue(ok(lineage));
   return render(
@@ -80,6 +82,7 @@ function renderBar({
         onDocReplaced={onDocReplaced}
         onTailor={onTailor}
         onOpenSettings={onOpenSettings}
+        {...props}
       />
     </ToastProvider>,
   );
@@ -159,7 +162,7 @@ describe("ResumeHeaderBar: row 1", () => {
       "Duplicate",
       "Set as primary",
       "Tailor for a job…",
-      "Save as version…",
+      "Save version…",
       "Version history",
       "Resume settings…",
       "Archive",
@@ -237,15 +240,20 @@ describe("ResumeHeaderBar: row 1", () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("Archive confirms, patches and leaves for the list; Delete asks first and deletes", async () => {
+  it("Archive needs no confirm: it patches, leaves for the list and offers Undo; Delete asks first and deletes", async () => {
     m.deleteResume.mockResolvedValue(ok(null));
     renderBar();
     await settle();
     fireEvent.click(within(header()).getByText("More actions"));
     fireEvent.click(menuItem("Archive"));
-    fireEvent.click(within(confirmDialog("Archive this resume?")).getByRole("button", { name: "Archive" }));
+    expect(screen.queryByRole("dialog")).toBeNull(); // no confirm dialog
     await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { archived: true }));
     await waitFor(() => expect(m.push).toHaveBeenCalledWith("/resume-builder"));
+    expect(await screen.findByText("Resume archived")).toBeTruthy();
+    m.patchMeta.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { archived: false }));
+    expect(await screen.findByText("Resume restored")).toBeTruthy();
 
     m.push.mockReset();
     fireEvent.click(within(header()).getByText("More actions"));
@@ -563,18 +571,46 @@ describe("ResumeHeaderBar: versions", () => {
     expect(m.restoreVersion).not.toHaveBeenCalled();
   });
 
-  it("Save as version… names the version after saving what is pending", async () => {
+  it("Version ▾ → Save version… opens a small inline field with the default name, and names the version after saving what is pending", async () => {
     m.createCheckpoint.mockResolvedValue(ok({ versionNo: 8, reason: "NAMED", pdf: null }));
     renderBar();
     await settle();
     fireEvent.click(chip("Version 3"));
-    fireEvent.click(await screen.findByRole("button", { name: "Save as version…" }));
-    const dialog = screen.getByRole("dialog", { name: "Save as version" });
-    fireEvent.change(within(dialog).getByLabelText(/Name/), { target: { value: "Sent to Acme" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save version" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save version…" }));
+    const input = screen.getByLabelText("Name this version") as HTMLInputElement;
+    expect(input.value).toMatch(/^Version \d+ · [A-Z][a-z]{2} \d{1,2}$/);
+    expect(input.maxLength).toBe(80);
+    expect(input.placeholder).toContain("Before applying to Stripe");
+    fireEvent.change(input, { target: { value: "Sent to Acme" } });
+    fireEvent.click(within(screen.getByRole("form", { name: "Save version" })).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(m.createCheckpoint).toHaveBeenCalledWith(42, "Sent to Acme"));
     expect(ensureSaved).toHaveBeenCalled();
     expect(await screen.findByText("Saved as v8")).toBeTruthy();
+    expect(document.querySelector('[data-saved-tick="version"]')).not.toBeNull();
+  });
+
+  it("with the editor's save-version handler it uses that (flush, checkpoint, PDF now) and toasts the number it answers with", async () => {
+    const onSaveVersion = vi.fn().mockResolvedValue({ kind: "ok", versionNo: 9, reason: "NAMED", pdf: { status: "PENDING" } });
+    renderBar({ props: { onSaveVersion } });
+    await settle();
+    fireEvent.click(chip("Version 3"));
+    fireEvent.click(await screen.findByRole("button", { name: "Save version…" }));
+    fireEvent.change(screen.getByLabelText("Name this version"), { target: { value: "Before the call" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Save version" }));
+    await waitFor(() => expect(onSaveVersion).toHaveBeenCalledWith("Before the call"));
+    expect(m.createCheckpoint).not.toHaveBeenCalled();
+    expect(await screen.findByText("Version 9 saved")).toBeTruthy();
+  });
+
+  it("the ⋮ entry Save version… opens the same flow as a dialog (phone overflow)", async () => {
+    m.createCheckpoint.mockResolvedValue(ok({ versionNo: 8, reason: "NAMED", pdf: null }));
+    renderBar({ viewport: "phone" });
+    await settle();
+    fireEvent.click(within(header()).getByText("More actions"));
+    fireEvent.click(menuItem("Save version…"));
+    const dialog = screen.getByRole("dialog", { name: "Save version" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save version" }));
+    await waitFor(() => expect(m.createCheckpoint).toHaveBeenCalledWith(42, expect.stringMatching(/^Version 4 · /)));
   });
 
   it("All versions opens the full list with a filter and the retention rule from the admin setting", async () => {
@@ -594,6 +630,95 @@ describe("ResumeHeaderBar: versions", () => {
     renderBar({ meta: testMeta({ version: { current: 0, latest: null } }) });
     await settle();
     expect(chip("No versions yet")).toBeTruthy();
+  });
+});
+
+describe("ResumeHeaderBar: inline ticks and undo toasts (DECISIONS #32)", () => {
+  const tick = (id: string) => document.querySelector(`[data-saved-tick="${id}"]`);
+
+  it("a rename shows the tick beside the name", async () => {
+    renderBar();
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.change(screen.getByLabelText("Resume name"), { target: { value: "Platform Engineer" } });
+    fireEvent.keyDown(screen.getByLabelText("Resume name"), { key: "Enter" });
+    await waitFor(() => expect(tick("name")).not.toBeNull());
+  });
+
+  it("Set as primary ticks the chip and Undo hands primary back to the resume that had it", async () => {
+    m.patchMeta.mockImplementation(async (id: number) => ok(testMeta({ primary: id === 42 })));
+    renderBar({ props: { primaryResumeId: 11 } });
+    await settle();
+    fireEvent.click(chip("Set as primary"));
+    await waitFor(() => expect(tick("primary")).not.toBeNull());
+    m.patchMeta.mockClear();
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(11, { primary: true }));
+  });
+
+  it("no Undo on Set as primary when the previous primary is unknown", async () => {
+    m.patchMeta.mockResolvedValue(ok(testMeta({ primary: true })));
+    renderBar();
+    await settle();
+    fireEvent.click(chip("Set as primary"));
+    expect(await screen.findByText("Now your primary resume")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  });
+
+  it("Private (nobody else holds a grant) needs no confirm: ticks, says 'Now private' and Undo restores the organization", async () => {
+    m.patchMeta.mockImplementation(async (_id: number, body: Record<string, unknown>) =>
+      ok(testMeta({ visibility: { mode: body.visibility === "PRIVATE" ? "PRIVATE" : "ORG", orgPaired: "Acme", orgScope: "FULL", shareWithOrg: true, people: 0 } })),
+    );
+    renderBar({ meta: testMeta({ visibility: { mode: "ORG", orgPaired: "Acme", orgScope: "FULL", shareWithOrg: true, people: 0 } }) });
+    await settle();
+    fireEvent.click(chip("My organization"));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Visibility" })).getByRole("button", { name: /^Private/ }));
+    expect(screen.queryByRole("dialog", { name: "Make this resume private?" })).toBeNull();
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { visibility: "PRIVATE" }));
+    expect(await screen.findByText("Now private")).toBeTruthy();
+    expect(tick("visibility")).not.toBeNull();
+    m.patchMeta.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { shareWithOrg: true }));
+  });
+
+  it("toggling My organization ticks and offers Undo", async () => {
+    renderBar({ meta: testMeta({ visibility: { mode: "ORG", orgPaired: "Rahul", orgScope: "FULL", shareWithOrg: true, people: 0 } }) });
+    await settle();
+    fireEvent.click(chip("My organization"));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Visibility" })).getByRole("button", { name: /My organization/ }));
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { shareWithOrg: false }));
+    expect(await screen.findByText("No longer shared with your organization")).toBeTruthy();
+    m.patchMeta.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { shareWithOrg: true }));
+  });
+
+  it("turning recruiter links on ticks and Undo turns them off; turning them off still asks (others hold the link)", async () => {
+    m.patchMeta.mockImplementation(async (_id: number, body: Record<string, unknown>) =>
+      ok(testMeta({ recruiterSharing: body.recruiterSharing ? { on: true, links: 1, views: 0 } : { on: false, links: 0, views: 0 } })),
+    );
+    m.getAccess.mockResolvedValue(ok({ org: null, grants: [], links: [testLink()], viewers: 0 }));
+    renderBar();
+    await settle();
+    fireEvent.click(chip("Shared with Recruiters: Off"));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Shared with Recruiters" })).getByRole("button", { name: /Turn on|On/ }));
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { recruiterSharing: true }));
+    await waitFor(() => expect(tick("recruiters")).not.toBeNull());
+    m.patchMeta.mockClear();
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(m.patchMeta).toHaveBeenCalledWith(42, { recruiterSharing: false }));
+  });
+
+  it("restoring a version ticks the Version chip", async () => {
+    m.restoreVersion.mockResolvedValue(ok({ doc: {}, templateId: "modern", theme: null, docVersion: 9 }));
+    renderBar();
+    await settle();
+    fireEvent.click(chip("Version 3"));
+    fireEvent.click(await screen.findByRole("button", { name: "Restore v6" }));
+    fireEvent.click(within(confirmDialog("Restore v6?")).getByRole("button", { name: "Restore" }));
+    await waitFor(() => expect(m.restoreVersion).toHaveBeenCalledWith(42, 6));
+    await waitFor(() => expect(tick("version")).not.toBeNull());
   });
 });
 

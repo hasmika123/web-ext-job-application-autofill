@@ -19,7 +19,7 @@ describe("HiddenContentBar", () => {
     expect(text.some((t) => /italic|underline|links/.test(t))).toBe(true);
     // each chip carries its "Why?" in the tooltip and as its accessible name
     expect(within(bar).getByLabelText(/^photo\. Why: ATS parsers can't read photos$/)).toBeTruthy();
-    expect(within(bar).getAllByRole("tooltip", { hidden: true }).length).toBe(chips.length);
+    expect(bar.querySelectorAll("[data-tooltip-trigger]").length).toBe(chips.length);
   });
 
   it("renders nothing when the template shows everything (and when the capable template is active again)", () => {

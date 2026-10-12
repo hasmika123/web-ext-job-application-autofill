@@ -1,7 +1,8 @@
 import { createRef } from "react";
 import type { RefObject } from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SAVED_TICK_MS, TOOLTIP_DELAY_MS, useSavedFlash } from "@kiwiply/ui";
 import type { PdfInfo } from "@/lib/resume-doc";
 import type { LeftPanel } from "./state/ui";
 import type { SaveStatus } from "./state/types";
@@ -20,8 +21,16 @@ const refs = (): Record<LeftPanel, RefObject<HTMLButtonElement | null>> => ({
   tailor: createRef(),
 });
 
-function bar(over: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
-  const props = {
+const chipText = () => document.querySelector("[data-save-status]")?.textContent?.replace(/Retry$/, "").trim();
+
+function barEl(over: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
+  return <EditorTopBar {...barProps(over)} />;
+}
+function renderBar(over: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
+  return render(barEl(over));
+}
+function barProps(over: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
+  return {
     status: "saved" as SaveStatus,
     savedAt: 1_000_000,
     now: 1_000_000,
@@ -34,6 +43,9 @@ function bar(over: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
     onClose: vi.fn(),
     ...over,
   };
+}
+function bar(over: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
+  const props = barProps(over);
   render(<EditorTopBar {...props} />);
   return props;
 }
@@ -41,8 +53,8 @@ function bar(over: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
 describe("status copy (DESIGN 10.2)", () => {
   const at = 10_000_000;
   it("saved: just now, N minutes, N hours (singular and plural)", () => {
-    expect(savedAgo(at, at + 10_000)).toBe("Saved just now");
-    expect(savedAgo(at, at + 44_000)).toBe("Saved just now");
+    expect(savedAgo(at, at + 10_000)).toBe("Saved");
+    expect(savedAgo(at, at + 44_000)).toBe("Saved");
     expect(savedAgo(at, at + 60_000)).toBe("Saved 1 minute ago");
     expect(savedAgo(at, at + 2 * 60_000)).toBe("Saved 2 minutes ago");
     expect(savedAgo(at, at + 59 * 60_000)).toBe("Saved 59 minutes ago");
@@ -57,21 +69,77 @@ describe("status copy (DESIGN 10.2)", () => {
     expect(statusLabel("conflict", at, at, null)).toBe("Not saved — edited elsewhere");
     expect(statusLabel("error", at, at, "Too big")).toBe("Not saved — Too big");
     expect(statusLabel("error", at, at, null)).toBe("Not saved — something went wrong");
+    expect(statusLabel("saved", at, at, null, false)).toBe("Offline — changes will save when you're back");
   });
 
-  it("is a polite status region: green check when saved, spinner when saving, red when not saved", () => {
+  it("is a polite status region: green check when saved, spinner when saving", () => {
     bar({ status: "saved" });
     const s = screen.getByRole("status");
     expect(s.getAttribute("aria-live")).toBe("polite");
-    expect(s.className).not.toContain("text-danger");
+    expect(s.getAttribute("data-save-tone")).toBe("calm");
     expect(s.querySelector("svg")).not.toBeNull();
-    cleanup();
-    bar({ status: "retrying" });
-    expect(screen.getByRole("status").className).toContain("text-danger");
-    expect(screen.getByRole("status").textContent).toContain("Not saved — retrying");
     cleanup();
     bar({ status: "saving" });
     expect(screen.getByRole("status").querySelector("svg.animate-spin")).not.toBeNull();
+    expect(screen.getByRole("status").getAttribute("data-save-tone")).toBe("calm");
+  });
+});
+
+describe("the save status chip (Notion-style autosave, DECISIONS #32)", () => {
+  const at = 10_000_000;
+
+  it("saving -> Saved -> relative time, all subtle", () => {
+    const { rerender } = renderBar({ status: "saving" });
+    expect(chipText()).toBe("Saving…");
+    rerender(barEl({ status: "saved", savedAt: at, now: at + 5_000 }));
+    expect(chipText()).toBe("Saved");
+    expect(screen.getByRole("status").getAttribute("data-save-tone")).toBe("calm");
+    rerender(barEl({ status: "saved", savedAt: at, now: at + 2 * 60_000 }));
+    expect(chipText()).toBe("Saved 2 minutes ago");
+  });
+
+  it("a failing save is loud amber with a Retry that tries again", () => {
+    const retry = vi.fn();
+    bar({ status: "retrying", onRetrySave: retry });
+    const chip = screen.getByRole("status");
+    expect(chip.getAttribute("data-save-tone")).toBe("warn");
+    expect(chip.className).toContain("bg-v2-amber-soft");
+    expect(chipText()).toContain("Not saved — retrying");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("a refused save is red with Retry; an edit conflict has no Retry (the dialog asks)", () => {
+    bar({ status: "error", error: "Too big", onRetrySave: vi.fn() });
+    expect(screen.getByRole("status").getAttribute("data-save-tone")).toBe("error");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    cleanup();
+    bar({ status: "conflict", onRetrySave: vi.fn() });
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("offline is loud amber and says changes will save when you're back", () => {
+    bar({ status: "saved", online: false, onRetrySave: vi.fn() });
+    const chip = screen.getByRole("status");
+    expect(chip.getAttribute("data-save-status")).toBe("offline");
+    expect(chip.getAttribute("data-save-tone")).toBe("warn");
+    expect(chipText()).toContain("Offline — changes will save when you're back");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("is in the bar at every width: no responsive hide on the chip or on any ancestor up to the header", () => {
+    bar({ status: "retrying" });
+    for (let el: HTMLElement | null = screen.getByRole("status"); el && el.tagName !== "HEADER"; el = el.parentElement) {
+      expect(el.className).not.toMatch(/(^|\s)(max-[a-z]+:)?hidden(\s|$)/);
+      expect(el.className).not.toMatch(/(^|\s)(sm|md|lg):(hidden|sr-only)/);
+    }
+    expect(screen.getByRole("status").closest("header")).not.toBeNull();
+  });
+
+  it("the PDF state stays a separate secondary text beside it", () => {
+    bar({ status: "saved", pdf: { status: "PENDING" } });
+    expect(document.querySelector('[data-pdf-status="updating"]')?.textContent).toContain("PDF updating…");
+    expect(chipText()).toBe("Saved");
   });
 });
 
@@ -93,12 +161,16 @@ describe("EditorTopBar", () => {
       expect(b.getAttribute("aria-expanded")).toBe("false");
       expect(b.getAttribute("aria-controls")).toBe("rb-left-sheet");
     }
-    expect(buttons.map((b) => b.title)).toEqual([
-      "Add Section (Alt+1)",
-      "Pick Template (Alt+2)",
-      "Swap Section (Alt+3)",
-      "Tailor to Job (Alt+4)",
-    ]);
+    // the tooltips carry the name and the shortcut (keyboard focus shows it)
+    vi.useFakeTimers();
+    const words = ["Add Section (Alt+1)", "Pick Template (Alt+2)", "Swap Section (Alt+3)", "Tailor to Job (Alt+4)"];
+    buttons.forEach((b, i) => {
+      fireEvent.focus(b);
+      act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS + 10));
+      expect(document.querySelector("[data-tooltip]")?.textContent).toBe(words[i]);
+      fireEvent.blur(b);
+    });
+    vi.useRealTimers();
   });
 
   it("the open panel's button is the only pressed one, with the green fill", () => {
@@ -123,44 +195,35 @@ describe("EditorTopBar", () => {
     expect(screen.queryByRole("button", { name: "Tailor to Job" })).toBeNull();
   });
 
-  it("Save reads Saved and is disabled when nothing changed since the last checkpoint", () => {
-    bar({ onSave: vi.fn(), canSave: false });
-    const save = screen.getByRole("button", { name: "Saved" }) as HTMLButtonElement;
-    expect(save.disabled).toBe(true);
+  it("has no Save button and no Save options menu (autosave; versions live in the header's Version menu)", () => {
+    bar();
+    expect(screen.queryByRole("button", { name: /^save/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save options" })).toBeNull();
+    expect(document.querySelector("[data-save-button]")).toBeNull();
   });
 
-  it("Save is enabled when something changed and calls back", () => {
-    const p = bar({ onSave: vi.fn(), canSave: true });
-    const save = screen.getByRole("button", { name: "Save" }) as HTMLButtonElement;
-    expect(save.disabled).toBe(false);
-    expect(save.title).toContain("Ctrl+S");
-    fireEvent.click(save);
-    expect(p.onSave).toHaveBeenCalledTimes(1);
-  });
-
-  it("Save shows Saving… while the checkpoint is written, and Saved for the 2 s after", () => {
-    bar({ onSave: vi.fn(), canSave: true, saving: true });
-    const busy = screen.getByRole("button", { name: "Saving…" }) as HTMLButtonElement;
-    expect(busy.disabled).toBe(true);
-    expect(busy.getAttribute("aria-busy")).toBe("true");
-    cleanup();
-    bar({ onSave: vi.fn(), canSave: true, justSaved: true });
-    expect(screen.getByRole("button", { name: "Saved" })).toBeTruthy();
-  });
-
-  it("Save ▾ → Save as version… asks for a name (at most 80 characters) and reports it", () => {
-    const p = bar({ onSave: vi.fn(), onSaveAsVersion: vi.fn() });
-    const chevron = screen.getAllByRole("button", { name: "Save options" }).find((b) => b.tagName === "BUTTON")!;
-    fireEvent.click(chevron);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Save as version…" }));
-    const dialog = screen.getByRole("dialog", { name: "Save as version" });
-    const input = within(dialog).getByLabelText("Version name") as HTMLInputElement;
-    expect(input.maxLength).toBe(80);
-    expect((within(dialog).getByRole("button", { name: "Save version" }) as HTMLButtonElement).disabled).toBe(true); // a name is needed
-    fireEvent.change(input, { target: { value: "  Before the Acme call " } });
-    fireEvent.submit(dialog.querySelector("form")!);
-    expect(p.onSaveAsVersion).toHaveBeenCalledWith("Before the Acme call");
-    expect(screen.queryByRole("dialog")).toBeNull();
+  it("an Add Section / Pick Template change shows the inline saved tick on its button", () => {
+    function Host() {
+      const f = useSavedFlash<"section" | "template">();
+      return (
+        <>
+          <button type="button" onClick={() => f.flash("section")}>
+            flash
+          </button>
+          <EditorTopBar {...barProps({ savedFlash: f })} />
+        </>
+      );
+    }
+    vi.useFakeTimers();
+    render(<Host />);
+    expect(document.querySelector("[data-saved-tick]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "flash" }));
+    const tick = document.querySelector('[data-saved-tick="section"]');
+    expect(tick).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Add Section" }).parentElement?.parentElement?.contains(tick)).toBe(true);
+    act(() => void vi.advanceTimersByTime(SAVED_TICK_MS + 10));
+    expect(document.querySelector("[data-saved-tick]")).toBeNull();
+    vi.useRealTimers();
   });
 
   it("the Download menu: items, disabled states and handlers", () => {

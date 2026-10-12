@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ATS_STRICT, DESIGN_FREE, controlStates } from "@kiwiply/ui";
+import { ATS_STRICT, DESIGN_FREE, TOOLTIP_DELAY_MS, controlStates } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeListStyle, ResumeMark, TemplateCapabilities, ToolbarButton } from "@kiwiply/ui";
 import MarkToolbar from "./MarkToolbar";
 
@@ -57,8 +57,15 @@ describe("MarkToolbar buttons follow the template's capabilities", () => {
     const bar = screen.getByRole("toolbar");
     expect(bar.getAttribute("aria-label")).toBe("Text formatting");
     expect(bar.getAttribute("aria-orientation")).toBe("horizontal");
-    expect(btn("Bold").title).toBe("Bold (Ctrl+B)");
-    expect(btn("Link").title).toBe("Link (Ctrl+K)");
+    // the tooltip carries the name and the shortcut (keyboard focus shows it)
+    vi.useFakeTimers();
+    for (const [name, words] of [["Bold", "Bold (Ctrl+B)"], ["Link", "Link (Ctrl+K)"]] as const) {
+      fireEvent.focus(btn(name));
+      act(() => void vi.advanceTimersByTime(TOOLTIP_DELAY_MS + 10));
+      expect(document.querySelector("[data-tooltip]")?.textContent).toBe(words);
+      fireEvent.blur(btn(name));
+    }
+    vi.useRealTimers();
   });
 });
 

@@ -32,6 +32,19 @@ async function getMeta(id: string): Promise<ResumeMeta | null> {
   }
 }
 
+/** The id of the user's primary resume (`GET /api/profile/resumes`), so "Set as primary" can offer Undo; null when unknown. Never throws. */
+async function getPrimaryResumeId(): Promise<number | null> {
+  try {
+    const res = await serverApiFetch("/api/profile/resumes");
+    if (!res.ok) return null;
+    const rows = (await res.json()) as Array<{ id?: unknown; primary?: unknown; defaultResume?: unknown; archived?: unknown }>;
+    const row = Array.isArray(rows) ? rows.find((r) => (r.primary ?? r.defaultResume) === true && r.archived !== true) : undefined;
+    return typeof row?.id === "number" ? row.id : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The Resume Builder editor (DESIGN 10.1): the document, the builder config, the AI meter and the
  * profile's update time are fetched here in parallel, on the server, and handed to the
@@ -46,13 +59,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   if (!/^\d+$/.test(id)) notFound();
 
-  const [docRes, plan, config, aiUsage, profileUpdatedAt, meta] = await Promise.all([
+  const [docRes, plan, config, aiUsage, profileUpdatedAt, meta, primaryResumeId] = await Promise.all([
     serverApiFetch(`/api/profile/resumes/${id}/doc`),
     getPlan(),
     getBuilderConfig(),
     getAiUsage(),
     getProfileUpdatedAt(),
     getMeta(id),
+    getPrimaryResumeId(),
   ]);
   if (docRes.status === 401 || docRes.status === 403) redirect("/login");
   if (docRes.status === 404 || docRes.status === 400) notFound();
@@ -71,6 +85,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       aiUsageLine={aiUsageLine ? { headline: aiUsageLine.headline, detail: aiUsageLine.detail } : null}
       profileUpdatedAt={profileUpdatedAt}
       initialMeta={meta}
+      primaryResumeId={primaryResumeId}
       jobTarget={null}
       openProposals={[]}
       entry={{ view: one(q.view) === "pdf" ? "pdf" : one(q.view) === "settings" ? "settings" : undefined, tab: one(q.tab) === "ai" ? "ai" : undefined }}
