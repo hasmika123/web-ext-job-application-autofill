@@ -16,18 +16,19 @@ const STATUSES = ['not_started', 'in_progress', 'in_review', 'partial', 'done', 
 const WEIGHT = { S: 1, M: 2, L: 3 };
 const CREDIT = { done: 1, in_review: 0.75, partial: 0.5, in_progress: 0.25, not_started: 0, blocked: 0 };
 
-// group: dashboards | cross | resume (home-page sections). name = short label; the JSON's own long
+// group: dashboards | cross | addons | resume (home-page sections). name = short label; the JSON's own long
 // title is kept as fullName. prefix/kind come from each JSON when present (config is the fallback).
 const GROUPS = [
   { key: 'dashboards', title: 'Dashboards', blurb: 'The three signed-in surfaces people actually use: the job seeker, the organization and the Kiwiply team.' },
   { key: 'cross', title: 'Cross-cutting', blurb: 'The engines and foundations under every dashboard: extension, growth, reliability, AI, mobile, billing, trust and support.' },
+  { key: 'addons', title: 'Add-ons', blurb: 'Optional extras that live inside an area but deserve their own front door. Their stories stay in that area and are counted there once.' },
   { key: 'resume', title: 'Resume Builder', blurb: 'The guided builder that sits on the common profile.' },
 ];
 const AREAS = [
   { key: 'user', group: 'dashboards', prefix: 'U', name: 'User dashboard', file: path.join(AREAS_DIR, 'user.json'), plan: 'PLAN-user.md', audit: 'AUDIT-user.md',
     summary: 'Everything a job seeker touches after signing in: the board, applications, inbox matches, profile, resumes and settings, built phone-first so it feels native on a 390px screen.' },
   { key: 'org', group: 'dashboards', prefix: 'O', name: 'Organization dashboard', file: path.join(AREAS_DIR, 'org.json'), plan: 'PLAN-org.md', audit: 'AUDIT-org.md',
-    summary: 'The workspace for consultancies and teams: members and seats, per-person items, consultant boards, marketer-prepared resumes and job banks, billing and setup.' },
+    summary: 'The workspace for consultancies and teams: members and seats, per-person items, consultant boards, marketer-prepared resumes and job banks, billing and setup, and the Consultancy Ops add-on with timesheets.' },
   { key: 'admin', group: 'dashboards', prefix: 'A', name: 'App admin dashboard', file: path.join(AREAS_DIR, 'admin.json'), plan: 'PLAN-admin.md', audit: 'AUDIT-admin.md',
     summary: 'The internal console for running Kiwiply: plan and price catalog with the margin guard, users and orgs, AI quotas, services queue, support tools and system health.' },
   { key: 'ext', group: 'cross', prefix: 'E', name: 'Browser extension', file: path.join(AREAS_DIR, 'ext.json'), plan: 'PLAN-ext.md', audit: 'AUDIT-ext.md',
@@ -49,6 +50,13 @@ const AREAS = [
   { key: 'resume', group: 'resume', prefix: 'R', name: 'Resume Builder', file: path.join(here, '..', 'resume-builder', 'stories.json'), plan: null, audit: null, resume: true,
     docs: [['Design', '../RESUME-BUILDER-DESIGN.md'], ['Decisions', '../RESUME-BUILDER-DECISIONS.md'], ['Stories', '../RESUME-BUILDER-STORIES.md']],
     summary: 'A guided resume builder on top of one common profile: edit once, switch templates, version history, export, then Pro AI assist, job tailoring and ATS match.' },
+];
+// Spotlight epics: home-page cards (group 'addons') that surface selected epics of an area whose
+// stories are already counted there. Stats are computed from epicIds only and never add to the overall
+// totals. Add another add-on by appending one entry. epicIds resolve across all areas.
+const SPOTLIGHTS = [
+  { key: 'ops', group: 'addons', badge: 'CO', name: 'Consultancy Ops & Timesheets', epicIds: ['O11'], areaKey: 'org',
+    summary: 'An optional Organization add-on for consultancies: weekly timesheets filled on the phone, client-approved proof, one-tap approval, exports, then invoice, payment and profit records. It records money and never moves it, never collects SSNs, bank or tax IDs, and is priced later in admin.' },
 ];
 // Shared market documents linked from the home page and every area page.
 const GLOBAL_DOCS = [['Competitive landscape', 'COMPETITIVE-LANDSCAPE.md'], ['Competitive gaps', 'COMPETITIVE-GAPS.md']];
@@ -181,6 +189,16 @@ function list(areas) {
     console.log(`${a.key.padEnd(6)} ${a.prefix.padEnd(3)} ${a.group.padEnd(10)} ${P(a.epics.length, 5)} ${P(st.length, 5)} ${pc(pct(st))} ${pc(pct(p0))}  ${ST.map((s) => P(c[s] || 0, 5)).join(' ')}`);
   }
   const live = areas.filter((a) => !a.pending);
+  for (const sp of SPOTLIGHTS) {
+    const eps = live.flatMap((a) => a.epics).filter((e) => sp.epicIds.includes(e.id));
+    const st = eps.flatMap((e) => e.stories);
+    const c = {}; st.forEach((s) => (c[s.status] = (c[s.status] || 0) + 1));
+    const p0 = eps.filter((e) => e.priority === 'P0').flatMap((e) => e.stories);
+    const pris = [...new Set(eps.map((e) => e.priority))].join('/') || '-';
+    console.log(`${sp.key.padEnd(6)} ${sp.badge.padEnd(3)} ${'spotlight'.padEnd(10)} ${P(eps.length, 5)} ${P(st.length, 5)} ${pc(pct(st))} ${pc(pct(p0))}  ${ST.map((s) => P(c[s] || 0, 5)).join(' ')}  <- ${sp.epicIds.join('+')} ${pris}, also in ${sp.areaKey}; excluded from overall`);
+    const missing = sp.epicIds.filter((id) => !eps.some((e) => e.id === id));
+    if (missing.length) console.log(`WARNING spotlight ${sp.key}: epic id(s) not found: ${missing.join(', ')}`);
+  }
   const all = live.flatMap((a) => a.epics.flatMap((e) => e.stories));
   const epicsAll = live.flatMap((a) => a.epics);
   console.log(`overall ${live.length} areas, ${epicsAll.length} epics, ${all.length} stories, ${(pct(all) * 100).toFixed(1)}%`);
@@ -223,7 +241,7 @@ function build(areas) {
   const updatedMax = areas.map((a) => a.updated).filter(Boolean).sort().pop() || '';
   const docs = GLOBAL_DOCS.filter(([, f]) => fs.existsSync(path.join(here, f))).map(([label, href]) => ({ label, href }));
   const w = findWarnings(areas.filter((a) => !a.pending));
-  const payload = { generated: today(), dataUpdated: updatedMax, groups: GROUPS, docs, warnings: { dangling: w.dangling, dupes: [...new Set(w.dupes)] }, areas };
+  const payload = { generated: today(), dataUpdated: updatedMax, groups: GROUPS, spotlights: SPOTLIGHTS, docs, warnings: { dangling: w.dangling, dupes: [...new Set(w.dupes)] }, areas };
   const json = JSON.stringify(payload).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   const html = TEMPLATE.replace('/*__DATA__*/null', () => json);
   fs.writeFileSync(OUT, html);
@@ -309,6 +327,9 @@ h1{font-size:clamp(24px,4vw,34px);line-height:1.15;font-weight:800;letter-spacin
 .abox{position:relative;border-radius:20px;padding:20px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
 .abox.user{background:var(--lilac-soft)}.abox.org{background:var(--blue-soft)}.abox.admin{background:var(--sand-soft)}.abox.resume{background:var(--lime-soft)}
 .abox.g-cross{background:var(--card);border-left:6px solid var(--lime)}
+.abox.addon{background:var(--card);border-left:6px solid var(--focus)}
+.abox.addon .pfx{width:auto;min-width:26px;padding:0 6px}
+.abox .also{font-size:12px;color:var(--muted);font-weight:600}
 .abox.pending{background:var(--card);opacity:.65;filter:grayscale(.7);box-shadow:none;border-style:dashed}
 .abox .hd{display:flex;gap:14px;align-items:center}
 .abox h2{font-size:20px;line-height:1.2;font-weight:800;letter-spacing:-.01em}
@@ -516,6 +537,15 @@ DATA.areas.forEach(function(a){
     e.needs=Object.keys(need).map(function(k){return need[k]});
   });
 });
+var spotlights=(DATA.spotlights||[]).map(function(sp){
+  var eps=sp.epicIds.map(function(id){return epicById[id]&&epicById[id].epic}).filter(Boolean);
+  if(!eps.length)return null;
+  var st=eps.reduce(function(x,e){return x.concat(e.stories)},[]),c={done:0,flight:0,none:0};
+  st.forEach(function(s){if(s.status==="done")c.done++;else if(s.status==="not_started"||s.status==="blocked")c.none++;else c.flight++});
+  var pris=[];eps.forEach(function(e){if(pris.indexOf(e.priority)<0)pris.push(e.priority)});
+  var o={};for(var k in sp)o[k]=sp[k];
+  o.epics=eps;o.stories=st;o.counts=c;o.pct=pctOf(st);o.pris=pris;o.area=epicById[eps[0].id].area;return o;
+}).filter(Boolean);
 var live=DATA.areas.filter(function(a){return !a.pending});
 var overall=pctOf(live.reduce(function(x,a){return x.concat(a.stories)},[]));
 var owners={};allStories.forEach(function(s){s.owners.forEach(function(o){owners[o]=1})});
@@ -564,7 +594,7 @@ function renderTop(){
   var t=$("top");t.textContent="";
   var d=el("div","t");
   add(d,el("div","eyebrow","Kiwiply product roadmap"),el("h1",null,"The big app roadmap"),
-    el("p","sub",plural(live.length,"area")+" in three groups. Open one to see its feature boxes, open a feature to see its stories, open a story for the details. Or list every feature box in one place."));
+    el("p","sub",plural(live.length,"area")+" in three groups plus add-ons. Open one to see its feature boxes, open a feature to see its stories, open a story for the details. Or list every feature box in one place."));
   var m=el("div","meta");
   var done=live.reduce(function(n,a){return n+a.counts.done},0),total=live.reduce(function(n,a){return n+a.stories.length},0);
   add(m,el("span",null,done+" of "+total+" stories done"),
@@ -606,6 +636,13 @@ function renderAreas(m){
   renderRef(m);
   DATA.groups.forEach(function(gr){
     var list=DATA.areas.filter(function(a){return a.group===gr.key});
+    var sps=spotlights.filter(function(x){return x.group===gr.key});
+    if(sps.length){
+      var sc=el("div","sec"),sh=el("h2",null,gr.title);
+      sh.appendChild(el("small",null,plural(sps.length,"add-on")));
+      add(sc,sh,el("p",null,gr.blurb));m.appendChild(sc);
+      spotlightGrid(m,sps);
+    }
     if(!list.length)return;
     var live2=list.filter(function(a){return !a.pending}),st=live2.reduce(function(x,a){return x.concat(a.stories)},[]);
     var sec=el("div","sec"),h=el("h2",null,gr.title);
@@ -614,6 +651,28 @@ function renderAreas(m){
     m.appendChild(sec);
     areaGrid(m,list);
   });
+}
+function spotlightGrid(m,list){
+  var g=el("div","grid areas fade");
+  list.forEach(function(sp){
+    var b=el("section","abox addon");
+    var hd=el("div","hd"),t=el("div",null);t.style.flex="1";t.style.minWidth="0";
+    var h=el("h2");add(h,el("span","pfx",sp.badge),document.createTextNode(sp.name));
+    t.appendChild(h);hd.appendChild(t);
+    hd.appendChild(ring(sp.pct,84,sp.name+" "+fmt(sp.pct)+" percent"));
+    b.appendChild(hd);
+    b.appendChild(el("p","sum",sp.summary));
+    b.appendChild(counts(sp));
+    var pl=el("div","p0line");
+    sp.pris.forEach(function(p){pl.appendChild(prChip(p))});
+    pl.appendChild(el("span",null,"Epic "+sp.epicIds.join(", ")+" | also in "+sp.area.name));
+    b.appendChild(pl);
+    var open=el("button","btn primary","Open",{type:"button","data-k":"addon-"+sp.key});
+    open.addEventListener("click",function(){noScroll=false;go(href(sp.area.key,sp.epics[0].id))});
+    open.style.alignSelf="flex-start";b.appendChild(open);
+    g.appendChild(b);
+  });
+  m.appendChild(g);
 }
 function areaGrid(m,list){
   var g=el("div","grid areas fade");

@@ -1,6 +1,6 @@
 # Master roadmap
 
-`master-roadmap.html` is a self-contained drill-down (works from file://). The home page groups twelve area boxes into **Dashboards** (user, org, admin), **Cross-cutting** (ext, mkt, plat, ai, mob, pay, trust, sup) and **Resume Builder**, then feature boxes (epics), then stories, then story details. `#/epics` is the flat **All epics** view (every epic, grouped by priority P0/P1/P2, sortable within a priority, respects the status/priority/owner filters). Deep links look like `#/user/U2/U2.3`.
+`master-roadmap.html` is a self-contained drill-down (works from file://). The home page groups twelve area boxes into **Dashboards** (user, org, admin), **Cross-cutting** (ext, mkt, plat, ai, mob, pay, trust, sup) and **Resume Builder**, plus an **Add-ons** group of spotlight cards (see below), then feature boxes (epics), then stories, then story details. `#/epics` is the flat **All epics** view (every epic, grouped by priority P0/P1/P2, sortable within a priority, respects the status/priority/owner filters). Deep links look like `#/user/U2/U2.3`.
 
 Sources it reads (any that are missing show as "Plan being written"):
 
@@ -9,6 +9,10 @@ Sources it reads (any that are missing show as "Plan being written"):
 - Optional `docs/roadmap/PLAN-<area>.md` and `AUDIT-<area>.md` (linked from the area page), plus `COMPETITIVE-LANDSCAPE.md` and `COMPETITIVE-GAPS.md` (linked from the home and every area page)
 
 The area list, short names, group and curated one-to-two sentence summaries live in the `AREAS` array at the top of the generator (the JSON's long `name` is shown as a subtitle on the area page; `prefix` and `kind` are read from the JSON). Add a new area by adding one entry there.
+
+## Spotlight epics (Add-ons group)
+
+The `SPOTLIGHTS` array in the generator (next to `AREAS`) drives the home page's **Add-ons** group: each entry `{ key, group: 'addons', badge, name, summary, epicIds: [...], areaKey }` renders one card whose stats (progress, epics, stories, done / partial / not started, priority) are computed from those epic ids only. Open goes to the owning area's view with the first epic expanded. The stories keep their ids and stay counted in their own area, so spotlights are excluded from the overall totals (`--list` prints them as a `spotlight` row marked "excluded from overall"). First entry: `ops` = **Consultancy Ops & Timesheets** (epic O11, also in Organization). Add another add-on by appending one entry.
 
 ## Optional story fields
 
