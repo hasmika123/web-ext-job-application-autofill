@@ -1492,7 +1492,7 @@
       "id": "U6.4",
       "epic": "U6",
       "title": "Interviews: CRUD, .ics / Google Calendar, reminders at setting `notify.interview_reminder_hours` (default 24 h + 1 h), outcome",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API",

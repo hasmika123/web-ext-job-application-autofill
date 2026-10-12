@@ -37,7 +37,15 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   **U6.2 done** (`e2e-u6.2`): list v2 / detail / PATCH / notes / bulk / activity on `/api/profile/applications`
   (`ApplicationListService`, `ApplicationPatchService`, `ApplicationNoteService`), BFF `app/api/applications/**`,
   `web/scripts/mock-tracker.mjs`. `ApplicationListPage` stands in for E2E-U0.0's `ListPage` (same JSON; swap when it merges).
-  Next in the lane: U6.4 interviews (see the commits' PROGRESS lines for what is built and what U6.3 owes).
+  **U6.4 done, API half** (`e2e-u6.4`): interviews CRUD + outcome + date-range feed + `.ics` (`InterviewService`,
+  `IcsCalendar`, `InterviewResource`), BFF `app/api/interviews/**` + `app/api/applications/[id]/interviews/**`,
+  `web/src/lib/interviews.ts` (fetchers, `icsHref`, `googleCalendarUrl`, `needsOutcome`), mock in `mock-tracker.mjs`.
+  **Owed by U6.3** (the detail sheet, not built): the Interview tab / `components/app-v3/applications/InterviewForm.tsx`
+  (autosave per field via `updateInterview`, outcome chips, "Add to calendar"), the status picker with `IN_REVIEW` /
+  `WITHDRAWN`, notes tab on `POST/PUT/DELETE /api/applications/[id]/notes`, `?app=<id>` deep link, and deleting
+  `V3_APPLICATION_ROWS` / `V3_APPLICATION_SAMPLE_COUNTS`. All its BFF routes and mock routes already exist.
+  U3.1 reads `GET /api/applications/activity` and `GET /api/interviews`. Deferred: reminders (U7.1), inbox-proposed
+  interviews (I9.9).
 
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),
