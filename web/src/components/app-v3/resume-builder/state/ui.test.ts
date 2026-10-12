@@ -53,6 +53,20 @@ describe("ui state: right view and the small fields", () => {
     expect(s.rightView).toBeNull();
   });
 
+  it("Resume settings is a right view of its own: open shows it (and keeps it), toggle closes it", () => {
+    let s = initialUiState();
+    s = run(s, { type: "rightView/open", view: "settings" });
+    expect(s.rightView).toBe("settings");
+    expect(s.newest).toBe("right");
+    expect(run(s, { type: "rightView/open", view: "settings" })).toBe(s); // already open: same object, never closes
+    s = run(s, { type: "rightView/open", view: "pdf" });
+    expect(s.rightView).toBe("pdf"); // one right view at a time
+    s = run(s, { type: "rightView/toggle", view: "settings" });
+    expect(s.rightView).toBe("settings");
+    s = run(s, { type: "rightView/toggle", view: "settings" });
+    expect(s.rightView).toBeNull();
+  });
+
   it("rail tab, active section and phone tab are plain setters", () => {
     let s = initialUiState();
     expect(s.railTab).toBe("insights");

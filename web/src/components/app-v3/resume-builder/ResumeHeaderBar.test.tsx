@@ -484,7 +484,7 @@ describe("ResumeHeaderBar: primary, visibility and recruiters", () => {
     m.revokeAccess.mockResolvedValue(ok(null));
     m.createLink.mockResolvedValue(ok(testLink({ id: 10 })));
     m.getAccess.mockResolvedValue(ok({ org: null, grants: [], links: [testLink()], viewers: 12 }));
-    renderBar({ meta: testMeta({ recruiterSharing: { on: true, links: 1, views: 12 } }), config: { ...DEFAULT_BUILDER_CONFIG, share: { maxLinks: 2 } } });
+    renderBar({ meta: testMeta({ recruiterSharing: { on: true, links: 1, views: 12 } }), config: { ...DEFAULT_BUILDER_CONFIG, share: { ...DEFAULT_BUILDER_CONFIG.share, maxLinks: 2 } } });
     await settle();
     fireEvent.click(chip("Shared with Recruiters: On"));
     const panel = within(screen.getByRole("dialog", { name: "Shared with Recruiters" }));
@@ -634,7 +634,7 @@ describe("ResumeHeaderBar: loading", () => {
     m.getMeta.mockResolvedValue(ok(testMeta({ name: "Read by the bar" })));
     render(
       <ToastProvider>
-        <ResumeHeaderBar resumeId={42} initialMeta={null} fallbackName="Fallback" config={DEFAULT_BUILDER_CONFIG} viewport="wide" savedAt={null} ensureSaved={ensureSaved} onDocReplaced={onDocReplaced} onTailor={onTailor} />
+        <ResumeHeaderBar resumeId={42} initialMeta={null} fallbackName="Fallback" config={DEFAULT_BUILDER_CONFIG} viewport="wide" savedAt={null} ensureSaved={ensureSaved} onDocReplaced={onDocReplaced} onTailor={onTailor} onOpenSettings={onOpenSettings} />
       </ToastProvider>,
     );
     expect(screen.getByRole("heading", { name: "Fallback" })).toBeTruthy();
@@ -645,7 +645,7 @@ describe("ResumeHeaderBar: loading", () => {
     m.getMeta.mockResolvedValueOnce({ kind: "error", status: 500, message: "boom" }).mockResolvedValue(ok(testMeta({ name: "Second try" })));
     render(
       <ToastProvider>
-        <ResumeHeaderBar resumeId={42} initialMeta={null} fallbackName="Fallback" config={DEFAULT_BUILDER_CONFIG} viewport="wide" savedAt={null} ensureSaved={ensureSaved} onDocReplaced={onDocReplaced} onTailor={onTailor} />
+        <ResumeHeaderBar resumeId={42} initialMeta={null} fallbackName="Fallback" config={DEFAULT_BUILDER_CONFIG} viewport="wide" savedAt={null} ensureSaved={ensureSaved} onDocReplaced={onDocReplaced} onTailor={onTailor} onOpenSettings={onOpenSettings} />
       </ToastProvider>,
     );
     fireEvent.click(await screen.findByRole("button", { name: "Try again" }));

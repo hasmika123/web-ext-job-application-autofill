@@ -104,8 +104,15 @@ export interface ResumeHeaderBarProps {
   onServerChange?: () => void;
   /** Opens the Tailor to Job panel. */
   onTailor: () => void;
-  /** Opens Resume settings (R3.12). Absent until that sheet exists: the entries then say "Coming soon". */
-  onOpenSettings?: () => void;
+  /** Opens Resume settings (R3.12): the header ⋮ entry and every "Manage in Resume settings" link. */
+  onOpenSettings: () => void;
+  /**
+   * The resume's metadata as the editor holds it, shared with Resume settings: when it is a different object than the
+   * one this bar last reported, the bar shows it (a rename or a share made in the settings sheet).
+   */
+  syncedMeta?: ResumeMeta | null;
+  /** Every change this bar makes to the metadata, so the editor can hand it to Resume settings. */
+  onMetaChange?: (meta: ResumeMeta) => void;
   className?: string;
 }
 
@@ -127,7 +134,9 @@ export default function ResumeHeaderBar({
   onDocReplaced,
   onServerChange,
   onTailor,
-  onOpenSettings,
+  onOpenSettings: openSettings,
+  syncedMeta = null,
+  onMetaChange,
   className,
 }: ResumeHeaderBarProps) {
   const router = useRouter();
@@ -137,7 +146,21 @@ export default function ResumeHeaderBar({
   const scrolling = viewport === "phone" || viewport === "tablet";
   const short = viewport === "desktop";
 
-  const [meta, setMeta] = useState<ResumeMeta | null>(initialMeta);
+  const [meta, setMetaState] = useState<ResumeMeta | null>(initialMeta);
+  // The metadata is shared with Resume settings: what this bar sets is reported up, what the sheet sets comes back in.
+  const [reported, setReported] = useState<ResumeMeta | null>(initialMeta);
+  const setMeta = useCallback(
+    (next: ResumeMeta) => {
+      setReported(next);
+      setMetaState(next);
+      onMetaChange?.(next);
+    },
+    [onMetaChange],
+  );
+  if (syncedMeta && syncedMeta !== reported) {
+    setReported(syncedMeta);
+    setMetaState(syncedMeta);
+  }
   const [loadFailed, setLoadFailed] = useState(false);
   const [lineage, setLineage] = useState<ResumeLineage | null>(null);
   const [newestVersion, setNewestVersion] = useState<number | null>(null);
@@ -169,7 +192,7 @@ export default function ResumeHeaderBar({
       setLoadFailed(false);
     } else setLoadFailed(true);
     setNow(Date.now());
-  }, [resumeId]);
+  }, [resumeId, setMeta]);
 
   useEffect(() => {
     if (initialMeta) return;
@@ -197,9 +220,6 @@ export default function ResumeHeaderBar({
   }, [resumeId, familyKey]);
 
   /* ── helpers ──────────────────────────────────────────────────────────────────────────── */
-  const soon = (what: string) => () => toast({ title: "Coming soon", description: `${what} isn't available in the resume builder yet.` });
-  const openSettings = onOpenSettings ?? soon("Resume settings");
-
   /** Duplicate (same call as the list card's menu): save what is pending, copy it, open the copy; a plan cap is said, not hidden. */
   const duplicate = async () => {
     if (!(await ensureSaved())) {
@@ -687,7 +707,7 @@ export default function ResumeHeaderBar({
             align="end"
             items={buildKebabItems()}
             trigger={
-              <span className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl text-v2-ink-soft hover:bg-paper-2 hover:text-ink sm:h-9 sm:w-9">
+              <span data-rb-header-menu className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl text-v2-ink-soft hover:bg-paper-2 hover:text-ink sm:h-9 sm:w-9">
                 <span className="sr-only">More actions</span>
                 <MoreVerticalIcon aria-hidden size={18} />
               </span>

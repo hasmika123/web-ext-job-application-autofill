@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
+import { ChartIcon, ChoiceGroup, FileTextIcon, GearIcon, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
 import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
@@ -26,6 +26,7 @@ import EditorTopBar from "./EditorTopBar";
 import HiddenContentBar from "./HiddenContentBar";
 import RailStrip from "./RailStrip";
 import ResumeHeaderBar from "./ResumeHeaderBar";
+import ResumeSettingsSheet from "./ResumeSettingsSheet";
 import RightRail from "./RightRail";
 import SectionTabs from "./SectionTabs";
 import TipsSheet from "./TipsSheet";
@@ -55,6 +56,9 @@ import {
 import { usePdfStatus } from "./usePdfStatus";
 import { useBuilderLayout } from "./useBuilderLayout";
 import { usePresentation } from "./usePresentation";
+
+/** The right sheet's two document views; Resume settings (R3.12) is the third right view and has no Download entry. */
+type PreviewView = Exclude<RightView, "settings">;
 
 /** A resume with nothing in it opens Add Section once (DESIGN 10.3). */
 function isEmptyDoc(doc: ResumeDocDTO["doc"]): boolean {
@@ -88,7 +92,7 @@ export interface ResumeEditorProps {
   /** Open AI suggestion cards: always empty until R4.1. */
   openProposals?: ReadonlyArray<{ id: string }>;
   /** Where to land (R2.6, the list's View / AI buttons): `?view=pdf` opens the PDF view, `?tab=ai` the AI Suggestions tab. */
-  entry?: { view?: "pdf"; tab?: "ai" };
+  entry?: { view?: "pdf" | "settings"; tab?: "ai" };
 }
 
 /**
@@ -123,6 +127,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   // Arriving from the list's View / AI buttons: once, after the remembered panels are restored.
   useEffect(() => {
     if (entry?.view === "pdf") uiDispatch({ type: "rightView/toggle", view: "pdf" });
+    if (entry?.view === "settings") uiDispatch({ type: "rightView/open", view: "settings" });
     if (entry?.tab === "ai") uiDispatch({ type: "rail/expand", tab: "ai" });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { layout } = ui;
@@ -134,6 +139,8 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     const t = initial.updatedAt ? Date.parse(initial.updatedAt) : Number.NaN;
     return Number.isFinite(t) ? t : null;
   });
+  // The resume's metadata, shared by the header bar and Resume settings (each reports what it changes, both show the latest).
+  const [liveMeta, setLiveMeta] = useState<ResumeMeta | null>(initialMeta);
   const autosave = useRef<Autosave | null>(null);
   const [exporting, setExporting] = useState(false);
   const latestRev = useRef(state.rev);
@@ -258,7 +265,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   const [shownPanel, setShownPanel] = useState<LeftPanel>("add");
   if (ui.leftPanel && ui.leftPanel !== shownPanel) setShownPanel(ui.leftPanel);
   // The right sheet's views are the two feature switches (DESIGN 10.8); "print" leads when both are on.
-  const views = useMemo<RightView[]>(
+  const views = useMemo<PreviewView[]>(
     () => [...(config.features.printLayout ? (["print"] as const) : []), ...(config.features.pdfView ? (["pdf"] as const) : [])],
     [config.features.printLayout, config.features.pdfView],
   );
@@ -281,9 +288,13 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   }, [phone]);
   // The right sheet hands focus back to what opened it: the Preview tab on a phone, else the Download button.
   const rightReturnFocus = useRef<HTMLElement | null>(null);
+  const defaultRightFocus = useCallback(
+    (): HTMLElement | null => (phone ? previewTabRef.current : (downloadRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"] button') ?? null)),
+    [phone],
+  );
   useEffect(() => {
-    rightReturnFocus.current = phone ? previewTabRef.current : (downloadRef.current?.querySelector<HTMLElement>('[aria-haspopup="menu"] button') ?? null);
-  }, [phone]);
+    rightReturnFocus.current = defaultRightFocus();
+  }, [defaultRightFocus]);
 
   const togglePanel = useCallback((panel: LeftPanel) => uiDispatch({ type: "panel/toggle", panel }), [uiDispatch]);
   const openPanel = useCallback(
@@ -306,20 +317,38 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   }, [compact, uiDispatch]);
   /** Download ▾ → Print layout / PDF view, Alt+P / Alt+V: open the view, or close it when it is the open one (one right view at a time). */
   const toggleView = useCallback(
-    (view: RightView) => {
+    (view: PreviewView) => {
       if (!views.includes(view)) return; // a switched-off view never opens
       if (ui.rightView === view) {
         closeRight();
         return;
       }
+      rightReturnFocus.current = defaultRightFocus();
       if (compact) {
         uiDispatch({ type: "panel/close" });
         uiDispatch({ type: "phone/tab", tab: "preview" });
       }
       uiDispatch({ type: "rightView/toggle", view });
     },
-    [views, ui.rightView, compact, closeRight, uiDispatch],
+    [views, ui.rightView, compact, closeRight, defaultRightFocus, uiDispatch],
   );
+  /**
+   * Resume settings (R3.12): the header ⋮ entry, every "Manage in Resume settings" link, the Download menu on a phone and
+   * Alt+S. It is the third right view; opening it again keeps it open, and focus goes back to the header's ⋮ when it closes.
+   */
+  const openSettings = useCallback(() => {
+    rightReturnFocus.current = document.querySelector<HTMLElement>("[data-rb-header-menu]")?.closest<HTMLElement>('[aria-haspopup="menu"]') ?? defaultRightFocus();
+    if (compact) {
+      uiDispatch({ type: "panel/close" });
+      uiDispatch({ type: "phone/tab", tab: "preview" });
+    }
+    uiDispatch({ type: "rightView/open", view: "settings" });
+    track("resume_panel_opened", { panel: "settings" });
+  }, [compact, defaultRightFocus, uiDispatch]);
+  const toggleSettings = useCallback(() => {
+    if (ui.rightView === "settings") closeRight();
+    else openSettings();
+  }, [ui.rightView, closeRight, openSettings]);
   const closeRailSheet = useCallback(() => uiDispatch({ type: "phone/tab", tab: "edit" }), [uiDispatch]);
   const closeAll = useCallback(() => {
     uiDispatch({ type: "panel/close" });
@@ -388,7 +417,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     track("resume_score_viewed", { score: report.score, band: report.band.title });
   }, [insightsVisible, report.score, report.band.title]);
 
-  /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu, Alt+P / Alt+V toggle Print layout / PDF view (desktop and tablet). */
+  /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu, Alt+P / Alt+V toggle Print layout / PDF view, Alt+S Resume settings (desktop and tablet). */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.metaKey || phone) return;
@@ -407,11 +436,14 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       } else if (e.code === "KeyV" || e.key.toLowerCase() === "v") {
         e.preventDefault();
         toggleView("pdf");
+      } else if (e.code === "KeyS" || e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        toggleSettings();
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [phone, config.features.tailor, togglePanel, toggleView]);
+  }, [phone, config.features.tailor, togglePanel, toggleView, toggleSettings]);
 
   /* Phone/tablet: one history entry per open sheet so the Back button closes it. */
   const modalOpen = compact && (leftOpen || railSheetOpen || rightOpen);
@@ -628,9 +660,10 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         <ChoiceGroup
           aria-label="Layout panels"
           className="mb-4"
-          options={PANEL_ORDER.filter((p) => p !== "tailor" || config.features.tailor).map((p) => ({ value: p, label: PANEL_META[p].title }))}
+          // the fifth segment is Resume settings: a right view, so it opens that sheet instead of a panel (DESIGN 10.12)
+          options={[...PANEL_ORDER.filter((p) => p !== "tailor" || config.features.tailor).map((p) => ({ value: p, label: PANEL_META[p].title })), { value: "settings", label: "Settings" }]}
           value={shownPanel}
-          onChange={(v) => openPanel(v as LeftPanel)}
+          onChange={(v) => (v === "settings" ? openSettings() : openPanel(v as LeftPanel))}
         />
       )}
       {shownPanel === "add" && (
@@ -654,8 +687,13 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     </>
   );
 
-  const rightTitle = phone ? "Preview" : shownView === "pdf" ? "PDF view" : "Print layout";
-  const rightDescription = shownView === "pdf" ? "The file employers and job sites receive" : "See how your resume paginates on paper";
+  const rightTitle = shownView === "settings" ? "Resume settings" : phone ? "Preview" : shownView === "pdf" ? "PDF view" : "Print layout";
+  const rightDescription =
+    shownView === "settings"
+      ? "Name, sharing and everything about this resume"
+      : shownView === "pdf"
+        ? "The file employers and job sites receive"
+        : "See how your resume paginates on paper";
 
   const rail = (
     <RightRail
@@ -687,6 +725,8 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         downloadRef={downloadRef}
         rightView={ui.rightView}
         onToggleView={toggleView}
+        onOpenSettings={openSettings}
+        settingsInMenu={phone}
         printLayout={config.features.printLayout}
         pdfView={config.features.pdfView}
         onSave={() => void saveCheckpoint()}
@@ -742,6 +782,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               onDocReplaced={adoptServerDoc}
               onServerChange={() => void refreshPdf()}
               onTailor={() => openPanel("tailor")}
+              onOpenSettings={openSettings}
+              syncedMeta={liveMeta}
+              onMetaChange={setLiveMeta}
             />
 
             <SectionTabs
@@ -799,11 +842,11 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
             width={RIGHT_SHEET_WIDTH}
             title={rightTitle}
             description={rightDescription}
-            icon={<FileTextIcon className="h-5 w-5" />}
+            icon={shownView === "settings" ? <GearIcon className="h-5 w-5" /> : <FileTextIcon className="h-5 w-5" />}
             onClose={closeRight}
             returnFocusTo={rightReturnFocus}
           >
-            {views.length > 1 && (
+            {shownView !== "settings" && views.length > 1 && (
               <ChoiceGroup
                 aria-label="Preview type"
                 className="mb-4"
@@ -812,7 +855,17 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
                 onChange={(v) => uiDispatch({ type: "rightView/toggle", view: v as RightView })}
               />
             )}
-            {shownView === "print" ? (
+            {shownView === "settings" ? (
+              <ResumeSettingsSheet
+                resumeId={resumeId}
+                meta={liveMeta}
+                onMeta={setLiveMeta}
+                config={config}
+                active={ui.rightView === "settings"}
+                phone={phone}
+                liveScore={report.score}
+              />
+            ) : shownView === "print" ? (
               <PrintLayoutView
                 doc={doc}
                 theme={state.theme}

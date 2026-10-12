@@ -36,6 +36,9 @@ vi.mock("@/lib/resume-meta", async (orig) => {
   return {
     ...(await orig<typeof import("@/lib/resume-meta")>()),
     getMeta: async () => ({ kind: "ok", value: testMeta({ name: "Backend SWE" }) }),
+    patchMeta: async (_id: number, body: Record<string, unknown>) => ({ kind: "ok", value: testMeta({ name: typeof body.name === "string" ? body.name : "Backend SWE" }) }),
+    getAccess: async () => ({ kind: "ok", value: { org: null, grants: [], links: [], viewers: 0 } }),
+    getViews: async () => ({ kind: "ok", value: [] }),
     getLineage: async () => ({ kind: "ok", value: testLineage() }),
     listVersions: async () => ({ kind: "ok", value: testVersions() }),
     restoreVersion: (id: number, n: number) => restoreVersion(id, n),
@@ -497,7 +500,8 @@ describe("ResumeEditor", () => {
       const dialog = screen.getByRole("dialog", { name: "Add Section" });
       expect(dialog.getAttribute("aria-modal")).toBe("true");
       const seg = within(dialog).getByRole("radiogroup", { name: "Layout panels" });
-      expect(within(seg).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Add Section", "Pick Template", "Swap Section", "Tailor to Job"]);
+      // the fifth segment is Resume settings (DESIGN 10.12): a right view, opened from the Layout tab
+      expect(within(seg).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Add Section", "Pick Template", "Swap Section", "Tailor to Job", "Settings"]);
       expect((window.history.state as { rbSheet?: boolean } | null)?.rbSheet).toBe(true);
 
       fireEvent.click(within(seg).getByRole("radio", { name: "Swap Section" }));
@@ -1267,6 +1271,103 @@ describe("ResumeEditor", () => {
       await flush(400);
       expect(screen.queryByRole("dialog")).toBeNull(); // both sheets closed
       expect((document.activeElement as HTMLElement).getAttribute("data-field")).toBe("i_sum0001.text");
+    });
+  });
+
+  describe("Resume settings (R3.12)", () => {
+    const rightSheet = () => document.getElementById("rb-right-sheet")!;
+    const openFromHeader = async () => {
+      const header = screen.getByRole("region", { name: "Resume details" });
+      fireEvent.click(within(header).getByRole("button", { name: "More actions" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Resume settings…" }));
+      await flush(300);
+    };
+
+    it("the header ⋮ → Resume settings… opens the right sheet; Esc closes it and focus returns to the ⋮", async () => {
+      renderEditor();
+      await flush(0);
+      await openFromHeader();
+      expect(within(rightSheet()).getByRole("textbox", { name: /^Name/ })).toBeTruthy();
+      expect(within(rightSheet()).getByRole("heading", { name: "Resume settings" })).toBeTruthy();
+      expect(within(rightSheet()).queryByRole("radiogroup", { name: "Preview type" })).toBeNull(); // not a Print layout / PDF view
+      expect(track).toHaveBeenCalledWith("resume_panel_opened", { panel: "settings" });
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      await flush(400);
+      expect(rightSheet().getAttribute("data-state")).not.toBe("open");
+      const header = screen.getByRole("region", { name: "Resume details" });
+      expect(document.activeElement).toBe(within(header).getByRole("button", { name: "More actions" }));
+    });
+
+    it("Alt+S opens it, Alt+S again closes it, and picking Resume settings twice keeps it open", async () => {
+      renderEditor();
+      await flush(0);
+      fireEvent.keyDown(document, { key: "s", code: "KeyS", altKey: true });
+      await flush(300);
+      expect(rightSheet().getAttribute("data-state")).toBe("open");
+      await openFromHeader(); // already open: stays open
+      expect(rightSheet().getAttribute("data-state")).toBe("open");
+      fireEvent.keyDown(document, { key: "s", code: "KeyS", altKey: true });
+      await flush(400);
+      expect(rightSheet().getAttribute("data-state")).not.toBe("open");
+    });
+
+    it("arriving with ?view=settings (the list card's Settings) opens it", async () => {
+      render(
+        <ToastProvider>
+          <ResumeEditor initial={dto()} plan="FREE" config={DEFAULT_BUILDER_CONFIG} entry={{ view: "settings" }} />
+        </ToastProvider>,
+      );
+      await flush(300);
+      expect(rightSheet().getAttribute("data-state")).toBe("open");
+      expect(within(rightSheet()).getByRole("textbox", { name: /^Name/ })).toBeTruthy();
+    });
+
+    it("a rename made in the sheet shows in the header bar at once", async () => {
+      renderEditor();
+      await flush(0);
+      await openFromHeader();
+      const name = within(rightSheet()).getByRole("textbox", { name: /^Name/ });
+      fireEvent.change(name, { target: { value: "Renamed in settings" } });
+      fireEvent.blur(name);
+      await flush(50);
+      const header = screen.getByRole("region", { name: "Resume details" });
+      expect(within(header).getByRole("heading", { name: "Renamed in settings" })).toBeTruthy();
+    });
+
+    it("Print layout / PDF view still open from Download, and the Download button is pressed only for them", async () => {
+      renderEditor();
+      await flush(0);
+      await openFromHeader();
+      const download = screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON") as HTMLButtonElement;
+      expect(download.getAttribute("aria-pressed")).toBe("false"); // the settings sheet is not a Download view
+      fireEvent.click(download);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Print layout/ }));
+      await flush(300);
+      expect(within(rightSheet()).getByRole("radiogroup", { name: "Preview type" })).toBeTruthy();
+      expect(download.getAttribute("aria-pressed")).toBe("true");
+    });
+
+    it("on a phone the Layout tab's fifth segment and the Download menu open it fullscreen", async () => {
+      setWidth(390);
+      renderEditor();
+      await flush(0);
+      fireEvent.click(within(screen.getByRole("tablist", { name: "Editor views" })).getByRole("tab", { name: "Layout" }));
+      const dialog = screen.getByRole("dialog", { name: "Add Section" });
+      fireEvent.click(within(within(dialog).getByRole("radiogroup", { name: "Layout panels" })).getByRole("radio", { name: "Settings" }));
+      await flush(300);
+      const sheet = screen.getByRole("dialog", { name: "Resume settings" });
+      expect(sheet.closest("[data-mode]")?.getAttribute("data-mode")).toBe("fullscreen");
+      expect(screen.queryByRole("dialog", { name: "Add Section" })).toBeNull(); // one sheet at a time
+      fireEvent.click(within(sheet).getByRole("button", { name: "Close Resume settings" }));
+      await flush(400);
+      expect(screen.queryByRole("dialog", { name: "Resume settings" })).toBeNull();
+
+      const download = screen.getAllByRole("button", { name: "Download" }).find((b) => b.tagName === "BUTTON") as HTMLButtonElement;
+      fireEvent.click(download);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Resume settings" }));
+      await flush(300);
+      expect(screen.getByRole("dialog", { name: "Resume settings" })).toBeTruthy();
     });
   });
 

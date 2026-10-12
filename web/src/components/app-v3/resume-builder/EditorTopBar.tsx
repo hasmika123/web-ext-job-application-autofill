@@ -10,6 +10,7 @@ import {
   Dialog,
   DownloadIcon,
   FileTextIcon,
+  GearIcon,
   Input,
   Menu,
   Spinner,
@@ -80,6 +81,8 @@ export default function EditorTopBar({
   downloadRef,
   rightView = null,
   onToggleView,
+  onOpenSettings,
+  settingsInMenu = false,
   printLayout = true,
   pdfView = true,
   onSave,
@@ -111,7 +114,10 @@ export default function EditorTopBar({
   /** The open right-sheet view (Print layout / PDF view): the Download button shows it as pressed. */
   rightView?: RightView | null;
   /** Download ▾ → Print layout toggles the right sheet (DESIGN 10.8). */
-  onToggleView?: (view: RightView) => void;
+  onToggleView?: (view: Exclude<RightView, "settings">) => void;
+  /** Opens Resume settings; offered in the Download menu when `settingsInMenu` (phone). */
+  onOpenSettings?: () => void;
+  settingsInMenu?: boolean;
   /** `features.printLayout` from the builder config. */
   printLayout?: boolean;
   /** `features.pdfView` from the builder config. */
@@ -172,7 +178,13 @@ export default function EditorTopBar({
     { label: "Save & Download PDF", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadPdf, disabled: busy },
     { label: "Save & Download plain text (.txt)", icon: <DownloadIcon className="h-4 w-4" />, onSelect: onDownloadText, disabled: busy },
     { label: <>Save &amp; Download DOCX{SOON}</>, icon: <DownloadIcon className="h-4 w-4" />, onSelect: () => {}, disabled: true },
+    // On a phone the header's ⋮ is far up the page: Resume settings is also one tap from here (DESIGN 10.12).
+    ...(settingsInMenu && onOpenSettings
+      ? [{ separator: true } satisfies MenuEntry, { label: "Resume settings", icon: <GearIcon className="h-4 w-4" />, onSelect: onOpenSettings } satisfies MenuEntry]
+      : []),
   ];
+  /** Print layout / PDF view is open (Resume settings, the third right view, is not a Download view). */
+  const viewOpen = rightView === "print" || rightView === "pdf";
 
   return (
     <header className="flex h-16 flex-none items-center gap-2 border-b border-line/60 bg-paper px-3 sm:gap-3 md:px-4">
@@ -277,9 +289,9 @@ export default function EditorTopBar({
                 size="sm"
                 aria-label="Download"
                 aria-busy={exporting}
-                aria-pressed={rightView !== null}
+                aria-pressed={viewOpen}
                 title="Download (Alt+D)"
-                className={cn("min-h-11 gap-2 px-3 text-[14px]", rightView !== null && "ring-2 ring-accent-deep ring-offset-2 ring-offset-paper")}
+                className={cn("min-h-11 gap-2 px-3 text-[14px]", viewOpen && "ring-2 ring-accent-deep ring-offset-2 ring-offset-paper")}
               >
                 {exporting ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : <DownloadIcon className="h-5 w-5" />}
                 <span className="hidden lg:inline">{exporting ? "Preparing…" : "Download"}</span>

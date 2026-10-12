@@ -19,7 +19,7 @@ import { useEffect, useReducer, useRef } from "react";
 import type { Dispatch } from "react";
 
 export type LeftPanel = "add" | "template" | "swap" | "tailor";
-export type RightView = "print" | "pdf";
+export type RightView = "print" | "pdf" | "settings";
 export type RailTab = "insights" | "ai" | "match";
 export type SheetMode = "push" | "overlay" | "fullscreen";
 export type Viewport = "phone" | "tablet" | "desktop" | "wide";
@@ -51,6 +51,8 @@ export type UiAction =
   | { type: "panel/toggle"; panel: LeftPanel }
   | { type: "panel/close" }
   | { type: "rightView/toggle"; view: RightView }
+  /** Show this view (a no-op when it is already the open one; `toggle` would close it). */
+  | { type: "rightView/open"; view: RightView }
   | { type: "rightView/close" }
   | { type: "rail/tab"; tab: RailTab }
   /** A rail-strip icon: show the rail on `tab`, which closes the left sheet that collapsed it. */
@@ -167,6 +169,8 @@ export function uiReducer(state: UiState, action: UiAction): UiState {
       if (state.rightView === action.view) return reconcile({ ...state, rightView: null });
       return reconcile({ ...state, rightView: action.view, newest: "right" });
     }
+    case "rightView/open":
+      return state.rightView === action.view ? state : reconcile({ ...state, rightView: action.view, newest: "right" });
     case "rightView/close":
       return state.rightView === null ? state : reconcile({ ...state, rightView: null });
     case "rail/tab":

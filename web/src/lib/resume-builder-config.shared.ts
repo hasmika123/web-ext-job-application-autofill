@@ -79,8 +79,11 @@ export type ResumeBuilderConfig = {
   list: { quickTips: string[]; virtualizeAbove: number };
   /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF (ms); whether the PDF view re-renders by itself. */
   pdf: { waitMs: number; viewAutoRefresh: boolean };
-  /** Sharing limits the header bar needs (R3.10): active links per resume. */
-  share: { maxLinks: number };
+  /**
+   * Sharing limits and defaults (R3.10, R3.12): active links and named people per resume; a new link's lifetime in days
+   * (0 = no expiry) and whether a new link allows the PDF download.
+   */
+  share: { maxLinks: number; maxGrants: number; linkDefaultDays: number; allowDownloadDefault: boolean };
   /** Version history retention (R3.10): automatic versions kept per resume; named ones are kept always. */
   versions: { retentionAuto: number };
 };
@@ -140,6 +143,6 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
     virtualizeAbove: 60,
   },
   pdf: { waitMs: 30000, viewAutoRefresh: false },
-  share: { maxLinks: 3 },
+  share: { maxLinks: 3, maxGrants: 20, linkDefaultDays: 30, allowDownloadDefault: false },
   versions: { retentionAuto: 30 },
 };

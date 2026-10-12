@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actorText, expiryText, ownerLoginOf, recruiterLabel, typeLabel, versionChipLabel, versionKindChip, viewsText, visibilityLabel } from "./headerBar";
+import { actorText, expiryText, orgScopeCopy, ownerLoginOf, recruiterLabel, sourceLine, typeLabel, versionChipLabel, versionKindChip, viewsText, visibilityLabel, visibilitySummary } from "./headerBar";
 import { testMeta } from "./test-meta";
 
 const NOW = Date.parse("2026-10-12T12:00:00Z");
@@ -53,5 +53,40 @@ describe("headerBar words", () => {
     expect(versionKindChip({ kind: "checkpoint" })).toBe("saved");
     expect(versionKindChip({ kind: "auto" })).toBeNull();
     expect(versionKindChip({ kind: "system" })).toBeNull();
+  });
+});
+
+describe("Resume settings words", () => {
+  it("summarises who can see the resume", () => {
+    expect(visibilitySummary(testMeta())).toBe("Private — only you");
+    expect(
+      visibilitySummary(
+        testMeta({
+          shareWithOrg: true,
+          visibility: { mode: "PEOPLE", orgPaired: "Rahul", orgScope: "FULL", shareWithOrg: true, people: 2 },
+          recruiterSharing: { on: true, links: 1, views: 0 },
+        }),
+      ),
+    ).toBe("Shared with 2 people · 1 link · your marketer Rahul");
+    // a paired marketer at SUMMARY scope, or the switch off, sees nothing: still private
+    expect(visibilitySummary(testMeta({ visibility: { mode: "PRIVATE", orgPaired: "Rahul", orgScope: "SUMMARY", shareWithOrg: true, people: 0 } }))).toBe("Private — only you");
+    expect(visibilitySummary(testMeta({ shareWithOrg: false, visibility: { mode: "PRIVATE", orgPaired: "Rahul", orgScope: "FULL", shareWithOrg: false, people: 0 } }))).toBe("Private — only you");
+  });
+
+  it("words the organization scope", () => {
+    expect(orgScopeCopy("SUMMARY", null)).toContain("Summary");
+    expect(orgScopeCopy("SUMMARY", null)).toContain("resumes are not visible");
+    expect(orgScopeCopy("NONE", null)).toContain("don't share anything");
+    expect(orgScopeCopy("FULL", "Rahul")).toContain("Rahul is your marketer");
+  });
+
+  it("words the source line", () => {
+    expect(sourceLine(testMeta(), "Modern")).toBe("Built · Modern");
+    expect(sourceLine(testMeta({ kind: "UPLOADED", source: { kind: "UPLOADED", origin: null, tailoredFrom: null, madeBy: null, approvalRequired: false, approvedAt: null } }), null)).toBe("Uploaded");
+    const tailored = testMeta({
+      source: { kind: "BUILT", origin: "TAILOR", tailoredFrom: { resumeId: 1, label: "Master", job: { title: "PM", company: "Stripe" } }, madeBy: null, approvalRequired: false, approvedAt: null },
+    });
+    expect(sourceLine(tailored, "Modern")).toBe("Tailored from Master for PM @ Stripe");
+    expect(sourceLine(testMeta({ source: { ...testMeta().source, madeBy: "Rahul" } }), "Modern")).toBe("Made by your marketer Rahul");
   });
 });

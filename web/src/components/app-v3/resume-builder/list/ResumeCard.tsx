@@ -11,6 +11,7 @@ import {
   CopyIcon,
   EyeIcon,
   FileTextIcon,
+  GearIcon,
   LayersIcon,
   LockIcon,
   PencilIcon,
@@ -127,7 +128,9 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
               built
                 ? { label: "Open", icon: <PencilIcon size={15} />, onSelect: () => router.push(`/resume-builder/${m.id}`) }
                 : { label: "Manage resume", icon: <FileTextIcon size={15} />, onSelect: onManage },
-              ...(built ? [] : [{ label: "Open in builder", icon: <LayersIcon size={15} />, onSelect: () => void actions.openInBuilder(m) }]),
+              ...(built
+                ? [{ label: "Settings", icon: <GearIcon size={15} />, onSelect: () => router.push(`/resume-builder/${m.id}?view=settings`) }]
+                : [{ label: "Open in builder", icon: <LayersIcon size={15} />, onSelect: () => void actions.openInBuilder(m) }]),
               { label: "Duplicate", icon: <CopyIcon size={15} />, onSelect: () => void actions.duplicate(m) },
               { separator: true as const },
               { label: "Rename", icon: <PencilIcon size={15} />, onSelect: () => onRename(m) },

@@ -88,6 +88,14 @@ export interface AccessGrant {
   url?: string;
 }
 
+/** One row of "who viewed this resume" (`GET …/views`). `viewerKind`: ORG | USER | LINK; `what`: PAGE | PDF. */
+export interface ResumeView {
+  viewerKind: "ORG" | "USER" | "LINK";
+  viewerLabel: string;
+  what: string;
+  viewedAt: string;
+}
+
 export interface AccessOverview {
   org: { scope: string; pairedWith: string | null; shareWithOrg: boolean } | null;
   grants: AccessGrant[];
@@ -175,6 +183,14 @@ export const restoreVersion = (id: number, versionNo: number) =>
 export const deleteResume = (id: number) => call<null>(`${base(id)}`, { method: "DELETE" }, "Couldn't delete this resume.", async () => null);
 
 export const getAccess =(id: number) => call<AccessOverview>(`${base(id)}/access`, undefined, "Couldn't load who can see this resume.", jsonRes);
+
+/** `POST …/access`: share with a Kiwiply account by email (VIEW only). 404 `USER_NOT_FOUND`, 409 `ALREADY_GRANTED`, 422 `LIMIT`. */
+export const grantUser = (id: number, body: { email: string; expiresAt?: string; label?: string }) =>
+  call<AccessGrant>(`${base(id)}/access`, json({ role: "VIEW", ...body }), "Couldn't share this resume.", jsonRes);
+
+/** `GET …/views?limit=`: who opened the resume, newest first (the owner's own views are not recorded). */
+export const getViews = (id: number, limit?: number) =>
+  call<ResumeView[]>(`${base(id)}/views${limit ? `?limit=${limit}` : ""}`, undefined, "Couldn't load who viewed this resume.", jsonRes);
 
 export const createLink = (id: number, body: { expiresAt?: string; label?: string; allowDownload?: boolean } = {}) =>
   call<AccessGrant>(`${base(id)}/access/link`, json(body), "Couldn't create the link.", jsonRes);

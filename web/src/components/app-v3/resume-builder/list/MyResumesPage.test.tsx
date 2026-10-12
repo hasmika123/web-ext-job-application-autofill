@@ -323,11 +323,18 @@ describe("My Resumes: cards", () => {
 });
 
 describe("My Resumes: the ⋮ menu", () => {
-  it("a built card offers Open, Duplicate, Rename, Set as Primary, Archive and Delete", () => {
+  it("a built card offers Open, Settings, Duplicate, Rename, Set as Primary, Archive and Delete", () => {
     renderPage();
     openCardMenu(2, "Product Manager");
     const items = screen.getAllByRole("menuitem").map((i) => i.textContent);
-    expect(items).toEqual(["Open", "Duplicate", "Rename", "Set as Primary", "Archive", "Delete"]);
+    expect(items).toEqual(["Open", "Settings", "Duplicate", "Rename", "Set as Primary", "Archive", "Delete"]);
+  });
+
+  it("Settings opens the editor with Resume settings showing", () => {
+    renderPage();
+    openCardMenu(2, "Product Manager");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }));
+    expect(push).toHaveBeenCalledWith("/resume-builder/2?view=settings");
   });
 
   it("the primary resume is not offered Set as Primary", () => {

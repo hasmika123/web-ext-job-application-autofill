@@ -96,7 +96,12 @@ public class ResumeBuilderConfigService {
             ),
             new ResumeBuilderConfigDTO.Lists(strings(LIST_QUICK_TIPS), s.getInt(LIST_VIRTUALIZE_ABOVE)),
             new ResumeBuilderConfigDTO.Pdf(s.getInt(PDF_WAIT_MS), s.getBool(PDF_VIEW_AUTO_REFRESH)),
-            new ResumeBuilderConfigDTO.Share(s.getInt(SHARE_MAX_LINKS)),
+            new ResumeBuilderConfigDTO.Share(
+                s.getInt(SHARE_MAX_LINKS),
+                s.getInt(SHARE_MAX_GRANTS),
+                s.getInt(SHARE_LINK_DEFAULT_DAYS),
+                s.getBool(SHARE_ALLOW_DOWNLOAD_DEFAULT)
+            ),
             new ResumeBuilderConfigDTO.Versions(s.getInt(VERSIONS_RETENTION_AUTO))
         );
     }

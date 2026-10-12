@@ -37,7 +37,7 @@ async function getMeta(id: string): Promise<ResumeMeta | null> {
  * profile's update time are fetched here in parallel, on the server, and handed to the
  * `ResumeEditor` client island, which does all the editing and saving through the
  * `/api/resumes/[id]/doc` BFF. A resume that is not the caller's (or is an uploaded file with no
- * document) is a 404. `?view=pdf` / `?tab=ai` (the My Resumes buttons) pick where the editor opens. The job target (R5.6) and open AI proposals (R4.1) are empty until those
+ * document) is a 404. `?view=pdf` / `?view=settings` / `?tab=ai` (the My Resumes buttons and card menu) pick where the editor opens. The job target (R5.6) and open AI proposals (R4.1) are empty until those
  * stories land.
  */
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ view?: string | string[]; tab?: string | string[] }> }) {
@@ -73,7 +73,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       initialMeta={meta}
       jobTarget={null}
       openProposals={[]}
-      entry={{ view: one(q.view) === "pdf" ? "pdf" : undefined, tab: one(q.tab) === "ai" ? "ai" : undefined }}
+      entry={{ view: one(q.view) === "pdf" ? "pdf" : one(q.view) === "settings" ? "settings" : undefined, tab: one(q.tab) === "ai" ? "ai" : undefined }}
     />
   );
 }

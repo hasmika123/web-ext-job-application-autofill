@@ -1023,7 +1023,7 @@
       "id": "R3.12",
       "epic": "R3",
       "title": "Resume settings sheet (full metadata + sharing layer) — name/target/tags, primary, visibility rows, people, links, activity, about, archive/delete",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"

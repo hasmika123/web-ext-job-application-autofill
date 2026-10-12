@@ -94,8 +94,12 @@ public record ResumeBuilderConfigDTO(
     /** PDF settings the editor reads (R3.3): how long Save & Download waits for the stored PDF; whether the PDF view re-renders by itself. */
     public record Pdf(int waitMs, boolean viewAutoRefresh) {}
 
-    /** Resume sharing limits the header bar needs (R3.10): how many active links one resume may have. */
-    public record Share(int maxLinks) {}
+    /**
+     * Resume sharing limits and defaults the header bar and Resume settings need (R3.10, R3.12): how many active links and
+     * named people one resume may have, how long a new link lives by default (days, 0 = no expiry) and whether a new link
+     * allows the PDF download by default.
+     */
+    public record Share(int maxLinks, int maxGrants, int linkDefaultDays, boolean allowDownloadDefault) {}
 
     /** Version history retention the header's All versions sheet states: automatic rows kept per resume (named ones are kept always). */
     public record Versions(int retentionAuto) {}
