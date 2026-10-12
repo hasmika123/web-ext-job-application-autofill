@@ -536,6 +536,97 @@ class ResumeDocResourceIT {
             .andExpect(content().string(org.hamcrest.Matchers.containsString("INTERESTS\nChess")));
     }
 
+    // ---- Resume Score (R2.5): computed by the BFF, stored without evaluating -------------
+
+    private static final String SCORE =
+        "{\"rulesetVersion\":\"v1\",\"score\":82,\"groups\":[{\"id\":\"G1\",\"pass\":true,\"fraction\":1},{\"id\":\"G2\",\"pass\":true,\"fraction\":0.8261},"
+            + "{\"id\":\"G3\",\"pass\":false,\"fraction\":0.5},{\"id\":\"G4\",\"pass\":true,\"fraction\":0.9375},{\"id\":\"G5\",\"pass\":true,\"fraction\":0.75}]}";
+
+    private String putBodyWithScore(JsonNode doc, String score) throws Exception {
+        ObjectNode body = om.createObjectNode();
+        body.set("doc", doc);
+        body.set("score", json(score));
+        return om.writeValueAsString(body);
+    }
+
+    @Test
+    void aSaveStoresTheScoreTheBffComputedAndEveryReadShowsIt() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        assertThat(resumeDocRepository.findById(id).orElseThrow().getScore()).isNull();
+
+        putDoc(id, "\"1\"", putBodyWithScore(doc("Mine", "Scored"), SCORE))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.score.score").value(82))
+            .andExpect(jsonPath("$.score.rulesetVersion").value("v1"));
+
+        ResumeDoc stored = resumeDocRepository.findById(id).orElseThrow();
+        assertThat(stored.getScore()).isEqualTo(82);
+        JsonNode record = json(stored.getScoreJson());
+        assertThat(record.path("rulesetVersion").asText()).isEqualTo("v1");
+        assertThat(record.path("groups")).hasSize(5);
+        assertThat(record.path("computedAt").asText()).isNotBlank(); // the server stamps it
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/doc")).andExpect(jsonPath("$.score.score").value(82));
+
+        // the list badge: ResumeDTO.score, only for the built resume that has one
+        String list = mockMvc.perform(get("/api/profile/resumes")).andReturn().getResponse().getContentAsString();
+        JsonNode row = null;
+        for (JsonNode n : json(list)) if (n.path("id").asLong() == id) row = n;
+        assertThat(row).isNotNull();
+        assertThat(row.path("score").asInt()).isEqualTo(82);
+    }
+
+    @Test
+    void aSaveWithoutAScoreKeepsTheStoredOneAndANewScoreReplacesIt() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        putDoc(id, "\"1\"", putBodyWithScore(doc("Mine", "One"), SCORE)).andExpect(status().isOk());
+        putDoc(id, "\"2\"", putBody(doc("Mine", "Two"))).andExpect(status().isOk()).andExpect(jsonPath("$.score.score").value(82));
+        putDoc(id, "\"3\"", putBodyWithScore(doc("Mine", "Three"), SCORE.replace("\"score\":82", "\"score\":40")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.score.score").value(40));
+        assertThat(resumeDocRepository.findById(id).orElseThrow().getScore()).isEqualTo(40);
+    }
+
+    @Test
+    void aScoreOfAnUnknownRulesetIsIgnoredNotAnError() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        putDoc(id, "\"1\"", putBodyWithScore(doc("Mine", "Scored"), SCORE.replace("\"v1\"", "\"v99\"")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.score").doesNotExist());
+        assertThat(resumeDocRepository.findById(id).orElseThrow().getScore()).isNull();
+    }
+
+    @Test
+    void anOversizedOrMalformedScoreIs422AndTheSaveDoesNotHappen() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        String big = SCORE.replace("}]}", "}],\"pad\":\"" + "x".repeat(5000) + "\"}");
+        putDoc(id, "\"1\"", putBodyWithScore(doc("Mine", "Big"), big))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.code").value("DOC_INVALID"))
+            .andExpect(jsonPath("$.path").value("$.score"));
+        for (String bad : new String[] {
+            "{\"rulesetVersion\":\"v1\",\"score\":101,\"groups\":[]}",
+            "{\"rulesetVersion\":\"v1\",\"score\":\"high\",\"groups\":[]}",
+            "{\"rulesetVersion\":\"v1\",\"score\":50}",
+            "{\"rulesetVersion\":\"v1\",\"score\":50,\"groups\":[{\"id\":\"G1\",\"pass\":true,\"fraction\":2}]}",
+            "[1,2]",
+        }) {
+            putDoc(id, "\"1\"", putBodyWithScore(doc("Mine", "Bad"), bad)).andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("DOC_INVALID"));
+        }
+        ResumeDoc stored = resumeDocRepository.findById(id).orElseThrow();
+        assertThat(stored.getDocVersion()).isEqualTo(1);
+        assertThat(stored.getScore()).isNull();
+    }
+
+    @Test
+    void aScoreChangeAloneDoesNotMoveTheProfileVersion() throws Exception {
+        Long id = createBuilt("{}").at("/resume/id").asLong();
+        putDoc(id, "\"1\"", putBodyWithScore(doc("Mine", "Same text"), SCORE)).andExpect(status().isOk());
+        String before = version();
+        // identical content, a different score: the extension's mirror (what ProfileVersion hashes) did not change
+        putDoc(id, "\"2\"", putBodyWithScore(doc("Mine", "Same text"), SCORE.replace("\"score\":82", "\"score\":70"))).andExpect(status().isOk());
+        assertThat(version()).isEqualTo(before);
+    }
+
     @Test
     void aPhotoUnderSomeoneElsesPrefixIs422() throws Exception {
         Long id = createBuilt("{}").at("/resume/id").asLong();

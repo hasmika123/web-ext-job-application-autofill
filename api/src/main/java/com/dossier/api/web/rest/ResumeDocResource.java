@@ -84,7 +84,7 @@ public class ResumeDocResource {
      */
     @Operation(
         summary = "Save a resume document",
-        description = "Body {doc, theme?}. Requires If-Match with the ETag you loaded: 428 without it, 409 DOC_VERSION_CONFLICT {serverVersion, doc} when stale, 413 DOC_TOO_LARGE over 256 KB, 422 DOC_INVALID {path, message}."
+        description = "Body {doc, theme?, score?} (score = the BFF-computed Resume Score, stored as sent; 4 KB max, an unknown rulesetVersion is ignored). Requires If-Match with the ETag you loaded: 428 without it, 409 DOC_VERSION_CONFLICT {serverVersion, doc} when stale, 413 DOC_TOO_LARGE over 256 KB, 422 DOC_INVALID {path, message}."
     )
     @PutMapping("/{id}/doc")
     public ResponseEntity<ResumeDocDTO> putDoc(

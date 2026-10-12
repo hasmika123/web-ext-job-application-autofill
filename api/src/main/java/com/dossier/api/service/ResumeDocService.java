@@ -65,6 +65,9 @@ public class ResumeDocService {
     private static final String DEFAULT_TITLE = "My resume";
     /** The theme is a small style object (colors, font, spacing); anything bigger is a mistake. */
     private static final int MAX_THEME_BYTES = 8 * 1024;
+    /** The persisted score record (DESIGN 9.2 / 11.5): {rulesetVersion, score, groups[<= 6]}, at most 4 KB. */
+    private static final int MAX_SCORE_BYTES = 4 * 1024;
+    private static final int MAX_SCORE_GROUPS = 6;
     private static final java.util.regex.Pattern HASH_PATTERN = java.util.regex.Pattern.compile("[0-9a-f]{64}");
 
     private final ResumeDocRepository resumeDocRepository;
@@ -156,7 +159,7 @@ public class ResumeDocService {
     // ---- write --------------------------------------------------------------
 
     /**
-     * Save the whole document ({@code body = {doc, theme?}}) if {@code ifMatch} names the version the
+     * Save the whole document ({@code body = {doc, theme?, score?}}) if {@code ifMatch} names the version the
      * client loaded. Order of refusals: 404 (not yours) before 428 (no If-Match) before 409 (stale)
      * before 413/422 (the document itself), so a stale client always learns the server's state.
      */
@@ -196,8 +199,9 @@ public class ResumeDocService {
             }
             d.setThemeJson(ResumeDocumentJson.write(theme, 0));
         }
-
         Instant now = Instant.now();
+        applyScore(d, body.get("score"), now);
+
         applyContent(d, d.getResume(), doc, now);
         resumeDocRepository.saveAndFlush(d);
         return toDto(d, d.getResume());
@@ -253,6 +257,55 @@ public class ResumeDocService {
             settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_MARKS),
             settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_DOC_BYTES)
         );
+    }
+
+    /**
+     * Stores the Resume Score the BFF computed with the shared TypeScript engine (DESIGN 11.5, DECISIONS #7):
+     * Java never evaluates the rules, it only checks the record's shape and keeps it. Absent or null leaves the
+     * stored score as it is; a score of an unknown {@code rulesetVersion} is ignored (not an error); more than
+     * {@value #MAX_SCORE_BYTES} bytes or a malformed record is 422 DOC_INVALID at {@code $.score...}.
+     */
+    private void applyScore(ResumeDoc d, JsonNode score, Instant now) {
+        if (score == null || score.isNull()) return;
+        if (!score.isObject()) throw ResumeDocException.invalid("$.score", "must be an object");
+        if (ResumeDocumentJson.write(score, 0).getBytes(java.nio.charset.StandardCharsets.UTF_8).length > MAX_SCORE_BYTES) {
+            throw ResumeDocException.invalid("$.score", "must be at most " + MAX_SCORE_BYTES + " bytes");
+        }
+        JsonNode ruleset = score.get("rulesetVersion");
+        if (ruleset == null || !ruleset.isTextual() || !ruleset.textValue().equals(settings.getString(ResumeBuilderSettingKeys.SCORE_RULESET_VERSION))) {
+            return;
+        }
+        JsonNode value = score.get("score");
+        if (value == null || !value.isIntegralNumber() || value.asInt() < 0 || value.asInt() > 100) {
+            throw ResumeDocException.invalid("$.score.score", "must be an integer from 0 to 100");
+        }
+        JsonNode groups = score.get("groups");
+        if (groups == null || !groups.isArray() || groups.size() > MAX_SCORE_GROUPS) {
+            throw ResumeDocException.invalid("$.score.groups", "must be an array of at most " + MAX_SCORE_GROUPS + " groups");
+        }
+        for (int i = 0; i < groups.size(); i++) {
+            JsonNode g = groups.get(i);
+            JsonNode fraction = g.get("fraction");
+            if (
+                !g.isObject() ||
+                !g.path("id").isTextual() ||
+                !g.path("pass").isBoolean() ||
+                fraction == null ||
+                !fraction.isNumber() ||
+                fraction.asDouble() < 0 ||
+                fraction.asDouble() > 1
+            ) {
+                throw ResumeDocException.invalid("$.score.groups[" + i + "]", "must be {id, pass, fraction 0-1}");
+            }
+        }
+        // Only the known fields are kept; the server stamps when it was stored.
+        com.fasterxml.jackson.databind.node.ObjectNode stored = JsonNodeFactory.instance.objectNode();
+        stored.set("rulesetVersion", ruleset);
+        stored.set("score", value);
+        stored.set("groups", groups);
+        stored.put("computedAt", now.toString());
+        d.setScoreJson(ResumeDocumentJson.write(stored, 0));
+        d.setScore(value.asInt());
     }
 
     /** Writes a validated document and everything derived from it onto the entity and its resume. */
@@ -338,6 +391,9 @@ public class ResumeDocService {
         dto.setExportedAt(d.getExportedAt());
         dto.setExportedHash(d.getExportedHash());
         dto.setUpdatedAt(d.getUpdatedAt());
+        if (d.getScore() != null) {
+            dto.setScore(new ResumeDocDTO.ScoreSummary(d.getScore(), parseQuietly(d.getScoreJson()).path("rulesetVersion").asText(null)));
+        }
         return dto;
     }
 

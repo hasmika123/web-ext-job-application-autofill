@@ -35,6 +35,20 @@ public class ResumeDocDTO {
     private String exportedHash;
     private Instant updatedAt;
 
+    @Schema(nullable = true, description = "The last Resume Score the editor's server-side scorer stored (DESIGN 11.5); null until the first scored save.")
+    private ScoreSummary score;
+
+    /** The stored Resume Score: the 0-100 value and the ruleset that produced it. */
+    public record ScoreSummary(int score, String rulesetVersion) {}
+
+    public ScoreSummary getScore() {
+        return score;
+    }
+
+    public void setScore(ScoreSummary score) {
+        this.score = score;
+    }
+
     public Long getResumeId() {
         return resumeId;
     }

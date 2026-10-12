@@ -53,6 +53,8 @@ public class ResumeDTO implements Serializable {
 
     private Instant exportedAt;
 
+    private Integer score;
+
     private UserDTO user;
 
     public Long getId() {
@@ -165,6 +167,15 @@ public class ResumeDTO implements Serializable {
 
     public void setExportedAt(Instant exportedAt) {
         this.exportedAt = exportedAt;
+    }
+
+    /** The last Resume Score (0-100) of a BUILT resume, for the list badge (DESIGN 11.5); null when never scored. Not hashed by ProfileVersion. */
+    public Integer getScore() {
+        return score;
+    }
+
+    public void setScore(Integer score) {
+        this.score = score;
     }
 
     public UserDTO getUser() {

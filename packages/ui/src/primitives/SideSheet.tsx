@@ -257,8 +257,9 @@ export default function SideSheet({
     </>
   );
 
+  // No `relative` here: the modal branch is `absolute` (the two would fight; `relative` won and parked a right-hand sheet at the left edge)
   const surface =
-    "relative flex h-full min-h-0 flex-col bg-paper text-ink outline-none border-line";
+    "flex h-full min-h-0 flex-col bg-paper text-ink outline-none border-line";
 
   /* ── push: the aside always exists (aria-controls target) and reserves `px` while open. ── */
   if (mode === "push") {
@@ -283,6 +284,7 @@ export default function SideSheet({
           tabIndex={-1}
           className={cn(
             surface,
+            "relative",
             "rounded-[var(--radius-lg)] border",
           )}
           style={{ width: px, ...motion }}

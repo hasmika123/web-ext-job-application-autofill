@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Button, ChartIcon, LockIcon, SparklesIcon, TargetIcon, Tab, TabList, TabPanel, Tabs, cn } from "@kiwiply/ui";
+import type { ResumeScoreReport } from "@kiwiply/ui";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import InsightsTab from "./InsightsTab";
+import RailCard from "./RailCard";
 import type { RailTab } from "./state/ui";
 
 /** The rail's three tabs, in board order; `RailStrip` shows the same three as icons. */
@@ -21,21 +24,11 @@ export function visibleRailTabs(features: Pick<ResumeBuilderConfig["features"], 
 export const railIcon = (tab: RailTab, className = "h-4 w-4"): ReactNode =>
   tab === "insights" ? <ChartIcon className={className} /> : tab === "ai" ? <SparklesIcon className={className} /> : <TargetIcon className={className} />;
 
-function Card({ title, aside, children, className }: { title: ReactNode; aside?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <section className={cn("rounded-2xl border border-v2-line/70 bg-paper p-4 shadow-v2-soft", className)}>
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="flex items-center gap-2 font-display text-[16px] font-bold text-ink">{title}</h2>
-        {aside}
-      </div>
-      {children}
-    </section>
-  );
-}
+const Card = RailCard;
 
 /**
- * The right rail (DESIGN 10.7): tabs Insights · AI Suggestions (n) · Job Match. Bodies are the
- * R2.10 placeholders: the score arrives with R2.5, suggestions with R4.x, the target with R5.x.
+ * The right rail (DESIGN 10.7): tabs Insights · AI Suggestions (n) · Job Match. The Insights body is the
+ * Resume Score (R2.5); suggestions arrive with R4.x, the target with R5.x (placeholders until then).
  * `aiAllowed` and the feature switches come from the builder config, never from plan names.
  */
 export default function RightRail({
@@ -45,6 +38,7 @@ export default function RightRail({
   aiUsageLine,
   suggestionCount = 0,
   onTailor,
+  insights,
   className,
 }: {
   tab: RailTab;
@@ -56,6 +50,13 @@ export default function RightRail({
   suggestionCount?: number;
   /** Opens the Tailor to Job left panel. */
   onTailor: () => void;
+  /** The Resume Score (R2.5): the live report, whether it is at or above the pass threshold, and how to open the tips. */
+  insights: {
+    report: ResumeScoreReport;
+    good: boolean;
+    onViewTips: (group?: "G6") => void;
+    viewTipsRef?: Ref<HTMLButtonElement>;
+  };
   className?: string;
 }) {
   const tabs = visibleRailTabs(config.features);
@@ -79,9 +80,7 @@ export default function RightRail({
       </TabList>
 
       <TabPanel value="insights">
-        <Card title={<><ChartIcon className="h-4 w-4 text-v2-green" />Resume Score</>}>
-          <p className="rounded-xl border border-dashed border-line bg-paper-2/60 p-4 text-[13.5px] text-ink-soft">Score arrives in R2.5.</p>
-        </Card>
+        <InsightsTab report={insights.report} good={insights.good} onViewTips={insights.onViewTips} viewTipsRef={insights.viewTipsRef} />
       </TabPanel>
 
       <TabPanel value="ai">

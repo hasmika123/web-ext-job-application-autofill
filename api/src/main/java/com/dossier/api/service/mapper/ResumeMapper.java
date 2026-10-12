@@ -18,6 +18,7 @@ public interface ResumeMapper extends EntityMapper<ResumeDTO, Resume> {
     @Mapping(target = "contentHash", ignore = true)
     @Mapping(target = "exportedHash", ignore = true)
     @Mapping(target = "exportedAt", ignore = true)
+    @Mapping(target = "score", ignore = true)
     ResumeDTO toDto(Resume s);
 
     @Named("userLogin")

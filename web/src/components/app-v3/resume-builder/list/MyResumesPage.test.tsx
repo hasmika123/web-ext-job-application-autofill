@@ -18,7 +18,7 @@ import MyResumesPage from "./MyResumesPage";
 
 const resumes = (): (Resume & { updatedAt?: string })[] => [
   // primary, up to date
-  { id: 1, label: "Software Engineer", kind: "BUILT", templateId: "modern", defaultResume: true, archived: false, createdAt: "2026-09-15T12:00:00Z", updatedAt: "2026-10-10T12:00:00Z", contentHash: "a", exportedHash: "a" },
+  { id: 1, label: "Software Engineer", kind: "BUILT", templateId: "modern", defaultResume: true, archived: false, createdAt: "2026-09-15T12:00:00Z", updatedAt: "2026-10-10T12:00:00Z", contentHash: "a", exportedHash: "a", score: 82 },
   // PDF out of date
   { id: 2, label: "Product Manager", kind: "BUILT", templateId: "modern", defaultResume: false, archived: false, createdAt: "2026-09-20T12:00:00Z", updatedAt: "2026-10-08T12:00:00Z", contentHash: "b", exportedHash: "a" },
   // an uploaded file, no created date known
@@ -123,10 +123,12 @@ describe("My Resumes: cards", () => {
     expect(within(first).getByText("Primary")).toBeTruthy();
     expect(within(first).getByText("ATS Friendly")).toBeTruthy();
     expect(within(first).queryByText("PDF out of date")).toBeNull();
+    expect(within(first).getByText("82% score")).toBeTruthy(); // the Resume Score badge (R2.5), built resumes only
 
     const second = document.querySelector('[data-resume-id="2"]') as HTMLElement;
     expect(within(second).getByText("Active")).toBeTruthy();
     expect(within(second).getByText("PDF out of date")).toBeTruthy();
+    expect(within(second).queryByText(/% score/)).toBeNull(); // never scored
 
     const archived = document.querySelector('[data-resume-id="4"]') as HTMLElement;
     expect(within(archived).getByText("Archived")).toBeTruthy();

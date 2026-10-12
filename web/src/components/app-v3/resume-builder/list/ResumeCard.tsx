@@ -76,6 +76,11 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
         {chip.icon}
         {chip.label}
       </StatusChip>
+      {m.score !== null && (
+        <StatusChip tone="blue" className="rounded-md px-2 py-1">
+          <span data-score-badge>{m.score}% score</span>
+        </StatusChip>
+      )}
       {m.pdfState === "outOfDate" && (
         <StatusChip tone="amber" dot className="rounded-md px-2 py-1">
           PDF out of date

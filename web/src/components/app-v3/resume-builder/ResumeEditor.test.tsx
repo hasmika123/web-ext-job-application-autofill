@@ -16,6 +16,8 @@ vi.mock("@/lib/resume-doc", async (orig) => ({
   exportText: (id: number) => exportText(id),
   saveBlob: (...a: unknown[]) => saveBlob(...a),
 }));
+const track = vi.fn<(event: string, params?: Record<string, unknown>) => void>();
+vi.mock("@/lib/analytics", () => ({ track: (...a: Parameters<typeof track>) => track(...a) }));
 vi.mock("@/lib/api", () => ({ serverApiFetch: vi.fn() })); // resume-builder-config imports it (server only)
 vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -75,6 +77,7 @@ beforeEach(() => {
   exportText.mockReset();
   saveBlob.mockReset();
   push.mockReset();
+  track.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -345,9 +348,9 @@ describe("ResumeEditor", () => {
   });
 
   describe("right rail", () => {
-    it("Free: Insights placeholder, a locked AI card, the Job Match empty state", () => {
+    it("Free: the Resume Score, a locked AI card, the Job Match empty state", () => {
       renderEditor();
-      expect(screen.getByText("Score arrives in R2.5.")).toBeTruthy();
+      expect(screen.getAllByRole("meter", { name: "Resume score" }).length).toBeGreaterThan(0);
       fireEvent.click(screen.getAllByRole("tab", { name: /AI Suggestions/ })[0]);
       expect(screen.getByText("AI suggestions are part of Pro")).toBeTruthy();
       expect(screen.getByRole("link", { name: "See Pro" }).getAttribute("href")).toBe("/pricing");
@@ -591,6 +594,109 @@ describe("ResumeEditor", () => {
       await flush(0);
       expect(saveBlob).not.toHaveBeenCalled();
       expect(screen.getByText("Couldn't make the text file")).toBeTruthy();
+    });
+  });
+
+  describe("Resume Score (Insights)", () => {
+    const ring = () => screen.getAllByRole("meter", { name: "Resume score" })[0]!;
+    const score = () => Number(ring().getAttribute("aria-valuenow"));
+    const line = (group: string) => document.querySelector(`[data-group="${group}"]`)!.getAttribute("data-pass");
+    const summary = () => document.querySelector('[data-field="i_sum0001.text"]') as HTMLTextAreaElement;
+    // >= 150 characters, no first person, starts with the headline (S1, S2, S4, S5 pass: 10 of 13)
+    const GOOD_SUMMARY =
+      "Software Engineer building reliable backend services for fintech teams. Shipped payment APIs, cut latency and mentored a team of five across two continents.";
+
+    it("scores the opened document: the ring, a band, and the checklist (a sixth ATS line on Modern)", () => {
+      renderEditor();
+      expect(score()).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Needs work|Getting there|Good progress|Great match!/).length).toBeGreaterThan(0);
+      expect(document.querySelectorAll("[data-group]")).toHaveLength(6);
+      expect(line("G1")).toBe("false");
+    });
+
+    it("updates live, 150 ms after an edit, and the checklist line flips", async () => {
+      renderEditor();
+      const before = score();
+      expect(line("G1")).toBe("false");
+
+      fireEvent.change(summary(), { target: { value: GOOD_SUMMARY } });
+      await flush(149);
+      expect(score()).toBe(before); // not yet
+      await flush(1);
+      expect(score()).toBeGreaterThan(before);
+      expect(line("G1")).toBe("true");
+      expect(screen.getAllByText("Clear and compelling summary").length).toBeGreaterThan(0);
+
+      fireEvent.change(summary(), { target: { value: "Engineer." } });
+      await flush(150);
+      expect(score()).toBe(before);
+      expect(line("G1")).toBe("false");
+    });
+
+    it("View tips opens the tips sheet with the failing rules; Go to closes it and focuses the field", async () => {
+      renderEditor();
+      fireEvent.click(screen.getAllByRole("button", { name: /View tips/ })[0]!);
+      const dialog = screen.getByRole("dialog", { name: "Tips to improve" });
+      expect(within(dialog).getByText("Add a 2–3 sentence summary saying what you do and for whom.")).toBeTruthy();
+      expect(track).toHaveBeenCalledWith("resume_tips_opened", expect.objectContaining({ scope: "all" }));
+
+      const s1 = dialog.querySelector('[data-rule="S1"]') as HTMLElement;
+      fireEvent.click(within(s1).getByRole("button", { name: /Go to/ }));
+      await flush(300);
+      expect(screen.queryByRole("dialog", { name: "Tips to improve" })).toBeNull();
+      expect((document.activeElement as HTMLElement).getAttribute("data-field")).toBe("i_sum0001.text");
+    });
+
+    it("a missing-section tip's Go to opens Add Section", async () => {
+      renderEditor();
+      fireEvent.click(screen.getAllByRole("button", { name: /View tips/ })[0]!);
+      const f3 = screen.getByRole("dialog", { name: "Tips to improve" }).querySelector('[data-rule="F3"]') as HTMLElement;
+      expect(f3.textContent).toContain("Add the missing section: Education.");
+      fireEvent.click(within(f3).getByRole("button", { name: /Go to/ }));
+      await flush(300);
+      expect(leftSheet().getAttribute("data-state")).toBe("open");
+    });
+
+    it("the ATS line (Modern is an ATS template; the intern's year-only dates break A5) opens the ATS tips only", () => {
+      renderEditor();
+      const ats = document.querySelector("[data-ats-line]") as HTMLElement;
+      expect(ats.textContent).toContain("1 of 5");
+      fireEvent.click(ats);
+      const dialog = screen.getByRole("dialog", { name: "ATS checks" });
+      expect(within(dialog).getByText("Use month and year on every date.")).toBeTruthy();
+      expect(within(dialog).queryByText("Add your LinkedIn or portfolio link.")).toBeNull();
+    });
+
+    it("fires resume_score_viewed once, with the score and band (no document content)", async () => {
+      renderEditor();
+      expect(track).toHaveBeenCalledWith("resume_score_viewed", { score: score(), band: expect.any(String) });
+      fireEvent.change(summary(), { target: { value: GOOD_SUMMARY } });
+      await flush(300);
+      expect(track.mock.calls.filter(([e]) => e === "resume_score_viewed")).toHaveLength(1);
+    });
+
+    it("the saved document carries no score from the browser (the BFF computes it)", async () => {
+      putDoc.mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
+      renderEditor();
+      fireEvent.change(summary(), { target: { value: GOOD_SUMMARY } });
+      await flush(800);
+      expect(putDoc).toHaveBeenCalledTimes(1);
+      expect(Object.keys(putDoc.mock.calls[0][2])).toEqual(["doc"]);
+    });
+
+    it("on a phone the Insights tab shows the score in the fullscreen rail", async () => {
+      setWidth(390);
+      renderEditor();
+      fireEvent.click(within(screen.getByRole("tablist", { name: "Editor views" })).getByRole("tab", { name: "Insights" }));
+      const rail = screen.getByRole("dialog", { name: "Insights" });
+      expect(within(rail).getByRole("meter", { name: "Resume score" })).toBeTruthy();
+      fireEvent.click(within(rail).getByRole("button", { name: /View tips/ }));
+      const tips = screen.getByRole("dialog", { name: "Tips to improve" });
+      const s1 = tips.querySelector('[data-rule="S1"]') as HTMLElement;
+      fireEvent.click(within(s1).getByRole("button", { name: /Go to/ }));
+      await flush(400);
+      expect(screen.queryByRole("dialog")).toBeNull(); // both sheets closed
+      expect((document.activeElement as HTMLElement).getAttribute("data-field")).toBe("i_sum0001.text");
     });
   });
 });

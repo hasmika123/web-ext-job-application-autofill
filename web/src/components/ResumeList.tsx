@@ -39,6 +39,8 @@ export interface Resume {
   contentHash?: string | null;
   exportedHash?: string | null;
   exportedAt?: string | null;
+  /** BUILT only (R2.5): the last Resume Score (0-100) the editor's save stored; null/absent until the first scored save. */
+  score?: number | null;
 }
 
 function statusBadge(status?: string | null) {

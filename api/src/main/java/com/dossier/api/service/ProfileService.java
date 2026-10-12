@@ -164,6 +164,7 @@ public class ProfileService {
                 d.setContentHash(row.getContentHash());
                 d.setExportedHash(row.getExportedHash());
                 d.setExportedAt(row.getExportedAt());
+                d.setScore(row.getScore());
             });
         return dtos;
     }
