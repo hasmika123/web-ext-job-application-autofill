@@ -7,7 +7,7 @@ import OrgReporting from "@/components/marketing/organizations/OrgReporting";
 import OrgCtaBand from "@/components/marketing/organizations/OrgCtaBand";
 
 export const metadata: Metadata = {
-  title: "Kiwiply for organizations",
+  title: "For organizations",
   description:
     "Support employee job placement at scale. Manage your team's job search, assign support, track progress, and improve outcomes with AI-powered tools, all in one place.",
 };

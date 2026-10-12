@@ -19,7 +19,7 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const TITLE = "Kiwiply — Find jobs. Apply faster. Get hired.";
+const TITLE = "Kiwiply | Find jobs. Apply faster. Get hired.";
 const DESCRIPTION =
   "Kiwiply matches you with roles, fills job applications for you to review, and tracks replies in your Gmail — one profile, one board, no auto-submit.";
 
@@ -27,11 +27,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: TITLE,
-    template: "%s · Kiwiply",
+    template: "Kiwiply | %s",
   },
   description: DESCRIPTION,
   applicationName: "Kiwiply",
-  // Favicon resolves from the App Router convention file `app/icon.svg`.
+  // Favicons resolve from the App Router convention files `app/favicon.ico`, `app/icon.png` and `app/apple-icon.png`.
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
