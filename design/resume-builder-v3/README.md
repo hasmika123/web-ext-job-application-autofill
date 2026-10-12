@@ -34,3 +34,8 @@ Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real u
   copy an existing resume; then the new resume opens in edit mode. The profile is the source; the resume is a
   snapshot the user modifies.
 - **Save and Save & Download** actions in the editor (explicit save checkpoint; save then download).
+- **`editor-metadata-header.webp` (latest layout, supersedes the centre-top of the other three):** a resume
+  header bar above the section tabs — document icon, resume name "Senior Software Engineer Resume" with a
+  rename pencil, a **"Master Resume" ▾** type selector, kebab menu; second row: **Created Oct 2, 2026**,
+  **Last modified 2 hours ago**, **Private ▾** (visibility), **★ Primary Resume** (green, toggle),
+  **Shared with Recruiters: Off ▾**, **Version 3 ▾** (version history). Swap Section panel open on the left.
