@@ -55,6 +55,9 @@ export type { DialogProps } from "./primitives/Dialog";
 export { default as SidePanel } from "./primitives/SidePanel";
 export type { SidePanelProps } from "./primitives/SidePanel";
 
+export { default as SideSheet, SIDE_SHEET_MS, SIDE_SHEET_REDUCED_MS } from "./primitives/SideSheet";
+export type { SideSheetProps } from "./primitives/SideSheet";
+
 export { default as Tooltip } from "./primitives/Tooltip";
 export type { TooltipProps, TooltipSide } from "./primitives/Tooltip";
 
