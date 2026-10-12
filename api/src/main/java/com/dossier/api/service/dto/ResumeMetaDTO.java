@@ -12,8 +12,7 @@ import java.util.List;
  * <p>One source of truth per field: {@code name} is {@code resume.label}, {@code target} is
  * {@code resume.target}, {@code primary} is {@code resume.is_default} (the extension's default
  * resume). {@code visibility} and {@code recruiterSharing} carry their off/private values until
- * access control (R3.11) fills them; {@code pdf} is derived from the stored PDF until the async
- * pipeline (R3.7) reports a live status.
+ * access control (R3.11) fills them; {@code pdf} is the async PDF pipeline's live status (R3.7).
  */
 public record ResumeMetaDTO(
     Long id,

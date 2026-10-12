@@ -82,6 +82,38 @@ public class ResumeDoc implements Serializable {
     @Column(name = "score", columnDefinition = "smallint")
     private Integer score;
 
+    // ---- async PDF job (R3.7, DESIGN 8.5): the row is the job ----------------------------------
+
+    /** NONE | PENDING | RUNNING | READY | FAILED. STALE (READY with a mismatched hash) is derived, never stored. */
+    @Column(name = "pdf_status", nullable = false, length = 10)
+    private String pdfStatus = "NONE";
+
+    /** When PENDING was set: the settle timer starts here and the queue is served oldest first. */
+    @Column(name = "pdf_requested_at")
+    private Instant pdfRequestedAt;
+
+    @Column(name = "pdf_lease_until")
+    private Instant pdfLeaseUntil;
+
+    @Column(name = "pdf_worker", length = 64)
+    private String pdfWorker;
+
+    @Column(name = "pdf_attempts", nullable = false, columnDefinition = "smallint")
+    private int pdfAttempts = 0;
+
+    @Column(name = "pdf_next_attempt_at")
+    private Instant pdfNextAttemptAt;
+
+    @Column(name = "pdf_error", length = 200)
+    private String pdfError;
+
+    /** Card thumbnail storage key + the render hash it was made from (DESIGN 8.10; written by R3.13). */
+    @Column(name = "thumb_key", length = 255)
+    private String thumbKey;
+
+    @Column(name = "thumb_hash", length = 64)
+    private String thumbHash;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -222,6 +254,78 @@ public class ResumeDoc implements Serializable {
 
     public void setScore(Integer score) {
         this.score = score;
+    }
+
+    public String getPdfStatus() {
+        return pdfStatus;
+    }
+
+    public void setPdfStatus(String pdfStatus) {
+        this.pdfStatus = pdfStatus;
+    }
+
+    public Instant getPdfRequestedAt() {
+        return pdfRequestedAt;
+    }
+
+    public void setPdfRequestedAt(Instant pdfRequestedAt) {
+        this.pdfRequestedAt = pdfRequestedAt;
+    }
+
+    public Instant getPdfLeaseUntil() {
+        return pdfLeaseUntil;
+    }
+
+    public void setPdfLeaseUntil(Instant pdfLeaseUntil) {
+        this.pdfLeaseUntil = pdfLeaseUntil;
+    }
+
+    public String getPdfWorker() {
+        return pdfWorker;
+    }
+
+    public void setPdfWorker(String pdfWorker) {
+        this.pdfWorker = pdfWorker;
+    }
+
+    public int getPdfAttempts() {
+        return pdfAttempts;
+    }
+
+    public void setPdfAttempts(int pdfAttempts) {
+        this.pdfAttempts = pdfAttempts;
+    }
+
+    public Instant getPdfNextAttemptAt() {
+        return pdfNextAttemptAt;
+    }
+
+    public void setPdfNextAttemptAt(Instant pdfNextAttemptAt) {
+        this.pdfNextAttemptAt = pdfNextAttemptAt;
+    }
+
+    public String getPdfError() {
+        return pdfError;
+    }
+
+    public void setPdfError(String pdfError) {
+        this.pdfError = pdfError;
+    }
+
+    public String getThumbKey() {
+        return thumbKey;
+    }
+
+    public void setThumbKey(String thumbKey) {
+        this.thumbKey = thumbKey;
+    }
+
+    public String getThumbHash() {
+        return thumbHash;
+    }
+
+    public void setThumbHash(String thumbHash) {
+        this.thumbHash = thumbHash;
     }
 
     public Instant getCreatedAt() {

@@ -52,6 +52,8 @@ export interface Resume {
   createdBy?: { login: string; label: string } | null;
   updatedBy?: { login: string; label: string } | null;
   shareWithOrg?: boolean | null;
+  /** BUILT only (R3.7): the stored PDF's job state. Absent on an older API. */
+  pdf?: { status: "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE"; hash?: string | null; error?: string | null } | null;
 }
 
 function statusBadge(status?: string | null) {

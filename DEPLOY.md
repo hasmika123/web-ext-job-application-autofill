@@ -1074,3 +1074,49 @@ sidecar's port published temporarily on a dev machine) must still say 1 page.
 
 **Backups.** The sidecar holds nothing. The PDFs themselves are in the `uploads` volume (§1), which is
 not in the MySQL dump.
+
+### 14.1 Async PDF on every save (Resume Builder R3.7)
+
+Every save of a built resume updates the database at once and leaves a **PENDING** marker on its
+`resume_doc` row (15 s after the last keystroke - `resume.pdf.settleMs`; immediately for a template switch
+or when the editor is left). A worker inside the **web** container claims the row, prints it in the
+`chromium` sidecar and posts the bytes to the API, which stores them through `FileStorage` (the `uploads`
+volume or S3) as the resume's file - the object the extension attaches. The old object is deleted on
+replace; there is no PDF history.
+
+**Two env values make it run** (both in `docker-compose.prod.yml`, both read from the box's `.env`):
+
+| Env | Where | What |
+|---|---|---|
+| `DOSSIER_INTERNAL_TOKEN` | `api` **and** `web` (the same value) | Shared secret for `/api/internal/**`, sent as `X-Internal-Token`, compared in constant time. Generate once: `openssl rand -hex 32`; keep it in the password manager (GitHub secrets are write-only). **Blank = the API refuses every internal request and the worker logs an error and does not start**; manual "Export PDF" and the rest of the site are unaffected. |
+| `RESUME_PDF_WORKER` | `web` | `1` (the compose default) turns the polling loop on. Exactly one web container should set it (several would be safe, claims are leased, but waste Chromium time). |
+
+**Never publish `/api/internal/*`.** The web reaches it over the Compose network (`DOSSIER_API_URL=http://api:8080`).
+`api.kiwiply.com` is a deliberate public exception for the extension, so the shared edge's Caddyfile
+(`~/beecompete-edge/Caddyfile`, outside this repo) should answer `404` for `/api/internal/*`; the token
+makes the routes useless without it, the block makes them invisible. (Not changed from this repo: the
+shared edge is not ours to edit casually.)
+
+**Tunables** are admin settings (`app_setting`, default in parentheses), read within a minute:
+`resume.pdf.settleMs` (15000), `.pollMs` (5000), `.leaseMs` (120000), `.backoffBaseMs` (30000),
+`.backoffMaxMs` (900000), `.maxAttempts` (5), `.busyRetryMs` (10000), `.statusPollMs` (5000, the editor),
+`.statusWindowMs` (180000, the editor). A render the limiter refuses (busy) costs no attempt; a timeout or
+error backs off `min(backoffMax, backoffBase * 2^attempts)` and the job is **FAILED** after `maxAttempts`
+(the editor then offers "Retry"). A worker that dies leaves its lease to expire (`leaseMs`) and the row is
+claimed again - that counts as an attempt, so a render that crashes the worker cannot loop forever.
+
+**Queue stats and alerts.**
+```bash
+# admin JWT required; {pending, running, failed, oldestPendingAge (seconds)}
+curl -s -H "authorization: Bearer $ADMIN_JWT" https://api.kiwiply.com/api/admin/resume-pdf-jobs/stats
+$COMPOSE logs web | grep 'pdf-job'      # "pdf-job 12 ready pages=1 ms=840" / "pdf-job 12 ERROR ..."
+$COMPOSE logs api | grep 'PDF queue is stuck'   # WARN when the oldest pending request is > 10 min old
+```
+Metrics (Prometheus, `/management/prometheus`): `resume_pdf_job_claimed_total`, `_ready_total`,
+`_failed_total`, `_busy_total`, `_discarded_total`, `resume_pdf_job_latency_seconds`, gauge
+`resume_pdf_queue_pending`. A growing `pending` with nothing `running` means the worker is not polling
+(token missing? `RESUME_PDF_WORKER` unset? web unhealthy?).
+
+**Verify after a deploy.** Edit a resume in the builder, wait ~20 s: the top bar shows "· PDF updating…"
+and then clears; `$COMPOSE logs web` has a `pdf-job <id> ready` line; `GET /api/profile/resumes` shows
+`"pdf":{"status":"READY"}` for it. Rolling back the web image is safe: PENDING rows simply wait.

@@ -108,7 +108,7 @@ describe("createBuilt", () => {
 });
 
 describe("exportPdf", () => {
-  it("posts {format:'pdf'} and reads the PDF + its headers", async () => {
+  it("asks for the stored PDF (cached=1) and reads the PDF + its headers", async () => {
     const f = stubFetch(
       new Response("%PDF-1.4", {
         status: 200,
@@ -124,11 +124,15 @@ describe("exportPdf", () => {
     );
     const r = await exportPdf(42);
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/resumes/42/export");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({ format: "pdf" });
-    expect(r).toMatchObject({ kind: "ok", fileName: "Jane-Doe.pdf", pages: 2, fits: false, stored: true, contentHash: "abc" });
+    expect(url).toBe("/api/resumes/42/export?format=pdf&cached=1");
+    expect(init.method).toBeUndefined(); // a GET: the server serves the stored file when current, else renders
+    expect(r).toMatchObject({ kind: "ok", fileName: "Jane-Doe.pdf", pages: 2, fits: false, stored: true, contentHash: "abc", cached: false });
     expect(r.kind === "ok" && (await r.blob.text())).toBe("%PDF-1.4");
+  });
+
+  it("knows when the stored file was served (no render)", async () => {
+    stubFetch(new Response("%PDF-1.4", { status: 200, headers: { "content-type": "application/pdf", "x-resume-pdf-cached": "1", "x-resume-pdf-pages": "1", "x-resume-pdf-stored": "1" } }));
+    expect(await exportPdf(42)).toMatchObject({ kind: "ok", cached: true, stored: true, pages: 1 });
   });
 
   it("maps failures to a message the toast can show", async () => {

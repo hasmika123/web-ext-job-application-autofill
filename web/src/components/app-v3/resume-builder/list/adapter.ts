@@ -14,7 +14,8 @@
  *  - target: the role the resume aims at (searchable; the card has no slot for it yet).
  *  - atsFriendly: only when the template registry marks the resume's template ATS-safe; unknown for
  *    uploads (no template) so the chip is not shown.
- *  - pdfState: BUILT resumes only, exported hash vs content hash (same rule as the editor's "PDF out of date").
+ *  - pdfState: BUILT resumes only. The API's PDF job state wins (R3.7: PENDING/RUNNING/STALE -> updating, FAILED ->
+ *    failed, READY -> current); an API that does not report it falls back to stored hash vs content hash.
  */
 import { hasTemplate, getTemplate } from "@kiwiply/ui";
 import type { Resume } from "@/components/ResumeList";
@@ -23,8 +24,12 @@ import { pdfOutOfDate } from "@/lib/resume-doc";
 /** The card statuses on the board. `Primary` is not a status: it is `isPrimary` on an Active resume. */
 export type ResumeStatus = "Active" | "Draft" | "Archived";
 
-/** `current`: the stored PDF matches the document. `outOfDate`: edited since the PDF was made. `none`: never exported / not applicable. */
-export type PdfState = "current" | "outOfDate" | "none";
+/**
+ * `current`: the stored PDF matches the document. `updating`: the PDF job is pending / running / behind the
+ * document (R3.7). `failed`: the PDF job gave up. `outOfDate`: edited since the PDF was made, on an API that
+ * does not report the job state. `none`: never exported / not applicable.
+ */
+export type PdfState = "current" | "updating" | "failed" | "outOfDate" | "none";
 
 export interface ResumeCardModel {
   id: number;
@@ -68,7 +73,6 @@ export function toCardModel(r: ResumeDto): ResumeCardModel {
   if (templateId && hasTemplate(templateId)) atsFriendly = getTemplate(templateId).meta.capabilities.ats;
 
   const status: ResumeStatus = statusOf(r);
-  const pdfState: PdfState = kind !== "BUILT" || !r.exportedHash ? "none" : pdfOutOfDate(r) ? "outOfDate" : "current";
 
   return {
     id: r.id,
@@ -81,9 +85,27 @@ export function toCardModel(r: ResumeDto): ResumeCardModel {
     target: blank(r.target),
     templateId,
     atsFriendly,
-    pdfState,
+    pdfState: pdfStateOf(r, kind),
     kind,
   };
+}
+
+/** The job state the API reports (R3.7) wins; an older API falls back to comparing the stored hash with the content hash. */
+function pdfStateOf(r: ResumeDto, kind: "BUILT" | "UPLOADED"): PdfState {
+  if (kind !== "BUILT") return "none";
+  switch (r.pdf?.status) {
+    case "PENDING":
+    case "RUNNING":
+    case "STALE":
+      return "updating";
+    case "FAILED":
+      return "failed";
+    case "READY":
+      return "current";
+    case "NONE":
+      return "none";
+  }
+  return !r.exportedHash ? "none" : pdfOutOfDate(r) ? "outOfDate" : "current";
 }
 
 export const toCardModels = (rs: ResumeDto[]): ResumeCardModel[] => rs.map(toCardModel);

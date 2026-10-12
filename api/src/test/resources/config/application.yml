@@ -110,6 +110,9 @@ dossier:
     enabled: false
     password: test-demo-password
     create-accounts: false
+  # The service-to-service secret for /api/internal/** (ResumePdfJobIT sends it).
+  internal:
+    token: test-internal-token
   # Uploads go through the local-filesystem FileStorage driver (the default) into a throwaway dir.
   storage:
     driver: local

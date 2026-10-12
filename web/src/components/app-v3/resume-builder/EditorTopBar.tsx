@@ -17,6 +17,8 @@ import {
 import type { MenuEntry } from "@kiwiply/ui";
 import BrandLogo from "@/components/marketing/BrandLogo";
 import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
+import type { PdfInfo } from "@/lib/resume-doc";
+import PdfStatusSuffix from "./PdfStatusSuffix";
 import type { LeftPanel } from "./state/ui";
 import type { SaveStatus } from "./state/types";
 
@@ -74,6 +76,8 @@ export default function EditorTopBar({
   exportDisabled = false,
   downloadRef,
   onClose,
+  pdf,
+  onPdfRetry,
 }: {
   status: SaveStatus;
   savedAt: number | null;
@@ -91,6 +95,10 @@ export default function EditorTopBar({
   /** Wraps the Download menu so `Alt+D` can open it. */
   downloadRef?: RefObject<HTMLSpanElement | null>;
   onClose: () => void;
+  /** The stored PDF's state (R3.7): shown as a muted suffix after the save status. */
+  pdf?: PdfInfo | null;
+  /** "Retry" in the failed-PDF suffix (asks for the PDF right now). */
+  onPdfRetry?: () => void;
 }) {
   const bad = status === "retrying" || status === "conflict" || status === "error";
   const busy = exporting || exportDisabled;
@@ -131,6 +139,7 @@ export default function EditorTopBar({
           {statusLabel(status, savedAt, now, error)}
         </span>
       </p>
+      <PdfStatusSuffix pdf={pdf} onRetry={onPdfRetry} className="-ml-2" />
 
       <div className="ml-auto flex flex-none items-center gap-2 max-md:order-3">
         <div role="group" aria-label="Editor panels" className="hidden items-center gap-2 md:flex">

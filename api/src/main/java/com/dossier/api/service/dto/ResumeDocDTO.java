@@ -35,6 +35,12 @@ public class ResumeDocDTO {
     private String exportedHash;
     private Instant updatedAt;
 
+    @Schema(description = "Hash of what the PDF would be rendered from now: sha256(contentHash|templateId|canonical theme). The stored PDF is current when pdf.hash equals it.")
+    private String renderHash;
+
+    @Schema(description = "State of the stored PDF (R3.7).")
+    private ResumePdfDTO pdf;
+
     public Long getResumeId() {
         return resumeId;
     }
@@ -129,6 +135,22 @@ public class ResumeDocDTO {
 
     public void setExportedHash(String exportedHash) {
         this.exportedHash = exportedHash;
+    }
+
+    public String getRenderHash() {
+        return renderHash;
+    }
+
+    public void setRenderHash(String renderHash) {
+        this.renderHash = renderHash;
+    }
+
+    public ResumePdfDTO getPdf() {
+        return pdf;
+    }
+
+    public void setPdf(ResumePdfDTO pdf) {
+        this.pdf = pdf;
     }
 
     public Instant getUpdatedAt() {

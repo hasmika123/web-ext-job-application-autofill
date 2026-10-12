@@ -42,6 +42,20 @@ export async function contentHash(doc: Json): Promise<string> {
   return hex;
 }
 
+/**
+ * The render hash of a built resume (DESIGN 8.5) - twin of Java `ResumeRenderHash.compute`:
+ * `sha256(contentHash + "|" + templateId + "|" + canonicalJson(theme))`, lowercase hex. An absent or
+ * null theme is `{}`. The stored PDF is out of date exactly when its hash differs from this.
+ */
+export async function renderHash(contentHashValue: string, templateId: string, theme: Json | undefined): Promise<string> {
+  const themeJson = theme === null || theme === undefined ? "{}" : canonicalJson(theme);
+  const bytes = new TextEncoder().encode(`${contentHashValue}|${templateId}|${themeJson}`);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  let hex = "";
+  for (const b of new Uint8Array(digest)) hex += b.toString(16).padStart(2, "0");
+  return hex;
+}
+
 function newline(out: string[], indent: number, depth: number): void {
   if (indent <= 0) return;
   out.push("\n", " ".repeat(indent * depth));

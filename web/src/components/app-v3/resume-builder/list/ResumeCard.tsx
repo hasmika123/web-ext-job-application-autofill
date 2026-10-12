@@ -81,6 +81,16 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
           PDF out of date
         </StatusChip>
       )}
+      {m.pdfState === "updating" && (
+        <StatusChip tone="amber" dot className="rounded-md px-2 py-1">
+          PDF updating…
+        </StatusChip>
+      )}
+      {m.pdfState === "failed" && (
+        <StatusChip tone="coral" dot className="rounded-md px-2 py-1">
+          PDF failed
+        </StatusChip>
+      )}
     </span>
   );
 

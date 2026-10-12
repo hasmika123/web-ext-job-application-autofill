@@ -871,7 +871,7 @@
       "id": "R3.7",
       "epic": "R3",
       "title": "Async PDF pipeline — render hash, PENDING/RUNNING/READY/FAILED on `resume_doc`, leased claim queue, internal endpoints + token, web `pdf-jobs` worker, status in editor/list",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API",

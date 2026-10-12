@@ -196,7 +196,7 @@ export {
 export type { HiddenItem, HiddenKind, EditorControls, ControlState, ToolbarButton, PlannedSection } from "./resume/capabilities";
 export { toStructured, toStructuredJson, toStructuredPretty } from "./resume/project";
 export { renderText as renderResumeText } from "./resume/text";
-export { writeJson, canonicalJson, contentHash as resumeContentHash } from "./resume/json";
+export { writeJson, canonicalJson, contentHash as resumeContentHash, renderHash as resumeRenderHash } from "./resume/json";
 export type { WriteOptions } from "./resume/json";
 export { FIT_LADDER, SPACING_PRESETS, MAX_FIT_STEP, PAGE_DIMENSIONS, clampStep, resolveTheme, stepValues, pageCount, fitToPages } from "./resume/fit";
 export type { FitStep, FitDelta, FitResult } from "./resume/fit";

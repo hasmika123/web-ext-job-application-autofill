@@ -13,11 +13,14 @@ import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.ResumeActorDTO;
 import com.dossier.api.service.dto.ResumeLineageDTO;
 import com.dossier.api.service.dto.ResumeMetaDTO;
+import com.dossier.api.service.dto.ResumePdfDTO;
 import com.dossier.api.service.dto.ResumeVersionDTO;
 import com.dossier.api.service.resume.ResumeDocument;
 import com.dossier.api.service.resume.ResumeDocumentCanonical;
 import com.dossier.api.service.resume.ResumeDocumentJson;
 import com.dossier.api.service.resume.ResumeLifecycle;
+import com.dossier.api.service.resume.ResumePdfState;
+import com.dossier.api.service.resume.ResumeRenderHash;
 import com.dossier.api.service.resume.ResumeMetaMirror;
 import com.dossier.api.service.resume.ResumeTags;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -57,6 +60,7 @@ public class ResumeMetaService {
     private final ResumeActors actors;
     private final ResumeDocVersionService versions;
     private final ResumeLineageService lineageService;
+    private final ResumeDocService docService;
 
     public ResumeMetaService(
         ResumeRepository resumeRepository,
@@ -65,7 +69,8 @@ public class ResumeMetaService {
         ProfileService profileService,
         ResumeActors actors,
         ResumeDocVersionService versions,
-        ResumeLineageService lineageService
+        ResumeLineageService lineageService,
+        ResumeDocService docService
     ) {
         this.resumeRepository = resumeRepository;
         this.resumeDocRepository = resumeDocRepository;
@@ -74,6 +79,7 @@ public class ResumeMetaService {
         this.actors = actors;
         this.versions = versions;
         this.lineageService = lineageService;
+        this.docService = docService;
     }
 
     // ---- read ---------------------------------------------------------------
@@ -147,7 +153,11 @@ public class ResumeMetaService {
         ResumeDoc d = found.get();
         JsonNode doc = ResumeDocument.parse(d.getDocJson());
         if (ResumeMetaMirror.apply(doc, resume.getLabel(), resume.getTarget())) {
-            resumeDocRepository.mirrorMeta(resume.getId(), ResumeDocumentJson.write(doc, 0), ResumeDocumentCanonical.contentHash(doc), d.getContentHash(), Instant.now());
+            String newHash = ResumeDocumentCanonical.contentHash(doc);
+            // exported_hash is a RENDER hash (R3.7): carry it across the rename so a fresh PDF stays fresh.
+            String oldRender = ResumeDocService.renderHash(d);
+            String newRender = ResumeRenderHash.computeFromThemeJson(newHash, d.getTemplateId(), d.getThemeJson());
+            resumeDocRepository.mirrorMeta(resume.getId(), ResumeDocumentJson.write(doc, 0), newHash, oldRender, newRender, Instant.now());
         }
     }
 
@@ -259,8 +269,11 @@ public class ResumeMetaService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume document not found");
         }
         ResumeDocVersion v = versions.checkpoint(doc, name, user.getLogin());
-        // R3.7 (async PDF): a checkpoint asks for the PDF immediately - markPdfPending(doc, 0) goes here.
-        return new Checkpoint(v.getVersionNo(), v.getReason(), pdfOf(resume, doc));
+        // R3.7 (async PDF): an explicit Save asks for the PDF now, with no settle delay (markPdfPending(doc, immediate)).
+        // Done as a bulk update so doc_version does not tick: the editor's next autosave keeps a valid If-Match.
+        docService.requestPdfImmediately(doc);
+        ResumeDoc fresh = docOf(resume, user);
+        return new Checkpoint(v.getVersionNo(), v.getReason(), pdfOf(resume, fresh));
     }
 
     @Transactional(readOnly = true)
@@ -384,12 +397,18 @@ public class ResumeMetaService {
         return new ResumeMetaDTO.Source(r.getKind().name(), origin, tailoredFrom, madeBy, false, null);
     }
 
-    /** The PDF the resume has stored: built resumes by export state, uploaded ones by the file they carry. */
+    /** The PDF the resume has stored: built resumes by the async pipeline's real status (R3.7), uploaded ones by the file they carry. */
     private static ResumeMetaDTO.Pdf pdfOf(Resume r, ResumeDoc d) {
         if (r.getKind() == ResumeKind.BUILT && d != null) {
-            if (d.getExportedAt() == null) return new ResumeMetaDTO.Pdf("NONE", null, null, 0, null);
-            boolean fresh = Objects.equals(d.getExportedHash(), d.getContentHash());
-            return new ResumeMetaDTO.Pdf(fresh ? "READY" : "STALE", d.getExportedHash(), d.getExportedAt(), 0, null);
+            ResumePdfDTO p = ResumePdfState.toDto(
+                d.getPdfStatus(),
+                d.getExportedHash(),
+                d.getExportedAt(),
+                ResumeDocService.renderHash(d),
+                d.getPdfAttempts(),
+                d.getPdfError()
+            );
+            return new ResumeMetaDTO.Pdf(p.getStatus(), p.getHash(), p.getGeneratedAt(), p.getAttempts(), p.getError());
         }
         boolean hasFile = r.getr2ObjectKey() != null && !r.getr2ObjectKey().isBlank();
         return new ResumeMetaDTO.Pdf(hasFile ? "READY" : "NONE", null, null, 0, null);

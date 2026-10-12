@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, useToast } from "@kiwiply/ui";
 import type { ResumeSectionKind } from "@kiwiply/ui";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
-import { exportPdf, exportText, putDoc, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
+import { exportPdf, exportText, putDoc, requestPdfNow, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
 import EditorTopBar from "./EditorTopBar";
 import RailStrip from "./RailStrip";
@@ -33,6 +33,7 @@ import {
   type RailTab,
   type RightView,
 } from "./state/ui";
+import { usePdfStatus } from "./usePdfStatus";
 import { useBuilderLayout } from "./useBuilderLayout";
 
 /** A resume with nothing in it opens Add Section once (DESIGN 10.3). */
@@ -115,6 +116,9 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     });
     autosave.current = a;
     return () => {
+      // Leaving the editor (navigation, ✕): save what is pending, then ask for the PDF now instead of after the
+      // settle delay (R3.7). The request outlives the page (keepalive). Best effort: the next visit repairs a miss.
+      void a.flush().finally(() => void requestPdfNow(resumeId, { keepalive: true }));
       a.dispose();
       autosave.current = null;
     };
@@ -144,6 +148,19 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     document.addEventListener("visibilitychange", onHide);
     return () => document.removeEventListener("visibilitychange", onHide);
   }, []);
+
+  // Closing the tab / reloading: the unmount path above does not run, so ask for the PDF now here (R3.7).
+  useEffect(() => {
+    const onPageHide = () => {
+      void autosave.current?.flush();
+      void requestPdfNow(resumeId, { keepalive: true });
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [resumeId]);
+
+  // The stored PDF's state for the top bar: "PDF updating…" after a save, "couldn't be made · Retry" on failure.
+  const { pdf, retry: retryPdf, refresh: refreshPdf } = usePdfStatus(resumeId, initial.pdf, state.savedAt);
 
   /* ── "Saved N minutes ago" stays honest ──────────────────────────────────────────────── */
   useEffect(() => {
@@ -321,6 +338,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         return;
       }
       saveBlob(res.blob, res.fileName);
+      if (res.stored) void refreshPdf();
       const pages = `${res.pages} ${res.pages === 1 ? "page" : "pages"}`;
       toast({
         title: "PDF ready",
@@ -430,6 +448,8 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         exportDisabled={state.phase === "conflict"}
         downloadRef={downloadRef}
         onClose={closeEditor}
+        pdf={pdf}
+        onPdfRetry={retryPdf}
       />
 
       <div

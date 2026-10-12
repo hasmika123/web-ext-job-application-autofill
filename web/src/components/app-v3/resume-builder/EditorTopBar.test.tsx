@@ -2,6 +2,7 @@ import { createRef } from "react";
 import type { RefObject } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { PdfInfo } from "@/lib/resume-doc";
 import type { LeftPanel } from "./state/ui";
 import type { SaveStatus } from "./state/types";
 
@@ -161,5 +162,31 @@ describe("EditorTopBar", () => {
   it("has no undo / redo buttons (they live on the keys and the section menu)", () => {
     bar();
     expect(screen.queryByRole("button", { name: /undo|redo/i })).toBeNull();
+  });
+});
+
+describe("EditorTopBar PDF status suffix (R3.7)", () => {
+  it.each(["PENDING", "RUNNING", "STALE"] as const)("%s shows '· PDF updating…' after the save status", (status) => {
+    bar({ pdf: { status } });
+    const suffix = document.querySelector('[data-pdf-status="updating"]');
+    expect(suffix?.textContent).toContain("PDF updating…");
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    // the save status keeps its own message
+    expect(document.querySelector("[data-save-status]")?.textContent).toContain("Saved");
+  });
+
+  it.each([undefined, null, { status: "NONE" }, { status: "READY" }] as Array<PdfInfo | null | undefined>)("shows nothing for %j", (pdf) => {
+    bar({ pdf });
+    expect(document.querySelector("[data-pdf-status]")).toBeNull();
+    expect(screen.queryByText(/PDF updating|PDF couldn't/)).toBeNull();
+  });
+
+  it("FAILED shows \"PDF couldn't be made · Retry\" and Retry calls back", () => {
+    const retry = vi.fn();
+    bar({ pdf: { status: "FAILED", error: "boom" }, onPdfRetry: retry });
+    const suffix = document.querySelector('[data-pdf-status="failed"]');
+    expect(suffix?.textContent).toContain("PDF couldn't be made");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 });

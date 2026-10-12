@@ -23,6 +23,7 @@ import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ResumeDocVersionRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.ResumeDocVersionService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -203,7 +204,7 @@ class ResumeMetaResourceIT {
             .andExpect(jsonPath("$.updatedBy.login").value("user"))
             .andExpect(jsonPath("$.createdAt").isNotEmpty())
             .andExpect(jsonPath("$.updatedAt").isNotEmpty())
-            .andExpect(jsonPath("$.pdf.status").value("NONE"))
+            .andExpect(jsonPath("$.pdf.status").value("PENDING")) // R3.7: a new built resume is queued for its first PDF
             .andExpect(jsonPath("$.shareWithOrg").value(true))
             .andExpect(jsonPath("$.lineage.masterId").value(id))
             .andExpect(jsonPath("$.lineage.children").value(0))
@@ -271,15 +272,16 @@ class ResumeMetaResourceIT {
     void renameKeepsAFreshPdfFresh() throws Exception {
         Long id = createBuilt("Draft");
         String hash = resumeDocRepository.findById(id).orElseThrow().getContentHash();
+        String renderHash = ResumeDocService.renderHash(resumeDocRepository.findById(id).orElseThrow());
         mockMvc
-            .perform(post("/api/profile/resumes/" + id + "/export-recorded").contentType(MediaType.APPLICATION_JSON).content("{\"hash\":\"" + hash + "\"}"))
+            .perform(post("/api/profile/resumes/" + id + "/export-recorded").contentType(MediaType.APPLICATION_JSON).content("{\"hash\":\"" + renderHash + "\"}"))
             .andExpect(status().isNoContent());
         em.clear();
 
         patchMeta(id, "{\"name\":\"Renamed\"}").andExpect(status().isOk()).andExpect(jsonPath("$.pdf.status").value("READY"));
         ResumeDoc d = resumeDocRepository.findById(id).orElseThrow();
         assertThat(d.getContentHash()).isNotEqualTo(hash); // the title is part of the document hash
-        assertThat(d.getExportedHash()).isEqualTo(d.getContentHash()); // but the stored PDF still matches
+        assertThat(d.getExportedHash()).isEqualTo(ResumeDocService.renderHash(d)); // but the stored PDF still matches the new render hash
     }
 
     // ---- validation ------------------------------------------------------------
@@ -524,7 +526,7 @@ class ResumeMetaResourceIT {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.versionNo").value(2))
             .andExpect(jsonPath("$.reason").value("MANUAL"))
-            .andExpect(jsonPath("$.pdf.status").value("NONE"));
+            .andExpect(jsonPath("$.pdf.status").value("PENDING"));
         mockMvc
             .perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"  Sent to Acme \"}"))
             .andExpect(status().isOk())
@@ -537,6 +539,36 @@ class ResumeMetaResourceIT {
         assertThat(m.at("/version/latest/name").asText()).isEqualTo("Sent to Acme");
         assertThat(m.at("/version/latest/kind").asText()).isEqualTo("named");
         assertThat(listRow(id).get("lifecycle").asText()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void checkpointQueuesThePdfAtOnceWithoutTickingTheDocumentVersion() throws Exception {
+        Long id = createBuilt("Mine");
+        // Pretend the first PDF exists and is current: a checkpoint then has nothing to render.
+        ResumeDoc before = resumeDocRepository.findById(id).orElseThrow();
+        resumeDocRepository.markReady(id, before.getDocVersion(), ResumeDocService.renderHash(before), Instant.now());
+        em.clear();
+        assertThat(resumeDocRepository.findById(id).orElseThrow().getPdfStatus()).isEqualTo("READY");
+        mockMvc
+            .perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(jsonPath("$.pdf.status").value("READY")); // current: nothing to render
+
+        // Make the stored PDF fall behind the document without a save (so no PENDING marker exists yet).
+        resumeDocRepository.recordExport(id, "0".repeat(64), Instant.now()); // the stored PDF is now behind the document
+        em.clear();
+        ResumeDoc stale = resumeDocRepository.findById(id).orElseThrow();
+        int versionBefore = stale.getDocVersion();
+        mockMvc
+            .perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Sent\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.pdf.status").value("PENDING"));
+        em.clear();
+        ResumeDoc after = resumeDocRepository.findById(id).orElseThrow();
+        assertThat(after.getPdfStatus()).isEqualTo("PENDING");
+        assertThat(after.getPdfNextAttemptAt()).isBeforeOrEqualTo(Instant.now().plusSeconds(1)); // no settle delay
+        assertThat(after.getPdfAttempts()).isZero();
+        assertThat(after.getDocVersion()).isEqualTo(versionBefore); // the open editor's ETag stays valid
+        assertThat(meta(id).at("/pdf/status").asText()).isEqualTo("PENDING");
     }
 
     @Test
