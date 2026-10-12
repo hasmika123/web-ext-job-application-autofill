@@ -109,6 +109,10 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
         if (ex instanceof com.dossier.api.service.ResumeDocException docEx) return (ProblemDetailWithCause) new ResumeDocProblemException(
             docEx
         ).getBody();
+        // Org tenant model (O1.x) — a refused organization operation, incl. the generic 404 for a foreign org.
+        if (ex instanceof com.dossier.api.service.org.OrgException orgEx) return (ProblemDetailWithCause) new OrgProblemException(
+            orgEx
+        ).getBody();
         // Phase demo — a demo account hit the read-only guard, or demo logins are switched off. 403 + code.
         if (ex instanceof com.dossier.api.service.DemoException demoEx) return (ProblemDetailWithCause) new DemoProblemException(
             demoEx
