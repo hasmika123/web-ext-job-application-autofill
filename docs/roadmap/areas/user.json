@@ -2,7 +2,7 @@
   "area": "user",
   "name": "Job-seeker dashboard, auth, account, web↔extension",
   "prefix": "U",
-  "updated": "2026-10-11",
+  "updated": "2026-10-12",
   "epics": [
     {
       "id": "U0",
@@ -184,7 +184,10 @@
       "tech": "packages/ui/src/primitives/{BottomSheet,SwipeRow}.tsx; web SidePanel keeps working",
       "evidence": [],
       "design": null,
-      "critical": false
+      "critical": false,
+      "relates": [
+        "E2E-U0.0"
+      ]
     },
     {
       "id": "U0.3",
@@ -218,7 +221,7 @@
       "id": "U0.4",
       "epic": "U0",
       "title": "Skeletons, empty states and error boundaries for every route",
-      "status": "not_started",
+      "status": "partial",
       "size": "M",
       "owners": [
         "web"
@@ -252,7 +255,9 @@
       "owners": [
         "web"
       ],
-      "deps": [],
+      "deps": [
+        "E2E-U0.0"
+      ],
       "story": "As the product owner I want every SAMPLE fallback gated by one `showBoardSamples` flag (default off outside demo) so that real users never see fake rows.",
       "genz": "Trust: fake numbers on a real account read as a lie.",
       "ac": [
@@ -670,7 +675,7 @@
       "id": "U2.4",
       "epic": "U2",
       "title": "Step 3: resume paths (upload / paste / later) into the R1.4 card review",
-      "status": "not_started",
+      "status": "partial",
       "size": "S",
       "owners": [
         "web"
@@ -850,6 +855,7 @@
       ],
       "deps": [
         "U6.2",
+        "U6.4",
         "U0.5"
       ],
       "story": "As a user I want the dashboard numbers to be mine so that I trust the page.",
@@ -960,7 +966,7 @@
       "id": "U3.5",
       "epic": "U3",
       "title": "Profile strength card from the Common Profile completeness",
-      "status": "partial",
+      "status": "done",
       "size": "S",
       "owners": [
         "web"
@@ -1079,8 +1085,8 @@
         "web"
       ],
       "deps": [
-        "U4.2",
-        "U0.2"
+        "E2E-U4.0",
+        "E2E-U0.0"
       ],
       "story": "As a user I want the Job Search page to search the real store with chips, a filter sheet, swipe save/hide, a detail sheet and shareable URLs.",
       "genz": "Chips over a 12-field rail; swipes; empty states that suggest what to loosen.",
@@ -1103,7 +1109,8 @@
       "design": "docs/design/user/job-search-matching.md",
       "critical": true,
       "relates": [
-        "S3.5"
+        "S3.5",
+        "U4.2"
       ],
       "benchmark": "G15 — nobody in the matrix flags job scams on cards; 69 % of Gen Z apply without checking (Barclays)"
     },
@@ -1145,7 +1152,7 @@
         "web"
       ],
       "deps": [
-        "U4.1"
+        "E2E-U4.0"
       ],
       "story": "As a user I want to set titles, places, remote, salary floor, level, must/never keywords and excluded companies, and to see and reset what Kiwiply learned from my feedback.",
       "genz": "Control in chips; nothing hidden.",
@@ -1165,7 +1172,8 @@
       "design": "docs/design/user/job-search-matching.md",
       "critical": false,
       "relates": [
-        "I9.8"
+        "I9.8",
+        "U4.1"
       ],
       "benchmark": "G13 — Jobright's H1B/sponsorship filter is its wedge with international students"
     },
@@ -1247,7 +1255,7 @@
         "API"
       ],
       "deps": [
-        "U4.2"
+        "E2E-U4.0"
       ],
       "story": "As a user I want the top search to suggest titles/companies as I type and remember my recent searches.",
       "genz": "Autocomplete is table stakes.",
@@ -1447,14 +1455,14 @@
       "id": "U6.3",
       "epic": "U6",
       "title": "Detail sheet/panel: timeline, notes, next action",
-      "status": "partial",
+      "status": "not_started",
       "size": "M",
       "owners": [
         "web"
       ],
       "deps": [
         "U6.2",
-        "U0.2"
+        "E2E-U0.0"
       ],
       "story": "As a user I want to open an application and see its timeline, add notes and set a next action, on phone and desktop.",
       "genz": "One sheet with everything; no page loads.",
@@ -1491,9 +1499,8 @@
         "web"
       ],
       "deps": [
-        "U6.3",
-        "U7.1",
-        "A5.1"
+        "U6.1",
+        "U6.3"
       ],
       "story": "As a user I want to log an interview (or accept one parsed from mail), export it to my calendar and get reminded, then record how it went.",
       "genz": "Reminders where they live (push + calendar), not another inbox.",
@@ -1511,7 +1518,8 @@
       "design": "docs/design/user/applications-inbox.md",
       "critical": false,
       "relates": [
-        "I9.9"
+        "I9.9",
+        "U7.1"
       ],
       "benchmark": "G19 — no competitor has the inbox; interview extraction from mail is unique"
     },
@@ -1526,7 +1534,7 @@
       ],
       "deps": [
         "U6.3",
-        "U0.2"
+        "E2E-U0.0"
       ],
       "story": "As a phone user I want to triage my applications with swipes and add one by pasting a link.",
       "genz": "Tinder-speed triage.",
@@ -1706,9 +1714,7 @@
       ],
       "deps": [
         "U7.1",
-        "U4.2",
-        "B1.2",
-        "A5.1"
+        "E2E-U4.0"
       ],
       "story": "As a user I want to save a search as an alert (instant/daily/weekly, app/email/push) and be told about new matches.",
       "genz": "Set it and get pinged — the main reason to come back.",
@@ -1725,7 +1731,11 @@
         "web/src/components/app-v3/alerts/AlertsPage.tsx:49"
       ],
       "design": "docs/design/user/alerts-notifications.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "B1.2",
+        "A5.1"
+      ]
     },
     {
       "id": "U7.3",
@@ -1738,7 +1748,8 @@
         "API"
       ],
       "deps": [
-        "U7.1"
+        "U7.1",
+        "E2E-U7.0"
       ],
       "story": "As a user I want to choose per kind where I'm notified, set quiet hours and my digest time, and send myself a test.",
       "genz": "Etiquette they control; defaults already quiet.",
@@ -1893,7 +1904,7 @@
       ],
       "deps": [
         "U8.1",
-        "U0.2"
+        "E2E-U0.0"
       ],
       "story": "As a Pro user I want a fast chat with suggestion chips and tappable job/application cards; as a Free user I want to see what it does and where to go instead.",
       "genz": "DM-speed answers with buttons, not essays.",
@@ -2188,7 +2199,7 @@
         "web"
       ],
       "deps": [
-        "U4.2",
+        "E2E-U4.0",
         "U7.2"
       ],
       "story": "As a user I want to browse companies that are actually hiring, see their open roles and follow them.",
@@ -2279,8 +2290,7 @@
         "web"
       ],
       "deps": [
-        "U6.1",
-        "U4.1"
+        "U6.1"
       ],
       "story": "As a user I want to see where my applications go (applied → reply → interview → offer) and which resume/ATS/company responds best.",
       "genz": "Insight, not vanity charts; empty state says what will unlock it.",
@@ -2298,7 +2308,10 @@
       ],
       "design": null,
       "critical": false,
-      "benchmark": "Huntr Pro analytics, Simplify/Teal partial; response rate by resume/ATS is parity — the inbox-fed version is unique"
+      "benchmark": "Huntr Pro analytics, Simplify/Teal partial; response rate by resume/ATS is parity — the inbox-fed version is unique",
+      "relates": [
+        "U4.1"
+      ]
     },
     {
       "id": "U12.2",
@@ -3536,6 +3549,143 @@
       "design": "docs/design/user/applications-inbox.md",
       "critical": false,
       "benchmark": "G22 — Huntr application packets (Pro); ours is free because the parts already exist"
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [
+        "U0.2"
+      ],
+      "evidence": [
+        "web/src/components/app-v3/resume-builder/SaveStatusChip.tsx",
+        "web/src/components/app-v3/resume-builder/state/autosave.ts",
+        "packages/ui/src/index.ts (EmptyState, SideSheet, SwipeCard, SavedTick exist)"
+      ],
+      "design": "docs/APP-E2E-PLAN.md",
+      "critical": true,
+      "id": "E2E-U0.0",
+      "epic": "U0",
+      "title": "Page kit: autosave/undo/empty/list contract shared by every page story",
+      "size": "M",
+      "owners": [
+        "ui",
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "story": "As a page implementer I want one kit (SaveStatusChip, BottomSheet, ListSkeleton/ErrorState, EmptyState variants, useAutosave, undoToast, useListQuery, ListPage/ListQuery) so that every page behaves the same and nobody re-implements a sheet.",
+      "genz": "Autosave with a quiet ✓, undo instead of confirm, honest empty states — the Notion feel on every screen, not just the resume editor.",
+      "ac": [
+        "SaveStatusChip + BottomSheet (SideSheet side=bottom, snap 70%/full) + ListSkeleton/TileSkeleton/TableSkeleton + ErrorState exported from @kiwiply/ui; EmptyState gains variant page|inline and mascot slot",
+        "web/src/lib/autosave.ts (createAutosave moved, old path re-exports) + useAutosave hook; undo-toast.ts helper (6 s, one action); list-query.ts useListQuery URL-synced, keeps previous page while loading",
+        "API ListPage<T> + ListQuery (page/size≤50/sort whitelist → 400 SORT_INVALID/q≤120) in service/dto",
+        "ESLint rule kiwiply/icon-button-needs-label on in web; resume builder passes unchanged"
+      ],
+      "tests": [
+        "vitest autosave.test.ts, list-query.test.tsx, BottomSheet.test.tsx, EmptyState.test.tsx",
+        "ListQueryTest (Java)",
+        "packages/ui vitest green"
+      ],
+      "tech": "packages/ui/src/primitives/{SaveStatusChip,BottomSheet,ListSkeleton,ErrorState}.tsx; web/src/lib/{autosave,undo-toast,list-query}.ts; api service/dto/{ListPage,ListQuery}.java. Spec: docs/APP-E2E-PLAN.md §2.3–§2.4."
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/domain/JobPosting.java (no search column)",
+        "web/src/components/app-v3/jobs/JobsPage.tsx:39 (V3_JOBS fallback)"
+      ],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": true,
+      "id": "E2E-U4.0",
+      "epic": "U4",
+      "title": "Job search v0 over the existing posting store (FULLTEXT, filters, save, hide) — no aggregator",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "story": "As a job seeker on any tier I want GET /api/jobs/search over the postings the nightly ATS ingest already stores so that /jobs is real before the posting-store v2 and the aggregator exist.",
+      "genz": "Type 'ux intern remote', get real jobs in under a second, swipe to save — on day one, no licence needed.",
+      "ac": [
+        "Changelog adds job_posting.search_text + FULLTEXT ft_job_posting_search(title,company,search_text) + ix_job_posting_pub + job_source.platform; backfill; ingest fills search_text",
+        "GET /api/jobs/search (q, loc, remote, type, posted, company, sort best|newest, page, size≤30) → JobSearchPage {total,page,size,took_ms,items,facets{remote,type,postedBuckets},suggestions} per job-search-matching.md §5; match filled from job_match for Pro only",
+        "GET /api/jobs/{id} (410 when purged); POST /api/jobs/{id}/save = JobMatchService.save code path; POST/DELETE /api/jobs/{id}/feedback {HIDE|HIDE_COMPANY} with job_feedback table",
+        "Ranking per §6 (text × recency × preference fit from MatchPreferences × hard exclusions), short-token LIKE fallback, 1000 cap, ?explain=1 for ROLE_ADMIN",
+        "Mock API serves the same shape over a 60-row fixture"
+      ],
+      "tests": [
+        "JobRankerTest, JobQueryParserTest",
+        "JobSearchServiceIT (Testcontainers: boolean exclude, fallback, facets, relaxations, cap)",
+        "JobFeedbackIT"
+      ],
+      "tech": "web/rest/JobSearchResource.java, service/jobs/{JobSearchService,JobRanker,JobQueryParser}.java, repository/JobPostingSearchRepository.java. U4.2 extends this endpoint (ranker v2), never replaces it."
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/NotificationService.java (no publish; kind STATUS_FROM_MAIL only)",
+        "web/src/components/app-v3/settings/panels.tsx:29 (SoonRow)"
+      ],
+      "design": "docs/design/user/alerts-notifications.md",
+      "critical": false,
+      "id": "E2E-U7.0",
+      "epic": "U7",
+      "title": "Notification preferences v0 — per-kind in-app/email, quiet hours, NotificationService.publish",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want Settings › Notifications to be real (which kinds email me, quiet hours, time zone) before the full engine exists, so that no switch on the settings page is decorative.",
+      "genz": "Quiet by default; you decide what pings you.",
+      "ac": [
+        "notification_preference table (matrix_json, quiet_start/end, tz, digest fields) + notification.dedupe_key/group_key + unique (user_id, dedupe_key)",
+        "NotificationKind enum (APP_STATUS alias of STATUS_FROM_MAIL, INTERVIEW_REMINDER, PROFILE_SUGGESTION, BILLING, SECURITY, SYSTEM; org kinds reserved); NotificationService.publish(kind,userId,{title,body,link,applicationId?,groupKey?,dedupeKey?}) idempotent; onStatusChanged calls publish; BILLING/SECURITY email locked on",
+        "GET/PUT /api/profile/notification-preferences; NotificationsPanel in Settings with autosaved toggles + SavedTick; SoonRows removed",
+        "U7.1 keeps this table and endpoint (engine refactor is additive)"
+      ],
+      "tests": [
+        "NotificationPolicyTest (matrix × locked kinds × quiet hours incl. DST)",
+        "NotificationServiceIT (dedupe replay)",
+        "vitest NotificationsPanel.test.tsx"
+      ],
+      "tech": "service/NotificationService.java, service/NotificationPreferenceService.java, web/rest/NotificationPreferenceResource.java, web app/api/notification-preferences/route.ts, components/app-v3/settings/NotificationsPanel.tsx"
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/app-v3/settings/panels.tsx"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "E2E-U14.0",
+      "epic": "U14",
+      "title": "Settings panels v0: Notifications, Privacy ('what we store'), Help — no inert rows",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "E2E-U7.0"
+      ],
+      "story": "As a user I want every row on /settings to do something real so that the page is honest.",
+      "genz": "No 'Coming soon' badges on a shipped settings page.",
+      "ac": [
+        "Notifications panel = NotificationsPanel (E2E-U7.0); Privacy panel renders lib/data-map.ts (table → purpose → who sees → retention) + export/delete links; Help panel = bug report, contact, keyboard shortcuts",
+        "SoonRow ×3 deleted; 'Time zone: Automatic' becomes a real tz select stored in notification_preference.tz",
+        "U14.2 later adds per-feature AI switches on top of the Privacy panel"
+      ],
+      "tests": [
+        "vitest panels.test.tsx"
+      ],
+      "tech": "web/src/components/app-v3/settings/{SettingsV3Page,panels,PrivacyPanel,HelpPanel}.tsx, web/src/lib/data-map.ts"
     }
   ]
 }
