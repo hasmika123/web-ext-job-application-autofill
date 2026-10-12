@@ -37,6 +37,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -90,6 +91,11 @@ class ResumeDocResourceIT {
 
     @Autowired
     private ResumeBuilderSettings settings;
+
+    @AfterEach
+    void dropSettingsCache() {
+        settings.invalidate(); // the setting rows roll back with the test transaction; the cache must not outlive them
+    }
 
     // ---- helpers ------------------------------------------------------------
 

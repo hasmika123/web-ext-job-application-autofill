@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.ResumeDoc;
 import com.dossier.api.domain.ResumeDocVersion;
@@ -19,10 +20,12 @@ import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ResumeKind;
 import com.dossier.api.domain.enumeration.ResumeRole;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ResumeDocVersionRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.ResumeDocVersionService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -32,6 +35,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -76,6 +80,23 @@ class ResumeMetaResourceIT {
 
     @Autowired
     private jakarta.persistence.EntityManager em;
+
+    @Autowired
+    private AppSettingRepository appSettingRepository;
+
+    @Autowired
+    private ResumeBuilderSettings settings;
+
+    @AfterEach
+    void dropSettingsCache() {
+        settings.invalidate(); // the setting rows roll back with the test transaction; the cache must not outlive them
+    }
+
+    /** {@code resume.templates.enabled} defaults to Modern only; a test that switches template enables the ids it needs (rolled back with the test transaction). */
+    private void enableTemplates(String... ids) {
+        appSettingRepository.saveAndFlush(new AppSetting("resume.templates.enabled", om.valueToTree(ids).toString(), "it", Instant.now()));
+        settings.invalidate();
+    }
 
     // ---- helpers ------------------------------------------------------------
 
@@ -583,6 +604,7 @@ class ResumeMetaResourceIT {
 
     @Test
     void versionsListCarriesByAndKindNewestFirst() throws Exception {
+        enableTemplates("modern", "classic");
         Long id = createBuilt("Mine");
         mockMvc.perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"v1.0\"}")).andExpect(status().isOk());
         mockMvc
