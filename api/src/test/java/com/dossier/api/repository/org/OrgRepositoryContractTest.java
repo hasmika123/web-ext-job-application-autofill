@@ -25,7 +25,12 @@ class OrgRepositoryContractTest {
     private static final Set<String> SAVE_METHODS = Set.of("save", "saveAndFlush", "flush");
 
     /** Tenant-root lookups that cannot take an org id because they exist to FIND the org (slug is globally unique). */
-    private static final Set<String> ALLOW_LISTED = Set.of("OrganizationRepository.existsBySlug", "OrganizationRepository.findBySlug");
+    private static final Set<String> ALLOW_LISTED = Set.of(
+        "OrganizationRepository.existsBySlug",
+        "OrganizationRepository.findBySlug",
+        // scoped by the PERSON who created the orgs (the per-person creation cap), the org twin of findMine(userId)
+        "OrganizationRepository.countByCreatedByUserId"
+    );
 
     private static List<Class<?>> orgRepositories() throws ClassNotFoundException {
         ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false) {
@@ -54,7 +59,7 @@ class OrgRepositoryContractTest {
     void theOrgRepositoriesAreFound() throws Exception {
         assertThat(orgRepositories()).extracting(Class::getSimpleName).contains(
             "OrganizationRepository", "OrgMemberRepository", "OrgGroupRepository", "OrgInviteBatchRepository",
-            "OrgJoinCodeRepository", "OrgDomainRepository", "OrgAuditEventRepository"
+            "OrgJoinCodeRepository", "OrgDomainRepository", "OrgAuditEventRepository", "DataShareRepository", "DataShareEventRepository"
         );
     }
 

@@ -29,13 +29,17 @@ import org.springframework.transaction.annotation.Transactional;
  * moves to {@code SUSPENDED}: an org with no owner cannot stay ACTIVE and billable. It runs inside the deleting
  * transaction, before the user row goes ({@code org_member.user_id} is a restricting foreign key).
  *
- * <p>Not here yet, by design: {@code org_assignment} (ended and the Stripe seat decremented), {@code data_share} /
- * {@code data_share_event} (deleted) and the platform-admin queue notice for an ownerless org. Those tables ship with
- * billing (O4) and consent (O6.1); the stories that add them extend {@link #eraseFor}.
+ * <p>Consent (O6.1): the seat's {@code data_share} row is deleted (one {@code ERASED} event keyed by the login records the
+ * withdrawal; the event history stays, it holds no profile data), and every FULL share that named the erased person
+ * drops to SUMMARY.
+ *
+ * <p>Not here yet, by design: {@code org_assignment} (ended and the Stripe seat decremented) and the platform-admin
+ * queue notice for an ownerless org. Those ship with billing (O4); the stories that add them extend {@link #eraseFor}.
  *
  * <p><b>Export.</b> {@link #exportFor} returns the person's own membership rows (the "organizations" part of
- * {@code GET /api/account/export}): which orgs, their role, state and dates. The org's records about them (audit
- * rows) are keyed by the login string and are the org's accountability record, not exported member data.
+ * {@code GET /api/account/export}): which orgs, their role, state and dates, and {@code dataShare}: what they chose to
+ * share and the history of every change. The org's records about them (audit rows) are keyed by the login string and
+ * are the org's accountability record, not exported member data.
  */
 @Service
 public class OrgMembershipPrivacyService {
@@ -45,11 +49,13 @@ public class OrgMembershipPrivacyService {
     private final OrgMemberRepository members;
     private final OrganizationRepository orgs;
     private final OrgAuditService audit;
+    private final DataShareService dataShare;
 
-    public OrgMembershipPrivacyService(OrgMemberRepository members, OrganizationRepository orgs, OrgAuditService audit) {
+    public OrgMembershipPrivacyService(OrgMemberRepository members, OrganizationRepository orgs, OrgAuditService audit, DataShareService dataShare) {
         this.members = members;
         this.orgs = orgs;
         this.audit = audit;
+        this.dataShare = dataShare;
     }
 
     /** Anonymises every membership of {@code userId}; returns how many rows were erased. */
@@ -60,6 +66,8 @@ public class OrgMembershipPrivacyService {
             if (m.getStatus() == OrgMemberStatus.ERASED) continue;
             OrgMemberStatus was = m.getStatus();
             OrgRole role = m.getRole();
+            dataShare.endPairingsTo(m.getOrgId(), m.getId(), login); // an erased marketer ends the FULL shares that named them
+            dataShare.eraseFor(m.getOrgId(), m.getId(), login); // the seat's consent row goes; one ERASED event keeps the proof
             m.setUserId(null);
             m.setStatus(OrgMemberStatus.ERASED);
             m.setInviteEmail(null);
@@ -90,7 +98,7 @@ public class OrgMembershipPrivacyService {
 
     /** The user's own membership rows for the data export, oldest first. */
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> exportFor(Long userId) {
+    public List<Map<String, Object>> exportFor(Long userId, String login) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (OrgMember m : members.findMine(userId)) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -103,6 +111,7 @@ public class OrgMembershipPrivacyService {
             row.put("displayLabel", m.getDisplayLabel());
             row.put("joinedAt", m.getJoinedAt());
             row.put("leftAt", m.getLeftAt());
+            row.put("dataShare", dataShare.exportFor(m.getOrgId(), m.getId(), login));
             out.add(row);
         }
         return out;

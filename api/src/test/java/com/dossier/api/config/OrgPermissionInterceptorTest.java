@@ -14,6 +14,7 @@ import com.dossier.api.domain.enumeration.OrgPermission;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.service.org.OrgAccessService;
+import com.dossier.api.service.org.OrgFeatureFlag;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
@@ -45,6 +46,7 @@ class OrgPermissionInterceptorTest {
     }
 
     private OrgAccessService access;
+    private OrgFeatureFlag flag;
     private OrgPermissionInterceptor interceptor;
     private MockHttpServletRequest request;
     private final MockHttpServletResponse response = new MockHttpServletResponse();
@@ -52,7 +54,9 @@ class OrgPermissionInterceptorTest {
     @BeforeEach
     void setUp() {
         access = mock(OrgAccessService.class);
-        interceptor = new OrgPermissionInterceptor(access);
+        flag = mock(OrgFeatureFlag.class);
+        when(flag.isEnabled()).thenReturn(true);
+        interceptor = new OrgPermissionInterceptor(access, flag);
         request = new MockHttpServletRequest();
     }
 
@@ -121,6 +125,17 @@ class OrgPermissionInterceptorTest {
     void aHandlerWithNeitherAnnotationFailsClosed() throws Exception {
         orgIdVariable("7");
         assertThatThrownBy(() -> interceptor.preHandle(request, response, handler("forgotten"))).isInstanceOf(OrgNotFoundException.class);
+    }
+
+    @Test
+    void whileTheFeatureFlagIsOffEveryOrgHandlerIsA404WithoutTouchingTheService() throws Exception {
+        when(flag.isEnabled()).thenReturn(false);
+        orgIdVariable("7");
+        for (String name : List.of("guarded", "anyMember", "unscoped")) {
+            assertThatThrownBy(() -> interceptor.preHandle(request, response, handler(name))).isInstanceOf(OrgNotFoundException.class);
+        }
+        verify(access, never()).requireAll(any(), any());
+        verify(access, never()).requireMember(any());
     }
 
     @Test

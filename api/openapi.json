@@ -12,6 +12,9 @@
     "description" : "Generated server url"
   } ],
   "tags" : [ {
+    "name" : "config",
+    "description" : "Public, cacheable feature switches."
+  }, {
     "name" : "billing",
     "description" : "The current user's plan. Stripe is the source of truth; this reads our mirror of it."
   }, {
@@ -7538,6 +7541,26 @@
         }
       }
     },
+    "/api/config/public" : {
+      "get" : {
+        "tags" : [ "config" ],
+        "summary" : "Public feature switches",
+        "description" : "{orgs, demo}: whether organization features and the demo accounts are on. No authentication; cached for 5 minutes; never per-user.",
+        "operationId" : "publicConfig",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicConfigDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/billing/me" : {
       "get" : {
         "tags" : [ "billing" ],
@@ -12837,6 +12860,17 @@
           "memberCount" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "PublicConfigDTO" : {
+        "type" : "object",
+        "properties" : {
+          "orgs" : {
+            "type" : "boolean"
+          },
+          "demo" : {
+            "type" : "boolean"
           }
         }
       },

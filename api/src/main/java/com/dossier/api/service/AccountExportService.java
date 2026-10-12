@@ -97,8 +97,8 @@ public class AccountExportService {
         // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
         out.put("inbox", inboxService.exportCurrentUser());
         out.put("notifications", notificationService.exportCurrentUser());
-        // Org tenant model (O1.3): the organizations the user belongs to / belonged to, with role, state and dates.
-        out.put("organizations", orgMembershipPrivacyService.exportFor(u.getId()));
+        // Org tenant model (O1.3): the organizations the user belongs to / belonged to, with role, state, dates and what they share (O6.1).
+        out.put("organizations", orgMembershipPrivacyService.exportFor(u.getId(), u.getLogin()));
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());
         return out;
     }

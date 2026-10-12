@@ -138,6 +138,9 @@ services:
       # boot, so only the one-click login works.
       - DEMO_ENABLED=${DEMO_ENABLED:-false}
       - DEMO_PASSWORD=${DEMO_PASSWORD:-}
+      # Organization features (E2E-O1.9): OFF in production (default false). An admin-stored
+      # `feature.orgs.enabled` setting overrides this; while off, /api/orgs/** answers 404.
+      - ORGS_ENABLED=${ORGS_ENABLED:-false}
       # Email-OTP MFA for admin sign-in (Phase 9.X.3). OFF by default; enable only once admin email
       # delivery is confirmed (the code is emailed). Recover by setting back to false + recreate.
       - ADMIN_MFA_ENABLED=${ADMIN_MFA_ENABLED:-false}

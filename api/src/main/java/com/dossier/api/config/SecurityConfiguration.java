@@ -45,6 +45,8 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/mfa")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/demo")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/demo")).permitAll()
+                    // The two public on/off switches (orgs, demo): booleans only, cached, never per-user (PublicConfigResource).
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/config/public")).permitAll()
                     // Resume share links (R3.11): the 32-char token is the credential. GET only; the resource
                     // rate-limits, answers every refusal with the same 404 and stores nothing about the visitor.
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/resumes/*")).permitAll()

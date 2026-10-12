@@ -116,6 +116,9 @@ jhipster:
 # ===================================================================
 
 dossier:
+  # Organization features are ON for local development (production leaves ORGS_ENABLED unset = off).
+  orgs:
+    enabled: ${ORGS_ENABLED:true}
   # Billing (Phase 12). Blank secret key = billing disabled, which is the normal local state:
   # the API starts, /api/billing/me reports FREE + billingEnabled:false, and checkout/portal
   # return 503 BILLING_DISABLED. To work on billing locally, export these from your Stripe

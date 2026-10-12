@@ -152,6 +152,14 @@ public final class ResumeBuilderSettingKeys {
     public static final String ORG_RESUMES_PAGE_SIZE = "org.resumes.pageSize";
     public static final String ORG_RESUMES_MAX_SAVED_VIEWS = "org.resumes.maxSavedViews";
 
+    // ---- Organizations (APP-E2E-PLAN 2.2, O1.3 follow-up) --------------------
+    /** The org feature flag. An admin-stored value wins; otherwise the {@code dossier.orgs.enabled} property (env ORGS_ENABLED) decides. */
+    public static final String FEATURE_ORGS = "feature.orgs.enabled";
+    /** How many organizations one person may have created (closed ones count: a slug is still taken). */
+    public static final String ORG_LIMIT_CREATED_PER_USER = "org.limits.createdPerUser";
+    /** How many groups (departments, cohorts, teams) one organization may have. */
+    public static final String ORG_LIMIT_GROUPS_PER_ORG = "org.limits.groupsPerOrg";
+
     // ---- Onboarding v2 (R1.8, ONBOARDING-V2-DESIGN 11) ----------------------
     public static final String FEATURE_ONBOARDING_V2 = "feature.onboarding_v2.enabled";
     public static final String ONBOARDING_PERSONA_ENABLED = "onboarding.persona.enabled";
@@ -442,6 +450,12 @@ public final class ResumeBuilderSettingKeys {
         integer(k, ORG_RESUMES_NEW_DAYS, 30, 7, 90, "Days a resume counts as new on the org page.");
         integer(k, ORG_RESUMES_PAGE_SIZE, 24, 12, 96, "Org Resumes & Profiles page size.");
         integer(k, ORG_RESUMES_MAX_SAVED_VIEWS, 10, 1, 30, "Saved views per org admin.");
+
+        // Organizations: the production flag (declared default OFF; the property / env default for dev, CI and the demo is ON,
+        // see OrgFeatureFlag) and the abuse caps on creating orgs and groups (422 ORG_LIMIT_REACHED when exceeded).
+        bool(k, FEATURE_ORGS, false, "Organization features (/api/orgs/**, /org). OFF in production. When no value is stored here the dossier.orgs.enabled property decides (ORGS_ENABLED; on in dev, CI and the demo).");
+        integer(k, ORG_LIMIT_CREATED_PER_USER, 3, 1, 100, "Organizations one person may create (closed ones count).");
+        integer(k, ORG_LIMIT_GROUPS_PER_ORG, 50, 1, 500, "Groups (departments, cohorts, teams) per organization.");
 
         // Onboarding v2 (DESIGN 11). The existing profile.setup.promptBelowPercent above is the card's finished-user threshold.
         bool(k, FEATURE_ONBOARDING_V2, true, "Onboarding v2: the dashboard 'Finish your profile' card and the /welcome redirect (the flow itself is always on).");

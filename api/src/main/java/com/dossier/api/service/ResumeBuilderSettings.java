@@ -61,6 +61,17 @@ public class ResumeBuilderSettings {
         return Boolean.parseBoolean(value(k));
     }
 
+    /**
+     * The BOOL value an admin actually stored for {@code key}, or empty when none is stored or the stored value is invalid
+     * (in which case the caller falls back to something other than the declared default, e.g. an environment property).
+     */
+    public java.util.Optional<Boolean> getStoredBool(String key) {
+        Key k = typed(key, ResumeBuilderSettingKeys.Type.BOOL);
+        String stored = snapshot().values().get(k.key());
+        if (stored == null || !isValid(k, stored)) return java.util.Optional.empty();
+        return java.util.Optional.of(Boolean.parseBoolean(stored.trim()));
+    }
+
     public int getInt(String key) {
         Key k = typed(key, ResumeBuilderSettingKeys.Type.INT);
         return Integer.parseInt(value(k).trim());

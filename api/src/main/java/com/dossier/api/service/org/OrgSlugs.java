@@ -22,7 +22,8 @@ public final class OrgSlugs {
     /** Words that would read as part of the product's own routes or brand. */
     static final Set<String> RESERVED = Set.of(
         "admin", "api", "app", "www", "join", "new", "mine", "org", "orgs", "organization", "organizations", "kiwiply", "support", "help",
-        "login", "signup", "register", "dashboard", "settings", "billing", "status", "blog", "docs", "careers", "pricing", "demo"
+        "login", "signup", "register", "dashboard", "settings", "billing", "status", "blog", "docs", "careers", "pricing", "demo",
+        "demo-bootcamp" // the slug of the seeded demo organization (DemoOrgSeeder)
     );
 
     private OrgSlugs() {}
