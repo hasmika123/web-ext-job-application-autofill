@@ -9,3 +9,6 @@
 api/src/test/resources/resume-doc/** text eol=lf
 # The @kiwiply/ui copies of those fixtures (R0.4) - same byte-for-byte rule.
 packages/ui/src/resume/__fixtures__/** text eol=lf
+
+# Vitest snapshots are written with LF; pin them so Windows checkouts stop showing line-ending-only diffs.
+**/__snapshots__/*.snap text eol=lf
