@@ -762,6 +762,7 @@ GET  /api/profile/resumes/{id}/ai/proposals    → [open proposals]
 proposal?: {id, task, mode, changes:[{ref, section, before, after, alternatives?:[…], reason, sources:[refs]}],
 suggestions:[string]}, usage:{used, limit, resetsAt, economy}}` (13.4 shape + `reason` + `sources` + `alternatives`).
 `ProposalCard = {id, kind, title, body, changes: n, createdAt}`. 402 `PRO_REQUIRED` is thrown for Free.
+**As built (R4.6):** a suggestion card is a full `ProposalView` (the proposal shape above plus `kind`, `title`, `body`, `stale`, `model`, `aiCallId`), so Preview needs no second call; `ProposalListResult = {status, suggestions:[card], contentHash, staleAt?, usage?, cap?, dropped?}` answers both calls (`status` as `ProposalResult`; `cached` = the stored cards for this document; `nothingToChange` with `dropped > 0` is "kept your facts safe", with `dropped: 0` "Nothing to improve right now"). `refresh: true` skips the cache and the fresh set dismisses the cards it supersedes. A line is offered by one card only. `staleAt` = the document's last change + `resume.ai.suggestStaleMinutes`, present only while a card is stale. After any apply the server re-pins the other open cards to the new content hash when every line they propose to change still reads as before (applying one card does not stale the rest).
 
 ### 9.6 BFF routes (`web/src/app/api/**`, thin proxies via `lib/resume-doc-proxy.ts` as built; rate buckets per §15)
 ```

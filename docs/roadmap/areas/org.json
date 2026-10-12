@@ -3,7 +3,7 @@
   "name": "Organizations — tenant model, org dashboard, billing, consent, consultancy, services",
   "prefix": "O",
   "summary": "Consultancies and teams: tenant model, onboarding, catalog and billing, team, consent, dashboard, services, the Consultancy Marketer and settings. Timesheets & Consultancy Ops (formerly the Consultancy Ops epic here) is its own product area H at docs/timesheets/stories.json; the org foundation stories O1.x / O2.x / O6.x / O13.x here are its cross-area dependencies.",
-  "updated": "2026-10-11",
+  "updated": "2026-10-12",
   "epics": [
     {
       "id": "O1",
@@ -95,7 +95,7 @@
       "id": "O1.1",
       "epic": "O1",
       "title": "Org core schema — organization, org_member, org_group, org_invite_batch, org_join_code, org_domain, org_audit_event",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -123,7 +123,7 @@
       "id": "O1.2",
       "epic": "O1",
       "title": "OrgAccessService — role→permission matrix, require(orgId, permission), 404 for foreign orgs",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -153,7 +153,7 @@
       "id": "O1.3",
       "epic": "O1",
       "title": "Org endpoints — POST /api/orgs (DRAFT), GET /mine, GET/PATCH /{orgId}, POST /close, groups CRUD",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -183,7 +183,7 @@
       "id": "O1.4",
       "epic": "O1",
       "title": "org_audit_event + OrgAuditService with action constants",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API"

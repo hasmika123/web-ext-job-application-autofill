@@ -545,7 +545,7 @@
       "benchmark": "Notion autosave semantics server-side (DESIGN §1, DECISIONS #32)."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "star": true,
       "tech": "`web/src/lib/profile-setup/state.ts` (+ test), `web/src/lib/onboarding/{api,useDraftSync,coverage}.ts` (coverage fixtures `__fixtures__/coverage-*.json` + parity test here, used by R1.11), `web/src/app/api/profile/onboarding/**`, `web/scripts/mock-api.mjs`, `web/src/lib/resume-builder-config.shared.ts`, `web/src/components/app-v3/profiles/setup/{ProfileSetup,FinishProfileCard,SaveStatusPill,ResumeBanner,ConflictBanner}.tsx`, `web/src/app/(app)/profiles/setup/page.tsx`, `web/src/app/(app)/dashboard/page.tsx`.",
       "relates": [],
@@ -1559,7 +1559,7 @@
       "id": "R4.6",
       "epic": "R4",
       "title": "AI Suggestions tab — `SUGGEST` task + prompt, suggestion cards (count badge, carousel, Apply Suggestion / Preview, See all, Refresh)",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API",
