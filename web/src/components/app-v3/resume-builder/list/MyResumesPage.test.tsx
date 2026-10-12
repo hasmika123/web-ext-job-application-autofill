@@ -73,11 +73,39 @@ describe("My Resumes: tabs, counts, filter, sort, search", () => {
     expect(tab(/^Active/).getAttribute("aria-selected")).toBe("true");
   });
 
-  it("Drafts is empty until the metadata model lands, with its own empty state", () => {
+  it("Drafts is empty when no resume is a draft, with its own empty state", () => {
     renderPage();
     fireEvent.click(tab(/^Drafts/));
     expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
     expect(screen.getByText("No drafts yet")).toBeTruthy();
+  });
+
+  it("the server's lifecycle fills the Drafts tab, and drafts are not in Active", () => {
+    const rs = resumes();
+    rs[1] = { ...rs[1], lifecycle: "DRAFT" };
+    rs[0] = { ...rs[0], lifecycle: "ACTIVE" };
+    rs[3] = { ...rs[3], lifecycle: "ARCHIVED" };
+    renderPage(rs);
+    expect(tab(/^Drafts/).textContent).toContain("1");
+    expect(tab(/^Active/).textContent).toContain("2");
+    fireEvent.click(tab(/^Drafts/));
+    expect(names()).toEqual(["Product Manager"]);
+    const card = document.querySelector('[data-resume-id="2"]') as HTMLElement;
+    expect(within(card).getByText("Draft")).toBeTruthy();
+  });
+
+  it("shows a resume's own tags and finds it by tag or target", () => {
+    const rs = resumes();
+    rs[1] = { ...rs[1], tags: ["backend", "remote"], target: "Staff Platform Engineer" };
+    renderPage(rs);
+    const card = document.querySelector('[data-resume-id="2"]') as HTMLElement;
+    expect(within(card).getByText("backend")).toBeTruthy();
+    expect(within(card).queryByText("Built")).toBeNull();
+    const box = screen.getByRole("searchbox", { name: "Search resumes" });
+    fireEvent.change(box, { target: { value: "platform" } });
+    expect(names()).toEqual(["Product Manager"]);
+    fireEvent.change(box, { target: { value: "remote" } });
+    expect(names()).toEqual(["Product Manager"]);
   });
 
   it("search narrows by name and offers to clear when nothing matches", () => {

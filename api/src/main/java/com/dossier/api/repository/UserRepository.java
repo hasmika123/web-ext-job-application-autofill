@@ -24,6 +24,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findOneByEmailIgnoreCase(String email);
     Optional<User> findOneByLogin(String login);
 
+    /** Display-name lookups for many logins at once (resume "created by / updated by" labels). */
+    List<User> findAllByLoginIn(java.util.Collection<String> logins);
+
     @EntityGraph(attributePaths = "authorities")
     @Cacheable(cacheNames = USERS_BY_LOGIN_CACHE, unless = "#result == null")
     Optional<User> findOneWithAuthoritiesByLogin(String login);

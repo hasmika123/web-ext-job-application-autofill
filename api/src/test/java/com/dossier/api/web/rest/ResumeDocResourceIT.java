@@ -344,7 +344,7 @@ class ResumeDocResourceIT {
     // ---- save ---------------------------------------------------------------
 
     @Test
-    void putWritesDocProjectionLabelAndBumpsTheVersion() throws Exception {
+    void putWritesDocProjectionAndBumpsTheVersionButNeverRenames() throws Exception {
         JsonNode created = createBuilt("{\"label\":\"Draft\"}");
         Long id = created.at("/resume/id").asLong();
         String firstHash = created.at("/doc/contentHash").asText();
@@ -353,7 +353,9 @@ class ResumeDocResourceIT {
             .andExpect(status().isOk())
             .andExpect(header().string(HttpHeaders.ETAG, "\"2\""))
             .andExpect(jsonPath("$.docVersion").value(2))
-            .andExpect(jsonPath("$.label").value("Backend SWE - 2026"))
+            // R3.9: the resume's name is the truth - the title the client sent is overwritten, not applied or rejected
+            .andExpect(jsonPath("$.label").value("Draft"))
+            .andExpect(jsonPath("$.doc.meta.title").value("Draft"))
             .andExpect(jsonPath("$.doc.sections[0].items[0].text").value("Builds reliable systems"))
             .andReturn()
             .getResponse()
@@ -361,13 +363,25 @@ class ResumeDocResourceIT {
         assertThat(json(res).get("contentHash").asText()).isNotEqualTo(firstHash).matches("[0-9a-f]{64}");
 
         Resume resume = resumeRepository.findById(id).orElseThrow();
-        assertThat(resume.getLabel()).isEqualTo("Backend SWE - 2026");
+        assertThat(resume.getLabel()).isEqualTo("Draft");
+        assertThat(resume.getUpdatedByLogin()).isEqualTo("user");
         assertThat(json(resume.getParsedJson()).get("summary").asText()).isEqualTo("Builds reliable systems");
         assertThat(resume.getUpdatedAt()).isNotNull();
 
         // chained saves: the new ETag is accepted, the old one is not
         putDoc(id, "\"2\"", putBody(doc("Backend SWE - 2026", "Edited again"))).andExpect(status().isOk()).andExpect(header().string(HttpHeaders.ETAG, "\"3\""));
         putDoc(id, "\"2\"", putBody(doc("Backend SWE - 2026", "Stale"))).andExpect(status().isConflict());
+    }
+
+    @Test
+    void putMirrorsTheResumesTargetIntoTheDocumentToo() throws Exception {
+        Long id = createBuilt("{\"label\":\"Mine\",\"target\":\"Backend SWE\"}").at("/resume/id").asLong();
+        assertThat(resumeRepository.findById(id).orElseThrow().getTarget()).isEqualTo("Backend SWE");
+        ObjectNode sent = doc("Mine", "s");
+        ((ObjectNode) sent.get("meta")).put("target", "Something else");
+        putDoc(id, "\"1\"", putBody(sent))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.doc.meta.target").value("Backend SWE"));
     }
 
     @Test

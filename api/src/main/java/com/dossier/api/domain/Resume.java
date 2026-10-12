@@ -1,6 +1,7 @@
 package com.dossier.api.domain;
 
 import com.dossier.api.domain.enumeration.ResumeKind;
+import com.dossier.api.domain.enumeration.ResumeRole;
 import com.dossier.api.domain.enumeration.ResumeStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -72,6 +73,32 @@ public class Resume implements Serializable {
     // For the resume list UI only - ProfileVersion deliberately does not hash it.
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    // ---- Resume Builder R3.9: the metadata model (DESIGN 8.6). None of these is hashed by ProfileVersion. ----
+
+    // Who made the resume / last wrote it. Logins, not ids: a marketer-made resume (Phase 22) names the marketer.
+    @Column(name = "created_by_login", length = 50)
+    private String createdByLogin;
+
+    @Column(name = "updated_by_login", length = 50)
+    private String updatedByLogin;
+
+    // The role this resume aims at. The truth: doc.meta.target is a server-written mirror.
+    @Column(name = "target", length = 80)
+    private String target;
+
+    // string[] as JSON text: at most 10 labels of at most 24 chars, lower-cased and de-duplicated (ResumeMetaService).
+    @Column(name = "tags_json", columnDefinition = "json")
+    private String tagsJson;
+
+    // Per-resume exclusion from org FULL sharing (enforced by R3.11).
+    @Column(name = "share_with_org", nullable = false)
+    private Boolean shareWithOrg = Boolean.TRUE;
+
+    // MASTER | TAILORED (DESIGN 8.9).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 10)
+    private ResumeRole role = ResumeRole.MASTER;
 
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
@@ -216,11 +243,72 @@ public class Resume implements Serializable {
         this.updatedAt = updatedAt;
     }
 
+    public String getCreatedByLogin() {
+        return this.createdByLogin;
+    }
+
+    public void setCreatedByLogin(String createdByLogin) {
+        this.createdByLogin = createdByLogin;
+    }
+
+    public String getUpdatedByLogin() {
+        return this.updatedByLogin;
+    }
+
+    public void setUpdatedByLogin(String updatedByLogin) {
+        this.updatedByLogin = updatedByLogin;
+    }
+
+    public String getTarget() {
+        return this.target;
+    }
+
+    public void setTarget(String target) {
+        this.target = target;
+    }
+
+    public String getTagsJson() {
+        return this.tagsJson;
+    }
+
+    public void setTagsJson(String tagsJson) {
+        this.tagsJson = tagsJson;
+    }
+
+    public Boolean getShareWithOrg() {
+        return this.shareWithOrg;
+    }
+
+    public void setShareWithOrg(Boolean shareWithOrg) {
+        this.shareWithOrg = shareWithOrg;
+    }
+
+    public ResumeRole getRole() {
+        return this.role;
+    }
+
+    public void setRole(ResumeRole role) {
+        this.role = role;
+    }
+
     @PrePersist
     void prePersist() {
         // The DTO mapper copies a null kind over the field initialiser; the column is NOT NULL.
         if (this.kind == null) {
             this.kind = ResumeKind.UPLOADED;
+        }
+        if (this.role == null) {
+            this.role = ResumeRole.MASTER;
+        }
+        if (this.shareWithOrg == null) {
+            this.shareWithOrg = Boolean.TRUE;
+        }
+        // Every row names its creator and last writer, whichever path inserted it.
+        if (this.createdByLogin == null) {
+            this.createdByLogin = actorLogin();
+        }
+        if (this.updatedByLogin == null) {
+            this.updatedByLogin = this.createdByLogin;
         }
         this.updatedAt = Instant.now();
     }
@@ -228,6 +316,11 @@ public class Resume implements Serializable {
     @PreUpdate
     void preUpdate() {
         this.updatedAt = Instant.now();
+    }
+
+    /** The owner: the default creator of a row whose inserting service named nobody (the domain layer knows no principal). */
+    private String actorLogin() {
+        return this.user != null ? this.user.getLogin() : null;
     }
 
     public User getUser() {

@@ -56,6 +56,7 @@ public class ResumeFileResource {
         String key = storageService.objectKeyFor(userId, resume.getId(), file.getOriginalFilename());
         storageService.store(key, file.getBytes(), file.getContentType());
         resume.setr2ObjectKey(key);
+        resume.setUpdatedByLogin(SecurityUtils.getCurrentUserLogin().orElse(null)); // R3.9: who last wrote the resume
         resumeRepository.save(resume);
         if (previousKey != null && !previousKey.isBlank() && !previousKey.equals(key)) {
             storageService.delete(previousKey);

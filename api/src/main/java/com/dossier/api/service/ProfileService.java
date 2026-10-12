@@ -5,6 +5,7 @@ import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ResumeKind;
+import com.dossier.api.domain.enumeration.ResumeRole;
 import com.dossier.api.domain.enumeration.ResumeStatus;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
@@ -15,14 +16,20 @@ import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.BioDTO;
+import com.dossier.api.service.dto.ResumeActorDTO;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.mapper.BioMapper;
 import com.dossier.api.service.mapper.ResumeMapper;
+import com.dossier.api.service.resume.ResumeLifecycle;
+import com.dossier.api.service.resume.ResumeTags;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -77,6 +84,10 @@ public class ProfileService {
     private final ResumeDocVersionRepository resumeDocVersionRepository;
     private final ResumeAiProposalRepository resumeAiProposalRepository;
     private final ProfileItemService profileItemService;
+    private final ResumeBuilderSettings settings;
+    private final ResumeActors resumeActors;
+    private final ResumeDocVersionService resumeDocVersionService;
+    private final ResumeLineageService resumeLineageService;
 
     public ProfileService(
         BioRepository bioRepository,
@@ -90,8 +101,16 @@ public class ProfileService {
         ResumeDocRepository resumeDocRepository,
         ResumeDocVersionRepository resumeDocVersionRepository,
         ResumeAiProposalRepository resumeAiProposalRepository,
-        ProfileItemService profileItemService
+        ProfileItemService profileItemService,
+        ResumeBuilderSettings settings,
+        ResumeActors resumeActors,
+        ResumeDocVersionService resumeDocVersionService,
+        ResumeLineageService resumeLineageService
     ) {
+        this.settings = settings;
+        this.resumeActors = resumeActors;
+        this.resumeDocVersionService = resumeDocVersionService;
+        this.resumeLineageService = resumeLineageService;
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
@@ -138,33 +157,55 @@ public class ProfileService {
 
     @Transactional(readOnly = true)
     public List<ResumeDTO> listResumes() {
-        List<ResumeDTO> dtos = resumeRepository.findByUserIsCurrentUser().stream().map(resumeMapper::toDto).toList();
-        return withTemplateIds(dtos);
+        return enrich(rawResumes());
+    }
+
+    /** The mapper's output alone: what {@link ProfileVersion} hashes, without any of the list's extra lookups. */
+    private List<ResumeDTO> rawResumes() {
+        return resumeRepository.findByUserIsCurrentUser().stream().map(resumeMapper::toDto).toList();
     }
 
     /**
-     * Fill {@code templateId} and the export state ({@code contentHash}, {@code exportedHash},
-     * {@code exportedAt}) on BUILT resumes (they live on the web-only {@code resume_doc} row, not on
-     * {@code Resume}). One narrow query, and none at all for users without a built resume - this
-     * runs on every extension version poll.
+     * Fill what is not on {@code Resume} itself: {@code templateId} and the export state
+     * ({@code contentHash}, {@code exportedHash}, {@code exportedAt}) of BUILT resumes (they live on the
+     * web-only {@code resume_doc} row), the {@code lifecycle} (DESIGN 8.10) and the display labels of
+     * {@code createdBy}/{@code updatedBy}. A handful of narrow queries, and none of the document ones
+     * for users without a built resume.
      */
-    private List<ResumeDTO> withTemplateIds(List<ResumeDTO> dtos) {
-        if (dtos.stream().noneMatch(d -> d.getKind() == ResumeKind.BUILT)) {
+    private List<ResumeDTO> enrich(List<ResumeDTO> dtos) {
+        if (dtos.isEmpty()) {
             return dtos;
         }
+        Long userId = currentUser().getId();
+        boolean anyBuilt = dtos.stream().anyMatch(d -> d.getKind() == ResumeKind.BUILT);
         Map<Long, ResumeDocRepository.BuiltMetaRow> meta = new HashMap<>();
-        resumeDocRepository.findBuiltMetaByUserId(currentUser().getId()).forEach(r -> meta.put(r.getResumeId(), r));
-        dtos
-            .stream()
-            .filter(d -> d.getKind() == ResumeKind.BUILT)
-            .forEach(d -> {
+        Set<Long> checkpoints = Set.of();
+        if (anyBuilt) {
+            resumeDocRepository.findBuiltMetaByUserId(userId).forEach(r -> meta.put(r.getResumeId(), r));
+            checkpoints = resumeDocVersionService.checkpointResumeIds(userId);
+        }
+        Set<String> logins = new HashSet<>();
+        for (ResumeDTO d : dtos) {
+            if (d.getCreatedBy() != null) logins.add(d.getCreatedBy().login());
+            if (d.getUpdatedBy() != null) logins.add(d.getUpdatedBy().login());
+        }
+        Map<String, ResumeActorDTO> actors = resumeActors.resolve(logins);
+        for (ResumeDTO d : dtos) {
+            Instant exportedAt = null;
+            if (d.getKind() == ResumeKind.BUILT) {
                 ResumeDocRepository.BuiltMetaRow row = meta.get(d.getId());
-                if (row == null) return;
-                d.setTemplateId(row.getTemplateId());
-                d.setContentHash(row.getContentHash());
-                d.setExportedHash(row.getExportedHash());
-                d.setExportedAt(row.getExportedAt());
-            });
+                if (row != null) {
+                    d.setTemplateId(row.getTemplateId());
+                    d.setContentHash(row.getContentHash());
+                    d.setExportedHash(row.getExportedHash());
+                    d.setExportedAt(row.getExportedAt());
+                    exportedAt = row.getExportedAt();
+                }
+            }
+            if (d.getCreatedBy() != null) d.setCreatedBy(actors.get(d.getCreatedBy().login()));
+            if (d.getUpdatedBy() != null) d.setUpdatedBy(actors.get(d.getUpdatedBy().login()));
+            d.setLifecycle(ResumeLifecycle.of(d.getArchived(), d.getKind(), checkpoints.contains(d.getId()), exportedAt));
+        }
         return dtos;
     }
 
@@ -175,7 +216,7 @@ public class ProfileService {
      */
     @Transactional(readOnly = true)
     public String profileVersion() {
-        return ProfileVersion.compute(getProfile(), listResumes());
+        return ProfileVersion.compute(getProfile(), rawResumes());
     }
 
     /**
@@ -202,6 +243,13 @@ public class ProfileService {
         resume.setId(null);
         resume.setKind(kind);
         resume.setUser(user);
+        // Metadata (R3.9): a new resume is a master made and last written by the caller; whatever role or
+        // audit login the client sent is ignored, and the org-sharing default comes from the settings seam.
+        resume.setRole(ResumeRole.MASTER);
+        resume.setCreatedByLogin(user.getLogin());
+        resume.setUpdatedByLogin(user.getLogin());
+        resume.setShareWithOrg(settings.getBool(ResumeBuilderSettingKeys.META_SHARE_WITH_ORG_DEFAULT));
+        resume.setTarget(clipTarget(dto.getTarget()));
         if (resume.getCreatedAt() == null) {
             resume.setCreatedAt(Instant.now());
         }
@@ -222,7 +270,55 @@ public class ProfileService {
         } else {
             resume.setDefaultResume(false);
         }
-        return resumeMapper.toDto(resumeRepository.save(resume));
+        Resume saved = resumeRepository.save(resume);
+        // A user whose resumes are all archived has no primary: the new live one becomes it (exactly one).
+        ensurePrimary(user.getId());
+        return enrich(List.of(resumeMapper.toDto(saved))).get(0);
+    }
+
+    /** A target is free text of at most 80 characters; blank means none. */
+    static String clipTarget(String target) {
+        if (target == null) return null;
+        String t = target.strip();
+        if (t.isEmpty()) return null;
+        return t.length() > ResumeMetaService.MAX_TARGET_CHARS ? t.substring(0, ResumeMetaService.MAX_TARGET_CHARS) : t;
+    }
+
+    /**
+     * Keep the "exactly one primary" rule (R3.9, DESIGN 8.6): when the user has any non-archived resume,
+     * exactly one of them is {@code is_default} and no archived resume is. If none is, the most recently
+     * updated non-archived resume is promoted; if several are, the most recently updated of them stays.
+     * When every resume is archived nothing changes. Called after create, archive/unarchive, delete and
+     * a primary change; the extension's default resume is this flag ({@code defaultResume}).
+     */
+    public void ensurePrimary(Long userId) {
+        List<Resume> all = resumeRepository.findByUserId(userId);
+        Comparator<Resume> recency = Comparator
+            .comparing((Resume r) -> r.getUpdatedAt() != null ? r.getUpdatedAt() : r.getCreatedAt(), Comparator.nullsFirst(Comparator.naturalOrder()))
+            .thenComparing(Resume::getId, Comparator.nullsFirst(Comparator.naturalOrder()));
+        List<Resume> live = all.stream().filter(r -> !Boolean.TRUE.equals(r.getArchived())).toList();
+        if (live.isEmpty()) {
+            return;
+        }
+        Resume keep = live
+            .stream()
+            .filter(r -> Boolean.TRUE.equals(r.getDefaultResume()))
+            .max(recency)
+            .orElseGet(() -> live.stream().max(recency).orElseThrow());
+        for (Resume r : all) {
+            boolean want = r.getId().equals(keep.getId());
+            if (Boolean.TRUE.equals(r.getDefaultResume()) != want) {
+                r.setDefaultResume(want);
+                resumeRepository.save(r);
+            }
+        }
+    }
+
+    /** Make an owned, live resume the user's one primary (clears the previous one). The caller checked ownership and archived. */
+    void makePrimary(Resume resume) {
+        clearDefaultForCurrentUser();
+        resume.setDefaultResume(true);
+        resumeRepository.save(resume);
     }
 
     /**
@@ -291,7 +387,13 @@ public class ProfileService {
                 resume.setDefaultResume(false);
             }
         }
-        return withTemplateIds(List.of(resumeMapper.toDto(resumeRepository.save(resume)))).get(0);
+        resume.setUpdatedByLogin(currentUser().getLogin());
+        Resume saved = resumeRepository.save(resume);
+        if (dto.getArchived() != null || dto.getDefaultResume() != null) {
+            // Archiving the primary promotes another; clearing the only primary is undone: exactly one.
+            ensurePrimary(saved.getUser().getId());
+        }
+        return enrich(List.of(resumeMapper.toDto(saved))).get(0);
     }
 
     /** Unset the default flag on all of the current user's resumes (before promoting a new default). */
@@ -317,13 +419,18 @@ public class ProfileService {
             );
         }
         String key = resume.getr2ObjectKey();
+        Long userId = resume.getUser().getId();
+        // Tailored copies of this master are cut loose first (DESIGN 8.9): each keeps its content and becomes a master.
+        resumeLineageService.detachChildren(id, userId, currentUser().getLogin());
         resumeRepository.delete(resume);
         // resume_doc goes with the row (FK cascade); history and proposals have no FK, so clear them here.
-        resumeDocVersionRepository.deleteAllByResumeIdAndUserId(id, resume.getUser().getId());
-        resumeAiProposalRepository.deleteAllByResumeIdAndUserId(id, resume.getUser().getId());
+        resumeDocVersionRepository.deleteAllByResumeIdAndUserId(id, userId);
+        resumeAiProposalRepository.deleteAllByResumeIdAndUserId(id, userId);
         if (key != null && !key.isBlank()) {
             storageService.delete(key); // avoid orphaning bytes in the blob store
         }
+        // Deleting the primary promotes the most recently updated live resume (exactly one primary).
+        ensurePrimary(userId);
     }
 
     // ---- helpers -----------------------------------------------------------
