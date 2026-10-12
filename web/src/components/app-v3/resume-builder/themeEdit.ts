@@ -102,8 +102,10 @@ export function themeAfterSwitch(current: Theme | null, to: TemplateMeta): Theme
 
 /**
  * The CSS variables the document canvas follows (accent colour, font pair; the template's capabilities
- * decide whether they apply, like the renderer's `applyCapabilities`). The placeholder blocks use them
- * until the document canvas (R2.1) does the same.
+ * decide whether they apply, like the renderer's `applyCapabilities`): `--rb-doc-accent` (section headings),
+ * `--rb-doc-font-body` / `--rb-doc-font-display` (the canvas re-points the app's font tokens at them) and
+ * `--rb-doc-density` (a multiplier on the canvas' vertical rhythm, from Spacing + the fit ladder). The
+ * document canvas (R2.1) carries them on its root, so the editor follows what Pick Template changes.
  */
 export function canvasThemeStyle(theme: Theme | null, caps: TemplateCapabilities): CSSProperties {
   const drawn = applyCapabilities(sanitizeTheme(theme), caps);
@@ -112,5 +114,6 @@ export function canvasThemeStyle(theme: Theme | null, caps: TemplateCapabilities
     "--rb-doc-accent": drawn.accent,
     "--rb-doc-font-body": fonts.body,
     "--rb-doc-font-display": fonts.display,
+    "--rb-doc-density": String(caps.theme.spacing ? drawn.density : 1),
   } as CSSProperties;
 }

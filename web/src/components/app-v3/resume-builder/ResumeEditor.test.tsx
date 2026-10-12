@@ -182,6 +182,26 @@ describe("ResumeEditor", () => {
     });
   });
 
+  it("a 422 toasts the reason and rings the field the server named, until the next edit", async () => {
+    putDoc.mockResolvedValue({ kind: "invalid", path: "$.sections[1].items[0].bullets[0].text", message: "must be at most 600 characters" });
+    renderEditor();
+    fireEvent.change(bullet(), { target: { value: "x" } });
+    await flush(800);
+    expect(screen.getByText("Couldn't save: must be at most 600 characters")).toBeTruthy();
+    expect(bullet().getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(bullet(), { target: { value: "xy" } });
+    expect(bullet().getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("limits and template capabilities come from the config: no photo slot under the ATS template", () => {
+    renderEditor();
+    expect(screen.queryByRole("button", { name: /Add photo/ })).toBeNull();
+    expect(bullet().maxLength).toBe(DEFAULT_BUILDER_CONFIG.limits.bulletChars);
+    cleanup();
+    renderEditor({ ...DEFAULT_BUILDER_CONFIG, limits: { ...DEFAULT_BUILDER_CONFIG.limits, bulletChars: 55 } });
+    expect(bullet().maxLength).toBe(55);
+  });
+
   it("shows 'Not saved — retrying' on a network failure and recovers", async () => {
     putDoc.mockResolvedValueOnce({ kind: "network" }).mockResolvedValue({ kind: "ok", version: 4, contentHash: null });
     renderEditor();
@@ -516,6 +536,21 @@ describe("ResumeEditor", () => {
       await flush(5000);
       expect(getPdfStatus).toHaveBeenCalledWith(42);
       expect(screen.queryByText("PDF updating…")).toBeNull();
+    });
+
+    it("the document canvas follows Spacing and the font pair at once (R2.1 x R2.4)", () => {
+      patchTheme.mockResolvedValue({ kind: "ok", version: 9 });
+      open();
+      const canvas = () => document.querySelector<HTMLElement>("[data-canvas]")!;
+      const density = () => Number(canvas().style.getPropertyValue("--rb-doc-density"));
+      const normal = density();
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Spacious" }));
+      expect(density()).toBeGreaterThan(normal);
+      fireEvent.click(within(leftSheet()).getByRole("radio", { name: "Compact" }));
+      expect(density()).toBeLessThan(normal);
+      fireEvent.click(within(leftSheet()).getByRole("button", { name: "Font Family" }));
+      fireEvent.click(screen.getByRole("option", { name: "Georgia / Arial" }));
+      expect(canvas().style.getPropertyValue("--rb-doc-font-body")).toContain("Arial");
     });
 
     it("a burst of changes sends only the last theme", async () => {

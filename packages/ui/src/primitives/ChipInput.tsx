@@ -15,7 +15,8 @@ import { cn } from "./cn";
  *   <ChipInput label="Skills" value={skills} onChange={setSkills} placeholder="Add a skill" />
  *
  * `maxChipLength` and `maxChips` are optional caps (the caller reads them from its own settings);
- * nothing is capped by default.
+ * nothing is capped by default. With `maxChips` set the box is described by a screen-reader count
+ * ("3 of 40") through `aria-describedby`, so the limit is announced and not only enforced.
  */
 export interface ChipInputProps {
   value: string[];
@@ -56,6 +57,7 @@ export default function ChipInput({
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const full = maxChips !== undefined && value.length >= maxChips;
+  const countId = `${inputId}-count`;
 
   /** Adds `raw` (one or several comma-separated chips) and returns whether anything changed. */
   const add = (raw: string): boolean => {
@@ -140,6 +142,11 @@ export default function ChipInput({
             </li>
           ))}
         </ul>
+        {maxChips !== undefined && (
+          <span id={countId} className="sr-only">
+            {value.length} of {maxChips}
+          </span>
+        )}
         <input
           ref={inputRef}
           id={inputId}
@@ -151,6 +158,7 @@ export default function ChipInput({
           onBlur={commit}
           placeholder={full ? "" : placeholder}
           aria-label={showLabel ? undefined : label}
+          aria-describedby={maxChips !== undefined ? countId : undefined}
           className="min-w-[8ch] flex-1 bg-transparent px-1 py-1 text-[16px] max-sm:min-h-11 text-ink outline-none placeholder:text-muted sm:text-sm"
         />
       </div>

@@ -36,7 +36,8 @@ export interface AutosaveEvents {
   onSaved?(rev: number, version: number): void;
   onRetrying?(attempt: number, delayMs: number): void;
   onConflict?(serverVersion: number, doc: ResumeDocument): void;
-  onFailed?(message: string): void;
+  /** `path` is the validator's JSON path on a 422 (the canvas rings that field); absent for other failures. */
+  onFailed?(message: string, path?: string): void;
 }
 
 export interface AutosaveOptions extends AutosaveEvents {
@@ -133,7 +134,7 @@ export function createAutosave(opts: AutosaveOptions): Autosave {
           return;
         case "invalid":
           attempt = 0;
-          opts.onFailed?.(`${result.path}: ${result.message}`);
+          opts.onFailed?.(`${result.path}: ${result.message}`, result.path);
           return;
         case "fatal":
           attempt = 0;

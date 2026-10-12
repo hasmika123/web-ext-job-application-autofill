@@ -209,7 +209,36 @@ const seedDoc = (title) => ({
   ],
 });
 
-DOCS.set(3, { doc: seedDoc("Product Manager"), templateId: "modern", theme: null, version: 2, updatedAt: ago(3) });
+/** A resume with every section kind, for trying the editor's canvas (R2.1): resume 3. */
+const seedFullDoc = (title) => {
+  const doc = seedDoc(title);
+  doc.basics.phone = "(650) 123-4567";
+  doc.basics.links = [
+    { label: "LinkedIn", url: "linkedin.com/in/priyasharma" },
+    { label: "Website", url: "priyasharma.dev" },
+    { label: "GitHub", url: "github.com/priyasharma" },
+  ];
+  const sections = doc.sections;
+  sections[1].items.push({
+    id: docId("i"), title: "Product Designer", org: "Contoso", location: "Austin, TX", start: "2018-06", end: "2021-02",
+    bullets: [
+      { id: docId("b"), text: "Launched 2 AI-driven features used by 10M+ people worldwide.", src: "parsed" },
+      { id: docId("b"), text: "Drove a 25% increase in engagement through product experiments.", src: "parsed" },
+    ],
+  });
+  sections[2].items[0].gpa = "3.8/4.0";
+  sections.push(
+    { id: "s_projects", kind: "PROJECTS", title: "Projects", items: [{ id: docId("i"), title: "Open-source icon set", url: "github.com/priyasharma/icons", start: "2022", end: "2023", bullets: [{ id: docId("b"), text: "1.2k stars, used by 30 teams.", src: "user" }] }] },
+    { id: "s_certs", kind: "CERTIFICATIONS", title: "Certifications", items: [{ id: docId("i"), title: "Google UX Design", org: "Google", date: "2020-05", url: "" }] },
+    { id: "s_langs", kind: "LANGUAGES", title: "Languages", items: [{ id: docId("i"), name: "English", level: "Fluent" }, { id: docId("i"), name: "Hindi", level: "Native" }] },
+    { id: "s_ach", kind: "ACHIEVEMENTS", title: "Achievements", items: [{ id: docId("i"), text: "Design Excellence award, 2023", date: "2023-11" }] },
+    { id: "s_int", kind: "INTERESTS", title: "Interests", items: [{ id: docId("i"), text: "Typography" }, { id: docId("i"), text: "Trail running" }] },
+    { id: "s_custom", kind: "CUSTOM", title: "Volunteering", items: [{ id: docId("i"), title: "Mentor", org: "ADPList", start: "2021", end: null, current: true, bullets: [{ id: docId("b"), text: "Mentored 40 early-career designers.", src: "user" }] }] },
+  );
+  return doc;
+};
+
+DOCS.set(3, { doc: seedFullDoc("Product Manager"), templateId: "modern", theme: null, version: 2, updatedAt: ago(3) });
 DOCS.set(4, { doc: seedDoc("Frontend Developer"), templateId: "modern", theme: null, version: 3, updatedAt: ago(9), exportedHash: "stale-hash", exportedAt: ago(12) });
 
 /** The first validation problem (path + message), mirroring the server's date rule and limits. */

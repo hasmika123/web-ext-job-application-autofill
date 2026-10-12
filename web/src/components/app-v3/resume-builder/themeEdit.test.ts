@@ -70,6 +70,13 @@ describe("canvasThemeStyle", () => {
     expect(s["--rb-doc-font-body"]).toContain("Source Serif");
   });
 
+  it("scales the canvas rhythm with Spacing, unless the template fixes it", () => {
+    const get = (spacing: "compact" | "spacious", caps = DESIGN_FREE) => Number((canvasThemeStyle({ spacing }, caps) as Record<string, string>)["--rb-doc-density"]);
+    expect(get("compact")).toBeLessThan(1);
+    expect(get("spacious")).toBeGreaterThan(1);
+    expect(get("spacious", { ...DESIGN_FREE, theme: { ...DESIGN_FREE.theme, spacing: false } })).toBe(1);
+  });
+
   it("uses the ink colour and the first allowed font under an ATS template", () => {
     const s = canvasThemeStyle({ accent: "#16a34a", fontPair: "source-serif" }, ATS_STRICT) as Record<string, string>;
     expect(s["--rb-doc-accent"]).toBe("#111827");
