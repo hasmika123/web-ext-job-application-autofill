@@ -25,6 +25,14 @@ export const TAB_LABELS: Record<TabId, string> = {
 };
 export const TAB_ORDER: readonly TabId[] = ["all", "active", "drafts", "archived"];
 
+/** The extra "Shared with me" tab (R3.11). It lists other people's resumes, so it is not a `TabId` of the filters. */
+export const SHARED_TAB = "shared";
+export const SHARED_TAB_LABEL = "Shared with me";
+export const SHARED_EMPTY = {
+  title: "Nothing shared with you",
+  body: "When someone shares a resume with you, it shows up here to read.",
+};
+
 /** The "All Status" filter. `Primary` filters on the primary flag; the others on the card status. */
 export const STATUS_FILTERS = ["All Status", "Primary", "Active", "Draft", "Archived"] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];

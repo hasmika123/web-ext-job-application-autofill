@@ -75,6 +75,17 @@ class ResumeMetaResourceIT {
     private ResumeDocVersionService versionService;
 
     @Autowired
+    private com.dossier.api.repository.AppSettingRepository appSettingRepository;
+
+    @Autowired
+    private com.dossier.api.service.ResumeBuilderSettings resumeBuilderSettings;
+
+    @org.junit.jupiter.api.AfterEach
+    void dropSettingsCache() {
+        resumeBuilderSettings.invalidate(); // the setting rows roll back with the test transaction; the cache must not outlive them
+    }
+
+    @Autowired
     private jakarta.persistence.EntityManager em;
 
     // ---- helpers ------------------------------------------------------------
@@ -583,6 +594,9 @@ class ResumeMetaResourceIT {
 
     @Test
     void versionsListCarriesByAndKindNewestFirst() throws Exception {
+        // R2.8 gate: only Modern is enabled by default, so enable Classic for this test (rolled back with it)
+        appSettingRepository.saveAndFlush(new com.dossier.api.domain.AppSetting("resume.templates.enabled", "[\"modern\",\"classic\"]", "it", Instant.now()));
+        resumeBuilderSettings.invalidate();
         Long id = createBuilt("Mine");
         mockMvc.perform(post("/api/profile/resumes/" + id + "/doc/checkpoint").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"v1.0\"}")).andExpect(status().isOk());
         mockMvc

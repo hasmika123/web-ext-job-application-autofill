@@ -11,6 +11,8 @@ import { toCardModels } from "./adapter";
 import { PopularTemplates, QuickTips } from "./BottomCards";
 import {
   DEFAULT_SORT,
+  SHARED_TAB,
+  SHARED_TAB_LABEL,
   SORTS,
   STATUS_FILTERS,
   TAB_EMPTY,
@@ -24,6 +26,7 @@ import { applyQuery, tabCounts } from "./filter";
 import { useNewResume, useSoon, useViewMode } from "./hooks";
 import ResumeCard from "./ResumeCard";
 import ResumesHero from "./ResumesHero";
+import SharedWithMeList from "./SharedWithMeList";
 
 export interface MyResumesPageProps {
   resumes: Resume[];
@@ -52,7 +55,9 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro }: My
   const { create, busy, limit } = useNewResume();
   const [view, setView] = useViewMode();
   const [drawer, setDrawer] = useState(false);
-  const [tab, setTab] = useState<TabId>("all");
+  const [tabId, setTab] = useState<TabId | typeof SHARED_TAB>("all");
+  const sharedOpen = tabId === SHARED_TAB;
+  const tab: TabId = sharedOpen ? "all" : tabId;
   const [status, setStatus] = useState<StatusFilter>("All Status");
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [query, setQuery] = useState("");
@@ -95,11 +100,12 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro }: My
             tone="blue"
             padded
             counts="pill"
-            value={tab}
-            onChange={(id) => setTab(id as TabId)}
-            tabs={TAB_ORDER.map((id) => ({ id, label: TAB_LABELS[id], count: counts[id] }))}
+            value={tabId}
+            onChange={(id) => setTab(id as TabId | typeof SHARED_TAB)}
+            tabs={[...TAB_ORDER.map((id) => ({ id, label: TAB_LABELS[id], count: counts[id] })), { id: SHARED_TAB, label: SHARED_TAB_LABEL }]}
             className="max-w-full min-w-0 border-b-0"
           />
+          {!sharedOpen && (
           <div className="flex w-full flex-wrap items-center gap-2 pb-3 sm:pb-0 lg:w-auto">
             <SearchInput
               variant="grey"
@@ -121,9 +127,12 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro }: My
               </button>
             </div>
           </div>
+          )}
         </div>
 
-        {shown.length === 0 ? (
+        {sharedOpen ? (
+          <SharedWithMeList />
+        ) : shown.length === 0 ? (
           <div role="status" className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-v2-line bg-paper px-6 py-12 text-center">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-v2-blue-soft text-v2-blue">
               <FileTextIcon size={22} aria-hidden />

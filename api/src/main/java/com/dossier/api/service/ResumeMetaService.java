@@ -61,6 +61,7 @@ public class ResumeMetaService {
     private final ResumeDocVersionService versions;
     private final ResumeLineageService lineageService;
     private final ResumeDocService docService;
+    private final ResumeAccessService accessService;
 
     public ResumeMetaService(
         ResumeRepository resumeRepository,
@@ -70,7 +71,8 @@ public class ResumeMetaService {
         ResumeActors actors,
         ResumeDocVersionService versions,
         ResumeLineageService lineageService,
-        ResumeDocService docService
+        ResumeDocService docService,
+        ResumeAccessService accessService
     ) {
         this.resumeRepository = resumeRepository;
         this.resumeDocRepository = resumeDocRepository;
@@ -80,6 +82,7 @@ public class ResumeMetaService {
         this.versions = versions;
         this.lineageService = lineageService;
         this.docService = docService;
+        this.accessService = accessService;
     }
 
     // ---- read ---------------------------------------------------------------
@@ -111,6 +114,10 @@ public class ResumeMetaService {
         Boolean starred = body.has("starred") ? requireBool(body, "starred") : null;
         Boolean archived = body.has("archived") ? requireBool(body, "archived") : null;
         Boolean shareWithOrg = body.has("shareWithOrg") ? requireBool(body, "shareWithOrg") : null;
+        // R3.11: "visibility" accepts only PRIVATE (the one-call "stop sharing with people and the org"); people, links and
+        // the org have their own controls. "recruiterSharing" is the on/off switch of the default share link.
+        boolean makePrivate = body.has("visibility") && requirePrivate(body.get("visibility"));
+        Boolean recruiterSharing = body.has("recruiterSharing") ? requireBool(body, "recruiterSharing") : null;
 
         boolean wasPrimary = Boolean.TRUE.equals(resume.getDefaultResume());
         boolean wasArchived = Boolean.TRUE.equals(resume.getArchived());
@@ -138,6 +145,9 @@ public class ResumeMetaService {
         resumeRepository.saveAndFlush(resume);
         // Archiving/unarchiving can leave the user without (or with two) primaries: keep exactly one.
         profileService.ensurePrimary(user.getId());
+        // R3.11 sharing switches: bulk updates that clear the persistence context, so they run on a fresh read, last.
+        if (makePrivate) accessService.setVisibilityPrivate(resumeRepository.findById(resumeId).orElseThrow());
+        if (recruiterSharing != null) accessService.setRecruiterSharing(resumeRepository.findById(resumeId).orElseThrow(), recruiterSharing);
 
         if ((nameChanged || targetChanged) && resume.getKind() == ResumeKind.BUILT) {
             mirrorIntoDocument(resume, user);
@@ -197,6 +207,13 @@ public class ResumeMetaService {
         } catch (ResumeTags.InvalidTagsException e) {
             throw ResumeMetaException.invalid("$.tags", e.getMessage());
         }
+    }
+
+    private static boolean requirePrivate(JsonNode n) {
+        if (n == null || !n.isTextual() || !"PRIVATE".equals(n.textValue())) {
+            throw ResumeMetaException.invalid("$.visibility", "only \"PRIVATE\" can be set here; share with people or a link from the Share menu");
+        }
+        return true;
     }
 
     private static Boolean requireBool(JsonNode body, String field) {
@@ -329,7 +346,14 @@ public class ResumeMetaService {
         );
 
         boolean shareWithOrg = !Boolean.FALSE.equals(r.getShareWithOrg());
-        ResumeMetaDTO.Visibility visibility = new ResumeMetaDTO.Visibility(visibilityMode(0, shareWithOrg, null), null, null, shareWithOrg, 0);
+        ResumeAccessService.Summary sharing = accessService.summary(r);
+        ResumeMetaDTO.Visibility visibility = new ResumeMetaDTO.Visibility(
+            visibilityMode(sharing.people(), shareWithOrg, sharing.orgScope()),
+            sharing.orgPaired(),
+            sharing.orgScope(),
+            shareWithOrg,
+            sharing.people()
+        );
 
         ResumeMetaDTO.VersionInfo version = new ResumeMetaDTO.VersionInfo(0, null);
         if (built) {
@@ -366,7 +390,7 @@ public class ResumeMetaService {
             shareWithOrg,
             lineage,
             visibility,
-            new ResumeMetaDTO.RecruiterSharing(false, 0, 0),
+            new ResumeMetaDTO.RecruiterSharing(sharing.links() > 0, sharing.links(), sharing.linkViews()),
             version
         );
     }
@@ -374,8 +398,7 @@ public class ResumeMetaService {
     /**
      * Visibility is derived, never stored (DESIGN 9.11): PEOPLE when at least one active person grant
      * exists; else ORG when the resume is shared with the organisation <em>and</em> the member's pairing
-     * scope is FULL; else PRIVATE. Grants and pairing arrive with access control (R3.11), so today every
-     * resume is PRIVATE.
+     * scope is FULL; else PRIVATE. Without the org area's consent record the scope is null, so ORG never shows.
      */
     static String visibilityMode(int people, boolean shareWithOrg, String orgScope) {
         if (people >= 1) return "PEOPLE";

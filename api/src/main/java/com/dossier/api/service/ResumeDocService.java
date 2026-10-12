@@ -171,6 +171,16 @@ public class ResumeDocService {
         return toDto(d, d.getResume());
     }
 
+    /**
+     * The document by resume id with no owner check, for {@code ResumeAccessService} only (R3.11): it has already
+     * decided that the viewer (a grantee, an org pairing or a link holder) may read this resume, and it scrubs the
+     * result. 404 when there is no such document.
+     */
+    @Transactional(readOnly = true)
+    public ResumeDocDTO getForViewer(Long resumeId) {
+        return getForWorker(resumeId);
+    }
+
     @Transactional(readOnly = true)
     public String text(Long resumeId) {
         return ResumeDocumentText.render(parseQuietly(ownedDoc(resumeId).getDocJson()));
