@@ -522,6 +522,29 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
 > quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
 > common questions. Nothing to configure; it's automatic.
 
+### 10.1 Resume Builder AI (R4.1) - models and switches
+
+The builder's Pro AI (Rewrite with AI, generated summaries; AI Suggestions, cover letters and translation
+follow in later stories) runs on the same provider, key and per-period budget as everything above, as five
+more tasks. **`AiPolicy.models` keys** (`dossier.ai.policy.models.<task>`, env `DOSSIER_AI_MODEL_<TASK>`):
+
+| Task (key) | Env var | Default |
+|---|---|---|
+| `rewrite` | `DOSSIER_AI_MODEL_REWRITE` | `DOSSIER_AI_MODEL` (Flash-Lite) |
+| `summary` | `DOSSIER_AI_MODEL_SUMMARY` | `DOSSIER_AI_MODEL` |
+| `suggest` | `DOSSIER_AI_MODEL_SUGGEST` | `DOSSIER_AI_MODEL` |
+| `cover` | `DOSSIER_AI_MODEL_COVER` | `DOSSIER_AI_MODEL` |
+| `translate` | `DOSSIER_AI_MODEL_TRANSLATE` | `DOSSIER_AI_MODEL` |
+
+Blank = the default model. Past the soft cap the economy model (`DOSSIER_AI_ECONOMY_MODEL`) replaces them,
+as for every task. `DOSSIER_AI_DISABLED_TASKS` accepts the same five names as a kill switch (the call answers
+`disabled`, nothing is sent). **Admin settings** (`app_setting`, read within a minute): `ai.feature.resume.enabled`
+(true; the builder-wide switch), `ai.cap.resume.daily` (40 calls a user a day across rewrite / summary /
+suggest), `resume.ai.rewriteMaxRefs` (12 lines a call), `ai.output_tokens_max.rewrite` (3000; the output
+ceiling for rewrite and summary), `resume.rate.aiPerMin` (20 calls a user a minute, then `429 RATE_LIMITED`).
+Every call is metered like the rest (`ai_call`, tasks `rewrite` / `summary`); a repeated request is answered
+from its stored proposal and costs nothing. A Free user always gets `402 PRO_REQUIRED`.
+
 ## 11. Billing (Phase 12, Stripe) — ⚠️ sandbox ready, NOT live yet
 
 > **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API

@@ -31,7 +31,17 @@ public enum AiTask {
     /** Score a night's fresh job postings for one user (13.6b; the nightly job, no endpoint). */
     JOBS("jobs"),
     /** Read job emails the rules couldn't settle (14.4a; the inbox poller, no endpoint). */
-    INBOX("inbox");
+    INBOX("inbox"),
+    /** Rewrite chosen resume lines in a mode: stronger, shorter, formal, plain, grammar (R4.1; Resume Builder, Pro). */
+    REWRITE("rewrite"),
+    /** Generate a professional summary for a built resume (R4.1; Resume Builder, Pro). */
+    SUMMARY("summary"),
+    /** Resume Builder AI Suggestions cards (R4.6; Pro). */
+    SUGGEST("suggest"),
+    /** A cover letter from a built resume and a job description (R5.3; Pro). */
+    COVER("cover"),
+    /** Translate a built resume into another language (R7; Pro). */
+    TRANSLATE("translate");
 
     private final String wire;
 
@@ -44,13 +54,19 @@ public enum AiTask {
     }
 
     /** The task a request names; {@link #DRAFT} for anything absent or unknown. PARSE, MATCH, FIT,
-     *  TAILOR, JOBS and INBOX are not reachable this way — they have their own endpoints or none. */
+     *  TAILOR, JOBS, INBOX and the Resume Builder tasks (REWRITE, SUMMARY, SUGGEST, COVER, TRANSLATE) are
+     *  not reachable this way — they have their own endpoints or none. */
     public static AiTask fromWire(String value) {
         if (value == null) return DRAFT;
         String v = value.trim().toLowerCase(Locale.ROOT);
         for (AiTask t : values()) {
-            if (t != PARSE && t != MATCH && t != FIT && t != TAILOR && t != JOBS && t != INBOX && t.wire.equals(v)) return t;
+            if (t != PARSE && t != MATCH && t != FIT && t != TAILOR && t != JOBS && t != INBOX && !t.isResumeBuilder() && t.wire.equals(v)) return t;
         }
         return DRAFT;
+    }
+
+    /** The Resume Builder's own tasks (R4.1): checked proposals against a document, never reachable via {@link #fromWire}. */
+    public boolean isResumeBuilder() {
+        return this == REWRITE || this == SUMMARY || this == SUGGEST || this == COVER || this == TRANSLATE;
     }
 }

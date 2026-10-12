@@ -1258,7 +1258,7 @@
       "id": "R4.1",
       "epic": "R4",
       "title": "`ResumeAiService` + `AiTruthChecks` (I3.2 shape) + new `AiTask`s + prompts-as-records + rewrite endpoint + apply/dismiss",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API"
