@@ -12,6 +12,14 @@ export const ACCESS_COOKIE = "kiwiply_access";
 export const REFRESH_COOKIE = "kiwiply_refresh";
 
 /**
+ * Which organization the `/org` console is showing for someone who belongs to several (O1.6): the org id, httpOnly,
+ * a year. It is a PREFERENCE, never a credential: the server checks it against `GET /api/orgs/mine` on every request,
+ * so a forged or stale value falls back to the first org the person administers. Written only by `POST /api/orgs/current`.
+ */
+export const ORG_COOKIE = "kiwiply_org";
+export const ORG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+
+/**
  * How long a session persists without re-login. The access token *inside* the cookie
  * expires in 15 min and is silently refreshed by `proxy.ts` using the refresh token,
  * which the API re-issues with this same window on every refresh — so the session is a

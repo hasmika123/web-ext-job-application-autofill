@@ -241,7 +241,7 @@
       "id": "O1.6",
       "epic": "O1",
       "title": "Web gate — (org)/layout.tsx uses /api/orgs/mine, role redirects, last-org cookie, feature flag",
-      "status": "partial",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"

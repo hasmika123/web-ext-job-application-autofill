@@ -31,6 +31,9 @@ import { notifyExtension } from "@/lib/extension-signal";
 import type { AppAccount } from "@/components/app-shell/AppShell";
 import { InitialsAvatar, MascotCard, SearchInput } from "@/components/app-v2/common";
 import OrgChip from "./OrgChip";
+import { OrgProvider, useOrg } from "./OrgContext";
+import { roleLabel } from "./org-labels";
+import type { CurrentOrg, OrgMine } from "@/lib/org-types";
 import DemoBadge from "@/components/demo/DemoBadge";
 import DemoReadOnlyToaster from "@/components/demo/DemoReadOnlyToaster";
 import { DEMO_NOTE, isDemoLogin } from "@/lib/demo";
@@ -68,13 +71,27 @@ function displayName(account?: AppAccount | null): string {
  */
 export default function OrgShell({
   account,
+  current,
+  orgs,
   children,
 }: {
   account?: AppAccount | null;
+  /** The org the layout resolved on the server, with the caller's role and permission keys (O1.6). */
+  current: CurrentOrg;
+  orgs: OrgMine[];
   children: React.ReactNode;
 }) {
+  return (
+    <OrgProvider current={current} orgs={orgs}>
+      <OrgShellFrame account={account}>{children}</OrgShellFrame>
+    </OrgProvider>
+  );
+}
+
+function OrgShellFrame({ account, children }: { account?: AppAccount | null; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { role } = useOrg();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const name = displayName(account);
@@ -234,7 +251,7 @@ export default function OrgShell({
                       <span className="truncate">{name}</span>
                       {demo && <DemoBadge />}
                     </p>
-                    <p className="text-[12px] leading-tight text-v2-muted">Admin</p>
+                    <p className="text-[12px] leading-tight text-v2-muted">{roleLabel(role)}</p>
                   </div>
                   <ChevronDownIcon className="h-4 w-4 text-v2-muted" />
                 </div>

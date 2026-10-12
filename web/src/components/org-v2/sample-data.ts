@@ -6,8 +6,6 @@
 // this renders as-is. The signed-in user's real name replaces "Priya Nair" ONLY in the top bar.
 import type { Tone } from "@/components/app-v2/common";
 
-export const ORG = { name: "Acme Corp", plan: "Enterprise" } as const;
-
 export interface Delta {
   value: string;
   up: boolean;

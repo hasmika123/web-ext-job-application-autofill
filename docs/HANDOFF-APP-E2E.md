@@ -47,6 +47,12 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   U3.1 reads `GET /api/applications/activity` and `GET /api/interviews`. Deferred: reminders (U7.1), inbox-proposed
   interviews (I9.9).
 
+- Lane C, org console web (built on the org core `265a68a`): **O1.6 done** (`e2e-o1.6`): `(org)/layout.tsx` gate over `GET /api/orgs/mine` + the
+  `kiwiply_org` cookie (`lib/org.ts` `loadOrgGate` / `orgFetch`, pure `decideOrgGate` in `lib/org-types.ts`), `{org, role, permissions[]}` to every page
+  through `useOrg()` (`components/org-v2/shell/OrgContext.tsx`), the create flow in its own route group `(org-flow)/org/new` (outside the gate),
+  BFF `app/api/orgs/{mine,current,[orgId]}` + `api/config/public`, `QueryToast` for `?toast=org_member`. Mock: `web/scripts/mock-orgs.mjs` + fixture
+  `org-roles` (nine non-demo logins; `MOCK_FIXTURE=fresh,org-roles`); Playwright journey `web/e2e/journeys/org-console.spec.ts`.
+
 Mark progress with `node docs/roadmap/build-master-roadmap.mjs --set U6.1=done` (edits the right JSON,
 regenerates `master-roadmap.html`; commit both). One story = one commit (`e2e-u6.1: …` / `e2e-o1.1: …`),
 pushed on `app-e2e`.

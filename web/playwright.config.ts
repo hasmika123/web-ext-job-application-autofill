@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * End-to-end tests (U19.3): a real browser against `npm run dev:demo` (Next + the mock API, no database).
- * `npm run test:e2e -w web`. The mock starts with `MOCK_FIXTURE=fresh`, which adds the brand-new, non-demo account
+ * `npm run test:e2e -w web`. The mock starts with `MOCK_FIXTURE=fresh,org-roles`, which adds the brand-new, non-demo account
  * the "fresh account" journeys sign in as (see `scripts/fixtures/` and `e2e/fixtures/`).
  *
  *   E2E_PORT / E2E_MOCK_PORT   web and mock ports (defaults 3100 / 8180: leave 3000 / 8080 to a running dev server)
@@ -51,7 +51,7 @@ export default defineConfig({
       PORT: String(port),
       MOCK_API_PORT: String(mockPort),
       MOCK_WEB_URL: baseURL,
-      MOCK_FIXTURE: "fresh",
+      MOCK_FIXTURE: "fresh,org-roles",
     },
   },
 });

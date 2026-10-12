@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import QueryToast from "@/components/app-shell/QueryToast";
 import { Caveat, Plus_Jakarta_Sans } from "next/font/google";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
@@ -64,6 +66,9 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
         <AppShell account={account} isPro={plan.plan === "PRO"} orgsEnabled={orgs}>
           {children}
         </AppShell>
+        <Suspense fallback={null}>
+          <QueryToast />
+        </Suspense>
       </SamplesProvider>
     </div>
   );

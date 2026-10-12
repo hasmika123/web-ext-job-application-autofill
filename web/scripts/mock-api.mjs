@@ -14,6 +14,7 @@
  */
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
+import { createOrgsMock } from "./mock-orgs.mjs";
 import { readFileSync } from "node:fs";
 
 if (process.env.NODE_ENV === "production") {
@@ -55,14 +56,17 @@ const ACCOUNTS = {
 
 // MOCK_FIXTURE=<name> (U19.3): `scripts/fixtures/<name>.mjs` adds accounts (non-demo logins with a test password) and may
 // mark them `empty: true` (every per-user list comes back empty). Unset = the demo accounts only, as before.
-const FIXTURE_NAME = process.env.MOCK_FIXTURE ?? "";
-if (FIXTURE_NAME && !/^[a-z0-9-]+$/.test(FIXTURE_NAME)) {
-  console.error(`mock-api: bad MOCK_FIXTURE "${FIXTURE_NAME}"`);
-  process.exit(1);
+// A comma-separated list loads several (O1.6): `MOCK_FIXTURE=fresh,org-roles` adds the org console's people to the fresh account.
+const FIXTURE_NAMES = (process.env.MOCK_FIXTURE ?? "").split(",").map((n) => n.trim()).filter(Boolean);
+for (const n of FIXTURE_NAMES) {
+  if (!/^[a-z0-9-]+$/.test(n)) {
+    console.error(`mock-api: bad MOCK_FIXTURE "${n}"`);
+    process.exit(1);
+  }
 }
-const FIXTURE = FIXTURE_NAME ? (await import(`./fixtures/${FIXTURE_NAME}.mjs`)).default : null;
-/** login -> { ...account, password, empty } for the fixture's non-demo accounts. */
-const FIXTURE_ACCOUNTS = FIXTURE?.accounts ?? {};
+const FIXTURES = await Promise.all(FIXTURE_NAMES.map(async (n) => (await import(`./fixtures/${n}.mjs`)).default));
+/** login -> { ...account, password, empty } for the fixtures' non-demo accounts. */
+const FIXTURE_ACCOUNTS = Object.assign({}, ...FIXTURES.map((f) => f.accounts ?? {}));
 for (const a of Object.values(FIXTURE_ACCOUNTS))
   ACCOUNTS[a.login] = { login: a.login, email: a.email, firstName: a.firstName, lastName: a.lastName, authorities: a.authorities, activated: a.activated };
 const isEmptyAccount = (sub) => !!sub && !!FIXTURE_ACCOUNTS[sub]?.empty;
@@ -76,12 +80,6 @@ const ORGS_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_ORGS_ENABLED ?
 
 // The demo organization (fixtures/demo-org.json is the same table the API seeds; DemoOrgSeederIT diffs it against the seed).
 const DEMO_ORG = JSON.parse(readFileSync(new URL("./fixtures/demo-org.json", import.meta.url), "utf8"));
-const ORG_OWNER_PERMISSIONS = ["org.settings.manage", "org.close", "org.transfer_ownership", "members.invite", "members.import", "members.role.set", "members.remove", "members.suspend", "members.support_owner.set", "groups.manage", "assignments.manage", "billing.view", "billing.manage", "reports.view", "reports.export", "member.view_summary", "services.order_for_member", "audit.view", "integrations.manage", "ops.*", "self.share_scope.set", "self.leave"];
-const ORG_MEMBER_PERMISSIONS = ["ops.own_hours", "self.share_scope.set", "self.leave"];
-/** Active seats: the owner, the people with ACTIVE status, and the demo job seeker. */
-const demoOrgSeats = () => 1 + DEMO_ORG.people.filter((p) => p.status === "ACTIVE").length + 1;
-const demoOrgRole = (sub) => (sub === DEMO_ORG.owner ? "OWNER" : sub === DEMO_ORG.jobSeeker.login ? "MEMBER" : null);
-const demoOrgNotFound = (res) => json(res, 404, { status: 404, code: "NOT_FOUND", title: "Not Found", message: "error.org" });
 
 const DEMO_ACCOUNTS = [
   {
@@ -209,6 +207,9 @@ const withBody = (req, cb) => {
 
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
+
+/* ── Organizations mock (O1.6-O2.7: mine, create, get, patch, groups, activate, billing, onboarding, overview; scripts/mock-orgs.mjs) ── */
+const handleOrgs = createOrgsMock({ DEMO_ORG, orgsEnabled: ORGS_ENABLED, json, withBody, subOf, findSensitive, fixtures: FIXTURES });
 
 /* ── Resume Builder mock (R0.3 contract; in memory) ──────────────────────────────────────────── */
 const DOCS = new Map(); // resume id -> { doc, templateId, theme, version, updatedAt }
@@ -1838,6 +1839,7 @@ const server = http.createServer((req, res) => {
   if (handleProfileItems(req, res, path, method)) return;
   if (handleOnboarding(req, res, path, method)) return;
   if (handleTracker(req, res, path, method)) return;
+  if (handleOrgs(req, res, path, method)) return;
   if (handleNotificationPrefs(req, res, path, method)) return;
 
   // The setup flow's profile writes (Onboarding v2 R1.10 / R1.11): `PUT /api/profile` replaces the in-memory bio, so the
@@ -2008,39 +2010,6 @@ const server = http.createServer((req, res) => {
       return json(res, 200, { loggers: { ROOT: { effectiveLevel: "INFO" }, "com.dossier.api": { effectiveLevel: "DEBUG" }, "org.springframework": { effectiveLevel: "WARN" } } });
     // --- end admin3b ---
     return json(res, 404, { error: `mock-api: no admin handler for ${path}` });
-  }
-
-  // --- the demo organization (O1.8): reads only (writes were refused above); the same org the real API seeds ---
-  if (path === "/api/orgs" || path.startsWith("/api/orgs/")) {
-    if (!ORGS_ENABLED) return demoOrgNotFound(res);
-    const role = demoOrgRole(sub);
-    const org = { ...DEMO_ORG.org, billingEmail: null, settings: null };
-    if (path === "/api/orgs/mine") {
-      return json(res, 200, role ? [{ orgId: org.id, slug: org.slug, name: org.name, role, status: org.status, memberCount: demoOrgSeats() }] : []);
-    }
-    const m = /^\/api\/orgs\/(\d+)(\/groups)?$/.exec(path);
-    if (!role || !m || Number(m[1]) !== org.id) return demoOrgNotFound(res);
-    if (!m[2]) {
-      return json(res, 200, {
-        org,
-        me: { memberId: role === "OWNER" ? 1 : 2, role, permissions: role === "OWNER" ? ORG_OWNER_PERMISSIONS : ORG_MEMBER_PERMISSIONS },
-        memberCount: demoOrgSeats(),
-        status: org.status,
-      });
-    }
-    if (role !== "OWNER") return demoOrgNotFound(res); // listing groups needs member.view_summary
-    const live = DEMO_ORG.people.filter((p) => p.status === "ACTIVE" || p.status === "INVITED"); // LIVE seats: invited, active, suspended
-    return json(
-      res,
-      200,
-      DEMO_ORG.groups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        kind: g.kind,
-        sortOrder: g.sortOrder,
-        memberCount: live.filter((p) => p.group === g.name).length + (DEMO_ORG.jobSeeker.group === g.name ? 1 : 0),
-      })),
-    );
   }
 
   if (path === "/api/account") return json(res, 200, ACCOUNTS[sub]);

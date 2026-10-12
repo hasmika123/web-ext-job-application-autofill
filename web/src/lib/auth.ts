@@ -8,7 +8,7 @@
  * Next 16: `cookies()` is async — always `await` it.
  */
 import { cookies } from "next/headers";
-import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieOptions } from "@/lib/cookies";
+import { ACCESS_COOKIE, ORG_COOKIE, REFRESH_COOKIE, sessionCookieOptions } from "@/lib/cookies";
 
 // Cookie names + lifetime live in `@/lib/cookies` (sharable with proxy.ts). Re-exported
 // here so existing importers keep working. The access token inside expires in ~15 min
@@ -29,6 +29,7 @@ export async function clearAuthCookies() {
   const store = await cookies();
   store.delete(ACCESS_COOKIE);
   store.delete(REFRESH_COOKIE);
+  store.delete(ORG_COOKIE); // the next person on this device starts on their own org, not this one's
 }
 
 export async function getAccessToken(): Promise<string | undefined> {
