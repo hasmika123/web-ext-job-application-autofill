@@ -18,7 +18,8 @@ public enum NotificationKind {
     PROFILE_SUGGESTION("Profile suggestions", "When we learn something new about you from an application and want your okay.", false, null),
     BILLING("Billing", "Receipts, renewals and card problems.", true, "Needed so you never miss a payment issue."),
     SECURITY("Security", "New sign-ins and password changes.", true, "Needed to keep your account safe."),
-    SYSTEM("Kiwiply news", "Product updates and the occasional announcement.", false, null);
+    SYSTEM("Kiwiply news", "Product updates and the occasional announcement.", false, null),
+    ORG_INVITE_ACCEPTED("People joining your organization", "When someone you invited accepts and joins your organization.", false, null);
 
     /** The kind's name before E2E-U7.0, still present in older rows. */
     public static final String LEGACY_APP_STATUS = "STATUS_FROM_MAIL";

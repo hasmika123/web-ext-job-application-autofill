@@ -52,6 +52,25 @@ public class OrgMember implements Serializable {
     @Column(name = "invited_by_member_id")
     private Long invitedByMemberId;
 
+    /** The name the inviter typed beside the address; free text, never an identifier. */
+    @Column(name = "invite_name", length = 80)
+    private String inviteName;
+
+    /** The paste / CSV import this seat was invited in (for "38 of 60 joined"). */
+    @Column(name = "invite_batch_id")
+    private Long inviteBatchId;
+
+    /** When the invite email last went out (first send or a re-send): the per-org daily cap counts these. */
+    @Column(name = "invite_sent_at")
+    private Instant inviteSentAt;
+
+    /** Re-sends in the current window (admin setting: at most N a week). */
+    @Column(name = "invite_resend_count", nullable = false)
+    private int inviteResendCount = 0;
+
+    @Column(name = "invite_resend_window_at")
+    private Instant inviteResendWindowAt;
+
     @Column(name = "display_label", length = 80)
     private String displayLabel;
 
@@ -107,6 +126,16 @@ public class OrgMember implements Serializable {
     public void setInviteExpiresAt(Instant inviteExpiresAt) { this.inviteExpiresAt = inviteExpiresAt; }
     public Long getInvitedByMemberId() { return invitedByMemberId; }
     public void setInvitedByMemberId(Long invitedByMemberId) { this.invitedByMemberId = invitedByMemberId; }
+    public String getInviteName() { return inviteName; }
+    public void setInviteName(String inviteName) { this.inviteName = inviteName; }
+    public Long getInviteBatchId() { return inviteBatchId; }
+    public void setInviteBatchId(Long inviteBatchId) { this.inviteBatchId = inviteBatchId; }
+    public Instant getInviteSentAt() { return inviteSentAt; }
+    public void setInviteSentAt(Instant inviteSentAt) { this.inviteSentAt = inviteSentAt; }
+    public int getInviteResendCount() { return inviteResendCount; }
+    public void setInviteResendCount(int inviteResendCount) { this.inviteResendCount = inviteResendCount; }
+    public Instant getInviteResendWindowAt() { return inviteResendWindowAt; }
+    public void setInviteResendWindowAt(Instant inviteResendWindowAt) { this.inviteResendWindowAt = inviteResendWindowAt; }
     public String getDisplayLabel() { return displayLabel; }
     public void setDisplayLabel(String displayLabel) { this.displayLabel = displayLabel; }
     public Long getGroupId() { return groupId; }

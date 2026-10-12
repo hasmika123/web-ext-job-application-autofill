@@ -76,5 +76,6 @@
     <include file="config/liquibase/changelog/20261015020000_ent_roles.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261015030000_ent_authz.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261016010000_org_branding_publish.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261014010000_org_invites.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

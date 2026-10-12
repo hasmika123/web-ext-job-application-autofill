@@ -29,7 +29,10 @@ class OrgRepositoryContractTest {
         "OrganizationRepository.existsBySlug",
         "OrganizationRepository.findBySlug",
         // scoped by the PERSON who created the orgs (the per-person creation cap), the org twin of findMine(userId)
-        "OrganizationRepository.countByCreatedByUserId"
+        "OrganizationRepository.countByCreatedByUserId",
+        // join links (O2.2): an invite token (190 bits, stored as a SHA-256) and a join code exist to FIND the org they open
+        "OrgMemberRepository.findByInviteTokenHash",
+        "OrgJoinCodeRepository.findByCode"
     );
 
     private static List<Class<?>> orgRepositories() throws ClassNotFoundException {

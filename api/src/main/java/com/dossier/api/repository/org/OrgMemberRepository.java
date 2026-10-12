@@ -30,6 +30,21 @@ public interface OrgMemberRepository extends Repository<OrgMember, Long> {
 
     long countByOrgIdAndStatusIn(Long orgId, Collection<OrgMemberStatus> statuses);
 
+    long countByOrgIdAndRoleAndStatusIn(Long orgId, OrgRole role, Collection<OrgMemberStatus> statuses);
+
+    /** Invite emails sent since {@code since} (first sends and re-sends): the per-org daily cap. */
+    long countByOrgIdAndInviteSentAtAfter(Long orgId, java.time.Instant since);
+
+    /** Seats invited in one paste / import batch, any state. */
+    long countByOrgIdAndInviteBatchId(Long orgId, Long inviteBatchId);
+
+    /**
+     * The seat an invite link points at. The ONE finder that cannot name the organization: the token is a 190-bit secret,
+     * only its SHA-256 is stored, and it exists to FIND the org (allow-listed in OrgRepositoryContractTest like the slug
+     * lookups). The caller must then treat the row's own {@code orgId} as the tenant.
+     */
+    Optional<OrgMember> findByInviteTokenHash(String inviteTokenHash);
+
     /** Every row (any status) that names this user, across organizations: the "my orgs" list and erasure. */
     @Query("select m from OrgMember m where m.userId = :userId order by m.id")
     List<OrgMember> findMine(@Param("userId") Long userId);

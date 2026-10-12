@@ -56,6 +56,10 @@ public class SecurityConfiguration {
                     // rate-limits, answers every refusal with the same 404 and stores nothing about the visitor.
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/resumes/*")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/resumes/*/pdf")).permitAll()
+                    // Join previews (O2.2): the invite token / join code is the credential. GET only; JoinResource rate-limits, answers
+                    // every miss with the same 404 and never caches. Accepting (POST) needs a signed-in account.
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/join/*")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/join/code/*")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/auth/google")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/refresh")).permitAll()

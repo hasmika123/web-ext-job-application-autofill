@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Email invites, O2.2 (docs/design/org/onboarding-invites.md section 3.2). Additive only: five nullable / defaulted
+        columns on org_member, so no data migration and no new table.
+
+        invite_name              the name the inviter typed next to the address ("Aarav <aarav@x.org>"); free text, scanned for
+                                 never-collected data on the way in. NULL when only an address was given.
+        invite_batch_id          the org_invite_batch this seat was invited in, so "38 of 60 joined" can be counted.
+        invite_sent_at           when the invite email last went out (invite or re-send): the per-org daily cap counts these.
+        invite_resend_count      re-sends in the current window; "3 re-sends max per invite per week" (admin setting).
+        invite_resend_window_at  start of that window.
+
+        Erasure clears the address, the name and the token (OrgMembershipPrivacyService); the counters hold no personal data.
+    -->
+    <changeSet id="20261014010000-1" author="dossier">
+        <addColumn tableName="org_member">
+            <column name="invite_name" type="varchar(80)"/>
+            <column name="invite_batch_id" type="bigint"/>
+            <column name="invite_sent_at" type="${datetimeType}"/>
+            <column name="invite_resend_count" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="invite_resend_window_at" type="${datetimeType}"/>
+        </addColumn>
+        <createIndex tableName="org_member" indexName="ix_member_invite_batch">
+            <column name="invite_batch_id"/>
+        </createIndex>
+        <createIndex tableName="org_member" indexName="ix_member_org_invite_sent">
+            <column name="org_id"/>
+            <column name="invite_sent_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="invite_batch_id"
+            constraintName="fk_member_invite_batch" referencedTableName="org_invite_batch" referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

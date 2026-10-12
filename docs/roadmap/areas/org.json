@@ -380,7 +380,7 @@
       "id": "O2.2",
       "epic": "O2",
       "title": "Email invites — POST /members/invite, invite email, GET /api/join/{token}, POST accept",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

@@ -39,6 +39,8 @@ public class OrgAuditService {
     public static final String ORG_SETTINGS = "ORG_SETTINGS";
     public static final String MEMBER_INVITE = "MEMBER_INVITE";
     public static final String MEMBER_INVITE_RESEND = "MEMBER_INVITE_RESEND";
+    /** Someone accepted an invite (or redeemed a join code) and became a member. */
+    public static final String MEMBER_JOIN = "MEMBER_JOIN";
     public static final String MEMBER_ROLE = "MEMBER_ROLE";
     public static final String MEMBER_SUSPEND = "MEMBER_SUSPEND";
     public static final String MEMBER_REMOVE = "MEMBER_REMOVE";
