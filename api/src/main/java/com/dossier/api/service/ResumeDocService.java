@@ -68,6 +68,7 @@ public class ResumeDocService {
     private final UserRepository userRepository;
     private final ProfileService profileService;
     private final ResumeRepository resumeRepository;
+    private final ResumeBuilderSettings settings;
 
     public ResumeDocService(
         ResumeDocRepository resumeDocRepository,
@@ -75,8 +76,10 @@ public class ResumeDocService {
         BioRepository bioRepository,
         UserRepository userRepository,
         ProfileService profileService,
-        ResumeRepository resumeRepository
+        ResumeRepository resumeRepository,
+        ResumeBuilderSettings settings
     ) {
+        this.settings = settings;
         this.resumeDocRepository = resumeDocRepository;
         this.profileItemRepository = profileItemRepository;
         this.bioRepository = bioRepository;
@@ -110,8 +113,9 @@ public class ResumeDocService {
         var items = profileItemRepository.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(user.getId());
         JsonNode doc = ResumeDocumentSeeder.seed(title, target, bio, items, now);
         // The seeder only emits valid documents; if a future change breaks that, a bare header beats a 500.
-        if (ResumeDocumentValidator.validate(doc).isPresent()) {
-            LOG.warn("Seeded document for user {} failed validation ({}); falling back to the bio header", user.getId(), ResumeDocumentValidator.validate(doc).get());
+        ResumeDocumentValidator.Limits limits = limits();
+        if (ResumeDocumentValidator.validate(doc, limits).isPresent()) {
+            LOG.warn("Seeded document for user {} failed validation ({}); falling back to the bio header", user.getId(), ResumeDocumentValidator.validate(doc, limits).get());
             doc = ResumeDocumentSeeder.seed(title, target, bio, List.of(), now);
         }
 
@@ -165,7 +169,7 @@ public class ResumeDocService {
             throw ResumeDocException.invalid("$", "body must be an object {doc, theme?}");
         }
         JsonNode doc = body.get("doc");
-        ResumeDocumentValidator.validate(doc).ifPresent(v -> {
+        ResumeDocumentValidator.validate(doc, limits()).ifPresent(v -> {
             throw v.tooLarge() ? ResumeDocException.tooLarge(v.message()) : ResumeDocException.invalid(v.path(), v.message());
         });
         JsonNode theme = body.get("theme");
@@ -221,6 +225,19 @@ public class ResumeDocService {
     }
 
     // ---- helpers ------------------------------------------------------------
+
+    /** The document limits from the settings seam (resume.doc.limits.*, DESIGN 15.2). */
+    private ResumeDocumentValidator.Limits limits() {
+        return new ResumeDocumentValidator.Limits(
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_DOC_BYTES),
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_SECTIONS),
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_ITEMS),
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_BULLETS),
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_BULLET_CHARS),
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_SUMMARY_CHARS),
+            settings.getInt(ResumeBuilderSettingKeys.DOC_LIMIT_MARKS)
+        );
+    }
 
     /** Writes a validated document and everything derived from it onto the entity and its resume. */
     private void applyContent(ResumeDoc d, Resume resume, JsonNode doc, Instant now) {

@@ -470,7 +470,7 @@ resolveCapabilities(templateId, overrides) → TemplateCapabilities
   result.ats = base.ats && (override.ats ?? true)   // admin may demote a template's chip, never promote it
 ```
 Also from settings: `resume.templates.enabled` (list of template ids offered in the picker; default = every
-registered id) and `resume.templates.default` (default `"modern"`). The web reads all three through
+registered id; default `["modern"]`, the only template registered in the web) and `resume.templates.default` (default `"modern"`). The web reads all three through
 `GET /api/profile/resume-builder/config` (§9.1); the Java side reads the same settings for the server-side
 checks (photo upload refused when the active template has `photo: false`? — **no**: content is
 template-independent; the server only uses capabilities for `KNOWN_TEMPLATE_IDS` validation and the
@@ -678,13 +678,14 @@ GET /api/profile/resume-builder/config → 200 ResumeBuilderConfigDTO  (ETag; pr
   "limits": { "sections": 20, "items": 40, "bullets": 12, "bulletChars": 600, "summaryChars": 2000, "marks": 64, "docBytes": 262144 },
   "score":  { "rulesetVersion": "v1", "weights": { "<ruleId>": n, … }, "groupWeights": { "G1": 15, … }, "passThreshold": 0.7,
               "bands": [ { "min": 80, "title": "Great match!", "body": "Your resume is well-optimized and ready to impress." }, … ] },
-  "match":  { "weights": { "skills": 50, "experience": 25, "industry": 15, "education": 10 }, "keySkillsCount": 10,
-              "thresholds": { "relevantExperience": 0.6, "industryFit": 0.6 }, "maxJdChars": 8000, "embeddings": false },
+  "match":  { "weights": { "skills": 50, "title": 15, "years": 10, "industry": 15, "education": 10 }, "keySkillsCount": 10,
+              "thresholds": { "keySkills": 0.7, "experience": 0.6, "industry": 0.6 }, "maxJdChars": 8000, "embeddings": false },
   "theme":  { "accentPalette": ["#16a34a","#2563eb","#7c3aed","#ec4899","#f97316","#eab308"] },
   "features": { "photo": true, "docx": false, "aiSuggestions": true, "jobMatch": true, "tailor": true, "printLayout": true, "pdfView": true },
   "ai":     { "suggestAutoRefresh": false, "suggestStaleMinutes": 10, "rewriteMaxRefs": 12 },
   "plan":   "FREE" | "PRO" | "AUTOPILOT",
-  "aiAllowed": false                      // = plan has builder AI (today: isPro); the web shows locks from this, never from plan names
+  "aiAllowed": false,                     // = plan has builder AI (today: isPro); the web shows locks from this, never from plan names
+  "resumes": { "count": 2, "max": 3 }     // live (non-archived) resumes and the plan's cap (§9.10)
 }
 ```
 Served by `ResumeBuilderConfigResource` from `ResumeBuilderSettings` (§15.1). Auth: user.
@@ -1416,8 +1417,8 @@ one-page thumbnail (none available → the mascot empty state) with **"Open PDF"
 State (`uiState.rightView` + a `pdfView` sub-state `{status: idle|loading|generating|ready|stale|error,
 blobUrl, generatedAt, hash, pages, error}`; not in undo). a11y: push = `region`, overlay/fullscreen =
 `dialog`; Esc; focus return; the iframe has a `title`; the Print layout pages have `aria-label="Page 1
-of 2"`. Settings: `resume.pdf.viewAutoRefresh` (bool, false), `resume.print.enabled` (bool, true),
-`resume.pdfView.enabled` (bool, true), plus the built `resume.pdf.*` limits.
+of 2"`. Settings: `resume.pdf.viewAutoRefresh` (bool, false), `feature.resume_print_layout.enabled` (bool, true),
+`feature.resume_pdf_view.enabled` (bool, true), plus the built `resume.pdf.*` limits.
 
 Tests (`PrintLayoutView.test.tsx`, `PdfView.test.tsx`, `SideSheet.test.tsx`): `print layout paginates a
 2-page fixture into two page boxes`, `over-target banner appears and Fit to one page steps the ladder`,
@@ -2212,7 +2213,7 @@ Exports never bump `doc_version` and never count as resumes.
 
 ### 15.1 The seam until A5.1
 `service/ResumeBuilderSettings.java`: typed getters over the existing `app_setting` table
-(`AppSettingRepository`, cached 60 s; the demo work added `AppSettingService` — reuse it), with the
+(`AppSettingRepository` read directly, the whole table cached 60 s; there is no `AppSettingService`), with the
 **defaults and bounds declared once** in `ResumeBuilderSettingKeys` (key, type, default, min/max/enum,
 description) — exactly the fields A5.1's `SettingDefinitions` needs, so A5.1 adopts the list without
 renaming. Unknown DB values or out-of-bounds values fall back to the default and log once. The web
@@ -2234,7 +2235,7 @@ B1.2's `has(login, "builder.ai")`.
 | `feature.resume_print_layout.enabled` / `feature.resume_pdf_view.enabled` | BOOL | true | | §10.8 |
 | `feature.resume_job_match.enabled` / `feature.resume_tailor.enabled` | BOOL | true | | §12 |
 | `ai.feature.resume.enabled` | BOOL | true | | §13 (kill switch for SUGGEST/REWRITE/SUMMARY) |
-| `resume.templates.enabled` | JSON string[] | all registered | ids must exist | §6.3 |
+| `resume.templates.enabled` | JSON string[] | ["modern"] (only Modern is registered in the web; the API accepts `ResumeDocService.KNOWN_TEMPLATE_IDS`) | ids must exist | §6.3 |
 | `resume.templates.default` | STRING | "modern" | registered id | §6.3 |
 | `resume.templates.overrides` | JSON | {} | tighten-only per §6.3 | §6.3 |
 | `resume.theme.accentPalette` | JSON string[] | the 6 hexes | 3–12 `#rrggbb` | §4 |
@@ -2254,13 +2255,13 @@ B1.2's `has(login, "builder.ai")`.
 | `resume.ai.suggestMax` / `.suggestAutoRefresh` / `.suggestStaleMinutes` / `.rewriteMaxRefs` | INT / BOOL / INT / INT | 5 / false / 10 / 12 | 1–8 / / 1–120 / 1–20 | §13 |
 | `ai.cap.resume.daily` / `ai.cap.tailor.daily` / `ai.cap.cover.daily` / `ai.cap.fit.daily` | INT | 40 / 30 / 10 / 60 | 1–500 | §13.1 |
 | `ai.output_tokens_max.rewrite` etc. | INT | 3000 | 256–8192 | §13.5 |
-| `resume.pdf.timeoutMs` / `.maxConcurrent` / `.queueMax` / `.maxFitSteps` | INT | 20000 / 1 / 10 / 3 | built (R0.6) | §8.5 |
-| `resume.pdf.settleMs` / `.pollMs` / `.leaseMs` / `.backoffBaseMs` / `.backoffMaxMs` / `.maxAttempts` / `.keepPrevious` / `.viewAutoRefresh` | INT… | 15000 / 5000 / 120000 / 30000 / 900000 / 5 / 0 / false | 2 000–120 000 / 1 000–60 000 / 30 000–600 000 / / / 1–10 / 0–5 / | §8.5, §10.8 |
+| `resume.pdf.timeoutMs` / `.maxConcurrent` / `.queueMax` / `.maxFitSteps` / `.waitMs` | INT | 20000 / 1 / 10 / 3 / 30000 | 5 000–60 000 / 1–4 / 1–50 / 0–7 / 5 000–120 000 | §8.5, §10.15 |
+| `resume.pdf.settleMs` / `.pollMs` / `.leaseMs` / `.backoffBaseMs` / `.backoffMaxMs` / `.maxAttempts` / `.keepPrevious` / `.viewAutoRefresh` | INT… | 15000 / 5000 / 120000 / 30000 / 900000 / 5 / 0 / false | 2 000–120 000 / 1 000–60 000 / 30 000–600 000 / 5 000–300 000 / 60 000–3 600 000 / 1–10 / 0–5 / | §8.5, §10.8 |
 | `resume.meta.shareWithOrgDefault` | BOOL | true | | §8.7 |
 | `resume.share.maxGrants` / `.maxLinks` / `.linkDefaultDays` / `.allowDownloadDefault` | INT / INT / INT / BOOL | 20 / 3 / 30 / false | 1–100 / 1–10 / 0–365 | §8.7 |
 | `resume.views.retentionDays` | INT | 180 | 30–730 | §8.7 |
 | `resume.thumb.width` | INT | 240 | 120–480 | §8.10 |
-| `resume.templates.popular` | JSON string[] | enabled order | registered ids | §10.17 |
+| `resume.templates.popular` | JSON string[] | ["modern"] (= enabled order) | registered ids | §10.17 |
 | `resume.list.quickTips` | JSON string[] | the four board lines | 1–6 × ≤ 90 chars | §10.17 |
 | `resume.list.virtualizeAbove` | INT | 60 | 20–500 | §10.17 |
 | `org.resumes.newDays` / `org.resumes.pageSize` / `org.resumes.maxSavedViews` | INT | 30 / 24 / 10 | 7–90 / 12–96 / 1–30 | §10.18 |

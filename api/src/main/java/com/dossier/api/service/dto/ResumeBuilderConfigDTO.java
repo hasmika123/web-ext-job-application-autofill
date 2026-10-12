@@ -1,0 +1,68 @@
+package com.dossier.api.service.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
+
+/**
+ * Everything the Resume Builder web reads from settings, in one object (DESIGN 9.1 plus
+ * {@code resumes} from 9.10). Evaluated per request from {@code ResumeBuilderSettings}; the web
+ * keeps a copy of the defaults ({@code resume-builder-config.ts}) for when the API is unreachable.
+ *
+ * @param plan      {@code FREE}, {@code PRO} or {@code AUTOPILOT}
+ * @param aiAllowed whether the plan has builder AI - the web shows locks from this, never from plan names
+ */
+public record ResumeBuilderConfigDTO(
+    Templates templates,
+    Limits limits,
+    Score score,
+    Match match,
+    Theme theme,
+    Features features,
+    Ai ai,
+    String plan,
+    boolean aiAllowed,
+    Resumes resumes
+) {
+    public record Templates(
+        List<String> enabled,
+        @JsonProperty("default") String defaultId,
+        @Schema(type = "object", description = "Per-template partial TemplateCapabilities; may only tighten.") JsonNode overrides
+    ) {}
+
+    public record Limits(int sections, int items, int bullets, int bulletChars, int summaryChars, int marks, int docBytes) {}
+
+    public record Score(
+        String rulesetVersion,
+        @Schema(type = "object", description = "Rule id to weight.") JsonNode weights,
+        @Schema(type = "object", description = "Group id (G1..G6) to weight.") JsonNode groupWeights,
+        double passThreshold,
+        @Schema(description = "Bands [{min, title, body}], highest min first.") JsonNode bands
+    ) {}
+
+    public record Match(
+        @Schema(type = "object", description = "{skills, title, years, industry, education}; sums to 100.") JsonNode weights,
+        int keySkillsCount,
+        @Schema(type = "object", description = "{keySkills, experience, industry}.") JsonNode thresholds,
+        int maxJdChars,
+        boolean embeddings
+    ) {}
+
+    public record Theme(List<String> accentPalette) {}
+
+    public record Features(
+        boolean photo,
+        boolean docx,
+        boolean aiSuggestions,
+        boolean jobMatch,
+        boolean tailor,
+        boolean printLayout,
+        boolean pdfView
+    ) {}
+
+    public record Ai(boolean suggestAutoRefresh, int suggestStaleMinutes, int rewriteMaxRefs) {}
+
+    /** The signed-in user's live (non-archived) resume count and their plan's cap. */
+    public record Resumes(int count, int max) {}
+}

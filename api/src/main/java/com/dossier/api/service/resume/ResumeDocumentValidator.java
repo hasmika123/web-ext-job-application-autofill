@@ -65,17 +65,34 @@ public final class ResumeDocumentValidator {
         }
     }
 
+    /**
+     * The document size limits (DESIGN 15.2 {@code resume.doc.limits.*}), read from
+     * {@code ResumeBuilderSettings} by the caller (R2.0). {@link #DEFAULTS} are the R0 constants above.
+     * {@code marks} is carried for the inline-marks rules of schema v2 (R2.7) and unused until then.
+     */
+    public record Limits(int bytes, int sections, int items, int bullets, int bulletChars, int summaryChars, int marks) {
+        public static final Limits DEFAULTS = new Limits(MAX_BYTES, MAX_SECTIONS, MAX_ITEMS, MAX_BULLETS, MAX_BULLET_CHARS, MAX_SUMMARY, 64);
+    }
+
     private final Set<String> ids = new HashSet<>();
+    private final Limits limits;
 
-    private ResumeDocumentValidator() {}
+    private ResumeDocumentValidator(Limits limits) {
+        this.limits = limits;
+    }
 
+    /** Validate against the default limits. */
     public static Optional<Violation> validate(JsonNode doc) {
+        return validate(doc, Limits.DEFAULTS);
+    }
+
+    public static Optional<Violation> validate(JsonNode doc, Limits limits) {
         if (doc == null || doc.isMissingNode()) return Optional.of(new Violation("$", "document is required"));
         int bytes = ResumeDocumentJson.write(doc, 0).getBytes(StandardCharsets.UTF_8).length;
-        if (bytes > MAX_BYTES) {
-            return Optional.of(new Violation("$", "document exceeds " + MAX_BYTES + " bytes", true));
+        if (bytes > limits.bytes()) {
+            return Optional.of(new Violation("$", "document exceeds " + limits.bytes() + " bytes", true));
         }
-        return Optional.ofNullable(new ResumeDocumentValidator().check(doc));
+        return Optional.ofNullable(new ResumeDocumentValidator(limits).check(doc));
     }
 
     // ------------------------------------------------------------------ structure
@@ -97,7 +114,7 @@ public final class ResumeDocumentValidator {
 
         JsonNode sections = root.get("sections");
         if (sections == null || !sections.isArray()) return v("$.sections", "must be an array");
-        if (sections.size() > MAX_SECTIONS) return v("$.sections", "at most " + MAX_SECTIONS + " sections");
+        if (sections.size() > limits.sections()) return v("$.sections", "at most " + limits.sections() + " sections");
         Set<Kind> seen = EnumSet.noneOf(Kind.class);
         for (int i = 0; i < sections.size(); i++) {
             v = section(sections.get(i), "$.sections[" + i + "]", seen);
@@ -182,7 +199,7 @@ public final class ResumeDocumentValidator {
 
         JsonNode items = s.get("items");
         if (items == null || !items.isArray()) return v(p + ".items", "must be an array");
-        if (items.size() > MAX_ITEMS) return v(p + ".items", "at most " + MAX_ITEMS + " items per section");
+        if (items.size() > limits.items()) return v(p + ".items", "at most " + limits.items() + " items per section");
         for (int i = 0; i < items.size(); i++) {
             v = item(items.get(i), p + ".items[" + i + "]", kind);
             if (v != null) return v;
@@ -199,7 +216,7 @@ public final class ResumeDocumentValidator {
         if (v != null) return v;
 
         switch (kind) {
-            case SUMMARY -> v = optString(it, "text", p, MAX_SUMMARY);
+            case SUMMARY -> v = optString(it, "text", p, limits.summaryChars());
             case EXPERIENCE, CUSTOM -> {
                 v = strings(it, p, "title", "org", "location");
                 if (v == null) v = dates(it, p, "start", "end");
@@ -224,7 +241,7 @@ public final class ResumeDocumentValidator {
             }
             case LANGUAGES -> v = strings(it, p, "name", "level");
             case ACHIEVEMENTS -> {
-                v = optString(it, "text", p, MAX_BULLET_CHARS);
+                v = optString(it, "text", p, limits.bulletChars());
                 if (v == null) v = dates(it, p, "date");
             }
         }
@@ -251,7 +268,7 @@ public final class ResumeDocumentValidator {
         JsonNode bs = it.get("bullets");
         if (bs == null || bs.isNull()) return null;
         if (!bs.isArray()) return v(p + ".bullets", "must be an array");
-        if (bs.size() > MAX_BULLETS) return v(p + ".bullets", "at most " + MAX_BULLETS + " bullets per item");
+        if (bs.size() > limits.bullets()) return v(p + ".bullets", "at most " + limits.bullets() + " bullets per item");
         for (int i = 0; i < bs.size(); i++) {
             JsonNode b = bs.get(i);
             String bp = p + ".bullets[" + i + "]";
@@ -260,7 +277,7 @@ public final class ResumeDocumentValidator {
             if (v == null) {
                 JsonNode t = b.get("text");
                 if (t == null || !t.isTextual()) return v(bp + ".text", "must be a string");
-                v = len(t, bp + ".text", MAX_BULLET_CHARS);
+                v = len(t, bp + ".text", limits.bulletChars());
             }
             if (v == null) v = src(b, bp);
             if (v != null) return v;

@@ -473,7 +473,7 @@
       "id": "R2.0",
       "epic": "R2",
       "title": "Settings seam + builder config endpoint (`ResumeBuilderSettings`, `GET /api/profile/resume-builder/config`)",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API",
