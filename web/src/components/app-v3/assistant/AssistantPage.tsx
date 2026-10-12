@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChatIcon, ClockIcon, SendIcon, cn, useToast } from "@kiwiply/ui";
+import { ChatIcon, ClockIcon, EmptyState, SendIcon, cn, useToast } from "@kiwiply/ui";
 import Image from "next/image";
 import { InitialsAvatar, SectionCard } from "../../app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import {
-  ASSISTANT_CANNED_REPLY,
-  ASSISTANT_CAPABILITIES,
-  ASSISTANT_PROMPTS,
-  ASSISTANT_RECENT_CHATS,
-} from "../sample-data";
+import { ASSISTANT_CAPABILITIES, ASSISTANT_PROMPTS } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 
 interface Msg {
   id: number;
@@ -19,12 +15,17 @@ interface Msg {
 }
 
 /**
- * AI Assistant (APP-V3-SPEC 2.5). Client state only: sending a message (or tapping a prompt chip)
- * appends it and, after a beat, the one canned reply. No API call is made. The greeting bubble is
- * rendered separately from the message list because it carries the capability bullets.
+ * AI Assistant (APP-V3-SPEC 2.5). A stub until U8.x: sending a message (or tapping a prompt chip) appends it
+ * and, after a beat, the one canned reply; no API call is made. A canned reply is a fake answer, so it is shown
+ * to a demo account on a sample-enabled build only (`samples()`, U0.5); a real account sees an honest empty
+ * state instead of a chat that pretends. The greeting bubble is rendered separately from the message list
+ * because it carries the capability bullets.
  */
 export default function AssistantPage({ firstName }: { firstName: string }) {
   const toast = useToast();
+  const sample = useSamples();
+  const cannedReply = sample("ASSISTANT_CANNED_REPLY");
+  const recentChats = sample("ASSISTANT_RECENT_CHATS");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
   const [typing, setTyping] = useState(false);
@@ -45,17 +46,31 @@ export default function AssistantPage({ firstName }: { firstName: string }) {
 
   const send = (raw: string) => {
     const text = raw.trim();
-    if (!text) return;
+    if (!text || cannedReply === null) return;
     setMessages((m) => [...m, { id: nextId.current++, from: "me", text }]);
     setDraft("");
     setTyping(true);
     timers.current.push(
       setTimeout(() => {
-        setMessages((m) => [...m, { id: nextId.current++, from: "ai", text: ASSISTANT_CANNED_REPLY }]);
+        setMessages((m) => [...m, { id: nextId.current++, from: "ai", text: cannedReply }]);
         setTyping(false);
       }, 650),
     );
   };
+
+  if (cannedReply === null) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        <HeroBand
+          title="Kiwiply AI Assistant"
+          subtitle="Your personal job search copilot."
+          mascot="mascot-wave-laptop"
+          note="Ask me anything!"
+        />
+        <EmptyState mascot title="The assistant isn't available yet" description="Nothing you type here would be answered, so the chat is switched off for now." />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
@@ -162,8 +177,9 @@ export default function AssistantPage({ firstName }: { firstName: string }) {
 
         <aside aria-label="Recent chats" className="min-w-0">
           <SectionCard title="Recent chats" icon={<ClockIcon size={16} className="text-v2-muted" />}>
+            {recentChats.length === 0 && <EmptyState variant="inline" title="No chats yet" />}
             <ul className="-my-1 divide-y divide-v2-line/60">
-              {ASSISTANT_RECENT_CHATS.map((c) => (
+              {recentChats.map((c) => (
                 <li key={c.title}>
                   <button
                     type="button"

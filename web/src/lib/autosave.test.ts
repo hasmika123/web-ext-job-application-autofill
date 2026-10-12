@@ -39,6 +39,7 @@ describe("useAutosave", () => {
     vi.useRealTimers();
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ok = async (_v?: Form, _ctx?: { version: number }): Promise<AutosaveResult<Form>> => ({ kind: "ok" });
 
   it("does not save the loaded value, only later changes, debounced", async () => {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   BellIcon,
   Dialog,
+  EmptyState,
   Field,
   Input,
   MailIcon,
@@ -18,15 +19,14 @@ import {
 import { IconTile, KebabMenu, SectionCard, StatusChip, TONE, Toggle, UnderlineTabs } from "../../app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
 import {
-  ALERTS,
   ALERT_CHANNELS,
   ALERT_FREQUENCIES,
   ALERT_JOB_TYPES,
-  ALERT_SETTINGS,
   type AlertChannel,
   type AlertFrequency,
   type AlertSample,
 } from "../sample-data";
+import { useSamples, useSamplesEnabled } from "../SamplesProvider";
 import type { Tone } from "../../app-v2/common";
 
 type TabKey = "active" | "paused" | "settings";
@@ -46,19 +46,24 @@ const channelLabel = (c: AlertChannel[]) => (c.length === 0 ? "No channel" : c.j
 const jobTypeOf = (a: AlertSample) => a.meta.find((m) => ALERT_JOB_TYPES.includes(m as (typeof ALERT_JOB_TYPES)[number])) ?? "Any";
 
 /**
- * Job Alerts (APP-V3-SPEC 2.6). All client state over sample data: the toggles, Edit, delete and the
- * Create Alert dialog work locally; nothing is saved. The "Active" tab lists every alert (the board
- * shows its paused row there too, with the toggle off) and the "Paused" tab lists the ones switched off.
+ * Job Alerts (APP-V3-SPEC 2.6). Alerts have no API yet (U7.2), so everything here is client state over sample
+ * data: the toggles, Edit, delete and the Create Alert dialog work locally and nothing is saved. That is fine for
+ * a demo account on a sample-enabled build (`samples()`, U0.5) and wrong for a real one, so a real account sees an
+ * honest empty state and no Create button: nothing it made here could be kept. The "Active" tab lists every alert
+ * (the board shows its paused row there too, with the toggle off) and "Paused" the ones switched off.
  */
 export default function AlertsPage() {
   const toast = useToast();
-  const [alerts, setAlerts] = useState<AlertSample[]>(ALERTS);
+  const sample = useSamples();
+  const sampleOn = useSamplesEnabled();
+  const alertSettings = useMemo(() => sample("ALERT_SETTINGS"), [sample]);
+  const [alerts, setAlerts] = useState<AlertSample[]>(() => sample("ALERTS"));
   const [tab, setTab] = useState<TabKey>("active");
   const [dialog, setDialog] = useState<{ id: string | null } | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [titleError, setTitleError] = useState(false);
   const [settings, setSettings] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(ALERT_SETTINGS.map((s) => [s.id, s.on])),
+    Object.fromEntries(alertSettings.map((s) => [s.id, s.on])),
   );
 
   const paused = useMemo(() => alerts.filter((a) => !a.active), [alerts]);
@@ -122,6 +127,24 @@ export default function AlertsPage() {
     toast({ title: "Alert deleted", description: a.title });
   };
 
+  if (!sampleOn) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        <HeroBand
+          title="Job Alerts"
+          subtitle="Get notified about new opportunities that match your preferences."
+          mascot="mascot-binoculars"
+          note="Never miss a match!"
+        />
+        <EmptyState
+          mascot
+          title="No job alerts yet"
+          description="Alerts you set up will be listed here."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
       <HeroBand
@@ -156,7 +179,7 @@ export default function AlertsPage() {
       {tab === "settings" ? (
         <SectionCard title="Notification Settings" subtitle="Choose how Kiwiply tells you about new matches.">
           <ul className="divide-y divide-v2-line/60">
-            {ALERT_SETTINGS.map((s) => (
+            {alertSettings.map((s) => (
               <li key={s.id} className="py-3.5 first:pt-1 last:pb-1">
                 <Toggle
                   label={s.label}

@@ -4,6 +4,7 @@ import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import AppShell, { type AppAccount } from "@/components/app-shell/AppShell";
 import { getPlan } from "@/lib/billing";
+import { SamplesProvider } from "@/components/app-v3/SamplesProvider";
 
 // App v2 display + handwriting faces (same as the marketing group). The CSS variables go on the
 // `.theme-v2` wrapper below so they are scoped to the signed-in app.
@@ -56,9 +57,11 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
   // "Kiwiply Bright" (APP-V2-SPEC section 1.5): the whole signed-in app lives under `.theme-v2`.
   return (
     <div className={`theme-v2 ${jakarta.variable} ${caveat.variable} flex flex-1 flex-col`}>
-      <AppShell account={account} isPro={plan.plan === "PRO"}>
-        {children}
-      </AppShell>
+      <SamplesProvider login={account?.login}>
+        <AppShell account={account} isPro={plan.plan === "PRO"}>
+          {children}
+        </AppShell>
+      </SamplesProvider>
     </div>
   );
 }

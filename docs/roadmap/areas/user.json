@@ -250,7 +250,7 @@
       "id": "U0.5",
       "epic": "U0",
       "title": "Remove sample-data fallbacks behind a single flag",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "web"

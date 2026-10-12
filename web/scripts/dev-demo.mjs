@@ -22,7 +22,9 @@ const kids = [
     stdio: "inherit",
     shell: true,
     cwd: webDir,
-    env: { ...process.env, DOSSIER_API_URL: `http://127.0.0.1:${port}` },
+    // NEXT_PUBLIC_BOARD_SAMPLES=1 (U0.5): the demo logins keep the board's sample rows on the pages whose API is not
+    // built yet. A real login never sees them, and no production build sets this.
+    env: { ...process.env, DOSSIER_API_URL: `http://127.0.0.1:${port}`, NEXT_PUBLIC_BOARD_SAMPLES: process.env.NEXT_PUBLIC_BOARD_SAMPLES ?? "1" },
   }),
 ];
 const stop = () => kids.forEach((k) => k.kill());

@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookmarkIcon, CheckCircleIcon, LayoutGridIcon, MenuIcon, cn, useToast } from "@kiwiply/ui";
+import { BookmarkIcon, CheckCircleIcon, EmptyState, LayoutGridIcon, MenuIcon, cn, useToast } from "@kiwiply/ui";
 import { CompanyTile, KebabMenu, SearchInput, UnderlineTabs } from "../../app-v2/common";
-import { V3_SAVED_JOBS, type V3SavedJob, type V3SavedState } from "../sample-data";
+import type { V3SavedJob, V3SavedState } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 import { HeroBand } from "@/components/app-v2/common";
 
 type TabKey = "all" | "recent" | "to-apply" | "applied" | "not-interested";
@@ -13,13 +14,16 @@ type TabKey = "all" | "recent" | "to-apply" | "applied" | "not-interested";
 const RECENT_DAYS = 14;
 
 /**
- * Saved Jobs (APP-V3-SPEC section 2.10). Sample data + client state (the v2 behaviour): search,
- * the list/grid toggle, "Remove" and moving a job between To Apply / Applied / Not Interested all
- * work locally and the tab counts follow. Rows keep the board's order (newest saved first).
+ * Saved Jobs (APP-V3-SPEC section 2.10). Its rows are the board's sample (+ client state, the v2 behaviour) until
+ * U5.1 reads the real SAVED applications; the gate (`samples()`, U0.5) means a real account sees an honest empty
+ * state instead. Search, the list/grid toggle, "Remove" and moving a job between To Apply / Applied / Not
+ * Interested work locally and the tab counts follow. Rows keep the board's order (newest saved first).
  */
 export default function SavedV3Page() {
   const toast = useToast();
   const router = useRouter();
+  const sample = useSamples();
+  const savedJobs = useMemo(() => sample("V3_SAVED_JOBS"), [sample]);
   const [tab, setTab] = useState<TabKey>("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"list" | "grid">("list");
@@ -27,8 +31,8 @@ export default function SavedV3Page() {
   const [overrides, setOverrides] = useState<Record<string, V3SavedState>>({});
 
   const live = useMemo(
-    () => V3_SAVED_JOBS.filter((j) => !removed.has(j.id)).map((j) => ({ ...j, state: overrides[j.id] ?? j.state })),
-    [removed, overrides],
+    () => savedJobs.filter((j) => !removed.has(j.id)).map((j) => ({ ...j, state: overrides[j.id] ?? j.state })),
+    [savedJobs, removed, overrides],
   );
 
   const counts: Record<TabKey, number | undefined> = {
@@ -54,14 +58,36 @@ export default function SavedV3Page() {
   };
   const move = (j: V3SavedJob, state: V3SavedState) => setOverrides((prev) => ({ ...prev, [j.id]: state }));
 
+  const hero = (
+    <HeroBand mascotHeight={124}
+      title="Saved Jobs"
+      subtitle="Keep track of opportunities you're interested in."
+      mascot="mascot-heart"
+      note="Good opportunities lead to great journeys!"
+    />
+  );
+
+  if (savedJobs.length === 0) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+        {hero}
+        <EmptyState
+          mascot
+          title="No saved jobs yet"
+          description="Jobs you save show up here."
+          action={
+            <Link href="/jobs" className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
+              Find jobs
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
-      <HeroBand mascotHeight={124}
-        title="Saved Jobs"
-        subtitle="Keep track of opportunities you're interested in."
-        mascot="mascot-heart"
-        note="Good opportunities lead to great journeys!"
-      />
+      {hero}
 
       <section className="min-w-0 rounded-2xl border border-v2-line bg-white shadow-v2-card">
         <UnderlineTabs

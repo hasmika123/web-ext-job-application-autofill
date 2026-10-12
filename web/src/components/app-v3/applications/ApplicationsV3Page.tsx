@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FunnelIcon, cn } from "@kiwiply/ui";
+import { EmptyState, FunnelIcon, cn } from "@kiwiply/ui";
 import type { AppStatusKey } from "../../app-v2/sample-data";
 import type { ApplicationRow } from "../../app-v2/applications/mapping";
 import {
@@ -17,7 +17,8 @@ import {
   type DataColumn,
   type Tone,
 } from "../../app-v2/common";
-import { V3_APPLICATION_ROWS, V3_APPLICATION_SAMPLE_COUNTS, type V3ApplicationSample } from "../sample-data";
+import type { V3ApplicationSample } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 import { HeroBand } from "@/components/app-v2/common";
 
 type TabKey = "all" | "applied" | "in-review" | "interview" | "offer" | "rejected";
@@ -48,21 +49,25 @@ const SORTS = ["Recently Updated", "Oldest First", "Company", "Status"] as const
 
 /**
  * My Applications (APP-V3-SPEC section 2.3). `rows` are the REAL applications mapped by the v2
- * `mapApplications` (SAVED rows are bookmarks and left out); with none yet the board's sample rows
- * render (`usingSample`) so the page still looks like the design. Next Step follows the board: the
+ * `mapApplications` (SAVED rows are bookmarks and left out); with none yet a real account gets an honest empty
+ * state, and only a demo account on a sample-enabled build gets the board's sample rows (`usingSample`,
+ * `samples()`, U0.5). Next Step follows the board: the
  * interview slot, "Review offer", else an em dash. Below `md` the table becomes stacked cards.
  */
 export default function ApplicationsV3Page({ rows: realRows }: { rows: ApplicationRow[] }) {
   const router = useRouter();
-  const usingSample = realRows.length === 0;
+  const sample = useSamples();
+  const sampleRows = useMemo(() => sample("V3_APPLICATION_ROWS"), [sample]);
+  const sampleCounts = sample("V3_APPLICATION_SAMPLE_COUNTS");
+  const usingSample = realRows.length === 0 && sampleRows.length > 0;
   const all: Row[] = useMemo(() => {
-    if (usingSample) return V3_APPLICATION_ROWS;
+    if (usingSample) return sampleRows;
     // Board rule: only an interview or an offer has a "next step"; everything else shows a dash.
     return realRows.map((r) => ({
       ...r,
       nextStep: r.status === "interview" ? "Interview in progress" : r.status === "offer" ? "Review offer" : "—",
     }));
-  }, [realRows, usingSample]);
+  }, [realRows, usingSample, sampleRows]);
 
   const [tab, setTab] = useState<TabKey>("all");
   const [query, setQuery] = useState("");
@@ -74,8 +79,8 @@ export default function ApplicationsV3Page({ rows: realRows }: { rows: Applicati
   const [mountedAt] = useState(() => Date.now());
 
   const count = (s: AppStatusKey) => all.filter((r) => r.status === s).length;
-  const counts: Record<TabKey, number> = usingSample
-    ? { ...V3_APPLICATION_SAMPLE_COUNTS }
+  const counts: Record<TabKey, number> = usingSample && sampleCounts
+    ? { ...sampleCounts }
     : {
         all: all.length,
         applied: count("applied"),
@@ -105,6 +110,29 @@ export default function ApplicationsV3Page({ rows: realRows }: { rows: Applicati
     if (sort === "Status") return [...list].sort((a, b) => STATUS_CHIP[a.status].label.localeCompare(STATUS_CHIP[b.status].label));
     return list; // newest first already (mapper sorts real rows; sample rows are in board order)
   }, [all, tab, query, status, company, range, onlyNext, sort, usingSample, mountedAt]);
+
+  if (all.length === 0) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+        <HeroBand mascotHeight={124}
+          title="My Applications"
+          subtitle="Track, manage, and never miss an update."
+          mascot="mascot-apps"
+          note="Keep going. You're closer than you think!"
+        />
+        <EmptyState
+          mascot
+          title="No applications yet"
+          description="Applications you submit with Kiwiply, and jobs you track, are listed here."
+          action={
+            <Link href="/jobs" className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
+              Find jobs
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   const columns: DataColumn<Row>[] = [
     {

@@ -2,12 +2,7 @@ import type { Application } from "@/components/ApplicationBoard";
 import { statusKeyOf } from "@/components/app-v2/applications/mapping";
 import type { AppStatusKey } from "@/components/app-v2/sample-data";
 import type { Tone } from "@/components/app-v2/common";
-import {
-  DASH_PROFILE_CHECKS,
-  DASH_PROFILE_PCT,
-  type DashRecent,
-  type DashStat,
-} from "@/components/app-v3/sample-data";
+import type { DashRecent, DashStat } from "@/components/app-v3/sample-data";
 
 /**
  * Pure helpers that turn the real `/api/profile/applications` list into the Dashboard's numbers
@@ -135,11 +130,19 @@ function has(v: unknown): boolean {
 /**
  * Profile Strength from the real profile where it can be derived. The bio holds contact and
  * application answers (no skills / experience lists), so "Skills" and "Work experience" follow
- * "a resume is on file" (the resume is where they are parsed from). Without a readable profile the
- * board's sample checklist renders.
+ * "a resume is on file" (the resume is where they are parsed from). Without a readable profile (a brand-new
+ * account has none) the checklist is computed from an empty one: 0 %, nothing ticked. Only a demo account on a
+ * sample-enabled build passes `sample` (the board's checklist) to draw instead (U0.5).
  */
-export function computeProfile(bio: Record<string, unknown> | null, resumeCount: number) {
-  if (!bio) return { pct: DASH_PROFILE_PCT, checks: DASH_PROFILE_CHECKS, real: false };
+export function computeProfile(
+  bio: Record<string, unknown> | null,
+  resumeCount: number,
+  sample?: { pct: number; checks: { id: string; label: string; done: boolean }[] } | null,
+) {
+  if (!bio) {
+    if (sample) return { ...sample, real: false };
+    bio = {};
+  }
   const hasResume = resumeCount > 0;
   const checks = [
     { id: "resume", label: "Resume uploaded", done: hasResume },
