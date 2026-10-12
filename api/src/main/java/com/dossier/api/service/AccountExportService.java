@@ -31,6 +31,7 @@ public class AccountExportService {
     private final ProfileSuggestionService profileSuggestionService;
     private final InboxService inboxService;
     private final NotificationService notificationService;
+    private final ResumeBuilderDataService resumeBuilderDataService;
 
     public AccountExportService(
         UserService userService,
@@ -41,7 +42,8 @@ public class AccountExportService {
         AiAnswerMapper aiAnswerMapper,
         ProfileSuggestionService profileSuggestionService,
         InboxService inboxService,
-        NotificationService notificationService
+        NotificationService notificationService,
+        ResumeBuilderDataService resumeBuilderDataService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -52,6 +54,7 @@ public class AccountExportService {
         this.profileSuggestionService = profileSuggestionService;
         this.inboxService = inboxService;
         this.notificationService = notificationService;
+        this.resumeBuilderDataService = resumeBuilderDataService;
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -74,6 +77,9 @@ public class AccountExportService {
         out.put("resumes", profileService.listResumes());
         out.put("applications", applicationSyncService.listApplications());
         out.put("fieldCache", fieldCacheSyncService.list());
+        // Resume Builder (R0.1): the Common Profile's structured items and the built documents.
+        out.put("profileItems", resumeBuilderDataService.exportProfileItems(u.getId()));
+        out.put("resumeDocs", resumeBuilderDataService.exportResumeDocs(u.getId()));
         out.put("profileSuggestions", profileSuggestionService.exportCurrentUser());
         // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
         out.put("inbox", inboxService.exportCurrentUser());

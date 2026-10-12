@@ -1,5 +1,6 @@
 package com.dossier.api.service.dto;
 
+import com.dossier.api.domain.enumeration.ResumeKind;
 import com.dossier.api.domain.enumeration.ResumeStatus;
 import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
@@ -37,6 +38,12 @@ public class ResumeDTO implements Serializable {
     private Boolean starred;
 
     private Boolean defaultResume;
+
+    // Resume Builder (R0.1): optional, so existing clients that never send them are unaffected.
+    // ProfileVersion does not hash either field. templateId is only known for BUILT resumes.
+    private ResumeKind kind;
+
+    private String templateId;
 
     private UserDTO user;
 
@@ -112,6 +119,22 @@ public class ResumeDTO implements Serializable {
         this.defaultResume = defaultResume;
     }
 
+    public ResumeKind getKind() {
+        return kind;
+    }
+
+    public void setKind(ResumeKind kind) {
+        this.kind = kind;
+    }
+
+    public String getTemplateId() {
+        return templateId;
+    }
+
+    public void setTemplateId(String templateId) {
+        this.templateId = templateId;
+    }
+
     public UserDTO getUser() {
         return user;
     }
@@ -154,6 +177,8 @@ public class ResumeDTO implements Serializable {
             ", archived='" + getArchived() + "'" +
             ", starred='" + getStarred() + "'" +
             ", defaultResume='" + getDefaultResume() + "'" +
+            ", kind='" + getKind() + "'" +
+            ", templateId='" + getTemplateId() + "'" +
             ", user=" + getUser() +
             "}";
     }

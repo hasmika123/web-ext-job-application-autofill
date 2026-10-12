@@ -4,8 +4,8 @@
 
 **Branch:** `resume-builder`, cut from `version2` (which is 75+ commits ahead of `main`; nothing
 promoted). Stay on this branch; PR into `develop` only when the user asks.
-**Last commit:** `design: resume builder + common profile — design, stories, decisions` (2026-10-11).
-**State:** design only — no product code yet. Three documents define the work:
+**Last commit:** `rb0.1: resume_doc + profile_item schema` (2026-10-11) — R0.1 done: the four tables + three columns, entities, repositories, account delete/export hooks.
+**State:** design plus the R0.1 schema; no endpoints, UI or document logic yet. Three documents define the work:
 
 1. `docs/RESUME-BUILDER-DESIGN.md` — the design (read §0 first, then the section your story cites).
 2. `docs/RESUME-BUILDER-STORIES.md` — the ordered backlog (45 stories, R0–R7).
@@ -17,10 +17,10 @@ promoted). Stay on this branch; PR into `develop` only when the user asks.
 git checkout resume-builder
 npm ci                               # repo ROOT (npm workspaces)
 npm test -w web                      # tsc + eslint, green
-cd api && ./gradlew test             # unit; `./gradlew integrationTest` needs Docker (Windows: DOCKER_API_VERSION=1.44)
+cd api && ./gradlew test             # unit; `./gradlew integrationTest` needs Docker (Windows + Docker 29: `DOCKER_API_VERSION=1.44` alone was not enough on 2026-10-11; also set `JAVA_TOOL_OPTIONS=-Dapi.version=1.44`; JDK 17 is at `C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot`)
 ```
 
-**First story:** `R0.1 Schema` (STORIES → R0). Then R0.2 → R0.5 (the ★ five), then R0.6–R0.7 to
+**First story:** R0.2 `ResumeDocument` contract (STORIES → R0). Then R0.3 → R0.5 (the ★ five), then R0.6–R0.7 to
 finish the walking skeleton (DB → API → editor → template → PDF). Commit prefix `rb<epic>.<n>:`.
 One story = one commit = one push. After each story: tick it in `PROGRESS.md` → *Resume Builder*
 section, move **Current focus**, add a Log line, and update the "Last commit" line above.

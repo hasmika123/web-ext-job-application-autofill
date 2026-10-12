@@ -26,7 +26,7 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 
 ## Current focus
 > 📄 **Resume Builder + Common Profile is designed (branch `resume-builder`, 2026-10-11)** — see the
-> *Resume Builder* section below (its own Current focus: **R0.1 Schema**) and `docs/HANDOFF-RESUME-BUILDER.md`.
+> *Resume Builder* section below (its own Current focus: **R0.2 `ResumeDocument` contract**) and `docs/HANDOFF-RESUME-BUILDER.md`.
 >
 > 🌱 **The app v2 + enterprise admin work lives on the `version2` branch and awaits the user's review
 > (landing v2 V2.0–V2.6, app0–app2, auth, org1–org2, landing v3 `/v3` and the appqa pass, all done
@@ -1408,9 +1408,9 @@ focused Claude Code session.
 > tailor, ATS unchanged); templates are code in `@kiwiply/ui`; PDF = Chromium printing the same HTML;
 > all builder AI is Pro via `AiBudgetService`, suggest → diff → accept.
 >
-> **Current focus (this branch): R0.1 Schema** — then R0.2 → R0.5 (the first five), then R0.6–R0.7
+> **Current focus (this branch): R0.2 `ResumeDocument` contract** — then R0.3 → R0.5 (the first five), then R0.6–R0.7
 > to close the walking skeleton (DB → API → editor → template → PDF).
-- [ ] **R0 Foundations (walking skeleton)** — R0.1 schema · R0.2 document contract (Java) · R0.3 doc
+- [ ] **R0 Foundations (walking skeleton)** — ✅ R0.1 schema · R0.2 document contract (Java) · R0.3 doc
   endpoints (ETag/If-Match) · R0.4 `@kiwiply/ui` resume package + Modern template + vitest · R0.5 web
   editor skeleton + autosave · R0.6 PDF via Chromium sidecar → S3 · R0.7 smoke + handoff.
 - [ ] **R1 Common Profile builder** — items API + completeness · `/profiles` real tabs · drag-reorder ·
@@ -1429,6 +1429,7 @@ focused Claude Code session.
 ---
 
 ## Log
+- 2026-10-11 · **rb0.1: resume_doc + profile_item schema** · Additive Liquibase `20261012010000/020000/030000_resume_builder_*` (`profile_item`; `resume_doc` + `resume_doc_version` + `resume_ai_proposal`; `bio.meta_json`, `resume.kind` default `UPLOADED`, `resume.updated_at`) included from `master.xml`; entities `ProfileItem`/`ResumeDoc` (`@Version docVersion`, `@MapsId` on resume)/`ResumeDocVersion`/`ResumeAiProposal` + enums `ProfileSection`/`Provenance`/`ResumeKind` + owner-scoped repositories; `Resume` gains `kind` (defaulted in `@PrePersist`) and `updatedAt` (`@PrePersist`/`@PreUpdate`); `ResumeDTO` gains optional `kind`/`templateId` (mapper passes `kind`, leaves `templateId` null until a builder service fills it; `ProfileVersion` hash unchanged, pinned by new `ProfileVersionTest`). New `ResumeBuilderDataService` erases the four tables (before the user's resumes) in both `AccountDeletionService` paths and feeds `profileItems`/`resumeDocs` into `AccountExportService`. Tests: new `ResumeBuilderSchemaIT` (10), `AccountDeletionServiceIT` (3, self-serve + admin erase + export), `ProfileVersionTest` (2); full `test` 438 + `integrationTest` 487 green (Testcontainers MySQL). `bio.meta_json` is column-only for now (no `Bio` field) so nothing can clobber it. No extension change.
 - 2026-10-11 · **design: Resume Builder + Common Profile (branch `resume-builder`)** · Wrote `docs/RESUME-BUILDER-DESIGN.md` (goals/personas, common profile wrap-not-migrate with `profile_item` + provenance, `ResumeDocument` v1 + `resume_doc`/versions/proposals schema, template registry in `@kiwiply/ui` with lossless switching + 7-step page-fit, Chromium-sidecar PDF through the existing file endpoint, Pro-only AI via `AiBudgetService` with the 13.4 suggest→diff→accept pattern generalised, API/BFF contracts, wireframes, risks, 4 open questions), `docs/RESUME-BUILDER-STORIES.md` (45 stories R0–R7, ★ first five = R0.1–R0.5, walking skeleton R0.1–R0.7), `docs/RESUME-BUILDER-DECISIONS.md`, `docs/HANDOFF-RESUME-BUILDER.md`. No product code.
 > One line per completed task: date · task · note.
 - 2026-10-11 · **app3a App v3 shell + Dashboard + Job Search** · Shell verified (13-item nav, blue pill, PlanCard, Hi-First menu, all legacy routes redirect; /jobs/[id] now opens the Job Search panel). `app-v3/home/*` Dashboard (real counts, activity, status, recent, recommended, profile strength; sample interviews/alerts) and `app-v3/jobs/*` Job Search (filter rail, list, detail panel, pagination); HeroBand note/aside layering fixed. tsc+eslint green; checked in browser at 1440/1024/375.

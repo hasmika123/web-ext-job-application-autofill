@@ -1,5 +1,6 @@
 package com.dossier.api.domain;
 
+import com.dossier.api.domain.enumeration.ResumeKind;
 import com.dossier.api.domain.enumeration.ResumeStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -60,6 +61,17 @@ public class Resume implements Serializable {
     // because `default` is a reserved word). Preselected in the pickers.
     @Column(name = "is_default")
     private Boolean defaultResume;
+
+    // UPLOADED (a file, or the extension's on-the-fly create) or BUILT in the Resume Builder.
+    // Defaults to UPLOADED on first save when the caller sent none (see prePersist).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = false, length = 10)
+    private ResumeKind kind = ResumeKind.UPLOADED;
+
+    // Stamped on every insert/update that changes the row. Null on rows that predate it.
+    // For the resume list UI only - ProfileVersion deliberately does not hash it.
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
@@ -183,6 +195,41 @@ public class Resume implements Serializable {
         this.defaultResume = defaultResume;
     }
 
+    public ResumeKind getKind() {
+        return this.kind;
+    }
+
+    public Resume kind(ResumeKind kind) {
+        this.setKind(kind);
+        return this;
+    }
+
+    public void setKind(ResumeKind kind) {
+        this.kind = kind;
+    }
+
+    public Instant getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    @PrePersist
+    void prePersist() {
+        // The DTO mapper copies a null kind over the field initialiser; the column is NOT NULL.
+        if (this.kind == null) {
+            this.kind = ResumeKind.UPLOADED;
+        }
+        this.updatedAt = Instant.now();
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        this.updatedAt = Instant.now();
+    }
+
     public User getUser() {
         return this.user;
     }
@@ -228,6 +275,7 @@ public class Resume implements Serializable {
             ", archived='" + getArchived() + "'" +
             ", starred='" + getStarred() + "'" +
             ", defaultResume='" + getDefaultResume() + "'" +
+            ", kind='" + getKind() + "'" +
             "}";
     }
 }

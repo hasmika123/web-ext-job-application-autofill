@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Resume Builder R0.1 (docs/RESUME-BUILDER-DESIGN.md section 5.2) - the Common Profile's
+        structured items: experience, education, skills, projects and so on, one row per item.
+
+        bio.payload keeps its flat-key contract with the extension; this table is the web-only home
+        for the repeating sections. `data_json` is always JSON (the item, same shape as the doc item
+        of that kind minus id/hidden), so it is a MySQL json column and JSON_VALID is enforced.
+        Skills are one row per GROUP, not per skill.
+
+        `source_resume_id` has no FK on purpose: deleting a resume must never be blocked by the
+        profile item that was first parsed from it. `deleted_at` is a soft delete, purged later by
+        the existing retention-job pattern. Deleted with the account. Additive; no data migration.
+    -->
+    <changeSet id="20261012010000-1" author="dossier">
+        <createTable tableName="profile_item">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="section" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="position" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="data_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="provenance" type="varchar(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_resume_id" type="bigint"/>
+            <column name="hidden" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="deleted_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="profile_item"
+            baseColumnNames="user_id"
+            constraintName="fk_profile_item_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+        <createIndex tableName="profile_item" indexName="ix_profile_item_user_section">
+            <column name="user_id"/>
+            <column name="section"/>
+            <column name="position"/>
+        </createIndex>
+        <createIndex tableName="profile_item" indexName="ix_profile_item_deleted">
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

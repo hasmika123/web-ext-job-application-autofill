@@ -62,6 +62,7 @@ public class AccountDeletionService {
     private final NotificationService notificationService;
     private final StripeEventRepository stripeEventRepository;
     private final CustomerNoteRepository customerNoteRepository;
+    private final ResumeBuilderDataService resumeBuilderDataService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -85,7 +86,8 @@ public class AccountDeletionService {
         InboxService inboxService,
         NotificationService notificationService,
         StripeEventRepository stripeEventRepository,
-        CustomerNoteRepository customerNoteRepository
+        CustomerNoteRepository customerNoteRepository,
+        ResumeBuilderDataService resumeBuilderDataService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -109,6 +111,7 @@ public class AccountDeletionService {
         this.notificationService = notificationService;
         this.stripeEventRepository = stripeEventRepository;
         this.customerNoteRepository = customerNoteRepository;
+        this.resumeBuilderDataService = resumeBuilderDataService;
     }
 
     /**
@@ -159,6 +162,10 @@ public class AccountDeletionService {
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
 
+        // Resume Builder rows first (R0.1): documents reference their resume, and clearing them
+        // before the resumes load keeps no stale builder entity in the session.
+        userRepository.findOneByLogin(login).map(User::getId).ifPresent(resumeBuilderDataService::deleteAllForUser);
+
         // Resume files live in object storage — delete the blobs BEFORE their rows so a
         // storage failure rolls the whole transaction back (no orphaned bytes, no
         // half-deleted account).
@@ -208,6 +215,8 @@ public class AccountDeletionService {
             .findOneByLogin(login)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such user"));
         Long userId = user.getId();
+
+        resumeBuilderDataService.deleteAllForUser(userId); // before the resumes: see deleteCurrentUserAccount
 
         List<Resume> resumes = resumeRepository.findByUserId(userId);
         for (Resume resume : resumes) {

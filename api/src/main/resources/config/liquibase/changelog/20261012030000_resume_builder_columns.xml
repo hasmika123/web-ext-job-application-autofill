@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Resume Builder R0.1 (docs/RESUME-BUILDER-DESIGN.md sections 5.1 and 5.3) - three additive
+        columns on existing tables.
+
+        bio.meta_json: provenance, completeness and onboarding state for the Common Profile. bio.payload
+        keeps its contract with the extension; nothing reads this column yet.
+        resume.kind: UPLOADED | BUILT. The column default backfills every existing row to UPLOADED,
+        which is the only data-touching part of the whole feature (no batch migration).
+        resume.updated_at: for the resume list UI. Nullable: old rows simply have none, and
+        ProfileVersion does not hash it, so adding it does not make the extension re-pull.
+    -->
+    <changeSet id="20261012030000-1" author="dossier">
+        <addColumn tableName="bio">
+            <column name="meta_json" type="json"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261012030000-2" author="dossier">
+        <addColumn tableName="resume">
+            <column name="kind" type="varchar(10)" defaultValue="UPLOADED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

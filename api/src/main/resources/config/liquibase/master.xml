@@ -58,5 +58,8 @@
     <include file="config/liquibase/changelog/20261005010000_sales_inquiry.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261006010000_customer_timeline.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261011010000_app_setting.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012010000_resume_builder_profile_item.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012020000_resume_builder_resume_doc.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012030000_resume_builder_columns.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
