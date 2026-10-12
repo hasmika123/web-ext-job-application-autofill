@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config";
+import { ALL_PREFERENCE_KEYS } from "@/components/onboarding/preferences";
 import { DRAFT_KEY } from "@/lib/profile-setup/state";
 
 vi.mock("@/lib/extension-signal", () => ({ notifyExtension: vi.fn() }));
@@ -244,6 +245,24 @@ describe("ProfileSetup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByText("Your profile is set up.");
     await waitFor(() => expect(calls.filter((c) => c.url === "/api/profile/items/import")).toHaveLength(1));
+  });
+});
+
+describe("ProfileSetup ?step=prefs (where /welcome lands)", () => {
+  it("opens the preferences step when the profile has unanswered questions", () => {
+    render(<ProfileSetup bio={{}} config={DEFAULT_BUILDER_CONFIG} initialStep="prefs" />);
+    expect(screen.getByRole("heading", { name: "A few quick questions" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Upload a resume/ })).toBeNull();
+    expect(screen.queryByTestId("summary")).toBeNull();
+    // Back goes to the path picker, never to a step that has nothing behind it
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("button", { name: /Upload a resume/ })).toBeTruthy();
+  });
+
+  it("opens the path picker when every question is already answered", () => {
+    const answered = Object.fromEntries(ALL_PREFERENCE_KEYS.map((k) => [k, "Yes"]));
+    render(<ProfileSetup bio={answered} config={DEFAULT_BUILDER_CONFIG} initialStep="prefs" />);
+    expect(screen.getByRole("button", { name: /Upload a resume/ })).toBeTruthy();
   });
 });
 
