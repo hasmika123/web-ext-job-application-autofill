@@ -7,6 +7,7 @@ import type { Application } from "@/components/ApplicationBoard";
 import { loadJobs } from "@/components/app-v2/jobs/data";
 import DashboardPage from "@/components/app-v3/home/DashboardPage";
 import BuildProfileCard from "@/components/app-v3/profiles/setup/BuildProfileCard";
+import ProfileProgressCard from "@/components/app-v3/profiles/setup/ProfileProgressCard";
 import { getCompleteness } from "@/lib/profile-items-server";
 import { computeDashboard, computeProfile } from "@/components/app-v3/home/compute";
 import {
@@ -70,6 +71,7 @@ export default async function Page() {
       profile={computeProfile(profileRes.ok ? bio : null, resumes.length)}
     >
       {completeness && <BuildProfileCard score={completeness.score} />}
+      <ProfileProgressCard completeness={completeness} />
       <SuggestionsCard initial={suggestions} />
     </DashboardPage>
   );

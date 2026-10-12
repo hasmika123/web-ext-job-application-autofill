@@ -187,6 +187,16 @@ public class ProfileItemService {
         return new CompletenessDTO(r.score(), r.parts(), r.nextAction());
     }
 
+    /**
+     * Where each flat bio value came from ({@code bio.meta_json.provenance}: {@code key -> parsed | user | learned}),
+     * for the web's source chips (R1.6). Served on its own route: {@code GET /api/profile} stays exactly what the
+     * extension pulls, and {@code meta_json} never rides on it.
+     */
+    public java.util.Map<String, String> bioProvenance() {
+        Bio bio = bioOf(currentUser().getId());
+        return bio == null ? java.util.Map.of() : ProfileMeta.provenanceOf(bio.getMetaJson());
+    }
+
     // ---- create / update / delete / reorder ------------------------------------------------------
 
     public ProfileItemDTO create(NewItem req) {

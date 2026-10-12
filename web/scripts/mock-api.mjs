@@ -755,6 +755,9 @@ const server = http.createServer((req, res) => {
   if (path === "/api/ai/usage")
     return json(res, 200, { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
   if (path === "/api/profile") return json(res, 200, { payload: JSON.stringify(BIO) });
+  // R1.6: where each saved bio value came from (the real API keeps this off GET /api/profile). The demo says "parsed" for names, "user" for the rest.
+  if (path === "/api/profile/provenance")
+    return json(res, 200, Object.fromEntries(Object.keys(BIO).filter((k) => typeof BIO[k] === "string").map((k) => [k, k === "firstName" || k === "lastName" ? "parsed" : "user"])));
   if (path === "/api/profile/applications") return json(res, 200, APPLICATIONS);
   if (path === "/api/profile/resumes")
     return json(

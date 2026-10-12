@@ -108,6 +108,14 @@ public class ProfileItemResource {
         return profileItemService.importItems(body);
     }
 
+    /** {@code GET /api/profile/provenance} : where each saved bio value came from (R1.6 source chips). */
+    @Operation(summary = "Bio provenance", description = "A {key: parsed|user|learned} map for the flat bio values; empty when none is recorded. Kept off GET /api/profile, which the extension reads.")
+    @GetMapping("/provenance")
+    public java.util.Map<String, String> provenance() {
+        LOG.debug("REST request for the bio provenance");
+        return profileItemService.bioProvenance();
+    }
+
     /** {@code GET /api/profile/completeness} : the meter, its nine parts and the one next action. */
     @Operation(summary = "Profile completeness", description = "Score out of 100, the parts and their weights, and the highest-weight missing part as nextAction.")
     @GetMapping("/completeness")

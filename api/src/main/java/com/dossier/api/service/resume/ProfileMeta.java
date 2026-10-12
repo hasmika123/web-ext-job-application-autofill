@@ -69,6 +69,18 @@ public final class ProfileMeta {
         return v != null && v.isTextual() ? v.textValue() : null;
     }
 
+    /** {@code meta.provenance} as a plain {@code key -> source} map (text values only); empty when there is none. */
+    public static java.util.Map<String, String> provenanceOf(String metaJson) {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        JsonNode p = read(metaJson).get(PROVENANCE);
+        if (p instanceof ObjectNode o) {
+            o.fields().forEachRemaining(e -> {
+                if (e.getValue().isTextual()) out.put(e.getKey(), e.getValue().textValue());
+            });
+        }
+        return out;
+    }
+
     /** {@code meta.completeness = {score, nextAction, computedAt}} (the per-part detail is not cached). */
     public static void putCompleteness(ObjectNode meta, ProfileCompleteness.Result r, Instant now) {
         ObjectNode c = meta.putObject(COMPLETENESS);

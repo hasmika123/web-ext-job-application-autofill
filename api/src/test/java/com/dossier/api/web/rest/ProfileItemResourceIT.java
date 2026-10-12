@@ -575,6 +575,28 @@ class ProfileItemResourceIT {
     }
 
     @Test
+    void provenanceEndpointServesTheBioSourcesForTheChipsAndNothingElse() throws Exception {
+        mockMvc.perform(get("/api/profile/provenance")).andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty()); // no bio yet
+
+        putBio(Map.of("firstName", "Ada", "headline", "Engineer"));
+        importItems("{\"items\":[],\"bio\":{\"summary\":\"Builds things.\"},\"provenanceBio\":\"parsed\"}").andExpect(status().isOk());
+        mockMvc
+            .perform(get("/api/profile/provenance"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.firstName").value("user"))
+            .andExpect(jsonPath("$.headline").value("user"))
+            .andExpect(jsonPath("$.summary").value("parsed"));
+
+        putBio(Map.of("firstName", "Ada", "headline", "Staff Engineer", "summary", "Builds things."));
+        mockMvc
+            .perform(get("/api/profile/provenance"))
+            .andExpect(jsonPath("$.headline").value("user"))
+            .andExpect(jsonPath("$.summary").value("parsed")); // unchanged: keeps its source
+        // and the bio the extension pulls still carries none of it
+        assertThat(mockMvc.perform(get("/api/profile")).andReturn().getResponse().getContentAsString()).doesNotContain("provenance");
+    }
+
+    @Test
     void acceptingASuggestionStampsLearned() throws Exception {
         putBio(Map.of("firstName", "Ada"));
         mockMvc

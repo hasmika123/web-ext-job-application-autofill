@@ -33,6 +33,7 @@ const EDITOR_SECTIONS: Partial<Record<ProfileTabKey, string[]>> = {
 export default function ProfilesPage({
   profile,
   bio,
+  bioProvenance,
   items: initialItems,
   itemsLoaded,
   completeness: initialCompleteness,
@@ -41,6 +42,8 @@ export default function ProfilesPage({
 }: {
   profile: ProfileView;
   bio: Bio;
+  /** `bio.meta_json.provenance` from GET /api/profile: the source chips on the bio fields (R1.6). */
+  bioProvenance?: Record<string, string>;
   items: ProfileItem[];
   /** False when the items could not be loaded: the lists say so and Add is off. */
   itemsLoaded: boolean;
@@ -144,7 +147,7 @@ export default function ProfilesPage({
             <p className="text-[12.5px] text-v2-muted">The short list the extension uses on application forms. Your resume skills above are separate.</p>
           </div>
         )}
-        <BioEditor initialBio={bio} show={editorShow} />
+        <BioEditor initialBio={bio} show={editorShow} provenance={bioProvenance} summaryMax={config.limits.summaryChars} />
       </div>
     </div>
   );

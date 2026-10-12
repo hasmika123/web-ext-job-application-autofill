@@ -24,6 +24,10 @@ export const LIMITS = {
   skill: 60,
   text: 200,
   summary: 5000,
+  /** The profile headline (Resume Builder R1.6). */
+  headline: 60,
+  /** The profile summary when the builder settings are not at hand (they say `limits.summaryChars`, default 2000). */
+  profileSummary: 2000,
   bullet: 2000,
 } as const;
 
