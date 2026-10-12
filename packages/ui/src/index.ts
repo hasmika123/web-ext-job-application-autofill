@@ -39,6 +39,11 @@ export type { MonthPickerProps } from "./primitives/MonthPicker";
 export { default as Meter } from "./primitives/Meter";
 export type { MeterProps } from "./primitives/Meter";
 
+export { default as ProgressBar } from "./primitives/ProgressBar";
+export type { ProgressBarProps } from "./primitives/ProgressBar";
+
+export { default as useReducedMotion, prefersReducedMotion } from "./primitives/useReducedMotion";
+
 export { default as Tabs, TabList, Tab, TabPanel } from "./primitives/Tabs";
 export type { TabsProps, TabsVariant } from "./primitives/Tabs";
 

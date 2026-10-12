@@ -1459,6 +1459,22 @@ function handleProfileItems(req, res, path, method) {
     });
     return true;
   }
+  // The setup flow's one import (Onboarding v2): every kept entry becomes an item (no merge-by-identity in the mock).
+  if (arg === "import" && method === "POST") {
+    withBody(req, (b) => {
+      let created = 0;
+      for (const it of Array.isArray(b.items) ? b.items : []) {
+        const data = it.dataJson ?? it.data;
+        if (!it.section || !data || typeof data !== "object" || Array.isArray(data)) return problem(res, 422, "ITEM_INVALID", { path: "items", message: "must be a JSON object" });
+        const hit = findSensitive(data, "dataJson");
+        if (hit) return problem(res, 422, "SENSITIVE_CONTENT", { path: hit, class: "SSN_ITIN" });
+        ITEMS.push({ id: nextItemId++, section: it.section, position: ITEMS.filter((i) => i.section === it.section).length, data, provenance: it.provenance ?? "USER", sourceResumeId: null, hidden: false, updatedAt: new Date().toISOString() });
+        created++;
+      }
+      json(res, 200, { created, merged: 0, updatedBio: !!b.bio });
+    });
+    return true;
+  }
   if (arg === "reorder" && method === "POST") {
     withBody(req, (b) => {
       (b.ids ?? []).forEach((id, i) => {
@@ -1703,6 +1719,25 @@ const server = http.createServer((req, res) => {
   if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
   if (handleOnboarding(req, res, path, method)) return;
+
+  // The setup flow's profile writes (Onboarding v2 R1.10 / R1.11): `PUT /api/profile` replaces the in-memory bio, so the
+  // core confirm, the per-answer question writes and the payoff's "~N fields" can be walked through without the API.
+  if (path === "/api/profile" && method === "PUT") {
+    if (!subOf(req)) {
+      req.resume();
+      return json(res, 401, { error: "Unauthorized" });
+    }
+    return withBody(req, (b) => {
+      try {
+        const next = JSON.parse(String(b.payload ?? "{}"));
+        for (const k of Object.keys(BIO)) delete BIO[k];
+        Object.assign(BIO, next);
+      } catch {
+        return json(res, 400, { error: "payload is not JSON" });
+      }
+      json(res, 200, { payload: JSON.stringify(BIO) });
+    });
+  }
 
   req.resume(); // other bodies are ignored
   const sub = subOf(req);

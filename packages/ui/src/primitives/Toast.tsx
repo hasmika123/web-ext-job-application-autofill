@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { FocusEvent } from "react";
 import type { ReactNode } from "react";
 import { cn } from "./cn";
 
@@ -8,7 +9,8 @@ import { cn } from "./cn";
  * Toast — transient feedback, styled 1:1 with the web app's `ui/Toast` + `ToastProvider`
  * (bottom-right stack, left accent border). `ToastProvider` hands out a `toast()` via
  * `useToast()`. Self-contained (the enter keyframe is injected once) so it works in the
- * extension surfaces too — this is the toast surface W3 deferred.
+ * extension surfaces too — this is the toast surface W3 deferred. A toast that has a timer stops it while the
+ * pointer is over it or focus is inside it (so an Undo can be reached), and runs the rest of its time afterwards.
  *
  *   const toast = useToast();
  *   toast({ title: "Saved", variant: "success" });
@@ -48,15 +50,49 @@ const ACCENT: Record<ToastVariant, string> = {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const seq = useRef(0);
-  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  // Per toast: its timer (null while paused), when it ends, and how long was left when it was paused.
+  const timers = useRef(new Map<number, { timer: ReturnType<typeof setTimeout> | null; end: number; left: number }>());
 
   const dismiss = useCallback((id: number) => {
     setItems((prev) => prev.filter((t) => t.id !== id));
-    const timer = timers.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
+    const t = timers.current.get(id);
+    if (t) {
+      if (t.timer) clearTimeout(t.timer);
       timers.current.delete(id);
     }
+  }, []);
+
+  const arm = useCallback(
+    (id: number, ms: number) => {
+      timers.current.set(id, { timer: setTimeout(() => dismiss(id), ms), end: Date.now() + ms, left: ms });
+    },
+    [dismiss],
+  );
+
+  const pause = useCallback((id: number) => {
+    const t = timers.current.get(id);
+    if (!t || !t.timer) return;
+    clearTimeout(t.timer);
+    t.timer = null;
+    t.left = Math.max(0, t.end - Date.now());
+  }, []);
+
+  const resume = useCallback(
+    (id: number) => {
+      const t = timers.current.get(id);
+      if (!t || t.timer) return;
+      arm(id, t.left);
+    },
+    [arm],
+  );
+
+  // No timer outlives the provider.
+  useEffect(() => {
+    const all = timers.current;
+    return () => {
+      for (const t of all.values()) if (t.timer) clearTimeout(t.timer);
+      all.clear();
+    };
   }, []);
 
   const toast = useCallback<ToastFn>(
@@ -64,14 +100,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       const id = ++seq.current;
       setItems((prev) => [...prev, { ...opts, id }]);
       const duration = opts.duration ?? 4000;
-      if (duration > 0) {
-        timers.current.set(
-          id,
-          setTimeout(() => dismiss(id), duration),
-        );
-      }
+      if (duration > 0) arm(id, duration);
     },
-    [dismiss],
+    [arm],
   );
 
   const value = useMemo(() => toast, [toast]);
@@ -88,6 +119,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role="status"
+            onMouseEnter={() => pause(t.id)}
+            onMouseLeave={() => resume(t.id)}
+            onFocus={() => pause(t.id)}
+            onBlur={(e: FocusEvent<HTMLDivElement>) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) resume(t.id);
+            }}
             style={{ animation: "kiwi-toast-in .2s ease-out" }}
             className={cn(
               "pointer-events-auto flex min-w-[260px] max-w-[92vw] items-start gap-3 rounded-[var(--radius)] border border-line " +

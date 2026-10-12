@@ -8,7 +8,8 @@
  */
 import type { ItemData } from "@/lib/profile-items";
 import type { Candidate, Identity, Language, ParsedDraft } from "./draft";
-import { freshReducer, hasFreshAnswers, initialFresh, type FreshAction, type FreshState } from "./fresh";
+import { freshGoalFor } from "@/lib/onboarding/persona";
+import { freshProgress, freshReducer, hasFreshAnswers, initialFresh, type FreshAction, type FreshState } from "./fresh";
 import { initialIdentity, type Decision } from "./import";
 
 /** DESIGN 3.1: hello (persona) -> source (the way in) -> review -> skills -> you (core confirm) -> prefs -> done. */
@@ -67,6 +68,10 @@ export type Action =
   | { type: "fresh"; action: FreshAction }
   | { type: "decide"; id: string; decision: Decision }
   | { type: "decideAll"; decision: Decision }
+  /** Take a decision back (the Skip undo): the card is undecided and on screen again. */
+  | { type: "undecide"; id: string }
+  /** "Skip for now" on the source screen: nothing parsed, straight to the identity card (DESIGN 5.3). */
+  | { type: "skipSource"; existing: Record<string, unknown> }
   | { type: "edit"; id: string; data: ItemData }
   | { type: "cursor"; cursor: number }
   | { type: "goto"; step: StepKey }
@@ -132,7 +137,27 @@ function reduce(state: SetupState, a: Action): SetupState {
       };
     }
     case "fresh":
-      return { ...state, fresh: freshReducer(state.fresh ?? initialFresh(), a.action) };
+      return { ...state, fresh: freshReducer(state.fresh ?? initialFresh(freshGoalFor(state.persona)), a.action) };
+    case "skipSource":
+      return {
+        ...state,
+        step: "you",
+        parsed: { candidates: [], parsedIdentity: {}, skills: [], suggestions: [], source: "heuristic", removed: 0 },
+        decisions: {},
+        edits: {},
+        cursor: 0,
+        skills: [],
+        languages: [],
+        identity: initialIdentity({}, a.existing),
+        imported: false,
+        coreConfirmedAt: null,
+      };
+    case "undecide": {
+      const { [a.id]: _gone, ...decisions } = state.decisions;
+      void _gone;
+      const at = state.parsed?.candidates.findIndex((c) => c.id === a.id) ?? -1;
+      return { ...state, decisions, cursor: at >= 0 ? at : state.cursor };
+    }
     case "decide": {
       const decisions = { ...state.decisions, [a.id]: a.decision };
       const total = state.parsed?.candidates.length ?? 0;
@@ -232,7 +257,8 @@ export function prevStep(state: SetupState, hasPrefQuestions: boolean): StepKey 
  * current step the person is: cards decided on `review`, questions answered on `prefs` (DESIGN 3.1 / 5.0).
  */
 export function progressOf(state: SetupState, hasPrefQuestions: boolean, prefQuestionCount = 0): { stepsDone: number; stepsTotal: number; subProgress: number } {
-  const steps = stepsFor(state, hasPrefQuestions);
+  // The `/welcome` link opens on the questions with nothing parsed: just the questions, then done.
+  const steps = state.step === "prefs" && !state.parsed ? (["prefs", "done"] as StepKey[]) : stepsFor(state, hasPrefQuestions);
   const stepsTotal = steps.length;
   if (state.step === "done") return { stepsDone: stepsTotal, stepsTotal, subProgress: 0 };
   const at = Math.max(0, steps.indexOf(state.step));
@@ -240,6 +266,8 @@ export function progressOf(state: SetupState, hasPrefQuestions: boolean, prefQue
   if (state.step === "review") {
     const cards = state.parsed?.candidates.length ?? 0;
     sub = cards > 0 ? state.cursor / cards : 0;
+  } else if (state.step === "source" && state.path === "fresh") {
+    sub = freshProgress(state.fresh ?? { step: "goal" });
   } else if (state.step === "prefs") {
     sub = prefQuestionCount > 0 ? state.prefsDone.length / prefQuestionCount : 0;
   }

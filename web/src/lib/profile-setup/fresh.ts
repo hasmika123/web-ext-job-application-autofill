@@ -79,8 +79,9 @@ export function emptyEntry(kind: EntryKind): FreshEntry {
   return { kind, name: "", detail: "", start: "", end: "", current: false, what: "", how: "", result: "" };
 }
 
-export function initialFresh(): FreshState {
-  return { v: 1, step: "goal", goal: "", headline: "", choice: "", entries: [], skills: [], links: { linkedin: "", github: "", website: "" } };
+/** A new run of the guided questions; `goal` pre-fills the first chip (from the persona, DESIGN 3.3), still changeable. */
+export function initialFresh(goal: FreshGoalId | "" = ""): FreshState {
+  return { v: 1, step: "goal", goal, headline: "", choice: "", entries: [], skills: [], links: { linkedin: "", github: "", website: "" } };
 }
 
 const stepsOf = (kind: EntryKind): FreshStepId[] => (kind === "role" ? ROLE_STEPS : SCHOOL_STEPS);
@@ -174,6 +175,16 @@ function retreat(state: FreshState): FreshState {
       return { ...state, entries, step: "menu", choice: "" };
     }
   }
+}
+
+/**
+ * How far through the guided questions the person is, 0 to 1, for the shell's bar: the shared screens (goal, headline,
+ * the menu, skills, links) count one each, and the screens of an entry count together as the menu's share.
+ */
+export function freshProgress(state: Pick<FreshState, "step">): number {
+  const order: Record<string, number> = { goal: 0, headline: 1, menu: 2, skills: 3, links: 4 };
+  const rank = order[state.step] ?? 2.5; // a role / school question sits between the menu and skills
+  return Math.min(1, rank / 5);
 }
 
 /** Anything typed or picked yet; a flow with nothing in it is not worth offering back after a reload. */

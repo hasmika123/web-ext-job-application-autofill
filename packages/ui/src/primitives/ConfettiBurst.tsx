@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "./cn";
+import useReducedMotion from "./useReducedMotion";
 
 /**
  * ConfettiBurst - one short burst of confetti for a finished moment (the profile setup's last step).
@@ -13,19 +14,17 @@ import { cn } from "./cn";
  */
 const COLORS = ["var(--color-accent)", "var(--color-accent-deep)", "var(--color-warn)", "var(--color-danger)", "var(--color-ink)"];
 
-function prefersReducedMotion(): boolean {
-  return typeof window === "undefined" || typeof window.matchMedia !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 export default function ConfettiBurst({ count = 24, className }: { count?: number; className?: string }) {
+  const reduced = useReducedMotion();
   const [on, setOn] = useState(false);
   const host = useRef<HTMLDivElement>(null);
 
-  // Decided after mount so server and first client render agree (both render nothing).
+  // Decided after mount so server and first client render agree (both render nothing); it follows the OS setting
+  // if that changes while the burst is on screen.
   useEffect(() => {
     // Reading the media query is only possible on the client, hence state set in an effect.
-    if (!prefersReducedMotion()) setOn(true);
-  }, []);
+    setOn(!reduced);
+  }, [reduced]);
 
   useEffect(() => {
     if (!on || !host.current) return;

@@ -10,15 +10,15 @@ afterEach(cleanup);
 const BIO = { valueChars: 100, summaryChars: 400 };
 const BULLET = 120;
 
-function Harness({ onDone, onBack, start }: { onDone: (r: SetupParse) => void; onBack?: () => void; start?: FreshState }) {
+function Harness({ onDone, start }: { onDone: (r: SetupParse) => void; start?: FreshState }) {
   const [fresh, dispatch] = useReducer(freshReducer, start ?? initialFresh());
-  return <FreshFlow fresh={fresh} dispatch={dispatch} bioLimits={BIO} bulletChars={BULLET} onDone={onDone} onBack={onBack ?? (() => undefined)} />;
+  return <FreshFlow fresh={fresh} dispatch={dispatch} bioLimits={BIO} bulletChars={BULLET} onDone={onDone} />;
 }
 
 const next = () => fireEvent.click(screen.getByRole("button", { name: "Next" }));
 const type = (label: string | RegExp, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const pick = (name: string | RegExp) => fireEvent.click(screen.getByRole("radio", { name }));
-const heading = () => screen.getByRole("heading", { level: 2 }).textContent;
+const heading = () => screen.getByRole("heading", { level: 1 }).textContent;
 
 describe("FreshFlow", () => {
   it("walks the whole conversation and hands the review a draft of the person's own answers", () => {
@@ -171,16 +171,17 @@ describe("FreshFlow", () => {
     expect(heading()).toBe("How would you describe yourself in one line?");
   });
 
-  it("Back returns to the previous question with the answer still there, and from the first goes to the path picker", () => {
-    const onBack = vi.fn();
-    render(<Harness onDone={vi.fn()} onBack={onBack} />);
-    pick("An internship");
-    next();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(heading()).toBe("What are you looking for?");
+  it("the question is the one h1, and Back is the shell's: this flow has no Back of its own", () => {
+    render(<Harness onDone={vi.fn()} />);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  it("starts on the goal the persona suggests, still changeable", () => {
+    render(<Harness onDone={vi.fn()} start={initialFresh("internship")} />);
     expect(screen.getByRole("radio", { name: "An internship" }).getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(onBack).toHaveBeenCalledTimes(1);
+    pick("My first job");
+    expect(screen.getByRole("radio", { name: "My first job" }).getAttribute("aria-checked")).toBe("true");
   });
 
   it("an end before the start is refused with a message", () => {

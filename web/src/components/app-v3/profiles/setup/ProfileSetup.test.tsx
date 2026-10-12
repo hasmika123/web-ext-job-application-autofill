@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config";
 import { ALL_PREFERENCE_KEYS } from "@/components/onboarding/preferences";
@@ -7,10 +7,26 @@ import type { OnboardingStatus } from "@/lib/onboarding/api";
 import { MIRROR_KEY } from "@/lib/onboarding/mirror";
 import { V1_DRAFT_KEY } from "@/lib/profile-setup/state";
 
-vi.mock("@/lib/extension-signal", () => ({ notifyExtension: vi.fn() }));
+vi.mock("@/lib/extension-signal", () => ({ notifyExtension: vi.fn(), detectExtension: () => Promise.resolve(true), EXT_STORE_URL: "https://store.example/kiwiply" }));
 const track = vi.fn();
 vi.mock("@/lib/analytics", () => ({ track: (...a: unknown[]) => track(...a) }));
-vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/image", () => ({ default: ({ src }: { src: string }) => <span data-mascot={src} /> }));
+vi.mock("next/link", () => ({
+  default: ({ href, children, onClick, ...rest }: { href: string; children: React.ReactNode; onClick?: (e: React.MouseEvent) => void }) => (
+    <a
+      href={href}
+      onClick={(e) => {
+        e.preventDefault(); // jsdom cannot navigate
+        onClick?.(e);
+      }}
+      {...rest}
+    >
+      {children}
+    </a>
+  ),
+}));
 
 const parseTextForSetup = vi.fn();
 vi.mock("@/lib/profile-setup/parse", async (orig) => ({ ...(await orig<typeof import("@/lib/profile-setup/parse")>()), parseTextForSetup: (...a: unknown[]) => parseTextForSetup(...a) }));
@@ -41,7 +57,7 @@ const onboardingCalls = (method: string, suffix = "") => calls.filter((c) => c.m
 
 const none = (over: Partial<OnboardingStatus> = {}): OnboardingStatus => ({
   status: "NONE",
-  persona: null,
+  persona: "experienced",
   finishedAt: null,
   draft: null,
   card: { dismissedAt: null, snoozedUntil: null, resurfaceCount: 0, show: true, state: "NOT_STARTED", resurfaced: false },
@@ -74,6 +90,7 @@ async function api(url: string, init?: RequestInit): Promise<Response> {
 beforeEach(() => {
   calls.length = 0;
   track.mockReset();
+  push.mockReset();
   profilePut = null;
   sessionStorage.clear();
   localStorage.clear();
@@ -88,30 +105,158 @@ const setup = (bio: Record<string, unknown> = {}, server: OnboardingStatus | nul
     </ToastProvider>,
   );
 
-async function pasteAndRead() {
-  fireEvent.click(screen.getByRole("button", { name: /Paste text/ }));
-  fireEvent.change(screen.getByLabelText("Resume text"), { target: { value: "x".repeat(60) } });
-  fireEvent.click(screen.getByRole("button", { name: "Read my text" }));
-  await screen.findByText(/Work experience · 1 of 2/);
+const counter = () => screen.getByTestId("card-counter").textContent;
+const keep = () => fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+const skip = () => fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+const cont = () => fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+const back = () => fireEvent.click(screen.getByRole("button", { name: "Back" }));
+const barLabel = () => screen.getByTestId("bar-label").textContent ?? "";
+const AUTH_Q = "Are you legally authorized to work in the country you're applying in?";
+/** Skip the questions one by one (an experienced person with an empty profile has six) until the payoff. */
+async function skipQuestions() {
+  for (let i = 0; i < 8; i++) {
+    const b = screen.queryByRole("button", { name: "Skip this one" });
+    if (!b) break;
+    fireEvent.click(b);
+    await act(async () => undefined);
+  }
+  await screen.findByRole("heading", { level: 1, name: /You're set/ });
 }
 
-describe("ProfileSetup", () => {
-  it("offers the three ways in, all of them available", () => {
+async function pasteAndRead() {
+  fireEvent.click(screen.getByRole("button", { name: /Paste text/ }));
+  fireEvent.change(screen.getByLabelText("Resume text"), { target: { value: "x".repeat(90) } });
+  fireEvent.click(screen.getByRole("button", { name: "Read it" }));
+  await screen.findByTestId("card-counter");
+}
+
+describe("ProfileSetup: hello", () => {
+  it("a new person starts on the persona question, with no Back and a bar at ~2 min", () => {
+    setup({}, none({ persona: null }), { firstName: "Priya" });
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Hey Priya — let's get you job-ready in 2 minutes.");
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    expect(barLabel()).toBe("~2 min");
+    expect(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuenow")).toBe("0");
+    expect(track).toHaveBeenCalledWith("onboarding_started", { entry: "direct" });
+  });
+
+  it("a pick plus Continue saves the persona to the server and goes to the source screen", async () => {
+    setup({}, none({ persona: null }));
+    fireEvent.click(screen.getByRole("radio", { name: "Student / Internship" }));
+    cont();
+    expect(screen.getByRole("heading", { level: 1, name: "Drop in your resume." })).toBeTruthy();
+    await waitFor(() => expect(onboardingCalls("PATCH")).toHaveLength(1));
+    expect(onboardingCalls("PATCH")[0].body).toEqual({ persona: "student" });
+    expect(track).toHaveBeenCalledWith("onboarding_persona_set", { persona: "student", changed: false });
+    expect(track).toHaveBeenCalledWith("onboarding_step_completed", expect.objectContaining({ step: "hello", index: 1, total: 6, skipped: false }));
+    // and the student sees Start fresh first
+    expect(screen.getByText("No resume yet? Totally fine.")).toBeTruthy();
+  });
+
+  it("'I'll decide later' leaves the persona empty and moves on", async () => {
+    setup({}, none({ persona: null }));
+    fireEvent.click(screen.getByRole("button", { name: "I'll decide later" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Drop in your resume." })).toBeTruthy();
+    expect(onboardingCalls("PATCH")).toHaveLength(0);
+    expect(track).toHaveBeenCalledWith("onboarding_persona_set", { persona: "skipped", changed: false });
+    expect(screen.getByText("No file handy?")).toBeTruthy();
+  });
+
+  it("skips hello for someone who already has a persona, and Back from the source goes to hello", () => {
     setup();
-    expect(screen.getByRole("button", { name: /Upload a resume/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Drop in your resume." })).toBeTruthy();
+    expect(track).toHaveBeenCalledWith("onboarding_started", { entry: "direct", persona: "experienced" });
+    back();
+    expect(screen.getByRole("radio", { name: "Experienced" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("is skipped for everyone when the admin turned the persona step off", () => {
+    const config = { ...DEFAULT_BUILDER_CONFIG, onboarding: { ...DEFAULT_BUILDER_CONFIG.onboarding, personaStep: false } };
+    render(
+      <ToastProvider>
+        <ProfileSetup bio={{}} config={config} login="jo" server={none({ persona: null })} />
+      </ToastProvider>,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Drop in your resume." })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    expect(screen.queryByRole("menuitem", { name: "Change who I am" })).toBeNull();
+  });
+
+  it("'Change who I am' in the ⋯ menu changes it and returns to the very screen the person was on", async () => {
+    setup();
+    await pasteAndRead();
+    fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Change who I am" }));
+    expect(screen.getByRole("radio", { name: "Experienced" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("radio", { name: "First job" }));
+    cont();
+    expect(counter()).toBe("1 / 2");
+    expect(onboardingCalls("PATCH")[0].body).toEqual({ persona: "first_job" });
+    expect(track).toHaveBeenCalledWith("onboarding_persona_set", { persona: "first_job", changed: true });
+  });
+});
+
+describe("ProfileSetup: the source screen and the way in", () => {
+  it("upload is the hero with Paste and Start fresh as chips; there is no Stepper and no 'saved at the end' header", () => {
+    setup();
+    expect(screen.getByRole("button", { name: /Choose a file/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Paste text/ })).toBeTruthy();
     expect((screen.getByRole("button", { name: /Start fresh/ }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByText("Coming soon")).toBeNull();
+    expect(screen.queryByText(/Nothing is saved until you finish/)).toBeNull();
+    expect(screen.queryByText("Build your profile")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Profile setup progress" })).toBeNull();
+    expect(barLabel()).toBe("~2 min");
   });
 
-  it("Start fresh: answer one question at a time, land on the same review, and import the answers as the person's own", async () => {
+  it("choosing Paste or Start fresh is a recorded way in", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: /Paste text/ }));
+    expect(track).toHaveBeenCalledWith("onboarding_path_chosen", { path: "paste", persona: "experienced" });
+    expect(screen.getByRole("heading", { level: 1, name: "Paste it in." })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Upload a file instead" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Drop in your resume." })).toBeTruthy();
+  });
+
+  it("'Skip for now' goes straight to the 'is this you?' card with what the profile already has, then saves without an import", async () => {
+    setup({ firstName: "Janet", email: "janet@example.com" });
+    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
+    expect(track).toHaveBeenCalledWith("onboarding_path_chosen", { path: "skip", persona: "experienced" });
+    expect(screen.getByRole("heading", { level: 1, name: "Last check — is this you?" })).toBeTruthy();
+    expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Janet");
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(1);
+    expect(calls.some((c) => c.url === "/api/profile/items/import")).toBe(false);
+  });
+
+  it("the deep link opens that way in; Back from Paste returns to the source", async () => {
+    setup({}, none(), { initialPath: "paste" });
+    expect(await screen.findByLabelText("Resume text")).toBeTruthy();
+    expect(screen.queryByTestId("resume-banner")).toBeNull();
+    back();
+    expect(screen.getByRole("heading", { level: 1, name: "Drop in your resume." })).toBeTruthy();
+  });
+
+  it("a deep link on a new account still asks who they are first, and keeps the way in for afterwards", () => {
+    setup({}, none({ persona: null }), { initialPath: "paste" });
+    expect(screen.getByRole("radiogroup")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "Experienced" }));
+    cont();
+    expect(screen.getByRole("heading", { level: 1, name: "Paste it in." })).toBeTruthy();
+  });
+});
+
+describe("ProfileSetup: Start fresh", () => {
+  it("answer one question at a time, land on the same review, and import the answers as the person's own", async () => {
     setup({});
     fireEvent.click(screen.getByRole("button", { name: /Start fresh/ }));
-    expect(screen.getByText("Answer a few questions and confirm what you told us.", { exact: false })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "What are you looking for?" })).toBeTruthy();
+    // the goal chip is pre-filled from the persona (experienced: the same role), still changeable
+    expect(screen.getByRole("radio", { name: "The same role at a new company" }).getAttribute("aria-checked")).toBe("true");
 
     const next = () => fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("radio", { name: "The same role at a new company" }));
     next();
     fireEvent.change(screen.getByLabelText(/How would you describe yourself/), { target: { value: "Barista and shift lead" } });
     next();
@@ -134,24 +279,22 @@ describe("ProfileSetup", () => {
     next(); // links: none
 
     // The same card-by-card review, marked as the person's own.
-    await screen.findByText(/Work experience · 1 of 1/);
+    await screen.findByTestId("card-counter");
+    expect(counter()).toBe("1 / 1");
     expect(screen.getByText("You added")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    keep();
+    cont(); // the recap
 
     // Skills, prefilled from the answer; suggestions are "for you", not "from your resume".
-    expect(screen.getByText("Suggested for you")).toBeTruthy();
+    expect(screen.getByText("Suggested for you.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Remove Customer service" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    cont();
 
     // Identity: the headline is carried over for confirmation.
     expect((screen.getByLabelText("Headline") as HTMLInputElement).value).toBe("Barista and shift lead");
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
     expect(profileCalls()).toEqual([]); // nothing written to the profile yet
-
-    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    await screen.findByText("Your profile is set up.");
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
     const posts = profileCalls().filter((c) => c.method !== "GET");
     expect(posts.map((c) => `${c.method} ${c.url}`)).toEqual(["POST /api/profile/items/import", "PUT /api/profile"]);
     expect(posts[0].body).toEqual({
@@ -162,10 +305,28 @@ describe("ProfileSetup", () => {
     }); // no `bio`, no `provenanceBio: parsed`: nothing here was read from a resume
     const put = JSON.parse((posts[1].body as { payload: string }).payload) as Record<string, unknown>;
     expect(put.headline).toBe("Barista and shift lead");
-    expect(localStorage.getItem(MIRROR_KEY)).toBeNull();
   });
 
-  it("Start fresh keeps the answers across a reload", async () => {
+  it("Back inside the guided questions steps back through them, and from the first goes to the source", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: /Start fresh/ }));
+    fireEvent.click(screen.getByRole("radio", { name: "An internship" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: "How would you describe yourself in one line?" })).toBeTruthy();
+    back();
+    expect(screen.getByRole("heading", { name: "What are you looking for?" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "An internship" }).getAttribute("aria-checked")).toBe("true");
+    back();
+    expect(screen.getByRole("heading", { level: 1, name: "Drop in your resume." })).toBeTruthy();
+  });
+
+  it("a student's goal chip is 'An internship' without a tap", () => {
+    setup({}, none({ persona: "student" }));
+    fireEvent.click(screen.getByRole("button", { name: /Start fresh/ }));
+    expect(screen.getByRole("radio", { name: "An internship" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("keeps the answers across a reload", async () => {
     const first = setup({});
     fireEvent.click(screen.getByRole("button", { name: /Start fresh/ }));
     fireEvent.click(screen.getByRole("radio", { name: "An internship" }));
@@ -176,45 +337,43 @@ describe("ProfileSetup", () => {
     setup({});
     await screen.findByText(/Picked up where you left off — \d of \d done./);
     expect(screen.getByRole("heading", { name: "How would you describe yourself in one line?" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    back();
     expect(screen.getByRole("radio", { name: "An internship" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Start over" }));
-    expect(await screen.findByRole("button", { name: /Upload a resume/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Choose a file/ })).toBeTruthy();
   });
+});
 
-  it("writes nothing until Finish, then ONE import and ONE profile PUT with the confirmed values", async () => {
+describe("ProfileSetup: the whole flow from a pasted resume", () => {
+  it("writes nothing until 'Save my profile': ONE import and ONE profile PUT with the confirmed values", async () => {
     setup({ phone: "555-0100" });
     await pasteAndRead();
 
-    // The sensitive-values notice shows on the review.
+    // The sensitive-values notice shows on the first card.
     expect(screen.getByText(/We removed 2 sensitive values/)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Keep" })); // Engineer
-    fireEvent.click(screen.getByRole("button", { name: "Skip" })); // MIT
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // recap -> skills
+    keep(); // Engineer
+    skip(); // MIT
+    expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Nice. Here's what we'll add." })).toBeTruthy();
+    expect(screen.getByTestId("recap-line").textContent).toBe("Adding 1 role and 2 skills.");
+    cont(); // recap -> skills
 
     // Skills: drop Go, take the suggestion.
     fireEvent.click(screen.getByRole("button", { name: "Remove Go" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Kubernetes" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // -> identity
+    cont(); // -> identity
 
     // Identity: prefilled from the resume; type over the last name, leave the rest.
     expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Jane");
     fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Doe-Smith" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // -> prefs
-
-    // Preferences: the work-authorization question is unanswered; answer it.
-    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]); // the first Yes is work authorization
-    expect(screen.getByTestId("summary").textContent).toBe("Adding 1 role and 2 skills to your profile.");
-
     expect(profileCalls()).toEqual([]); // nothing so far touched the profile
 
-    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    await screen.findByText("Your profile is set up.");
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
 
     const posts = profileCalls().filter((c) => c.method !== "GET");
     expect(posts.map((c) => `${c.method} ${c.url}`)).toEqual(["POST /api/profile/items/import", "PUT /api/profile"]);
-
     expect(posts[0].body).toEqual({
       items: [
         { section: "EXPERIENCE", dataJson: draft.candidates[0].data, provenance: "PARSED" },
@@ -224,46 +383,128 @@ describe("ProfileSetup", () => {
       bio: { firstName: "Jane", email: "jane@example.com", summary: "Builds things." },
       provenanceBio: "parsed",
     });
-
     const put = JSON.parse((posts[1].body as { payload: string }).payload) as Record<string, unknown>;
     expect(put).toMatchObject({ phone: "555-0100", firstName: "Jane", lastName: "Doe-Smith", email: "jane@example.com", summary: "Builds things." });
-    expect(put.authorizedToWork).toBe("Yes");
-    expect(typeof put.onboardedAt).toBe("string");
+    expect(put).not.toHaveProperty("onboardedAt"); // the core confirm is not the end
+    expect(track).toHaveBeenCalledWith("onboarding_core_confirmed", { items: 3, merged: 0 });
 
-    // The finish screen: meter, next action, and the draft is gone.
+    // The first question: a tap is an answer, Continue writes just that key (a merge PUT) and shows the next question.
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
+    cont();
+    await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" });
+    const puts = profileCalls().filter((c) => c.method === "PUT");
+    expect(puts).toHaveLength(2);
+    const second = JSON.parse((puts[1].body as { payload: string }).payload) as Record<string, unknown>;
+    expect(second).toMatchObject({ phone: "555-0100", firstName: "Jane", lastName: "Doe-Smith", authorizedToWork: "Yes" });
+    expect(second).not.toHaveProperty("requireSponsorship");
+    expect(second).not.toHaveProperty("onboardedAt"); // the server stamps that on finish
+    expect(track).toHaveBeenCalledWith("onboarding_pref_answered", { key: "authorizedToWork", skipped: false });
+    await skipQuestions();
+    expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(2); // skipping wrote nothing
     expect(screen.getByRole("meter", { name: "Profile strength" }).getAttribute("aria-valuenow")).toBe("62");
-    expect(screen.getByText("Write a short summary")).toBeTruthy();
+    expect(screen.getByTestId("payoff-line").textContent).toBe("Kiwiply can now autofill ~14 fields for you.");
+    expect(onboardingCalls("POST", "/finish")).toHaveLength(1);
+    expect(track).toHaveBeenCalledWith("onboarding_finished", expect.objectContaining({ fields: 14, score: 62, persona: "experienced", path: "paste", prefsAnswered: 1 }));
     expect(localStorage.getItem(MIRROR_KEY)).toBeNull();
+  });
+
+  it("Back from the questions after the core confirm shows 'Your profile so far', not the cards", async () => {
+    setup();
+    await pasteAndRead();
+    keep();
+    keep();
+    cont(); // skills
+    cont(); // you
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    back();
+    expect(screen.getByRole("heading", { level: 1, name: "Your profile so far" })).toBeTruthy();
+    expect(screen.getByTestId("so-far-counts").textContent).toBe("1 role, 1 school and 2 skills");
+    expect(screen.getByText("Name, contact, headline")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Change any of it on your profile" }).getAttribute("href")).toBe("/profiles");
+    fireEvent.click(screen.getByRole("button", { name: "Back to questions" }));
+    expect(screen.getByRole("heading", { name: AUTH_Q })).toBeTruthy();
+    expect(calls.filter((c) => c.url === "/api/profile/items/import")).toHaveLength(1);
+  });
+
+  it("the bar goes forward and the estimate only ever goes down", async () => {
+    setup();
+    const bar = () => Number(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuenow"));
+    const minutes: number[] = [];
+    const read = () => {
+      const m = /(\d+) min/.exec(barLabel());
+      minutes.push(m ? Number(m[1]) : 0);
+    };
+    const values: number[] = [bar()];
+    read();
+    await pasteAndRead();
+    values.push(bar());
+    read();
+    keep();
+    values.push(bar());
+    read();
+    keep();
+    cont();
+    values.push(bar());
+    read(); // skills
+    cont();
+    values.push(bar());
+    read(); // you
+    for (let i = 1; i < values.length; i++) expect(values[i]).toBeGreaterThanOrEqual(values[i - 1]);
+    for (let i = 1; i < minutes.length; i++) expect(minutes[i]).toBeLessThanOrEqual(minutes[i - 1]);
+    expect(barLabel()).toMatch(/^(about \d+ min left|< 1 min left)$/);
   });
 
   it("keeps a draft when abandoned and offers it back, and Start over deletes it", async () => {
     const first = setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    keep();
     expect(localStorage.getItem(MIRROR_KEY)).toContain("Engineer");
     expect(profileCalls()).toEqual([]);
     first.unmount();
 
     setup();
     await screen.findByText(/Picked up where you left off/);
-    expect(screen.getByText(/Education · 2 of 2/)).toBeTruthy();
+    expect(counter()).toBe("2 / 2");
     fireEvent.click(screen.getByRole("button", { name: "Start over" }));
-    expect(await screen.findByRole("button", { name: /Upload a resume/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Choose a file/ })).toBeTruthy();
     expect(localStorage.getItem(MIRROR_KEY)).toBeNull();
     expect(onboardingCalls("DELETE", "/draft")).toHaveLength(1);
     expect(screen.queryByTestId("resume-banner")).toBeNull();
   });
 
-  it("does not replace what the profile has unless the user chooses the resume's value", async () => {
-    setup({ firstName: "Janet", authorizedToWork: "Yes", requireSponsorship: "No", desiredSalary: "100", noticePeriod: "1 month", workPreference: "Remote", gender: "x" });
+  it("'Start over' in the ⋯ menu asks first and keeps the persona", async () => {
+    setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep all 2 remaining" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // skills -> identity (every question answered: no prefs step)
+    keep();
+    fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Start over" }));
+    expect(screen.getByRole("dialog").textContent).toContain("Your confirmed profile stays; only the unfinished steps reset.");
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Start over" }));
+    expect(await screen.findByRole("button", { name: /Choose a file/ })).toBeTruthy(); // persona kept: not back on hello
+    expect(onboardingCalls("DELETE", "/draft")).toHaveLength(1);
+  });
+
+});
+
+describe("ProfileSetup: the core confirm", () => {
+  /** Keep everything and stand on the "is this you?" card. */
+  async function atIdentity(bio: Record<string, unknown> = {}) {
+    setup(bio);
+    await pasteAndRead();
+    keep();
+    keep();
+    cont(); // skills
+    cont(); // you
+  }
+
+  it("does not replace what the profile has unless the user chooses the resume's value", async () => {
+    await atIdentity({ firstName: "Janet", authorizedToWork: "Yes", requireSponsorship: "No", desiredSalary: "100", noticePeriod: "1 month", workPreference: "Remote", gender: "x" });
     expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Janet");
     expect(screen.getByText(/Your resume says/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    await screen.findByText("Your profile is set up.");
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { level: 1, name: /You're set/ }); // every question answered: straight to the payoff
     const imp = calls.find((c) => c.url === "/api/profile/items/import")?.body as { bio: Record<string, string> };
     expect(imp.bio).not.toHaveProperty("firstName");
     const put = JSON.parse((profileCalls().find((c) => c.method === "PUT")?.body as { payload: string }).payload) as Record<string, unknown>;
@@ -273,42 +514,158 @@ describe("ProfileSetup", () => {
   it("shows the API's refusal and lets the user retry without importing twice", async () => {
     let putAttempts = 0;
     profilePut = () => (putAttempts++ === 0 ? reply({ error: "Couldn't save your profile." }, 502) : reply({}));
-    setup({});
-    await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep all 2 remaining" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+    await atIdentity();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Couldn't save your profile.");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await screen.findByText("Your profile is set up.");
-    await waitFor(() => expect(calls.filter((c) => c.url === "/api/profile/items/import")).toHaveLength(1));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    expect(calls.filter((c) => c.url === "/api/profile/items/import")).toHaveLength(1);
+  });
+
+  it("the first question's Skip writes nothing and the second question follows", async () => {
+    await atIdentity();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    const before = profileCalls().filter((c) => c.method === "PUT").length;
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    expect(await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" })).toBeTruthy();
+    expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(before);
+    expect(track).toHaveBeenCalledWith("onboarding_pref_answered", { key: "authorizedToWork", skipped: true });
+  });
+});
+
+describe("ProfileSetup: the application questions, one per screen (R1.11)", () => {
+  const h1 = () => screen.getByRole("heading", { level: 1 }).textContent;
+  /** Paste, keep everything, save the profile: the first question is on screen. */
+  async function toQuestions(persona: OnboardingStatus["persona"], bio: Record<string, unknown> = {}) {
+    setup(bio, none({ persona }));
+    await pasteAndRead();
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+  }
+  const skipOne = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    await act(async () => undefined);
+  };
+
+  it("a student gets the student order, with salary left out", async () => {
+    await toQuestions("student");
+    expect(screen.getByText("Internship forms ask this on page one.")).toBeTruthy(); // the persona's tip, on the first screen
+    const seen: string[] = [h1() ?? ""];
+    for (let i = 0; i < 4; i++) {
+      await skipOne();
+      seen.push(h1() ?? "");
+    }
+    expect(seen).toEqual([AUTH_Q, "Will you now or in the future need visa sponsorship?", "How do you like to work?", "When could you start?", "Voluntary self-identification"]);
+  });
+
+  it("'Show all questions' on the last screen brings back the hidden one, just before the self-identification screen", async () => {
+    await toQuestions("student");
+    for (let i = 0; i < 4; i++) await skipOne();
+    expect(h1()).toBe("Voluntary self-identification");
+    fireEvent.click(screen.getByRole("button", { name: "Show all questions" }));
+    expect(h1()).toBe("What salary are you looking for?");
+    await skipOne();
+    expect(h1()).toBe("Voluntary self-identification");
+    expect(screen.queryByRole("button", { name: "Show all questions" })).toBeNull();
+    await skipOne();
+    await screen.findByRole("heading", { level: 1, name: /You're set/ });
+  });
+
+  it("a student's start question writes the Immediately notice option, and only that key", async () => {
+    await toQuestions("student");
+    await skipOne();
+    await skipOne();
+    await skipOne();
+    expect(h1()).toBe("When could you start?");
+    const before = profileCalls().filter((c) => c.method === "PUT").length;
+    fireEvent.click(screen.getByRole("radio", { name: "Right away" }));
+    cont();
+    await screen.findByRole("heading", { name: "Voluntary self-identification" });
+    const puts = profileCalls().filter((c) => c.method === "PUT");
+    expect(puts).toHaveLength(before + 1);
+    const body = JSON.parse((puts[puts.length - 1].body as { payload: string }).payload) as Record<string, unknown>;
+    expect(body.noticePeriod).toBe("Immediately");
+    expect(body).not.toHaveProperty("desiredSalary");
+  });
+
+  it("Back shows the previous question with the answer still selected, and from the first goes to 'Your profile so far'", async () => {
+    await toQuestions("experienced");
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
+    cont();
+    await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" });
+    back();
+    expect(h1()).toBe(AUTH_Q);
+    expect(screen.getAllByRole("radio", { name: "Yes" })[0].getAttribute("aria-checked")).toBe("true");
+    back();
+    expect(h1()).toBe("Your profile so far");
+  });
+
+  it("the bar's sub-progress follows the questions", async () => {
+    await toQuestions("experienced");
+    const bar = () => Number(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuenow"));
+    const first = bar();
+    await skipOne();
+    expect(bar()).toBeGreaterThan(first);
+    expect(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuetext")).toMatch(/^Step 6 of 7/);
+  });
+
+  it("a reload part-way through opens on the first question not yet answered or skipped, and the draft carries which are done", async () => {
+    const first = setup({}, none({ persona: "experienced" }));
+    await pasteAndRead();
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    await skipOne();
+    await skipOne();
+    expect(h1()).toBe("How soon could you start?");
+    await waitFor(() => expect(JSON.stringify(onboardingCalls("PUT", "/draft").pop()?.body)).toContain('"prefsDone":["authorizedToWork","requireSponsorship"]'), { timeout: 4000 });
+    first.unmount();
+    setup({ authorizedToWork: "" }, none({ persona: "experienced" }));
+    await screen.findByRole("heading", { level: 1 });
+    expect(h1()).toBe("How soon could you start?");
   });
 });
 
 describe("ProfileSetup ?step=prefs (where /welcome lands)", () => {
-  it("opens the preferences step when the profile has unanswered questions", () => {
+  it("opens the questions when the profile has unanswered ones, with a two-step bar", () => {
     setup({}, none(), { initialStep: "prefs" });
-    expect(screen.getByRole("heading", { name: "A few quick questions" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Upload a resume/ })).toBeNull();
-    expect(screen.queryByTestId("summary")).toBeNull();
-    // Back goes to the path picker, never to a step that has nothing behind it
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByRole("button", { name: /Upload a resume/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: AUTH_Q })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Choose a file/ })).toBeNull();
+    expect(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuetext")).toMatch(/^Step 1 of 2,/);
+    // Back goes to the way in, never to a step that has nothing behind it
+    back();
+    expect(screen.getByRole("button", { name: /Choose a file/ })).toBeTruthy();
   });
 
-  it("opens the path picker when every question is already answered", () => {
+  it("with nobody's persona the questions come in the /welcome order", async () => {
+    setup({}, none({ persona: null }), { initialStep: "prefs" });
+    expect(screen.getByRole("heading", { level: 1, name: AUTH_Q })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "What salary are you looking for?" })).toBeTruthy();
+  });
+
+  it("with every question already answered the payoff follows at once (finish is called)", async () => {
     const answered = Object.fromEntries(ALL_PREFERENCE_KEYS.map((k) => [k, "Yes"]));
     setup(answered, none(), { initialStep: "prefs" });
-    expect(screen.getByRole("button", { name: /Upload a resume/ })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: /You're set/ })).toBeTruthy();
+    expect(onboardingCalls("POST", "/finish")).toHaveLength(1);
   });
 });
 
 describe("summaryLine", () => {
   it("reads naturally", () => {
-    expect(summaryLine({ EXPERIENCE: 3, EDUCATION: 1, PROJECT: 2 }, 14)).toBe("Adding 3 roles, 1 school, 2 projects and 14 skills to your profile.");
-    expect(summaryLine({ EXPERIENCE: 0, EDUCATION: 0, PROJECT: 0 }, 1)).toBe("Adding 1 skill to your profile.");
+    expect(summaryLine({ EXPERIENCE: 3, EDUCATION: 1, PROJECT: 2 }, 14)).toBe("Adding 3 roles, 1 school, 2 projects and 14 skills.");
+    expect(summaryLine({ EXPERIENCE: 3, EDUCATION: 1, PROJECT: 0 }, 14)).toBe("Adding 3 roles, 1 school and 14 skills.");
+    expect(summaryLine({ EXPERIENCE: 0, EDUCATION: 0, PROJECT: 0 }, 1)).toBe("Adding 1 skill.");
     expect(summaryLine({ EXPERIENCE: 0, EDUCATION: 0, PROJECT: 0 }, 0)).toContain("Nothing to add");
   });
 });
@@ -320,7 +677,7 @@ import { INITIAL_STATE, reducer, withProgress, type SetupState } from "@/lib/pro
 const iso = (sec: number) => new Date(Date.UTC(2026, 9, 12, 10, 0, sec)).toISOString();
 /** The review step with `cursor` cards decided, as the wizard would have saved it. */
 const reviewState = (cursor: number, sec: number): SetupState =>
-  withProgress({ ...reducer(INITIAL_STATE, { type: "parsed", draft, source: "ai", removed: 2, existing: {} }), cursor, updatedAt: iso(sec) }, true, 6);
+  withProgress({ ...reducer({ ...INITIAL_STATE, persona: "experienced" }, { type: "parsed", draft, source: "ai", removed: 2, existing: {} }), cursor, updatedAt: iso(sec) }, true, 6);
 const draftStatus = (state: SetupState, updatedAt: string): OnboardingStatus => ({
   ...none(),
   status: "DRAFT",
@@ -336,7 +693,7 @@ describe("ProfileSetup autosave (DESIGN 7)", () => {
     setup();
     await pasteAndRead();
     expect(screen.queryByRole("button", { name: /^save/i })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    keep();
     await waitFor(() => expect(onboardingCalls("PUT", "/draft")).toHaveLength(1), { timeout: 4000 });
     const body = onboardingCalls("PUT", "/draft")[0].body as { v: number; step: string; stepsDone: number; stepsTotal: number; state: Record<string, unknown>; baseUpdatedAt?: string };
     expect(body).toMatchObject({ v: 2, step: "review", stepsDone: 2, stepsTotal: 7 });
@@ -347,31 +704,51 @@ describe("ProfileSetup autosave (DESIGN 7)", () => {
     expect(profileCalls()).toEqual([]); // the draft is not the profile
   });
 
+  it("the one labelled write is 'Save my profile', and it is not a draft save", async () => {
+    setup();
+    await pasteAndRead();
+    keep();
+    keep();
+    cont();
+    cont();
+    expect(screen.getByRole("button", { name: "Save my profile" })).toBeTruthy();
+    expect(screen.getByText("Nothing above is shared with anyone. Edit it anytime.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
+  });
+
   it("answers to the application questions never go in the draft", async () => {
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep all 2 remaining" }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // skills
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // you
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // prefs
+    keep();
+    keep();
+    cont(); // skills
+    cont(); // you
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
     fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
     await waitFor(() => expect(onboardingCalls("PUT", "/draft").length).toBeGreaterThan(0), { timeout: 4000 });
     await sleep(900);
     for (const c of onboardingCalls("PUT", "/draft")) expect(JSON.stringify(c.body)).not.toContain("authorizedToWork");
   });
 
-  it("the exit link says the progress is saved", async () => {
+  it("the exit link goes to the dashboard and says the progress is saved", async () => {
     setup();
-    expect((await screen.findByRole("link", { name: "Exit setup — your progress is saved" })).getAttribute("href")).toBe("/profiles");
+    const exit = await screen.findByRole("link", { name: "Exit setup — your progress is saved" });
+    expect(exit.getAttribute("href")).toBe("/dashboard");
+    fireEvent.click(exit);
+    expect(track).toHaveBeenCalledWith("onboarding_dismissed", { action: "exit" });
   });
 
   it("finish stamps the server, stops drafting for good, and clears the local copy", async () => {
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep all 2 remaining" }));
-    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    await screen.findByText("Your profile is set up.");
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    await skipQuestions();
     const order = calls.map((c) => `${c.method} ${c.url}`);
     const put = order.indexOf("PUT /api/profile");
     const fin = order.indexOf("POST /api/profile/onboarding/finish");
@@ -388,20 +765,50 @@ describe("ProfileSetup autosave (DESIGN 7)", () => {
     onboardingApi = (url, method, body) => (url === "/api/profile/onboarding/finish" ? reply({ error: "down" }, 502) : was(url, method, body));
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep all 2 remaining" }));
-    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    await screen.findByText("Your profile is set up.");
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Couldn't wrap up. Try again.");
+    // the answers are saved; only the wrap-up is repeated
     onboardingApi = was;
+    const puts = profileCalls().filter((c) => c.method === "PUT").length;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await screen.findByRole("heading", { level: 1, name: /You're set/ });
+    expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(puts);
+  });
+
+  it("a failed answer stays selected and says so; Continue again saves it", async () => {
+    setup();
+    await pasteAndRead();
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    let attempts = 0;
+    profilePut = () => (attempts++ === 0 ? reply({ error: "boom" }, 502) : reply({}));
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
+    cont();
+    expect((await screen.findByRole("alert")).textContent).toBe("Couldn't save that answer. Try again.");
+    expect(screen.getAllByRole("radio", { name: "Yes" })[0].getAttribute("aria-checked")).toBe("true");
+    cont();
+    expect(await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" })).toBeTruthy();
   });
 });
 
 describe("ProfileSetup picks up where the person left off", () => {
   it("from a draft saved on another device: opens on its step, says so, and has nothing to push", async () => {
     setup({}, draftStatus(reviewState(1, 5), iso(20)));
-    expect(await screen.findByText(/Education · 2 of 2/)).toBeTruthy();
+    await screen.findByTestId("card-counter");
+    expect(counter()).toBe("2 / 2");
     expect(screen.getByTestId("resume-banner").textContent).toContain("Picked up from your other device.");
     expect(track).toHaveBeenCalledWith("onboarding_resumed", expect.objectContaining({ device: "other", stepsDone: 2, stepsTotal: 7 }));
+    expect(track).not.toHaveBeenCalledWith("onboarding_started", expect.anything());
     await sleep(900);
     expect(onboardingCalls("PUT", "/draft")).toEqual([]);
     expect(seen()).toBe("saved");
@@ -409,21 +816,16 @@ describe("ProfileSetup picks up where the person left off", () => {
 
   it("a deep link (?path=) starts a NEW run only: it never replaces a saved draft", async () => {
     setup({}, draftStatus(reviewState(1, 5), iso(20)), { initialPath: "upload" });
-    expect(await screen.findByText(/Education · 2 of 2/)).toBeTruthy();
-    expect(screen.queryByText(/Drop your resume/i)).toBeNull();
-  });
-
-  it("with no draft, the deep link opens that way in", async () => {
-    setup({}, none(), { initialPath: "paste" });
-    expect(await screen.findByLabelText("Resume text")).toBeTruthy();
-    expect(screen.queryByTestId("resume-banner")).toBeNull();
+    await screen.findByTestId("card-counter");
+    expect(counter()).toBe("2 / 2");
+    expect(screen.queryByRole("button", { name: /Choose a file/ })).toBeNull();
   });
 
   it("the banner is for the first screen only", async () => {
     setup({}, draftStatus(reviewState(1, 5), iso(20)));
     await screen.findByTestId("resume-banner");
-    fireEvent.click(screen.getByRole("button", { name: "Skip" })); // the last card -> recap, still review
-    fireEvent.click(screen.getByRole("button", { name: "Continue" })); // -> skills
+    skip(); // the last card -> recap, still review
+    cont(); // -> skills
     expect(screen.queryByTestId("resume-banner")).toBeNull();
   });
 
@@ -434,7 +836,8 @@ describe("ProfileSetup picks up where the person left off", () => {
       JSON.stringify({ v: 1, step: "cards", path: "paste", parsed: v2.parsed, fresh: null, decisions: {}, edits: {}, cursor: 1, skills: ["React"], languages: [], identity: {}, prefs: {}, imported: false }),
     );
     setup();
-    expect(await screen.findByText(/Education · 2 of 2/)).toBeTruthy();
+    await screen.findByTestId("card-counter");
+    expect(counter()).toBe("2 / 2");
     expect(sessionStorage.getItem(V1_DRAFT_KEY)).toBeNull();
     await waitFor(() => expect(onboardingCalls("PUT", "/draft")).toHaveLength(1), { timeout: 4000 });
   });
@@ -442,16 +845,17 @@ describe("ProfileSetup picks up where the person left off", () => {
   it("opens from the local copy when the API cannot be reached, shows offline, and saves when it is back", async () => {
     const first = setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    keep();
     first.unmount();
     cleanup();
     calls.length = 0;
     setup({}, null);
-    expect(await screen.findByText(/Education · 2 of 2/)).toBeTruthy();
+    await screen.findByTestId("card-counter");
+    expect(counter()).toBe("2 / 2");
     expect(seen()).toBe("offline");
     expect(pillText()).toBe("Couldn't save — kept on this device");
     // the person works on offline; the pill's Retry (the API is back) sends it
-    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    skip();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(seen()).toBe("saved"), { timeout: 4000 });
     expect(onboardingCalls("PUT", "/draft").length).toBeGreaterThan(0);
@@ -467,13 +871,13 @@ describe("ProfileSetup when saving the draft fails", () => {
     };
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    keep();
     await waitFor(() => expect(seen()).toBe("offline"), { timeout: 4000 });
     expect(pillText()).toBe("Offline — saved on this device");
     expect(localStorage.getItem(MIRROR_KEY)).toContain("Engineer");
     expect(track).toHaveBeenCalledWith("onboarding_draft_offline", { retries: 0 });
     // the flow itself keeps working
-    expect(screen.getByText(/Education · 2 of 2/)).toBeTruthy();
+    expect(counter()).toBe("2 / 2");
     onboardingApi = was;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(seen()).toBe("saved"), { timeout: 4000 });
@@ -485,8 +889,8 @@ describe("ProfileSetup when saving the draft fails", () => {
       url === "/api/profile/onboarding/draft" && method === "PUT" ? reply({ code: "SENSITIVE_CONTENT", path: "state.parsed", class: "SSN_ITIN" }, 422) : was(url, method, body);
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
-    expect(await screen.findByText(/We never store .* it\'s in one of your entries; edit the card\./i, undefined, { timeout: 4000 })).toBeTruthy();
+    keep();
+    expect(await screen.findByText(/We never store .* it's in one of your entries; edit the card\./i, undefined, { timeout: 4000 })).toBeTruthy();
     expect(localStorage.getItem(MIRROR_KEY)).toContain("Engineer");
   });
 
@@ -495,7 +899,7 @@ describe("ProfileSetup when saving the draft fails", () => {
     onboardingApi = (url, method, body) => (url === "/api/profile/onboarding/draft" && method === "PUT" ? reply({ code: "DRAFT_TOO_LARGE", max: 262144 }, 413) : was(url, method, body));
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    keep();
     expect(await screen.findByText("That's more than we can hold in one setup — skip a few entries.", undefined, { timeout: 4000 })).toBeTruthy();
   });
 
@@ -504,7 +908,7 @@ describe("ProfileSetup when saving the draft fails", () => {
     onboardingApi = (url, method, body) => (url === "/api/profile/onboarding/draft" && method === "PUT" ? reply({ code: "DEMO_READ_ONLY" }, 403) : was(url, method, body));
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    keep();
     await waitFor(() => expect(pillText()).toBe("Demo accounts can't save — sign up to keep this."), { timeout: 4000 });
   });
 });
@@ -524,7 +928,7 @@ describe("ProfileSetup: the draft was changed on another device (409)", () => {
     };
     setup();
     await pasteAndRead();
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+    keep();
     return await screen.findByTestId("conflict-banner", undefined, { timeout: 4000 });
   }
 
@@ -535,7 +939,7 @@ describe("ProfileSetup: the draft was changed on another device (409)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use that" }));
     await waitFor(() => expect(screen.queryByTestId("conflict-banner")).toBeNull());
     // their draft is on the first card; ours had moved on to the second
-    expect(await screen.findByText(/Work experience · 1 of 2/)).toBeTruthy();
+    await waitFor(() => expect(counter()).toBe("1 / 2"));
     expect(track).toHaveBeenCalledWith("onboarding_draft_conflict", { choice: "theirs" });
     expect(seen()).toBe("saved");
   });
@@ -545,26 +949,22 @@ describe("ProfileSetup: the draft was changed on another device (409)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
     await waitFor(() => expect(screen.queryByTestId("conflict-banner")).toBeNull());
     await waitFor(() => expect(onboardingCalls("PUT", "/draft").some((c) => (c.body as { force?: boolean }).force === true)).toBe(true));
-    expect(screen.getByText(/Education · 2 of 2/)).toBeTruthy(); // still where this device was
+    expect(counter()).toBe("2 / 2"); // still where this device was
     expect(track).toHaveBeenCalledWith("onboarding_draft_conflict", { choice: "mine" });
     await waitFor(() => expect(seen()).toBe("saved"));
   });
 });
 
-describe("ProfileSetup header on a phone", () => {
-  // jsdom has no layout, so this pins the classes that keep the heading column from being squeezed (checked in a real
-  // browser at 360 / 390 / 1440 too): the status row wraps onto its own line above the title below `sm`.
-  it("lets the title block take the width and puts the status row above it, never beside it", async () => {
+describe("ProfileSetup on a phone", () => {
+  // jsdom has no layout, so this pins the classes that keep the heading from being squeezed (checked in a real browser at
+  // 360 / 390 / 1440 too): the title is a block of its own under the bar, and the sticky action area is there.
+  it("the title is its own block under the bar, the bar is one thin line, and the primary action is sticky", () => {
     setup();
-    const h1 = await screen.findByRole("heading", { level: 1, name: "Build your profile" });
-    const title = h1.parentElement as HTMLElement;
-    const header = title.parentElement as HTMLElement;
-    expect(header.className).toMatch(/\bflex-wrap\b/);
-    expect(title.className).toMatch(/\bmin-w-0\b/);
-    expect(title.className).toMatch(/\bflex-1\b/);
-    const status = screen.getByTestId("save-status").parentElement as HTMLElement;
-    expect(header.contains(status)).toBe(true);
-    expect(status.className).toMatch(/max-sm:order-first/);
-    expect(status.className).toMatch(/max-sm:basis-full/);
+    const h1 = screen.getByRole("heading", { level: 1, name: "Drop in your resume." });
+    expect(h1.className).toMatch(/text-balance/);
+    expect(h1.parentElement?.className ?? "").not.toMatch(/\bflex\b/);
+    expect(screen.getByRole("progressbar").className).toContain("h-1");
+    expect(screen.getByTestId("step-footer").className).toContain("sticky");
+    expect(screen.getByTestId("step-footer").className).toContain("env(safe-area-inset-bottom)");
   });
 });

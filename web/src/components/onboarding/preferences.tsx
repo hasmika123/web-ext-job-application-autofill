@@ -6,9 +6,9 @@ import { GENDERS, HISPANIC, NOTICE, RACES, VETERAN, DISABILITY, WORK_PREFERENCE,
 
 /**
  * The six `/welcome` questions (Phase 10.3b) as data plus the one component that renders a question.
- * `/welcome` shows them one per screen; the profile setup wizard (Resume Builder R1.4) shows the ones
- * still unanswered on a single step. Both write the same bio keys with the same strings, which is what
- * the extension fills into application forms.
+ * The setup flow (Onboarding v2 R1.11, `PrefsFlow`) shows the ones still unanswered one per screen, in the persona's order
+ * and with the persona's rewrites (`lib/onboarding/persona.ts`). The answers are the same bio keys with the same strings
+ * the extension fills into application forms; the retired `/welcome` wizard wrote them identically.
  */
 export type PreferenceQuestion = {
   title: string;
@@ -73,6 +73,7 @@ export default function PreferenceInputs({
   labelledBy,
   idPrefix = "welcome",
   onEnter,
+  salaryHint,
 }: {
   question: PreferenceQuestion;
   answers: Record<string, string>;
@@ -81,14 +82,16 @@ export default function PreferenceInputs({
   labelledBy: string;
   idPrefix?: string;
   onEnter?: () => void;
+  /** Replaces the hint under the salary box (a first job: "A range is fine, e.g. $45–55k"). */
+  salaryHint?: string;
 }) {
   const first = question.keys[0];
   if (first === "authorizedToWork" || first === "requireSponsorship") {
-    return <ChoiceGroup aria-labelledby={labelledBy} options={YESNO} value={answers[first] ?? ""} onChange={(v) => onChange(first, v)} allowClear />;
+    return <ChoiceGroup aria-labelledby={labelledBy} options={YESNO} value={answers[first] ?? ""} onChange={(v) => onChange(first, v)} allowClear size="lg" />;
   }
   if (first === "desiredSalary") {
     return (
-      <Field label="Desired salary" htmlFor={`${idPrefix}-salary`} hint="Write it the way you'd say it, e.g. $120,000. A number-only box gets just the number." className="mb-0 max-w-sm">
+      <Field label="Desired salary" htmlFor={`${idPrefix}-salary`} hint={salaryHint ?? "Write it the way you'd say it, e.g. $120,000. A number-only box gets just the number."} className="mb-0 max-w-sm">
         <Input
           id={`${idPrefix}-salary`}
           value={answers.desiredSalary ?? ""}
@@ -103,18 +106,18 @@ export default function PreferenceInputs({
     );
   }
   if (first === "noticePeriod") {
-    return <ChoiceGroup aria-labelledby={labelledBy} options={NOTICE} value={answers.noticePeriod ?? ""} onChange={(v) => onChange("noticePeriod", v)} allowClear />;
+    return <ChoiceGroup aria-labelledby={labelledBy} options={NOTICE} value={answers.noticePeriod ?? ""} onChange={(v) => onChange("noticePeriod", v)} allowClear size="lg" columns={4} />;
   }
   if (first === "workPreference") {
     return (
       <div className="flex flex-col gap-5">
         <div>
           <div id={`${idPrefix}-pref`} className="mb-2 text-[12.5px] font-semibold text-ink-soft">I prefer to work</div>
-          <ChoiceGroup aria-labelledby={`${idPrefix}-pref`} options={WORK_PREFERENCE} value={answers.workPreference ?? ""} onChange={(v) => onChange("workPreference", v)} allowClear />
+          <ChoiceGroup aria-labelledby={`${idPrefix}-pref`} options={WORK_PREFERENCE} value={answers.workPreference ?? ""} onChange={(v) => onChange("workPreference", v)} allowClear size="lg" columns={3} />
         </div>
         <div>
           <div id={`${idPrefix}-relocate`} className="mb-2 text-[12.5px] font-semibold text-ink-soft">Open to relocating?</div>
-          <ChoiceGroup aria-labelledby={`${idPrefix}-relocate`} options={YESNO} value={answers.willingToRelocate ?? ""} onChange={(v) => onChange("willingToRelocate", v)} allowClear />
+          <ChoiceGroup aria-labelledby={`${idPrefix}-relocate`} options={YESNO} value={answers.willingToRelocate ?? ""} onChange={(v) => onChange("willingToRelocate", v)} allowClear size="lg" />
         </div>
       </div>
     );

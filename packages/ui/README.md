@@ -20,8 +20,8 @@ Concretely:
   `className` (`h-4 w-4`) or the `size` prop. A web ESLint rule **fails the build on inline
   `<svg>`** outside this package (the one exception: `web/src/app/opengraph-image.tsx`,
   which `next/og` requires to be self-contained).
-- **Primitives** → `src/primitives/`. Button, IconButton, Input, Select, Field, Card, Badge
-  (+ Pill/Tag), Switch, ChoiceGroup, ChipInput (strings as chips: skills), SourceChip (provenance label: "From your resume" ...), Meter, Tabs, Toast (`ToastProvider`/`useToast`, optional `action` button such as Undo), Skeleton, Spinner,
+- **Primitives** → `src/primitives/`. Button (variants primary / accent / accent-soft / ghost / danger), IconButton, Input, Select, Field, Card, Badge
+  (+ Pill/Tag), Switch, ChoiceGroup (`size="lg"` = the 56 px onboarding tiles), ChipInput (strings as chips: skills), SourceChip (provenance label: "From your resume" ...), Meter, ProgressBar (one thin task-progress bar, 4 px, `role="progressbar"`), useReducedMotion (the one hook for `prefers-reduced-motion`), Tabs, Toast (`ToastProvider`/`useToast`, optional `action` button such as Undo; a toast waits while hovered or focused), Skeleton, Spinner,
   EmptyState, Dialog, SidePanel, SideSheet (left/right slide-in: push / overlay / fullscreen; the Resume Builder's two side-navs), Tooltip, DragHandle (the grip button of a sortable row), Menu, Popover (a floating panel for switches / links / rows: the Menu's sibling), Brand marks. Export new ones from
   `src/index.ts`.
 - **The page kit** (E2E-U0.0, `docs/APP-E2E-PLAN.md` section 2.3): the pieces every page story imports instead of
