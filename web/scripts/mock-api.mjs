@@ -51,6 +51,20 @@ const ACCOUNTS = {
   },
 };
 
+// MOCK_FIXTURE=<name> (U19.3): `scripts/fixtures/<name>.mjs` adds accounts (non-demo logins with a test password) and may
+// mark them `empty: true` (every per-user list comes back empty). Unset = the demo accounts only, as before.
+const FIXTURE_NAME = process.env.MOCK_FIXTURE ?? "";
+if (FIXTURE_NAME && !/^[a-z0-9-]+$/.test(FIXTURE_NAME)) {
+  console.error(`mock-api: bad MOCK_FIXTURE "${FIXTURE_NAME}"`);
+  process.exit(1);
+}
+const FIXTURE = FIXTURE_NAME ? (await import(`./fixtures/${FIXTURE_NAME}.mjs`)).default : null;
+/** login -> { ...account, password, empty } for the fixture's non-demo accounts. */
+const FIXTURE_ACCOUNTS = FIXTURE?.accounts ?? {};
+for (const a of Object.values(FIXTURE_ACCOUNTS))
+  ACCOUNTS[a.login] = { login: a.login, email: a.email, firstName: a.firstName, lastName: a.lastName, authorities: a.authorities, activated: a.activated };
+const isEmptyAccount = (sub) => !!sub && !!FIXTURE_ACCOUNTS[sub]?.empty;
+
 // Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
 const DEMO_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ENABLED ?? "true");
 
@@ -1337,6 +1351,13 @@ function handleProfileItems(req, res, path, method) {
     json(res, 401, { error: "Unauthorized" });
     return true;
   }
+  if (isEmptyAccount(subOf(req)) && method === "GET") {
+    req.resume();
+    if (path === "/api/profile/completeness")
+      json(res, 200, { score: 0, parts: {}, nextAction: { key: "identity", label: "Complete your name, email and phone", href: "/profiles?tab=personal" } });
+    else json(res, 200, []);
+    return true;
+  }
   if (path === "/api/profile/completeness" && method === "GET") {
     req.resume();
     json(res, 200, completeness());
@@ -1422,6 +1443,13 @@ const server = http.createServer((req, res) => {
     return withBody(req, (b) => {
       const login = String(b.login ?? "");
       return ACCOUNTS[login] ? json(res, 200, pair(login)) : json(res, 400, { error: "Unknown demo account." });
+    });
+  }
+  if (path === "/api/authenticate" && method === "POST") {
+    return withBody(req, (b) => {
+      const who = String(b.username ?? "").trim().toLowerCase();
+      const hit = Object.values(FIXTURE_ACCOUNTS).find((a) => a.login.toLowerCase() === who || a.email.toLowerCase() === who);
+      return hit && hit.password === b.password ? json(res, 200, pair(hit.login)) : json(res, 401, { error: "Bad credentials" });
     });
   }
   if (path === "/api/refresh" && method === "POST") {
@@ -1610,12 +1638,13 @@ const server = http.createServer((req, res) => {
     });
   if (path === "/api/ai/usage")
     return json(res, 200, PRO ? { metered: "budget", ...aiUsage() } : { metered: "count", used: 1, limit: 3, resetsAt: ago(-20), economy: false });
-  if (path === "/api/profile") return json(res, 200, { payload: JSON.stringify(BIO) });
+  const emptyUser = isEmptyAccount(sub);
+  if (path === "/api/profile") return emptyUser ? json(res, 404, {}) : json(res, 200, { payload: JSON.stringify(BIO) });
   // R1.6: where each saved bio value came from (the real API keeps this off GET /api/profile). The demo says "parsed" for names, "user" for the rest.
   if (path === "/api/profile/provenance")
-    return json(res, 200, Object.fromEntries(Object.keys(BIO).filter((k) => typeof BIO[k] === "string").map((k) => [k, k === "firstName" || k === "lastName" ? "parsed" : "user"])));
-  if (path === "/api/profile/applications") return json(res, 200, APPLICATIONS);
-  if (path === "/api/profile/resumes") return json(res, 200, RESUMES.map(listRow));
+    return json(res, 200, emptyUser ? {} : Object.fromEntries(Object.keys(BIO).filter((k) => typeof BIO[k] === "string").map((k) => [k, k === "firstName" || k === "lastName" ? "parsed" : "user"])));
+  if (path === "/api/profile/applications") return json(res, 200, emptyUser ? [] : APPLICATIONS);
+  if (path === "/api/profile/resumes") return json(res, 200, emptyUser ? [] : RESUMES.map(listRow));
   if (path === "/api/profile/suggestions") return json(res, 200, []);
   if (path === "/api/profile/notifications") return json(res, 200, { unread: 0, items: [] });
   if (path === "/api/profile/job-matches/settings") return json(res, 200, { enabled: false });

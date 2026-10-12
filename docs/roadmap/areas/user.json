@@ -3171,7 +3171,7 @@
       "id": "U19.3",
       "epic": "U19",
       "title": "Test infrastructure: vitest + Playwright for web, mock API fixtures, CI jobs",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"

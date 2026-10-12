@@ -70,6 +70,35 @@ jobs:
       - run: npm test --workspace web # sync parser-core + tsc --noEmit + eslint
       - run: npm run build --workspace web # strongest gate: next build (standalone)
 
+  web-e2e:
+    # U19.3: Playwright journeys against `npm run dev:demo` (Next + the mock API, no database): every signed-in
+    # route at 390 / 1440 with no console errors or horizontal scroll, and the fresh-account empty states.
+    name: Web end-to-end (Playwright on dev:demo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      npm_config_script_shell: /bin/bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      # Playwright's own Chromium (the version @playwright/test pins) plus the system libraries it needs.
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run test:e2e --workspace web
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report/
+            web/test-results/
+          retention-days: 7
+
   web-docker:
     name: Web Docker image builds + smoke
     runs-on: ubuntu-latest
