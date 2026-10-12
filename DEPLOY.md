@@ -955,8 +955,14 @@ organization admin), that anyone can open from the login page without signing up
   upload/delete and the AI resume parse. The application board (status changes, notes) stays live.
 - **Reset:** "Reset demo data" on the admin card (a data operation, still in admin and audited as
   `DEMO_RESET`; disabled while the demo is off) wipes both accounts' rows and re-seeds the job seeker
-  (Jordan Lee, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
+  (Priya Sharma, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
   board in a mess.
+- **Demo organization:** when the demo AND the org feature (`ORGS_ENABLED`) are on, and the `prod` Spring profile is
+  NOT active, the same seed also creates `demo-bootcamp` (a bootcamp owned by `demo-org`: two cohorts, two staff,
+  twelve synthetic members of whom nine share a summary, two share nothing and one is still invited, plus Priya as a
+  summary-sharing member). It is idempotent, never overwrites a member's own sharing choice, and the synthetic
+  people are non-activated accounts on `example.com` that nobody can sign in as. Production never gets it:
+  `ORGS_ENABLED` defaults to false and the profile check refuses regardless.
 - **Local demo (no API, no database):** `npm ci` at the repo root, then `npm run dev:demo -w web`. It starts
   `web/scripts/mock-api.mjs` (a stand-in for the Spring API on `:8080`, demo switched on unless `MOCK_DEMO_ENABLED=false`, fixed data for
   Priya Sharma and the org admin, every write refused with `DEMO_READ_ONLY`) and `next dev` pointed at it.

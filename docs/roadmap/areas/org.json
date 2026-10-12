@@ -303,7 +303,7 @@
       "id": "O1.8",
       "epic": "O1",
       "title": "Demo org seed for demo accounts (labelled)",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API"

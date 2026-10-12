@@ -21,6 +21,7 @@ import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.inbox.InboxService;
+import com.dossier.api.service.org.DemoOrgSeeder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -112,6 +113,7 @@ public class DemoAccountService {
     private final NotificationService notificationService;
     private final AiUsageRepository aiUsageRepository;
     private final AiCallRepository aiCallRepository;
+    private final DemoOrgSeeder orgSeeder;
     private final ObjectMapper objectMapper;
 
     private final String demoPassword;
@@ -139,6 +141,7 @@ public class DemoAccountService {
         NotificationService notificationService,
         AiUsageRepository aiUsageRepository,
         AiCallRepository aiCallRepository,
+        DemoOrgSeeder orgSeeder,
         ObjectMapper objectMapper,
         @Value("${dossier.demo.password:kiwiply-demo}") String demoPassword,
         @Value("${dossier.demo.enabled:false}") boolean enabled
@@ -163,6 +166,7 @@ public class DemoAccountService {
         this.notificationService = notificationService;
         this.aiUsageRepository = aiUsageRepository;
         this.aiCallRepository = aiCallRepository;
+        this.orgSeeder = orgSeeder;
         this.objectMapper = objectMapper;
         // A blank DEMO_PASSWORD (the production default) means "no usable password": a random one per boot,
         // so the only way into a demo account is the one-click login, never a typed password.
@@ -222,6 +226,12 @@ public class DemoAccountService {
         if (demo.isPresent() && applicationRepository.findByUserId(demo.get().getId()).isEmpty()) {
             resetData();
         }
+        seedOrg(); // idempotent and cheap once seeded; refuses unless the demo and org features are on and this is not prod
+    }
+
+    /** The demo organization (O1.8): {@code demo-bootcamp}, owned by {@code demo-org}, with {@code demo} as a member. */
+    private void seedOrg() {
+        orgSeeder.seed(userRepository.findOneByLogin(LOGIN_ORG).orElse(null), userRepository.findOneByLogin(LOGIN_JOB_SEEKER).orElse(null));
     }
 
     // ---- accounts -----------------------------------------------------------------------------
@@ -240,7 +250,7 @@ public class DemoAccountService {
                 authority.setName(AuthoritiesConstants.USER);
                 return authorityRepository.save(authority);
             });
-        ensureAccount(LOGIN_JOB_SEEKER, "Demo", "Job seeker", userAuthority);
+        ensureAccount(LOGIN_JOB_SEEKER, "Priya", "Sharma", userAuthority); // the demo persona (D47)
         ensureAccount(LOGIN_ORG, "Demo", "Organization", userAuthority);
     }
 
@@ -249,6 +259,11 @@ public class DemoAccountService {
         if (existing.isPresent()) {
             User user = existing.get();
             boolean dirty = false;
+            if (!java.util.Objects.equals(firstName, user.getFirstName()) || !java.util.Objects.equals(lastName, user.getLastName())) {
+                user.setFirstName(firstName); // an account made before the persona was renamed (Jordan, then "Demo") follows the seed
+                user.setLastName(lastName);
+                dirty = true;
+            }
             if (user.getPassword() == null || !passwordEncoder.matches(demoPassword, user.getPassword())) {
                 user.setPassword(passwordEncoder.encode(demoPassword));
                 dirty = true;
@@ -284,7 +299,7 @@ public class DemoAccountService {
 
     /**
      * Wipe both demo accounts' data (applications, resumes, profile, notifications, inbox, AI
-     * rows) and re-seed the job seeker: a profile for the fictional Jordan Lee, two resumes
+     * rows) and re-seed the job seeker: a profile for the fictional Priya Sharma (D47), two resumes
      * (label and parsed content only, no file) and eight applications across the board.
      */
     @Transactional
@@ -294,6 +309,7 @@ public class DemoAccountService {
             wipe(userRepository.findOneByLogin(account.login()).orElseThrow());
         }
         seed(userRepository.findOneByLogin(LOGIN_JOB_SEEKER).orElseThrow());
+        seedOrg();
         LOG.info("Demo data reset: {} applications seeded for '{}'", SEEDED_APPLICATIONS, LOGIN_JOB_SEEKER);
     }
 
@@ -332,8 +348,8 @@ public class DemoAccountService {
         bio.setPayload(toJson(bioPayload()));
         bioRepository.save(bio);
 
-        Resume primary = resume(demo, "Jordan Lee - Product Designer", true, now.minus(40, ChronoUnit.DAYS), resumeJson(true));
-        Resume systems = resume(demo, "Jordan Lee - Design Systems focus", false, now.minus(12, ChronoUnit.DAYS), resumeJson(false));
+        Resume primary = resume(demo, "Priya Sharma - Product Designer", true, now.minus(40, ChronoUnit.DAYS), resumeJson(true));
+        Resume systems = resume(demo, "Priya Sharma - Design Systems focus", false, now.minus(12, ChronoUnit.DAYS), resumeJson(false));
 
         // Newest-first story: an offer, two interviews, two applied, a draft, a saved job, a rejection.
         application(demo, now, "Lumen Health", "Senior Product Designer", ApplicationStatus.OFFER, 34, 30, "Austin, TX", JobMode.HYBRID, "$150,000 - $170,000", "Greenhouse", "https://boards.greenhouse.io/lumenhealth/jobs/4012001", primary);
@@ -408,18 +424,18 @@ public class DemoAccountService {
 
     private Map<String, Object> bioPayload() {
         Map<String, Object> bio = new LinkedHashMap<>();
-        bio.put("firstName", "Jordan");
-        bio.put("lastName", "Lee");
-        bio.put("preferredName", "Jordan");
-        bio.put("email", "jordan.lee@example.com");
+        bio.put("firstName", "Priya");
+        bio.put("lastName", "Sharma");
+        bio.put("preferredName", "Priya");
+        bio.put("email", "priya.sharma@example.com");
         bio.put("phone", "(512) 555-0142");
         bio.put("addressLine1", "1200 Example Street");
         bio.put("city", "Austin");
         bio.put("state", "TX");
         bio.put("postalCode", "78701");
         bio.put("country", "United States");
-        bio.put("linkedin", "https://www.linkedin.com/in/jordan-lee-example");
-        bio.put("website", "https://jordanlee.example.com");
+        bio.put("linkedin", "https://www.linkedin.com/in/priya-sharma-example");
+        bio.put("website", "https://priyasharma.example.com");
         bio.put("authorizedToWork", "Yes");
         bio.put("requireSponsorship", "No");
         bio.put("desiredSalary", "$150,000");

@@ -13,6 +13,7 @@
  * NODE_ENV=production.
  */
 import http from "node:http";
+import { readFileSync } from "node:fs";
 
 if (process.env.NODE_ENV === "production") {
   console.error("mock-api: refusing to run with NODE_ENV=production");
@@ -55,6 +56,15 @@ const ACCOUNTS = {
 const DEMO_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ENABLED ?? "true");
 // Mirrors the real API org feature flag (ORGS_ENABLED): on in the mock by default, MOCK_ORGS_ENABLED=false turns it off.
 const ORGS_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_ORGS_ENABLED ?? "true");
+
+// The demo organization (fixtures/demo-org.json is the same table the API seeds; DemoOrgSeederIT diffs it against the seed).
+const DEMO_ORG = JSON.parse(readFileSync(new URL("./fixtures/demo-org.json", import.meta.url), "utf8"));
+const ORG_OWNER_PERMISSIONS = ["org.settings.manage", "org.close", "org.transfer_ownership", "members.invite", "members.import", "members.role.set", "members.remove", "members.suspend", "members.support_owner.set", "groups.manage", "assignments.manage", "billing.view", "billing.manage", "reports.view", "reports.export", "member.view_summary", "services.order_for_member", "audit.view", "integrations.manage", "ops.*", "self.share_scope.set", "self.leave"];
+const ORG_MEMBER_PERMISSIONS = ["ops.own_hours", "self.share_scope.set", "self.leave"];
+/** Active seats: the owner, the people with ACTIVE status, and the demo job seeker. */
+const demoOrgSeats = () => 1 + DEMO_ORG.people.filter((p) => p.status === "ACTIVE").length + 1;
+const demoOrgRole = (sub) => (sub === DEMO_ORG.owner ? "OWNER" : sub === DEMO_ORG.jobSeeker.login ? "MEMBER" : null);
+const demoOrgNotFound = (res) => json(res, 404, { status: 404, code: "NOT_FOUND", title: "Not Found", message: "error.org" });
 
 const DEMO_ACCOUNTS = [
   {
@@ -1600,6 +1610,39 @@ const server = http.createServer((req, res) => {
       return json(res, 200, { loggers: { ROOT: { effectiveLevel: "INFO" }, "com.dossier.api": { effectiveLevel: "DEBUG" }, "org.springframework": { effectiveLevel: "WARN" } } });
     // --- end admin3b ---
     return json(res, 404, { error: `mock-api: no admin handler for ${path}` });
+  }
+
+  // --- the demo organization (O1.8): reads only (writes were refused above); the same org the real API seeds ---
+  if (path === "/api/orgs" || path.startsWith("/api/orgs/")) {
+    if (!ORGS_ENABLED) return demoOrgNotFound(res);
+    const role = demoOrgRole(sub);
+    const org = { ...DEMO_ORG.org, billingEmail: null, settings: null };
+    if (path === "/api/orgs/mine") {
+      return json(res, 200, role ? [{ orgId: org.id, slug: org.slug, name: org.name, role, status: org.status, memberCount: demoOrgSeats() }] : []);
+    }
+    const m = /^\/api\/orgs\/(\d+)(\/groups)?$/.exec(path);
+    if (!role || !m || Number(m[1]) !== org.id) return demoOrgNotFound(res);
+    if (!m[2]) {
+      return json(res, 200, {
+        org,
+        me: { memberId: role === "OWNER" ? 1 : 2, role, permissions: role === "OWNER" ? ORG_OWNER_PERMISSIONS : ORG_MEMBER_PERMISSIONS },
+        memberCount: demoOrgSeats(),
+        status: org.status,
+      });
+    }
+    if (role !== "OWNER") return demoOrgNotFound(res); // listing groups needs member.view_summary
+    const live = DEMO_ORG.people.filter((p) => p.status === "ACTIVE" || p.status === "INVITED"); // LIVE seats: invited, active, suspended
+    return json(
+      res,
+      200,
+      DEMO_ORG.groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        kind: g.kind,
+        sortOrder: g.sortOrder,
+        memberCount: live.filter((p) => p.group === g.name).length + (DEMO_ORG.jobSeeker.group === g.name ? 1 : 0),
+      })),
+    );
   }
 
   if (path === "/api/account") return json(res, 200, ACCOUNTS[sub]);

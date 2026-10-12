@@ -27,6 +27,7 @@ import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.inbox.InboxService;
+import com.dossier.api.service.org.DemoOrgSeeder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
@@ -84,6 +85,7 @@ class DemoAccountServiceTest {
             notificationService,
             mock(AiUsageRepository.class),
             mock(AiCallRepository.class),
+            mock(DemoOrgSeeder.class),
             mapper,
             password,
             enabled
@@ -129,8 +131,8 @@ class DemoAccountServiceTest {
         assertThat(users).containsOnlyKeys("demo", "demo-org");
         User demo = users.get("demo");
         assertThat(demo.getEmail()).isEqualTo("demo@kiwiply.com");
-        assertThat(demo.getFirstName()).isEqualTo("Demo");
-        assertThat(demo.getLastName()).isEqualTo("Job seeker");
+        assertThat(demo.getFirstName()).isEqualTo("Priya");
+        assertThat(demo.getLastName()).isEqualTo("Sharma");
         assertThat(demo.isActivated()).isTrue();
         assertThat(demo.getAuthorities()).extracting(Authority::getName).containsExactly("ROLE_USER");
         assertThat(demo.getPassword()).isNotEqualTo("s3cret-demo");
@@ -254,15 +256,15 @@ class DemoAccountServiceTest {
     // ---- the seed -----------------------------------------------------------------------------
 
     @Test
-    void resetDataSeedsJordanLeeWithEightApplicationsAndTwoFilelessResumes() throws Exception {
+    void resetDataSeedsPriyaSharmaWithEightApplicationsAndTwoFilelessResumes() throws Exception {
         service("pw").resetData();
 
         // Profile: a complete fictional job seeker.
         ArgumentCaptor<Bio> bio = ArgumentCaptor.forClass(Bio.class);
         verify(bioRepository).save(bio.capture());
         JsonNode payload = mapper.readTree(bio.getValue().getPayload());
-        assertThat(payload.get("firstName").asText()).isEqualTo("Jordan");
-        assertThat(payload.get("lastName").asText()).isEqualTo("Lee");
+        assertThat(payload.get("firstName").asText()).isEqualTo("Priya");
+        assertThat(payload.get("lastName").asText()).isEqualTo("Sharma");
         assertThat(payload.get("city").asText()).isEqualTo("Austin");
         assertThat(payload.get("state").asText()).isEqualTo("TX");
         assertThat(payload.get("skills")).isNotEmpty();
