@@ -14,12 +14,19 @@ import { cn } from "./cn";
  *
  * Clicking the selected option again clears it when `allowClear` is set, so an optional
  * question can be un-answered without a separate control.
+ *
+ * `size="lg"` is the onboarding chip: 56 px tall, rounded tiles whose label may carry an icon, in a grid of
+ * `columns` per row (2 on a phone, up to 4 from `sm`), and the picked one pops once (reduced motion: colour only).
  */
 export interface ChoiceGroupProps {
   options: (string | { value: string; label: ReactNode })[];
   value?: string;
   onChange: (value: string) => void;
   allowClear?: boolean;
+  /** "md" (default): a row of pills. "lg": big 56 px tiles in a grid (the onboarding questions). */
+  size?: "md" | "lg";
+  /** With `size="lg"`: tiles per row from `sm` up (2 on a phone). Default 2. */
+  columns?: 2 | 3 | 4;
   disabled?: boolean;
   className?: string;
   id?: string;
@@ -27,11 +34,15 @@ export interface ChoiceGroupProps {
   "aria-labelledby"?: string;
 }
 
+const GRID = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-3", 4: "sm:grid-cols-4" } as const;
+
 export default function ChoiceGroup({
   options,
   value,
   onChange,
   allowClear,
+  size = "md",
+  columns = 2,
   disabled,
   className,
   id,
@@ -39,6 +50,7 @@ export default function ChoiceGroup({
 }: ChoiceGroupProps) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const items = options.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
+  const lg = size === "lg";
   const selected = items.findIndex((o) => o.value === value);
   // One tab stop: the selected option, or the first when nothing is picked yet.
   const tabStop = selected >= 0 ? selected : 0;
@@ -53,7 +65,12 @@ export default function ChoiceGroup({
   }
 
   return (
-    <div id={id} role="radiogroup" {...aria} className={cn("flex flex-wrap gap-2", className)}>
+    <div
+      id={id}
+      role="radiogroup"
+      {...aria}
+      className={cn(lg ? "grid grid-cols-2 gap-2.5" : "flex flex-wrap gap-2", lg && GRID[columns], className)}
+    >
       {items.map((o, i) => {
         const on = i === selected;
         return (
@@ -70,10 +87,13 @@ export default function ChoiceGroup({
             onClick={() => onChange(on && allowClear ? "" : o.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "min-h-11 rounded-full border px-4 py-2 text-sm font-semibold sm:min-h-0 transition-colors duration-150 cursor-pointer",
+              lg
+                ? "flex min-h-14 items-center justify-center gap-2.5 rounded-2xl border px-3 py-2 text-center text-[14.5px] font-semibold leading-tight transition-colors duration-150 cursor-pointer"
+                : "min-h-11 rounded-full border px-4 py-2 text-sm font-semibold sm:min-h-0 transition-colors duration-150 cursor-pointer",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               on ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink hover:bg-paper-2",
+              on && lg && "kiwi-pop",
             )}
           >
             {o.label}

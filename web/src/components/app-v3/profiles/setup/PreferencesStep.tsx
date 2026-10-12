@@ -18,7 +18,7 @@ export default function PreferencesStep({
 }) {
   return (
     <div>
-      <h2 className="font-display text-[20px] font-extrabold text-v2-navy">A few quick questions</h2>
+      <h1 tabIndex={-1} className="font-display text-[24px] font-extrabold leading-tight text-balance text-v2-navy sm:text-[28px]" style={{ outline: "none" }}>A few quick questions</h1>
       <p className="mt-1 text-[14px] text-v2-ink-soft">Only what a resume can&apos;t tell us. All optional, and Kiwiply learns the rest as you apply.</p>
 
       <div className="mt-5 flex flex-col gap-7">

@@ -43,6 +43,50 @@ export function buildSyncMessage(event: SyncEvent): { type: typeof SYNC_MESSAGE;
   return { type: SYNC_MESSAGE, event };
 }
 
+/** The relay's presence check (Firefox), the same words `/connect` uses. */
+const RELAY_PING = "KIWIPLY_CONNECT_PING";
+const RELAY_PONG = "KIWIPLY_CONNECT_PONG";
+
+/**
+ * Is the Kiwiply extension installed in this browser? Resolves within `timeoutMs` (the setup payoff waits 300 ms, DESIGN
+ * 5.11), never rejects, and answers false for "no", "can't tell" and "not a browser we ship for". Chrome / Edge: a
+ * `changed` sync signal to the pinned extension id (harmless: the extension just re-pulls its mirror) is answered only
+ * by the extension. Firefox: the connect-relay's ping, which only an installed extension answers.
+ */
+export function detectExtension(timeoutMs: number): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  return new Promise((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    function finish(found: boolean) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      window.removeEventListener("message", onMessage);
+      resolve(found);
+    }
+    function onMessage(e: MessageEvent) {
+      if (e.source === window && e.origin === window.location.origin && (e.data as { type?: unknown } | null)?.type === RELAY_PONG) finish(true);
+    }
+    const chromeApi = (window as unknown as { chrome?: { runtime?: ChromeRuntime } }).chrome;
+    const direct = chromeApi?.runtime?.sendMessage;
+    if (direct && EXT_ID) {
+      try {
+        direct(EXT_ID, buildSyncMessage("changed"), () => finish(!chromeApi?.runtime?.lastError));
+      } catch {
+        finish(false);
+      }
+      return;
+    }
+    try {
+      window.addEventListener("message", onMessage);
+      window.postMessage({ type: RELAY_PING }, window.location.origin);
+    } catch {
+      finish(false);
+    }
+  });
+}
+
 /**
  * Tell the extension something changed. Never throws, never blocks; safe to call from any
  * client component after a successful save / sign-in / sign-out.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Button, ChipInput, ChoiceGroup, Input, MonthPicker, PlusIcon, cn, inputClass } from "@kiwiply/ui";
+import { ArrowRightIcon, Button, ChipInput, ChoiceGroup, Input, MonthPicker, PlusIcon, cn, inputClass } from "@kiwiply/ui";
 import { FRESH_GOALS, HEADLINE_SUGGESTIONS, type FreshGoalId } from "@/lib/profile-options";
 import type { BioLimits } from "@/lib/profile-setup/draft";
 import { MAX_SKILL_CHARS } from "@/lib/profile-setup/draft";
@@ -19,6 +19,7 @@ import {
   type MenuChoice,
 } from "@/lib/profile-setup/fresh";
 import type { SetupParse } from "@/lib/profile-setup/parse";
+import { StepFooter } from "./parts";
 
 interface Question {
   title: string;
@@ -79,7 +80,9 @@ const LINK_FIELDS: { key: LinkKey; label: string; placeholder: string }[] = [
  * upload. One question per screen with a visible Next; chips where the answer is a choice, a month
  * and year picker for dates, What / How / Result prompts for a role's bullets, and "Add another?".
  * Fully controlled: the wizard owns the answers (so Back from the review returns to them and a
- * reload keeps them) and this turns them into the same `SetupParse` Upload and Paste produce.
+ * reload keeps them) and this turns them into the same `SetupParse` Upload and Paste produce. It runs inside the onboarding
+ * shell (R1.10): Back is the shell's top bar (which steps this flow back through the same reducer), the question is the
+ * screen's `<h1>`, and its progress feeds the bar (`freshProgress`).
  */
 export default function FreshFlow({
   fresh,
@@ -87,7 +90,6 @@ export default function FreshFlow({
   bioLimits,
   bulletChars,
   onDone,
-  onBack,
 }: {
   fresh: FreshState;
   dispatch: (action: FreshAction) => void;
@@ -96,8 +98,6 @@ export default function FreshFlow({
   /** `config.limits.bulletChars`. */
   bulletChars: number;
   onDone: (result: SetupParse) => void;
-  /** Back from the first question: the path picker. */
-  onBack: () => void;
 }) {
   // The message belongs to the question it was raised on; moving to another one hides it.
   const [problem, setProblem] = useState<{ step: FreshStepId; message: string } | null>(null);
@@ -263,9 +263,9 @@ export default function FreshFlow({
       <p className="text-[12.5px] font-semibold text-v2-muted" data-testid="fresh-context">
         {stepContext(fresh)}
       </p>
-      <h2 id={qid} className="mt-1 font-display text-[20px] font-extrabold text-v2-navy">
+      <h1 id={qid} tabIndex={-1} className="mt-1 font-display text-[24px] font-extrabold leading-tight text-balance text-v2-navy sm:text-[28px]" style={{ outline: "none" }}>
         {q.title}
-      </h2>
+      </h1>
       {q.hint && (
         <p id={hintId} className="mt-1 text-[14px] text-v2-ink-soft">
           {q.hint}
@@ -277,17 +277,12 @@ export default function FreshFlow({
           {error}
         </p>
       )}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-        <Button type="button" variant="ghost" onClick={() => (step === "goal" ? onBack() : dispatch({ type: "back" }))} className="max-sm:min-h-11">
-          Back
+      <StepFooter>
+        <Button type="submit" variant="accent" size="lg" className="w-full max-sm:min-h-11">
+          Next <ArrowRightIcon size={16} aria-hidden />
         </Button>
-        <Button type="submit" variant="accent" className="max-sm:min-h-11">
-          Next
-        </Button>
-      </div>
-      {step === "links" && (
-        <p className="mt-3 text-[12.5px] text-v2-muted">Next shows what you told us as cards you can keep, edit or skip. Nothing is saved until you finish.</p>
-      )}
+        {step === "links" && <p className="mt-1 text-center text-[12.5px] text-v2-muted">Next shows what you told us as cards you can keep, edit or skip.</p>}
+      </StepFooter>
     </form>
   );
 }

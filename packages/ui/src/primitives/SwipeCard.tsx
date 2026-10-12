@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { cn } from "./cn";
+import useReducedMotion from "./useReducedMotion";
 
 /**
  * SwipeCard - a keep / skip gesture around one card (profile setup review). Swipe right to keep, left
@@ -30,11 +31,6 @@ export interface SwipeCardProps {
   keepLabel?: string;
   skipLabel?: string;
   className?: string;
-}
-
-/** True when the user asked the OS for less motion. */
-function reducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export default function SwipeCard({
@@ -95,7 +91,7 @@ export default function SwipeCard({
     }
   };
 
-  const still = reducedMotion();
+  const still = useReducedMotion();
   const progress = Math.min(1, Math.abs(dx) / threshold);
   const hint = dx > 0 ? keepLabel : dx < 0 ? skipLabel : "";
 

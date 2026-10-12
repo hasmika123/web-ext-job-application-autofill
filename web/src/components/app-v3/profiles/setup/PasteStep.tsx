@@ -1,20 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Spinner, inputClass } from "@kiwiply/ui";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRightIcon, Button, ClipboardIcon, Spinner, inputClass } from "@kiwiply/ui";
 import { getAiParseConsent } from "@/lib/ai-parse-consent";
 import type { BioLimits } from "@/lib/profile-setup/draft";
 import { parseTextForSetup, type SetupParse } from "@/lib/profile-setup/parse";
 import ParseConsent from "./ParseConsent";
+import { PrivacyLine, SkipButton, StepFooter, StepHeading } from "./parts";
 
 /** The longest text the parser takes (parser-core `cleanForLlm` cuts at the server's cap). */
 const MAX_CHARS = 30000;
-/** Shorter than this is not a resume; the button stays off. */
-const MIN_CHARS = 40;
+/** Shorter than this is not a resume; the button stays off (DESIGN 5.4). */
+export const MIN_CHARS = 80;
+
+export const TOO_SHORT = "Give us a bit more — a few lines about a role or a school is enough.";
 
 /**
- * Paste step: the text of a resume (LinkedIn "Save to PDF" text, a Notes file, anything). Same pipeline
- * as Upload with `text` only: stripped of never-collected values first, then parsed.
+ * Paste step (Onboarding v2 R1.10, ONBOARDING-V2-DESIGN 5.4): the text of a resume from Google Docs, ChatGPT, Notes or
+ * LinkedIn. Same pipeline as Upload with `text` only: stripped of never-collected values first, then parsed. The text is
+ * never stored. On a phone with a clipboard API there is a one-tap "Paste" button.
  */
 export default function PasteStep({
   onParsed,
@@ -23,6 +27,7 @@ export default function PasteStep({
   parse = parseTextForSetup,
 }: {
   onParsed: (result: SetupParse) => void;
+  /** "Upload a file instead": back to the source screen. */
   onBack?: () => void;
   /** `config.profile` bio caps the draft is clipped to. */
   bioLimits: BioLimits;
@@ -32,7 +37,16 @@ export default function PasteStep({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ready = text.trim().length >= MIN_CHARS;
+  const [canPaste, setCanPaste] = useState(false);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const length = text.trim().length;
+  const ready = length >= MIN_CHARS;
+
+  // `navigator.clipboard.readText` exists on phones and modern desktops; it is only known on the client.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a browser capability can only be read after mount
+    setCanPaste(typeof navigator !== "undefined" && typeof navigator.clipboard?.readText === "function");
+  }, []);
 
   async function submit() {
     setError(null);
@@ -45,30 +59,47 @@ export default function PasteStep({
     }
   }
 
+  async function paste() {
+    try {
+      const clip = await navigator.clipboard.readText();
+      if (clip) setText((t) => (t ? `${t}\n${clip}` : clip).slice(0, MAX_CHARS));
+    } catch {
+      // permission refused: the person can still paste by hand
+    }
+    area.current?.focus();
+  }
+
   return (
     <div>
-      <h2 className="font-display text-[20px] font-extrabold text-v2-navy">Paste your resume text</h2>
-      <p className="mt-1 text-[14px] text-v2-ink-soft">
-        From LinkedIn (More, then Save to PDF, then copy the text), a notes file or any resume. We&apos;ll show you what we found.
-      </p>
+      <StepHeading title="Paste it in." sub="From Google Docs, ChatGPT, Notes or LinkedIn — anything with your roles and schools." />
 
-      <label htmlFor="setup-paste" className="mt-5 block text-[12.5px] font-semibold text-ink-soft">
+      <label htmlFor="setup-paste" className="sr-only">
         Resume text
       </label>
       <textarea
         id="setup-paste"
+        ref={area}
         value={text}
         maxLength={MAX_CHARS}
-        rows={12}
+        rows={10}
+        autoFocus
         disabled={busy}
         onChange={(e) => setText(e.target.value)}
-        placeholder={"Jane Doe\njane@example.com\n\nExperience\nSoftware Engineer, Acme (2021 - Present)\n- Shipped ..."}
-        className={`${inputClass} mt-1.5 min-h-[14rem] resize-y font-mono text-[13px]`}
+        placeholder="Paste here…"
+        className={`${inputClass} mt-5 min-h-[14rem] resize-y text-[14px]`}
       />
-      <p className="mt-1 text-right text-[12px] text-v2-muted">
-        {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()}
-      </p>
+      <div className="mt-2 flex min-h-6 items-center justify-between gap-3">
+        <p className="text-[12.5px] text-v2-muted" aria-live="polite">
+          {length > 0 && !ready ? TOO_SHORT : ""}
+        </p>
+        {canPaste && (
+          <Button variant="ghost" size="sm" onClick={() => void paste()} disabled={busy} className="flex-none max-sm:min-h-11">
+            <ClipboardIcon size={14} aria-hidden /> Paste
+          </Button>
+        )}
+      </div>
 
+      <PrivacyLine className="mt-3" />
       <div className="mt-3">
         <ParseConsent />
       </div>
@@ -84,18 +115,16 @@ export default function PasteStep({
         </p>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        {onBack ? (
-          <Button variant="ghost" onClick={onBack} disabled={busy} className="max-sm:min-h-11">
-            Back
-          </Button>
-        ) : (
-          <span />
-        )}
-        <Button variant="accent" onClick={() => void submit()} disabled={!ready || busy} className="max-sm:min-h-11">
-          Read my text
+      <StepFooter>
+        <Button variant="accent" size="lg" onClick={() => void submit()} disabled={!ready || busy} className="w-full max-sm:min-h-11">
+          Read it <ArrowRightIcon size={16} aria-hidden />
         </Button>
-      </div>
+        {onBack && (
+          <SkipButton onClick={onBack} disabled={busy}>
+            Upload a file instead
+          </SkipButton>
+        )}
+      </StepFooter>
     </div>
   );
 }

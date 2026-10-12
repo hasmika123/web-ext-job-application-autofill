@@ -577,7 +577,7 @@
       "benchmark": "Notion: quiet always-visible save status, no Save buttons (DECISIONS #32)."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "star": true,
       "tech": "`web/src/components/app-v3/profiles/setup/{OnboardingShell,PersonaStep,SourceStep,ProfileSoFar,ReviewScreen}.tsx` (+ tests), edits to `ProfileSetup.tsx`, `PasteStep.tsx`, `SkillsStep.tsx`, `IdentityStep.tsx`, `ReviewCards.tsx`, `FreshFlow.tsx`, `UploadStep.tsx`; `web/src/lib/onboarding/persona.ts` (+ test); `packages/ui/src/primitives/useReducedMotion.ts` (+ export, `SwipeCard`/`ConfettiBurst` adopt it); `web/src/app/globals.css`; delete `PathPicker.tsx` (+ test) — `NewResumeSheet` does not import it (verify; if it does, keep the file and stop to ask).",
       "relates": [],
