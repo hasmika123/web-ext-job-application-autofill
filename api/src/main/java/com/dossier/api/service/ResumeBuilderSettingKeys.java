@@ -1,0 +1,495 @@
+package com.dossier.api.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+
+/**
+ * Every Resume Builder tunable, declared once (DESIGN 15.2): key, type, default, bounds, description.
+ * {@link ResumeBuilderSettings} reads the values over {@code app_setting}; a missing, unparsable or
+ * out-of-bounds value falls back to the {@code defaultValue} declared here. The fields are exactly
+ * what the A5.1 settings registry needs, so A5 adopts this list without renaming a key.
+ *
+ * <p>Defaults are stored as the text an admin would type ({@code "true"}, {@code "0.7"}, a JSON
+ * document); {@code min}/{@code max} bound INT and DECIMAL values; {@code allowed} lists the values of
+ * an ENUM (or STRING) key; {@code jsonCheck} (JSON keys only) is the shape rule beyond "parses".
+ *
+ * <p>The values here transcribe the DESIGN 15.2 table; {@code ResumeBuilderSettingKeysParityTest}
+ * fails when a key named there is missing or its default differs.
+ */
+public final class ResumeBuilderSettingKeys {
+
+    public enum Type {
+        BOOL,
+        INT,
+        DECIMAL,
+        STRING,
+        ENUM,
+        JSON,
+    }
+
+    /**
+     * One setting. {@code min}/{@code max}/{@code allowed}/{@code jsonCheck} are null when the key has
+     * no such bound.
+     */
+    public record Key(
+        String key,
+        Type type,
+        String defaultValue,
+        Double min,
+        Double max,
+        List<String> allowed,
+        String description,
+        Predicate<JsonNode> jsonCheck
+    ) {}
+
+    // ---- feature switches ---------------------------------------------------
+    public static final String FEATURE_BUILDER = "feature.resume_builder.enabled";
+    public static final String FEATURE_PHOTO = "feature.resume_photo.enabled";
+    public static final String FEATURE_SHARE_LINKS = "feature.resume_share_links.enabled";
+    public static final String FEATURE_DOCX = "feature.resume_docx.enabled";
+    public static final String FEATURE_PRINT_LAYOUT = "feature.resume_print_layout.enabled";
+    public static final String FEATURE_PDF_VIEW = "feature.resume_pdf_view.enabled";
+    public static final String FEATURE_JOB_MATCH = "feature.resume_job_match.enabled";
+    public static final String FEATURE_TAILOR = "feature.resume_tailor.enabled";
+    public static final String AI_FEATURE_RESUME = "ai.feature.resume.enabled";
+
+    // ---- templates and theme ------------------------------------------------
+    public static final String TEMPLATES_ENABLED = "resume.templates.enabled";
+    public static final String TEMPLATES_DEFAULT = "resume.templates.default";
+    public static final String TEMPLATES_OVERRIDES = "resume.templates.overrides";
+    public static final String TEMPLATES_POPULAR = "resume.templates.popular";
+    public static final String THEME_ACCENT_PALETTE = "resume.theme.accentPalette";
+
+    // ---- document limits ----------------------------------------------------
+    public static final String DOC_LIMIT_SECTIONS = "resume.doc.limits.sections";
+    public static final String DOC_LIMIT_ITEMS = "resume.doc.limits.items";
+    public static final String DOC_LIMIT_BULLETS = "resume.doc.limits.bullets";
+    public static final String DOC_LIMIT_BULLET_CHARS = "resume.doc.limits.bulletChars";
+    public static final String DOC_LIMIT_SUMMARY_CHARS = "resume.doc.limits.summaryChars";
+    public static final String DOC_LIMIT_MARKS = "resume.doc.limits.marks";
+    public static final String DOC_LIMIT_DOC_BYTES = "resume.doc.limits.docBytes";
+
+    // ---- versions, photo ----------------------------------------------------
+    public static final String VERSIONS_COALESCE_MINUTES = "resume.versions.coalesceMinutes";
+    public static final String VERSIONS_RETENTION_AUTO = "resume.versions.retentionAuto";
+    public static final String PHOTO_MAX_BYTES = "resume.photo.maxBytes";
+    public static final String PHOTO_DISCOURAGED_REGIONS = "resume.photo.discouragedRegions";
+
+    // ---- score --------------------------------------------------------------
+    public static final String SCORE_RULESET_VERSION = "resume.score.rulesetVersion";
+    public static final String SCORE_GROUP_WEIGHTS = "resume.score.groupWeights";
+    public static final String SCORE_WEIGHTS = "resume.score.weights";
+    public static final String SCORE_PASS_THRESHOLD = "resume.score.passThreshold";
+    public static final String SCORE_BANDS = "resume.score.bands";
+
+    // ---- job match ----------------------------------------------------------
+    public static final String MATCH_WEIGHTS = "resume.match.weights";
+    public static final String MATCH_KEY_SKILLS_COUNT = "resume.match.keySkillsCount";
+    public static final String MATCH_THRESHOLDS = "resume.match.thresholds";
+    public static final String JOBMATCH_MIN_JD_CHARS = "resume.jobmatch.minJdChars";
+    public static final String JOBMATCH_MAX_JD_CHARS = "resume.jobmatch.maxJdChars";
+    public static final String JOBMATCH_EMBEDDINGS = "resume.jobmatch.embeddings.enabled";
+
+    // ---- AI -----------------------------------------------------------------
+    public static final String AI_SUGGEST_MAX = "resume.ai.suggestMax";
+    public static final String AI_SUGGEST_AUTO_REFRESH = "resume.ai.suggestAutoRefresh";
+    public static final String AI_SUGGEST_STALE_MINUTES = "resume.ai.suggestStaleMinutes";
+    public static final String AI_REWRITE_MAX_REFS = "resume.ai.rewriteMaxRefs";
+    public static final String AI_CAP_RESUME_DAILY = "ai.cap.resume.daily";
+    public static final String AI_CAP_TAILOR_DAILY = "ai.cap.tailor.daily";
+    public static final String AI_CAP_COVER_DAILY = "ai.cap.cover.daily";
+    public static final String AI_CAP_FIT_DAILY = "ai.cap.fit.daily";
+    public static final String AI_OUTPUT_TOKENS_REWRITE = "ai.output_tokens_max.rewrite";
+
+    // ---- PDF ----------------------------------------------------------------
+    public static final String PDF_TIMEOUT_MS = "resume.pdf.timeoutMs";
+    public static final String PDF_MAX_CONCURRENT = "resume.pdf.maxConcurrent";
+    public static final String PDF_QUEUE_MAX = "resume.pdf.queueMax";
+    public static final String PDF_MAX_FIT_STEPS = "resume.pdf.maxFitSteps";
+    public static final String PDF_WAIT_MS = "resume.pdf.waitMs";
+    public static final String PDF_SETTLE_MS = "resume.pdf.settleMs";
+    public static final String PDF_POLL_MS = "resume.pdf.pollMs";
+    public static final String PDF_LEASE_MS = "resume.pdf.leaseMs";
+    public static final String PDF_BACKOFF_BASE_MS = "resume.pdf.backoffBaseMs";
+    public static final String PDF_BACKOFF_MAX_MS = "resume.pdf.backoffMaxMs";
+    public static final String PDF_MAX_ATTEMPTS = "resume.pdf.maxAttempts";
+    public static final String PDF_KEEP_PREVIOUS = "resume.pdf.keepPrevious";
+    public static final String PDF_VIEW_AUTO_REFRESH = "resume.pdf.viewAutoRefresh";
+
+    // ---- sharing, views, thumbnails, lists ----------------------------------
+    public static final String META_SHARE_WITH_ORG_DEFAULT = "resume.meta.shareWithOrgDefault";
+    public static final String SHARE_MAX_GRANTS = "resume.share.maxGrants";
+    public static final String SHARE_MAX_LINKS = "resume.share.maxLinks";
+    public static final String SHARE_LINK_DEFAULT_DAYS = "resume.share.linkDefaultDays";
+    public static final String SHARE_ALLOW_DOWNLOAD_DEFAULT = "resume.share.allowDownloadDefault";
+    public static final String VIEWS_RETENTION_DAYS = "resume.views.retentionDays";
+    public static final String THUMB_WIDTH = "resume.thumb.width";
+    public static final String LIST_QUICK_TIPS = "resume.list.quickTips";
+    public static final String LIST_VIRTUALIZE_ABOVE = "resume.list.virtualizeAbove";
+    public static final String ORG_RESUMES_NEW_DAYS = "org.resumes.newDays";
+    public static final String ORG_RESUMES_PAGE_SIZE = "org.resumes.pageSize";
+    public static final String ORG_RESUMES_MAX_SAVED_VIEWS = "org.resumes.maxSavedViews";
+
+    // ---- BFF rate limits ----------------------------------------------------
+    public static final String RATE_DOC_WRITES_PER_MIN = "resume.rate.docWritesPerMin";
+    public static final String RATE_AI_PER_MIN = "resume.rate.aiPerMin";
+    public static final String RATE_EXPORT_PER_MIN = "resume.rate.exportPerMin";
+    public static final String RATE_PUBLIC_PER_MIN = "resume.rate.publicPerMin";
+
+    /**
+     * Names DESIGN 15.2 lists as equal to another key (alias to canonical). Reading an alias reads the
+     * canonical key, so there is still one stored value per setting.
+     */
+    public static final Map<String, String> ALIASES = Map.of(
+        "resume.photo.enabled",
+        FEATURE_PHOTO,
+        "builder.version_retention_auto",
+        VERSIONS_RETENTION_AUTO
+    );
+
+    // Defaults that more than one place needs (the ones DESIGN 15.2 spells out in prose).
+    public static final String DEFAULT_ACCENT_PALETTE = "[\"#16a34a\",\"#2563eb\",\"#7c3aed\",\"#ec4899\",\"#f97316\",\"#eab308\"]";
+    public static final String DEFAULT_GROUP_WEIGHTS = "{\"G1\":15,\"G2\":25,\"G3\":20,\"G4\":20,\"G5\":20,\"G6\":10}";
+    /** The DESIGN 11.3 rule weights, in rule-id order. */
+    public static final String DEFAULT_RULE_WEIGHTS =
+        "{\"S1\":4,\"S2\":2,\"S3\":3,\"S4\":2,\"S5\":2," +
+        "\"E1\":5,\"E2\":3,\"E3\":3,\"E4\":4,\"E5\":4,\"E6\":2,\"E7\":2," +
+        "\"K1\":4,\"K2\":4,\"K3\":2,\"K4\":2,\"K5\":4," +
+        "\"F1\":3,\"F2\":1,\"F3\":4,\"F4\":3,\"F5\":2,\"F6\":1,\"F7\":2," +
+        "\"M1\":5,\"M2\":4,\"M3\":3," +
+        "\"A1\":2,\"A2\":2,\"A3\":1,\"A4\":1,\"A5\":2}";
+    /** The DESIGN 11.4 bands (the board's top-band copy verbatim). */
+    public static final String DEFAULT_SCORE_BANDS =
+        "[{\"min\":80,\"title\":\"Great match!\",\"body\":\"Your resume is well-optimized and ready to impress.\"}," +
+        "{\"min\":60,\"title\":\"Good progress\",\"body\":\"A few fixes will make it stand out.\"}," +
+        "{\"min\":40,\"title\":\"Getting there\",\"body\":\"Follow the tips below to strengthen it.\"}," +
+        "{\"min\":0,\"title\":\"Needs work\",\"body\":\"Start with the checklist below.\"}]";
+    public static final String DEFAULT_MATCH_WEIGHTS = "{\"skills\":50,\"title\":15,\"years\":10,\"industry\":15,\"education\":10}";
+    public static final String DEFAULT_MATCH_THRESHOLDS = "{\"keySkills\":0.7,\"experience\":0.6,\"industry\":0.6}";
+    public static final String DEFAULT_QUICK_TIPS =
+        "[\"Create different resumes for different roles\",\"Tailor your resume for each job application\"," +
+        "\"Use AI suggestions to improve your content\",\"Keep one primary resume for quick applications\"]";
+    public static final String DEFAULT_DISCOURAGED_REGIONS = "[\"US\",\"CA\",\"GB\",\"AU\",\"IE\",\"NZ\"]";
+
+    private static final Pattern HEX = Pattern.compile("#[0-9a-fA-F]{6}");
+    private static final Pattern COUNTRY = Pattern.compile("[A-Z]{2}");
+    private static final Pattern GROUP_OR_RULE_ID = Pattern.compile("[A-Za-z][A-Za-z0-9]{0,15}");
+
+    private static final List<Key> ALL;
+    private static final Map<String, Key> BY_KEY;
+
+    static {
+        List<Key> k = new ArrayList<>();
+        // Feature switches (route gate and AI kill switch).
+        bool(k, FEATURE_BUILDER, true, "Resume Builder routes (503 FEATURE_PAUSED when off).");
+        bool(k, FEATURE_PHOTO, true, "Profile photo on resumes (DESIGN 5).");
+        bool(k, FEATURE_SHARE_LINKS, true, "Resume share links (DESIGN 8.7).");
+        bool(k, FEATURE_DOCX, false, "DOCX export (DESIGN 14).");
+        bool(k, FEATURE_PRINT_LAYOUT, true, "Print layout right side-nav view (DESIGN 10.8).");
+        bool(k, FEATURE_PDF_VIEW, true, "PDF view right side-nav view (DESIGN 10.8).");
+        bool(k, FEATURE_JOB_MATCH, true, "Job Match (DESIGN 12).");
+        bool(k, FEATURE_TAILOR, true, "Tailor to Job (DESIGN 12).");
+        bool(k, AI_FEATURE_RESUME, true, "Kill switch for the SUGGEST / REWRITE / SUMMARY builder AI tasks (DESIGN 13).");
+
+        // Templates and theme. Only Modern is registered in the web today; the API accepts the three ids in
+        // ResumeDocService.KNOWN_TEMPLATE_IDS.
+        k.add(
+            json(
+                TEMPLATES_ENABLED,
+                "[\"modern\"]",
+                "Template ids offered in the picker (non-empty, each a registered id).",
+                n -> idList(n, 1, Integer.MAX_VALUE, ResumeBuilderSettingKeys::isKnownTemplate)
+            )
+        );
+        k.add(
+            new Key(
+                TEMPLATES_DEFAULT,
+                Type.STRING,
+                "modern",
+                null,
+                null,
+                knownTemplateIds(),
+                "Template a new resume starts with (a registered id).",
+                null
+            )
+        );
+        k.add(
+            json(
+                TEMPLATES_OVERRIDES,
+                "{}",
+                "Per-template capability overrides; they may only tighten (DESIGN 6.3).",
+                n -> {
+                    if (!n.isObject()) return false;
+                    for (var it = n.fields(); it.hasNext();) {
+                        var e = it.next();
+                        if (!isKnownTemplate(e.getKey()) || !e.getValue().isObject()) return false;
+                    }
+                    return true;
+                }
+            )
+        );
+        k.add(
+            json(
+                TEMPLATES_POPULAR,
+                "[\"modern\"]",
+                "Order of the Popular Templates strip on the list page (default = enabled order).",
+                n -> idList(n, 0, Integer.MAX_VALUE, ResumeBuilderSettingKeys::isKnownTemplate)
+            )
+        );
+        k.add(
+            json(
+                THEME_ACCENT_PALETTE,
+                DEFAULT_ACCENT_PALETTE,
+                "Accent colour swatches in Customize Template: 3-12 #rrggbb values.",
+                n -> idList(n, 3, 12, s -> HEX.matcher(s).matches())
+            )
+        );
+
+        // Document limits.
+        integer(k, DOC_LIMIT_SECTIONS, 20, 5, 50, "Max sections per document.");
+        integer(k, DOC_LIMIT_ITEMS, 40, 5, 100, "Max items per section.");
+        integer(k, DOC_LIMIT_BULLETS, 12, 3, 30, "Max bullets per item.");
+        integer(k, DOC_LIMIT_BULLET_CHARS, 600, 100, 2000, "Max characters per bullet.");
+        integer(k, DOC_LIMIT_SUMMARY_CHARS, 2000, 200, 5000, "Max characters in the summary.");
+        integer(k, DOC_LIMIT_MARKS, 64, 0, 200, "Max inline marks per text field (schema v2).");
+        integer(k, DOC_LIMIT_DOC_BYTES, 262144, 65536, 1048576, "Max serialised document size in bytes.");
+
+        // Versions and photo.
+        integer(k, VERSIONS_COALESCE_MINUTES, 10, 1, 120, "Autosaves within this many minutes share one version row.");
+        integer(k, VERSIONS_RETENTION_AUTO, 30, 5, 200, "Automatic version rows kept per resume.");
+        integer(k, PHOTO_MAX_BYTES, 5242880, 1048576, 10485760, "Max profile photo upload in bytes.");
+        k.add(
+            json(
+                PHOTO_DISCOURAGED_REGIONS,
+                DEFAULT_DISCOURAGED_REGIONS,
+                "Country codes where the photo prompt defaults to 'Keep photo off'.",
+                n -> idList(n, 0, 100, s -> COUNTRY.matcher(s).matches())
+            )
+        );
+
+        // Resume Score.
+        k.add(
+            new Key(
+                SCORE_RULESET_VERSION,
+                Type.ENUM,
+                "v1",
+                null,
+                null,
+                List.of("v1"),
+                "Resume Score ruleset version.",
+                null
+            )
+        );
+        k.add(
+            json(
+                SCORE_GROUP_WEIGHTS,
+                DEFAULT_GROUP_WEIGHTS,
+                "Weight of each score group G1..G6 (integers 0-100).",
+                n -> intMap(n, 0, 100, 1)
+            )
+        );
+        k.add(
+            json(SCORE_WEIGHTS, DEFAULT_RULE_WEIGHTS, "Weight of each score rule (integers 0-100).", n -> intMap(n, 0, 100, 1))
+        );
+        decimal(k, SCORE_PASS_THRESHOLD, "0.7", 0.5, 0.95, "A group passes when its fraction reaches this.");
+        k.add(json(SCORE_BANDS, DEFAULT_SCORE_BANDS, "Score bands {min,title,body}: 2-6 bands, copy at most 80 characters.", ResumeBuilderSettingKeys::bands));
+
+        // Job Match.
+        k.add(
+            json(
+                MATCH_WEIGHTS,
+                DEFAULT_MATCH_WEIGHTS,
+                "Job match weights {skills,title,years,industry,education}; they sum to 100.",
+                n -> exactKeys(n, Set.of("skills", "title", "years", "industry", "education")) && intMap(n, 0, 100, 5) && sum(n) == 100
+            )
+        );
+        integer(k, MATCH_KEY_SKILLS_COUNT, 10, 5, 15, "Key skills extracted from a job description.");
+        k.add(
+            json(
+                MATCH_THRESHOLDS,
+                DEFAULT_MATCH_THRESHOLDS,
+                "Checklist pass thresholds {keySkills,experience,industry}, each 0.3-0.9.",
+                n -> {
+                    if (!exactKeys(n, Set.of("keySkills", "experience", "industry"))) return false;
+                    for (JsonNode v : n) if (!v.isNumber() || v.asDouble() < 0.3 || v.asDouble() > 0.9) return false;
+                    return true;
+                }
+            )
+        );
+        integer(k, JOBMATCH_MIN_JD_CHARS, 200, 50, 1000, "Shortest job description accepted.");
+        integer(k, JOBMATCH_MAX_JD_CHARS, 8000, 2000, 20000, "Longest job description accepted.");
+        bool(k, JOBMATCH_EMBEDDINGS, false, "Embedding synonym stage for Job Match (needs I4.6).");
+
+        // AI.
+        integer(k, AI_SUGGEST_MAX, 5, 1, 8, "Max AI suggestion cards.");
+        bool(k, AI_SUGGEST_AUTO_REFRESH, false, "Refresh AI suggestions automatically when the document changes.");
+        integer(k, AI_SUGGEST_STALE_MINUTES, 10, 1, 120, "Minutes before suggestions are offered a manual refresh.");
+        integer(k, AI_REWRITE_MAX_REFS, 12, 1, 20, "Max bullets sent to one Rewrite with AI call.");
+        integer(k, AI_CAP_RESUME_DAILY, 40, 1, 500, "Daily cap on resume AI calls per user.");
+        integer(k, AI_CAP_TAILOR_DAILY, 30, 1, 500, "Daily cap on Tailor to Job calls per user.");
+        integer(k, AI_CAP_COVER_DAILY, 10, 1, 500, "Daily cap on cover letter calls per user.");
+        integer(k, AI_CAP_FIT_DAILY, 60, 1, 500, "Daily cap on keyword placement calls per user.");
+        integer(k, AI_OUTPUT_TOKENS_REWRITE, 3000, 256, 8192, "Output token ceiling for the REWRITE task.");
+
+        // PDF (R0.6 limits and the R3.7 async pipeline).
+        integer(k, PDF_TIMEOUT_MS, 20000, 5000, 60000, "Chromium render timeout.");
+        integer(k, PDF_MAX_CONCURRENT, 1, 1, 4, "Concurrent PDF renders.");
+        integer(k, PDF_QUEUE_MAX, 10, 1, 50, "Max queued PDF renders.");
+        integer(k, PDF_MAX_FIT_STEPS, 3, 0, 7, "Max page-fit re-measure steps per export.");
+        integer(k, PDF_WAIT_MS, 30000, 5000, 120000, "How long Save & Download waits for the async PDF.");
+        integer(k, PDF_SETTLE_MS, 15000, 2000, 120000, "Quiet time after the last save before the PDF job runs.");
+        integer(k, PDF_POLL_MS, 5000, 1000, 60000, "PDF worker poll interval.");
+        integer(k, PDF_LEASE_MS, 120000, 30000, 600000, "PDF job lease length.");
+        integer(k, PDF_BACKOFF_BASE_MS, 30000, 5000, 300000, "PDF retry backoff base.");
+        integer(k, PDF_BACKOFF_MAX_MS, 900000, 60000, 3600000, "PDF retry backoff ceiling.");
+        integer(k, PDF_MAX_ATTEMPTS, 5, 1, 10, "PDF attempts before FAILED.");
+        integer(k, PDF_KEEP_PREVIOUS, 0, 0, 5, "Previous PDFs kept per resume (reserved).");
+        bool(k, PDF_VIEW_AUTO_REFRESH, false, "Regenerate the PDF view automatically when the document changes.");
+
+        // Sharing, views, thumbnails, lists.
+        bool(k, META_SHARE_WITH_ORG_DEFAULT, true, "New resumes are shared with the user's organisation by default.");
+        integer(k, SHARE_MAX_GRANTS, 20, 1, 100, "Max share grants per resume.");
+        integer(k, SHARE_MAX_LINKS, 3, 1, 10, "Max share links per resume.");
+        integer(k, SHARE_LINK_DEFAULT_DAYS, 30, 0, 365, "Default share link lifetime in days (0 = no expiry).");
+        bool(k, SHARE_ALLOW_DOWNLOAD_DEFAULT, false, "New share links allow download by default.");
+        integer(k, VIEWS_RETENTION_DAYS, 180, 30, 730, "Days resume view events are kept.");
+        integer(k, THUMB_WIDTH, 240, 120, 480, "Thumbnail width in pixels.");
+        k.add(
+            json(
+                LIST_QUICK_TIPS,
+                DEFAULT_QUICK_TIPS,
+                "Quick Tips card lines on the list page: 1-6 lines of at most 90 characters.",
+                n -> stringList(n, 1, 6, 90)
+            )
+        );
+        integer(k, LIST_VIRTUALIZE_ABOVE, 60, 20, 500, "Virtualise the resume grid above this many cards.");
+        integer(k, ORG_RESUMES_NEW_DAYS, 30, 7, 90, "Days a resume counts as new on the org page.");
+        integer(k, ORG_RESUMES_PAGE_SIZE, 24, 12, 96, "Org Resumes & Profiles page size.");
+        integer(k, ORG_RESUMES_MAX_SAVED_VIEWS, 10, 1, 30, "Saved views per org admin.");
+
+        // BFF rate limits.
+        integer(k, RATE_DOC_WRITES_PER_MIN, 120, 10, 1000, "Document writes per user per minute.");
+        integer(k, RATE_AI_PER_MIN, 20, 10, 1000, "AI calls per user per minute.");
+        integer(k, RATE_EXPORT_PER_MIN, 10, 10, 1000, "Exports per user per minute.");
+        integer(k, RATE_PUBLIC_PER_MIN, 60, 10, 1000, "Public share-link requests per IP per minute.");
+
+        Map<String, Key> by = new LinkedHashMap<>();
+        for (Key key : k) {
+            if (by.put(key.key(), key) != null) throw new IllegalStateException("duplicate setting key " + key.key());
+        }
+        ALL = Collections.unmodifiableList(k);
+        BY_KEY = Collections.unmodifiableMap(by);
+    }
+
+    private ResumeBuilderSettingKeys() {}
+
+    /** Every declared key, in declaration order. */
+    public static List<Key> all() {
+        return ALL;
+    }
+
+    /** The declaration for {@code key} (an alias resolves to its canonical key); null when unknown. */
+    public static Key find(String key) {
+        return BY_KEY.get(canonical(key));
+    }
+
+    /** The declaration for {@code key}; unknown keys are a programming error. */
+    public static Key require(String key) {
+        Key found = find(key);
+        if (found == null) throw new IllegalArgumentException("Unknown Resume Builder setting: " + key);
+        return found;
+    }
+
+    /** The canonical name of {@code key} (itself unless it is a documented alias). */
+    public static String canonical(String key) {
+        return ALIASES.getOrDefault(key, key);
+    }
+
+    // ---- declaration helpers ------------------------------------------------
+
+    private static void bool(List<Key> k, String key, boolean def, String description) {
+        k.add(new Key(key, Type.BOOL, String.valueOf(def), null, null, null, description, null));
+    }
+
+    private static void integer(List<Key> k, String key, int def, int min, int max, String description) {
+        k.add(new Key(key, Type.INT, String.valueOf(def), (double) min, (double) max, null, description, null));
+    }
+
+    private static void decimal(List<Key> k, String key, String def, double min, double max, String description) {
+        k.add(new Key(key, Type.DECIMAL, def, min, max, null, description, null));
+    }
+
+    private static Key json(String key, String def, String description, Predicate<JsonNode> check) {
+        return new Key(key, Type.JSON, def, null, null, null, description, check);
+    }
+
+    // ---- JSON shape rules ---------------------------------------------------
+
+    private static List<String> knownTemplateIds() {
+        return ResumeDocService.KNOWN_TEMPLATE_IDS.stream().sorted().toList();
+    }
+
+    private static boolean isKnownTemplate(String id) {
+        return ResumeDocService.KNOWN_TEMPLATE_IDS.contains(id);
+    }
+
+    /** A JSON array of {@code min..max} distinct strings each accepted by {@code each}. */
+    private static boolean idList(JsonNode n, int min, int max, Predicate<String> each) {
+        if (!n.isArray() || n.size() < min || n.size() > max) return false;
+        Set<String> seen = new java.util.HashSet<>();
+        for (JsonNode e : n) {
+            if (!e.isTextual() || !each.test(e.textValue()) || !seen.add(e.textValue())) return false;
+        }
+        return true;
+    }
+
+    private static boolean stringList(JsonNode n, int min, int max, int maxChars) {
+        if (!n.isArray() || n.size() < min || n.size() > max) return false;
+        for (JsonNode e : n) {
+            if (!e.isTextual() || e.textValue().isBlank() || e.textValue().length() > maxChars) return false;
+        }
+        return true;
+    }
+
+    /** An object of identifier keys to integers in {@code lo..hi}, at least {@code minEntries} entries. */
+    private static boolean intMap(JsonNode n, int lo, int hi, int minEntries) {
+        if (!n.isObject() || n.size() < minEntries) return false;
+        for (var it = n.fields(); it.hasNext();) {
+            var e = it.next();
+            if (!GROUP_OR_RULE_ID.matcher(e.getKey()).matches()) return false;
+            if (!e.getValue().isIntegralNumber() || e.getValue().asInt() < lo || e.getValue().asInt() > hi) return false;
+        }
+        return true;
+    }
+
+    private static boolean exactKeys(JsonNode n, Set<String> keys) {
+        if (!n.isObject() || n.size() != keys.size()) return false;
+        for (String key : keys) if (!n.has(key)) return false;
+        return true;
+    }
+
+    private static int sum(JsonNode n) {
+        int total = 0;
+        for (JsonNode v : n) total += v.asInt();
+        return total;
+    }
+
+    private static boolean bands(JsonNode n) {
+        if (!n.isArray() || n.size() < 2 || n.size() > 6) return false;
+        for (JsonNode b : n) {
+            if (!b.isObject() || !b.path("min").isIntegralNumber() || b.path("min").asInt() < 0 || b.path("min").asInt() > 100) return false;
+            for (String f : new String[] { "title", "body" }) {
+                JsonNode t = b.path(f);
+                if (!t.isTextual() || t.textValue().isBlank() || t.textValue().length() > 80) return false;
+            }
+        }
+        return true;
+    }
+}
