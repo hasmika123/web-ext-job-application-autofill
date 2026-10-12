@@ -60,6 +60,10 @@ public class ResumeDTO implements Serializable {
     // ("PDF updating - attach in a moment") read it. Not hashed by ProfileVersion.
     private ResumePdfDTO pdf;
 
+    // The render hash the card thumbnail shows (R3.13, DESIGN 8.10); null = none yet. The list builds the image address
+    // from it ({@code /thumbnail?v=<hash>}), so a new render is a new URL. Not hashed by ProfileVersion.
+    private String thumbHash;
+
     private Integer score;
 
     private UserDTO user;
@@ -272,6 +276,14 @@ public class ResumeDTO implements Serializable {
 
     public void setPdf(ResumePdfDTO pdf) {
         this.pdf = pdf;
+    }
+
+    public String getThumbHash() {
+        return thumbHash;
+    }
+
+    public void setThumbHash(String thumbHash) {
+        this.thumbHash = thumbHash;
     }
 
     /** The last Resume Score (0-100) of a BUILT resume, for the list badge (DESIGN 11.5); null when never scored. Not hashed by ProfileVersion. */

@@ -1,17 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useToast } from "@kiwiply/ui";
 import { VIEW_STORAGE_KEY, type ViewMode } from "./constants";
-
-/** The "Coming soon" toast the repo's unbuilt controls use. `soon("Duplicate")()` is a click handler. */
-export function useSoon() {
-  const toast = useToast();
-  return useCallback(
-    (what: string) => () => toast({ title: "Coming soon", description: `${what} isn't available in the resume builder yet.` }),
-    [toast],
-  );
-}
 
 /** The grid/list choice, remembered in this browser. Storage can be blocked or throw: every access is guarded. */
 export function useViewMode(): [ViewMode, (v: ViewMode) => void] {

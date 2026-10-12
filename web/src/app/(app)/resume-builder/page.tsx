@@ -15,9 +15,12 @@ export const metadata: Metadata = { title: "Resume Builder" };
  * applications for the per-resume usage count, the base profile for the review step, the plan)
  * so "Manage resumes" can host `ResumesWorkspace` in a side panel unchanged, plus the builder config (plan,
  * cap, templates, Quick Tips) and the profile items + meter the start chooser describes. "New Resume" opens the
- * four-source chooser (profile / upload / copy / scratch) and lands in `/resume-builder/[id]`.
+ * four-source chooser (profile / upload / copy / scratch) and lands in `/resume-builder/[id]`. `?template=<id>` (the
+ * template gallery's "Use this template", R3.13) opens that chooser with the template preselected.
  */
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ template?: string | string[] }> }) {
+  const q = await searchParams;
+  const template = Array.isArray(q.template) ? q.template[0] : q.template;
   const [resumesRes, appsRes, profileRes, plan, config, items, completeness] = await Promise.all([
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile/applications"),
@@ -55,5 +58,5 @@ export default async function Page() {
   const headline = typeof baseProfile.headline === "string" ? baseProfile.headline : typeof baseProfile.currentTitle === "string" ? baseProfile.currentTitle : null;
   const profile = summarizeProfile(items ?? [], completeness, headline);
 
-  return <ResumeList resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} config={config} profile={profile} />;
+  return <ResumeList resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} config={config} profile={profile} initialTemplate={template ?? null} />;
 }

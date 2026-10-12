@@ -135,6 +135,14 @@ describe("toCardModel", () => {
     expect(toCardModel(built()).exportedAt).toBeNull();
   });
 
+  it("thumbHash (R3.13) is the server thumbnail's render hash, kept whatever the PDF state, and never on an upload", () => {
+    expect(toCardModel(built()).thumbHash).toBeNull();
+    expect(toCardModel(built({ thumbHash: "abc" })).thumbHash).toBe("abc");
+    expect(toCardModel(built({ thumbHash: "abc", pdf: { status: "PENDING" } })).thumbHash).toBe("abc"); // stale picture kept while the PDF is remade
+    expect(toCardModel(built({ thumbHash: "  " })).thumbHash).toBeNull();
+    expect(toCardModel(built({ kind: "UPLOADED", templateId: null, thumbHash: "abc" })).thumbHash).toBeNull();
+  });
+
   it("keeps the id and kind", () => {
     const m = toCardModel(built({ id: 42 }));
     expect(m.id).toBe(42);

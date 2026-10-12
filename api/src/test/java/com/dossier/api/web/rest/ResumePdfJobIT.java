@@ -377,6 +377,145 @@ class ResumePdfJobIT {
         assertThat(storage.load(newKey).content()).isEqualTo("%PDF second".getBytes());
     }
 
+    // ---- thumbnails (R3.13) ------------------------------------------------------
+
+    /** A tiny, valid-looking PNG: only the signature matters to the store. */
+    private static byte[] png(String marker) {
+        byte[] sig = { (byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
+        byte[] tail = marker.getBytes();
+        byte[] out = new byte[sig.length + tail.length];
+        System.arraycopy(sig, 0, out, 0, sig.length);
+        System.arraycopy(tail, 0, out, sig.length, tail.length);
+        return out;
+    }
+
+    @Test
+    void aClaimedJobCarriesTheThumbnailWidthSetting() throws Exception {
+        Long id = createBuilt("Width");
+        assertThat(claimOne(id, "w1").thumbWidth()).isEqualTo(240);
+    }
+
+    @Test
+    void storeWithAThumbnailKeepsItUnderTheRenderHashAndReplacesTheOldOne() throws Exception {
+        Long id = createBuilt("Thumbs");
+        Long userId = resumeRepo.findById(id).orElseThrow().getUser().getId();
+        ClaimedJob first = claimOne(id, "w1");
+        assertThat(jobs.store(id, PDF, first.renderHash(), 1, true, png("first"))).isEqualTo(StoreResult.STORED);
+
+        ResumeDoc d = row(id);
+        String firstKey = "resume-thumbs/" + userId + "/" + id + "-" + first.renderHash() + ".png";
+        assertThat(d.getThumbKey()).isEqualTo(firstKey);
+        assertThat(d.getThumbHash()).isEqualTo(first.renderHash());
+        assertThat(storage.load(firstKey).content()).isEqualTo(png("first"));
+        assertThat(storage.load(firstKey).contentType()).isEqualTo("image/png");
+
+        edit(id, "second version");
+        ClaimedJob second = claimOne(id, "w1");
+        jobs.store(id, PDF, second.renderHash(), 1, true, png("second"));
+        String secondKey = "resume-thumbs/" + userId + "/" + id + "-" + second.renderHash() + ".png";
+        assertThat(row(id).getThumbKey()).isEqualTo(secondKey);
+        assertThat(storage.exists(firstKey)).as("the old thumbnail object is deleted").isFalse();
+        assertThat(storage.load(secondKey).content()).isEqualTo(png("second"));
+    }
+
+    @Test
+    void aPdfWithoutAThumbnailKeepsThePreviousOneAndABadThumbnailIsIgnored() throws Exception {
+        Long id = createBuilt("Keep");
+        ClaimedJob first = claimOne(id, "w1");
+        jobs.store(id, PDF, first.renderHash(), 1, true, png("kept"));
+        String key = row(id).getThumbKey();
+
+        edit(id, "next");
+        ClaimedJob second = claimOne(id, "w1");
+        jobs.store(id, PDF, second.renderHash(), 1, true); // no thumbnail part
+        assertThat(row(id).getThumbKey()).isEqualTo(key);
+        assertThat(row(id).getThumbHash()).isEqualTo(first.renderHash());
+
+        edit(id, "and again");
+        ClaimedJob third = claimOne(id, "w1");
+        assertThat(jobs.store(id, PDF, third.renderHash(), 1, true, "not a png".getBytes())).isEqualTo(StoreResult.STORED); // the PDF still lands
+        assertThat(row(id).getThumbKey()).isEqualTo(key);
+        assertThat(storage.exists(key)).isTrue();
+    }
+
+    @Test
+    void aStaleRenderDiscardsItsThumbnailToo() throws Exception {
+        Long id = createBuilt("Stale thumb");
+        ClaimedJob job = claimOne(id, "w1");
+        edit(id, "a newer save wins");
+        assertThat(jobs.store(id, PDF, job.renderHash(), 1, true, png("stale"))).isEqualTo(StoreResult.DISCARDED);
+        assertThat(row(id).getThumbKey()).isNull();
+    }
+
+    @Test
+    void theThumbnailIsServedToItsOwnerWithAnETagAndRevalidates() throws Exception {
+        Long id = createBuilt("Served");
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/thumbnail")).andExpect(status().isNotFound()); // none yet
+
+        ClaimedJob job = claimOne(id, "w1");
+        jobs.store(id, PDF, job.renderHash(), 1, true, png("served"));
+
+        byte[] body = mockMvc
+            .perform(get("/api/profile/resumes/" + id + "/thumbnail"))
+            .andExpect(status().isOk())
+            .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/png"))
+            .andExpect(header().string(HttpHeaders.ETAG, "\"" + job.renderHash() + "\""))
+            .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "max-age=86400, private"))
+            .andReturn()
+            .getResponse()
+            .getContentAsByteArray();
+        assertThat(body).isEqualTo(png("served"));
+
+        mockMvc
+            .perform(get("/api/profile/resumes/" + id + "/thumbnail").header(HttpHeaders.IF_NONE_MATCH, "\"" + job.renderHash() + "\""))
+            .andExpect(status().isNotModified())
+            .andExpect(header().string(HttpHeaders.ETAG, "\"" + job.renderHash() + "\""));
+        mockMvc.perform(get("/api/profile/resumes/" + id + "/thumbnail").header(HttpHeaders.IF_NONE_MATCH, "\"" + "0".repeat(64) + "\"")).andExpect(status().isOk());
+
+        // somebody else's resume, and a resume id that does not exist, are the same plain 404
+        Long theirs = otherUsersBuiltResume();
+        mockMvc.perform(get("/api/profile/resumes/" + theirs + "/thumbnail")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/profile/resumes/999999999/thumbnail")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void theListCarriesTheThumbnailHash() throws Exception {
+        Long id = createBuilt("List thumb");
+        assertThat(listRow(id).path("thumbHash").isMissingNode() || listRow(id).path("thumbHash").isNull()).isTrue();
+        ClaimedJob job = claimOne(id, "w1");
+        jobs.store(id, PDF, job.renderHash(), 1, true, png("list"));
+        assertThat(listRow(id).path("thumbHash").asText()).isEqualTo(job.renderHash());
+    }
+
+    @Test
+    void theWorkerCanPostTheThumbPartOverHttp() throws Exception {
+        Long id = createBuilt("Over http thumb");
+        makeDue(id);
+        JsonNode claimed = json(
+            mockMvc
+                .perform(post("/api/internal/resume-pdf-jobs/claim").header("X-Internal-Token", TOKEN).contentType(MediaType.APPLICATION_JSON).content("{\"worker\":\"web-1\",\"limit\":1}"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString()
+        );
+        assertThat(claimed.get(0).get("thumbWidth").asInt()).isEqualTo(240);
+        String hash = claimed.get(0).get("renderHash").asText();
+
+        mockMvc
+            .perform(
+                multipart("/api/internal/resumes/" + id + "/pdf")
+                    .file(new MockMultipartFile("file", "x.pdf", "application/pdf", PDF))
+                    .file(new MockMultipartFile("thumb", "thumb.png", "image/png", png("http")))
+                    .param("renderHash", hash)
+                    .header("X-Internal-Token", TOKEN)
+            )
+            .andExpect(status().isNoContent());
+        // (the internal call ran under the worker's own principal: read the row, not the user's list)
+        assertThat(row(id).getThumbHash()).isEqualTo(hash);
+        assertThat(storage.load(row(id).getThumbKey()).content()).isEqualTo(png("http"));
+    }
+
     // ---- fail ----------------------------------------------------------------
 
     @Test

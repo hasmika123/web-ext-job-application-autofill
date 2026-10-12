@@ -6,6 +6,9 @@ import { SectionCard } from "@/components/app-v2/common";
 import { QUICK_TIPS } from "./constants";
 import { thumbFor } from "./templateThumbs";
 
+/** The template gallery page (R3.13). */
+export const TEMPLATES_HREF = "/resume-builder/templates";
+
 /**
  * The templates the strip shows (DESIGN 10.17): the registry's templates that are enabled
  * (`config.templates.enabled`), those named in `resume.templates.popular` first and in that order, then the
@@ -25,16 +28,14 @@ export function popularTemplates(enabled: readonly string[], popular: readonly s
 /**
  * "Popular Templates": each template as its static thumbnail + name (+ an "ATS Friendly" dot when its
  * capabilities say so). Clicking one opens the new-resume chooser with that template preselected.
- *
- * // DESIGN-PENDING (R-list): "View all" belongs to the template gallery (`/resume-builder/templates`, R3.13),
- * // which is not built yet; until then it says so instead of linking to a page that does not exist.
+ * "View all" goes to the template gallery (`/resume-builder/templates`, R3.13).
  */
-export function PopularTemplates({ templates, onPick, onViewAll }: { templates: TemplateMeta[]; onPick: (id: string) => void; onViewAll: () => void }) {
+export function PopularTemplates({ templates, onPick }: { templates: TemplateMeta[]; onPick: (id: string) => void }) {
   return (
     <SectionCard
       title="Popular Templates"
       icon={<LayersIcon size={18} className="text-v2-blue" aria-hidden />}
-      action={{ label: "View all", onClick: onViewAll }}
+      action={{ label: "View all", href: TEMPLATES_HREF }}
       className="h-full"
     >
       <ul className="flex snap-x gap-3 overflow-x-auto pb-1 [scrollbar-width:thin]">

@@ -249,8 +249,9 @@ interface PwPage {
   route(url: string, handler: (route: { abort(): Promise<void> }) => unknown): Promise<void>;
   setContent(html: string, opts?: { waitUntil?: "load"; timeout?: number }): Promise<void>;
   evaluate(fn: () => unknown): Promise<unknown>;
-  emulateMedia(opts: { media: "print" }): Promise<void>;
+  emulateMedia(opts: { media: "print" | "screen" }): Promise<void>;
   pdf(opts: Record<string, unknown>): Promise<Buffer>;
+  screenshot(opts: Record<string, unknown>): Promise<Buffer>;
   setDefaultTimeout(ms: number): void;
 }
 interface PwContext {
@@ -291,17 +292,45 @@ function pdfOptions(pageSize: PageSize): Record<string, unknown> {
   return { preferCSSPageSize: true, printBackground: true, format: pageSize === "a4" ? "A4" : "Letter" };
 }
 
-async function printOnce(html: string, pageSize: PageSize, cfg: PdfConfig): Promise<Buffer> {
+/** A printed page in CSS pixels at 96 dpi (Letter 8.5x11 in, A4 210x297 mm): the first page is what a card thumbnail shows. */
+export function pagePixels(pageSize: PageSize): { width: number; height: number } {
+  // Paper sizes are physical constants, not tunables.
+  return pageSize === "a4" ? { width: 794, height: 1123 } : { width: 816, height: 1056 };
+}
+
+/** A PDF and, when one was asked for, the PNG of its first page (R3.13). */
+export interface PrintedPdf {
+  pdf: Buffer;
+  /** `null` when no thumbnail was asked for, or taking it failed (the PDF never fails because of it). */
+  thumb: Buffer | null;
+}
+
+async function printOnce(html: string, pageSize: PageSize, cfg: PdfConfig, thumbWidth?: number): Promise<PrintedPdf> {
   const browser = await openBrowser(cfg);
   try {
-    const context = await browser.newContext({ javaScriptEnabled: false });
+    // A thumbnail is the first page at `thumbWidth` px: the viewport is one page and the device scale shrinks it (PDF output ignores both).
+    const px = pagePixels(pageSize);
+    const context = await browser.newContext(
+      thumbWidth ? { javaScriptEnabled: false, viewport: { width: px.width, height: px.height }, deviceScaleFactor: thumbWidth / px.width } : { javaScriptEnabled: false },
+    );
     try {
       const page = await context.newPage();
       page.setDefaultTimeout(cfg.timeoutMs);
       await page.route("**/*", (route) => route.abort());
       await page.setContent(html, { waitUntil: "load", timeout: cfg.timeoutMs });
       await page.emulateMedia({ media: "print" });
-      return await page.pdf(pdfOptions(pageSize));
+      const pdf = await page.pdf(pdfOptions(pageSize));
+      let thumb: Buffer | null = null;
+      if (thumbWidth) {
+        try {
+          // Screen media shows the page the way the editor does (width, margins as padding); one screenshot of the first page.
+          await page.emulateMedia({ media: "screen" });
+          thumb = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: px.width, height: px.height } });
+        } catch (e) {
+          console.warn(JSON.stringify({ event: "resume.thumb.failed", message: (e as Error).message.split("\n")[0] }));
+        }
+      }
+      return { pdf, thumb };
     } finally {
       await context.close().catch(() => undefined);
     }
@@ -316,6 +345,14 @@ async function printOnce(html: string, pageSize: PageSize, cfg: PdfConfig): Prom
  * stylesheet's `@page` rule (`preferCSSPageSize`), which the theme sets; `pageSize` is the fallback.
  */
 export async function printPdf(html: string, opts: { pageSize?: PageSize } = {}): Promise<Buffer> {
+  return (await printPdfWithThumb(html, opts)).pdf;
+}
+
+/**
+ * {@link printPdf} that also takes ONE screenshot of the first page, `thumbWidth` px wide, right after `page.pdf()` in the
+ * same page (R3.13: the card thumbnail rides on the PDF job). A failed screenshot yields `thumb: null`, never an error.
+ */
+export async function printPdfWithThumb(html: string, opts: { pageSize?: PageSize; thumbWidth?: number } = {}): Promise<PrintedPdf> {
   const cfg = readPdfConfig();
   return limiter().run(async () => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -323,7 +360,7 @@ export async function printPdf(html: string, opts: { pageSize?: PageSize } = {})
       timer = setTimeout(() => reject(new PdfTimeoutError(cfg.timeoutMs)), cfg.timeoutMs + 2_000);
     });
     try {
-      return await Promise.race([printOnce(html, opts.pageSize ?? "letter", cfg), ceiling]);
+      return await Promise.race([printOnce(html, opts.pageSize ?? "letter", cfg, opts.thumbWidth), ceiling]);
     } finally {
       clearTimeout(timer);
     }
@@ -353,10 +390,13 @@ export interface ExportResult {
   target: number;
   /** `pages <= target`. False = the ladder (or the step budget) ran out: "Still N pages". */
   fits: boolean;
+  /** PNG of the first page of the printed render, when a thumbnail width was asked for and the screenshot worked (R3.13). */
+  thumb: Buffer | null;
 }
 
 export interface ExportDeps {
-  print?: (html: string, opts: { pageSize: PageSize }) => Promise<Buffer>;
+  /** Prints one render; may answer the bare PDF or a {@link PrintedPdf} (with the thumbnail). */
+  print?: (html: string, opts: { pageSize: PageSize; thumbWidth?: number }) => Promise<Buffer | PrintedPdf>;
   countPages?: (pdf: Buffer) => number;
   log?: (event: string, fields: Record<string, unknown>) => void;
   maxFitSteps?: number;
@@ -368,8 +408,8 @@ export interface ExportDeps {
  * again. The preview and Chromium can disagree by a line; the PDF's own page count is the truth, and
  * a disagreement is logged as `resume.fit.mismatch`.
  */
-export async function exportResumePdf(input: RenderInput, deps: ExportDeps = {}): Promise<ExportResult> {
-  const print = deps.print ?? ((html, o) => printPdf(html, o));
+export async function exportResumePdf(input: RenderInput, deps: ExportDeps = {}, opts: { thumbWidth?: number } = {}): Promise<ExportResult> {
+  const print = deps.print ?? ((html, o) => (o.thumbWidth ? printPdfWithThumb(html, o) : printPdf(html, o)));
   const count = deps.countPages ?? countPdfPages;
   const log = deps.log ?? ((event, fields) => console.warn(JSON.stringify({ event, ...fields })));
   const maxExtra = deps.maxFitSteps ?? readPdfConfig().maxFitSteps;
@@ -383,7 +423,9 @@ export async function exportResumePdf(input: RenderInput, deps: ExportDeps = {})
   let extra = 0;
   let firstPages: number | null = null;
   for (;;) {
-    const pdf = await print(renderResumeHtml(input, { step }), { pageSize: base.pageSize });
+    const printed = await print(renderResumeHtml(input, { step }), { pageSize: base.pageSize, thumbWidth: opts.thumbWidth });
+    const pdf = Buffer.isBuffer(printed) ? printed : printed.pdf;
+    const thumb = Buffer.isBuffer(printed) ? null : printed.thumb;
     const pages = count(pdf);
     firstPages ??= pages;
     const done = pages <= target || !auto || extra >= maxExtra || step >= MAX_FIT_STEP;
@@ -391,7 +433,7 @@ export async function exportResumePdf(input: RenderInput, deps: ExportDeps = {})
       if (firstPages > target && auto) {
         log("resume.fit.mismatch", { startStep, finalStep: step, target, firstPages, finalPages: pages, fits: pages <= target });
       }
-      return { pdf, pages, step, startStep, target, fits: pages <= target };
+      return { pdf, pages, step, startStep, target, fits: pages <= target, thumb };
     }
     step += 1;
     extra += 1;

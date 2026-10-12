@@ -12,7 +12,9 @@ import {
   countPdfPages,
   createLimiter,
   exportResumePdf,
+  pagePixels,
   printPdf,
+  printPdfWithThumb,
   readPdfConfig,
   renderResumeHtml,
   resetPdfLimiter,
@@ -23,19 +25,30 @@ import { pdfFileName } from "./pdf-name";
 const pw = vi.hoisted(() => {
   const state = {
     pdfImpl: async (): Promise<Buffer> => Buffer.from("%PDF-1.4"),
+    screenshotImpl: async (): Promise<Buffer> => Buffer.from("\x89PNG", "latin1"),
+    contextOpts: [] as unknown[],
+    shots: [] as unknown[],
+    media: [] as string[],
     closed: 0,
     connect: vi.fn(),
     launch: vi.fn(),
     makeBrowser() {
       return {
-        newContext: async () => ({
-          newPage: async () => ({
-            route: async () => undefined,
-            setContent: async () => undefined,
-            emulateMedia: async () => undefined,
-            setDefaultTimeout: () => undefined,
-            pdf: () => state.pdfImpl(),
-          }),
+        newContext: async (opts: unknown) => ({
+          newPage: async () => {
+            state.contextOpts.push(opts);
+            return {
+              route: async () => undefined,
+              setContent: async () => undefined,
+              emulateMedia: async (o: { media: string }) => void state.media.push(o.media),
+              setDefaultTimeout: () => undefined,
+              pdf: () => state.pdfImpl(),
+              screenshot: (o: unknown) => {
+                state.shots.push(o);
+                return state.screenshotImpl();
+              },
+            };
+          },
           close: async () => undefined,
         }),
         close: async () => {
@@ -59,6 +72,10 @@ beforeEach(() => {
   for (const k of ENV_KEYS) delete process.env[k];
   resetPdfLimiter();
   pw.pdfImpl = async () => Buffer.from("%PDF-1.4");
+  pw.screenshotImpl = async () => Buffer.from("\x89PNG", "latin1");
+  pw.contextOpts = [];
+  pw.shots = [];
+  pw.media = [];
   pw.connect.mockReset().mockImplementation(async () => pw.makeBrowser());
   pw.launch.mockReset().mockImplementation(async () => pw.makeBrowser());
   pw.closed = 0;
@@ -234,6 +251,67 @@ describe("countPdfPages", () => {
   });
   it("is never less than 1", () => {
     expect(countPdfPages(Buffer.from("garbage"))).toBe(1);
+  });
+});
+
+describe("card thumbnail (R3.13)", () => {
+  it("takes ONE screenshot of the first page after page.pdf(), scaled to the asked width", async () => {
+    const out = await printPdfWithThumb("<html></html>", { pageSize: "letter", thumbWidth: 240 });
+    expect(out.pdf.toString()).toBe("%PDF-1.4");
+    expect(out.thumb?.toString("latin1")).toBe("\x89PNG");
+    expect(pw.shots).toEqual([{ type: "png", clip: { x: 0, y: 0, width: 816, height: 1056 } }]);
+    const ctx = pw.contextOpts[0] as { viewport: { width: number; height: number }; deviceScaleFactor: number; javaScriptEnabled: boolean };
+    expect(ctx.viewport).toEqual({ width: 816, height: 1056 }); // one Letter page at 96 dpi
+    expect(ctx.deviceScaleFactor).toBeCloseTo(240 / 816, 5); // the output PNG is 240 px wide
+    expect(ctx.javaScriptEnabled).toBe(false);
+    expect(pw.media).toEqual(["print", "screen"]); // print for the PDF, then the editor's look for the picture
+  });
+
+  it("uses the A4 page box for A4", async () => {
+    await printPdfWithThumb("<html></html>", { pageSize: "a4", thumbWidth: 120 });
+    expect(pw.shots[0]).toEqual({ type: "png", clip: { x: 0, y: 0, width: pagePixels("a4").width, height: pagePixels("a4").height } });
+  });
+
+  it("takes no screenshot unless a width is asked for", async () => {
+    const out = await printPdfWithThumb("<html></html>", { pageSize: "letter" });
+    expect(out.thumb).toBeNull();
+    expect(pw.shots).toEqual([]);
+    expect(pw.contextOpts[0]).toEqual({ javaScriptEnabled: false });
+    expect((await printPdf("<html></html>")).toString()).toBe("%PDF-1.4"); // the plain printer is unchanged
+  });
+
+  it("a failing screenshot never fails the PDF", async () => {
+    pw.screenshotImpl = async () => {
+      throw new Error("screenshot blew up");
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const out = await printPdfWithThumb("<html></html>", { pageSize: "letter", thumbWidth: 240 });
+    expect(out.pdf.toString()).toBe("%PDF-1.4");
+    expect(out.thumb).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("resume.thumb.failed"));
+    warn.mockRestore();
+  });
+
+  it("exportResumePdf hands the thumbnail of the FINAL print through, and asks for it at the width given", async () => {
+    const seen: Array<number | undefined> = [];
+    let i = 0;
+    const r = await exportResumePdf(
+      { doc: fixture("sparse") },
+      {
+        print: async (_html, o) => {
+          seen.push(o.thumbWidth);
+          return { pdf: Buffer.from(`pdf${i}`), thumb: Buffer.from(`thumb${i++}`) };
+        },
+        countPages: () => 1,
+        log: vi.fn(),
+      },
+      { thumbWidth: 240 },
+    );
+    expect(seen).toEqual([240]);
+    expect(r.thumb?.toString()).toBe("thumb0");
+    // a print that answers the bare PDF (the existing seam) means no thumbnail
+    const plain = await exportResumePdf({ doc: fixture("sparse") }, { print: async () => Buffer.from("pdf"), countPages: () => 1, log: vi.fn() });
+    expect(plain.thumb).toBeNull();
   });
 });
 

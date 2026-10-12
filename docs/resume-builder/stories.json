@@ -1116,7 +1116,7 @@
       "id": "R3.13",
       "epic": "R3",
       "title": "Card thumbnails from the PDF job (server PNG via FileStorage, cached by render hash) + template gallery page `/resume-builder/templates`",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web",

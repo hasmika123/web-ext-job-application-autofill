@@ -26,7 +26,8 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
     @Query(
         "select d.resumeId as resumeId, d.templateId as templateId, d.contentHash as contentHash, " +
         "d.exportedHash as exportedHash, d.exportedAt as exportedAt, d.themeJson as themeJson, d.score as score, " +
-        "d.pdfStatus as pdfStatus, d.pdfAttempts as pdfAttempts, d.pdfError as pdfError from ResumeDoc d where d.user.id = :userId"
+        "d.pdfStatus as pdfStatus, d.pdfAttempts as pdfAttempts, d.pdfError as pdfError, d.thumbHash as thumbHash " +
+        "from ResumeDoc d where d.user.id = :userId"
     )
     List<BuiltMetaRow> findBuiltMetaByUserId(@Param("userId") Long userId);
 
@@ -50,6 +51,9 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
         int getPdfAttempts();
 
         String getPdfError();
+
+        /** The render hash the card thumbnail was made from (null = none yet, R3.13). */
+        String getThumbHash();
     }
 
     /** What the PDF pipeline needs of a row to judge it, without loading {@code doc_json}. */
@@ -57,7 +61,7 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
         "select d.resumeId as resumeId, d.user.id as userId, d.templateId as templateId, d.contentHash as contentHash, " +
         "d.themeJson as themeJson, d.docVersion as docVersion, d.exportedHash as exportedHash, d.exportedAt as exportedAt, " +
         "d.pdfStatus as pdfStatus, d.pdfAttempts as pdfAttempts, d.pdfError as pdfError, d.pdfWorker as pdfWorker, " +
-        "d.pdfRequestedAt as pdfRequestedAt, d.resume.label as label, d.resume.r2ObjectKey as r2ObjectKey from ResumeDoc d where d.resumeId in :ids"
+        "d.pdfRequestedAt as pdfRequestedAt, d.resume.label as label, d.resume.r2ObjectKey as r2ObjectKey, d.thumbKey as thumbKey from ResumeDoc d where d.resumeId in :ids"
     )
     List<PdfJobRow> findPdfJobRows(@Param("ids") Collection<Long> ids);
 
@@ -91,7 +95,18 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
         String getLabel();
 
         String getR2ObjectKey();
+
+        /** Storage key of the card thumbnail (R3.13), null when there is none. */
+        String getThumbKey();
     }
+
+    /**
+     * Records the card thumbnail's storage key and the render hash it shows (R3.13). A bulk update like every other
+     * write of the job pipeline: the document's optimistic-lock version must not move.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update ResumeDoc d set d.thumbKey = :key, d.thumbHash = :hash where d.resumeId = :resumeId")
+    int setThumb(@Param("resumeId") Long resumeId, @Param("key") String key, @Param("hash") String hash);
 
     /**
      * Stamp an export without touching {@code @Version}: a bulk update does not bump it, which is the

@@ -413,6 +413,23 @@ async function saveAndProve(label, id) {
     must(bytes.subarray(0, 5).toString("latin1") === "%PDF-", "stored file is not a PDF");
     return `${st.status}, ${bytes.length} bytes at ${key.split("/").slice(-1)[0]}`;
   });
+  await step(`${label}: card thumbnail (PNG on disk, served with its ETag, 304 on revalidate, in the list)`, async () => {
+    const hash = (await listRow(id))?.thumbHash;
+    must(hash, "the list row carries no thumbHash");
+    const res = await web("GET", `/api/resumes/${id}/thumbnail?v=${hash}`);
+    must(res.status === 200, `thumbnail -> ${res.status}`);
+    must(res.headers.get("content-type") === "image/png", `content-type ${res.headers.get("content-type")}`);
+    const etag = res.headers.get("etag");
+    must(etag === `"${hash}"`, `etag ${etag} != "${hash}"`);
+    must((res.headers.get("cache-control") ?? "").includes("max-age=86400"), `cache-control ${res.headers.get("cache-control")}`);
+    const png = Buffer.from(await res.arrayBuffer());
+    must(png.subarray(1, 4).toString("latin1") === "PNG", "not a PNG");
+    const again = await web("GET", `/api/resumes/${id}/thumbnail`, { headers: { "if-none-match": etag } });
+    must(again.status === 304, `revalidation -> ${again.status}`);
+    const thumbs = path.join(STORAGE_ROOT, "resume-thumbs");
+    must(existsSync(thumbs), "no resume-thumbs directory in storage");
+    return `${png.length} bytes png, hash ${hash.slice(0, 8)}`;
+  });
   await step(`${label}: cached export PDF (no re-render) + TXT`, async () => {
     const res = await web("GET", `/api/resumes/${id}/export?format=pdf&cached=1`);
     must(res.status === 200, `pdf -> ${res.status}`);

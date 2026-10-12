@@ -5,11 +5,11 @@
 **Branch:** `resume-builder`, cut from `version2` (which is 75+ commits ahead of `main`; nothing
 promoted). Stay on this branch; PR into `develop` only when the user asks.
 
-**Last commit:** `rb3.12: Resume settings sheet` (2026-10-12, on top of `fd7fdea`; R3.12 is built: `ResumeSettingsSheet` + `ViewsSheet`, right view `"settings"`, entry points header ⋮ / `Alt+S` / list card ⋮ / phone), after `docs: resume builder handoff after the overnight build` (2026-10-12) and the integration chain
+**Last commit:** `rb3.13: Card thumbnails from the PDF job + template gallery` (2026-10-12, on top of `rb3.12`; R3.13 is built: the PDF worker screenshots page 1 after `page.pdf()` and posts it as the `thumb` part, Spring stores it under `resume-thumbs/<userId>/<resumeId>-<renderHash>.png`, `GET /api/profile/resumes/{id}/thumbnail` (ETag = render hash), `ResumeDTO.thumbHash`, cards use `/thumbnail?v=<hash>` with the template picture as fallback, gallery at `/resume-builder/templates`, rb-smoke asserts it), after `rb3.12: Resume settings sheet` (2026-10-12, on top of `fd7fdea`; R3.12 is built: `ResumeSettingsSheet` + `ViewsSheet`, right view `"settings"`, entry points header ⋮ / `Alt+S` / list card ⋮ / phone), after `docs: resume builder handoff after the overnight build` (2026-10-12) and the integration chain
 `fa0750b` (R2.6) -> `136e239` (R3.3) -> `fd205ac` (R3.10) -> `1e94d68` (header menu Duplicate + Download original) -> `3633475` (R3.4 + R1.6) -> the rb-smoke extension.
 The per-story detail of everything below lives in the `PROGRESS.md` Log (one line per story and per merge).
 
-**What is built on this line (done: R0.*, R1.1, R1.2, R1.4, R1.5, R1.6, R2.0-R2.2, R2.4-R2.12, R3.3, R3.4, R3.7-R3.12):**
+**What is built on this line (done: R0.*, R1.1, R1.2, R1.4, R1.5, R1.6, R2.0-R2.2, R2.4-R2.12, R3.3, R3.4, R3.7-R3.13):**
 the whole user-visible Resume Builder flow works end to end against the real stack.
 - **My Resumes** (`/resume-builder`, R2.6): board layout, tabs with counts incl. "Shared with me" (R3.11), score badges, card menu
   (Open / Duplicate / Rename / Set as Primary / Archive / Delete), `?view=pdf` and `?tab=ai` deep links into the editor.
@@ -19,13 +19,14 @@ the whole user-visible Resume Builder flow works end to end against the real sta
   autosave with ETag, Save / Save as version, Download ▾ (Print layout, **PDF view of the stored PDF**, Save & Download PDF / TXT).
 - **PDF pipeline** (R3.7): render hash, PENDING/RUNNING/READY/FAILED, worker in the web container, stored through `FileStorage`.
 - **Profile**: items API + `/profiles` hub, onboarding wizard, start-fresh, headline/summary/provenance chips (R1.6).
-- **Proven** by `web/scripts/rb-smoke.mjs` (42/42 over HTTP, see "Run the smoke") and a browser walkthrough (PROGRESS Log, 2026-10-12).
+- **Proven** by `web/scripts/rb-smoke.mjs` (46/46 over HTTP incl. the card thumbnail of every READY PDF, see "Run the smoke") and a browser walkthrough (PROGRESS Log, 2026-10-12).
 
-**Next stories (build order):** R3.13 thumbnails + template gallery, R3.6 parse check, R3.2 pull from profile, R1.3 drag-reorder, then R4 AI assist, R5 tailor / job match,
+**Next stories (build order):** R3.6 parse check, R3.2 pull from profile, R1.3 drag-reorder, then R4 AI assist, R5 tailor / job match,
 R6 hardening (phone / a11y / perf / CI), R7 extras, R8 org Resumes & Profiles. `node docs/resume-builder/build-roadmap.mjs --list` prints the live status.
 
 **Known gaps / not working:** the browser pane of the desktop app captures screenshots at ~800 px, so the 1440 screenshots of 2026-10-12 are low resolution;
 `next dev` does not hydrate in that pane (HMR websocket) - use `next build` + `next start`; list card menu has no Tailor entry yet (R5.9) and its Settings entry is for built resumes only (an uploaded file has no editor);
+the card thumbnail is made only by the async PDF job: a synchronous export (Download with no stored PDF) marks the PDF READY without one, so that resume keeps its previous / the template's picture until its next saved render; deleting a resume or account does not delete its `resume-thumbs/` object (same as every stored file today);
 a second template is not registered in the web (only Modern), so the template-switch safety net (R3.4) is covered by unit + IT tests, not by the smoke.
 
 **State:** R0 done as built (schema v1 tables, `ResumeDocument` v1 contract, doc endpoints with ETag/If-Match, `@kiwiply/ui` resume package + Modern template, editor skeleton with autosave, PDF via the sidecar through `FileStorage`). **Design v2** (2026-10-12) re-plans everything after R0 to the user's v3 boards (`design/resume-builder-v3/*.webp` — layout only; templates come later) and the 2026-10-12 requirements (template capability model, dynamic left side-nav, right side-nav with Print layout / PDF view, save pipeline with async PDF, resume metadata + access control, start chooser, Save / Save & Download, the resume header bar, the My Resumes and org Resumes & Profiles pages). Four documents define the work:

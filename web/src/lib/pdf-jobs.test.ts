@@ -60,7 +60,7 @@ describe("runPdfJobsOnce", () => {
     const r = await runPdfJobsOnce({ fetch: api.fetch, exportPdf, env: ENV, log, workerId: "web-1" });
 
     expect(r).toEqual({ jobs: 1, pollMs: 7000 }); // the interval comes from Spring, not from here
-    expect(exportPdf).toHaveBeenCalledWith({ doc: DOC, theme: {}, templateId: "modern" });
+    expect(exportPdf).toHaveBeenCalledWith({ doc: DOC, theme: {}, templateId: "modern" }, { thumbWidth: undefined }); // this claim carries no thumbWidth
 
     const claim = api.calls[0];
     expect(claim.url).toBe("http://api.test/api/internal/resume-pdf-jobs/claim");
@@ -84,12 +84,34 @@ describe("runPdfJobsOnce", () => {
     expect(logs.some(([, l]) => /^pdf-job 7 ready pages=2 ms=\d+$/.test(l))).toBe(true);
   });
 
+  it("asks for the thumbnail at the width Spring claimed and posts it as the thumb part (R3.13)", async () => {
+    const api = fakeApi({ claim: () => Response.json([{ ...JOB, thumbWidth: 240 }]) });
+    const exportPdf = vi.fn(async () => ({ ...okPdf, thumb: Buffer.from("\x89PNG-bytes", "latin1") }));
+    await runPdfJobsOnce({ fetch: api.fetch, exportPdf, env: ENV, log });
+
+    expect(exportPdf).toHaveBeenCalledWith({ doc: DOC, theme: {}, templateId: "modern" }, { thumbWidth: 240 });
+    const form = api.calls[2].body as FormData;
+    const thumb = form.get("thumb") as Blob;
+    expect(thumb.type).toBe("image/png");
+    expect(Buffer.from(await thumb.arrayBuffer()).toString("latin1")).toBe("\x89PNG-bytes");
+    expect(form.get("file")).toBeTruthy(); // the PDF travels with it
+  });
+
+  it("posts no thumb part when the screenshot did not work, and the PDF still goes", async () => {
+    const api = fakeApi({ claim: () => Response.json([{ ...JOB, thumbWidth: 240 }]) });
+    await runPdfJobsOnce({ fetch: api.fetch, exportPdf: async () => ({ ...okPdf, thumb: null }), env: ENV, log });
+    const form = api.calls[2].body as FormData;
+    expect(form.get("thumb")).toBeNull();
+    expect(form.get("renderHash")).toBe(JOB.renderHash);
+    expect(api.calls.some((c) => c.url.endsWith("/fail"))).toBe(false);
+  });
+
   it("posts the hash of the document it actually rendered when it moved on after the claim", async () => {
     const newer = "b".repeat(64);
     const api = fakeApi({ claim: claimOne, doc: () => Response.json({ doc: DOC, theme: null, templateId: "classic", renderHash: newer }) });
     const exportPdf = vi.fn(async () => okPdf);
     await runPdfJobsOnce({ fetch: api.fetch, exportPdf, env: ENV, log });
-    expect(exportPdf).toHaveBeenCalledWith({ doc: DOC, theme: null, templateId: "classic" });
+    expect(exportPdf).toHaveBeenCalledWith({ doc: DOC, theme: null, templateId: "classic" }, { thumbWidth: undefined });
     expect((api.calls[2].body as FormData).get("renderHash")).toBe(newer);
   });
 

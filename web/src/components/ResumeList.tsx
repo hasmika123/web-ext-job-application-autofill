@@ -56,6 +56,8 @@ export interface Resume {
   pdf?: { status: "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE"; hash?: string | null; error?: string | null } | null;
   /** BUILT only (R2.5): the last Resume Score (0-100) the editor's save stored; null/absent until the first scored save. */
   score?: number | null;
+  /** BUILT only (R3.13): the render hash the card thumbnail shows; null/absent until the first PDF job made one. */
+  thumbHash?: string | null;
 }
 
 function statusBadge(status?: string | null) {

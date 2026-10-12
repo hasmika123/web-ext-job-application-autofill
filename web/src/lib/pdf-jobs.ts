@@ -8,7 +8,7 @@
  *
  *   POST /api/internal/resume-pdf-jobs/claim {worker, limit}   -> [{resumeId, userId, renderHash, templateId}]
  *   GET  /api/internal/resumes/:id/doc                         -> ResumeDocDTO (by id; no user)
- *   POST /api/internal/resumes/:id/pdf (multipart)             -> 204 (Spring discards it if the document moved on)
+ *   POST /api/internal/resumes/:id/pdf (multipart: file, renderHash, pages, fits, thumb?) -> 204 (Spring discards it if the document moved on)
  *   POST /api/internal/resume-pdf-jobs/:id/fail {kind, ...}    -> 204   kind: BUSY | TIMEOUT | ERROR
  *
  * All four carry `X-Internal-Token` (= `DOSSIER_INTERNAL_TOKEN`); they are reachable only on the Compose network.
@@ -35,6 +35,8 @@ export interface PdfJob {
   userId: number;
   renderHash: string;
   templateId: string;
+  /** `resume.thumb.width` (a setting): how wide the card thumbnail is; absent from an API without R3.13 = no thumbnail. */
+  thumbWidth?: number;
 }
 
 type Env = Record<string, string | undefined>;
@@ -42,7 +44,7 @@ type Level = "info" | "warn" | "error";
 
 export interface WorkerDeps {
   fetch?: typeof fetch;
-  exportPdf?: (input: RenderInput) => Promise<Pick<ExportResult, "pdf" | "pages" | "fits">>;
+  exportPdf?: (input: RenderInput, opts?: { thumbWidth?: number }) => Promise<Pick<ExportResult, "pdf" | "pages" | "fits"> & { thumb?: Buffer | null }>;
   env?: Env;
   log?: (level: Level, line: string) => void;
   now?: () => number;
@@ -79,7 +81,7 @@ export function failKindOf(e: unknown): PdfFailKind {
 export async function runPdfJobsOnce(deps: WorkerDeps = {}): Promise<RunResult> {
   const env = deps.env ?? process.env;
   const doFetch = deps.fetch ?? fetch;
-  const doExport = deps.exportPdf ?? ((input: RenderInput) => exportResumePdf(input));
+  const doExport = deps.exportPdf ?? ((input: RenderInput, opts?: { thumbWidth?: number }) => exportResumePdf(input, {}, opts));
   const log = deps.log ?? defaultLog;
   const now = deps.now ?? Date.now;
   const token = (env.DOSSIER_INTERNAL_TOKEN ?? "").trim();
@@ -144,7 +146,8 @@ export async function runPdfJobsOnce(deps: WorkerDeps = {}): Promise<RunResult> 
         continue;
       }
 
-      const result = await doExport({ doc: dto.doc, theme: dto.theme ?? null, templateId: dto.templateId ?? job.templateId });
+      const thumbWidth = Number.isFinite(job.thumbWidth) && (job.thumbWidth as number) > 0 ? Math.trunc(job.thumbWidth as number) : undefined;
+      const result = await doExport({ doc: dto.doc, theme: dto.theme ?? null, templateId: dto.templateId ?? job.templateId }, { thumbWidth });
 
       // Post what was actually rendered: if the document moved on since the claim, Spring still stores this
       // when it is the current render, and discards it (204) otherwise.
@@ -153,6 +156,8 @@ export async function runPdfJobsOnce(deps: WorkerDeps = {}): Promise<RunResult> 
       form.set("renderHash", dto.renderHash || job.renderHash);
       form.set("pages", String(result.pages));
       form.set("fits", result.fits ? "true" : "false");
+      // The card thumbnail (R3.13): the first page as a PNG, taken from the same page right after the PDF. Optional.
+      if (result.thumb && result.thumb.length > 0) form.set("thumb", new Blob([new Uint8Array(result.thumb)], { type: "image/png" }), `resume-${job.resumeId}.png`);
       const up = await doFetch(apiUrl(`/api/internal/resumes/${job.resumeId}/pdf`), {
         method: "POST",
         headers: internalHeaders(token, false),

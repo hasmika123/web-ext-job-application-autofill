@@ -47,7 +47,7 @@ import {
   type TypeFilter,
 } from "./constants";
 import { applyQuery, tabCounts } from "./filter";
-import { useSoon, useViewMode } from "./hooks";
+import { useViewMode } from "./hooks";
 import ResumeCard from "./ResumeCard";
 import ResumesHero from "./ResumesHero";
 import SharedWithMeList from "./SharedWithMeList";
@@ -62,6 +62,8 @@ export interface MyResumesPageProps {
   config: ResumeBuilderConfig;
   /** The "Use my profile" card of the start chooser. */
   profile?: ProfileSummary;
+  /** `?template=<id>` from the template gallery: open the start chooser with this template preselected (R3.13). */
+  initialTemplate?: string | null;
 }
 
 const VIEW_BTN =
@@ -79,9 +81,8 @@ const MENU_TRIGGER =
  * Everything the board shows that the API does not carry directly is decided in `./adapter.ts`; nothing
  * here reads the DTO directly.
  */
-export default function MyResumesPage({ resumes, usage, baseProfile, isPro, config, profile = EMPTY_PROFILE }: MyResumesPageProps) {
+export default function MyResumesPage({ resumes, usage, baseProfile, isPro, config, profile = EMPTY_PROFILE, initialTemplate = null }: MyResumesPageProps) {
   const display = useDateDisplay();
-  const soon = useSoon();
   const phone = usePhone();
   const [view, setView] = useViewMode();
   const [drawer, setDrawer] = useState(false);
@@ -149,6 +150,23 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro, conf
     },
     [config.resumes, config.plan],
   );
+
+  // Arriving from the template gallery's "Use this template" (`?template=<id>`): open the start chooser with that template
+  // preselected, once, and take the parameter off the address so a reload does not open it again. An id that is not an
+  // enabled template is ignored.
+  const [arrived, setArrived] = useState(false);
+  useEffect(() => {
+    if (arrived || !initialTemplate) return;
+    // One-shot reaction to the address the page was opened with: the state it sets is the chooser opening.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setArrived(true);
+    if (config.templates.enabled.includes(initialTemplate)) openNew(initialTemplate);
+    try {
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+    } catch {
+      /* the address stays as it is */
+    }
+  }, [arrived, initialTemplate, config.templates.enabled, openNew]);
 
   const choose = <T,>(set: (v: T) => void, key: "status" | "sort" | "type") => (v: T) => {
     set(v);
@@ -335,7 +353,6 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro, conf
             track("resume_template_picked", { id });
             openNew(id);
           }}
-          onViewAll={soon("The template gallery")}
         />
         <QuickTips tips={tips} />
       </div>

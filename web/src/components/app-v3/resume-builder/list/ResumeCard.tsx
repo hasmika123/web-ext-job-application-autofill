@@ -21,6 +21,7 @@ import {
   TrashIcon,
   cn,
 } from "@kiwiply/ui";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { KebabMenu, StatusChip, type Tone } from "@/components/app-v2/common";
 import { formatDate, type DateDisplay } from "@/lib/dates";
@@ -43,8 +44,14 @@ function statusChip(m: ResumeCardModel): { label: string; tone: Tone; icon: Reac
   return { label: "Active", tone: "green", icon: <CheckCircleIcon size={12} /> };
 }
 
-/** The template's static thumbnail (uploaded files have no template: a plain file tile). */
+/**
+ * The card's picture (R3.13, DESIGN 8.10): the first page of the resume's own render, made by the PDF job
+ * (`/api/resumes/:id/thumbnail?v=<thumbHash>`, so a new render is a new address). Until the first one exists - and if it
+ * cannot be loaded - the template's static thumbnail stands in. The previous picture stays while the PDF is being
+ * remade (the server keeps it until a newer one lands). An uploaded file has no render: a plain file tile.
+ */
 function Thumbnail({ m, className }: { m: ResumeCardModel; className?: string }) {
+  const [broken, setBroken] = useState(false);
   const box = cn("relative flex-none overflow-hidden rounded-lg border border-v2-line bg-paper-2 shadow-v2-soft", className);
   if (!m.templateId) {
     return (
@@ -53,9 +60,26 @@ function Thumbnail({ m, className }: { m: ResumeCardModel; className?: string })
       </div>
     );
   }
+  if (m.thumbHash && !broken) {
+    return (
+      <div className={box} data-thumb="render">
+        <Image
+          src={`/api/resumes/${m.id}/thumbnail?v=${encodeURIComponent(m.thumbHash)}`}
+          // config-literal-ok: the intrinsic size of a thumbnail at its default width (resume.thumb.width = 240) and Letter's aspect; display only
+          width={240}
+          // config-literal-ok: Letter's aspect at the default thumbnail width; display only
+          height={310}
+          alt={`${m.name} preview`}
+          unoptimized
+          onError={() => setBroken(true)}
+          className="h-full w-full object-cover object-top"
+        />
+      </div>
+    );
+  }
   const t = thumbFor(m.templateId);
   return (
-    <div className={box}>
+    <div className={box} data-thumb="template">
       <Image src={t.src} width={t.width} height={t.height} alt={`${m.name} preview`} unoptimized className="h-full w-full object-cover object-top" />
     </div>
   );
@@ -215,7 +239,7 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
   if (list) {
     return (
       <li data-resume-id={m.id} data-archived={archived || undefined} className={cn("flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-v2-line/70 bg-paper p-3 shadow-v2-soft sm:p-3.5", archived && "opacity-70", busy && "pointer-events-none opacity-60")}>
-        <Thumbnail m={m} className="h-[68px] w-12" />
+        <Thumbnail key={m.thumbHash ?? "none"} m={m} className="h-[68px] w-12" />
         <div className="min-w-[10rem] flex-1 space-y-1.5">
           <h3 className="truncate text-[15px] font-bold text-ink">{m.name}</h3>
           {chips}
@@ -232,7 +256,7 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
 
   return (
     <li data-resume-id={m.id} data-archived={archived || undefined} className={cn("flex min-w-0 gap-3.5 rounded-2xl border border-v2-line/70 bg-paper p-3.5 shadow-v2-soft", archived && "opacity-70", busy && "pointer-events-none opacity-60")}>
-      <Thumbnail m={m} className="h-[104px] w-[72px] sm:h-[190px] sm:w-[134px]" />
+      <Thumbnail key={m.thumbHash ?? "none"} m={m} className="h-[104px] w-[72px] sm:h-[190px] sm:w-[134px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
         <div className="flex items-start justify-between gap-1">
           {chips}

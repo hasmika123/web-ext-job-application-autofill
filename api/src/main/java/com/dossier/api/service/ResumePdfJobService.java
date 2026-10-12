@@ -56,8 +56,15 @@ public class ResumePdfJobService {
     private static final int MAX_WORKER_CHARS = 64;
     private static final String PDF_CONTENT_TYPE = "application/pdf";
 
-    /** One job as a worker receives it. */
-    public record ClaimedJob(Long resumeId, Long userId, String renderHash, String templateId) {}
+    /** The card thumbnails live next to the other generated files (R3.13, DESIGN 8.10): {@code resume-thumbs/<userId>/<resumeId>-<renderHash>.png}. */
+    public static final String THUMB_PREFIX = "resume-thumbs/";
+    private static final String THUMB_CONTENT_TYPE = "image/png";
+    /** A thumbnail is ~100 KB at the widest setting; this only stops a runaway upload from filling the store. */
+    private static final int MAX_THUMB_BYTES = 1 << 20;
+    private static final byte[] PNG_MAGIC = { (byte) 0x89, 'P', 'N', 'G' };
+
+    /** One job as a worker receives it. {@code thumbWidth} is the setting {@code resume.thumb.width}: the width of the card thumbnail to screenshot (R3.13). */
+    public record ClaimedJob(Long resumeId, Long userId, String renderHash, String templateId, int thumbWidth) {}
 
     /** Why a render did not produce a PDF. */
     public enum FailKind {
@@ -130,10 +137,11 @@ public class ResumePdfJobService {
         if (ids.isEmpty()) return List.of();
         docs.markRunning(ids, who, now.plusMillis(settings.getInt(ResumeBuilderSettingKeys.PDF_LEASE_MS)));
         claimed.increment(ids.size());
+        int thumbWidth = settings.getInt(ResumeBuilderSettingKeys.THUMB_WIDTH);
         return docs
             .findPdfJobRows(ids)
             .stream()
-            .map(r -> new ClaimedJob(r.getResumeId(), r.getUserId(), renderHashOf(r), r.getTemplateId()))
+            .map(r -> new ClaimedJob(r.getResumeId(), r.getUserId(), renderHashOf(r), r.getTemplateId(), thumbWidth))
             .toList();
     }
 
@@ -144,6 +152,16 @@ public class ResumePdfJobService {
      * if it is no longer the document's current render hash the file is discarded.
      */
     public StoreResult store(Long resumeId, byte[] bytes, String renderHash, int pages, boolean fits) {
+        return store(resumeId, bytes, renderHash, pages, fits, null);
+    }
+
+    /**
+     * As {@link #store(Long, byte[], String, int, boolean)}, plus the card thumbnail (R3.13): a PNG of the first page,
+     * stored through {@link FileStorage} at {@code resume-thumbs/<userId>/<resumeId>-<renderHash>.png} while the PDF
+     * is stored (the old thumbnail object is deleted, {@code thumb_key}/{@code thumb_hash} updated). A missing or
+     * unusable thumbnail never fails the PDF: the previous one stays and the card keeps showing it.
+     */
+    public StoreResult store(Long resumeId, byte[] bytes, String renderHash, int pages, boolean fits, byte[] thumb) {
         if (bytes == null || bytes.length == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty PDF");
         }
@@ -163,6 +181,7 @@ public class ResumePdfJobService {
                 ready.increment();
                 if (row.getPdfRequestedAt() != null) latency.record(Duration.between(row.getPdfRequestedAt(), Instant.now()));
                 LOG.info("pdf-job {} stored pages={} fits={} bytes={}", resumeId, pages, fits, bytes.length);
+                storeThumbnail(row, renderHash, thumb);
                 return StoreResult.STORED;
             }
             // The version moved. If the render did not (e.g. a profile sync bumped it), try again with the new one.
@@ -170,6 +189,30 @@ public class ResumePdfJobService {
         }
         if (newKey != null) deleteQuietly(newKey);
         return discard(resumeId, "raced");
+    }
+
+    /** Best effort: any problem with the thumbnail is logged and leaves the previous one in place. */
+    private void storeThumbnail(PdfJobRow row, String renderHash, byte[] thumb) {
+        if (thumb == null || thumb.length == 0) return;
+        if (thumb.length > MAX_THUMB_BYTES || !isPng(thumb) || !renderHash.matches("[0-9a-f]{1,64}")) {
+            LOG.warn("pdf-job {} thumbnail ignored (bytes={}, png={})", row.getResumeId(), thumb.length, isPng(thumb));
+            return;
+        }
+        String key = THUMB_PREFIX + row.getUserId() + "/" + row.getResumeId() + "-" + renderHash + ".png";
+        try {
+            storage.store(key, thumb, THUMB_CONTENT_TYPE);
+            String old = row.getThumbKey();
+            docs.setThumb(row.getResumeId(), key, renderHash);
+            if (old != null && !old.isBlank() && !old.equals(key)) deleteQuietly(old);
+        } catch (RuntimeException e) {
+            LOG.warn("pdf-job {} could not store its thumbnail: {}", row.getResumeId(), e.toString());
+        }
+    }
+
+    private static boolean isPng(byte[] b) {
+        if (b.length < PNG_MAGIC.length) return false;
+        for (int i = 0; i < PNG_MAGIC.length; i++) if (b[i] != PNG_MAGIC[i]) return false;
+        return true;
     }
 
     private StoreResult discard(Long resumeId, String why) {

@@ -17,6 +17,8 @@
  *    A number is clamped to 0-100 and rounded; anything else is null (no badge, sorts last).
  *  - atsFriendly: only when the template registry marks the resume's template ATS-safe; unknown for
  *    uploads (no template) so the chip is not shown.
+ *  - thumbHash: the server-made thumbnail's render hash (R3.13), BUILT only; it stays while the PDF is PENDING / RUNNING / STALE
+ *    (the previous picture is kept until a newer one lands), so it is read straight off the DTO, never from `pdf.status`.
  *  - pdfState: BUILT resumes only. The API's PDF job state wins (R3.7: PENDING/RUNNING/STALE -> updating, FAILED ->
  *    failed, READY -> current); an API that does not report it falls back to stored hash vs content hash.
  */
@@ -58,6 +60,8 @@ export interface ResumeCardModel {
   score: number | null;
   /** ISO timestamp of the last stored PDF, or null. */
   exportedAt: string | null;
+  /** The render hash the server-made card thumbnail shows (R3.13), or null = none yet (the card falls back to the template's picture). Kept while the PDF is being remade. */
+  thumbHash: string | null;
 }
 
 /** The Type filter's buckets. */
@@ -102,6 +106,7 @@ export function toCardModel(r: ResumeDto): ResumeCardModel {
     // config-literal-ok: a score is a percentage, 0-100 by definition
     score: kind === "BUILT" && typeof r.score === "number" && Number.isFinite(r.score) ? Math.min(100, Math.max(0, Math.round(r.score))) : null,
     exportedAt: blank(r.exportedAt),
+    thumbHash: kind === "BUILT" ? blank(r.thumbHash) : null,
   };
 }
 

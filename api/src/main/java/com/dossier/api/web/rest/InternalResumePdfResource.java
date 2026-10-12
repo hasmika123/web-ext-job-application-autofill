@@ -87,7 +87,8 @@ public class InternalResumePdfResource {
 
     /**
      * The rendered PDF. Stored as the resume's file when {@code renderHash} is still the document's current
-     * render hash, otherwise discarded; both answer 204 (a discard is a normal outcome, not an error).
+     * render hash, otherwise discarded; both answer 204 (a discard is a normal outcome, not an error). The optional
+     * {@code thumb} part is the card thumbnail PNG of the first page (R3.13), stored with the PDF.
      */
     @PostMapping(value = "/resumes/{id}/pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> pdf(
@@ -95,12 +96,13 @@ public class InternalResumePdfResource {
         @RequestParam("file") MultipartFile file,
         @RequestParam("renderHash") String renderHash,
         @RequestParam(value = "pages", required = false, defaultValue = "1") int pages,
-        @RequestParam(value = "fits", required = false, defaultValue = "true") boolean fits
+        @RequestParam(value = "fits", required = false, defaultValue = "true") boolean fits,
+        @RequestParam(value = "thumb", required = false) MultipartFile thumb
     ) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file provided");
         }
-        jobs.store(id, file.getBytes(), renderHash, pages, fits);
+        jobs.store(id, file.getBytes(), renderHash, pages, fits, thumb == null || thumb.isEmpty() ? null : thumb.getBytes());
         return ResponseEntity.noContent().build();
     }
 }

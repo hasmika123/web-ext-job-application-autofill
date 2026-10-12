@@ -444,10 +444,42 @@ describe("My Resumes: Popular Templates and Quick Tips", () => {
     expect(screen.getByText(/Template:/).textContent).toContain("Modern");
   });
 
-  it("View all says the gallery is coming (R3.13)", async () => {
+  it("View all is a link to the template gallery (R3.13)", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: /View all/ }));
-    expect(await screen.findByText("Coming soon")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /View all/ }).getAttribute("href")).toBe("/resume-builder/templates");
+  });
+
+  it("arriving from the gallery (?template=modern) opens the chooser with that template preselected, once, and clears the address", () => {
+    const replace = vi.spyOn(window.history, "replaceState");
+    render(
+      <ToastProvider>
+        <MyResumesPage resumes={resumes()} usage={{}} baseProfile={{}} isPro={false} config={cfg()} profile={{ itemCount: 2, roles: 1, schools: 1, skills: 4, score: 60, headline: null }} initialTemplate="modern" />
+      </ToastProvider>,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Start your resume from" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+    expect(screen.getByText(/Template:/).textContent).toContain("Modern");
+    expect(replace).toHaveBeenCalledTimes(1);
+    replace.mockRestore();
+  });
+
+  it("an id that is not an enabled template opens nothing", () => {
+    render(
+      <ToastProvider>
+        <MyResumesPage resumes={resumes()} usage={{}} baseProfile={{}} isPro={false} config={cfg()} initialTemplate="not-a-template" />
+      </ToastProvider>,
+    );
+    expect(screen.queryByRole("dialog", { name: "Start your resume from" })).toBeNull();
+  });
+
+  it("the plan's cap is still checked first when the gallery sends you here", () => {
+    render(
+      <ToastProvider>
+        <MyResumesPage resumes={resumes()} usage={{}} baseProfile={{}} isPro={false} config={cfg({ resumes: { count: 3, max: 3 }, plan: "FREE" })} initialTemplate="modern" />
+      </ToastProvider>,
+    );
+    expect(screen.queryByRole("dialog", { name: "Start your resume from" })).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("You've reached 3 resumes");
   });
 });
 
