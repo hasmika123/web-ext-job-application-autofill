@@ -93,9 +93,15 @@ public final class MailMatcher {
      */
     public static ApplicationStatus next(ApplicationStatus current, MailClassifier.Category category) {
         ApplicationStatus c = current == null ? ApplicationStatus.DRAFT : current;
+        // WITHDRAWN is the user's own decision: mail never moves an application out of it.
+        if (c == ApplicationStatus.WITHDRAWN) return null;
         return switch (category) {
             case APPLIED, ASSESSMENT -> c == ApplicationStatus.DRAFT || c == ApplicationStatus.SAVED ? ApplicationStatus.APPLIED : null;
-            case INTERVIEW -> c == ApplicationStatus.DRAFT || c == ApplicationStatus.SAVED || c == ApplicationStatus.APPLIED
+            // "Under review" sits between applied and interview: it moves an entry that is earlier, never one that is later.
+            case IN_REVIEW -> c == ApplicationStatus.DRAFT || c == ApplicationStatus.SAVED || c == ApplicationStatus.APPLIED
+                ? ApplicationStatus.IN_REVIEW
+                : null;
+            case INTERVIEW -> c == ApplicationStatus.DRAFT || c == ApplicationStatus.SAVED || c == ApplicationStatus.APPLIED || c == ApplicationStatus.IN_REVIEW
                 ? ApplicationStatus.INTERVIEW
                 : null;
             case OFFER -> c == ApplicationStatus.OFFER ? null : ApplicationStatus.OFFER;

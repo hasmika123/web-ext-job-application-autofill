@@ -20,6 +20,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     /** Admin-scoped lookup of a specific user's applications (Phase 9.A1.4 account erase). */
     List<Application> findByUserId(Long userId);
 
+    /** One application by id AND owner: someone else's id finds nothing (the tracker's 404-not-403 rule). */
+    Optional<Application> findOneByIdAndUserId(Long id, Long userId);
+
     /** How many applications reference this resume — the archive-guard check (3.5). */
     long countByResumeId(Long resumeId);
 

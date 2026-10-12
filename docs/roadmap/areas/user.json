@@ -1393,7 +1393,7 @@
       "id": "U6.1",
       "epic": "U6",
       "title": "Schema: application_event, application_note, interview; IN_REVIEW/WITHDRAWN statuses; backfill",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

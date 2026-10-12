@@ -32,6 +32,7 @@ public class AccountExportService {
     private final InboxService inboxService;
     private final NotificationService notificationService;
     private final ResumeBuilderDataService resumeBuilderDataService;
+    private final TrackerDataService trackerDataService;
 
     public AccountExportService(
         UserService userService,
@@ -43,7 +44,8 @@ public class AccountExportService {
         ProfileSuggestionService profileSuggestionService,
         InboxService inboxService,
         NotificationService notificationService,
-        ResumeBuilderDataService resumeBuilderDataService
+        ResumeBuilderDataService resumeBuilderDataService,
+        TrackerDataService trackerDataService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -55,6 +57,7 @@ public class AccountExportService {
         this.inboxService = inboxService;
         this.notificationService = notificationService;
         this.resumeBuilderDataService = resumeBuilderDataService;
+        this.trackerDataService = trackerDataService;
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -76,6 +79,8 @@ public class AccountExportService {
         out.put("bio", profileService.getProfile().orElse(null));
         out.put("resumes", profileService.listResumes());
         out.put("applications", applicationSyncService.listApplications());
+        // APP-E2E U6.1: the tracker's memory - timeline events, notes and interviews.
+        out.putAll(trackerDataService.exportForUser(u.getId()));
         out.put("fieldCache", fieldCacheSyncService.list());
         // Resume Builder (R0.1): the Common Profile's structured items and the built documents.
         out.put("profileItems", resumeBuilderDataService.exportProfileItems(u.getId()));

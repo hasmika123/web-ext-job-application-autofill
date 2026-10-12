@@ -65,6 +65,7 @@ public class AccountDeletionService {
     private final StripeEventRepository stripeEventRepository;
     private final CustomerNoteRepository customerNoteRepository;
     private final ResumeBuilderDataService resumeBuilderDataService;
+    private final TrackerDataService trackerDataService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -89,7 +90,8 @@ public class AccountDeletionService {
         NotificationService notificationService,
         StripeEventRepository stripeEventRepository,
         CustomerNoteRepository customerNoteRepository,
-        ResumeBuilderDataService resumeBuilderDataService
+        ResumeBuilderDataService resumeBuilderDataService,
+        TrackerDataService trackerDataService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -114,6 +116,7 @@ public class AccountDeletionService {
         this.stripeEventRepository = stripeEventRepository;
         this.customerNoteRepository = customerNoteRepository;
         this.resumeBuilderDataService = resumeBuilderDataService;
+        this.trackerDataService = trackerDataService;
     }
 
     /**
@@ -185,6 +188,8 @@ public class AccountDeletionService {
         // Child rows first (FK user_id), then the user.
         resumeRepository.deleteAll(resumes);
         bioRepository.deleteAll(bioRepository.findByUserIsCurrentUser());
+        // The tracker's events, notes and interviews hang off the applications (and the user): erase them first.
+        userRepository.findOneByLogin(login).map(User::getId).ifPresent(trackerDataService::deleteAllForUser);
         List<Application> applications = applicationRepository.findByUserIsCurrentUser();
         deleteAttachmentBlobs(applications);
         applicationRepository.deleteAll(applications);
@@ -236,6 +241,7 @@ public class AccountDeletionService {
 
         resumeRepository.deleteAll(resumes);
         bioRepository.deleteAll(bioRepository.findByUserId(userId));
+        trackerDataService.deleteAllForUser(userId); // events, notes, interviews: before the applications they hang off
         List<Application> applications = applicationRepository.findByUserId(userId);
         deleteAttachmentBlobs(applications);
         applicationRepository.deleteAll(applications);

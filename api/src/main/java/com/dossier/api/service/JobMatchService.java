@@ -225,6 +225,7 @@ public class JobMatchService {
         dto.setExternalJobId(p.getExternalId());
         dto.setAtsPlatform(p.getSource().getAts());
         dto.setSource("match");
+        dto.setPostingId(p.getId());
         dto.setStatus(ApplicationStatus.SAVED);
         Long appId = applicationSync.upsertApplication(dto).getId();
         m.setStatus(JobMatch.SAVED);

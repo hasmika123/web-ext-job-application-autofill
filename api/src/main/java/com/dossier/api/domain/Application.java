@@ -127,6 +127,36 @@ public class Application implements Serializable {
     @Column(name = "attachment_filename", length = 255)
     private String attachmentFilename;
 
+    // ---- Tracker memory (APP-E2E U6.1) ----
+
+    // When something last happened to this application (any application_event). The "ghosted" clock.
+    @Column(name = "last_event_at")
+    private Instant lastEventAt;
+
+    // The user's own next step ("Follow up with Sarah") and when it is due.
+    @Size(max = 160)
+    @Column(name = "next_action", length = 160)
+    private String nextAction;
+
+    @Column(name = "next_action_at")
+    private Instant nextActionAt;
+
+    // How an offer ended: ACCEPTED or DECLINED (null while open). accepted_at is set with ACCEPTED.
+    @Size(max = 12)
+    @Column(name = "outcome", length = 12)
+    private String outcome;
+
+    @Column(name = "accepted_at")
+    private Instant acceptedAt;
+
+    // R5.3 link: the cover letter (a resume-builder document's resume) used for this application.
+    @Column(name = "cover_letter_resume_id")
+    private Long coverLetterResumeId;
+
+    // Soft reference to the job_posting this came from (no foreign key: postings are purged).
+    @Column(name = "posting_id")
+    private Long postingId;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -429,6 +459,62 @@ public class Application implements Serializable {
 
     public void setAttachmentFilename(String attachmentFilename) {
         this.attachmentFilename = attachmentFilename;
+    }
+
+    public Instant getLastEventAt() {
+        return this.lastEventAt;
+    }
+
+    public void setLastEventAt(Instant lastEventAt) {
+        this.lastEventAt = lastEventAt;
+    }
+
+    public String getNextAction() {
+        return this.nextAction;
+    }
+
+    public void setNextAction(String nextAction) {
+        this.nextAction = nextAction;
+    }
+
+    public Instant getNextActionAt() {
+        return this.nextActionAt;
+    }
+
+    public void setNextActionAt(Instant nextActionAt) {
+        this.nextActionAt = nextActionAt;
+    }
+
+    public String getOutcome() {
+        return this.outcome;
+    }
+
+    public void setOutcome(String outcome) {
+        this.outcome = outcome;
+    }
+
+    public Instant getAcceptedAt() {
+        return this.acceptedAt;
+    }
+
+    public void setAcceptedAt(Instant acceptedAt) {
+        this.acceptedAt = acceptedAt;
+    }
+
+    public Long getCoverLetterResumeId() {
+        return this.coverLetterResumeId;
+    }
+
+    public void setCoverLetterResumeId(Long coverLetterResumeId) {
+        this.coverLetterResumeId = coverLetterResumeId;
+    }
+
+    public Long getPostingId() {
+        return this.postingId;
+    }
+
+    public void setPostingId(Long postingId) {
+        this.postingId = postingId;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
