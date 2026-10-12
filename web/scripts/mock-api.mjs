@@ -1520,6 +1520,96 @@ function handleProfileItems(req, res, path, method) {
   return true;
 }
 
+/* ── Notification preferences mock (E2E-U7.0 contract; in memory per login, DEV ONLY) ──────────────────
+ * GET/PUT /api/profile/notification-preferences like NotificationPreferenceResource: the admin-configured defaults until the
+ * first save (stored:false), billing and security locked on, 422 for an unknown kind / bad time / bad zone, and - like the real
+ * demo guard - a demo account's PUT is refused (403 DEMO_READ_ONLY). Fixture (non-demo) accounts save for real, in memory.
+ * Control: POST /mock/notification-preferences/reset forgets every login's saved preferences.
+ */
+const NOTIFY_KINDS = [
+  { kind: "APP_STATUS", title: "Application updates", description: "When an email moves one of your applications, like an interview invite or an offer.", locked: false, lockedWhy: null },
+  { kind: "INTERVIEW_REMINDER", title: "Interview reminders", description: "A nudge before an interview you have on your calendar.", locked: false, lockedWhy: null },
+  { kind: "PROFILE_SUGGESTION", title: "Profile suggestions", description: "When we learn something new about you from an application and want your okay.", locked: false, lockedWhy: null },
+  { kind: "BILLING", title: "Billing", description: "Receipts, renewals and card problems.", locked: true, lockedWhy: "Needed so you never miss a payment issue." },
+  { kind: "SECURITY", title: "Security", description: "New sign-ins and password changes.", locked: true, lockedWhy: "Needed to keep your account safe." },
+  { kind: "SYSTEM", title: "Kiwiply news", description: "Product updates and the occasional announcement.", locked: false, lockedWhy: null },
+];
+const NOTIFY_DEFAULT_EMAIL = { APP_STATUS: "now", INTERVIEW_REMINDER: "now", PROFILE_SUGGESTION: "off", BILLING: "now", SECURITY: "now", SYSTEM: "off" };
+const NOTIFY_PREFS = new Map(); // login -> { matrix, quietStart, quietEnd, tz, updatedAt }
+const NOTIFY_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function notifyView(login) {
+  const saved = NOTIFY_PREFS.get(login);
+  const matrix = Object.fromEntries(NOTIFY_KINDS.map((k) => [k.kind, saved?.matrix[k.kind] ?? { inapp: true, email: NOTIFY_DEFAULT_EMAIL[k.kind] }]));
+  return {
+    matrix,
+    quietStart: saved?.quietStart ?? null,
+    quietEnd: saved?.quietEnd ?? null,
+    tz: saved?.tz ?? "UTC",
+    stored: !!saved,
+    emailEnabled: true,
+    quietDefaults: { start: "22:00", end: "08:00" },
+    kinds: NOTIFY_KINDS,
+    updatedAt: saved?.updatedAt ?? null,
+  };
+}
+
+/** Handles /api/profile/notification-preferences and the /mock/notification-preferences controls; true when answered. */
+function handleNotificationPrefs(req, res, path, method) {
+  if (path === "/mock/notification-preferences/reset") {
+    req.resume();
+    NOTIFY_PREFS.clear();
+    return json(res, 200, { reset: true }), true;
+  }
+  if (path !== "/api/profile/notification-preferences") return false;
+  const sub = subOf(req);
+  if (!sub) {
+    req.resume();
+    return json(res, 401, { error: "Unauthorized" }), true;
+  }
+  if (method === "GET") {
+    req.resume();
+    return json(res, 200, notifyView(sub)), true;
+  }
+  if (method === "PUT") {
+    if (!FIXTURE_ACCOUNTS[sub]) {
+      req.resume();
+      return json(res, 403, { code: "DEMO_READ_ONLY", message: "This is a demo account - changes aren't saved" }), true;
+    }
+    withBody(req, (b) => {
+      const refuse = (why) => json(res, 422, { title: "Unprocessable Entity", status: 422, detail: why });
+      const before = notifyView(sub);
+      const matrix = { ...before.matrix };
+      for (const [kind, v] of Object.entries(b.matrix ?? {})) {
+        const info = NOTIFY_KINDS.find((k) => k.kind === kind);
+        if (!info) return refuse("Unknown notification kind");
+        if (typeof v?.inapp !== "boolean") return refuse("Say whether " + info.title + " shows in-app");
+        const email = v.email ?? matrix[kind].email;
+        if (email !== "off" && email !== "now") return refuse("Email is off or now");
+        matrix[kind] = info.locked ? { inapp: true, email: "now" } : { inapp: v.inapp, email };
+      }
+      const start = b.quietStart || null;
+      const end = b.quietEnd || null;
+      if ((start && !NOTIFY_TIME.test(start)) || (end && !NOTIFY_TIME.test(end))) return refuse("Quiet hours are times like 22:00");
+      if (!start !== !end) return refuse("Quiet hours need a start and an end");
+      let tz = before.tz;
+      if (b.tz) {
+        try {
+          new Intl.DateTimeFormat("en", { timeZone: b.tz });
+        } catch {
+          return refuse("That isn't a time zone we know");
+        }
+        tz = b.tz;
+      }
+      NOTIFY_PREFS.set(sub, { matrix, quietStart: start, quietEnd: end, tz, updatedAt: new Date().toISOString() });
+      json(res, 200, notifyView(sub));
+    });
+    return true;
+  }
+  req.resume();
+  return json(res, 405, { error: "Method not allowed" }), true;
+}
+
 /* ── Onboarding v2 mock (R1.8 contract, R1.9; in memory per login, DEV ONLY) ───────────────────────
  * GET /api/profile/onboarding[?include=state], PUT/DELETE /draft, PATCH, POST /finish, like OnboardingResource:
  * the draft is a conflict token (`updatedAt`) with 409 DRAFT_CONFLICT when `baseUpdatedAt` is stale, 413 / 422
@@ -1719,6 +1809,7 @@ const server = http.createServer((req, res) => {
   if (handleAccess(req, res, path, method)) return;
   if (handleProfileItems(req, res, path, method)) return;
   if (handleOnboarding(req, res, path, method)) return;
+  if (handleNotificationPrefs(req, res, path, method)) return;
 
   // The setup flow's profile writes (Onboarding v2 R1.10 / R1.11): `PUT /api/profile` replaces the in-memory bio, so the
   // core confirm, the per-answer question writes and the payoff's "~N fields" can be walked through without the API.

@@ -32,6 +32,7 @@ public class AccountExportService {
     private final ProfileSuggestionService profileSuggestionService;
     private final InboxService inboxService;
     private final NotificationService notificationService;
+    private final NotificationPreferenceService notificationPreferenceService;
     private final ResumeBuilderDataService resumeBuilderDataService;
     private final OrgMembershipPrivacyService orgMembershipPrivacyService;
 
@@ -45,6 +46,7 @@ public class AccountExportService {
         ProfileSuggestionService profileSuggestionService,
         InboxService inboxService,
         NotificationService notificationService,
+        NotificationPreferenceService notificationPreferenceService,
         ResumeBuilderDataService resumeBuilderDataService,
         OrgMembershipPrivacyService orgMembershipPrivacyService
     ) {
@@ -57,6 +59,7 @@ public class AccountExportService {
         this.profileSuggestionService = profileSuggestionService;
         this.inboxService = inboxService;
         this.notificationService = notificationService;
+        this.notificationPreferenceService = notificationPreferenceService;
         this.resumeBuilderDataService = resumeBuilderDataService;
         this.orgMembershipPrivacyService = orgMembershipPrivacyService;
     }
@@ -92,6 +95,8 @@ public class AccountExportService {
         // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
         out.put("inbox", inboxService.exportCurrentUser());
         out.put("notifications", notificationService.exportCurrentUser());
+        // E2E-U7.0: which notifications reach the user (the switches, quiet hours, time zone); null when never saved.
+        out.put("notificationPreferences", notificationPreferenceService.exportCurrentUser());
         // Org tenant model (O1.3): the organizations the user belongs to / belonged to, with role, state and dates.
         out.put("organizations", orgMembershipPrivacyService.exportFor(u.getId()));
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());

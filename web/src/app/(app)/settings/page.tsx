@@ -10,7 +10,10 @@ import AiUsageMeter from "@/components/settings/AiUsageMeter";
 import { isDemoLogin } from "@/lib/demo";
 import { InitialsAvatar } from "@/components/app-v2/common";
 import SettingsV3Page, { type SettingsTabKey } from "@/components/app-v3/settings/SettingsV3Page";
-import { DemoNote, ExtensionSettingRow, SettingsCard, SoonRow } from "@/components/app-v3/settings/panels";
+import { DemoNote, ExtensionSettingRow, SettingsCard } from "@/components/app-v3/settings/panels";
+import NotificationPrefsProvider from "@/components/app-v3/settings/NotificationPrefsProvider";
+import NotificationsPanel from "@/components/app-v3/settings/NotificationsPanel";
+import { getNotificationPreferences } from "@/lib/notification-preferences-server";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -36,11 +39,12 @@ export default async function SettingsPage() {
   const account: Account | null = res.ok ? await res.json() : null;
   // A public demo account: nothing here is saved, and the destructive/billing actions are hidden.
   const demo = isDemoLogin(account?.login);
-  const [plan, aiUsage, inboxRes, bioRes] = await Promise.all([
+  const [plan, aiUsage, inboxRes, bioRes, notificationPrefs] = await Promise.all([
     getPlan(),
     getAiUsage(),
     serverApiFetch("/api/profile/inbox"),
     serverApiFetch("/api/profile"),
+    getNotificationPreferences(),
   ]);
   const inbox = inboxRes.ok
     ? ((await inboxRes.json().catch(() => null)) as { connected?: boolean; address?: string | null; status?: string | null } | null)
@@ -129,11 +133,7 @@ export default async function SettingsPage() {
           {inbox?.connected ? "Manage inbox →" : plan.plan === "PRO" ? "Connect an inbox →" : "See how it works →"}
         </Link>
       </SettingsCard>
-      <SettingsCard title="Notifications">
-        <SoonRow title="Email digests" desc="A short summary of new matches and application updates." />
-        <SoonRow title="Interview reminders" desc="A nudge before an interview on your calendar." />
-        <SoonRow title="Product updates" desc="News about new Kiwiply features." last />
-      </SettingsCard>
+      <NotificationsPanel />
     </>
   );
 
@@ -209,5 +209,9 @@ export default async function SettingsPage() {
     billing,
     help,
   };
-  return <SettingsV3Page panels={panels} />;
+  return (
+    <NotificationPrefsProvider initial={notificationPrefs} demo={demo}>
+      <SettingsV3Page panels={panels} />
+    </NotificationPrefsProvider>
+  );
 }

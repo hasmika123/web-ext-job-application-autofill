@@ -50,6 +50,18 @@ public class Notification implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** Publish is idempotent on this (unique per user); null for rows made before E2E-U7.0. */
+    @Column(name = "dedupe_key", length = 120)
+    private String dedupeKey;
+
+    /** The bell collapses rows that share a group. */
+    @Column(name = "group_key", length = 80)
+    private String groupKey;
+
+    /** The user switched this kind off in-app: kept as the dedupe ledger, never listed or counted. */
+    @Column(name = "inapp_muted", nullable = false)
+    private boolean inappMuted;
+
     public Long getId() {
         return id;
     }
@@ -120,5 +132,29 @@ public class Notification implements Serializable {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getDedupeKey() {
+        return dedupeKey;
+    }
+
+    public void setDedupeKey(String dedupeKey) {
+        this.dedupeKey = dedupeKey;
+    }
+
+    public String getGroupKey() {
+        return groupKey;
+    }
+
+    public void setGroupKey(String groupKey) {
+        this.groupKey = groupKey;
+    }
+
+    public boolean isInappMuted() {
+        return inappMuted;
+    }
+
+    public void setInappMuted(boolean inappMuted) {
+        this.inappMuted = inappMuted;
     }
 }
