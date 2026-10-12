@@ -11,3 +11,11 @@ The editor screen the Resume Builder must reproduce exactly (see root memory: "e
 Common to all three: top bar (logo, "Resume Builder", "Saved 2 minutes ago", Add Section, Pick Template, Swap Section, Tailor to Job, Download ▾, close); section tabs (Personal Info, Summary, Experience, Education, Skills, More ▾); live document with photo, contact row, PROFESSIONAL SUMMARY with B/I/U/list/link toolbar + "Rewrite with AI"; right rail tabs Insights / AI Suggestions (4) / Job Match: Resume Score 82% ring + checklist + "View tips", AI Suggestions carousel (Apply Suggestion / Preview), Job Match BETA (role @ company, 76% match, key-skills checklist, keyword tip).
 
 Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real user's data.
+
+## What these boards are — and are not (user, 2026-10-11)
+- They define the **editor layout only**: top bar, left panel states, section tabs, centre document, right rail.
+- The template thumbnails/names and the document's look (photo, colours) on the boards are **not template
+  specs**. Real templates, including **ATS-friendly** ones, are added separately.
+- **The selected template drives the editor:** with an ATS-friendly template selected, the editor constrains its
+  input elements (e.g. no photo, only allowed text marks, ATS-safe fonts, standard headings) so the result stays
+  ATS-safe. Switching templates is lossless — unsupported content is kept but hidden, with a notice.
