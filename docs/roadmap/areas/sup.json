@@ -193,7 +193,8 @@
       ],
       "deps": [
         "S1.2",
-        "S5.1"
+        "S5.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [
@@ -203,9 +204,9 @@
       "genz": "Their thumbs actually change the docs.",
       "ac": [
         "Liquibase: help_article_stat (slug PK, views, helpful_up, helpful_down, last_viewed_at), help_search_miss (query ≤ 200 chars scrubbed, from_surface, hits, created_at)",
-        "POST /api/help/events (batch; types view|search|miss; anonymous; BFF 60/h/IP) + daily rollup job",
+        "POST /api/help/events (batch; types view|search|miss; anonymous; BFF rate setting `ratelimit.help_events.per_hour`, default 60 per IP) + daily rollup job",
         "Article 👍/👎 uses feedback_event target_type=help_article via the ThumbsFeedback primitive",
-        "GET /api/admin/help/stats: top viewed, lowest helpful ratio (min 20 votes), top misses, stale (updated > 90 days)"
+        "GET /api/admin/help/stats: top viewed, lowest helpful ratio (min setting `support.help.min_votes`, default 20), top misses, stale (not updated for setting `support.help.stale_days`, default 90)"
       ],
       "tests": [
         "HelpEventResourceIT (batch accepted, scrubbed, rollup counts)",
@@ -342,17 +343,19 @@
       "owners": [
         "API"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "relates": [],
       "supersedes": [],
       "story": "As a user I want anything I report to have an id and a status so that it can't vanish into a mailbox.",
       "genz": "A ticket number is the receipt; silence is the number-one complaint about every competitor.",
       "ac": [
         "Liquibase: support_ticket (public_id KW-XXXXXX, kind, status, priority, subject, source, plan_at_create, help_slug, ats, diagnostics JSON, SLA columns, resolution, csat, access_token_hash), support_message (author USER|STAFF|SYSTEM, internal flag), support_attachment, support_macro",
-        "POST /api/support/tickets (auth optional; anonymous requires email and mails a signed magic link /support/t/{token}); first_response_due_at = plan/kind rule (Pro/Autopilot 1 business day, Free 2, SITE_REPORT/SCAM_REPORT 1 for all)",
-        "GET /api/support/tickets (mine), GET /api/support/tickets/{publicId} (owner or valid token; others 404; internal notes excluded), POST .../messages (reopens RESOLVED ≤ 14 days)",
+        "POST /api/support/tickets (auth optional; anonymous requires email and mails a signed magic link /support/t/{token}); first_response_due_at from settings `support.sla_business_days.{pro,free,report}` (defaults Pro/Autopilot 1, Free 2, SITE_REPORT/SCAM_REPORT 1 for all)",
+        "GET /api/support/tickets (mine), GET /api/support/tickets/{publicId} (owner or valid token; others 404; internal notes excluded), POST .../messages (reopens RESOLVED within setting `support.reopen_window_days`, default 14)",
         "POST /api/bug-reports becomes an adapter creating a kind=BUG ticket (extension 0.65 keeps working); bug_report table untouched",
-        "State machine per design §3 incl. auto-resolve after 7 silent days with a day-5 nudge email"
+        "State machine per design §3 incl. auto-resolve after setting `support.auto_resolve_days` (default 7) silent days with a nudge email on day `support.auto_resolve_nudge_day` (default 5)"
       ],
       "tests": [
         "SupportTicketServiceTest (state machine, SLA by plan/kind, reopen window, auto-resolve)",
@@ -449,7 +452,8 @@
         "web"
       ],
       "deps": [
-        "S2.1"
+        "S2.1",
+        "A5.1"
       ],
       "relates": [
         "R0.6",
@@ -459,7 +463,7 @@
       "story": "As a reporter I want to attach a screenshot so that I don't have to describe a broken dropdown in words.",
       "genz": "A screenshot is the native language of a bug report.",
       "ac": [
-        "POST /api/support/tickets/{publicId}/attachments (Next-proxied, Option A): image/* only, ≤ 2 MB, EXIF stripped server-side, stored via FileStorage (local driver now, S3 later), key on support_attachment",
+        "POST /api/support/tickets/{publicId}/attachments (Next-proxied, Option A): image/* only, up to setting `uploads.support_attachment_max_bytes` (default 2 MB), EXIF stripped server-side, stored via FileStorage (local driver now, S3 later), key on support_attachment",
         "Thread renders thumbnails; staff see full size; attachments deleted on account deletion (S2.7)",
         "Upload failure never blocks ticket creation (message says 'screenshot didn't upload')",
         "No OCR or content extraction of screenshots; attachments are never sent to AI; the sheet says \"do not include documents or ID numbers\"; staff can delete an attachment that visibly contains one (audited)"
@@ -568,7 +572,8 @@
         "API"
       ],
       "deps": [
-        "S2.1"
+        "S2.1",
+        "A5.1"
       ],
       "relates": [
         "U14.2"
@@ -577,8 +582,8 @@
       "story": "As a user deleting my account I want my support history to go with it so that 'delete my data' is true.",
       "genz": "Honest privacy is the trust that unlocks a resume upload (user plan's words).",
       "ac": [
-        "AccountExportResource includes tickets + messages (not internal notes) + attachment list; AccountDeletionResource nulls user_id/email on support_ticket, bug_report and sales_inquiry, deletes attachments immediately, purges message bodies after 90 days",
-        "Scheduled job: CLOSED tickets purged at 24 months; help_search_miss purged at 12 months; metrics tables keep aggregates only",
+        "AccountExportResource includes tickets + messages (not internal notes) + attachment list; AccountDeletionResource nulls user_id/email on support_ticket, bug_report and sales_inquiry, deletes attachments immediately, purges message bodies after setting `support.retention.message_body_days` (default 90, within T1.4 bounds)",
+        "Scheduled job: CLOSED tickets purged at setting `support.retention.closed_ticket_months` (default 24); help_search_miss purged at `support.retention.search_miss_months` (default 12); metrics tables keep aggregates only",
         "Privacy policy paragraph drafted for the trust area's review (web/privacy)"
       ],
       "tests": [
@@ -706,7 +711,8 @@
       ],
       "deps": [
         "S2.1",
-        "S3.1"
+        "S3.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -714,7 +720,7 @@
       "genz": "Only ~4.8% of victims report (FTC) — reporting must be shame-free and fast.",
       "ac": [
         "Liquibase scam_report (ticket_id, type, channel, source_url, company_claimed, contact_domain, contact_phone_hash, evidence_text scrubbed ≤ 5000, checker_score, signals JSON, money_lost, shared_sensitive, outcome, reviewed_by/at)",
-        "POST /api/safety/reports (auth optional, BFF 10/h/IP) creates the row + a SCAM_REPORT ticket (SLA 1 business day for everyone); response shows the 'what now' checklist tailored by money_lost/shared_sensitive",
+        "POST /api/safety/reports (auth optional, BFF rate setting `ratelimit.safety_reports.per_hour`, default 10 per IP) creates the row + a SCAM_REPORT ticket (SLA from `support.sla_business_days.report`, default 1 for everyone); response shows the 'what now' checklist tailored by money_lost/shared_sensitive",
         "Admin Safety queue: list by outcome, set outcome CONFIRMED|LIKELY|NOT_SCAM|UNCLEAR, propose blocklist entry; audited SAFETY_REPORT_REVIEW",
         "Report entry points: checker result, /safety pages, job card chip (S3.5), extension banner (S3.4), Messages chip (S3.7)"
       ],
@@ -739,7 +745,8 @@
         "extension"
       ],
       "deps": [
-        "S3.1"
+        "S3.1",
+        "A5.5"
       ],
       "relates": [
         "U20.1"
@@ -748,7 +755,7 @@
       "story": "As a user about to autofill I want a warning when the form asks for my SSN or bank details before any offer, or the employer domain doesn't match, so that I stop before handing my identity to a fake job.",
       "genz": "The one warning no job board can give: we see the actual form.",
       "ac": [
-        "Content script runs scam-rules locally on visible page text + form labels + URL before the first fill; fires only for sensitive_early, payment_request, domain_mismatch at ≥ 'Be careful'; once per host per 24 h; never on allowlisted ATS domains; snoozable",
+        "Content script runs scam-rules locally on visible page text + form labels + URL before the first fill; fires only for sensitive_early, payment_request, domain_mismatch at ≥ 'Be careful'; once per host per remote-config `ext.scam_banner.cooldown_hours` (default 24); never on allowlisted ATS domains; snoozable",
         "Drawer banner: 'Heads up — …' with reasons, [Why?] (→ /safety/<type>), [Report] (S3.3 via the seam), [Continue]; never blocks filling, never auto-submits (CLAUDE.md)",
         "Engine assertion: no profile key for SSN/bank/ID exists and the mapper never fills inputs whose labels match those patterns (test)",
         "Owned jointly with the ext area (adapters); rules + copy owned here; version bump"
@@ -961,7 +968,8 @@
       ],
       "deps": [
         "S2.1",
-        "S4.1"
+        "S4.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -970,7 +978,7 @@
       "ac": [
         "ReportSheet creates a SITE_REPORT ticket via JAF.tracking.createTicket with diagnostics {host, ats, adapter, extVersion, browser, fillEventId, labels:[{h (sha256 + per-install salt), type, required}], stepIndex, url_hash}; never values, page text or URL path; consent switch per report with a 'what we send' preview",
         "Offline/5xx: reportQueue (≤ 5) retried on the next profile pull, max 3 attempts",
-        "API: source=extension, per-install limit 20/day; fill_event.report_ticket_id set; admin GET /api/admin/support/site-reports?ats groups by (ats, adapter, label-fingerprint prefix)",
+        "API: source=extension, per-install limit setting `ratelimit.site_report.per_day` (default 20); fill_event.report_ticket_id set; admin GET /api/admin/support/site-reports?ats groups by (ats, adapter, label-fingerprint prefix)",
         "submitBugReport becomes an alias that creates a kind=BUG ticket; version bump"
       ],
       "tests": [
@@ -992,7 +1000,7 @@
     {
       "id": "S4.3",
       "epic": "S4",
-      "title": "'Did this fill work? 👍/👎' after each fill (once per host per day), 👎 opens the report sheet",
+      "title": "'Did this fill work? 👍/👎' after each fill (once per host per remote-config `ext.fill_feedback.cooldown_hours`, default 24), 👎 opens the report sheet",
       "status": "not_started",
       "size": "S",
       "owners": [
@@ -1001,7 +1009,8 @@
       ],
       "deps": [
         "S5.1",
-        "S4.2"
+        "S4.2",
+        "A5.5"
       ],
       "relates": [
         "U20.1"
@@ -1010,7 +1019,7 @@
       "story": "As a user I want to rate a fill in one tap so that the team knows which sites work without me filing anything.",
       "genz": "Instant feedback, zero friction.",
       "ac": [
-        "After the fill summary: two 44 px buttons; posts feedback_event {targetType: fill, targetId: fill_event.id, vote, reason?} through the seam; shown at most once per host per day (fillFeedbackSeen)",
+        "After the fill summary: two 44 px buttons; posts feedback_event {targetType: fill, targetId: fill_event.id, vote, reason?} through the seam; shown at most once per host per `ext.fill_feedback.cooldown_hours` (fillFeedbackSeen)",
         "👎 opens ReportSheet pre-filled; 👍 shows 'Thanks' and, after the 3rd 👍, hands off to the review prompt (S5.6)",
         "Admin per-ATS satisfaction = 👍 ratio next to the fill_event numbers"
       ],
@@ -1188,7 +1197,8 @@
       ],
       "deps": [
         "S2.1",
-        "S5.1"
+        "S5.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -1196,7 +1206,7 @@
       "genz": "Public and honest beats a black-box 'Idea' form.",
       "ac": [
         "Liquibase feature_request (slug, title, body, author, status CONSIDERING|PLANNED|IN_PROGRESS|SHIPPED|NOT_PLANNED, votes, merged_into_id, changelog_slug, ticket_id) + feature_vote (PK request+user)",
-        "/feedback: tabs Top/New/Planned/Shipped, vote toggle (activated accounts ≥ 24 h), submit sheet (also creates a kind=IDEA ticket so the author gets a reply); no comments at launch; no author names shown",
+        "/feedback: tabs Top/New/Planned/Shipped, vote toggle (accounts activated for at least setting `support.feedback_vote_min_account_hours`, default 24), submit sheet (also creates a kind=IDEA ticket so the author gets a reply); no comments at launch; no author names shown",
         "Admin: status, merge (votes carried), link changelog entry; audited FEATURE_REQUEST_UPDATE; board shows no sample rows",
         "Existing IDEA bug_report rows are not migrated (legacy tab in admin)"
       ],
@@ -1253,7 +1263,7 @@
     {
       "id": "S5.5",
       "epic": "S5",
-      "title": "CSAT after ticket resolution and a quarterly one-question NPS pulse (≤ 1 per 90 days, sticky dismiss)",
+      "title": "CSAT after ticket resolution and a one-question NPS pulse (at most one per setting `support.nps_interval_days`, default 90; sticky dismiss)",
       "status": "not_started",
       "size": "M",
       "owners": [
@@ -1262,7 +1272,8 @@
       ],
       "deps": [
         "S2.6",
-        "S5.1"
+        "S5.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -1270,7 +1281,7 @@
       "genz": "One tap, never on the first session, never during a fill.",
       "ac": [
         "POST /api/support/tickets/{publicId}/csat {score 1–3, comment?} once; thread shows 😞 😐 😀 after RESOLVED; email reply includes the same three links (signed)",
-        "NPS: in-app card 0–10 + optional 'why', shown when user_seen.nps_asked_at is null or > 90 days, never for demo accounts or sessions < 3; dismiss stores the date",
+        "NPS: in-app card 0–10 + optional 'why', shown when user_seen.nps_asked_at is null or older than `support.nps_interval_days`, never for demo accounts or below setting `support.nps_min_sessions` (default 3) sessions; dismiss stores the date",
         "Admin: CSAT by kind/assignee/week; NPS trend and verbatims (scrubbed) in the support metrics view (S9.1)"
       ],
       "tests": [
@@ -1365,7 +1376,9 @@
       ],
       "deps": [
         "S6.1",
-        "S2.1"
+        "S2.1",
+        "A5.1",
+        "A5.3"
       ],
       "relates": [
         "A4.3",
@@ -1375,10 +1388,10 @@
       "story": "As a Pro user I want a grounded, cited answer to a how-to question and a one-tap hand-off to a human with everything I already tried.",
       "genz": "Conversational help, honest 'I don't have that', never a made-up price.",
       "ac": [
-        "AiTask.HELP metered in ai_call but charged to a platform budget (app_setting help.ai.monthly_cap_usd default 50; help.ai.free_daily_cap default 0 = Free never calls the model, honouring the locked rule); A4.3 kill switch returns mode=unknown",
+        "AiTask.HELP metered in ai_call but charged to a platform budget (settings `help.ai.monthly_cap_usd` (default 50) and `help.ai.free_daily_cap` (default 0 = Free never calls the model, honouring the locked rule)); A4.3 kill switch returns mode=unknown",
         "Prompt per design §2: policy facts generated from catalog at build, ≤ 5 chunks, user plan/surface, ≤ 256 output tokens, economy model; answer cites slugs rendered as chips; conversation memory 4 turns, 1 h TTL, keyed by random conversationId",
         "POST /api/help/ask/{conversationId}/escalate creates a QUESTION ticket with the transcript and cites",
-        "Questions stored 30 days scrubbed, not linked to the user unless escalated; flag help.ai.enabled (A5.3) gates the model path for a beta cohort"
+        "Questions stored 30 days scrubbed, not linked to the user unless escalated; flag `flag.help_ai` (A5.3, default off) gates the model path for a beta cohort"
       ],
       "tests": [
         "HelpAskResourceIT (Free+cap 0 ⇒ no model; Pro ⇒ ≤ 5 sources; unknown path; escalate ticket; kill switch; budget cap)",
@@ -1740,7 +1753,8 @@
         "web"
       ],
       "deps": [
-        "S2.6"
+        "S2.6",
+        "A5.1"
       ],
       "relates": [
         "S9.2",
@@ -1751,7 +1765,7 @@
       "genz": "The SLA they see is the SLA we measure.",
       "ac": [
         "GET /api/admin/support/metrics?days: first-response p50/p90 by plan/kind, open by kind/age, CSAT by kind/assignee, tickets per 1 000 MAU, top tags, overdue list",
-        "SLA breach (overdue > 4 h) posts to the A10 alert channel when present, else emails support@; admin dashboard tile",
+        "SLA breach (overdue beyond setting `support.sla_breach_alert_hours`, default 4) posts to the A10 alert channel when present, else emails support@; admin dashboard tile",
         "Replaces any sample numbers on the admin bug/inquiry pages that A8.2/A8.4 haven't already made real"
       ],
       "tests": [
@@ -1813,7 +1827,8 @@
         "web"
       ],
       "deps": [
-        "S1.4"
+        "S1.4",
+        "A5.1"
       ],
       "relates": [
         "S9.2"
@@ -1822,7 +1837,7 @@
       "story": "As the help writer I want a weekly list of what people asked that the help center couldn't answer so that the next articles are the right ones.",
       "genz": "Docs that grow from real questions stay useful.",
       "ac": [
-        "GET /api/admin/help/gaps: top search misses (30 d), articles with helpful ratio < 40% (≥ 20 votes), 👎 help answers by reason (when S6.4 exists), ticket subjects clustered by normalised prefix (same approach as A8.2 group_key), stale articles (updated > 90 d)",
+        "GET /api/admin/help/gaps: top search misses (setting `support.help.miss_window_days`, default 30), articles with helpful ratio below setting `support.help.low_helpful_pct` (default 40) with at least `support.help.min_votes` (default 20), 👎 help answers by reason (when S6.4 exists), ticket subjects clustered by normalised prefix (same approach as A8.2 group_key), stale articles (not updated for `support.help.stale_days`, default 90)",
         "Admin page with 'create article task' → opens a kind=IDEA ticket tagged docs (no new tracker)",
         "Weekly digest email to the docs owner (template)"
       ],
@@ -1911,15 +1926,16 @@
       ],
       "deps": [
         "S1.1",
-        "S2.1"
+        "S2.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
       "story": "As a user I want to know how support works and how fast before I pay so that there are no surprises.",
       "genz": "State it plainly; competitors' one-star reviews are about surprises.",
       "ac": [
-        "/help/a/how-support-works: in-app tickets (primary), email fallback, hours, first-response targets (Pro/Autopilot 1 business day, Free 2, site/scam reports 1), languages (English; Spanish pilot when S10.3 lands), what we never do (ask for passwords, auto-submit, move money, read your resume files without consent), 'no refunds, cancel anytime' link",
-        "Contact page and ticket sheet read the same copy from one source (web/src/lib/support-policy.ts) so numbers never drift; the policy numbers are the ones S9.1 measures"
+        "/help/a/how-support-works: in-app tickets (primary), email fallback, hours, first-response targets from settings `support.sla_business_days.*` (defaults Pro/Autopilot 1, Free 2, site/scam reports 1), languages (English; Spanish pilot when S10.3 lands), what we never do (ask for passwords, auto-submit, move money, read your resume files without consent), 'no refunds, cancel anytime' link",
+        "Contact page and ticket sheet read the same copy from one source — the evaluated config (`support.sla_business_days.*` via GET /api/config/public, A5.9) rendered by web/src/lib/support-policy.ts, never a constants file — so numbers never drift; the policy numbers are the ones S9.1 measures"
       ],
       "tests": [
         "unit: policy constants used by sheet and page",

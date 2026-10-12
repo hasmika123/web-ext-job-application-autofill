@@ -366,7 +366,7 @@
     {
       "id": "E1.5",
       "epic": "E1",
-      "title": "Adapter-rot watch: nightly fill_quality_daily rollup + admin alert on a 15-point drop",
+      "title": "Adapter-rot watch: nightly fill_quality_daily rollup + admin alert on a drop of setting `ext.rot.drop_points` (default 15)",
       "status": "not_started",
       "size": "M",
       "owners": [
@@ -374,7 +374,8 @@
         "web"
       ],
       "deps": [
-        "E8.2"
+        "E8.2",
+        "A5.1"
       ],
       "relates": [
         "A10.2",
@@ -385,7 +386,7 @@
       "genz": "—",
       "ac": [
         "Liquibase: fill_quality_daily(day, ats, adapter, ext_version, fills, fill_rate_bp, gap_rate_bp)",
-        "FillQualityWatch 03:30 UTC: ≥ 30 fills/7 d and rate7 < rate28 − 15 → admin alert ADAPTER_ROT naming test/fixtures/<ats>/",
+        "FillQualityWatch 03:30 UTC: at least setting `ext.rot.min_fills_7d` (default 30) fills/7 d and rate7 < rate28 − `ext.rot.drop_points` → admin alert ADAPTER_ROT naming test/fixtures/<ats>/",
         "Admin Fill-quality panel shows the 7-vs-28 delta per ATS"
       ],
       "tests": [
@@ -926,7 +927,7 @@
       "story": "As an applicant on any multi-page form I want auto-advance to carry my fill through the steps and stop at gaps so that one click handles the whole application except the submit.",
       "genz": "One tap, then just the parts only I can answer.",
       "ac": [
-        "filler.runSteps() generalises Workday/Indeed loops: max 12 steps, settle on navigation or 600 ms DOM quiet (≤ 45 s)",
+        "filler.runSteps() generalises Workday/Indeed loops: max steps from remote-config `ext.fill.max_steps` (default 12, clamped), settle on navigation or 600 ms DOM quiet (≤ 45 s)",
         "State per tab in sessionStorage (resume, step, unchecked field keys, attached) survives navigation re-injection",
         "Never clicks a submit-class control; stops on required gaps; final-page detection",
         "Overlay shown on step 1 only; later steps reuse unchecks"
@@ -1200,7 +1201,8 @@
         "extension"
       ],
       "deps": [
-        "E4.1"
+        "E4.1",
+        "A5.5"
       ],
       "relates": [
         "U6.3"
@@ -1209,8 +1211,8 @@
       "story": "As an applicant I want to resolve a pending application in the drawer with one tap so that I never have to open the web board to fix the tracker.",
       "genz": "Yes / Not yet / I won't — done.",
       "ac": [
-        "Card shows when a DRAFT is > 10 min old on the same host or the drawer reopens on that job; once per DRAFT per day",
-        "Yes → APPLIED + outcome CONFIRMED; Not yet → window extended 24 h; I won't → DRAFT archived",
+        "Card shows when a DRAFT is older than remote-config `ext.submit_check.draft_age_min` (default 10) on the same host or the drawer reopens on that job; once per DRAFT per day",
+        "Yes → APPLIED + outcome CONFIRMED; Not yet → window extended by remote-config `ext.submit_check.extend_hours` (default 24); I won't → DRAFT archived",
         "Pending lookup by externalJobId so any tab on the job can confirm; toast links to kiwiply.com/applications"
       ],
       "tests": [
@@ -1312,7 +1314,7 @@
       "story": "As a user I want the job description as it was when I applied, and the resume I used, kept with the application so that tailoring, fit and interview prep read the snapshot later.",
       "genz": "Postings vanish; the snapshot stays.",
       "ac": [
-        "JobCapture.jobDescription sent in full (≤ 50 kB, server column TEXT/MEDIUMTEXT additive) with captured_at and the capture sources map",
+        "JobCapture.jobDescription sent in full (up to setting `tracker.jd_snapshot_max_kb`, default 50; server column TEXT/MEDIUMTEXT additive) with captured_at and the capture sources map",
         "resumeId link verified (404/400 fallback keeps the row without the link — exists); attachment id recorded when a PDF was attached",
         "U6.3 detail reads the snapshot; R5.1/U4.7 read it without re-fetch"
       ],
@@ -1610,14 +1612,15 @@
     {
       "id": "E5.8",
       "epic": "E5",
-      "title": "In-product review prompt after the 3rd successful fill, once per 90 days, per store (G10)",
+      "title": "In-product review prompt after the Nth successful fill, at most once per interval — both from remote config (defaults 3 fills, 90 days) — per store (G10)",
       "status": "not_started",
       "size": "S",
       "owners": [
         "extension"
       ],
       "deps": [
-        "E8.1"
+        "E8.1",
+        "A5.5"
       ],
       "relates": [
         "G10",
@@ -1631,7 +1634,7 @@
       "story": "As a happy user I want a polite, once-only nudge to rate the extension so that the listing reflects real experience.",
       "genz": "Ask once, never nag.",
       "ac": [
-        "Shown only after a fill with no undo and no gaps left, 3rd fill or later; ≤ 1 per 90 days; dismiss sticky",
+        "Shown only after a fill with no undo and no gaps left, from remote-config `ext.review_prompt.min_fills` (default 3); at most one per `ext.review_prompt.interval_days` (default 90); kill flag `flag.review_prompt` (default on); dismiss sticky",
         "Links to the correct store (Chrome/Edge/Firefox) by runtime detection",
         "Event review_prompt{shown|clicked|dismissed}"
       ],
@@ -1855,7 +1858,8 @@
         "extension"
       ],
       "deps": [
-        "E6.1"
+        "E6.1",
+        "A5.1"
       ],
       "relates": [
         "A4.3"
@@ -1865,7 +1869,7 @@
       "genz": "—",
       "ac": [
         "Drawer shows % used + reset date (aiUsage exists) near the AI actions",
-        "Per fill: ≤ 5 server drafts; cached answers badge 'reused'; picks/mapper cached per label",
+        "Per fill: at most setting `ai.cap.draft.per_fill` (default 5) server drafts; cached answers badge 'reused'; picks/mapper cached per label",
         "Budget exhausted → BYO-key hint, never a blocked fill"
       ],
       "tests": [
@@ -1947,7 +1951,9 @@
       "owners": [
         "extension"
       ],
-      "deps": [],
+      "deps": [
+        "B1.2"
+      ],
       "relates": [
         "O10.6"
       ],
@@ -1956,7 +1962,7 @@
       "genz": "—",
       "ac": [
         "TrackingProvider: autopilotNext/Progress/Heartbeat/Release/Review (NotSupportedError until 19.1 API)",
-        "src/lib/autopilot.js: tick() plan, lease handling, 30/day + 300/period client guard, jitter 4–12 s per tab, 20–60 s between starts, floors not lowerable by config",
+        "src/lib/autopilot.js: tick() plan, lease handling, client guard on entitlements `autopilot.apps_per_day` / `autopilot.apps_per_month` (catalog defaults 30 / 300 — the locked Autopilot ceilings: admin may lower, never raise; the client treats 30 / 300 as hard maxima remote config cannot lift), jitter from remote-config `ext.autopilot.jitter_s` (default 4–12 s per tab, 20–60 s between starts; floors not lowerable by config)",
         "Behind settings.autopilotEnabled; no UI yet"
       ],
       "tests": [
@@ -2247,7 +2253,9 @@
         "API",
         "web"
       ],
-      "deps": [],
+      "deps": [
+        "A5.5"
+      ],
       "relates": [
         "A10.3"
       ],
@@ -2256,7 +2264,7 @@
       "genz": "—",
       "ac": [
         "src/lib/errors.js wrap() on SW listeners and content entry points; fingerprint = sha256(name + top 3 relativised frames); no message text",
-        "Caps 5/min per fingerprint, 20/day per install; batched; opt-out respected",
+        "Caps from remote-config `ext.errors.per_min` (default 5 per fingerprint) and `ext.errors.per_day` (default 20 per install); batched; opt-out respected",
         "ext_error_daily table + admin list"
       ],
       "tests": [

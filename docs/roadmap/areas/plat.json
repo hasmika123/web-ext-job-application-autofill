@@ -323,10 +323,10 @@
       "design": "docs/design/plat/security-hardening-supply-chain.md", "critical": false
     },
     {
-      "id": "P4.3", "epic": "P4", "title": "Trusted proxies in prod + API rate limiter on, keyed on the real client IP, with per-user AI buckets", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P3.2"], "relates": ["A0.2", "U1.1"], "supersedes": [],
+      "id": "P4.3", "epic": "P4", "title": "Trusted proxies in prod + API rate limiter on, keyed on the real client IP, with per-user AI buckets", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P3.2", "A5.1"], "relates": ["A0.2", "U1.1"], "supersedes": [],
       "story": "As the operator I want /api/authenticate and the AI routes rate-limited at the API itself so that the extension's direct origin is not an unlimited brute-force target.",
       "genz": "—",
-      "ac": ["server.forward-headers-strategy=framework with tomcat remoteip trusted-proxies = the web_edge subnet; getRemoteAddr() is the client IP; a client-supplied X-Forwarded-For from an untrusted peer is ignored", "RATE_LIMIT_ENABLED defaults true in prod; rules: authenticate 10/5 min, register 5/h, reset 5/h, extension/session 20/h, POST /api/ai/** 60/min per JWT subject, canary 2/s global", "429s counted in request_metric_minute; boot logs the resolved-IP distribution for the first 100 requests", "Rolled out on staging first; prod after one week without a false positive"],
+      "ac": ["server.forward-headers-strategy=framework with tomcat remoteip trusted-proxies = the web_edge subnet; getRemoteAddr() is the client IP; a client-supplied X-Forwarded-For from an untrusted peer is ignored", "RATE_LIMIT_ENABLED defaults true in prod; rules from settings `ratelimit.*` (A5.2; defaults: authenticate 10/5 min, register 5/h, reset 5/h, extension/session 20/h, POST /api/ai/** 60/min per JWT subject, canary 2/s global)", "429s counted in request_metric_minute; boot logs the resolved-IP distribution for the first 100 requests", "Rolled out on staging first; prod after one week without a false positive"],
       "tests": ["RateLimitFilterIT with trusted vs untrusted peers; per-user AI bucket; canary asserts its IP ≠ proxy"],
       "tech": "application-prod.yml server.forward-headers-strategy + server.tomcat.remoteip.*; RateLimitFilter rules + JWT-keyed bucket",
       "evidence": ["api/src/main/java/com/dossier/api/web/filter/RateLimitFilter.java:98-100", "application.yml:245-251", "application-dev.yml:65"],
@@ -402,20 +402,20 @@
       "design": "docs/design/plat/file-storage-seam.md", "critical": true
     },
     {
-      "id": "P5.2", "epic": "P5", "title": "Disk as user data: min-free guard (507 STORAGE_FULL), volume threshold in host-guard, at-rest statement", "status": "not_started", "size": "S", "owners": ["API", "ops"], "deps": ["P5.1", "P1.6"], "relates": [], "supersedes": [],
+      "id": "P5.2", "epic": "P5", "title": "Disk as user data: min-free guard (507 STORAGE_FULL), volume threshold in host-guard, at-rest statement", "status": "not_started", "size": "S", "owners": ["API", "ops"], "deps": ["P5.1", "P1.6", "A5.1"], "relates": [], "supersedes": [],
       "story": "As the operator I want uploads to stop before the disk is full so that MySQL on the same disk never starves and users get a clear message.",
       "genz": "A clear 'storage full, try again shortly' beats a 500.",
-      "ac": ["dossier.storage.local.min-free-bytes (1 GB) → store throws StorageFullException → 507 STORAGE_FULL with user copy in the upload components", "host-guard watches the uploads volume at 80 %", "/trust wording for at-rest encryption on the shared box ('host disk not encrypted; LUKS on our own server') supplied to P7.3"],
+      "ac": ["setting `storage.min_free_bytes` (default 1 GB; env default dossier.storage.local.min-free-bytes) → store throws StorageFullException → 507 STORAGE_FULL with user copy in the upload components", "host-guard watches the uploads volume at 80 %", "/trust wording for at-rest encryption on the shared box ('host disk not encrypted; LUKS on our own server') supplied to P7.3"],
       "tests": ["LocalFileStorageTest min-free; web upload component renders the 507 copy"],
       "tech": "LocalFileStorage, ResumeFileResource/ApplicationAttachmentResource error mapping, packages/ui ResumeUpload copy slot",
       "evidence": ["api ResumeFileResource", "packages/ui ResumeUpload"],
       "design": "docs/design/plat/file-storage-seam.md", "critical": false
     },
     {
-      "id": "P5.3", "epic": "P5", "title": "Content sniffing, size limits, streaming downloads with ETag and Range at the seam", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P5.1"], "relates": ["R3.3"], "supersedes": [],
+      "id": "P5.3", "epic": "P5", "title": "Content sniffing, size limits, streaming downloads with ETag and Range at the seam", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P5.1", "A5.1"], "relates": ["R3.3"], "supersedes": [],
       "story": "As a user I want my PDF preview to load fast and seek on my phone, and I want Kiwiply to refuse files that are not what they claim.",
       "genz": "Phone PDF viewers need Range requests; a resume that will not scroll is a bounce.",
-      "ac": ["store() enforces max-bytes (10 MB), computes sha256, and sniffs magic numbers for pdf/docx (and png/jpeg for attachments); declared type mismatch → 415 UNSUPPORTED_FILE; over size → 413 FILE_TOO_LARGE", "Downloads stream from open() with ETag, Content-Length, Cache-Control private, Content-Disposition attachment, nosniff; Range → 206 for PDFs", "Missing object → 404 FILE_MISSING and the ledger row marked (P5.5) instead of a 500"],
+      "ac": ["store() enforces setting `storage.max_upload_bytes` (default 10 MB), computes sha256, and sniffs magic numbers for pdf/docx (and png/jpeg for attachments); declared type mismatch → 415 UNSUPPORTED_FILE; over size → 413 FILE_TOO_LARGE", "Downloads stream from open() with ETag, Content-Length, Cache-Control private, Content-Disposition attachment, nosniff; Range → 206 for PDFs", "Missing object → 404 FILE_MISSING and the ledger row marked (P5.5) instead of a 500"],
       "tests": ["FileStorageSniffTest (PDF/DOCX ok, PNG-named-PDF rejected, size guard), ResumeFileResourceIT Range/ETag/304"],
       "tech": "service/storage/ContentSniffer, resources use open() + ResourceRegion",
       "evidence": ["api ResumeFileResource (load() whole file today)"],
@@ -432,10 +432,10 @@
       "design": "docs/design/plat/file-storage-seam.md", "critical": false
     },
     {
-      "id": "P5.5", "epic": "P5", "title": "storage_object ledger (inventory, quotas, deletion) + weekly orphan sweep + first orphan report", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P5.1"], "relates": ["A10.2", "S1.6"], "supersedes": [],
+      "id": "P5.5", "epic": "P5", "title": "storage_object ledger (inventory, quotas, deletion) + weekly orphan sweep + first orphan report", "status": "not_started", "size": "M", "owners": ["API"], "deps": ["P5.1", "A5.1"], "relates": ["A10.2", "S1.6"], "supersedes": [],
       "story": "As the operator I want every stored file inventoried in the database so that blobs without rows (the 2026-09 orphans) and rows without blobs are found, reported and cleaned.",
       "genz": "Account deletion that provably removes every file is a trust feature.",
-      "ac": ["Liquibase: storage_object (key PK, driver, size, sha256, content_type, owner_user_id, ref_type, ref_id, created_at, migrated_at, deleted_at, missing_at); backfill from resume/attachment rows", "Every store inserts, every delete soft-deletes; account deletion deletes by owner; DSAR export lists the user's files", "storage.sweep weekly: driver objects without live rows → report, delete after 30 d in report; rows whose object is missing → missing_at + report; .tmp litter > 1 h removed", "First run produces the S3 pre-2026-09 orphan report for the user's decision"],
+      "ac": ["Liquibase: storage_object (key PK, driver, size, sha256, content_type, owner_user_id, ref_type, ref_id, created_at, migrated_at, deleted_at, missing_at); backfill from resume/attachment rows", "Every store inserts, every delete soft-deletes; account deletion deletes by owner; DSAR export lists the user's files", "storage.sweep weekly: driver objects without live rows → report, delete after setting `storage.orphan_grace_days` (default 30) in report; rows whose object is missing → missing_at + report; .tmp litter > 1 h removed", "First run produces the S3 pre-2026-09 orphan report for the user's decision"],
       "tests": ["StorageLedgerIT, StorageSweepTest (both orphan directions, grace, litter), AccountDeletion IT covers files"],
       "tech": "Liquibase changelog, service/storage/StorageLedger, StorageSweepJob in the A10.2 registry",
       "evidence": ["DEPLOY.md §5 ('orphaned objects, which is exactly what happened')"], "design": "docs/design/plat/file-storage-seam.md", "critical": true
@@ -475,7 +475,7 @@
       "id": "P6.4", "epic": "P6", "title": "Capacity model doc (Autopilot, ingest, inbox, matches per 1 000 users) re-run quarterly", "status": "not_started", "size": "S", "owners": ["ops"], "deps": ["P6.2"], "relates": [], "supersedes": [],
       "story": "As the operator I want a written model of what each feature costs the box so that Phase 19 Autopilot and Phase 21 Organizations are sized before they ship.",
       "genz": "—",
-      "ac": ["docs/design/plat/environments-staging-capacity.md D6 table filled with measured numbers; quarterly re-run checklist in docs/runbooks/README.md", "Autopilot (≤ 30 preps/user/day) and ingest growth (6 ATS + aggregator) modelled with headroom"],
+      "ac": ["docs/design/plat/environments-staging-capacity.md D6 table filled with measured numbers; quarterly re-run checklist in docs/runbooks/README.md", "Autopilot (entitlement `autopilot.apps_per_day`, catalog default 30) and ingest growth (6 ATS + aggregator) modelled with headroom"],
       "tests": ["Doc review against k6 output"],
       "tech": "Doc + k6 results",
       "evidence": ["ROADMAP.md Phase 19/21"],

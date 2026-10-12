@@ -14,7 +14,7 @@
     { "id": "O8", "name": "Applications, opportunities, interviews, resumes (consent-scoped)", "goal": "Rewire the four content pages to real, consent-scoped data and retire sample-data.ts.", "priority": "P1" },
     { "id": "O9", "name": "Human services marketplace", "goal": "Experts, orders, checkout, expert portal, disputes, record-only payout ledger, org-bought services.", "priority": "P1" },
     { "id": "O10", "name": "Consultancy Marketer", "goal": "MARKETER role paired to consultants with FULL consent: resumes made on their behalf, job bank and batches, marketer inbox — and a structural no-submit guarantee.", "priority": "P1" },
-    { "id": "O11", "name": "Consultancy Ops add-on", "goal": "Timesheets, placements, invoice records, payments and profit for consultancies — record money, never move it; FINANCE role.", "priority": "P2" },
+    { "id": "O11", "name": "Consultancy Ops add-on — timesheets first", "goal": "Timesheets with client-approved proof, flags and one-tap approval first; then placement rates, invoice records, payments and profit — record money, never move it; FINANCE role. Pricing, OCR and every cap are admin-configured; the pilot runs free behind an admin switch. Stays P2 (decision D10): the timesheets-first order lives in the deps, not in the priority.", "priority": "P2" },
     { "id": "O12", "name": "Integrations (honest)", "goal": "Replace the fictional integrations page with what is real (extension, inboxes) and buildable without OAuth: Slack webhook, ICS feed, outbound webhooks, API key.", "priority": "P2" },
     { "id": "O13", "name": "Settings, notifications, security", "goal": "Org profile, notification rules with digests and quiet hours, audit viewer, honest security tab, close-org flow.", "priority": "P1" },
     { "id": "O14", "name": "Marketing & sales", "goal": "An honest /organizations page with self-serve start, a price calculator, inquiry-to-org conversion and org terms.", "priority": "P1" },
@@ -143,11 +143,11 @@
       "evidence": [], "design": "docs/design/org/onboarding-invites.md", "critical": false
     },
     {
-      "id": "O2.5", "epic": "O2", "title": "CSV / paste import with validation, 20% rule, pre-assign column, org_invite_batch",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O2.2", "O3.2"], "relates": ["T1.1", "T2.3"],
+      "id": "O2.5", "epic": "O2", "title": "CSV / paste import with validation, invalid-row threshold, pre-assign column, org_invite_batch",
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O2.2", "O3.2", "A5.1"], "relates": ["T1.1", "T2.3"],
       "story": "As an admin with a roster, I want to import a CSV and see exactly which rows failed so that onboarding 200 people takes minutes.",
       "genz": "Drag a file, see a live preview with red rows you can fix inline — no 'upload failed' mystery.",
-      "ac": ["POST /members/import multipart ≤2,000 rows; columns email (req), name, group, support_owner_email, plan; 422 with row numbers; >20% invalid aborts unless force=true.", "Creates org_invite_batch; team page shows 'x of y joined' per batch.", "plan column pre-assigns items (PENDING_ACCEPT).", "Import refuses any column whose header or values match the never-collected deny-list (SSN/ITIN, bank/routing, tax IDs, passport/visa/document numbers, DOB/birth date — generalising T2.3's age-column rule): the whole file is rejected with the offending column named and nothing is stored"],
+      "ac": ["POST /members/import multipart up to setting `org.import.max_rows` (default 2,000); columns email (req), name, group, support_owner_email, plan; 422 with row numbers; more than setting `org.import.invalid_abort_pct` (default 20) invalid aborts unless force=true.", "Creates org_invite_batch; team page shows 'x of y joined' per batch.", "plan column pre-assigns items (PENDING_ACCEPT).", "Import refuses any column whose header or values match the never-collected deny-list (SSN/ITIN, bank/routing, tax IDs, passport/visa/document numbers, DOB/birth date — generalising T2.3's age-column rule): the whole file is rejected with the offending column named and nothing is stored"],
       "tests": ["CsvImportTest fixtures (BOM, quotes, duplicates, invalid plan).", "Web: preview table with errors in a live region."],
       "tech": "OrgImportService (OpenCSV already available? else Java built-in parsing), web components/org-v2/team/ImportSheet.tsx.",
       "evidence": [], "design": "docs/design/org/onboarding-invites.md", "critical": false
@@ -184,10 +184,10 @@
     },
     {
       "id": "O2.9", "epic": "O2", "title": "Member activation nudge (one in-app + one email) and admin 'copy reminder'",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O2.2", "O13.3"],
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O2.2", "O13.3", "A5.1"],
       "story": "As a member who joined but did nothing, I want one gentle nudge — and my org admin gets a message to send themselves, not a spam cannon.",
       "genz": "Notification etiquette: one nudge, then silence. Pressure comes from a human, not from us.",
-      "ac": ["Job: 3 days after join without activation → one Notification + one email; never repeated.", "Team page 'haven't started' filter with a 'Copy reminder message' button (text only)."],
+      "ac": ["Job: setting `org.nudge.activation_days` (default 3) after join without activation → one Notification + one email; never repeated.", "Team page 'haven't started' filter with a 'Copy reminder message' button (text only)."],
       "tests": ["Nudge job idempotency; copy text snapshot."],
       "tech": "OrgNudgeJob (Spring @Scheduled), Notification kind ORG_GET_STARTED.",
       "evidence": [], "design": "docs/design/org/onboarding-invites.md", "critical": false
@@ -204,11 +204,11 @@
     },
 
     {
-      "id": "O3.1", "epic": "O3", "title": "Org product/price seeds in the catalog (Pro $24.99, Autopilot $49.99, AI Interview $9.99, Marketer $29.99, Setup $499, Ops rows)",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": [], "relates": ["B1.1"],
+      "id": "O3.1", "epic": "O3", "title": "Org product/price seeds in the catalog (initial values Pro $24.99, Autopilot $49.99, AI Interview $9.99, Marketer $29.99, Setup $499, Ops rows — all re-priced from admin)",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["B1.1"], "relates": ["B1.1"],
       "story": "As the catalog, I want the org rows so that assignments and Stripe items have something to point at.",
       "genz": "Prices live in data so they can change without a release — and the pricing page always tells the truth.",
-      "ac": ["Seeds product/product_price (audience ORG, interval MONTH / ONE_TIME) and product_entitlement rows per ROADMAP tables incl. marketer keys (org.marketer, consultants.max=10, assignments.open_max=100, ai.budget_cents_per_period=400).", "Requires Phase 18.1 tables (admin area); if absent, this story blocks and says so."],
+      "ac": ["Seeds product/product_price (audience ORG, interval MONTH / ONE_TIME) and product_entitlement rows per ROADMAP tables incl. marketer keys with their initial catalog values, editable in admin (org.marketer, consultants.max=10, assignments.open_max=100, ai.budget_cents_per_period=400).", "Requires Phase 18.1 tables (admin area); if absent, this story blocks and says so."],
       "tests": ["Seed test asserting prices and entitlement keys."],
       "tech": "Depends on Phase 18.1 schema owned by the admin area (A*); coordinate IDs. Liquibase data changelog.",
       "evidence": [], "design": "docs/design/org/billing.md", "critical": false
@@ -254,11 +254,11 @@
       "evidence": [], "design": "docs/design/org/billing.md", "critical": false
     },
     {
-      "id": "O3.6", "epic": "O3", "title": "Margin guard rules for org/service prices — per-invoice Stripe allocation, +25% warning, coaching payout $78",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O3.1"], "relates": ["B2.1", "B2.2"],
+      "id": "O3.6", "epic": "O3", "title": "Margin guard rules for org/service prices — per-invoice Stripe allocation, org-premium warning, payout ceiling computed by the guard (e.g. coaching $78 at the initial price)",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O3.1", "A5.1"], "relates": ["B2.1", "B2.2"],
       "story": "As the admin publishing a price, I want the guard to compute org and service margins the way we actually get charged.",
       "genz": "Fair prices that keep the lights on — the guard is why we can promise no sudden hikes.",
-      "ac": ["MarginGuard implements billing.md §7 and services-marketplace.md §7 tables; refuses <80%/<20% without override reason; +25% org/individual relation is a warning."],
+      "ac": ["MarginGuard implements billing.md §7 and services-marketplace.md §7 tables; refuses below the floors from settings `catalog.margin_floor_subscription_pct` (default 80, hard minimum 80) / `catalog.margin_floor_service_pct` (default 20, hard minimum 20) without override reason; the org/individual price relation below setting `catalog.org_price_premium_warn_pct` (default 25) is a warning."],
       "tests": ["MarginGuardTest table-driven incl. AI Interview $9.99 pass and $9.98 fail; coaching payout $80 fails, $78 passes."],
       "tech": "Guard class lives with Phase 18.4 (admin area); this story contributes the rule-set + tests.",
       "evidence": [], "design": "docs/design/org/billing.md", "critical": true
@@ -275,11 +275,11 @@
       "evidence": [], "design": "docs/design/org/billing.md", "critical": true
     },
     {
-      "id": "O4.2", "epic": "O4", "title": "Setup fee via Stripe Invoice (send_invoice, bank transfer) + 14-day abandonment job",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O4.1"],
+      "id": "O4.2", "epic": "O4", "title": "Setup fee via Stripe Invoice (send_invoice, bank transfer) + abandonment job",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O4.1", "A5.1"],
       "story": "As a university finance office, I want an invoice I can pay by bank transfer.",
       "genz": "Institutions pay by invoice; students never see this — but it unblocks the school deal.",
-      "ac": ["{INVOICE} creates a Stripe invoice with the setup price, days_until_due 15, hosted URL returned and emailed to billing_email.", "Nightly job: PENDING_SETUP_FEE older than 14 days with no payment → DRAFT, invoice voided."],
+      "ac": ["{INVOICE} creates a Stripe invoice with the setup price, days_until_due from setting `org.billing.setup_fee_due_days` (default 15), hosted URL returned and emailed to billing_email.", "Nightly job: PENDING_SETUP_FEE older than setting `org.billing.setup_fee_abandon_days` (default 14) with no payment → DRAFT, invoice voided."],
       "tests": ["Gateway stub; job test."],
       "tech": "StripeGateway.createInvoice/voidInvoice; OrgBillingJobs.",
       "evidence": [], "design": "docs/design/org/billing.md", "critical": false
@@ -417,10 +417,10 @@
     },
     {
       "id": "O5.6", "epic": "O5", "title": "Pending invites — resend (rotate), revoke, bounced flag, expiring soon",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O2.2", "O5.1"],
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O2.2", "O5.1", "A5.1"],
       "story": "As an admin, I want to resend or cancel invites and see which emails bounced.",
       "genz": "Fix a typo'd email in two taps instead of a support ticket.",
-      "ac": ["Resend rotates token (≤3/week), revoke → REMOVED, bounce webhook from Brevo marks BOUNCED, 'expiring in 3 days' badge."],
+      "ac": ["Resend rotates token (at most setting `org.invite.resend_per_week`, default 3), revoke → REMOVED, bounce webhook from Brevo marks BOUNCED, 'expiring soon' badge from setting `org.invite.expiring_badge_days` (default 3)."],
       "tests": ["Resend limit; bounce handling."],
       "tech": "OrgInviteService; MailService bounce hook (Brevo).",
       "evidence": [], "design": "docs/design/org/onboarding-invites.md", "critical": false
@@ -517,11 +517,11 @@
       "evidence": [], "design": "docs/design/org/consent-data-sharing.md", "critical": false
     },
     {
-      "id": "O6.8", "epic": "O6", "title": "Invite abuse controls — daily cap 1,000/org, complaint kill-switch, 'Not you?' handling",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O2.2"],
+      "id": "O6.8", "epic": "O6", "title": "Invite abuse controls — per-org daily cap (setting), complaint kill-switch, 'Not you?' handling",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O2.2", "A5.1"],
       "story": "As a non-member who got an invite by mistake, I want one line to make it stop — and the platform to stop orgs that spam.",
       "genz": "Your inbox is not an org's growth channel.",
-      "ac": ["Per-org daily invite cap; Brevo complaint webhook → >5% complaints suspends inviting + admin alert; 'Not you?' link suppresses further invites to that email from that org."],
+      "ac": ["Per-org daily invite cap from setting `org.invite.daily_cap` (default 1,000); Brevo complaint webhook → complaints above setting `org.invite.complaint_suspend_pct` (default 5) suspend inviting + admin alert; 'Not you?' link suppresses further invites to that email from that org."],
       "tests": ["Cap, kill-switch, suppression list."],
       "tech": "OrgInviteService; MailService webhooks; org_invite_suppression table (tiny).",
       "evidence": [], "design": "docs/design/org/consent-data-sharing.md", "critical": true
@@ -588,8 +588,8 @@
       "evidence": [], "design": "docs/design/org/analytics.md", "critical": false
     },
     {
-      "id": "O7.7", "epic": "O7", "title": "Needs-attention feed — no resume, invites expiring, unassigned seats, inactive 14d (consent-scoped)",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O7.3"],
+      "id": "O7.7", "epic": "O7", "title": "Needs-attention feed — no resume, invites expiring, unassigned seats, inactive for setting `org.attention.inactive_days` (default 14) (consent-scoped)",
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O7.3", "A5.1"],
       "story": "As staff, I want a short list of who needs a nudge, with deep links to act.",
       "genz": "Actionable, short, dismissible.",
       "ac": ["GET /attention returns items with counts and links; dashboard renders ≤5 with 'see all'."],
@@ -661,8 +661,8 @@
       "evidence": [], "design": "docs/design/org/services-marketplace.md", "critical": false
     },
     {
-      "id": "O9.2", "epic": "O9", "title": "Client checkout — POST /api/services/orders → Stripe Checkout (payment), 10% Pro discount, webhook svc: routing → PAID",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O9.1", "O4.3"],
+      "id": "O9.2", "epic": "O9", "title": "Client checkout — POST /api/services/orders → Stripe Checkout (payment), Pro discount from the catalog (initial value 10 %), webhook svc: routing → PAID",
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O9.1", "O4.3", "B1.1"],
       "story": "As a Pro user, I want to buy a resume review in one sheet and have it start immediately.",
       "genz": "Apple Pay, price shows the Pro discount live, consent sentence right above the button.",
       "ac": ["Discount from catalog when has('ai.server') and no org; consent_version stored; client_reference_id svc:{id}; webhook → PAID (idempotent pipeline).", "Buy sheet in the user app per §6."],
@@ -672,8 +672,8 @@
       "benchmark": "G28 — Rezi monthly expert review on Pro / $8 à la carte; publish the turnaround (O9.3 SLAs) on the services page"
     },
     {
-      "id": "O9.3", "epic": "O9", "title": "Order state machine, SLAs, timers (accept 12h, auto-complete 5d, dispute 7d, close +14d)",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O9.1"],
+      "id": "O9.3", "epic": "O9", "title": "Order state machine, SLAs, timers from settings `services.accept_hours` (default 12), `services.auto_complete_days` (default 5), `services.dispute_days` (default 7), `services.close_after_days` (default 14)",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O9.1", "A5.1"],
       "story": "As a client, I want clear timelines and an automatic nudge when an expert is late.",
       "genz": "Status like a food-delivery tracker: matched → in progress → delivered.",
       "ac": ["Transitions per §3 enforced; SYSTEM events on breaches; admin queue items; order timeline API."],
@@ -712,8 +712,8 @@
       "evidence": [], "design": "docs/design/org/services-marketplace.md", "critical": false
     },
     {
-      "id": "O9.7", "epic": "O9", "title": "Ratings & quality — 5-tap rating sheet, public reviews, nightly quality stats, auto-pause <4.2 or 2 no-shows",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O9.3"],
+      "id": "O9.7", "epic": "O9", "title": "Ratings & quality — 5-tap rating sheet, public reviews, nightly quality stats, auto-pause below setting `services.auto_pause_rating` (default 4.2) or at setting `services.auto_pause_no_shows` (default 2)",
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O9.3", "A5.1"],
       "story": "As a client, I want to rate my expert quickly and see honest reviews before buying.",
       "genz": "Ratings culture, but with teeth: bad experts get paused automatically.",
       "ac": ["Rate endpoint; public review display on service cards (first name, service); nightly recompute; auto-pause rule."],
@@ -742,8 +742,8 @@
       "evidence": [], "design": "docs/design/org/services-marketplace.md", "critical": false
     },
     {
-      "id": "O9.10", "epic": "O9", "title": "Services terms (reschedule 24h, no-show, one revision, 7-day dispute) + user-app services page",
-      "status": "not_started", "size": "M", "owners": ["web"], "deps": ["O9.2"],
+      "id": "O9.10", "epic": "O9", "title": "Services terms (reschedule window setting `services.reschedule_hours` default 24, no-show, one revision, dispute window `services.dispute_days` default 7) + user-app services page",
+      "status": "not_started", "size": "M", "owners": ["web"], "deps": ["O9.2", "A5.1"],
       "story": "As a user, I want to browse services, read the rules in plain words and buy in a sheet.",
       "genz": "Cards with price, Pro discount and a 3-line 'what you get'; terms in a sheet, not a PDF.",
       "ac": ["/services page in the user app from catalog SERVICE products; terms sheet; contact form fallback removed for sold services (catalog.ts EXPERT_SERVICES topic → checkout)."],
@@ -753,7 +753,7 @@
     },
 
     {
-      "id": "O10.1", "epic": "O10", "title": "MARKETER role + marketer_assignment pairing (≤10, seat checks) + admin pairing UI",
+      "id": "O10.1", "epic": "O10", "title": "MARKETER role + marketer_assignment pairing (cap from entitlement `consultants.max`, catalog default 10; seat checks) + admin pairing UI",
       "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O5.1", "O3.2"],
       "story": "As a consultancy admin, I want to pair a marketer with their consultants so that the marketer can start preparing.",
       "genz": "Pairing is explicit and visible to the consultant — nobody is 'assigned' in secret.",
@@ -797,7 +797,7 @@
       "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O10.4"], "relates": ["O10.11"],
       "story": "As a marketer, I want to line up 40 jobs for a consultant with the right resume on each, in one batch.",
       "genz": "A checklist with resume pickers, assigned in one tap, one notification — not 40 pings.",
-      "ac": ["Tables per marketer-workspace.md §2; JobCapture on paste; open cap 100 → 409; batch creates ASSIGNED rows; consultant gets one Notification per batch."],
+      "ac": ["Tables per marketer-workspace.md §2; JobCapture on paste; open cap from entitlement `assignments.open_max` (catalog default 100) → 409; batch creates ASSIGNED rows; consultant gets one Notification per batch."],
       "tests": ["AssignmentCapTest; BatchNotificationTest; duplicate job links to existing application."],
       "tech": "JobAssignmentService; web bank UI.",
       "evidence": [], "design": "docs/design/org/marketer-workspace.md", "critical": false
@@ -844,52 +844,68 @@
     },
     {
       "id": "O10.10", "epic": "O10", "title": "Marketer seat catalog row + NoSubmitSurfaceTest + consultant-visible 'what Rahul did' timeline",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O10.5", "O10.8"],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O10.5", "O10.8", "B1.1"],
       "story": "As the business, I want the marketer seat sellable and the no-submit guarantee proven by tests the consultant can also see as a timeline.",
       "genz": "Receipts for delegated access — every action by your marketer is listed for you.",
-      "ac": ["Catalog row $29.99 with entitlements; reflection test: no route under /api/orgs/**/marketer writes application.status, no JWT claim act_as; /settings/organizations shows the marketer action timeline from org_audit_event."],
+      "ac": ["Catalog row (initial price $29.99, re-priced from admin) with entitlements; reflection test: no route under /api/orgs/**/marketer writes application.status, no JWT claim act_as; /settings/organizations shows the marketer action timeline from org_audit_event."],
       "tests": ["NoSubmitSurfaceTest; timeline scope (only the consultant's own rows)."],
       "tech": "Catalog seed; security test; MeOrgsResource timeline.",
       "evidence": [], "design": "docs/design/org/marketer-workspace.md", "critical": true
     },
 
     {
-      "id": "O11.1", "epic": "O11", "title": "23.0 spec sign-off (consultancy-ops.md) + FINANCE role + ops settings (week start, currency, prefix, retention ≥7y, pay visibility)",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O1.2"],
+      "id": "O11.1", "epic": "O11", "title": "23.0 spec sign-off (consultancy-ops.md + timesheets.md) + FINANCE wiring + ops_settings + pilot gate",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O1.2", "O1.4", "A5.3"],
       "story": "As the team, I want the Ops scope locked and the FINANCE role live before any ops code.",
       "genz": "Finance stays with finance; consultants see their own hours — clear lanes.",
-      "ac": ["User confirms the four open points in PLAN; FINANCE added to the matrix; ops settings endpoints; entitlement ops.enabled gate (402 PLAN_REQUIRED)."],
-      "tests": ["OpsRoleMatrixTest skeleton; gate test."],
-      "tech": "OrgRole, OpsSettings.",
+      "ac": [
+        "Decisions answered 2026-10-11 (docs/roadmap/PROPOSAL-timesheets.md §1): D1 org add-on only; D2 pricing not set in the roadmap — catalog items priced later in admin, pilot free via an admin switch; D7 OCR optional and off by default; D10 O11 stays P2. D3–D6, D8, D9, D11, D12 take the recommended defaults unless the user overrides; both design docs carry the status line.",
+        "FINANCE role permissions ops.settings, ops.placements, ops.timesheets.approve, ops.finance per tenant-model.md §4; OWNER/ADMIN inherit; MEMBER gets ops.timesheets.own only when they hold ≥1 placement.",
+        "ops_settings table + GET/PATCH /api/orgs/{id}/ops/settings per timesheets.md §5.1/§6 (retentionYears at or above setting `org.ops.retention_min_years` (default 7, hard minimum 7) validated; weekStart change refused with live sheets; ocrEnabled default false, D7).",
+        "Gate: flag `flag.ops_timesheets` (A5.3, default off) + organization.settings_json.opsPilot (platform-admin set, audited) in v0; EntitlementService ops.enabled replaces it in O11.8 — both paths return 402 PLAN_REQUIRED {feature: 'ops.enabled'}."
+      ],
+      "tests": ["OpsRoleMatrixTest skeleton (FINANCE/ADMIN/OWNER/MEMBER-with-placement/MARKETER/STAFF); gate test for flag + pilot + entitlement paths; settings validation."],
+      "tech": "OrgRole/OrgPermission additions, domain/org/ops/OpsSettings, web/rest/org/ops/OpsSettingsResource.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
     },
     {
-      "id": "O11.2", "epic": "O11", "title": "Clients, vendors, placements CRUD (rates in minor units, pay-type label only)",
+      "id": "O11.2", "epic": "O11", "title": "Clients + placements-lite + rate history (consultant × client × dates; rates optional, effective-dated, minor units; pay-type label only)",
       "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O11.1"], "relates": ["T1.1"],
       "story": "As finance, I want to record who is placed where, at what bill and pay rate.",
       "genz": "Simple forms, no tax IDs asked — ever.",
-      "ac": ["Tables per consultancy-ops.md §2; sensitive-text validator on free text; consultants cannot see bill rates.", "Clients, vendors and placements carry name, address, contact and rates only — never EIN/VAT/tax IDs, bank/routing numbers or SSNs; the sensitive-text validator is the shared SensitivePatterns (T1.1) and rejects such values in every free-text field with 422 SENSITIVE_CONTENT"],
-      "tests": ["Validator; role visibility."],
-      "tech": "OpsPlacementResource; web ops pages.",
+      "ac": ["Tables ops_client, ops_vendor, ops_placement, ops_placement_rate, ops_holiday per timesheets.md §5.2–5.5, §5.10; US federal holidays seeded when org.country = US.", "POST /ops/placements accepts newClientName inline (zero-setup); rates optional and absent from every consultant/marketer DTO (bill) or gated by show_pay_to_consultant (pay).", "GET /ops/placements/mine for consultants; GET /ops/presence for MARKETER (client + dates only).", "Web: one-screen 'New placement' sheet at 390 px (consultant picker from /members, client name, start date; everything else collapsed under 'More').", "Clients, vendors and placements carry name, address, contact and rates only — never EIN/VAT/tax IDs, bank/routing numbers or SSNs; the sensitive-text validator is the shared SensitivePatterns (T1.1) and rejects such values in every free-text field with 422 SENSITIVE_CONTENT"],
+      "tests": ["Validator (shared SensitivePatterns); role visibility reflection test (no bill rate field in consultant DTOs); rate-in-force lookup by week; holiday seed."],
+      "tech": "domain/org/ops/{OpsClient,OpsVendor,OpsPlacement,OpsPlacementRate,OpsHoliday}; OpsPlacementResource; web org-v2/ops/placements.", "benchmark": "Bullhorn T&E requires placement data to be perfect in the ATS before approval (Bullhorn KB payroll workflow); Ceipal has a 25-user minimum. Ours: consultant + client + date, no minimum.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": true
     },
     {
-      "id": "O11.3", "epic": "O11", "title": "Timesheets — weekly entry with steppers, submit, approve/reject with comment, attachments ≤5MB / 2GB org cap, supersede",
-      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O11.2"], "relates": ["T1.1"],
+      "id": "O11.3", "epic": "O11", "title": "Timesheets core — weekly sheet API, day kinds, prefill/copy-last-week, flags, submit/withdraw/approve/reject/correct, supersede + locks",
+      "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O11.2", "A5.1"], "relates": ["T1.1"],
       "story": "As a consultant, I want to log my week in under a minute on my phone; as finance, approve in a tap.",
       "genz": "Big +/− steppers, copy last week, done. Approvals as a swipeable list.",
-      "ac": ["State machine per §3; immutability after approval; attachments via presigned S3; cap 413 OPS_STORAGE_CAP.", "Attachments: image/PDF only, no OCR or content extraction; the server runs SensitivePatterns over the PDF text layer and rejects the upload (422 SENSITIVE_CONTENT) rather than storing a file carrying SSN/ITIN, bank/routing, tax-ID, passport/visa/document numbers or DOB"],
-      "tests": ["TimesheetStateTest; StorageCapTest; consultant own-only."],
-      "tech": "OpsTimesheetResource; web ops/timesheets.",
+      "ac": [
+        "Tables ops_timesheet, ops_timesheet_entry, ops_timesheet_event per timesheets.md §5.6–5.9 incl. live_key uniqueness and SUPERSEDED chain.",
+        "State machine per §4: DRAFT→SUBMITTED→APPROVED→SUPERSEDED; reject → DRAFT with comment; withdraw; correction creates a new SUBMITTED row with reason; APPROVED rows immutable (no endpoint updates entries); locked_reason=INVOICED still supersedable and flags the invoice.",
+        "GET /ops/timesheets/current creates prefilled DRAFTs (last approved week, else expected ÷ 5); copy-last-week; whole-week PUT entries with day kinds WORK/PTO/HOLIDAY/SICK/UNPAID and steps from ops_settings.step_minutes ∈ {15, 30, 60} (default from setting `org.ops.step_minutes_default`, 15).",
+        "Flags per §7 computed on submit and approve (tolerance from setting `org.ops.expected_hours_tolerance_pct`, default 10; long-day threshold `org.ops.long_day_hours`, default 12); DAY_OVER_24H blocks; PROOF_REQUIRED blocks submit unless waived (audited); approve requires acknowledgeFlags for every non-info flag; approve-bulk skips flagged; SELF_APPROVAL 409.",
+        "Consultant own-only enforced in the service (foreign sheet → 404); every mutation writes ops_timesheet_event + org_audit_event OPS_TS_*. Attachments, proof scanning and OCR live in O11.10/O11.14 (the never-collected rule applies there: files carrying SSN/ITIN, bank/routing, tax-ID, passport/visa/document numbers or DOB are refused before storage)."
+      ],
+      "tests": ["OpsTimesheetStateTest (all transitions, concurrency on live_key); OpsFlagsTest table-driven; OpsRoleMatrixTest own-only/marketer-none; audit row per mutation; OrgIsolationIT picks up routes."],
+      "tech": "domain/org/ops/{OpsTimesheet,OpsTimesheetEntry,OpsTimesheetEvent}; service/org/ops/{OpsTimesheetService,OpsFlagService}; web/rest/org/ops/OpsTimesheetResource.", "benchmark": "JobDiva MyTime (consultant app) sits at 2.4★/18 ratings; Beeline/Fieldglass rejections and locked sheets need a program office. Ours: reject returns an editable draft with the comment; corrections never need support.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
     },
     {
-      "id": "O11.4", "epic": "O11", "title": "Timesheet reminders (Mon consultants, Wed approvers) honoring quiet hours",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O11.3", "O13.3"],
+      "id": "O11.4", "epic": "O11", "title": "Timesheet reminders (consultants / approvers on admin-configured days, default Mon / Wed) honoring quiet hours",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O11.3", "O13.3", "A5.1"],
       "story": "As a consultant, I want one reminder when I forget last week.",
       "genz": "One ping, never a nag loop.",
-      "ac": ["Jobs per §3; Notification + email once per week per target."],
-      "tests": ["Idempotency; quiet hours."],
+      "ac": [
+        "OpsReminderJob hourly: consultants with last week missing and approvers with pending sheets at the org-local times in ops_settings, defaulting to settings `org.ops.reminder_consultant` (default MON 09:00) and `org.ops.reminder_approver` (default WED 09:00).",
+        "Honors org quiet hours (default from setting `org.notify.quiet_hours_default`, 21:00–08:00) and the O13.3 per-member daily email cap (falls back to in-app); idempotency key (member, kind, week_start) → one send per week ever.",
+        "Consultant opt-ins in ops_member_pref: end-of-week nudge (default FRI 16:00, setting `org.ops.reminder_nudge`); in-app only. Never emails marketers; no escalations.",
+        "Notification kinds OPS_TS_DUE, OPS_TS_PENDING, OPS_TS_REJECTED, OPS_TS_APPROVED registered with O13.3."
+      ],
+      "tests": ["Job selection; quiet-hours delay; cap interaction; idempotency across restarts; opt-in; no mail to MARKETER."],
       "tech": "OpsReminderJob.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
     },
@@ -898,8 +914,8 @@
       "status": "not_started", "size": "L", "owners": ["API", "web"], "deps": ["O11.3"], "relates": ["T1.1"],
       "story": "As finance, I want client invoices generated from approved hours as records I download and send myself.",
       "genz": "We never send it for you — it stays your document.",
-      "ac": ["Generate DRAFT from approved+uninvoiced timesheets; ISSUED/VOID; PDF via the resume-builder Chromium sidecar (R0.6) with disclaimer footer; paid_minor derived from payments.", "Invoice records and PDFs carry no tax IDs and no bank/routing numbers: payment instructions are a free-text line the org types that must pass SensitivePatterns; the disclaimer footer says Kiwiply never holds bank or tax identifiers"],
-      "tests": ["InvoiceGenerateTest; PaidDerivationTest; PDF footer present."],
+      "ac": ["Generate DRAFT from approved+uninvoiced timesheets; ISSUED/VOID; PDF via the resume-builder Chromium sidecar (R0.6) with disclaimer footer; paid_minor derived from payments.", "Invoice records and PDFs carry no tax IDs and no bank/routing numbers: payment instructions are a free-text line the org types that must pass SensitivePatterns; the disclaimer footer says Kiwiply never holds bank or tax identifiers", "Invoice lines use ops_placement_rate in force for the sheet's week; generating locks the sheets (locked_reason=INVOICED); a superseded sheet sets needs_reissue and the UI shows the delta; proof_note from ocr_json when present."],
+      "tests": ["InvoiceGenerateTest; PaidDerivationTest; PDF footer present.", "NeedsReissueTest; rate-in-force per line."],
       "tech": "OpsInvoiceService; PDF sidecar reuse.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
     },
@@ -924,26 +940,112 @@
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
     },
     {
-      "id": "O11.8", "epic": "O11", "title": "Ops add-on billing — base $99 + $4 per active consultant via nightly derived quantity",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O11.2", "O4.8"],
+      "id": "O11.8", "epic": "O11", "title": "Ops add-on billing — catalog items priced in admin (org base + per active consultant) via nightly derived quantity",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O11.2", "O4.8", "B1.1"], "relates": ["B1.1", "B2.2"],
       "story": "As the business, I want the add-on billed by active consultants automatically.",
       "genz": "Pay for who is actually placed, not for seats you don't use.",
-      "ac": ["Catalog rows; OrgSeatReconciler sets the consultant quantity nightly; invoice line descriptions clear."],
+      "ac": [
+        "Catalog items ops-addon-base (per org per month) and ops-addon-consultant (per active consultant per month) exist as products with no price in this story: prices are set later from the admin catalog (decision D2; the $99 + $4 draft in PROPOSAL-timesheets.md is a worked example for the margin guard, not a value); entitlements ops.enabled, ops.ocr (default off, D7), ops.ai_budget_cents_per_consultant (catalog value, default 50), ops.storage_bytes_max (default 2 GB), ops.attachment_bytes_max (default 5 MB); the margin guard runs at publish (base line fee-only; consultant line worst case = OCR budget + scan budget + fee share).",
+        "OrgSeatReconciler sets the consultant quantity nightly from active placements; invoice line descriptions name the count.",
+        "Pilot orgs (opsPilot flag) migrated to an ADMIN_COMP grant on the Ops product; the flag path is removed."
+      ],
       "tests": ["OpsQuantityReconcilerTest."],
       "tech": "OrgSeatReconciler; catalog seed.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": false
     },
     {
-      "id": "O11.9", "epic": "O11", "title": "Retention (7y) and erasure behaviour for ops records; disclaimer component",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O11.2", "O6.5"],
+      "id": "O11.9", "epic": "O11", "title": "Retention (admin-configured, hard minimum 7 y) and erasure behaviour for ops records; disclaimer component",
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O11.3", "O11.10", "O6.5"],
       "story": "As a consultancy, I want records kept as long as the law expects and former consultants anonymised, not deleted from the books.",
       "genz": "Your name leaves; the org's numbers stay anonymous — fair to both.",
-      "ac": ["Erasure keeps ops rows under 'Former consultant #id'; retention job after CLOSED+7y; shared Disclaimer component in @kiwiply/ui used on every finance screen."],
+      "ac": [
+        "Retention: ops.retention weekly job purges sheets/attachments/money rows older than ops_settings.retention_years (at or above setting `org.ops.retention_min_years`, default 7, hard minimum 7) from week_start / record date only when the org is CLOSED or the placement ended more than retention_years ago; attachments deleted through FileStorage + storage_object ledger; OPS_TS_RETENTION_PURGED audit with counts.",
+        "Erasure (AccountDeletionService hook): ops rows kept under the ERASED membership ('Former consultant #id'); actor_login strings kept; notes kept (org record); account export gains timesheets[] with files.",
+        "Shared Disclaimer component in @kiwiply/ui used on every finance screen, export footer and PDF pack."
+      ],
       "tests": ["Erasure test; retention job dry-run."],
       "tech": "AccountDeletionService hook; packages/ui Disclaimer.",
       "evidence": [], "design": "docs/design/org/consultancy-ops.md", "critical": true
     },
-
+    {
+      "id": "O11.10", "epic": "O11", "title": "Client-approved proof — attachments via FileStorage (size, count and org caps from entitlements/settings) + optional OCR suggestion (off by default) + OCR mismatch flag",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O11.3", "O11.14", "P5.1"], "relates": ["I0.3", "A5.1"],
+      "story": "As a consultant, I want to attach the client-approved sheet from my phone and — when my org turned it on — have the hours read for me so that nobody re-keys my week; as finance, I want to see when the proof and the entered hours disagree.",
+      "genz": "Photo of the approved sheet → hours suggested → you confirm. The proof is the record, not an email thread.",
+      "ac": [
+        "POST /ops/timesheets/{id}/attachments (multipart) stores through FileStorage key prefix ops-ts, sniffed pdf/png/jpg, up to entitlement ops.attachment_bytes_max (default 5 MB; 413 FILE_TOO_LARGE), at most setting `org.ops.attachments_per_sheet` (default 3) live per sheet (409 ATTACHMENT_LIMIT), org cap entitlement ops.storage_bytes_max (default 2 GB) from ops_storage_usage (413 OPS_STORAGE_CAP); storage_object ledger gains ref_type OPS_ATTACHMENT + org_id.",
+        "Two-phase upload: bytes stay in the FileStorage temp area until the identifier scan (O11.14, timesheets.md §5.13) passes; text-layer PDFs scanned locally with PDFBox, images/scanned PDFs via AI gateway task OPS_TS_SCAN (classify-only closed schema, platform safety budget setting `ai.budget.ops_scan_cents_per_consultant`, default 25 × active consultants); detection → 422 PROOF_HAS_IDENTIFIER {kinds}, temp deleted, no ledger/attachment row, audit OPS_TS_PROOF_REFUSED with kinds only, refused sha256 cached for setting `org.ops.refused_hash_cache_days` (default 90); no override.",
+        "Downloads proxied with Content-Disposition: attachment and the org permission check; no presigned URLs; delete only in DRAFT.",
+        "OCR (decision D7: optional, off by default, suggestion-only): runs only when ops_settings.ocr_enabled (default false) and entitlement ops.ocr (default off) are both on and the consultant taps Read (or the org enabled ocr_auto_read); POST .../read sends the file through the AI gateway with budget owner = Ops grant (entitlement ops.ai_budget_cents_per_consultant, default 50 × active consultants, pooled); closed response schema {days[], total_minutes, confidence, approver_name?, approved_date?} validated before storing ocr_json; any other field rejected.",
+        "Result is a suggestion: apply-ocr replaces entries with source=OCR in DRAFT only; OCR_MISMATCH flag when total differs (suppressed below setting `org.ops.ocr_min_confidence`, default 0.6); budget exhausted → ocr_status SKIPPED + OCR_UNREAD flag, submit never blocked.",
+        "proof_state on the sheet (NONE/ATTACHED/READ_MATCH/READ_MISMATCH/READ_FAILED) drives the approver inbox chips."
+      ],
+      "tests": ["OpsAttachmentIT on the local driver: size/limit/cap boundaries, sniffing, DRAFT-only delete, proxied download permission, erasure keeps files.", "OpsOcrTest: gateway stub, schema rejection, budget exhausted path, confidence suppression, never runs when disabled (default)."],
+      "tech": "service/org/ops/OpsAttachmentService (FileStorage), OpsOcrService (AiGateway task OPS_TS_OCR, prompt registry id ops/ts-ocr/v1), OpsTimesheetAttachmentResource.",
+      "evidence": [], "design": "docs/design/org/timesheets.md", "critical": true, "benchmark": "Ceipal reviewers complain about attachment size limits; standalone OCR vendors (Lido, Nanonets, Affinda) sell timesheet extraction as a separate tool; no staffing suite we found reads the client-approved proof inside the sheet. Ours: in-sheet, suggestion-only, budget-capped, off until the org asks."
+    },
+    {
+      "id": "O11.11", "epic": "O11", "title": "Consultant week view (user app, 390 px, PWA) + approver inbox with one-tap/bulk approve (org console)",
+      "status": "not_started", "size": "L", "owners": ["web", "ui"], "deps": ["O11.3", "O11.10", "O1.6"],
+      "story": "As a consultant, I want to log my week in 30 seconds on my phone with the proof attached; as finance, I want to approve clean sheets in one tap and be made to look at flagged ones.",
+      "genz": "Prefilled from last week, big steppers, camera button, submit. Approvals are a list you clear with your thumb.",
+      "ac": [
+        "/app/timesheets: week view per timesheets.md §3.1 (prefilled draft, 44 px steppers, long-press numeric entry, weekend collapsed, day sheet with kinds, copy last week, holidays chip, note, total vs expected, submit-with-flags confirm, withdraw); history list with status and rejection comment; pay line only when the org switch is on; 'Export my sheets'.",
+        "Proof upload per §3.2: file input with capture=environment, client-side downscale to ≤2000 px, progress, OCR suggestion with Use/Keep shown only when the org has OCR on (default off); failures keep the local file for retry.",
+        "/org/ops/timesheets: approver inbox per §3.3 (tabs All/Flagged/No proof; one-tap Approve only on unflagged rows; flagged rows open the sheet with inline proof viewer; bulk approve unflagged; reject requires comment); 'More → Timesheets' bottom-tab entry (O15.1).",
+        "Shared primitives (Stepper, DayKindChips, ProofTile, FlagChip, ApprovalRow, Disclaimer) added to @kiwiply/ui first; no inline svg.",
+        "Analytics events (consented): ts_week_opened, ts_submitted {seconds_open, prefilled, proof, flags}, ts_approved {one_tap, bulk}."
+      ],
+      "tests": ["vitest for every component state; Playwright 390 px: open→submit ≤ 6 taps on the prefilled path, steppers ≥ 44 px, camera attribute, one-tap absent on flagged rows, bulk count, rejection comment required; dark mode; Lighthouse a11y ≥ 95."],
+      "tech": "web/src/app/(app)/app/timesheets/*, web/src/app/(org)/org/ops/timesheets/*, packages/ui/src/ops/*.",
+      "evidence": [], "design": "docs/design/org/timesheets.md", "critical": true, "benchmark": "Toggl/Harvest put approvals on $24/$17.50 per-user tiers; JobDiva MyTime is 2.4★; Zoho approvers must sign in to the portal to approve. Ours: approvals at every size, one tap for clean sheets, phone-first."
+    },
+    {
+      "id": "O11.12", "epic": "O11", "title": "Timesheet exports — GENERIC / PAYROLL / BY_CLIENT CSV + PDF pack with proof pages (record only, audited)",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O11.3", "O11.10"],
+      "story": "As finance, I want approved hours out as CSV for payroll and as a PDF pack with proofs for the vendor, without us ever sending anything.",
+      "genz": "Never locked in: one tap gives you the file your payroll person actually wants.",
+      "ac": [
+        "POST /ops/export/timesheets {from, to, consultantMemberId?, clientId?, format, layout} → 202 job; GET /ops/export/{id} download; files under FileStorage prefix ops-export with a lifecycle of setting `org.ops.export_lifecycle_days` (default 7); OPS_EXPORT audit per file with sha256 and row count.",
+        "Layouts per timesheets.md §11 (decision D5 default: the four layouts, user may override): GENERIC (per entry), PAYROLL (per consultant×week; pay columns only for FINANCE), BY_CLIENT (bill rate in force; FINANCE only), PDF_PACK (one page per approved sheet, approval line with acknowledged flags, proof thumbnails, optional proof pages, disclaimer footer) rendered via the R0.6 Chromium sidecar.",
+        "GET /ops/timesheets/mine/export?format=CSV for consultants (own sheets, no pay unless switch on, synchronous).",
+        "Hours as decimal with 2 dp in CSV; minutes in a second column; UTF-8 with BOM for Excel."
+      ],
+      "tests": ["OpsExportTest: every layout's columns vs fixtures; FINANCE-only columns absent for others; PDF footer + approval line; audit row per file; consultant export own-only."],
+      "tech": "service/org/ops/OpsExportService (+ PdfRenderer from resume builder), OpsExportResource.",
+      "evidence": [], "design": "docs/design/org/timesheets.md", "critical": false, "benchmark": "Conrep/Ceipal tie exports to their own invoicing; Harvest/Clockify export generic CSV. Ours: a payroll-shaped sheet and a proof pack a vendor accepts, with the approval trail on it."
+    },
+    {
+      "id": "O11.13", "epic": "O11", "title": "Pilot gate (admin switch) + demo consultancy seed + consultant first-run screen + pilot metrics",
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["O11.11", "O11.4", "A5.3"],
+      "story": "As the business, I want two or three consultancies on timesheets for free before billing exists, with real numbers on how fast the week gets logged.",
+      "genz": "Ship it to five real shops, measure seconds-to-submit, then decide the defaults.",
+      "ac": [
+        "Flag `flag.ops_timesheets` (A5.3, default off); platform-admin action 'Enable Ops pilot' sets organization.settings_json.opsPilot=true (audited, HIGH); /api/orgs/*/ops/** → 404 when the flag is off.",
+        "Consultant first-run information screen per timesheets.md §8 with versioned text consent/ops-timesheets/v1 stored in ops_consent_event (login, version, ip/UA hashes); shown once per membership.",
+        "Demo org demo-consultancy seeded (5 consultants, 3 clients, 6 weeks of sheets incl. 2 flagged + 1 corrected + proofs) labelled by DemoBadge.",
+        "Pilot metrics (metric_daily): ts.median_seconds_to_submit, ts.proof_rate, ts.approved_48h_rate, ts.one_tap_rate, ts.reminder_conversion; shown on the admin ops page."
+      ],
+      "tests": ["Flag/pilot gate; first-run shown once; seed idempotent; metric rollup from fixture events."],
+      "tech": "settings registry flag; AdminOrgResource pilot action; DemoAccountService seed; web first-run sheet; MetricRollupJob keys.",
+      "evidence": [], "design": "docs/design/org/timesheets.md", "critical": false, "benchmark": "Every incumbent sells on features; none publishes consultant-side speed. We set the bar at a measured ≤ 45 s median weekly entry."
+    },
+    {
+      "id": "O11.14", "epic": "O11", "title": "Never-collected gate — @NoSensitiveText validator product-wide, OpsNeverCollectedTest (schema/DTO/export/OCR deny-list), proof identifier scan + refusal IT",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["O11.2"], "relates": ["T1.1", "O6.5", "E10.7"],
+      "story": "As the business, I want it to be impossible — not just forbidden — for timesheets, placements, client/vendor records, exports or proof files to collect an SSN/ITIN, bank or routing number, tax id, passport/visa/document number or date of birth.",
+      "genz": "No field for it, no column for it, no export for it, and a file that shows one bounces before it lands. A policy you can grep.",
+      "ac": [
+        "SensitiveTextValidator = the shared SensitivePatterns library (T1.1) under api/.../validation with the rules in timesheets.md §5.12: SSN/ITIN, EIN, IBAN, Luhn card, 8+ consecutive digits, keyword+number (passport/visa/I-94/I-9/licence/account/routing/tax id), keyword+date (DOB); document mode for scanned text; @NoSensitiveText constraint applied to every String field of every ops DTO; 422 SENSITIVE_CONTENT with the message 'Don't put account, tax, ID-document numbers or dates of birth here — we never collect them.'",
+        "OpsNeverCollectedTest: (a) no ops_* column matching the deny-list regex in Liquibase/JPA; (b) reflection: no DTO field with a deny-listed name, every String field annotated; (c) OpsExportColumns registry has no deny-listed column in any layout; (d) OPS_TS_OCR / OPS_TS_SCAN response schemas are closed to the enumerated fields; (e) pay_type_label and method_label are enums. Fails the unit suite on violation.",
+        "Proof scan per timesheets.md §5.13 implemented in OpsProofScanService (decision D11 default (a), user may override): PDFBox text-layer scan (no model), gateway classify-only scan for images with the platform safety budget (setting `ai.budget.ops_scan_cents_per_consultant`, default 25 × active consultants per period, counted by the margin guard), two-phase temp write, 422 PROOF_HAS_IDENTIFIER{kinds}, refused-sha256 cache (setting `org.ops.refused_hash_cache_days`, default 90), audit kinds only, no override path.",
+        "Receipts (O11.6) and invoice PDFs reuse the same scan on upload.",
+        "Docs: 'Never collected' table in timesheets.md §5.12 and consultancy-ops.md §2.1 kept in sync with the deny-list regex by a doc↔code test (same pattern as ShareMatrixTest)."
+      ],
+      "tests": ["SensitiveTextValidatorTest (every rule, document mode tolerances, message snapshot); OpsNeverCollectedTest (a–e, plus a meta-test that a deliberately added 'ssn' column in the test profile is caught); OpsProofScanIT (accepted hours-only fixtures; printed-SSN PDF refused with nothing stored; image refused via stub classifier; budget-exhausted image refused with PDF alternative; sha cache short-circuit and purge)."],
+      "tech": "api/.../validation/{SensitiveTextValidator,NoSensitiveText}; service/org/ops/OpsProofScanService (AiGateway task OPS_TS_SCAN, prompt registry ops/ts-scan/v1); test/.../org/ops/OpsNeverCollectedTest.",
+      "evidence": [], "design": "docs/design/org/timesheets.md", "critical": true, "benchmark": "Every incumbent (Ceipal, JobDiva, Bullhorn, Avionté) stores SSNs, I-9s and bank details as core HR data; we are the only one whose timesheets cannot take them. Enforced by a failing build, like the consent matrix (O6.1)."
+    },
     {
       "id": "O12.1", "epic": "O12", "title": "Honest integrations page — Connected (extension, inbox counts) / Available / Not planned; remove fictional apps",
       "status": "partial", "size": "M", "owners": ["API", "web"], "deps": ["O5.1"],
@@ -1007,20 +1109,20 @@
     },
     {
       "id": "O13.2", "epic": "O13", "title": "Notification rules — per-event channel (in-app / email digest / Slack), digest day/time, quiet hours",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O13.3"],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O13.3", "A5.1"],
       "story": "As an admin, I want to choose what reaches me and when.",
       "genz": "Quiet hours by default; digests over drips.",
-      "ac": ["settings_json rules validated; UI toggles per event; defaults: digest weekly, quiet 21:00–08:00 org-local."],
+      "ac": ["settings_json rules validated; UI toggles per event; defaults from settings `org.notify.digest_default` (default weekly) and `org.notify.quiet_hours_default` (default 21:00–08:00 org-local)."],
       "tests": ["Rule evaluation tests; quiet hours delay."],
       "tech": "OrgNotificationService; settings UI.",
       "evidence": [], "design": "docs/design/org/onboarding-invites.md", "critical": false
     },
     {
       "id": "O13.3", "epic": "O13", "title": "Org notification kinds + delivery (Notification rows for members/admins, batched daily digest email job)",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O1.3"], "relates": ["U7.1"],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["O1.3", "A5.1"], "relates": ["U7.1"],
       "story": "As a member, I want to hear from my org through Kiwiply at most once a day unless it is urgent.",
       "genz": "Notification etiquette as a system rule, not per-feature goodwill.",
-      "ac": ["Kinds ORG_ACTIVE, INVITE_ACCEPTED (batched), INVITES_EXPIRING, SHARE_REVOKED, BILLING_*, ORG_ITEM_GRANTED, ORG_COVERS_YOUR_PLAN, ORG_PAUSED, ORG_GET_STARTED; digest job; at most one org email/day/member."],
+      "ac": ["Kinds ORG_ACTIVE, INVITE_ACCEPTED (batched), INVITES_EXPIRING, SHARE_REVOKED, BILLING_*, ORG_ITEM_GRANTED, ORG_COVERS_YOUR_PLAN, ORG_PAUSED, ORG_GET_STARTED; digest job; at most setting `org.notify.email_per_member_per_day` (default 1) org email per member per day."],
       "tests": ["Batching; daily cap; kinds registered with the existing NotificationResource."],
       "tech": "domain/Notification (kind VARCHAR(30) fits), OrgNotificationService, OrgDigestJob.",
       "evidence": [], "design": "docs/design/org/onboarding-invites.md", "critical": false
@@ -1181,10 +1283,10 @@
     },
     {
       "id": "O10.12", "epic": "O10", "title": "Bench availability + aging — consultant-declared available-from date; marketer sees days-on-bench for FULL-paired consultants; reminders go to the consultant (G40)",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O10.3", "O6.2"], "relates": ["O11.2", "O7.7"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["O10.3", "O6.2", "A5.1"], "relates": ["O11.2", "O7.7"], "supersedes": [],
       "story": "As a consultant I want to set when I am available; as a marketer I want to see who has been waiting longest, so that the bench is worked in the right order without anyone being tracked behind their back.",
       "genz": "You say when you are free; nobody infers it from your inbox.",
-      "ac": ["consultant_availability (available_from, status AVAILABLE|PLACED|UNAVAILABLE, updated_at) owned by the person in /settings/organizations; ShareField AVAILABILITY added to the consent matrix (O6.1) — FULL only", "Marketer workspace: Bench view sorted by days-on-bench (today − available_from), aging bands 0–14 / 15–30 / 31+; placements (O11.2) set PLACED automatically", "Reminders (O13.3) to the consultant at 30 and 60 days on bench — never to the org admin; k-anonymity rules (O7.3) apply to any aggregate"],
+      "ac": ["consultant_availability (available_from, status AVAILABLE|PLACED|UNAVAILABLE, updated_at) owned by the person in /settings/organizations; ShareField AVAILABILITY added to the consent matrix (O6.1) — FULL only", "Marketer workspace: Bench view sorted by days-on-bench (today − available_from), aging bands 0–14 / 15–30 / 31+; placements (O11.2) set PLACED automatically", "Reminders (O13.3) to the consultant at setting `org.bench.reminder_days` (default 30 and 60) on bench — never to the org admin; k-anonymity rules (O7.3) apply to any aggregate"],
       "tests": ["ShareMatrixTest extended", "AvailabilityAgingTest (bands, PLACED auto-set)", "Playwright consultant sets availability → marketer sees it; revoke hides it"],
       "tech": "api domain/org/ConsultantAvailability; web org/marketer/BenchView.tsx + user settings organizations panel",
       "evidence": [], "design": "docs/design/org/marketer-workspace.md", "critical": false,
@@ -1192,10 +1294,10 @@
     },
     {
       "id": "O10.13", "epic": "O10", "title": "Work-authorisation status on the consultant profile (self-declared categories only, consent-gated, expiry reminder to the consultant) — P2, pending decision (G41)",
-      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["T3.9", "O10.3"], "relates": ["O6.1", "T3.3", "O10.12"], "supersedes": [],
+      "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["T3.9", "O10.3", "A5.1"], "relates": ["O6.1", "T3.3", "O10.12"], "supersedes": [],
       "story": "As a consultant I can optionally declare my work-authorisation category and its expiry so that my marketer only pitches me for jobs I can take — without Kiwiply ever holding a document number.",
       "genz": "A category, not a document; yours to delete; the reminder comes to you.",
-      "ac": ["Field work_auth {category enum per T3.9, expires_on optional}; never a document number, never a free-text field; stored on the person, shown to the marketer only under FULL (ShareField WORK_AUTH)", "Expiry reminder 90/30 days before to the consultant only; the org never receives it; the sensitive-field firewall test (T3.3) extended so the category never reaches AI inputs, telemetry or org exports", "Stays not_started until the user confirms (RECONCILIATION.md D29)"],
+      "ac": ["Field work_auth {category enum per T3.9, expires_on optional}; never a document number, never a free-text field; stored on the person, shown to the marketer only under FULL (ShareField WORK_AUTH)", "Expiry reminder at setting `org.work_auth.expiry_reminder_days` (default 90 and 30) before, to the consultant only; the org never receives it; the sensitive-field firewall test (T3.3) extended so the category never reaches AI inputs, telemetry or org exports", "Stays not_started until the user confirms (RECONCILIATION.md D29)"],
       "tests": ["ShareMatrixTest + SensitiveFieldFirewallTest extended", "reminder scheduling test"],
       "tech": "api domain/org/ConsultantProfile; web settings panel + marketer consultant header chip",
       "evidence": [], "design": "docs/design/org/consent-data-sharing.md", "critical": false,

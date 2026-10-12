@@ -134,7 +134,7 @@
     },
     {
       "id": "N1.2", "epic": "N1", "title": "POST /api/jobs/resolve — URL normaliser + honest metadata (public ATS APIs, OG/JSON-LD, walled hosts never fetched) + JD snapshot", "status": "not_started", "size": "M", "owners": ["API"],
-      "deps": [], "relates": ["U4.1", "U6.1"], "supersedes": [],
+      "deps": ["A5.1"], "relates": ["U4.1", "U6.1"], "supersedes": [],
       "story": "As the share flow I want one endpoint that turns a shared URL into a job card with the description captured so that saves are rich without scraping anything.",
       "genz": "They share links without titles; the card has to fill itself.",
       "benchmark": "G4 (JD snapshot + resume link, P0) applied to phone saves; G14. Resolution uses the same public ATS board APIs the ingest already calls — no scraping (locked).",
@@ -142,8 +142,8 @@
         "Normalisation: strip utm_*/gh_src/lever-source/ref params, lowercase host, drop fragments/trailing slash; deterministic table-tested",
         "ATS detection by host → Greenhouse/Lever/Ashby/Workable/SmartRecruiters via their public APIs; Workday and unknown public hosts → one GET (10 s, 1 MB, text/html, no cookies, fixed UA) parsing JSON-LD JobPosting then OpenGraph; walled hosts (linkedin.com, indeed.com, glassdoor.com, ziprecruiter.com) → no fetch, title/company from the shared text, needsConfirm",
         "Response ResolvedJob {normalizedUrl, host, ats, postingId?, title?, company?, location?, remote?, salary?, descriptionText? (≤ 20 KB), confidence, needsConfirm[], existingApplicationId?}; matches an ingested job_posting by normalized URL when present",
-        "SSRF guard: https+443 only, DNS-resolved IP not private/link-local/loopback, no redirect to non-https, max 3 redirects; rate limit 20/min/user; never 5xx for a dead page (confidence LOW)",
-        "Feature flag share.resolve (A5.3 or a property until it exists)"
+        "SSRF guard: https+443 only, DNS-resolved IP not private/link-local/loopback, no redirect to non-https, max 3 redirects; rate limit setting `ratelimit.jobs_resolve.per_min` (default 20 per user); never 5xx for a dead page (confidence LOW)",
+        "Flag `flag.share_resolve` (A5.3, default on; a property until A5.3 exists)"
       ],
       "tests": ["JobResolveServiceTest: normalisation table, per-ATS parsers on recorded fixtures (api/src/test/resources/resolve/*), walled-host no-fetch, SSRF refusals, redirect cap, size cap", "JobResolveResourceIT: 422 invalid, 429 limit, existingApplicationId when a row matches"],
       "tech": "api/src/main/java/com/dossier/api/service/jobs/JobResolveService.java (reuse the ATS clients under service/jobs/*), web/rest/JobResolveResource.java, config property dossier.share.walled-hosts", "evidence": ["api/.../service/jobs/* (Greenhouse/Lever/Ashby clients from 13.6)", "job-autofill/src/lib/job-enrich.js (in-page enrichment the API lacks)"],
@@ -202,8 +202,8 @@
     },
 
     {
-      "id": "N2.1", "epic": "N2", "title": "Hand-off model + API: handoff_state on application, queue/unqueue/opened endpoints, count on GET /api/profile/version, 14-day expiry job", "status": "not_started", "size": "M", "owners": ["API"],
-      "deps": [], "relates": ["U6.1", "U20.5", "U5.2"], "supersedes": [],
+      "id": "N2.1", "epic": "N2", "title": "Hand-off model + API: handoff_state on application, queue/unqueue/opened endpoints, count on GET /api/profile/version, expiry job (setting)", "status": "not_started", "size": "M", "owners": ["API"],
+      "deps": ["A5.1"], "relates": ["U6.1", "U20.5", "U5.2"], "supersedes": [],
       "story": "As a phone user I want to flag a saved job 'do this on my laptop' so that the laptop knows what to fill when I sit down.",
       "genz": "Find it on the phone at lunch, fill it on the laptop at night — the loop nobody else closes.",
       "benchmark": "No competitor has a phone→laptop queue (COMPETITIVE-LANDSCAPE.md feature matrix: hand-off row is ◐/○ for all 11). Glassdoor: mobile applicants complete 53 % fewer applications — the queue moves completion to the desktop.",
@@ -211,7 +211,7 @@
         "Liquibase (additive): application + handoff_state NONE|QUEUED|OPENED|DONE|EXPIRED, handoff_queued_at, handoff_opened_at, handoff_opened_on, handoff_note (≤140); index (user_id, handoff_state, handoff_queued_at)",
         "POST /api/applications/{id}/handoff/queue {note?} · /unqueue · /opened {ua} (idempotent, owner-only); GET /api/applications/handoff?state=QUEUED → list for the extension/desktop web",
         "GET /api/profile/version adds handoffQueued:int (ProfileVersionVM) — never 404, cheap COUNT with the index",
-        "Submit-detect (ApplicationSyncResource upsert to APPLIED) flips QUEUED/OPENED → DONE; nightly job expires QUEUED > 14 d → EXPIRED and emits STALE_NUDGE (digest-only) once",
+        "Submit-detect (ApplicationSyncResource upsert to APPLIED) flips QUEUED/OPENED → DONE; nightly job expires QUEUED older than setting `handoff.expiry_days` (default 14) → EXPIRED and emits STALE_NUDGE (digest-only) once",
         "DSAR export includes the hand-off fields with the application"
       ],
       "tests": ["ApplicationHandoffIT: queue→opened→done; unqueue; re-queue; expiry job; idempotency; foreign-user 404; handoffQueued on /api/profile/version", "ProfileVersionVM serialisation test"],
@@ -265,11 +265,11 @@
     },
     {
       "id": "N2.5", "epic": "N2", "title": "Install from the phone: QR + one-time link to /connect?k= (10 min, single-use) alongside the U2.7 email", "status": "not_started", "size": "S", "owners": ["web", "API", "ui"],
-      "deps": ["U2.7"], "relates": ["U20.1", "U2.7"], "supersedes": [],
+      "deps": ["U2.7", "A5.1"], "relates": ["U20.1", "U2.7"], "supersedes": [],
       "story": "As a phone-first user I want to point my laptop's camera at a code to install and connect the extension so that the first hand-off takes a minute, not an email hunt.",
       "genz": "QR codes are muscle memory (menus, tickets); email is where links go to die.",
       "ac": [
-        "POST /api/handoff-links → {token, url, expiresAt} (3/hour/user; 32 random bytes stored hashed; single-use; 10 min)",
+        "POST /api/handoff-links → {token, url, expiresAt} (rate setting `ratelimit.handoff_link.per_hour`, default 3 per user; 32 random bytes stored hashed; single-use; 10 min)",
         "Phone sheet 'Install on your laptop': inline SVG QR (helper added to packages/ui, no runtime dep), Email me the link (U2.7 endpoint), Copy link",
         "/connect?k=… on the laptop: token exchanged server-side for intent only (never authenticates); signed-in → extension install/connect flow → lands on the queue; signed-out → /login with k preserved; expired/used → plain /connect with a note",
         "Events handoff_link_created/used"
@@ -285,7 +285,7 @@
       "genz": "Pick on the phone, let the laptop prepare, review and submit yourself.",
       "benchmark": "Simplify Autopilot/JobRight agent apply in the cloud; locked: Autopilot prepares in the user's own browser (300/month, 30/day) and stops before submit — the queue only orders the batch.",
       "ac": [
-        "When Phase 19 exists: autopilot_item creation takes QUEUED hand-off rows first (ordered by handoff_queued_at), respecting the 30/day cap; items keep handoff_note as the resume hint",
+        "When Phase 19 exists: autopilot_item creation takes QUEUED hand-off rows first (ordered by handoff_queued_at), respecting entitlement `autopilot.apps_per_day` (catalog default 30); items keep handoff_note as the resume hint",
         "Hand-off state moves to OPENED when the batch opens the page and DONE only on the user's own submit (submit-detect)",
         "Behind feature flag autopilot.handoffSource; no behaviour change without it"
       ],
@@ -411,13 +411,13 @@
       "design": "docs/design/mob/mobile-push-offline.md", "critical": true
     },
     {
-      "id": "N4.5", "epic": "N4", "title": "Mobile etiquette caps: ≤3 pushes/day per phone device (runtime setting), device-tz quiet hours default, 'why this ping' + mute-kind deep link", "status": "not_started", "size": "S", "owners": ["API", "web"],
-      "deps": ["U7.1", "U7.3", "N4.4"], "relates": [], "supersedes": [],
+      "id": "N4.5", "epic": "N4", "title": "Mobile etiquette caps: pushes/day per phone device from setting `notify.mobile_daily_cap` (default 3), device-tz quiet hours default, 'why this ping' + mute-kind deep link", "status": "not_started", "size": "S", "owners": ["API", "web"],
+      "deps": ["U7.1", "U7.3", "N4.4", "A5.1"], "relates": [], "supersedes": [],
       "story": "As a phone user I want Kiwiply to be the quietest job app on my phone so that I keep its pings on.",
       "genz": "Quiet by default is a trust feature; the ones who want more can turn it up.",
       "benchmark": "Indeed/LinkedIn notification-spam complaints; JobRight pushes instant alerts by default. We cap and explain.",
       "ac": [
-        "Policy step reads the subscription's platform: phone classes cap at mobileDailyCap (default 3, runtime setting A5.1); overflow rolls into the digest",
+        "Policy step reads the subscription's platform: phone classes cap at setting `notify.mobile_daily_cap` (default 3; A5.1); overflow rolls into the digest",
         "Quiet hours default from the device tz reported at subscribe time; user-set stays authoritative",
         "Every push body ends with nothing extra, but the notification's data.link carries ?why=<kind>; the opened page shows a one-line 'You got this because …' with [Mute this kind] → /settings/notifications?kind="
       ],
@@ -544,10 +544,10 @@
       "design": "docs/design/mob/platform-decision.md", "critical": false
     },
     {
-      "id": "N6.6", "epic": "N6", "title": "Store listings: privacy labels/data safety, review notes (4.2 evidence), screenshots per storefront, age rating, in-app review prompt policy", "status": "not_started", "size": "M", "owners": ["web"], "deps": ["N6.2", "N7.3"], "relates": ["E5.8"], "supersedes": [],
+      "id": "N6.6", "epic": "N6", "title": "Store listings: privacy labels/data safety, review notes (4.2 evidence), screenshots per storefront, age rating, in-app review prompt policy", "status": "not_started", "size": "M", "owners": ["web"], "deps": ["N6.2", "N7.3", "A5.1"], "relates": ["E5.8"], "supersedes": [],
       "story": "As the owner I want the store submissions to be honest and pass review so that the shell ships without a rejection loop.",
       "genz": "They read privacy labels; honesty is visible there.",
-      "ac": ["Apple privacy nutrition labels + Play Data safety filled from the T-area privacy register (email, name, profile, resumes, inbox metadata (Pro), diagnostics); 'data not linked' not claimed", "Review notes: Share Extension, native push, biometrics, widget, universal links; demo account for reviewers (DEMO_ENABLED server config)", "Screenshots without prices outside the US storefront; age rating 4+/Everyone; account deletion reachable in-app (exists on the web)", "In-app review prompt (SKStoreReviewController / In-App Review API) ≤ 1 per 90 days after a successful save/hand-off; dismiss sticky"],
+      "ac": ["Apple privacy nutrition labels + Play Data safety filled from the T-area privacy register (email, name, profile, resumes, inbox metadata (Pro), diagnostics); 'data not linked' not claimed", "Review notes: Share Extension, native push, biometrics, widget, universal links; demo account for reviewers (DEMO_ENABLED server config)", "Screenshots without prices outside the US storefront; age rating 4+/Everyone; account deletion reachable in-app (exists on the web)", "In-app review prompt (SKStoreReviewController / In-App Review API) at most one per setting `mob.review_prompt.interval_days` (default 90) after a successful save/hand-off; dismiss sticky"],
       "tests": ["Checklist reviewed with the trust area; vitest for the review-prompt gating logic"],
       "tech": "mobile-shell/*, docs/design/mob/store-payments.md §3",
       "evidence": ["api/.../AccountDeletionResource (in-app deletion exists)"], "design": "docs/design/mob/store-payments.md", "critical": false,

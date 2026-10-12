@@ -1,7 +1,7 @@
 {
   "project": "Resume Builder + Common Profile",
   "branch": "resume-builder",
-  "updated": "2026-10-11",
+  "updated": "2026-10-12",
   "sizeWeights": {
     "S": 1,
     "M": 2,
@@ -68,7 +68,7 @@
       "id": "R0.1",
       "epic": "R0",
       "title": "Schema — `profile_item`, `resume_doc`, `resume_doc_version`, `resume_ai_proposal`, `bio.meta_json`, `resume.kind/updated_at`",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -89,7 +89,7 @@
       "id": "R0.2",
       "epic": "R0",
       "title": "`ResumeDocument` contract — validator, canonicaliser, projections (Java)",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -111,7 +111,7 @@
       "id": "R0.3",
       "epic": "R0",
       "title": "Doc endpoints — create from profile/empty, GET with ETag, PUT with If-Match, template PATCH",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API"
@@ -134,7 +134,7 @@
       "id": "R0.4",
       "epic": "R0",
       "title": "`@kiwiply/ui` resume package — types, registry, Modern template, `resume.css`, projection + text (TS), vitest",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "ui"
@@ -523,12 +523,13 @@
       ],
       "star": false,
       "deps": [
-        "R0.3"
+        "R0.3",
+        "A5.1"
       ],
       "depsNote": "R0.3. Size M. Owner API + web.",
       "story": "",
       "ac": [
-        "`resume_doc_version` written per DESIGN §3.7 (≥ 10 min coalescing on AUTOSAVE; always on TEMPLATE_SWITCH/AI_APPLY/IMPORT/RESTORE); retention 30 auto + named; endpoints `GET /versions`, `GET /versions/{n}`, `POST /restore`, `POST /name`; `VersionsSheet` in the editor with preview-on-hover (renders that version's doc), Restore, Name; `version_restored` event."
+        "`resume_doc_version` written per DESIGN §3.7 (≥ 10 min coalescing on AUTOSAVE; always on TEMPLATE_SWITCH/AI_APPLY/IMPORT/RESTORE); retention setting `builder.version_retention_auto` (default 30) auto + named; endpoints `GET /versions`, `GET /versions/{n}`, `POST /restore`, `POST /name`; `VersionsSheet` in the editor with preview-on-hover (renders that version's doc), Restore, Name; `version_restored` event."
       ],
       "tech": "",
       "tests": "`ResumeDocVersionIT` (coalescing clock, retention, restore creates a new version)."

@@ -1,22 +1,29 @@
 # Consultancy Ops add-on — timesheets and finances, the 23.0 outcome (stories O11.*)
 
-> Status: **PROPOSED — awaiting user sign-off**, 2026-10-11 (task 23.0). This document is the proposed
-> locked spec for Phase 23. **Timesheets are the first slice and have their own in-depth design:
-> `timesheets.md`** (UX, state machine, tables, API, OCR, flags, reminders, export, tests, competitive).
-> This file keeps the add-on-wide decisions and the money side (placements/rates, invoices, payments,
-> expenses, profit) that follows timesheets. The decisions the user must confirm are listed in
-> `docs/roadmap/PROPOSAL-timesheets.md` §1.
+> Status: **LOCKED 2026-10-11 — D1 (org add-on only), D2 (priced later in admin), D7 (OCR optional,
+> off by default) and D10 (O11 stays P2) decided by the user; D3–D6, D8, D9, D11, D12 = recommended
+> defaults, user may override** (task 23.0; answers recorded in `docs/roadmap/PROPOSAL-timesheets.md`).
+> **Timesheets are the first slice and have their own in-depth design: `timesheets.md`** (UX, state
+> machine, tables, API, OCR, flags, reminders, export, tests, competitive). This file keeps the add-on-wide
+> decisions and the money side (placements/rates, invoices, payments, expenses, profit) that follows
+> timesheets.
 > Locked boundaries from `ROADMAP.md` Phase 23 and `CLAUDE.md`: record money, never move it; no bank
 > numbers/SSNs/tax IDs; finance visible to OWNER/ADMIN/FINANCE only; not tax/legal advice; everything
-> exports; attachments 5 MB / 2 GB per org; Marketer never submits or signs in as a consultant.
-> Price (proposed, confirm): **$99 per org per month + $4 per active consultant per month**.
+> exports; Marketer never submits or signs in as a consultant. **Everything else is admin-configured**
+> (user decision 2026-10-11): attachment size / count / org storage, OCR on-off and its budget, the scan
+> budget, retention minimum, reminder times, flag tolerances and the prices are catalog values or
+> settings with the defaults named below — never code constants.
+> Price: **set later from the admin catalog** (items `ops-addon-base` per org per month +
+> `ops-addon-consultant` per active consultant per month; no number is locked here — the "$99 + $4" draft
+> in the proposal is a worked example for the margin guard). Pilot orgs run free behind an admin switch.
 
 ## 0. Changelog vs the first draft (2026-10-11, same day)
 
 | # | changed | was | now | why |
 |---|---|---|---|---|
-| C1 | Build order | placements → timesheets → invoices → profit, all P2 | **timesheets first** (O11.1, O11.2-lite, O11.3, O11.4, O11.10–O11.13), then rates/invoices/payments/profit; O11 proposed **P1** | user: "time sheets will be next step" |
-| C2 | OCR | "No AI, no OCR of timesheets" | **optional, budgeted OCR of the client-approved proof** (`ops.ocr`, 50 ¢ per active consultant per period, pooled; suggestion only, never auto-applied) | the double-entry pain is the #1 thing to beat (`timesheets.md` §0, §15) |
+| C1 | Build order | placements → timesheets → invoices → profit, all P2 | **timesheets first** (O11.1, O11.2-lite, O11.3, O11.14, O11.10–O11.13, O11.4), then rates/invoices/payments/profit; O11 **stays P2** (decision D10) — the order is expressed as story deps, not priority | user: "time sheets will be next step"; D10 answered 2026-10-11 |
+| C2 | OCR | "No AI, no OCR of timesheets" | **optional, budgeted OCR of the client-approved proof, off by default** (decision D7: entitlement `ops.ocr` default off, `ops_settings.ocr_enabled` default false; budget entitlement `ops.ai_budget_cents_per_consultant`, default 50 ¢ per active consultant per period, pooled; suggestion only, never auto-applied) | the double-entry pain is the #1 thing to beat (`timesheets.md` §0, §15) |
+| C15 | Numbers | caps, budgets, prices and times written as constants | **every number is a setting, entitlement or catalog value with a default** (user decision 2026-10-11: everything is admin-configured); pricing not set in the roadmap (D2) | `CLAUDE.md` Expansion rule; `runtime-settings-feature-flags.md` §9 |
 | C3 | Attachments | "served via short-lived presigned URLs (existing S3 pattern)" | **through the `FileStorage` seam, local driver first, proxied downloads, no presigned URLs** | `docs/design/plat/file-storage-seam.md` D1/§5 (Option A locked) |
 | C4 | Timesheet tables | `ops_timesheet`, `ops_timesheet_entry`, `ops_timesheet_attachment` here | moved to `timesheets.md` §5 with day kinds, flags, proof state, events, holidays, `ops_settings`, `ops_placement_rate` | depth |
 | C5 | Settings | `showPayToConsultant` etc. in `organization.settings_json` | dedicated `ops_settings` row | typed, FINANCE-gated, many fields |
@@ -47,8 +54,10 @@
    visible to consultants or marketers.
 4. **Retention 7 years** (C12). Erasing a consultant anonymises the person (`ERASED` membership) and keeps
    hours/amounts under "Former consultant #id" (GDPR Art. 17(3)(b)).
-5. **AI:** only the OCR of proof files, bounded by `ops.ai_budget_cents_per_consultant=50` pooled per org,
-   through the AI gateway with the Ops grant as budget owner. No AI anywhere in money records.
+5. **AI:** only the OCR of proof files — **optional and off by default** (D7) — bounded by entitlement
+   `ops.ai_budget_cents_per_consultant` (default 50) pooled per org, through the AI gateway with the Ops
+   grant as budget owner; plus the mandatory, platform-paid identifier scan (setting
+   `ai.budget.ops_scan_cents_per_consultant`, default 25). No AI anywhere in money records.
 6. **Disclaimer** on every finance screen and export footer: "Records you entered. Not tax, legal or
    accounting advice." Lawyer wording confirmed with 20.5.
 7. **Money as integer minor units + one org currency**; hours as minutes; rates as minor units per hour.
@@ -148,14 +157,16 @@ Finance · Ops home                          Invoice · draft
 ```
 
 ## 7. Billing of the add-on
-Catalog rows: `ops-addon-base` ($99/org/month, `SEAT` kind with quantity 1) and
-`ops-addon-consultant` ($4/active consultant/month). "Active consultant" = a consultant member with
+**Decision D2 (user, 2026-10-11): priced later from the admin catalog — no price is locked here.** Catalog
+items, shape only: `ops-addon-base` (per org per month, `SEAT` kind with quantity 1) and
+`ops-addon-consultant` (per active consultant per month). "Active consultant" = a consultant member with
 ≥ 1 `ops_placement.status=ACTIVE` during the period; `OrgSeatReconciler` sets the quantity nightly
-(the one place quantity is derived, `billing.md` §3.3). Entitlement keys: `ops.enabled`, `ops.ocr`,
-`ops.ai_budget_cents_per_consultant=50`, `ops.storage_bytes_max=2147483648`,
-`ops.attachment_bytes_max=5242880`. Margin: base line fee-only; consultant line worst case 50 ¢ AI + fee
-share → well above 80 % (the guard computes it; `fee-model-and-margin-guard.md`). Alternative packaging is
-decision D2 in the proposal. Pilot orgs: free via `opsPilot` flag, later a comped grant (C13).
+(the one place quantity is derived, `billing.md` §3.3). Entitlement keys and catalog defaults: `ops.enabled`,
+`ops.ocr` (default off, D7), `ops.ai_budget_cents_per_consultant` (default 50), `ops.storage_bytes_max`
+(default 2 GB), `ops.attachment_bytes_max` (default 5 MB). Margin: the guard runs at publish against the
+price admin enters — base line fee-only; consultant line worst case = OCR budget + scan budget + fee share
+(`fee-model-and-margin-guard.md`); the proposal's "$99 + $4" is a worked example that clears the floor, not a
+value. Pilot orgs: free via the admin switch (`flag.ops_timesheets` + `opsPilot`), later a comped grant (C13).
 
 ## 8. Privacy & security
 - FINANCE rows are the most sensitive org data: every read of `/ops/profit`, `/ops/payments`, invoices is

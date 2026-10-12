@@ -518,7 +518,7 @@
       "story": "As a visitor I want any number on the site to be live and real so that 'applications filled this week' means exactly that.",
       "genz": "Live counters are credible; round numbers with a plus sign are not.",
       "ac": [
-        "GET /api/public/stats returns {fillsLast7d, applicationsTracked, postingsOpen, atsVerified} from fill_event, application, job_posting, support matrix; cached 10 min; null for any metric below its floor (fills 500/wk, applications 5,000, postings 1,000)",
+        "GET /api/public/stats returns {fillsLast7d, applicationsTracked, postingsOpen, atsVerified} from fill_event, application, job_posting, support matrix; cached 10 min; null for any metric below its floor from settings `public.stats_floor.fills_7d` (default 500), `public.stats_floor.applications` (default 5,000), `public.stats_floor.postings` (default 1,000)",
         "<LiveStat metric> renders the number with 'live' and the as-of time, or renders nothing (the layout never reserves space for an absent stat)",
         "STATS value band keeps its qualitative tiles; live numbers appear only in the hero tick row when present",
         "Claims lint recognises <LiveStat> as the only allowed numeric source"
@@ -535,7 +535,9 @@
       "owners": [
         "web"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "relates": [
         "U18.1"
       ],
@@ -589,7 +591,7 @@
       "story": "As a phone visitor I want to send myself the install link and keep going on the web so that the extension's laptop-only nature does not end my visit.",
       "genz": "Most of them arrive from a social link on a phone.",
       "ac": [
-        "On touch/narrow UA the header and hero CTA become 'Start on your phone' (→ /signup) + 'Email me the laptop link' (POST /api/public/install-link {email}, 3/day/IP, double-use of the newsletter rate limiter, Brevo mail with the store links and a one-line honest note)",
+        "On touch/narrow UA the header and hero CTA become 'Start on your phone' (→ /signup) + 'Email me the laptop link' (POST /api/public/install-link {email}, setting `ratelimit.install_link.per_day` (default 3 per IP), double-use of the newsletter rate limiter, Brevo mail with the store links and a one-line honest note)",
         "Signed-in phone users get the same from the dashboard checklist (U2.7 owns that card; this story owns the public one)",
         "Copy states plainly: autofill works on a laptop; matches, saving, tracking and the inbox work on the phone"
       ],
@@ -606,7 +608,9 @@
         "web",
         "extension"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "relates": [
         "E12.4"
       ],
@@ -1135,7 +1139,7 @@
       "story": "As the owner I want a weekly five-minute routine and automatic thresholds so that thin or broken pages never drag the domain down.",
       "genz": "—",
       "ac": [
-        "Thresholds in routes.ts (company ≥ 1 open role in 30 days, title ≥ 20 roles, example pages require R7 content) applied to index flags",
+        "Thresholds from settings `seo.index.company_min_open_roles` (default 1 in 30 days) and `seo.index.title_min_roles` (default 20) (example pages require R7 content) applied to index flags",
         "docs/design/mkt/seo-content-engine.md §9 runbook linked from DEPLOY.md: coverage report, Core Web Vitals, manual actions, what to do for each",
         "Admin A5 runtime setting seo.indexProgrammatic (default off until M5.6 ships) gates programmatic index flags"
       ],
@@ -1151,7 +1155,8 @@
         "web"
       ],
       "deps": [
-        "M5.1"
+        "M5.1",
+        "A5.1"
       ],
       "relates": [
         "S1.1"
@@ -1277,7 +1282,7 @@
       "story": "As the owner I want to know which articles fail so that the worst ones get fixed first.",
       "genz": "One tap, no form.",
       "ac": [
-        "help_feedback table (design §2); POST /api/public/help-feedback 10/IP/day, ip hashed with a daily salt, no raw IP; weekly digest to the admin A8 queue",
+        "help_feedback table (design §2); POST /api/public/help-feedback rate setting `ratelimit.help_feedback.per_day` (default 10 per IP), ip hashed with a daily salt, no raw IP; weekly digest to the admin A8 queue",
         "GET /api/public/help/top?from= returns top 5 from U18 rollups or front matter surfaces fallback",
         "Article renders Yes/No + optional 200-char note; thanks state"
       ],
@@ -1294,7 +1299,8 @@
         "extension"
       ],
       "deps": [
-        "M4.1"
+        "M4.1",
+        "A5.1"
       ],
       "relates": [
         "T6.2"
@@ -1483,7 +1489,7 @@
       "story": "As a visitor I want to drop my resume and get a real structural check in seconds without an account so that I get value before I trust Kiwiply with anything.",
       "genz": "Instant, free, no email wall.",
       "ac": [
-        "POST /api/public/ats-check (multipart PDF/DOCX ≤ 5 MB, optional JD text) runs the deterministic checks (15 checks: sections, contact block, dates, columns/tables/images, file type, length, keyword presence vs JD) and returns score + checks + keywords; no AI call; nothing persisted (asserted); 5/IP/day; 10 s timeout; A5 kill switch",
+        "POST /api/public/ats-check (multipart PDF/DOCX up to setting `public.ats_check.max_bytes`, default 5 MB; optional JD text) runs the deterministic checks (15 checks: sections, contact block, dates, columns/tables/images, file type, length, keyword presence vs JD) and returns score + checks + keywords; no AI call; nothing persisted (asserted); rate setting `ratelimit.ats_check.per_day` (default 5 per IP); 10 s timeout; flag `flag.ats_check` (default on)",
         "/tools/ats-resume-check page with drop zone, JD paste, result list with fix hints, the honest sentence (register ats-check-honest), and 'Save this report & fix it' → signup with a one-time server token handing the parsed text to R1.4",
         "Works at 390px with the OS file picker"
       ],
@@ -1500,7 +1506,8 @@
         "web"
       ],
       "deps": [
-        "M5.1"
+        "M5.1",
+        "A5.3"
       ],
       "relates": [],
       "supersedes": [],
@@ -1516,7 +1523,7 @@
       "story": "As an applicant I want a page per common application question — why it is asked, what a good answer has, a template — so that the long-tail questions stop being a blocker.",
       "genz": "They skip applications over one awkward question (55.6% skipped over a cover letter).",
       "ac": [
-        "Nightly export (admin job list A6) of labels with COUNT ≥ 50 across users and the ATS that ask them → web/content/generated/questions.json; never answer values, never per-user data",
+        "Nightly export (admin job list A6) of labels with COUNT at or above setting `mkt.question_guides.min_count` (default 50) across users and the ATS that ask them → web/content/generated/questions.json; never answer values, never per-user data",
         "/guides/questions/<slug> pages generated from a template + a human-edited markdown body for the top 30; FAQ + the 'Kiwiply remembers your answer' claim",
         "Index page by ATS and by theme (authorization, availability, salary, EEO — EEO pages explain optional/voluntary)"
       ],
@@ -1532,7 +1539,8 @@
         "web"
       ],
       "deps": [
-        "M5.1"
+        "M5.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -1719,8 +1727,8 @@
       "genz": "Sharing is how they recommend tools; the deal must be plain.",
       "ac": [
         "Tables referral_code, referral, entitlement_grant (design §2); GET /api/referrals/me; code format KIWI-XXXXX from the unambiguous alphabet",
-        "/r/<code> sets the kw_ref cookie (30d, httpOnly, Lax), shows the rules and the referrer's first name if show_name; CTA /signup?ref=",
-        "Signup (password and Google paths) captures the code → referral PENDING with signup_ip_hash/ua_hash; POST /api/referrals/claim for typed codes within 14 days; one referrer per invitee",
+        "/r/<code> sets the kw_ref cookie (setting `referral.cookie_days`, default 30; httpOnly, Lax), shows the rules and the referrer's first name if show_name; CTA /signup?ref=",
+        "Signup (password and Google paths) captures the code → referral PENDING with signup_ip_hash/ua_hash; POST /api/referrals/claim for typed codes within setting `referral.claim_window_days` (default 14); one referrer per invitee",
         "Privacy policy paragraph drafted for U14.5"
       ],
       "tests": [
@@ -1735,7 +1743,8 @@
         "API"
       ],
       "deps": [
-        "M6.1"
+        "M6.1",
+        "A5.1"
       ],
       "relates": [
         "U7.1",
@@ -1755,10 +1764,10 @@
       "story": "As a referrer I want the reward to arrive automatically once my friend is activated and active for 7 days so that nobody has to ask support.",
       "genz": "Automatic and visible, or it never happened.",
       "ac": [
-        "Nightly ReferralQualifier: PENDING → QUALIFIED on activated_at + 7 distinct active days within 30 days (from U18 daily rollups; until U18.3, from application/fill/match rows); QUALIFIED → REWARDED with two entitlement_grant rows (1 month Pro) or a one-time Stripe coupon for a paying referrer; EXPIRED after 30 days",
+        "Nightly ReferralQualifier: PENDING → QUALIFIED on activated_at + setting `referral.qualify_active_days` (default 7) distinct active days within `referral.qualify_window_days` (default 30) (from U18 daily rollups; until U18.3, from application/fill/match rows); QUALIFIED → REWARDED with two entitlement_grant rows (setting `referral.reward_days`, default 30 days of Pro) or a one-time Stripe coupon for a paying referrer; EXPIRED after `referral.qualify_window_days`",
         "EntitlementService.isPro() honours live grants when no paid subscription; plan on GET /api/profile/version reflects it",
         "Notifications referral_rewarded to both via the U7 engine (or NotificationService until U7.1)",
-        "Runtime flag referrals.enabled (A5) gates grants; cap 12/year enforced with a plain message"
+        "Flag `flag.referrals` (A5.3) gates grants; cap from setting `referral.credits_per_year` (default 12 proposed here, 3 in B7.5 — decision D3) enforced with a plain message"
       ],
       "tests": [
         "ReferralQualifierIT with seeded activity; EntitlementServiceIT grants; coupon path mocked via StripeGateway"
@@ -1773,7 +1782,8 @@
         "web"
       ],
       "deps": [
-        "B7.5"
+        "B7.5",
+        "A5.1"
       ],
       "relates": [
         "B7.5"
@@ -1827,7 +1837,7 @@
       "story": "As a user who just had a good moment I want the invite offered right then, quietly, so that sharing feels natural rather than nagging.",
       "genz": "Share after a win, never during a fill.",
       "ac": [
-        "Welcome email 3 and the Sunday recap include the code with the rules in one line; the extension drawer footer shows 'Invite a friend' once per 30 days after a successful fill (dismiss sticky)",
+        "Welcome email 3 and the Sunday recap include the code with the rules in one line; the extension drawer footer shows 'Invite a friend' once per remote-config `ext.invite_footer.interval_days` (default 30) after a successful fill (dismiss sticky)",
         "Never shown during a fill or in the review plan; respects the referrals.enabled flag",
         "Extension bump per ritual"
       ],
@@ -1842,7 +1852,9 @@
       "owners": [
         "web"
       ],
-      "deps": [],
+      "deps": [
+        "A5.5"
+      ],
       "relates": [
         "U16.3",
         "O6.6",
@@ -1931,7 +1943,7 @@
       "story": "As a career creator I want a link that pays me a published share of the first three months of anyone who subscribes through it, with clear rules, so that recommending Kiwiply is worth my time and honest with my audience.",
       "genz": "Creators are where this audience hears about tools.",
       "ac": [
-        "partner, partner_attribution tables; POST /api/partners/apply, admin approve/reject (audited); A-XXXXX codes; /p/<code> landing variant sets kw_src ref; attribution at signup via M8.1 (first click, 30 days)",
+        "partner, partner_attribution tables; POST /api/partners/apply, admin approve/reject (audited); A-XXXXX codes; /p/<code> landing variant sets kw_src ref; attribution at signup via M8.1 (first click, setting `mkt.affiliate.attribution_days`, default 30)",
         "/partners dashboard: link, stats (signups, activated, paying), kit download, terms acceptance (version stored); terms page with disclosure line, no brand-term ads, no coupon sites, no self-referral, 18+",
         "No money yet (M7.6)"
       ],
@@ -1949,7 +1961,8 @@
       ],
       "deps": [
         "M7.2",
-        "B7.5"
+        "B7.5",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [
@@ -1966,7 +1979,7 @@
       "story": "As a student ambassador I want Pro while I am active, a kit and my numbers each month so that representing Kiwiply on campus is a real role with a reference at the end.",
       "genz": "A real programme with a letter at the end beats stickers.",
       "ac": [
-        "kind=AMBASSADOR partners with campus; approval grants entitlement_grant AMBASSADOR for 1 month; AmbassadorRenewalJob renews while the bar holds (≥5 attributed signups or 1 self-reported event, spot-checked), PAUSED then ENDED otherwise; cap 150 active",
+        "kind=AMBASSADOR partners with campus; approval grants entitlement_grant AMBASSADOR for setting `mkt.ambassador.grant_days` (default 30); AmbassadorRenewalJob renews while the bar holds (at least setting `mkt.ambassador.renew_min_signups` (default 5) attributed signups or 1 self-reported event, spot-checked), PAUSED then ENDED otherwise; cap setting `mkt.ambassador.max_active` (default 150)",
         "Kit page: logos, three real screenshots, the honest one-liners from the register, event checklist; monthly email with their numbers",
         "Ambassador list on /campus only with consent"
       ],
@@ -1982,7 +1995,8 @@
         "web"
       ],
       "deps": [
-        "M0.1"
+        "M0.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -2066,7 +2080,7 @@
       "story": "As the owner I want commissions computed from real invoices, reversed on refunds/disputes, and payouts recorded (never moved by the system) so that the programme is auditable and cheap to run.",
       "genz": "—",
       "ac": [
-        "partner_commission rows written by BillingWebhookResource on invoice.paid for attributed Pro/Autopilot users, months 1–3 only, 30% of net; REVERSED on refund/dispute within 90 days",
+        "partner_commission rows written by BillingWebhookResource on invoice.paid for attributed Pro/Autopilot users, first setting `mkt.affiliate.commission_months` (default 3) months only, setting `mkt.affiliate.commission_pct` (default 30) of net; REVERSED on refund/dispute within setting `mkt.affiliate.reversal_days` (default 90)",
         "Admin /admin/partners: ledger, accrued per partner, 'record payout' (method, reference) marks commissions PAID, CSV; A16 margin report gains a partner-cost line",
         "Payout handles encrypted (EncryptionService), masked in UI; manual quarterly payouts documented in DEPLOY.md"
       ],
@@ -2082,7 +2096,9 @@
         "web",
         "API"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "relates": [
         "A11.6"
       ],
@@ -2101,7 +2117,7 @@
       "story": "As the owner I want to know where each account came from — UTM, referrer host, landing page, code — captured server-side, so that channels can be compared without a third party.",
       "genz": "Which TikTok sent them matters more than which keyword.",
       "ac": [
-        "Middleware sets kw_src (httpOnly, Lax, 90d, ≤1 KB, no identifiers) on first marketing visit with utm_*, referrer host, landing path, ref code; channel derived by web/src/lib/channel.ts",
+        "Middleware sets kw_src (httpOnly, Lax, setting `analytics.attribution_cookie_days` default 90, ≤1 KB, no identifiers) on first marketing visit with utm_*, referrer host, landing path, ref code; channel derived by web/src/lib/channel.ts",
         "Signup BFF (password + Google) forwards it; API writes user_acquisition (idempotent, cascade delete, in DSAR export); country from the edge header when present",
         "No client JS reads the cookie"
       ],
@@ -2117,7 +2133,8 @@
         "API"
       ],
       "deps": [
-        "M8.1"
+        "M8.1",
+        "A5.1"
       ],
       "relates": [
         "U18.1",
@@ -2419,7 +2436,7 @@
       "critical": false,
       "id": "M9.5",
       "epic": "M9",
-      "title": "Dormant nudges with consent (no fill in 21 days, no visit in 45)",
+      "title": "Dormant nudges with consent (no fill for setting `mkt.dormant.no_fill_days` default 21, no visit for `mkt.dormant.no_visit_days` default 45)",
       "story": "As a lapsed user I want at most one gentle email reminding me what Kiwiply can do now so that I come back when it is useful, not because I am chased.",
       "genz": "One nudge, honest, easy out.",
       "ac": [
@@ -2437,7 +2454,9 @@
       "owners": [
         "web"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "relates": [
         "U7.3"
       ],

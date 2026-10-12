@@ -73,8 +73,8 @@
       "design": "docs/design/ai/ai-gateway-metering-budgets.md", "critical": false
     },
     {
-      "id": "I0.6", "epic": "I0", "title": "Per-feature daily caps on runtime settings (assistant 40, tailor 30, fit 60, interview 3, draft 80 …)",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I0.3"], "relates": ["A5.2", "U8.1"], "supersedes": [],
+      "id": "I0.6", "epic": "I0", "title": "Per-feature daily caps on runtime settings `ai.cap.<feature>.daily` (defaults assistant 40, tailor 30, fit 60, interview 3, draft 80 …)",
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I0.3", "A5.1"], "relates": ["A5.2", "U8.1"], "supersedes": [],
       "story": "As the platform I want a second line under the period budget so that one feature cannot drain the month in an afternoon.",
       "genz": "'Resets at midnight' beats 'resets next month'.",
       "ac": ["ai_daily_use table; caps read from settings ai.cap.<feature>.daily with env defaults", "429 AI_DAILY_CAP with resetsAt in the user's timezone", "GET /api/ai/usage adds daily[] and the settings meter lists today's use"],
@@ -84,7 +84,7 @@
       "design": "docs/design/ai/ai-gateway-metering-budgets.md", "critical": false
     },
     {
-      "id": "I0.7", "epic": "I0", "title": "Platform-cap hook + reserved 10 % PARSE slice for Free onboarding",
+      "id": "I0.7", "epic": "I0", "title": "Platform-cap hook + reserved PARSE slice for Free onboarding (setting `ai.free_parse_reserved_pct`, default 10)",
       "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I0.3", "A4.3"], "relates": ["A4.3"], "supersedes": [],
       "story": "As a new Free user I want my one resume parse to work even when the platform cap is hit so that onboarding never breaks.",
       "genz": "Sign-up day is never the day AI is 'busy'.",
@@ -275,10 +275,10 @@
     },
     {
       "id": "I2.6", "epic": "I2", "title": "Opt-in 'Help improve Kiwiply AI' samples: redacted, 30-day expiry, admin review, synthetic promotion",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I0.4", "I3.7"], "relates": ["T1.4", "U14.2", "T1.2"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I0.4", "I3.7", "A5.1"], "relates": ["T1.4", "U14.2", "T1.2"], "supersedes": [],
       "story": "As a user who opts in I want my 👎 to actually improve the product without my resume ending up in a repo.",
       "genz": "Off by default; one switch; expires.",
-      "ac": ["user setting ai_improve_opt_in default false; ai_sample rows only when on and task ≠ Free parse", "Redaction via the DSAR redactor; expiry job 30 d", "/admin/ai/samples: SUPPORT view, OPS promote → judge-assisted paraphrase into a synthetic case"],
+      "ac": ["user setting ai_improve_opt_in default false; ai_sample rows only when on and task ≠ Free parse", "Redaction via the DSAR redactor; expiry job after setting `ai.sample_retention_days` (default 30)", "/admin/ai/samples: SUPPORT view, OPS promote → judge-assisted paraphrase into a synthetic case"],
       "tests": ["AiSampleRedactionTest; AiSampleResourceIT (opt-in off → nothing); expiry job test"],
       "tech": "domain/AiSample, settings panel switch, admin page",
       "evidence": ["api/src/main/java/com/dossier/api/service/AccountExportService.java"], "design": "docs/design/ai/prompt-registry-evals.md", "critical": false
@@ -363,10 +363,10 @@
     },
     {
       "id": "I3.7", "epic": "I3", "title": "'Report this answer' 👍/👎 with reasons on every AI output → ai_feedback; weekly 👎 rate per prompt version",
-      "status": "not_started", "size": "M", "owners": ["API", "ui", "web", "extension"], "deps": ["I0.4"], "relates": ["A4.4", "U4.6", "S5.1"], "supersedes": ["S5.2"],
+      "status": "not_started", "size": "M", "owners": ["API", "ui", "web", "extension"], "deps": ["I0.4", "A5.1"], "relates": ["A4.4", "U4.6", "S5.1"], "supersedes": ["S5.2"],
       "story": "As a user I want to flag a wrong answer in one tap so that it gets fixed and I can see where it came from.",
       "genz": "Thumbs are the review form.",
-      "ac": ["POST /api/ai/feedback {requestId, verdict, reason}; AiFeedback ui component (44 px) on tailor, fit, draft, matches, assistant, interview", "👎 Wrong fact expands sources[]", "/admin/ai shows 👎 rate per task/prompt version; > 8 % → ai_alert FEEDBACK_SPIKE"],
+      "ac": ["POST /api/ai/feedback {requestId, verdict, reason}; AiFeedback ui component (44 px) on tailor, fit, draft, matches, assistant, interview", "👎 Wrong fact expands sources[]", "/admin/ai shows 👎 rate per task/prompt version; above setting `ai.alert.feedback_spike_pct` (default 8) → ai_alert FEEDBACK_SPIKE"],
       "tests": ["AiFeedbackResourceIT; ui snapshot; alert rule test"],
       "tech": "domain/AiFeedback, packages/ui/src/ai/AiFeedback.tsx",
       "evidence": ["docs/design/admin/ai-cost-governance.md"], "design": "docs/design/ai/guardrails-truth-checks.md", "critical": false
@@ -396,10 +396,10 @@
     },
     {
       "id": "I4.2", "epic": "I4", "title": "Two-stage retrieval pipeline: SQL prefilter → cosine top-200 → rules re-rank with reasons → LLM top-50 (replaces JobPrefilter word heuristics)",
-      "status": "not_started", "size": "L", "owners": ["API"], "deps": ["I4.1"], "relates": ["U4.2", "U4.6", "U4.9"], "supersedes": [],
+      "status": "not_started", "size": "L", "owners": ["API"], "deps": ["I4.1", "A5.3"], "relates": ["U4.2", "U4.6", "U4.9"], "supersedes": [],
       "story": "As a Pro user I want matches that understand 'frontend' ≈ 'UI engineer' so that the three jobs I see first feel right.",
       "genz": "Three jobs that feel right in 30 seconds.",
-      "ac": ["MatchPipeline per the design §2 behind flag matches.semantic (10 % Pro canary); explain output signals{title,skills,location,level,sponsorship,semantic}", "JobPrefilter signals become re-rank weights; semantic=false fallback when a posting is unembedded", "Save-rate compared canary vs control for two weeks before 100 %"],
+      "ac": ["MatchPipeline per the design §2 behind flag `flag.matches_semantic` (pct rollout, default 10 % Pro canary); explain output signals{title,skills,location,level,sponsorship,semantic}", "JobPrefilter signals become re-rank weights; semantic=false fallback when a posting is unembedded", "Save-rate compared canary vs control for two weeks before 100 %"],
       "tests": ["MatchPipelineTest ordering fixtures; eval jobs.score precision@10 ≥ 0.6; synonym set vector recall ≥ 0.9"],
       "tech": "service/jobs/MatchPipeline.java; JobMatchService.score uses it",
       "evidence": ["api/src/main/java/com/dossier/api/service/jobs/JobPrefilter.java"],
@@ -407,11 +407,11 @@
       "benchmark": "Jobscan's 'overly literal keyword match' (92 reviews) and Jobright's ~70–80 % match accuracy (AUDIT §5)."
     },
     {
-      "id": "I4.3", "epic": "I4", "title": "Free daily matches on rules + vectors with deterministic reasons (3/day, no LLM); Pro 10–20 with LLM reasons",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I4.2"], "relates": ["U4.6", "U2.5", "U4.7"], "supersedes": [],
+      "id": "I4.3", "epic": "I4", "title": "Free daily matches on rules + vectors with deterministic reasons (entitlement `matches.per_day`, catalog default Free 3; no LLM); Pro `matches.per_day` (catalog default 10–20) with LLM reasons",
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I4.2", "B1.2", "A5.1"], "relates": ["U4.6", "U2.5", "U4.7"], "supersedes": [],
       "story": "As a Free user I want three real matches a day with honest reasons so that the product is useful before I pay.",
       "genz": "Free is not a demo.",
-      "ac": ["Free: pipeline steps 1–3, top 3, reasons from rules; zero ai_call rows", "Pro: step 4 on the economy model, ≥ 60 shown, max 20", "Cards render reasons[] (fairness contract)"],
+      "ac": ["Free: pipeline steps 1–3, top `matches.per_day` (catalog default 3), reasons from rules; zero ai_call rows", "Pro: step 4 on the economy model, scores at or above setting `jobs.match_threshold` (default 60) shown, max `matches.per_day` (catalog default 20)", "Cards render reasons[] (fairness contract)"],
       "tests": ["MatchPipelineTest free path no provider call; JobMatchResourceIT Free/Pro"],
       "tech": "JobMatchService + MatchPipeline modes",
       "evidence": ["api/src/main/java/com/dossier/api/web/rest/JobMatchResource.java"], "design": "docs/design/ai/embeddings-matching.md", "critical": false,
@@ -610,8 +610,8 @@
     },
 
     {
-      "id": "I7.1", "epic": "I7", "title": "Answer cache v2: TTL 90 days, keyed per task, invalidated by profile fingerprint; cache_hit ledger rows",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I0.4"], "relates": [], "supersedes": [],
+      "id": "I7.1", "epic": "I7", "title": "Answer cache v2: TTL from setting `ai.answer_cache_ttl_days` (default 90), keyed per task, invalidated by profile fingerprint; cache_hit ledger rows",
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I0.4", "A5.1"], "relates": [], "supersedes": [],
       "story": "As a user I want repeats to be free and stale answers to disappear when my profile changes.",
       "genz": "Repeats are free, always.",
       "ac": ["ai_answer gains expires_at + profile_fingerprint; lookup rejects stale; nightly purge", "Cache hits write a ledger row with cache_hit=true, cost 0 (visible on /admin/ai)"],
@@ -654,10 +654,10 @@
     },
     {
       "id": "I7.5", "epic": "I7", "title": "Token-based input caps per task (count endpoint / estimator) replacing character caps; per-call cost ceiling",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I0.3"], "relates": [], "supersedes": [],
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["I0.3", "A5.1"], "relates": [], "supersedes": [],
       "story": "As the platform I want inputs bounded in tokens so that one call can never exceed ~$0.05 whatever the text.",
       "genz": "—",
-      "ac": ["AiInputs caps expressed in tokens with a 4-chars/token estimator and a provider count when cheap", "Gateway refuses a call whose estimated cost > ai.cap.call_cost_micros (default $0.05) with AI_INPUT_TOO_LARGE"],
+      "ac": ["AiInputs caps expressed in tokens with a 4-chars/token estimator and a provider count when cheap", "Gateway refuses a call whose estimated cost above setting `ai.cap.call_cost_micros` (default $0.05) with AI_INPUT_TOO_LARGE"],
       "tests": ["AiInputsTest; gateway cap test"],
       "tech": "service/AiInputs.java",
       "evidence": ["api/src/main/java/com/dossier/api/service/AiInputs.java"],
@@ -733,10 +733,10 @@
     },
     {
       "id": "I9.2", "epic": "I9", "title": "Interview practice engine: rubric-scored feedback (STAR coverage, specificity, length, relevance), session summary, ≤ $0.05/session",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I3.2", "I1.3"], "relates": ["U9.3", "O9.1"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I3.2", "I1.3", "A5.1"], "relates": ["U9.3", "O9.1"], "supersedes": [],
       "story": "As a Pro user practising for Thursday I want feedback that cites my own answer and never promises an outcome.",
       "genz": "Reps with receipts, included in Pro.",
-      "ac": ["Tasks INTERVIEW_TURN / INTERVIEW_SUMMARY; prompts interview.turn/summary; Sonnet 5.5 → Haiku by budget tier", "Feedback JSON {dims{star,specific,length,relevance}:1–5, cites[], suggestion}; truth profile INTERVIEW; no promises", "Daily cap 3 sessions; cost assert ≤ $0.05 at 6 turns"],
+      "ac": ["Tasks INTERVIEW_TURN / INTERVIEW_SUMMARY; prompts interview.turn/summary; Sonnet 5.5 → Haiku by budget tier", "Feedback JSON {dims{star,specific,length,relevance}:1–5, cites[], suggestion}; truth profile INTERVIEW; no promises", "Daily cap setting `ai.cap.interview.daily` (default 3 sessions); cost assert ≤ $0.05 at 6 turns"],
       "tests": ["InterviewEngineTest fake provider; eval interview.turn; cost test"],
       "tech": "service/ai/engines/InterviewEngine.java",
       "evidence": ["ROADMAP.md Phase 20.1"],

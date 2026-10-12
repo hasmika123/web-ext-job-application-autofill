@@ -1,8 +1,14 @@
 # Timesheets — the first slice of Consultancy Ops (Phase 23, stories O11.1–O11.4, O11.10–O11.13)
 
-> Status: **PROPOSED — awaiting user sign-off**, 2026-10-11 (task 23.0, timesheets pulled forward per
-> the user's "time sheets will be next step"). Parent spec: `consultancy-ops.md` (placements, invoices,
-> payments, profit). Patch list for the roadmap: `docs/roadmap/PROPOSAL-timesheets.md`.
+> Status: **LOCKED 2026-10-11 — D1 org add-on only · D2 priced later in admin (no number in this spec) ·
+> D7 OCR optional, off by default · D10 O11 stays P2 (order in deps only); D3–D6, D8, D9, D11, D12 =
+> recommended defaults, user may override** (task 23.0; answers in `docs/roadmap/PROPOSAL-timesheets.md`).
+> Parent spec: `consultancy-ops.md` (placements, invoices, payments, profit). Applied to the roadmap as
+> O11.1–O11.4, O11.8–O11.14. **Every number in this document is a default, not a constant** (user decision
+> 2026-10-11, "everything is admin-configured"): caps are catalog entitlements (`ops.attachment_bytes_max`
+> 5 MB, `ops.storage_bytes_max` 2 GB, `ops.ai_budget_cents_per_consultant` 50, `ops.ocr` off), budgets,
+> thresholds, reminder times and retention minimum are settings (`org.ops.*`, `ai.budget.ops_scan_cents_per_consultant`
+> 25) — the stories name each key; the prose below keeps the defaults for readability.
 > Locked inputs: `CLAUDE.md` → Consultancy Ops add-on (record money, never move it; no bank numbers,
 > SSNs or tax IDs; finance visible to OWNER/ADMIN/FINANCE only; Marketer never submits, never signs in as
 > a consultant; consultant consents); `ROADMAP.md` Phase 23 boundaries and caps (5 MB per attachment,
@@ -48,8 +54,9 @@ The consultant's job-search data (board, resumes, inbox) is **not** involved any
    step_minutes` ∈ {15, 30, 60}). Day kinds: `WORK`, `PTO`, `HOLIDAY`, `SICK`, `UNPAID`. Only `WORK`
    minutes are billable; `PTO/SICK/HOLIDAY` minutes are recorded for the pay record (whether they are paid
    is the org's business and a label, see `consultancy-ops.md` §1.3).
-3. **Proof is first-class, not an afterthought.** A sheet may carry up to 3 attachments (PDF/PNG/JPG,
-   ≤ 5 MB each, 2 GB per org). The approver sees the proof beside the entered hours. Proof is *optional*
+3. **Proof is first-class, not an afterthought.** A sheet may carry up to setting `org.ops.attachments_per_sheet`
+   (default 3) attachments (PDF/PNG/JPG, each up to entitlement `ops.attachment_bytes_max` (default 5 MB),
+   entitlement `ops.storage_bytes_max` (default 2 GB) per org — all admin-configured). The approver sees the proof beside the entered hours. Proof is *optional*
    per placement (`ops_placement.proof_required` — a placement billed from the client's own VMS export
    may not need it; an H-1B/C2C placement usually does).
 4. **Mismatch flags, never silent corrections.** The server computes flags on submit and on approve:
@@ -57,10 +64,12 @@ The consultant's job-search data (board, resumes, inbox) is **not** involved any
    by default), > 12 h on a day, any day > 24 h (hard reject), weekend `WORK` minutes, overlap with
    another placement's `WORK` on the same day beyond 24 h total. Flags are shown to both sides; the
    approver can approve with a flag (audited with the flag names). Nothing auto-edits hours.
-5. **OCR of the proof is an optional, budgeted AI feature** (`ops.ocr=true` entitlement; org toggle
-   `ops_settings.ocr_enabled`). It only *pre-fills a draft* or *produces the mismatch flag*; the consultant
+5. **OCR of the proof is an optional, budgeted AI feature — off by default (decision D7, user, 2026-10-11)**
+   (entitlement `ops.ocr`, default off; org toggle `ops_settings.ocr_enabled`, default false; auto-read
+   `ocr_auto_read`, default false). It only *pre-fills a draft* or *produces the mismatch flag*; the consultant
    always confirms. Charged to the org's Ops AI budget through the existing AI gateway (budget owner =
-   the Ops add-on grant), capped at **50 ¢ per active consultant per period**, pooled per org; when the
+   the Ops add-on grant), capped at entitlement `ops.ai_budget_cents_per_consultant` (**default 50 ¢ per
+   active consultant per period**, a catalog value admin changes), pooled per org; when the
    pool is spent, upload still works and OCR shows "will read later" (never blocks submit). Attachments are
    otherwise never *transcribed* by us — OCR runs *only* when the org turned it on and the consultant
    tapped "Read hours from this file" or the org enabled auto-read. Separate from OCR, **every upload is
@@ -78,10 +87,12 @@ The consultant's job-search data (board, resumes, inbox) is **not** involved any
    same week with `supersedes_id`, status `SUBMITTED`, a required reason, and needs approval again. The old
    row becomes `SUPERSEDED`. If the old row is already on an invoice line, the invoice (23.x) gets a
    `needs_reissue` flag — the correction is never blocked, the money side is told.
-8. **Reminders are few and quiet:** Monday 09:00 org-local to consultants with last week missing
-   (`DRAFT` or absent), Wednesday 09:00 to approvers with pending sheets, both subject to org quiet hours
-   (default 21:00–08:00) and the "at most one org email per member per day" rule (O13.3). A consultant may
-   opt into a Friday 16:00 "log this week" nudge. No daily nagging, no escalation emails to the consultant's
+8. **Reminders are few and quiet:** at the org-local times in `ops_settings` — defaults from settings
+   `org.ops.reminder_consultant` (Monday 09:00) to consultants with last week missing (`DRAFT` or absent)
+   and `org.ops.reminder_approver` (Wednesday 09:00) to approvers with pending sheets — both subject to org
+   quiet hours (default from setting `org.notify.quiet_hours_default`, 21:00–08:00) and the per-member daily
+   org-email cap (O13.3, setting `org.notify.email_per_member_per_day`, default 1). A consultant may opt into
+   an end-of-week "log this week" nudge (setting `org.ops.reminder_nudge`, default Friday 16:00). No daily nagging, no escalation emails to the consultant's
    marketer.
 9. **The marketer sees presence, not hours.** For paired consultants a MARKETER sees "on placement at
    {client} since {date}" and "week of Oct 6: submitted ✓ / missing" — never minutes, rates, proof or notes.
@@ -90,8 +101,9 @@ The consultant's job-search data (board, resumes, inbox) is **not** involved any
     enters *for* the org under their engagement; they are not covered by the `data_share` scope
     (`NONE/SUMMARY/FULL` governs job-search data). A first-run screen (§8) states exactly what the org
     sees and that pay visibility is the org's switch; the consultant can export their own sheets any time.
-11. **Retention: 7 years from the sheet's `week_start`**, org-configurable upward only; proof files
-    follow the sheet. Erasure anonymises the person and keeps the sheet under "Former consultant #id".
+11. **Retention: from the sheet's `week_start`, org-configurable upward only, never below setting
+    `org.ops.retention_min_years` (default 7, hard minimum 7)** (D3 default, user may override the
+    anchor); proof files follow the sheet. Erasure anonymises the person and keeps the sheet under "Former consultant #id".
 12. **Zero-setup path:** an ACTIVE consultancy org with the add-on can create a placement in one screen
     (consultant + client name + start date; rates optional until 23.x finance) and the consultant's first
     sheet appears for the current week automatically. No templates, no cost codes, no projects.
@@ -734,10 +746,14 @@ sites. The pilot interviews (§13.5) should replace this with first-hand quotes.
 
 ## 16. Billing of this slice (see `consultancy-ops.md` §7 and the proposal's decision D2)
 
-Catalog rows unchanged in shape: `ops-addon-base` ($99/org/month) + `ops-addon-consultant` ($4 per
-*active* consultant/month; active = ≥ 1 `ops_placement.status=ACTIVE` in the period). Add entitlements
-`ops.enabled=true`, `ops.ocr=true`, `ops.ai_budget_cents_per_consultant=50` (pooled: `50 × active`),
-`ops.storage_bytes_max=2147483648`, `ops.attachment_bytes_max=5242880`. Worst case for the guard: the
-consultant line carries 50 ¢ of optional OCR **plus 25 ¢ of the mandatory identifier scan** (§5.13) + its
-share of fees → still above the 80 % floor on that line, and the $99 base line is fee-only. These two are
-the only model calls in the module and both are hard-capped per period.
+**Decision D2 (user, 2026-10-11): pricing is not set in the roadmap — it is set later from the admin
+catalog.** Catalog items, shape only: `ops-addon-base` (per org per month) + `ops-addon-consultant` (per
+*active* consultant per month; active = ≥ 1 `ops_placement.status=ACTIVE` in the period). Entitlements with
+their catalog defaults: `ops.enabled=true`, `ops.ocr` (**default off**, D7), `ops.ai_budget_cents_per_consultant`
+(default 50, pooled: `n × active`), `ops.storage_bytes_max` (default 2 GB), `ops.attachment_bytes_max` (default
+5 MB). The margin guard runs at publish time against whatever price admin enters: the consultant line's worst
+case is the OCR budget **plus the identifier-scan budget** (setting `ai.budget.ops_scan_cents_per_consultant`,
+default 25 ¢, §5.13) + its share of fees; the base line is fee-only. The "$99 + $4" figures in the proposal are
+a worked example showing the guard clears the floor at those values, not a locked price. Pilot orgs run free
+behind an admin switch (`flag.ops_timesheets` + `opsPilot`, O11.13), later an ADMIN_COMP grant (O11.8). These
+two are the only model calls in the module and both are hard-capped per period.

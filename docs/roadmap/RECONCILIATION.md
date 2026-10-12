@@ -29,6 +29,14 @@ No story's `status` was changed; two titles were corrected to match the no-colle
 pass, 4 were already in `pay.json`); `deps`/`relates` in 61 stories were re-pointed from a superseded
 story to its owner. Totals: **885 stories, 144 epics**.
 
+**Second pass, 2026-10-11 (same day): admin-configured features everywhere + timesheets decisions
+applied.** Eight stories added (A5.7–A5.9 feature registry / settings page / evaluated-config contract;
+O11.10–O11.14 timesheets), 159 numbers across 110 stories rewritten as `setting`/`entitlement`/
+`remote-config`/`flag` references with their defaults, deps added on A5.1/A5.3/A5.5/B1.1/B1.2, A5 raised
+to P0, O11 kept at P2. No status changed by the sweep; R0.1–R0.4 set to `done` separately (implemented and
+tested on branch `resume-builder`). Totals now **893 stories, 144 epics**, 0 dangling, 0 cycles. Details in
+§0.6, §4 (answered decisions) and the revised build order in §5.
+
 ---
 
 ## 0. Already built — per area (so the existing work is visible)
@@ -111,6 +119,83 @@ Decision needed from the user: **none** — this is a rule, already applied. One
 implementers: the existing `parseResumeWithAi` path (13.x, done) must gain the same redaction when R1.4
 lands; until then the resume parser can see what a resume contains, though nothing from these classes is
 mapped to a profile field today.
+
+---
+
+## 0.6 Admin-configured by default — the product-wide config rule
+
+User decision (2026-10-11): *"we will price later through the app admin config.. all the features should be
+driven by configs from the app admin settings page."* Now a locked rule in `CLAUDE.md` (Expansion, "Everything
+is admin-configured"): every feature's on/off switch, price, limit, cap, quota and default is set from the app
+admin settings page — catalog + typed settings registry (A5.1) + feature flags (A5.3) + extension remote config
+(A5.5) — never hard-coded. Code ships safe defaults; admin decides.
+
+**The config backbone, made first-class (admin area, epic A5 raised P1 → P0):**
+
+| Story | What it adds | Why it is the backbone |
+|---|---|---|
+| A5.1 (edited) | the typed, bounded settings registry; **its initial key list is generated from every `setting \`area.key\`` mention in the roadmap**; `RoadmapSettingsParityTest` fails when a key is missing or a default disagrees; one Settings page grouped by area | every converted number below lands here with the story's default as the env default |
+| A5.2 (edited) | re-homes every env-only knob, with hard minimums where a wrong edit must not break a rule (margin floors, Autopilot ceilings, retention floors) | |
+| A5.3 (edited) | flags are per feature key (`flag.<feature>`) with global / per-plan / per-org resolution through A5.7 | |
+| **A5.7 (new, P0, L)** | **feature registry**: one `FeatureDefinition` per feature — key, global switch, per-plan default (catalog entitlement, B1.1), per-org override (grants), typed limits with bounds, risk; `FeatureGate.require/limit`; `FeatureRegistryTest` (ArchUnit) fails on any unregistered gate, any `isPro()` branch, any numeric literal in a gate site | (a) in the brief |
+| **A5.8 (new, M)** | **one admin settings page**: all areas, Features tab (global switch · per-plan matrix · per-org overrides · limits inline), search, history + revert, 390 px | (b) |
+| **A5.9 (new, M)** | **evaluated config for every surface**: `GET /api/config/me` + `/api/config/public`, web `useConfig()`, extension `JAF.config`, API `FeatureGate`; CI lint `no-hardcoded-gate` + ArchUnit on PRs | (c) |
+| B1.1 / A3.1 (edited) | the CLAUDE.md prices and caps are the **initial catalog seed**, re-priced from admin afterwards — never code constants | prices |
+| B1.6 (edited) | also re-homes R0.3's temporary `AUTOPILOT_RESUME_LIMIT` onto `resumes.max` | |
+
+Locked rules kept: Stripe stays the truth for subscriptions and the webhook the only writer of subscription
+grants; `EntitlementService` stays the only entitlement source of truth (A5.7 reads it, never replaces it);
+the margin guard stays (its floors become settings with hard minimums). Design: `runtime-settings-feature-flags.md` §9.
+
+**What the sweep converted** (numbers kept, rewritten as `setting \`<area>.<key>\` (default X)`, `entitlement
+\`<key>\` (catalog default …)`, `remote-config \`ext.<key>\`` or `flag \`flag.<name>\``; a dep on A5.1 / A5.3 /
+A5.5 / B1.1 / B1.2 added where the story had none; no `status` changed; `done` stories untouched):
+
+| Area | Stories touched | Setting references now in ACs/titles | Examples |
+|---|---|---|---|
+| user (U) | 19 | 28 | `matches.per_day` (Free 3 · Pro 10–20), `alerts.max` (Free 2 · Pro 15), `ai.cap.fit.daily` 30, `notify.interview_reminder_hours` 24+1, `referral.qualify_active_days` 7, `analytics.event_retention_days` 180 |
+| org (O) | 21 (+ 5 new O11 stories) | 33 | `org.invite.daily_cap` 1 000, `services.accept_hours` 12 / `auto_complete_days` 5 / `dispute_days` 7, `consultants.max` 10, `assignments.open_max` 100, `catalog.margin_floor_*_pct` (80 / 20, hard minimums), `org.ops.*`, `ops.attachment_bytes_max` 5 MB |
+| admin (A) | 11 (+ 3 new) | 17 | `admin.comp_max_days.*` 30 / 90, `admin.churn.inactive_days` 14, `catalog.cap_hit_alert_pct` 5, `ai.free_parse_reserved_pct` 10, `email.send_cap_alert_pct` 80, `security.event_retention_days` 400 |
+| ext (E) | 8 | 11 | `autopilot.apps_per_day/month` (30 / 300, hard ceilings), `ext.review_prompt.min_fills` 3 / `interval_days` 90, `ext.rot.drop_points` 15, `ai.cap.draft.per_fill` 5, `ext.errors.per_day` 20 |
+| mkt (M) | 12 | 21 | `public.stats_floor.*` (500 / 5 000 / 1 000), `referral.credits_per_year` (3 vs 12 → D3), `mkt.ambassador.max_active` 150, `mkt.affiliate.commission_pct` 30, `mkt.dormant.no_fill_days` 21, `ratelimit.ats_check.per_day` 5, `flag.ats_check` |
+| plat (P) | 4 | 4 | `storage.max_upload_bytes` 10 MB, `storage.min_free_bytes` 1 GB, `storage.orphan_grace_days` 30, `ratelimit.*` defaults (P4.3) |
+| ai (I) | 8 | 9 | `ai.cap.<feature>.daily`, `ai.cap.interview.daily` 3, `ai.cap.call_cost_micros` $0.05, `ai.answer_cache_ttl_days` 90, `ai.alert.feedback_spike_pct` 8, `flag.matches_semantic` 10 % |
+| mob (N) | 6 | 7 | `notify.mobile_daily_cap` 3, `handoff.expiry_days` 14, `ratelimit.jobs_resolve.per_min` 20, `flag.share_resolve`, `mob.review_prompt.interval_days` 90 |
+| pay (B) | 7 | 9 | `billing.renewal_reminder_days.quarterly/monthly` 7 / 3, `billing.winback_days` 14, `billing.pause_max_months` 2, `catalog.promo.max_duration_months` 3, `billing.student_verification_months` 12; Student / Lite / top-up prices "priced in admin, proposed initial values …" |
+| trust (T) | 0 | 0 | deliberately none — every number there is a legal floor or a security rule (see below) |
+| sup (S) | 13 | 19 | `support.sla_business_days.{pro,free,report}` 1 / 2 / 1, `support.reopen_window_days` 14, `support.nps_interval_days` 90, `help.ai.monthly_cap_usd` 50, `support.retention.*`, `ext.scam_banner.cooldown_hours` 24 |
+| resume (R) | 1 | 1 | `builder.version_retention_auto` 30 (mirrored in `RESUME-BUILDER-STORIES.md`) |
+| **total** | **110 stories** | **159 references** | |
+
+**Constants deliberately kept hard (rules, not settings), and why:**
+
+- *Legal / locked product rules:* no auto-submit, no CAPTCHA bypass; the never-collected PII classes (§0.5);
+  "no refunds, cancel anytime"; Free has no server AI except resume parsing (`help.ai.free_daily_cap` default
+  0 is a setting, the rule is the default); 16+ age screen (D21 pending) and the minor defaults.
+- *Floors with a hard minimum — the value is a setting, the minimum is not:* margin floors 80 % / 20 %
+  (`catalog.margin_floor_*_pct`, hard minimums 80 / 20); Autopilot 30 / day · 300 / period (`autopilot.apps_per_*`
+  may be lowered, never raised; the extension treats them as hard maxima remote config cannot lift); Ops
+  retention (`org.ops.retention_min_years`, hard minimum 7); k-anonymity minimums (k ≥ 5 / 50).
+- *Legal notice periods and retention floors:* 30 / 45-day DSAR SLAs (T1.8), 14-day material-change notice
+  (T0.4), 30-day price-change notice (B4.2), 3-year billing-consent retention (B3.2), 13-month Stripe event
+  retention (B10.2), 7-year financial records (B6.4), GDPR 72 h breach notification (T5.5).
+- *Security rules (out of admin by design, `runtime-settings-feature-flags.md` §2):* login lockout ladder
+  (U1.1), token / magic-link / hand-off TTLs, admin session lengths (A0.5), HMAC replay window (A2.9), CSP
+  (P4.1), IP hashing windows (T1.9).
+- *Engineering, test and ops constants:* UI/a11y sizes (44 px, 390 px, 16 px), Lighthouse / p95 / bundle budgets,
+  fixture pass bars (100 %), CI thresholds, cache TTLs and polling intervals, retry/backoff schedules, circuit
+  breakers, backup cron times and Healthchecks grace periods, host-guard thresholds in the box script (P1.6 —
+  the admin-side alert thresholds in A10.3 *are* settings), staged-rollout percentages, eval tolerances.
+- *Worked examples in tests:* B2.1's "Pro $19.99 = 79.0 %", O3.6's "$9.99 passes / $9.98 fails" stay as
+  table-driven test rows — they prove the calculator, they do not set a price.
+
+**Timesheets decisions applied (Decision 2):** D1 org add-on only · D2 priced later in admin (O11.8 creates the
+catalog items with no price; pilot free behind `flag.ops_timesheets` + `opsPilot`) · D7 OCR optional, off by
+default (entitlement `ops.ocr` off, `ops_settings.ocr_enabled` false, suggestion-only, budget an entitlement)
+· D10 O11 stays P2 with the timesheets-first order in deps only. D3–D6, D8, D9, D11, D12 = recommended defaults,
+marked "user may override" in `PROPOSAL-timesheets.md`, `timesheets.md` and `consultancy-ops.md`. One §0.5
+nuance updated: O11.3's "no OCR / extraction" row now reads "OCR optional, off by default, closed schema,
+suggestion-only; the identifier scan refuses files before storage" (O11.10 / O11.14).
 
 ---
 
@@ -252,6 +337,18 @@ the generator resolves epic ids.
 Each line: **recommended default** · stories it blocks. Grouped by theme; the ten with the largest blast
 radius are marked ★.
 
+**Answered 2026-10-11 (second pass):** every *price, cap, quota and limit* question below is now answered
+the same way — **the value is set later from the app admin settings page / catalog; the roadmap ships the
+recommended default as the initial value** (§0.6). That resolves **D2** (Student price), **D3** (referral
+reward — `referral.reward_days`, `referral.credits_per_year`), **D4** (org AI Interview price), **D5**
+(grandfathering is a catalog migration, B4.2), **D6** (regional rows), **D13** (AI caps —
+`ai.cap.<feature>.daily`, `ai.daily/monthly_cost_cap_cents`), **D14** (`help.ai.free_daily_cap` default 0),
+**D44** (`notify.mobile_daily_cap` default 3), **D49** (`support.sla_business_days.*`), **D63** (`alerts.max`)
+as *defaults, adjustable in admin*; what remains open in each is only the policy question, not the number.
+**D55** (Ops add-on points) is answered: org add-on only, priced in admin, OCR off by default, O11 stays P2 —
+see §0.6 and `PROPOSAL-timesheets.md`. Decisions that are rules rather than numbers (D1 fee reading, D11
+provider tier, D21 age, D22 deletion window, D23 GA4, D24 publishing accuracy, …) stay open as written.
+
 ### A. Pricing & billing
 - **D1 ★ Margin floor vs Stripe fees / Managed Payments (C1).** Default: (b) measure the floor *before*
   the 3.5 % Managed-Payments fee (treat it as tax/dispute handling, not a payment fee) so both locked
@@ -365,8 +462,11 @@ radius are marked ★.
 
 ### I. Organizations
 - **D54 FULL grants to a non-marketer coach in schools.** Default: no until Phase 22. Blocks nothing now.
-- **D55 Ops add-on 23.0 points** ($99 + $4/active consultant, 7-year retention, pay visibility off,
-  invoices never emailed by us). Default: as written. Blocks O11.1.
+- **D55 Ops add-on 23.0 points** — **answered 2026-10-11**: org add-on only (D1); priced later in admin,
+  no number in the roadmap, pilot free via an admin switch (D2); OCR optional, off by default (D7); O11 stays
+  P2 (D10); retention anchor, external approvers, export layouts, marketer presence, submit-for, one-person
+  shops, proof scan and crop helper (D3–D6, D8, D9, D11, D12) = recommended defaults, user may override.
+  Unblocks O11.1.
 - **D56 Rename "Consultancy plan" → "Organizations".** Default: yes with O14.2. Blocks O14.2, M2.5.
 - **D57 Shared jobs for schools in Phase 21.** Default: P1 in 21.3. Blocks O8.2.
 
@@ -387,63 +487,77 @@ radius are marked ★.
 
 ---
 
-## 5. Whole-product build order — the first 25 stories
+## 5. Whole-product build order — the first 25 stories (revised 2026-10-11, second pass)
 
 Rule: P0 trust / ops / billing correctness first (things a regulator, a card network, a store reviewer or
-a lost database would punish), then the competitive differentiators the audience tests in week one.
-Every story's `deps` are `done` or appear earlier in this list (verified by script). Sizes are the
-stories' own.
+a lost database would punish), **then the config backbone** (the user's "everything is admin-configured"
+rule means most of what follows reads its switches, caps and prices from A5.x / B1.x — building features
+before the registry would hard-code the numbers we just removed), then the competitive differentiators the
+audience tests in week one. Every story's `deps` are `done` or appear earlier in this list (verified by
+script, `order.mjs`: 0 violations). Sizes are the stories' own.
 
 | # | Story | Area | Size | Why now |
 |---|---|---|---|---|
 | 1 | P0.1 Backups go-live (15.1c): bucket, IAM, Healthchecks, cron, first dump + drill | plat | M | Backups have never run on the box; prod data was already lost once (2026-09-17). Scripts exist (P0.0). |
 | 2 | P1.1 External uptime monitors on web, API, readiness, TLS, DNS | plat | S | Nobody is told when the site is down today; feeds the status page later. |
 | 3 | P6.1 Resource limits on every container | plat | S | Kiwiply shares the box with BeeCompete; a runaway container takes both down. |
-| 4 | B2.1 MarginCalculator + FeeSchedule (per-invoice allocation) | pay | M | The margin-floor fee check behind D1; nothing with a price should publish before it exists. |
-| 5 | B0.6 Live-keys launch gate (boot-time billing self-check) | pay | S | Catches a wrong webhook secret, tax mode or dead price id before the first real charge. |
-| 6 | A0.2 Close the three admin auth gaps (Google bypass, stale roles on refresh, rate limiting) | admin | M | A revoked admin survives up to 90 days today; Google sign-in bypasses MFA. |
-| 7 | P4.1 Security headers + nonce CSP (report-only → enforce) | plat | M | Table-stakes hardening (T5.2 folded in); cheapest pen-test findings to pre-empt. |
-| 8 | P4.2 Actuator diet (`/management/info` leaks git/env) | plat | S | A known information leak in production. |
-| 9 | T1.1 Data map as code (DataClass enum, never-collected deny-list, SensitivePatterns, RoPA) | trust | M | Prerequisite for every deletion/export/retention claim and the no-PII rule (§0.5); proves what we store and what we refuse. |
-| 10 | E10.7 Never-collected field classes in the engine (never learned / cached / synced / filled from memory / sent) | ext | M | The user rule applied where it bites first: the field cache and profile-learn already run on every fill today. No deps. |
-| 11 | T1.3 Deletion completeness (enumerated erasure, downstream purge, receipt) | trust | M | GDPR deletion gaps are real (`ai_quota_override` survives deletion, tickets/billing records unhandled). |
-| 12 | T6.1 CWS 2026 Limited-Use conformance + GA4-in-extension decision | trust | M | Store policy risk on a listing that is already under review. |
-| 13 | U18.1 Event pipeline (schema, `POST /api/events`, client lib) | user | M | One event table for web, extension and marketing; everything measured later depends on it (owner of A11.2). |
-| 14 | E8.1 `TrackingProvider.track()` + first five extension events | ext | M | Replaces GA4 with first-party, count-only events through the seam. |
-| 15 | E8.6 Retire GA4 Measurement Protocol; drop the google-analytics.com host | ext | S | Shrinks the permission list before the permissions explainer is published. |
-| 16 | P2.1 SHA-pinned deploys + rollback | plat | M | A bad merge to `main` is a production deploy; rollback is a runbook today. |
-| 17 | T1.6 AI provider on a no-training tier with a DPA + copy fix | trust | M | The "never trained on" promise (G31) must be true before it is said anywhere (D11). |
-| 18 | B5.1 In-app one-tap cancel (no retention gate, cancellation number, confirmation email) | pay | M | G29: the single biggest one-star theme in the category; pure differentiator at low cost. |
-| 19 | E1.1 Fixture scrubber + runner with the six captured ATS pages | ext | M | G2 harness; every adapter story after this ships with a fixture. |
-| 20 | E1.6 Published fill-accuracy report → `/help` table | ext | S | G2 public numbers (D24); turns Simplify's Workday weakness into our proof. |
-| 21 | E2.2 SmartRecruiters adapter + live shadow-DOM verification | ext | M | First new adapter (G1) on a host already in the manifest; no store re-review (deps E1.1 only). |
-| 22 | U6.1 Tracker schema v2 (events, notes, interviews, GHOSTED, resume_id + JD snapshot) | user | M | Foundation for G4, G16, G19, G22 and the whole U6/U10/U12 chain. |
-| 23 | E4.6 JD snapshot v2 + resume link on every save/fill | ext | S | G4 parity with Teal/Simplify/Huntr; the data R5.1/E5.9 tailoring reads. |
-| 24 | T6.2 Permissions explainer + one source of truth + CI drift check | trust | S | G30: publish the scoped-permissions advantage over Simplify's `<all_urls>`. |
-| 25 | S1.1 `/help` shell, Markdown renderer, six seed articles | sup | M | G33: `/help` is missing; hosts the accuracy table, permissions page and ATS guides. |
+| 4 | A0.2 Close the three admin auth gaps (Google bypass, stale roles on refresh, rate limiting) | admin | M | A revoked admin survives up to 90 days today; Google sign-in bypasses MFA. Prerequisite of A0.3. |
+| 5 | A0.3 Staff roles and the permission map | admin | M | A5.1 gates its page on it (ADMIN/OPS act, SUPPORT/FINANCE view); first link of the backbone chain. |
+| 6 | **A5.1 Typed, bounded runtime settings registry + history + the one Settings page** | admin | M | **The backbone.** 159 roadmap numbers now read `setting \`area.key\``; the registry's initial key list is generated from them (RoadmapSettingsParityTest). Everything below that has a cap or a switch depends on it. |
+| 7 | **B1.1 Catalog schema + seed (initial values from CLAUDE.md)** | pay | M | Prices and plan limits live here from day one; the CLAUDE.md numbers become the seed, not constants. No deps. |
+| 8 | **B1.2 EntitlementService.resolve over grants + has/limit/require + shadow comparison** | pay | L | The only entitlement source of truth; every `entitlement \`key\`` mention resolves through it. No deps. |
+| 9 | **A5.3 Feature flags (on/off, pct, allow/deny) + `/api/config/flags`** | admin | M | Every `flag.<feature>` (ops pilot, help AI, semantic matches, ATS check, referrals, …) needs it. |
+| 10 | **A5.7 Feature registry: key · global switch · per-plan · per-org · typed limits; FeatureGate; FeatureRegistryTest** | admin | L | Binds settings, flags and catalog per feature and makes an unregistered or hard-coded gate a failing build — the enforcement half of the user's rule. |
+| 11 | B2.1 MarginCalculator + FeeSchedule (per-invoice allocation) | pay | M | The margin-floor fee check behind D1; the floors are now settings with hard minimums, the calculator enforces them before any price publishes. |
+| 12 | B0.6 Live-keys launch gate (boot-time billing self-check) | pay | S | Catches a wrong webhook secret, tax mode or dead price id before the first real charge. |
+| 13 | P4.1 Security headers + nonce CSP (report-only → enforce) | plat | M | Table-stakes hardening (T5.2 folded in); cheapest pen-test findings to pre-empt. |
+| 14 | P4.2 Actuator diet (`/management/info` leaks git/env) | plat | S | A known information leak in production. |
+| 15 | T1.1 Data map as code (DataClass enum, never-collected deny-list, SensitivePatterns, RoPA) | trust | M | Prerequisite for every deletion/export/retention claim and the no-PII rule (§0.5). |
+| 16 | E10.7 Never-collected field classes in the engine | ext | M | The user rule applied where it bites first: the field cache and profile-learn already run on every fill today. No deps. |
+| 17 | T1.3 Deletion completeness (enumerated erasure, downstream purge, receipt) | trust | M | GDPR deletion gaps are real (`ai_quota_override` survives deletion, tickets/billing records unhandled). |
+| 18 | T6.1 CWS 2026 Limited-Use conformance + GA4-in-extension decision | trust | M | Store policy risk on a listing that is already under review. |
+| 19 | U18.1 Event pipeline (schema, `POST /api/events`, client lib) | user | M | One event table for web, extension and marketing; everything measured later depends on it. |
+| 20 | E8.1 `TrackingProvider.track()` + first five extension events | ext | M | Replaces GA4 with first-party, count-only events through the seam. |
+| 21 | E8.6 Retire GA4 Measurement Protocol; drop the google-analytics.com host | ext | S | Shrinks the permission list before the permissions explainer is published. |
+| 22 | P2.1 SHA-pinned deploys + rollback | plat | M | A bad merge to `main` is a production deploy; rollback is a runbook today. |
+| 23 | T1.6 AI provider on a no-training tier with a DPA + copy fix | trust | M | The "never trained on" promise (G31) must be true before it is said anywhere (D11). |
+| 24 | B5.1 In-app one-tap cancel (no retention gate, cancellation number, confirmation email) | pay | M | G29: the single biggest one-star theme in the category; pure differentiator at low cost. |
+| 25 | E1.1 Fixture scrubber + runner with the six captured ATS pages | ext | M | G2 harness; every adapter story after this ships with a fixture. |
 
-Immediately after these (next 10, in order): E1.2 capture-fixture action (unlocks E1.3 and the
-account-gated adapters) · E3.4 post-fill report (G3) · I0.4 + I2.1 + I3.3 → I3.5
-grounded drafting with E6.2 (G6) · N1.2 + N1.1 share target (G14) · U4.1 + U4.2 posting store + search
-(unlocks G12, G13, G15) · S3.1 + S3.5 scam rules on cards (G15) · B1.1 + B1.2 catalog + entitlements
-(Phase 18) · M0.1 + M2.2 honest-claims register + the money block · R0.1 → R0.7 Resume Builder walking
-skeleton · U13.4 My Answers bank (G7) · E5.9 one-tap tailor (G21, after R5.1/R5.3).
+Immediately after these (next 12, in order, also dep-checked): E1.6 published fill-accuracy report (G2, D24)
+· E2.2 SmartRecruiters adapter (G1) · U6.1 tracker schema v2 · E4.6 JD snapshot v2 (G4) · T6.2 permissions
+explainer (G30) · S1.1 `/help` shell (G33) · A5.4 + A5.5 announcements + extension remote config (the
+`remote-config \`ext.*\`` keys) · B1.4 features/limits on `/version` · **A5.9 evaluated-config contract for
+web, API and extension + the `no-hardcoded-gate` lint** · A0.4 → A0.5 → **A5.8 Admin › Settings home**
+(the one page, needs HIGH re-auth) · then the earlier "next 10": E1.2 capture-fixture action · E3.4 post-fill
+report (G3) · I0.4 + I2.1 + I3.3 → I3.5 grounded drafting with E6.2 (G6) · N1.2 + N1.1 share target (G14) ·
+U4.1 + U4.2 posting store + search (G12, G13, G15) · S3.1 + S3.5 scam rules on cards (G15) · M0.1 + M2.2
+honest-claims register + the money block · R0.5 → R0.7 Resume Builder walking skeleton (R0.1–R0.4 are done)
+· U13.4 My Answers bank (G7) · E5.9 one-tap tailor (G21, after R5.1/R5.3). Timesheets (O11.1 → O11.2 → O11.3
+→ O11.14 → O11.10 → O11.11 / O11.12 → O11.4 → O11.13) stay P2 (D10) and start after the org walking skeleton
+(O1.1–O1.5, O6.1, O2.2) and A5.3.
 
 ---
 
 ## 6. Validation
 
 ```
-node check-ids.mjs <root>      # every JSON parses; deps/relates/supersedes resolve to a story, epic or G-tag
-files=12 parseErrors=0 stories=885 epics=144 refs=1895 dangling=0
+node check-ids.mjs <root>      # every JSON parses; deps/relates/supersedes resolve to a story, epic or G-tag; no dep cycles
+files=12 parseErrors=0 stories=885 epics=144 refs=1895 dangling=0            # first pass
+files=12 parseErrors=0 stories=893 epics=144 refs=2048 dangling=0 dupes=0 cycles=0   # second pass (2026-10-11)
 
-node docs/roadmap/build-master-roadmap.mjs --list   # still runs (output in the commit message / handback)
+node order.mjs <root> <comma-separated ids>   # build order: every dep done or earlier → rows 25 violations 0
+
+node docs/roadmap/build-master-roadmap.mjs --list   # 893 stories, 144 epics, 0 dangling ids
 ```
 
 The check script treats `G1`–`G44` in `relates` as benchmark tags (the cross-cutting designers used them
-that way) and epic ids as valid dependency targets (the generator resolves them). Before this pass the
+that way) and epic ids as valid dependency targets (the generator resolves them). Before the first pass the
 same check reported 10 dangling ids (all area-letter `relates` in `pay.json`).
 
-Files touched by this pass: the eleven area JSONs, `docs/resume-builder/stories.json`,
-`docs/RESUME-BUILDER-STORIES.md`, and this file. `build-master-roadmap.mjs` and `master-roadmap.html` were
-left alone on purpose — the coordinator regenerates the page after the generator update lands.
+Files touched by the first pass: the eleven area JSONs, `docs/resume-builder/stories.json`,
+`docs/RESUME-BUILDER-STORIES.md`, and this file. Second pass: the eleven area JSONs,
+`docs/resume-builder/stories.json` (+ R0.1–R0.4 → `done`), `docs/RESUME-BUILDER-STORIES.md`,
+`PROPOSAL-timesheets.md`, `docs/design/org/{timesheets,consultancy-ops}.md`,
+`docs/design/admin/runtime-settings-feature-flags.md` (§9 feature registry), this file, and the regenerated
+`master-roadmap.html` (the generator now covers all twelve areas).

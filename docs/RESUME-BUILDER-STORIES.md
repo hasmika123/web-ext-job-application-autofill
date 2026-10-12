@@ -261,7 +261,7 @@ As a user, I want to edit every section so that the resume is complete.
 
 ### R3.1 Version history — automatic coalescing, named versions, restore
 - AC: `resume_doc_version` written per DESIGN §3.7 (≥ 10 min coalescing on AUTOSAVE; always on
-  TEMPLATE_SWITCH/AI_APPLY/IMPORT/RESTORE); retention 30 auto + named; endpoints `GET /versions`,
+  TEMPLATE_SWITCH/AI_APPLY/IMPORT/RESTORE); retention setting `builder.version_retention_auto` (default 30) auto + named; endpoints `GET /versions`,
   `GET /versions/{n}`, `POST /restore`, `POST /name`; `VersionsSheet` in the editor with
   preview-on-hover (renders that version's doc), Restore, Name; `version_restored` event.
 - Deps: R0.3. Size M. Owner API + web.

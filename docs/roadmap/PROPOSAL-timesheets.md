@@ -1,8 +1,28 @@
 # PROPOSAL — Consultancy Ops 23.0: timesheets first (patch list for `docs/roadmap/areas/org.json`)
 
 Written 2026-10-11 for task 23.0. Designs: `docs/design/org/timesheets.md` (new) and
-`docs/design/org/consultancy-ops.md` (updated, PROPOSED). **This file does not edit `org.json`** — the
+`docs/design/org/consultancy-ops.md` (updated). **This file does not edit `org.json`** — the
 coordinator applies §3 after the user signs off on §1.
+
+> **APPLIED 2026-10-11.** The user answered D1, D2, D7 and D10; the rest take the recommended defaults
+> and are marked *default, user may override*. §3 was applied to `docs/roadmap/areas/org.json`
+> (O11 epic text; O11.1–O11.5, O11.8, O11.9 edited; O11.10–O11.14 added) and reconciled with the
+> reconciliation pass (O11.2/O11.3 keep the shared `SensitivePatterns` / `422 SENSITIVE_CONTENT` wording,
+> O11.14 relates E10.7, O10.13 untouched). Per the user's "everything is admin-configured" decision of the
+> same day, **every number in §3 became a setting, entitlement or catalog value** in the stories
+> (e.g. "≤ 5 MB" → entitlement `ops.attachment_bytes_max` (default 5 MB); "50 ¢" → entitlement
+> `ops.ai_budget_cents_per_consultant` (default 50); "25 ¢" → setting `ai.budget.ops_scan_cents_per_consultant`
+> (default 25); "7 y" → setting `org.ops.retention_min_years` (default 7, hard minimum 7); Monday/Wednesday
+> 09:00 → settings `org.ops.reminder_consultant` / `org.ops.reminder_approver`). The §3 text below is kept as
+> written for the record; where it states a raw number, the story carries the setting form.
+>
+> | # | answer | applied as |
+> |---|---|---|
+> | D1 | **(a) org add-on only** | O11 scope unchanged; no personal-scope variant |
+> | D2 | **not set in the roadmap — priced later in admin config** | O11.8 creates catalog items `ops-addon-base` + `ops-addon-consultant` with **no price in the story**; the "$99 + $4" draft is a worked example for the margin guard only; pilot free via an admin switch (`flag.ops_timesheets` + `opsPilot`) |
+> | D7 | **optional, off by default** | `ops_settings.ocr_enabled` default false, entitlement `ops.ocr` default off, suggestion-only; budget cap an entitlement/setting (O11.10) |
+> | D10 | **keep O11 at P2** | epic priority unchanged; the timesheets-first order lives in the deps only (O11.1 → O11.2 → O11.3 → O11.14 → O11.10 → O11.11/O11.12 → O11.4 → O11.13) |
+> | D3–D6, D8, D9, D11, D12 | *default, user may override* | recommended defaults applied; numbers expressed as settings |
 
 ## 1. Decisions for the user (recommended default in bold)
 

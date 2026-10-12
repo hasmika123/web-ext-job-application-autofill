@@ -326,7 +326,7 @@
       "story": "As the platform I want prices, limits and feature keys in MySQL so that a price change is a row, not a deploy.",
       "ac": [
         "Liquibase 2026101x_catalog.xml exactly per docs/design/admin/catalog-margin-entitlements.md §2 plus product.tax_code, product_price.budget_override_cents/accepts_promos/country_set/requires_verification, product_price.margin_pct_typical/fee_schedule_version",
-        "Seed FREE/PRO/AUTOPILOT (+ drafts PRO_STUDENT, PRO_LITE, AI_TOPUP, org and service products) with PRO prices bound to STRIPE_PRICE_MONTHLY/3MO — nothing created in Stripe on deploy",
+        "Seed FREE/PRO/AUTOPILOT (+ drafts PRO_STUDENT, PRO_LITE, AI_TOPUP, org and service products) with the CLAUDE.md prices and limits as initial catalog values (re-priced from admin afterwards, never code constants) and PRO prices bound to STRIPE_PRICE_MONTHLY/3MO — nothing created in Stripe on deploy",
         "FeatureKey enum registry (closed set, typed); NULL limit on a numeric key refused"
       ],
       "tech": "domain/catalog/*, repository, FeatureKey; no reads yet",
@@ -508,7 +508,7 @@
       "title": "Re-home hard-coded config onto the catalog: AI budgets (AiPolicy), resume caps, Stripe price ids, MRR amounts; delete the env-var price path",
       "story": "As the team I want one place for every number that is a price or a limit so that Launch 2 is a catalog edit.",
       "ac": [
-        "AiBudgetService reads ai.budget_cents_per_period via resolve(); ProfileService reads resumes.max; BillingService resolves price ids from product_price; AdminAnalyticsService MRR from price rows",
+        "AiBudgetService reads ai.budget_cents_per_period via resolve(); ProfileService reads resumes.max (also replacing the temporary AUTOPILOT_RESUME_LIMIT constant from R0.3); BillingService resolves price ids from product_price; AdminAnalyticsService MRR from price rows",
         "dossier.stripe.price-monthly/price-3mo/amount-* and dossier.ai.pro-monthly-budget-usd/pro3mo-budget-usd removed with a startup warning if still set",
         "dossier.catalog.enabled flag removed (always on)"
       ],
@@ -526,7 +526,8 @@
       ],
       "relates": [
         "A1.2",
-        "A2.4"
+        "A2.4",
+        "A5.9"
       ],
       "supersedes": [],
       "genz": "—",
@@ -650,7 +651,7 @@
       "story": "As the owner I want to know when > 5 % of a plan's users hit 100 % of their AI budget so that I decide between price, budget and top-up with data.",
       "ac": [
         "Nightly rollup writes metric_daily ai.cap_hit_pct.{product}, ai.p50/p95_cents.{product}",
-        "Admin catalog shows a red banner when > 5 % in the last full period (ROADMAP 1207)",
+        "Admin catalog shows a red banner when above setting `catalog.cap_hit_alert_pct` (default 5) in the last full period (ROADMAP 1207)",
         "No code path changes a budget automatically"
       ],
       "tech": "metric_daily (A11.3); AiMeteringService ledger",
@@ -664,7 +665,8 @@
       ],
       "deps": [
         "B4.1",
-        "B2.3"
+        "B2.3",
+        "A5.1"
       ],
       "relates": [
         "A2.8",
@@ -974,7 +976,7 @@
       "design": "docs/design/pay/subscription-lifecycle.md",
       "critical": false,
       "id": "B4.2",
-      "title": "Renewal reminders (7 d before quarterly, 3 d before monthly) via invoice.upcoming + scheduler fallback; 30-day price-change notice path; billing_notice dedupe",
+      "title": "Renewal reminders (settings `billing.renewal_reminder_days.quarterly` default 7, `.monthly` default 3) via invoice.upcoming + scheduler fallback; 30-day price-change notice path (legal minimum, kept hard); billing_notice dedupe",
       "story": "As a subscriber I want a heads-up before every charge with a one-tap cancel so that a renewal is never a surprise.",
       "ac": [
         "RENEWAL_SOON email + in-app notice with amount, date, one-tap cancel link; none when cancel_at_period_end; dedupe key per invoice/period",
@@ -993,7 +995,8 @@
         "web"
       ],
       "deps": [
-        "B4.1"
+        "B4.1",
+        "A5.1"
       ],
       "relates": [
         "U7.4"
@@ -1223,10 +1226,10 @@
       "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
       "critical": false,
       "id": "B5.4",
-      "title": "Win-back: one consented email 14 days after lapse (no discount unless the user approves one that passes the guard); never inside the cancel flow",
+      "title": "Win-back: one consented email setting `billing.winback_days` (default 14) after lapse (no discount unless the user approves one that passes the guard); never inside the cancel flow",
       "story": "As a lapsed user I want at most one friendly \"your stuff is still here\" note so that coming back is my choice.",
       "ac": [
-        "WINBACK notice at lapse +14 d only with marketing consent and only once per lapse; suppression list respected",
+        "WINBACK notice at lapse + `billing.winback_days` only with marketing consent and only once per lapse; suppression list respected",
         "Copy has no fake urgency; any offer must be a catalog price that passed the guard (B7)",
         "Unsubscribe link per kind (U7.3)"
       ],
@@ -1240,7 +1243,8 @@
         "API"
       ],
       "deps": [
-        "B4.1"
+        "B4.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -1254,10 +1258,10 @@
       "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
       "critical": false,
       "id": "B5.5",
-      "title": "Pause subscription (P2, open question): pause collection up to 2 months with access paused too",
+      "title": "Pause subscription (P2, open question): pause collection up to setting `billing.pause_max_months` (default 2) with access paused too",
       "story": "As a user who landed an interview round I want to pause instead of cancel so that I come back without re-entering a card.",
       "ac": [
-        "Decision first (PLAN-pay.md open question 6); if yes: gateway.pauseCollection(sub, resumesAt) + grant ends during the pause; no refund; max 2 months per 12",
+        "Decision first (PLAN-pay.md open question 6); if yes: gateway.pauseCollection(sub, resumesAt) + grant ends during the pause; no refund; max `billing.pause_max_months` per 12",
         "Mirror status \"paused\" mapped to Free by EntitlementService"
       ],
       "tech": "Stripe pause_collection",
@@ -1269,7 +1273,9 @@
       "owners": [
         "API"
       ],
-      "deps": [],
+      "deps": [
+        "A5.1"
+      ],
       "relates": [
         "A5.1",
         "T0.1"
@@ -1440,7 +1446,7 @@
       "title": "Promo codes through StripeGateway (coupon + promotion code), mirrored with margin on the net price; forever/no-cap refused; per-price accepts_promos drives allow_promotion_codes",
       "story": "As marketing I want codes that cannot breach the floor so that a campaign never sells a loss.",
       "ac": [
-        "POST /api/admin/promo-codes → guard on net price (no override for promos); duration ≤ 3 months repeating; max_redemptions + expires_at ≤ 90 d required",
+        "POST /api/admin/promo-codes → guard on net price (no override for promos); duration at most setting `catalog.promo.max_duration_months` (default 3) repeating; max_redemptions + expires_at within setting `catalog.promo.max_expiry_days` (default 90) required",
         "allow_promotion_codes on Checkout only when product_price.accepts_promos (default false) — today's unconditional true removed",
         "Reconciler flags an unexpected discount on a subscription (coupon applied by hand in Stripe)"
       ],
@@ -1457,7 +1463,8 @@
       "deps": [
         "B1.5",
         "B3.1",
-        "B2.1"
+        "B2.1",
+        "A5.1"
       ],
       "relates": [
         "M7.4",
@@ -1479,11 +1486,11 @@
       "design": "docs/design/pay/discounts-regional-student.md",
       "critical": false,
       "id": "B7.2",
-      "title": "Pro Student as a catalog product ($11.99/mo · $29.99/3 mo proposed, $1.50 budget, 10 resumes) + v1 verification (academic-domain email code, document fallback to support), 12-month expiry (G34)",
+      "title": "Pro Student as a catalog product (priced in admin; proposed initial values $11.99/mo · $29.99/3 mo, $1.50 budget, 10 resumes) + v1 verification (academic-domain email code, document fallback to support), 12-month expiry (G34)",
       "story": "As a student I want a verified cheaper Pro that is honest about its smaller allowance so that I can afford the tool during the search that matters most.",
       "ac": [
         "PRO_STUDENT product + prices pass the guard (design §3: 80.3 % / 81.3 %); requires_verification=STUDENT on the price rows",
-        "POST /api/billing/student/verify (EDU_EMAIL code against the vendored academic domain list; DOCUMENT → support queue) → student_verification 12 months; purchasable only while unexpired; immutable price keeps a graduate on it until lapse",
+        "POST /api/billing/student/verify (EDU_EMAIL code against the vendored academic domain list; DOCUMENT → support queue) → student_verification valid for setting `billing.student_verification_months` (default 12); purchasable only while unexpired; immutable price keeps a graduate on it until lapse",
         "/pricing strip + upgrade sheet link; SheerID v2 noted, not built"
       ],
       "tech": "StudentVerificationService; academic_domain table + monthly refresh job (A10.2)",
@@ -1498,7 +1505,8 @@
         "API"
       ],
       "deps": [
-        "B1.5"
+        "B1.5",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -1546,7 +1554,7 @@
       "design": "docs/design/pay/discounts-regional-student.md",
       "critical": false,
       "id": "B7.4",
-      "title": "Regional Pro Lite rows (country_set; $8.99 / $9.99 / $12.99 proposed; $1 budget) published only where the guard passes; card-country check at checkout (P2, after Launch 2)",
+      "title": "Regional Pro Lite rows (country_set; priced in admin — proposed initial values $8.99 / $9.99 / $12.99, $1 budget) published only where the guard passes; card-country check at checkout (P2, after Launch 2)",
       "story": "As a job seeker in India or Brazil I want a price that fits my market and still pays for itself so that the product exists for me at all.",
       "ac": [
         "PRO_LITE product + three country-set prices; each passes the guard at publish (design §4); shown by CF-IPCountry",
@@ -1586,11 +1594,11 @@
       "design": "docs/design/pay/discounts-regional-student.md",
       "critical": false,
       "id": "B7.5",
-      "title": "Referral credit as a REFERRAL grant (30 days of Pro both sides after the invitee's 7th active day) with a monthly marketing budget cap and anti-farming rules (G37)",
+      "title": "Referral credit as a REFERRAL grant (settings `referral.reward_days` default 30 of Pro both sides, after `referral.qualify_active_days` default 7 active days) with a monthly marketing budget cap and anti-farming rules (G37)",
       "story": "As a user who brings a friend I want a month of Pro for both of us, delivered as a grant that never collides with what I already paid for, so that referrals are a gift, not a billing bug.",
       "ac": [
-        "referral table + code on signup; QUALIFIED on day 7 of activity; grants created (paid user: period extended via a system-only 100 % one-month coupon on the next invoice; Free user: grant now)",
-        "referral.monthly_budget_cents runtime setting; exhausted → PAUSED with a visible line; 3 credits/user/year; self-referral rejected by email + device hash",
+        "referral table + code on signup; QUALIFIED after `referral.qualify_active_days` of activity; grants created (paid user: period extended via a system-only 100 % one-month coupon on the next invoice; Free user: grant now)",
+        "setting `referral.monthly_budget_cents`; exhausted → PAUSED with a visible line; setting `referral.credits_per_year` (default 3 here, 12 proposed by M6.2 — decision D3); self-referral rejected by email + device hash",
         "U16.4 UI consumes GET /api/billing/referral"
       ],
       "tech": "ReferralService; StripeGateway.applyOneTimeCoupon(sub)",
@@ -1604,7 +1612,8 @@
         "API"
       ],
       "deps": [
-        "B7.1"
+        "B7.1",
+        "A5.1"
       ],
       "relates": [],
       "supersedes": [],
@@ -1684,7 +1693,7 @@
       "story": "As a user renewing on the 20th I want my allowance window to start on the 20th so that the meter is right, not three weeks off.",
       "ac": [
         "Window = [subscription.current_period_start, current_period_end) for STRIPE_SUBSCRIPTION grants; org period for ORG_ASSIGNMENT; calendar month for comps/referrals; highest budget's period wins",
-        "QUARTER price → 800/1600 ¢ pooled; \"Resets on\" copy shows the real date"
+        "QUARTER price → budget_override_cents from the catalog (initial values 800/1600 ¢) pooled; \"Resets on\" copy shows the real date"
       ],
       "tech": "AiBudgetService.window(); PlanDTO v2 usage",
       "epic": "B8"
@@ -1714,10 +1723,10 @@
       "design": "docs/design/pay/catalog-entitlements-engine.md",
       "critical": false,
       "id": "B8.3",
-      "title": "AI top-up as a one-time catalog product (TOPUP kind, guard-checked: $6.99 → +$0.75 proposed) crediting the current period (P2, gated on the cap-hit metric)",
+      "title": "AI top-up as a one-time catalog product (TOPUP kind, guard-checked, priced in admin — proposed initial value $6.99 → +$0.75) crediting the current period (P2, gated on the cap-hit metric)",
       "story": "As an Autopilot user mid-sprint who hit the cap I want to buy more allowance for this period so that I am not stuck for a week.",
       "ac": [
-        "AI_TOPUP product published only if ai.cap_hit_pct > 5 % for a plan (decision recorded); one-time Checkout (payment mode) via B9.2; ai_budget_credit row on invoice.paid; AiBudgetService adds credits to the window",
+        "AI_TOPUP product published only if ai.cap_hit_pct exceeds setting `catalog.cap_hit_alert_pct` (default 5) for a plan (decision recorded); one-time Checkout (payment mode) via B9.2; ai_budget_credit row on invoice.paid; AiBudgetService adds credits to the window",
         "Guard kind TOPUP ≥ 80 % after fees (design §5); no auto-topup, no stored-card charge without a checkout"
       ],
       "tech": "TopUpService; ai_budget_credit table",
