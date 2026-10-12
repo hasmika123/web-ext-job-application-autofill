@@ -608,11 +608,15 @@ if (uid) {
     state: { v: 2, step: "review", path: "paste", cursor: 2, parsed: { candidates: [{ id: "exp0", section: "EXPERIENCE", data: { title: "Engineer", org: "Acme" } }], skills: ["Go"] } },
   };
   let vBefore;
+  let startStatus; // NONE on a fresh account; FINISHED once an earlier run finished it (finished outranks a draft)
+  let savedAt; // the draft's updatedAt, sent back as baseUpdatedAt so later PUTs are not 409 DRAFT_CONFLICT
   await step("onboarding: GET status is NONE (or FINISHED when an earlier run finished this account) with no draft", async () => {
     await web("DELETE", "/api/profile/onboarding/draft"); // a draft left by an earlier failed run
     const res = await web("GET", "/api/profile/onboarding");
-    must(res.status === 200, `-> ${res.status} ${(await res.text()).slice(0, 200)}`);
-    const s = await res.json();
+    const text = await res.text();
+    must(res.status === 200, `-> ${res.status} ${text.slice(0, 200)}`);
+    const s = JSON.parse(text);
+    startStatus = s.status;
     must(s.status === "NONE" || s.status === "FINISHED", `status ${s.status}`);
     must(s.draft === null, "a draft is already there");
     return s.status;
@@ -624,23 +628,25 @@ if (uid) {
     must(res.status === 200, `-> ${res.status} ${text.slice(0, 300)}`);
     const saved = JSON.parse(text);
     must(typeof saved.updatedAt === "string" && typeof saved.expiresAt === "string", "no updatedAt / expiresAt");
+    savedAt = saved.updatedAt;
     const vAfter = await profileVersion();
     must(vAfter === vBefore, `profile version moved: ${vBefore} -> ${vAfter}`);
     return `updatedAt ${saved.updatedAt}`;
   });
-  await step("onboarding: GET status is DRAFT, 3 of 7, with the saved state", async () => {
+  await step("onboarding: GET status is DRAFT (FINISHED stays FINISHED), 3 of 7, with the saved state", async () => {
     const res = await web("GET", "/api/profile/onboarding?include=state");
     must(res.status === 200, `-> ${res.status}`);
     const s = await res.json();
-    must(s.status === "DRAFT", `status ${s.status}`);
+    const want = startStatus === "FINISHED" ? "FINISHED" : "DRAFT";
+    must(s.status === want, `status ${s.status}, want ${want}`);
     must(s.draft?.stepsDone === 3 && s.draft?.stepsTotal === 7, `draft ${JSON.stringify(s.draft).slice(0, 120)}`);
     must(s.draft?.state?.cursor === 2, "the state did not round-trip");
     must(s.persona === "experienced", `persona ${s.persona}`);
-    must(s.card?.state === "IN_PROGRESS", `card ${JSON.stringify(s.card)}`);
-    return "DRAFT 3 of 7, IN_PROGRESS";
+    if (want === "DRAFT") must(s.card?.state === "IN_PROGRESS", `card ${JSON.stringify(s.card)}`);
+    return `${want} 3 of 7${want === "DRAFT" ? ", IN_PROGRESS" : " (account finished in an earlier run)"}`;
   });
   await step("onboarding: a value we never collect is refused (422 SENSITIVE_CONTENT) and nothing is stored", async () => {
-    const bad = { ...draftBody, state: { ...draftBody.state, parsed: { candidates: [{ id: "x", section: "EXPERIENCE", data: { title: "Engineer", notes: "My SSN is 123-45-6789" } }] } } };
+    const bad = { ...draftBody, baseUpdatedAt: savedAt, state: { ...draftBody.state, parsed: { candidates: [{ id: "x", section: "EXPERIENCE", data: { title: "Engineer", notes: "My SSN is 123-45-6789" } }] } } };
     const res = await web("PUT", "/api/profile/onboarding/draft", { body: bad });
     const b = await json(res);
     must(res.status === 422 && b.code === "SENSITIVE_CONTENT", `-> ${res.status} ${JSON.stringify(b).slice(0, 200)}`);
