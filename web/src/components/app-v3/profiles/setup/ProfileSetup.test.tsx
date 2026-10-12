@@ -7,7 +7,7 @@ import type { OnboardingStatus } from "@/lib/onboarding/api";
 import { MIRROR_KEY } from "@/lib/onboarding/mirror";
 import { V1_DRAFT_KEY } from "@/lib/profile-setup/state";
 
-vi.mock("@/lib/extension-signal", () => ({ notifyExtension: vi.fn() }));
+vi.mock("@/lib/extension-signal", () => ({ notifyExtension: vi.fn(), detectExtension: () => Promise.resolve(true), EXT_STORE_URL: "https://store.example/kiwiply" }));
 const track = vi.fn();
 vi.mock("@/lib/analytics", () => ({ track: (...a: unknown[]) => track(...a) }));
 const push = vi.fn();
@@ -111,6 +111,17 @@ const skip = () => fireEvent.click(screen.getByRole("button", { name: "Skip" }))
 const cont = () => fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 const back = () => fireEvent.click(screen.getByRole("button", { name: "Back" }));
 const barLabel = () => screen.getByTestId("bar-label").textContent ?? "";
+const AUTH_Q = "Are you legally authorized to work in the country you're applying in?";
+/** Skip the questions one by one (an experienced person with an empty profile has six) until the payoff. */
+async function skipQuestions() {
+  for (let i = 0; i < 8; i++) {
+    const b = screen.queryByRole("button", { name: "Skip this one" });
+    if (!b) break;
+    fireEvent.click(b);
+    await act(async () => undefined);
+  }
+  await screen.findByRole("heading", { level: 1, name: /You're set/ });
+}
 
 async function pasteAndRead() {
   fireEvent.click(screen.getByRole("button", { name: /Paste text/ }));
@@ -215,7 +226,7 @@ describe("ProfileSetup: the source screen and the way in", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Last check — is this you?" })).toBeTruthy();
     expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Janet");
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
+    await screen.findByRole("heading", { name: AUTH_Q });
     expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(1);
     expect(calls.some((c) => c.url === "/api/profile/items/import")).toBe(false);
   });
@@ -283,7 +294,7 @@ describe("ProfileSetup: Start fresh", () => {
     expect((screen.getByLabelText("Headline") as HTMLInputElement).value).toBe("Barista and shift lead");
     expect(profileCalls()).toEqual([]); // nothing written to the profile yet
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
+    await screen.findByRole("heading", { name: AUTH_Q });
     const posts = profileCalls().filter((c) => c.method !== "GET");
     expect(posts.map((c) => `${c.method} ${c.url}`)).toEqual(["POST /api/profile/items/import", "PUT /api/profile"]);
     expect(posts[0].body).toEqual({
@@ -359,7 +370,7 @@ describe("ProfileSetup: the whole flow from a pasted resume", () => {
     expect(profileCalls()).toEqual([]); // nothing so far touched the profile
 
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
+    await screen.findByRole("heading", { name: AUTH_Q });
 
     const posts = profileCalls().filter((c) => c.method !== "GET");
     expect(posts.map((c) => `${c.method} ${c.url}`)).toEqual(["POST /api/profile/items/import", "PUT /api/profile"]);
@@ -377,15 +388,24 @@ describe("ProfileSetup: the whole flow from a pasted resume", () => {
     expect(put).not.toHaveProperty("onboardedAt"); // the core confirm is not the end
     expect(track).toHaveBeenCalledWith("onboarding_core_confirmed", { items: 3, merged: 0 });
 
-    // Preferences: answer the first, then Continue finishes (until the one-per-screen questions land).
+    // The first question: a tap is an answer, Continue writes just that key (a merge PUT) and shows the next question.
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
     cont();
-    await screen.findByText("Your profile is set up.");
-    const after = profileCalls().filter((c) => c.method === "PUT");
-    const last = JSON.parse((after[after.length - 1].body as { payload: string }).payload) as Record<string, unknown>;
-    expect(last).toMatchObject({ phone: "555-0100", firstName: "Jane", lastName: "Doe-Smith", authorizedToWork: "Yes" });
-    expect(typeof last.onboardedAt).toBe("string");
+    await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" });
+    const puts = profileCalls().filter((c) => c.method === "PUT");
+    expect(puts).toHaveLength(2);
+    const second = JSON.parse((puts[1].body as { payload: string }).payload) as Record<string, unknown>;
+    expect(second).toMatchObject({ phone: "555-0100", firstName: "Jane", lastName: "Doe-Smith", authorizedToWork: "Yes" });
+    expect(second).not.toHaveProperty("requireSponsorship");
+    expect(second).not.toHaveProperty("onboardedAt"); // the server stamps that on finish
+    expect(track).toHaveBeenCalledWith("onboarding_pref_answered", { key: "authorizedToWork", skipped: false });
+    await skipQuestions();
+    expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(2); // skipping wrote nothing
     expect(screen.getByRole("meter", { name: "Profile strength" }).getAttribute("aria-valuenow")).toBe("62");
+    expect(screen.getByTestId("payoff-line").textContent).toBe("Kiwiply can now autofill ~14 fields for you.");
+    expect(onboardingCalls("POST", "/finish")).toHaveLength(1);
+    expect(track).toHaveBeenCalledWith("onboarding_finished", expect.objectContaining({ fields: 14, score: 62, persona: "experienced", path: "paste", prefsAnswered: 1 }));
     expect(localStorage.getItem(MIRROR_KEY)).toBeNull();
   });
 
@@ -397,14 +417,14 @@ describe("ProfileSetup: the whole flow from a pasted resume", () => {
     cont(); // skills
     cont(); // you
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
+    await screen.findByRole("heading", { name: AUTH_Q });
     back();
     expect(screen.getByRole("heading", { level: 1, name: "Your profile so far" })).toBeTruthy();
     expect(screen.getByTestId("so-far-counts").textContent).toBe("1 role, 1 school and 2 skills");
     expect(screen.getByText("Name, contact, headline")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Change any of it on your profile" }).getAttribute("href")).toBe("/profiles");
     fireEvent.click(screen.getByRole("button", { name: "Back to questions" }));
-    expect(screen.getByRole("heading", { name: "A few quick questions" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: AUTH_Q })).toBeTruthy();
     expect(calls.filter((c) => c.url === "/api/profile/items/import")).toHaveLength(1);
   });
 
@@ -484,7 +504,7 @@ describe("ProfileSetup: the core confirm", () => {
     expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Janet");
     expect(screen.getByText(/Your resume says/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByText("Your profile is set up."); // every question answered: no prefs screen
+    await screen.findByRole("heading", { level: 1, name: /You're set/ }); // every question answered: straight to the payoff
     const imp = calls.find((c) => c.url === "/api/profile/items/import")?.body as { bio: Record<string, string> };
     expect(imp.bio).not.toHaveProperty("firstName");
     const put = JSON.parse((profileCalls().find((c) => c.method === "PUT")?.body as { payload: string }).payload) as Record<string, unknown>;
@@ -498,23 +518,126 @@ describe("ProfileSetup: the core confirm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Couldn't save your profile.");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
+    await screen.findByRole("heading", { name: AUTH_Q });
     expect(calls.filter((c) => c.url === "/api/profile/items/import")).toHaveLength(1);
   });
 
-  it("the questions are answered right: Back, Skip for now and Continue all end the same way", async () => {
+  it("the first question's Skip writes nothing and the second question follows", async () => {
     await atIdentity();
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
-    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    await screen.findByText("Your profile is set up.");
+    await screen.findByRole("heading", { name: AUTH_Q });
+    const before = profileCalls().filter((c) => c.method === "PUT").length;
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    expect(await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" })).toBeTruthy();
+    expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(before);
+    expect(track).toHaveBeenCalledWith("onboarding_pref_answered", { key: "authorizedToWork", skipped: true });
+  });
+});
+
+describe("ProfileSetup: the application questions, one per screen (R1.11)", () => {
+  const h1 = () => screen.getByRole("heading", { level: 1 }).textContent;
+  /** Paste, keep everything, save the profile: the first question is on screen. */
+  async function toQuestions(persona: OnboardingStatus["persona"], bio: Record<string, unknown> = {}) {
+    setup(bio, none({ persona }));
+    await pasteAndRead();
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+  }
+  const skipOne = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    await act(async () => undefined);
+  };
+
+  it("a student gets the student order, with salary left out", async () => {
+    await toQuestions("student");
+    expect(screen.getByText("Internship forms ask this on page one.")).toBeTruthy(); // the persona's tip, on the first screen
+    const seen: string[] = [h1() ?? ""];
+    for (let i = 0; i < 4; i++) {
+      await skipOne();
+      seen.push(h1() ?? "");
+    }
+    expect(seen).toEqual([AUTH_Q, "Will you now or in the future need visa sponsorship?", "How do you like to work?", "When could you start?", "Voluntary self-identification"]);
+  });
+
+  it("'Show all questions' on the last screen brings back the hidden one, just before the self-identification screen", async () => {
+    await toQuestions("student");
+    for (let i = 0; i < 4; i++) await skipOne();
+    expect(h1()).toBe("Voluntary self-identification");
+    fireEvent.click(screen.getByRole("button", { name: "Show all questions" }));
+    expect(h1()).toBe("What salary are you looking for?");
+    await skipOne();
+    expect(h1()).toBe("Voluntary self-identification");
+    expect(screen.queryByRole("button", { name: "Show all questions" })).toBeNull();
+    await skipOne();
+    await screen.findByRole("heading", { level: 1, name: /You're set/ });
+  });
+
+  it("a student's start question writes the Immediately notice option, and only that key", async () => {
+    await toQuestions("student");
+    await skipOne();
+    await skipOne();
+    await skipOne();
+    expect(h1()).toBe("When could you start?");
+    const before = profileCalls().filter((c) => c.method === "PUT").length;
+    fireEvent.click(screen.getByRole("radio", { name: "Right away" }));
+    cont();
+    await screen.findByRole("heading", { name: "Voluntary self-identification" });
+    const puts = profileCalls().filter((c) => c.method === "PUT");
+    expect(puts).toHaveLength(before + 1);
+    const body = JSON.parse((puts[puts.length - 1].body as { payload: string }).payload) as Record<string, unknown>;
+    expect(body.noticePeriod).toBe("Immediately");
+    expect(body).not.toHaveProperty("desiredSalary");
+  });
+
+  it("Back shows the previous question with the answer still selected, and from the first goes to 'Your profile so far'", async () => {
+    await toQuestions("experienced");
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
+    cont();
+    await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" });
+    back();
+    expect(h1()).toBe(AUTH_Q);
+    expect(screen.getAllByRole("radio", { name: "Yes" })[0].getAttribute("aria-checked")).toBe("true");
+    back();
+    expect(h1()).toBe("Your profile so far");
+  });
+
+  it("the bar's sub-progress follows the questions", async () => {
+    await toQuestions("experienced");
+    const bar = () => Number(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuenow"));
+    const first = bar();
+    await skipOne();
+    expect(bar()).toBeGreaterThan(first);
+    expect(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuetext")).toMatch(/^Step 6 of 7/);
+  });
+
+  it("a reload part-way through opens on the first question not yet answered or skipped, and the draft carries which are done", async () => {
+    const first = setup({}, none({ persona: "experienced" }));
+    await pasteAndRead();
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    await skipOne();
+    await skipOne();
+    expect(h1()).toBe("How soon could you start?");
+    await waitFor(() => expect(JSON.stringify(onboardingCalls("PUT", "/draft").pop()?.body)).toContain('"prefsDone":["authorizedToWork","requireSponsorship"]'), { timeout: 4000 });
+    first.unmount();
+    setup({ authorizedToWork: "" }, none({ persona: "experienced" }));
+    await screen.findByRole("heading", { level: 1 });
+    expect(h1()).toBe("How soon could you start?");
   });
 });
 
 describe("ProfileSetup ?step=prefs (where /welcome lands)", () => {
   it("opens the questions when the profile has unanswered ones, with a two-step bar", () => {
     setup({}, none(), { initialStep: "prefs" });
-    expect(screen.getByRole("heading", { name: "A few quick questions" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: AUTH_Q })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Choose a file/ })).toBeNull();
     expect(screen.getByRole("progressbar", { name: "Profile setup" }).getAttribute("aria-valuetext")).toMatch(/^Step 1 of 2,/);
     // Back goes to the way in, never to a step that has nothing behind it
@@ -522,10 +645,19 @@ describe("ProfileSetup ?step=prefs (where /welcome lands)", () => {
     expect(screen.getByRole("button", { name: /Choose a file/ })).toBeTruthy();
   });
 
-  it("opens the source when every question is already answered", () => {
+  it("with nobody's persona the questions come in the /welcome order", async () => {
+    setup({}, none({ persona: null }), { initialStep: "prefs" });
+    expect(screen.getByRole("heading", { level: 1, name: AUTH_Q })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "What salary are you looking for?" })).toBeTruthy();
+  });
+
+  it("with every question already answered the payoff follows at once (finish is called)", async () => {
     const answered = Object.fromEntries(ALL_PREFERENCE_KEYS.map((k) => [k, "Yes"]));
     setup(answered, none(), { initialStep: "prefs" });
-    expect(screen.getByRole("button", { name: /Choose a file/ })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: /You're set/ })).toBeTruthy();
+    expect(onboardingCalls("POST", "/finish")).toHaveLength(1);
   });
 });
 
@@ -592,7 +724,7 @@ describe("ProfileSetup autosave (DESIGN 7)", () => {
     cont(); // skills
     cont(); // you
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
+    await screen.findByRole("heading", { name: AUTH_Q });
     fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
     await waitFor(() => expect(onboardingCalls("PUT", "/draft").length).toBeGreaterThan(0), { timeout: 4000 });
     await sleep(900);
@@ -615,9 +747,8 @@ describe("ProfileSetup autosave (DESIGN 7)", () => {
     cont();
     cont();
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
-    cont();
-    await screen.findByText("Your profile is set up.");
+    await screen.findByRole("heading", { name: AUTH_Q });
+    await skipQuestions();
     const order = calls.map((c) => `${c.method} ${c.url}`);
     const put = order.indexOf("PUT /api/profile");
     const fin = order.indexOf("POST /api/profile/onboarding/finish");
@@ -639,10 +770,34 @@ describe("ProfileSetup autosave (DESIGN 7)", () => {
     cont();
     cont();
     fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
-    await screen.findByRole("heading", { name: "A few quick questions" });
-    cont();
-    await screen.findByText("Your profile is set up.");
+    await screen.findByRole("heading", { name: AUTH_Q });
+    for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole("button", { name: "Skip this one" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Couldn't wrap up. Try again.");
+    // the answers are saved; only the wrap-up is repeated
     onboardingApi = was;
+    const puts = profileCalls().filter((c) => c.method === "PUT").length;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await screen.findByRole("heading", { level: 1, name: /You're set/ });
+    expect(profileCalls().filter((c) => c.method === "PUT")).toHaveLength(puts);
+  });
+
+  it("a failed answer stays selected and says so; Continue again saves it", async () => {
+    setup();
+    await pasteAndRead();
+    keep();
+    keep();
+    cont();
+    cont();
+    fireEvent.click(screen.getByRole("button", { name: "Save my profile" }));
+    await screen.findByRole("heading", { name: AUTH_Q });
+    let attempts = 0;
+    profilePut = () => (attempts++ === 0 ? reply({ error: "boom" }, 502) : reply({}));
+    fireEvent.click(screen.getAllByRole("radio", { name: "Yes" })[0]);
+    cont();
+    expect((await screen.findByRole("alert")).textContent).toBe("Couldn't save that answer. Try again.");
+    expect(screen.getAllByRole("radio", { name: "Yes" })[0].getAttribute("aria-checked")).toBe("true");
+    cont();
+    expect(await screen.findByRole("heading", { name: "Will you now or in the future need visa sponsorship?" })).toBeTruthy();
   });
 });
 

@@ -43,6 +43,12 @@ export function buildSyncMessage(event: SyncEvent): { type: typeof SYNC_MESSAGE;
   return { type: SYNC_MESSAGE, event };
 }
 
+/**
+ * Where "Install the extension" goes: the Chrome Web Store page of the pinned extension id (Edge installs from it too).
+ * Override per build with NEXT_PUBLIC_KIWIPLY_EXTENSION_URL (a Firefox add-on page, a landing page).
+ */
+export const EXT_STORE_URL = process.env.NEXT_PUBLIC_KIWIPLY_EXTENSION_URL || `https://chromewebstore.google.com/detail/${EXT_ID}`;
+
 /** The relay's presence check (Firefox), the same words `/connect` uses. */
 const RELAY_PING = "KIWIPLY_CONNECT_PING";
 const RELAY_PONG = "KIWIPLY_CONNECT_PONG";

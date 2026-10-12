@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { Button, useToast } from "@kiwiply/ui";
 import type { Bio } from "@/components/BioEditor";
-import { unansweredQuestions, ALL_PREFERENCE_KEYS } from "@/components/onboarding/preferences";
+import { unansweredQuestions } from "@/components/onboarding/preferences";
 import { track } from "@/lib/analytics";
 import { notifyExtension } from "@/lib/extension-signal";
-import { fetchCompleteness, ItemApiError } from "@/lib/profile-items";
+import { ItemApiError } from "@/lib/profile-items";
 import { finishOnboarding, patchOnboarding, type OnboardingStatus } from "@/lib/onboarding/api";
-import { freshGoalFor } from "@/lib/onboarding/persona";
+import { autofillCoverage } from "@/lib/onboarding/coverage";
+import { freshGoalFor, prefOrder } from "@/lib/onboarding/persona";
 import { barLabel, barValueText, secondsRemaining } from "@/lib/onboarding/progress";
 import useDraftSync, { type SyncError } from "@/lib/onboarding/useDraftSync";
-import { ONBOARDED_KEY } from "@/lib/profile-options";
 import { DEFAULT_BUILDER_CONFIG, type ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import {
   buildImportBody,
@@ -42,19 +42,18 @@ import { initialFresh } from "@/lib/profile-setup/fresh";
 import { summaryLine } from "@/lib/profile-setup/summary";
 import { sensitiveMessage, type DraftLimits } from "../itemSchema";
 import ConflictBanner from "./ConflictBanner";
-import FinishStep, { type FinishResult } from "./FinishStep";
 import FreshFlow from "./FreshFlow";
 import IdentityStep from "./IdentityStep";
 import OnboardingShell from "./OnboardingShell";
 import PasteStep from "./PasteStep";
 import PersonaStep from "./PersonaStep";
-import PreferencesStep from "./PreferencesStep";
+import PayoffStep, { type PayoffAction } from "./PayoffStep";
+import PrefsFlow, { prefId, valuesToWrite } from "./PrefsFlow";
 import ProfileSoFar from "./ProfileSoFar";
 import ResumeBanner from "./ResumeBanner";
 import ReviewScreen from "./ReviewScreen";
 import SkillsStep from "./SkillsStep";
 import SourceStep from "./SourceStep";
-import { SkipButton, StepFooter } from "./parts";
 
 export { summaryLine };
 
@@ -81,6 +80,8 @@ export default function ProfileSetup({
   login = "",
   firstName = "",
   entry = "direct",
+  returnTo = null,
+  jobsCount = null,
 }: {
   /** The profile's flat bio as the page loaded it. */
   bio: Bio;
@@ -96,11 +97,14 @@ export default function ProfileSetup({
   firstName?: string;
   /** Where this run came from (analytics only). */
   entry?: SetupEntry;
+  /** A same-origin path the payoff's Build a resume goes to (the new-resume chooser's `?return=`). */
+  returnTo?: string | null;
+  /** How many real daily job matches there are (the payoff's Find jobs line); null when there are none. */
+  jobsCount?: number | null;
 }) {
   const toast = useToast();
   const ob = config.onboarding ?? DEFAULT_BUILDER_CONFIG.onboarding;
   const questions = useMemo(() => unansweredQuestions(bio), [bio]);
-  const hasPrefQuestions = questions.length > 0;
 
   // A deep link (`?path=` / `?step=prefs`) only sets where a NEW run starts: a saved draft is never replaced by it. The `hello`
   // screen comes first until there is a persona (or the admin turned it off).
@@ -108,13 +112,18 @@ export default function ProfileSetup({
     const persona = server?.persona ?? null;
     const base: SetupState = { ...s, persona };
     const first: StepKey = ob.personaStep && persona === null ? "hello" : "source";
-    if (initialStep === "prefs" && hasPrefQuestions) return { ...base, step: "prefs" };
+    // `?step=prefs` (the retired /welcome): the questions straight away; with none left, the payoff follows at once.
+    if (initialStep === "prefs") return { ...base, step: "prefs" };
     if (initialPath) return { ...base, path: initialPath, step: first };
     return { ...base, step: first };
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<FinishResult | null>(null);
+  const [result, setResult] = useState<{ fields: number; score: number | null } | null>(null);
+  const [prefIndex, setPrefIndex] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  /** The answers are saved and only the wrap-up (`POST /finish`) failed: Continue / Skip try just that again. */
+  const [wrapFailed, setWrapFailed] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const [personaPick, setPersonaPick] = useState<Persona | null>(null);
   const [personaOverlay, setPersonaOverlay] = useState(false);
@@ -126,10 +135,23 @@ export default function ProfileSetup({
   const started = useRef(false);
   /** The profile as the last confirm left it: every later write merges into this, never into the stale page copy. */
   const bioRef = useRef<Bio>(bio);
-  const addedRef = useRef(0);
+  const runStart = useRef(0);
+  const answered = useRef(0);
+  const wrapStarted = useRef(false);
 
   const parsed = state.parsed;
   const fresh = state.path === "fresh";
+  // The questions in the persona's order, minus the ones the profile already answers (DESIGN 3.2). EEO is always last; "Show all"
+  // brings back what the persona hid, just before it.
+  const order = prefOrder(state.persona);
+  const byId = new Map(questions.map((q) => [prefId(q), q]));
+  const shown = order.shown.filter((id) => byId.has(id));
+  const hidden = order.hidden.filter((id) => byId.has(id));
+  const nonEeo = shown.filter((id) => id !== "gender");
+  const prefList = (showAll ? [...nonEeo, ...hidden, ...shown.filter((id) => id === "gender")] : shown).map((id) => byId.get(id)!);
+  const hasPrefQuestions = prefList.length > 0;
+  const firstUndone = prefList.findIndex((q) => !state.prefsDone.includes(prefId(q)));
+  const index = Math.min(prefIndex ?? (firstUndone === -1 ? Math.max(0, prefList.length - 1) : firstUndone), Math.max(0, prefList.length - 1));
   // Arriving on the questions with nothing parsed (the `/welcome` link): just the questions, then done.
   const prefsOnly = state.step === "prefs" && !parsed;
   const steps: StepKey[] = prefsOnly ? ["prefs", "done"] : stepsFor(state, hasPrefQuestions);
@@ -140,7 +162,7 @@ export default function ProfileSetup({
   );
 
   // The state as it is saved: with "n of total done" and how far through the step (DESIGN 3.1).
-  const synced = useMemo(() => withProgress(state, hasPrefQuestions, questions.length), [state, hasPrefQuestions, questions.length]);
+  const synced = useMemo(() => withProgress(state, hasPrefQuestions, prefList.length), [state, hasPrefQuestions, prefList.length]);
   const sync = useDraftSync({
     state: synced,
     login,
@@ -154,6 +176,10 @@ export default function ProfileSetup({
     toast({ title: syncMessage(sync.error), variant: "error" });
     sync.clearError();
   }, [sync, toast]);
+
+  useEffect(() => {
+    runStart.current = Date.now();
+  }, []);
 
   // How long the person spent on a step, for `onboarding_step_completed`.
   useEffect(() => {
@@ -197,6 +223,11 @@ export default function ProfileSetup({
     setPersonaOverlay(false);
     setSoFar(false);
     setLowest(Number.POSITIVE_INFINITY);
+    setPrefIndex(null);
+    setShowAll(false);
+    setWrapFailed(false);
+    wrapStarted.current = false;
+    answered.current = 0;
     setDirection("back");
     setSyncBusy(false);
   };
@@ -252,28 +283,56 @@ export default function ProfileSetup({
   const conflicts = useMemo(() => identityConflicts(parsed?.parsedIdentity ?? {}, bio), [parsed, bio]);
   const counts = keptCounts(state);
 
-  /** Until the one-per-screen questions land (R1.11): the answers of the single prefs screen and the onboarded flag, in one PUT. */
-  const finishLegacy = async (answers: Record<string, string>) => {
-    const merged: Bio = { ...bioRef.current };
-    for (const k of ALL_PREFERENCE_KEYS) {
-      const v = (answers[k] ?? "").trim();
-      if (v) merged[k] = v;
-    }
-    merged[ONBOARDED_KEY] = new Date().toISOString();
-    await putBio(merged);
-    bioRef.current = merged;
-    const completeness = await fetchCompleteness().catch(() => null);
-    notifyExtension("changed");
-    // Confirmed: stop drafting (a late save must not bring the draft back), then let the server stamp finishedAt and
-    // drop it. Best effort: the profile is saved either way, and an unfinished flag only means the card shows once more.
+  // ---- the wrap-up: finish, then the payoff ---------------------------------------------------------
+  /**
+   * `POST /api/profile/onboarding/finish` (no Finish button: the last question, or the core confirm when no question is left,
+   * ends here). Stops drafting first, so a late save cannot bring the draft back; the server stamps `finishedAt` + `onboardedAt`,
+   * drops the draft and answers with the honest "~N fields". If it fails the answers are already saved: the person just retries.
+   */
+  const wrapUp = async () => {
+    setSaving(true);
+    setError(null);
+    setWrapFailed(false);
     sync.finished();
-    await finishOnboarding().catch(() => null);
-    setResult({ added: addedRef.current, removed: parsed?.removed ?? 0, completeness });
-    setDirection("forward");
-    dispatch({ type: "goto", step: "done" });
+    try {
+      const res = await finishOnboarding();
+      const fields = res.coverage?.fields ?? autofillCoverage(bioRef.current, { experience: counts.EXPERIENCE, education: counts.EDUCATION, skills: state.skills.length }).fields;
+      const score = res.completeness?.score ?? null;
+      track("onboarding_finished", {
+        fields,
+        score,
+        seconds: Math.round((Date.now() - runStart.current) / 1000),
+        persona: state.persona ?? "none",
+        path: state.path ?? "skip",
+        prefsAnswered: answered.current,
+      });
+      setResult({ fields, score });
+      setDirection("forward");
+      dispatch({ type: "goto", step: "done" });
+    } catch {
+      setError("Couldn't wrap up. Try again.");
+      setWrapFailed(true);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // `?step=prefs` with nothing left to ask (or a draft whose questions were answered elsewhere): straight to the payoff.
+  useEffect(() => {
+    if (!sync.ready || state.step !== "prefs" || prefList.length > 0 || soFar || wrapStarted.current) return;
+    wrapStarted.current = true;
+    void wrapUp();
+    // wrapUp reads what is current when it runs; the run is once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sync.ready, state.step, prefList.length, soFar]);
+
   // ---- the core confirm: "Save my profile" -------------------------------------------------------
   const saveProfile = useCallback(async () => {
+    // The import and the PUT already went through and only the wrap-up failed: just that again.
+    if (state.coreConfirmedAt) {
+      await wrapUp();
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -281,7 +340,6 @@ export default function ProfileSetup({
       // What the person answered themselves is theirs ("user"); what was read out of a resume is "parsed".
       const provenance = parsed?.source === "fresh" ? ("USER" as const) : ("PARSED" as const);
       const items = [...keptItems(parsed?.candidates ?? [], state.decisions, state.edits, provenance), ...skillItems(state.skills, provenance), ...languageItems(state.languages, provenance)];
-      let added = 0;
       let merged = 0;
       if (!state.imported) {
         if (items.length > config.profile.maxImportItems) {
@@ -290,7 +348,6 @@ export default function ProfileSetup({
         }
         if (items.length > 0 || Object.keys(plan.fromResume).length > 0) {
           const r = await postImport(buildImportBody(items, plan.fromResume));
-          added = (r?.created ?? 0) + (r?.merged ?? 0);
           merged = r?.merged ?? 0;
         }
         dispatch({ type: "imported" });
@@ -299,14 +356,13 @@ export default function ProfileSetup({
       const next: Bio = { ...bio, ...plan.fromResume, ...plan.fromUser };
       await putBio(next);
       bioRef.current = next;
-      addedRef.current = added || items.length;
       notifyExtension("changed");
       track("onboarding_core_confirmed", { items: items.length, merged });
       dispatch({ type: "coreConfirmed" });
       completed(false);
       setDirection("forward");
       if (hasPrefQuestions) dispatch({ type: "goto", step: "prefs" });
-      else await finishLegacy({});
+      else await wrapUp();
     } catch (e) {
       setError(finishError(e));
     } finally {
@@ -316,16 +372,60 @@ export default function ProfileSetup({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, parsed, bio, config.profile.maxImportItems, bioLimits, hasPrefQuestions]);
 
-  const finishPrefs = async () => {
+  // ---- the application questions: one per screen, each answer its own write ---------------------------
+  const moveOn = async () => {
+    if (index < prefList.length - 1) {
+      setError(null);
+      setDirection("forward");
+      setPrefIndex(index + 1);
+      return;
+    }
+    completed(false);
+    await wrapUp();
+  };
+  /** Continue: a merge PUT of just this question's keys (the `/welcome` behaviour), then the next screen. */
+  const answerPref = async () => {
+    if (wrapFailed) {
+      await wrapUp();
+      return;
+    }
+    const q = prefList[index];
+    const values = valuesToWrite(q, state.prefs, state.persona);
     setSaving(true);
     setError(null);
     try {
-      await finishLegacy(state.prefs);
-    } catch (e) {
-      setError(finishError(e));
-    } finally {
+      if (Object.keys(values).length > 0) {
+        const next: Bio = { ...bioRef.current, ...values };
+        await putBio(next);
+        bioRef.current = next;
+        answered.current += 1;
+        notifyExtension("changed");
+      }
+      dispatch({ type: "prefDone", key: prefId(q) });
+      track("onboarding_pref_answered", { key: prefId(q), skipped: false });
+    } catch {
+      setError("Couldn't save that answer. Try again.");
       setSaving(false);
+      return;
     }
+    setSaving(false);
+    await moveOn();
+  };
+  /** Skip this one: nothing is written, the question is only marked done. */
+  const skipPref = async () => {
+    if (wrapFailed) {
+      await wrapUp();
+      return;
+    }
+    const q = prefList[index];
+    dispatch({ type: "prefDone", key: prefId(q) });
+    track("onboarding_pref_answered", { key: prefId(q), skipped: true });
+    await moveOn();
+  };
+  const showAllQuestions = () => {
+    setDirection("forward");
+    setShowAll(true);
+    setPrefIndex(nonEeo.length); // the first question the persona hid
   };
 
   // ---- Back (the top bar) ---------------------------------------------------------------------
@@ -365,7 +465,8 @@ export default function ProfileSetup({
         return to("skills");
       case "prefs":
         if (soFar) return () => (setDirection("back"), setSoFar(false));
-        if (state.coreConfirmedAt) return () => (setDirection("back"), setSoFar(true));
+        if (index > 0) return () => (setError(null), setDirection("back"), setPrefIndex(index - 1));
+        if (state.coreConfirmedAt) return () => (setError(null), setDirection("back"), setSoFar(true));
         return to("source");
       default:
         return null;
@@ -482,28 +583,54 @@ export default function ProfileSetup({
           onBack={() => (setDirection("forward"), setSoFar(false))}
         />
       );
-    } else {
+    } else if (prefList.length === 0) {
+      screenKey = "wrapping";
       screen = (
-        <div>
-          <PreferencesStep questions={questions} answers={state.prefs} onChange={(key, value) => dispatch({ type: "pref", key, value })} />
-          {error && (
-            <p role="alert" className="mt-3 text-[14px] font-medium text-danger">
-              {error}
-            </p>
-          )}
-          <StepFooter>
-            <Button variant="accent" size="lg" onClick={() => void finishPrefs()} disabled={saving} className="w-full max-sm:min-h-11">
-              {saving ? "Saving…" : "Continue"}
+        <div role="status" className="flex flex-col items-center gap-4 py-16 text-center">
+          <p className="text-[15px] font-semibold text-v2-ink-soft">{error ?? "Wrapping up…"}</p>
+          {wrapFailed && (
+            <Button variant="accent" onClick={() => void wrapUp()} disabled={saving} className="max-sm:min-h-11">
+              Try again
             </Button>
-            <SkipButton onClick={() => void finishPrefs()} disabled={saving}>
-              Skip for now
-            </SkipButton>
-          </StepFooter>
+          )}
         </div>
+      );
+    } else {
+      const q = prefList[index];
+      screenKey = `pref-${prefId(q)}`;
+      screen = (
+        <PrefsFlow
+          key={prefId(q)}
+          question={q}
+          persona={state.persona}
+          answers={state.prefs}
+          first={index === 0}
+          last={index === prefList.length - 1}
+          hiddenLeft={showAll ? 0 : hidden.length}
+          saving={saving}
+          error={error}
+          retryWrapUp={wrapFailed}
+          onChange={(key, value) => dispatch({ type: "pref", key, value })}
+          onContinue={() => void answerPref()}
+          onSkip={() => void skipPref()}
+          onShowAll={showAllQuestions}
+        />
       );
     }
   } else if (state.step === "done" && result) {
-    return <FinishStep result={result} />;
+    return (
+      <PayoffStep
+        firstName={state.identity.firstName || (typeof bio.firstName === "string" ? bio.firstName : "") || firstName}
+        fields={result.fields}
+        score={result.score}
+        actions={ob.payoffActions}
+        returnTo={returnTo}
+        jobsCount={jobsCount}
+        mascot={ob.mascot}
+        confetti={ob.confetti}
+        onAction={(action: PayoffAction | "dashboard") => track("onboarding_payoff_action", { action })}
+      />
+    );
   }
 
   if (!sync.ready) return <div className="mx-auto min-h-[60vh] w-full max-w-[560px]" aria-busy />;

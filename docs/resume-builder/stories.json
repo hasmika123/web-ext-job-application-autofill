@@ -611,7 +611,7 @@
       "benchmark": "Duolingo one-per-screen + thin bar; Canva upload hero; Spotify chips (DESIGN §1)."
     },
     {
-      "status": "not_started",
+      "status": "done",
       "star": false,
       "tech": "`web/src/components/app-v3/profiles/setup/{PrefsFlow,PayoffStep}.tsx` (+ tests), `ProfileSetup.tsx`, `FinishStep.tsx` (replaced by `PayoffStep`; delete), `PreferencesStep.tsx` (delete), `web/src/components/onboarding/preferences.tsx` (persona rewrites exported as data), `web/src/lib/onboarding/coverage.ts` (from R1.9), `web/src/app/(app)/profiles/setup/page.tsx` (jobs count, `return`).",
       "relates": [],

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { serverApiFetch } from "@/lib/api";
+import { safeReturn } from "@/lib/onboarding/return";
 import { getOnboardingStatus } from "@/lib/onboarding/server";
 import { parseBioPayload } from "@/lib/profile-options";
+import { loadJobs } from "@/components/app-v2/jobs/data";
 import { getBuilderConfig } from "@/lib/resume-builder-config";
 import ProfileSetup from "@/components/app-v3/profiles/setup/ProfileSetup";
 
@@ -19,11 +21,13 @@ export const metadata: Metadata = { title: "Set up your profile" };
  */
 export default async function Page({ searchParams }: { searchParams: Promise<{ path?: string | string[]; step?: string | string[]; from?: string | string[]; return?: string | string[] }> }) {
   const { path, step, from, return: returnParam } = await searchParams;
-  const [bioRes, config, status, accountRes] = await Promise.all([
+  const [bioRes, config, status, accountRes, jobs] = await Promise.all([
     serverApiFetch("/api/profile"),
     getBuilderConfig(),
     getOnboardingStatus(true),
     serverApiFetch("/api/account").catch(() => null),
+    // The payoff's "Find jobs" line counts only the person's own daily matches, never the sample rows.
+    loadJobs().catch(() => null),
   ]);
   if (bioRes.status === 401 || bioRes.status === 403) redirect("/login");
   const bio = bioRes.ok ? parseBioPayload(await bioRes.json().catch(() => null)) : {};
@@ -44,6 +48,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       login={account?.login ?? account?.email ?? "me"}
       firstName={(typeof bio.firstName === "string" && bio.firstName) || account?.firstName || ""}
       entry={entry}
+      returnTo={safeReturn(wantedReturn)}
+      jobsCount={jobs?.real && jobs.jobs.length >= 1 ? jobs.jobs.length : null}
     />
   );
 }
