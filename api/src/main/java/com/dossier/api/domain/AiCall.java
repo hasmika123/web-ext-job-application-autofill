@@ -45,6 +45,21 @@ public class AiCall implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** Which provider served (or failed) the call; rows from before I1.10 are {@code gemini}. */
+    @Column(name = "provider", nullable = false, length = 20)
+    private String provider = "gemini";
+
+    @Column(name = "latency_ms")
+    private Integer latencyMs;
+
+    /** False for a FAILED attempt (cost 0): the ledger also records errors so the admin page can show them. */
+    @Column(name = "success", nullable = false)
+    private boolean success = true;
+
+    /** Short code of why it failed (an {@code AiErrorKind}); never a provider message. */
+    @Column(name = "error_kind", length = 24)
+    private String errorKind;
+
     public Long getId() {
         return id;
     }
@@ -103,6 +118,38 @@ public class AiCall implements Serializable {
 
     public void setCostMicros(long costMicros) {
         this.costMicros = costMicros;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public Integer getLatencyMs() {
+        return latencyMs;
+    }
+
+    public void setLatencyMs(Integer latencyMs) {
+        this.latencyMs = latencyMs;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getErrorKind() {
+        return errorKind;
+    }
+
+    public void setErrorKind(String errorKind) {
+        this.errorKind = errorKind;
     }
 
     public Instant getCreatedAt() {

@@ -722,7 +722,7 @@
       "id": "I1.10",
       "epic": "I1",
       "title": "AiRouter as the one AiProvider bean: per-task provider+model from runtime settings, one-step fallback, provider/latency/success/error_kind on the ledger, failure rows, AiTask.PROBE",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

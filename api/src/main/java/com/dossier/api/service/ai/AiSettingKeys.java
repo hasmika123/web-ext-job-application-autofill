@@ -137,7 +137,7 @@ public final class AiSettingKeys {
                 key,
                 Type.INT,
                 String.valueOf(codeDefaultMaxOutputTokens(task)),
-                64d,
+                task == AiTask.PROBE ? 1d : 64d,
                 16384d,
                 null,
                 "Output token ceiling for the " + name + " task.",

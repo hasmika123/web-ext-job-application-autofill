@@ -69,6 +69,7 @@ public class AiRuntimeSettings {
         this.policy = policy;
         this.pricing = pricing;
         this.mapper = mapper;
+        pricing.attachOverrides(this::storedRates);
     }
 
     // ---- switches -----------------------------------------------------------
@@ -181,7 +182,7 @@ public class AiRuntimeSettings {
 
     /** The code/env price of one part, in micros per million tokens (the unpriced fallback rate when unknown). */
     public long pricingDefaultMicros(String model, String part) {
-        AiPricing.Rate r = pricing.rateFor(model);
+        AiPricing.Rate r = pricing.defaultRateFor(model);
         double usd = "input".equals(part) ? r.getInput() : "cached".equals(part) ? r.getCachedInput() : r.getOutput();
         return Math.round(usd * 1_000_000);
     }

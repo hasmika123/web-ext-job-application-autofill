@@ -41,7 +41,9 @@ public enum AiTask {
     /** A cover letter from a built resume and a job description (R5.3; Pro). */
     COVER("cover"),
     /** Translate a built resume into another language (R7; Pro). */
-    TRANSLATE("translate");
+    TRANSLATE("translate"),
+    /** The admin "Test connection" call (I1.10): a 16-token ping, ledgered as {@code probe}; never reachable from the wire. */
+    PROBE("probe");
 
     private final String wire;
 
@@ -60,7 +62,7 @@ public enum AiTask {
         if (value == null) return DRAFT;
         String v = value.trim().toLowerCase(Locale.ROOT);
         for (AiTask t : values()) {
-            if (t != PARSE && t != MATCH && t != FIT && t != TAILOR && t != JOBS && t != INBOX && !t.isResumeBuilder() && t.wire.equals(v)) return t;
+            if (t != PROBE && t != PARSE && t != MATCH && t != FIT && t != TAILOR && t != JOBS && t != INBOX && !t.isResumeBuilder() && t.wire.equals(v)) return t;
         }
         return DRAFT;
     }

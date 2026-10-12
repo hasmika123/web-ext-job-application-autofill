@@ -17,26 +17,31 @@ public interface AiCallRepository extends JpaRepository<AiCall, Long> {
     List<AiCall> findByLoginOrderByCreatedAtDesc(String login);
 
     /** How many calls of these tasks a user made since {@code since} (Resume Builder daily cap and per-minute rate, R4.1). */
-    long countByLoginAndTaskInAndCreatedAtGreaterThanEqual(String login, Collection<String> tasks, Instant since);
+    @Query("select count(c) from AiCall c where c.login = :login and c.task in :tasks and c.createdAt >= :since and c.success = true")
+    long countByLoginAndTaskInAndCreatedAtGreaterThanEqual(
+        @Param("login") String login,
+        @Param("tasks") Collection<String> tasks,
+        @Param("since") Instant since
+    );
 
     /** The newest ledger row of a user's task - what a proposal records as its provenance. */
     Optional<AiCall> findFirstByLoginAndTaskOrderByIdDesc(String login, String task);
 
     /** What a user's AI has cost since {@code since}, in millionths of a dollar — 13.1b's budget meter. */
-    @Query("select coalesce(sum(c.costMicros), 0) from AiCall c where c.login = :login and c.createdAt >= :since")
+    @Query("select coalesce(sum(c.costMicros), 0) from AiCall c where c.login = :login and c.createdAt >= :since and c.success = true")
     long costSince(@Param("login") String login, @Param("since") Instant since);
 
     /** Admin (13.1c): spend per user in [from, to), dearest first. A null login is deleted accounts. */
     @Query(
         "select new com.dossier.api.repository.AiSpendRow(c.login, count(c), coalesce(sum(c.costMicros), 0L)) " +
-        "from AiCall c where c.createdAt >= :from and c.createdAt < :to group by c.login order by sum(c.costMicros) desc"
+        "from AiCall c where c.createdAt >= :from and c.createdAt < :to and c.success = true group by c.login order by sum(c.costMicros) desc"
     )
     List<AiSpendRow> spendByLogin(@Param("from") Instant from, @Param("to") Instant to);
 
     /** Admin (13.1c): spend per task in [from, to), dearest first. */
     @Query(
         "select new com.dossier.api.repository.AiSpendRow(c.task, count(c), coalesce(sum(c.costMicros), 0L)) " +
-        "from AiCall c where c.createdAt >= :from and c.createdAt < :to group by c.task order by sum(c.costMicros) desc"
+        "from AiCall c where c.createdAt >= :from and c.createdAt < :to and c.success = true group by c.task order by sum(c.costMicros) desc"
     )
     List<AiSpendRow> spendByTask(@Param("from") Instant from, @Param("to") Instant to);
 
