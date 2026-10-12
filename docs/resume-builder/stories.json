@@ -183,7 +183,7 @@
       "id": "R0.6",
       "epic": "R0",
       "title": "PDF export — Chromium sidecar + `pdf.ts` + S3 upload via the existing file endpoint",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "web",
