@@ -8,7 +8,8 @@ Read in this order: root `CLAUDE.md` → this file → `web/LANDING-V2-SPEC.md` 
 → `web/APP-V3-SPEC.md`. The `PROGRESS.md` **Log** has one line per completed phase.
 
 > **Sibling branch:** `resume-builder` (off `version2`) holds the Resume Builder + Common Profile
-> design — its own START HERE is `docs/HANDOFF-RESUME-BUILDER.md`.
+> design — its own START HERE is `docs/HANDOFF-RESUME-BUILDER.md`. Timesheets & Consultancy Ops (product area H,
+> designed on `version2` 2026-10-11, build branch `timesheets` not yet cut) has `docs/HANDOFF-TIMESHEETS.md`.
 
 ## 0. START HERE — the exact continuation point
 

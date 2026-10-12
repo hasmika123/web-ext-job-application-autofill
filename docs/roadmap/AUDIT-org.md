@@ -37,7 +37,7 @@ not started). So: the UI shell exists and looks finished; the product behind it 
 | `/contact?topic=organization` (sales intake) | real | `SalesInquiryResource`/`SalesInquiryService` (public submit, admin queue, audited status changes, mail to sales), changelog `20261005010000_sales_inquiry.xml`, `AdminSalesInquiryResource` | no conversion path from inquiry → org creation; no CRM fields beyond company/team size |
 | Member side ("my organizations", consent, leave) | missing | — | nothing; `AccountExportResource`/`AccountDeletionResource` exist and are the hooks for GDPR additions |
 | Marketer workspace (Phase 22) | missing | ROADMAP only; extension has no role concept (`job-autofill/src/lib/tracking.js` seam is where "Save for consultant" would go) | — |
-| Consultancy Ops (Phase 23) | missing | ROADMAP draft scope; "23.0 brainstorm" not done — `docs/design/org/consultancy-ops.md` proposes the locked spec | — |
+| Consultancy Ops (Phase 23) | missing | ROADMAP draft scope; "23.0 brainstorm" not done — `docs/TIMESHEETS-DESIGN.md` is the locked spec (product area H since 2026-10-11) | — |
 | Services marketplace (Phase 20) | missing (copy real) | `EXPERT_SERVICES` in `catalog.ts`; `SalesInquiry` topics `resume-review` etc. | no `expert`/`service_order` tables, no checkout, no expert portal, no payouts |
 | Catalog & entitlements engine (Phase 18) | missing | `EntitlementService` = per-user Pro from `subscription`; config `pro-monthly-budget-usd`, resume caps in code | product/price/entitlement/grant tables absent; org billing cannot start before it (owner: admin area `A*`; see PLAN open question) |
 

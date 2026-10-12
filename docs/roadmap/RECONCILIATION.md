@@ -31,11 +31,21 @@ story to its owner. Totals: **885 stories, 144 epics**.
 
 **Second pass, 2026-10-11 (same day): admin-configured features everywhere + timesheets decisions
 applied.** Eight stories added (A5.7–A5.9 feature registry / settings page / evaluated-config contract;
-O11.10–O11.14 timesheets), 159 numbers across 110 stories rewritten as `setting`/`entitlement`/
+five timesheets stories, since re-planned into product area H), 159 numbers across 110 stories rewritten as `setting`/`entitlement`/
 `remote-config`/`flag` references with their defaults, deps added on A5.1/A5.3/A5.5/B1.1/B1.2, A5 raised
-to P0, O11 kept at P2. No status changed by the sweep; R0.1–R0.4 set to `done` separately (implemented and
+to P0, the Consultancy Ops epic kept at P2. No status changed by the sweep; R0.1–R0.4 set to `done` separately (implemented and
 tested on branch `resume-builder`). Totals now **893 stories, 144 epics**, 0 dangling, 0 cycles. Details in
 §0.6, §4 (answered decisions) and the revised build order in §5.
+
+**Promotion, 2026-10-11 (same day): Timesheets became a product area.** The user decided timesheets should be a
+product-level feature like the Resume Builder. The Consultancy Ops epic and its fourteen stories were removed from `org.json` and
+re-planned as **product area H** (`docs/timesheets/stories.json`: 9 epics H0–H8, 42 stories, 75 points, every
+epic P2 per D10; design `docs/TIMESHEETS-DESIGN.md`, decisions `docs/TIMESHEETS-DECISIONS.md`, on-ramp
+`docs/HANDOFF-TIMESHEETS.md`). The old → new id mapping is DESIGN §13 (the only place the old ids appear); every
+`deps`/`relates` and every mention below was re-pointed. The org foundation stories (O1.x/O2.x/O6.x/O13.x) stay
+in `org.json` as cross-area deps. Totals now **921 stories, 152 epics** (13 files), 0 dangling, 0 cycles.
+The generator still lists the old Add-ons spotlight; wiring a "Products" group (Resume Builder + Timesheets) is
+a follow-up task, not part of this pass.
 
 ---
 
@@ -107,11 +117,11 @@ imports, pastes or mail. Result:
 | I3.3 untrusted input, I5.1 AiInputAllowlist | no redaction step for these shapes | AC: redaction on every untrusted slot; NEVER list includes the classes; rendered-prompt test feeds fixtures |
 | U10.1 inbox threads | recruiter mail bodies are stored (14.x) | AC: bodies pass through redaction before persistence |
 | O2.5 org CSV import | T2.3 only rejected age columns | AC: whole file refused when any header/value matches the deny-list |
-| O11.2 clients/vendors/placements, O11.3 timesheet attachments, O11.5 invoice records | "sensitive-text validator" was unspecified; attachments were opaque | AC: validator = SensitivePatterns; attachments image/PDF only, text layer scanned, rejected on a hit, **no OCR / extraction**; invoices carry no tax or bank identifiers |
+| H0.3/H1.1 clients/vendors/placements, H3.2 timesheet attachments, H6.2 invoice records (product area H) | "sensitive-text validator" was unspecified; attachments were opaque | AC: validator = SensitivePatterns; attachments image/PDF only, text layer scanned, rejected on a hit, **no OCR / extraction**; invoices carry no tax or bank identifiers |
 | S2.4 screenshot attachments | — | AC: no OCR, never sent to AI, "do not include documents" notice, staff delete audited |
 | **O4.1 / O4.7 org Stripe** | title and config implied **tax-ID collection** | **Changed**: `tax_id_collection` disabled on Checkout; Portal `customer_update.allowed_updates` excludes `tax_id`; titles corrected. *Nuance for the user:* a customer can still type a business tax ID into Stripe's own hosted pages — Stripe holds it, we never receive or mirror it |
 | B3.1 checkout v2, B6.2 invoices, B3.2 billing consent | — | AC: no tax-ID collection or identifier custom fields; consent rows hold versions/timestamps/IP hash only |
-| O11.6 payments/expenses, S3.4 heads-up banner, T2.1 age screen, T3.9 work-auth rules, O10.13 | already comply (categories only, no numbers, no birth date stored) | no change |
+| H6.3 payments/expenses, S3.4 heads-up banner, T2.1 age screen, T3.9 work-auth rules, O10.13 | already comply (categories only, no numbers, no birth date stored) | no change |
 | O4.6 billing page | "Visa 4242" is sample copy being removed | no change |
 | S4.2 site reports, E8.2 telemetry | already "never values, labels hashed / no labels" | no change |
 
@@ -154,7 +164,7 @@ A5.5 / B1.1 / B1.2 added where the story had none; no `status` changed; `done` s
 | Area | Stories touched | Setting references now in ACs/titles | Examples |
 |---|---|---|---|
 | user (U) | 19 | 28 | `matches.per_day` (Free 3 · Pro 10–20), `alerts.max` (Free 2 · Pro 15), `ai.cap.fit.daily` 30, `notify.interview_reminder_hours` 24+1, `referral.qualify_active_days` 7, `analytics.event_retention_days` 180 |
-| org (O) | 21 (+ 5 new O11 stories) | 33 | `org.invite.daily_cap` 1 000, `services.accept_hours` 12 / `auto_complete_days` 5 / `dispute_days` 7, `consultants.max` 10, `assignments.open_max` 100, `catalog.margin_floor_*_pct` (80 / 20, hard minimums), `org.ops.*`, `ops.attachment_bytes_max` 5 MB |
+| org (O) | 21 (+ 5 timesheets stories, since moved to product area H) | 33 | `org.invite.daily_cap` 1 000, `services.accept_hours` 12 / `auto_complete_days` 5 / `dispute_days` 7, `consultants.max` 10, `assignments.open_max` 100, `catalog.margin_floor_*_pct` (80 / 20, hard minimums), `org.ops.*`, `ops.attachment_bytes_max` 5 MB |
 | admin (A) | 11 (+ 3 new) | 17 | `admin.comp_max_days.*` 30 / 90, `admin.churn.inactive_days` 14, `catalog.cap_hit_alert_pct` 5, `ai.free_parse_reserved_pct` 10, `email.send_cap_alert_pct` 80, `security.event_retention_days` 400 |
 | ext (E) | 8 | 11 | `autopilot.apps_per_day/month` (30 / 300, hard ceilings), `ext.review_prompt.min_fills` 3 / `interval_days` 90, `ext.rot.drop_points` 15, `ai.cap.draft.per_fill` 5, `ext.errors.per_day` 20 |
 | mkt (M) | 12 | 21 | `public.stats_floor.*` (500 / 5 000 / 1 000), `referral.credits_per_year` (3 vs 12 → D3), `mkt.ambassador.max_active` 150, `mkt.affiliate.commission_pct` 30, `mkt.dormant.no_fill_days` 21, `ratelimit.ats_check.per_day` 5, `flag.ats_check` |
@@ -189,13 +199,13 @@ A5.5 / B1.1 / B1.2 added where the story had none; no `status` changed; `done` s
 - *Worked examples in tests:* B2.1's "Pro $19.99 = 79.0 %", O3.6's "$9.99 passes / $9.98 fails" stay as
   table-driven test rows — they prove the calculator, they do not set a price.
 
-**Timesheets decisions applied (Decision 2):** D1 org add-on only · D2 priced later in admin (O11.8 creates the
+**Timesheets decisions applied (Decision 2):** D1 org add-on only · D2 priced later in admin (H7.1 creates the
 catalog items with no price; pilot free behind `flag.ops_timesheets` + `opsPilot`) · D7 OCR optional, off by
 default (entitlement `ops.ocr` off, `ops_settings.ocr_enabled` false, suggestion-only, budget an entitlement)
-· D10 O11 stays P2 with the timesheets-first order in deps only. D3–D6, D8, D9, D11, D12 = recommended defaults,
+· D10 the product stays P2 with the timesheets-first order in deps only (now product area H). D3–D6, D8, D9, D11, D12 = recommended defaults,
 marked "user may override" in `PROPOSAL-timesheets.md`, `timesheets.md` and `consultancy-ops.md`. One §0.5
-nuance updated: O11.3's "no OCR / extraction" row now reads "OCR optional, off by default, closed schema,
-suggestion-only; the identifier scan refuses files before storage" (O11.10 / O11.14).
+nuance updated: the timesheets "no OCR / extraction" row now reads "OCR optional, off by default, closed schema,
+suggestion-only; the identifier scan refuses files before storage" (H3.2 / H3.1).
 
 ---
 
@@ -246,7 +256,7 @@ partly covered / rejected / parked.
 | G37 Referral reward within the floor | U, B | P1 | — | B7.5 (grant + cap) ← M6.2; M6.1 codes/landing; U16.4 UI (deps B7.5, M6.1) | M6.3 fraud/admin | covered; reward **D3** |
 | G38 Assistant-side distribution (MCP / ChatGPT) | I | P2 | — | — | — | **parked** by the ai area (needs stable U4/U6 read APIs + trust review); revisit after Launch 2 |
 | G39 Duplicate-submission guard | O | P1 | — | **O10.11 added** | E11.2 | covered (added) |
-| G40 Bench availability + aging | O | P1 | — | **O10.12 added** | O11.2 | covered (added) |
+| G40 Bench availability + aging | O | P1 | — | **O10.12 added** | H0.3 | covered (added) |
 | G41 Work-authorisation status | O, T | P2 | — | **O10.13 added** (pending **D29**) | T3.9 rules | covered (added) |
 | G42 Cohort readiness distribution | O | P2 | O8.4 partial | **O8.4 AC edited** (band histogram, k ≥ 5) | O7.3 | covered |
 | G43 Org-curated practice sets | O | P2 | — | **O8.6 added** | U9.1, I9.11 | covered (added) |
@@ -345,7 +355,7 @@ reward — `referral.reward_days`, `referral.credits_per_year`), **D4** (org AI 
 `ai.cap.<feature>.daily`, `ai.daily/monthly_cost_cap_cents`), **D14** (`help.ai.free_daily_cap` default 0),
 **D44** (`notify.mobile_daily_cap` default 3), **D49** (`support.sla_business_days.*`), **D63** (`alerts.max`)
 as *defaults, adjustable in admin*; what remains open in each is only the policy question, not the number.
-**D55** (Ops add-on points) is answered: org add-on only, priced in admin, OCR off by default, O11 stays P2 —
+**D55** (Ops add-on points) is answered: org add-on only, priced in admin, OCR off by default, the product stays P2 (now area H) —
 see §0.6 and `PROPOSAL-timesheets.md`. Decisions that are rules rather than numbers (D1 fee reading, D11
 provider tier, D21 age, D22 deletion window, D23 GA4, D24 publishing accuracy, …) stay open as written.
 
@@ -463,10 +473,10 @@ provider tier, D21 age, D22 deletion window, D23 GA4, D24 publishing accuracy, �
 ### I. Organizations
 - **D54 FULL grants to a non-marketer coach in schools.** Default: no until Phase 22. Blocks nothing now.
 - **D55 Ops add-on 23.0 points** — **answered 2026-10-11**: org add-on only (D1); priced later in admin,
-  no number in the roadmap, pilot free via an admin switch (D2); OCR optional, off by default (D7); O11 stays
-  P2 (D10); retention anchor, external approvers, export layouts, marketer presence, submit-for, one-person
+  no number in the roadmap, pilot free via an admin switch (D2); OCR optional, off by default (D7); stays
+  P2 (D10; now product area H); retention anchor, external approvers, export layouts, marketer presence, submit-for, one-person
   shops, proof scan and crop helper (D3–D6, D8, D9, D11, D12) = recommended defaults, user may override.
-  Unblocks O11.1.
+  Unblocks H0.2.
 - **D56 Rename "Consultancy plan" → "Organizations".** Default: yes with O14.2. Blocks O14.2, M2.5.
 - **D57 Shared jobs for schools in Phase 21.** Default: P1 in 21.3. Blocks O8.2.
 
@@ -533,9 +543,8 @@ web, API and extension + the `no-hardcoded-gate` lint** · A0.4 → A0.5 → **A
 report (G3) · I0.4 + I2.1 + I3.3 → I3.5 grounded drafting with E6.2 (G6) · N1.2 + N1.1 share target (G14) ·
 U4.1 + U4.2 posting store + search (G12, G13, G15) · S3.1 + S3.5 scam rules on cards (G15) · M0.1 + M2.2
 honest-claims register + the money block · R0.5 → R0.7 Resume Builder walking skeleton (R0.1–R0.4 are done)
-· U13.4 My Answers bank (G7) · E5.9 one-tap tailor (G21, after R5.1/R5.3). Timesheets (O11.1 → O11.2 → O11.3
-→ O11.14 → O11.10 → O11.11 / O11.12 → O11.4 → O11.13) stay P2 (D10) and start after the org walking skeleton
-(O1.1–O1.5, O6.1, O2.2) and A5.3.
+· U13.4 My Answers bank (G7) · E5.9 one-tap tailor (G21, after R5.1/R5.3). Timesheets are now product area **H** (`docs/timesheets/stories.json`, 42 stories; walking skeleton H0.1 → H0.7, then H1 → H2 → H3 → H4 → H5 → H6 → H7 → H8), every epic P2 (D10); they start after the org walking skeleton
+(O1.1–O1.5, O6.1, O2.2) and A5.1/A5.3.
 
 ---
 
@@ -545,6 +554,7 @@ honest-claims register + the money block · R0.5 → R0.7 Resume Builder walking
 node check-ids.mjs <root>      # every JSON parses; deps/relates/supersedes resolve to a story, epic or G-tag; no dep cycles
 files=12 parseErrors=0 stories=885 epics=144 refs=1895 dangling=0            # first pass
 files=12 parseErrors=0 stories=893 epics=144 refs=2048 dangling=0 dupes=0 cycles=0   # second pass (2026-10-11)
+files=13 parseErrors=0 stories=921 epics=152 refs=2114 dangling=0 dupes=0 cycles=0   # promotion pass (2026-10-11): + docs/timesheets/stories.json, org Consultancy Ops epic removed
 
 node order.mjs <root> <comma-separated ids>   # build order: every dep done or earlier → rows 25 violations 0
 

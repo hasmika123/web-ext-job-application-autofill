@@ -30,7 +30,7 @@
    (`billing.md` §2). Before that it is `DRAFT`: configurable, up to 3 admins invited, no member
    seats.
 7. **Soft lifecycle, hard privacy.** Orgs are never hard-deleted (`CLOSED` keeps billing history
-   for 7 years, see `consultancy-ops.md` §7 for the retention rule that also covers invoices).
+   for 7 years, see `docs/TIMESHEETS-DESIGN.md` §12 for the retention rule that also covers invoices).
    Members *are* hard-deletable via the existing `DELETE /api/account`
    (`AccountDeletionResource`): their `org_member` row is anonymised (section 6).
 8. **Audit everything an org actor does to a person.** `org_audit_event` mirrors
@@ -131,7 +131,7 @@ Action keys live in `OrgAuditService` constants: `ORG_CREATE`, `ORG_SETTINGS`, `
 ### 2.8 Everything else is in its own doc
 `org_assignment`, `org_subscription*`, `org_invoice` → `billing.md`; `data_share*` →
 `consent-data-sharing.md`; `marketer_assignment`, `job_assignment` → `marketer-workspace.md`;
-`ops_*` → `consultancy-ops.md`; `org_metric_daily` → `analytics.md`; `org_webhook`, `org_api_key`
+`ops_*` → `docs/TIMESHEETS-DESIGN.md` §5 (product area H); `org_metric_daily` → `analytics.md`; `org_webhook`, `org_api_key`
 → `integrations.md`.
 
 ## 3. Organization state machine

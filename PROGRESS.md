@@ -28,6 +28,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > 📄 **Resume Builder + Common Profile is designed (branch `resume-builder`, 2026-10-11)** — see the
 > *Resume Builder* section below (its own Current focus: **R0.1 Schema**) and `docs/HANDOFF-RESUME-BUILDER.md`.
 >
+> ⏱ **Timesheets & Consultancy Ops is designed as its own product area H (2026-10-11, on `version2`; build branch
+> `timesheets` not yet cut)** — see the *Timesheets* section below (its own Current focus: **H0.1 Schema v0**, not
+> started — P2, org add-on; blocked on the org model O1.x) and `docs/HANDOFF-TIMESHEETS.md`.
+>
 > 🌱 **The app v2 + enterprise admin work lives on the `version2` branch and awaits the user's review
 > (landing v2 V2.0–V2.6, app0–app2, auth, org1–org2, landing v3 `/v3` and the appqa pass, all done
 > 2026-10-11).** It covers the signed-in app redesign (`/dashboard`, `/jobs`, `/saved`, `/ai-apply`,
@@ -1316,6 +1320,8 @@ focused Claude Code session.
   need at least Pro.
 
 ## Phase 23 — Consultancy Ops add-on: timesheets + finances (optional; after 22)
+> **2026-10-11:** 23.0 is done and the whole phase now lives in the *Timesheets* product section below
+> (product area H, `docs/TIMESHEETS-DESIGN.md`). The tasks under this heading are superseded by H0–H8.
 - [ ] **23.0 Brainstorm → locked spec** *(must come first).* Timesheets, placements (bill/pay
   rates), invoices, payments, expenses, the profit view, the `FINANCE` role, retention, the legal
   check, the final price (proposed $99 per org + $4 per active consultant per month).
@@ -1428,7 +1434,42 @@ focused Claude Code session.
 
 ---
 
+## Timesheets & Consultancy Ops (product area H; build branch `timesheets`, off `version2` — not yet cut)
+> Design 2026-10-11: `docs/TIMESHEETS-DESIGN.md` (the design), `docs/TIMESHEETS-STORIES.md` (42 stories,
+> H0–H8, rendered from `docs/timesheets/stories.json` — the status source of truth), `docs/TIMESHEETS-DECISIONS.md`
+> (decided: D1 org add-on only · D2 priced later in admin · D7 OCR off by default · D10 **P2**; vetoable defaults),
+> on-ramp `docs/HANDOFF-TIMESHEETS.md`. Promoted from the org area's Consultancy Ops epic (ROADMAP Phase 23) to a
+> product area like the Resume Builder; old → new ids in DESIGN §13. Commit prefix `ts<epic>.<n>:`; one story per
+> commit. Locked by the design: record money, never move it · never collected (no SSN/bank/tax/document numbers or
+> DOB anywhere; proof files refused before storage; `OpsNeverCollectedTest` build gate) · every number a setting
+> with a default · weekly sheets per placement, minutes in storage · approved sheets immutable, corrections supersede
+> · one-step approval, no external approvers · OCR optional and off · all files through `FileStorage`, no presigned
+> URLs · the consultant surface at `/timesheets` in the user app, everything else under `/org/ops/*`.
+>
+> **Current focus (this product): H0.1 Schema v0** — **not started — P2, org add-on.** Blocked on the org
+> walking skeleton (O1.1 → O1.5, O2.2, O6.1 in `docs/roadmap/areas/org.json`) and A5.1/A5.3; do not start before
+> `OrgIsolationIT` is green. Then H0.2 → H0.5 (the ★ five), then H0.6–H0.7 to close the walking skeleton
+> (gate → placement → one sheet submitted and approved → one CSV → smoke).
+- [ ] **H0 Walking skeleton** — H0.1 schema v0 · H0.2 FINANCE + gate + settings · H0.3 placements-lite · H0.4 weekly
+  sheet core v0 · H0.5 week view + inbox v0 (390 px) · H0.6 GENERIC CSV v0 · H0.7 smoke + handoff.
+- [ ] **H1 Placements, clients & rates** — vendors + effective-dated rates · holidays + lifecycle · placements UI ·
+  marketer presence.
+- [ ] **H2 Weekly entry, phone-first** — day kinds + prefill + copy-last-week · flags engine · withdraw / correct /
+  locks · week view full UX + PWA · submit-for + self-recorded.
+- [ ] **H3 Proof & the never-collected gate** — `@NoSensitiveText` + `OpsNeverCollectedTest` · proof via FileStorage ·
+  identifier scan + refusal · optional OCR (off) · proof UX · approver inbox full.
+- [ ] **H4 Reminders & notifications** — OPS_TS_* kinds · reminder job (quiet hours, cap, idempotent) · consultant prefs.
+- [ ] **H5 Exports** — async jobs + GENERIC/PAYROLL · BY_CLIENT + PDF pack (Chromium sidecar) · export UI + Disclaimer.
+- [ ] **H6 Money records (record only)** — money schema · invoice records · payments + expenses · profit view · finance UI.
+- [ ] **H7 Billing, retention, erasure & admin** — catalog items (no price) + derived quantity · retention + erasure ·
+  Admin › Ops page + settings keys · audit completeness.
+- [ ] **H8 Pilot, onboarding & growth** — first-run screen · demo consultancy · pilot metrics · zero-setup onboarding ·
+  post-pilot bucket (crop helper, provider presets, OCR auto-read).
+
+---
+
 ## Log
+- 2026-10-11 · **design: Timesheets promoted to a product area (H)** · The user asked for timesheets to be a product-level feature like the Resume Builder. Removed the Consultancy Ops epic and its fourteen stories from `docs/roadmap/areas/org.json` (foundation deps O1.x/O2.x/O6.x/O13.x stay there) and re-planned them as product area **H** in `docs/timesheets/stories.json` (9 epics H0–H8, 42 stories, 75 pts, every epic P2 per D10; ★ H0.1–H0.5; walking skeleton H0.1–H0.7 = gate → placement → one sheet submitted/approved → CSV → smoke). Wrote `docs/TIMESHEETS-DESIGN.md` (absorbs `docs/design/org/timesheets.md` + `consultancy-ops.md`, which are now pointers; §13 = old→new id map), `docs/TIMESHEETS-STORIES.md`, `docs/TIMESHEETS-DECISIONS.md`, `docs/HANDOFF-TIMESHEETS.md`; re-pointed RECONCILIATION, PROPOSAL-timesheets, PLAN/AUDIT-org, competitive docs, tenant-model, trust.json T1.1, org.json O4.8/O10.12. Validation: 13 files, 921 stories, 152 epics, 0 dangling ids, 0 cycles, 0 old-id tokens in JSON. Generator wiring (Products group, drop the Add-ons spotlight) is a follow-up. No product code.
 - 2026-10-11 · **design: Resume Builder + Common Profile (branch `resume-builder`)** · Wrote `docs/RESUME-BUILDER-DESIGN.md` (goals/personas, common profile wrap-not-migrate with `profile_item` + provenance, `ResumeDocument` v1 + `resume_doc`/versions/proposals schema, template registry in `@kiwiply/ui` with lossless switching + 7-step page-fit, Chromium-sidecar PDF through the existing file endpoint, Pro-only AI via `AiBudgetService` with the 13.4 suggest→diff→accept pattern generalised, API/BFF contracts, wireframes, risks, 4 open questions), `docs/RESUME-BUILDER-STORIES.md` (45 stories R0–R7, ★ first five = R0.1–R0.5, walking skeleton R0.1–R0.7), `docs/RESUME-BUILDER-DECISIONS.md`, `docs/HANDOFF-RESUME-BUILDER.md`. No product code.
 > One line per completed task: date · task · note.
 - 2026-10-11 · **app3a App v3 shell + Dashboard + Job Search** · Shell verified (13-item nav, blue pill, PlanCard, Hi-First menu, all legacy routes redirect; /jobs/[id] now opens the Job Search panel). `app-v3/home/*` Dashboard (real counts, activity, status, recent, recommended, profile strength; sample interviews/alerts) and `app-v3/jobs/*` Job Search (filter rail, list, detail panel, pagination); HeroBand note/aside layering fixed. tsc+eslint green; checked in browser at 1440/1024/375.
