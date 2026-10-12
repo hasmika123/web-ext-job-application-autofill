@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Generates master-roadmap.html (self-contained drill-down) from the four plan sources.
+// Generates master-roadmap.html (self-contained drill-down) from the twelve plan sources
+// (user, org, admin, ext, mkt, plat, ai, mob, pay, trust, sup + Resume Builder).
 //   node docs/roadmap/build-master-roadmap.mjs                    regenerate
-//   node docs/roadmap/build-master-roadmap.mjs --set U1.2=done,R0.1=in_progress
-//   node docs/roadmap/build-master-roadmap.mjs --list             print counts per area
+//   node docs/roadmap/build-master-roadmap.mjs --set U1.2=done,R0.1=in_progress   (any prefix)
+//   node docs/roadmap/build-master-roadmap.mjs --list             counts per area + dangling-id warnings
 // Env: ROADMAP_AREAS_DIR overrides docs/roadmap/areas (used for fixtures/tests).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,16 +16,42 @@ const STATUSES = ['not_started', 'in_progress', 'in_review', 'partial', 'done', 
 const WEIGHT = { S: 1, M: 2, L: 3 };
 const CREDIT = { done: 1, in_review: 0.75, partial: 0.5, in_progress: 0.25, not_started: 0, blocked: 0 };
 
-const AREAS = [
-  { key: 'user', prefix: 'U', name: 'User dashboard', file: path.join(AREAS_DIR, 'user.json'), plan: 'PLAN-user.md', audit: 'AUDIT-user.md',
-    fallback: 'Everything a job seeker touches after signing in: the board, applications, inbox matches, profile, resumes and settings, built phone-first so it feels native on a 390px screen.' },
-  { key: 'org', prefix: 'O', name: 'Organization dashboard', file: path.join(AREAS_DIR, 'org.json'), plan: 'PLAN-org.md', audit: 'AUDIT-org.md',
-    fallback: 'The workspace for consultancies and teams: members and seats, per-person items, consultant boards, marketer-prepared resumes and job banks, billing and setup.' },
-  { key: 'admin', prefix: 'A', name: 'App admin dashboard', file: path.join(AREAS_DIR, 'admin.json'), plan: 'PLAN-admin.md', audit: 'AUDIT-admin.md',
-    fallback: 'The internal console for running Kiwiply: plan and price catalog with the margin guard, users and orgs, AI quotas, services queue, support tools and system health.' },
-  { key: 'resume', prefix: 'R', name: 'Resume Builder', file: path.join(here, '..', 'resume-builder', 'stories.json'), plan: null, audit: null, resume: true,
-    fallback: 'A guided resume builder on top of one common profile: edit once, switch templates, version history, export, then Pro AI assist, job tailoring and ATS match.' },
+// group: dashboards | cross | resume (home-page sections). name = short label; the JSON's own long
+// title is kept as fullName. prefix/kind come from each JSON when present (config is the fallback).
+const GROUPS = [
+  { key: 'dashboards', title: 'Dashboards', blurb: 'The three signed-in surfaces people actually use: the job seeker, the organization and the Kiwiply team.' },
+  { key: 'cross', title: 'Cross-cutting', blurb: 'The engines and foundations under every dashboard: extension, growth, reliability, AI, mobile, billing, trust and support.' },
+  { key: 'resume', title: 'Resume Builder', blurb: 'The guided builder that sits on the common profile.' },
 ];
+const AREAS = [
+  { key: 'user', group: 'dashboards', prefix: 'U', name: 'User dashboard', file: path.join(AREAS_DIR, 'user.json'), plan: 'PLAN-user.md', audit: 'AUDIT-user.md',
+    summary: 'Everything a job seeker touches after signing in: the board, applications, inbox matches, profile, resumes and settings, built phone-first so it feels native on a 390px screen.' },
+  { key: 'org', group: 'dashboards', prefix: 'O', name: 'Organization dashboard', file: path.join(AREAS_DIR, 'org.json'), plan: 'PLAN-org.md', audit: 'AUDIT-org.md',
+    summary: 'The workspace for consultancies and teams: members and seats, per-person items, consultant boards, marketer-prepared resumes and job banks, billing and setup.' },
+  { key: 'admin', group: 'dashboards', prefix: 'A', name: 'App admin dashboard', file: path.join(AREAS_DIR, 'admin.json'), plan: 'PLAN-admin.md', audit: 'AUDIT-admin.md',
+    summary: 'The internal console for running Kiwiply: plan and price catalog with the margin guard, users and orgs, AI quotas, services queue, support tools and system health.' },
+  { key: 'ext', group: 'cross', prefix: 'E', name: 'Browser extension', file: path.join(AREAS_DIR, 'ext.json'), plan: 'PLAN-ext.md', audit: 'AUDIT-ext.md',
+    summary: 'The on-page engine: ATS adapters proven against captured real DOM, a fill report after every fill, capture and submit detection, store listings for Chrome, Edge and Firefox. It never auto-submits and never bypasses a CAPTCHA.' },
+  { key: 'mkt', group: 'cross', prefix: 'M', name: 'Marketing & growth', file: path.join(AREAS_DIR, 'mkt.json'), plan: 'PLAN-mkt.md', audit: 'AUDIT-mkt.md',
+    summary: 'The public face and the growth engine: an honest-claims register enforced in CI, a pricing page that says the money rules out loud, SEO and a content engine, the missing help center, referral, creator and campus programmes.' },
+  { key: 'plat', group: 'cross', prefix: 'P', name: 'Platform & reliability', file: path.join(AREAS_DIR, 'plat.json'), plan: 'PLAN-plat.md', audit: 'AUDIT-plat.md',
+    summary: 'What keeps kiwiply.com up and its data safe on one shared box: backups that actually run and restore, monitoring with a public status page, pinned deploys with one-variable rollback, staging and the FileStorage seam.' },
+  { key: 'ai', group: 'cross', prefix: 'I', name: 'AI platform', file: path.join(AREAS_DIR, 'ai.json'), plan: 'PLAN-ai.md', audit: 'AUDIT-ai.md',
+    summary: 'The layer under every AI feature: one gateway with model routing, a prompt registry with evals, truth-check guardrails, embeddings, explainable scores, shared metering and budgets, and the BYO key that keeps Free honest.' },
+  { key: 'mob', group: 'cross', prefix: 'N', name: 'Mobile & PWA', file: path.join(AREAS_DIR, 'mob.json'), plan: 'PLAN-mob.md', audit: 'AUDIT-mob.md',
+    summary: 'Capture on the phone, apply on the laptop: the installable PWA, a share-sheet save, send-to-laptop, push and offline, an honest phone-apply path, and the store payment rules for a native app later.' },
+  { key: 'pay', group: 'cross', prefix: 'B', name: 'Payments & billing', file: path.join(AREAS_DIR, 'pay.json'), plan: 'PLAN-pay.md', audit: 'AUDIT-pay.md',
+    summary: 'The engine around Stripe: a catalog with entitlements and a margin guard that holds the 80% and 20% floors, tax and invoices, regional pricing, discounts, plan switching, dunning and in-app cancel.' },
+  { key: 'trust', group: 'cross', prefix: 'T', name: 'Trust & compliance', file: path.join(AREAS_DIR, 'trust.json'), plan: 'PLAN-trust.md', audit: 'AUDIT-trust.md',
+    summary: 'Privacy operations, minors and age rules, AI-in-hiring law, accessibility and the security program, plus a trust centre that shows the user exactly who sees their data. Includes the list of items that need a lawyer.' },
+  { key: 'sup', group: 'cross', prefix: 'S', name: 'Support & community', file: path.join(AREAS_DIR, 'sup.json'), plan: 'PLAN-sup.md', audit: 'AUDIT-sup.md',
+    summary: 'Help that answers inside the product: a help center, tickets the user can follow, an AI help assistant, a job-scam safety centre, feedback and changelog, a status page and a community.' },
+  { key: 'resume', group: 'resume', prefix: 'R', name: 'Resume Builder', file: path.join(here, '..', 'resume-builder', 'stories.json'), plan: null, audit: null, resume: true,
+    docs: [['Design', '../RESUME-BUILDER-DESIGN.md'], ['Decisions', '../RESUME-BUILDER-DECISIONS.md'], ['Stories', '../RESUME-BUILDER-STORIES.md']],
+    summary: 'A guided resume builder on top of one common profile: edit once, switch templates, version history, export, then Pro AI assist, job tailoring and ATS match.' },
+];
+// Shared market documents linked from the home page and every area page.
+const GLOBAL_DOCS = [['Competitive landscape', 'COMPETITIVE-LANDSCAPE.md'], ['Competitive gaps', 'COMPETITIVE-GAPS.md']];
 const RESUME_PRIORITY = { R0: 'P0', R1: 'P0', R2: 'P0', R3: 'P1', R4: 'P1', R5: 'P1', R6: 'P1', R7: 'P2' };
 
 const str = (v) => (v == null ? '' : String(v));
@@ -61,28 +88,33 @@ function normStory(s, area, epicIds) {
   const design = s.design ? str(s.design).replace(/^docs\//, '../') : null;
   return {
     id, epic, title: str(s.title), status, size: WEIGHT[s.size] ? s.size : 'M',
-    owners: arr(s.owners), deps: arr(s.deps), critical: !!(s.critical || s.star),
+    owners: arr(s.owners), deps: arr(s.deps), relates: arr(s.relates), supersedes: arr(s.supersedes), benchmark: str(s.benchmark), critical: !!(s.critical || s.star),
     story: str(s.story), genz: str(s.genz), ac: arr(s.ac), tests: arr(s.tests),
     tech: str(s.tech), evidence: arr(s.evidence), design,
   };
 }
 
 function loadArea(a) {
-  const base = { key: a.key, prefix: a.prefix, name: a.name, summary: '', planHref: null, audit: null, pending: false, epics: [], updated: '' };
+  const base = { key: a.key, group: a.group, kind: a.group === 'cross' ? 'cross-cutting' : '', fullName: '', prefix: a.prefix, name: a.name, summary: '', planHref: null, audit: null, docs: [], pending: false, epics: [], updated: '' };
   const r = readJson(a.file);
   const planFile = a.plan && path.join(here, a.plan);
   const auditFile = a.audit && path.join(here, a.audit);
   if (planFile && fs.existsSync(planFile)) base.planHref = a.plan;
   if (auditFile && fs.existsSync(auditFile)) base.audit = a.audit;
+  base.docs = (a.docs || []).filter(([, f]) => fs.existsSync(path.join(here, f))).map(([label, href]) => ({ label, href }));
   if (!r.data || !Array.isArray(r.data.stories)) {
     base.pending = true; base.reason = r.error || 'no stories array';
-    base.summary = a.fallback;
+    base.summary = a.summary;
     return base;
   }
   const d = r.data;
   base.updated = str(d.updated);
-  // keep the short area name from AREAS (the plan JSON carries a long title)
-  base.summary = str(d.summary) || a.fallback;
+  // keep the short area name from AREAS (the plan JSON carries a long title, kept as fullName);
+  // the curated summary wins over a JSON `summary` so all twelve read in one voice
+  base.summary = a.summary || str(d.summary);
+  if (d.name && str(d.name) !== a.name) base.fullName = str(d.name);
+  if (d.prefix) base.prefix = str(d.prefix);
+  if (d.kind) base.kind = str(d.kind);
   const epicsIn = Array.isArray(d.epics) ? d.epics : [];
   const map = new Map();
   for (const e of epicsIn) {
@@ -106,16 +138,61 @@ function pct(stories) {
 
 function loadAll() { return AREAS.map(loadArea); }
 
-function list(areas) {
+const GAP_RE = /^G\d+$/;
+// Resolve every story/epic id, plus G<n> competitive-gap rows and bare area prefixes (e.g. "M").
+// Anything else is dangling: shown as plain text on the page and listed by --list.
+function refIndex(areas) {
+  const stories = new Set(), epics = new Set(), prefixes = new Set(), dupes = [];
   for (const a of areas) {
-    if (a.pending) { console.log(`${a.key.padEnd(7)} PENDING (${a.reason})`); continue; }
+    if (a.prefix) prefixes.add(a.prefix);
+    for (const e of a.epics) {
+      epics.add(e.id);
+      for (const s of e.stories) { if (stories.has(s.id)) dupes.push(s.id); stories.add(s.id); }
+    }
+  }
+  return { stories, epics, prefixes, dupes };
+}
+function findWarnings(areas) {
+  const ix = refIndex(areas), dangling = [];
+  let refs = 0, gaps = 0, areaRefs = 0;
+  for (const a of areas) for (const e of a.epics) for (const s of e.stories) {
+    for (const field of ['deps', 'relates', 'supersedes']) for (const id of s[field]) {
+      refs++;
+      if (ix.stories.has(id) || ix.epics.has(id)) continue;
+      if (GAP_RE.test(id)) { gaps++; continue; }
+      if (ix.prefixes.has(id)) { areaRefs++; continue; }
+      dangling.push({ from: s.id, field, id });
+    }
+  }
+  return { dangling, dupes: ix.dupes, refs, gaps, areaRefs };
+}
+
+function list(areas) {
+  const P = (n, w) => String(n).padStart(w);
+  const pc = (x) => (x * 100).toFixed(1).padStart(5) + '%';
+  const ST = ['done', 'in_review', 'partial', 'in_progress', 'blocked', 'not_started'];
+  const SH = { done: 'done', in_review: 'rev', partial: 'part', in_progress: 'prog', blocked: 'blk', not_started: 'todo' };
+  console.log(`${'area'.padEnd(6)} ${'pfx'.padEnd(3)} ${'group'.padEnd(10)} ${P('epics', 5)} ${P('stor', 5)} ${P('prog', 6)} ${P('P0', 6)}  ${ST.map((s) => P(SH[s], 5)).join(' ')}`);
+  for (const a of areas) {
+    if (a.pending) { console.log(`${a.key.padEnd(6)} ${a.prefix.padEnd(3)} PENDING (${a.reason})`); continue; }
     const st = a.epics.flatMap((e) => e.stories);
     const c = {}; st.forEach((s) => (c[s.status] = (c[s.status] || 0) + 1));
     const p0 = st.filter((s) => a.epics.find((e) => e.id === s.epic).priority === 'P0');
-    console.log(`${a.key.padEnd(7)} ${a.epics.length} epics, ${st.length} stories, ${(pct(st) * 100).toFixed(1)}% (P0 ${(pct(p0) * 100).toFixed(1)}%)  ${JSON.stringify(c)}`);
+    console.log(`${a.key.padEnd(6)} ${a.prefix.padEnd(3)} ${a.group.padEnd(10)} ${P(a.epics.length, 5)} ${P(st.length, 5)} ${pc(pct(st))} ${pc(pct(p0))}  ${ST.map((s) => P(c[s] || 0, 5)).join(' ')}`);
   }
-  const all = areas.filter((a) => !a.pending).flatMap((a) => a.epics.flatMap((e) => e.stories));
-  console.log(`overall ${all.length} stories, ${(pct(all) * 100).toFixed(1)}%`);
+  const live = areas.filter((a) => !a.pending);
+  const all = live.flatMap((a) => a.epics.flatMap((e) => e.stories));
+  const epicsAll = live.flatMap((a) => a.epics);
+  console.log(`overall ${live.length} areas, ${epicsAll.length} epics, ${all.length} stories, ${(pct(all) * 100).toFixed(1)}%`);
+  const byPri = ['P0', 'P1', 'P2', 'P3'].map((p) => [p, epicsAll.filter((e) => e.priority === p)]).filter(([, l]) => l.length);
+  console.log('epics by priority: ' + byPri.map(([p, l]) => `${p} ${l.length} (${(pct(l.flatMap((e) => e.stories)) * 100).toFixed(1)}%)`).join(' | '));
+  const w = findWarnings(live);
+  console.log(`references: ${w.refs} total in deps/relates/supersedes (${w.gaps} competitive-gap rows G<n>, ${w.areaRefs} bare area prefixes, both resolved)`);
+  if (w.dupes.length) console.log(`WARNING duplicate story ids: ${[...new Set(w.dupes)].join(', ')}`);
+  if (w.dangling.length) {
+    console.log(`WARNING ${w.dangling.length} dangling id(s) (shown as plain text on the page):`);
+    for (const d of w.dangling) console.log(`  ${d.from} ${d.field} -> ${d.id}`);
+  } else console.log('dangling ids: 0');
 }
 
 function setStatuses(pairs) {
@@ -144,12 +221,15 @@ function setStatuses(pairs) {
 
 function build(areas) {
   const updatedMax = areas.map((a) => a.updated).filter(Boolean).sort().pop() || '';
-  const payload = { generated: today(), dataUpdated: updatedMax, areas };
+  const docs = GLOBAL_DOCS.filter(([, f]) => fs.existsSync(path.join(here, f))).map(([label, href]) => ({ label, href }));
+  const w = findWarnings(areas.filter((a) => !a.pending));
+  const payload = { generated: today(), dataUpdated: updatedMax, groups: GROUPS, docs, warnings: { dangling: w.dangling, dupes: [...new Set(w.dupes)] }, areas };
   const json = JSON.stringify(payload).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   const html = TEMPLATE.replace('/*__DATA__*/null', () => json);
   fs.writeFileSync(OUT, html);
   const inc = areas.filter((a) => !a.pending).map((a) => a.key), pen = areas.filter((a) => a.pending).map((a) => a.key);
   console.log(`Wrote ${path.relative(process.cwd(), OUT)}  included: ${inc.join(', ') || 'none'}  pending: ${pen.join(', ') || 'none'}`);
+  if (w.dangling.length || w.dupes.length) console.log(`WARNING ${w.dangling.length} dangling id(s), ${w.dupes.length} duplicate story id(s); run --list for details`);
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +294,7 @@ h1{font-size:clamp(24px,4vw,34px);line-height:1.15;font-weight:800;letter-spacin
 .toolbar input[type=search]{flex:1 1 220px}
 .toolbar select{flex:0 1 140px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;white-space:nowrap}
+.btn[hidden]{display:none}
 .btn:hover{border-color:var(--ink)}
 .btn.primary{background:var(--lime);color:var(--lime-ink);border-color:transparent}
 .btn.primary:hover{filter:brightness(.95)}
@@ -227,6 +308,7 @@ h1{font-size:clamp(24px,4vw,34px);line-height:1.15;font-weight:800;letter-spacin
 @media (prefers-reduced-motion:reduce){.fade{animation:none}.ring .fg{transition:none}}
 .abox{position:relative;border-radius:20px;padding:20px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
 .abox.user{background:var(--lilac-soft)}.abox.org{background:var(--blue-soft)}.abox.admin{background:var(--sand-soft)}.abox.resume{background:var(--lime-soft)}
+.abox.g-cross{background:var(--card);border-left:6px solid var(--lime)}
 .abox.pending{background:var(--card);opacity:.65;filter:grayscale(.7);box-shadow:none;border-style:dashed}
 .abox .hd{display:flex;gap:14px;align-items:center}
 .abox h2{font-size:20px;line-height:1.2;font-weight:800;letter-spacing:-.01em}
@@ -252,6 +334,7 @@ h1{font-size:clamp(24px,4vw,34px);line-height:1.15;font-weight:800;letter-spacin
 .nu:hover{border-color:var(--ink)}
 .ahead{display:flex;flex-wrap:wrap;gap:16px;align-items:center;border-radius:20px;padding:18px 20px;border:1px solid var(--line);box-shadow:var(--shadow)}
 .ahead.user{background:var(--lilac-soft)}.ahead.org{background:var(--blue-soft)}.ahead.admin{background:var(--sand-soft)}.ahead.resume{background:var(--lime-soft)}
+.ahead.g-cross{background:var(--card);border-left:6px solid var(--lime)}
 .ahead .t{flex:1 1 300px;min-width:0}
 .ahead .links{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:13px}
 .ahead .links a{font-weight:700}
@@ -304,6 +387,38 @@ a.dep:hover{border-color:var(--ink)}
 .drawer table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0 16px}
 .drawer td,.drawer th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left}
 .drawer h2{font-size:18px;margin-bottom:8px}
+.bench{background:var(--blue-soft);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.bench h4{color:var(--s-prog)}
+.sec{margin:28px 0 12px}
+.sec h2{font-size:22px;font-weight:800;letter-spacing:-.01em;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.sec h2 small{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0}
+.sec p{color:var(--muted);font-size:14px;margin-top:2px;max-width:70ch}
+.sec .grid{margin-top:14px}
+.refbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:16px 0 0;font-size:14px}
+.refbar a.btn{text-decoration:none}
+.refbar .docs{display:flex;flex-wrap:wrap;gap:6px 14px}
+.refbar .docs a{font-weight:700}
+.vhead{margin:6px 0 4px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.vhead h2{font-size:24px;font-weight:800;letter-spacing:-.01em}
+.vhead label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);font-weight:600}
+.vhead select{height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:0 10px;min-width:0;max-width:100%}
+.pgrp{margin-top:22px}
+.pgrp .ph{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:8px;font-size:14px}
+.pgrp .ph .bar{flex:1 1 120px;max-width:260px}
+.pgrp .ph span.sub2{color:var(--muted);font-weight:600}
+.erows{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.erow{display:grid;grid-template-columns:54px minmax(0,1fr) 180px 140px 110px;gap:4px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.erow:last-child{border-bottom:0}
+a.erow:hover{background:color-mix(in srgb,var(--lime) 8%,transparent)}
+.erow.eh2{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;background:var(--bg);padding-top:7px;padding-bottom:7px}
+.erow .en{min-width:0}
+.erow .en b{display:block;font-size:14px;overflow-wrap:anywhere}
+.erow .en span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.erow .ea{font-size:12px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.erow .ep{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;min-width:0}
+.erow .ep .bar{flex:1;min-width:30px}
+.erow .ec{font-size:12px;color:var(--muted);white-space:nowrap}
+.erow .em{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
 .foot{margin-top:30px;color:var(--muted);font-size:12px}
 noscript{display:block;padding:20px}
 @media (max-width:640px){
@@ -314,6 +429,11 @@ noscript{display:block;padding:20px}
   .toolbar{position:static}
   .toolbar select{flex:1 1 40%}
   .top{padding:16px}
+  .erow{grid-template-columns:48px minmax(0,1fr);padding:11px 14px}
+  .erow.eh2{display:none}
+  .erow .en{grid-column:2}
+  .erow .ea,.erow .ep,.erow .ec,.erow .em{grid-column:2;text-align:left}
+  .erow .en span{white-space:normal}
 }
 @media print{
   body{background:#fff;color:#000}.toolbar,.btn,.linkbtn,.drawer{display:none!important}
@@ -355,7 +475,8 @@ noscript{display:block;padding:20px}
   </tbody></table>
   <p class="rule"><span class="pr pr-P0">P0</span> must ship for launch, <span class="pr pr-P1">P1</span> next, <span class="pr pr-P2">P2</span> later. P0 progress counts only stories in P0 epics. <span class="star">&#9733;</span> marks a critical story. <span class="gz">Gen Z</span> marks an epic whose stories explain why younger users will love it. A dashed chip is a dependency that is not in any roadmap file.</p>
   <p class="rule" style="margin-top:10px">"Next up" lists the first not-started stories in P0 epics whose dependencies are all done.</p>
-  <p class="rule" style="margin-top:10px">Shortcuts: / focuses search. Links like #/user/U2/U2.3 open a story directly.</p>
+  <p class="rule" style="margin-top:10px">A story's <b>Benchmark</b> says which competitor bar it meets or beats. <b>Relates to</b> and <b>Supersedes</b> link to other stories, in any area. <b>G1, G2...</b> chips open a row of the competitive gaps document. A dashed chip points at an id that no roadmap file defines.</p>
+  <p class="rule" style="margin-top:10px">Shortcuts: / focuses search. Links like #/user/U2/U2.3 open a story directly; #/epics opens the flat list of every epic.</p>
 </aside>
 <noscript>This roadmap needs JavaScript to draw the drill-down.</noscript>
 <script>
@@ -378,6 +499,10 @@ DATA.areas.forEach(function(a){areaByKey[a.key]=a;a.epics.forEach(function(e){
   e.stories.forEach(function(s){s.area=a;s.epicObj=e;storyById[s.id]={area:a,epic:e,story:s};allStories.push(s)})
 })});
 allStories.forEach(function(s){s.deps.forEach(function(d){(revDeps[d]=revDeps[d]||[]).push(s.id)})});
+var revSup={},prefixArea={},gapsDoc=null,allEpics=[];
+DATA.docs.forEach(function(d){if(/GAPS/.test(d.href))gapsDoc=d.href});
+DATA.areas.forEach(function(a){if(a.prefix)prefixArea[a.prefix]=a;a.epics.forEach(function(e){allEpics.push(e)})});
+allStories.forEach(function(s){s.supersedes.forEach(function(d){(revSup[d]=revSup[d]||[]).push(s.id)})});
 DATA.areas.forEach(function(a){
   var all=[],p0=[];a.epics.forEach(function(e){all=all.concat(e.stories);if(e.priority==="P0")p0=p0.concat(e.stories)});
   a.stories=all;a.pct=pctOf(all);a.p0pct=p0.length?pctOf(p0):null;
@@ -416,7 +541,14 @@ function depChip(id){
   if(s){var a=el("a","dep d-"+s.story.status,null,{href:href(s.area.key,s.epic.id,s.story.id),title:s.story.title+" ("+SL[s.story.status]+")"});add(a,el("i"),el("span",null,id));return a}
   var e=epicById[id];
   if(e){var a2=el("a","dep",null,{href:href(e.area.key,e.epic.id),title:"Epic: "+e.epic.name});add(a2,el("i"),el("span",null,id+" (epic)"));return a2}
+  if(/^G\d+$/.test(id)&&gapsDoc){var g=el("a","dep",null,{href:gapsDoc,target:"_blank",rel:"noopener",title:"Competitive gap row "+id+" (open the gaps document)"});add(g,el("i"),el("span",null,id+" (gap)"));return g}
+  var pa=prefixArea[id];
+  if(pa&&!pa.pending){var a3=el("a","dep",null,{href:href(pa.key),title:"Area: "+pa.name});add(a3,el("i"),el("span",null,id+" (area)"));return a3}
   var x=el("span","dep x",null,{title:"Not in any roadmap file"});add(x,el("i"),el("span",null,id));return x;
+}
+function refBlock(title,ids){
+  if(!ids.length)return null;
+  var p=el("div");p.appendChild(el("h4",null,title));var r=el("div","depsrow");ids.forEach(function(x){r.appendChild(depChip(x))});p.appendChild(r);return p;
 }
 
 function matches(s){
@@ -432,7 +564,7 @@ function renderTop(){
   var t=$("top");t.textContent="";
   var d=el("div","t");
   add(d,el("div","eyebrow","Kiwiply product roadmap"),el("h1",null,"The big app roadmap"),
-    el("p","sub","Four product areas. Open one to see its feature boxes, open a feature to see its stories, open a story for the details."));
+    el("p","sub",plural(live.length,"area")+" in three groups. Open one to see its feature boxes, open a feature to see its stories, open a story for the details. Or list every feature box in one place."));
   var m=el("div","meta");
   var done=live.reduce(function(n,a){return n+a.counts.done},0),total=live.reduce(function(n,a){return n+a.stories.length},0);
   add(m,el("span",null,done+" of "+total+" stories done"),
@@ -458,10 +590,35 @@ function p0line(a){
   add(w,el("span",null,"P0 "+fmt(a.p0pct)+"%"),bar(a.p0pct,"p0"));return w;
 }
 
+function docLinks(list){
+  var w=el("span","docs");
+  list.forEach(function(d){w.appendChild(el("a",null,d.label,{href:d.href,target:"_blank",rel:"noopener"}))});
+  return w;
+}
+function renderRef(m){
+  var r=el("div","refbar fade");
+  var b=el("a","btn primary","All epics ("+allEpics.length+")",{href:"#/epics"});
+  r.appendChild(b);
+  if(DATA.docs.length){r.appendChild(el("span","rule","Market research:"));r.appendChild(docLinks(DATA.docs))}
+  m.appendChild(r);
+}
 function renderAreas(m){
+  renderRef(m);
+  DATA.groups.forEach(function(gr){
+    var list=DATA.areas.filter(function(a){return a.group===gr.key});
+    if(!list.length)return;
+    var live2=list.filter(function(a){return !a.pending}),st=live2.reduce(function(x,a){return x.concat(a.stories)},[]);
+    var sec=el("div","sec"),h=el("h2",null,gr.title);
+    h.appendChild(el("small",null,plural(list.length,"area")+" | "+plural(st.length,"story").replace("storys","stories")+" | "+fmt(pctOf(st))+"%"));
+    add(sec,h,el("p",null,gr.blurb));
+    m.appendChild(sec);
+    areaGrid(m,list);
+  });
+}
+function areaGrid(m,list){
   var g=el("div","grid areas fade");
-  DATA.areas.forEach(function(a){
-    var b=el("section","abox "+a.key+(a.pending?" pending":""));
+  list.forEach(function(a){
+    var b=el("section","abox "+a.key+" g-"+a.group+(a.pending?" pending":""));
     var hd=el("div","hd");
     var t=el("div",null);t.style.flex="1";t.style.minWidth="0";
     var h=el("h2");add(h,el("span","pfx",a.prefix),document.createTextNode(a.name));
@@ -519,11 +676,12 @@ function detailNode(s){
   var d=el("div","detail fade",null,{id:"d-"+s.id,role:"region","aria-label":"Details for "+s.id});
   if(s.story)d.appendChild(el("p","said",s.story));
   if(s.genz){var g=el("div","genz");add(g,el("h4",null,"Why Gen Z/Alpha will love it"),el("p",null,s.genz));d.appendChild(g)}
+  if(s.benchmark){var bm=el("div","bench");add(bm,el("h4",null,"Benchmark"),el("p",null,s.benchmark));d.appendChild(bm)}
   var c=el("div","dcols");add(c,listBlock("Acceptance criteria",s.ac),listBlock("Tests",s.tests));if(c.childNodes.length)d.appendChild(c);
   if(s.tech){var t=el("div");add(t,el("h4",null,"Tech notes"),el("div","tech",s.tech));d.appendChild(t)}
   add(d,listBlock("Evidence (files)",s.evidence,true));
   if(s.design){var dd=el("div");dd.appendChild(el("h4",null,"Design doc"));dd.appendChild(el("a",null,s.design.replace(/^\.\.\//,"docs/"),{href:s.design,target:"_blank",rel:"noopener"}));d.appendChild(dd)}
-  if(s.deps.length){var p=el("div");p.appendChild(el("h4",null,"Depends on"));var r=el("div","depsrow");s.deps.forEach(function(x){r.appendChild(depChip(x))});p.appendChild(r);d.appendChild(p)}
+  add(d,refBlock("Depends on",s.deps),refBlock("Relates to",s.relates),refBlock("Supersedes",s.supersedes),refBlock("Superseded by",revSup[s.id]||[]));
   var rv=(revDeps[s.id]||[]).concat(revDeps[s.epic]||[]);
   if(rv.length){var q=el("div");q.appendChild(el("h4",null,"Unblocks"));var r2=el("div","depsrow");rv.forEach(function(x){r2.appendChild(depChip(x))});q.appendChild(r2);d.appendChild(q)}
   var ft=el("div","depsrow");add(ft,chip(s.status),el("span","own","Size "+s.size),el("span","own","Epic "+s.epic+" "+s.epicObj.priority));d.appendChild(ft);
@@ -562,13 +720,15 @@ function epicNodes(a,e,grid){
 }
 
 function renderArea(a,m){
-  var h=el("section","ahead "+a.key);
+  var h=el("section","ahead "+a.key+" g-"+a.group);
   var t=el("div","t");
   var hh=el("h2");hh.style.fontSize="24px";add(hh,el("span","pfx",a.prefix),document.createTextNode(a.name));
-  add(t,hh,el("p","sub",a.summary),counts(a),p0line(a));
+  add(t,hh,a.fullName?el("p","rule",a.fullName+(a.kind?" ("+a.kind+")":"")):null,el("p","sub",a.summary),counts(a),p0line(a));
   var lk=el("div","links");
   if(a.planHref)lk.appendChild(el("a",null,"Plan",{href:a.planHref,target:"_blank",rel:"noopener"}));
   if(a.audit)lk.appendChild(el("a",null,"Audit",{href:a.audit,target:"_blank",rel:"noopener"}));
+  (a.docs||[]).forEach(function(d){lk.appendChild(el("a",null,d.label,{href:d.href,target:"_blank",rel:"noopener"}))});
+  DATA.docs.forEach(function(d){lk.appendChild(el("a",null,d.label,{href:d.href,target:"_blank",rel:"noopener"}))});
   if(lk.childNodes.length)t.appendChild(lk);
   add(h,t,ring(a.pct,100,a.name+" "+fmt(a.pct)+" percent"));
   m.appendChild(h);
@@ -580,6 +740,62 @@ function renderArea(a,m){
   m.appendChild(g);
   if(!eps.length)m.appendChild(el("div","empty","No epics have stories matching the filters."));
   else if(hidden)m.appendChild(el("p","rule","\u00a0"+plural(hidden,"epic")+" hidden by filters."));
+}
+
+var sortMode="area";
+var PRI={P0:"Must ship for launch",P1:"Next",P2:"Later"};
+var SORTS=[["area","Area order"],["prog-asc","Least done first"],["prog-desc","Most done first"],["stories","Most stories first"],["name","Name A to Z"]];
+function renderEpics(m){
+  var vh=el("div","vhead fade");
+  var h=el("h2",null,"All epics");
+  var lab=el("label",null,"Sort within priority ");
+  var sel=el("select",null,null,{"data-k":"sort"});
+  SORTS.forEach(function(o){var op=el("option",null,o[1]);op.value=o[0];if(o[0]===sortMode)op.selected=true;sel.appendChild(op)});
+  sel.addEventListener("change",function(){sortMode=sel.value;focusKey="sort";render()});
+  lab.appendChild(sel);add(vh,h,lab);m.appendChild(vh);
+  var rows=[];
+  allEpics.forEach(function(e,i){
+    var vis=e.stories.filter(matches);
+    if(filtering()&&!vis.length)return;
+    rows.push({e:e,i:i,vis:vis});
+  });
+  m.appendChild(el("p","rule","Every feature box across "+plural(live.length,"area")+", grouped by priority. "+(filtering()?rows.length+" of "+allEpics.length+" epics match the filters. ":"")+"Open a row to jump to that epic in its area."));
+  if(!rows.length){m.appendChild(el("div","empty","No epics have stories matching the filters."));return}
+  var cmp={
+    "area":function(a,b){return a.i-b.i},
+    "prog-asc":function(a,b){return a.e.pct-b.e.pct||a.i-b.i},
+    "prog-desc":function(a,b){return b.e.pct-a.e.pct||a.i-b.i},
+    "stories":function(a,b){return b.e.stories.length-a.e.stories.length||a.i-b.i},
+    "name":function(a,b){return a.e.name.localeCompare(b.e.name)||a.i-b.i}
+  }[sortMode];
+  var pris=["P0","P1","P2"];
+  rows.forEach(function(r){if(pris.indexOf(r.e.priority)<0)pris.push(r.e.priority)});
+  pris.forEach(function(p){
+    var g=rows.filter(function(r){return r.e.priority===p});
+    if(!g.length)return;
+    g.sort(cmp);
+    var all=g.reduce(function(x,r){return x.concat(r.e.stories)},[]);
+    var grp=el("section","pgrp fade");
+    var ph=el("div","ph");
+    add(ph,prChip(p),el("b",null,PRI[p]||"Other"),el("span","sub2",plural(g.length,"epic")+" | "+plural(all.length,"story").replace("storys","stories")+" | "+fmt(pctOf(all))+"%"),bar(pctOf(all),p==="P0"?"p0":""));
+    grp.appendChild(ph);
+    var box=el("div","erows");
+    var hd=el("div","erow eh2",null,{"aria-hidden":"true"});
+    add(hd,el("span",null,"Epic"),el("span",null,"Name and goal"),el("span",null,"Area"),el("span",null,"Progress"),el("span","em","Stories"));
+    box.appendChild(hd);
+    g.forEach(function(r){
+      var e=r.e,a=e.area;
+      var doneN=e.stories.filter(function(s){return s.status==="done"}).length;
+      var row=el("a","erow",null,{href:href(a.key,e.id),title:a.name+" | "+e.id+" "+e.name});
+      var en=el("div","en");add(en,el("b",null,e.name),el("span",null,e.goal||"No summary yet."));
+      var ar=el("span","ea");add(ar,el("span","pfx",a.prefix),document.createTextNode(a.name));
+      var ep=el("div","ep");add(ep,bar(e.pct,e.priority==="P0"?"p0":""),el("span",null,fmt(e.pct)+"%"));
+      var cnt=filtering()?r.vis.length+" of "+e.stories.length:String(e.stories.length);
+      add(row,el("span","eid",e.id),en,ar,ep,el("span","em",cnt+" | "+doneN+" done"));
+      box.appendChild(row);
+    });
+    grp.appendChild(box);m.appendChild(grp);
+  });
 }
 
 function renderResults(m){
@@ -601,6 +817,7 @@ function renderCrumb(){
   var c=$("crumb");c.textContent="";
   var parts=[];
   parts.push({t:"All areas",h:"#/"});
+  if(route.view==="epics")parts.push({t:"All epics",h:"#/epics"});
   if(route.area&&areaByKey[route.area])parts.push({t:areaByKey[route.area].name,h:href(route.area)});
   if(route.epic&&epicById[route.epic])parts.push({t:route.epic+" "+epicById[route.epic].epic.name,h:href(route.area,route.epic)});
   if(route.story&&storyById[route.story])parts.push({t:route.story,h:href(route.area,route.epic,route.story)});
@@ -617,7 +834,9 @@ function render(){
   var a=route.area&&areaByKey[route.area];
   var inArea=a&&!a.pending;
   $("exp").hidden=$("col").hidden=!inArea;
-  if(filtering()&&!(inArea&&!F.q))renderResults(m);
+  var isEpics=route.view==="epics";
+  if(isEpics&&!F.q)renderEpics(m);
+  else if(filtering()&&!(inArea&&!F.q))renderResults(m);
   else if(inArea)renderArea(a,m);
   else renderAreas(m);
   if(focusKey){var f=m.querySelector('[data-k="'+focusKey+'"]');if(f)f.focus({preventScroll:true});focusKey=null}
@@ -625,8 +844,9 @@ function render(){
 
 function parse(){
   var p=(location.hash||"").replace(/^#\/?/,"").split("/").filter(Boolean).map(decodeURIComponent);
-  var r={area:"",epic:"",story:""};
-  if(p[0]&&areaByKey[p[0]]){r.area=p[0];
+  var r={area:"",epic:"",story:"",view:""};
+  if(p[0]==="epics")r.view="epics";
+  else if(p[0]&&areaByKey[p[0]]){r.area=p[0];
     if(p[1]&&epicById[p[1]]&&epicById[p[1]].area.key===p[0]){r.epic=p[1];
       if(p[2]&&storyById[p[2]]&&storyById[p[2]].epic.id===p[1])r.story=p[2]}}
   return r;
@@ -671,7 +891,7 @@ $("q").addEventListener("input",function(){clearTimeout(tm);tm=setTimeout(functi
 [["fs","status"],["fp","pri"],["fo","owner"]].forEach(function(x){$(x[0]).addEventListener("change",function(){F[x[1]]=$(x[0]).value;render()})});
 window.addEventListener("hashchange",onRoute);
 window.addEventListener("beforeprint",function(){var a=areaByKey[route.area];if(a&&!a.pending)setAll(true)});
-$("foot").textContent="Generated by docs/roadmap/build-master-roadmap.mjs from the area plan files. Do not edit by hand.";
+$("foot").textContent="Generated by docs/roadmap/build-master-roadmap.mjs from the area plan files. Do not edit by hand."+(DATA.warnings.dangling.length?" "+plural(DATA.warnings.dangling.length,"referenced id")+" match no story or epic (dashed chips); run the generator with --list to see them.":"");
 renderTop();onRoute();
 })();
 </script>
