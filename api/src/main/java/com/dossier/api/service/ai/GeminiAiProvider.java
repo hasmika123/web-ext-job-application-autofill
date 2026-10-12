@@ -9,6 +9,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,21 +66,58 @@ public class GeminiAiProvider implements AiProvider {
         """;
     // spotless:on
 
-    private final String baseUrl;
+    /** The default per-call HTTP timeout (design 3.2: {@code ai.provider.gemini.timeout_ms}). */
+    static final int DEFAULT_TIMEOUT_MS = 30_000;
+    /** A resume parse reads a whole document, so it waits at least this long whatever the provider timeout. */
+    static final int PARSE_MIN_TIMEOUT_MS = 60_000;
+
+    private final Supplier<String> baseUrl;
     private final String model;
     private final String apiKey;
     private final int maxOutputTokens;
     private final int parseMaxOutputTokens;
+    private final IntSupplier timeoutMs;
     private final HttpClient http;
+    private final AiKeyScrubber scrubber;
     private final ObjectMapper om = new ObjectMapper();
 
+    /** Fixed base URL and timeout - the pre-I1.10 shape, kept for tests and simple callers. */
     public GeminiAiProvider(String baseUrl, String model, String apiKey, int maxOutputTokens, int parseMaxOutputTokens) {
-        this.baseUrl = baseUrl == null ? "" : baseUrl;
+        this(() -> baseUrl, model, apiKey, () -> DEFAULT_TIMEOUT_MS, maxOutputTokens, parseMaxOutputTokens, defaultClient(), new AiKeyScrubber(java.util.List.of(apiKey == null ? "" : apiKey)));
+    }
+
+    /**
+     * @param baseUrl   read on EVERY call, so an admin edit of the base URL applies without a restart
+     * @param timeoutMs read on every call (the provider timeout setting)
+     * @param http      injectable so the contract test can stub the wire
+     */
+    public GeminiAiProvider(
+        Supplier<String> baseUrl,
+        String model,
+        String apiKey,
+        IntSupplier timeoutMs,
+        int maxOutputTokens,
+        int parseMaxOutputTokens,
+        HttpClient http,
+        AiKeyScrubber scrubber
+    ) {
+        this.baseUrl = baseUrl;
         this.model = model;
         this.apiKey = apiKey;
+        this.timeoutMs = timeoutMs;
         this.maxOutputTokens = maxOutputTokens;
         this.parseMaxOutputTokens = parseMaxOutputTokens;
-        this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        this.http = http;
+        this.scrubber = scrubber;
+    }
+
+    static HttpClient defaultClient() {
+        return HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    }
+
+    @Override
+    public String id() {
+        return "gemini";
     }
 
     @Override
@@ -102,13 +141,19 @@ public class GeminiAiProvider implements AiProvider {
 
     @Override
     public AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) throws AiProviderException {
+        return generateWithTimeout(task, model, question, context, maxOutputTokens, timeoutMs.getAsInt());
+    }
+
+    @Override
+    public AiResult generateWithTimeout(AiTask task, String model, String question, String context, int maxOutputTokens, int timeoutMillis)
+        throws AiProviderException {
         if (!isConfigured()) {
-            throw new AiProviderException("AI provider is not configured");
+            throw new AiProviderException("AI provider is not configured", AiErrorKind.UNCONFIGURED);
         }
         String m = modelOr(model);
-        AiResult r = toResult(send(generateBody(task, question, context, maxOutputTokens), Duration.ofSeconds(30), m), m);
+        AiResult r = toResult(send(generateBody(task, question, context, maxOutputTokens), Duration.ofMillis(timeoutMillis), m), m);
         if (r.text() == null || r.text().isBlank()) {
-            throw new AiProviderException("Gemini returned an empty answer");
+            throw new AiProviderException("Gemini returned an empty answer", AiErrorKind.EMPTY);
         }
         return r;
     }
@@ -246,8 +291,13 @@ public class GeminiAiProvider implements AiProvider {
 
     @Override
     public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) throws AiProviderException {
+        return parseResume(model, text, fileBase64, fileMimeType, 0);
+    }
+
+    @Override
+    public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType, int maxOut) throws AiProviderException {
         if (!isConfigured()) {
-            throw new AiProviderException("AI provider is not configured");
+            throw new AiProviderException("AI provider is not configured", AiErrorKind.UNCONFIGURED);
         }
 
         // { systemInstruction, contents:[{parts:[...]}],
@@ -272,7 +322,7 @@ public class GeminiAiProvider implements AiProvider {
             parts.addObject().put("text", "Resume text:\n\n" + t);
         }
         ObjectNode genCfg = body.putObject("generationConfig");
-        genCfg.put("maxOutputTokens", parseMaxOutputTokens);
+        genCfg.put("maxOutputTokens", maxOut > 0 ? maxOut : parseMaxOutputTokens);
         genCfg.put("responseMimeType", "application/json");
         try {
             genCfg.set("responseSchema", om.readTree(RESUME_SCHEMA_JSON));
@@ -282,41 +332,53 @@ public class GeminiAiProvider implements AiProvider {
 
         // Files take longer than short drafts — allow a roomier timeout.
         String m = modelOr(model);
-        AiResult r = toResult(send(body, Duration.ofSeconds(60), m), m);
+        int parseTimeout = Math.max(timeoutMs.getAsInt(), PARSE_MIN_TIMEOUT_MS);
+        AiResult r = toResult(send(body, Duration.ofMillis(parseTimeout), m), m);
         String json = r.text();
         if (json == null || json.isBlank()) {
-            throw new AiProviderException("Gemini returned an empty parse");
+            throw new AiProviderException("Gemini returned an empty parse", AiErrorKind.EMPTY);
         }
         // Validate it's real JSON before handing it downstream (schema mode makes
         // failures rare, but a truncated response is still possible).
         try {
             om.readTree(json);
         } catch (Exception e) {
-            throw new AiProviderException("Gemini returned unparseable JSON", e);
+            throw new AiProviderException("Gemini returned unparseable JSON", AiErrorKind.BAD_JSON, e);
         }
         return r;
     }
 
-    /** POST the request body to generateContent and return the raw response body. */
+    /**
+     * POST the request body to generateContent and return the raw response body. The key travels in the
+     * {@code x-goog-api-key} header, never in the URL, so no URI, exception message or access log can carry it.
+     */
     private String send(ObjectNode body, Duration timeout, String model) throws AiProviderException {
-        String url = baseUrl.replaceAll("/+$", "") + "/models/" + model + ":generateContent?key=" + apiKey;
+        String url = baseUrl.get().replaceAll("/+$", "") + "/models/" + model + ":generateContent";
 
         HttpResponse<String> res;
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(timeout)
                 .header("Content-Type", "application/json")
+                .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(om.writeValueAsString(body)))
                 .build();
             res = http.send(req, HttpResponse.BodyHandlers.ofString());
+        } catch (java.net.http.HttpTimeoutException e) {
+            throw new AiProviderException("Gemini request timed out", AiErrorKind.TIMEOUT, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AiProviderException("Gemini request interrupted", AiErrorKind.TRANSPORT, e);
+        } catch (java.io.IOException e) {
+            throw new AiProviderException("Gemini request failed: " + scrubber.scrub(e.getClass().getSimpleName()), AiErrorKind.TRANSPORT, e);
         } catch (Exception e) {
-            throw new AiProviderException("Gemini request failed", e);
+            throw new AiProviderException("Gemini request failed", AiErrorKind.UNKNOWN, e);
         }
 
         if (res.statusCode() < 200 || res.statusCode() >= 300) {
-            // Don't leak the key or the full body; log a trimmed message server-side.
-            LOG.warn("Gemini returned {}: {}", res.statusCode(), trim(res.body()));
-            throw new AiProviderException("Gemini returned HTTP " + res.statusCode());
+            // Don't leak the key or the full body; log a trimmed, scrubbed message server-side.
+            LOG.warn("Gemini returned {}: {}", res.statusCode(), scrubber.scrub(trim(res.body())));
+            throw new AiProviderException("Gemini returned HTTP " + res.statusCode(), res.statusCode(), null);
         }
         return res.body();
     }
@@ -358,7 +420,7 @@ public class GeminiAiProvider implements AiProvider {
             String served = root.path("modelVersion").asText("");
             return new AiResult(sb.toString().trim(), served.isBlank() ? requestedModel : served, prompt - cached, cached, output);
         } catch (Exception e) {
-            throw new AiProviderException("Could not parse Gemini response", e);
+            throw new AiProviderException("Could not parse Gemini response", AiErrorKind.BAD_JSON, e);
         }
     }
 
