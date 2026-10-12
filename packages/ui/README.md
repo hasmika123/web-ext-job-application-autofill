@@ -22,7 +22,7 @@ Concretely:
   which `next/og` requires to be self-contained).
 - **Primitives** → `src/primitives/`. Button, IconButton, Input, Select, Field, Card, Badge
   (+ Pill/Tag), Switch, ChoiceGroup, Meter, Tabs, Toast (`ToastProvider`/`useToast`), Skeleton, Spinner,
-  EmptyState, Dialog, SidePanel, Tooltip, Menu, Brand marks. Export new ones from
+  EmptyState, Dialog, SidePanel, SideSheet (left/right slide-in: push / overlay / fullscreen; the Resume Builder's two side-navs), Tooltip, Menu, Brand marks. Export new ones from
   `src/index.ts`.
 - **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`
   (13.3 — one resume against one job, shown the same in the drawer and on the board) and

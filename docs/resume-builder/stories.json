@@ -583,7 +583,7 @@
       "id": "R2.9",
       "epic": "R2",
       "title": "`SideSheet` primitive (left/right slide-in, push/overlay/fullscreen) + editor UI state (`ui.ts`)",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "ui",
