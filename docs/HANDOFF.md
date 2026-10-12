@@ -1,3 +1,7 @@
+> **Branch `product-roadmap` (whole-product roadmap, Resume Builder design, 2026-10-11): start from
+> [`HANDOFF-ROADMAP.md`](HANDOFF-ROADMAP.md)** — exact continuation point (8 cross-cutting areas still to plan,
+> use Sonnet), branch map, decisions, open questions. App work on `version2`: see `HANDOFF-V2.md`.
+
 # HANDOFF.md — start here in a new chat
 
 > **⚠️ Branch `version2` (landing/app redesign, 2026-10-10/11): start from
