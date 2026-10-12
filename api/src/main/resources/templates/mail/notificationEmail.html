@@ -1,0 +1,18 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
+  <head>
+    <title th:text="${subject}">Notification</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #232826; line-height: 1.5">
+    <p th:text="#{email.notification.greeting(${name})}">Hi Sam,</p>
+    <p style="color: #6b726e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em" th:text="${kind}">Kind</p>
+    <p style="font-weight: 600" th:text="${subject}">Title</p>
+    <p th:if="${body != null}" th:text="${body}">Body</p>
+    <p>
+      <a th:href="${link}" th:text="#{email.notification.link}" style="color: #4c7a1f; font-weight: 600">Open Kiwiply</a>
+    </p>
+    <p style="color: #6b726e; font-size: 12px" th:text="#{email.notification.footer}">Footer</p>
+    <p><em th:text="#{email.signature}">Kiwiply Team.</em></p>
+  </body>
+</html>

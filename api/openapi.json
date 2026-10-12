@@ -51,6 +51,9 @@
     "name" : "resume-match",
     "description" : "Score the user's resumes against a job description (Pro)."
   }, {
+    "name" : "notification-preferences",
+    "description" : "Which notifications reach me, by kind and channel; quiet hours; time zone."
+  }, {
     "name" : "resume-builder",
     "description" : "Resume Builder documents: create, load, save with ETag/If-Match, template, plain text."
   }, {
@@ -458,6 +461,60 @@
         } ]
       }
     },
+    "/api/profile/notification-preferences" : {
+      "get" : {
+        "tags" : [ "notification-preferences" ],
+        "summary" : "My notification preferences",
+        "description" : "Defaults (admin-configured) until the first save; stored=false says which.",
+        "operationId" : "mine",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/View"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "put" : {
+        "tags" : [ "notification-preferences" ],
+        "summary" : "Save my notification preferences",
+        "description" : "Autosave target: send the whole panel; 422 on an unknown kind, time or zone.",
+        "operationId" : "update",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Update"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/View"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/job-matches/settings" : {
       "get" : {
         "tags" : [ "job-matches" ],
@@ -516,7 +573,7 @@
         "tags" : [ "profile-items" ],
         "summary" : "Update a profile item",
         "description" : "Partial: only the fields sent change. 404 if not owned.",
-        "operationId" : "update",
+        "operationId" : "update_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -829,7 +886,7 @@
         "tags" : [ "interviews" ],
         "summary" : "Change an interview",
         "description" : "Partial: only the fields sent change; null clears endsAt, tz, location, interviewer and notes. The outcome is set with POST .../outcome. 404 if not owned.",
-        "operationId" : "update_1",
+        "operationId" : "update_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -1693,7 +1750,7 @@
     "/api/admin/inquiries/{id}" : {
       "put" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "update_2",
+        "operationId" : "update_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -1755,7 +1812,7 @@
       },
       "put" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "update_3",
+        "operationId" : "update_4",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -3086,7 +3143,7 @@
       "get" : {
         "tags" : [ "inbox" ],
         "summary" : "The connected inbox, if any",
-        "operationId" : "mine",
+        "operationId" : "mine_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6439,7 +6496,7 @@
       },
       "patch" : {
         "tags" : [ "org-group-resource" ],
-        "operationId" : "update_4",
+        "operationId" : "update_5",
         "parameters" : [ {
           "name" : "groupId",
           "in" : "path",
@@ -7150,7 +7207,7 @@
       "get" : {
         "tags" : [ "notifications" ],
         "summary" : "The latest notifications and how many are unread",
-        "operationId" : "mine_1",
+        "operationId" : "mine_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -7423,7 +7480,7 @@
     "/api/orgs/mine" : {
       "get" : {
         "tags" : [ "org-resource" ],
-        "operationId" : "mine_2",
+        "operationId" : "mine_3",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9387,6 +9444,118 @@
           }
         }
       },
+      "EntryIn" : {
+        "type" : "object",
+        "properties" : {
+          "inapp" : {
+            "type" : "boolean"
+          },
+          "email" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Update" : {
+        "type" : "object",
+        "properties" : {
+          "matrix" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/EntryIn"
+            }
+          },
+          "quietStart" : {
+            "type" : "string"
+          },
+          "quietEnd" : {
+            "type" : "string"
+          },
+          "tz" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Entry" : {
+        "type" : "object",
+        "properties" : {
+          "inapp" : {
+            "type" : "boolean"
+          },
+          "email" : {
+            "type" : "string"
+          }
+        }
+      },
+      "KindInfo" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "locked" : {
+            "type" : "boolean"
+          },
+          "lockedWhy" : {
+            "type" : "string"
+          }
+        }
+      },
+      "QuietDefaults" : {
+        "type" : "object",
+        "properties" : {
+          "start" : {
+            "type" : "string"
+          },
+          "end" : {
+            "type" : "string"
+          }
+        }
+      },
+      "View" : {
+        "type" : "object",
+        "properties" : {
+          "matrix" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/Entry"
+            }
+          },
+          "quietStart" : {
+            "type" : "string"
+          },
+          "quietEnd" : {
+            "type" : "string"
+          },
+          "tz" : {
+            "type" : "string"
+          },
+          "stored" : {
+            "type" : "boolean"
+          },
+          "emailEnabled" : {
+            "type" : "boolean"
+          },
+          "quietDefaults" : {
+            "$ref" : "#/components/schemas/QuietDefaults"
+          },
+          "kinds" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/KindInfo"
+            }
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "SettingVM" : {
         "type" : "object",
         "properties" : {
@@ -9476,41 +9645,6 @@
         "type" : "object",
         "properties" : {
           "email" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "View" : {
-        "type" : "object",
-        "properties" : {
-          "available" : {
-            "type" : "boolean"
-          },
-          "connected" : {
-            "type" : "boolean"
-          },
-          "address" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "connectedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "lastCheckedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "lastError" : {
-            "type" : "string"
-          },
-          "messages" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "notifyEmail" : {
             "type" : "boolean"
           }
         }

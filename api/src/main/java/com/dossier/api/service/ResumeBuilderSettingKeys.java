@@ -200,6 +200,14 @@ public final class ResumeBuilderSettingKeys {
     public static final String TRACKER_INTERVIEWS_MAX_RANGE_DAYS = "tracker.interviews.maxRangeDays";
     public static final String TRACKER_INTERVIEWS_LIST_MAX = "tracker.interviews.listMax";
 
+    // ---- Notifications (E2E-U7.0, docs/design/user/alerts-notifications.md) ---
+    public static final String NOTIFY_DEFAULTS = "notifications.defaults";
+    public static final String NOTIFY_EMAIL_ENABLED = "notifications.email.enabled";
+    public static final String NOTIFY_QUIET_DEFAULT_ENABLED = "notifications.quiet.defaultEnabled";
+    public static final String NOTIFY_QUIET_START_HOUR = "notifications.quiet.defaultStartHour";
+    public static final String NOTIFY_QUIET_END_HOUR = "notifications.quiet.defaultEndHour";
+    public static final String NOTIFY_DEFAULT_TZ = "notifications.defaultTz";
+
     // ---- BFF rate limits ----------------------------------------------------
     public static final String RATE_DOC_WRITES_PER_MIN = "resume.rate.docWritesPerMin";
     public static final String RATE_AI_PER_MIN = "resume.rate.aiPerMin";
@@ -241,6 +249,11 @@ public final class ResumeBuilderSettingKeys {
         "\"Use AI suggestions to improve your content\",\"Keep one primary resume for quick applications\"]";
     public static final String DEFAULT_ONBOARDING_STEP_SECONDS = "{\"hello\":10,\"source\":40,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30}";
     public static final String DEFAULT_ONBOARDING_PAYOFF_ACTIONS = "[\"build_resume\",\"install_extension\",\"find_jobs\"]";
+    /** Out of the box: everything in-app; email only for the news worth an interruption and the locked kinds. */
+    public static final String DEFAULT_NOTIFY_MATRIX =
+        "{\"APP_STATUS\":{\"inapp\":true,\"email\":\"now\"},\"INTERVIEW_REMINDER\":{\"inapp\":true,\"email\":\"now\"}," +
+        "\"PROFILE_SUGGESTION\":{\"inapp\":true,\"email\":\"off\"},\"BILLING\":{\"inapp\":true,\"email\":\"now\"}," +
+        "\"SECURITY\":{\"inapp\":true,\"email\":\"now\"},\"SYSTEM\":{\"inapp\":true,\"email\":\"off\"}}";
     public static final String DEFAULT_DISCOURAGED_REGIONS ="[\"US\",\"CA\",\"GB\",\"AU\",\"IE\",\"NZ\"]";
 
     private static final Pattern HEX = Pattern.compile("#[0-9a-fA-F]{6}");
@@ -487,6 +500,21 @@ public final class ResumeBuilderSettingKeys {
             )
         );
 
+        // Notifications (E2E-U7.0). Quiet hours are off by default; the window below is what switching them on offers.
+        k.add(
+            json(
+                NOTIFY_DEFAULTS,
+                DEFAULT_NOTIFY_MATRIX,
+                "Per-kind notification defaults {KIND: {inapp: bool, email: off|now}} for users who have not set their own; kinds left out fall back to in-app on, email off. BILLING and SECURITY are always on.",
+                ResumeBuilderSettingKeys::notifyMatrix
+            )
+        );
+        bool(k, NOTIFY_EMAIL_ENABLED, true, "Notification emails (the kill switch: off sends none, in-app notices still appear).");
+        bool(k, NOTIFY_QUIET_DEFAULT_ENABLED, false, "New users start with quiet hours on (emails held back during the window).");
+        integer(k, NOTIFY_QUIET_START_HOUR, 22, 0, 23, "Local hour quiet hours start at when a user switches them on.");
+        integer(k, NOTIFY_QUIET_END_HOUR, 8, 0, 23, "Local hour quiet hours end at when a user switches them on.");
+        k.add(new Key(NOTIFY_DEFAULT_TZ, Type.STRING, "UTC", null, null, null, "IANA time zone assumed for users who have not set one.", null));
+
         // BFF rate limits.
         integer(k, RATE_DOC_WRITES_PER_MIN, 120, 10, 1000, "Document writes per user per minute.");
         integer(k, RATE_AI_PER_MIN, 20, 10, 1000, "AI calls per user per minute.");
@@ -597,6 +625,20 @@ public final class ResumeBuilderSettingKeys {
             var e = it.next();
             if (!GROUP_OR_RULE_ID.matcher(e.getKey()).matches()) return false;
             if (!e.getValue().isIntegralNumber() || e.getValue().asInt() < lo || e.getValue().asInt() > hi) return false;
+        }
+        return true;
+    }
+
+    /** {KIND: {inapp: bool, email: off|now}}: every key a known notification kind, every value well shaped. */
+    private static boolean notifyMatrix(JsonNode n) {
+        if (!n.isObject()) return false;
+        for (var it = n.fields(); it.hasNext();) {
+            var e = it.next();
+            if (com.dossier.api.domain.enumeration.NotificationKind.parse(e.getKey()).isEmpty()) return false;
+            JsonNode v = e.getValue();
+            if (!v.isObject() || !v.path("inapp").isBoolean()) return false;
+            String email = v.path("email").asText("");
+            if (!email.equals("off") && !email.equals("now")) return false;
         }
         return true;
     }

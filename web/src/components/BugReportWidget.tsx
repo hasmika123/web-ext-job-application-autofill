@@ -110,6 +110,17 @@ export default function BugReportWidget() {
     setError(null);
   }
 
+  // Other parts of the app (Settings > Help & Support) open this same dialog instead of building a second report form.
+  useEffect(() => {
+    const openFromElsewhere = () => {
+      setNudge(false);
+      reset();
+      setOpen(true);
+    };
+    window.addEventListener("kiwiply:open-bug-report", openFromElsewhere);
+    return () => window.removeEventListener("kiwiply:open-bug-report", openFromElsewhere);
+  }, []);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!message.trim()) {
