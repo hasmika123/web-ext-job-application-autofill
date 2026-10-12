@@ -166,6 +166,8 @@ public class AccountDeletionService {
 
         // Resume Builder rows first (R0.1): documents reference their resume, and clearing them
         // before the resumes load keeps no stale builder entity in the session.
+        // That call also removes EVERY stored file the user owns (resume uploads and built PDFs, originals, photos,
+        // thumbnails, application attachments) by prefix, before any row goes.
         userRepository.findOneByLogin(login).map(User::getId).ifPresent(resumeBuilderDataService::deleteAllForUser);
         resumeBuilderDataService.deleteSharingAsViewer(login); // grants made to this user + views that name them (R3.11)
 
@@ -221,7 +223,7 @@ public class AccountDeletionService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such user"));
         Long userId = user.getId();
 
-        resumeBuilderDataService.deleteAllForUser(userId); // before the resumes: see deleteCurrentUserAccount
+        resumeBuilderDataService.deleteAllForUser(userId); // before the resumes (and removes every stored file): see deleteCurrentUserAccount
         resumeBuilderDataService.deleteSharingAsViewer(login);
 
         List<Resume> resumes = resumeRepository.findByUserId(userId);

@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StoredFileEraser;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
@@ -90,6 +91,7 @@ public class ProfileService {
     private final ResumeActors resumeActors;
     private final ResumeDocVersionService resumeDocVersionService;
     private final ResumeLineageService resumeLineageService;
+    private final StoredFileEraser storedFileEraser;
 
     public ProfileService(
         BioRepository bioRepository,
@@ -107,8 +109,10 @@ public class ProfileService {
         ResumeBuilderSettings settings,
         ResumeActors resumeActors,
         ResumeDocVersionService resumeDocVersionService,
-        ResumeLineageService resumeLineageService
+        ResumeLineageService resumeLineageService,
+        StoredFileEraser storedFileEraser
     ) {
+        this.storedFileEraser = storedFileEraser;
         this.settings = settings;
         this.resumeActors = resumeActors;
         this.resumeDocVersionService = resumeDocVersionService;
@@ -449,6 +453,9 @@ public class ProfileService {
         if (key != null && !key.isBlank()) {
             storageService.delete(key); // avoid orphaning bytes in the blob store
         }
+        // Everything else stored for this resume - built PDFs from earlier renders, thumbnail, kept-aside original, photo.
+        // Blobs go inside this transaction, so a storage failure rolls the delete back.
+        storedFileEraser.deleteResumeFiles(userId, id);
         // Deleting the primary promotes the most recently updated live resume (exactly one primary).
         ensurePrimary(userId);
     }

@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -28,6 +29,7 @@ import com.dossier.api.service.ResumePdfJobService.ClaimedJob;
 import com.dossier.api.service.ResumePdfJobService.FailKind;
 import com.dossier.api.service.ResumePdfJobService.StoreResult;
 import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StorageKeys;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
@@ -416,6 +418,35 @@ class ResumePdfJobIT {
         assertThat(row(id).getThumbKey()).isEqualTo(secondKey);
         assertThat(storage.exists(firstKey)).as("the old thumbnail object is deleted").isFalse();
         assertThat(storage.load(secondKey).content()).isEqualTo(png("second"));
+    }
+
+    @Test
+    void deletingAResumeRemovesItsPdfThumbnailsOriginalAndPhotoButNotASiblings() throws Exception {
+        Long id = createBuilt("Doomed");
+        Long sibling = createBuilt("Sibling");
+        Long userId = resumeRepo.findById(id).orElseThrow().getUser().getId();
+        ClaimedJob first = claimOne(id, "w1");
+        jobs.store(id, PDF, first.renderHash(), 1, true, png("one"));
+        edit(id, "second version");
+        ClaimedJob second = claimOne(id, "w1");
+        jobs.store(id, PDF, second.renderHash(), 1, true, png("two"));
+        // Files a built resume can also own: a kept-aside original, a photo, and a thumbnail an earlier failure left behind.
+        storage.store(StorageKeys.RESUME_ORIGINALS + "/" + userId + "/" + id + "-x-original.pdf", PDF, "application/pdf");
+        storage.store(StorageKeys.RESUME_PHOTOS + "/" + userId + "/" + id + "-x-photo.jpg", PDF, "image/jpeg");
+        storage.store(StorageKeys.RESUME_THUMBS + "/" + userId + "/" + id + "-" + "d".repeat(64) + ".png", png("orphan"), "image/png");
+        String siblingKey = StorageKeys.RESUME_THUMBS + "/" + userId + "/" + sibling + "-" + "f".repeat(64) + ".png";
+        storage.store(siblingKey, png("keep"), "image/png");
+        for (String prefix : StorageKeys.resumePrefixes(userId, id)) {
+            assertThat(storage.list(prefix, null).keys()).as("setup: " + prefix).isNotEmpty();
+        }
+
+        mockMvc.perform(delete("/api/profile/resumes/" + id)).andExpect(status().isNoContent());
+
+        for (String prefix : StorageKeys.resumePrefixes(userId, id)) {
+            assertThat(storage.list(prefix, null).keys()).as("files left under " + prefix).isEmpty();
+        }
+        assertThat(storage.exists(siblingKey)).as("another resume's thumbnail is untouched").isTrue();
+        storage.delete(siblingKey);
     }
 
     @Test

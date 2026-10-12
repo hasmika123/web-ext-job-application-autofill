@@ -6,6 +6,7 @@ import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
+import com.dossier.api.service.storage.StorageKeys;
 import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import java.io.IOException;
 import org.slf4j.Logger;
@@ -30,7 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class ApplicationAttachmentResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationAttachmentResource.class);
-    private static final String PREFIX = "application-attachments";
+    private static final String PREFIX = StorageKeys.APPLICATION_ATTACHMENTS;
 
     private final ApplicationRepository applicationRepository;
     private final FileStorage storageService;

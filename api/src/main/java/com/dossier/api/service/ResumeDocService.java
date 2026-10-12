@@ -32,6 +32,7 @@ import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
 import com.dossier.api.service.resume.ResumeThemeValidator;
 import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StorageKeys;
 import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import com.dossier.api.service.resume.TemplateThemeDefaults;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -75,7 +76,7 @@ public class ResumeDocService {
 
     public static final String DEFAULT_TEMPLATE_ID = "modern";
     /** Photo keys are {@code resume-photos/<userId>/...} (DESIGN 5.3); a save may only echo a key under its owner's prefix. */
-    private static final String PHOTO_KEY_PREFIX = "resume-photos/";
+    private static final String PHOTO_KEY_PREFIX = StorageKeys.RESUME_PHOTOS + "/";
     private static final String DEFAULT_TITLE = "My resume";
     /** The theme is a small style object (colors, font, spacing); anything bigger is a mistake. */
     private static final int MAX_THEME_BYTES = 8 * 1024;
@@ -143,7 +144,7 @@ public class ResumeDocService {
     static final String SOURCE_COPY = "COPY";
     static final String SOURCE_IMPORT = "IMPORT";
     /** Where a created-from-upload resume's untouched original file lives (never the PDF slot, which the PDF job replaces). */
-    static final String ORIGINAL_KEY_PREFIX = "resume-originals/";
+    static final String ORIGINAL_KEY_PREFIX = StorageKeys.RESUME_ORIGINALS + "/";
     private static final int MAX_FILE_NAME = 200;
 
     /**
@@ -412,7 +413,7 @@ public class ResumeDocService {
         try {
             FileStorage.StoredFile f = storage.load(key);
             String ext = key.contains(".") ? key.substring(key.lastIndexOf('.')) : ".pdf";
-            String newKey = storage.objectKeyFor("resume-originals", user.getId(), resume.getId(), "original" + ext.replaceAll("[^A-Za-z0-9.]", ""));
+            String newKey = storage.objectKeyFor(StorageKeys.RESUME_ORIGINALS, user.getId(), resume.getId(), "original" + ext.replaceAll("[^A-Za-z0-9.]", ""));
             storage.store(newKey, f.content(), f.contentType());
             return newKey;
         } catch (RuntimeException e) {
@@ -522,7 +523,7 @@ public class ResumeDocService {
         try {
             FileStorage.StoredFile f = storage.load(key);
             String ext = key.contains(".") ? key.substring(key.lastIndexOf('.')).replaceAll("[^A-Za-z0-9.]", "") : ".jpg";
-            String newKey = storage.objectKeyFor("resume-photos", user.getId(), resume.getId(), "photo" + ext);
+            String newKey = storage.objectKeyFor(StorageKeys.RESUME_PHOTOS, user.getId(), resume.getId(), "photo" + ext);
             storage.store(newKey, f.content(), f.contentType());
             return newKey;
         } catch (RuntimeException e) {
@@ -772,6 +773,9 @@ public class ResumeDocService {
         // editor's next autosave (If-Match: the old version) would 409 right after an export.
         resumeDocRepository.recordExport(d.getResumeId(), hash, Instant.now());
         // A synchronous export that stored the CURRENT render leaves nothing for the worker to do.
+        // Deliberately no card thumbnail here: only the PDF worker (a browser) can screenshot page 1, and DESIGN 8.10
+        // asks for the thumbnail "during the PDF job", not for READY to imply one. The card keeps the previous (or the
+        // template) picture until the next worker render; the thumbnail is always keyed by the render hash it shows.
         if (hash.equals(renderHash(d))) {
             resumeDocRepository.markReadyNow(d.getResumeId());
         }

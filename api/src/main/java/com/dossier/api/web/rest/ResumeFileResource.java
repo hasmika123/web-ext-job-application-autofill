@@ -9,6 +9,7 @@ import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
+import com.dossier.api.service.storage.StorageKeys;
 import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import java.io.IOException;
 import java.util.Optional;
@@ -72,7 +73,7 @@ public class ResumeFileResource {
         // A resume built from an uploaded file (R2.6): this file is the user's original, kept apart from the
         // generated PDF (which owns the resume's own file slot and replaces what is in it).
         if (resumeDocService.wantsOriginal(resume)) {
-            String originalKey = storageService.objectKeyFor("resume-originals", userId, resume.getId(), file.getOriginalFilename());
+            String originalKey = storageService.objectKeyFor(StorageKeys.RESUME_ORIGINALS, userId, resume.getId(), file.getOriginalFilename());
             storageService.store(originalKey, file.getBytes(), file.getContentType());
             try {
                 resumeDocService.noteOriginalFile(id, originalKey);

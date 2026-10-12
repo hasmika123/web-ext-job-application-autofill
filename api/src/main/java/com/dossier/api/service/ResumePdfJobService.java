@@ -7,6 +7,7 @@ import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
 import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StorageKeys;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
@@ -57,7 +58,7 @@ public class ResumePdfJobService {
     private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     /** The card thumbnails live next to the other generated files (R3.13, DESIGN 8.10): {@code resume-thumbs/<userId>/<resumeId>-<renderHash>.png}. */
-    public static final String THUMB_PREFIX = "resume-thumbs/";
+    public static final String THUMB_PREFIX = StorageKeys.RESUME_THUMBS + "/";
     private static final String THUMB_CONTENT_TYPE = "image/png";
     /** A thumbnail is ~100 KB at the widest setting; this only stops a runaway upload from filling the store. */
     private static final int MAX_THUMB_BYTES = 1 << 20;
@@ -170,7 +171,7 @@ public class ResumePdfJobService {
         for (int attempt = 0; attempt < STORE_RETRIES; attempt++) {
             if (!renderHashOf(row).equals(renderHash)) return discard(resumeId, "stale");
             if (newKey == null) {
-                newKey = storage.objectKeyFor("resumes", row.getUserId(), resumeId, safeFileName(row.getLabel(), resumeId));
+                newKey = storage.objectKeyFor(StorageKeys.RESUMES, row.getUserId(), resumeId, safeFileName(row.getLabel(), resumeId));
                 storage.store(newKey, bytes, PDF_CONTENT_TYPE);
             }
             // The version predicate makes "still current" and "mark READY" one atomic step.
@@ -275,7 +276,7 @@ public class ResumePdfJobService {
         ResumeDoc d = docs.findById(resumeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume document not found"));
         String photoKey = d.getPhotoKey();
         // photo_key mirrors basics.photo.key and the validator already pins it to its owner's prefix; check again at the door.
-        String expectedPrefix = "resume-photos/" + d.getUser().getId() + "/";
+        String expectedPrefix = StorageKeys.RESUME_PHOTOS + "/" + d.getUser().getId() + "/";
         if (photoKey == null || !photoKey.startsWith(expectedPrefix)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No photo");
         }

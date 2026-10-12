@@ -19,9 +19,12 @@ import com.dossier.api.repository.ResumeDocVersionRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.billing.StripeGateway;
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StorageKeys;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +66,9 @@ class AccountDeletionServiceIT {
     @Autowired
     private ResumeAiProposalRepository resumeAiProposalRepository;
 
+    @Autowired
+    private FileStorage storage;
+
     /** Stubbed: this test is about OUR cleanup, not Stripe's API (a keyless server skips it anyway). */
     @MockitoBean
     private StripeGateway stripeGateway;
@@ -72,6 +78,8 @@ class AccountDeletionServiceIT {
     private Long itemId;
     private Long versionId;
     private Long proposalId;
+    private List<String> userFiles;
+    private String strangerFile;
 
     @BeforeEach
     void seedBuilderRows() {
@@ -124,23 +132,51 @@ class AccountDeletionServiceIT {
         proposal.setCacheKey("k");
         proposal.setResultJson("{}");
         proposalId = resumeAiProposalRepository.saveAndFlush(proposal).getId();
+
+        // One stored file under every prefix the API writes - including a replaced thumbnail no row points at -
+        // plus a stranger's file that must survive.
+        Long uid = user.getId();
+        userFiles = new java.util.ArrayList<>();
+        for (String prefix : StorageKeys.userPrefixes(uid)) {
+            userFiles.add(prefix + resumeId + "-it-" + java.util.UUID.randomUUID() + ".bin");
+        }
+        userFiles.add("resume-thumbs/" + uid + "/" + resumeId + "-" + "e".repeat(64) + ".png");
+        for (String key : userFiles) storage.store(key, new byte[] { 1, 2, 3 }, "application/octet-stream");
+        strangerFile = "resumes/" + (uid + 100_000) + "/1-it-stranger.bin";
+        storage.store(strangerFile, new byte[] { 9 }, "application/octet-stream");
+    }
+
+    @AfterEach
+    void removeTestFiles() {
+        storage.delete(strangerFile);
+        userFiles.forEach(storage::delete);
+    }
+
+    /** Privacy: after an account is erased, listing every prefix the API writes for that user finds nothing. */
+    private void assertStoredFilesGone() {
+        for (String prefix : StorageKeys.userPrefixes(user.getId())) {
+            assertThat(storage.list(prefix, null).keys()).as("files left under " + prefix).isEmpty();
+        }
+        assertThat(storage.exists(strangerFile)).as("another user's file is untouched").isTrue();
     }
 
     @Test
     @WithMockUser(username = "user")
-    void selfServeDeletionErasesEveryBuilderRow() {
+    void selfServeDeletionErasesEveryBuilderRowAndEveryStoredFile() {
         accountDeletionService.deleteCurrentUserAccount();
 
         assertBuilderRowsGone();
+        assertStoredFilesGone();
         assertThat(userRepository.findOneByLogin("user")).isEmpty();
     }
 
     @Test
     @WithMockUser(username = "admin")
-    void adminDeletionErasesEveryBuilderRow() {
+    void adminDeletionErasesEveryBuilderRowAndEveryStoredFile() {
         accountDeletionService.deleteUserAccountByLogin("user");
 
         assertBuilderRowsGone();
+        assertStoredFilesGone();
         assertThat(userRepository.findOneByLogin("user")).isEmpty();
     }
 

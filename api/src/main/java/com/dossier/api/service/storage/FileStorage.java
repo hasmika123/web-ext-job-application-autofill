@@ -29,7 +29,7 @@ public interface FileStorage {
 
     /** Build a stable, collision-resistant key for a user's resume upload. */
     default String objectKeyFor(Long userId, Long resumeId, String fileName) {
-        return objectKeyFor("resumes", userId, resumeId, fileName);
+        return objectKeyFor(StorageKeys.RESUMES, userId, resumeId, fileName);
     }
 
     /**

@@ -8,6 +8,7 @@ import com.dossier.api.repository.ResumeViewEventRepository;
 import com.dossier.api.repository.ResumeAiProposalRepository;
 import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ResumeDocVersionRepository;
+import com.dossier.api.service.storage.StoredFileEraser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +33,7 @@ public class ResumeBuilderDataService {
     private final ResumeAiProposalRepository resumeAiProposalRepository;
     private final ResumeAccessRepository resumeAccessRepository;
     private final ResumeViewEventRepository resumeViewEventRepository;
+    private final StoredFileEraser storedFileEraser;
     private final ObjectMapper om = new ObjectMapper();
 
     public ResumeBuilderDataService(
@@ -40,8 +42,10 @@ public class ResumeBuilderDataService {
         ResumeDocVersionRepository resumeDocVersionRepository,
         ResumeAiProposalRepository resumeAiProposalRepository,
         ResumeAccessRepository resumeAccessRepository,
-        ResumeViewEventRepository resumeViewEventRepository
+        ResumeViewEventRepository resumeViewEventRepository,
+        StoredFileEraser storedFileEraser
     ) {
+        this.storedFileEraser = storedFileEraser;
         this.resumeAccessRepository = resumeAccessRepository;
         this.resumeViewEventRepository = resumeViewEventRepository;
         this.profileItemRepository = profileItemRepository;
@@ -50,8 +54,14 @@ public class ResumeBuilderDataService {
         this.resumeAiProposalRepository = resumeAiProposalRepository;
     }
 
-    /** Every row of the four builder tables a user owns (account deletion). */
+    /**
+     * Everything the builder stored for a user (account deletion): first every file they own in object
+     * storage - resume uploads and rendered PDFs, kept-aside originals, photos, thumbnails and application
+     * attachments, all found by prefix (see {@code StorageKeys.userPrefixes}) - then the rows. Blobs go first,
+     * inside the deleting transaction, so a storage failure rolls the whole erasure back.
+     */
     public void deleteAllForUser(Long userId) {
+        storedFileEraser.deleteUserFiles(userId);
         // Sharing (R3.11): the grants and view events of the user's own resumes (the FK cascade would do it
         // too; explicit so the erasure is self-contained).
         resumeViewEventRepository.deleteAllByOwner(userId);
