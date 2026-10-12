@@ -46,6 +46,15 @@ public interface AiProvider {
      */
     AiResult generate(AiTask task, String model, String question, String context) throws AiProviderException;
 
+    /**
+     * {@link #generate(AiTask, String, String, String)} with an output-token ceiling the caller reads from a
+     * setting (Resume Builder R4.1: {@code ai.output_tokens_max.rewrite}). A provider that cannot cap output
+     * ignores the ceiling; {@code maxOutputTokens <= 0} means "the provider's own default".
+     */
+    default AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) throws AiProviderException {
+        return generate(task, model, question, context);
+    }
+
     /** The shared resume-parsing system prompt. The output shape itself is enforced by the
      *  provider's structured-output mechanism (a JSON schema), so this focuses on the
      *  classification rules that heuristics get wrong. */

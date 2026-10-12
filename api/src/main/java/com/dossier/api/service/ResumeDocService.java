@@ -758,6 +758,106 @@ public class ResumeDocService {
         return toDto(d, d.getResume());
     }
 
+    /** The ref the SUMMARY task answers with: the document's one summary item, created when there is none. */
+    public static final String SUMMARY_REF = "summary";
+
+    /**
+     * Apply checked AI texts (R4.1, DESIGN 13.1): each {@code ref} is a bullet / summary / achievement id (or
+     * {@link #SUMMARY_REF}) and its text replaces the stored text, marks cleared and {@code src: "ai"}. Refused
+     * with 409 {@code PROPOSAL_STALE} when the document is no longer the one the proposal was made from
+     * ({@code expectedContentHash}); validated like any save; the state before is kept as its own version row
+     * unless the newest row already holds it, then an {@code AI_APPLY} row records the result. No If-Match:
+     * the content hash is the precondition, and the answer carries the new ETag for the editor to adopt.
+     */
+    public ResumeDocDTO applyAiTexts(Long resumeId, String expectedContentHash, java.util.Map<String, String> textsByRef) {
+        ResumeDoc d = ownedDoc(resumeId);
+        if (expectedContentHash == null || !expectedContentHash.equals(d.getContentHash())) {
+            throw new ResumeDocException(409, "PROPOSAL_STALE", "Your resume changed since this suggestion was made", java.util.Map.of("serverVersion", d.getDocVersion()));
+        }
+        JsonNode stored = storedDoc(d);
+        ObjectNode doc = (ObjectNode) stored.deepCopy();
+        for (java.util.Map.Entry<String, String> e : textsByRef.entrySet()) {
+            ObjectNode node = SUMMARY_REF.equals(e.getKey()) ? summaryItem(doc) : textNode(doc, e.getKey());
+            if (node == null) {
+                throw new ResumeDocException(409, "PROPOSAL_STALE", "That line is no longer in your resume", java.util.Map.of("serverVersion", d.getDocVersion()));
+            }
+            node.put("text", e.getValue());
+            node.remove("marks");
+            node.put("src", "ai");
+        }
+        JsonNode storedTailoredFrom = tailoredFromOf(stored);
+        ResumeDocumentValidator.validate(
+            doc,
+            ResumeDocumentValidator.Options.DEFAULTS.withAllowTailoredFrom(storedTailoredFrom != null).withPhotoKeyPrefix(PHOTO_KEY_PREFIX + d.getUser().getId() + "/").withLimits(limits())
+        ).ifPresent(v -> {
+            throw v.tooLarge() ? ResumeDocException.tooLarge(v.message()) : ResumeDocException.invalid(v.path(), v.message());
+        });
+
+        String login = currentLogin();
+        boolean captured = versionService
+            .latest(d.getResumeId(), d.getUser().getId())
+            .map(latest -> latest.getContentHash().equals(d.getContentHash()) && latest.getTemplateId().equals(d.getTemplateId()) && latest.getThemeJson().equals(d.getThemeJson()))
+            .orElse(false);
+        if (!captured) versionService.record(d, ResumeDocVersionService.AUTOSAVE, null, login);
+
+        applyContent(d, d.getResume(), doc, Instant.now());
+        markPdfPending(d, false);
+        resumeDocRepository.saveAndFlush(d);
+        versionService.record(d, ResumeDocVersionService.AI_APPLY, null, login);
+        return toDto(d, d.getResume());
+    }
+
+    /** The bullet, summary item or achievement with this id (searched in section order), or null. */
+    private static ObjectNode textNode(JsonNode doc, String id) {
+        for (JsonNode section : ResumeDocument.list(doc, "sections")) {
+            for (JsonNode item : ResumeDocument.list(section, "items")) {
+                if (item instanceof ObjectNode o && id.equals(o.path("id").asText(null))) return o;
+                for (JsonNode bullet : ResumeDocument.list(item, "bullets")) {
+                    if (bullet instanceof ObjectNode b && id.equals(b.path("id").asText(null))) return b;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The one SUMMARY item, created (the section too, first in the document) when the document has none. */
+    private static ObjectNode summaryItem(ObjectNode doc) {
+        java.util.Set<String> used = new java.util.HashSet<>();
+        collectIds(doc, used);
+        ObjectNode section = null;
+        for (JsonNode s : ResumeDocument.list(doc, "sections")) {
+            if ("SUMMARY".equals(s.path("kind").asText(null)) && s instanceof ObjectNode o) section = o;
+        }
+        if (section == null) {
+            section = JsonNodeFactory.instance.objectNode();
+            section.put("id", ResumeDocumentIds.newId('s', used));
+            section.put("kind", "SUMMARY");
+            section.putArray("items");
+            if (doc.get("sections") instanceof com.fasterxml.jackson.databind.node.ArrayNode sections) {
+                sections.insert(0, section);
+            } else {
+                doc.putArray("sections").add(section);
+            }
+        }
+        if (!(section.get("items") instanceof com.fasterxml.jackson.databind.node.ArrayNode items)) return null;
+        if (items.isEmpty()) {
+            ObjectNode item = items.addObject();
+            item.put("id", ResumeDocumentIds.newId('i', used));
+            item.put("text", "");
+        }
+        return items.get(0) instanceof ObjectNode o ? o : null;
+    }
+
+    private static void collectIds(JsonNode n, java.util.Set<String> used) {
+        if (n.isObject()) {
+            JsonNode id = n.get("id");
+            if (id != null && id.isTextual()) used.add(id.textValue());
+            n.fields().forEachRemaining(e -> collectIds(e.getValue(), used));
+        } else if (n.isArray()) {
+            n.forEach(c -> collectIds(c, used));
+        }
+    }
+
     /**
      * Record that a PDF of the document with content hash {@code hash} was exported and stored (R0.6).
      * Sets {@code exported_at} and {@code exported_hash} only: it never bumps {@code doc_version} or

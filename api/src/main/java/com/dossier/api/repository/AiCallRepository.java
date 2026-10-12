@@ -2,7 +2,9 @@ package com.dossier.api.repository;
 
 import com.dossier.api.domain.AiCall;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +15,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface AiCallRepository extends JpaRepository<AiCall, Long> {
     List<AiCall> findByLoginOrderByCreatedAtDesc(String login);
+
+    /** How many calls of these tasks a user made since {@code since} (Resume Builder daily cap and per-minute rate, R4.1). */
+    long countByLoginAndTaskInAndCreatedAtGreaterThanEqual(String login, Collection<String> tasks, Instant since);
+
+    /** The newest ledger row of a user's task - what a proposal records as its provenance. */
+    Optional<AiCall> findFirstByLoginAndTaskOrderByIdDesc(String login, String task);
 
     /** What a user's AI has cost since {@code since}, in millionths of a dollar — 13.1b's budget meter. */
     @Query("select coalesce(sum(c.costMicros), 0) from AiCall c where c.login = :login and c.createdAt >= :since")

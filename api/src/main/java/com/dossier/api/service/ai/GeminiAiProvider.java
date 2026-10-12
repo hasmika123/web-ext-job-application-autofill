@@ -97,11 +97,16 @@ public class GeminiAiProvider implements AiProvider {
 
     @Override
     public AiResult generate(AiTask task, String model, String question, String context) throws AiProviderException {
+        return generate(task, model, question, context, 0);
+    }
+
+    @Override
+    public AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) throws AiProviderException {
         if (!isConfigured()) {
             throw new AiProviderException("AI provider is not configured");
         }
         String m = modelOr(model);
-        AiResult r = toResult(send(generateBody(task, question, context), Duration.ofSeconds(30), m), m);
+        AiResult r = toResult(send(generateBody(task, question, context, maxOutputTokens), Duration.ofSeconds(30), m), m);
         if (r.text() == null || r.text().isBlank()) {
             throw new AiProviderException("Gemini returned an empty answer");
         }
@@ -114,6 +119,15 @@ public class GeminiAiProvider implements AiProvider {
      * as-is, with any context after it.
      */
     ObjectNode generateBody(AiTask task, String question, String context) {
+        return generateBody(task, question, context, 0);
+    }
+
+    /**
+     * As above with a caller-set output ceiling ({@code maxOut > 0} replaces the task default). The Resume
+     * Builder tasks (R4.1) ask for a JSON reply ({@code responseMimeType}); their shape is checked by the
+     * service, not by a provider schema.
+     */
+    ObjectNode generateBody(AiTask task, String question, String context, int maxOut) {
         String ctx = context == null ? "" : context;
         if (ctx.length() > MAX_CONTEXT_CHARS) {
             ctx = ctx.substring(0, MAX_CONTEXT_CHARS);
@@ -149,6 +163,12 @@ public class GeminiAiProvider implements AiProvider {
             } catch (Exception e) {
                 throw new AiProviderException("Bad response schema", e); // unreachable: static constants
             }
+        }
+        if (task.isResumeBuilder()) {
+            genCfg.put("responseMimeType", "application/json");
+        }
+        if (maxOut > 0) {
+            genCfg.put("maxOutputTokens", maxOut);
         }
         return body;
     }
