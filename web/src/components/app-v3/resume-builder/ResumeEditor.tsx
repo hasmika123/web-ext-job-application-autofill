@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, resolveCapabilities, useToast } from "@kiwiply/ui";
-import type { ResumeSectionKind } from "@kiwiply/ui";
+import { ChartIcon, ChoiceGroup, FileTextIcon, Tooltip, cn, SideSheet, failingRules, resolveCapabilities, sanitizeTheme, useToast, SCORE_ADD_REF_PREFIX } from "@kiwiply/ui";
+import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
+import { track } from "@/lib/analytics";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import { exportPdf, exportText, putDoc, requestPdfNow, saveBlob, type ResumeDocDTO } from "@/lib/resume-doc";
 import ConflictDialog from "./ConflictDialog";
@@ -14,6 +15,9 @@ import HiddenContentBar from "./HiddenContentBar";
 import RailStrip from "./RailStrip";
 import RightRail from "./RightRail";
 import SectionTabs from "./SectionTabs";
+import TipsSheet from "./TipsSheet";
+import { goToField } from "./goToField";
+import { useScoreReport } from "./useScoreReport";
 import AddSectionPanel from "./panels/AddSectionPanel";
 import PickTemplatePanel from "./panels/PickTemplatePanel";
 import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
@@ -86,6 +90,11 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   // What the template can show decides what the canvas offers (DESIGN 6.4); the 422 ring names the field the server refused.
   const caps = useMemo(() => resolveCapabilities(state.templateId, config.templates.overrides), [state.templateId, config.templates.overrides]);
   const errorField = state.errorPath ? fieldIdForPath(doc, state.errorPath) : null;
+  // The Resume Score (DESIGN 11): live, debounced; the BFF runs the same function on save.
+  const theme = useMemo(() => sanitizeTheme(state.theme), [state.theme]);
+  const report = useScoreReport(doc, caps, theme, config.score);
+  // config-literal-ok: percent conversion of the settings' 0-1 pass threshold
+  const scoreGood = report.score >= config.score.passThreshold * 100;
 
   const [ui, uiDispatch] = useUiState({ openAdd: isEmptyDoc(initial.doc) });
   const gridRef = useRef<HTMLDivElement>(null);
@@ -312,6 +321,42 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     [openPanel],
   );
 
+  /* ── Insights: "View tips" opens the tips sheet; "Go to" lands on the field a rule points at ── */
+  const [tips, setTips] = useState<{ only: ResumeScoreGroupId | null } | null>(null);
+  const viewTipsRef = useRef<HTMLButtonElement>(null);
+  const openTips = useCallback(
+    (only?: ResumeScoreGroupId) => {
+      setTips({ only: only ?? null });
+      track("resume_tips_opened", { failing: failingRules(report).length, scope: only ?? "all" });
+    },
+    [report],
+  );
+  const closeTips = useCallback(() => setTips(null), []);
+  const goToTip = useCallback(
+    (ref: string) => {
+      setTips(null);
+      if (ref.startsWith(SCORE_ADD_REF_PREFIX)) {
+        openAddFor(ref.slice(SCORE_ADD_REF_PREFIX.length) as ResumeSectionKind);
+        return;
+      }
+      if (compact) closeRailSheet();
+      // after the sheets have slid out and handed focus back, put it on the field
+      window.setTimeout(() => {
+        if (!goToField(ref)) toast({ title: "That part of the resume isn't on the page right now", variant: "default" });
+      }, 80); // config-literal-ok: lets the closing sheets return focus first (SIDE_SHEET_MS is 200, the sheet restores focus synchronously)
+    },
+    [compact, closeRailSheet, openAddFor, toast],
+  );
+
+  // Fire "score viewed" once per editor session, the first time the Insights tab is actually on screen.
+  const scoreViewed = useRef(false);
+  const insightsVisible = ui.railTab === "insights" && (compact ? railSheetOpen : !layout.railCollapsed);
+  useEffect(() => {
+    if (!insightsVisible || scoreViewed.current) return;
+    scoreViewed.current = true;
+    track("resume_score_viewed", { score: report.score, band: report.band.title });
+  }, [insightsVisible, report.score, report.band.title]);
+
   /* Alt+1..4 toggle the four panels, Alt+D opens the Download menu, Alt+P toggles Print layout (desktop and tablet). */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -484,6 +529,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       aiUsageLine={aiUsageLine}
       suggestionCount={suggestionCount}
       onTailor={() => openPanel("tailor")}
+      insights={{ report, good: scoreGood, onViewTips: openTips, viewTipsRef }}
     />
   );
 
@@ -658,11 +704,23 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         title="Insights"
         description="Your score, suggestions and job match"
         icon={<ChartIcon className="h-5 w-5" />}
-        onClose={closeRailSheet}
+        // while the tips sheet is open on top, Esc closes only that one
+        onClose={tips ? closeTips : closeRailSheet}
         returnFocusTo={railReturnFocus}
       >
         {rail}
       </SideSheet>
+
+      {/* "View tips": the failing score rules with a Go to each (a sibling of the sheets, not inside the rail's transformed one) */}
+      <TipsSheet
+        open={tips !== null}
+        mode={phone ? "fullscreen" : "overlay"}
+        report={report}
+        only={tips?.only ?? null}
+        onClose={closeTips}
+        onGoTo={goToTip}
+        returnFocusTo={viewTipsRef}
+      />
 
       {/* phone: Edit · Layout · Insights · Preview (DESIGN 10.9) */}
       <div

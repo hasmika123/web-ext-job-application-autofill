@@ -86,6 +86,15 @@ describe("toCardModel", () => {
     expect(toCardModel(built({ kind: "UPLOADED", templateId: null })).atsFriendly).toBeUndefined();
   });
 
+  it("score is the stored Resume Score of a built resume (null for uploads and never-scored resumes)", () => {
+    expect(toCardModel(built({ score: 82 })).score).toBe(82);
+    expect(toCardModel(built({ score: 81.6 })).score).toBe(82);
+    expect(toCardModel(built({ score: 0 })).score).toBe(0);
+    expect(toCardModel(built({ score: null })).score).toBeNull();
+    expect(toCardModel(built()).score).toBeNull();
+    expect(toCardModel(built({ kind: "UPLOADED", templateId: null, score: 50 })).score).toBeNull();
+  });
+
   it("pdfState compares the exported hash with the content hash (built resumes only)", () => {
     expect(toCardModel(built({ contentHash: "b", exportedHash: "a" })).pdfState).toBe("outOfDate");
     expect(toCardModel(built({ contentHash: "a", exportedHash: "a" })).pdfState).toBe("current");

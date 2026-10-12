@@ -60,6 +60,8 @@ public class ResumeDTO implements Serializable {
     // ("PDF updating - attach in a moment") read it. Not hashed by ProfileVersion.
     private ResumePdfDTO pdf;
 
+    private Integer score;
+
     private UserDTO user;
 
     // Resume metadata (R3.9, DESIGN 8.6/8.8). All additive and none is hashed by ProfileVersion, so the
@@ -270,6 +272,15 @@ public class ResumeDTO implements Serializable {
 
     public void setPdf(ResumePdfDTO pdf) {
         this.pdf = pdf;
+    }
+
+    /** The last Resume Score (0-100) of a BUILT resume, for the list badge (DESIGN 11.5); null when never scored. Not hashed by ProfileVersion. */
+    public Integer getScore() {
+        return score;
+    }
+
+    public void setScore(Integer score) {
+        this.score = score;
     }
 
     public UserDTO getUser() {

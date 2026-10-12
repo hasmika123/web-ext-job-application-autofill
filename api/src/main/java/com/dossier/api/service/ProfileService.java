@@ -201,6 +201,7 @@ public class ProfileService {
                     d.setContentHash(row.getContentHash());
                     d.setExportedHash(row.getExportedHash());
                     d.setExportedAt(row.getExportedAt());
+                    d.setScore(row.getScore());
                     exportedAt = row.getExportedAt();
                     // R3.7: the stored PDF's state (STALE is derived from the render hash), for the list chips and the extension.
                     String renderHash = ResumeRenderHash.computeFromThemeJson(row.getContentHash(), row.getTemplateId(), row.getThemeJson());

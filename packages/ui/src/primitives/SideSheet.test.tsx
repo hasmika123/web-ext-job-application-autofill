@@ -65,6 +65,21 @@ describe("SideSheet", () => {
     document.body.style.overflow = "";
   });
 
+  it("a modal sheet is absolutely positioned against its side (never `relative`, which would leave a right sheet at the left edge)", () => {
+    for (const [side, edge] of [["left", "left-0"], ["right", "right-0"]] as const) {
+      const { unmount } = render(<Host mode="overlay" side={side} />);
+      const panel = screen.getByRole("dialog");
+      const classes = panel.className.split(/\s+/);
+      expect(classes).toContain("absolute");
+      expect(classes).toContain(edge);
+      expect(classes).not.toContain("relative");
+      unmount();
+    }
+    const { unmount } = render(<Host mode="push" />);
+    expect(screen.getByRole("region").firstElementChild!.className.split(/\s+/)).toContain("relative"); // the close button anchors to it
+    unmount();
+  });
+
   it("opens with focus on the first control (the close button is last in DOM order)", () => {
     for (const mode of ["push", "overlay", "fullscreen"] as const) {
       const { unmount } = render(<Host mode={mode} />);

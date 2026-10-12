@@ -25,7 +25,7 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
      */
     @Query(
         "select d.resumeId as resumeId, d.templateId as templateId, d.contentHash as contentHash, " +
-        "d.exportedHash as exportedHash, d.exportedAt as exportedAt, d.themeJson as themeJson, " +
+        "d.exportedHash as exportedHash, d.exportedAt as exportedAt, d.themeJson as themeJson, d.score as score, " +
         "d.pdfStatus as pdfStatus, d.pdfAttempts as pdfAttempts, d.pdfError as pdfError from ResumeDoc d where d.user.id = :userId"
     )
     List<BuiltMetaRow> findBuiltMetaByUserId(@Param("userId") Long userId);
@@ -42,6 +42,8 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
         java.time.Instant getExportedAt();
 
         String getThemeJson();
+
+        Integer getScore();
 
         String getPdfStatus();
 

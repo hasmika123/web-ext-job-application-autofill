@@ -54,6 +54,8 @@ export interface Resume {
   shareWithOrg?: boolean | null;
   /** BUILT only (R3.7): the stored PDF's job state. Absent on an older API. */
   pdf?: { status: "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE"; hash?: string | null; error?: string | null } | null;
+  /** BUILT only (R2.5): the last Resume Score (0-100) the editor's save stored; null/absent until the first scored save. */
+  score?: number | null;
 }
 
 function statusBadge(status?: string | null) {

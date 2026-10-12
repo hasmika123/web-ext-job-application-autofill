@@ -266,6 +266,7 @@ function docDto(id) {
   return {
     resumeId: id, label: r?.label ?? d.doc.meta.title, kind: "BUILT", doc: d.doc, templateId: d.templateId, theme: d.theme,
     schemaVersion: 2, docVersion: d.version, contentHash: `mock-${d.version}`, profileSyncedAt: null, exportedAt: d.exportedAt ?? null, exportedHash: d.exportedHash ?? null, updatedAt: d.updatedAt,
+    score: d.score ? { score: d.score.score, rulesetVersion: d.score.rulesetVersion } : null,
   };
 }
 const withEtag = (res, status, body, version) => {
@@ -372,6 +373,8 @@ function handleBuilder(req, res, path, method) {
       if (bad) return problem(res, 422, "DOC_INVALID", bad);
       d.doc = b.doc;
       if (b.theme && typeof b.theme === "object") d.theme = b.theme;
+      // R2.5: the BFF computes the Resume Score and Spring stores it as sent (the mock keeps the last one).
+      if (b.score && typeof b.score === "object" && b.score.rulesetVersion === "v1") d.score = b.score;
       d.version += 1;
       d.updatedAt = new Date().toISOString();
       const r = RESUMES.find((x) => x.id === id);
@@ -761,7 +764,7 @@ const server = http.createServer((req, res) => {
       200,
       RESUMES.map((r) => {
         const d = DOCS.get(r.id);
-        return d ? { ...r, contentHash: `mock-${d.version}`, exportedHash: d.exportedHash ?? null, exportedAt: d.exportedAt ?? null } : r;
+        return d ? { ...r, contentHash: `mock-${d.version}`, exportedHash: d.exportedHash ?? null, exportedAt: d.exportedAt ?? null, score: d.score?.score ?? null } : r;
       }),
     );
   if (path === "/api/profile/suggestions") return json(res, 200, []);

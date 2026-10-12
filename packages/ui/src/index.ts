@@ -198,6 +198,17 @@ export {
   LIMITED_CUSTOM_TITLE,
 } from "./resume/capabilities";
 export type { HiddenItem, HiddenKind, EditorControls, ControlState, ToolbarButton, PlannedSection } from "./resume/capabilities";
+export { scoreResume, failingRules, toPersistedScore } from "./resume/score";
+export type {
+  ScoreContext as ResumeScoreContext,
+  ScoreReport as ResumeScoreReport,
+  ScoreGroupReport as ResumeScoreGroup,
+  ScoreRuleReport as ResumeScoreRule,
+  PersistedScore as ResumePersistedScore,
+  JdExtract as ResumeJdExtract,
+} from "./resume/score";
+export { DEFAULT_SCORE_CONFIG, GROUPS as SCORE_GROUPS, RULES as SCORE_RULES, RULESET_VERSION as SCORE_RULESET_VERSION, ADD_REF_PREFIX as SCORE_ADD_REF_PREFIX } from "./resume/score-rules";
+export type { ScoreConfig as ResumeScoreConfig, ScoreBand as ResumeScoreBand, GroupId as ResumeScoreGroupId, RuleId as ResumeScoreRuleId } from "./resume/score-rules";
 export { toStructured, toStructuredJson, toStructuredPretty } from "./resume/project";
 export { renderText as renderResumeText } from "./resume/text";
 export { writeJson, canonicalJson, contentHash as resumeContentHash, renderHash as resumeRenderHash } from "./resume/json";

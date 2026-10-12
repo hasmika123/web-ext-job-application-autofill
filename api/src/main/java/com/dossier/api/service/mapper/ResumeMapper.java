@@ -26,6 +26,7 @@ public interface ResumeMapper extends EntityMapper<ResumeDTO, Resume> {
     @Mapping(target = "createdBy", source = "createdByLogin", qualifiedByName = "actorFromLogin")
     @Mapping(target = "updatedBy", source = "updatedByLogin", qualifiedByName = "actorFromLogin")
     @Mapping(target = "lifecycle", ignore = true)
+    @Mapping(target = "score", ignore = true)
     ResumeDTO toDto(Resume s);
 
     // The audit columns, share flag and role are not set by a DTO round trip: a new entity gets

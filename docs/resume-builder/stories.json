@@ -796,7 +796,7 @@
       "id": "R2.5",
       "epic": "R2",
       "title": "Resume Score engine (`score.ts`, ruleset v1) + Insights tab (ring, band copy, five checklist lines, View tips) + BFF persists the score",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "ui",

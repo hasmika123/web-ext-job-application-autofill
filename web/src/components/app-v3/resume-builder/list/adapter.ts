@@ -48,6 +48,8 @@ export interface ResumeCardModel {
   /** `true` only when the template registry marks the template ATS-safe. `undefined` = unknown (no chip). */
   atsFriendly?: boolean;
   pdfState: PdfState;
+  /** The stored Resume Score (0-100) of a built resume, for the "82% score" badge; null when none (uploads, never scored). */
+  score: number | null;
   /** Built in the Resume Builder (opens the editor) or an uploaded file. */
   kind: "BUILT" | "UPLOADED";
 }
@@ -86,6 +88,7 @@ export function toCardModel(r: ResumeDto): ResumeCardModel {
     templateId,
     atsFriendly,
     pdfState: pdfStateOf(r, kind),
+    score: kind === "BUILT" && typeof r.score === "number" && Number.isFinite(r.score) ? Math.round(r.score) : null,
     kind,
   };
 }
