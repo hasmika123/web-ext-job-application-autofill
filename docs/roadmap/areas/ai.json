@@ -813,7 +813,7 @@
       "id": "I1.12",
       "epic": "I1",
       "title": "/admin/ai/providers page: provider cards with Test connection + per-task routing table, autosave with inline ✓ and undo toast, confirm-with-reason dialogs, BFF routes, nav entry",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"

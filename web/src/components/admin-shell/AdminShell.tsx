@@ -19,6 +19,7 @@ import {
   CreditCardIcon,
   DashboardIcon,
   FileTextIcon,
+  GearIcon,
   HelpCircleIcon,
   MailIcon,
   MenuIcon,
@@ -52,6 +53,7 @@ const NAV: NavItem[] = [
   { href: "/admin/users", label: "Users", icon: <UsersIcon className={ICON} /> },
   { href: "/admin/customers", label: "Customers", icon: <CreditCardIcon className={ICON} /> },
   { href: "/admin/ai", label: "AI usage", icon: <AiIcon className={ICON} /> },
+  { href: "/admin/ai/providers", label: "AI providers", icon: <GearIcon className={ICON} /> },
   { href: "/admin/job-sources", label: "Job sources", icon: <BoardIcon className={ICON} /> },
   { href: "/admin/security", label: "Security", icon: <ShieldIcon className={ICON} />, soon: true },
   { href: "/admin/analytics", label: "Analytics", icon: <BarChartIcon className={ICON} /> },
@@ -214,7 +216,9 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
         <nav aria-label="Admin sections" className="flex flex-col gap-0.5">
           {NAV.map((item) => {
             // Exact match for Overview ("/admin"); prefix match for the deeper sections.
-            const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href + "/"));
+            // A deeper sibling wins (/admin/ai/providers is "AI providers", not also "AI usage").
+            const deeper = NAV.some((o) => o.href.startsWith(item.href + "/") && (pathname === o.href || pathname.startsWith(o.href + "/")));
+            const active = !deeper && (pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href + "/")));
             return (
               <Link
                 key={item.href}
