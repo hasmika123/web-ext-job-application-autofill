@@ -3,9 +3,13 @@ package com.dossier.api.service;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
+import com.dossier.api.domain.enumeration.ResumeKind;
 import com.dossier.api.domain.enumeration.ResumeStatus;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.BioRepository;
+import com.dossier.api.repository.ResumeAiProposalRepository;
+import com.dossier.api.repository.ResumeDocRepository;
+import com.dossier.api.repository.ResumeDocVersionRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
@@ -14,6 +18,7 @@ import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.mapper.BioMapper;
 import com.dossier.api.service.mapper.ResumeMapper;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,6 +51,13 @@ public class ProfileService {
     public static final int FREE_RESUME_LIMIT = 3;
     /** Pro's cap (15.5, was unlimited): a ceiling no real search needs, against abuse and cost. */
     public static final int PRO_RESUME_LIMIT = 25;
+    /**
+     * Autopilot's cap (50, per CLAUDE.md). <b>Not yet enforced separately</b>: until Phase 18 puts
+     * plans on a DB catalog, {@link EntitlementService} only distinguishes Free from Pro, so
+     * Autopilot is gated exactly like Pro ({@link #PRO_RESUME_LIMIT}). {@link #resumeLimit} is the
+     * one place to switch when the plan catalog lands.
+     */
+    public static final int AUTOPILOT_RESUME_LIMIT = 50;
 
     private final BioRepository bioRepository;
     private final ResumeRepository resumeRepository;
@@ -55,6 +67,9 @@ public class ProfileService {
     private final ResumeMapper resumeMapper;
     private final ResumeStorageService storageService;
     private final EntitlementService entitlementService;
+    private final ResumeDocRepository resumeDocRepository;
+    private final ResumeDocVersionRepository resumeDocVersionRepository;
+    private final ResumeAiProposalRepository resumeAiProposalRepository;
 
     public ProfileService(
         BioRepository bioRepository,
@@ -64,7 +79,10 @@ public class ProfileService {
         BioMapper bioMapper,
         ResumeMapper resumeMapper,
         ResumeStorageService storageService,
-        EntitlementService entitlementService
+        EntitlementService entitlementService,
+        ResumeDocRepository resumeDocRepository,
+        ResumeDocVersionRepository resumeDocVersionRepository,
+        ResumeAiProposalRepository resumeAiProposalRepository
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -74,6 +92,9 @@ public class ProfileService {
         this.resumeMapper = resumeMapper;
         this.storageService = storageService;
         this.entitlementService = entitlementService;
+        this.resumeDocRepository = resumeDocRepository;
+        this.resumeDocVersionRepository = resumeDocVersionRepository;
+        this.resumeAiProposalRepository = resumeAiProposalRepository;
     }
 
     // ---- profile (single bio per user) -------------------------------------
@@ -97,7 +118,23 @@ public class ProfileService {
 
     @Transactional(readOnly = true)
     public List<ResumeDTO> listResumes() {
-        return resumeRepository.findByUserIsCurrentUser().stream().map(resumeMapper::toDto).toList();
+        List<ResumeDTO> dtos = resumeRepository.findByUserIsCurrentUser().stream().map(resumeMapper::toDto).toList();
+        return withTemplateIds(dtos);
+    }
+
+    /**
+     * Fill {@code templateId} on BUILT resumes (it lives on the web-only {@code resume_doc} row, not
+     * on {@code Resume}). One narrow query, and none at all for users without a built resume - this
+     * runs on every extension version poll.
+     */
+    private List<ResumeDTO> withTemplateIds(List<ResumeDTO> dtos) {
+        if (dtos.stream().noneMatch(d -> d.getKind() == ResumeKind.BUILT)) {
+            return dtos;
+        }
+        Map<Long, String> templates = new HashMap<>();
+        resumeDocRepository.findTemplateIdsByUserId(currentUser().getId()).forEach(r -> templates.put(r.getResumeId(), r.getTemplateId()));
+        dtos.stream().filter(d -> d.getKind() == ResumeKind.BUILT).forEach(d -> d.setTemplateId(templates.get(d.getId())));
+        return dtos;
     }
 
     /**
@@ -121,10 +158,18 @@ public class ProfileService {
      *                              {@link #PRO_RESUME_LIMIT} on Pro.
      */
     public ResumeDTO createResume(ResumeDTO dto) {
+        // Uploads and the extension's on-the-fly path are always UPLOADED, whatever the client sent:
+        // a BUILT resume only exists together with its document (ResumeDocService.createBuilt).
+        return createResume(dto, ResumeKind.UPLOADED);
+    }
+
+    /** As {@link #createResume(ResumeDTO)} but with an explicit {@code kind}; the plan cap applies either way. */
+    public ResumeDTO createResume(ResumeDTO dto, ResumeKind kind) {
         User user = currentUser();
         enforceResumeLimit(user.getLogin());
         Resume resume = resumeMapper.toEntity(dto);
         resume.setId(null);
+        resume.setKind(kind);
         resume.setUser(user);
         if (resume.getCreatedAt() == null) {
             resume.setCreatedAt(Instant.now());
@@ -156,7 +201,7 @@ public class ProfileService {
      */
     private void enforceResumeLimit(String login) {
         boolean pro = entitlementService.isPro(login);
-        int limit = pro ? PRO_RESUME_LIMIT : FREE_RESUME_LIMIT;
+        int limit = resumeLimit(pro);
         long live = resumeRepository
             .findByUserIsCurrentUser()
             .stream()
@@ -166,11 +211,16 @@ public class ProfileService {
             throw new ProRequiredException(
                 ProRequiredException.CODE_RESUME_LIMIT,
                 pro
-                    ? "Pro accounts keep up to " + PRO_RESUME_LIMIT + " resumes — archive one to add another"
+                    ? "Pro accounts keep up to " + limit + " resumes — archive one to add another"
                     : "Free accounts keep up to " + FREE_RESUME_LIMIT + " resumes — archive one, or upgrade to Pro",
                 Map.of("limit", limit, "count", live, "plan", pro ? "PRO" : "FREE")
             );
         }
+    }
+
+    /** The live-resume cap for a plan. Autopilot shares Pro's until Phase 18 (see {@link #AUTOPILOT_RESUME_LIMIT}). */
+    static int resumeLimit(boolean pro) {
+        return pro ? PRO_RESUME_LIMIT : FREE_RESUME_LIMIT;
     }
 
     /**
@@ -210,7 +260,7 @@ public class ProfileService {
                 resume.setDefaultResume(false);
             }
         }
-        return resumeMapper.toDto(resumeRepository.save(resume));
+        return withTemplateIds(List.of(resumeMapper.toDto(resumeRepository.save(resume)))).get(0);
     }
 
     /** Unset the default flag on all of the current user's resumes (before promoting a new default). */
@@ -237,6 +287,9 @@ public class ProfileService {
         }
         String key = resume.getr2ObjectKey();
         resumeRepository.delete(resume);
+        // resume_doc goes with the row (FK cascade); history and proposals have no FK, so clear them here.
+        resumeDocVersionRepository.deleteAllByResumeIdAndUserId(id, resume.getUser().getId());
+        resumeAiProposalRepository.deleteAllByResumeIdAndUserId(id, resume.getUser().getId());
         if (key != null && !key.isBlank()) {
             storageService.delete(key); // avoid orphaning bytes in the blob store
         }

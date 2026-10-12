@@ -105,6 +105,10 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
         if (ex instanceof com.dossier.api.service.BillingException billingEx) return (ProblemDetailWithCause) new BillingProblemException(
             billingEx
         ).getBody();
+        // Resume Builder R0.3 — a refused document operation (422/413/428/409); status + code + extras from the service.
+        if (ex instanceof com.dossier.api.service.ResumeDocException docEx) return (ProblemDetailWithCause) new ResumeDocProblemException(
+            docEx
+        ).getBody();
         // Phase demo — a demo account hit the read-only guard, or demo logins are switched off. 403 + code.
         if (ex instanceof com.dossier.api.service.DemoException demoEx) return (ProblemDetailWithCause) new DemoProblemException(
             demoEx

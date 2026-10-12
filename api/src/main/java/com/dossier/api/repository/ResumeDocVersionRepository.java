@@ -17,6 +17,10 @@ public interface ResumeDocVersionRepository extends JpaRepository<ResumeDocVersi
     List<ResumeDocVersion> findByResumeIdAndUserIdOrderByVersionNoDesc(Long resumeId, Long userId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from ResumeDocVersion v where v.resumeId = :resumeId and v.user.id = :userId")
+    int deleteAllByResumeIdAndUserId(@Param("resumeId") Long resumeId, @Param("userId") Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ResumeDocVersion v where v.user.id = :userId")
     int deleteAllByUserId(@Param("userId") Long userId);
 }

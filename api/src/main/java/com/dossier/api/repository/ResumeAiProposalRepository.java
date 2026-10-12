@@ -16,6 +16,10 @@ public interface ResumeAiProposalRepository extends JpaRepository<ResumeAiPropos
     Optional<ResumeAiProposal> findFirstByUserIdAndCacheKeyOrderByCreatedAtDesc(Long userId, String cacheKey);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from ResumeAiProposal p where p.resumeId = :resumeId and p.user.id = :userId")
+    int deleteAllByResumeIdAndUserId(@Param("resumeId") Long resumeId, @Param("userId") Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ResumeAiProposal p where p.user.id = :userId")
     int deleteAllByUserId(@Param("userId") Long userId);
 }

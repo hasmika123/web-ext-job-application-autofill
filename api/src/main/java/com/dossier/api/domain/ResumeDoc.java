@@ -38,9 +38,10 @@ public class ResumeDoc implements Serializable {
     @Column(name = "theme_json", nullable = false, columnDefinition = "json")
     private String themeJson;
 
+    // Starts at 1 (the column default) so a client never sees a falsy "0" ETag.
     @Version
     @Column(name = "doc_version", nullable = false)
-    private int docVersion;
+    private int docVersion = 1;
 
     @Column(name = "content_hash", nullable = false, length = 64)
     private String contentHash;
