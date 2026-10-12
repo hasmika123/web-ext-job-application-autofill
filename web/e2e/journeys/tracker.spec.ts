@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 import { STATE } from "../fixtures/accounts";
 
 /**
- * The tracker (U6.3): open an application from the list, change its status and undo, add a note, add an
+ * The tracker (U6.3, U5.1): open an application from the list, change its status and undo, add a note, add an
  * interview and get its calendar file, at a desktop (side panel) and a phone (bottom sheet) width. Runs against the mock API's demo job seeker (Priya Sharma: 8 applications, two
  * of them saved), whose state lives in memory, so each test writes its own unique text.
  */
@@ -106,4 +106,29 @@ test.describe("phone (bottom sheet)", () => {
   });
   test("add a note", async ({ page }) => noteJourney(page));
   test("add an interview and get the calendar links", async ({ page }) => interviewJourney(page));
+});
+
+test.describe("Saved Jobs (U5.1)", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("tabs read real SAVED applications; removing one offers Undo", async ({ page }) => {
+    await page.goto("/saved");
+    await expect(page.getByRole("tab", { name: /To apply/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Staff Product Designer", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Senior UX Designer", exact: true })).toBeVisible();
+    // a job that is not SAVED is not here
+    await expect(page.getByRole("link", { name: "Design Systems Designer", exact: true })).toHaveCount(0);
+
+    await page.getByRole("button", { name: /More actions for Staff Product Designer/ }).click();
+    await page.getByRole("menuitem", { name: "Remove from saved" }).click();
+    await expect(page.getByText("Removed from saved jobs")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Staff Product Designer", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(page.getByRole("link", { name: "Staff Product Designer", exact: true })).toBeVisible();
+
+    await page.getByRole("tab", { name: /Applied/ }).click();
+    await expect(page.getByRole("link", { name: "Design Systems Designer", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: /Not interested/ }).click();
+    await expect(page.locator("[data-empty-state]").first()).toBeVisible();
+  });
 });

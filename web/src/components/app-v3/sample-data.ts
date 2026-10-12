@@ -262,7 +262,7 @@ export const GOOGLE_V3_DETAIL: V3Detail = {
 };
 
 
-/* ═══ My Profiles, Saved Jobs, Settings ═══ */
+/* ═══ My Profiles, Settings ═══ */
 
 /* ── 2.4 My Profiles ────────────────────────────────────────────────────────────────────────── */
 
@@ -282,60 +282,6 @@ export const V3_RESUME_VERSION_SAMPLES = [
   { id: -1, label: "Frontend Developer Resume", date: "Sep 30, 2026", isDefault: false },
   { id: -2, label: "Product Manager Resume", date: "Sep 12, 2026", isDefault: false },
 ];
-
-/* ── 2.10 Saved Jobs ────────────────────────────────────────────────────────────────────────── */
-
-export type V3SavedState = "to-apply" | "applied" | "not-interested";
-
-export interface V3SavedJob {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  mode: string;
-  salary?: string;
-  tags: string[];
-  /** Sort key for "Recently Saved" (0 = today). */
-  savedDaysAgo: number;
-  savedLabel: string;
-  state: V3SavedState;
-}
-
-const J = (
-  id: number,
-  title: string,
-  company: string,
-  location: string,
-  mode: string,
-  tags: string[],
-  savedDaysAgo: number,
-  savedLabel: string,
-  state: V3SavedState,
-  salary?: string,
-): V3SavedJob => ({ id: `s3-${id}`, title, company, location, mode, salary, tags, savedDaysAgo, savedLabel, state });
-
-/** The first six are the board's rows; the rest bring the tab counts to 18 / 12 / 4 / 2. */
-export const V3_SAVED_JOBS: V3SavedJob[] = [
-  J(1, "Software Engineer", "Google", "Mountain View, CA", "Remote", ["React", "TypeScript", "Next.js"], 2, "2 days ago", "to-apply", "$140K–$180K"),
-  J(2, "Frontend Developer", "Microsoft", "Redmond, WA", "Hybrid", ["React", "Tailwind", "JavaScript"], 3, "3 days ago", "to-apply"),
-  J(3, "Full Stack Engineer", "Airbnb", "San Francisco, CA", "Remote", ["Node.js", "React", "AWS"], 5, "5 days ago", "to-apply"),
-  J(4, "Product Engineer", "Stripe", "San Francisco, CA", "Hybrid", ["React", "Node.js", "System Design"], 7, "1 week ago", "to-apply"),
-  J(5, "SDE II", "Amazon", "Seattle, WA", "Full-time", ["Java", "AWS"], 8, "1 week ago", "to-apply"),
-  J(6, "Software Engineer", "Netflix", "Los Gatos, CA", "On-site", ["Python", "React", "Node.js"], 14, "2 weeks ago", "to-apply"),
-  J(7, "Frontend Engineer", "Meta", "Menlo Park, CA", "Hybrid", ["React", "GraphQL", "TypeScript"], 15, "2 weeks ago", "to-apply"),
-  J(8, "Backend Engineer", "Uber", "San Francisco, CA", "Remote", ["Go", "Kafka", "AWS"], 16, "2 weeks ago", "to-apply"),
-  J(9, "Software Engineer II", "Shopify", "Remote", "Remote", ["Ruby", "React", "GraphQL"], 18, "2 weeks ago", "to-apply"),
-  J(10, "Platform Engineer", "Databricks", "San Francisco, CA", "Hybrid", ["Scala", "Spark", "Kubernetes"], 20, "3 weeks ago", "to-apply"),
-  J(11, "Web Developer", "Adobe", "San Jose, CA", "Hybrid", ["JavaScript", "React", "CSS"], 21, "3 weeks ago", "to-apply"),
-  J(12, "Full Stack Developer", "Atlassian", "Remote", "Remote", ["Java", "React", "AWS"], 24, "3 weeks ago", "to-apply"),
-  J(13, "Software Engineer", "Apple", "Cupertino, CA", "On-site", ["Swift", "iOS"], 26, "4 weeks ago", "applied"),
-  J(14, "Frontend Developer", "Spotify", "New York, NY", "Hybrid", ["React", "TypeScript"], 28, "4 weeks ago", "applied"),
-  J(15, "SDE I", "Amazon", "Seattle, WA", "Full-time", ["Java", "DynamoDB"], 30, "1 month ago", "applied"),
-  J(16, "Product Engineer", "Notion", "San Francisco, CA", "Hybrid", ["TypeScript", "React"], 32, "1 month ago", "applied"),
-  J(17, "Data Engineer", "Salesforce", "San Francisco, CA", "Hybrid", ["Python", "SQL"], 35, "1 month ago", "not-interested"),
-  J(18, "Support Engineer", "Oracle", "Austin, TX", "On-site", ["SQL", "Linux"], 40, "1 month ago", "not-interested"),
-];
-
 
 /* ═══ AI Assistant, Job Alerts, Messages ═══ */
 

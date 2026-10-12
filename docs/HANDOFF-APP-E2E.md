@@ -45,7 +45,10 @@ npm run dev:demo -w web                 # mock API + Next; /login → "Job seeke
   with undo, next step, notes, interviews (`InterviewForm.tsx`, `.ics` + Google link, outcome chips), emails and resume
   tabs. Shared pieces for the next stories: `lib/applications.ts` (the `Application` type moved here, status model,
   fetchers), `lib/tracker-client.ts` (`call`, `toAutosave`), `lib/datetime-local.ts`,
-  `components/app-v3/applications/AutosaveChip.tsx`. `ApplicationBoard.tsx` is deleted. U3.1 reads
+  `components/app-v3/applications/AutosaveChip.tsx`. `ApplicationBoard.tsx` is deleted.
+  **U5.1 done** (`e2e-u5.1`, web only): `/saved` is list v2 filtered to SAVED (tabs To apply / Applied / Not interested =
+  archived SAVED), `SavedCard` with Apply = `jobUrl`, mark applied, remove (archive) and put back, all with Undo; no
+  expired-posting badge yet (no freshness field). U3.1 reads
   `GET /api/applications/activity` and `GET /api/interviews`. Deferred: reminders (U7.1), inbox-proposed
   interviews (I9.9), bulk select / swipe (U6.5), manual email linking (U6.6).
 

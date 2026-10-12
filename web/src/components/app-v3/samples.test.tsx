@@ -23,7 +23,6 @@ import ExplorePage from "./explore/ExplorePage";
 import InterviewPrepPage from "./interview-prep/InterviewPrepPage";
 import JobsPage from "./jobs/JobsPage";
 import MessagesPage from "./messages/MessagesPage";
-import SavedV3Page from "./saved/SavedV3Page";
 
 afterEach(() => {
   cleanup();
@@ -79,7 +78,6 @@ const PAGES: { name: string; node: () => ReactNode; sampleText: string | RegExp 
   { name: "Messages", node: () => <MessagesPage />, sampleText: S.CONVERSATIONS[0].name },
   { name: "Explore", node: () => <ExplorePage />, sampleText: /Popular Companies/ },
   { name: "Interview prep", node: () => <InterviewPrepPage />, sampleText: /Common Question Sets/ },
-  { name: "Saved jobs", node: () => <SavedV3Page />, sampleText: S.V3_SAVED_JOBS[0].title },
   { name: "Assistant", node: () => <AssistantPage firstName="Jo" />, sampleText: /Recent chats/ },
   { name: "Jobs", node: () => <JobsPage realJobs={null} />, sampleText: /jobs found/ },
   { name: "Analytics", node: () => <AnalyticsPage data={null} />, sampleText: /Conversion funnel|Applications over time/ },
