@@ -7495,6 +7495,42 @@
         } ]
       }
     },
+    "/api/orgs/{orgId}/overview" : {
+      "get" : {
+        "tags" : [ "org-onboarding-resource" ],
+        "operationId" : "overview_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgOverviewDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/onboarding" : {
+      "get" : {
+        "tags" : [ "org-onboarding-resource" ],
+        "operationId" : "checklist",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgOnboardingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/billing" : {
       "get" : {
         "tags" : [ "org-billing-resource" ],
@@ -9062,7 +9098,7 @@
     "/api/admin/analytics" : {
       "get" : {
         "tags" : [ "admin-analytics-resource" ],
-        "operationId" : "overview_1",
+        "operationId" : "overview_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -13003,6 +13039,163 @@
           "count" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "Applications" : {
+        "type" : "object",
+        "properties" : {
+          "submitted30d" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "interviewing" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "offers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "placedMembers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "upcomingInterviews" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pipeline" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Stage"
+            }
+          }
+        }
+      },
+      "OrgOverviewDTO" : {
+        "type" : "object",
+        "properties" : {
+          "seats" : {
+            "$ref" : "#/components/schemas/Seats"
+          },
+          "groups" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "applications" : {
+            "$ref" : "#/components/schemas/Applications"
+          },
+          "recent" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Recent"
+            }
+          }
+        }
+      },
+      "Recent" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "mine" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Seats" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "active" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "invited" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sharing" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Stage" : {
+        "type" : "object",
+        "properties" : {
+          "stage" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Item" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "done" : {
+            "type" : "boolean"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "optional" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "OrgOnboardingDTO" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Item"
+            }
+          },
+          "done" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "complete" : {
+            "type" : "boolean"
           }
         }
       },
