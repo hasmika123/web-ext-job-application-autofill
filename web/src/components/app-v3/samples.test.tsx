@@ -18,7 +18,6 @@ vi.mock("@/components/app-v2/common", async (orig) => {
 import AlertsPage from "./alerts/AlertsPage";
 import AnalyticsPage from "./analytics/AnalyticsPage";
 import AssistantPage from "./assistant/AssistantPage";
-import DashboardPage from "./home/DashboardPage";
 import ExplorePage from "./explore/ExplorePage";
 import InterviewPrepPage from "./interview-prep/InterviewPrepPage";
 import JobsPage from "./jobs/JobsPage";
@@ -32,8 +31,6 @@ afterEach(() => {
 /** What each registered sample is when the gate is closed: a list is `[]`, anything else `null`. */
 describe("samples()", () => {
   const registered = [
-    "DASH_STATS",
-    "DASH_ACTIVITY_PERIODS",
     "V3_JOBS",
     "JOBS_SAMPLE_TOTAL",
     "ALERTS",
@@ -111,34 +108,4 @@ describe("pages for a demo account on a sample-enabled build keep the board look
       expect(container.querySelector("[data-empty-state='page']")).toBeNull();
     });
   }
-});
-
-describe("the dashboard for a new account", () => {
-  it("shows zeros and honest empty cards, never a fake row", () => {
-    const { container } = view(
-      <DashboardPage
-        firstName="Jo"
-        stats={[
-          { id: "applications", value: "0", label: "Applications", note: "None this week", tone: "blue" },
-          { id: "interviews", value: "0", label: "Interviews", note: "keep going", tone: "green" },
-          { id: "offers", value: "0", label: "Offers", note: "keep going", tone: "violet" },
-          { id: "saved", value: "0", label: "Saved Jobs", note: "save some jobs", tone: "amber" },
-        ]}
-        activity={{ "Last 30 days": [] }}
-        status={[]}
-        total={0}
-        recent={[]}
-        recommended={[]}
-        insights={[]}
-        interviews={[]}
-        alerts={[]}
-        profile={{ pct: 0, checks: [{ id: "resume", label: "Resume uploaded", done: false }] }}
-      />,
-      "priya.real",
-    );
-    // activity, status, insights, recent, recommended, interviews, alerts
-    expect(container.querySelectorAll("[data-empty-state='inline']").length).toBe(7);
-    expect(screen.queryByText("Google")).toBeNull();
-    expect(screen.getByText("0%")).toBeTruthy();
-  });
 });

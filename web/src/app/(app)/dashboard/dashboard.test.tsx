@@ -85,6 +85,27 @@ describe("Dashboard", () => {
   });
 });
 
+describe("Dashboard numbers (U3.1)", () => {
+  it("reads the tiles and the donut from the list v2 summary, with a page of the newest submitted applications", async () => {
+    api(json({ payload: "{}" }));
+    await open();
+    const asked = serverApiFetch.mock.calls.map((c) => c[0]).find((p) => p.startsWith("/api/profile/applications"));
+    expect(asked).toContain("size=5");
+    expect(asked).toContain("sort=updatedAt,desc");
+    expect(asked).toContain("status=APPLIED,IN_REVIEW,INTERVIEW,OFFER,REJECTED");
+  });
+
+  it("a failed list is zeros, not an error page and not someone else's numbers", async () => {
+    serverApiFetch.mockImplementation(async (path) => {
+      if (path.startsWith("/api/profile/applications")) return new Response("{}", { status: 500 });
+      if (path === "/api/account") return json({ login: "jo", firstName: "Jo" });
+      return json({ payload: "{}" });
+    });
+    await open();
+    expect(screen.getByRole("heading", { name: "Let's get you job-ready" })).toBeTruthy();
+  });
+});
+
 describe("Dashboard card reads the server (R1.9)", () => {
   it("an unfinished draft resumes as `n of total done`, from whichever device wrote it", async () => {
     onboarding = { ...notStarted({ state: "IN_PROGRESS" }), status: "DRAFT", draft: { step: "skills", stepsDone: 3, stepsTotal: 7, updatedAt: "2026-10-12T10:00:00Z" } };

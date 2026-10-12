@@ -848,7 +848,7 @@
       "id": "U3.1",
       "epic": "U3",
       "title": "Real stat tiles, activity chart and status donut (no sample)",
-      "status": "partial",
+      "status": "done",
       "size": "S",
       "owners": [
         "web"
