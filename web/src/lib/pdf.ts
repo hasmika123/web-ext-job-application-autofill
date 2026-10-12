@@ -39,6 +39,18 @@ export const PDF_SETTINGS = {
   maxConcurrent: { key: "resume.pdf.maxConcurrent", env: "RESUME_PDF_MAX_CONCURRENT", default: 1, min: 1, max: 8 },
   queueMax: { key: "resume.pdf.queueMax", env: "RESUME_PDF_QUEUE_MAX", default: 10, min: 0, max: 100 },
   maxFitSteps: { key: "resume.pdf.maxFitSteps", env: "RESUME_PDF_MAX_FIT_STEPS", default: 3, min: 0, max: MAX_FIT_STEP },
+  // Connecting to the sidecar launches a fresh Chromium inside it, and a COLD one (first launch after the box has been idle
+  // or busy, e.g. right after a deploy) took ~14 s against a ~1.3 s warm one. These bound how patient the connect is.
+  /** One connect attempt (a cold Chromium launch must fit in it). */
+  connectTimeoutMs: { key: "resume.pdf.connectTimeoutMs", env: "RESUME_PDF_CONNECT_TIMEOUT_MS", default: 30_000, min: 1_000, max: 120_000 }, // config-literal-ok: registry default; a cold launch measured 14 s
+  /** How many attempts before the sidecar counts as unreachable (a sidecar still booting refuses connections for a few seconds). */
+  connectAttempts: { key: "resume.pdf.connectAttempts", env: "RESUME_PDF_CONNECT_ATTEMPTS", default: 5, min: 1, max: 10 },
+  /** Wait before the second attempt; doubles each time (0 = retry at once; tests). */
+  connectBackoffMs: { key: "resume.pdf.connectBackoffMs", env: "RESUME_PDF_CONNECT_BACKOFF_MS", default: 500, min: 0, max: 10_000 }, // config-literal-ok: registry default
+  /** Ceiling over every attempt and wait together: no new attempt starts past it. */
+  connectBudgetMs: { key: "resume.pdf.connectBudgetMs", env: "RESUME_PDF_CONNECT_BUDGET_MS", default: 60_000, min: 1_000, max: 300_000 }, // config-literal-ok: registry default
+  /** 1 = connect and print a blank page once when the server starts, so the first export finds a warm browser. */
+  warmup: { key: "resume.pdf.warmup", env: "RESUME_PDF_WARMUP", default: 1, min: 0, max: 1 },
 } as const;
 
 export interface PdfConfig {
@@ -50,6 +62,13 @@ export interface PdfConfig {
   maxConcurrent: number;
   queueMax: number;
   maxFitSteps: number;
+  /** Sidecar connect: per-attempt timeout, attempts, first backoff (doubles), and the budget over all of them. */
+  connectTimeoutMs: number;
+  connectAttempts: number;
+  connectBackoffMs: number;
+  connectBudgetMs: number;
+  /** Warm the sidecar when the server starts. */
+  warmup: boolean;
 }
 
 type Env = Record<string, string | undefined>;
@@ -68,6 +87,11 @@ export function readPdfConfig(env: Env = process.env): PdfConfig {
     maxConcurrent: intSetting(PDF_SETTINGS.maxConcurrent, env),
     queueMax: intSetting(PDF_SETTINGS.queueMax, env),
     maxFitSteps: intSetting(PDF_SETTINGS.maxFitSteps, env),
+    connectTimeoutMs: intSetting(PDF_SETTINGS.connectTimeoutMs, env),
+    connectAttempts: intSetting(PDF_SETTINGS.connectAttempts, env),
+    connectBackoffMs: intSetting(PDF_SETTINGS.connectBackoffMs, env),
+    connectBudgetMs: intSetting(PDF_SETTINGS.connectBudgetMs, env),
+    warmup: intSetting(PDF_SETTINGS.warmup, env) === 1,
   };
 }
 
@@ -263,15 +287,43 @@ interface PwBrowser {
   close(): Promise<void>;
 }
 
-async function openBrowser(cfg: PdfConfig): Promise<PwBrowser> {
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Connects to the sidecar, patiently. Every connect makes the sidecar launch a fresh Chromium, and the first launch
+ * after the box has been idle or busy (a deploy, a restart) is COLD: ~14 s against ~1.3 s warm. The old single attempt
+ * gave up after 10 s, so the first export after a start answered 503 PDF_UNAVAILABLE although the sidecar was healthy
+ * and finished launching moments later. Now: a per-attempt timeout that fits a cold launch, retries with doubling
+ * backoff (a sidecar still booting refuses connections), all inside one budget. Nothing is remembered between calls,
+ * so a failure here never makes a later request fail.
+ */
+async function connectSidecar(cfg: PdfConfig): Promise<PwBrowser> {
   const { chromium } = await import("playwright-core");
-  if (cfg.browserUrl) {
+  const started = Date.now();
+  let last: Error | null = null;
+  let attempts = 0;
+  for (let attempt = 1; attempt <= cfg.connectAttempts; attempt++) {
+    const left = cfg.connectBudgetMs - (Date.now() - started);
+    if (left <= 0) break;
+    attempts = attempt;
     try {
-      return (await chromium.connectOverCDP(cfg.browserUrl, { timeout: Math.min(cfg.timeoutMs, 10_000) })) as unknown as PwBrowser;
+      return (await chromium.connectOverCDP(cfg.browserUrl, { timeout: Math.min(cfg.connectTimeoutMs, left) })) as unknown as PwBrowser;
     } catch (e) {
-      throw new PdfUnavailableError(`Couldn't reach the PDF service (${(e as Error).message.split("\n")[0]}).`);
+      last = e as Error;
+      const wait = cfg.connectBackoffMs * 2 ** (attempt - 1);
+      if (attempt >= cfg.connectAttempts || wait >= cfg.connectBudgetMs - (Date.now() - started)) break;
+      console.warn(JSON.stringify({ event: "resume.pdf.connect_retry", attempt, waitMs: wait, ms: Date.now() - started, message: last.message.split("\n")[0] }));
+      await sleep(wait);
     }
   }
+  throw new PdfUnavailableError(
+    `Couldn't reach the PDF service after ${attempts} ${attempts === 1 ? "attempt" : "attempts"} (${last?.message.split("\n")[0] ?? "no time left"}).`,
+  );
+}
+
+async function openBrowser(cfg: PdfConfig): Promise<PwBrowser> {
+  if (cfg.browserUrl) return connectSidecar(cfg);
+  const { chromium } = await import("playwright-core");
   const channels = cfg.localChannel ? [cfg.localChannel] : ["msedge", "chrome"];
   let last: Error | null = null;
   for (const channel of channels) {
@@ -305,37 +357,50 @@ export interface PrintedPdf {
   thumb: Buffer | null;
 }
 
+/**
+ * Prints on a connected browser under the hard `timeoutMs` ceiling. The ceiling starts once the browser is CONNECTED:
+ * connecting has its own, more patient budget (a cold sidecar), and must not eat the print's time.
+ */
 async function printOnce(html: string, pageSize: PageSize, cfg: PdfConfig, thumbWidth?: number): Promise<PrintedPdf> {
   const browser = await openBrowser(cfg);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const ceiling = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new PdfTimeoutError(cfg.timeoutMs)), cfg.timeoutMs + 2_000); // config-literal-ok: grace over the per-step timeouts
+  });
   try {
-    // A thumbnail is the first page at `thumbWidth` px: the viewport is one page and the device scale shrinks it (PDF output ignores both).
-    const px = pagePixels(pageSize);
-    const context = await browser.newContext(
-      thumbWidth ? { javaScriptEnabled: false, viewport: { width: px.width, height: px.height }, deviceScaleFactor: thumbWidth / px.width } : { javaScriptEnabled: false },
-    );
-    try {
-      const page = await context.newPage();
-      page.setDefaultTimeout(cfg.timeoutMs);
-      await page.route("**/*", (route) => route.abort());
-      await page.setContent(html, { waitUntil: "load", timeout: cfg.timeoutMs });
-      await page.emulateMedia({ media: "print" });
-      const pdf = await page.pdf(pdfOptions(pageSize));
-      let thumb: Buffer | null = null;
-      if (thumbWidth) {
-        try {
-          // Screen media shows the page the way the editor does (width, margins as padding); one screenshot of the first page.
-          await page.emulateMedia({ media: "screen" });
-          thumb = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: px.width, height: px.height } });
-        } catch (e) {
-          console.warn(JSON.stringify({ event: "resume.thumb.failed", message: (e as Error).message.split("\n")[0] }));
-        }
-      }
-      return { pdf, thumb };
-    } finally {
-      await context.close().catch(() => undefined);
-    }
+    return await Promise.race([printOn(browser, html, pageSize, cfg, thumbWidth), ceiling]);
   } finally {
+    clearTimeout(timer);
     await browser.close().catch(() => undefined);
+  }
+}
+
+async function printOn(browser: PwBrowser, html: string, pageSize: PageSize, cfg: PdfConfig, thumbWidth?: number): Promise<PrintedPdf> {
+  // A thumbnail is the first page at `thumbWidth` px: the viewport is one page and the device scale shrinks it (PDF output ignores both).
+  const px = pagePixels(pageSize);
+  const context = await browser.newContext(
+    thumbWidth ? { javaScriptEnabled: false, viewport: { width: px.width, height: px.height }, deviceScaleFactor: thumbWidth / px.width } : { javaScriptEnabled: false },
+  );
+  try {
+    const page = await context.newPage();
+    page.setDefaultTimeout(cfg.timeoutMs);
+    await page.route("**/*", (route) => route.abort());
+    await page.setContent(html, { waitUntil: "load", timeout: cfg.timeoutMs });
+    await page.emulateMedia({ media: "print" });
+    const pdf = await page.pdf(pdfOptions(pageSize));
+    let thumb: Buffer | null = null;
+    if (thumbWidth) {
+      try {
+        // Screen media shows the page the way the editor does (width, margins as padding); one screenshot of the first page.
+        await page.emulateMedia({ media: "screen" });
+        thumb = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: px.width, height: px.height } });
+      } catch (e) {
+        console.warn(JSON.stringify({ event: "resume.thumb.failed", message: (e as Error).message.split("\n")[0] }));
+      }
+    }
+    return { pdf, thumb };
+  } finally {
+    await context.close().catch(() => undefined);
   }
 }
 
@@ -354,17 +419,27 @@ export async function printPdf(html: string, opts: { pageSize?: PageSize } = {})
  */
 export async function printPdfWithThumb(html: string, opts: { pageSize?: PageSize; thumbWidth?: number } = {}): Promise<PrintedPdf> {
   const cfg = readPdfConfig();
-  return limiter().run(async () => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const ceiling = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new PdfTimeoutError(cfg.timeoutMs)), cfg.timeoutMs + 2_000);
-    });
-    try {
-      return await Promise.race([printOnce(html, opts.pageSize ?? "letter", cfg, opts.thumbWidth), ceiling]);
-    } finally {
-      clearTimeout(timer);
-    }
-  });
+  return limiter().run(() => printOnce(html, opts.pageSize ?? "letter", cfg, opts.thumbWidth));
+}
+
+/**
+ * Pays the cold-sidecar cost before a user does: one blank print through the same path (slot, patient connect, ceiling).
+ * Called without awaiting when the server starts (`instrumentation.ts`); it never throws, because the first real export
+ * would simply retry. Only with `PDF_BROWSER_URL` (a local-dev browser is launched per print anyway) and `RESUME_PDF_WARMUP` not 0.
+ * Returns whether the sidecar answered.
+ */
+export async function warmPdfBrowser(env: Env = process.env): Promise<boolean> {
+  const cfg = readPdfConfig(env);
+  if (!cfg.browserUrl || !cfg.warmup) return false;
+  const started = Date.now();
+  try {
+    await printPdf("<!doctype html><title>warm-up</title><p>warm-up</p>");
+    console.info(JSON.stringify({ event: "resume.pdf.warmup", ok: true, ms: Date.now() - started }));
+    return true;
+  } catch (e) {
+    console.warn(JSON.stringify({ event: "resume.pdf.warmup", ok: false, ms: Date.now() - started, message: (e as Error).message.split("\n")[0] }));
+    return false;
+  }
 }
 
 /**

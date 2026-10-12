@@ -16,6 +16,7 @@ import {
   printPdf,
   printPdfWithThumb,
   readPdfConfig,
+  warmPdfBrowser,
   renderResumeHtml,
   resetPdfLimiter,
 } from "./pdf";
@@ -67,7 +68,7 @@ const fixture = (name: string): ResumeDocument =>
 /** The fonts are ~230 KB of base64; keep snapshots readable. */
 const withoutFontBytes = (html: string) => html.replace(/base64,[A-Za-z0-9+/=]+/g, "base64,…");
 
-const ENV_KEYS = ["PDF_BROWSER_URL", "PDF_LOCAL_CHANNEL", "RESUME_PDF_TIMEOUT_MS", "RESUME_PDF_MAX_CONCURRENT", "RESUME_PDF_QUEUE_MAX", "RESUME_PDF_MAX_FIT_STEPS"];
+const ENV_KEYS = ["PDF_BROWSER_URL", "PDF_LOCAL_CHANNEL", "RESUME_PDF_TIMEOUT_MS", "RESUME_PDF_MAX_CONCURRENT", "RESUME_PDF_QUEUE_MAX", "RESUME_PDF_MAX_FIT_STEPS", "RESUME_PDF_CONNECT_TIMEOUT_MS", "RESUME_PDF_CONNECT_ATTEMPTS", "RESUME_PDF_CONNECT_BACKOFF_MS", "RESUME_PDF_CONNECT_BUDGET_MS", "RESUME_PDF_WARMUP"];
 beforeEach(() => {
   for (const k of ENV_KEYS) delete process.env[k];
   resetPdfLimiter();
@@ -187,7 +188,8 @@ describe("printPdf", () => {
 
   it("is PdfUnavailable when no browser can be reached", async () => {
     process.env.PDF_BROWSER_URL = "ws://nowhere:1";
-    pw.connect.mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
+    process.env.RESUME_PDF_CONNECT_BACKOFF_MS = "0";
+    pw.connect.mockRejectedValue(new Error("connect ECONNREFUSED"));
     await expect(printPdf("x")).rejects.toBeInstanceOf(PdfUnavailableError);
     delete process.env.PDF_BROWSER_URL;
     pw.launch.mockRejectedValue(new Error("no browser"));
@@ -224,6 +226,108 @@ describe("printPdf", () => {
   });
 });
 
+describe("cold sidecar: the first export after a start (a healthy sidecar launching its first Chromium)", () => {
+  /** A connector like the real one: a COLD launch takes `coldMs`; it gives up with a timeout error when `opts.timeout` is shorter. */
+  function coldConnector(coldMs: number) {
+    let first = true;
+    return async (_url: string, opts: { timeout: number }) => {
+      const takes = first ? coldMs : 1_300; // warm launches took ~1.3 s on the demo box
+      first = false;
+      if (takes > opts.timeout) {
+        await new Promise((r) => setTimeout(r, opts.timeout));
+        throw new Error(`browserType.connectOverCDP: Timeout ${opts.timeout}ms exceeded.
+Call log: ...`);
+      }
+      await new Promise((r) => setTimeout(r, takes));
+      return pw.makeBrowser();
+    };
+  }
+
+  it("waits out a cold launch of 14 s (the old 10 s cap answered PDF_UNAVAILABLE) and prints", async () => {
+    vi.useFakeTimers();
+    process.env.PDF_BROWSER_URL = "ws://chromium:3000";
+    pw.connect.mockImplementation(coldConnector(14_000));
+    const p = printPdf("<p>hi</p>");
+    await vi.advanceTimersByTimeAsync(15_000);
+    await expect(p).resolves.toBeDefined();
+    expect(pw.connect).toHaveBeenCalledTimes(1);
+    expect(pw.connect.mock.calls[0][1].timeout).toBeGreaterThan(14_000);
+  });
+
+  it("retries a first connect that fails, with backoff, and then prints", async () => {
+    vi.useFakeTimers();
+    process.env.PDF_BROWSER_URL = "ws://chromium:3000";
+    pw.connect.mockRejectedValueOnce(new Error("connect ECONNREFUSED 127.0.0.1:13322")).mockRejectedValueOnce(new Error("Timeout 10000ms exceeded"));
+    const p = printPdf("<p>hi</p>");
+    await vi.advanceTimersByTimeAsync(500 + 1_000); // first backoff 500 ms, second 1000 ms
+    await expect(p).resolves.toBeDefined();
+    expect(pw.connect).toHaveBeenCalledTimes(3);
+  });
+
+  it("is still PdfUnavailable when every attempt fails, after exactly `connectAttempts` tries", async () => {
+    process.env.PDF_BROWSER_URL = "ws://nowhere:1";
+    process.env.RESUME_PDF_CONNECT_ATTEMPTS = "3";
+    process.env.RESUME_PDF_CONNECT_BACKOFF_MS = "0";
+    pw.connect.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    await expect(printPdf("x")).rejects.toThrow(/after 3 attempts \(connect ECONNREFUSED\)/);
+    expect(pw.connect).toHaveBeenCalledTimes(3);
+    await expect(printPdf("x")).rejects.toBeInstanceOf(PdfUnavailableError);
+  });
+
+  it("never remembers a failure: once the sidecar answers, the very next export works", async () => {
+    process.env.PDF_BROWSER_URL = "ws://chromium:3000";
+    process.env.RESUME_PDF_CONNECT_ATTEMPTS = "1";
+    pw.connect.mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
+    await expect(printPdf("x")).rejects.toBeInstanceOf(PdfUnavailableError);
+    await expect(printPdf("y")).resolves.toBeDefined();
+  });
+
+  it("stops starting attempts once the connect budget is spent", async () => {
+    vi.useFakeTimers();
+    process.env.PDF_BROWSER_URL = "ws://nowhere:1";
+    process.env.RESUME_PDF_CONNECT_ATTEMPTS = "10";
+    process.env.RESUME_PDF_CONNECT_BACKOFF_MS = "400";
+    process.env.RESUME_PDF_CONNECT_BUDGET_MS = "1000";
+    pw.connect.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    const p = printPdf("x");
+    const assertion = expect(p).rejects.toBeInstanceOf(PdfUnavailableError);
+    await vi.advanceTimersByTimeAsync(5_000);
+    await assertion;
+    expect(pw.connect).toHaveBeenCalledTimes(2); // t=0, then t=400; the next wait (800 ms) would pass the 1000 ms budget
+  });
+
+  it("the print ceiling starts after the connect: a 14 s cold connect leaves the whole timeoutMs to print", async () => {
+    vi.useFakeTimers();
+    process.env.PDF_BROWSER_URL = "ws://chromium:3000";
+    process.env.RESUME_PDF_TIMEOUT_MS = "2000";
+    pw.connect.mockImplementation(coldConnector(14_000));
+    pw.pdfImpl = () => new Promise<Buffer>((resolve) => setTimeout(() => resolve(Buffer.from("%PDF")), 1_500));
+    const p = printPdf("x");
+    await vi.advanceTimersByTimeAsync(17_000);
+    await expect(p).resolves.toBeDefined();
+  });
+
+  it("warm-up prints once through the sidecar and answers true; it never throws", async () => {
+    process.env.PDF_BROWSER_URL = "ws://chromium:3000";
+    await expect(warmPdfBrowser()).resolves.toBe(true);
+    expect(pw.connect).toHaveBeenCalledTimes(1);
+    expect(pw.closed).toBe(1);
+
+    process.env.RESUME_PDF_CONNECT_ATTEMPTS = "1";
+    pw.connect.mockRejectedValue(new Error("connect ECONNREFUSED"));
+    await expect(warmPdfBrowser()).resolves.toBe(false);
+  });
+
+  it("warm-up does nothing without PDF_BROWSER_URL, or with RESUME_PDF_WARMUP=0", async () => {
+    await expect(warmPdfBrowser()).resolves.toBe(false);
+    expect(pw.launch).not.toHaveBeenCalled();
+    process.env.PDF_BROWSER_URL = "ws://chromium:3000";
+    process.env.RESUME_PDF_WARMUP = "0";
+    await expect(warmPdfBrowser()).resolves.toBe(false);
+    expect(pw.connect).not.toHaveBeenCalled();
+  });
+});
+
 describe("readPdfConfig", () => {
   it("has safe defaults", () => {
     expect(readPdfConfig({})).toEqual({
@@ -233,6 +337,11 @@ describe("readPdfConfig", () => {
       maxConcurrent: 1,
       queueMax: 10,
       maxFitSteps: 3,
+      connectTimeoutMs: 30_000,
+      connectAttempts: 5,
+      connectBackoffMs: 500,
+      connectBudgetMs: 60_000,
+      warmup: true,
     });
   });
   it("reads env, clamps, and ignores junk", () => {
