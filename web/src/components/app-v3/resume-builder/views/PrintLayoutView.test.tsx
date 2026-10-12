@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ATS_STRICT, DESIGN_FREE, getTemplate, resolveCapabilities } from "@kiwiply/ui";
+import { ATS_STRICT, BOTTOM_INSET_VAR, DESIGN_FREE, getTemplate, resolveCapabilities } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities } from "@kiwiply/ui";
 import capsDoc from "../../../../../../packages/ui/src/resume/__fixtures__/caps-doc.json";
 import { testDoc } from "../state/test-doc";
@@ -50,6 +50,22 @@ function view(over: Partial<{ doc: ResumeDocument; theme: Partial<ResumeTheme> |
   };
   const utils = render(<PrintLayoutView {...props} />);
   return { ...props, ...utils, rerenderWith: (next: Partial<typeof props>) => utils.rerender(<PrintLayoutView {...props} {...next} />) };
+}
+
+/** jsdom has no layout: make `.sticky` compute as sticky and give the bar a rect 100 px tall at the window's bottom edge. */
+function stickyBarAtBottom() {
+  const style = document.createElement("style");
+  style.textContent = ".sticky{position:sticky}";
+  document.head.appendChild(style);
+  vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const bar = this.classList.contains("sticky") && this.classList.contains("bottom-0");
+    return { top: bar ? 700 : 0, bottom: bar ? 800 : 0, height: bar ? 100 : 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+  });
+  return () => {
+    style.remove();
+    vi.restoreAllMocks();
+  };
 }
 
 const boxes = () => screen.queryAllByRole("img", { name: /^Page \d+ of \d+$/ });
@@ -170,5 +186,16 @@ describe("PrintLayoutView", () => {
     expect((screen.getByRole("button", { name: "Zoom out" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(zoomIn);
     expect(screen.getByText("125%")).toBeTruthy();
+  });
+
+  it("registers its sticky bottom bar with useBottomBar so the bug-report button lifts above it", () => {
+    contentAtStep0 = 500;
+    const undo = stickyBarAtBottom();
+    const { unmount } = view();
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_INSET_VAR)).toBe("100px");
+    expect(document.documentElement.hasAttribute("data-bottom-bar")).toBe(true);
+    unmount();
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_INSET_VAR)).toBe("");
+    undo();
   });
 });

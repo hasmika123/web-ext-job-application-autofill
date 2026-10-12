@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveCapabilities } from "@kiwiply/ui";
+import { BOTTOM_INSET_VAR, resolveCapabilities } from "@kiwiply/ui";
 import type { ResumeDocument } from "@kiwiply/ui";
 import type { ExportPdfResult, PdfInfo } from "@/lib/resume-doc";
 import { testDoc } from "../state/test-doc";
@@ -57,6 +57,22 @@ function view(over: Partial<Props> = {}) {
   const el = (p: Props) => <PdfView resumeId={42} templateId="modern" caps={caps} {...p} />;
   const utils = render(el(props));
   return { props, ...utils, rerenderWith: (next: Partial<Props>) => utils.rerender(el({ ...props, ...next })) };
+}
+
+/** jsdom has no layout: make `.sticky` compute as sticky and give the bar a rect 100 px tall at the window's bottom edge. */
+function stickyBarAtBottom() {
+  const style = document.createElement("style");
+  style.textContent = ".sticky{position:sticky}";
+  document.head.appendChild(style);
+  vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const bar = this.classList.contains("sticky") && this.classList.contains("bottom-0");
+    return { top: bar ? 700 : 0, bottom: bar ? 800 : 0, height: bar ? 100 : 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+  });
+  return () => {
+    style.remove();
+    vi.restoreAllMocks();
+  };
 }
 
 const frame = () => screen.queryByTitle("PDF preview");
@@ -221,5 +237,17 @@ describe("PdfView (R3.3, DESIGN 10.8)", () => {
     await flush();
     unmount();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:the-pdf");
+  });
+
+  it("registers its sticky bottom bar with useBottomBar so the bug-report button lifts above it", async () => {
+    exportPdf.mockResolvedValue(okPdf());
+    const undo = stickyBarAtBottom();
+    const { unmount } = view();
+    await flush();
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_INSET_VAR)).toBe("100px");
+    expect(document.documentElement.hasAttribute("data-bottom-bar")).toBe(true);
+    unmount();
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_INSET_VAR)).toBe("");
+    undo();
   });
 });

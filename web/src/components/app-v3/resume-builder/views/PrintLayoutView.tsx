@@ -17,6 +17,7 @@ import {
   cn,
   fitScale,
   getTemplate,
+  useBottomBar,
 } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities } from "@kiwiply/ui";
 import HiddenContentBar from "../HiddenContentBar";
@@ -102,6 +103,9 @@ export default function PrintLayoutView({
 
   /* ── scale to the pane (+ phone zoom) ─────────────────────────────────────────────── */
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The sticky Download / Print bar tells the floating bug-report button / toasts to stay above it (phones).
+  const barRef = useRef<HTMLDivElement>(null);
+  useBottomBar(barRef);
   const [paneWidth, setPaneWidth] = useState(0);
   const [zoom, setZoom] = useState(ZOOM_MIN);
   const zoomRef = useRef(zoom);
@@ -294,7 +298,7 @@ export default function PrintLayoutView({
         {announce}
       </p>
 
-      <div className="sticky bottom-0 -mx-5 mt-auto flex flex-wrap items-center gap-2 border-t border-line bg-paper px-5 py-3">
+      <div ref={barRef} className="sticky bottom-0 -mx-5 mt-auto flex flex-wrap items-center gap-2 border-t border-line bg-paper px-5 py-3">
         <Button variant="accent" size="sm" onClick={onDownloadPdf} disabled={exporting || disabled} aria-busy={exporting} className="min-h-11 gap-2">
           {exporting ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
           {exporting ? "Preparing…" : "Download PDF"}

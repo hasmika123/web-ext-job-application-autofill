@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertIcon, Button, DownloadIcon, FileTextIcon, SIDE_SHEET_MS, Spinner, cn, getTemplate } from "@kiwiply/ui";
+import { AlertIcon, Button, DownloadIcon, FileTextIcon, SIDE_SHEET_MS, Spinner, cn, getTemplate, useBottomBar } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { exportPdf, saveBlob, type PdfInfo } from "@/lib/resume-doc";
@@ -87,6 +87,9 @@ export default function PdfView({
   // ancestor), so the frame is mounted once the slide has finished. The fetch usually takes longer than that anyway.
   const [slid, setSlid] = useState(false);
 
+  // The sticky Download bar tells the floating bug-report button / toasts to stay above it (phones).
+  const barRef = useRef<HTMLDivElement>(null);
+  useBottomBar(barRef);
   const seq = useRef(0);
   const urlRef = useRef<string | null>(null);
   const latest = useRef<Snapshot>({ doc, theme, templateId });
@@ -306,7 +309,7 @@ export default function PdfView({
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-5 mt-auto flex flex-wrap items-center gap-2 border-t border-line bg-paper px-5 py-3">
+      <div ref={barRef} className="sticky bottom-0 -mx-5 mt-auto flex flex-wrap items-center gap-2 border-t border-line bg-paper px-5 py-3">
         <Button variant="accent" size="sm" onClick={download} disabled={!ready || disabled} className="min-h-11 gap-2">
           <DownloadIcon className="h-4 w-4" />
           Download PDF
