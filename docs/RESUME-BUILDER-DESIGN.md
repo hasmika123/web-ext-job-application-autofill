@@ -1538,7 +1538,7 @@ copy: Free "You've reached 3 resumes — See Pro"; Pro "Archive one to make room
 shows. Desktop: `Dialog` (640 px); phone: `SideSheet mode="fullscreen"`. Visual language = the board's
 left-panel cards (green icon tile, title, one-line description, right-side action).
 
-**Step 1 — "Start your resume from"** (exactly three cards, radio semantics, Enter continues):
+**Step 1 — "Start your resume from"** (exactly **four** cards, radio semantics, Enter continues — user 2026-10-12, DECISIONS #29):
 1. **Use my profile** (recommended; preselected when the profile has ≥ 1 item) — tile `UserIcon`;
    description "Your saved profile: 3 roles · 2 schools · 14 skills · 78 % complete" (from
    `GET /api/profile/completeness` + item counts); **empty profile**: description "Your profile is
@@ -1552,6 +1552,7 @@ left-panel cards (green icon tile, title, one-line description, right-side actio
 3. **Copy an existing resume** — tile `FileTextIcon`; description "Start from one of your 4 resumes";
    choosing it reveals a radio list (name, kind badge, updated, score) of non-archived resumes; empty →
    "You don't have a resume to copy yet" (card disabled).
+4. **Start from scratch** — tile `PlusIcon` (or the closest existing `@kiwiply/ui` icon); description "A blank resume — just your name and contact, you add the rest"; creates the doc with the header seeded from bio only (the R0 seeder behaviour) and **opens the Add Section panel** on arrival (the one exception to "panel closed"). Source payload `{source:"scratch"}`; name rule → "My resume". Replaces the empty-profile link "Start with just my name and contact" (that link now selects this card).
 
 **Step 2 — "Name it"**: Name (`Input`, prefilled by the rule: profile → headline or "My resume";
 upload → the file name without extension; copy → "<name> (copy)"), Target role (optional, chips from
