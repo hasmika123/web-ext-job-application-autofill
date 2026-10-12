@@ -211,7 +211,7 @@
       "id": "O1.5",
       "epic": "O1",
       "title": "OrgIsolationIT — route-discovered cross-tenant test (ROADMAP 21.0 gate)",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -303,7 +303,7 @@
       "id": "O1.8",
       "epic": "O1",
       "title": "Demo org seed for demo accounts (labelled)",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API"
@@ -1299,7 +1299,7 @@
       "id": "O6.1",
       "epic": "O6",
       "title": "data_share + data_share_event tables, ShareField enum, ShareMatrixTest (doc ↔ code)",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -3144,7 +3144,7 @@
       "benchmark": "G43 — Big Interview / Yoodli team assignments, Handshake content; ours never reports member results back"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "evidence": [

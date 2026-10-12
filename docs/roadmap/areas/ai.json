@@ -3,7 +3,7 @@
   "name": "AI platform — gateway, routing, prompts & evals, guardrails, embeddings, fairness, BYO key",
   "prefix": "I",
   "kind": "cross-cutting",
-  "updated": "2026-10-11",
+  "updated": "2026-10-12",
   "epics": [
     { "id": "I0", "name": "AI gateway, metering & budgets", "goal": "One entry point for every model call with a fixed check order, a ledger that records every attempt, materialised period spend, per-feature daily caps and pluggable budget resolution (plan, admin override, org grant).", "priority": "P0" },
     { "id": "I1", "name": "Model routing & providers", "goal": "A second provider (Claude Haiku 5.5 / Sonnet 5.5) behind the same seam, a runtime routing table by task and budget position, provider-neutral structured outputs, fallback and circuit breaker, pricing on settings.", "priority": "P0" },
@@ -52,7 +52,7 @@
     },
     {
       "id": "I0.4", "epic": "I0", "title": "Ledger v2: feature, provider, success, failure_kind, latency, cache_hit, prompt version, org, request id; failed-call rows",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": [], "relates": ["A4.2"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": [], "relates": ["A4.2", "I1.10"], "supersedes": [],
       "story": "As the platform I want every AI attempt recorded with why it failed and what produced it so that cost, quality and incidents can be traced without storing content.",
       "genz": "Support can trace a bad answer by id without ever reading the chat.",
       "ac": ["Liquibase adds the columns and indexes from the design §3; dual-write period with ai_usage then ai_usage dropped", "Failed/rejected calls write success=false with cost recorded when the provider billed", "AiMeteringService.record takes the gateway's AiRequest metadata"],
@@ -152,7 +152,7 @@
     },
     {
       "id": "I1.3", "epic": "I1", "title": "Routing table v2 on runtime settings: primary / mid / economy by budget position, fallback, pin, canary",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.2", "A5.1"], "relates": ["A5.2"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.2", "A5.1", "I1.9", "I1.10"], "relates": ["A5.2", "I1.11"], "supersedes": [],
       "story": "As an operator I want to change a task's model from admin with audit so that a retirement or price change is not a deploy.",
       "genz": "—",
       "ac": ["ai.route.<task>.{primary,mid,economy,fallback,canary_model,canary_percent,max_output,timeout_ms} with env defaults from the design §3", "AiRouter resolves by AiBudgetService.Decision.used tiers (<50, 50–80, ≥80) and THROTTLED", "Admin pin overrides tiers; HIGH audit"],
@@ -163,7 +163,7 @@
     },
     {
       "id": "I1.4", "epic": "I1", "title": "Provider fallback chain + circuit breaker + PROVIDER_ERRORS alert",
-      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.2", "I1.3"], "relates": ["A4.4", "A10.3"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.2", "I1.3", "I1.10"], "relates": ["A4.4", "A10.3"], "supersedes": [],
       "story": "As a user I want AI to keep working during a provider incident so that a tailor does not fail because one vendor is down.",
       "genz": "It just works; nobody sees which company answered.",
       "ac": ["5xx/429/timeout → fallback route same tier; 5 failures/60 s opens the breaker 120 s; HALF_OPEN probe", "Both open → AI_PAUSED with retryAfter", "ai_alert PROVIDER_ERRORS HIGH on open; metric ai.breaker.state"],
@@ -185,7 +185,7 @@
     },
     {
       "id": "I1.6", "epic": "I1", "title": "Pricing table on runtime settings with Anthropic rates and the UNPRICED_MODEL alert",
-      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["A5.1"], "relates": ["A4.2"], "supersedes": [],
+      "status": "not_started", "size": "S", "owners": ["API"], "deps": ["A5.1"], "relates": ["A4.2", "I1.11"], "supersedes": [],
       "story": "As an operator I want model prices editable with audit so that a vendor price change is recorded the day it happens.",
       "genz": "—",
       "ac": ["ai.price.<model>.{input,cached,output,cache_write}_per_mtok_micros seeded from AiPricing defaults + Haiku 5.5 ($0.10/$0.50), Sonnet 5.5 ($2/$10), Opus 5.5 ($4/$20)", "Unpriced model → fallback rate + ai_alert UNPRICED_MODEL HIGH"],
@@ -215,6 +215,106 @@
       "tech": "docs/design/ai/model-routing-providers.md §8; OptionsApp.tsx; AiResource status",
       "evidence": ["job-autofill/entrypoints/options/OptionsApp.tsx", "api/src/main/java/com/dossier/api/service/ai/GeminiAiProvider.java"], "design": "docs/design/ai/fairness-explainability.md", "critical": false,
       "benchmark": "G31 — training exclusion stated and enforced (Yoodli makes it paid-only)."
+    },
+
+    {
+      "id": "I1.9", "epic": "I1", "title": "AiSettingKeys registry + AiRuntimeSettings (row › env › code) + AdminSettingsWriter with app_setting_history and AI_CONFIG_CHANGE audit",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": [], "relates": ["A5.1","A5.2","R2.0"], "supersedes": [],
+      "story": "As the platform I want every non-secret AI knob declared once with type, bounds and env default so that an admin edit at runtime is validated, audited, historied and read by the router without a restart.",
+      "genz": "—",
+      "ac": ["service/ai/AiSettingKeys.java declares ai.enabled, ai.economy_model, ai.soft_cap_pct, ai.admin.test_per_hour, ai.calls.default_window_hours and the three families ai.route.<task>.{enabled,provider,model,fallback_provider,fallback_model,max_output_tokens}, ai.provider.<id>.{enabled,base_url,timeout_ms,models}, ai.price.<model>.{input,cached,output}_per_mtok_micros with the types, bounds, risks and code defaults of the design §3.2; ai.output_tokens_max.rewrite becomes an alias of ai.route.rewrite.max_output_tokens","ResumeBuilderSettingKeys.find/require/canonical consult AiSettingKeys after their own map; ResumeBuilderSettings gains stored(key) (valid stored value or empty); ResumeBuilderSettingKeysParityTest stays green","service/ai/AiRuntimeSettings.java resolves globalEnabled (env master AND row), providerEnabled/BaseUrl/TimeoutMs/Models, taskEnabled, route(task), economyModel, softCapPercent, adminTestPerHour and resolved(key) → {value, source db|env|default, envDefault, codeDefault}; env defaults come from AiProperties/AiPolicy; 60 s cache + invalidate()","Liquibase 20261013020000_ai_runtime_config.xml creates app_setting_history with the A5.1 §3 DDL (and the ai_call columns of I1.10 in the same file)","service/AdminSettingsWriter.write(key, valueOrNull, reason, risk): unknown key → AI_CONFIG_UNKNOWN_KEY, out of bounds → AI_CONFIG_OUT_OF_BOUNDS {key,min,max,allowed}, HIGH without reason → AI_CONFIG_REASON_REQUIRED, same value → no-op, null deletes the row; writes app_setting + app_setting_history + AdminAuditService AI_CONFIG_CHANGE (target AI_SETTING, old→new abbreviated) in the caller's transaction, then invalidates the cache","No secret is ever a setting: AiSettingKeys has no key whose name contains key/secret/token (test asserts it)"],
+      "tests": ["AiSettingKeysTest (families × every AiTask and provider id, bounds, model regex)","AiRuntimeSettingsTest (row › env › code; invalid row → env; invalidate)","AdminSettingsWriterTest (codes, no-op, delete, history + audit rows)","migration IT boots"],
+      "tech": "api service/ai/{AiSettingKeys,AiRuntimeSettings}.java, service/AdminSettingsWriter.java, domain/AppSettingHistory.java + repository, liquibase changelog; AdminAuditService constants TARGET_AI_SETTING, AI_CONFIG_CHANGE",
+      "evidence": ["api/src/main/java/com/dossier/api/service/ResumeBuilderSettingKeys.java","api/src/main/java/com/dossier/api/service/ResumeBuilderSettings.java","api/src/main/java/com/dossier/api/service/ai/AiPolicy.java","docs/design/admin/runtime-settings-feature-flags.md"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": true
+    },
+    {
+      "id": "I1.10", "epic": "I1", "title": "AiRouter as the one AiProvider bean: per-task provider+model from runtime settings, one-step fallback, provider/latency/success/error_kind on the ledger, failure rows, AiTask.PROBE",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.9"], "relates": ["I0.4","I1.3","I1.4","A4.2"], "supersedes": [],
+      "story": "As the platform I want the model and provider for a task resolved per call from settings so that an admin change takes effect on the next request with no restart and the ledger records exactly what ran.",
+      "genz": "—",
+      "ac": ["AiConfiguration exposes exactly one AiProvider bean, new service/ai/AiRouter.java; adapters live in service/ai/AiProviderRegistry.java (gemini → GeminiAiProvider built from env; DisabledAiProvider for unknown ids), registry.keyPresent(id)/keyEnvVar(id); existing @MockitoBean AiProvider ITs stay green; none of the eight calling services changes its constructor","AiRouter.generate/parseResume: route = runtime.route(task); the model argument (AiBudgetService.Decision.model) wins, blank → route model; global off or task off → AiProviderException + failure row DISABLED; attempt on the route provider, then ONE fallback attempt on fallback_provider for retryable kinds (TIMEOUT, HTTP_5XX, RATE_LIMITED, TRANSPORT, UNCONFIGURED, DISABLED, EMPTY, UNSUPPORTED_INPUT); 4xx/MODEL_NOT_FOUND/BAD_JSON never fall back; AiRouter.probe(providerId, model) runs AiTask.PROBE with max 16 output tokens and a 15 s timeout","AiResult gains provider and latencyMs (5-arg constructor kept; withProvider(id, ms)); AiMeteringService.record writes provider/latency_ms/success=true and recordFailure(login|null, task, provider, model, kind, latencyMs) writes success=false cost 0 in REQUIRES_NEW; AiCallRepository.costSince/spendByLogin/spendByTask add success = true; AiTask.PROBE('probe') excluded from fromWire","AiBudgetService takes AiRuntimeSettings instead of AiPolicy+AiProvider for disabled/model/economy/soft-cap (budget sizes stay on AiPolicy); Decision.model() == runtime.route(task).model() unless economy applies","GeminiAiProvider sends the key as the x-goog-api-key header (never in the URL), carries httpStatus on AiProviderException, reads base URL and timeout per call from AiRuntimeSettings, accepts an injectable HttpClient; service/ai/AiKeyScrubber replaces every configured key value with [redacted] in all logged/returned provider messages","AiPricing.rateFor consults AiRuntimeSettings.price(model) (all three ai.price.<model>.* rows) before code defaults; Micrometer timer ai.call{task,provider,outcome}"],
+      "tests": ["AiRouterTest (route, model-arg wins, disabled, fallback matrix, stamping, probe)","AiBudgetServiceTest extended (runtime switch, runtime model)","AiMeteringServiceTest extended (failure rows)","AiPricingTest extended (settings overlay)","GeminiAiProviderTest extended (header, status mapping, scrubber)","AiProviderContractTest + GeminiAiProviderContractTest on a stubbed HttpClient","all existing AI ITs green"],
+      "tech": "api config/AiConfiguration.java, service/ai/{AiRouter,AiProviderRegistry,AiKeyScrubber,GeminiAiProvider,AiResult,AiTask,AiPricing}.java, service/{AiBudgetService,AiMeteringService}.java, domain/AiCall.java, repository/AiCallRepository.java",
+      "evidence": ["api/src/main/java/com/dossier/api/config/AiConfiguration.java","api/src/main/java/com/dossier/api/service/AiBudgetService.java","api/src/main/java/com/dossier/api/service/ai/GeminiAiProvider.java","api/src/test/java/com/dossier/api/web/rest/AiResourceIT.java"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": true
+    },
+    {
+      "id": "I1.11", "epic": "I1", "title": "Admin AI config API: GET config, PATCH global/provider/route, PUT/DELETE price, POST test (rate-limited, audited, ledgered), GET calls, GET history",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.10"], "relates": ["A4.1","A4.2","A4.3","I8.2"], "supersedes": ["I1.6"],
+      "story": "As an admin I want one API that shows and changes which provider and model each task uses, what each model costs, and what recent calls did, so that a model retirement or an outage is an audited edit, not a deploy.",
+      "genz": "—",
+      "ac": ["web/rest/AdminAiConfigResource.java under /api/admin/ai with the exact contracts of the design §6.1: GET /config returns envMasterEnabled, global, economy, providers[] (id, label, kind, enabled, keyPresent, keyRequired, keyEnvVar, baseUrl, timeoutMs, models, capabilities, configured, usedByTasks, lastProbe), routes[] (every AiTask except PROBE, in enum order, each field as R<T> {value, source, envDefault, codeDefault}), prices[], limits","PATCH /config/global, PATCH /providers/{id}, PATCH /routes/{task}, DELETE /routes/{task}, PUT+DELETE /prices/{model}: null clears a row (back to env); enabled=false on global / parse / a provider requires reason; routing to or testing an unconfigured provider → 409 AI_PROVIDER_NOT_CONFIGURED; disabling a provider that routes use without fallback → 409 AI_PROVIDER_IN_USE {tasks} unless force=true; every write via AdminSettingsWriter; ProblemDetail codes AI_CONFIG_UNKNOWN_KEY, AI_CONFIG_OUT_OF_BOUNDS, AI_CONFIG_REASON_REQUIRED, AI_MODEL_INVALID, AI_URL_INVALID, AI_PROVIDER_UNKNOWN via AiConfigException → AiConfigProblemException","POST /providers/{id}/test {model?} → 200 {ok, model, latencyMs, inputTokens, outputTokens, costMicros, error?{kind, message ≤ 200 chars, scrubbed}}; sliding-window limit ai.admin.test_per_hour per admin login → 429 AI_TEST_RATE_LIMITED {retryAfterSeconds}; audit AI_PROVIDER_TEST; ledger row task=probe login=admin; the response never contains a key","GET /calls?hours&task&provider&failed&limit&before → summary {calls, failed, failedPct, p95LatencyMs, costMicros, byProvider[]} + rows (id, createdAt, login, task, provider, model, success, errorKind, latencyMs, tokens, costMicros) + nextBefore; GET /config/history?key&limit → app_setting_history rows newest first","management.endpoint.env.keys-to-sanitize lists DOSSIER_AI_API_KEY and DOSSIER_AI_OPENAI_COMPAT_API_KEY"],
+      "tests": ["AdminAiConfigResourceIT (ADMIN 200 / USER 403; PATCH route → source db + history + audit; reason required; IN_USE 409 and force; test → ok + probe row; 31st test → 429; calls lists the probe; DELETE route → source env)","AdminAiConfigServiceTest (validation matrix)"],
+      "tech": "api web/rest/AdminAiConfigResource.java, service/AdminAiConfigService.java, service/AiConfigException.java, web/rest/errors/AiConfigProblemException.java, repository/AppSettingHistoryRepository.java, AiCallRepository recent-calls queries",
+      "evidence": ["api/src/main/java/com/dossier/api/web/rest/AdminAiUsageResource.java","api/src/main/java/com/dossier/api/web/rest/AdminAiQuotaResource.java","api/src/main/java/com/dossier/api/web/rest/errors/ResumeDocProblemException.java"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": true
+    },
+    {
+      "id": "I1.12", "epic": "I1", "title": "/admin/ai/providers page: provider cards with Test connection + per-task routing table, autosave with inline ✓ and undo toast, confirm-with-reason dialogs, BFF routes, nav entry",
+      "status": "not_started", "size": "M", "owners": ["web"], "deps": ["I1.11"], "relates": ["A4.1","A5.8"], "supersedes": [],
+      "story": "As an admin I want to see whether each provider is ready and change a task's provider or model in one tap with an undo, so that routing is a 30-second change I can see and reverse.",
+      "genz": "No Save button: every control saves itself, shows a ✓, and offers Undo for six seconds.",
+      "ac": ["web/src/app/(admin)/admin/ai/providers/page.tsx (server: GET /api/admin/ai/config + /calls summary) renders components/admin-v3/ai/AiProvidersPage.tsx (client); non-admins get the existing 404 from (admin)/layout.tsx; AdminShell NAV gains { href: '/admin/ai/providers', label: 'AI providers', icon: GearIcon } under AI usage","Provider cards (generic over providers[]; Phase 1 shows Gemini): status chip ● Ready / ◐ Untested / ○ Not configured / ○ Off / ✖ Failing, 'Key present ✓ · DOSSIER_AI_API_KEY · Change it in the server's .env, then restart the API.' or the Key-missing copy, Enabled switch, Base URL / Timeout inputs, Models chip input, 'Used by' task list, Test connection button with the result line (OK · model · ms · in/out · $cost, or ✖ kind: message) and the rate-limit copy on 429","Routing table (DataTable at ≥ 1024 px; stacked cards + BottomSheet editor at 390 px): per task Provider select, Model select (provider models + 'Other…' free text validated by the model regex), Fallback provider + model, Max tokens input, Enabled switch, Source chip with 'overrides env · Reset' when source is db; economy model + soft-cap % row under the table","Autosave: Switch/Select save on change, Input on blur/Enter; one PATCH per control via the BFF; aria-busy while saving; SavedTick ✓ on success + undoToast('{Task} now uses {model} on {provider}', Undo PATCHes the previous value); server error shown inline and the control reverts; no Save buttons","Dialog with required reason before: Server AI off, Resume parsing off, a provider off (lists the tasks routed to it); 409 AI_PROVIDER_IN_USE renders '{provider} still answers {tasks}. Set a fallback or re-route them first.'; copy verbatim from the design §5.3","BFF routes web/src/app/api/admin/ai/{config, config/global, config/history, providers/[id], providers/[id]/test, routes/[task], prices/[model], calls}/route.ts forward with serverApiFetch and a shared respond.ts passthrough; shape-only validation; [model] URL-encoded","The mock API (web/scripts/mock-api.mjs) serves a static GET /api/admin/ai/config and /calls fixture so npm run dev:demo renders the page read-only (writes return 503 with 'Not available in the demo'); nothing in the DOM or fixtures ever holds a key"],
+      "tests": ["AiProvidersPage.test.tsx (render; route change → PATCH + ✓ + Undo toast; Undo restores; parse off → Dialog, Cancel no-op, confirm sends reason; 409 inline; no key text)","ai-config.routes.test.ts (each BFF route forwards and shapes 401/4xx/5xx)","web npm test (tsc + eslint incl. no inline svg) green"],
+      "tech": "web app/(admin)/admin/ai/providers/page.tsx, components/admin-v3/ai/{AiProvidersPage,ProviderCard,RoutingTable,RouteSheet}.tsx, app/api/admin/ai/**, components/admin-shell/AdminShell.tsx; @kiwiply/ui Switch, Select, Input, Badge, Dialog, BottomSheet, SavedTick, useToast; web/src/lib/undo-toast.ts",
+      "evidence": ["web/src/components/admin-v3/ai/AiUsagePage.tsx","web/src/app/api/admin/users/[login]/ai-quota/route.ts","web/src/lib/undo-toast.ts","packages/ui/README.md"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": true
+    },
+    {
+      "id": "I1.13", "epic": "I1", "title": "/admin/ai/providers page: pricing table, global kill switch, recent calls & errors panel, stat tiles, 390 px layout; AI-usage 'Edit limits' becomes a link",
+      "status": "not_started", "size": "S", "owners": ["web"], "deps": ["I1.12"], "relates": ["A4.1","A4.3"], "supersedes": [],
+      "story": "As an admin I want prices, the master switch and the last day of calls and errors on the same page so that I can see a problem and act on it without leaving the screen.",
+      "genz": "One page: is it on, what does it cost, what just failed.",
+      "ac": ["Hero right side: 'Server AI' Switch (off → Dialog with reason, copy from the design §5.3); amber env-master note when envMasterEnabled is false; AdminStatTiles: Calls 24 h, Failed 24 h (count + %), p95 latency, Spend 24 h from GET /calls summary","Pricing panel: rows = code defaults ∪ db rows (model, input, cached input, output in USD per MTok, Source chip, Reset when db); edits PUT /prices/{model} on blur with ✓ + undo; '+ Add a model price' row; footer 'Unpriced models are costed at the dearest Flash rate (over-counted, never free).'","Recent calls & errors panel: window select (1 h / 24 h / 7 d), task filter, provider filter, Failed-only checkbox, Refresh; DataTable columns When, User, Task, Provider, Model, Result (OK or ✖ kind), Latency, Tokens, Cost; 'Showing n of total'; empty/error states from @kiwiply/ui ErrorState/EmptyState; polls every 30 s while the tab is visible","390 px: one column, 44 px controls, BottomSheet editors, no horizontal scroll (Playwright or RTL viewport test at 390)","AiUsagePage: ComingSoonButton 'Edit limits' replaced by a Link 'Providers & routing →' to /admin/ai/providers; sample AI_ALERTS/AI_TREND_* stay (A4.2/A4.4 own them)"],
+      "tests": ["AiProvidersPage.test.tsx extended (global off dialog + reason; price edit → PUT; failed-only filter → fetch with failed=true)","web npm test green"],
+      "tech": "web components/admin-v3/ai/{AiProvidersPage,PricingTable,RecentCalls}.tsx, AiUsagePage.tsx",
+      "evidence": ["web/src/components/admin-v3/ai/AiUsagePage.tsx","web/src/components/admin-v3/common/index.ts"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": false
+    },
+    {
+      "id": "I1.14", "epic": "I1", "title": "End-to-end proof on Gemini: api-local demo launcher reading gitignored api/.env.ai.local, AiRouteSwitchIT (admin change → next user call → ledger), web/scripts/ai-smoke.mjs (skips without a key), DEPLOY.md §10",
+      "status": "not_started", "size": "S", "owners": ["API","web"], "deps": ["I1.13"], "relates": ["P1.1"], "supersedes": [],
+      "story": "As the team I want a repeatable proof that an admin model change is used by the very next call and recorded, without anyone ever handling the key, so that the full path is demonstrably working.",
+      "genz": "—",
+      "ac": ["scripts/dev/api-local.mjs: loads api/.env.ai.local (KEY=VALUE, # comments) into the child env only, spawns ./gradlew bootRun (gradlew.bat on Windows) in api/ with SPRING_PROFILES_ACTIVE=dev, passes through -- args, prints only the NAMES of the variables it loaded, refuses NODE_ENV=production; .claude/launch.json gains the api-local entry; root .gitignore already ignores .env.* (verified in the story, not changed)","AiRouteSwitchIT (@MockitoBean AiProviderRegistry with a fake gemini adapter that records the model it was called with): PATCH /api/admin/ai/routes/parse {model:'gemini-2.5-flash'} as ADMIN, then POST /api/ai/parse-resume as a consenting USER → 200, adapter saw gemini-2.5-flash, newest ai_call row task=parse model=gemini-2.5-flash provider=gemini success=true latency_ms ≥ 0; PATCH {model:null} → next call uses the env model; same for rewrite via POST /api/resumes/{id}/ai/rewrite on a budgeted user","web/scripts/ai-smoke.mjs implements the nine steps of the design §7.4 against the real API; exits 0 with SKIP when providers[gemini].keyPresent is false or envMasterEnabled is false; never reads api/.env.ai.local; prints the step table and three ledger rows, no key, no prompt, ≤ 40 chars of answer","DEPLOY.md §10 gains 'Runtime routing from /admin/ai/providers' (what is env, what is runtime, the env master rule) and docs/HANDOFF.md points at the design; one line in PROGRESS.md Log"],
+      "tests": ["AiRouteSwitchIT green in ./gradlew integrationTest","node web/scripts/ai-smoke.mjs prints SKIP without a key and all-pass with one (manual, recorded in the PR)","launcher unit test: env file parsing + name-only logging"],
+      "tech": "scripts/dev/api-local.mjs, api/src/test/java/com/dossier/api/web/rest/AiRouteSwitchIT.java, web/scripts/ai-smoke.mjs, .claude/launch.json, DEPLOY.md",
+      "evidence": ["web/scripts/rb-smoke.mjs","web/scripts/dev-demo.mjs","DEPLOY.md"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": true
+    },
+    {
+      "id": "I1.15", "epic": "I1", "title": "OpenAiCompatAiProvider (Ollama, LM Studio, llama.cpp, vLLM, OpenAI, OpenRouter, Groq): base URL, optional key, json_schema/json_object/none with auto-detect, CPU-grade timeouts, contract test",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.10","I1.11"], "relates": ["I1.5","I1.2","I4.1"], "supersedes": [],
+      "story": "As the platform I want a second provider that speaks the OpenAI chat API so that any local or hosted OpenAI-compatible model is one routing row away, with Ollama first.",
+      "genz": "Dev and demo run with no cloud key at all.",
+      "ac": ["service/ai/OpenAiCompatAiProvider.java (id openai_compat) on java.net.http: POST {base}/chat/completions with system+user messages, max_tokens from the route, temperature 0.2 (0.7 for DRAFT), Authorization: Bearer only when a key is present; env DOSSIER_AI_OPENAI_COMPAT_{BASE_URL (default http://localhost:11434/v1), API_KEY (optional), MODEL, SCHEMA_MODE (auto)}; blank key counts as configured only for localhost/127.0.0.1/[::1]/*.localhost/host.docker.internal/RFC-1918 hosts","schema_mode json_schema → response_format {type:'json_schema', json_schema:{name, schema, strict:true}}; json_object → response_format {type:'json_object'} + schema instruction in the system prompt; none → instruction only; auto tries json_schema, on a 400 mentioning response_format/json_schema remembers json_object for the process and retries once; Test connection reports the mode; GeminiSchemaToJsonSchema converts the existing responseSchema constants (deleted by I1.5)","parseResume with fileBase64 throws AiProviderException(UNSUPPORTED_INPUT) → AiRouter falls back to the route's fallback provider; text parses work; capabilities = [STRUCTURED_OUTPUT]; usage maps prompt_tokens/completion_tokens/prompt_tokens_details.cached_tokens; model from the response","Timeouts: provider default timeout_ms 120000 (runtime-editable), connect timeout 5 s → TRANSPORT fast-fail; PARSE uses max(timeout, 60000)","AiProviderRegistry registers openai_compat; ai.provider.openai_compat.* family + schema_mode ENUM in AiSettingKeys; GET /config shows the card with kind 'local' when the base URL host is local, keyRequired false; AiKeyScrubber covers the new key"],
+      "tests": ["OpenAiCompatAiProviderTest (body shape per mode, auth header presence, usage mapping, auto downgrade, UNSUPPORTED_INPUT)","OpenAiCompatAiProviderContractTest (the shared AiProviderContractTest cases)","AiRouterTest fallback case local → gemini for PDF parse"],
+      "tech": "api service/ai/{OpenAiCompatAiProvider,GeminiSchemaToJsonSchema}.java, config/AiProperties.java (openaiCompat block), application-*.yml dossier.ai.openai-compat.*",
+      "evidence": ["api/src/main/java/com/dossier/api/service/ai/GeminiAiProvider.java","docs/design/ai/model-routing-providers.md"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": true
+    },
+    {
+      "id": "I1.16", "epic": "I1", "title": "Ollama dev/demo profile: api/src/main/docker/ollama.yml + pull script + api-local --with-ollama; local models priced at $0 (amortised optional); Local badge and text-only parse warning on the admin page",
+      "status": "not_started", "size": "S", "owners": ["API","web"], "deps": ["I1.15","I1.13"], "relates": ["P3.2"], "supersedes": [],
+      "story": "As a developer I want one command that starts Ollama with the recommended models and points the API at it so that the demo runs without a cloud key and local use costs nothing in the budget math.",
+      "genz": "—",
+      "ac": ["api/src/main/docker/ollama.yml (pinned image tag + digest, port 11434, named volume, OLLAMA_KEEP_ALIVE=30m, commented NVIDIA block); scripts/dev/ollama-pull.{sh,ps1} pulls the model list from the design §1.3 (names re-checked and recorded in the script header with the check date); scripts/dev/api-local.mjs --with-ollama brings it up and sets DOSSIER_AI_OPENAI_COMPAT_BASE_URL; NOT added to docker-compose.prod.yml","AiPricing code defaults seed the pulled model names at 0/0/0 from AiProperties.openaiCompat.freeModels; the pricing footer gains 'Local models default to $0; enter an amortised rate if you want local use to count against budgets.'","Provider card shows a 'Local' badge for kind local and 'text only' next to Resume parsing when routed to openai_compat; routing parse to it without a cloud fallback opens the confirm dialog with 'PDF uploads will fail until a cloud fallback is set'","docs/HANDOFF.md 'Run with a local model' recipe (api-local --with-ollama, route PICK and MAP to openai_compat on /admin/ai/providers, run the smoke)"],
+      "tests": ["AiPricingTest local models cost 0","AiProvidersPage.test.tsx local badge + parse warning","manual: smoke passes with PICK routed to openai_compat and parse on gemini (recorded in the PR)"],
+      "tech": "api/src/main/docker/ollama.yml, scripts/dev/{ollama-pull.sh,ollama-pull.ps1,api-local.mjs}, api service/ai/AiPricing.java, web components/admin-v3/ai/ProviderCard.tsx",
+      "evidence": ["api/src/main/docker/minio.yml","docker-compose.prod.yml"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": false
+    },
+    {
+      "id": "I1.17", "epic": "I1", "title": "Eval-gated promotion of tasks to local models: aiEval runs per task on candidate local models, interim 20-case checklist, docs/runbooks/ai-local-models.md with the promotion order",
+      "status": "not_started", "size": "M", "owners": ["API"], "deps": ["I1.16","I2.3"], "relates": ["I1.7","I2.2","I4.1"], "supersedes": [],
+      "story": "As the team I want a task moved to a local model only when the harness says quality held and latency fits, so that cost savings never come out of answer quality.",
+      "genz": "Cheaper only when it is provably as good.",
+      "ac": ["./gradlew aiEval -Ptask=<task> -Pprovider=live -Pmodel=<local model> (I2.3) produces the composite score and the deterministic truth-check pass rate; promotion rule: score ≥ baseline − 2 AND 100 % truth checks for writing tasks AND p95 latency ≤ route timeout ÷ 2 on the target hardware","docs/runbooks/ai-local-models.md: hardware table, the per-task recommendation table from the design §1.3 (re-checked model names + check date), the promotion order EMBED → PICK → ENRICH → MAP → JOBS/INBOX, never PARSE-with-PDF, never REWRITE/SUMMARY without a GPU box and an eval win; the admin change cites the eval run id in the reason field","Interim gate until I2.3 ships: 20-case checklist per task in the runbook with inputs from the existing service test fixtures; results table pasted into the PR that changes the route","Eval runs for PICK, MAP, ENRICH on two local candidates vs gemini-2.5-flash-lite recorded in docs/roadmap/AUDIT-ai.md (numbers, hardware, date)"],
+      "tests": ["aiEval runs on the fake provider in CI for the three tasks; live run recorded manually"],
+      "tech": "api build.gradle aiEval params, docs/runbooks/ai-local-models.md",
+      "evidence": ["docs/design/ai/prompt-registry-evals.md"],
+      "design": "docs/AI-ADMIN-CONFIG-DESIGN.md", "critical": false
     },
 
     {
@@ -677,7 +777,7 @@
     },
     {
       "id": "I8.2", "epic": "I8", "title": "Provider health: synthetic 5-min ping per provider, status card on /admin/ai and /admin/system, outage runbook",
-      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I1.4"], "relates": ["A10.3", "A10.5", "P3.1"], "supersedes": [],
+      "status": "not_started", "size": "M", "owners": ["API", "web"], "deps": ["I1.4"], "relates": ["A10.3", "A10.5", "P3.1", "I1.11"], "supersedes": [],
       "story": "As ops I want to see provider state before users do so that an incident is declared from data.",
       "genz": "—",
       "ac": ["Synthetic 1-token call per configured provider every 5 min on the platform budget; status UP/DEGRADED/DOWN + breaker state", "Admin cards; docs/runbooks/ai-provider-outage.md (pin, kill switch, comms)"],
