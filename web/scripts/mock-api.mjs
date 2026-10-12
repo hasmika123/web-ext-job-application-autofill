@@ -6,7 +6,8 @@
  *   npm run dev:demo -w web      (starts this on :8080 and `next dev` pointed at it)
  *
  * It answers just the endpoints the signed-in pages call, with realistic fixed data, and refuses every
- * write the way the real API does for a demo session (403 DEMO_READ_ONLY). Nothing is persisted.
+ * write the way the real API does for a demo session (403 DEMO_READ_ONLY), EXCEPT the Resume Builder
+ * document endpoints (below), which are writable in memory so the editor can be exercised. Nothing is persisted.
  * It lives outside `src/`, so it is never part of the Next bundle, and it refuses to start when
  * NODE_ENV=production.
  */
@@ -138,8 +139,8 @@ const resumeJson = (focus) =>
     education: [{ school: "NID Ahmedabad", degree: "B.Des", startDate: "2012", endDate: "2016" }],
   });
 const RESUMES = [
-  { id: 1, label: "Priya Sharma - Product Designer", status: "CONFIRMED", createdAt: ago(40), defaultResume: true, starred: true, archived: false, parsedJson: resumeJson(false) },
-  { id: 2, label: "Priya Sharma - Design Systems focus", status: "CONFIRMED", createdAt: ago(12), defaultResume: false, starred: false, archived: false, parsedJson: resumeJson(true) },
+  { id: 1, kind: "UPLOADED", label: "Priya Sharma - Product Designer", status: "CONFIRMED", createdAt: ago(40), defaultResume: true, starred: true, archived: false, parsedJson: resumeJson(false) },
+  { id: 2, kind: "UPLOADED", label: "Priya Sharma - Design Systems focus", status: "CONFIRMED", createdAt: ago(12), defaultResume: false, starred: false, archived: false, parsedJson: resumeJson(true) },
 ];
 
 const BIO = {
@@ -170,6 +171,163 @@ const withBody = (req, cb) => {
     cb(body);
   });
 };
+
+/* ── Resume Builder mock (R0.3 contract; in memory) ──────────────────────────────────────────── */
+const DOCS = new Map(); // resume id -> { doc, templateId, theme, version, updatedAt }
+let nextResumeId = 100;
+const DATE_RX = /^(19|20)\d{2}(-(0[1-9]|1[0-2]))?$/;
+const FREE_RESUME_LIMIT = 3;
+
+const docId = (p) => `${p}_${Math.random().toString(36).slice(2, 10).padEnd(8, "0")}`;
+const seedDoc = (title) => ({
+  schema: 1,
+  meta: { title, target: null, language: "en" },
+  basics: { name: "Priya Sharma", headline: "Product Designer", email: "demo@kiwiply.com", location: "Austin, TX", links: [] },
+  sections: [
+    { id: "s_summary", kind: "SUMMARY", title: "Summary", items: [{ id: docId("i"), text: "Product designer with 7 years shipping consumer and B2B products.", src: "parsed" }] },
+    {
+      id: "s_experience",
+      kind: "EXPERIENCE",
+      title: "Experience",
+      items: [
+        {
+          id: docId("i"), title: "Senior Product Designer", org: "Northwind", location: "Remote", start: "2021-03", end: null, current: true,
+          bullets: [
+            { id: docId("b"), text: "Led the redesign of onboarding, lifting activation 18%.", src: "parsed" },
+            { id: docId("b"), text: "Built the design system used by 40 engineers.", src: "parsed" },
+          ],
+        },
+      ],
+    },
+    { id: "s_education", kind: "EDUCATION", title: "Education", items: [{ id: docId("i"), school: "NID Ahmedabad", degree: "B.Des", start: "2012", end: "2016", bullets: [] }] },
+    { id: "s_skills", kind: "SKILLS", title: "Skills", items: [{ id: docId("i"), group: "Design", skills: ["Figma", "Design systems", "User research"] }] },
+  ],
+});
+
+/** The first validation problem (path + message), mirroring the server's date rule and limits. */
+function firstProblem(doc) {
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return { path: "$", message: "must be an object" };
+  if (typeof doc.meta?.title !== "string") return { path: "$.meta.title", message: "must be a string" };
+  if (!Array.isArray(doc.sections)) return { path: "$.sections", message: "must be an array" };
+  for (const [si, s] of doc.sections.entries()) {
+    for (const [ii, it] of (s.items ?? []).entries()) {
+      for (const f of ["start", "end", "date"]) {
+        const v = it[f];
+        if (typeof v === "string" && v !== "" && !DATE_RX.test(v)) return { path: `$.sections[${si}].items[${ii}].${f}`, message: "must be YYYY or YYYY-MM" };
+      }
+      for (const [bi, b] of (it.bullets ?? []).entries()) {
+        if (typeof b.text === "string" && b.text.length > 600) return { path: `$.sections[${si}].items[${ii}].bullets[${bi}].text`, message: "must be at most 600 characters" };
+      }
+    }
+  }
+  return null;
+}
+
+function docDto(id) {
+  const d = DOCS.get(id);
+  const r = RESUMES.find((x) => x.id === id);
+  return {
+    resumeId: id, label: r?.label ?? d.doc.meta.title, kind: "BUILT", doc: d.doc, templateId: d.templateId, theme: d.theme,
+    docVersion: d.version, contentHash: `mock-${d.version}`, profileSyncedAt: null, exportedAt: null, exportedHash: null, updatedAt: d.updatedAt,
+  };
+}
+const withEtag = (res, status, body, version) => {
+  res.writeHead(status, { "content-type": "application/json", ...(version != null ? { etag: `"${version}"` } : {}) });
+  res.end(JSON.stringify(body));
+};
+const problem = (res, status, code, extra = {}) => json(res, status, { status, code, title: code, message: "error.resumeDoc", ...extra });
+
+/** Handles the builder endpoints; returns true when the request was answered. */
+function handleBuilder(req, res, path, method) {
+  const isBuilder =
+    path === "/api/profile/resumes/built" || /^\/api\/profile\/resumes\/\d+\/doc(\/template)?$/.test(path) || /^\/mock\/resumes\/\d+\/edit-elsewhere$/.test(path);
+  if (!isBuilder) return false;
+  const isMock = path.startsWith("/mock/");
+  if (!isMock && !subOf(req)) {
+    req.resume();
+    json(res, 401, { error: "Unauthorized" });
+    return true;
+  }
+  const id = Number(path.match(/\/resumes\/(\d+)/)?.[1]);
+
+  if (path === "/api/profile/resumes/built" && method === "POST") {
+    withBody(req, (b) => {
+      if (RESUMES.filter((r) => !r.archived).length >= FREE_RESUME_LIMIT) {
+        return json(res, 402, { status: 402, code: "RESUME_LIMIT", detail: "Free accounts keep up to 3 resumes — archive one, or upgrade to Pro.", plan: "FREE", limit: FREE_RESUME_LIMIT, count: FREE_RESUME_LIMIT });
+      }
+      const title = String(b.label || b.target || "My resume").slice(0, 200);
+      const rid = nextResumeId++;
+      const resume = { id: rid, kind: "BUILT", templateId: b.templateId || "modern", label: title, status: "CONFIRMED", createdAt: new Date().toISOString(), defaultResume: false, starred: false, archived: false, parsedJson: "{}" };
+      RESUMES.push(resume);
+      DOCS.set(rid, { doc: seedDoc(title), templateId: resume.templateId, theme: null, version: 1, updatedAt: new Date().toISOString() });
+      withEtag(res, 201, { resume, doc: docDto(rid) }, 1);
+    });
+    return true;
+  }
+
+  const d = DOCS.get(id);
+
+  if (isMock && method === "POST") {
+    req.resume();
+    if (!d) {
+      json(res, 404, { error: "no such built resume" });
+      return true;
+    }
+    d.version += 1;
+    d.updatedAt = new Date().toISOString();
+    const sum = d.doc.sections.find((s) => s.kind === "SUMMARY");
+    if (sum?.items[0]) sum.items[0].text = "Edited elsewhere (from another tab).";
+    json(res, 200, { ok: true, version: d.version });
+    return true;
+  }
+
+  if (!d) {
+    req.resume();
+    json(res, 404, { status: 404, title: "Not Found" });
+    return true;
+  }
+
+  if (method === "GET") {
+    req.resume();
+    withEtag(res, 200, docDto(id), d.version);
+    return true;
+  }
+
+  if (method === "PUT" && path.endsWith("/doc")) {
+    withBody(req, (b) => {
+      const ifMatch = req.headers["if-match"];
+      if (!ifMatch) return problem(res, 428, "IF_MATCH_REQUIRED");
+      if (Number(String(ifMatch).replace(/[^0-9]/g, "")) !== d.version) {
+        return problem(res, 409, "DOC_VERSION_CONFLICT", { serverVersion: d.version, doc: d.doc });
+      }
+      const bad = firstProblem(b.doc);
+      if (bad) return problem(res, 422, "DOC_INVALID", bad);
+      d.doc = b.doc;
+      if (b.theme && typeof b.theme === "object") d.theme = b.theme;
+      d.version += 1;
+      d.updatedAt = new Date().toISOString();
+      const r = RESUMES.find((x) => x.id === id);
+      if (r) r.label = d.doc.meta.title;
+      withEtag(res, 200, docDto(id), d.version);
+    });
+    return true;
+  }
+
+  if (method === "PATCH" && path.endsWith("/doc/template")) {
+    withBody(req, (b) => {
+      if (b.templateId !== "modern") return problem(res, 422, "DOC_INVALID", { path: "$.templateId", message: "unknown template" });
+      d.templateId = b.templateId;
+      d.version += 1;
+      d.updatedAt = new Date().toISOString();
+      withEtag(res, 200, docDto(id), d.version);
+    });
+    return true;
+  }
+
+  req.resume();
+  json(res, 405, { error: "Method not allowed" });
+  return true;
+}
 
 const server = http.createServer((req, res) => {
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
@@ -203,6 +361,12 @@ const server = http.createServer((req, res) => {
       b.name && b.email ? json(res, 201, { ok: true }) : json(res, 400, { detail: "Please add your name and email." }),
     );
   }
+
+  // --- Resume Builder (R0.3 endpoints, in memory; DEV ONLY) -----------------------------------------
+  // Unlike every other write in this mock, these succeed, so the editor can be tried without the API.
+  // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
+  //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
+  if (handleBuilder(req, res, path, method)) return;
 
   req.resume(); // other bodies are ignored
   const sub = subOf(req);

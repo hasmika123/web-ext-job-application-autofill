@@ -13,7 +13,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/sync-parser-core.mjs && tsc --noEmit && eslint ."
+    "test:unit": "vitest run",
+    "test": "node scripts/sync-parser-core.mjs && tsc --noEmit && eslint . && npm run test:unit"
   },
   "dependencies": {
     "@kiwiply/ui": "*",
@@ -25,12 +26,15 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "jsdom": "^28.1.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   }
 }

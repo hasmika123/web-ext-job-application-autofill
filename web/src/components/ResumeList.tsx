@@ -32,6 +32,9 @@ export interface Resume {
   starred?: boolean | null;
   defaultResume?: boolean | null;
   parsedJson?: string | null;
+  /** `BUILT` = authored in the Resume Builder (has a document); `UPLOADED` = a file. Absent on older APIs. */
+  kind?: "BUILT" | "UPLOADED" | null;
+  templateId?: string | null;
 }
 
 function statusBadge(status?: string | null) {

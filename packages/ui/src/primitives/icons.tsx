@@ -913,3 +913,25 @@ export const LifebuoyIcon = makeIcon("LifebuoyIcon", {
     </>
   ),
 });
+
+/** Counter-clockwise arrow (undo). */
+export const UndoIcon = makeIcon("UndoIcon", {
+  strokeWidth: 2,
+  node: (
+    <>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </>
+  ),
+});
+
+/** Clockwise arrow (redo). */
+export const RedoIcon = makeIcon("RedoIcon", {
+  strokeWidth: 2,
+  node: (
+    <>
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </>
+  ),
+});

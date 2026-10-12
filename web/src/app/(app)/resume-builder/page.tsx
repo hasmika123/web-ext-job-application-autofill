@@ -3,14 +3,15 @@ import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
 import type { Resume } from "@/components/ResumeList";
 import type { Application } from "@/components/ApplicationBoard";
-import ResumeBuilderPage from "@/components/app-v3/resume-builder/ResumeBuilderPage";
+import ResumeList from "@/components/app-v3/resume-builder/ResumeList";
 
 export const metadata: Metadata = { title: "Resume Builder" };
 
 /**
- * Resume Builder (APP-V3-SPEC 2.7). Fetches what the existing /resumes page does (resumes,
+ * Resume Builder list (APP-V3-SPEC 2.7). Fetches what the existing /resumes page does (resumes,
  * applications for the per-resume usage count, the base profile for the review step, the plan)
- * so "Manage resumes" / "Create New Resume" can host `ResumesWorkspace` in a side panel unchanged.
+ * so "Manage resumes" can host `ResumesWorkspace` in a side panel unchanged. "New resume" creates
+ * a built resume and opens `/resume-builder/[id]`.
  */
 export default async function Page() {
   const [resumesRes, appsRes, profileRes, plan] = await Promise.all([
@@ -43,5 +44,5 @@ export default async function Page() {
     if (typeof id === "number") usage[id] = (usage[id] ?? 0) + 1;
   }
 
-  return <ResumeBuilderPage resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} />;
+  return <ResumeList resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} />;
 }

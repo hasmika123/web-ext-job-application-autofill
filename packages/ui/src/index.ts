@@ -58,6 +58,9 @@ export type { SidePanelProps } from "./primitives/SidePanel";
 export { default as Tooltip } from "./primitives/Tooltip";
 export type { TooltipProps, TooltipSide } from "./primitives/Tooltip";
 
+export { default as PageFrame, fitScale } from "./primitives/PageFrame";
+export type { PageFrameProps } from "./primitives/PageFrame";
+
 export { default as Menu } from "./primitives/Menu";
 export type { MenuProps, MenuItem, MenuHeading, MenuSeparator, MenuEntry } from "./primitives/Menu";
 

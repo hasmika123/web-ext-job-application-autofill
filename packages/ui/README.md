@@ -83,7 +83,9 @@ so the editor preview and the Chromium-printed PDF are the same string
 (5) a snapshot test next to it (`templates/<id>.test.tsx`, copy `modern.test.tsx`). Nothing in the API
 changes; the web must import `@kiwiply/ui/styles/resume.css` once for the preview.
 
-Tests: `npm test -w packages/ui` (vitest + jsdom, this package only; web's `npm test` is unchanged).
+`PageFrame` (`src/primitives/PageFrame.tsx`) is the editor's page box: children are laid out at the page's natural width (816 px Letter) and scaled with a CSS transform to fit the container (`fitScale`), reserving the scaled height; `onMeasure` reports `{scale, contentHeight}`. Use it to show a `ResumePreview` anywhere (editor pane, template picker thumbnails).
+
+Tests: `npm test -w packages/ui` (vitest + jsdom, this package only; web runs its own unit tests via `npm run test:unit -w web`, which `npm test -w web` includes).
 
 ## Consumption wiring (for reference)
 

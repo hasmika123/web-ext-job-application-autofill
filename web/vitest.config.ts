@@ -1,0 +1,28 @@
+import path from "node:path";
+import { defineConfig } from "vitest/config";
+
+const repoRoot = path.resolve(__dirname, "..");
+
+/**
+ * Unit tests for the web app (Resume Builder R0.5 onwards): the editor reducer, undo history,
+ * autosave controller and the editor's keyboard behaviour. `npm run test:unit -w web`.
+ * `npm test -w web` runs tsc + eslint and then this.
+ *
+ * React is pinned: web depends on react 19.2.4 (nested in web/node_modules) while the hoisted copy
+ * that @testing-library/react, react-dom and @kiwiply/ui resolve is newer. Two Reacts in one test
+ * ("Cannot read properties of null (reading 'useReducer')"), so every `react` / `react-dom` import
+ * is pointed at the hoisted copy.
+ */
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+      react: path.join(repoRoot, "node_modules", "react"),
+      "react-dom": path.join(repoRoot, "node_modules", "react-dom"),
+    },
+  },
+  test: {
+    environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"],
+  },
+});
