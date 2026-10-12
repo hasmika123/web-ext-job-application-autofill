@@ -513,7 +513,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
       {shownPanel === "template" && (
         <PickTemplatePanel doc={doc} templateId={state.templateId} theme={state.theme} config={config} controls={presentation} disabled={state.phase === "conflict"} />
       )}
-      {shownPanel === "swap" && <SwapSectionPanel />}
+      {shownPanel === "swap" && <SwapSectionPanel doc={doc} caps={caps} dispatch={dispatch} />}
       {shownPanel === "tailor" && <TailorPanel />}
     </>
   );
@@ -627,6 +627,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               canRedo={canRedoEdit(state)}
               aiAllowed={config.aiAllowed}
               onAddSection={() => openAddFor("SUMMARY")}
+              reorder={leftOpen && ui.leftPanel === "swap"}
             />
           </div>
         </main>

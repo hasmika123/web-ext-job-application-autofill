@@ -317,7 +317,9 @@ describe("ResumeEditor", () => {
       for (const [name, story] of cases) {
         fireEvent.click(panelButton(name));
         expect(within(leftSheet()).getByRole("heading", { name })).toBeTruthy();
-        expect(leftSheet().textContent).toContain(`Coming in ${story}`);
+        // R2.2 filled the Swap Section body; the others still say which story they wait for.
+        if (story === "R2.2") expect(leftSheet().querySelector('[data-panel="swap"]')).toBeTruthy();
+        else expect(leftSheet().textContent).toContain(`Coming in ${story}`);
       }
     });
 

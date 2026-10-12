@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 import {
   ArrowDownIcon,
+  DragHandle,
   Menu,
   MoreVerticalIcon,
   PencilIcon,
@@ -13,6 +14,7 @@ import {
 } from "@kiwiply/ui";
 import type { MenuEntry, ResumeSection } from "@kiwiply/ui";
 import { useCanvas, useField } from "./canvasContext";
+import { useItemGrip } from "./itemGrip";
 import { KIND_META } from "./sectionKinds";
 import { nowMs } from "./state/clock";
 import { newId } from "./state/ids";
@@ -65,6 +67,7 @@ export function ItemControls({
 }) {
   const { dispatch, limits } = useCanvas();
   const toast = useToast();
+  const grip = useItemGrip();
   const meta = KIND_META[section.kind];
   const base = { sectionId: section.id, itemId: item.id } as const;
 
@@ -89,6 +92,7 @@ export function ItemControls({
 
   return (
     <div className="flex flex-none items-center gap-0.5 self-start">
+      {grip && <DragHandle aria-label={`Drag ${heading} to reorder`} {...grip} />}
       <button type="button" aria-label={`Edit ${heading}`} title="Edit" onClick={edit} className={cn(iconButtonClass, "max-sm:h-11 max-sm:w-11")}>
         <PencilIcon className="h-4 w-4" />
       </button>

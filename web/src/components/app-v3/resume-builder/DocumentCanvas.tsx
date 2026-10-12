@@ -5,6 +5,7 @@ import type { Dispatch } from "react";
 import { controlStates } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities } from "@kiwiply/ui";
 import { CanvasProvider, type FocusRequest } from "./canvasContext";
+import CanvasReorder from "./CanvasReorder";
 import HeaderBlock from "./HeaderBlock";
 import SectionBlock from "./SectionBlock";
 import type { DocLimits, EditorAction } from "./state/types";
@@ -31,6 +32,7 @@ export default function DocumentCanvas({
   canRedo,
   aiAllowed,
   onAddSection,
+  reorder = false,
 }: {
   doc: ResumeDocument;
   caps: TemplateCapabilities;
@@ -46,6 +48,8 @@ export default function DocumentCanvas({
   aiAllowed: boolean;
   /** "Start with a summary" on an empty resume opens the Add Section panel. */
   onAddSection: () => void;
+  /** The Swap Section panel is open: item rows get a drag grip (R2.2). */
+  reorder?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const pending = useRef<FocusRequest | null>(null);
@@ -80,8 +84,8 @@ export default function DocumentCanvas({
 
   const controls = useMemo(() => controlStates(doc, caps), [doc, caps]);
   const value = useMemo(
-    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed }),
-    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed],
+    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, reorder }),
+    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, reorder],
   );
 
   return (
@@ -107,9 +111,11 @@ export default function DocumentCanvas({
           </div>
         )}
 
-        {doc.sections.map((section, i) => (
-          <SectionBlock key={section.id} section={section} index={i} count={doc.sections.length} />
-        ))}
+        <CanvasReorder doc={doc} dispatch={dispatch}>
+          {doc.sections.map((section, i) => (
+            <SectionBlock key={section.id} section={section} index={i} count={doc.sections.length} />
+          ))}
+        </CanvasReorder>
       </div>
     </CanvasProvider>
   );
