@@ -11,15 +11,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.ResumeDoc;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ResumeKind;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.AuthoritiesConstants;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ResumePdfJobService;
 import com.dossier.api.service.ResumePdfJobService.ClaimedJob;
 import com.dossier.api.service.ResumePdfJobService.FailKind;
@@ -32,6 +35,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,6 +89,23 @@ class ResumePdfJobIT {
     void emptyTheQueue() {
         // Other test classes may have left rows behind; this test only sees its own jobs.
         em.createQuery("update ResumeDoc d set d.pdfStatus = 'NONE', d.pdfNextAttemptAt = null, d.pdfLeaseUntil = null").executeUpdate();
+    }
+
+    @Autowired
+    private AppSettingRepository appSettingRepository;
+
+    @Autowired
+    private ResumeBuilderSettings settings;
+
+    @AfterEach
+    void dropSettingsCache() {
+        settings.invalidate(); // the setting rows roll back with the test transaction; the cache must not outlive them
+    }
+
+    /** {@code resume.templates.enabled} defaults to Modern only; a test that switches template enables the ids it needs (rolled back with the test transaction). */
+    private void enableTemplates(String... ids) {
+        appSettingRepository.saveAndFlush(new AppSetting("resume.templates.enabled", om.valueToTree(ids).toString(), "it", Instant.now()));
+        settings.invalidate();
     }
 
     // ---- helpers ------------------------------------------------------------
@@ -186,6 +207,7 @@ class ResumePdfJobIT {
 
     @Test
     void templateSwitchIsACheckpointWithNoSettleDelay() throws Exception {
+        enableTemplates("modern", "classic");
         Long id = createBuilt("Switch");
         docRepo.markReady(id, row(id).getDocVersion(), renderHash(id), Instant.now());
 
