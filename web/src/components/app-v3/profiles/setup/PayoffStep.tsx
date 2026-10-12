@@ -5,6 +5,9 @@ import Link from "next/link";
 import { ArrowRightIcon, ConfettiBurst, DownloadIcon, FileTextIcon, Meter, SearchIcon, cn } from "@kiwiply/ui";
 import { EXT_STORE_URL, detectExtension } from "@/lib/extension-signal";
 import { isPhoneUa } from "@/lib/onboarding/device";
+import { useCompanionActive } from "./delight/Companion";
+import { CompanionDock } from "./delight/CompanionDock";
+import { useSceneLine } from "./delight/useCompanionLines";
 import { StepMascot } from "./parts";
 
 /** How long the payoff waits for the extension to say hello before it assumes it is not installed (DESIGN 5.11). */
@@ -68,6 +71,9 @@ export default function PayoffStep({
   }, [phone]);
 
   const name = firstName.trim();
+  // The companion (R1.14): the payoff is outside the shell, so it brings its own dock (the column from xl; phones keep the v2 clap).
+  const companion = useCompanionActive();
+  useSceneLine("celebrate", name ? "done.idle" : "done.idle.noname", { vars: { firstName: name } });
   const ordered = actions.filter((a, i): a is PayoffAction => (KNOWN as string[]).includes(a) && actions.indexOf(a) === i);
 
   const cards: ReactNode[] = [];
@@ -104,12 +110,12 @@ export default function PayoffStep({
     }
   });
 
-  return (
+  const page = (
     <div className="relative mx-auto w-full max-w-[560px] overflow-x-clip">
       {confetti && <ConfettiBurst />}
       <div className="flex flex-col items-center text-center">
         <div className="ob-pop-in">
-          <StepMascot name="clap" enabled={mascot} className="h-24 w-auto" />
+          <StepMascot name="clap" enabled={mascot} className={cn("h-24 w-auto", companion && "xl:hidden")} />
         </div>
         <h1 ref={heading} tabIndex={-1} className="mt-3 font-display text-[28px] font-extrabold leading-tight text-balance text-v2-navy" style={{ outline: "none" }}>
           {name ? `You're set, ${name}.` : "You're set."}
@@ -145,6 +151,14 @@ export default function PayoffStep({
           Go to dashboard
         </Link>
       </div>
+    </div>
+  );
+  if (!companion) return page;
+  // The dock hangs off the right of the 560 px column, so it sits outside the clipped box above (which keeps confetti from scrolling the page).
+  return (
+    <div className="relative mx-auto w-full max-w-[560px]" data-delight="on">
+      <CompanionDock screenKey="done" className="top-[28px]" />
+      {page}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRightIcon, Button, CheckIcon } from "@kiwiply/ui";
+import { useSceneLine } from "./delight/useCompanionLines";
 import { StepFooter, StepHeading } from "./parts";
 
 /**
@@ -10,6 +11,7 @@ import { StepFooter, StepHeading } from "./parts";
  * says what was saved and links to the profile, where it is edited.
  */
 export default function ProfileSoFar({ line, hasContact, onBack }: { line: string | null; hasContact: boolean; onBack: () => void }) {
+  useSceneLine("cheer", "sofar.idle");
   return (
     <div>
       <StepHeading title="Your profile so far" />

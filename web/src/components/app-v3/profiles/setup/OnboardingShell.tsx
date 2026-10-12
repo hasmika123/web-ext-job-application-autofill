@@ -4,7 +4,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, ChevronLeftIcon, Dialog, IconButton, Menu, MoreHorizontalIcon, ProgressBar, Tooltip, XIcon, cn } from "@kiwiply/ui";
+import { useDelight } from "@/lib/onboarding/delight";
 import type { OfflineReason, SyncStatus } from "@/lib/onboarding/useDraftSync";
+import { useCompanionActive } from "./delight/Companion";
+import { CompanionDock } from "./delight/CompanionDock";
 import SaveStatusPill, { pillLabel } from "./SaveStatusPill";
 
 export const EXIT_LABEL = "Exit setup — your progress is saved";
@@ -64,6 +67,8 @@ export default function OnboardingShell({
   children,
 }: OnboardingShellProps) {
   const router = useRouter();
+  const delight = useDelight();
+  const companion = useCompanionActive();
   const body = useRef<HTMLDivElement>(null);
   const shownKey = useRef(screenKey);
   const [heard, setHeard] = useState("");
@@ -95,7 +100,9 @@ export default function OnboardingShell({
   const problem = pill !== null && pill.tone !== "calm";
 
   return (
-    <div className="mx-auto flex w-full max-w-[560px] flex-col" data-testid="onboarding-shell">
+    <div className={cn("mx-auto flex w-full max-w-[560px] flex-col", companion && "relative")} data-testid="onboarding-shell" data-delight={delight.on ? "on" : undefined}>
+      {/* The companion: a 200 px column right of this 560 px one from xl (outside the clip below); on phones its head lives in the heading row. */}
+      <CompanionDock screenKey={screenKey} />
       <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
         {onBack ? (
           <button

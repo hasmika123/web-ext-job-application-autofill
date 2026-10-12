@@ -66,6 +66,9 @@ export type { SwipeCardProps } from "./primitives/SwipeCard";
 
 export { default as ConfettiBurst } from "./primitives/ConfettiBurst";
 
+export { default as SpeechBubble } from "./primitives/SpeechBubble";
+export type { SpeechBubbleProps } from "./primitives/SpeechBubble";
+
 export { default as Skeleton } from "./primitives/Skeleton";
 export { default as Spinner } from "./primitives/Spinner";
 export type { SpinnerProps } from "./primitives/Spinner";

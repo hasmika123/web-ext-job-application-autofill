@@ -23,7 +23,7 @@ for someone who asked the OS for less motion.
 
 | # | What | Where it shows | Setting (§8) |
 |---|---|---|---|
-| 1 | **Mascot companion** — one persistent mascot that reacts to what you do (idle, peek, cheer, shrug, think, look, celebrate) with a short speech bubble, persona-aware, rotating | every screen; a companion column at ≥ 1280, a head in the heading row on phones | `onboarding.mascot.enabled` + `onboarding.delight.enabled` |
+| 1 | **Mascot companion** — one persistent mascot that reacts to what you do (idle, peek, cheer, shrug, think, look, celebrate) with a short speech bubble, persona-aware, rotating | every screen; a companion column at ≥ 1280, a 104 px mascot with a bubble in the heading row at 768–1279 (§2.3a), a 44 px head with a bubble under it on phones | `onboarding.mascot.enabled` + `onboarding.delight.enabled` |
 | 2 | **Review as a game** — card stack with two cards peeking, tilt + KEEP ✓ / SKIP stamp, fly-off, spring-up, animated counter, a quiet "🔥 3 in a row" combo, a haptic tap, ← → E Z keys | `review` | `delight.enabled`, `delight.combo`, `delight.haptics` |
 | 3 | **Honest highlights** — rule-based ✨ chip on one bullet per card ("Numbers stand out to recruiters"), and a tip when a card has no numbers; no AI, nothing invented | `review` cards | `delight.highlights` |
 | 4 | **Progress delight** — milestone pops at 25 / 50 / 75 %, a shine on the bar, the time-left digits animate down, a ~1.2 s skippable interstitial ("3 jobs, 1 school, 14 skills — let's check them 👀") | the bar; between parse and card 1 | `delight.milestones`, `delight.interstitialMs`, `delight.barRider` |
@@ -113,12 +113,30 @@ MascotName>` in `delight/poses.ts`, so swapping in new art is one line per pose.
   horizontal scrollbar (`main` of the `(app)` layout already clips; the story verifies at 1024–1279).
 - **Disc:** 120 px circle, `bg-v2-lime-soft/60`; the art is `h-[104px] w-auto`, bottom-aligned, drawn
   with `next/image`, `alt=""`, `aria-hidden`.
-- **Bubble:** `SpeechBubble` (new `@kiwiply/ui` primitive, §9.1): paper surface, 1 px `v2-line/70`
-  border, 12 px radius, a 10 px tail pointing up-left to the disc, 13.5 px `v2-navy`, `max-w-[180px]`,
+- **Bubble:** `SpeechBubble` (new `@kiwiply/ui` primitive, §9.1): accent-tinted surface (`tone="tint"`, amended 2026-10-12; `paper`
+  is the plain variant), 1 px accent/40 border, 12 px radius, a 10 px tail pointing up to the disc (it was up-left; the disc is centred), 13.5 px `v2-navy`, `max-w-[180px]`,
   **the box is always reserved at 48 px min-height** (two lines) so the column never shifts when a line
   changes or clears. Text swaps with a 120 ms crossfade (static under reduced motion).
 - The dock is `aria-hidden` as a whole (§2.6). It never receives focus or pointer events
   (`pointer-events-none`), so it can never sit between the user and a control.
+
+### 2.3a Placement at 768–1279 — the mid tier (amended 2026-10-12, user feedback)
+
+The user opened the built review screen in a ~810 px pane and saw only a 44 px head and a grey line under the heading: "plain".
+A laptop with a side panel open, or a tablet, has no room for the 200 px column (the 560 px column is already nearly the whole
+main area), but it has plenty of room for more than a phone. So there are **three tiers**, not two, and **every tier's speech is
+a real tinted bubble with a tail — never grey subtitle text**:
+
+| Window | Mascot | Speech | Where |
+|---|---|---|---|
+| `xl` ≥ 1280 | the 200 px column of §2.2 (120 px disc, art 104 px) | `SpeechBubble tone="tint"` under the disc, tail up | right of the 560 column |
+| **`md`–`xl` 768–1279** | **`CompanionMid`: a 104 px disc (art 90 px, bottom-aligned)** | **a 158 px tinted bubble on its left, tail pointing right at the mascot, up to 3 lines inside the reserved 104 px height** | **the end of the heading row (right of the title, left of nothing); `flex-none`, row height reserved so a longer line never moves anything** |
+| `< md` < 768 | the 44 px head of §2.3 | a one-line tinted bubble under the heading row, right-aligned, tail up-right toward the head, 42 px reserved (`.phone` copy, truncates) | the heading row / under it |
+
+The mid tier's bubble text is the same line the column and the phone caption show; the caption (`md:hidden`) is not drawn from `md`
+up, so the line never appears twice. Nothing in the mid companion overlaps the top bar (Back, Saved pill, ⋯, ✕), the
+counter or combo chip (they stay in the title's column, which wraps), the card or the sticky bar. Reactions (cheer bounce, shrug
+tilt, the art swap and the new line) play on whichever tier is showing; under reduced motion only the art and the line change.
 
 ### 2.3 Placement at 390 — the head in the heading row
 
@@ -148,8 +166,8 @@ MascotName>` in `delight/poses.ts`, so swapping in new art is one line per pose.
   bg-v2-lime-soft/60`, the art `object-cover object-top` scaled so the face fills the circle) placed as
   the last item of the heading row, after the counter, `flex-none`. The row already wraps (`flex-wrap
   items-end`); the head's 44 px matches the row's existing height so nothing moves.
-- The bubble becomes a **one-line caption** under the heading row (`text-[12.5px] text-v2-muted
-  truncate`, `min-h-[18px]` always reserved, `aria-hidden`). Same copy, same rotation; lines over
+- The bubble becomes a **one-line tinted caption bubble** under the heading row (amended 2026-10-12: a bubble with a tail pointing at
+  the head, not grey text; `text-[12.5px]`, truncating, 42 px always reserved, `aria-hidden`, below 768 only). Same copy, same rotation; lines over
   ~40 characters are given a phone variant in the deck (§7) so nothing truncates in practice.
 - Never inside the sticky footer; never over the card; never over a toast (toasts are bottom-right
   fixed; the head is in the top third). At 360 the row still fits: h1 wraps to two lines, the chips

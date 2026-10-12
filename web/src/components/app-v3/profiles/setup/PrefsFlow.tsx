@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ArrowRightIcon, Button, ChevronDownIcon, ChoiceGroup, MonthPicker, isMonthValue } from "@kiwiply/ui";
 import PreferenceInputs, { type PreferenceQuestion } from "@/components/onboarding/preferences";
 import { START_AFTER_GRAD, START_RIGHT_AWAY, noticeForMonth, prefRewrite, prefTip, type PrefId } from "@/lib/onboarding/persona";
 import type { Persona } from "@/lib/profile-setup/state";
+import { useReaction, useSceneLine } from "./delight/useCompanionLines";
 import { SkipButton, StepFooter, StepHeading } from "./parts";
 
 /** The id of a question: its first bio key (the self-identification block is `gender`). */
@@ -43,6 +44,7 @@ export default function PrefsFlow({
   persona,
   answers,
   first,
+  index = 0,
   last,
   hiddenLeft,
   saving,
@@ -58,6 +60,8 @@ export default function PrefsFlow({
   answers: Record<string, string>;
   /** The first question on show: it carries the persona's one-line tip. */
   first: boolean;
+  /** Where this question stands in the list (0 = first); the companion's line rotates by it. */
+  index?: number;
   /** The last question on show: its Continue / Skip wraps up, and it offers "Show all questions" when any are hidden. */
   last: boolean;
   /** How many questions the persona hid and the person has not asked for. */
@@ -104,6 +108,15 @@ export default function PrefsFlow({
   };
 
   const ready = rewrite.startChips ? startReady : hasAnswer(question, answers);
+
+  // The companion (R1.14): a quiet line per question (rotating by the question's place), and a cheer the moment it is answered.
+  const react = useReaction();
+  useSceneLine("idle", eeo ? "prefs.eeo" : first ? "prefs.first" : "prefs.idle", { seed: index });
+  const wasReady = useRef(ready);
+  useEffect(() => {
+    if (ready && !wasReady.current) react("cheer");
+    wasReady.current = ready;
+  }, [ready, react]);
   const body = rewrite.startChips ? (
     <div>
       <ChoiceGroup aria-labelledby={titleId} size="lg" options={[START_RIGHT_AWAY, START_AFTER_GRAD]} value={startMode} onChange={setStart} allowClear />

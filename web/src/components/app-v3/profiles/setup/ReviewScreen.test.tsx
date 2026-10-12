@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
 import type { Candidate } from "@/lib/profile-setup/draft";
 import { INITIAL_STATE, reducer } from "@/lib/profile-setup/state";
+import { DelightProvider } from "@/lib/onboarding/delight";
+import { DEFAULT_BUILDER_CONFIG, DEFAULT_DELIGHT_CONFIG } from "@/lib/resume-builder-config.shared";
+import type { Persona } from "@/lib/profile-setup/state";
+import { CompanionProvider } from "./delight/Companion";
+import { CompanionDock } from "./delight/CompanionDock";
 import ReviewScreen from "./ReviewScreen";
 
 vi.mock("next/image", () => ({ default: ({ src }: { src: string }) => <span data-mascot={src} /> }));
@@ -19,14 +24,27 @@ const candidates: Candidate[] = [
 const limits = { bullets: 8, bulletChars: 200 };
 
 /** The wizard's real reducer drives the cards, so decisions, edits and the cursor behave as shipped. */
-function Harness({ onDone = vi.fn(), removed = 0, mascot = true }: { onDone?: (kept: number, skipped: number) => void; removed?: number; mascot?: boolean }) {
+function Harness({
+  onDone = vi.fn(),
+  removed = 0,
+  mascot = true,
+  persona = null,
+  companion = false,
+}: {
+  onDone?: (kept: number, skipped: number) => void;
+  removed?: number;
+  mascot?: boolean;
+  persona?: Persona | null;
+  /** Wrap it in the delight layer with the companion dock, as the setup flow does. */
+  companion?: boolean;
+}) {
   const [state, dispatch] = useReducer(reducer, {
     ...INITIAL_STATE,
     step: "review",
     parsed: { candidates, parsedIdentity: {}, skills: [], suggestions: [], source: "ai", removed },
     skills: ["React", "Go"],
   });
-  return (
+  const screenEl = (
     <ToastProvider>
       <ReviewScreen
         candidates={candidates}
@@ -37,6 +55,7 @@ function Harness({ onDone = vi.fn(), removed = 0, mascot = true }: { onDone?: (k
         removed={removed}
         skillCount={state.skills.length}
         mascot={mascot}
+        persona={persona}
         onDecide={(id, decision) => dispatch({ type: "decide", id, decision })}
         onUndecide={(id) => dispatch({ type: "undecide", id })}
         onEdit={(id, data) => dispatch({ type: "edit", id, data })}
@@ -48,6 +67,16 @@ function Harness({ onDone = vi.fn(), removed = 0, mascot = true }: { onDone?: (k
       </button>
       <output data-testid="state">{JSON.stringify({ decisions: state.decisions, edits: state.edits, cursor: state.cursor })}</output>
     </ToastProvider>
+  );
+  if (!companion) return screenEl;
+  const cfg = { ...DEFAULT_BUILDER_CONFIG, onboarding: { ...DEFAULT_BUILDER_CONFIG.onboarding, mascot, delight: { ...DEFAULT_DELIGHT_CONFIG } } };
+  return (
+    <DelightProvider config={cfg}>
+      <CompanionProvider>
+        <CompanionDock screenKey="review" />
+        {screenEl}
+      </CompanionProvider>
+    </DelightProvider>
   );
 }
 const read = () => JSON.parse(screen.getByTestId("state").textContent ?? "{}") as { decisions: Record<string, string>; edits: Record<string, Record<string, unknown>>; cursor: number };
@@ -180,5 +209,92 @@ describe("ReviewScreen", () => {
     const off = render(<Harness mascot={false} />);
     keepAll();
     expect(off.container.querySelector("[data-mascot]")).toBeNull();
+  });
+
+  describe("with the delight companion", () => {
+    const dock = () => screen.getByTestId("companion-dock");
+    const line = () => dock().textContent;
+
+    it("starts with a rotating idle line, and the persona line on the first card", () => {
+      render(<Harness companion />);
+      expect(line()).toBe("Swipe or tap — your call.");
+      cleanup();
+      render(<Harness companion persona="student" />);
+      expect(line()).toBe("Internships and part-time count too.");
+      cleanup();
+      render(<Harness companion persona="experienced" />);
+      expect(line()).toBe("You've got plenty. Let's move.");
+    });
+
+    it("Keep cheers with a review.keep line", () => {
+      render(<Harness companion />);
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(dock().getAttribute("data-react")).toBe("cheer");
+      expect(["Nice one.", "That's a keeper.", "Adding that.", "Yep, that's going in.", "Solid."]).toContain(line());
+      expect(line()).toBe("Nice one."); // seed = the card index (0), so the first line, and always the same one
+    });
+
+    it("Skip shrugs with a review.skip line", () => {
+      render(<Harness companion />);
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      expect(dock().getAttribute("data-react")).toBe("shrug");
+      expect(line()).toBe("No worries.");
+    });
+
+    it("the lines rotate by the card, so the same card shows the same line after a Back", () => {
+      render(<Harness companion />);
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(line()).toBe("That's a keeper."); // card index 1
+    });
+
+    it("Edit saved cheers with review.edited; Undo of a Skip peeks with review.undo", async () => {
+      render(<Harness companion />);
+      fireEvent.click(screen.getByRole("button", { name: "Edit Senior Engineer · Acme" }));
+      fireEvent.change(screen.getByLabelText(/Job title/), { target: { value: "Staff Engineer" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      await waitFor(() => expect(screen.getByText("MIT")).toBeTruthy());
+      expect(dock().getAttribute("data-react")).toBe("cheer");
+      expect(line()).toBe("Fixed and kept.");
+      fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      expect(dock().getAttribute("data-react")).toBe("peek");
+      expect(line()).toBe("Back in the list.");
+    });
+
+    it("the last card says so once the reaction has passed", () => {
+      vi.useFakeTimers();
+      render(<Harness companion />);
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(screen.getByTestId("card-counter").textContent).toBe("3 / 3");
+      expect(line()).toBe("That's a keeper."); // the reaction to the second Keep
+      act(() => void vi.advanceTimersByTime(3000));
+      expect(line()).toBe("Last one.");
+    });
+
+    it("the recap no longer draws the extra clap: the companion is the one mascot", () => {
+      const { container } = render(<Harness companion />);
+      for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      expect(screen.getByRole("heading", { level: 1, name: "Nice. Here's what we'll add." })).toBeTruthy();
+      // every mascot picture is the companion's (the column at xl, the head below it): no v2 clap behind the card
+      const pictures = [...container.querySelectorAll("[data-mascot]")];
+      expect(pictures.length).toBe(3); // column (xl), mid tier, phone head: one is shown at a time
+      for (const p of pictures) expect(p.closest("[data-testid^=companion-]")).not.toBeNull();
+    });
+
+    it("draws no companion at all with the mascot off", () => {
+      render(<Harness companion mascot={false} />);
+      expect(screen.queryByTestId("companion-dock")).toBeNull();
+    });
+
+    it("nothing the companion says is announced: the live region only has the decision", () => {
+      render(<Harness companion />);
+      fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+      const live = document.querySelector("[role=status]")!;
+      expect(live.textContent).toMatch(/^Kept Senior Engineer · Acme. Education 2 of 3.$/);
+      expect(screen.getByTestId("companion-dock").closest("[aria-live]")).toBeNull();
+      expect(dock().getAttribute("aria-hidden")).toBe("true");
+    });
   });
 });

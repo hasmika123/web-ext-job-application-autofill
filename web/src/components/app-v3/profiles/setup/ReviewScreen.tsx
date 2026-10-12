@@ -5,9 +5,12 @@ import { ArrowRightIcon, BriefcaseIcon, Button, CheckIcon, GraduationCapIcon, La
 import type { ItemData } from "@/lib/profile-items";
 import type { Candidate } from "@/lib/profile-setup/draft";
 import type { Decision } from "@/lib/profile-setup/import";
+import type { Persona } from "@/lib/profile-setup/state";
 import { summaryLine } from "@/lib/profile-setup/summary";
 import ItemForm from "../ItemForm";
 import { describeItem, itemBullets, type DraftLimits } from "../itemSchema";
+import { useCompanionActive } from "./delight/Companion";
+import { useReaction, useSceneLine } from "./delight/useCompanionLines";
 import SensitiveNotice from "./SensitiveNotice";
 import { SkipButton, StepFooter, StepHeading, StepMascot } from "./parts";
 
@@ -35,6 +38,7 @@ export default function ReviewScreen({
   removed,
   skillCount,
   mascot,
+  persona = null,
   onDecide,
   onUndecide,
   onEdit,
@@ -53,6 +57,8 @@ export default function ReviewScreen({
   /** Skills found, for the recap's "Adding 3 roles, 1 school and 14 skills." */
   skillCount: number;
   mascot: boolean;
+  /** The person's persona, for the companion's line on the first card. */
+  persona?: Persona | null;
   onDecide: (id: string, decision: Decision) => void;
   /** Take a decision back (Undo on the Skip toast): the card is undecided and on screen again. */
   onUndecide: (id: string) => void;
@@ -71,6 +77,12 @@ export default function ReviewScreen({
   const cardHeading = useRef<HTMLHeadingElement>(null);
   const shownCursor = useRef(cursor);
   const titleId = useId();
+
+  // The companion (R1.14, DELIGHT 2.5): its resting line for this card (a persona's flavour on the first, "Last one." on the final
+  // card, otherwise a rotating line by the card's place) and the recap's; reactions are fired from the decisions below.
+  const react = useReaction();
+  const idleKey = !card ? "recap.idle" : cursor === total - 1 && total > 1 ? "review.last" : cursor === 0 && persona ? `review.idle.${persona}` : "review.idle";
+  useSceneLine(card ? "idle" : "cheer", idleKey, { seed: cursor });
 
   // After a decision (or Back) put focus on the new card's title, so a keyboard user keeps their place. Only when the card
   // really changed: arriving on the screen leaves focus to the shell, which puts it on the heading (and a dev-mode double
@@ -104,6 +116,7 @@ export default function ReviewScreen({
     const next = cursor + 1 < total ? `${NOUN[candidates[cursor + 1].section]} ${cursor + 2} of ${total}.` : "That was the last one.";
     setAnnounce(`${d === "keep" ? "Kept" : "Skipped"} ${described.heading}. ${next}`);
     onDecide(card.id, d);
+    react(d === "keep" ? "cheer" : "shrug", d === "keep" ? "review.keep" : "review.skip", cursor);
     if (d === "skip") {
       const id = card.id;
       toast({
@@ -113,6 +126,7 @@ export default function ReviewScreen({
           onClick: () => {
             onUndecide(id);
             setAnnounce("Back in the list.");
+            react("peek", "review.undo");
           },
         },
       });
@@ -125,12 +139,14 @@ export default function ReviewScreen({
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-        <StepHeading title="Does this look right?" className="min-w-0 flex-1 basis-48" />
-        <p className="flex-none pb-1 text-[12.5px] font-semibold tabular-nums text-v2-muted" aria-label={`Card ${cursor + 1} of ${total}`} data-testid="card-counter">
-          {cursor + 1} / {total}
-        </p>
-      </div>
+      <StepHeading
+        title="Does this look right?"
+        aside={
+          <p className="flex-none pb-1 text-[12.5px] font-semibold tabular-nums text-v2-muted" aria-label={`Card ${cursor + 1} of ${total}`} data-testid="card-counter">
+            {cursor + 1} / {total}
+          </p>
+        }
+      />
 
       {cursor === 0 && removed > 0 && (
         <div className="mt-4">
@@ -149,6 +165,7 @@ export default function ReviewScreen({
               setEditing(false);
               setAnnounce(`Saved your changes to ${describeItem(card.section, next).heading} and kept it.`);
               onDecide(card.id, "keep");
+              react("cheer", "review.edited");
             }}
             onCancel={() => setEditing(false)}
           />
@@ -224,12 +241,16 @@ function Recap({
   mascot: boolean;
   onContinue: () => void;
 }) {
+  // With the delight companion on it IS the one mascot of this screen (it cheers in its own column), so the v2 clap is not drawn.
+  const companion = useCompanionActive();
   return (
     <div className="relative">
       {/* Desktop only: clapping behind the card, clipped on the left (DESIGN 5.6). */}
-      <div className="pointer-events-none absolute -left-24 top-24 -z-0 hidden opacity-90 xl:block">
-        <StepMascot name="clap" enabled={mascot} className="h-32 w-auto" />
-      </div>
+      {!companion && (
+        <div className="pointer-events-none absolute -left-24 top-24 -z-0 hidden opacity-90 xl:block">
+          <StepMascot name="clap" enabled={mascot} className="h-32 w-auto" />
+        </div>
+      )}
       <StepHeading title="Nice. Here's what we'll add." sub={<span data-testid="recap-line">{line}</span>} />
       {candidates.length > 0 && (
         <ul className="relative mt-5 divide-y divide-v2-line/60 rounded-2xl border border-v2-line/70 bg-paper shadow-v2-soft">

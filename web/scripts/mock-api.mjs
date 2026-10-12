@@ -889,6 +889,19 @@ function builderConfig(empty = false) {
       mascot: true,
       personaStep: true,
       payoffActions: ["build_resume", "install_extension", "find_jobs"],
+      // The delight layer (R1.14): the declared defaults.
+      delight: {
+        enabled: true,
+        haptics: true,
+        combo: true,
+        highlights: true,
+        milestones: true,
+        interstitialMs: 1200,
+        interstitials: ["review"],
+        barRider: false,
+        share: true,
+        copy: {},
+      },
     },
     list: {
       quickTips: ["Create different resumes for different roles", "Tailor your resume for each job application", "Use AI suggestions to improve your content", "Keep one primary resume for quick applications"],

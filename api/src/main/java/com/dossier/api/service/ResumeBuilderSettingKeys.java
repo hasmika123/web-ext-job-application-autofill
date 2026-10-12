@@ -176,10 +176,24 @@ public final class ResumeBuilderSettingKeys {
     public static final String ONBOARDING_MASCOT_ENABLED = "onboarding.mascot.enabled";
     public static final String ONBOARDING_PAYOFF_ACTIONS = "onboarding.payoff.actions";
 
+    // ---- Onboarding v2.1 delight layer (R1.14, ONBOARDING-DELIGHT-DESIGN 8) ----
+    public static final String ONBOARDING_DELIGHT_ENABLED = "onboarding.delight.enabled";
+    public static final String ONBOARDING_DELIGHT_HAPTICS = "onboarding.delight.haptics";
+    public static final String ONBOARDING_DELIGHT_COMBO = "onboarding.delight.combo";
+    public static final String ONBOARDING_DELIGHT_HIGHLIGHTS = "onboarding.delight.highlights";
+    public static final String ONBOARDING_DELIGHT_MILESTONES = "onboarding.delight.milestones";
+    public static final String ONBOARDING_DELIGHT_INTERSTITIAL_MS = "onboarding.delight.interstitialMs";
+    public static final String ONBOARDING_DELIGHT_INTERSTITIALS = "onboarding.delight.interstitials";
+    public static final String ONBOARDING_DELIGHT_BAR_RIDER = "onboarding.delight.barRider";
+    public static final String ONBOARDING_DELIGHT_SHARE = "onboarding.delight.share";
+    public static final String ONBOARDING_DELIGHT_COPY = "onboarding.delight.copy";
+
     /** The flow's steps that have a time estimate (DESIGN 3.1; {@code done} has none). */
     public static final Set<String> ONBOARDING_STEP_KEYS = Set.of("hello", "source", "review", "skills", "you", "prefs");
     /** The actions the payoff screen may offer (DESIGN 5.11). */
     public static final Set<String> ONBOARDING_PAYOFF_ACTION_IDS = Set.of("build_resume", "install_extension", "find_jobs");
+    /** The sections that may open with the delight interstitial (DELIGHT 4.4). */
+    public static final Set<String> ONBOARDING_DELIGHT_INTERSTITIAL_IDS = Set.of("review", "prefs");
 
     // ---- Applications tracker (APP-E2E U6.x; the interim seam until A5.1 adopts these keys as is) ----
     public static final String TRACKER_LIST_DEFAULT_SIZE = "tracker.list.defaultSize";
@@ -241,10 +255,13 @@ public final class ResumeBuilderSettingKeys {
         "\"Use AI suggestions to improve your content\",\"Keep one primary resume for quick applications\"]";
     public static final String DEFAULT_ONBOARDING_STEP_SECONDS = "{\"hello\":10,\"source\":40,\"review\":45,\"skills\":20,\"you\":15,\"prefs\":30}";
     public static final String DEFAULT_ONBOARDING_PAYOFF_ACTIONS = "[\"build_resume\",\"install_extension\",\"find_jobs\"]";
+    public static final String DEFAULT_ONBOARDING_DELIGHT_INTERSTITIALS = "[\"review\"]";
+    public static final String DEFAULT_ONBOARDING_DELIGHT_COPY = "{}";
     public static final String DEFAULT_DISCOURAGED_REGIONS ="[\"US\",\"CA\",\"GB\",\"AU\",\"IE\",\"NZ\"]";
 
     private static final Pattern HEX = Pattern.compile("#[0-9a-fA-F]{6}");
     private static final Pattern COUNTRY = Pattern.compile("[A-Z]{2}");
+    private static final Pattern COPY_KEY = Pattern.compile("[a-z][a-zA-Z0-9_.]{0,63}");
     private static final Pattern GROUP_OR_RULE_ID = Pattern.compile("[A-Za-z][A-Za-z0-9]{0,15}");
 
     private static final List<Key> ALL;
@@ -487,6 +504,32 @@ public final class ResumeBuilderSettingKeys {
             )
         );
 
+        // The delight layer (DELIGHT 8): every switch is admin-configured; the copy deck overrides by key.
+        bool(k, ONBOARDING_DELIGHT_ENABLED, true, "The whole setup delight layer: mascot companion, card-stack review, highlights, milestones, micro-interactions. Off gives the plain v2 flow.");
+        bool(k, ONBOARDING_DELIGHT_HAPTICS, true, "A short vibration on a Keep / Skip / milestone (phones with a coarse pointer, never under reduced motion).");
+        bool(k, ONBOARDING_DELIGHT_COMBO, true, "The session-only 'n in a row' chip on the review cards.");
+        bool(k, ONBOARDING_DELIGHT_HIGHLIGHTS, true, "The rule-based highlight chip and the no-numbers tip on review cards (no AI).");
+        bool(k, ONBOARDING_DELIGHT_MILESTONES, true, "Milestone pops at 25 / 50 / 75 percent on the progress bar.");
+        integer(k, ONBOARDING_DELIGHT_INTERSTITIAL_MS, 1200, 0, 3000, "Milliseconds the section interstitial waits before moving on by itself (0 = never shown).");
+        k.add(
+            json(
+                ONBOARDING_DELIGHT_INTERSTITIALS,
+                DEFAULT_ONBOARDING_DELIGHT_INTERSTITIALS,
+                "Which sections open with the interstitial: any of review, prefs (an array, may be empty).",
+                n -> idList(n, 0, 2, ONBOARDING_DELIGHT_INTERSTITIAL_IDS::contains)
+            )
+        );
+        bool(k, ONBOARDING_DELIGHT_BAR_RIDER, false, "A small mascot head riding the end of the progress bar.");
+        bool(k, ONBOARDING_DELIGHT_SHARE, true, "The shareable 'Profile ready' card on the payoff screen.");
+        k.add(
+            json(
+                ONBOARDING_DELIGHT_COPY,
+                DEFAULT_ONBOARDING_DELIGHT_COPY,
+                "Overrides for the delight copy deck: an object of copy key to a string or an array of strings (max 200 characters each).",
+                n -> copyDeck(n, 120, 8, 200)
+            )
+        );
+
         // BFF rate limits.
         integer(k, RATE_DOC_WRITES_PER_MIN, 120, 10, 1000, "Document writes per user per minute.");
         integer(k, RATE_AI_PER_MIN, 20, 10, 1000, "AI calls per user per minute.");
@@ -578,6 +621,22 @@ public final class ResumeBuilderSettingKeys {
         Set<String> seen = new java.util.HashSet<>();
         for (JsonNode e : n) {
             if (!e.isTextual() || !each.test(e.textValue()) || !seen.add(e.textValue())) return false;
+        }
+        return true;
+    }
+
+    /** An object of dotted copy keys to a non-blank string, or to 1..{@code maxLines} of them, each up to {@code maxChars}. */
+    private static boolean copyDeck(JsonNode n, int maxKeys, int maxLines, int maxChars) {
+        if (!n.isObject() || n.size() > maxKeys) return false;
+        for (var it = n.fields(); it.hasNext();) {
+            var e = it.next();
+            if (!COPY_KEY.matcher(e.getKey()).matches()) return false;
+            JsonNode v = e.getValue();
+            if (v.isTextual()) {
+                if (v.textValue().isBlank() || v.textValue().length() > maxChars) return false;
+            } else if (!stringList(v, 1, maxLines, maxChars)) {
+                return false;
+            }
         }
         return true;
     }

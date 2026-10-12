@@ -1,0 +1,22 @@
+/* @kiwiply/ui — the delight layer's shared motion (Onboarding v2.1, ONBOARDING-DELIGHT-DESIGN 2-3, 10).
+ * Keyframes + plain classes for the primitives SpeechBubble, CardStack, SwipeCard, AnimatedNumber and the chip pop.
+ * Imported by the web app's globals.css next to tokens.css; a surface that does not import it simply gets the static
+ * twin of every effect (nothing here is needed to read or use a screen).
+ *
+ * EVERY animation is inside `prefers-reduced-motion: no-preference`: under "reduce" nothing moves, and each effect's
+ * static twin (DESIGN 10.1) is what the markup already is. Durations are the design's: 120-300 ms, nothing blocks input. */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* SpeechBubble: the line crossfades in (120 ms) when it changes (the span is re-keyed). */
+  @keyframes kiwi-bubble-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .kiwi-bubble-text {
+    animation: kiwi-bubble-in 120ms ease-out both;
+  }
+}

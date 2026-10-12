@@ -3,6 +3,8 @@
 import { useId } from "react";
 import { BriefcaseIcon, Button, ChoiceGroup, GraduationCapIcon, RefreshIcon, RocketIcon, ArrowRightIcon } from "@kiwiply/ui";
 import { PERSONA_CHIPS, type Persona } from "@/lib/onboarding/persona";
+import { useCompanionActive } from "./delight/Companion";
+import { useReaction, useSceneLine } from "./delight/useCompanionLines";
 import { SkipButton, StepFooter, StepHeading, StepMascot } from "./parts";
 
 const ICONS = {
@@ -38,9 +40,14 @@ export default function PersonaStep({
 }) {
   const titleId = useId();
   const name = firstName?.trim();
+  // The companion greets (a wave on arrival) and answers the pick; with it on, the big v2 wave above the heading is not drawn
+  // (one mascot per screen, DELIGHT 2.5).
+  const companion = useCompanionActive();
+  const react = useReaction();
+  useSceneLine(value === "student" ? "grad" : "wave", value ? `hello.${value}` : "hello.idle");
   return (
     <div>
-      <StepMascot name="wave" enabled={mascot} className="mb-3 h-24 w-auto sm:h-32" />
+      {!companion && <StepMascot name="wave" enabled={mascot} className="mb-3 h-24 w-auto sm:h-32" />}
       <StepHeading
         id={titleId}
         title={name ? `Hey ${name} — let's get you job-ready in 2 minutes.` : "Let's get you job-ready in 2 minutes."}
@@ -52,7 +59,11 @@ export default function PersonaStep({
         columns={4}
         className="mt-5"
         value={value ?? ""}
-        onChange={(v) => v && onChange(v as Persona)}
+        onChange={(v) => {
+          if (!v) return;
+          onChange(v as Persona);
+          react(v === "student" ? "grad" : "cheer");
+        }}
         options={PERSONA_CHIPS.map((c) => {
           const Icon = ICONS[c.id];
           return {

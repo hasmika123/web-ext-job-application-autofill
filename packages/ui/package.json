@@ -11,6 +11,7 @@
     ".": "./src/index.ts",
     "./styles/tokens.css": "./styles/tokens.css",
     "./styles/animations.css": "./styles/animations.css",
+    "./styles/delight.css": "./styles/delight.css",
     "./styles/theme-v2.css": "./styles/theme-v2.css",
     "./styles/resume.css": "./styles/resume.css",
     "./styles/resume-print.css": "./styles/resume-print.css",

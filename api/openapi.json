@@ -12218,6 +12218,49 @@
             "items" : {
               "type" : "string"
             }
+          },
+          "delight" : {
+            "$ref" : "#/components/schemas/OnboardingDelight"
+          }
+        }
+      },
+      "OnboardingDelight" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "haptics" : {
+            "type" : "boolean"
+          },
+          "combo" : {
+            "type" : "boolean"
+          },
+          "highlights" : {
+            "type" : "boolean"
+          },
+          "milestones" : {
+            "type" : "boolean"
+          },
+          "interstitialMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "interstitials" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "barRider" : {
+            "type" : "boolean"
+          },
+          "share" : {
+            "type" : "boolean"
+          },
+          "copy" : {
+            "$ref" : "#/components/schemas/JsonNode",
+            "description" : "Copy deck key to a string or an array of strings."
           }
         }
       },

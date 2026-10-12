@@ -19,7 +19,8 @@ import {
   type MenuChoice,
 } from "@/lib/profile-setup/fresh";
 import type { SetupParse } from "@/lib/profile-setup/parse";
-import { StepFooter } from "./parts";
+import { useReaction, useSceneLine } from "./delight/useCompanionLines";
+import { StepFooter, WithCompanion } from "./parts";
 
 interface Question {
   title: string;
@@ -110,6 +111,8 @@ export default function FreshFlow({
   const entry: FreshEntry | undefined = fresh.entries[fresh.entries.length - 1];
   const q = question(step, fresh);
   const limits = { shortChars: bioLimits.valueChars, bulletChars };
+  const react = useReaction();
+  useSceneLine("laptop", "fresh.idle");
 
   // A new question starts clean and puts the cursor in its answer (a phone opens the keyboard).
   useEffect(() => {
@@ -133,6 +136,7 @@ export default function FreshFlow({
       onDone({ draft, source: "fresh", removed: 0, typed });
       return;
     }
+    react("cheer"); // each answered question
     dispatch({ type: "next" });
   }
 
@@ -260,17 +264,19 @@ export default function FreshFlow({
         submit();
       }}
     >
-      <p className="text-[12.5px] font-semibold text-v2-muted" data-testid="fresh-context">
-        {stepContext(fresh)}
-      </p>
-      <h1 id={qid} tabIndex={-1} className="mt-1 font-display text-[24px] font-extrabold leading-tight text-balance text-v2-navy sm:text-[28px]" style={{ outline: "none" }}>
-        {q.title}
-      </h1>
-      {q.hint && (
-        <p id={hintId} className="mt-1 text-[14px] text-v2-ink-soft">
-          {q.hint}
+      <WithCompanion>
+        <p className="text-[12.5px] font-semibold text-v2-muted" data-testid="fresh-context">
+          {stepContext(fresh)}
         </p>
-      )}
+        <h1 id={qid} tabIndex={-1} className="mt-1 font-display text-[24px] font-extrabold leading-tight text-balance text-v2-navy sm:text-[28px]" style={{ outline: "none" }}>
+          {q.title}
+        </h1>
+        {q.hint && (
+          <p id={hintId} className="mt-1 text-[14px] text-v2-ink-soft">
+            {q.hint}
+          </p>
+        )}
+      </WithCompanion>
       <div className="mt-5">{control}</div>
       {error && (
         <p id={errId} role="alert" className="mt-3 text-[14px] font-medium text-danger">

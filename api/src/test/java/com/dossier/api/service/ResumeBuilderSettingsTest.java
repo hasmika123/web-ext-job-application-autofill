@@ -284,6 +284,80 @@ class ResumeBuilderSettingsTest {
         }
     }
 
+    // ---- Onboarding delight layer (R1.14) ---------------------------------------
+
+    @Test
+    void delightDefaultsAreTheDesignOnes() {
+        for (String on : List.of(
+            ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_ENABLED,
+            ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_HAPTICS,
+            ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_COMBO,
+            ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_HIGHLIGHTS,
+            ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_MILESTONES,
+            ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_SHARE
+        )) assertThat(settings.getBool(on)).as(on).isTrue();
+        assertThat(settings.getBool(ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_BAR_RIDER)).as("the rider is off by default").isFalse();
+        assertThat(settings.getInt(ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_INTERSTITIAL_MS)).isEqualTo(1200);
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_INTERSTITIALS, String[].class)).containsExactly("review");
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_COPY, JsonNode.class).size()).isZero();
+        assertThat(warnings()).isZero();
+    }
+
+    @Test
+    void delightInterstitialMsAcceptsZeroAndThreeThousandAndFallsBackOutside() {
+        String key = ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_INTERSTITIAL_MS;
+        for (int ok : new int[] { 0, 3000 }) {
+            put(key, String.valueOf(ok));
+            settings.invalidate();
+            assertThat(settings.getInt(key)).as("at " + ok).isEqualTo(ok);
+        }
+        for (int bad : new int[] { -1, 3001 }) {
+            put(key, String.valueOf(bad));
+            settings.invalidate();
+            assertThat(settings.getInt(key)).as("out of bounds " + bad).isEqualTo(1200);
+        }
+        assertThat(warnings()).isPositive();
+    }
+
+    @Test
+    void delightInterstitialsAreASubsetOfReviewAndPrefs() {
+        String key = ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_INTERSTITIALS;
+        put(key, "[\"prefs\",\"review\"]");
+        settings.invalidate();
+        assertThat(settings.getJson(key, String[].class)).containsExactly("prefs", "review");
+        put(key, "[]");
+        settings.invalidate();
+        assertThat(settings.getJson(key, String[].class)).as("none is allowed").isEmpty();
+        for (String bad : List.of("[\"hello\"]", "[\"review\",\"review\"]", "\"review\"", "[\"review\",\"prefs\",\"review\"]")) {
+            put(key, bad);
+            settings.invalidate();
+            assertThat(settings.getJson(key, String[].class)).as(bad).containsExactly("review");
+        }
+    }
+
+    @Test
+    void delightCopyOverridesAreKeyedStringsOrLists() {
+        String key = ResumeBuilderSettingKeys.ONBOARDING_DELIGHT_COPY;
+        put(key, "{\"review.keep\":[\"Nice.\",\"Yep.\"],\"hello.idle\":\"Hi!\"}");
+        settings.invalidate();
+        JsonNode copy = settings.getJson(key, JsonNode.class);
+        assertThat(copy.path("hello.idle").asText()).isEqualTo("Hi!");
+        assertThat(copy.path("review.keep").size()).isEqualTo(2);
+        for (String bad : List.of(
+            "[\"x\"]",
+            "{\"Review Keep\":\"x\"}",
+            "{\"review.keep\":\"\"}",
+            "{\"review.keep\":[]}",
+            "{\"review.keep\":[1]}",
+            "{\"review.keep\":42}",
+            "{\"hello.idle\":\"" + "x".repeat(201) + "\"}"
+        )) {
+            put(key, bad);
+            settings.invalidate();
+            assertThat(settings.getJson(key, JsonNode.class).size()).as(bad).isZero();
+        }
+    }
+
     @Test
     void onboardingSwitchesParseAsBooleans() {
         put(ResumeBuilderSettingKeys.FEATURE_ONBOARDING_V2, "false");

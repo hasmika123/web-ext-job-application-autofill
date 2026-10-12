@@ -180,7 +180,38 @@ class ResumeBuilderConfigResourceIT {
             .andExpect(jsonPath("$.onboarding.personaStep").value(true))
             .andExpect(jsonPath("$.onboarding.payoffActions.length()").value(3))
             .andExpect(jsonPath("$.onboarding.payoffActions[0]").value("build_resume"))
-            .andExpect(jsonPath("$.onboarding.payoffActions[2]").value("find_jobs"));
+            .andExpect(jsonPath("$.onboarding.payoffActions[2]").value("find_jobs"))
+            // The delight layer (R1.14)
+            .andExpect(jsonPath("$.onboarding.delight.enabled").value(true))
+            .andExpect(jsonPath("$.onboarding.delight.haptics").value(true))
+            .andExpect(jsonPath("$.onboarding.delight.combo").value(true))
+            .andExpect(jsonPath("$.onboarding.delight.highlights").value(true))
+            .andExpect(jsonPath("$.onboarding.delight.milestones").value(true))
+            .andExpect(jsonPath("$.onboarding.delight.interstitialMs").value(1200))
+            .andExpect(jsonPath("$.onboarding.delight.interstitials.length()").value(1))
+            .andExpect(jsonPath("$.onboarding.delight.interstitials[0]").value("review"))
+            .andExpect(jsonPath("$.onboarding.delight.barRider").value(false))
+            .andExpect(jsonPath("$.onboarding.delight.share").value(true))
+            .andExpect(jsonPath("$.onboarding.delight.copy").isEmpty());
+    }
+
+    @Test
+    void delightTunablesReachTheConfig() throws Exception {
+        setting("onboarding.delight.enabled", "false");
+        setting("onboarding.delight.barRider", "true");
+        setting("onboarding.delight.interstitialMs", "0");
+        setting("onboarding.delight.interstitials", "[\"prefs\",\"review\"]");
+        setting("onboarding.delight.copy", "{\"review.keep\":[\"Yep.\"]}");
+        settings.invalidate();
+
+        mockMvc
+            .perform(get(URL))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.onboarding.delight.enabled").value(false))
+            .andExpect(jsonPath("$.onboarding.delight.barRider").value(true))
+            .andExpect(jsonPath("$.onboarding.delight.interstitialMs").value(0))
+            .andExpect(jsonPath("$.onboarding.delight.interstitials[0]").value("prefs"))
+            .andExpect(jsonPath("$.onboarding.delight.copy['review.keep'][0]").value("Yep."));
     }
 
     @Test

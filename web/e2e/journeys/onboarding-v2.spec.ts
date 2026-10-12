@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { STATE } from "../fixtures/accounts";
-import { auditScreen, expectNoHorizontalScroll, expectNotOverlapped } from "../fixtures/audit";
+import { auditScreen, expectNoHorizontalScroll, expectNoWordPerLineHeadings, expectNotOverlapped } from "../fixtures/audit";
 
 /**
  * Onboarding v2 (R1.12): the whole first run against the mock API, as a brand-new account, at a phone (390) and a desktop
@@ -446,3 +446,97 @@ test.describe("reduced motion", () => {
     await expect(page.locator("[data-confetti]")).toHaveCount(0);
   });
 });
+
+/** Delight layer (R1.14): on the review screen the mascot companion is a column at xl and a head in the heading row below it. */
+async function toReview(page: Page) {
+  await fresh(page);
+  await page.goto("/profiles/setup");
+  await expect(h1(page)).toContainText("job-ready");
+  await page.getByRole("radio", { name: /Experienced/ }).click();
+  await page.getByRole("button", { name: /Continue/ }).click();
+  await pasteResume(page);
+}
+
+for (const vp of [
+  { name: "390", width: 390, height: 844 },
+  { name: "360", width: 360, height: 640 },
+  { name: "810", width: 810, height: 800 },
+  { name: "1440", width: 1440, height: 900 },
+] as const) {
+  test.describe(`delight companion at ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+    const wide = vp.width >= 1280;
+    const mid = !wide && vp.width >= 768;
+
+    test("review: the dock sits right of the column with no sideways scroll; on a phone the head is in the heading row and the sticky bar is untouched", async ({ page }) => {
+      await toReview(page);
+      const dock = page.getByTestId("companion-dock");
+      const head = page.getByTestId("companion-head");
+      const midCompanion = page.getByTestId("companion-mid");
+      const caption = page.getByTestId("companion-caption");
+      const keep = page.getByRole("button", { name: /^Keep/ }).first();
+      const column = (await page.getByTestId("onboarding-shell").boundingBox())!;
+
+      // decorative: hidden from assistive tech and from the pointer
+      await expect(dock).toHaveAttribute("aria-hidden", "true");
+      expect(await dock.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe("none");
+
+      if (wide) {
+        await expect(dock).toBeVisible();
+        await expect(head).toBeHidden();
+        await expect(midCompanion).toBeHidden();
+        await expect(caption).toBeHidden();
+        const box = (await dock.boundingBox())!;
+        expect(box.x, "the dock starts right of the 560 px column").toBeGreaterThanOrEqual(column.x + column.width);
+        expect(box.x + box.width, "and fits inside the window").toBeLessThanOrEqual(vp.width);
+        expect(box.width).toBeLessThanOrEqual(200.5);
+        await expect(dock).toContainText(/\S/); // a line in the bubble
+      } else if (mid) {
+        // 768-1279: a 104 px mascot with its own tinted bubble in the heading row, and the line is not also a grey subtitle
+        await expect(dock).toBeHidden();
+        await expect(head).toBeHidden();
+        await expect(caption).toBeHidden();
+        await expect(midCompanion).toBeVisible();
+        await expect(midCompanion).toContainText(/\S/);
+        await expect(midCompanion.locator("[data-speech-bubble]")).toHaveAttribute("data-tone", "tint");
+        const m = (await midCompanion.boundingBox())!;
+        const title = (await h1(page).boundingBox())!;
+        const counter = (await page.getByTestId("card-counter").boundingBox())!;
+        expect(m.height, "a medium mascot").toBeGreaterThanOrEqual(96);
+        expect(m.x, "right of the title column").toBeGreaterThanOrEqual(title.x + title.width - 1);
+        expect(m.x + m.width, "inside the 560 px column and the window").toBeLessThanOrEqual(Math.min(vp.width, column.x + column.width) + 1);
+        expect(m.x, "clear of the counter").toBeGreaterThanOrEqual(counter.x + counter.width - 1);
+        const top = (await page.getByRole("link", { name: /Exit setup/ }).boundingBox())!;
+        expect(m.y, "below the top bar (Back, Saved, ⋯, ✕)").toBeGreaterThan(top.y + top.height);
+        await expectNotOverlapped(keep, "review: Keep with the mid companion showing");
+      } else {
+        await expect(dock).toBeHidden();
+        await expect(midCompanion).toBeHidden();
+        await expect(head).toBeVisible();
+        await expect(caption).toBeVisible();
+        const h = (await head.boundingBox())!;
+        const title = (await h1(page).boundingBox())!;
+        expect(h.width, "a 44 px head").toBeCloseTo(44, 0);
+        expect(h.y, "in the heading row: level with the title, not below it").toBeLessThan(title.y + title.height);
+        expect(h.x, "at the end of the row").toBeGreaterThan(vp.width / 2);
+        const footer = (await page.getByTestId("step-footer").boundingBox())!;
+        expect(h.y + h.height, "the head is far above the sticky bar").toBeLessThan(footer.y);
+        await expectNotOverlapped(keep, "review: Keep with the head showing");
+      }
+      await expectNoHorizontalScroll(page, "review with the companion");
+      await expectNoWordPerLineHeadings(page, "review with the companion");
+      await auditScreen(page, "review with the companion", keep);
+
+      // a Keep: the companion reacts, nothing moves, nothing is announced twice
+      const before = (await h1(page).boundingBox())!;
+      await keep.click();
+      await expect(page.getByTestId("card-counter")).toHaveText("2 / 4");
+      const react = wide ? dock : mid ? midCompanion : head;
+      await expect(react).toHaveAttribute("data-react", "cheer");
+      await expect(page.getByRole("status").filter({ hasText: /^Kept / })).toHaveCount(1);
+      const after = (await h1(page).boundingBox())!;
+      expect(Math.abs(after.y - before.y) + Math.abs(after.height - before.height), "the heading row does not move when the companion reacts").toBeLessThanOrEqual(1);
+      await expectNoHorizontalScroll(page, "review after a Keep");
+    });
+  });
+}
