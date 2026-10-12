@@ -229,6 +229,30 @@ As someone who installed the extension first, I want one clear link to the two-m
 - Tests: Panel test: `empty profile shows the setup link`, `profile with items hides it`; smoke test version assertion updated.
 - Benchmark: Simplify's extension-first onboarding hands off to the web in one tap (landscape §2.1).
 
+### R1b delight (v2.1, 2026-10-12) — design `docs/ONBOARDING-DELIGHT-DESIGN.md`; full ACs and tests in `docs/resume-builder/stories.json`
+Build order: R1.14 (after R1.12) → R1.15 → R1.16 ‖ R1.18 → R1.17 → R1.19 → R1.20. All behind `onboarding.delight.enabled`; the companion also behind `onboarding.mascot.enabled`; every effect has a reduced-motion static twin; no new dependencies.
+
+### R1.14 Delight foundation + mascot companion — settings keys, `useDelight`, copy deck, `SpeechBubble`, `CompanionDock` (column ≥ 1280 / phone head), poses + CSS motion fallback, wired on review first then every screen (M)
+As a Gen Z user on the review screen, I want a companion that reacts to what I do so the flow feels alive, not like a form.
+
+### R1.15 Review as a game — `CardStack` ghosts, `SwipeCard` stamp + fly-off, spring-up, `AnimatedNumber` counter, combo chip, haptics, `← → E Z` + legend, Keep sparkles (M)
+As a user confirming cards, I want each Keep and Skip to feel like a satisfying move in a game, without slowing me down.
+
+### R1.16 Honest highlights — rule-based ✨ chip on one bullet per card and the no-numbers tip; no AI (S)
+As a user, I want a true "nice!" when a bullet has a number or a result, and a gentle tip when none does.
+
+### R1.17 Progress delight — milestone pops at 25/50/75 %, bar shine + optional rider, time-left digit flip, the skippable ~1.2 s interstitial (M)
+As a user, I want to feel progress happening — a quarter, a half, almost there — without ever waiting.
+
+### R1.18 Micro-interactions across screens — button squish, chip pops, skills fly-in + pop, emoji glyphs on natural options, hello/source/paste/you/so-far/recap reactions, resume banner (M)
+As a user, I want every tap to answer back a little, on every screen.
+
+### R1.19 Payoff celebration + share — count-up of ~N, mascot dance, more confetti, the "Profile ready ✨" card via Web Share / copy (S)
+As a user who just finished, I want a real moment — and a way to show it off if I feel like it.
+
+### R1.20 Delight QA pack — Playwright both motion projects at 360/390/1440, axe, CLS 0, long tasks, overlap checks, DOM parity with the switch off, handoff (S)
+As the team, we want proof the layer is fast, accessible, reduced-motion safe and removable.
+
 ---
 
 ## R2 — Editor to the boards (P0)

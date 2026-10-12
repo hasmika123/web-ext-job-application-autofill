@@ -79,9 +79,16 @@
     "R1.10",
     "R1.11",
     "R1.12",
-    "R1.13"
+    "R1.13",
+    "R1.14",
+    "R1.15",
+    "R1.16",
+    "R1.17",
+    "R1.18",
+    "R1.19",
+    "R1.20"
   ],
-  "parallelTrack": "R1.1 → R1.2 → R1.3 → R1.4 → R1.5 → R1.6 can run on a second (API/web) agent in parallel with R2; R3.2 needs R1.1. **R1b (Onboarding v2, 2026-10-12): R1.7 → R1.8 → R1.9 → R1.10 → R1.11 → R1.12 → R1.13 — R1.7 ships first and alone (card + no redirect); R1.8 (API) can run in parallel with R1.7; R1.13 is optional.** R8 waits for the org foundation stories it depends on (O1.2, O1.4, O1.5, O6.1, O6.4, O10.1; R8.3 also O10.5).",
+  "parallelTrack": "R1.1 → R1.2 → R1.3 → R1.4 → R1.5 → R1.6 can run on a second (API/web) agent in parallel with R2; R3.2 needs R1.1. **R1b (Onboarding v2, 2026-10-12): R1.7 → R1.8 → R1.9 → R1.10 → R1.11 → R1.12 → R1.13 — R1.7 ships first and alone (card + no redirect); R1.8 (API) can run in parallel with R1.7; R1.13 is optional.** R8 waits for the org foundation stories it depends on (O1.2, O1.4, O1.5, O6.1, O6.4, O10.1; R8.3 also O10.5). **R1b delight (Onboarding v2.1, 2026-10-12): R1.14 (after R1.12) → R1.15 → R1.16 ‖ R1.18 → R1.17 → R1.19 → R1.20 — R1.16 and R1.18 can run beside R1.15 (different files).**",
   "epics": [
     {
       "id": "R0",
@@ -694,6 +701,219 @@
       ],
       "tests": "Panel test: `empty profile shows the setup link`, `profile with items hides it`; smoke test version assertion updated.",
       "benchmark": "Simplify's extension-first onboarding hands off to the web in one tap (landscape §2.1)."
+    },
+    {
+      "status": "not_started",
+      "star": false,
+      "relates": [],
+      "supersedes": [],
+      "design": "docs/ONBOARDING-DELIGHT-DESIGN.md",
+      "epic": "R1b",
+      "id": "R1.14",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui",
+        "API"
+      ],
+      "deps": [
+        "R1.12"
+      ],
+      "title": "Delight foundation + mascot companion — settings keys, `useDelight`, copy deck, `SpeechBubble`, `CompanionDock` (column ≥ 1280 / phone head), poses + CSS motion fallback, wired on review first then every screen",
+      "depsNote": "R1.12 (the motion/a11y pass touches the same files; wait for it). Size M. Owners web + ui + API (settings only).",
+      "story": "As a Gen Z user on the review screen, I want a companion that reacts to what I do so that the flow feels alive, not like a form.",
+      "ac": [
+        "Settings (DELIGHT §8): `ResumeBuilderSettingKeys` gains `onboarding.delight.enabled` (BOOL true), `.haptics` (true), `.combo` (true), `.highlights` (true), `.milestones` (true), `.interstitialMs` (INT 1200, 0–3000), `.interstitials` (JSON `[\"review\"]`, subset of review|prefs), `.barRider` (false), `.share` (true), `.copy` (JSON `{}`); `ResumeBuilderConfigDTO.Onboarding` gains `delight {…}` and `GET /api/profile/resume-builder/config` returns it; `DEFAULT_BUILDER_CONFIG.onboarding.delight` + the `ResumeBuilderConfig` type mirror the defaults; the mock API serves them. Bounds and parsing follow the existing keys (out-of-bounds → default + one WARN).",
+        "`web/src/lib/onboarding/delight.ts`: `DelightProvider` + `useDelight()` → `{ on, mascot, haptics, combo, highlights, milestones, interstitialMs, interstitials, barRider, share, reduced, copy(key, vars?, seed?), tap(kind) }` where `on = config.onboarding.delight.enabled`, `mascot = on && config.onboarding.mascot`, `reduced = useReducedMotion()`, `tap` per DELIGHT §3.5 (guards: haptics on, not reduced, `\"vibrate\" in navigator`, coarse pointer, try/catch). `ProfileSetup` provides it; the shell root carries `data-delight=\"on|off\"`.",
+        "`web/src/lib/onboarding/delight-copy.ts`: `DELIGHT_COPY` = every key of DELIGHT §7 with its default (string or string[] and the `.phone` variants); `copy()` resolves `config.onboarding.delight.copy` overrides first, substitutes `{vars}`, picks `list[seed % list.length]` (deterministic, no `Math.random`); unknown override keys are ignored and logged once.",
+        "`@kiwiply/ui` `SpeechBubble` (DELIGHT §9.1): paper surface, line border, 12 px radius, 10 px tail (`up-left` | `up` | `left`), `reservedLines` 1|2 sets `min-height` (18 / 48 px) so the box never shifts; text changes crossfade 120 ms (`key` on the text), instant under reduced motion. Exported from the index.",
+        "`delight/poses.ts` + `Companion.tsx` + `CompanionDock.tsx` (DELIGHT §2.1–§2.4): `MascotPose` = idle|peek|cheer|shrug|think|look|read|grad|laptop|celebrate|wave mapped to the existing art (`POSE_ART`; `StepMascot`'s `ART` gains `peek`, `binoculars`, `grad`, `laptopWave` with native sizes); the desktop dock = `absolute left-full top-[52px] ml-8 w-[200px] hidden xl:flex` with the 120 px lime disc (art 104 px, bottom-aligned, `alt=\"\"`) + bubble (2 lines reserved); the phone dock (`xl:hidden`) = a 44 px round `object-cover object-top` head as the last item of the heading row (`StepHeading` gains an `aside` slot; the review's counter row uses it) + a one-line 12.5 px muted caption under the row (`min-h-[18px]`, `truncate`, phone variant copy). The whole dock is `aria-hidden` and `pointer-events-none`. `react(pose)` sets `data-react` for the keyframe's duration (cleared on unmount; a new reaction replaces the running one), then returns to the screen's base pose.",
+        "CSS (`globals.css`, under `prefers-reduced-motion: no-preference` only): `ob-m-idle` (3 s breathe loop), `ob-m-peek` 240 ms, `ob-m-cheer` 480 ms, `ob-m-shrug` 300 ms, `ob-m-think` 1.6 s loop, `ob-m-look` 800 ms, `ob-m-wave` 600 ms, `ob-m-dance` 900 ms, with the keyframes of DELIGHT §2.4. Under reduced motion the pose (art) still swaps; nothing moves.",
+        "Wired per DELIGHT §2.5, review first: on `review` Keep → `cheer` + `review.keep` (seed = card index), Skip → `shrug` + `review.skip`, Edit saved → `cheer` + `review.edited`, Undo → `peek` + `review.undo`, idle line `review.idle` per card with the persona flavour on card 1, `review.last` on the final card; the v2 recap's desktop mascot-clap behind the card is removed (the companion is the one mascot). Then every other screen's base pose + reactions + bubble keys of the §2.5 table (hello, source incl. the long-read lines at 8 s / 15 s, paste, fresh, skills `skills.five`, you saving/saved, so-far, prefs first/idle/three/eeo, done, resume banner). Nothing is written to the draft or the server by this story.",
+        "Gating: with `onboarding.delight.enabled=false` OR `onboarding.mascot.enabled=false` the dock is not rendered at all (no empty column, no reserved caption line) and the v2 `StepMascot` slots behave as before; with delight on and mascot off, the non-mascot parts of later stories still work (nothing in this story besides the dock depends on `mascot`)."
+      ],
+      "tech": "`api/.../service/ResumeBuilderSettingKeys.java`, `ResumeBuilderConfigDTO.java` (+ `ResumeBuilderConfigResourceIT`, `ResumeBuilderSettingsTest`), `web/src/lib/resume-builder-config.shared.ts`, `web/scripts/mock-api.mjs`, `web/src/lib/onboarding/{delight,delight-copy}.ts` (+ tests), `packages/ui/src/primitives/SpeechBubble.tsx` (+ test, index export), `web/src/components/app-v3/profiles/setup/delight/{poses.ts,Companion.tsx,CompanionDock.tsx}` (+ tests), `web/src/components/app-v3/profiles/setup/{parts,OnboardingShell,ProfileSetup,ReviewScreen,PersonaStep,SourceStep,PasteStep,SkillsStep,IdentityStep,ProfileSoFar,PrefsFlow,PayoffStep,ResumeBanner}.tsx` (pose + reaction wiring only), `web/src/app/globals.css`.",
+      "tests": "`ResumeBuilderSettingsTest`: the ten delight keys with defaults and bounds. `ResumeBuilderConfigResourceIT`: `config.onboarding.delight` shape. `delight.test.tsx`: `useDelight reads the config`, `tap is a no-op without the setting / under reduced motion / without vibrate / on fine pointers`, `tap vibrates 10 on a decision on a coarse pointer`. `delight-copy.test.ts`: `every §7 key has a default`, `override wins`, `vars substituted`, `list rotates by seed deterministically`, `phone variant picked when present`. `SpeechBubble.test.tsx`: `reserves the height`, `text swap keeps the box size`. `CompanionDock.test.tsx`: `hidden when delight off`, `hidden when mascot off`, `aria-hidden and pointer-events none`, `react sets data-react then returns to base`, `phone head in the heading row at < xl`. `ReviewScreen.test.tsx` (+): `Keep cheers with a review.keep line`, `Skip shrugs with a review.skip line`, `card 1 shows the persona line`, `the recap no longer draws the extra clap`. Playwright (R1.12's spec, + one case): at 1440 the dock sits right of the column with no horizontal scroll; at 390 the head is in the heading row and the sticky footer is untouched. axe: 0 serious/critical on review with the dock.",
+      "benchmark": "Duolingo's owl reacting per answer; Notion's quiet companionship — never a narrator (DELIGHT §1, §2)."
+    },
+    {
+      "status": "not_started",
+      "star": false,
+      "relates": [],
+      "supersedes": [],
+      "design": "docs/ONBOARDING-DELIGHT-DESIGN.md",
+      "epic": "R1b",
+      "id": "R1.15",
+      "size": "M",
+      "owners": [
+        "ui",
+        "web"
+      ],
+      "deps": [
+        "R1.14"
+      ],
+      "title": "Review as a game — `CardStack` ghosts, `SwipeCard` stamp + fly-off, spring-up, `AnimatedNumber` counter, combo chip, haptics, `← → E Z` + legend, Keep sparkles",
+      "depsNote": "R1.14 (`useDelight`, companion). Size M. Owners ui + web.",
+      "story": "As a user confirming cards, I want each Keep and Skip to feel like a satisfying move in a game so that reviewing eight cards is fun, without ever slowing me down.",
+      "ac": [
+        "`@kiwiply/ui` `CardStack` (DELIGHT §3.1, §9.2): `{ ghosts: 0|1|2; leaving?: { node, dir } | null; onLeft?(); children }`; a `relative` box with `pb-5` reserved; ghosts `absolute inset-0` blank paper cards (`aria-hidden`, scale .96/translateY 10 px/opacity .75 and .92/20 px/.45); the leaving layer renders `node` on top with `pointer-events-none aria-hidden` and `data-fling=dir` for 240 ms then calls `onLeft`; the live child gets `ob-spring-up` (200 ms, `cubic-bezier(.34,1.4,.64,1)`) on mount. Reduced motion: no fling/spring, incoming crossfade 120 ms, ghosts static.",
+        "`SwipeCard` (DELIGHT §3.2, §9.6): new props `stamp?: boolean` (the rotated KEEP ✓ / SKIP stamp: `rotate(-12deg)`, 2.5 px border, 16 px extrabold uppercase, tracking .08em; opacity tracks the drag as built), `fling?: \"keep\"|\"skip\"|null` (plays `ob-fling-right`/`-left`: `translateX(±140%) rotate(±14deg)` + fade, 240 ms `cubic-bezier(.2,.8,.4,1)`), `onFlingEnd?()`; a release past the threshold flings in the drag direction instead of snapping back; `will-change: transform` only while dragging; defaults keep today's behaviour byte-for-byte (existing `SwipeCard.test.tsx` untouched and green).",
+        "`ReviewScreen`: decisions dispatch **immediately** on press/swipe/key; the outgoing card is kept as the `leaving` snapshot for 240 ms; the next card is interactive from the first frame (a second decision during the fling works and is tested). `ghosts = min(2, cardsLeft − 1)`. The stamp snaps to opacity 1 (120 ms) on a button or keyboard decision.",
+        "`@kiwiply/ui` `AnimatedNumber` (DELIGHT §3.3, §9.3): `{ value; mode?: \"flip\"|\"countUp\"; duration?; className }`; flip = old digit up/fade, new from below, 180 ms, in an `overflow-hidden` one-line box, `tabular-nums`; the final value is in an `sr-only` span and the animated one `aria-hidden`; static under reduced motion. The review counter's current index uses it (`aria-label=\"Card 3 of 8\"` unchanged).",
+        "Combo (DELIGHT §3.4): `ComboChip` — consecutive Keeps (edit-then-keep counts) on this review only; appears at ≥ 3 as `combo.chip` (\"🔥 3 in a row\", phone \"🔥 3\") left of the counter, `aria-hidden`, `ob-chip-pop` 150 ms on each change, fades 200 ms on a Skip with no text; Undo does not restore it; never persisted, never in the recap, never announced; the companion cheers with `review.combo` at 3 and every 5th after; `onboarding_delight_combo{max}` tracked once at the recap. Gated by `delight.combo`. The heading row wraps so the chip never pushes the h1 (asserted at 360).",
+        "Haptics: `tap(\"decision\")` on every Keep/Skip (button, swipe, key) through `useDelight().tap` — nothing else in this story vibrates.",
+        "Keyboard (DELIGHT §3.6): on the screen container, ignored inside `input|textarea|select|[contenteditable]`, with a modifier, or while `ItemForm` is open: `←` Skip, `→` Keep, `E` Edit, `Z` Undo the last decision (previous card: `onUndecide(prevId)` + cursor back, exactly the toast's Undo; no-op at cursor 0). `aria-keyshortcuts=\"ArrowRight ArrowLeft e z\"` on the card; a `<kbd>` legend `keys.legend` under \"Keep all the rest\" from `sm` up (hidden on phones). `onboarding_delight_shortcut{key}` tracked.",
+        "`@kiwiply/ui` `SparkleBurst` (DELIGHT §3.7, §9.4): eight dots/stars (accent, accent-deep, warn; `StarDoodle` for two) radiating 48 px over 320 ms via WAAPI, `aria-hidden pointer-events-none absolute`, plays once on mount, nothing under reduced motion; mounted inside the Keep button's `relative` wrapper on a Keep (and at the card centre on a swipe-keep)."
+      ],
+      "tech": "`packages/ui/src/primitives/{CardStack,AnimatedNumber,SparkleBurst}.tsx` (+ tests, index exports), `packages/ui/src/primitives/SwipeCard.tsx` (+ test cases), `web/src/components/app-v3/profiles/setup/ReviewScreen.tsx` (+ test), `web/src/components/app-v3/profiles/setup/delight/ComboChip.tsx` (+ test), `web/src/lib/onboarding/events.ts`, `web/src/app/globals.css` (`ob-fling-*`, `ob-spring-up`, `ob-chip-pop`).",
+      "tests": "`CardStack.test.tsx`: `renders min(2, left−1) ghosts`, `reserves pb-5 always`, `leaving layer is aria-hidden and pointer-events none and calls onLeft`, `no fling classes under reduced motion`. `SwipeCard.test.tsx` (+): `defaults unchanged`, `stamp renders rotated labels`, `fling prop sets data-fling and calls onFlingEnd`, `release past threshold flings not snaps`. `AnimatedNumber.test.tsx`: `sr-only final value`, `flip renders old and new during the change`, `countUp ends exactly on the value`, `static under reduced motion`. `SparkleBurst.test.tsx`: `plays once`, `nothing under reduced motion`. `ComboChip.test.tsx`: `hidden below 3`, `3 keeps show it`, `a skip hides it quietly`, `undo does not restore`, `hidden when delight.combo off`. `ReviewScreen.test.tsx` (+): `decision dispatches before the fling ends`, `two decisions within 240 ms both land`, `ArrowRight keeps / ArrowLeft skips from the container`, `E opens the editor`, `Z undoes the previous card`, `keys ignored inside the edit form`, `tap called on keep and skip`, `legend hidden on phone`. Playwright (both motion projects, 390 + 1440): five decisions produce zero `layout-shift` entries > 0.01; the stamp is visible during a drag; keyboard-only review completes; axe 0 serious/critical.",
+      "benchmark": "Tinder/Hinge card stacks (ghosts, stamp, fling); Duolingo's keyboard-first speed (DELIGHT §3)."
+    },
+    {
+      "status": "not_started",
+      "star": false,
+      "relates": [],
+      "supersedes": [],
+      "design": "docs/ONBOARDING-DELIGHT-DESIGN.md",
+      "epic": "R1b",
+      "id": "R1.16",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "R1.14"
+      ],
+      "title": "Honest highlights — rule-based ✨ chip on one bullet per card and the no-numbers tip; no AI",
+      "depsNote": "R1.14 (`useDelight`, copy deck). Size S. Owner web. Can run in parallel with R1.15.",
+      "story": "As a user, I want a true \"nice!\" when a bullet has a number or a result, and a gentle tip when none does, so that I learn what recruiters notice without anyone inventing anything about me.",
+      "ac": [
+        "`web/src/lib/onboarding/highlights.ts` (DELIGHT §6): `hasNumber(text)` with `NUMBER_RE` (currency with optional k/m/b, `\\d%`, `\\d+x`, thousands `\\d{1,3}(,\\d{3})+`, count + unit word from the listed set, `\\d+\\+`; a bare year or a date range does **not** count); `highlightFor(bullets)` returns `{ index, rule, label }` or null with the priority number > outcome > lead > built, word lists exactly as §6 (`lead`/`built` are start-of-bullet matches; `outcome` is a contains match), first matching bullet of the winning rule; at most one per card; `needsNumberTip(section, bullets)` = EXPERIENCE|PROJECT and bullets ≥ 1 and none has a number. Pure, no network, no AI.",
+        "`HighlightChip` on the review card: inline after the bullet text, `SparklesIcon` 12 px + the `highlight.{rule}` copy, 11.5 px semibold accent-deep on accent-soft/70, full radius, `inline-flex` so it wraps as a unit; `ob-chip-pop` on card mount; **real text** (not aria-hidden). The tip (`highlight.tip`) is one 12.5 px muted line under the bullets when `needsNumberTip`; a chip of another rule and the tip may coexist; never on EDUCATION, never on the recap, never while editing; recomputed from `edits[id]` after an edit saves. Gated by `delight.highlights`.",
+        "`onboarding_delight_highlight{rule}` once per card shown (no text); nothing else tracked."
+      ],
+      "tech": "`web/src/lib/onboarding/highlights.ts` (+ `highlights.test.ts`), `web/src/components/app-v3/profiles/setup/delight/HighlightChip.tsx` (+ test), `web/src/components/app-v3/profiles/setup/ReviewScreen.tsx` (+ test cases), `web/src/lib/onboarding/events.ts`.",
+      "tests": "`highlights.test.ts`: `currency / percent / multiplier / thousands / unit counts / plus match`, `a bare year does not`, `a date range does not`, `outcome contains`, `lead only at the start (\"led\" mid-sentence is not lead)`, `built only at the start`, `priority number > outcome > lead > built`, `first matching bullet index`, `no bullets → null`, `tip predicate per section`. `HighlightChip.test.tsx`: `renders the rule copy as real text`, `admin override copy wins`. `ReviewScreen.test.tsx` (+): `one chip per card on the right bullet`, `tip shown when no number on an experience card`, `no tip on education`, `recomputed after edit`, `hidden when delight.highlights off`, `highlight event once per card`. axe on a card with a chip: 0 serious/critical.",
+      "benchmark": "Grammarly/Teal-style inline nudges — but deterministic, honest and non-blocking (DELIGHT §6)."
+    },
+    {
+      "status": "not_started",
+      "star": false,
+      "relates": [],
+      "supersedes": [],
+      "design": "docs/ONBOARDING-DELIGHT-DESIGN.md",
+      "epic": "R1b",
+      "id": "R1.17",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "R1.15"
+      ],
+      "title": "Progress delight — milestone pops at 25/50/75 %, bar shine + optional rider, time-left digit flip, the skippable ~1.2 s interstitial",
+      "depsNote": "R1.15 (`AnimatedNumber`, the review wiring). Size M. Owners web + ui.",
+      "story": "As a user, I want to feel progress happening — a quarter, a half, almost there — and a quick \"here's what we found\" beat before the cards, without ever being made to wait.",
+      "ac": [
+        "`web/src/lib/onboarding/milestones.ts` (DELIGHT §4.1): `THRESHOLDS = [0.25, 0.5, 0.75]`; `useMilestones(progress)` keeps `prevRef` (set to the current progress on mount so a resumed run does not replay) and fires each threshold once per run when `prev < t ≤ next`. `MilestonePop`: a pill at the bar's filled end (`absolute top-[-34px] left-[clamp(8%,pct,92%)] -translate-x-1/2`, paper, 12.5 px semibold, 6 px down-tail), in 200 ms, hold 1.2 s, out 200 ms, `aria-hidden pointer-events-none`; copy `milestone.{25,50,75}`; the emoji-stripped text is appended **once** to the shell's existing polite announcement (or the review's own `announce` when it fires mid-review) — no new live region; companion `celebrate`; `tap(\"milestone\")`; `onboarding_delight_milestone{pct}`. Static appear/disappear under reduced motion. Gated by `delight.milestones`.",
+        "`ProgressBar` (DELIGHT §4.2, §9.5): `shine?: boolean` → an `::after` 48 px gradient sweep over the fill (`ob-shine` 1.2 s every 4 s via a 2.8 s delay, `no-preference` only, only when `value ≥ 0.08`); `cap?: ReactNode` rendered at the filled end (`absolute left-[pct%] top-1/2 -translate-x-1/2 -translate-y-1/2`, `transition: left 300ms` matching the width easing, `motion-reduce:transition-none`). The shell passes `shine` when delight is on and, only when `delight.barRider`, a 20 px round mascot head as `cap` (off by default). Existing `ProgressBar.test.tsx` green unchanged.",
+        "The bar label's digit (\"about **1** min left\") is an `AnimatedNumber` flip (180 ms, down only); \"< 1 min left\" crossfades 120 ms; `aria-valuetext` unchanged (DELIGHT §4.3).",
+        "`Interstitial` (DELIGHT §4.4): shown once per run right after `onParsed` and before review card 1 (`introShown` UI flag in `ProfileSetup`, never in the draft; never on a resumed run; never when `interstitialMs = 0`); `screenKey=\"review-intro\"`; the bar does not move; mascot `look` 96 px (`ob-m-look`), h1 = `interstitial.review` with `{counts}` built from the parse (jobs/schools/projects/skills, zeros omitted, \"and\" before the last; `.one` variant when a single kind); accent button `interstitial.go` (\"Let's go\"), muted `interstitial.auto` line and a 1.2 s `ob-drain` line under the button; auto-advance after `delight.interstitialMs`; any click on the column, Enter, Space, Escape or the button advances now; Back, ✕ and ⋯ keep working; timer cleared on unmount; `onboarding_delight_interstitial{kind, skipped}`. The optional prefs intro (`interstitial.prefs` with `{k}`) shows before the first question only when `\"prefs\"` is in `delight.interstitials`. Under reduced motion: same screen and timer, no sway, no drain line.",
+        "The shell announces the interstitial like any screen (focus to its h1, \"Step i of n\"); the review's \"3 / 8\" counter is not shown on it."
+      ],
+      "tech": "`web/src/lib/onboarding/milestones.ts` (+ test), `web/src/components/app-v3/profiles/setup/delight/{MilestonePop,Interstitial}.tsx` (+ tests), `packages/ui/src/primitives/ProgressBar.tsx` (+ test cases), `web/src/components/app-v3/profiles/setup/{OnboardingShell,ProfileSetup,ReviewScreen}.tsx`, `web/src/lib/onboarding/events.ts`, `web/src/app/globals.css` (`ob-shine`, `ob-drain`, pop keyframes).",
+      "tests": "`milestones.test.ts`: `fires once per threshold when crossed upward`, `mount at 0.6 does not fire 25/50`, `never fires twice`. `MilestonePop.test.tsx`: `copy per pct`, `aria-hidden`, `left clamped to 8–92 %`. `ProgressBar.test.tsx` (+): `shine class only when ≥ 0.08`, `cap rendered at the fill end`, `defaults unchanged`. `OnboardingShell.test.tsx` (+): `milestone text appended once to the announcement, emoji stripped`, `rider only when barRider`. `Interstitial.test.tsx`: `counts line omits zeros and joins with and`, `single kind uses the .one variant`, `auto-advances after interstitialMs (fake timers)`, `click / Enter / Space / Escape advance at once and report skipped`, `interstitialMs 0 → not shown`, `not shown on a resumed run`, `prefs intro only when configured`. Playwright (both motion projects): parse → interstitial → card 1 within 1.6 s untouched, and immediately on a tap; a 50 % milestone pop appears at the bar end with no horizontal scroll at 360; axe 0 serious/critical on the interstitial.",
+      "benchmark": "Duolingo's \"halfway\" beats and section intros; Canva's progress shimmer (DELIGHT §4)."
+    },
+    {
+      "status": "not_started",
+      "star": false,
+      "relates": [],
+      "supersedes": [],
+      "design": "docs/ONBOARDING-DELIGHT-DESIGN.md",
+      "epic": "R1b",
+      "id": "R1.18",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "R1.14"
+      ],
+      "title": "Micro-interactions across screens — button squish, chip pops (`ChoiceGroup`/`ChipInput`), skills fly-in + pop, emoji glyphs on natural options, hello/source/paste/you/so-far/recap reactions, resume banner",
+      "depsNote": "R1.14 (`useDelight`, companion). Size M. Owners web + ui. Can run in parallel with R1.15.",
+      "story": "As a user, I want every tap to answer back a little — on the persona chips, the upload, the skills, the questions — so that the whole flow, not just the cards, feels alive.",
+      "ac": [
+        "Squish (DELIGHT §5.1): `[data-delight=\"on\"] button:not(:disabled):active { transform: scale(.97) }` with `transition: transform 120ms ease-out`, under `no-preference` only, scoped to the shell; no primitive change.",
+        "Chip pop (DELIGHT §5.2, §9.7): `ChoiceGroup` and `ChipInput` set `data-just-selected` for 150 ms on the option/chip that was just selected or added → `ob-chip-pop` (`scale 1 → 1.06 → 1`); colour-only under reduced motion; existing tests green.",
+        "Skills (DELIGHT §5.3): suggestion chips mount with `ob-fly-in` (180 ms) staggered `i × 30 ms` for the first 12 (the rest instant); tapping one pops it, removes it from the suggestions and the new `ChipInput` chip pops; the 5th skill → companion `cheer` + `skills.five`.",
+        "Emoji glyphs (DELIGHT §5.4, DECISIONS #34b): `<span aria-hidden class=\"text-[18px] leading-none\">` before the label for Remote 🏠 / Hybrid 🔀 / On-site 🏢, relocation Yes ✈️ / No 📍, and the student/first-job start chips Right away ⚡ / After I graduate 🎓 — **none** on work authorization, sponsorship, salary, the seven notice options or any EEO question; stored values unchanged (`valuesToWrite` tests still pass byte-for-byte).",
+        "Screen reactions (DELIGHT §5.5, §2.5): `hello` chip pop + `cheer` (`grad` for student); `source` drag-over → `peek` + `source.dragover`, file chosen → `think` + the reading lines at 0/8/15 s, error → `shrug` + `source.error` (the `role=\"alert\"` stays), the lock badge expand eases 180 ms; `paste` ≥ 80 chars → `cheer` once + `paste.ready`; `you` → `think` while saving, `cheer` + `SavedTick` beside the button on success; so-far and recap rows draw in with the `CheckIcon` tick (`ob-fly-in` 30 ms stagger, first 12); Undo toast → `peek` + `review.undo`; resume banner → `wave` + `resume.back` / `resume.other`.",
+        "Everything in this story is off (DOM identical to v2) when `delight.enabled=false`; the glyphs are part of the layer too."
+      ],
+      "tech": "`packages/ui/src/primitives/{ChoiceGroup,ChipInput}.tsx` (+ test cases), `web/src/components/onboarding/preferences.tsx` (glyph map, label-only), `web/src/components/app-v3/profiles/setup/{PersonaStep,SourceStep,PasteStep,SkillsStep,IdentityStep,ProfileSoFar,ReviewScreen,PrefsFlow,ResumeBanner}.tsx` (+ tests), `web/src/app/globals.css` (`ob-fly-in`, squish rule).",
+      "tests": "`ChoiceGroup.test.tsx` / `ChipInput.test.tsx` (+): `data-just-selected set for 150 ms then cleared (fake timers)`. `SkillsStep.test.tsx` (+): `stagger delay capped at 12`, `tap moves the chip and pops both`, `fifth skill cheers`. `preferences.test.tsx`: `glyphs only on the listed options`, `aria-hidden`, `values written unchanged`. `SourceStep.test.tsx` (+): `reading lines at 8 s and 15 s (fake timers)`, `drag-over peeks`, `error shrugs and keeps the alert`. `PersonaStep.test.tsx` (+): `student → grad`. `IdentityStep`/`ProfileSetup` (+): `saving thinks, success cheers with a SavedTick`. `ResumeBanner.test.tsx` (+): `wave + the right line per device`. Playwright (both motion projects, 390 + 1440): skills chips appear within 600 ms; under reduced motion no element on the skills screen has a running animation (`getAnimations()` empty); axe 0 serious/critical on hello, source, skills, you, each pref screen.",
+      "benchmark": "Spotify's chip picks; Canva's drop-zone life; Notion's inline ticks (DELIGHT §5)."
+    },
+    {
+      "status": "not_started",
+      "star": false,
+      "relates": [],
+      "supersedes": [],
+      "design": "docs/ONBOARDING-DELIGHT-DESIGN.md",
+      "epic": "R1b",
+      "id": "R1.19",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "R1.17"
+      ],
+      "title": "Payoff celebration + share — count-up of ~N, mascot dance, more confetti, the \"Profile ready ✨\" card via Web Share / copy",
+      "depsNote": "R1.17 (`AnimatedNumber` countUp mode via R1.15; the milestone/dance motion). Size S. Owner web.",
+      "story": "As a user who just finished, I want a real moment — the number counting up, the mascot celebrating — and a way to show it off if I feel like it, without anything about me leaking.",
+      "ac": [
+        "`PayoffStep` (DELIGHT §5.6): the `~{N}` is `AnimatedNumber mode=\"countUp\" from 0 duration 800` (ease-out, ends exactly on `fields`; the final number is in the `sr-only` span from the first render; static under reduced motion; `fields = 0` keeps the \"ready to learn\" line with no counter); `ConfettiBurst count={36}` when delight is on (24 otherwise; none under reduced motion or when `confetti` is off); the mascot plays `ob-m-dance` once (900 ms) instead of the 400 ms pop-in, static under reduced motion; `tap(\"payoff\")` once on mount.",
+        "`ShareCard` (DELIGHT §5.6, DECISIONS #34f): rendered under the Meter when `delight.share`; 1:1 up to 280 px, lime-soft → paper gradient, 16 px radius; mascot-clap 56 px, `share.title` \"Profile ready ✨\", `share.line` \"~{n} fields autofill-ready\", `share.meta` \"{firstName} · {month}\" (no name → the month only), `share.site` with the small `BrandLogo`; **one** button: `share.button.share` when `navigator.canShare?.({ text })` → `navigator.share({ title, text: share.text })` (text only, no URL parameters; a cancelled/refused share is silent), else `share.button.copy` → `navigator.clipboard.writeText(text)` + `SavedTick` `share.copied` for 1 s; `onboarding_delight_share{method}`. The card contains nothing but the first name, the computed number, the month and `kiwiply.com`. No image export.",
+        "Nothing here changes the finish call, the coverage number or the three next actions; `PayoffStep.test.tsx` existing cases green."
+      ],
+      "tech": "`web/src/components/app-v3/profiles/setup/PayoffStep.tsx` (+ test cases), `web/src/components/app-v3/profiles/setup/delight/ShareCard.tsx` (+ test), `web/src/lib/onboarding/events.ts`.",
+      "tests": "`PayoffStep.test.tsx` (+): `count-up ends on fields (fake rAF)`, `sr-only final number from the first render`, `static under reduced motion`, `36 confetti with delight, 24 without`, `dance class once`, `tap payoff on mount`, `0 fields → no counter`. `ShareCard.test.tsx`: `Share when canShare`, `Copy otherwise and tick Copied`, `share text contains only the number, name, month and site`, `cancelled share is silent`, `hidden when delight.share off`, `no-name meta`. Playwright (both motion projects, 390 + 1440): the number reaches its final value within 1 s; the share card never overlaps the next-action cards; axe 0 serious/critical.",
+      "benchmark": "Spotify Wrapped's shareable card; Duolingo's end-of-lesson celebration (DELIGHT §5.6)."
+    },
+    {
+      "status": "not_started",
+      "star": false,
+      "relates": [],
+      "supersedes": [],
+      "design": "docs/ONBOARDING-DELIGHT-DESIGN.md",
+      "epic": "R1b",
+      "id": "R1.20",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "R1.15",
+        "R1.16",
+        "R1.17",
+        "R1.18",
+        "R1.19"
+      ],
+      "title": "Delight QA pack — Playwright both motion projects at 360/390/1440, axe, CLS 0, long tasks, overlap checks, DOM parity with the switch off, handoff",
+      "depsNote": "R1.15–R1.19 (everything to prove). Size S. Owner web.",
+      "story": "As the team, we want proof that the delight layer is fast, accessible, reduced-motion safe and removable, so that it never costs a user who did not ask for it.",
+      "ac": [
+        "`web/e2e/onboarding-delight.spec.ts` on the mock API, run in the `no-preference` and `reduce` projects (R1.12's config) at 360, 390 and 1440 through the whole flow with delight on: (a) **no horizontal scroll** (`scrollWidth === clientWidth`) on review, recap, skills, prefs, payoff; (b) the sticky footer's buttons are fully visible and clickable with the dock, combo chip, milestone pop and highlight chip present (bounding boxes never intersect the footer); (c) a toast (Skip → Undo) is never covered by any delight element; (d) `layout-shift` entries across five review decisions sum to < 0.01; (e) no `longtask` > 50 ms during a Keep (desktop Chromium); (f) under `reduce`: `document.getAnimations()` is empty after a Keep, the counter changes instantly, no sparkles/confetti nodes, the interstitial still auto-advances and skips; (g) keyboard-only `← → E Z` through a full review; (h) axe at each width and both motion modes on every screen incl. the interstitial, the dock and the share card: 0 serious/critical.",
+        "**Parity:** with `onboarding.delight.enabled=false` (mock config) the review, recap, skills, prefs and payoff DOM snapshots equal the R1.12 baseline (stored in the spec; normalised ids), and `document.getAnimations()` after a Keep matches v2 (only the shell slide).",
+        "`web/scripts/rb-smoke.mjs`: `config.onboarding.delight` present with defaults against the real stack. `docs/HANDOFF-RESUME-BUILDER.md` \"What is built\" lists R1.14–R1.20 and the delight settings; `docs/ONBOARDING-V2-DESIGN.md` §20 marked built."
+      ],
+      "tech": "`web/e2e/onboarding-delight.spec.ts` (new), `web/playwright.config.ts` (360 viewport project if missing), `web/scripts/rb-smoke.mjs`, `docs/HANDOFF-RESUME-BUILDER.md`, `docs/ONBOARDING-V2-DESIGN.md`.",
+      "tests": "The spec itself (both motion projects, three widths, axe on every screen); the parity snapshots; the smoke row. `npm test -w web` and `npm run build -w web` green.",
+      "benchmark": "Shipping like Duolingo: the fun is measured, not assumed (DELIGHT §10)."
     },
     {
       "id": "R2.0",
