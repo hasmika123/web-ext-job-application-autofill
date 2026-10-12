@@ -1,11 +1,14 @@
 package com.dossier.api.service.dto;
 
 import com.dossier.api.domain.enumeration.ResumeKind;
+import com.dossier.api.domain.enumeration.ResumeRole;
 import com.dossier.api.domain.enumeration.ResumeStatus;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -54,6 +57,96 @@ public class ResumeDTO implements Serializable {
     private Instant exportedAt;
 
     private UserDTO user;
+
+    // Resume metadata (R3.9, DESIGN 8.6/8.8). All additive and none is hashed by ProfileVersion, so the
+    // extension's mirror ignores them. `primary` is the web's word for `defaultResume` (same value).
+    private Instant updatedAt;
+
+    private String target;
+
+    private List<String> tags;
+
+    private ResumeRole role;
+
+    private ResumeActorDTO createdBy;
+
+    private ResumeActorDTO updatedBy;
+
+    /** Derived (DESIGN 8.10): ARCHIVED | DRAFT | ACTIVE. Never stored. */
+    private String lifecycle;
+
+    /** Read-only here (changed through PATCH .../meta): excluded from org FULL sharing when false. */
+    private Boolean shareWithOrg;
+
+    public Boolean getShareWithOrg() {
+        return shareWithOrg;
+    }
+
+    public void setShareWithOrg(Boolean shareWithOrg) {
+        this.shareWithOrg = shareWithOrg;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    /** Same value as {@link #getDefaultResume()}; read-only. */
+    @JsonProperty(value = "primary", access = JsonProperty.Access.READ_ONLY)
+    public Boolean getPrimary() {
+        return defaultResume;
+    }
+
+    public String getTarget() {
+        return target;
+    }
+
+    public void setTarget(String target) {
+        this.target = target;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
+
+    public ResumeRole getRole() {
+        return role;
+    }
+
+    public void setRole(ResumeRole role) {
+        this.role = role;
+    }
+
+    public ResumeActorDTO getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(ResumeActorDTO createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public ResumeActorDTO getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(ResumeActorDTO updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public String getLifecycle() {
+        return lifecycle;
+    }
+
+    public void setLifecycle(String lifecycle) {
+        this.lifecycle = lifecycle;
+    }
 
     public Long getId() {
         return id;

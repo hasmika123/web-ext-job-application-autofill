@@ -9,7 +9,7 @@ export interface ListQuery {
   tab: TabId;
   status: StatusFilter;
   sort: SortKey;
-  /** Free text, matched against the name and tags. */
+  /** Free text, matched against the name, target and tags. */
   query: string;
 }
 
@@ -48,7 +48,10 @@ export function applyQuery(models: readonly ResumeCardModel[], q: ListQuery): Re
     (m) =>
       tabMatches(m, q.tab) &&
       statusMatches(m, q.status) &&
-      (needle === "" || m.name.toLowerCase().includes(needle) || m.tags.some((t) => t.toLowerCase().includes(needle))),
+      (needle === "" ||
+        m.name.toLowerCase().includes(needle) ||
+        (m.target ?? "").toLowerCase().includes(needle) ||
+        m.tags.some((t) => t.toLowerCase().includes(needle))),
   );
   const cmp: Record<SortKey, (a: ResumeCardModel, b: ResumeCardModel) => number> = {
     "Last Modified": (a, b) => byDateDesc(a.modifiedAt, b.modifiedAt) || byName(a, b),

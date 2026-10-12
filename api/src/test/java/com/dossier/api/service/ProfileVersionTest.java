@@ -3,8 +3,10 @@ package com.dossier.api.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dossier.api.domain.enumeration.ResumeKind;
+import com.dossier.api.domain.enumeration.ResumeRole;
 import com.dossier.api.domain.enumeration.ResumeStatus;
 import com.dossier.api.service.dto.BioDTO;
+import com.dossier.api.service.dto.ResumeActorDTO;
 import com.dossier.api.service.dto.ResumeDTO;
 import java.time.Instant;
 import java.util.List;
@@ -47,6 +49,44 @@ class ProfileVersionTest {
         built.setTemplateId("classic");
 
         assertThat(ProfileVersion.compute(bio(), List.of(built))).isEqualTo(plain);
+    }
+
+    @Test
+    void metadataTheExtensionDoesNotReadDoesNotMoveTheVersion() {
+        String plain = ProfileVersion.compute(bio(), List.of(resume()));
+
+        ResumeDTO meta = resume();
+        meta.setTags(List.of("2026", "backend"));
+        meta.setTarget("Backend SWE");
+        meta.setRole(ResumeRole.TAILORED);
+        meta.setCreatedBy(new ResumeActorDTO("user", "A User"));
+        meta.setUpdatedBy(new ResumeActorDTO("other", "Other"));
+        meta.setUpdatedAt(Instant.parse("2026-10-12T00:00:00Z"));
+        meta.setShareWithOrg(false);
+        meta.setLifecycle("DRAFT");
+
+        assertThat(ProfileVersion.compute(bio(), List.of(meta))).isEqualTo(plain);
+    }
+
+    @Test
+    void aRenameOrAPrimaryChangeMovesTheVersionSoTheExtensionRePulls() {
+        String before = ProfileVersion.compute(bio(), List.of(resume()));
+
+        ResumeDTO renamed = resume();
+        renamed.setLabel("Backend SWE v2");
+        assertThat(ProfileVersion.compute(bio(), List.of(renamed))).isNotEqualTo(before);
+
+        ResumeDTO demoted = resume();
+        demoted.setDefaultResume(false);
+        assertThat(ProfileVersion.compute(bio(), List.of(demoted))).isNotEqualTo(before);
+    }
+
+    @Test
+    void primaryIsTheSameValueAsDefaultResume() {
+        ResumeDTO r = resume();
+        assertThat(r.getPrimary()).isTrue();
+        r.setDefaultResume(false);
+        assertThat(r.getPrimary()).isFalse();
     }
 
     @Test

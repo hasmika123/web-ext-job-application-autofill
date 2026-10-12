@@ -1,20 +1,17 @@
 /**
  * THE seam between the API's resume list DTO and the "My Resumes" board.
  *
- * The board (design/resume-builder-v3/user-my-resumes.webp) shows more than the DTO carries today
- * (Draft status, created/modified dates, role/level tags, an "ATS Friendly" chip). The resume
- * metadata model that supplies those is still being designed, so EVERY mapping decision lives in this
- * one file: the components only ever see a `ResumeCardModel`. When the metadata model lands, change
- * `toCardModel` (and nothing else) and the page follows.
- *
- * Interim rules (each one is covered by adapter.test.ts):
- *  - status: `Archived` when the DTO says archived, otherwise `Active`. `Draft` is never produced yet,
- *    so the Drafts tab shows 0 with its empty state.
- *  - isPrimary: `defaultResume` (the API's "default resume").
+ * Every mapping decision lives in this one file: the components only ever see a `ResumeCardModel`.
+ * The list DTO carries the resume metadata model (R3.9, DESIGN 8.6): `lifecycle`, `updatedAt`, `primary`,
+ * `target`, `tags`, `role`. The rules (each one is covered by adapter.test.ts):
+ *  - status: the server's `lifecycle` (ARCHIVED / DRAFT / ACTIVE). A DTO without one (an API from before
+ *    R3.9) falls back to archived-or-active.
+ *  - isPrimary: `primary` (else `defaultResume`, the same value), never on an archived resume.
  *  - createdAt: the DTO's `createdAt`, or null (the card hides the row when it is null).
- *  - modifiedAt: the DTO has no last-modified time on the list yet, so `updatedAt` when the API sends it,
- *    else `createdAt`, else null (the card hides the row when it is null).
- *  - tags: the resume's kind ("Built" / "Uploaded"); real role/level tags arrive with the metadata model.
+ *  - modifiedAt: the DTO's `updatedAt`; rows that predate it have none, so `createdAt`, else null.
+ *  - tags: the resume's own tags. Only an API from before R3.9 (no `tags` field at all) falls back to the
+ *    kind ("Built" / "Uploaded").
+ *  - target: the role the resume aims at (searchable; the card has no slot for it yet).
  *  - atsFriendly: only when the template registry marks the resume's template ATS-safe; unknown for
  *    uploads (no template) so the chip is not shown.
  *  - pdfState: BUILT resumes only, exported hash vs content hash (same rule as the editor's "PDF out of date").
@@ -39,6 +36,8 @@ export interface ResumeCardModel {
   /** ISO timestamp, or null when neither a modified nor a created time is known. */
   modifiedAt: string | null;
   tags: string[];
+  /** The role this resume aims at (`resume.target`), or null. */
+  target: string | null;
   /** The template registry key, or null for uploaded files (they have no template, so no thumbnail). */
   templateId: string | null;
   /** `true` only when the template registry marks the template ATS-safe. `undefined` = unknown (no chip). */
@@ -48,10 +47,17 @@ export interface ResumeCardModel {
   kind: "BUILT" | "UPLOADED";
 }
 
-/** A DTO as the list receives it: `updatedAt` is optional because `ResumeDTO` does not carry it yet. */
-export type ResumeDto = Resume & { updatedAt?: string | null };
+/** A DTO as the list receives it. */
+export type ResumeDto = Resume;
 
 const blank = (s?: string | null) => (typeof s === "string" && s.trim() !== "" ? s : null);
+
+function statusOf(r: ResumeDto): ResumeStatus {
+  if (r.lifecycle === "ARCHIVED") return "Archived";
+  if (r.lifecycle === "DRAFT") return "Draft";
+  if (r.lifecycle === "ACTIVE") return "Active";
+  return r.archived ? "Archived" : "Active";
+}
 
 export function toCardModel(r: ResumeDto): ResumeCardModel {
   const kind = r.kind === "BUILT" ? "BUILT" : "UPLOADED";
@@ -61,16 +67,18 @@ export function toCardModel(r: ResumeDto): ResumeCardModel {
   let atsFriendly: boolean | undefined;
   if (templateId && hasTemplate(templateId)) atsFriendly = getTemplate(templateId).meta.atsSafe === true;
 
+  const status: ResumeStatus = statusOf(r);
   const pdfState: PdfState = kind !== "BUILT" || !r.exportedHash ? "none" : pdfOutOfDate(r) ? "outOfDate" : "current";
 
   return {
     id: r.id,
     name: blank(r.label) ?? "Untitled resume",
-    status: r.archived ? "Archived" : "Active",
-    isPrimary: !!r.defaultResume && !r.archived,
+    status,
+    isPrimary: !!(r.primary ?? r.defaultResume) && status !== "Archived",
     createdAt,
     modifiedAt: blank(r.updatedAt) ?? createdAt,
-    tags: [kind === "BUILT" ? "Built" : "Uploaded"],
+    tags: Array.isArray(r.tags) ? r.tags : [kind === "BUILT" ? "Built" : "Uploaded"],
+    target: blank(r.target),
     templateId,
     atsFriendly,
     pdfState,

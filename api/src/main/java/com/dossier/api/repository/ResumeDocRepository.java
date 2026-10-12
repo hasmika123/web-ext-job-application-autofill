@@ -46,6 +46,35 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
     @Query("update ResumeDoc d set d.exportedAt = :at, d.exportedHash = :hash where d.resumeId = :resumeId")
     int recordExport(@Param("resumeId") Long resumeId, @Param("hash") String hash, @Param("at") java.time.Instant at);
 
+    /** The documents derived from a master (tailored copies and the like), by the master's resume id. */
+    List<ResumeDoc> findByUserIdAndParentResumeId(Long userId, Long parentResumeId);
+
+    /** How many tailored resumes hang off this master. */
+    @Query(
+        "select count(d) from ResumeDoc d where d.user.id = :userId and d.parentResumeId = :parentId " +
+        "and d.resume.role = com.dossier.api.domain.enumeration.ResumeRole.TAILORED"
+    )
+    long countTailoredChildren(@Param("userId") Long userId, @Param("parentId") Long parentId);
+
+    /**
+     * Rewrite the stored document and its hash after the server mirrored the resume's name or target into
+     * {@code meta} (R3.9). A bulk update on purpose: it must not tick {@code @Version}, or an open editor's
+     * next autosave would 409 after a rename in the header. If the stored PDF matched the old hash it
+     * still matches (the name is not rendered), so {@code exported_hash} follows.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(
+        "update ResumeDoc d set d.docJson = :docJson, d.contentHash = :hash, d.updatedAt = :at, " +
+        "d.exportedHash = case when d.exportedHash = :oldHash then :hash else d.exportedHash end where d.resumeId = :resumeId"
+    )
+    int mirrorMeta(
+        @Param("resumeId") Long resumeId,
+        @Param("docJson") String docJson,
+        @Param("hash") String hash,
+        @Param("oldHash") String oldHash,
+        @Param("at") java.time.Instant at
+    );
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ResumeDoc d where d.user.id = :userId")
     int deleteAllByUserId(@Param("userId") Long userId);

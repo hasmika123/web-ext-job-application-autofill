@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Resume Builder R3.9 (docs/RESUME-BUILDER-DESIGN.md sections 8.6 and 8.9) - the resume metadata
+        model, one set of columns for built AND uploaded resumes. Additive only.
+
+        resume.created_by_login / updated_by_login: who made / last wrote the resume (backfilled to the
+        owner; a marketer-made resume, Phase 22, will carry the marketer's login). resume.target: the role
+        the resume aims at - the truth; doc.meta.target is a server-written mirror. resume.tags_json: free
+        labels (string[], at most 10 x 24 chars, lower-cased, de-duplicated by the service).
+        resume.share_with_org: per-resume exclusion from org FULL sharing (R3.11 enforces it).
+        resume.role: MASTER | TAILORED (every existing resume is a master).
+        ix_resume_user_primary: the "exactly one primary per user" lookups.
+
+        None of these is hashed by ProfileVersion, so the extension does not re-pull because of them.
+
+        resume_doc_version.created_by_login: the "by" of a version row; null means the resume's owner
+        (rows are written by the owner today; a marketer's saves will name the marketer).
+    -->
+    <changeSet id="20261012060000-1" author="dossier">
+        <addColumn tableName="resume">
+            <column name="created_by_login" type="varchar(50)"/>
+            <column name="updated_by_login" type="varchar(50)"/>
+            <column name="target" type="varchar(80)"/>
+            <column name="tags_json" type="json"/>
+            <column name="share_with_org" type="boolean" valueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="varchar(10)" defaultValue="MASTER">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="resume" indexName="ix_resume_user_primary">
+            <column name="user_id"/>
+            <column name="is_default"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Backfill: the creator and last writer of every existing resume is its owner. -->
+    <changeSet id="20261012060000-2" author="dossier">
+        <sql>
+            UPDATE resume SET created_by_login = (SELECT u.login FROM jhi_user u WHERE u.id = resume.user_id)
+            WHERE created_by_login IS NULL AND user_id IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE resume SET updated_by_login = created_by_login WHERE updated_by_login IS NULL
+        </sql>
+    </changeSet>
+
+    <!-- Backfill: R0 kept the target only in doc.meta.target; it now lives on the resume. -->
+    <changeSet id="20261012060000-3" author="dossier" dbms="mysql">
+        <sql>
+            UPDATE resume r JOIN resume_doc d ON d.resume_id = r.id
+            SET r.target = LEFT(TRIM(JSON_UNQUOTE(JSON_EXTRACT(d.doc_json, '$.meta.target'))), 80)
+            WHERE r.target IS NULL AND JSON_TYPE(JSON_EXTRACT(d.doc_json, '$.meta.target')) = 'STRING'
+        </sql>
+        <sql>
+            UPDATE resume SET target = NULL WHERE target = ''
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261012060000-4" author="dossier">
+        <addColumn tableName="resume_doc_version">
+            <column name="created_by_login" type="varchar(50)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

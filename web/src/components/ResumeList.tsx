@@ -39,6 +39,19 @@ export interface Resume {
   contentHash?: string | null;
   exportedHash?: string | null;
   exportedAt?: string | null;
+  /** Resume metadata (R3.9). All optional: an older API sends none of them. */
+  /** Last modified (the resume row's `updated_at`); null on rows that predate it. */
+  updatedAt?: string | null;
+  /** The web's word for `defaultResume` (same value). */
+  primary?: boolean | null;
+  target?: string | null;
+  tags?: string[] | null;
+  role?: "MASTER" | "TAILORED" | null;
+  /** Derived server-side: `ARCHIVED` | `DRAFT` | `ACTIVE`. */
+  lifecycle?: "ARCHIVED" | "DRAFT" | "ACTIVE" | null;
+  createdBy?: { login: string; label: string } | null;
+  updatedBy?: { login: string; label: string } | null;
+  shareWithOrg?: boolean | null;
 }
 
 function statusBadge(status?: string | null) {

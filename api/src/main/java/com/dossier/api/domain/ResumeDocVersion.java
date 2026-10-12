@@ -52,6 +52,18 @@ public class ResumeDocVersion implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** Who wrote the row (R3.9); null means the resume's owner. */
+    @Column(name = "created_by_login", length = 50)
+    private String createdByLogin;
+
+    public String getCreatedByLogin() {
+        return createdByLogin;
+    }
+
+    public void setCreatedByLogin(String createdByLogin) {
+        this.createdByLogin = createdByLogin;
+    }
+
     public Long getId() {
         return id;
     }

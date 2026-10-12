@@ -18,17 +18,28 @@ describe("toCardModel", () => {
     expect(toCardModel(built({ label: "   " })).name).toBe("Untitled resume");
   });
 
-  it("status is Active unless archived; Draft is never produced yet", () => {
+  it("status is the server's lifecycle", () => {
+    expect(toCardModel(built({ lifecycle: "ACTIVE" })).status).toBe("Active");
+    expect(toCardModel(built({ lifecycle: "DRAFT" })).status).toBe("Draft");
+    expect(toCardModel(built({ lifecycle: "ARCHIVED" })).status).toBe("Archived");
+    // the lifecycle wins over the raw flag
+    expect(toCardModel(built({ lifecycle: "DRAFT", archived: false })).status).toBe("Draft");
+  });
+
+  it("without a lifecycle (an API from before the metadata model) status is Active unless archived", () => {
     expect(toCardModel(built()).status).toBe("Active");
     expect(toCardModel(built({ archived: null })).status).toBe("Active");
     expect(toCardModel(built({ archived: true })).status).toBe("Archived");
   });
 
-  it("primary comes from defaultResume, and an archived resume is never primary", () => {
+  it("primary comes from the primary flag, falling back to defaultResume; an archived resume is never primary", () => {
+    expect(toCardModel(built({ primary: true })).isPrimary).toBe(true);
+    expect(toCardModel(built({ primary: false, defaultResume: true })).isPrimary).toBe(false);
     expect(toCardModel(built({ defaultResume: true })).isPrimary).toBe(true);
     expect(toCardModel(built({ defaultResume: false })).isPrimary).toBe(false);
     expect(toCardModel(built({ defaultResume: null })).isPrimary).toBe(false);
     expect(toCardModel(built({ defaultResume: true, archived: true })).isPrimary).toBe(false);
+    expect(toCardModel(built({ primary: true, lifecycle: "ARCHIVED" })).isPrimary).toBe(false);
   });
 
   it("createdAt is the DTO's, or null so the card can hide the row", () => {
@@ -43,10 +54,22 @@ describe("toCardModel", () => {
     expect(toCardModel(built({ createdAt: null })).modifiedAt).toBeNull();
   });
 
-  it("tags are the resume kind", () => {
+  it("tags are the resume's own tags, even when there are none", () => {
+    expect(toCardModel(built({ tags: ["backend", "2026"] })).tags).toEqual(["backend", "2026"]);
+    expect(toCardModel(built({ tags: [] })).tags).toEqual([]);
+  });
+
+  it("an API from before the metadata model (no tags field at all) falls back to the kind", () => {
     expect(toCardModel(built()).tags).toEqual(["Built"]);
+    expect(toCardModel(built({ tags: null })).tags).toEqual(["Built"]);
     expect(toCardModel(built({ kind: "UPLOADED", templateId: null })).tags).toEqual(["Uploaded"]);
     expect(toCardModel(built({ kind: undefined })).tags).toEqual(["Uploaded"]);
+  });
+
+  it("target is the resume's target, or null when blank", () => {
+    expect(toCardModel(built({ target: "Backend SWE" })).target).toBe("Backend SWE");
+    expect(toCardModel(built({ target: "  " })).target).toBeNull();
+    expect(toCardModel(built()).target).toBeNull();
   });
 
   it("templateId is kept for built resumes only (uploads have no thumbnail)", () => {

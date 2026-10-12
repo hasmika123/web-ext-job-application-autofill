@@ -915,7 +915,7 @@
       "id": "R3.9",
       "epic": "R3",
       "title": "Resume metadata model — name truth flip, created/updated by, target/tags, exactly-one primary, role + lineage columns, meta endpoints, checkpoint endpoint",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API"

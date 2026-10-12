@@ -91,7 +91,8 @@ export default function ResumeCard({ model: m, layout, display, onManage, soon }
         // Real: uploaded + built resumes can still be archived / deleted / re-uploaded from the side panel.
         { label: "Manage resume", icon: <FileTextIcon size={15} />, onSelect: onManage },
         { separator: true },
-        // DESIGN-PENDING (R-list): rename / set primary / archive / delete move into the resume metadata model.
+        // DESIGN-PENDING (R-list): rename / set primary / archive / delete. The API now has PATCH /api/profile/resumes/{id}/meta
+        // (R3.9); the BFF route `/api/resumes/[id]/meta` and these menu items are wired by the list-actions story.
         { label: "Rename", icon: <PencilIcon size={15} />, onSelect: soon("Renaming from the list") },
         { label: "Set as Primary", icon: <StarIcon size={15} />, onSelect: soon("Setting a primary resume from the list") },
         { label: m.status === "Archived" ? "Restore" : "Archive", icon: <ArchiveIcon size={15} />, onSelect: soon("Archiving from the list") },

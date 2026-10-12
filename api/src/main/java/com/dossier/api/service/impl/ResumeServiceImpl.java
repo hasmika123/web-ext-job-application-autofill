@@ -43,6 +43,14 @@ public class ResumeServiceImpl implements ResumeService {
     public ResumeDTO update(ResumeDTO resumeDTO) {
         LOG.debug("Request to update Resume : {}", resumeDTO);
         Resume resume = resumeMapper.toEntity(resumeDTO);
+        // The metadata a DTO round trip does not carry (R3.9) keeps its stored value instead of resetting.
+        Resume existing = resumeRepository.findById(resumeDTO.getId()).orElse(null);
+        if (existing != null) {
+            resume.setCreatedByLogin(existing.getCreatedByLogin());
+            resume.setUpdatedByLogin(existing.getUpdatedByLogin());
+            resume.setShareWithOrg(existing.getShareWithOrg());
+            if (resume.getRole() == null) resume.setRole(existing.getRole());
+        }
         resume = resumeRepository.save(resume);
         return resumeMapper.toDto(resume);
     }

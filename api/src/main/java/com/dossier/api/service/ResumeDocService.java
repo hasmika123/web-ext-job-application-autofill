@@ -17,6 +17,7 @@ import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.dto.ResumeDocDTO;
 import com.dossier.api.service.resume.ResumeDocument;
 import com.dossier.api.service.resume.ResumeDocumentCanonical;
+import com.dossier.api.service.resume.ResumeMetaMirror;
 import com.dossier.api.service.resume.ResumeDocumentJson;
 import com.dossier.api.service.resume.ResumeDocumentProjector;
 import com.dossier.api.service.resume.ResumeDocumentSeeder;
@@ -42,8 +43,10 @@ import org.springframework.web.server.ResponseStatusException;
  * <p>Every read goes through {@code findByResumeIdAndUserId}: another user's resume id is a 404,
  * indistinguishable from a missing one, for every verb. A save is validated
  * ({@link ResumeDocumentValidator}), hashed ({@link ResumeDocumentCanonical#contentHash}) and written
- * together with its {@code resume.parsed_json} projection, {@code resume.label} (= {@code meta.title})
- * and {@code resume.updated_at} in one transaction, so the extension's mirror never lags the document.
+ * together with its {@code resume.parsed_json} projection and {@code resume.updated_at}/{@code updated_by_login}
+ * in one transaction, so the extension's mirror never lags the document. Since R3.9 the resume's
+ * {@code label} (name) and {@code target} are the truth and the document's {@code meta.title}/{@code meta.target}
+ * are mirrors the server writes ({@link ResumeMetaMirror}); renaming goes through {@code PATCH .../meta}.
  */
 @Service
 @Transactional
@@ -72,6 +75,7 @@ public class ResumeDocService {
     private final ProfileService profileService;
     private final ResumeRepository resumeRepository;
     private final ResumeBuilderSettings settings;
+    private final ResumeDocVersionService versionService;
 
     public ResumeDocService(
         ResumeDocRepository resumeDocRepository,
@@ -80,9 +84,11 @@ public class ResumeDocService {
         UserRepository userRepository,
         ProfileService profileService,
         ResumeRepository resumeRepository,
-        ResumeBuilderSettings settings
+        ResumeBuilderSettings settings,
+        ResumeDocVersionService versionService
     ) {
         this.settings = settings;
+        this.versionService = versionService;
         this.resumeDocRepository = resumeDocRepository;
         this.profileItemRepository = profileItemRepository;
         this.bioRepository = bioRepository;
@@ -108,6 +114,7 @@ public class ResumeDocService {
 
         ResumeDTO request = new ResumeDTO();
         request.setLabel(title);
+        request.setTarget(target);
         request.setStatus(ResumeStatus.CONFIRMED); // authored by the user: nothing to review
         ResumeDTO created = profileService.createResume(request, ResumeKind.BUILT);
 
@@ -131,6 +138,8 @@ public class ResumeDocService {
         d.setProfileSyncedAt(now);
         applyContent(d, resume, doc, now);
         resumeDocRepository.saveAndFlush(d);
+        // The first snapshot: what the resume looked like when it was made (a base for Restore and Compare).
+        versionService.record(d, ResumeDocVersionService.IMPORT, null, user.getLogin());
 
         created.setKind(ResumeKind.BUILT);
         created.setTemplateId(template);
@@ -173,6 +182,9 @@ public class ResumeDocService {
         }
         // A v1 document is accepted and stored as v2 (DESIGN 3.6): upgrade first, then validate as v2.
         JsonNode doc = ResumeDocumentUpgrader.upgrade(body.get("doc"));
+        // The name and target are the resume's (DESIGN 8.6): the document only mirrors them, so whatever the client
+        // sent in meta.title / meta.target is overwritten, not rejected.
+        ResumeMetaMirror.apply(doc, d.getResume().getLabel(), d.getResume().getTarget());
         // meta.tailoredFrom is server-written: a save may echo the stored value, never introduce, change or drop it.
         JsonNode storedTailoredFrom = tailoredFromOf(ResumeDocumentUpgrader.upgrade(parseQuietly(d.getDocJson())));
         JsonNode incomingTailoredFrom = tailoredFromOf(doc);
@@ -196,8 +208,10 @@ public class ResumeDocService {
         }
 
         Instant now = Instant.now();
+        String previousHash = d.getContentHash();
         applyContent(d, d.getResume(), doc, now);
         resumeDocRepository.saveAndFlush(d);
+        versionService.recordAutosave(d, previousHash, currentLogin());
         return toDto(d, d.getResume());
     }
 
@@ -212,7 +226,9 @@ public class ResumeDocService {
         d.setTemplateId(templateId);
         d.setUpdatedAt(Instant.now());
         d.getResume().setUpdatedAt(d.getUpdatedAt());
+        d.getResume().setUpdatedByLogin(currentLogin());
         resumeDocRepository.saveAndFlush(d);
+        versionService.record(d, ResumeDocVersionService.TEMPLATE_SWITCH, null, currentLogin());
         return toDto(d, d.getResume());
     }
 
@@ -255,6 +271,8 @@ public class ResumeDocService {
 
     /** Writes a validated document and everything derived from it onto the entity and its resume. */
     private void applyContent(ResumeDoc d, Resume resume, JsonNode doc, Instant now) {
+        // The resume owns its name and target; the document repeats them (a no-op after put()'s own mirror).
+        ResumeMetaMirror.apply(doc, resume.getLabel(), resume.getTarget());
         d.setDocJson(ResumeDocumentJson.write(doc, 0));
         d.setSchemaVersion(ResumeDocument.SCHEMA_VERSION);
         JsonNode photoKey = doc.path("basics").path("photo").get("key");
@@ -262,9 +280,8 @@ public class ResumeDocService {
         d.setContentHash(ResumeDocumentCanonical.contentHash(doc));
         d.setUpdatedAt(now);
         resume.setParsedJson(ResumeDocumentProjector.toStructuredJson(doc));
-        String title = ResumeDocument.trimWs(doc.path("meta").path("title").asText(""));
-        if (!title.isEmpty()) resume.setLabel(title);
         resume.setUpdatedAt(now);
+        resume.setUpdatedByLogin(currentLogin());
     }
 
     private static void requireKnownTemplate(String templateId) {
@@ -325,6 +342,10 @@ public class ResumeDocService {
         return resumeDocRepository
             .findByResumeIdAndUserId(resumeId, currentUser().getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume document not found"));
+    }
+
+    private static String currentLogin() {
+        return SecurityUtils.getCurrentUserLogin().orElse(null);
     }
 
     private User currentUser() {
