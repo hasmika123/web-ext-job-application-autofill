@@ -13,6 +13,7 @@ import java.util.Map;
  *   <li>{@code ORG_INVALID} (422) - a field failed validation; {@code field} names it.</li>
  *   <li>{@code SLUG_TAKEN} (409) - carries a {@code suggestion}.</li>
  *   <li>{@code GROUP_NAME_TAKEN} (409), {@code ORG_NOT_EDITABLE} (409) - state conflicts.</li>
+ *   <li>{@code ORG_LIMIT_REACHED} (422) - an admin-configured cap was hit ({@code limit} names it, {@code max} is its value).</li>
  * </ul>
  */
 public class OrgException extends RuntimeException {
@@ -25,6 +26,7 @@ public class OrgException extends RuntimeException {
     public static final String CODE_SLUG_TAKEN = "SLUG_TAKEN";
     public static final String CODE_GROUP_NAME_TAKEN = "GROUP_NAME_TAKEN";
     public static final String CODE_ORG_NOT_EDITABLE = "ORG_NOT_EDITABLE";
+    public static final String CODE_ORG_LIMIT_REACHED = "ORG_LIMIT_REACHED";
 
     private final int status;
     private final String code;
@@ -52,6 +54,11 @@ public class OrgException extends RuntimeException {
 
     public static OrgException groupNameTaken(String name) {
         return new OrgException(409, CODE_GROUP_NAME_TAKEN, "A group named '" + name + "' already exists", Map.of("name", name));
+    }
+
+    /** An admin-configured cap (orgs created per person, groups per org) was reached; the cap itself is in {@code max}. */
+    public static OrgException limitReached(String limit, int max) {
+        return new OrgException(422, CODE_ORG_LIMIT_REACHED, "The limit of " + max + " (" + limit + ") has been reached", Map.of("limit", limit, "max", max));
     }
 
     public static OrgException notEditable(String message) {

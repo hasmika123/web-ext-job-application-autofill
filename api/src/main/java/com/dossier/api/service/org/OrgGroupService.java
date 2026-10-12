@@ -6,6 +6,8 @@ import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.domain.org.OrgGroup;
 import com.dossier.api.repository.org.OrgGroupRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.service.ResumeBuilderSettingKeys;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.dto.org.OrgGroupDTO;
 import com.dossier.api.service.dto.org.OrgGroupRequest;
 import com.dossier.api.service.privacy.SensitiveContent;
@@ -29,8 +31,10 @@ public class OrgGroupService {
     private final OrgGroupRepository groups;
     private final OrgMemberRepository members;
     private final OrgAuditService audit;
+    private final ResumeBuilderSettings settings;
 
-    public OrgGroupService(OrgGroupRepository groups, OrgMemberRepository members, OrgAuditService audit) {
+    public OrgGroupService(OrgGroupRepository groups, OrgMemberRepository members, OrgAuditService audit, ResumeBuilderSettings settings) {
+        this.settings = settings;
         this.groups = groups;
         this.members = members;
         this.audit = audit;
@@ -47,6 +51,9 @@ public class OrgGroupService {
         if (req == null) throw OrgException.invalid("body", "is required");
         String name = cleanName(req.name());
         if (groups.existsByOrgIdAndName(me.orgId(), name)) throw OrgException.groupNameTaken(name);
+        // Abuse cap (admin setting org.limits.groupsPerOrg), checked after the name so a duplicate still reads as a duplicate.
+        int maxGroups = settings.getInt(ResumeBuilderSettingKeys.ORG_LIMIT_GROUPS_PER_ORG);
+        if (groups.countByOrgId(me.orgId()) >= maxGroups) throw OrgException.limitReached("groupsPerOrg", maxGroups);
 
         OrgGroup g = new OrgGroup();
         g.setOrgId(me.orgId());

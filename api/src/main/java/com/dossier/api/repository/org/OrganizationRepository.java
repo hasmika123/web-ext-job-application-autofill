@@ -25,6 +25,9 @@ public interface OrganizationRepository extends Repository<Organization, Long> {
     @Query("select o from Organization o where o.id in :orgIds order by o.name")
     List<Organization> findAllByOrgIdIn(@Param("orgIds") Collection<Long> orgIds);
 
+    /** How many organizations this person created (any state): the per-person creation cap. Scoped by the person, like {@code findMine}. */
+    long countByCreatedByUserId(Long userId);
+
     // Tenant-root lookups by the globally unique slug (the contract test allow-lists exactly these two).
     boolean existsBySlug(String slug);
 

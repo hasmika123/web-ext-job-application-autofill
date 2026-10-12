@@ -11,6 +11,8 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.ResumeBuilderSettingKeys;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.dto.org.OrgCreateRequest;
 import com.dossier.api.service.dto.org.OrgDTO;
 import com.dossier.api.service.dto.org.OrgDetailDTO;
@@ -61,6 +63,7 @@ public class OrgService {
     private final OrgAuditService audit;
     private final ObjectMapper json;
     private final ApplicationEventPublisher events;
+    private final ResumeBuilderSettings settings;
 
     public OrgService(
         OrganizationRepository orgs,
@@ -68,8 +71,10 @@ public class OrgService {
         UserRepository users,
         OrgAuditService audit,
         ObjectMapper json,
-        ApplicationEventPublisher events
+        ApplicationEventPublisher events,
+        ResumeBuilderSettings settings
     ) {
+        this.settings = settings;
         this.orgs = orgs;
         this.members = members;
         this.users = users;
@@ -89,6 +94,11 @@ public class OrgService {
         if (req == null) throw OrgException.invalid("body", "is required");
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user"));
         User user = users.findOneByLogin(login).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user"));
+
+        // Abuse cap (admin setting org.limits.createdPerUser): orgs this person has ever created, closed ones included
+        // (a closed org still holds its slug). Checked before anything is written.
+        int maxOrgs = settings.getInt(ResumeBuilderSettingKeys.ORG_LIMIT_CREATED_PER_USER);
+        if (orgs.countByCreatedByUserId(user.getId()) >= maxOrgs) throw OrgException.limitReached("orgsCreatedPerUser", maxOrgs);
 
         String name = cleanName(req.name());
         OrgRules.requireAssignable(req.type());
