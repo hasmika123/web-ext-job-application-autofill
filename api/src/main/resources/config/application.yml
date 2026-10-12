@@ -43,6 +43,10 @@ management:
           - caches
           - liquibase
   endpoint:
+    env:
+      # Belt and braces: the AI provider keys are env-only and must never appear in /management/env,
+      # whatever show-values says. (The defaults are listed too, because setting this replaces them.)
+      keys-to-sanitize: password,secret,key,token,.*credentials.*,vcap_services,sun.java.command,DOSSIER_AI_API_KEY,DOSSIER_AI_OPENAI_COMPAT_API_KEY
     health:
       show-details: when_authorized
       roles: 'ROLE_ADMIN'

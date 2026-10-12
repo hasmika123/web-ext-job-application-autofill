@@ -165,7 +165,7 @@ public class AiRouter implements AiProvider {
 
     /** The same failure with its message passed through the key scrubber, so nothing that propagates carries a key. */
     private AiProviderException scrubbed(AiProviderException e, AiErrorKind kind) {
-        String message = registry.scrubber().scrub(e.getMessage());
+        String message = scrubber().scrub(e.getMessage());
         AiProviderException out = e.httpStatus() > 0 ? new AiProviderException(message, e.httpStatus(), null) : new AiProviderException(message, kind);
         return out;
     }
@@ -213,7 +213,7 @@ public class AiRouter implements AiProvider {
             recordFailure(AiTask.PROBE, providerId, model, kind, ms);
             count(AiTask.PROBE, providerId, kind.name());
             time(AiTask.PROBE, providerId, kind.name(), ms);
-            String message = registry.scrubber().scrub(e instanceof AiProviderException ? e.getMessage() : e.getClass().getSimpleName(), PROBE_MESSAGE_MAX);
+            String message = scrubber().scrub(e instanceof AiProviderException ? e.getMessage() : e.getClass().getSimpleName(), PROBE_MESSAGE_MAX);
             return new ProbeResult(false, model, ms, 0, 0, 0, 0, kind.name(), message);
         }
     }
@@ -239,6 +239,11 @@ public class AiRouter implements AiProvider {
         } catch (RuntimeException e) {
             // metrics must never break a call
         }
+    }
+
+    private AiKeyScrubber scrubber() {
+        AiKeyScrubber s = registry.scrubber();
+        return s == null ? AiKeyScrubber.shapesOnly() : s;
     }
 
     private static int elapsedMs(long startNanos) {

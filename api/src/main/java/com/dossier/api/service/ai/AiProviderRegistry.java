@@ -72,6 +72,23 @@ public class AiProviderRegistry {
         return e == null ? "" : e.keyEnvVar();
     }
 
+    /** The provider's display name, e.g. "Google Gemini". */
+    public String label(String id) {
+        Entry e = entry(id);
+        return e == null ? "" : e.label();
+    }
+
+    /** {@code cloud} or {@code local}. */
+    public String kind(String id) {
+        Entry e = entry(id);
+        return e == null ? "" : e.kind();
+    }
+
+    public List<String> capabilities(String id) {
+        Entry e = entry(id);
+        return e == null ? List.of() : e.capabilities();
+    }
+
     public boolean keyRequired(String id) {
         Entry e = entry(id);
         return e != null && e.keyRequired();

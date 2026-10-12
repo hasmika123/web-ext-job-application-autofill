@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -44,6 +45,47 @@ public interface AiCallRepository extends JpaRepository<AiCall, Long> {
         "from AiCall c where c.createdAt >= :from and c.createdAt < :to and c.success = true group by c.task order by sum(c.costMicros) desc"
     )
     List<AiSpendRow> spendByTask(@Param("from") Instant from, @Param("to") Instant to);
+
+    /** The newest ledger row of a task on a provider - the admin page's "last test" of a provider is its newest {@code probe}. */
+    Optional<AiCall> findFirstByTaskAndProviderOrderByIdDesc(String task, String provider);
+
+    /**
+     * Admin recent calls (I1.11), newest first. {@code task}/{@code provider} are blank for "any"; {@code before}
+     * is a row id cursor ({@link Long#MAX_VALUE} for the first page); {@code failedOnly} keeps only failures.
+     */
+    @Query(
+        "select c from AiCall c where c.createdAt >= :since and (:task = '' or c.task = :task) and (:provider = '' or c.provider = :provider) " +
+        "and (:failedOnly = false or c.success = false) and c.id < :before order by c.id desc"
+    )
+    List<AiCall> recent(
+        @Param("since") Instant since,
+        @Param("task") String task,
+        @Param("provider") String provider,
+        @Param("failedOnly") boolean failedOnly,
+        @Param("before") long before,
+        Pageable page
+    );
+
+    /** Admin summary: calls, failures and successful cost since {@code since}, optionally for one task/provider. */
+    @Query(
+        "select new com.dossier.api.repository.AiCallStatRow$Totals(count(c), coalesce(sum(case when c.success = false then 1L else 0L end), 0L), coalesce(sum(c.costMicros), 0L)) " +
+        "from AiCall c where c.createdAt >= :since and (:task = '' or c.task = :task) and (:provider = '' or c.provider = :provider)"
+    )
+    AiCallStatRow.Totals summarize(@Param("since") Instant since, @Param("task") String task, @Param("provider") String provider);
+
+    /** Admin summary per provider. */
+    @Query(
+        "select new com.dossier.api.repository.AiCallStatRow$Group(c.provider, count(c), coalesce(sum(case when c.success = false then 1L else 0L end), 0L), coalesce(sum(c.costMicros), 0L)) " +
+        "from AiCall c where c.createdAt >= :since and (:task = '' or c.task = :task) and (:provider = '' or c.provider = :provider) group by c.provider order by c.provider"
+    )
+    List<AiCallStatRow.Group> summarizeByProvider(@Param("since") Instant since, @Param("task") String task, @Param("provider") String provider);
+
+    /** Latencies of calls that actually reached a provider (a refused call has 0), for a percentile. */
+    @Query(
+        "select new com.dossier.api.repository.AiCallStatRow$Latency(c.provider, c.latencyMs) from AiCall c " +
+        "where c.createdAt >= :since and (:task = '' or c.task = :task) and (:provider = '' or c.provider = :provider) and c.latencyMs > 0"
+    )
+    List<AiCallStatRow.Latency> latencies(@Param("since") Instant since, @Param("task") String task, @Param("provider") String provider);
 
     /** Account deletion: keep the spend in the totals, drop the link to the person. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)

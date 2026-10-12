@@ -770,7 +770,7 @@
       "id": "I1.11",
       "epic": "I1",
       "title": "Admin AI config API: GET config, PATCH global/provider/route, PUT/DELETE price, POST test (rate-limited, audited, ledgered), GET calls, GET history",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

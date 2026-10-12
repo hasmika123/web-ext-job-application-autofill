@@ -12,6 +12,8 @@ import java.time.Instant;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * The one write path for runtime settings (AI-ADMIN-CONFIG-DESIGN 3.4; the generic write path A5.1 will
@@ -95,7 +97,19 @@ public class AdminSettingsWriter {
             cleanReason,
             "old=" + abbreviate(old, DETAIL_VALUE_MAX) + " new=" + abbreviate(newValue, DETAIL_VALUE_MAX)
         );
+        // Drop the cache now (this thread reads its own write) and again once the change is committed, so a
+        // concurrent reader that re-filled the cache from the old rows mid-transaction doesn't keep them for a minute.
         settings.invalidate();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        settings.invalidate();
+                    }
+                }
+            );
+        }
         return new WriteResult(true, old, newValue);
     }
 
