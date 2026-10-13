@@ -185,6 +185,8 @@ export interface DataTableProps<T> {
   page?: number;
   pageCount?: number;
   onPage?: (page: number) => void;
+  /** Tighter cells (smaller text, less padding) for a table that shares the row with another panel. */
+  dense?: boolean;
   className?: string;
 }
 
@@ -233,6 +235,7 @@ export function DataTable<T>({
   page = 1,
   pageCount = 1,
   onPage,
+  dense,
   className,
 }: DataTableProps<T>) {
   const narrow = useNarrow();
@@ -300,13 +303,13 @@ export function DataTable<T>({
   return (
     <div className={className}>
       <div className="overflow-x-auto rounded-[var(--radius)] border border-line bg-paper">
-        <table aria-label={label} className="w-full border-collapse text-left text-[13.5px]">
-          <thead className="bg-paper-2/60 text-[12px] uppercase tracking-[.04em] text-muted">
+        <table aria-label={label} className={cn("w-full border-collapse text-left", dense ? "text-[12.5px]" : "text-[13.5px]")}>
+          <thead className={cn("bg-paper-2/60 uppercase text-muted", dense ? "text-[11px] tracking-[.02em]" : "text-[12px] tracking-[.04em]")}>
             <tr>
               {columns.map((c) => {
                 const active = sort?.key === c.key;
                 return (
-                  <th key={c.key} scope="col" aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : undefined} className={cn("px-3 py-2.5 font-semibold", c.className)}>
+                  <th key={c.key} scope="col" aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : undefined} className={cn(dense ? "px-2 py-2 font-semibold" : "px-3 py-2.5 font-semibold", c.className)}>
                     {c.sortable && onSort ? (
                       <button type="button" onClick={() => onSort(c.key)} className="inline-flex items-center gap-1 uppercase tracking-[.04em] hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
                         {c.header}
@@ -319,7 +322,7 @@ export function DataTable<T>({
                 );
               })}
               {rowActions && (
-                <th scope="col" className="w-10 px-2">
+                <th scope="col" className={cn("w-10", dense ? "px-1" : "px-2")}>
                   <span className="sr-only">Actions</span>
                 </th>
               )}
@@ -335,12 +338,12 @@ export function DataTable<T>({
                 className={cn(onRowClick && "cursor-pointer hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent")}
               >
                 {columns.map((c) => (
-                  <td key={c.key} className={cn("px-3 py-2.5 align-middle text-ink", c.className)}>
+                  <td key={c.key} className={cn(dense ? "px-2 py-2 align-middle text-ink" : "px-3 py-2.5 align-middle text-ink", c.className)}>
                     {cell(c, row, i)}
                   </td>
                 ))}
                 {rowActions && (
-                  <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className={cn("text-right", dense ? "px-1" : "px-2")} onClick={(e) => e.stopPropagation()}>
                     <Menu
                       trigger={
                         <IconButton aria-label="Row actions" title="Row actions">

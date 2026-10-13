@@ -100,11 +100,11 @@
           "key": "assignments",
           "label": "Marketing Assignments",
           "icon": "Handshake",
-          "href": "/w/admin/assignments",
+          "href": "/w/admin/marketing-assignments",
           "needs": [
-            "assignments.manage"
-          ],
-          "module": "marketing"
+            "assignments.manage",
+            "workload.view"
+          ]
         },
         {
           "key": "jobs",
