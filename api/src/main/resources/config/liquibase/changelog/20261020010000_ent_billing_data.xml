@@ -1,0 +1,568 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 billing data foundation (branch ent-billing-data): the tables behind the Subscription Overview, Consultant Licenses,
+        Billing and Feature Usage boards. See docs/enterprise-v2/billing-data-foundation.md.
+
+        The platform catalog tables (feature_definition, product) carry NO prices; prices are org_contract_price rows (23). Org-owned tables
+        follow 41-database-design.md: org_id NOT NULL + FK organization, every secondary index starts with org_id, every FK between org-owned
+        tables is composite (org_id, parent_id) to the parent's (org_id, id) unique key, varchar enum names, money = BIGINT *_minor + currency,
+        timestamps DATETIME(6) UTC, no card numbers and no sensitive PII. Additive only; each table is its own precondition-guarded changeSet;
+        rollbacks are empty on purpose (flag off, data inert).
+    -->
+
+    <changeSet id="ent-billing-data-feature_definition" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="feature_definition"/></not></preConditions>
+        <createTable tableName="feature_definition">
+            <column name="feature_key" type="varchar(60)"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="name" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(300)"/>
+            <column name="usage_type" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="usage_unit" type="varchar(24)"><constraints nullable="false"/></column>
+            <column name="default_allowance" type="bigint"><constraints nullable="false"/></column>
+            <column name="allowance_period" type="varchar(10)" defaultValue="MONTH"><constraints nullable="false"/></column>
+            <column name="icon_key" type="varchar(40)"/>
+            <column name="active" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="demo_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-product" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="product"/></not></preConditions>
+        <createTable tableName="product">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="code" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"/>
+            <column name="description" type="varchar(300)"/>
+            <column name="tier_rank" type="smallint"/>
+            <column name="active" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="demo_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="product" baseColumnNames="feature_key" constraintName="fk_product_1" referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <addUniqueConstraint tableName="product" columnNames="code" constraintName="uk_product_code"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_contract" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_contract"/></not></preConditions>
+        <createTable tableName="org_contract">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="reference" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="version" type="int" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="billing_interval" type="varchar(10)" defaultValue="MONTH"><constraints nullable="false"/></column>
+            <column name="starts_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="demo_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_contract" baseColumnNames="org_id" constraintName="fk_org_contract_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_contract" columnNames="org_id, id" constraintName="uk_org_contract_org_id"/>
+        <addUniqueConstraint tableName="org_contract" columnNames="org_id, reference" constraintName="uk_org_contract_ref"/>
+        <createIndex tableName="org_contract" indexName="ix_org_contract_status"><column name="org_id"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_contract-keys" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_contract" columnName="active_key"/></not></preConditions>
+        <sql>ALTER TABLE org_contract ADD COLUMN active_key BIGINT GENERATED ALWAYS AS (IF(status = 'ACTIVE', org_id, NULL)) STORED</sql>
+        <sql>ALTER TABLE org_contract ADD CONSTRAINT uk_org_contract_active UNIQUE (active_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_contract_price" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_contract_price"/></not></preConditions>
+        <createTable tableName="org_contract_price">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="contract_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="product_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="version_from" type="int" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="version_to" type="int"/>
+            <column name="override_amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="allowance_override" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_contract_price" baseColumnNames="org_id" constraintName="fk_org_contract_price_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_contract_price" columnNames="org_id, id" constraintName="uk_org_contract_price_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_contract_price" baseColumnNames="org_id, contract_id" constraintName="fk_org_contract_price_1" referencedTableName="org_contract" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_contract_price" baseColumnNames="product_id" constraintName="fk_org_contract_price_2" referencedTableName="product" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_contract_price" columnNames="org_id, contract_id, product_id, version_from" constraintName="uk_org_contract_price_ver"/>
+        <createIndex tableName="org_contract_price" indexName="ix_org_contract_price_contract"><column name="org_id"/><column name="contract_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_payment_method" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_payment_method"/></not></preConditions>
+        <createTable tableName="org_payment_method">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)" defaultValue="CARD"><constraints nullable="false"/></column>
+            <column name="brand" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="last4" type="char(4)"><constraints nullable="false"/></column>
+            <column name="exp_month" type="smallint"><constraints nullable="false"/></column>
+            <column name="exp_year" type="smallint"><constraints nullable="false"/></column>
+            <column name="default_method" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="provider_ref" type="varchar(80)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_payment_method" baseColumnNames="org_id" constraintName="fk_org_payment_method_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_payment_method" columnNames="org_id, id" constraintName="uk_org_payment_method_org_id"/>
+        <createIndex tableName="org_payment_method" indexName="ix_org_payment_method_org"><column name="org_id"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_payment_method-keys" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_payment_method" columnName="default_key"/></not></preConditions>
+        <sql>ALTER TABLE org_payment_method ADD COLUMN default_key BIGINT GENERATED ALWAYS AS (IF(default_method AND status = 'ACTIVE', org_id, NULL)) STORED</sql>
+        <sql>ALTER TABLE org_payment_method ADD CONSTRAINT uk_org_payment_method_default UNIQUE (default_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_billing_account" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_billing_account"/></not></preConditions>
+        <createTable tableName="org_billing_account">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="billing_email" type="varchar(254)"/>
+            <column name="collection_method" type="varchar(24)" defaultValue="SEND_INVOICE"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="billing_cycle" type="varchar(10)" defaultValue="MONTH"><constraints nullable="false"/></column>
+            <column name="current_period_start" type="date"/>
+            <column name="current_period_end" type="date"/>
+            <column name="next_invoice_on" type="date"/>
+            <column name="paid_through_on" type="date"/>
+            <column name="default_payment_method_id" type="bigint"/>
+            <column name="seats_purchased" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="source" type="varchar(10)" defaultValue="LOCAL"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_billing_account" baseColumnNames="org_id" constraintName="fk_org_billing_account_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_billing_account" columnNames="org_id, id" constraintName="uk_org_billing_account_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_billing_account" baseColumnNames="org_id, default_payment_method_id" constraintName="fk_org_billing_account_1" referencedTableName="org_payment_method" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="org_billing_account" columnNames="org_id" constraintName="uk_org_billing_account_org"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_subscription" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_subscription"/></not></preConditions>
+        <createTable tableName="org_subscription">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="plan_code" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="plan_name" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="plan_description" type="varchar(300)"/>
+            <column name="plan_product_id" type="bigint"/>
+            <column name="unit_amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="billing_interval" type="varchar(10)" defaultValue="MONTH"><constraints nullable="false"/></column>
+            <column name="licensed_capacity" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="current_period_start" type="date"/>
+            <column name="current_period_end" type="date"/>
+            <column name="cancel_at_period_end" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="source" type="varchar(10)" defaultValue="LOCAL"><constraints nullable="false"/></column>
+            <column name="last_event_at" type="${datetimeType}"/>
+            <column name="demo_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_subscription" baseColumnNames="org_id" constraintName="fk_org_subscription_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_subscription" columnNames="org_id, id" constraintName="uk_org_subscription_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_subscription" baseColumnNames="plan_product_id" constraintName="fk_org_subscription_1" referencedTableName="product" referencedColumnNames="id"/>
+        <createIndex tableName="org_subscription" indexName="ix_org_subscription_status"><column name="org_id"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_subscription-keys" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_subscription" columnName="active_key"/></not></preConditions>
+        <sql>ALTER TABLE org_subscription ADD COLUMN active_key BIGINT GENERATED ALWAYS AS (IF(status IN ('ACTIVE','PAST_DUE'), org_id, NULL)) STORED</sql>
+        <sql>ALTER TABLE org_subscription ADD CONSTRAINT uk_org_subscription_active UNIQUE (active_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_plan_feature" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_plan_feature"/></not></preConditions>
+        <createTable tableName="org_plan_feature">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="subscription_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="included" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_plan_feature" baseColumnNames="org_id" constraintName="fk_org_plan_feature_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_plan_feature" columnNames="org_id, id" constraintName="uk_org_plan_feature_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_plan_feature" baseColumnNames="org_id, subscription_id" constraintName="fk_org_plan_feature_1" referencedTableName="org_subscription" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="org_plan_feature" indexName="ix_org_plan_feature_sub"><column name="org_id"/><column name="subscription_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_subscription_item" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_subscription_item"/></not></preConditions>
+        <createTable tableName="org_subscription_item">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="subscription_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="product_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(200)"/>
+            <column name="unit_amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="quantity" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="capacity" type="int"/>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="source" type="varchar(10)" defaultValue="LOCAL"><constraints nullable="false"/></column>
+            <column name="contract_price_id" type="bigint"/>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_subscription_item" baseColumnNames="org_id" constraintName="fk_org_subscription_item_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_subscription_item" columnNames="org_id, id" constraintName="uk_org_subscription_item_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_subscription_item" baseColumnNames="org_id, subscription_id" constraintName="fk_org_subscription_item_1" referencedTableName="org_subscription" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_subscription_item" baseColumnNames="product_id" constraintName="fk_org_subscription_item_2" referencedTableName="product" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_subscription_item" baseColumnNames="org_id, contract_price_id" constraintName="fk_org_subscription_item_3" referencedTableName="org_contract_price" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="org_subscription_item" columnNames="org_id, subscription_id, product_id" constraintName="uk_org_subscription_item"/>
+        <createIndex tableName="org_subscription_item" indexName="ix_org_subscription_item_sub"><column name="org_id"/><column name="subscription_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-subscription_change" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="subscription_change"/></not></preConditions>
+        <createTable tableName="subscription_change">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="summary" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="licenses_delta" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="licenses_total_after" type="int"/>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="subscription_change" baseColumnNames="org_id" constraintName="fk_subscription_change_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="subscription_change" columnNames="org_id, id" constraintName="uk_subscription_change_org_id"/>
+        <addForeignKeyConstraint baseTableName="subscription_change" baseColumnNames="org_id, actor_member_id" constraintName="fk_subscription_change_1" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="subscription_change" indexName="ix_subscription_change_at"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-consultant_license" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="consultant_license"/></not></preConditions>
+        <createTable tableName="consultant_license">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"/>
+            <column name="status" type="varchar(24)"><constraints nullable="false"/></column>
+            <column name="base_product_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="contract_price_id" type="bigint"/>
+            <column name="base_amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="starts_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="renews_at" type="${datetimeType}"/>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="paid_through_at" type="${datetimeType}"/>
+            <column name="suspended_at" type="${datetimeType}"/>
+            <column name="suspend_reason" type="varchar(200)"/>
+            <column name="end_reason" type="varchar(24)"/>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="consultant_license" baseColumnNames="org_id" constraintName="fk_consultant_license_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="consultant_license" columnNames="org_id, id" constraintName="uk_consultant_license_org_id"/>
+        <addForeignKeyConstraint baseTableName="consultant_license" baseColumnNames="org_id, consultant_id" constraintName="fk_consultant_license_1" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="consultant_license" baseColumnNames="org_id, member_id" constraintName="fk_consultant_license_2" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="consultant_license" baseColumnNames="base_product_id" constraintName="fk_consultant_license_3" referencedTableName="product" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="consultant_license" baseColumnNames="org_id, contract_price_id" constraintName="fk_consultant_license_4" referencedTableName="org_contract_price" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="consultant_license" baseColumnNames="org_id, created_by_member_id" constraintName="fk_consultant_license_5" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="consultant_license" indexName="ix_consultant_license_status"><column name="org_id"/><column name="status"/></createIndex>
+        <createIndex tableName="consultant_license" indexName="ix_consultant_license_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <createIndex tableName="consultant_license" indexName="ix_consultant_license_ends"><column name="org_id"/><column name="ends_at"/></createIndex>
+        <createIndex tableName="consultant_license" indexName="ix_consultant_license_renews"><column name="org_id"/><column name="renews_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-consultant_license-keys" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="consultant_license" columnName="active_key"/></not></preConditions>
+        <sql>ALTER TABLE consultant_license ADD COLUMN active_key BIGINT GENERATED ALWAYS AS (IF(status &lt;&gt; 'ENDED', consultant_id, NULL)) STORED</sql>
+        <sql>ALTER TABLE consultant_license ADD CONSTRAINT uk_consultant_license_active UNIQUE (active_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-license_feature" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="license_feature"/></not></preConditions>
+        <createTable tableName="license_feature">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="license_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="product_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="contract_price_id" type="bigint"/>
+            <column name="unit_amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="quantity" type="int" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="allowance_override" type="bigint"/>
+            <column name="starts_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="live" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="added_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="license_feature" baseColumnNames="org_id" constraintName="fk_license_feature_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="license_feature" columnNames="org_id, id" constraintName="uk_license_feature_org_id"/>
+        <addForeignKeyConstraint baseTableName="license_feature" baseColumnNames="org_id, license_id" constraintName="fk_license_feature_1" referencedTableName="consultant_license" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="license_feature" baseColumnNames="feature_key" constraintName="fk_license_feature_2" referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <addForeignKeyConstraint baseTableName="license_feature" baseColumnNames="product_id" constraintName="fk_license_feature_3" referencedTableName="product" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="license_feature" baseColumnNames="org_id, contract_price_id" constraintName="fk_license_feature_4" referencedTableName="org_contract_price" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="license_feature" baseColumnNames="org_id, added_by_member_id" constraintName="fk_license_feature_5" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="license_feature" indexName="ix_license_feature_license"><column name="org_id"/><column name="license_id"/></createIndex>
+        <createIndex tableName="license_feature" indexName="ix_license_feature_feature"><column name="org_id"/><column name="feature_key"/><column name="live"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-license_feature-keys" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="license_feature" columnName="live_key"/></not></preConditions>
+        <sql>ALTER TABLE license_feature ADD COLUMN live_key VARCHAR(80) GENERATED ALWAYS AS (IF(live, CONCAT(license_id, ':', feature_key), NULL)) STORED</sql>
+        <sql>ALTER TABLE license_feature ADD CONSTRAINT uk_license_feature_live UNIQUE (live_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-license_change" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="license_change"/></not></preConditions>
+        <createTable tableName="license_change">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="license_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="batch_id" type="char(36)"/>
+            <column name="kind" type="varchar(24)"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"/>
+            <column name="summary" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="amount_delta_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="effective_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="APPLIED"><constraints nullable="false"/></column>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="applied_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="license_change" baseColumnNames="org_id" constraintName="fk_license_change_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="license_change" columnNames="org_id, id" constraintName="uk_license_change_org_id"/>
+        <addForeignKeyConstraint baseTableName="license_change" baseColumnNames="org_id, license_id" constraintName="fk_license_change_1" referencedTableName="consultant_license" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="license_change" baseColumnNames="org_id, actor_member_id" constraintName="fk_license_change_2" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="license_change" indexName="ix_license_change_status"><column name="org_id"/><column name="status"/><column name="effective_at"/></createIndex>
+        <createIndex tableName="license_change" indexName="ix_license_change_license"><column name="org_id"/><column name="license_id"/><column name="created_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_invoice" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_invoice"/></not></preConditions>
+        <createTable tableName="org_invoice">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="invoice_number" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)" defaultValue="RECURRING"><constraints nullable="false"/></column>
+            <column name="period_start" type="date"><constraints nullable="false"/></column>
+            <column name="period_end" type="date"><constraints nullable="false"/></column>
+            <column name="issue_date" type="date"><constraints nullable="false"/></column>
+            <column name="due_date" type="date"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="OPEN"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="amount_paid_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="paid_at" type="${datetimeType}"/>
+            <column name="payment_method_id" type="bigint"/>
+            <column name="source" type="varchar(10)" defaultValue="LOCAL"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_invoice" baseColumnNames="org_id" constraintName="fk_org_invoice_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_invoice" columnNames="org_id, id" constraintName="uk_org_invoice_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_invoice" baseColumnNames="org_id, payment_method_id" constraintName="fk_org_invoice_1" referencedTableName="org_payment_method" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="org_invoice" columnNames="org_id, invoice_number" constraintName="uk_org_invoice_number"/>
+        <createIndex tableName="org_invoice" indexName="ix_org_invoice_status"><column name="org_id"/><column name="status"/><column name="due_date"/></createIndex>
+        <createIndex tableName="org_invoice" indexName="ix_org_invoice_period"><column name="org_id"/><column name="period_start"/></createIndex>
+        <createIndex tableName="org_invoice" indexName="ix_org_invoice_issue"><column name="org_id"/><column name="issue_date"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_invoice_line" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_invoice_line"/></not></preConditions>
+        <createTable tableName="org_invoice_line">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="invoice_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="line_kind" type="varchar(16)"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(200)"/>
+            <column name="quantity" type="int" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="unit_amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="product_id" type="bigint"/>
+            <column name="feature_key" type="varchar(60)"/>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_invoice_line" baseColumnNames="org_id" constraintName="fk_org_invoice_line_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_invoice_line" columnNames="org_id, id" constraintName="uk_org_invoice_line_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_invoice_line" baseColumnNames="org_id, invoice_id" constraintName="fk_org_invoice_line_1" referencedTableName="org_invoice" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_invoice_line" baseColumnNames="product_id" constraintName="fk_org_invoice_line_2" referencedTableName="product" referencedColumnNames="id"/>
+        <createIndex tableName="org_invoice_line" indexName="ix_org_invoice_line_invoice"><column name="org_id"/><column name="invoice_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_payment" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_payment"/></not></preConditions>
+        <createTable tableName="org_payment">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="invoice_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="payment_method_id" type="bigint"/>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(14)" defaultValue="CHARGE"><constraints nullable="false"/></column>
+            <column name="provider_ref" type="varchar(80)"/>
+            <column name="failure_reason" type="varchar(80)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="recorded_by_member_id" type="bigint"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_payment" baseColumnNames="org_id" constraintName="fk_org_payment_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_payment" columnNames="org_id, id" constraintName="uk_org_payment_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_payment" baseColumnNames="org_id, invoice_id" constraintName="fk_org_payment_1" referencedTableName="org_invoice" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_payment" baseColumnNames="org_id, payment_method_id" constraintName="fk_org_payment_2" referencedTableName="org_payment_method" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_payment" baseColumnNames="org_id, recorded_by_member_id" constraintName="fk_org_payment_3" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="org_payment" indexName="ix_org_payment_invoice"><column name="org_id"/><column name="invoice_id"/></createIndex>
+        <createIndex tableName="org_payment" indexName="ix_org_payment_at"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-org_billing_adjustment" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_billing_adjustment"/></not></preConditions>
+        <createTable tableName="org_billing_adjustment">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="applied_invoice_id" type="bigint"/>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="applied_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_billing_adjustment" baseColumnNames="org_id" constraintName="fk_org_billing_adjustment_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_billing_adjustment" columnNames="org_id, id" constraintName="uk_org_billing_adjustment_org_id"/>
+        <addForeignKeyConstraint baseTableName="org_billing_adjustment" baseColumnNames="org_id, applied_invoice_id" constraintName="fk_org_billing_adjustment_1" referencedTableName="org_invoice" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_billing_adjustment" baseColumnNames="org_id, created_by_member_id" constraintName="fk_org_billing_adjustment_2" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="org_billing_adjustment" indexName="ix_org_billing_adjustment_status"><column name="org_id"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-usage_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="usage_event"/></not></preConditions>
+        <createTable tableName="usage_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="quantity" type="bigint"><constraints nullable="false"/></column>
+            <column name="period_key" type="varchar(8)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="COMMITTED"><constraints nullable="false"/></column>
+            <column name="source" type="varchar(24)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="usage_event" baseColumnNames="org_id" constraintName="fk_usage_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="usage_event" columnNames="org_id, id" constraintName="uk_usage_event_org_id"/>
+        <addForeignKeyConstraint baseTableName="usage_event" baseColumnNames="org_id, consultant_id" constraintName="fk_usage_event_1" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="usage_event" baseColumnNames="feature_key" constraintName="fk_usage_event_2" referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <createIndex tableName="usage_event" indexName="ix_usage_event_feature"><column name="org_id"/><column name="feature_key"/><column name="period_key"/></createIndex>
+        <createIndex tableName="usage_event" indexName="ix_usage_event_consultant"><column name="org_id"/><column name="consultant_id"/><column name="period_key"/></createIndex>
+        <createIndex tableName="usage_event" indexName="ix_usage_event_at"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-usage_counter" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="usage_counter"/></not></preConditions>
+        <createTable tableName="usage_counter">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="period_key" type="varchar(8)"><constraints nullable="false"/></column>
+            <column name="used" type="bigint"><constraints nullable="false"/></column>
+            <column name="allowance" type="bigint"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="usage_counter" baseColumnNames="org_id" constraintName="fk_usage_counter_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="usage_counter" columnNames="org_id, id" constraintName="uk_usage_counter_org_id"/>
+        <addForeignKeyConstraint baseTableName="usage_counter" baseColumnNames="org_id, consultant_id" constraintName="fk_usage_counter_1" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="usage_counter" baseColumnNames="feature_key" constraintName="fk_usage_counter_2" referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <addUniqueConstraint tableName="usage_counter" columnNames="org_id, consultant_id, feature_key, period_key" constraintName="uk_usage_counter"/>
+        <createIndex tableName="usage_counter" indexName="ix_usage_counter_period"><column name="org_id"/><column name="period_key"/><column name="feature_key"/></createIndex>
+        <createIndex tableName="usage_counter" indexName="ix_usage_counter_consultant"><column name="org_id"/><column name="consultant_id"/><column name="period_key"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-usage_alert" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="usage_alert"/></not></preConditions>
+        <createTable tableName="usage_alert">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"/>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="threshold_pct" type="smallint"><constraints nullable="false"/></column>
+            <column name="period_key" type="varchar(8)"><constraints nullable="false"/></column>
+            <column name="message" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="acknowledged_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="usage_alert" baseColumnNames="org_id" constraintName="fk_usage_alert_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="usage_alert" columnNames="org_id, id" constraintName="uk_usage_alert_org_id"/>
+        <addForeignKeyConstraint baseTableName="usage_alert" baseColumnNames="org_id, consultant_id" constraintName="fk_usage_alert_1" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="usage_alert" baseColumnNames="feature_key" constraintName="fk_usage_alert_2" referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <createIndex tableName="usage_alert" indexName="ix_usage_alert_at"><column name="org_id"/><column name="created_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-billing-data-feature_credit" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="feature_credit"/></not></preConditions>
+        <createTable tableName="feature_credit">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="quantity" type="bigint"><constraints nullable="false"/></column>
+            <column name="period_key" type="varchar(8)"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="feature_credit" baseColumnNames="org_id" constraintName="fk_feature_credit_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="feature_credit" columnNames="org_id, id" constraintName="uk_feature_credit_org_id"/>
+        <addForeignKeyConstraint baseTableName="feature_credit" baseColumnNames="org_id, consultant_id" constraintName="fk_feature_credit_1" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="feature_credit" baseColumnNames="feature_key" constraintName="fk_feature_credit_2" referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <addForeignKeyConstraint baseTableName="feature_credit" baseColumnNames="org_id, created_by_member_id" constraintName="fk_feature_credit_3" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="feature_credit" indexName="ix_feature_credit_period"><column name="org_id"/><column name="period_key"/></createIndex>
+        <createIndex tableName="feature_credit" indexName="ix_feature_credit_consultant"><column name="org_id"/><column name="consultant_id"/><column name="period_key"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+</databaseChangeLog>

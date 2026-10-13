@@ -1,5 +1,6 @@
 package com.dossier.api.config;
 
+import com.dossier.api.service.ent.BillingDemoSeeder;
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.RoleTemplateSeeder;
 import com.dossier.api.service.ent.TalentDemoSeeder;
@@ -26,12 +27,14 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final EnterpriseDemoSeeder seeder;
     private final RoleTemplateSeeder roleTemplates;
     private final TalentDemoSeeder talent;
+    private final BillingDemoSeeder billing;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, BillingDemoSeeder billing, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
+        this.billing = billing;
         this.createAccounts = createAccounts;
     }
 
@@ -50,6 +53,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             talent.seed(); // talent boards demo data: only after the tenants exist, same switches
         } catch (RuntimeException e) {
             LOG.error("Talent demo seed failed; the talent pages have no demo data.", e);
+        }
+        try {
+            billing.seed(); // billing boards demo data (licenses, invoices, usage): after the talent seed, it links to its consultants
+        } catch (RuntimeException e) {
+            LOG.error("Billing demo seed failed; the billing pages have no demo data.", e);
         }
     }
 }
