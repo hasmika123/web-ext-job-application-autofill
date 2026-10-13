@@ -63,6 +63,9 @@ public class OrgJoinService {
     private final OrgAuditService audit;
     private final NotificationService notifications;
     private final OrgRoleService roleService;
+    private final InviteSettings inviteSettings;
+    private final InviteAcceptance acceptance;
+    private final InviteCeilingChecker ceiling;
 
     public OrgJoinService(
         OrganizationRepository orgs,
@@ -76,7 +79,10 @@ public class OrgJoinService {
         OrgService orgService,
         OrgAuditService audit,
         NotificationService notifications,
-        OrgRoleService roleService
+        OrgRoleService roleService,
+        InviteSettings inviteSettings,
+        InviteAcceptance acceptance,
+        InviteCeilingChecker ceiling
     ) {
         this.orgs = orgs;
         this.members = members;
@@ -90,6 +96,9 @@ public class OrgJoinService {
         this.audit = audit;
         this.notifications = notifications;
         this.roleService = roleService;
+        this.inviteSettings = inviteSettings;
+        this.acceptance = acceptance;
+        this.ceiling = ceiling;
     }
 
     // ---- preview (public) ---------------------------------------------------------------------------------------------
@@ -111,8 +120,44 @@ public class OrgJoinService {
             List.of(),
             seat.getInviteExpiresAt(),
             OrgInviteService.canSeat(org.getStatus(), seat.getRole()),
-            consent.view(orgService.settingsOf(org).defaultShareScope())
+            consent.view(orgService.settingsOf(org).defaultShareScope()),
+            roleNames(seat),
+            groupName(seat.getOrgId(), seat.getDepartmentGroupId()),
+            groupName(seat.getOrgId(), seat.getTeamGroupId()),
+            seat.getInviteMessage(),
+            maskEmail(seat.getInviteEmail()),
+            inviteSettings.requireEmailMatch(org.getId())
         );
+    }
+
+    /** Names (never ids) of the roles the invitation will grant, primary first; the legacy role word when the invitation predates role ids. */
+    private List<String> roleNames(OrgMember seat) {
+        List<Long> ids = OrgInviteService.parseIds(seat.getInviteRoleIdsJson());
+        if (!ids.isEmpty()) {
+            List<String> names = ceiling.resolve(seat.getOrgId(), ids).map(v -> v.stream().map(r -> r.def().getName()).toList()).orElse(List.of());
+            if (!names.isEmpty()) return names;
+        }
+        return List.of(seat.getRole().name());
+    }
+
+    /**
+     * {@code a***@e***.org}: enough for a person to recognise which of their addresses was invited, not enough to learn an address from
+     * a leaked link. Null for no address.
+     */
+    static String maskEmail(String email) {
+        if (email == null || email.isBlank()) return null;
+        int at = email.lastIndexOf('@');
+        if (at < 1) return "***";
+        String local = email.substring(0, at);
+        String domain = email.substring(at + 1);
+        int dot = domain.lastIndexOf('.');
+        String tld = dot > 0 ? domain.substring(dot) : "";
+        String domainHead = domain.isEmpty() ? "" : domain.substring(0, 1);
+        return local.charAt(0) + "***@" + domainHead + "***" + tld;
+    }
+
+    private static boolean sameAddress(String accountEmail, String invitedEmail) {
+        return accountEmail != null && invitedEmail != null && accountEmail.strip().equalsIgnoreCase(invitedEmail.strip());
     }
 
     /** What a shared join link shows. Same rules; a revoked code is a plain 404, an expired or used-up one a 409. */
@@ -146,6 +191,9 @@ public class OrgJoinService {
         requireNotExpired(seat, org);
         if (!OrgInviteService.canSeat(org.getStatus(), seat.getRole())) throw OrgException.seatState(org.getStatus().name());
         requireNotAlreadyMember(org.getId(), user.getId());
+        // E7: bound to the invited address unless the organization (or the platform) switched the rule off; then it is audited.
+        boolean emailMismatch = !sameAddress(user.getEmail(), seat.getInviteEmail());
+        if (emailMismatch && inviteSettings.requireEmailMatch(org.getId())) throw OrgException.inviteEmailMismatch(maskEmail(seat.getInviteEmail()));
 
         Instant now = Instant.now();
         seat.setUserId(user.getId());
@@ -159,7 +207,9 @@ public class OrgJoinService {
         }
         if (seat.getInviteBatchId() != null) batches.incrementAccepted(org.getId(), seat.getInviteBatchId());
 
-        JoinResultDTO result = finishJoin(org, seat, user, scope, req.consentVersion(), ctx, "via=invite");
+        InviteAcceptance.Outcome roles = acceptance.apply(org, seat, user); // T32: the roles are re-checked against the inviter's rights NOW
+        String details = "via=invite" + (emailMismatch ? " emailMismatch=true" : "") + (roles.wasTrimmed() ? " rolesTrimmed=" + String.join(",", roles.trimmed()) : "");
+        JoinResultDTO result = finishJoin(org, seat, user, scope, req.consentVersion(), ctx, details);
         notifyInviter(org, seat, user);
         return result;
     }
@@ -233,6 +283,10 @@ public class OrgJoinService {
         if (!InviteTokens.looksLikeToken(token)) throw new OrgNotFoundException();
         OrgMember seat = members.findByInviteTokenHash(InviteTokens.hash(token)).orElseThrow(OrgNotFoundException::new);
         if (seat.getStatus() == OrgMemberStatus.ACTIVE && acceptingAs != null && acceptingAs.getId().equals(seat.getUserId())) throw OrgException.alreadyMember();
+        if (seat.getStatus() == OrgMemberStatus.REMOVED && seat.getJoinedAt() == null && com.dossier.api.domain.enumeration.InviteStatus.REASON_EXPIRED.equals(seat.getInviteEndedReason())) {
+            // swept by the expiry job: the same answer as a link that ran out an hour ago (a REVOKED link has no token and is a plain 404)
+            throw OrgException.inviteExpired("expired", openOrg(seat.getOrgId()).getName());
+        }
         if (seat.getStatus() != OrgMemberStatus.INVITED) throw new OrgNotFoundException();
         return seat;
     }

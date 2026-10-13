@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  */
 class OrgInviteServiceTest {
 
-    private final OrgInviteService service = new OrgInviteService(null, null, null, null, null, null, null, null, null, null, null);
+    private final OrgInviteService service = new OrgInviteService(null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     // ---- tokens ----------------------------------------------------------------------------------------------------
 

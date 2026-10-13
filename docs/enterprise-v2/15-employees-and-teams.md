@@ -27,8 +27,8 @@
 ```
 | Action (§9) | From → To | Who (permission) | Guards | Records | Audit |
 |---|---|---|---|---|---|
-| Invite | — → INVITED | `members.invite` (roles within ceiling) | seat limits (`OrgLimitsIT` pattern), email match setting | nothing else | `MEMBER_INVITE` |
-| Accept invitation | INVITED → ACTIVE | the invitee | email match (E7) | roles, groups, manager from the invite | `MEMBER_JOINED` |
+| Invite | — → INVITED | `members.invite` (roles within ceiling: 05 §3; checked again at accept) | seat limits (`OrgLimitsIT` pattern), batch/daily/resend caps (`org.invite.*`) | `org_member` INVITED row: `invite_role_ids_json`, `department_group_id`, `team_group_id`, `manager_member_id`, `invite_message`; live `org_member_role` rows (first = primary) | `MEMBER_INVITE` (HIGH when an admin-like role) |
+| Accept invitation | INVITED → ACTIVE | the invitee | email match (`org.invite.require_email_match`, E7; else audited `emailMismatch=true`); ceiling re-check against the inviter NOW (T32: trimmed roles → `INVITE_ROLES_TRIMMED`) | roles, department, team, manager from the invite | `MEMBER_JOIN` |
 | Assign roles | — | `members.role.set` + ceiling | last-admin guard; `is_primary` exactly one | `org_member_role` rows | `ROLE_ASSIGN/REVOKE` (HIGH when admin roles) |
 | Assign department / team | — | `members.group.set` (new key; ORG_ADMIN, HR_SPECIALIST) | team must belong to the chosen department if both set | `department_group_id`, `team_group_id` | `MEMBER_GROUP` |
 | Set manager | — | `members.manager.set` (new key; ORG_ADMIN, HR_SPECIALIST, MARKETING_MANAGER at TEAM) | no cycles (walk up ≤ 20); manager must be ACTIVE | `manager_member_id` | `MEMBER_MANAGER` |

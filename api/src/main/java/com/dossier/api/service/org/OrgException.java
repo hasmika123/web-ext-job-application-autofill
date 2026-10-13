@@ -126,6 +126,23 @@ public class OrgException extends RuntimeException {
         return new OrgException(status, code, message, merged);
     }
 
+    // ---- invitations (Enterprise V2, X1.15) ----------------------------------------------------------------------------
+
+    /** The inviter's rights do not cover these roles (05-permission-model.md ceiling rule); {@code roleIds} names the ones refused. */
+    public static OrgException roleCeiling(java.util.Collection<Long> roleIds) {
+        return coded(422, "ROLE_CEILING", "You cannot invite someone into a role that has more access than you do", Map.of("roleIds", java.util.List.copyOf(roleIds)));
+    }
+
+    /** The signed-in account's email is not the invited address (E7); the invited address is shown masked, never in full. */
+    public static OrgException inviteEmailMismatch(String invitedEmailMasked) {
+        return coded(409, "INVITE_EMAIL_MISMATCH", "This invitation was sent to a different email address", Map.of("invitedEmailMasked", invitedEmailMasked));
+    }
+
+    /** Choosing this manager would make someone their own boss (a chain that returns to the same person). */
+    public static OrgException managerCycle() {
+        return coded(422, "MANAGER_CYCLE", "That manager would create a reporting loop", Map.of());
+    }
+
     public int getStatus() {
         return status;
     }

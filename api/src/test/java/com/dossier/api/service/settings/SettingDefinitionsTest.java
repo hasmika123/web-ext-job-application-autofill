@@ -194,6 +194,18 @@ class SettingDefinitionsTest {
     }
 
     @Test
+    void theInviteEmailMatchKeyIsAnAdminBooleanThatDefaultsToOn() {
+        Key match = key("org.invite.require_email_match");
+        assertThat(match.type()).isEqualTo(Type.BOOL);
+        assertThat(match.defaultValue()).as("E7 default (a): an invitation binds to the invited address").isEqualTo("true");
+        assertThat(match.risk()).isEqualTo(Risk.MEDIUM);
+        assertValid(match, "false", true);
+        assertValid(match, "true", true);
+        assertValid(match, "\"yes\"", false);
+        assertThat(SettingDefinitions.find("org.invite.require_email_match")).as("read by the invite code, so the admin page offers it").isNotNull();
+    }
+
+    @Test
     void theEnterpriseTenancyKeysExistWithTheirDefaults() {
         Key hosts = key("enterprise.hosts.platform");
         assertThat(hosts.type()).isEqualTo(Type.JSON);
@@ -215,7 +227,7 @@ class SettingDefinitionsTest {
         List<String> deferred = EnterpriseSettingKeys.deferred().stream().map(Key::key).toList();
         assertThat(deferred).contains(
             "flag.enterprise.billing", "flag.enterprise.marketing", "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
-            "enterprise.domains.subdomains_per_day", "enterprise.domains.recheck_hours", "enterprise.domains.grace_hours_before_suspend", "org.invite.require_email_match",
+            "enterprise.domains.subdomains_per_day", "enterprise.domains.recheck_hours", "enterprise.domains.grace_hours_before_suspend",
             "org.consent.request_cooldown_days", "enterprise.billing.mode_default", "enterprise.quote.ttl_minutes", "enterprise.usage.retention_months"
         );
         for (String k : deferred) {

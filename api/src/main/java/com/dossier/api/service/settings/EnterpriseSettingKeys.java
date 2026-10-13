@@ -99,8 +99,8 @@ public final class EnterpriseSettingKeys {
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
         integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
-        d.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
-            "An organization invitation can only be accepted by the account whose email matches the invited address (a per-organization override comes later)." + NOT_ENFORCED, null, Risk.MEDIUM));
+        k.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
+            "An organization invitation can only be accepted by the account whose email matches the invited address (409 INVITE_EMAIL_MISMATCH otherwise). Off: any signed-in account may accept and the acceptance is audited with a mismatch flag. An organization can override it in org_setting.", null, Risk.MEDIUM));
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));

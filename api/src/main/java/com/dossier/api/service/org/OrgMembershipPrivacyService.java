@@ -76,6 +76,7 @@ public class OrgMembershipPrivacyService {
             m.setStatus(OrgMemberStatus.ERASED);
             m.setInviteEmail(null);
             m.setInviteName(null);
+            m.setInviteMessage(null);
             m.setInviteTokenHash(null);
             m.setInviteExpiresAt(null);
             m.setDisplayLabel(null);

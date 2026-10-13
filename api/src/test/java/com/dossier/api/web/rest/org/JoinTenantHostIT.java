@@ -129,7 +129,7 @@ class JoinTenantHostIT {
             .perform(post("/api/orgs/" + org.getId() + "/members/invite").with(user(ownerLogin)).contentType(MediaType.APPLICATION_JSON).content("{\"emails\":[\"" + email + "\"],\"role\":\"MEMBER\"}"))
             .andReturn();
         ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
-        verify(mail, atLeastOnce()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), link.capture(), any());
+        verify(mail, atLeastOnce()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), link.capture(), any(), any(), any());
         String last = link.getAllValues().get(link.getAllValues().size() - 1);
         return last.substring(last.indexOf("/join/t/") + "/join/t/".length());
     }
@@ -137,7 +137,7 @@ class JoinTenantHostIT {
     private String linkOf(Organization org, String email) throws Exception {
         inviteTokenFor(org, email);
         ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
-        verify(mail, atLeastOnce()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), link.capture(), any());
+        verify(mail, atLeastOnce()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), link.capture(), any(), any(), any());
         return link.getAllValues().get(link.getAllValues().size() - 1);
     }
 
@@ -164,13 +164,13 @@ class JoinTenantHostIT {
     @Test
     void theEmailLinkPointsAtThePlatformUntilTheOrgHasALiveHost() throws Exception {
         // Neither org has a hostname ROW, only a bare subdomain: the interim builder uses rows, so the platform base is right here.
-        String link = linkOf(acme, invitee + "@example.org");
+        String link = linkOf(acme, invitee + "@example.com");
         assertThat(link).contains("/join/t/").doesNotContain("evil");
     }
 
     @Test
     void anInviteForAcmeDoesNotExistOnBetasHost() throws Exception {
-        String token = inviteTokenFor(acme, invitee + "@example.org");
+        String token = inviteTokenFor(acme, invitee + "@example.com");
         String bearer = mapper.readTree(login(null, invitee, null).getResponse().getContentAsString()).get("accessToken").asText();
 
         assertThat(mockMvc.perform(get("/api/join/" + token).header(HOST, betaHost)).andReturn().getResponse().getStatus()).as("preview on beta").isEqualTo(404);
@@ -182,7 +182,7 @@ class JoinTenantHostIT {
 
     @Test
     void anInviteeSignsInWithTheInviteTokenAndAcceptingReturnsATenantBoundPair() throws Exception {
-        String token = inviteTokenFor(acme, invitee + "@example.org");
+        String token = inviteTokenFor(acme, invitee + "@example.com");
 
         assertThat(login(acmeHost, invitee, null).getResponse().getStatus()).as("no seat, no invite token").isEqualTo(403);
         assertThat(login(acmeHost, invitee, "x".repeat(32)).getResponse().getStatus()).as("a made-up invite token").isEqualTo(403);
@@ -215,7 +215,7 @@ class JoinTenantHostIT {
 
     @Test
     void acceptingOnThePlatformHostReturnsNoSession() throws Exception {
-        String token = inviteTokenFor(acme, invitee + "@example.org");
+        String token = inviteTokenFor(acme, invitee + "@example.com");
         String bearer = mapper.readTree(login(null, invitee, null).getResponse().getContentAsString()).get("accessToken").asText();
         MvcResult accepted = acceptWithBearer(null, bearer, token);
         assertThat(accepted.getResponse().getStatus()).isEqualTo(200);
@@ -224,13 +224,13 @@ class JoinTenantHostIT {
 
     @Test
     void anInviteTokenOfAnotherOrganizationDoesNotOpenTheLoginOfThisOne() throws Exception {
-        String betaToken = inviteTokenFor(beta, invitee + "@example.org");
+        String betaToken = inviteTokenFor(beta, invitee + "@example.com");
         assertThat(login(acmeHost, invitee, betaToken).getResponse().getStatus()).as("beta's token on acme's host").isEqualTo(403);
     }
 
     @Test
     void aSpentInviteTokenNoLongerOpensTheLogin() throws Exception {
-        String token = inviteTokenFor(acme, invitee + "@example.org");
+        String token = inviteTokenFor(acme, invitee + "@example.com");
         String bearer = mapper.readTree(login(acmeHost, invitee, token).getResponse().getContentAsString()).get("accessToken").asText();
         assertThat(acceptWithBearer(acmeHost, bearer, token).getResponse().getStatus()).isEqualTo(200);
         // The seat is ACTIVE now: the outsider cannot reuse the spent token to get a session either.

@@ -20,5 +20,16 @@ public record JoinPreviewDTO(
     List<String> pays,
     Instant expiresAt,
     boolean open,
-    OrgConsentDTO consent
-) {}
+    OrgConsentDTO consent,
+    List<String> roles,
+    String department,
+    String team,
+    String message,
+    String invitedEmailMasked,
+    boolean emailMatchRequired
+) {
+    /** The shape of a shared-code preview: no personal invite, so no roles list, placement, note or address. */
+    public JoinPreviewDTO(String source, String orgName, String orgSlug, OrgRole role, String inviterName, String groupName, List<String> pays, Instant expiresAt, boolean open, OrgConsentDTO consent) {
+        this(source, orgName, orgSlug, role, inviterName, groupName, pays, expiresAt, open, consent, List.of(), null, null, null, null, false);
+    }
+}

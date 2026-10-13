@@ -85,6 +85,31 @@ public class OrgMember implements Serializable {
     @Column(name = "primary_role_id")
     private Long primaryRoleId;
 
+    /** The role ids the inviter chose, a JSON array with the primary first (X1.15); null on invites sent before it. Re-validated at acceptance. */
+    @Column(name = "invite_role_ids_json", length = 500)
+    private String inviteRoleIdsJson;
+
+    /** Placement carried by the invitation and kept on the seat (X1.15; X4 adds the employee screens over these columns). */
+    @Column(name = "department_group_id")
+    private Long departmentGroupId;
+
+    @Column(name = "team_group_id")
+    private Long teamGroupId;
+
+    @Column(name = "manager_member_id")
+    private Long managerMemberId;
+
+    /** The inviter's optional personal note; plain text, never rendered as HTML. */
+    @Column(name = "invite_message", length = 500)
+    private String inviteMessage;
+
+    /** EXPIRED or REVOKED once an invitation ended without being accepted (the seat is then REMOVED); null otherwise. */
+    @Column(name = "invite_ended_reason", length = 16)
+    private String inviteEndedReason;
+
+    @Column(name = "invite_ended_at")
+    private Instant inviteEndedAt;
+
     @Column(name = "joined_at")
     private Instant joinedAt;
 
@@ -144,6 +169,20 @@ public class OrgMember implements Serializable {
     public void setPrimaryRoleId(Long primaryRoleId) { this.primaryRoleId = primaryRoleId; }
     public Long getSupportOwnerMemberId() { return supportOwnerMemberId; }
     public void setSupportOwnerMemberId(Long supportOwnerMemberId) { this.supportOwnerMemberId = supportOwnerMemberId; }
+    public String getInviteRoleIdsJson() { return inviteRoleIdsJson; }
+    public void setInviteRoleIdsJson(String inviteRoleIdsJson) { this.inviteRoleIdsJson = inviteRoleIdsJson; }
+    public Long getDepartmentGroupId() { return departmentGroupId; }
+    public void setDepartmentGroupId(Long departmentGroupId) { this.departmentGroupId = departmentGroupId; }
+    public Long getTeamGroupId() { return teamGroupId; }
+    public void setTeamGroupId(Long teamGroupId) { this.teamGroupId = teamGroupId; }
+    public Long getManagerMemberId() { return managerMemberId; }
+    public void setManagerMemberId(Long managerMemberId) { this.managerMemberId = managerMemberId; }
+    public String getInviteMessage() { return inviteMessage; }
+    public void setInviteMessage(String inviteMessage) { this.inviteMessage = inviteMessage; }
+    public String getInviteEndedReason() { return inviteEndedReason; }
+    public void setInviteEndedReason(String inviteEndedReason) { this.inviteEndedReason = inviteEndedReason; }
+    public Instant getInviteEndedAt() { return inviteEndedAt; }
+    public void setInviteEndedAt(Instant inviteEndedAt) { this.inviteEndedAt = inviteEndedAt; }
     public Instant getJoinedAt() { return joinedAt; }
     public void setJoinedAt(Instant joinedAt) { this.joinedAt = joinedAt; }
     public Instant getLeftAt() { return leftAt; }

@@ -146,7 +146,17 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/branding/assets/{kind}", Case.upload(200, OrgAuditService.BRANDING_ASSET)),
         Map.entry("DELETE /api/orgs/{orgId}/branding/assets/{kind}", Case.write(null, 200, null)),
         Map.entry("POST /api/orgs/{orgId}/members/invite", Case.write("{\"emails\":[\"newcomer@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
-        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND))
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
+        // Enterprise V2 X1.15: the Invitations page. The bulk bodies name an id that is nobody's, so a legitimate call changes nothing
+        // (their real behaviour is in OrgInvitationResourceIT).
+        Map.entry("GET /api/orgs/{orgId}/invitations", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/invitations/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/invitations/activity", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/invitations", Case.write("{\"emails\":[\"newcomer2@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
+        Map.entry("POST /api/orgs/{orgId}/invitations/{invitationId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
+        Map.entry("POST /api/orgs/{orgId}/invitations/{invitationId}/revoke", Case.write(null, 204, OrgAuditService.MEMBER_INVITE_REVOKE)),
+        Map.entry("POST /api/orgs/{orgId}/invitations/bulk/resend", Case.write("{\"ids\":[1]}", 200, null)),
+        Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -303,6 +313,7 @@ class OrgIsolationIT {
             ids.put("versionNo", String.valueOf(brandingVersionNo));
             ids.put("kind", "logo");
             ids.put("memberId", String.valueOf(pending.getId()));
+            ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             return ids;
         }
 
@@ -558,7 +569,7 @@ class OrgIsolationIT {
             assertThat(orgs.findByOrgId(B).orElseThrow().getId()).isNotEqualTo(A);
             assertThat(orgs.countByCreatedByUserId(a.owner.getUserId())).as("scoped by the creating person").isZero(); // fixtures set no creator
         }));
-        checks.put("OrgMemberRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdAndUserIdAndStatusIn", "findByOrgIdAndInviteEmailAndStatusIn", "countByOrgIdAndStatus", "countByOrgIdAndRoleAndStatus", "countByOrgIdAndGroupIdAndStatusIn", "countByOrgIdAndStatusIn", "countByOrgIdAndRoleAndStatusIn", "countByOrgIdAndInviteSentAtAfter", "countByOrgIdAndInviteBatchId", "findByInviteTokenHash"), () -> {
+        checks.put("OrgMemberRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdAndUserIdAndStatusIn", "findByOrgIdAndInviteEmailAndStatusIn", "countByOrgIdAndStatus", "countByOrgIdAndRoleAndStatus", "countByOrgIdAndGroupIdAndStatusIn", "countByOrgIdAndStatusIn", "countByOrgIdAndRoleAndStatusIn", "countByOrgIdAndInviteSentAtAfter", "countByOrgIdAndInviteBatchId", "findByInviteTokenHash", "findByOrgIdAndIdIn", "findExpiredInvites", "findOrgIdsWithExpiredInvites"), () -> {
             assertThat(members.findByOrgIdAndId(B, a.owner.getId())).isEmpty();
             assertThat(members.findByOrgIdAndId(B, a.member.getId())).isEmpty();
             assertThat(members.findByOrgIdAndUserIdAndStatusIn(B, a.member.getUserId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.SUSPENDED))).isEmpty();
@@ -570,6 +581,10 @@ class OrgIsolationIT {
             assertThat(members.countByOrgIdAndRoleAndStatusIn(B, OrgRole.ADMIN, OrgMemberStatus.LIVE)).as("A's admins and the suspended / invited ones are not B's").isZero();
             assertThat(members.countByOrgIdAndInviteSentAtAfter(B, java.time.Instant.now().minus(java.time.Duration.ofDays(1)))).as("only B's own pending invite counts toward B's daily cap").isEqualTo(1);
             assertThat(members.countByOrgIdAndInviteBatchId(B, 0L)).isZero();
+            assertThat(members.findByOrgIdAndIdIn(B, List.of(a.owner.getId(), a.pending.getId()))).as("A's seats by id are not B's").isEmpty();
+            java.time.Instant farFuture = java.time.Instant.now().plus(java.time.Duration.ofDays(3650));
+            assertThat(members.findExpiredInvites(B, farFuture, org.springframework.data.domain.PageRequest.of(0, 50))).as("only B's own invitations, never A's").isNotEmpty().allSatisfy(m -> assertThat(m.getOrgId()).isEqualTo(B));
+            assertThat(members.findOrgIdsWithExpiredInvites(farFuture)).as("the one cross-tenant read lists WHICH orgs have work and nothing else").contains(A, B);
             // the one finder that names no org: a token finds the seat it was minted for, whose own orgId is the tenant
             String tokenOfA = com.dossier.api.service.org.InviteTokens.newToken();
             OrgMember pendingA = members.findByOrgIdAndId(A, a.pending.getId()).orElseThrow();

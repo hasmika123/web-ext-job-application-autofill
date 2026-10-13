@@ -39,6 +39,12 @@ public class OrgAuditService {
     public static final String ORG_SETTINGS = "ORG_SETTINGS";
     public static final String MEMBER_INVITE = "MEMBER_INVITE";
     public static final String MEMBER_INVITE_RESEND = "MEMBER_INVITE_RESEND";
+    /** X1.15: an admin withdrew a pending invitation. */
+    public static final String MEMBER_INVITE_REVOKE = "MEMBER_INVITE_REVOKE";
+    /** X1.15: the expiry job ended invitations whose link ran out (one row per organization per run, actor {@code system}). */
+    public static final String MEMBER_INVITE_EXPIRED = "MEMBER_INVITE_EXPIRED";
+    /** X1.15 (T32): accepting found that some invited roles were no longer the inviter's to give; the person joined with the rest. */
+    public static final String INVITE_ROLES_TRIMMED = "INVITE_ROLES_TRIMMED";
     /** Someone accepted an invite (or redeemed a join code) and became a member. */
     public static final String MEMBER_JOIN = "MEMBER_JOIN";
     public static final String MEMBER_ROLE = "MEMBER_ROLE";

@@ -103,11 +103,12 @@ class JoinResourceIT {
         o.setLastName("Nair");
         users.saveAndFlush(o);
         store(ResumeBuilderSettingKeys.ORG_JOIN_MISS_PER_MIN, "100"); // every test shares one visitor address; the rate-limit test narrows it
+        store("org.invite.require_email_match", "false"); // these tests accept with any signed-in account (the pre-X1.15 rule); InviteEmailMatchIT covers the default
     }
 
     @AfterEach
     void forgetSettings() {
-        for (String key : List.of(ResumeBuilderSettingKeys.ORG_INVITE_DAILY_CAP, ResumeBuilderSettingKeys.ORG_INVITE_MAX_PER_BATCH, ResumeBuilderSettingKeys.ORG_JOIN_MISS_PER_MIN, ResumeBuilderSettingKeys.ORG_INVITE_RESENDS_PER_WEEK)) {
+        for (String key : List.of(ResumeBuilderSettingKeys.ORG_INVITE_DAILY_CAP, ResumeBuilderSettingKeys.ORG_INVITE_MAX_PER_BATCH, ResumeBuilderSettingKeys.ORG_JOIN_MISS_PER_MIN, ResumeBuilderSettingKeys.ORG_INVITE_RESENDS_PER_WEEK, "org.invite.require_email_match")) {
             appSettings.findById(key).ifPresent(appSettings::delete);
         }
         settings.invalidate();
@@ -131,7 +132,7 @@ class JoinResourceIT {
     /** The token in the most recent invite email, read from the link that was handed to the mail service. */
     private String lastToken() {
         ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
-        verify(mail, atLeastOnce()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), link.capture(), any());
+        verify(mail, atLeastOnce()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), link.capture(), any(), any(), any());
         String last = link.getAllValues().get(link.getAllValues().size() - 1);
         return last.substring(last.indexOf("/join/t/") + "/join/t/".length());
     }
@@ -194,7 +195,7 @@ class JoinResourceIT {
         assertThat(com.dossier.api.service.org.OrgAuditAsserts.rows(audit, acme.getId()).get(0).getDetails()).doesNotContain("@");
 
         ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
-        verify(mail, org.mockito.Mockito.times(2)).sendOrgInviteEmail(any(), any(), eq(acme.getName()), eq("Priya Nair"), eq("a member"), any(), link.capture(), any());
+        verify(mail, org.mockito.Mockito.times(2)).sendOrgInviteEmail(any(), any(), eq(acme.getName()), eq("Priya Nair"), eq("a member"), any(), link.capture(), any(), any(), any());
         assertThat(link.getAllValues()).allSatisfy(l -> assertThat(l).contains("/join/t/").matches(".*/join/t/[A-Za-z0-9]{32}$"));
     }
 
@@ -206,7 +207,7 @@ class JoinResourceIT {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.invited.length()").value(0))
             .andExpect(jsonPath("$.alreadyMember[0]").value("twice@example.org"));
-        verify(mail, never()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(mail, never()).sendOrgInviteEmail(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -224,7 +225,7 @@ class JoinResourceIT {
         fx.active(acme, "mem-" + sfx, OrgRole.MEMBER);
 
         // STAFF invite MEMBERs only, and become the new person's support owner
-        invite("stf-" + sfx, acme, "{\"emails\":[\"s1@example.org\"],\"role\":\"ADMIN\"}").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.field").value("role"));
+        invite("stf-" + sfx, acme, "{\"emails\":[\"s1@example.org\"],\"role\":\"ADMIN\"}").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("ROLE_CEILING"));
         invite("stf-" + sfx, acme, "{\"emails\":[\"s1@example.org\"]}").andExpect(status().isOk());
         assertThat(members.findByOrgIdAndInviteEmailAndStatusIn(acme.getId(), "s1@example.org", List.of(OrgMemberStatus.INVITED)).get(0).getSupportOwnerMemberId()).isEqualTo(staff.getId());
 

@@ -234,7 +234,9 @@ Columns: **perm / scope / feat** · **body → response** · **notable errors** 
 | Method · path | perm (scope) | body → response | Errors | I/M | Ph |
 |---|---|---|---|---|---|
 | GET `{o}/members?q&status&roleId&departmentId&teamId&managerId&licenseStatus&sort&page&size` | `members.view` (ORG) | `PageDTO<MemberDTO>` | | | 4 |
-| POST `{o}/members/invite` | `members.invite` | `{emails[], roleIds[], departmentGroupId?, teamGroupId?, managerMemberId?}` → batch (never the token) | 422 `ROLE_CEILING`, 429 | I | 1 |
+| POST `{o}/members/invite` · POST `{o}/invitations` | `members.invite` | `{emails[], roleIds[], departmentGroupId?, teamGroupId?, managerMemberId?, fullName?, message?}` → batch + one `rows[]` entry per address (`INVITED`/`INVALID`/`DUPLICATE`/`ALREADY_MEMBER`); never the token | 422 `ROLE_CEILING` (`roleIds[]`), `MANAGER_CYCLE`, 429 | I | 1 |
+| GET `{o}/invitations` (filters: status, roleId, departmentGroupId, from, to, q, page, size, sort) · `/counts` · `/activity?limit` | `members.invite` | `InvitationDTO.Page` (never token/hash/link) · four counters with last-month delta · latest invited/accepted/revoked/expired | | | 1 |
+| POST `{o}/invitations/{id}/resend` · `/revoke` · `/bulk/resend` · `/bulk/revoke` | `members.invite` | resend rotates the link and revives an expired invite; revoke deletes the token; bulk = `{ids[≤100]}` → one `{id,status,code}` each | 404 (not pending), 422 `ORG_LIMIT_REACHED` | I | 1 |
 | POST `{o}/members/{id}/resend` · `/suspend` · `/reinstate` · `/sessions/revoke` | `members.invite` / `members.suspend` | | 409 `SEAT_STATE`, `LAST_ADMIN` | | 1/4 |
 | GET `{o}/members/{id}/offboard-preview` · POST `…/offboard` | `members.remove` | hook previews (09 row 4) → apply | 409 | I | 4 |
 | PATCH `{o}/members/{id}` | `members.edit` | title, manager, groups (`members.group.set`, `members.manager.set`) | | M | 4 |
