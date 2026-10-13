@@ -24,7 +24,7 @@ public class QuickActionsProvider implements DashboardWidgetProvider {
     private static final List<Def> DEFS = List.of(
         new Def("invite-employee", "Invite Employee", "Add a new team member", "/w/admin/employees?invite=1", "members.invite", true, null),
         new Def("assign-marketer", "Assign Marketer", "Connect a marketer to roles", "/w/admin/marketing-assignments", "assignments.manage", true, null),
-        new Def("configure-licenses", "Configure Licenses", "Manage seats and permissions", "/w/admin/licenses", "licenses.manage", true, null),
+        new Def("configure-licenses", "Configure Licenses", "Manage seats and permissions", "/w/admin/licenses", "licenses.manage", false, null),
         new Def("review-applications", "Review Applications", "View pending applications", "/w/admin/applications", "member.view_summary", true, null),
         new Def("view-pipeline", "View Pipeline", "See applications by stage", "/w/admin/pipeline", "pipeline.view", false, null),
         new Def("configure-organization", "Configure Organization", "Settings and defaults", "/w/admin/settings", "org.settings.manage", true, null)

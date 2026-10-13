@@ -12,14 +12,23 @@
     "description" : "Generated server url"
   } ],
   "tags" : [ {
+    "name" : "resumes",
+    "description" : "Resumes board: table, KPI tiles, detail with preview, primary / visibility / approval, upload (metadata) and exports."
+  }, {
     "name" : "config",
     "description" : "Public, cacheable feature switches."
   }, {
     "name" : "billing",
     "description" : "The current user's plan. Stripe is the source of truth; this reads our mirror of it."
   }, {
+    "name" : "applications",
+    "description" : "Applications: the table, KPI tiles, pipeline board, analytics and the detail drawer; recorded stage moves, notes and next actions."
+  }, {
     "name" : "org-dashboard",
     "description" : "Organization dashboard: widgets with real data or an honest state, alerts and their dismissal."
+  }, {
+    "name" : "marketing-assignments",
+    "description" : "Marketing Assignments: marketers with workload, their consultants, KPI tiles, assign / reassign / unassign with undo."
   }, {
     "name" : "org-invitations",
     "description" : "Invitations of an organization: list, counts, activity, invite, resend, revoke."
@@ -47,6 +56,9 @@
   }, {
     "name" : "telemetry",
     "description" : "Count-only autofill quality signals. No values, no hostnames, not linked to accounts."
+  }, {
+    "name" : "consultants",
+    "description" : "Consultants: the directory, KPI tiles, drawer tabs, edits, marketer assignment and bulk actions."
   }, {
     "name" : "job-fit",
     "description" : "One resume against one job: match, missing keywords, red flags (Pro)."
@@ -113,6 +125,9 @@
   }, {
     "name" : "profile-sync",
     "description" : "User-scoped sync API: the authenticated user's bio and resumes."
+  }, {
+    "name" : "jobs",
+    "description" : "Jobs (client requirements): list, KPI tiles, detail drawer, create, edit, bulk status, assign a top match."
   }, {
     "name" : "analytics",
     "description" : "The user's job-search numbers, from the application history."
@@ -999,6 +1014,84 @@
         "security" : [ {
           "bearer-jwt" : [ ]
         } ]
+      }
+    },
+    "/api/orgs/{orgId}/resumes/{resumeId}/visibility" : {
+      "put" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Change who can see a resume",
+        "description" : "Body {visibility: INTERNAL|PUBLIC|PRIVATE}. Needs resumes.edit_for covering the consultant. Answers the previous value for Undo. One RESUME_VISIBILITY audit row when it changed.",
+        "operationId" : "visibility",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VisibilityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VisibilityResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resumes/{resumeId}/primary" : {
+      "put" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Set or clear the primary resume",
+        "description" : "Body {primary: true|false}. Needs resumes.edit_for covering the consultant. Only an APPROVED resume can become primary (409 NOT_APPROVED); the consultant's previous primary is cleared in the same transaction and returned as previousPrimaryId so an Undo can give it back. One RESUME_PRIMARY audit row when something changed.",
+        "operationId" : "primary",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PrimaryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PrimaryResult"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/orgs/{orgId}/members/{memberId}/roles" : {
@@ -4311,6 +4404,223 @@
         }
       }
     },
+    "/api/orgs/{orgId}/resumes" : {
+      "get" : {
+        "tags" : [ "resumes" ],
+        "summary" : "List resumes",
+        "description" : "Paged, server-driven table. Needs resumes.view_for; the rows are only the consultants inside the scope it is held at. Query: tab (all, pending, recent), q (2 to 80 characters: resume, file, target role, headline, consultant, email or skill), departmentId, visibility (INTERNAL, PUBLIC, PRIVATE), status (APPROVED, PENDING, REJECTED), primary (true or false), ownerId, consultantId, updated (days, 1 to 365), sort=field,dir (consultant, name, role, version, modified, created, status, size; 400 SORT_INVALID otherwise; default modified,desc), page (from 0), size (1 to 100, default 25). Answers a page and X-Total-Count.",
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "tab",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "departmentId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "visibility",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "primary",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "ownerId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "consultantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "updated",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Add a resume (metadata only)",
+        "description" : "Body: consultantId, name, fileName? (a plain label, no folders), targetRole?, headline?, summary?, visibility? (default INTERNAL), experience[] (title, employer, startYear, endYear). Needs resumes.edit_for covering the consultant. The record starts PENDING at version 1, not primary, owned by the caller. No file is stored. Text containing a never-collected value is 422 SENSITIVE_CONTENT. Idempotency-Key required. One RESUME_CREATE audit row.",
+        "operationId" : "create_4",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resumes/{resumeId}/decision" : {
+      "post" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Approve, reject or reopen a resume",
+        "description" : "Body {decision: APPROVE|REJECT|REOPEN, note?}. Needs resumes.approve_request. APPROVE and REJECT apply to a PENDING resume (409 NOT_PENDING) and are refused for the person who prepared it (422 SELF_DECISION). REOPEN puts a decided resume back to PENDING (the Undo). One RESUME_APPROVE / RESUME_REJECT / RESUME_REOPEN audit row.",
+        "operationId" : "decision",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DecisionResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resumes/bulk" : {
+      "post" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Change many resumes at once",
+        "description" : "Body {ids (1 to 100), action: VISIBILITY|APPROVE|REJECT|REOPEN, visibility?}. VISIBILITY needs resumes.edit_for, the others resumes.approve_request. Each resume is applied or skipped with a reason (NOT_FOUND, UNCHANGED, NOT_PENDING, SELF_DECISION, NOT_APPROVED); previous is the value an Undo puts back. One audit row per change plus one RESUME_BULK row. Idempotency-Key required.",
+        "operationId" : "bulk_1",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/members/{memberId}/suspend" : {
       "post" : {
         "tags" : [ "members" ],
@@ -4658,12 +4968,411 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/update" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Set priority, status or backup on many assignments",
+        "description" : "assignments.manage at a scope covering each consultant's marketer. Body: consultantIds and exactly one of priority (HIGH, MEDIUM, LOW), status (ACTIVE, PAUSED), backupMemberId, clearBackup. Idempotency-Key required.",
+        "operationId" : "update_5",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/unassign" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Unassign consultants",
+        "description" : "assignments.manage at a scope covering each consultant's marketer. Body: consultantIds. Per-consultant previous for Undo. Idempotency-Key required.",
+        "operationId" : "unassign",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UnassignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/restore" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Undo: put assignments back as they were",
+        "description" : "Body: rows [{consultantId, marketerMemberId (null = there was none), backupMemberId, priority, status}] taken from an earlier answer's previous. No capacity check. Idempotency-Key required.",
+        "operationId" : "restore",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/marketers" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Marketing specialists with their workload",
+        "description" : "workload.view or assignments.manage. Query: q (name or title, 2 to 80 characters), status (ACTIVE, PAUSED or ALL). Each marketer: capacity, assigned, percent, overloaded (assigned >= 90 percent of capacity). The summary is the left panel's footer. Only the marketers inside the caller's scope are listed.",
+        "operationId" : "marketers",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MarketerList"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Add a marketer",
+        "description" : "assignments.manage at ORG scope. Body: memberId (an active member with a marketing role; no account is created), capacity (1 to 200, default 20), title. 422 MARKETER_INVALID, 409 ALREADY_MARKETER. One MARKETER_ADD audit row.",
+        "operationId" : "addMarketer",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddMarketerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Marketer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/assign" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Assign or reassign consultants to a marketer",
+        "description" : "assignments.manage at a scope covering the marketer (and the current marketer of any consultant that moves). Body: consultantIds (1 to 200), marketerMemberId, backupMemberId, priority, status, allowOverCapacity. 409 OVER_CAPACITY (with capacity, current, adding, projected) unless allowOverCapacity is true; an override is audited at MEDIUM. Per-consultant result with previous (what Undo sends to /restore); a consultant that cannot be reached is skipped NOT_FOUND. One audit row per changed consultant plus one MARKETING_BULK. Idempotency-Key required.",
+        "operationId" : "assign",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/jobs" : {
+      "get" : {
+        "tags" : [ "jobs" ],
+        "summary" : "List jobs",
+        "description" : "Server-driven table of the Jobs board. Query: q (title, client, skill or location; 2 to 80 characters), and these repeatable filters (repeat the parameter; a comma is never a separator): status (OPEN, IN_REVIEW, ON_HOLD, FILLED, CLOSED), clientId, location, workMode (REMOTE, HYBRID, ON_SITE), skill, employment (CONTRACT, FTE, C2C), experience (JUNIOR, MID, SENIOR, LEAD); minMatch (0 to 100: jobs with a live match at least that good); sort (posted, title, client, status, submissions, match; 400 SORT_INVALID otherwise) and dir (asc or desc, default newest or best first); page (from 0), size (1 to 100, default 10). Answers a page and X-Total-Count.",
+        "operationId" : "list_4",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "minMatch",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "jobs" ],
+        "summary" : "Create a job",
+        "description" : "requirements.manage. Body: title (required), clientId (required, a client of this organization), contactId, description, location, workMode, employment, durationLabel, experienceLevel, rateMin, rateMax (whole currency units), rateUnit (HOUR or YEAR), positions, status (OPEN, IN_REVIEW or ON_HOLD; default OPEN), skills[] (at most 15). An Idempotency-Key is required: the same key and body returns the first answer. Free text goes through the sensitive-data scanner (422). Audit JOB_CREATE.",
+        "operationId" : "create_5",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}/assign" : {
+      "post" : {
+        "tags" : [ "jobs" ],
+        "summary" : "Assign a top-match consultant to the job",
+        "description" : "opportunities.manage (at ASSIGNED scope only for consultants the caller markets). Opens an application in stage ASSIGNED (with its CREATED event), marks the match ASSIGNED. Replaying it for an already assigned match answers the same application (alreadyAssigned = true) and changes nothing. 409 JOB_NOT_OPEN, MATCH_STATE (dismissed), CONSULTANT_UNAVAILABLE. Idempotency-Key optional. Audit JOB_ASSIGN.",
+        "operationId" : "assign_1",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "matchId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssignResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/jobs/bulk/status" : {
+      "post" : {
+        "tags" : [ "jobs" ],
+        "summary" : "Change the status of several jobs",
+        "description" : "requirements.manage. Body: ids[] (at most 100), status (OPEN, IN_REVIEW, ON_HOLD, FILLED or CLOSED). Jobs of another organization are skipped as NOT_FOUND; ones already in that status as UNCHANGED. Each result carries the previous status for an Undo. Idempotency-Key required. Audit JOB_STATUS per job and one JOB_BULK.",
+        "operationId" : "bulkStatus",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/invitations" : {
       "get" : {
         "tags" : [ "org-invitations" ],
         "summary" : "List invitations",
         "description" : "Newest first. Filters: status (PENDING, ACCEPTED, EXPIRED, REVOKED), roleId, departmentGroupId, an invited-on range (from inclusive, to exclusive, ISO instants) and q (email or name contains). A caller whose invite right is limited to members sees only the invitations they sent.",
-        "operationId" : "list_3",
+        "operationId" : "list_5",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -4896,7 +5605,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "Every group the caller may see",
         "description" : "Flat list with lead, parent, counts and version. 404 for someone who may not read the organization's structure.",
-        "operationId" : "list_4",
+        "operationId" : "list_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -4917,7 +5626,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "Create a department, team or cohort",
         "description" : "groups.manage. parentGroupId puts a TEAM under a DEPARTMENT (422 GROUP_PARENT_INVALID for anything else); leadMemberId must be an ACTIVE member (422 LEAD_NOT_ACTIVE). 409 GROUP_NAME_TAKEN, 422 ORG_LIMIT_REACHED.",
-        "operationId" : "create_4",
+        "operationId" : "create_6",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -4992,7 +5701,7 @@
       "post" : {
         "tags" : [ "org-dashboard" ],
         "summary" : "Hide an alert for 7 days (for the caller only)",
-        "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
+        "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT, APPLICATIONS_OVERDUE, LICENSES_ATTENTION, MARKETERS_OVERLOADED, APPLICATIONS_NEW, INTERVIEWS_WEEK, PLACEMENT_NEW, RESUMES_PENDING, CONSULTANTS_UNASSIGNED). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
         "operationId" : "dismiss_4",
         "parameters" : [ {
           "name" : "alertKey",
@@ -5009,6 +5718,444 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/DismissResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "List consultants",
+        "description" : "Paged, server-driven directory. Needs consultants.view. Query: q (name, email, title, location or skill; 2 to 80 characters), availability (AVAILABLE, ON_PROJECT, NOTICE, UNAVAILABLE), skill (exact), license (ACTIVE, EXPIRING, PENDING, NEEDS_REVIEW), marketerId (a seat id, or none for unassigned), workMode (REMOTE, HYBRID, ONSITE), status (ACTIVE default, INACTIVE), departmentId, sort=field,dir (repeatable; name, experience, availability, license, profile, joined; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 10).",
+        "operationId" : "list_7",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "availability",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "skill",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "license",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "marketerId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "workMode",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "departmentId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Add a consultant",
+        "description" : "consultants.edit. Body: displayName, email (unique per organization: 409 CONSULTANT_EXISTS), jobTitle, yearsExperience, locationLabel, workMode, skills[] (the first two are the primary chips), departmentGroupId. Free text goes through the sensitive-data scanner (422). Idempotency-Key required. One CONSULTANT_CREATE audit row. Answers 201 with the detail.",
+        "operationId" : "create_7",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{consultantId}/reactivate" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Reactivate a consultant",
+        "description" : "consultants.edit. Body: reason (optional). One CONSULTANT_REACTIVATE audit row.",
+        "operationId" : "reactivate",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{consultantId}/marketer" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Assign or change the marketer",
+        "description" : "assignments.manage (a TEAM holder may only name marketers inside their team). Body: marketerMemberId (an ACTIVE seat with marketer capacity: 422 MARKETER_INVALID), backupMemberId, priority. One CONSULTANT_ASSIGN audit row when the marketer changes.",
+        "operationId" : "marketer",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{consultantId}/deactivate" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Deactivate a consultant",
+        "description" : "consultants.edit. Body: reason (10 to 500 characters). The consultant leaves the default list and every KPI. One CONSULTANT_DEACTIVATE audit row.",
+        "operationId" : "deactivate",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{consultantId}/applications" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Drawer tab: applications",
+        "description" : "Applications of the consultant (newest stage change first) and their upcoming interviews.",
+        "operationId" : "applications",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applications"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Create a job application for a consultant",
+        "description" : "opportunities.manage. Body: requirementId (an OPEN job: 422 JOB_NOT_OPEN; 409 APPLICATION_EXISTS). Creates the application in stage ASSIGNED with its CREATED event and marks the match ASSIGNED. Idempotency-Key required. One APPLICATION_CREATE audit row. Answers 201.",
+        "operationId" : "createApplication",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApplicationCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/bulk/status" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Deactivate or reactivate many consultants",
+        "description" : "consultants.edit. Body: ids, action (DEACTIVATE or REACTIVATE), reason (10 to 500 characters to deactivate). Idempotency-Key required.",
+        "operationId" : "bulkStatus_1",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/bulk/marketer" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Assign one marketer to many consultants",
+        "description" : "assignments.manage. Body: ids, marketerMemberId. Idempotency-Key required. One CONSULTANT_ASSIGN row per changed consultant plus one CONSULTANT_BULK row.",
+        "operationId" : "bulkMarketer",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/bulk/availability" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Set the availability of many consultants",
+        "description" : "consultants.edit. Body: ids (1 to 200), availability. Idempotency-Key required. One CONSULTANT_UPDATE row per changed consultant plus one CONSULTANT_BULK row.",
+        "operationId" : "bulkAvailability",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -5038,7 +6185,7 @@
       "post" : {
         "tags" : [ "org-branding" ],
         "summary" : "Copy a published version into the draft (does not publish)",
-        "operationId" : "restore",
+        "operationId" : "restore_1",
         "parameters" : [ {
           "name" : "versionNo",
           "in" : "path",
@@ -5163,6 +6310,227 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications" : {
+      "get" : {
+        "tags" : [ "applications" ],
+        "summary" : "List applications",
+        "description" : "Paged, server-driven table. Query: q (2 to 80 characters: job title, consultant, client, application code, stage or next action), stage (repeatable or comma separated: ASSIGNED, SUBMITTED, UNDER_REVIEW, INTERVIEWING, OFFER, CLOSED), jobTitle, clientId, marketerId, from and to (applied date, yyyy-mm-dd), sort=field,dir (applied, job, consultant, client, stage, nextAction, moved; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 10). Answers a Page and X-Total-Count.",
+        "operationId" : "list_8",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "stage",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "name" : "jobTitle",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "clientId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "marketerId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "applications" ],
+        "summary" : "Add an application (a record)",
+        "description" : "Body: requirementId, consultantId, optional marketerMemberId (default: the consultant's assigned marketer), source, nextAction, nextActionDue, appliedOn, stage (ASSIGNED, or SUBMITTED when the consultant already submitted it). 409 DUPLICATE_APPLICATION for a second application of the same consultant to the same job. Idempotency-Key honoured. One APPLICATION_CREATE audit row.",
+        "operationId" : "create_8",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/{applicationId}/stage" : {
+      "post" : {
+        "tags" : [ "applications" ],
+        "summary" : "Record a stage move",
+        "description" : "Body: stage (the stage it is now in) with closedReason (HIRED, REJECTED, WITHDRAWN, NO_RESPONSE) when closing; or undoEventId (from the detail's undo token) to revert your own latest move. A stage change records what happened: Kiwiply never submits an application. 422 INVALID_TRANSITION (with the allowed stages) for a move backwards or out of Closed. Idempotency-Key honoured.",
+        "operationId" : "stage",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/{applicationId}/notes" : {
+      "post" : {
+        "tags" : [ "applications" ],
+        "summary" : "Add a note",
+        "description" : "Body: body (1 to 1000 characters, no sensitive identifiers). One NOTE event and one APPLICATION_NOTE audit row. Idempotency-Key honoured.",
+        "operationId" : "note",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
                 }
               }
             }
@@ -6799,7 +8167,7 @@
       },
       "post" : {
         "tags" : [ "application-resource" ],
-        "operationId" : "createApplication",
+        "operationId" : "createApplication_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -7161,7 +8529,7 @@
     "/api/admin/users/{login}/deactivate" : {
       "post" : {
         "tags" : [ "admin-user-action-resource" ],
-        "operationId" : "deactivate",
+        "operationId" : "deactivate_1",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -7270,7 +8638,7 @@
     "/api/admin/job-sources" : {
       "get" : {
         "tags" : [ "admin-job-source-resource" ],
-        "operationId" : "list_5",
+        "operationId" : "list_9",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -7937,7 +9305,7 @@
         "tags" : [ "roles" ],
         "summary" : "Rename a role or replace its permission set",
         "description" : "roles.manage at ORG scope. If-Match: the version (ETag) the editor last saw: 428 PRECONDITION_REQUIRED without it, 412 PRECONDITION_FAILED {currentVersion} when stale. A system template is 409 ROLE_SYSTEM (clone it first). Everything in the role, before and after, must be within the caller's own permissions (422 ROLE_CEILING {key, scope}).",
-        "operationId" : "update_5",
+        "operationId" : "update_6",
         "parameters" : [ {
           "name" : "roleId",
           "in" : "path",
@@ -8052,6 +9420,166 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/marketers/{memberId}" : {
+      "patch" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Change a marketer's capacity, status or title",
+        "description" : "assignments.manage at a scope covering the marketer. Body: any of capacity (1 to 200), status (ACTIVE or PAUSED), title. One MARKETER_UPDATE audit row when something changed.",
+        "operationId" : "updateMarketer",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateMarketerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Marketer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/jobs/{jobId}" : {
+      "get" : {
+        "tags" : [ "jobs" ],
+        "summary" : "One job: the detail drawer",
+        "description" : "Facts, description, skills, client contact, every match with its score and status (Top Matches), the submissions (applications) and the activity (application events and audit rows). ETag = the version PATCH expects as If-Match. 404 for another tenant's id.",
+        "operationId" : "get_6",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "jobs" ],
+        "summary" : "Edit a job (autosave)",
+        "description" : "requirements.manage. Body: any of title, description, location, workMode, employment, durationLabel, experienceLevel, rateMin, rateMax, rateUnit, positions, filled, status, contactId, skills (a JSON null clears a clearable field); any other key is 422. If-Match (the drawer's ETag) is required: 428 without, 412 when stale. A request that changes nothing writes no audit row. Audit JOB_STATUS (status) and JOB_UPDATE (the rest). Answers the new detail.",
+        "operationId" : "patch_4",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "If-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}" : {
+      "patch" : {
+        "tags" : [ "jobs" ],
+        "summary" : "Dismiss or restore a suggested match",
+        "description" : "opportunities.manage. Body: status = DISMISSED or SUGGESTED (the Undo). 409 MATCH_STATE for an assigned match. Audit JOB_MATCH_DISMISS / JOB_MATCH_RESTORE. Answers the job detail.",
+        "operationId" : "matchStatus",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "matchId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MatchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/groups/{groupId}" : {
       "get" : {
         "tags" : [ "org-groups" ],
@@ -8111,7 +9639,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "Rename, retype, re-parent, change the lead, status, icon or colour of a group",
         "description" : "groups.manage. If-Match is required inside the Enterprise flag (428 without, 412 {currentVersion} when stale). Moving a team under another department re-points its members' department in the same transaction. clearParent / clearLead remove them.",
-        "operationId" : "update_6",
+        "operationId" : "update_7",
         "parameters" : [ {
           "name" : "groupId",
           "in" : "path",
@@ -8152,6 +9680,80 @@
         }
       }
     },
+    "/api/orgs/{orgId}/consultants/{consultantId}" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "One consultant: the drawer",
+        "description" : "Overview data, checklist, marketer, what the caller may do (actions). ETag = the version PATCH expects as If-Match. 404 outside the caller's reach.",
+        "operationId" : "get_7",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Edit one consultant",
+        "description" : "consultants.edit. Body: any of jobTitle, yearsExperience, locationLabel, workMode, availabilityStatus, availableFrom, licenseStatus, licenseValidUntil, departmentGroupId (a JSON null clears a nullable one); any other key is 422. If-Match (the drawer's ETag) is required: 428 without, 412 when stale. One CONSULTANT_UPDATE audit row; a request that changes nothing writes none.",
+        "operationId" : "patch_5",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "If-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/branding/draft" : {
       "patch" : {
         "tags" : [ "org-branding" ],
@@ -8184,6 +9786,73 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/{applicationId}" : {
+      "get" : {
+        "tags" : [ "applications" ],
+        "summary" : "One application: the detail drawer",
+        "description" : "Stepper with the date each stage was recorded, the timeline, notes, activity, the fields of Application Details, what the caller may do (actions) and, for a few minutes after the caller's own latest stage move, an undo token. 404 outside the caller's scope.",
+        "operationId" : "get_8",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "applications" ],
+        "summary" : "Edit the next action, its due date or the marketer",
+        "description" : "Body: any of nextAction, nextActionDue (yyyy-mm-dd) and marketerMemberId (a JSON null clears each); any other key is 422 FIELD_UNKNOWN. Changing the marketer needs assignments.manage. A request that changes nothing writes no event and no audit row.",
+        "operationId" : "patch_6",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
                 }
               }
             }
@@ -9086,7 +10755,7 @@
       "get" : {
         "tags" : [ "job-matches" ],
         "summary" : "Today's matches and the switch",
-        "operationId" : "list_6",
+        "operationId" : "list_10",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9214,7 +10883,7 @@
         "tags" : [ "field-cache-sync" ],
         "summary" : "List my field cache",
         "description" : "All learned field answers owned by the current user.",
-        "operationId" : "list_7",
+        "operationId" : "list_11",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9496,6 +11165,143 @@
         }
       }
     },
+    "/api/orgs/{orgId}/resumes/{resumeId}" : {
+      "get" : {
+        "tags" : [ "resumes" ],
+        "summary" : "One resume: the drawer",
+        "description" : "The row, the preview data (headline, summary, skills, experience) and what the caller may do with it (actions). 404 outside the caller's scope.",
+        "operationId" : "get_9",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resumes/{resumeId}/export" : {
+      "get" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Download or print a generated copy",
+        "description" : "format=txt (attachment) or html (a script-free, self-contained printable page). Generated from the structured resume: there is no stored file. Needs resumes.view_for. One RESUME_EXPORT audit row.",
+        "operationId" : "export",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "format",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resumes/filters" : {
+      "get" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Filter options",
+        "description" : "Departments and owners that appear on resumes inside the caller's scope.",
+        "operationId" : "filters",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FilterOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resumes/counts" : {
+      "get" : {
+        "tags" : [ "resumes" ],
+        "summary" : "The four KPI tiles",
+        "description" : "Total, Primary, Needs Approval and Updated This Week, each with its value, the figure one month (week for updates) ago when it can be rebuilt from the rows, and eight weekly points. previous and the deltas are null when no history exists (the primary flag is not versioned): never estimated.",
+        "operationId" : "counts",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Counts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resumes/consultants" : {
+      "get" : {
+        "tags" : [ "resumes" ],
+        "summary" : "Consultants a resume can be added for",
+        "description" : "Needs resumes.edit_for. q filters by name or email; at most 50.",
+        "operationId" : "consultants",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ConsultantOption"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/permissions" : {
       "get" : {
         "tags" : [ "roles" ],
@@ -9521,7 +11327,7 @@
         "tags" : [ "members" ],
         "summary" : "List employees",
         "description" : "Paged, server-driven table of the Employees board. Needs a people permission (member.view_summary, hr.view or one of the members.* keys); the rows are only the seats inside the widest scope the caller holds it at. Query: q (name, email, title, role or department/team name; 2 to 80 characters), status (repeatable or comma separated: INVITED, ACTIVE, SUSPENDED, LEFT, REMOVED; default INVITED, ACTIVE, SUSPENDED), roleId, departmentId, teamId, managerId, sort=field,dir (repeatable; name, joined, status, lastActive; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 25). Answers a PageDTO and X-Total-Count. A row seen only through a summary scope carries no work email, manager or consent (summaryOnly = true).",
-        "operationId" : "list_8",
+        "operationId" : "list_12",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -9708,7 +11514,7 @@
         "tags" : [ "members" ],
         "summary" : "The KPI tiles of the Employees board",
         "description" : "Total, active, invited, suspended, departments and teams, each with the figure one month ago and the delta rebuilt from real history (seat timestamps and the audit trail). previous and the deltas are null when that history does not exist (an organization younger than a month, a seat that ended with no time recorded, a suspension nobody audited): never estimated.",
-        "operationId" : "counts",
+        "operationId" : "counts_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9723,12 +11529,214 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/workload" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Workload report",
+        "description" : "Per marketer: capacity, assigned, percent, high-priority, paused, without a backup, open applications, backup-for; plus the summary.",
+        "operationId" : "workload",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkloadReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/marketers/candidates" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Members who may be added as marketers",
+        "description" : "assignments.manage at ORG scope. Active members holding a marketing role who have no capacity yet.",
+        "operationId" : "candidates",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MarketerCandidates"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/kpis" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "The four KPI tiles",
+        "description" : "Assigned consultants, active marketers, unassigned consultants, overloaded marketers: each with the figure 30 days ago, the delta, and an 8-week series, all rebuilt from the rows' own timestamps (see the note in the answer).",
+        "operationId" : "kpis",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Kpis"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/filters" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Filter options of the table",
+        "description" : "Statuses, priorities, availabilities, and the clients when the caller holds clients.view.",
+        "operationId" : "filters_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Filters"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/consultants" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "The consultants table",
+        "description" : "workload.view or assignments.manage. Query: marketerId (one marketer's consultants), unassigned=true (consultants nobody carries), q (name, job title, email, skill, and client name with clients.view), status (ACTIVE, PAUSED), priority (HIGH, MEDIUM, LOW), clientId (needs clients.view), availability, noBackup, sort=field,dir (name, priority, status, activeApps, lastActivity, assigned), page (from 0), size (1 to 100, default 10). A PageDTO and X-Total-Count.",
+        "operationId" : "consultants_1",
+        "parameters" : [ {
+          "name" : "marketerId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "unassigned",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "priority",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "clientId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "availability",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "noBackup",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/jobs/summary" : {
+      "get" : {
+        "tags" : [ "jobs" ],
+        "summary" : "The KPI tiles and filter facets of the Jobs board",
+        "description" : "Open Jobs, New This Week, Assigned Opportunities and High Match Jobs, each with the figure of the last period, the delta and an 8-week series (previous and delta are null when the organization has no history to compare with: never estimated); plus the facets that fill the filter menus (status, client, location, work mode, job type, experience, skills) with their counts, and what the caller may do (access).",
+        "operationId" : "summary_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Summary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/invitations/counts" : {
       "get" : {
         "tags" : [ "org-invitations" ],
         "summary" : "Invitation counters",
         "description" : "Pending, accepted, expired and revoked, each with the change against the month before (invitations sent in the last 30 days minus the 30 days before).",
-        "operationId" : "counts_1",
+        "operationId" : "counts_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9951,7 +11959,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "The Org Admin dashboard",
         "description" : "{orgId, generatedAt, widgets: [{key, state: ok|empty|unavailable|error, reason?, module?, data?}]} in board order. dashboard.view_org required; each widget additionally needs its own permission (otherwise it is absent) and its module on (otherwise state unavailable, reason NOT_ENABLED, no data). data is present only when state is ok. 404 for everyone else, and whenever the enterprise or roles flag is off for the organization.",
-        "operationId" : "get_6",
+        "operationId" : "get_10",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9966,11 +11974,148 @@
         }
       }
     },
+    "/api/orgs/{orgId}/consultants/{consultantId}/job-options" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Open jobs this consultant has no application for (the Create Job Application picker)",
+        "description" : "Needs opportunities.manage.",
+        "operationId" : "jobOptions",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/JobOption"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{consultantId}/assignments" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Drawer tab: assignments",
+        "description" : "The marketer and backup, the jobs assigned to the consultant, and their placements.",
+        "operationId" : "assignments",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Assignments"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{consultantId}/activity" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Drawer tab: activity",
+        "description" : "Stage events of the consultant's applications, plus audit rows about the consultant for callers with audit.view. limit 1 to 50, default 20.",
+        "operationId" : "activity_3",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Activity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/filters" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "The pickers of the board: skills, marketers with their workload, departments",
+        "operationId" : "filters_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Filters"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/counts" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "The four KPI tiles",
+        "description" : "Total, Available, On Project and Needs Review among ACTIVE consultants the caller reaches. Each tile has the figure, the same figure counting only consultants created more than 30 days ago (previous), the delta, and eight weekly sparkline points. previous and the deltas are null when nobody joined more than 30 days ago (no baseline): never estimated.",
+        "operationId" : "counts_3",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Counts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/branding" : {
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_7",
+        "operationId" : "get_11",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -10023,6 +12168,169 @@
                   "additionalProperties" : {
                     "$ref" : "#/components/schemas/ColourCheck"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/pipeline" : {
+      "get" : {
+        "tags" : [ "applications" ],
+        "summary" : "The pipeline board",
+        "description" : "One column per stage with its total and the 20 most recently moved applications that match the same filters as the table (q, jobTitle, clientId, marketerId, from, to).",
+        "operationId" : "pipeline",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "jobTitle",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "clientId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "marketerId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Pipeline"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/pickers" : {
+      "get" : {
+        "tags" : [ "applications" ],
+        "summary" : "Candidates for the Add Application dialog",
+        "description" : "kind = consultant, job or marketer; q narrows by name. Needs a key that may add applications (submissions.prepare or opportunities.manage); up to 20 results.",
+        "operationId" : "pickers_1",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "consultant"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Pickers"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/filters" : {
+      "get" : {
+        "tags" : [ "applications" ],
+        "summary" : "The options of the filter dropdowns",
+        "description" : "Job titles, clients and marketers that have at least one application the caller can see, and the six stages.",
+        "operationId" : "filterOptions",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Filters"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/counts" : {
+      "get" : {
+        "tags" : [ "applications" ],
+        "summary" : "The KPI tiles of the Applications board",
+        "description" : "Total, In Review (submitted + under review), Interviewing and Offers, each with its figure thirty days ago rebuilt from the application history and a weekly series for the sparkline. previous and the deltas are null when the history does not reach back that far: never estimated.",
+        "operationId" : "counts_4",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Counts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/applications/analytics" : {
+      "get" : {
+        "tags" : [ "applications" ],
+        "summary" : "Analytics",
+        "description" : "Counts of the applications the caller sees: by stage, how many ever reached each stage, applications per month (six months), closing reasons, top clients, sources and marketers, and the average age of open applications.",
+        "operationId" : "analytics_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Analytics"
                 }
               }
             }
@@ -10104,7 +12412,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_8",
+        "operationId" : "get_12",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -11283,7 +13591,7 @@
     "/api/admin/users/{login}/sessions" : {
       "get" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "list_9",
+        "operationId" : "list_13",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -11313,7 +13621,7 @@
     "/api/admin/subscribers" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "list_10",
+        "operationId" : "list_14",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -11373,7 +13681,7 @@
     "/api/admin/subscribers/export" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "export",
+        "operationId" : "export_1",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -11399,7 +13707,7 @@
     "/api/admin/subscribers/counts" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "counts_2",
+        "operationId" : "counts_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -11421,7 +13729,7 @@
     "/api/admin/settings" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "list_11",
+        "operationId" : "list_15",
         "parameters" : [ {
           "name" : "area",
           "in" : "query",
@@ -11491,7 +13799,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_9",
+        "operationId" : "get_13",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -11528,7 +13836,7 @@
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_12",
+        "operationId" : "list_16",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -11588,7 +13896,7 @@
     "/api/admin/inquiries/counts" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "counts_3",
+        "operationId" : "counts_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -11610,7 +13918,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_13",
+        "operationId" : "list_17",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -11696,7 +14004,7 @@
     "/api/admin/customers/counts" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "counts_4",
+        "operationId" : "counts_7",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -11718,7 +14026,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_14",
+        "operationId" : "list_18",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -11778,7 +14086,7 @@
     "/api/admin/bug-reports/counts" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "counts_5",
+        "operationId" : "counts_8",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -12043,7 +14351,7 @@
     "/api/account/export" : {
       "get" : {
         "tags" : [ "account-export-resource" ],
-        "operationId" : "export_1",
+        "operationId" : "export_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -12962,6 +15270,212 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "VisibilityRequest" : {
+        "type" : "object",
+        "properties" : {
+          "visibility" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Actions" : {
+        "type" : "object",
+        "properties" : {
+          "setPrimary" : {
+            "type" : "boolean"
+          },
+          "setVisibility" : {
+            "type" : "boolean"
+          },
+          "decide" : {
+            "type" : "boolean"
+          },
+          "export" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ConsultantRef" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "initials" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "jobTitle" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "workMode" : {
+            "type" : "string"
+          },
+          "availability" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Detail" : {
+        "type" : "object",
+        "properties" : {
+          "row" : {
+            "$ref" : "#/components/schemas/Row"
+          },
+          "preview" : {
+            "$ref" : "#/components/schemas/Preview"
+          },
+          "actions" : {
+            "$ref" : "#/components/schemas/Actions"
+          }
+        }
+      },
+      "Experience" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string"
+          },
+          "employer" : {
+            "type" : "string"
+          },
+          "startYear" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "endYear" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PersonRef" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Preview" : {
+        "type" : "object",
+        "properties" : {
+          "headline" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "skills" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "experience" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Experience"
+            }
+          }
+        }
+      },
+      "Row" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultant" : {
+            "$ref" : "#/components/schemas/ConsultantRef"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "fileName" : {
+            "type" : "string"
+          },
+          "targetRole" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "primary" : {
+            "type" : "boolean"
+          },
+          "visibility" : {
+            "type" : "string"
+          },
+          "approvalStatus" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "owner" : {
+            "$ref" : "#/components/schemas/PersonRef"
+          },
+          "fileSizeKb" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "VisibilityResult" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "$ref" : "#/components/schemas/Detail"
+          },
+          "previous" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PrimaryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "primary" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PrimaryResult" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "$ref" : "#/components/schemas/Detail"
+          },
+          "previousPrimaryId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -14641,6 +17155,28 @@
           }
         }
       },
+      "DecisionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "decision" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DecisionResult" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "$ref" : "#/components/schemas/Detail"
+          },
+          "previous" : {
+            "type" : "string"
+          }
+        }
+      },
       "ReasonRequest" : {
         "type" : "object",
         "properties" : {
@@ -14975,6 +17511,169 @@
           }
         }
       },
+      "UnassignRequest" : {
+        "type" : "object",
+        "properties" : {
+          "consultantIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "RestoreRequest" : {
+        "type" : "object",
+        "properties" : {
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RestoreRow"
+            }
+          }
+        }
+      },
+      "RestoreRow" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "marketerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "backupMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "priority" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AddMarketerRequest" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "capacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Marketer" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "capacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "assigned" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "percent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "overloaded" : {
+            "type" : "boolean"
+          },
+          "canManage" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "AssignRequest" : {
+        "type" : "object",
+        "properties" : {
+          "consultantIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "marketerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "backupMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "priority" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "allowOverCapacity" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ActivityItem" : {
+        "type" : "object",
+        "properties" : {
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "actor" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssignResult" : {
+        "type" : "object",
+        "properties" : {
+          "job" : {
+            "$ref" : "#/components/schemas/Detail"
+          },
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "applicationCode" : {
+            "type" : "string"
+          },
+          "alreadyAssigned" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "IdsRequest" : {
         "type" : "object",
         "properties" : {
@@ -15177,21 +17876,6 @@
           }
         }
       },
-      "Row" : {
-        "type" : "object",
-        "properties" : {
-          "memberId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "code" : {
-            "type" : "string"
-          }
-        }
-      },
       "DismissResponse" : {
         "type" : "object",
         "properties" : {
@@ -15201,6 +17885,42 @@
           "until" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "AssignmentInfo" : {
+        "type" : "object",
+        "properties" : {
+          "marketer" : {
+            "$ref" : "#/components/schemas/PersonRef"
+          },
+          "backup" : {
+            "$ref" : "#/components/schemas/PersonRef"
+          },
+          "priority" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "assignedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ApplicationCreated" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "stage" : {
+            "type" : "string"
           }
         }
       },
@@ -15270,6 +17990,21 @@
           },
           "branding" : {
             "$ref" : "#/components/schemas/OrgBrandingDTO"
+          }
+        }
+      },
+      "StageRequest" : {
+        "type" : "object",
+        "properties" : {
+          "stage" : {
+            "type" : "string"
+          },
+          "closedReason" : {
+            "type" : "string"
+          },
+          "undoEventId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -15844,214 +18579,26 @@
           }
         }
       },
-      "Actions" : {
+      "UpdateMarketerRequest" : {
         "type" : "object",
         "properties" : {
-          "edit" : {
-            "type" : "boolean"
-          },
-          "manageRoles" : {
-            "type" : "boolean"
-          },
-          "suspend" : {
-            "type" : "boolean"
-          },
-          "reinstate" : {
-            "type" : "boolean"
-          },
-          "offboard" : {
-            "type" : "boolean"
-          },
-          "viewActivity" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "ActivityItem" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
+          "capacity" : {
             "type" : "integer",
-            "format" : "int64"
-          },
-          "at" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "actor" : {
-            "$ref" : "#/components/schemas/PersonRef"
-          },
-          "action" : {
-            "type" : "string"
-          },
-          "risk" : {
-            "type" : "string"
-          },
-          "targetType" : {
-            "type" : "string"
-          },
-          "summary" : {
-            "type" : "string"
-          }
-        }
-      },
-      "Detail" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "initials" : {
-            "type" : "string"
-          },
-          "workEmail" : {
-            "type" : "string"
-          },
-          "phone" : {
-            "type" : "string"
-          },
-          "location" : {
-            "type" : "string"
-          },
-          "timezone" : {
-            "type" : "string"
-          },
-          "avatarUrl" : {
-            "type" : "string"
+            "format" : "int32"
           },
           "status" : {
             "type" : "string"
           },
-          "statusSince" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
           "title" : {
             "type" : "string"
-          },
-          "roles" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/RoleRef"
-            }
-          },
-          "primaryRoleKey" : {
-            "type" : "string"
-          },
-          "department" : {
-            "$ref" : "#/components/schemas/GroupRef"
-          },
-          "team" : {
-            "$ref" : "#/components/schemas/GroupRef"
-          },
-          "manager" : {
-            "$ref" : "#/components/schemas/PersonRef"
-          },
-          "directReports" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PersonRef"
-            }
-          },
-          "joinedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "lastActiveAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "leftAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "consentScope" : {
-            "type" : "string"
-          },
-          "consentFullTo" : {
-            "$ref" : "#/components/schemas/PersonRef"
-          },
-          "invite" : {
-            "$ref" : "#/components/schemas/InviteMeta"
-          },
-          "scheduledOffboarding" : {
-            "$ref" : "#/components/schemas/ScheduledOffboarding"
-          },
-          "actions" : {
-            "$ref" : "#/components/schemas/Actions"
-          },
-          "recentActivity" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/ActivityItem"
-            }
-          },
-          "summaryOnly" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "string"
           }
         }
       },
-      "GroupRef" : {
+      "MatchRequest" : {
         "type" : "object",
         "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
+          "status" : {
             "type" : "string"
-          }
-        }
-      },
-      "InviteMeta" : {
-        "type" : "object",
-        "properties" : {
-          "expiresAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "expired" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "PersonRef" : {
-        "type" : "object",
-        "properties" : {
-          "memberId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "avatarUrl" : {
-            "type" : "string"
-          }
-        }
-      },
-      "RoleRef" : {
-        "type" : "object",
-        "properties" : {
-          "roleId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "key" : {
-            "type" : "string"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "primary" : {
-            "type" : "boolean"
           }
         }
       },
@@ -17898,6 +20445,127 @@
           }
         }
       },
+      "Page" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Row"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "FilterOptions" : {
+        "type" : "object",
+        "properties" : {
+          "departments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Option"
+            }
+          },
+          "owners" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Option"
+            }
+          }
+        }
+      },
+      "Option" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Counts" : {
+        "type" : "object",
+        "properties" : {
+          "asOf" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "total" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "primary" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "needsApproval" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "updatedThisWeek" : {
+            "$ref" : "#/components/schemas/Tile"
+          }
+        }
+      },
+      "Tile" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "previous" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "delta" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deltaPercent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "series" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "ConsultantOption" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          }
+        }
+      },
       "Catalog" : {
         "type" : "object",
         "properties" : {
@@ -17942,32 +20610,6 @@
             "items" : {
               "$ref" : "#/components/schemas/Entry"
             }
-          }
-        }
-      },
-      "Page" : {
-        "type" : "object",
-        "properties" : {
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Row"
-            }
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "size" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "total" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "hasNext" : {
-            "type" : "boolean"
           }
         }
       },
@@ -18094,54 +20736,174 @@
           }
         }
       },
-      "Counts" : {
+      "Summary" : {
         "type" : "object",
         "properties" : {
-          "asOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "marketers" : {
+            "type" : "integer",
+            "format" : "int32"
           },
-          "scope" : {
-            "type" : "string"
+          "totalAssigned" : {
+            "type" : "integer",
+            "format" : "int32"
           },
-          "total" : {
-            "$ref" : "#/components/schemas/Tile"
+          "avgPerMarketer" : {
+            "type" : "number",
+            "format" : "double"
           },
-          "active" : {
-            "$ref" : "#/components/schemas/Tile"
+          "overloaded" : {
+            "type" : "integer",
+            "format" : "int32"
           },
-          "invited" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "suspended" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "departments" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "teams" : {
-            "$ref" : "#/components/schemas/Tile"
+          "unassigned" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
-      "Tile" : {
+      "WorkloadReport" : {
         "type" : "object",
         "properties" : {
-          "value" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkloadRow"
+            }
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/Summary"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "WorkloadRow" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "previous" : {
-            "type" : "integer",
-            "format" : "int64"
+          "name" : {
+            "type" : "string"
           },
-          "delta" : {
-            "type" : "integer",
-            "format" : "int64"
+          "title" : {
+            "type" : "string"
           },
-          "deltaPercent" : {
-            "type" : "number",
-            "format" : "double"
+          "status" : {
+            "type" : "string"
+          },
+          "capacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "assigned" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "percent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "overloaded" : {
+            "type" : "boolean"
+          },
+          "highPriority" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "paused" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "withoutBackup" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "activeApps" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "backupFor" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "MarketerList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Marketer"
+            }
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/Summary"
+          },
+          "canManage" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "MarketerCandidates" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Option"
+            }
+          }
+        }
+      },
+      "Kpis" : {
+        "type" : "object",
+        "properties" : {
+          "tiles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Tile"
+            }
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "note" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Filters" : {
+        "type" : "object",
+        "properties" : {
+          "clients" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Option"
+            }
+          },
+          "statuses" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "priorities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "availabilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -18421,47 +21183,6 @@
           }
         }
       },
-      "Summary" : {
-        "type" : "object",
-        "properties" : {
-          "departments" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "teams" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "employees" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "teamMembers" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "unplaced" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "departmentLeads" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "teamLeads" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "averageTeamSize" : {
-            "type" : "number",
-            "format" : "double"
-          },
-          "inactive" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
       "ActivityData" : {
         "type" : "object",
         "properties" : {
@@ -18494,6 +21215,10 @@
           "count" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -18522,6 +21247,22 @@
           "suspended" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "PipelineData" : {
+        "type" : "object",
+        "description" : "Applications by stage; total is the sum of the slices",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "slices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Slice"
+            }
           }
         }
       },
@@ -18583,6 +21324,43 @@
           }
         }
       },
+      "Series" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "values" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "Slice" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pct" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
       "StatTileData" : {
         "type" : "object",
         "description" : "A count with its real change. previous is the same count 30 days ago (from seat start and end dates); deltaPct is null when previous is 0.",
@@ -18617,6 +21395,13 @@
               "format" : "int64"
             },
             "description" : "Named parts of the number, for example consultants: active, invited, suspended"
+          },
+          "unit" : {
+            "type" : "string",
+            "description" : "null or 'count' for a plain count; 'money' when value is in minor units of currency"
+          },
+          "currency" : {
+            "type" : "string"
           }
         }
       },
@@ -18630,6 +21415,24 @@
           "setupFeePaidAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "TeamPerformanceData" : {
+        "type" : "object",
+        "description" : "Counts per calendar month (UTC), oldest first, the last month being the current partial one",
+        "properties" : {
+          "months" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "series" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Series"
+            }
           }
         }
       },
@@ -18647,7 +21450,7 @@
           },
           "reason" : {
             "type" : "string",
-            "description" : "Why the widget is empty or unavailable: NOT_ENABLED (its module is off or not built yet), NO_CONSULTANTS, NO_EMPLOYEES, NO_ALERTS, NO_ACTIVITY, NOTHING_PENDING, PROVIDER_FAILED"
+            "description" : "Why the widget is empty or unavailable: NOT_ENABLED (its module is off or not built yet), NO_CONSULTANTS, NO_EMPLOYEES, NO_APPLICATIONS, NO_INTERVIEWS, NO_PLACEMENTS, NO_SPEND, NO_ALERTS, NO_ACTIVITY, NOTHING_PENDING, PROVIDER_FAILED"
           },
           "module" : {
             "type" : "string",
@@ -18657,6 +21460,10 @@
             "description" : "consultants.total, employees.active: StatTile. invites.pending: Invites. activity.recent: Activity. alerts: Alerts. quick.actions: QuickActions. subscription.summary: SubscriptionSummary.",
             "oneOf" : [ {
               "$ref" : "#/components/schemas/StatTileData"
+            }, {
+              "$ref" : "#/components/schemas/TeamPerformanceData"
+            }, {
+              "$ref" : "#/components/schemas/PipelineData"
             }, {
               "$ref" : "#/components/schemas/InvitesData"
             }, {
@@ -18668,6 +21475,190 @@
             }, {
               "$ref" : "#/components/schemas/SubscriptionSummaryData"
             } ]
+          }
+        }
+      },
+      "JobOption" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "clientName" : {
+            "type" : "string"
+          },
+          "score" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Assignments" : {
+        "type" : "object",
+        "properties" : {
+          "assignment" : {
+            "$ref" : "#/components/schemas/AssignmentInfo"
+          },
+          "jobs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/JobAssignment"
+            }
+          },
+          "placements" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlacementItem"
+            }
+          }
+        }
+      },
+      "JobAssignment" : {
+        "type" : "object",
+        "properties" : {
+          "requirementId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "clientName" : {
+            "type" : "string"
+          },
+          "jobStatus" : {
+            "type" : "string"
+          },
+          "score" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "assignedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PlacementItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          },
+          "clientName" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "endDate" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
+      "ApplicationItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "jobTitle" : {
+            "type" : "string"
+          },
+          "clientName" : {
+            "type" : "string"
+          },
+          "stage" : {
+            "type" : "string"
+          },
+          "closedReason" : {
+            "type" : "string"
+          },
+          "appliedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "nextAction" : {
+            "type" : "string"
+          },
+          "nextActionDue" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "stageChangedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Applications" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApplicationItem"
+            }
+          },
+          "interviews" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InterviewItem"
+            }
+          }
+        }
+      },
+      "InterviewItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "clientName" : {
+            "type" : "string"
+          },
+          "scheduledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "durationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "roundLabel" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Activity" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityItem"
+            }
           }
         }
       },
@@ -18689,6 +21680,67 @@
           },
           "suggestion" : {
             "type" : "string"
+          }
+        }
+      },
+      "Column" : {
+        "type" : "object",
+        "properties" : {
+          "stage" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Row"
+            }
+          }
+        }
+      },
+      "Pipeline" : {
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Column"
+            }
+          }
+        }
+      },
+      "PickerItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "sub" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Pickers" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PickerItem"
+            }
           }
         }
       },

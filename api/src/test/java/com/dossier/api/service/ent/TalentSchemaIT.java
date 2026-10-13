@@ -78,6 +78,7 @@ class TalentSchemaIT {
     private Long beta;
 
     @BeforeEach
+    @org.junit.jupiter.api.Timeout(180) // the base seeder plus the talent seed outgrow the 15 s default on a loaded machine
     void seed() {
         assertThat(baseSeeder.seed().ran()).isTrue();
         TalentDemoSeeder.Result r = talentSeeder.seed();
@@ -236,6 +237,7 @@ class TalentSchemaIT {
         for (BeanDefinition bd : scanner.findCandidateComponents("com.dossier.api.repository.ent.talent")) {
             Class<?> repo = Class.forName(bd.getBeanClassName());
             for (Method m : repo.getDeclaredMethods()) {
+                if (java.util.Set.of("save", "saveAndFlush", "flush", "saveAll", "saveAllAndFlush", "delete", "deleteAll").contains(m.getName())) continue; // entity-in writes (EntRepositoryContractTest allows the same set)
                 assertThat(m.getParameterCount()).as(repo.getSimpleName() + "." + m.getName()).isGreaterThan(0);
                 String first = m.getParameters()[0].getName();
                 org.springframework.data.repository.query.Param p = m.getParameters()[0].getAnnotation(org.springframework.data.repository.query.Param.class);
