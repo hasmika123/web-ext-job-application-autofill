@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  * ASSIGNED / OWN = applications the caller is the marketer of. Writes need one of the recording keys, at a scope that covers the application.
  * Everything that fails (no key, out of scope, a foreign tenant, a closed organization) is the same generic 404.
  */
-@Component
+@Component("entApplicationAccess")
 public class ApplicationAccess {
 
     public static final String KEY_VIEW = "pipeline.view";

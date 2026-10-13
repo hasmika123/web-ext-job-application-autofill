@@ -14,7 +14,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /** Names of the people on an application: marketers are org seats (name from the account), consultants and clients come from their own rows. */
-@Component
+@Component("entApplicationNames")
 public class ApplicationNames {
 
     private final OrgMemberDirectoryRepository directory;

@@ -45,7 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
  * analytics and the detail drawer. Everything starts from {@code a.orgId = :orgId} and is narrowed to the caller's scope; a row outside the
  * scope is the same generic 404 as a row of another tenant.
  */
-@Service
+@Service("entApplicationQueryService")
 @Transactional(readOnly = true)
 public class ApplicationQueryService {
 

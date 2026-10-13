@@ -217,7 +217,19 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null)),
         // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
         Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null)),
+        // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
+        Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/pipeline", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/analytics", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/{applicationId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/applications", Case.versioned(201, "APPLICATION_CREATE", w -> "{\"requirementId\":" + w.talent.requirementId() + ",\"consultantId\":" + w.talent.spareConsultantId() + "}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/applications/{applicationId}", Case.versioned(200, "APPLICATION_UPDATE", w -> "{\"nextAction\":\"Hijacked\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/stage", Case.versioned(200, "APPLICATION_STAGE", w -> "{\"stage\":\"SUBMITTED\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/notes", Case.versioned(201, "APPLICATION_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -293,6 +305,8 @@ class OrgIsolationIT {
         OrgGroup department;
         String memberVersion;
         Long offboardingId;
+        /** Applications page: one client, job, two consultants and an ASSIGNED application of this organization. */
+        com.dossier.api.web.rest.ent.ApplicationItSupport.Rows talent;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -402,6 +416,7 @@ class OrgIsolationIT {
             offboardingId = offboardingRows.saveAndFlush(sched).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
+            talent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
@@ -431,6 +446,7 @@ class OrgIsolationIT {
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
+            ids.put("applicationId", String.valueOf(talent.applicationId()));
             return ids;
         }
 
@@ -543,6 +559,7 @@ class OrgIsolationIT {
         s.append("brandingVersions:").append(brandingVersions.findAllByOrgIdNewestFirst(w.org.getId()).stream().map(v -> v.getVersionNo() + "|" + v.getSnapshotJson()).toList()).append('\n');
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');
+        s.append(com.dossier.api.web.rest.ent.ApplicationItSupport.fingerprint(em, w.org.getId()));
         return s.toString();
     }
 

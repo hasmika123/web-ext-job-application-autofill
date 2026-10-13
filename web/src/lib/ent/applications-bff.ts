@@ -6,7 +6,7 @@ import { badBody, forward, readObject } from "@/lib/admin-proxy";
  * machine, Idempotency-Key). The API answers the same generic 404 for a row outside the caller's reach, a foreign organization and a missing
  * id. Only the routes below are forwarded; anything else is a 404 from this layer, never an open proxy.
  */
-const ID = "\d{1,18}";
+const ID = "\\d{1,18}";
 const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "GET", pattern: /^$/, body: false },
   { method: "POST", pattern: /^$/, body: true },

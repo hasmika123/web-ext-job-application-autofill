@@ -41,7 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (the Activity tab) and one organization audit row. Everything is checked against the caller's key and scope first; whatever fails is the
  * same generic 404 as another tenant's row.
  */
-@Service
+@Service("entApplicationCommandService")
 public class ApplicationCommandService {
 
     public static final String AUDIT_CREATE = "APPLICATION_CREATE";

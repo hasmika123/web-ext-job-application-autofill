@@ -107,7 +107,7 @@ public class OrgApplicationResource {
     @OrgPermissionRequired
     public ApplicationDTO.Pickers pickers(
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
-        @RequestParam(name = "kind") String kind,
+        @RequestParam(name = "kind", defaultValue = "consultant") String kind,
         @RequestParam(name = "q", required = false) String q
     ) {
         return query.pickers(me, kind, q);
