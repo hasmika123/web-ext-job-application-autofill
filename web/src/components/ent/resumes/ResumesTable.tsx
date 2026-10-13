@@ -157,28 +157,28 @@ export function ResumesTable(p: TableProps) {
                 }}
                 className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-accent-soft/60" : p.selected.has(r.id) ? "bg-accent-soft/30" : "hover:bg-paper-2/50"}`}
               >
-                <td className="w-10 px-2.5 py-2.5">
+                <td className="w-10 px-2.5 py-2">
                   <Check checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} label={`Select ${r.name}`} />
                 </td>
-                <td className="min-w-[11rem] max-w-[15rem] px-2.5 py-2.5">
+                <td className="min-w-[11rem] max-w-[15rem] px-2.5 py-2">
                   <ConsultantCell row={r} />
                 </td>
-                <td className="min-w-[10rem] max-w-[14rem] px-2.5 py-2.5">
+                <td className="min-w-[10rem] max-w-[14rem] px-2.5 py-2">
                   <NameCell row={r} />
                 </td>
-                <td className={`max-w-[9rem] px-2.5 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.targetRole ?? "—"}</td>
-                <td className="whitespace-nowrap px-2.5 py-2.5 text-ink-soft">{versionText(r.version)}</td>
-                <td className="px-2.5 py-2.5">
+                <td className={`max-w-[9rem] px-2.5 py-2 text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.targetRole ?? "—"}</td>
+                <td className="whitespace-nowrap px-2.5 py-2 text-ink-soft">{versionText(r.version)}</td>
+                <td className="px-2.5 py-2">
                   <PrimaryCell primary={r.primary} />
                 </td>
-                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : "hidden md:table-cell"}`}>
+                <td className={`px-2.5 py-2 ${p.compact ? "hidden" : "hidden md:table-cell"}`}>
                   <VisibilityPill visibility={r.visibility} />
                 </td>
-                <td className="px-2.5 py-2.5">
+                <td className="px-2.5 py-2">
                   <ApprovalPill status={r.approvalStatus} />
                 </td>
-                <td className={`whitespace-nowrap px-2.5 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden md:table-cell"}`}>{formatDate(r.updatedAt) || "—"}</td>
-                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>
+                <td className={`whitespace-nowrap px-2.5 py-2 text-ink-soft ${p.compact ? "hidden" : "hidden md:table-cell"}`}>{formatDate(r.updatedAt) || "—"}</td>
+                <td className={`px-2.5 py-2 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>
                   <OwnerAvatar owner={r.owner} />
                 </td>
                 <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>

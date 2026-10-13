@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, ExternalLinkIcon, SparklesIcon } from "@kiwiply/ui";
+import { ChevronRightIcon, Dialog, ExternalLinkIcon, SparklesIcon } from "@kiwiply/ui";
 import { EnterpriseMascot } from "@/lib/ent/mascot";
 import { helpLinks } from "@/lib/ent/shell";
 import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
@@ -23,9 +23,9 @@ export default function ResumeHelpCard({ orgName, supportEmail }: { orgName: str
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl border border-line bg-paper px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft"
+          className="mt-2 flex min-h-10 w-full items-center gap-2 rounded-xl border border-accent/30 bg-paper px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft"
         >
-          <SparklesIcon size={16} aria-hidden /> Ask a question...
+          <SparklesIcon size={16} aria-hidden /> <span className="flex-1 text-left">Ask a question...</span> <ChevronRightIcon size={16} aria-hidden />
         </button>
       </div>
       <Dialog open={open} onClose={() => setOpen(false)} title="Need help?" description={`Questions about resumes at ${orgName}? Here is where to go.`}>

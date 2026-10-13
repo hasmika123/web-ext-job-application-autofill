@@ -45,6 +45,8 @@ import ResumePaper from "./ResumePaper";
 
 export type DrawerMode = "push" | "overlay" | "sheet";
 
+/** The board's secondary buttons: outlined in the brand colour. */
+const OUTLINE = "border-accent text-accent-deep hover:bg-accent-soft";
 const UNDO_MS = 9000; // config-literal-ok: how long an Undo stays offered (UI timing)
 
 export interface ResumeDrawerProps {
@@ -408,13 +410,13 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           <Button type="button" variant="accent" size="md" onClick={() => setPreview(true)}>
             <EyeIcon aria-hidden size={16} /> Preview
           </Button>
-          <a href={exportUrl(p.orgId, r.id, "txt")} download className={buttonVariants("ghost", "md")}>
+          <a href={exportUrl(p.orgId, r.id, "txt")} download className={buttonVariants("ghost", "md", OUTLINE)}>
             <DownloadIcon aria-hidden size={16} /> Download
           </a>
-          <Button type="button" variant="ghost" size="md" disabled={busy === "print"} onClick={() => void print(d)}>
+          <Button type="button" variant="ghost" size="md" className={OUTLINE} disabled={busy === "print"} onClick={() => void print(d)}>
             <PrinterIcon aria-hidden size={16} /> Print
           </Button>
-          <Button type="button" variant="ghost" size="md" disabled={!d.actions.setPrimary || r.primary || !approved || busy === "primary"} onClick={() => void setPrimary(d, true)}>
+          <Button type="button" variant="ghost" size="md" className={OUTLINE} disabled={!d.actions.setPrimary || r.primary || !approved || busy === "primary"} onClick={() => void setPrimary(d, true)}>
             <StarIcon aria-hidden size={16} /> Set as Primary
           </Button>
         </div>

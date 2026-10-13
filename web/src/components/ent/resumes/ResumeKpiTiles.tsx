@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Card, CalendarIcon, ClockIcon, DeltaChip, FileTextIcon, Skeleton, Sparkline, StarIcon } from "@kiwiply/ui";
+import { chartColor, Card, CalendarIcon, ClockIcon, DeltaChip, FileTextIcon, Skeleton, Sparkline, StarIcon } from "@kiwiply/ui";
 import { resumeTileDelta, type ResumeCounts, type ResumeTile, type TileKey } from "@/lib/ent/resumes";
 
 interface TileDef {
@@ -14,13 +14,15 @@ interface TileDef {
   lowerIsBetter?: boolean;
   /** What the sparkline shows, for assistive tech. */
   series: string;
+  /** Index into the chart palette: the tile icon and its sparkline share it (violet, green, amber, brand). */
+  tone: number;
 }
 
 const TILES: TileDef[] = [
-  { key: "total", label: "Total Resumes", icon: <FileTextIcon size={20} />, vs: "vs last month", series: "Resumes over the last 8 weeks" },
-  { key: "primary", label: "Primary Resumes", icon: <StarIcon size={20} />, vs: "vs last month", series: "Primary resumes over the last 8 weeks, by when each resume was added" },
-  { key: "needsApproval", label: "Needs Approval", icon: <ClockIcon size={20} />, vs: "vs last month", lowerIsBetter: true, series: "Resumes waiting for approval over the last 8 weeks" },
-  { key: "updatedThisWeek", label: "Updated This Week", icon: <CalendarIcon size={20} />, vs: "vs last week", series: "Resumes last changed in each of the last 8 weeks" },
+  { key: "total", label: "Total Resumes", icon: <FileTextIcon size={20} />, vs: "vs last month", series: "Resumes over the last 8 weeks", tone: 4 },
+  { key: "primary", label: "Primary Resumes", icon: <StarIcon size={20} />, vs: "vs last month", series: "Primary resumes over the last 8 weeks, by when each resume was added", tone: 3 },
+  { key: "needsApproval", label: "Needs Approval", icon: <ClockIcon size={20} />, vs: "vs last month", lowerIsBetter: true, series: "Resumes waiting for approval over the last 8 weeks", tone: 2 },
+  { key: "updatedThisWeek", label: "Updated This Week", icon: <CalendarIcon size={20} />, vs: "vs last week", series: "Resumes last changed in each of the last 8 weeks", tone: 0 },
 ];
 
 /**
@@ -36,7 +38,7 @@ export default function ResumeKpiTiles({ counts, loading, error, compact = false
         return (
           <li key={t.key} data-kpi={t.key} className="min-w-0">
             <Card className="flex h-full flex-col gap-2 !p-4">
-              <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
+              <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl" style={{ color: chartColor(t.tone), backgroundColor: `color-mix(in srgb, ${chartColor(t.tone)} 14%, transparent)` }}>
                 {t.icon}
               </span>
               <span className="text-[13px] font-medium leading-tight text-ink-soft">{t.label}</span>
@@ -50,7 +52,7 @@ export default function ResumeKpiTiles({ counts, loading, error, compact = false
                 )}
                 {tile && tile.series.length >= 2 && (
                   <div className="w-full max-w-28 flex-none sm:w-24">
-                    <Sparkline values={tile.series} label={t.series} className="h-9 w-full" />
+                    <Sparkline smooth values={tile.series} label={t.series} color={chartColor(t.tone)} className="h-9 w-full" />
                   </div>
                 )}
               </div>

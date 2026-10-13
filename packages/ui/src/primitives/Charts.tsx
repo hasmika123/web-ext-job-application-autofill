@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { cn } from "./cn";
 
 /**
@@ -51,13 +51,56 @@ export interface SparklineProps {
   /** Names the trend for assistive tech; omit when the number beside it already says everything (then it is hidden). */
   label?: string;
   className?: string;
+  /** Opt-in: draw the same points as a smooth curve with a soft fading fill (a look only; the points are unchanged). */
+  smooth?: boolean;
 }
 
-export function Sparkline({ values, color = chartColor(0), label, className }: SparklineProps) {
+/** A smooth path through the points (Catmull-Rom turned into cubic curves, clamped to the grid). Pure. */
+export function smoothPath(pts: [number, number][]): string {
+  const clamp = (y: number) => Math.min(SPARK_H, Math.max(0, y));
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1: [number, number] = [p1[0] + (p2[0] - p0[0]) / 6, clamp(p1[1] + (p2[1] - p0[1]) / 6)];
+    const c2: [number, number] = [p2[0] - (p3[0] - p1[0]) / 6, clamp(p2[1] - (p3[1] - p1[1]) / 6)];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+export function Sparkline({ values, color = chartColor(0), label, className, smooth = false }: SparklineProps) {
+  const gid = useId();
   const pts = sparkPoints(values);
   if (pts.length < 2) return null; // one point (or none) is not a trend: draw nothing
   const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = `0,${SPARK_H} ${line} ${SPARK_W},${SPARK_H}`;
+  if (smooth) {
+    const d = smoothPath(pts);
+    return (
+      <svg
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        preserveAspectRatio="none"
+        data-sparkline
+        role={label ? "img" : undefined}
+        aria-label={label}
+        aria-hidden={label ? undefined : true}
+        className={cn("h-8 w-full", className)}
+        style={{ color }}
+      >
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity={0.22} />
+            <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={`${d} L${SPARK_W},${SPARK_H} L0,${SPARK_H} Z`} fill={`url(#${gid})`} />
+        <path d={d} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+    );
+  }
   return (
     <svg
       viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}

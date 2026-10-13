@@ -1,24 +1,45 @@
 "use client";
 
-import { MemberAvatar, PersonCell, StatePill, Tooltip, hasStateMap, registerStateMap } from "@kiwiply/ui";
+import { MemberAvatar, PersonCell, Tooltip } from "@kiwiply/ui";
 import { approvalLabel, visibilityLabel, type Approval, type PersonRef, type ResumeRow, type Visibility } from "@/lib/ent/resumes";
 
-/** The three small state maps of the Resumes board (one StatePill for every enterprise domain). */
-if (!hasStateMap("resume-approval")) registerStateMap("resume-approval", { APPROVED: "green", PENDING: "amber", REJECTED: "red" });
-if (!hasStateMap("resume-visibility")) registerStateMap("resume-visibility", { INTERNAL: "grey", PUBLIC: "grey-outline", PRIVATE: "red" });
-if (!hasStateMap("resume-primary")) registerStateMap("resume-primary", { PRIMARY: "green" });
+type Tone = "green" | "blue" | "amber" | "red";
+
+const TONE: Record<Tone, string> = {
+  green: "bg-v2-green-soft text-v2-green-ink",
+  blue: "bg-accent-soft text-accent-deep",
+  amber: "bg-brown-soft text-brown-deep",
+  red: "bg-danger/10 text-danger-text",
+};
+
+/** The board's small coloured pill: Primary and Approved green, Internal and Public in the brand blue, Pending amber, Private red. */
+function Pill({ tone, children, kind }: { tone: Tone; children: string; kind: string }) {
+  return (
+    <span data-pill={kind} data-tone={tone} className={`inline-flex max-w-full items-center truncate rounded-full px-2.5 py-[3px] text-[11.5px] font-semibold leading-none ${TONE[tone]}`}>
+      {children}
+    </span>
+  );
+}
 
 export function ApprovalPill({ status }: { status: Approval | string }) {
-  return <StatePill domain="resume-approval" state={status} label={approvalLabel(status)} />;
+  return (
+    <Pill kind="approval" tone={status === "APPROVED" ? "green" : status === "PENDING" ? "amber" : "red"}>
+      {approvalLabel(status)}
+    </Pill>
+  );
 }
 
 export function VisibilityPill({ visibility }: { visibility: Visibility | string }) {
-  return <StatePill domain="resume-visibility" state={visibility} label={visibilityLabel(visibility)} />;
+  return (
+    <Pill kind="visibility" tone={visibility === "PRIVATE" ? "red" : "blue"}>
+      {visibilityLabel(visibility)}
+    </Pill>
+  );
 }
 
 /** "Primary" when the resume is the consultant's primary one, otherwise a dash (as on the board). */
 export function PrimaryCell({ primary }: { primary: boolean }) {
-  return primary ? <StatePill domain="resume-primary" state="PRIMARY" label="Primary" /> : <span className="text-muted" aria-label="Not primary">{"—"}</span>;
+  return primary ? <Pill kind="primary" tone="green">Primary</Pill> : <span className="text-muted" aria-label="Not primary">{"—"}</span>;
 }
 
 /** The consultant: initials circle, name and email (no photos are stored). */
