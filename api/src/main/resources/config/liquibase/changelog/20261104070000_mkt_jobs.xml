@@ -8,5 +8,50 @@
         Marketing workspace (jobs) tables. Owned by the jobs page ONLY; empty until that page adds its own changeSets.
         Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
         table names prefixed mkt_). Never edit another page's changelog.
+
+        Job Discovery (/w/marketing/jobs): the board shows a Source and a Priority per job and a visa filter, which the shared
+        client_requirement table does not carry, so they live in mkt_job_meta (one row per job); the Saved Searches card lives in
+        mkt_saved_search (a marketer's own search criteria; "N new" is computed from last_seen_at, never stored). No sensitive data.
     -->
+
+    <!-- Source label (LinkedIn Jobs, Indeed, ...), priority and visa label of one job. -->
+    <changeSet id="mkt-jobs-1-mkt_job_meta" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_job_meta"/></not></preConditions>
+        <createTable tableName="mkt_job_meta">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="source_label" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="priority" type="varchar(10)" defaultValue="MEDIUM"><constraints nullable="false"/></column>
+            <column name="visa_label" type="varchar(40)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_job_meta" baseColumnNames="org_id" constraintName="fk_mkt_job_meta_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_job_meta" baseColumnNames="org_id, requirement_id" constraintName="fk_mkt_job_meta_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_job_meta" columnNames="org_id, id" constraintName="uk_mkt_job_meta_org_id"/>
+        <addUniqueConstraint tableName="mkt_job_meta" columnNames="org_id, requirement_id" constraintName="uk_mkt_job_meta_requirement"/>
+        <createIndex tableName="mkt_job_meta" indexName="ix_mkt_job_meta_source"><column name="org_id"/><column name="source_label"/></createIndex>
+        <createIndex tableName="mkt_job_meta" indexName="ix_mkt_job_meta_priority"><column name="org_id"/><column name="priority"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A marketer's saved search: a name and the filter criteria as JSON text. last_seen_at is when they last looked; "N new" counts jobs posted since. -->
+    <changeSet id="mkt-jobs-2-mkt_saved_search" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_saved_search"/></not></preConditions>
+        <createTable tableName="mkt_saved_search">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="owner_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="criteria" type="varchar(2000)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="last_seen_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_saved_search" baseColumnNames="org_id" constraintName="fk_mkt_saved_search_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_saved_search" baseColumnNames="org_id, owner_member_id" constraintName="fk_mkt_saved_search_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_saved_search" columnNames="org_id, id" constraintName="uk_mkt_saved_search_org_id"/>
+        <createIndex tableName="mkt_saved_search" indexName="ix_mkt_saved_search_owner"><column name="org_id"/><column name="owner_member_id"/></createIndex>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>
