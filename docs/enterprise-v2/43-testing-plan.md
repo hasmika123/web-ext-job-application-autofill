@@ -213,7 +213,7 @@ Authoritative script = `PersonalSubscriptionUnchangedIT` E0–E12 (29 §2). UI j
 
 ### 7.1 Setup
 - **Hosts**: Chromium resolves `*.localhost` to loopback. `next dev -p 3100` is served as `http://acme.localhost:3100`, `beta.localhost`, `careers.acme.localhost`, `nobody.localhost`; `proxy.ts` derives host from `x-forwarded-host ?? host` (port stripped). Mock API (X1.12) resolves tenants by `X-Kiwiply-Host` (set by the BFF) and exposes **test hooks** only when `MOCK_ENTERPRISE_ENABLED=true`: `POST /__mock/dns`, `POST /__mock/clock`, `POST /__mock/reset`.
-- **Cookies**: host-only cookies are per `*.localhost` host automatically (matches production). `__Host-` cookies need `Secure`; Chromium accepts Secure cookies on `localhost` hosts — verify in X3.7; fallback `dossier.cookies.host-prefix=false` **only** for mock/dev profile (never prod; `ProdConfigIT` asserts) ⚑ small.
+- **Cookies**: host-only cookies are per `*.localhost` host automatically (matches production). `__Host-` cookies need `Secure`; Chromium accepts Secure cookies on `localhost` hosts — verify in X3.7; fallback `dossier.cookies.host-prefix=false` **only** for mock/dev profile (never prod; `ProdConfigIT` asserts) — accepted (Task 4), written into X1.5.
 - **Storage state** per account/host: `setup` project signs in once per (account, host) pair and saves `e2e/.auth/<host>-<account>.json`.
 
 ### 7.2 Projects (`web/playwright.config.ts`, additive to existing `setup` + `chromium`)

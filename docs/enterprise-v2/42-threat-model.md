@@ -127,7 +127,7 @@ Threat ids: S spoofing · T tampering · R repudiation · I information disclosu
 ### 3.9 Platform admin and break-glass (E8)
 | Id | Threat | Ctrl | Story | Test | Res |
 |---|---|---|---|---|---|
-| T9 | **I/R** Admin reads tenant data without a reason | admin is **not** a membership path (404 on `/api/orgs/**`); `POST /api/admin/orgs/{id}/break-glass {reason, mfa}` → 15-min grant (`break_glass_grant`), re-auth MFA (`STEP_UP_REQUIRED`), projections allow-listed (summary, member list names, licenses/usage, hostnames, audit) — **never** resume text, consent-protected data, rates; HIGH `ADMIN_READ` audit **written into the tenant's log**; OWNER notified (setting `enterprise.breakglass.notify_owner`, default on); security mailbox alert | X1.11, X6.10 | SEC-48 | M ⚑ |
+| T9 | **I/R** Admin reads tenant data without a reason | admin is **not** a membership path (404 on `/api/orgs/**`); `POST /api/admin/orgs/{id}/break-glass {reason, mfa}` → 15-min grant (`break_glass_grant`), re-auth MFA (`STEP_UP_REQUIRED`), projections allow-listed (summary, member list names, licenses/usage, hostnames, audit) — **never** resume text, consent-protected data, rates; HIGH `ADMIN_READ` audit **written into the tenant's log**; OWNER notified (setting `enterprise.breakglass.notify_owner`, default on); security mailbox alert | **X6.17** (was X1.11, X6.10) | SEC-48 | M (reviewed §9) |
 | T57 | **E** Admin console reachable from a tenant host (XSS pivot) | `/api/admin/**` 404 on TENANT context (`AdminHostGuardIT`); admin UI served only on platform hosts; host-only cookies | X1.13 | SEC-49 | L |
 | T58 | **T** Rogue admin edits audit/prices | audit append-only in code (no update/delete paths); HIGH rows in nightly off-box dump; price immutability + hash; contracts two-person rule; admin count minimised | X1.10, X5.1 | SEC-28 | M (root DB access is out of scope; stated to customers) |
 | T59 | **E** Admin takeover | admin MFA (existing `AdminMfaService`), 30-min idle timeout, no "login as", `ROLE_ADMIN` grants audited | existing | SEC-48 | L |
@@ -352,3 +352,27 @@ Threat ids: S spoofing · T tampering · R repudiation · I information disclosu
 | SEC-54 | Actuator exposure allow-list; health shows no details | IT |
 | SEC-55 | Internal callers and extension routes unaffected | IT |
 | SEC-56 | Per-org caps/concurrency (batch, export, AI, PDF) | IT |
+
+## 9. Design review decisions on the ⚑ items (Session E Task 4, 2026-10-12)
+
+| Item | Decision | Where applied |
+|---|---|---|
+| T16 activation cap + `CAPACITY_QUEUED` | **Accept** | X3.3 (Task 3) |
+| T17 dedicated ask token | **Accept** | X1.3, 10 §5.2/§8 (Task 3) |
+| T18 look-alike labels; display-name uniqueness not enforced | **Accept** (uniqueness would block legitimate franchises; the "Powered by Kiwiply" mark + report link + reserved/confusable labels + E10 approval are the controls) | X1.11, X2.3 |
+| T22 probe via edge IP | **Accept** | X3.3 |
+| T27 `OriginCheckFilter` | **Accept** | X1.5 |
+| T32 ceiling re-check at accept | **Accept** | X1.15 |
+| T34 JIT role ceiling | **Accept** (`org.sso.max_jit_role` default CONSULTANT) | X12.10 |
+| T48 prompt injection: drafts only, no tools | **Accept** | X7.10 AC, X8.3 |
+| T11 / RR4 PII regex evasion | **Accept as residual** (scanner + no image upload + weekly sweep + report path); revisit if a customer report shows evasion in practice | X11.7 |
+| T54 raster-only uploads | **Accept** | X2.5 |
+| T55 `.ics` token hashing, generic titles | **Accept** | X9.5 |
+| T9 break-glass | **Accept** — now a real story: **X6.17** (the §3.9 story column read X1.11/X6.10; X6.17 governs) | X6.17 |
+| T61 webhook SSRF | **Accept** | X12.3 |
+| T63 SAML/OIDC hardening | **Accept** | X12.4 |
+| T65 noisy-neighbour caps | **Accept** | X5.7, X8.11, X11.6, X12.1 |
+| RR3 platform admin / DB root can read everything | **Accept as residual**; the customer-terms wording is the user's — **E24** | 44 §12.5 |
+| RR5 same-site `*.kiwiply.com`; PSL submission not done | **Accept**; revisit at > 200 tenants (**E24**) | — |
+
+Coverage-matrix additions (§6.1): break-glass → **X6.17** (`AdminBreakGlassResourceIT`, SEC-48); Platform Analytics aggregates-only → **X12.12** (statement-inspector test); JIT ceiling → **X12.10** (`SamlJitIT`); TOTP/passkeys → **X12.11** (`WebAuthnServiceIT`); second-instance → **X12.5** (`ShedLockTwoInstanceIT`).

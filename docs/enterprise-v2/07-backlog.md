@@ -1,4 +1,4 @@
-# 07 — Backlog: epics for every phase, fully specified stories for Phase 1
+# 07 — Backlog: epics for every phase, every story fully specified (§30 format)
 
 > Status: plan, 2026-10-12. Source of truth for ids and statuses is `docs/roadmap/areas/ent.json`
 > (area `ent`, prefix `X`), rendered in `docs/roadmap/master-roadmap.html`. Change a status with
@@ -29,8 +29,8 @@
 
 ## 2. Phase 1 — Enterprise tenant foundation (fully specified)
 
-Build order (dependencies first): X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.8 → X1.9 → X1.10 → X1.11 → X1.12 → X1.13 (any time after X1.3; independent of the flags).
-X1.4 is the amended version (09 row 15): the tenant tree lives at `web/src/app/(tenant)/_t/**` behind a `proxy.ts` rewrite.
+Build order (dependencies first; L stories split by Session E): X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.14 → X1.8 → X1.15 → X1.10 → X1.11 → X1.12 → X1.9 → X1.13 (any time; independent of X1.3 and the flags).
+X1.4 is the amended version (09 row 15, corrected in Task 3): the tenant tree lives in the directory `web/src/app/(tenant)/%5Ft/**` (URL `/_t`) behind a `proxy.ts` rewrite.
 X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X1.2; X1.9 closes the phase.
 
 ### X1.1 — Enterprise feature flags in the settings registry + EnterpriseEnabledFilter (second 404 wall)
@@ -517,6 +517,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - OrgIsolationIT coverage registry includes every new route (fails otherwise, existing pattern).
 - TenantRepositoryContractTest: reflection over repository.org and repository.ent; allow-list file for the few host/subdomain lookups.
 - Playwright web/e2e/journeys/tenant-isolation.spec.ts over the mock with Host emulation: different branding per host, non-member sees not-a-member, unknown host 404, /admin on a tenant host 404.
+- Restore-drill assertions (44 §8/§14): extend `verify-restore.sh` so the weekly restore asserts COUNT(*) > 0 for org_role and (once X5.1 lands) feature_definition, databasechangelog max id = expected, one org_member_role per live member for enterprise-flagged orgs; `PriceIntegrityJob --once` is appended by X5.1.
 
 **UI requirements**
 - —
@@ -540,13 +541,13 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - All classes exist, run in the CI api-tests job and pass.
 - Deliberately removing the tid check (mutation) fails HostMismatchIT; deliberately adding a findById to an ent repository fails the contract test (documented in the test javadoc).
 - ci.yml needs no change (tests discovered by pattern).
+- verify-restore.sh fails on a dump missing the org_role system rows (fixture) and passes on a good dump.
 
 **Test cases**
 - Themselves.
 
 - **Tech notes:** 04-tenancy-and-security.md §5; OrgIsolationIT patterns; Playwright extraHTTPHeaders.
 - **Definition of Done:** CI green; 04 §5 lists the class names as built. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X1.10 — Tenant context in logs, audit and async work: MDC tenant/host/member, TenantScoped helper, OrgAuditService hostname/beneficiary/risk
 - **Epic:** X1 · **Size/Complexity:** S/S · **Owners:** API · **Deps:** X1.3
 - **Persona:** Operator / org admin reading the audit log
@@ -731,9 +732,10 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - **Definition of Done:** DEPLOY.md + .env.example updated; openapi.json unchanged; CI green. Plus the common DoD in `06-phase-plan.md` §5.
 ## 3. Phases 2–12 — stories
 
-X2, X3 and X4 (except X4.7/X4.8/X4.10) are fully specified by Session B below; the remaining epics
-keep their title tables until the owning session (README: C owns X5/X6, D owns X7–X11, E owns the
-API/test/deploy specs and reviews every story) writes them. Sizes of unspecified rows are first estimates.
+Every story in X2–X12 is fully specified (Sessions B, C, D wrote X2–X11; Session E wrote X12, split every
+L story into S/M halves — the original id keeps the foundation/API half, the new id carries the UI/lifecycle
+half — and added X6.17, X11.8, X12.8–X12.12 from the coverage audit `45-requirements-coverage.md`).
+The global build order across phases is in `06-phase-plan.md` §7 and `progress-tracker.md`.
 
 ### X2 — Phase 2 — Branded login and dashboard shell
 _Runtime branding, one branded login, one enterprise shell with permission-driven workspaces, Org Admin lands on the Org Admin Dashboard, basic profile from the avatar menu, the Kiwiply character used compactly._

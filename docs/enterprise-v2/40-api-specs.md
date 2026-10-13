@@ -92,7 +92,7 @@ Body is `application/problem+json` (existing JHipster `ProblemDetailWithCause`):
 | 429 | `RATE_LIMITED` (`retryAfterSeconds`) + `Retry-After` | §8 |
 | 503 | `BILLING_DISABLED` (existing) · `DEPENDENCY_UNAVAILABLE` | Stripe/AI/DNS down; read paths keep working |
 
-`CONSENT_REQUIRED` exception list is closed: adding another 403 needs a design review (⚑).
+`CONSENT_REQUIRED` exception list is closed: adding another 403 needs a design review (reviewed Task 4: accepted as the only 403).
 
 ## 5. Optimistic concurrency (412 / 428)
 
@@ -254,7 +254,7 @@ Columns: **perm / scope / feat** · **body → response** · **notable errors** 
 | GET/POST/PUT `/api/admin/contracts[/{id}]` · POST `/{id}/approve` · GET `/{id}/events` · PUT `/api/admin/org-discounts` · GET `/api/admin/orgs/{id}/pricing-preview` | 23 | | 5 |
 | GET `/api/admin/orgs` · `/{id}` · POST `/{id}/hostnames/subdomain` · `/{id}/enterprise` · `/{id}/hostnames/{hid}/suspend` · `/resume` | tenant list/detail, flag allow-list toggle (reason sheet) | 422 `RESERVED_VALUE`, 409 `SLUG_TAKEN` | 1 |
 | PUT `/api/admin/orgs/{id}/billing/mode` · GET `/{id}/usage` · POST `/{id}/usage/credits` · GET `/api/admin/billing/drift` · POST `…/drift/{id}/resolve` | 26/25 | | 6 |
-| POST `/api/admin/orgs/{id}/break-glass` `{reason, mfa}` → 15-min read grant (⚑ E8, 42 §3.9) | step-up MFA, writes HIGH audit **in the tenant's log**; grants read of an allow-listed projection only | 401 `STEP_UP_REQUIRED` | 5 |
+| POST `/api/admin/orgs/{id}/break-glass` `{reason, mfa}` → 15-min read grant (E8 → story **X6.17**; 42 §3.9) | step-up MFA, writes HIGH audit **in the tenant's log**; grants read of an allow-listed projection only | 401 `STEP_UP_REQUIRED` | 5 |
 | GET `/api/admin/domains` · POST `/{hid}/recheck` | cross-org hostname health (10 §7) | | 3 |
 
 ### 12.6 Licenses, usage, billing (org; flag `flag.enterprise.billing`)

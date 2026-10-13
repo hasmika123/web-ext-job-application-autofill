@@ -742,7 +742,8 @@
         "New IT classes under api/src/test/java/com/dossier/api/web/rest/ent/ per 04 §5 items 1–7, using OrgFixtures extended with two tenants (acme, beta) and hostnames.",
         "OrgIsolationIT coverage registry includes every new route (fails otherwise, existing pattern).",
         "TenantRepositoryContractTest: reflection over repository.org and repository.ent; allow-list file for the few host/subdomain lookups.",
-        "Playwright web/e2e/journeys/tenant-isolation.spec.ts over the mock with Host emulation: different branding per host, non-member sees not-a-member, unknown host 404, /admin on a tenant host 404."
+        "Playwright web/e2e/journeys/tenant-isolation.spec.ts over the mock with Host emulation: different branding per host, non-member sees not-a-member, unknown host 404, /admin on a tenant host 404.",
+        "Restore-drill assertions (44 §8/§14): extend `verify-restore.sh` so the weekly restore asserts COUNT(*) > 0 for org_role and (once X5.1 lands) feature_definition, databasechangelog max id = expected, one org_member_role per live member for enterprise-flagged orgs; `PriceIntegrityJob --once` is appended by X5.1."
       ],
       "ui": [],
       "backend": [
@@ -755,7 +756,8 @@
       "ac": [
         "All classes exist, run in the CI api-tests job and pass.",
         "Deliberately removing the tid check (mutation) fails HostMismatchIT; deliberately adding a findById to an ent repository fails the contract test (documented in the test javadoc).",
-        "ci.yml needs no change (tests discovered by pattern)."
+        "ci.yml needs no change (tests discovered by pattern).",
+        "verify-restore.sh fails on a dump missing the org_role system rows (fixture) and passes on a good dump."
       ],
       "tests": [
         "Themselves."

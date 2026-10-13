@@ -120,7 +120,7 @@ fields; X12.* fully specified; L stories split).
 | §27 debate, 23 topics, 7 perspectives, per-topic structure, final decisions | 02, adr/ADR-001…023 | X0.1 | Covered |
 | §28 documentation set under `docs/enterprise-v2/` (37 named docs) | README index: 00–09, 10–17, 20–38, 40–45, adr/, progress-tracker | X0.1 | Covered (§28 names mapped in README) |
 | §29 phases 0–12 as vertical slices; adjust for dependencies; isolation + entitlements before protected features | 06 (reordering facts §0, flags, migration) | epics X0–X12 | Covered |
-| §30 story fields (id, epic, title, persona, objective, functional, UI, backend, DB, APIs, permissions, entitlements, deps, AC, tests, complexity, DoD); statuses; tracker; evidence | 07, progress-tracker, build-master-roadmap `--set` | all stories | **Partial → fixed (Task 5):** 7 X12 stories had titles only; 113 had the fields; now 100 % |
+| §30 story fields (id, epic, title, persona, objective, functional, UI, backend, DB, APIs, permissions, entitlements, deps, AC, tests, complexity, DoD); statuses; tracker; evidence | 07, progress-tracker, build-master-roadmap `--set` | all 154 stories | **Partial → fixed (Task 5, verified):** 7 X12 stories had titles only; now 154/154 carry every field (`node` check: none missing); sizes S 15 · M 138 · L 1 (X0.1, done) |
 | §31 DoD (functionality, permissions, isolation, entitlements, design standards, states, tests, safe migrations, docs, no regression) + billing additions | 06 §5, every story's DoD line | all | Covered |
 | §32 A Org Admin journey | 43 §E2E-A | X2.11, X3.8 | Covered |
 | §32 B multi-role | 43 | X2.11 | Covered |
@@ -153,6 +153,7 @@ fields; X12.* fully specified; L stories split).
 | Platform Analytics page (cross-tenant aggregates for Kiwiply) | **X12.12** new | 12 |
 | Escalations page + task kind | X8.6 amended | 8 |
 | Invitations nav item + badge | X4.12 (split of X4.3) | 4 |
-| Consultant Settings page | X9.11 (split of X9.1) | 9 |
+| Consultant Settings page (+ Home) | X9.11 (split of X9.1) | 9 |
+| Platform Security page (break-glass log) | X6.17 | 6 |
 | §9 verbs activate/deactivate mapped | X4.4 amended | 4 |
 | §30 format on every story; X12.1–X12.7 specified; X12.9–X12.11 splits; 27 L → S/M splits | Task 5 | all |
