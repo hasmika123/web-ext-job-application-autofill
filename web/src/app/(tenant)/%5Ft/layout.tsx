@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import TenantThemeProvider from "@/components/ent/TenantThemeProvider";
 import TenantTemporarilyUnavailable from "@/components/tenant/TenantTemporarilyUnavailable";
 import { getTenant } from "@/lib/tenant";
 import { tenantMetadata } from "@/lib/tenant-metadata";
@@ -23,5 +24,9 @@ export default async function TenantTreeLayout({ children }: { children: React.R
   const t = await getTenant();
   if (t.kind === "UNAVAILABLE") return <TenantTemporarilyUnavailable />;
   if (t.kind !== "TENANT") notFound();
-  return <div data-tenant-root>{children}</div>;
+  return (
+    <TenantThemeProvider primary={t.tenant.branding?.primary} secondary={t.tenant.branding?.secondary}>
+      {children}
+    </TenantThemeProvider>
+  );
 }

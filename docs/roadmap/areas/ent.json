@@ -1369,7 +1369,7 @@
       "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "critical": false,
       "evidence": [],
       "ui": [],
@@ -1832,7 +1832,7 @@
       "design": "docs/enterprise-v2/16-ui-ux-page-inventory.md"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "critical": false,
       "evidence": [],
       "ui": [

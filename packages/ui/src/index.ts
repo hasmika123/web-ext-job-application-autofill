@@ -148,6 +148,26 @@ export * from "./primitives/doodles";
 
 export { cn } from "./primitives/cn";
 
+/* ── Tenant brand colours (Enterprise V2 X2.12): two hex colours -> a contrast-safe variable set ─ */
+export {
+  AA_BODY,
+  AA_LARGE,
+  DARK_SURFACE,
+  DEFAULT_PRIMARY,
+  DEFAULT_SECONDARY,
+  LIGHT_SURFACE,
+  STEPS as BRAND_STEPS,
+  brandScale,
+  contrastRatio,
+  isHex as isHexColor,
+  onColor,
+  rolesFor as brandRoles,
+  tenantThemeCss,
+  tenantThemeVars,
+  whiteTextCheck,
+} from "./color/brand";
+export type { BrandRoles, Scale as BrandScale, Step as BrandStep } from "./color/brand";
+
 /* ── Never-collected values detector (Resume Builder R1.1; twin of the API's SensitivePatterns) ─ */
 /* Aliased with a "Sensitive" tag because `scan` / `redact` are too generic for a package barrel. */
 export {

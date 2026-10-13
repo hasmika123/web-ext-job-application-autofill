@@ -51,7 +51,7 @@ public class PublicTenantService {
             "TENANT",
             displayName,
             branding(published, org.getConfigVersion()),
-            new PublicTenantDTO.Login(true, false, false) // password only until an org enables Google / MFA (ADR-004)
+            new PublicTenantDTO.Login(true, false, false, false) // password only until an org enables Google / MFA (ADR-004)
         ));
     }
 
@@ -64,7 +64,7 @@ public class PublicTenantService {
     }
 
     private PublicTenantDTO.Branding branding(OrgBranding b, int configVersion) {
-        if (b == null) return new PublicTenantDTO.Branding(null, null, null, null, null, null, OrgBrandingTheme.SYSTEM.name(), null, null, Map.of());
+        if (b == null) return new PublicTenantDTO.Branding(null, null, null, null, null, null, OrgBrandingTheme.SYSTEM.name(), null, null, null, null, Map.of());
         return new PublicTenantDTO.Branding(
             assetUrl(b.getLogoKey(), "logo", configVersion),
             assetUrl(b.getFaviconKey(), "favicon", configVersion),
@@ -75,8 +75,22 @@ public class PublicTenantService {
             (b.getTheme() == null ? OrgBrandingTheme.SYSTEM : b.getTheme()).name(),
             b.getWelcomeTitle(),
             b.getWelcomeMessage(),
+            b.getSupportEmail(),
+            chips(b.getLoginChipsJson()),
             terminology(b.getTerminologyJson())
         );
+    }
+
+    /** The login's feature chip labels: at most three short strings, anything else dropped (null = the web's defaults). */
+    private java.util.List<String> chips(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            java.util.List<String> raw = mapper.readValue(json, new TypeReference<java.util.List<String>>() {});
+            java.util.List<String> out = raw.stream().filter(x -> x != null && !x.isBlank() && x.length() <= 24).limit(3).toList();
+            return out.isEmpty() ? null : out;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** The label overrides, defensively: invalid JSON, non-string values and over-long text are dropped, not trusted. */

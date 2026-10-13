@@ -1,0 +1,99 @@
+/* @kiwiply/ui - tenant theme (Enterprise V2, X2.12). Scoped to `.theme-tenant`, which ONLY the web's tenant tree puts on
+ * its root; the regular Kiwiply pages, the signed-in app and the extension never set it, so nothing here can reach them.
+ *
+ * An organization picks two colours. `brandScale` / `tenantThemeVars` (src/color/brand.ts) turn them into a contrast-safe
+ * variable set which the tenant root writes inline (so there is no flash and no per-tenant build):
+ *   --brand-50..900  --brand-2-50..900  --on-brand-*  --brand-solid  --on-brand  --brand-solid-hover  --brand-solid-active
+ *   --brand-text  --brand-subtle  --brand-border  --brand-ring  --brand-2-solid  --on-brand-2  --brand-2-text  --brand-2-subtle
+ * The block below re-points the design-system tokens at those variables, so every existing primitive (Button, Badge,
+ * Tabs, Card, links, focus rings, charts that read --color-accent) recolours with no component change. Each var() carries
+ * the board's blue / teal as its fallback, so a tenant root that has not written the variables yet still looks right.
+ *
+ * Deliberately NOT remapped: status colours (--color-ok, --color-warn, --color-danger*, the v2 coral/amber/green families),
+ * surfaces (paper, app-bg, line), typography, radii, shadows. A red is always a red, whatever the brand is.
+ */
+.theme-tenant {
+  --color-accent: var(--brand-solid, #0f5fc4);
+  --color-accent-2: var(--brand-solid-hover, #0c4fa3);
+  --color-accent-soft: var(--brand-subtle, #eaf2fd);
+  --color-accent-deep: var(--brand-text, #0c4fa3);
+  --color-on-accent: var(--on-brand, #ffffff);
+
+  --color-v2-org-blue: var(--brand-solid, #0f5fc4);
+  --color-v2-org-blue-deep: var(--brand-solid-hover, #0c4fa3);
+  --color-v2-org-nav-active-bg: var(--brand-subtle, #eaf2fd);
+  --color-v2-org-nav-active-text: var(--brand-text, #0c4fa3);
+
+  --color-v2-blue: var(--brand-2-solid, #0b7a8a);
+  --color-v2-blue-soft: var(--brand-2-subtle, #e3f4f6);
+  --color-v2-blue-ink: var(--brand-2-text, #0a6573);
+
+  /* tenant-only semantic aliases for the tenant pages' own components */
+  --tenant-focus-ring: var(--brand-ring, #0f5fc4);
+  --tenant-link: var(--brand-text, #0c4fa3);
+  --tenant-link-hover: var(--brand-solid-hover, #0c4fa3);
+}
+
+/* One focus ring for every interactive element in a tenant page, in the brand colour. */
+.theme-tenant :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--tenant-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Branded login (X2.3): the sky-blue page and the scene art that melts into it ─────────────────────────────────────
+ * The scene PNGs are crops of the design board (a pale blue backdrop baked in), so their four edges are faded out with a
+ * mask and the page behind them is the same sky: no hard crop edge anywhere. Not brand-derived on purpose (the artwork is
+ * blue); the primary colour drives the button, links, chips and headline accent through the variables above.
+ */
+/* The wash is mixed from the organization's own scales (primary 100/200 and secondary 100), so a different pair of colours
+ * recolours the whole page. The defaults inside var() are the board's blues for a root that has not written the variables. */
+.theme-tenant .tenant-sky {
+  background-color: color-mix(in oklab, var(--brand-200, #cfe2f8) 55%, white);
+  background-image:
+    radial-gradient(60% 50% at 8% 4%, color-mix(in oklab, var(--brand-2-100, #d6edf2) 45%, white) 0%, transparent 70%),
+    radial-gradient(50% 45% at 55% 0%, rgba(255, 255, 255, 0.75) 0%, transparent 70%),
+    linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--brand-100, #d4e4f8) 45%, white) 0%,
+      color-mix(in oklab, var(--brand-200, #cfe2f8) 60%, white) 50%,
+      color-mix(in oklab, var(--brand-300, #a8c8f0) 55%, white) 100%
+    );
+}
+
+/* The scene is a pale-blue crop: multiplying it onto the themed wash lets the wash show through its light areas, so on an
+ * orange or green theme the backdrop takes the tint instead of showing a blue rectangle (the bee keeps its own colours). */
+.theme-tenant .tenant-scene > img {
+  mix-blend-mode: multiply;
+}
+
+.theme-tenant .tenant-scene {
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0%, black 18%, black 80%, transparent 100%),
+    linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%);
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, black 18%, black 80%, transparent 100%),
+    linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/* the card's soft lift over the sky */
+.theme-tenant .tenant-card {
+  box-shadow: 0 30px 80px rgba(30, 64, 120, 0.16), 0 2px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+/* gradient headline accent: primary -> secondary, both AA-safe on the sky for large text */
+.theme-tenant .tenant-headline-accent {
+  background-image: linear-gradient(90deg, var(--brand-600, #0f5fc4), var(--brand-2-600, #0b7a8a));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Tenant pages set their headings in the body sans (the boards are sans), not the marketing display serif. */
+.theme-tenant h1,
+.theme-tenant h2,
+.theme-tenant h3 {
+  font-family: var(--font-body);
+}

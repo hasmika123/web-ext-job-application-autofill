@@ -45,9 +45,9 @@ export function makePng(w, h, pixel) {
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 
-/** A sample wordmark-ish logo: a rounded tile with a chevron, plus bars standing in for letters. Transparent background. */
+/** A sample wordmark-ish logo: a rounded tile with a chevron, plus the letters ACME. Transparent background. */
 function sampleLogo() {
-  const W = 320;
+  const W = 292;
   const H = 96;
   return makePng(W, H, (x, y) => {
     // tile 0..88 with rounded corners
@@ -64,9 +64,21 @@ function sampleLogo() {
       if (y > 56 && y < 64 && dx < 20) return [255, 255, 255, 255];
       return [14, 98, 196, 255];
     }
-    // "letters": five bars
-    const bars = [[112, 150], [162, 200], [212, 250], [262, 300]];
-    for (const [a, b] of bars) if (x >= a && x < b && y >= 26 && y < 70) return y < 34 || x - a < 8 || b - x <= 8 ? [10, 36, 99, 255] : [0, 0, 0, 0];
+    // "ACME" in a 5x7 block font, scaled 6x (30 x 42 px per letter)
+    const GLYPHS = {
+      A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+      C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+      M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+      E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+    };
+    const scale = 6;
+    const gx = x - 108;
+    const gy = y - 27;
+    if (gx >= 0 && gy >= 0 && gy < 7 * scale) {
+      const letter = "ACME"[Math.floor(gx / (6 * scale))];
+      const col = Math.floor((gx % (6 * scale)) / scale);
+      if (letter && col < 5 && GLYPHS[letter][Math.floor(gy / scale)][col] === "1") return [10, 36, 99, 255];
+    }
     return [0, 0, 0, 0];
   });
 }
@@ -82,7 +94,7 @@ export const MOCK_TENANTS = {
       faviconUrl: null,
       bannerUrl: null,
       primary: "#0f5fc4",
-      secondary: "#0e8a98",
+      secondary: "#0b7a8a",
       accent: null,
       theme: "LIGHT",
       welcomeTitle: null,
@@ -106,10 +118,18 @@ export const MOCK_TENANTS = {
       welcomeTitle: null,
       welcomeMessage: null,
       supportEmail: null,
+      featureChips: ["People First", "Fast Hiring", "Open Roles"],
       terminology: {},
     },
     login: { password: true, google: false, mfaRequired: false },
   },
+};
+
+/** Sign-ins the mock accepts on a tenant host (password "demo1234"): who may enter which host. Anyone else is a 401; a known account on the wrong host is a 403 NOT_A_MEMBER. */
+export const MOCK_TENANT_PASSWORD = "demo1234";
+export const MOCK_TENANT_USERS = {
+  "owner@acme.com": ["acme.localhost"],
+  "owner@beta.com": ["beta.localhost"],
 };
 
 /** Published asset bytes per host and kind (only acme has a logo). */
