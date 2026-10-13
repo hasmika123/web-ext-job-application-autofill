@@ -2,7 +2,7 @@
   "area": "ent",
   "name": "Enterprise V2 — multi-tenant portals, roles, consultant licensing, talent marketing",
   "prefix": "X",
-  "summary": "Hostname tenancy, branded login-first portals, configurable multi-role permissions, base-license + feature add-on subscriptions, and the talent-marketing pipeline on the shared deployment. Design: docs/enterprise-v2/.",
+  "summary": "Multi-tenant enterprise portals on the one shared deployment: each organization gets its own domain and branded login, configurable multi-role workspaces, consultant licenses priced as a base plus feature add-ons, and the talent-marketing pipeline (consultants submit; marketers prepare; HR and Finance record only). DESIGN COMPLETE: 46 design docs, 154 stories, every part of the requirements covered. BUILD: Phase 1 foundation under way (X1.1-X1.5 done: flags, tenancy schema, tenant resolution, branded-host web routing, tenant-bound sessions).",
   "updated": "2026-10-13",
   "epics": [
     {
