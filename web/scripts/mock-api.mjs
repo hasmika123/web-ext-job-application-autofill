@@ -15,6 +15,7 @@
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
 import { createJobsMock } from "./mock-jobs.mjs";
+import { handleMeTenant } from "./mock-me-tenant.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
@@ -1859,6 +1860,11 @@ const server = http.createServer((req, res) => {
       return ACCOUNTS[login] ? json(res, 200, pair(login)) : json(res, 400, { error: "Unknown demo account." });
     });
   }
+  // GET /api/me/tenant (X2.2): the tenant shell's session contract (scripts/mock-me-tenant.mjs).
+  if (ENTERPRISE_ENABLED && handleMeTenant(req, res, path, method, json, (r) => {
+    const raw = r.headers["x-kiwiply-host"];
+    return (typeof raw === "string" ? raw : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
+  })) return;
   if (path === "/api/authenticate" && method === "POST") {
     return withBody(req, (b) => {
       const who = String(b.username ?? "").trim().toLowerCase();

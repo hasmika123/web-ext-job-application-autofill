@@ -151,7 +151,9 @@ class EntRolesMigrationIT {
                     assertThatThrownBy(() -> exec(conn, "DELETE FROM org_member WHERE id=" + member)).as("an assignment keeps its members: RESTRICT").isInstanceOf(SQLException.class);
                     exec(conn, "DELETE FROM org_assignment");
                     conn.commit();
-                    lb.rollback(1, CONTEXTS);
+                    // ent_authz and every changelog applied after it (later stories add theirs): roll back from the end down to and including it
+                    int fromAuthz = Integer.parseInt(scalar(conn, "SELECT COUNT(*) FROM DATABASECHANGELOG WHERE ORDEREXECUTED >= (SELECT MIN(ORDEREXECUTED) FROM DATABASECHANGELOG WHERE id LIKE '20261015030000-%')"));
+                    lb.rollback(fromAuthz, CONTEXTS);
                     conn.commit(); // the shared connection is in manual-commit mode: publish the history row removal before another connection looks
                     assertThat(tableExists(conn, scratch, "org_assignment")).isFalse();
                     assertThat(scalar(conn, "SELECT COUNT(*) FROM DATABASECHANGELOG WHERE id LIKE '20261015030000-%'")).as("the rolled back changeset left the history").isEqualTo("0");
