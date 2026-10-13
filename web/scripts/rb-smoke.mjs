@@ -671,6 +671,26 @@ if (uid) {
   });
 }
 
+// last: an UPLOADED resume converts into a builder document on Edit (idempotent, same id). Runs last so its extra resume
+// cannot disturb the cap rows above. Written against the API contract; needs the real stack to run.
+await step("convert uploaded -> open in builder (idempotent, same id)", async () => {
+  const mk = await api("POST", "/api/resumes", { body: { label: "Uploaded smoke", r2ObjectKey: "", status: "CONFIRMED", createdAt: new Date().toISOString(), parsedJson: JSON.stringify(STRUCTURED) } });
+  must(mk.status === 201, `create uploaded -> ${mk.status} ${(await mk.text()).slice(0, 200)}`);
+  const id = (await mk.json()).id;
+  const before = await web("GET", `/api/resumes/${id}/doc`);
+  must(before.status === 404 || before.status === 400, `uploaded doc before convert -> ${before.status}`);
+  const a = await web("POST", `/api/resumes/${id}/doc/import`);
+  must(a.status === 200, `convert -> ${a.status}`);
+  const first = await a.json();
+  const b = await web("POST", `/api/resumes/${id}/doc/import`);
+  must(b.status === 200, `second convert -> ${b.status}`);
+  const second = await b.json();
+  must(first.doc.contentHash === second.doc.contentHash && second.resume.id === id, "second convert changed the document or the id");
+  const page = await web("GET", `/resume-builder/${id}`);
+  must(page.status === 200, `editor page -> ${page.status}`);
+  return `resume ${id} built, converted twice, editor opens`;
+});
+
 finish();
 
 function finish() {

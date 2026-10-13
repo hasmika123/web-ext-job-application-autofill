@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Button,
   CheckIcon,
@@ -29,6 +28,7 @@ import NewResumeSheet from "../NewResumeSheet";
 import { EMPTY_PROFILE, capNotice, type CapNotice, type ProfileSummary, type ResumeChoice, type SourceId } from "../new-resume/model";
 import { usePhone } from "../usePhone";
 import { useResumeActions } from "./actions";
+import CapDialog from "./CapDialog";
 import { toCardModels, type ResumeCardModel } from "./adapter";
 import { PopularTemplates, QuickTips, popularTemplates } from "./BottomCards";
 import {
@@ -107,7 +107,23 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro, conf
   const [shownCount, setShownCount] = useState<number | null>(null);
 
   const showLimit = useCallback((notice: CapNotice) => setLimit(notice), []);
-  const actions = useResumeActions(showLimit);
+  const baseActions = useResumeActions(showLimit);
+  // Duplicate checks the plan's cap up front (a stale count is still caught by the server's 402, same dialog).
+  const actions = useMemo(
+    () => ({
+      ...baseActions,
+      duplicate: async (m: ResumeCardModel) => {
+        const notice = capNotice(config.resumes, config.plan);
+        if (notice) {
+          setLimit(notice);
+          track("resume_new_blocked_cap");
+          return;
+        }
+        await baseActions.duplicate(m);
+      },
+    }),
+    [baseActions, config.resumes, config.plan],
+  );
 
   const models = useMemo(() => toCardModels(resumes), [resumes]);
   const counts = useMemo(() => tabCounts(models), [models]);
@@ -235,21 +251,6 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro, conf
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
       <ResumesHero onNew={() => openNew()} busy={false} />
-
-      {limit && (
-        <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-v2-line bg-paper p-3.5 text-[13.5px] text-ink shadow-v2-soft">
-          <p className="min-w-0 flex-1">{limit.message}</p>
-          {limit.plan === "FREE" && !isPro ? (
-            <Link href="/pricing" className="font-bold text-v2-blue hover:underline">
-              See Pro
-            </Link>
-          ) : (
-            <button type="button" onClick={() => setDrawer(true)} className="font-bold text-v2-blue hover:underline">
-              Archive a resume
-            </button>
-          )}
-        </div>
-      )}
 
       <section aria-label="Your resumes" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-2xl border border-v2-line/70 bg-paper px-2 shadow-v2-soft sm:px-3">
@@ -476,6 +477,15 @@ export default function MyResumesPage({ resumes, usage, baseProfile, isPro, conf
         <p className="text-[14px] text-v2-ink-soft">This can&apos;t be undone. If you only want it out of the way, archive it instead.</p>
       </Dialog>
 
+      <CapDialog
+        notice={limit}
+        max={config.resumes.max}
+        onClose={() => setLimit(null)}
+        onManage={() => {
+          setLimit(null);
+          setDrawer(true);
+        }}
+      />
       {drawer && <ResumeDrawer onClose={() => setDrawer(false)} baseProfile={baseProfile} resumes={resumes} usage={usage} isPro={isPro} />}
     </div>
   );

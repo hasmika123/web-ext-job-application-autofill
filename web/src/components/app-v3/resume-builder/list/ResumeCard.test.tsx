@@ -78,3 +78,24 @@ describe("ResumeCard thumbnail (R3.13)", () => {
     expect(img().getAttribute("src")).toContain("v=new");
   });
 });
+
+describe("ResumeCard Edit on an uploaded file", () => {
+  it("converts through openInBuilder and shows a busy state while it runs", () => {
+    const open = vi.fn();
+    const { rerender } = render(
+      <ul>
+        <ResumeCard model={model({ kind: "UPLOADED", templateId: null })} layout="grid" display={{ locale: "en-US", timeZone: "UTC" }} onManage={vi.fn()} actions={{ ...actions, openInBuilder: open }} onRename={vi.fn()} onDelete={vi.fn()} aiAllowed goodScore={70} />
+      </ul>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit Backend SWE" }));
+    expect(open).toHaveBeenCalledTimes(1);
+    rerender(
+      <ul>
+        <ResumeCard model={model({ kind: "UPLOADED", templateId: null })} layout="grid" display={{ locale: "en-US", timeZone: "UTC" }} onManage={vi.fn()} actions={{ ...actions, openInBuilder: open, busyId: 7 }} onRename={vi.fn()} onDelete={vi.fn()} aiAllowed goodScore={70} />
+      </ul>,
+    );
+    const btn = screen.getByRole("button", { name: "Edit Backend SWE" }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute("aria-busy")).toBe("true");
+  });
+});
